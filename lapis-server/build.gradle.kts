@@ -76,6 +76,13 @@ dependencies {
     implementation(libs.jakarta.mail.api)
     runtimeOnly(libs.angus.mail)
 
+    // V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- see gradle/libs.versions.toml for the
+    // library-choice/license rationale. `implementation`, NOT `runtimeOnly`: unlike angus-mail we
+    // reference `org.kapott.*` types directly (Hbci4jFinTsClient/Hbci4jRawMt940Extractor). ONLY
+    // lapis-server -- never lapis-shared/lapis-client, see FinTsClient.kt KDoc "kein hbci4j-Typ
+    // erscheint in einer oeffentlichen Signatur".
+    implementation(libs.hbci4j.core)
+
     // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" — see gradle/libs.versions.toml for the
     // license-/dependency-choice rationale. NUR hier: lapis-shared/lapis-client bekommen dies NICHT
     // (der KVision-Client baut sein DOM über KVision-Komponenten, nicht über HTML-Strings; eine

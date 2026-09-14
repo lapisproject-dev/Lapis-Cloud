@@ -270,6 +270,7 @@ class LegalHtmlTest :
                     "travelExpenses" to "Reisekostenabrechnungen",
                     "volunteerAllowances" to "Ehrenamts- und Übungsleiterpauschalen",
                     "vat" to "Umsatzsteuer-Voranmeldung",
+                    "bank-account-fints" to "FinTS/HBCI-Live-Kontoabruf",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

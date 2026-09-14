@@ -84,12 +84,17 @@ import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
+import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
+import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
 import network.lapis.cloud.server.payment.dunning.DunningConfig
 import network.lapis.cloud.server.payment.dunning.DunningPoller
+import network.lapis.cloud.server.payment.fints.FinTsConfig
+import network.lapis.cloud.server.payment.fints.FinTsPoller
+import network.lapis.cloud.server.payment.fints.Hbci4jFinTsClient
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.PspStartupCheck
@@ -652,6 +657,41 @@ fun Application.module() {
     // already establish for their own SecretBox instances.
     val bankStatementSecretBox: SecretBox? = sepaConfig.secretEncryptionKey?.let { SecretBox(it) }
     val bankStatementUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
+    // Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" -- FinTsConfig.load() is pure string
+    // parsing (same "safe to call unconditionally" posture as dunningConfig/sepaConfig above).
+    // Hbci4jFinTsClient is constructed unconditionally (implements BOTH FinTsStatementFetcher and
+    // FinTsSetupClient), `.start()` gated on finTsConfig.pollerEnabled, same reasoning as
+    // dunningPoller/sepaBatchPoller above. Reuses the SAME bankStatementSecretBox instance as
+    // BankStatementService/BankAccountService -- see FinTsPoller KDoc "secretBox == null -> No-op".
+    // The setup client is wired ONLY into BankAccountService, the fetcher ONLY into finTsPoller --
+    // Kays "the poller cannot even type a TAN" is true at the wiring level too, not only the type
+    // level (see FinTsClient.kt KDoc "why TWO interfaces").
+    val finTsConfig = FinTsConfig.load()
+    val finTsClient = Hbci4jFinTsClient(config = finTsConfig)
+    val finTsReauthMailer = SmtpFinTsReauthNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    val finTsPoller =
+        FinTsPoller(
+            config = finTsConfig,
+            fetcher = finTsClient,
+            importService = BankStatementImportService(secretBox = bankStatementSecretBox),
+            secretBox = bankStatementSecretBox,
+            reauthMailer = finTsReauthMailer,
+        )
+    if (finTsConfig.pollerEnabled) {
+        finTsPoller.start()
+    }
+    monitor.subscribe(ApplicationStopping) { finTsPoller.stop() }
+    // Review fix (MINOR): unlike sweepExpiredHandles' best-effort call on every begin/submitTan
+    // entry, an ADMIN who opens the TAN modal and then simply abandons it (closes the tab, no
+    // cancelFinTsSetup call) previously left the plaintext-credential-holding handle/worker thread
+    // alive until some UNRELATED FinTS RPC happened to arrive later -- possibly never. This periodic
+    // sweeper closes that gap independently of finTsConfig.pollerEnabled -- it is not part of the
+    // read-only statement poller, it guards the ADMIN-facing setup dialog's own in-memory state, so
+    // it always runs, same posture contributionReliefRedactionPoller.start() below establishes for
+    // an always-on background job with no feature flag of its own.
+    finTsClient.startHandleSweeper()
+    monitor.subscribe(ApplicationStopping) { finTsClient.stopHandleSweeper() }
 
     // Welle V1.4.11 "Reisekostenabrechnung" -- Security-Audit fix (2026-09-12, MAJOR "kein Byte-
     // Kontingent und kein Rate-Limit"): keyed by member (see TravelExpenseReceiptRoutes), so 30/min
@@ -1301,8 +1341,13 @@ fun Application.module() {
         registerService(IBankStatementService::class) { call ->
             BankStatementService(call = call, secretBox = bankStatementSecretBox)
         }
-        // Welle V1.4.14 "Mehrere Bankkonten".
-        registerService(IBankAccountService::class) { call -> BankAccountService(call = call) }
+        // Welle V1.4.14 "Mehrere Bankkonten" + Wave 2 "FinTS/HBCI-Live-Kontoabruf". finTsClient
+        // implements BOTH FinTsStatementFetcher (wired above into finTsPoller only) and
+        // FinTsSetupClient (wired here into BankAccountService only) -- see Application.kt's own
+        // finTsClient KDoc comment above.
+        registerService(IBankAccountService::class) { call ->
+            BankAccountService(call = call, finTsSetupClient = finTsClient, secretBox = bankStatementSecretBox)
+        }
     }
 
     routing {

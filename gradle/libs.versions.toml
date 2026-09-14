@@ -39,6 +39,21 @@ nimbus-jose-jwt         = "10.9.1"
 jakarta-mail-api        = "2.1.5"
 angus-mail              = "2.0.5"
 
+# V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- com.github.hbci4j:hbci4j-core, Maven Central
+# (verifiziert 2026-09-13 gegen search.maven.org/repo1.maven.org: numFound=1, repositoryId=central,
+# latestVersion 4.0.0, KEIN JitPack, letztes Release 2023-03-13). Einzige realistische
+# Java-FinTS-Implementierung.
+# LIZENZ-ABWEICHUNG (Nutzerentscheidung 2026-09-13): hbci4j-core ist LGPL-2.1. Als unveraenderte,
+# dynamisch per Klassenpfad gelinkte Bibliothek (kein Fork, keine Modifikation) uebertraegt
+# LGPL-2.1s datei-basiertes Copyleft keine Pflichten auf eigenen Code -- der JVM-Klassenpfad
+# erfuellt die Relink-/Ersetzbarkeitsanforderung von selbst -- angenommen, analog zur bestehenden
+# jakarta.mail/angus-mail-EPL-2.0-Begruendung oben. Transitiv nur jakarta.xml.bind-api 4.0.0 +
+# jaxb-runtime 4.0.2 (beide permissiv, pure JVM, KEINE nativen Deps -- POM live verifiziert).
+# Letztes Upstream-Release 2023-03-13 -- deshalb sind FinTsStatementFetcher/FinTsSetupClient die
+# EINZIGE Beruehrungsstelle, kein hbci4j-Typ erscheint in einer oeffentlichen Signatur. Wartbarer
+# Fallback falls noetig: de.adorsys:hbci4j-adorsys (3.5.46).
+hbci4j-core             = "4.0.0"
+
 # ── Detekt (custom ruleset :lapis-detekt-rules — RequireNamedArguments gate) ──
 # Ported from kuml-dev/kUML's gradle/libs.versions.toml (same rule, same reasoning).
 # Pinned to the 2.0.0-alpha.6 K2/Analysis-API line, NOT the stable 1.23.8 line —
@@ -173,6 +188,10 @@ nimbus-jose-jwt                  = { module = "com.nimbusds:nimbus-jose-jwt", ve
 # V1.2.3 Echter SMTP-Versand -- see the [versions] entry above for the library-choice rationale.
 jakarta-mail-api                 = { module = "jakarta.mail:jakarta.mail-api", version.ref = "jakarta-mail-api" }
 angus-mail                       = { module = "org.eclipse.angus:angus-mail", version.ref = "angus-mail" }
+
+# V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- see the [versions] entry above for the library-choice
+# and license-deviation rationale.
+hbci4j-core                      = { module = "com.github.hbci4j:hbci4j-core", version.ref = "hbci4j-core" }
 
 # V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- see the [versions] entry above for the
 # library-choice rationale. lapis-server ONLY (see that module's build.gradle.kts) -- lapis-shared

@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.BankAccountFinTsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -126,6 +127,16 @@ class BankAccountStoreTest :
                     BankStatementImportTable.deleteWhere { BankStatementImportTable.id inList createdImportIds }
                 }
                 if (createdBankAccountIds.isNotEmpty()) {
+                    // Review fix (CRITICAL, empirically reproduced): fk_ba_fints_ack_bank_account_id
+                    // (V33__bank_account_fints.sql) has NO ON DELETE CASCADE -- a test that inserts a
+                    // BankAccountFinTsAcknowledgmentTable row (see the "delete is refused while a
+                    // FinTS acknowledgment references the account" test below) must clean it up
+                    // BEFORE the BankAccountTable delete below, or THIS afterTest itself hits the
+                    // exact ExposedSQLException the production fix in BankAccountStore.delete() now
+                    // prevents on the actual RPC path.
+                    BankAccountFinTsAcknowledgmentTable.deleteWhere {
+                        BankAccountFinTsAcknowledgmentTable.bankAccountId inList createdBankAccountIds
+                    }
                     BankAccountTable.deleteWhere { BankAccountTable.id inList createdBankAccountIds }
                 }
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
@@ -294,6 +305,46 @@ class BankAccountStoreTest :
 
             shouldThrow<ConflictException> {
                 BankAccountStore.delete(bankAccountId = bankAccountId, actorMemberId = admin, actorRole = AccountRole.ADMIN)
+            }
+        }
+
+        // Review fix (CRITICAL, empirically reproduced): before this fix, `delete()` only checked
+        // BankStatementImportTable and knew nothing about `fk_ba_fints_ack_bank_account_id`
+        // (V33__bank_account_fints.sql, no ON DELETE CASCADE) -- an account with an acknowledgment
+        // row (written by `BankAccountService.beginFinTsSetup`, in ITS OWN transaction, BEFORE the
+        // actual hbci4j dialog even runs -- so this row exists regardless of whether the setup
+        // itself ever succeeded) was PERMANENTLY undeletable: the raw ExposedSQLException from the
+        // FK violation used to escape as an uncaught 500 instead of the documented 409. This test
+        // reproduces that exact scenario directly against the store (no hbci4j/RPC layer needed --
+        // the acknowledgment row alone is sufficient to trigger the FK).
+        test("delete is refused while a bank_account_fints_acknowledgment references the account") {
+            val admin = createAdmin()
+            val dto =
+                BankAccountStore.create(
+                    input = BankAccountInput(label = "FinTS-Konto", iban = IBAN_2),
+                    actorMemberId = admin,
+                    actorRole = AccountRole.ADMIN,
+                )
+            val bankAccountId = Uuid.parse(dto.id)
+            createdBankAccountIds += bankAccountId
+            transaction {
+                BankAccountFinTsAcknowledgmentTable.insert {
+                    it[id] = Uuid.random()
+                    it[BankAccountFinTsAcknowledgmentTable.bankAccountId] = bankAccountId
+                    it[acknowledgedByMemberId] = admin
+                    it[acknowledgedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[disclaimerVersion] = "v1"
+                    it[disclaimerSha256] = "0".repeat(64)
+                }
+            }
+
+            shouldThrow<ConflictException> {
+                BankAccountStore.delete(bankAccountId = bankAccountId, actorMemberId = admin, actorRole = AccountRole.ADMIN)
+            }
+            // The account must still exist (the deleteWhere below never ran) -- pinning that the
+            // refusal happens BEFORE any mutation, not as a rolled-back partial delete.
+            transaction {
+                BankAccountTable.selectAll().where { BankAccountTable.id eq bankAccountId }.count() shouldBe 1L
             }
         }
 
@@ -819,5 +870,62 @@ class BankAccountStoreTest :
 
             BankAccountStore.setDefault(bankAccountId = nonDefaultId, actorMemberId = admin, actorRole = AccountRole.ADMIN)
             BankAccountStore.listDtos().single { it.id == nonDefault.id }.isDefault shouldBe true
+        }
+
+        // Review fix (MEDIUM, test coverage): activateFinTs's own KDoc ("Review fix (MEDIUM)")
+        // documents that a (re-)activation must reset fints_last_fetch_to/fints_last_success_at/
+        // fints_last_error_code to null -- otherwise a September reactivation of an account first
+        // activated in January would request a poller fetch window going back to January (past
+        // both FinTsConfig.MAX_FETCH_WINDOW_DAYS and what banks actually serve for HKKAZ), and a
+        // stale error code from the PREVIOUS activation attempt would misreport a freshly working
+        // account. No test previously called activateFinTs at all (grep confirmed zero references
+        // before this fix). Simulates "an EARLIER activation left watermark/error bookkeeping
+        // behind" by writing those three columns directly, then calls the real activateFinTs and
+        // asserts all three come back null while the actual new credentials/status DO take effect.
+        test("activateFinTs resets fints_last_fetch_to/fints_last_success_at/fints_last_error_code left behind by an earlier activation") {
+            val admin = createAdmin()
+            val dto =
+                BankAccountStore.create(
+                    input = BankAccountInput(label = "Reaktivierungskonto", iban = IBAN_3),
+                    actorMemberId = admin,
+                    actorRole = AccountRole.ADMIN,
+                )
+            val bankAccountId = Uuid.parse(dto.id)
+            createdBankAccountIds += bankAccountId
+
+            // Simulate leftovers from an EARLIER activation (activated in January, polled
+            // successfully for a while, then started failing, then got disabled/disconnected --
+            // exactly the history activateFinTs's own KDoc scenario describes).
+            transaction {
+                BankAccountTable.update({ BankAccountTable.id eq bankAccountId }) {
+                    it[fintsLastFetchTo] = LocalDate(2026, 1, 31)
+                    it[fintsLastSuccessAt] = LocalDateTime(2026, 1, 31, 6, 0)
+                    it[fintsLastErrorCode] = "BANK_UNAVAILABLE"
+                }
+            }
+
+            val reactivated =
+                BankAccountStore.activateFinTs(
+                    bankAccountId = bankAccountId,
+                    blz = "10000000",
+                    url = "https://example.com/hbci-new",
+                    userIdCiphertext = "new-userid-ciphertext",
+                    pinCiphertext = "new-pin-ciphertext",
+                    actorMemberId = admin,
+                    actorRole = AccountRole.ADMIN,
+                    finTsAvailable = true,
+                )
+
+            reactivated.finTsStatus shouldBe network.lapis.cloud.shared.domain.FinTsStatus.ACTIVE
+            reactivated.finTsLastSuccessAt shouldBe null
+            reactivated.finTsLastErrorCode shouldBe null
+            transaction {
+                val row = BankAccountTable.selectAll().where { BankAccountTable.id eq bankAccountId }.single()
+                row[BankAccountTable.fintsLastFetchTo] shouldBe null
+                row[BankAccountTable.fintsLastSuccessAt] shouldBe null
+                row[BankAccountTable.fintsLastErrorCode] shouldBe null
+                row[BankAccountTable.fintsUrl] shouldBe "https://example.com/hbci-new"
+                row[BankAccountTable.fintsBlz] shouldBe "10000000"
+            }
         }
     })

@@ -3,9 +3,145 @@ msgstr ""
 "Language: pl\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:107
+msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
+msgstr "%1 konto(-a) bankowe wymagają ponownego logowania FinTS, zanim pobieranie na żywo będzie kontynuowane."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:64
 msgid " -- %1"
 msgstr " -- %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
+msgid "Aktivieren …"
+msgstr "Aktywuj …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:433
+msgid "Alle Felder sind Pflichtfelder."
+msgstr "Wszystkie pola są wymagane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:154
+msgid "Als Standard setzen"
+msgstr "Ustaw jako domyślne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:127
+msgid "Bank"
+msgstr "Bank"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:71
+msgid "Bankkonten"
+msgstr "Konta bankowe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:86
+msgid "Bankkonto anlegen"
+msgstr "Utwórz konto bankowe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:252
+msgid "Bankkonto bearbeiten"
+msgstr "Edytuj konto bankowe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:166
+msgid "Bankkonto gelöscht."
+msgstr "Konto bankowe usunięte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:362
+msgid "Bankleitzahl (BLZ)"
+msgstr "Kod banku (BLZ)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:256
+msgid "Bankname (optional)"
+msgstr "Nazwa banku (opcjonalnie)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "Benutzerkennung"
+msgstr "Identyfikator użytkownika"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:271
+msgid "Bezeichnung und IBAN sind Pflichtfelder."
+msgstr "Nazwa i IBAN są wymagane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:235
+msgid "Erneute Anmeldung erforderlich"
+msgstr "Wymagane ponowne logowanie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:129
+msgid "FinTS-Live-Abruf"
+msgstr "Pobieranie na żywo FinTS"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
+msgid "FinTS-Live-Abruf aktiviert."
+msgstr "Pobieranie na żywo FinTS aktywowane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:226
+msgid "FinTS-Live-Abruf deaktiviert."
+msgstr "Pobieranie na żywo FinTS dezaktywowane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
+msgid "FinTS-Live-Abruf: %1"
+msgstr "Pobieranie na żywo FinTS: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:363
+msgid "FinTS/HBCI-URL"
+msgstr "Adres URL FinTS/HBCI"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:399
+msgid "Gültig bis %1 Uhr."
+msgstr "Ważne do godziny %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:264
+msgid "Hinweis: Datenlücke im Live-Abruf erkannt am %1 (übersprungener Zeitraum: %2 – %3)."
+msgstr "Uwaga: wykryto przerwę w pobieraniu na żywo dnia %1 (pominięty okres: %2 – %3)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:356
+msgid "Hinweis: Mit der Bestätigung wird eine unlöschbare Nachweiszeile gespeichert (Art. 5 Abs. 2 DSGVO) -- dieses Bankkonto kann danach nicht mehr gelöscht werden, auch wenn der Live-Abruf fehlschlägt."
+msgstr "Uwaga: potwierdzenie zapisuje trwały wpis potwierdzający (art. 5 ust. 2 RODO) -- tego konta bankowego nie będzie już można usunąć, nawet jeśli pobieranie na żywo się nie powiedzie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:347
+msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
+msgstr "Przeczytałem/-am informację w całości i ją potwierdzam."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:191
+msgid "Kein Live-Abruf"
+msgstr "Brak pobierania na żywo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:218
+msgid "Live-Abruf aktiv"
+msgstr "Pobieranie na żywo aktywne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:212
+msgid "Live-Abruf aktiv · letzter Abruf %1"
+msgstr "Pobieranie na żywo aktywne · ostatnie pobranie %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:214
+msgid "Live-Abruf aktiv · noch kein erfolgreicher Abruf (Fehlercode: %1)"
+msgstr "Pobieranie na żywo aktywne · brak jeszcze udanego pobrania (kod błędu: %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:184
+msgid "Live-Abruf nicht verfügbar: LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
+msgstr "Pobieranie na żywo niedostępne: LAPIS_SECRET_ENCRYPTION_KEY nie jest skonfigurowany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:237
+msgid "Neu anmelden …"
+msgstr "Zaloguj się ponownie …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "PIN"
+msgstr "PIN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:340
+msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
+msgstr "Informacja prawna (proszę przeczytać w całości):"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:158
+msgid "Standardkonto gesetzt."
+msgstr "Ustawiono konto domyślne."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:382
+msgid "TAN"
+msgstr "TAN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:388
+msgid "TAN bestätigen"
+msgstr "Potwierdź TAN"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:678
 msgid " · gemeldet am %1"
@@ -9558,7 +9694,6 @@ msgstr "Działalność statutowa uprzywilejowana"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:705
 msgid "Zwischengespeichert (Cached)"
 msgstr "Zbuforowane (Cached)"
-
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 do %2: %3 (%4)"
 

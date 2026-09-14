@@ -14,16 +14,19 @@ gateway) had no way to reconcile it automatically. This wave adds a CSV/MT940 ba
 that parses, matches, and — for the one unambiguous rule — automatically books incoming transfers
 against open contributions.
 
-**Scope-cut, deliberate**: DATEV/lexoffice/sevDesk export, camt.052/053/054 XML, FinTS/HBCI direct
-bank connectivity, splitting one bank line across multiple contributions, and automatic *donation*
-posting are all out of scope this wave — see `40-bank-statement.kuml.kts`'s file header for the
-full list and reasoning. The DATEV export half of that cut was closed in Welle V1.4.5.2 — see
-`docs/architecture/datev-export.adoc` for the DATEV-EXTF-Buchungsstapel export this repo now has;
-lexoffice/sevDesk export, camt.052/053/054 XML, and FinTS/HBCI remain out of scope. The "single
-account" assumption implicit throughout this document was closed in Welle V1.4.14 — see
-`docs/architecture/bank-account.adoc` for the multi-account foundation (`bank_account`,
-per-import account attribution); FinTS/HBCI live retrieval itself remains deferred, see that
-document's own "Deferred" section. Of the CSV
+**Scope-cut, deliberate**: DATEV/lexoffice/sevDesk export, camt.052/053/054 XML, splitting one bank
+line across multiple contributions, and automatic *donation* posting are all out of scope this wave
+— see `40-bank-statement.kuml.kts`'s file header for the full list and reasoning. The DATEV export
+half of that cut was closed in Welle V1.4.5.2 — see `docs/architecture/datev-export.adoc` for the
+DATEV-EXTF-Buchungsstapel export this repo now has; lexoffice/sevDesk export and camt.052/053/054
+XML remain out of scope. The "single account" assumption implicit throughout this document was
+closed in Welle V1.4.14 — see `docs/architecture/bank-account.adoc` for the multi-account
+foundation (`bank_account`, per-import account attribution). **FinTS/HBCI live retrieval is no
+longer deferred** — Welle V1.4.14 Wave 2 added it (`network.lapis.cloud.server.payment.fints
+.FinTsPoller`), calling THIS SAME `BankStatementImportService.import` unmodified (see
+`docs/architecture/bank-account.adoc` "FinTS/HBCI live retrieval (Wave 2)" for the full mechanism)
+— a camt-only bank (HKCAZ instead of HKKAZ) remains unsupported by that live-retrieval path for the
+same reason camt.052/053/054 stays out of scope here: this service parses CSV + MT940 only. Of the CSV
 dialects modelled (`network.lapis.cloud.shared.domain
 .BankCsvDialect`), only `SPARKASSE_CAMT` and a broad `GENERIC` fallback are actually recognized;
 `VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` exist as enum literals without a header signature, because no

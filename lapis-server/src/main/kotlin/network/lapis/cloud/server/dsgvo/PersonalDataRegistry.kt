@@ -57,6 +57,7 @@ object PersonalDataRegistry {
             TravelExpensePersonalData,
             VolunteerAllowancePersonalData,
             VatPersonalData,
+            BankAccountFinTsPersonalData,
         )
 
     /**
@@ -175,7 +176,11 @@ object PersonalDataRegistry {
                 "Bankkonto angelegt hat -- ein reiner Rechenschaftspflicht-Vorgang (Art. 5(2) DSGVO), " +
                 "keine Daten UEBER diese Person. Die Zeile selbst traegt die eigenen Bankdaten der " +
                 "Organisation (IBAN/BIC/Bankname), kein Mitglieds-PII -- gleiche Einstufung wie " +
-                "accounting_export_connection oben.",
+                "accounting_export_connection oben. Welle V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf " +
+                "ergaenzt fints_activated_by (derselbe Rechenschaftspflicht-Bezug wie created_by) " +
+                "sowie SecretBox-versiegelte fints_user_id_ciphertext/fints_pin_ciphertext -- ein " +
+                "SecretBox-versiegeltes Organisations-Credential, kein Mitglieds-PII, gleiche " +
+                "Einstufung wie accounting_export_connection.token_ciphertext.",
         )
 
     init {

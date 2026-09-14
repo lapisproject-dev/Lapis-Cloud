@@ -416,6 +416,17 @@ object Routes {
     // ein Zustand, den man einer Kollegin verlinken kann (Design-Team, Tesler).
     const val BANK_IMPORT = "/bank-import"
 
+    /**
+     * Welle V1.4.14 "Mehrere Bankkonten" + Wave 2 "FinTS/HBCI-Live-Kontoabruf" -- TREASURER/BOARD/
+     * ADMIN on the route level, verified against `BankAccountService.kt`'s `BANK_ACCOUNT_READ_ROLES`
+     * (identical tier to [BANK_IMPORT]). The narrower ADMIN-only tier for the five FinTS setup/
+     * reauth/disable methods (`BANK_ACCOUNT_FINTS`-equivalent, see `IBankAccountService.kt` KDoc) is
+     * enforced IN-SCREEN via `BankAccountAuthzUi.canManageFinTs`, never as a second route -- same
+     * posture [BANK_IMPORT]/[SEPA_MANDATES]/[DUNNING_CASES] already establish for their own
+     * narrower in-screen gates.
+     */
+    const val BANK_ACCOUNTS = "/bank-accounts"
+
     // Welle V1.4.10.1 "Beitragsvergünstigungen: Bedienoberfläche" -- BOARD/ADMIN auf Routenebene,
     // verifiziert gegen `ContributionReliefService.kt`s `RELIEF_DECISION_ROLES = [BOARD, ADMIN]`,
     // die `listReliefRequests`/`decideReliefRequest`/`retryReliefExecution` gleichermaßen gatet.
@@ -772,6 +783,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.BANK_IMPORT) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.BANK_IMPORT) { container -> renderBankStatementImportScreen(container, hashQueryParam("import")) }
+        }
+    }
+    routing.kvOn(Routes.BANK_ACCOUNTS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.BANK_ACCOUNTS, ::renderBankAccountsScreen)
         }
     }
     routing.kvOn(Routes.CONTRIBUTION_RELIEF) {

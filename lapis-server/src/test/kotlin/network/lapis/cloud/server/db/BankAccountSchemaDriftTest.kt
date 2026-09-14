@@ -4,6 +4,7 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.BankAccountFinTsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -25,8 +26,8 @@ class BankAccountSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "47-bank-account.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly bank_account and the member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("bank_account", "member")
+        test("model declares exactly bank_account, bank_account_fints_acknowledgment, and the member stub") {
+            model.entities.map { it.name }.toSet() shouldBe setOf("bank_account", "bank_account_fints_acknowledgment", "member")
         }
 
         test("bank_account table shape matches the real migrated schema") {
@@ -57,6 +58,44 @@ class BankAccountSchemaDriftTest :
             real.columns.getValue("bank_account_id").nullable shouldBe true
             real.foreignKeys["bank_account_id"] shouldBe "bank_account"
             BankStatementImportTable.bankAccountId.name shouldBe "bank_account_id"
+        }
+
+        // ====================================================================================
+        // Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" (V33__bank_account_fints.sql).
+        // ====================================================================================
+
+        test("bank_account gained exactly the eleven fintsXxx columns, model <-> real schema <-> Exposed all agree") {
+            val entity = model.entities.single { it.name == "bank_account" }
+            val real = transaction { introspectBankAccountTable("bank_account") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes
+                .map { it.name } shouldContainExactlyInAnyOrder BankAccountTable.columns.map { it.name }
+            real.foreignKeys["fints_activated_by"] shouldBe "member"
+        }
+
+        // ====================================================================================
+        // Review-Fix Runde 3 (MEDIUM, V34__bank_account_fints_gap.sql).
+        // ====================================================================================
+
+        test("bank_account gained exactly the three fintsGapXxx columns, model <-> real schema <-> Exposed all agree") {
+            val entity = model.entities.single { it.name == "bank_account" }
+            val real = transaction { introspectBankAccountTable("bank_account") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes
+                .map { it.name } shouldContainExactlyInAnyOrder BankAccountTable.columns.map { it.name }
+            real.columns.getValue("fints_gap_from").nullable shouldBe true
+            real.columns.getValue("fints_gap_to").nullable shouldBe true
+            real.columns.getValue("fints_gap_detected_at").nullable shouldBe true
+        }
+
+        test("bank_account_fints_acknowledgment table shape matches the real migrated schema and the hand-written Exposed table") {
+            val entity = model.entities.single { it.name == "bank_account_fints_acknowledgment" }
+            val real = transaction { introspectBankAccountTable("bank_account_fints_acknowledgment") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            real.foreignKeys["bank_account_id"] shouldBe "bank_account"
+            real.foreignKeys["acknowledged_by_member_id"] shouldBe "member"
+            entity.attributes
+                .map { it.name } shouldContainExactlyInAnyOrder BankAccountFinTsAcknowledgmentTable.columns.map { it.name }
         }
     })
 

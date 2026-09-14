@@ -263,7 +263,17 @@ class BankAccountServiceTest :
     })
 
 private fun Route.registerBankAccountTestRoutes() {
-    fun service(callCtx: ApplicationCall) = BankAccountService(call = callCtx)
+    // Welle V1.4.14 Wave 2 -- these two new constructor params are irrelevant to every Wave 1 test
+    // in this file (none of it touches a FinTS RPC method), so a fresh no-op Fake/null pair per
+    // call is enough; FinTS-specific behaviour has its own dedicated test class.
+    fun service(callCtx: ApplicationCall) =
+        BankAccountService(
+            call = callCtx,
+            finTsSetupClient =
+                network.lapis.cloud.server.payment.fints
+                    .FakeFinTsSetupClient(),
+            secretBox = null,
+        )
 
     get("/test/bank-accounts") {
         val dtos = service(call).listBankAccounts()

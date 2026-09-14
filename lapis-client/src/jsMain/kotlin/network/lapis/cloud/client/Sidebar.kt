@@ -396,6 +396,9 @@ fun buildSidebar(
             sidebarLink(Routes.SEPA_BATCHES, tr("SEPA-Lastschrift"), "fas fa-money-check-dollar", toggle)
             sidebarLink(Routes.DUNNING_CASES, tr("Mahnwesen"), "fas fa-file-invoice-dollar", toggle)
             sidebarLink(Routes.PAYMENT_TRANSACTIONS, tr("Zahlungseingänge"), "fas fa-credit-card", toggle)
+            // Welle V1.4.14 -- direkt ueber Routes.BANK_IMPORT (Plan §11), da beide dieselbe
+            // TREASURER/BOARD/ADMIN-Rollenstufe teilen und fachlich zusammengehoeren.
+            sidebarLink(Routes.BANK_ACCOUNTS, tr("Bankkonten"), "fas fa-piggy-bank", toggle)
             sidebarLink(Routes.BANK_IMPORT, tr("Kontoauszüge"), "fas fa-building-columns", toggle)
             // Welle V1.4.10.1: enger gegatet als der Rest der FINANCE-Gruppe (BOARD/ADMIN, NICHT
             // TREASURER) -- verifiziert gegen `IContributionReliefService.listReliefRequests`s

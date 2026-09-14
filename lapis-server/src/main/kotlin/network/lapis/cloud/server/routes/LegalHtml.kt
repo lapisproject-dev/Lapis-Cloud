@@ -268,6 +268,15 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "FinTS/HBCI-Live-Kontoabruf für die eigenen Bankkonten der Organisation (sofern aktiv " +
+                        "genutzt) — Art. 6 Abs. 1 lit. c DSGVO (dieselbe handels-/steuerrechtliche " +
+                        "Aufbewahrungspflicht wie Buchhaltung/Prüfpfad oben); wer die Aktivierung/erneute " +
+                        "Anmeldung vorgenommen hat, wird protokolliert (Art. 5 Abs. 2 DSGVO, " +
+                        "Rechenschaftspflicht)."
+                )
+            }
+            li {
+                +(
                     "Gremien, Sitzungen, Wahlen, Abstimmungsverfahren, Vorstands-/Transparenzregister — " +
                         "Art. 6 Abs. 1 lit. b bzw. lit. c DSGVO."
                 )

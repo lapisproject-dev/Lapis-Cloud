@@ -372,7 +372,12 @@ class DomainModelMergerTest :
             // now-real bank_account entity (the fuller declaration always wins as canonical,
             // regardless of file processing order), so it contributes +1 «Entity» declaration and
             // +1 drop, net 0 change to distinctTableNames.
-            val distinctTableNames = 142
+            // Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" adds ONE new real table
+            // (bank_account_fints_acknowledgment, its own two cross-domain stubs -- BankAccount and
+            // Member -- both dedup into already-real entities, net +1 distinct table name versus
+            // the Wave 1 baseline above (142 -> 143). bank_account's eleven new fintsXxx columns are
+            // new columns on an already-real table, no new Table file.
+            val distinctTableNames = 143
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -610,6 +615,8 @@ class DomainModelMergerTest :
                     // both dedup into already-real/newly-real entities, no new Table file for
                     // either.
                     "BankAccountTable.kt",
+                    // Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" -- ONE new real table.
+                    "BankAccountFinTsAcknowledgmentTable.kt",
                 )
         }
 

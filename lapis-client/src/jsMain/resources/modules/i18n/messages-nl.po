@@ -3,9 +3,145 @@ msgstr ""
 "Language: nl\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:107
+msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
+msgstr "%1 bankrekening(en) hebben een nieuwe FinTS-aanmelding nodig voordat de live-opvraging doorgaat."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:64
 msgid " -- %1"
 msgstr " -- %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
+msgid "Aktivieren …"
+msgstr "Activeren …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:433
+msgid "Alle Felder sind Pflichtfelder."
+msgstr "Alle velden zijn verplicht."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:154
+msgid "Als Standard setzen"
+msgstr "Als standaard instellen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:127
+msgid "Bank"
+msgstr "Bank"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:71
+msgid "Bankkonten"
+msgstr "Bankrekeningen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:86
+msgid "Bankkonto anlegen"
+msgstr "Bankrekening aanmaken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:252
+msgid "Bankkonto bearbeiten"
+msgstr "Bankrekening bewerken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:166
+msgid "Bankkonto gelöscht."
+msgstr "Bankrekening verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:362
+msgid "Bankleitzahl (BLZ)"
+msgstr "Bankcode (BLZ)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:256
+msgid "Bankname (optional)"
+msgstr "Banknaam (optioneel)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "Benutzerkennung"
+msgstr "Gebruikersnaam"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:271
+msgid "Bezeichnung und IBAN sind Pflichtfelder."
+msgstr "Naam en IBAN zijn verplicht."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:235
+msgid "Erneute Anmeldung erforderlich"
+msgstr "Opnieuw aanmelden vereist"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:129
+msgid "FinTS-Live-Abruf"
+msgstr "FinTS-live-opvraging"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
+msgid "FinTS-Live-Abruf aktiviert."
+msgstr "FinTS-live-opvraging geactiveerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:226
+msgid "FinTS-Live-Abruf deaktiviert."
+msgstr "FinTS-live-opvraging gedeactiveerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
+msgid "FinTS-Live-Abruf: %1"
+msgstr "FinTS-live-opvraging: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:363
+msgid "FinTS/HBCI-URL"
+msgstr "FinTS/HBCI-URL"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:399
+msgid "Gültig bis %1 Uhr."
+msgstr "Geldig tot %1 uur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:264
+msgid "Hinweis: Datenlücke im Live-Abruf erkannt am %1 (übersprungener Zeitraum: %2 – %3)."
+msgstr "Let op: er is een hiaat in de live-opvraging gedetecteerd op %1 (overgeslagen periode: %2 – %3)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:356
+msgid "Hinweis: Mit der Bestätigung wird eine unlöschbare Nachweiszeile gespeichert (Art. 5 Abs. 2 DSGVO) -- dieses Bankkonto kann danach nicht mehr gelöscht werden, auch wenn der Live-Abruf fehlschlägt."
+msgstr "Let op: bij bevestiging wordt een onverwijderbare bewijsregel opgeslagen (art. 5 lid 2 AVG) -- deze bankrekening kan daarna niet meer worden verwijderd, ook niet als de live-opvraging mislukt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:347
+msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
+msgstr "Ik heb de mededeling volledig gelezen en bevestig deze."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:191
+msgid "Kein Live-Abruf"
+msgstr "Geen live-opvraging"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:218
+msgid "Live-Abruf aktiv"
+msgstr "Live-opvraging actief"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:212
+msgid "Live-Abruf aktiv · letzter Abruf %1"
+msgstr "Live-opvraging actief · laatste opvraging %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:214
+msgid "Live-Abruf aktiv · noch kein erfolgreicher Abruf (Fehlercode: %1)"
+msgstr "Live-opvraging actief · nog geen geslaagde opvraging (foutcode: %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:184
+msgid "Live-Abruf nicht verfügbar: LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
+msgstr "Live-opvraging niet beschikbaar: LAPIS_SECRET_ENCRYPTION_KEY is niet geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:237
+msgid "Neu anmelden …"
+msgstr "Opnieuw aanmelden …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "PIN"
+msgstr "PIN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:340
+msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
+msgstr "Juridische mededeling (volledig lezen):"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:158
+msgid "Standardkonto gesetzt."
+msgstr "Standaardrekening ingesteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:382
+msgid "TAN"
+msgstr "TAN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:388
+msgid "TAN bestätigen"
+msgstr "TAN bevestigen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:678
 msgid " · gemeldet am %1"
@@ -9562,7 +9698,6 @@ msgstr "Doelgebonden bedrijf"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:705
 msgid "Zwischengespeichert (Cached)"
 msgstr "Tijdelijk opgeslagen (cached)"
-
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 tot %2: %3 (%4)"
 

@@ -3,9 +3,145 @@ msgstr ""
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:107
+msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
+msgstr "%1 bank account(s) require a fresh FinTS login before the live retrieval continues."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:64
 msgid " -- %1"
 msgstr " -- %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
+msgid "Aktivieren …"
+msgstr "Activate …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:433
+msgid "Alle Felder sind Pflichtfelder."
+msgstr "All fields are required."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:154
+msgid "Als Standard setzen"
+msgstr "Set as default"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:127
+msgid "Bank"
+msgstr "Bank"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:71
+msgid "Bankkonten"
+msgstr "Bank accounts"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:86
+msgid "Bankkonto anlegen"
+msgstr "Create bank account"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:252
+msgid "Bankkonto bearbeiten"
+msgstr "Edit bank account"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:166
+msgid "Bankkonto gelöscht."
+msgstr "Bank account deleted."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:362
+msgid "Bankleitzahl (BLZ)"
+msgstr "Bank sort code (BLZ)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:256
+msgid "Bankname (optional)"
+msgstr "Bank name (optional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "Benutzerkennung"
+msgstr "User ID"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:271
+msgid "Bezeichnung und IBAN sind Pflichtfelder."
+msgstr "Label and IBAN are required."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:235
+msgid "Erneute Anmeldung erforderlich"
+msgstr "Re-authentication required"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:129
+msgid "FinTS-Live-Abruf"
+msgstr "FinTS live retrieval"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
+msgid "FinTS-Live-Abruf aktiviert."
+msgstr "FinTS live retrieval activated."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:226
+msgid "FinTS-Live-Abruf deaktiviert."
+msgstr "FinTS live retrieval deactivated."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
+msgid "FinTS-Live-Abruf: %1"
+msgstr "FinTS live retrieval: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:363
+msgid "FinTS/HBCI-URL"
+msgstr "FinTS/HBCI URL"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:399
+msgid "Gültig bis %1 Uhr."
+msgstr "Valid until %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:264
+msgid "Hinweis: Datenlücke im Live-Abruf erkannt am %1 (übersprungener Zeitraum: %2 – %3)."
+msgstr "Note: a gap in live retrieval was detected on %1 (skipped period: %2 – %3)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:356
+msgid "Hinweis: Mit der Bestätigung wird eine unlöschbare Nachweiszeile gespeichert (Art. 5 Abs. 2 DSGVO) -- dieses Bankkonto kann danach nicht mehr gelöscht werden, auch wenn der Live-Abruf fehlschlägt."
+msgstr "Note: confirming stores a permanent record (Art. 5(2) GDPR) -- this bank account can no longer be deleted afterwards, even if the live retrieval fails."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:347
+msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
+msgstr "I have read the notice in full and confirm it."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:191
+msgid "Kein Live-Abruf"
+msgstr "No live retrieval"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:218
+msgid "Live-Abruf aktiv"
+msgstr "Live retrieval active"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:212
+msgid "Live-Abruf aktiv · letzter Abruf %1"
+msgstr "Live retrieval active · last retrieval %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:214
+msgid "Live-Abruf aktiv · noch kein erfolgreicher Abruf (Fehlercode: %1)"
+msgstr "Live retrieval active · no successful retrieval yet (error code: %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:184
+msgid "Live-Abruf nicht verfügbar: LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
+msgstr "Live retrieval unavailable: LAPIS_SECRET_ENCRYPTION_KEY is not configured."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:237
+msgid "Neu anmelden …"
+msgstr "Log in again …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "PIN"
+msgstr "PIN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:340
+msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
+msgstr "Legal notice (please read in full):"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:158
+msgid "Standardkonto gesetzt."
+msgstr "Default account set."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:382
+msgid "TAN"
+msgstr "TAN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:388
+msgid "TAN bestätigen"
+msgstr "Confirm TAN"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:678
 msgid " · gemeldet am %1"
@@ -9525,7 +9661,6 @@ msgstr "Purpose-related operation"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:705
 msgid "Zwischengespeichert (Cached)"
 msgstr "Cached"
-
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 to %2: %3 (%4)"
 

@@ -760,8 +760,10 @@ rejection contract, and the screen's own UI/UX decisions).
 === What doesn't work yet (this wave)
 
 Deliberately out of scope, see `CHANGELOG.md`: DATEV/lexoffice/sevDesk export (see the next section
-— the DATEV half is closed as of V1.4.5.2), camt.052/053/054 XML, FinTS/HBCI, splitting one bank
-line across multiple contributions, automatic *donation* posting at import time (§25 PartG: a donor
+— the DATEV half is closed as of V1.4.5.2), camt.052/053/054 XML (FinTS/HBCI live retrieval, closed
+as of V1.4.14 Wave 2, is therefore limited to banks answering HKKAZ/MT940, not HKCAZ/camt-only
+banks — see `docs/architecture/bank-account.adoc`), splitting one bank line across multiple
+contributions, automatic *donation* posting at import time (§25 PartG: a donor
 category cannot be derived from a bank line alone — manual donation assignment through the screen
 IS possible, with the operator choosing the category), and header signatures for the
 `VR_BANK`/`DKB`/`POSTBANK`/`COMDIRECT` CSV dialects (no real export sample was available to verify

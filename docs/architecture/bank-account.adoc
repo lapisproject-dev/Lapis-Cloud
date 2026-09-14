@@ -1,5 +1,5 @@
-= Bank Accounts — Multi-Banking Foundation, Welle V1.4.14 (Wave 1 of 2)
-:description: Multiple bank accounts per organization, per-account file-import attribution, the default-account mirror into organization_settings, and the deliberate scope-cut of FinTS/HBCI live retrieval to a follow-up wave.
+= Bank Accounts — Multi-Banking Foundation, Welle V1.4.14 (Waves 1–2)
+:description: Multiple bank accounts per organization, per-account file-import attribution, the default-account mirror into organization_settings, and FinTS/HBCI live retrieval (Wave 2).
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -50,10 +50,10 @@ account, editing or deleting a non-default account) stays TREASURER-reachable en
   default account on first startup after this wave — no organization is left with an empty accounts
   list it never had before.
 
-**Explicitly out of scope this wave** (see "Deferred" below): FinTS/HBCI live retrieval. There is no
-UI screen yet either (`BankAccountsScreen.kt`) — this is a backend-only wave, the same posture
-several earlier waves took before their own follow-up UI wave (`BANK_STATEMENT_IMPORT`,
-`ACCOUNTING_EXPORT_CONNECTION`).
+**Wave 2 adds**: FinTS/HBCI live retrieval (see "FinTS/HBCI live retrieval (Wave 2)" below) and the
+first bank-accounts UI screen (`BankAccountsScreen.kt`, `/bank-accounts`) — Wave 1 shipped
+backend-only, the same posture several earlier waves took before their own follow-up UI wave
+(`BANK_STATEMENT_IMPORT`, `ACCOUNTING_EXPORT_CONNECTION`).
 
 == Data model
 
@@ -72,7 +72,23 @@ several earlier waves took before their own follow-up UI wave (`BANK_STATEMENT_I
 |`default_marker` |VARCHAR(1) |Application-maintained shadow column, `'X'` exactly where `is_default = true`, else `NULL` — see below.
 |`created_by` |UUID → `member` |Accountability only (Art. 5(2) DSGVO) — see `PersonalDataRegistry.noPersonalDataAllowlist["bank_account"]`.
 |`created_at`/`updated_at` |TIMESTAMP |
+|`fints_blz` |VARCHAR(8) |Nullable. Wave 2.
+|`fints_url` |VARCHAR(2048) |Nullable. Wave 2. Checked via `checkWebhookUrl` on save AND before every fetch (SSRF guard reuse) — see "SSRF" below.
+|`fints_user_id_ciphertext` |VARCHAR(1024) |Nullable. Wave 2. `SecretBox`-sealed, AAD = this row's own `id`.
+|`fints_pin_ciphertext` |VARCHAR(1024) |Nullable. Wave 2. `SecretBox`-sealed, AAD = this row's own `id`.
+|`fints_status` |VARCHAR(16) |Wave 2. Exactly `NOT_CONFIGURED`/`ACTIVE`/`REAUTH_REQUIRED` — see "Status machine" below.
+|`fints_activated_by` |UUID → `member` |Nullable. Wave 2. Accountability only, same classification as `created_by`.
+|`fints_activated_at`/`fints_pin_set_at` |TIMESTAMP |Nullable. Wave 2.
+|`fints_last_success_at`/`fints_last_fetch_to` |TIMESTAMP/DATE |Nullable. Wave 2. Poller bookkeeping.
+|`fints_last_error_code` |VARCHAR(32) |Nullable. Wave 2. One of the eight `FinTsErrorCode` names, **OR** the ad hoc `"FETCH_WINDOW_GAP"` sentinel (Review fix, MEDIUM — see "Watermark gap: durable record" below) — never a raw bank message either way. A consumer doing `FinTsErrorCode.valueOf(...)` on this column's raw value MUST handle that ninth case; it is not one of the enum's own eight members.
+|`fints_gap_from`/`fints_gap_to` |DATE |Nullable. Review fix (MEDIUM, Runde 3, `V34__bank_account_fints_gap.sql`). The SKIPPED range of the MOST RECENTLY detected fetch-window gap — see "Watermark gap: durable record" below.
+|`fints_gap_detected_at` |TIMESTAMP |Nullable. Same wave/migration as the two columns above.
 |===
+
+`bank_account_fints_acknowledgment` (Wave 2, `V33__bank_account_fints.sql`) — append-only, structural
+twin of `vat_compliance_acknowledgment`, extended by `bank_account_id` (the receipt is PER ACCOUNT):
+`id`, `bank_account_id → bank_account`, `acknowledged_by_member_id → member`, `acknowledged_at`,
+`disclaimer_version` VARCHAR(20), `disclaimer_sha256` VARCHAR(64).
 
 **Why `default_marker`**: H2 in `MODE=PostgreSQL` (this codebase's test dialect) rejects a partial
 unique index (`CREATE UNIQUE INDEX … WHERE is_default`). The shadow-column idiom
@@ -107,30 +123,218 @@ the current (mirrored) value, so a plain resubmission is harmless; only a stale 
 re-reads the mirror before submitting would see its own edit silently not apply, and that edit
 belongs on the (not yet built) bank-accounts screen instead.
 
-== Deferred: FinTS/HBCI live retrieval
+== FinTS/HBCI live retrieval (Wave 2)
 
-This wave does **not** add automatic bank-statement retrieval via FinTS/HBCI online-banking
-credentials. Two reasons, both requiring a decision this wave deliberately did not make on its own:
+**License decision (2026-09-13)**: `com.github.hbci4j:hbci4j-core:4.0.0` (Maven Central, LGPL-2.1)
+is used. As an unmodified, dynamically class-path-linked library (no fork, no modification),
+LGPL-2.1's file-based weak copyleft imposes no obligation on this codebase's own code — the JVM
+class path itself satisfies the relink/replaceability requirement, the same reasoning already
+applied to `jakarta.mail`/`angus-mail` (EPL-2.0) in `gradle/libs.versions.toml`. Transitively only
+`jakarta.xml.bind-api:4.0.0` + `jaxb-runtime:4.0.2` (both permissive, pure JVM, no native deps).
+Maintainable fallback if ever needed: `de.adorsys:hbci4j-adorsys`.
 
-1. **License**: the realistic Java FinTS library candidate, `com.github.hbci4j:hbci4j-core`, is
-   licensed LGPL-2.1. This codebase's version catalog (`gradle/libs.versions.toml`) has a documented
-   "permissive license / no native deps" doctrine, and every prior exception (e.g. `jakarta.mail`/
-   `angus-mail`, EPL-2.0) required an explicit, named user decision with its own justification
-   comment. No such decision has been made for LGPL-2.1 yet.
-2. **Scope/risk**: a live bank-protocol integration needs its own credential-storage design (PIN/
-   user-ID sealed via `network.lapis.cloud.server.crypto.SecretBox`, write-only — no RPC method may
-   ever return them in the clear), TAN-handling for a background poller (a TAN prompt with nobody to
-   answer it degrades the account to a `REAUTH_REQUIRED` state rather than blocking), an SSRF guard
-   for the FinTS URL analogous to `network.lapis.cloud.server.webhook.OutboundUrlGuard`, and its own
-   dedicated security-audit round — a materially larger and differently-risked piece of work than
-   the multi-account foundation this wave delivers.
+**The `FinTsClient` seam**: `network.lapis.cloud.server.payment.fints.FinTsClient.kt` declares TWO
+interfaces, not one — `FinTsStatementFetcher` (held only by the background `FinTsPoller`, where a
+TAN request is structurally unanswerable) and `FinTsSetupClient` (held only by
+`BankAccountService`'s setup RPC, where an ADMIN is present across two request/response round
+trips). `Hbci4jFinTsClient` is the ONLY file in the codebase importing `org.kapott.*`; every test
+in this codebase runs against fakes of these two interfaces — hbci4j's own live-protocol behaviour
+against a real bank is NOT exercised by any automated test here (no bank sandbox exists in this
+environment). What IS verified, live against the pinned `hbci4j-core:4.0.0` jar via `javap`
+bytecode disassembly (no decompiler was available): `GVRKUms` has no public raw-MT940 getter, the
+raw bytes live in a private `bufferMT940` field the framework itself populates —
+`Hbci4jRawMt940Extractor` reads it back via reflection, tested against a real, unmodified `GVRKUms`
+instance (`Hbci4jRawMt940ExtractorTest`). `network.lapis.cloud.server.payment.bankstatement
+.BankStatementImportService.import` is **never modified** — the poller calls it exactly the way the
+file-upload route does, provenance living in the synthetic filename (`fints-<ibanLast4>-<from>-<to>.sta`)
+alone.
 
-A follow-up wave (V1.4.14.2) is expected to add: `bank_account` columns for FinTS credentials/
-live-fetch state, a `FinTsClient` abstraction (the *only* seam touching a third-party FinTS library,
-with an in-repo fake for every test), a background poller reusing
-`BankStatementImportService`'s existing ingest pipeline unchanged, and the compliance-disclaimer
-gate every other opt-in, risk-bearing feature in this codebase already uses (`IVatService
-.enableVat`/`ISepaService.enableSepaDebit` pattern) — once the license question above is answered.
+**Digest-Vorprüfung, not 409-as-control-flow**: `import()`'s own `ALREADY_IMPORTED` 409 would be the
+COMMON case for a poller re-scanning an overlapping window every few hours, not the exception — so
+`FinTsPoller` computes the same SHA-256 digest `import()` itself computes and checks it against
+`bank_statement_import.file_digest` BEFORE calling `import()` at all. A hit advances only
+`fints_last_success_at`/`fints_last_fetch_to`, creates no new import row, throws nothing.
+
+**Status machine — exactly three states**, structurally enforced by
+`chk_bank_account_fints_status` + `chk_bank_account_fints_credentials_complete` (the latter is
+all-or-nothing: `NOT_CONFIGURED` ⟺ all four credential columns AND `fints_activated_by` are `NULL`):
+`NOT_CONFIGURED` → `ACTIVE` (via `beginFinTsSetup`, ADMIN-only) → `REAUTH_REQUIRED` (poller
+observes `TanRequired`/`AUTH_FAILED`) → `ACTIVE` again (via `beginFinTsSetup` — there is
+deliberately **no** `retryFinTs`; reactivation IS a fresh setup dialog, never a "resend the stored
+PIN" shortcut) → `NOT_CONFIGURED` (via `disableFinTs`, clears all four credential columns
+atomically). A transient failure (`BANK_UNAVAILABLE`/`TIMEOUT`/`STATEMENT_FORMAT_UNSUPPORTED`/
+`PROTOCOL_ERROR`) leaves the account `ACTIVE`, recording only `fints_last_error_code` — a DNS
+hiccup or an unsupported statement format is not a credentials problem. Review fix (MEDIUM):
+`BankAccountsScreen.kt`'s `ACTIVE` cell now surfaces `finTsLastErrorCode` when set (a warning glyph
++ "noch kein erfolgreicher Abruf" instead of a plain green checkmark) — a persistently transient
+failure (e.g. a camt-only bank, permanently `STATEMENT_FORMAT_UNSUPPORTED`) previously looked
+identical to a healthy account and triggered no mail either.
+
+**Watermark (`fints_last_fetch_to`) resets and caps**: Review fix (MEDIUM) — `activateFinTs` now
+resets `fints_last_fetch_to`/`fints_last_success_at`/`fints_last_error_code` to `NULL` on every
+(re-)activation, so an account disabled for months and later reactivated does not resume from a
+stale watermark. `FinTsPoller.tick` additionally clamps the watermark branch itself: `from` is never
+older than `now - fetchWindowDays` (itself `<= FinTsConfig.MAX_FETCH_WINDOW_DAYS` = 90), covering the
+remaining case of an account that stays `ACTIVE` but simply misses polls for a long stretch (e.g. the
+poller process itself being down) — without the cap, the requested window could exceed what a bank
+still serves for `HKKAZ`, a failure that (before this fix) could never self-heal because only a
+SUCCESSFUL fetch ever advances the watermark.
+
+**Watermark gap: durable record (Review fix, MEDIUM, Runde 3)**: the clamp described above (`from`
+never older than `now - fetchWindowDays`) silently widens the SKIPPED gap between an old watermark
+and the floor — a fetch that then SUCCEEDS advances `fints_last_fetch_to` exactly as if nothing had
+ever been missed. Two separate signals record this, deliberately with DIFFERENT overwrite semantics:
+`fints_last_error_code = "FETCH_WINDOW_GAP"` is a CURRENT-tick, self-healing marker (cleared like any
+other error on the NEXT gap-free tick — see the data-model table above) — on its own this made a real
+gap invisible again within one poll interval (`LAPIS_FINTS_POLL_INTERVAL_SECONDS`, default 6h), long
+before an ADMIN checking the next morning would ever see it, and it was ALSO structurally hidden
+while it WAS still set, because `BankAccountsScreen.kt`'s `LAST_SUCCESS` branch (a gap always implies
+a prior success, so it always wins) never rendered the error-code text at all. `fints_gap_from`/
+`fints_gap_to`/`fints_gap_detected_at` are the fix: a DURABLE record of the MOST RECENTLY detected
+gap that an ordinary, gap-free success does NOT clear, surfaced unconditionally (regardless of which
+status branch is currently rendering) as its own small warning line on the accounts screen. Not a
+full gap-history table — one row's worth of "most recent gap" is the scope this fix closes; a
+complete audit trail of every gap ever detected is future scope if it turns out to be needed.
+`FinTsPollerWatermarkGapTest` covers both signals, including the durable columns' VALUES (not
+only, as in Runde 3, their existence/nullability via `BankAccountSchemaDriftTest`) and, critically,
+that they survive UNCHANGED across a subsequent gap-free tick (Review fix, Runde 4 -- Runde 3's
+version of this test asserted only the transient `fints_last_error_code` marker, leaving the
+durable record's own "never cleared by an ordinary success" guarantee -- the entire point of the
+Runde 3 fix -- with no test at all).
+
+**Threaded hand-off: `initThreaded()` alone never calls `execute()` (Review fix, CRITICAL)**:
+`Hbci4jFinTsClient.runSetupDialogOnDedicatedThread` (the `begin`/`submitTan` setup path) originally
+only ever called `handler.initThreaded()` + `continueThreaded()`, never `handler.executeThreaded()`,
+on the unverified assumption that the init dialog IS the execute dialog. `javap -p -c -constants`
+against the real `hbci4j-core:4.0.0` bytecode disproves that: `HBCIHandler$1` (the thread
+`initThreaded()` starts) only calls the private `registerInstitute()`/`registerUser()` helpers and
+unconditionally syncs `execStatus = null` on every path (success, caught `Exception`, and any other
+`Throwable`) — it NEVER calls `HBCIHandler.execute()`. Only `HBCIHandler$2` (the thread
+`executeThreaded()` starts) calls `execute()` and syncs a real `HBCIExecStatus`. Reading
+`threadedStatus.execStatus` after only the init-phase callback loop therefore always read a value
+that was null by construction: `FinTsSetupOutcome.Verified` was unreachable dead code, and every
+setup attempt — correct credentials, correct TAN, any bank — ended in
+`FinTsSetupOutcome.Failed(PROTOCOL_ERROR)`, so `BankAccountStore.activateFinTs`/`fints_status =
+ACTIVE` was never reachable in production and `FinTsPoller` (which only ever selects `fints_status =
+ACTIVE` rows) never ran for any account. Fix: `Hbci4jFinTsClient.driveThreadedCallbackLoop` drives
+the SAME callback-round loop TWICE — once for `initThreaded()`, once (unless `WRONG_PIN` already
+fired during init) for `executeThreaded()` — and `execStatus` is only evaluated after the SECOND
+loop finishes. `continueThreaded(String)` itself is phase-agnostic (verified: it reads/writes the
+same `thread_syncer_main`/`thread_syncer_hbci` keys regardless of which inner thread is currently
+running), which is what makes reusing one loop function for both phases safe.
+
+**Threaded hand-off, part 2: threaded mode was never actually ACTIVATED (Review fix, CRITICAL,
+Runde 4 — a second, independent bug in the same subsystem the fix above did NOT touch)**: the fix
+above made the two-phase loop logically correct, but for the dominant production case — any real
+PSD2 bank enforcing SCA on a freshly-issued PIN/TAN passport — the setup path stayed unusable for
+an unrelated, adjacent reason: `HBCIUtils.initThread(props, callback)` passed the RAW callback,
+never wrapped in `org.kapott.hbci.callback.HBCICallbackThreaded`, and `HBCIHandler` was constructed
+via its 2-argument constructor, which bytecode shows delegates to the 3-argument one with
+`threaded = false`. `HBCICallbackThreaded` is the ONLY class in the jar that ever calls
+`HBCICallback.useThreadedCallback` and writes a non-null `callbackData` into the `thread_syncer_main`
+a running threaded phase is waiting on — without it, `HBCIExecThreadedStatus.isCallback()` is
+structurally ALWAYS false, so `driveThreadedCallbackLoop` breaks out on the FIRST iteration of
+BOTH phases, `FinTsSetupOutcome.TanRequested` never fires, and the bank's TAN-shaped callback
+reason is answered directly by the raw callback — which records the prompt text but leaves
+`retData` EMPTY, sending an empty TAN to the bank. Independently, the 2-arg constructor's
+`threaded = false` runs `registerInstitute()`/`registerUser()` synchronously inside the
+constructor rather than on `initThreaded()`'s own worker thread. Fix:
+`HBCIUtils.initThread(props, HBCICallbackThreaded(callback))`, construct `HBCIHandler` with
+`threaded = true`, and move `newJob("SaldoReq")`/`addToQueue()` to AFTER the init-phase loop
+returns (with `threaded = true`, BPD — which `newJob` reflectively needs for job restrictions — is
+only populated once `registerInstitute()` has run on the worker thread, not at construction time).
+Residual scope: for a bank that requires NO TAN at all for dialog-init AND `HKSAL` (e.g. a
+freshly-created PIN/TAN passport with a bank that grants an SCA exemption), the path already worked
+even before this fix, since `driveThreadedCallbackLoop` breaking out on the first iteration is
+indistinguishable from "no callback round was needed" in that specific case — under real PSD2 SCA
+this is not a realistic production scenario. Not affected: the poller's own `fetch()` path, whose
+`readOnlyCallback` returns `useThreadedCallback = false` unconditionally and relies only on
+`execute()` (never `initThreaded()`/`executeThreaded()`), so it needs no wrapper either way. Both
+fixes' full bytecode-verification trail lives in `Hbci4jFinTsClient`'s own class KDoc; no automated
+test in this codebase exercises either against a real bank (no sandbox available), same
+residual-risk posture as before both fixes.
+
+**Multi-round TAN dialogs and handle-sweep semantics (Review fixes)**: a bank may require MORE THAN
+ONE callback round per setup dialog (e.g. `NEED_PT_TANMEDIA` — pick a TAN medium — immediately
+followed by `NEED_PT_TAN`). `PendingSetup.currentRoundOutcome` is a rotating `CompletableFuture` --
+`submitTan` installs a FRESH one BEFORE offering the TAN submission to the dedicated worker thread's
+queue (race-free: that thread only re-reads `currentRoundOutcome` AFTER its own
+`submissions.take()` returns, i.e. strictly after the swap), so a second (third, …) round completes
+its OWN future rather than the first round's already-finished one. `Hbci4jFinTsClientMultiRoundTest`
+pins the rotation-as-such property deterministically (a stub worker thread standing in for the real
+hbci4j dialog — this codebase has no fake FinTS bank server): round 2's returned outcome is
+`Verified`, never the already-finished round-1 `TanRequested`, which a non-rotating `submitTan`
+would hand back. It does **not** deterministically pin the specific "set() before offer()" line
+order above — a best-effort identity check inside the stub worker fails fast on runs where it loses
+that race, but the race window is a few bytecode instructions wide with no synchronization the test
+can hook into, so a hypothetical reordering could still pass silently on a given run (Review fix,
+Runde 4 — the class's own KDoc previously overclaimed full determinism here; corrected, not
+reproduced verbatim). The handle-sweep TTL (`sweepExpiredHandles`, backed by `startHandleSweeper`'s
+periodic background timer) is keyed on `PendingSetup.lastActivityAt`, NOT `PendingSetup.createdAt` --
+touched on every new callback round AND on every accepted `submitTan` — so a multi-round dialog is
+never swept out from under an ADMIN who is still acting within the deadline the SERVER itself most
+recently promised (`expiresAt` in `FinTsSetupOutcome.TanRequested`); keying on `createdAt` alone
+would sweep a legitimately still-open second round using the FIRST round's start time.
+`Hbci4jFinTsClientHandleSweepTest` pins the cutoff computation directly.
+
+**Setup dialog: unlöschbarkeits warning (Review fix, MINOR)**: `beginFinTsSetup` writes exactly one
+`bank_account_fints_acknowledgment` row PER acknowledged dialog attempt, BEFORE the dialog itself
+runs (`BankAccountService.kt`) — the acknowledgment is not undone if the dialog later fails or is
+cancelled, and (see `BankAccountStoreTest`) a bank account with at least one such row can never be
+deleted again, even a wrongly-entered account the ADMIN wants to remove outright. The setup modal now
+shows the unlöschbarkeits consequence as its OWN warning line ABOVE the disclaimer checkbox
+(`BankAccountsScreen.kt`), not only inside the disclaimer's own body text, so the ADMIN sees it before
+committing to the acknowledgment rather than discovering it only via a later, unrelated "cannot
+delete" error. This is a UI-visibility mitigation, not a structural fix — no soft-delete/archive flag
+exists for a wrongly-set-up account, and the acknowledgment row is still written before the dialog
+runs; both remain open follow-up work, tracked as a MINOR finding rather than blocking this wave.
+
+**SSRF**: `network.lapis.cloud.server.webhook.checkWebhookUrl` is called (not copied) on every save
+AND immediately before every fetch — DNS-rebinding across time, not just across one connection, the
+same reasoning `WebhookDeliverySender.sendOnce` already applies. **Documented residual gap**:
+`checkWebhookUrl` returns a pinned `SafeFederationTarget`, but hbci4j opens the actual TCP/TLS
+connection with its OWN HTTP stack and its OWN URL string — the pinned address is never handed to
+hbci4j, so the check-to-connect window (seconds, not the full account lifetime) is narrowed, not
+closed. Not solved this wave; named here rather than glossed over.
+
+**Passport-Datei**: hbci4j persists BPD/UPD/user-id state to a passport file
+(`LAPIS_FINTS_PASSPORT_DIR`, default `<user.dir>/fints-passports`). This directory **must** lie
+outside `documentStorageRoot` — `OrganizationExportService` copies that entire tree verbatim into
+an **unencrypted** backup tarball; a FinTS user-id blob in that tree would be a plaintext-adjacent
+hole in an otherwise-sealed system. Directory `0700`, file `0600` (POSIX; best-effort on other
+filesystems), re-narrowed on EVERY `passportFile()` call, not only on first creation — a
+`LAPIS_FINTS_PASSPORT_DIR` pre-provisioned by outside deployment tooling under a wider umask does
+not stay wide open. `FinTsPassportFileTest` calls the real (`internal`) `Hbci4jFinTsClient
+.passportFile()` -- not a re-implementation of its own -- against a temp directory to pin both the
+permission narrowing (including the pre-existing-wide-directory case) and that a freshly created
+passport file starts out empty. PIN persistence: `hbci.properties.template` carries no
+`savePIN`-shaped key at all — verified by inspecting the template inside the jar, not assumed; this
+codebase has no automated way to exercise hbci4j's OWN passport-writing against a live bank, so that
+part of OQ-3 remains a structural, not an executed, guarantee. The existing
+`bank_account`/`bank_account_fints_acknowledgment` ciphertext columns landing in a DB export
+unencrypted is NOT new — every prior `*_ciphertext` column in this codebase already does; the key
+lives in the environment, not the database, an existing, documented posture, unchanged by this wave.
+
+**camt-only banks (out of scope)**: `GVRKUms.camtBooked` exists because some banks answer `HKCAZ`
+(camt.052 XML) instead of `HKKAZ` (MT940) — `BankStatementImportService` supports CSV + MT940 only,
+camt stays out of scope (`bank-statement-import.adoc`). A camt-only bank surfaces as
+`FinTsErrorCode.STATEMENT_FORMAT_UNSUPPORTED`, a documented limitation, not a crash — coverage is
+therefore bank-dependent.
+
+**Rechtliche Einordnung**: in the current one-organization-per-instance architecture, the
+organization accesses its OWN account with its OWN FinTS credentials — architecturally identical to
+classic Homebanking software, no BaFin licensing as a Kontoinformationsdienst (§ 1 Abs. 1a Nr. 8
+ZAG) required. A future multi-tenant SaaS deployment holding FOREIGN organizations' credentials
+would need this re-assessed — explicitly out of scope for this wave, flagged for whichever wave
+introduces multi-tenancy. See `FinTsComplianceDisclaimer` for the full ADMIN-facing text.
+
+**Design decisions (D1–D6)** carried into `BankAccountsScreen.kt`: D-REAUTH (the status cell IS the
+action, glyph + text, never color alone), D-PIN (a real `password()` field, `autocomplete="new-password"`
++ `autocapitalize="off"` + `spellcheck="false"` on both PIN and user-id fields, never pre-filled,
+visibly cleared after success), D-TAN (same modal continues, never closes/reopens; server-side
+cancel; no auto-submit), D-DISCLAIMER (full text + checkbox gate, same `SepaSettingsScreen`
+precedent), D-UNAVAILABLE (`finTsAvailable == false` renders no controls at all, never a greyed-out
+button).
 
 == Testing
 
@@ -139,8 +343,9 @@ gate every other opt-in, risk-bearing feature in this codebase already uses (`IV
   `BankStatementSchemaDriftTest`.
 * `network.lapis.cloud.server.payment.bankstatement.BankAccountStoreTest` — create/update/delete/
   setDefault behaviour, the default-marker invariant, IBAN/BIC validation, delete-while-referenced
-  refusal, and the legacy backfill (both the "runs once" and "no-op without a configured IBAN"
-  cases).
+  refusal (both a referencing `bank_statement_import` row and, Review fix (CRITICAL), a referencing
+  `bank_account_fints_acknowledgment` row), and the legacy backfill (both the "runs once" and
+  "no-op without a configured IBAN" cases).
 * `network.lapis.cloud.server.rpc.BankAccountServiceTest` — role gating (BOARD reads but never
   writes, same tier `IBankStatementService` already establishes) and malformed-id handling.
 * `network.lapis.cloud.server.payment.bankstatement.BankStatementImportServiceTest` — regression
@@ -149,3 +354,26 @@ gate every other opt-in, risk-bearing feature in this codebase already uses (`IV
   the `FOREIGN_ACCOUNT` rejection when a statement matches none of the configured accounts.
 * `network.lapis.cloud.server.rpc.OrganizationSettingsServiceTest` — the mirror-freeze behaviour
   once a `bank_account` row exists.
+* Wave 2: `network.lapis.cloud.server.payment.fints.Hbci4jRawMt940ExtractorTest` (real `GVRKUms`),
+  `FinTsCredentialSealTest` (AAD-binding, `toString()` never leaks), `FinTsPollerTest` (fakes-only,
+  transient vs. permanent failures, mail-only-on-transition), `FinTsIngestReuseTest` (identical
+  fingerprints across the poller and the manual-upload path, digest-precheck prevents a duplicate
+  row), `FinTsPassportFileTest` (permissions, PIN-absence detector),
+  `Hbci4jFinTsClientErrorMappingTest` (`toFinTsErrorCode`'s full mapping table, both raw and
+  `ExecutionException`-wrapped -- the wrapped case is the shape `fetch()`'s
+  `runOnDedicatedThread` actually produces),
+  `network.lapis.cloud.server.rpc.FinTsComplianceDisclaimerTest`,
+  `network.lapis.cloud.server.rpc.BankAccountFinTsServiceTest` (role gating incl. the ADMIN-only
+  FinTS tier, disclaimer mismatch, `secretBox == null`, JSON-response PIN/userId-leak check),
+  `BankAccountSchemaDriftTest` extended for the eleven `fintsXxx` columns, the three `fintsGapXxx`
+  columns (Review fix, Runde 3), and the new acknowledgment table, and
+  `network.lapis.cloud.client.BankAccountAuthzUiTest` (jsTest) for the three-tier client-side role
+  mirror.
+* Review fixes (Runde 3): `Hbci4jFinTsClientHandleSweepTest` (the `lastActivityAt`-keyed sweep
+  cutoff, three cases), `Hbci4jFinTsClientMultiRoundTest` (the `submitTan` rotating-future ordering
+  across two TAN rounds, via a stub worker thread), `FinTsPollerWatermarkGapTest` (both the
+  transient `fints_last_error_code`/`FETCH_WINDOW_GAP` marker AND the durable `fints_gap_from`/
+  `fints_gap_to`/`fints_gap_detected_at` record, plus the self-healing-vs-durable distinction between
+  them), `BankAccountI18nCatalogTest` (every `tr()`/`gettext()` string in `BankAccountsScreen.kt`
+  present and non-empty in all seven language catalogs), `BankAccountLabelsTest` (the ACTIVE-branch
+  icon/text-variant decision, extracted into `BankAccountLabels.kt`).

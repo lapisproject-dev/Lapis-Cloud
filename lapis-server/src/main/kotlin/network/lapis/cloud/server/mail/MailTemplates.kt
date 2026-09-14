@@ -157,6 +157,49 @@ object MailTemplates {
     }
 
     /**
+     * Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" -- an das BOARD/ADMIN, wenn ein Kontos
+     * Live-Abruf-Status auf `REAUTH_REQUIRED` wechselt (siehe
+     * `network.lapis.cloud.server.payment.fints.FinTsPoller` KDoc "Benachrichtigung nur beim
+     * Übergang"). **Enthält niemals PIN, Benutzerkennung oder eine rohe Bank-Meldung** -- nur
+     * [accountLabel]/[ibanMasked]/[occurredAt] und ein Link zur Bankkonten-Verwaltung.
+     */
+    fun finTsReauthRequired(
+        accountLabel: String,
+        ibanMasked: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val link = "${branding.publicBaseUrl}/app#/bank-accounts"
+        val subject = "FinTS-Live-Abruf muss neu angemeldet werden – ${branding.fromDisplayName}"
+        val plainText =
+            "Der Live-Abruf für das Bankkonto „$accountLabel“ ($ibanMasked) benötigt eine erneute " +
+                "Anmeldung (Datum/Uhrzeit: $occurredAt). Bis dahin werden keine neuen Kontoumsätze " +
+                "mehr automatisch abgerufen.\n\n" +
+                "Öffnen Sie die Bankkonten-Verwaltung, um sich erneut anzumelden:\n$link\n\n" +
+                footer(branding)
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +"FinTS-Live-Abruf: erneute Anmeldung erforderlich" }
+                    p {
+                        +(
+                            "Der Live-Abruf für das Bankkonto „$accountLabel“ ($ibanMasked) benötigt eine " +
+                                "erneute Anmeldung (Datum/Uhrzeit: $occurredAt). Bis dahin werden keine neuen " +
+                                "Kontoumsätze mehr automatisch abgerufen."
+                        )
+                    }
+                    p {
+                        +"Öffnen Sie die Bankkonten-Verwaltung, um sich erneut anzumelden: "
+                        a(href = link) { +"Bankkonten-Verwaltung öffnen" }
+                    }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
      * Welle V1.4.9 "Admin-Passwort-Reset" -- reine Transparenz-Benachrichtigung an das Mitglied,
      * nachdem ein ADMIN dessen Passwort gesetzt hat. **Enthält weder Passwort noch Token** -- das
      * temporäre Passwort geht ausschließlich den direkten Weg (Betreiber -> Person), siehe

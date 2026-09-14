@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.BankAccountFinTsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -17,6 +18,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BankAccountDto
 import network.lapis.cloud.shared.domain.BankAccountInput
 import network.lapis.cloud.shared.domain.BankAccountSnapshot
+import network.lapis.cloud.shared.domain.FinTsStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -230,6 +232,16 @@ internal object BankAccountStore {
      * deleted account was the default, the next-oldest remaining account (if any) is promoted;
      * otherwise `organization_settings.bank_iban`/`bank_bic` are cleared (exactly the pre-wave
      * "unconfigured" state).
+     *
+     * Review fix (CRITICAL, empirically reproduced): also refused (409) while any
+     * `bank_account_fints_acknowledgment` row references this account. That table's own FK
+     * (`fk_ba_fints_ack_bank_account_id`, V33__bank_account_fints.sql) has NO `ON DELETE CASCADE` --
+     * `BankAccountFinTsPersonalData`'s KDoc documents *why*: the row is an accountability record
+     * ("which ADMIN acknowledged which disclaimer version for which account", Art. 5(2) DSGVO) that
+     * is retained unconditionally, even across a member-erasure request. Silently cascading it away
+     * on account deletion would defeat that retention guarantee, so -- exactly like an existing
+     * `bank_statement_import` reference -- an existing acknowledgment blocks the deletion instead of
+     * letting the raw `ExposedSQLException` from the FK violation escape as an uncaught 500.
      */
     fun delete(
         bankAccountId: Uuid,
@@ -248,6 +260,17 @@ internal object BankAccountStore {
             if (referenced) {
                 throw ConflictException(
                     "Dieses Bankkonto wird von mindestens einem Kontoauszugs-Import referenziert und kann nicht geloescht werden.",
+                )
+            }
+            val hasFinTsAcknowledgment =
+                BankAccountFinTsAcknowledgmentTable
+                    .selectAll()
+                    .where { BankAccountFinTsAcknowledgmentTable.bankAccountId eq bankAccountId }
+                    .count() > 0
+            if (hasFinTsAcknowledgment) {
+                throw ConflictException(
+                    "Fuer dieses Bankkonto liegt eine FinTS/HBCI-Rechtshinweis-Bestaetigung vor und kann " +
+                        "aus Nachweispflicht (Art. 5(2) DSGVO) nicht geloescht werden.",
                 )
             }
             BankAccountTable.deleteWhere { BankAccountTable.id eq bankAccountId }
@@ -577,7 +600,16 @@ internal object BankAccountStore {
         return trimmed
     }
 
-    private fun ResultRow.toDto(): BankAccountDto =
+    /**
+     * Welle V1.4.14 Wave 2 -- `finTsAvailable` reflects whether [network.lapis.cloud.server.crypto.SecretBox]
+     * is even configured on this instance (`LAPIS_SECRET_ENCRYPTION_KEY`), NOT whether this
+     * particular account happens to be active -- callers ([network.lapis.cloud.server.rpc.BankAccountService])
+     * pass the module-scoped `bankStatementSecretBox != null` flag through. `finTsUserIdMask` is a
+     * CONSTANT masked string, never a partial reveal (Design-Team decision, see `BankAccountDto`
+     * KDoc) -- the userid is frequently the account number itself, and the IBAN already sits on the
+     * same screen.
+     */
+    fun ResultRow.toDto(finTsAvailable: Boolean): BankAccountDto =
         BankAccountDto(
             id = this[BankAccountTable.id].toString(),
             label = this[BankAccountTable.label],
@@ -588,7 +620,20 @@ internal object BankAccountStore {
             isDefault = this[BankAccountTable.isDefault],
             createdAt = this[BankAccountTable.createdAt],
             updatedAt = this[BankAccountTable.updatedAt],
+            finTsStatus = this[BankAccountTable.fintsStatus],
+            finTsBlz = this[BankAccountTable.fintsBlz],
+            finTsUrl = this[BankAccountTable.fintsUrl],
+            finTsUserIdMask = if (this[BankAccountTable.fintsUserIdCiphertext] != null) FINTS_USER_ID_MASK else null,
+            finTsPinSetAt = this[BankAccountTable.fintsPinSetAt],
+            finTsLastSuccessAt = this[BankAccountTable.fintsLastSuccessAt],
+            finTsLastErrorCode = this[BankAccountTable.fintsLastErrorCode],
+            finTsAvailable = finTsAvailable,
+            finTsGapFrom = this[BankAccountTable.fintsGapFrom],
+            finTsGapTo = this[BankAccountTable.fintsGapTo],
+            finTsGapDetectedAt = this[BankAccountTable.fintsGapDetectedAt],
         )
+
+    private fun ResultRow.toDto(): BankAccountDto = toDto(finTsAvailable = true)
 
     private fun ResultRow.toSnapshot(): BankAccountSnapshot =
         BankAccountSnapshot(
@@ -597,5 +642,124 @@ internal object BankAccountStore {
             bic = this[BankAccountTable.bic],
             bankName = this[BankAccountTable.bankName],
             isDefault = this[BankAccountTable.isDefault],
+            finTsStatus = this[BankAccountTable.fintsStatus],
         )
+
+    // ============================================================================================
+    // Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf".
+    // ============================================================================================
+
+    /**
+     * Writes the four sealed credential columns, flips status -> ACTIVE, sets
+     * `fints_activated_by`/`fints_activated_at`/`fints_pin_set_at`, and records ONE audit entry.
+     * Caller ([network.lapis.cloud.server.rpc.BankAccountService.beginFinTsSetup]) has already: (a)
+     * checked the ADMIN role, (b) matched the disclaimer, (c) run [network.lapis.cloud.server.webhook.checkWebhookUrl],
+     * (d) run the actual hbci4j setup dialog to [network.lapis.cloud.server.payment.fints.FinTsSetupOutcome.Verified],
+     * and (e) sealed [userIdCiphertext]/[pinCiphertext] via [network.lapis.cloud.server.crypto.SecretBox]
+     * -- this function is pure persistence, no further validation.
+     */
+    fun activateFinTs(
+        bankAccountId: Uuid,
+        blz: String,
+        url: String,
+        userIdCiphertext: String,
+        pinCiphertext: String,
+        actorMemberId: Uuid,
+        actorRole: AccountRole,
+        finTsAvailable: Boolean,
+    ): BankAccountDto =
+        transaction {
+            val row = requireRowForUpdate(bankAccountId)
+            val before = row.toSnapshot()
+            val now = DbClock.nowLocalDateTime()
+            BankAccountTable.update({ BankAccountTable.id eq bankAccountId }) {
+                it[fintsBlz] = blz
+                it[fintsUrl] = url
+                it[fintsUserIdCiphertext] = userIdCiphertext
+                it[fintsPinCiphertext] = pinCiphertext
+                it[fintsStatus] = FinTsStatus.ACTIVE
+                it[fintsActivatedBy] = actorMemberId
+                it[fintsActivatedAt] = now
+                it[fintsPinSetAt] = now
+                // Review fix (MEDIUM): a (re-)activation must start with a FRESH watermark, not the
+                // one an EARLIER activation of this same account left behind. Without this, an
+                // account activated in January, disabled in February, and reactivated in September
+                // keeps January's fints_last_fetch_to -- FinTsPoller.tick's `?: ...` watermark
+                // fallback only fires when the column is NULL, so the very first live poll after
+                // reactivation would request a ~7-month window, well past what banks typically allow
+                // for HKKAZ (~90 days) and past this app's own FinTsConfig.fetchWindowDays cap.
+                // fints_last_error_code is reset for the same reason: a stale code from the PREVIOUS
+                // activation attempt must not survive into a freshly (successfully) activated account
+                // -- BankAccountDto.finTsLastErrorCode would otherwise misreport a working account.
+                it[fintsLastFetchTo] = null
+                it[fintsLastSuccessAt] = null
+                it[fintsLastErrorCode] = null
+            }
+            AuditLogRecorder.record(
+                actorMemberId = actorMemberId,
+                actorRole = actorRole,
+                entityType = AuditEntityType.BANK_ACCOUNT,
+                entityId = bankAccountId,
+                action = AuditAction.UPDATE,
+                before = Json.encodeToString(BankAccountSnapshot.serializer(), before),
+                after =
+                    Json.encodeToString(
+                        BankAccountSnapshot.serializer(),
+                        before.copy(finTsStatus = FinTsStatus.ACTIVE),
+                    ),
+            )
+            requireRowForRead(bankAccountId).toDto(finTsAvailable = finTsAvailable)
+        }
+
+    /** Clears all four credential columns + activation metadata, resets status -> NOT_CONFIGURED. There is no fourth "disabled with credentials around" state (structurally enforced by `chk_bank_account_fints_credentials_complete`). */
+    fun disableFinTs(
+        bankAccountId: Uuid,
+        actorMemberId: Uuid,
+        actorRole: AccountRole,
+        finTsAvailable: Boolean,
+    ): BankAccountDto =
+        transaction {
+            val row = requireRowForUpdate(bankAccountId)
+            val before = row.toSnapshot()
+            BankAccountTable.update({ BankAccountTable.id eq bankAccountId }) {
+                it[fintsBlz] = null
+                it[fintsUrl] = null
+                it[fintsUserIdCiphertext] = null
+                it[fintsPinCiphertext] = null
+                it[fintsStatus] = FinTsStatus.NOT_CONFIGURED
+                it[fintsActivatedBy] = null
+                it[fintsActivatedAt] = null
+                it[fintsPinSetAt] = null
+            }
+            AuditLogRecorder.record(
+                actorMemberId = actorMemberId,
+                actorRole = actorRole,
+                entityType = AuditEntityType.BANK_ACCOUNT,
+                entityId = bankAccountId,
+                action = AuditAction.UPDATE,
+                before = Json.encodeToString(BankAccountSnapshot.serializer(), before),
+                after =
+                    Json.encodeToString(
+                        BankAccountSnapshot.serializer(),
+                        before.copy(finTsStatus = FinTsStatus.NOT_CONFIGURED),
+                    ),
+            )
+            requireRowForRead(bankAccountId).toDto(finTsAvailable = finTsAvailable)
+        }
+
+    /** Read-only row lookup for FinTS operations that do not need a `forUpdate()` row lock (the write path above already took one). */
+    private fun requireRowForRead(bankAccountId: Uuid): ResultRow =
+        BankAccountTable.selectAll().where { BankAccountTable.id eq bankAccountId }.single()
+
+    fun dtoOrNull(
+        bankAccountId: Uuid,
+        finTsAvailable: Boolean,
+    ): BankAccountDto? =
+        transaction {
+            BankAccountTable.selectAll().where { BankAccountTable.id eq bankAccountId }.singleOrNull()?.toDto(
+                finTsAvailable = finTsAvailable,
+            )
+        }
+
+    private const val FINTS_USER_ID_MASK = "********"
 }

@@ -3,9 +3,145 @@ msgstr ""
 "Language: ru\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:107
+msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
+msgstr "%1 банковский(-е) счёт(а) требуют повторного входа FinTS, прежде чем автоматическая выгрузка продолжится."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:64
 msgid " -- %1"
 msgstr " — %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
+msgid "Aktivieren …"
+msgstr "Активировать …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:433
+msgid "Alle Felder sind Pflichtfelder."
+msgstr "Все поля обязательны для заполнения."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:154
+msgid "Als Standard setzen"
+msgstr "Сделать счётом по умолчанию"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:127
+msgid "Bank"
+msgstr "Банк"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:71
+msgid "Bankkonten"
+msgstr "Банковские счета"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:86
+msgid "Bankkonto anlegen"
+msgstr "Создать банковский счёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:252
+msgid "Bankkonto bearbeiten"
+msgstr "Редактировать банковский счёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:166
+msgid "Bankkonto gelöscht."
+msgstr "Банковский счёт удалён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:362
+msgid "Bankleitzahl (BLZ)"
+msgstr "Банковский код (BLZ)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:256
+msgid "Bankname (optional)"
+msgstr "Название банка (необязательно)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "Benutzerkennung"
+msgstr "Идентификатор пользователя"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:271
+msgid "Bezeichnung und IBAN sind Pflichtfelder."
+msgstr "Обозначение и IBAN обязательны."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:235
+msgid "Erneute Anmeldung erforderlich"
+msgstr "Требуется повторный вход"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:129
+msgid "FinTS-Live-Abruf"
+msgstr "Автоматическая выгрузка FinTS"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
+msgid "FinTS-Live-Abruf aktiviert."
+msgstr "Автоматическая выгрузка FinTS активирована."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:226
+msgid "FinTS-Live-Abruf deaktiviert."
+msgstr "Автоматическая выгрузка FinTS деактивирована."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
+msgid "FinTS-Live-Abruf: %1"
+msgstr "Автоматическая выгрузка FinTS: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:363
+msgid "FinTS/HBCI-URL"
+msgstr "URL FinTS/HBCI"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:399
+msgid "Gültig bis %1 Uhr."
+msgstr "Действительно до %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:264
+msgid "Hinweis: Datenlücke im Live-Abruf erkannt am %1 (übersprungener Zeitraum: %2 – %3)."
+msgstr "Внимание: обнаружен пропуск в автоматической выгрузке %1 (пропущенный период: %2 – %3)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:356
+msgid "Hinweis: Mit der Bestätigung wird eine unlöschbare Nachweiszeile gespeichert (Art. 5 Abs. 2 DSGVO) -- dieses Bankkonto kann danach nicht mehr gelöscht werden, auch wenn der Live-Abruf fehlschlägt."
+msgstr "Внимание: после подтверждения сохраняется неизменяемая запись (ст. 5(2) GDPR) -- этот банковский счёт больше нельзя будет удалить, даже если автоматическая выгрузка завершится ошибкой."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:347
+msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
+msgstr "Я полностью прочитал(а) уведомление и подтверждаю его."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:191
+msgid "Kein Live-Abruf"
+msgstr "Автоматическая выгрузка не выполняется"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:218
+msgid "Live-Abruf aktiv"
+msgstr "Автоматическая выгрузка активна"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:212
+msgid "Live-Abruf aktiv · letzter Abruf %1"
+msgstr "Автоматическая выгрузка активна · последняя выгрузка %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:214
+msgid "Live-Abruf aktiv · noch kein erfolgreicher Abruf (Fehlercode: %1)"
+msgstr "Автоматическая выгрузка активна · пока нет ни одной успешной выгрузки (код ошибки: %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:184
+msgid "Live-Abruf nicht verfügbar: LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
+msgstr "Автоматическая выгрузка недоступна: LAPIS_SECRET_ENCRYPTION_KEY не настроен."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:237
+msgid "Neu anmelden …"
+msgstr "Войти заново …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
+msgid "PIN"
+msgstr "PIN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:340
+msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
+msgstr "Правовое уведомление (прочитайте полностью):"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:158
+msgid "Standardkonto gesetzt."
+msgstr "Счёт по умолчанию установлен."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:382
+msgid "TAN"
+msgstr "TAN"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:388
+msgid "TAN bestätigen"
+msgstr "Подтвердить TAN"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:678
 msgid " · gemeldet am %1"
@@ -9548,7 +9684,6 @@ msgstr "Целевая деятельность"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:705
 msgid "Zwischengespeichert (Cached)"
 msgstr "Кэшировано"
-
 #~ msgid "%1 bis %2: %3 (%4)"
 #~ msgstr "%1 – %2: %3 (%4)"
 
