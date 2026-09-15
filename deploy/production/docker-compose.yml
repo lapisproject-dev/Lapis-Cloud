@@ -130,6 +130,8 @@ services:
       # "White-Label-Branding".
       LAPIS_BRAND_TITLE: ${LAPIS_BRAND_TITLE:-}
       LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
+      # V1.4.18 -- operator website URL linked from the public footer, see BrandConfig KDoc.
+      LAPIS_BRAND_WEBSITE_URL: ${LAPIS_BRAND_WEBSITE_URL:-}
       # Rechtstexte (V1.4.7) -- fuellen GET /impressum + GET /datenschutz, siehe .env.example und
       # README.adoc "Impressum & Datenschutz". Erste sieben PFLICHT (fehlend -> Betreiber-Hinweis
       # statt HTTP 500), Rest optional. Nie werfend, nie fail-fast.
