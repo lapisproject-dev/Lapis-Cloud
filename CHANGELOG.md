@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-09-15
+
 ### Added
 
 **PayPal als zweiter Zahlungsdienstleister (V1.2.8b, GitHub Issue #6)**
