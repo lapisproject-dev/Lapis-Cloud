@@ -16,6 +16,29 @@
     -->
     <script type="application/json" id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null}</script>
     <!--
+      V1.4.16 Dark-Mode-Toggle: stamps `data-theme`/`data-bs-theme` on <html> BEFORE the (much
+      larger, `kotlin/js`-compiled) bundle below has parsed and run -- avoids a flash of the wrong
+      theme on load. Mirrors the read side of `ThemeToggle.kt`'s own `localStorage` key/values
+      exactly (kept as a literal string here, not a shared constant, since this file is plain HTML
+      -- if that key/value set ever changes, update both places). No stored preference -> falls
+      back to the OS-level `prefers-color-scheme`, matching this file's `theme.css` `@media` block.
+    -->
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('lapis-cloud-theme');
+                var theme = stored === 'dark' || stored === 'light'
+                    ? stored
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-bs-theme', theme);
+            } catch (e) {
+                // localStorage/matchMedia unavailable (private mode, ancient browser) -- theme.css's
+                // own @media fallback still applies, nothing else to do here.
+            }
+        })();
+    </script>
+    <!--
       Governance UI wave (Sitzungen / Meetings screen): global print stylesheet backing the
       "Protokoll" tab's "Drucken" button (`window.print()` in `MeetingsScreen.kt`) -- per the
       approved UI/UX-Design-Team design decisions, D5. Added once, globally, rather than per

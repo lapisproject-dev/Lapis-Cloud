@@ -212,6 +212,16 @@ private fun renderVersionUpload(
             hide()
         }
 
+    // Nutzer-Beschwerde 2026-09-15 ("kein Signal während des Uploads, man klickt wild") -- Bootstraps
+    // eigene `.progress`/`.progress-bar`-Klassen, keine dedizierte KVision-Komponente nötig (diese
+    // Version von KVision hat keine). Standardmäßig versteckt, nur während eines laufenden Uploads
+    // sichtbar (nicht dauerhaft eingeblendet mit 0% -- Norman: ein Fortschrittsbalken, der nichts
+    // tut, ist Lärm).
+    val progressWrapper = uploadRow.div(className = "progress mt-1") { hide() }
+    val progressBar = progressWrapper.div(className = "progress-bar progress-bar-striped progress-bar-animated")
+    progressBar.setAttribute("role", "progressbar")
+    progressBar.setStyle("width", "0%")
+
     val uploadButton = uploadRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
     uploadButton.onClick {
         errorBox.hide()
@@ -223,9 +233,15 @@ private fun renderVersionUpload(
             return@onClick
         }
         uploadButton.disabled = true
+        progressBar.setStyle("width", "0%")
+        progressWrapper.show()
         AppScope.launch {
-            val error = DocumentHttp.uploadVersion(documentId, nativeFile, changeNoteInput.value)
+            val error =
+                DocumentHttp.uploadVersion(documentId, nativeFile, changeNoteInput.value) { fraction ->
+                    progressBar.setStyle("width", "${(fraction * 100).toInt()}%")
+                }
             uploadButton.disabled = false
+            progressWrapper.hide()
             if (error != null) {
                 errorBox.content = error
                 errorBox.show()

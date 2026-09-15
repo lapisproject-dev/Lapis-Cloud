@@ -66,6 +66,14 @@ kotlin {
                 // `./gradlew clean check` fail with an opaque `YarnLockMismatch`, not an obviously
                 // related error.
                 implementation(npm("livekit-client", "2.21.0"))
+                // V1.4.16 UI-Schrift Inter (PdV-Branding, siehe CLAUDE.md "PdV-Branding" -- Inter
+                // Bold/SemiBold/Regular/Light-Italic). Variable-Font-Paket, nicht die statische
+                // `@fontsource/inter`-Variante -- dieselbe Wahl, die die PdV-Webseite selbst trifft
+                // (`parteidervernunft.de-astro/package.json`), ein einziges Woff2 pro Unicode-Range
+                // deckt den gesamten 100-900-Gewichtsbereich ab statt einer separaten Datei pro
+                // Schnitt. Requires re-running `./gradlew kotlinUpgradeYarnLock` after adding, siehe
+                // die `livekit-client`-Zeile oben für die Begründung.
+                implementation(npm("@fontsource-variable/inter", "5.3.0"))
             }
         }
         // V0.7.3 Basis-Mehrseiten-UI: this module had no jsTest source set at all before this wave

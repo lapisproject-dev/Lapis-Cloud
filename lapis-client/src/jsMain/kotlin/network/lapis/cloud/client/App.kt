@@ -162,6 +162,9 @@ private fun currentHashRoute(): String? =
  */
 class App : Application() {
     override fun start() {
+        // Bestätigt/aktualisiert, was index.html's Inline-Script beim ersten Paint schon gesetzt
+        // hat -- siehe ThemeToggle.kt KDoc.
+        applyStoredTheme()
         root("lapis-client") {
             // Vertical-Sidebar-Umbau (2026-09-08): `expand = ALWAYS` means the navbar itself never
             // collapses into Bootstrap's own hamburger toggler -- there is nothing left in it that
@@ -495,6 +498,7 @@ private fun refreshNavbar(
     }
 
     val rightNav: Nav = navbar.nav(rightAlign = true)
+    addThemeToggle(rightNav)
     addLanguageSwitcher(rightNav, onLanguageChange)
 
     if (session == null) {
@@ -638,6 +642,12 @@ fun main() {
     // is the standard Kotlin/JS idiom for a raw stylesheet import under `cssSupport { enabled.set(true) }`
     // (see lapis-client/build.gradle.kts) -- css-loader/style-loader inject it as a `<style>` tag at
     // runtime, same mechanism BootstrapCssModule already relies on internally for Bootstrap's own CSS.
+    // V1.4.16: Inter-Variable-Font-CSS (siehe build.gradle.kts npm()-Deklaration und theme.css
+    // `--lapis-font-body`) -- MUSS vor `theme.css` requiret werden, damit theme.css's eigene
+    // `font-family`-Regel (die die Schrift tatsächlich zuweist) bei gleicher Selektor-Spezifität
+    // die spätere, damit "gewinnende" Deklaration ist; die @font-face-Regeln selbst sind ordnungs-
+    // unabhängig (keine Kollision mit irgendetwas anderem im Bundle).
+    js("require('@fontsource-variable/inter/index.css')")
     js("require('./theme.css')")
     registerRemoteTypes()
     // Bug fix: startApplication() previously registered no CSS modules at all -- KVision only

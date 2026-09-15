@@ -17,9 +17,22 @@
  * `StatusBadge.kt`'s `roleBadge()`) -- color is a second channel here, never the sole signal
  * (Norman/WCAG 1.4.1), same rule this file's `statusBadge`/`typeBadge` selectors already implied.
  *
- * Dark-mode tokens still aren't ported: this app has no theme toggle yet, so a half-wired dark
- * palette would just be dead code (Rams: no ornament without function) -- unchanged from the
- * previous review's call.
+ * V1.4.16 (2026-09-15): dark-mode tokens ported now that a theme toggle exists (see
+ * `ThemeToggle.kt`) -- the "dead code" objection above no longer applies. Dark palette follows a
+ * `system` (respects `prefers-color-scheme`, no explicit choice), `light`, `dark` tri-state, same
+ * contract as the artifact-authoring dark-mode convention this org already uses elsewhere: bare
+ * `:root` carries the light values (above/unchanged), `@media (prefers-color-scheme: dark)` guarded
+ * by `:root:not([data-theme="light"])` covers the system-dark case, and `:root[data-theme="dark"]`
+ * covers an explicit user choice in either direction. `ThemeToggle.kt` persists the explicit choice
+ * to `localStorage` and stamps `data-theme` on `<html>` before first paint (see its own KDoc for
+ * why that ordering matters -- avoids a flash of the wrong theme).
+ *
+ * Role colors (`--lapis-role-*`) are re-tuned, not reused verbatim: the light values are calibrated
+ * for ≥5:1 contrast on WHITE specifically (see the light block's own comment) -- unchanged, they'd
+ * under-contrast against a dark surface. `--lapis-fleck-ink` (gold's "readable on white" variant)
+ * collapses to the same value as `--lapis-fleck` in dark mode -- the surface it sits on
+ * (`--lapis-accent-soft`) is itself dark there, so the "readable on white" problem it solves
+ * doesn't exist in that direction.
  */
 
 :root {
@@ -60,11 +73,89 @@
   --lapis-role-inactive:   #6B7280;
 
   --lapis-font-display: Georgia, serif;
+  /* V1.4.16: PdV-Branding-Schrift Inter (siehe CLAUDE.md "PdV-Branding") für den Fließtext -- der
+     Georgia-Serif-Auftritt oben bleibt auf die Wortmarke (`.lapis-brand-text`) beschränkt, keine
+     Vermischung. `'Inter Variable'` ist der Font-Family-Name, den das @fontsource-variable/inter-
+     Paket selbst vergibt (nicht `'Inter'`) -- siehe dessen `index.css`. System-Stack als Fallback,
+     falls die Woff2-Datei je nicht lädt (langsames Netz, geblockter Request) -- niemals ganz ohne
+     lesbare Schrift dastehen. */
+  --lapis-font-body: 'Inter Variable', -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* System-dark (no explicit choice) -- see the tri-state note above the light :root block. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --lapis-bg:              #14181E;
+    --lapis-surface:         #1B2028;
+    --lapis-surface-sunken:  #232933;
+
+    --lapis-text:            #E8E6E0;
+    --lapis-muted:           #9AA1AC;
+    --lapis-border:          #333A44;
+    --lapis-border-strong:   #454D59;
+
+    --lapis-nav:             #0B0E12;
+    --lapis-nav-hover-bg:    #1E242E;
+    --lapis-nav-text:        #EDEAE3;
+    --lapis-nav-muted:       #A8AEB8;
+
+    --lapis-accent:          #5B8FF0;
+    --lapis-accent-strong:   #7CA6F3;
+    --lapis-accent-soft:     #1B2A44;
+    --lapis-accent-contrast: #0B0E12;
+
+    --lapis-fleck:           #D8B84A;
+    --lapis-fleck-ink:       #D8B84A;
+
+    --lapis-role-admin:      #E57373;
+    --lapis-role-party:      #D4AF37;
+    --lapis-role-bank:       #4CAF7D;
+    --lapis-role-board:      #A78BEA;
+    --lapis-role-member:     #4DB6C4;
+    --lapis-role-guest:      #F0A050;
+    --lapis-role-inactive:   #9CA3AF;
+  }
+}
+
+/* Explicit user choice always wins, in either direction -- see ThemeToggle.kt. */
+:root[data-theme="dark"] {
+  --lapis-bg:              #14181E;
+  --lapis-surface:         #1B2028;
+  --lapis-surface-sunken:  #232933;
+
+  --lapis-text:            #E8E6E0;
+  --lapis-muted:           #9AA1AC;
+  --lapis-border:          #333A44;
+  --lapis-border-strong:   #454D59;
+
+  --lapis-nav:             #0B0E12;
+  --lapis-nav-hover-bg:    #1E242E;
+  --lapis-nav-text:        #EDEAE3;
+  --lapis-nav-muted:       #A8AEB8;
+
+  --lapis-accent:          #5B8FF0;
+  --lapis-accent-strong:   #7CA6F3;
+  --lapis-accent-soft:     #1B2A44;
+  --lapis-accent-contrast: #0B0E12;
+
+  --lapis-fleck:           #D8B84A;
+  --lapis-fleck-ink:       #D8B84A;
+
+  --lapis-role-admin:      #E57373;
+  --lapis-role-party:      #D4AF37;
+  --lapis-role-bank:       #4CAF7D;
+  --lapis-role-board:      #A78BEA;
+  --lapis-role-member:     #4DB6C4;
+  --lapis-role-guest:      #F0A050;
+  --lapis-role-inactive:   #9CA3AF;
 }
 
 body {
   background-color: var(--lapis-bg);
   color: var(--lapis-text);
+  font-family: var(--lapis-font-body);
+  /* Theme-Wechsel weich statt hart -- kein Blitz bei System-Toggle während offener Sitzung. */
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 /* Navbar: near-black, cool lapis undertone -- text/nav share the same value as the ink color

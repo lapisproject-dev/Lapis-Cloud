@@ -33,8 +33,25 @@ import java.io.File
 import java.security.MessageDigest
 import kotlin.uuid.Uuid
 
-/** Hard cap on a single uploaded document version — DoS guard, rejected before fully buffering. */
-private const val MAX_UPLOAD_BYTES = 25L * 1024 * 1024
+/**
+ * Hard cap on a single uploaded document version — DoS guard, rejected before fully buffering.
+ * Configurable via `LAPIS_DOCUMENT_MAX_UPLOAD_MB` (whole megabytes) — Nutzer-Beschwerde 2026-09-15:
+ * the previous hardcoded 25 MiB was too low for real-world documents (satzungsnahe PDFs mit
+ * eingebetteten Scans, Präsentationen etc.). Default raised to 128 MiB. `coerceAtLeast` (not a
+ * fail-fast `check {}`) follows the same "operator typo degrades, never refuses to start" posture
+ * [network.lapis.cloud.server.webhook.WebhookConfig]'s own poll-interval/retention floors document
+ * — `LAPIS_DOCUMENT_MAX_UPLOAD_MB=0` would otherwise make EVERY upload fail with
+ * [HttpStatusCode.PayloadTooLarge] before a single byte is accepted, not just degrade to a smaller
+ * cap.
+ */
+private const val DEFAULT_MAX_UPLOAD_MB = 128L
+private const val MIN_MAX_UPLOAD_MB = 1L
+
+internal fun documentMaxUploadBytes(env: (String) -> String? = System::getenv): Long =
+    (env("LAPIS_DOCUMENT_MAX_UPLOAD_MB")?.trim()?.toLongOrNull() ?: DEFAULT_MAX_UPLOAD_MB)
+        .coerceAtLeast(MIN_MAX_UPLOAD_MB) * 1024 * 1024
+
+private val MAX_UPLOAD_BYTES = documentMaxUploadBytes()
 
 /**
  * File bytes travel over these routes, not Kilua RPC (see [network.lapis.cloud.shared.rpc.IDocumentService]
