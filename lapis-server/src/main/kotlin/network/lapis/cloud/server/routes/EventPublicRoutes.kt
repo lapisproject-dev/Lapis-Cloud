@@ -60,6 +60,9 @@ private const val EVENT_FORM_FIELD_LIMIT = MAX_EVENT_REGISTRATION_BODY_BYTES
 
 private val logger = KotlinLogging.logger {}
 
+/** `GET /veranstaltung.ics` -- RFC 5545, the standard media type calendar clients (Google/Apple/Outlook) expect for a URL-based calendar subscription. */
+private val ICS_CONTENT_TYPE = ContentType("text", "calendar").withParameter("charset", "utf-8")
+
 /**
  * Welle V1.4.3.1 "Veranstaltungen" -- the unauthenticated, server-rendered public surface: event
  * detail + registration form (`/veranstaltung/{slug}`), the four always-200 return pages
@@ -104,6 +107,11 @@ internal fun Route.registerEventPublicRoutes(
     // below for the rationale (soft per-IP page budget vs. a failures-only code-guessing guard).
     ticketPageRateLimiter: FederationInboxRateLimiter,
     ticketCodeFailureLimiter: LoginRateLimiter,
+    // Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- soft per-IP budget for
+    // `GET /veranstaltung.ics`, same `FederationInboxRateLimiter`-shape as [pageRateLimiter] (an
+    // every-request, not failures-only, budget -- a calendar client polling its subscription is a
+    // normal request, not a "failed attempt").
+    icsFeedRateLimiter: FederationInboxRateLimiter,
 ) {
     val submission =
         EventRegistrationSubmission(
@@ -128,6 +136,33 @@ internal fun Route.registerEventPublicRoutes(
             call.response.header(HttpHeaders.CacheControl, "no-store")
             call.applyEventPublicPageHeaders()
             call.respondText(text = EventPublicHtml.eventPage(brandTitle = brandTitle, view = view), contentType = HTML_CONTENT_TYPE)
+        }
+    }
+
+    // Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- registered as a literal route
+    // ABOVE `/veranstaltung/{slug}` in this function's own source order has no bearing here (Ktor
+    // routing matches by structure, not declaration order, and "veranstaltung.ics" can never match
+    // the `{slug}` segment of "/veranstaltung/{slug}" anyway -- different path shapes entirely).
+    // Kein Secret/Token -- see EventIcsFeed KDoc "Sichtbarkeitsregel".
+    get("/veranstaltung.ics") {
+        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+            if (!icsFeedRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+                call.respondEventTooManyRequests(brandTitle)
+                return@withEventPublicErrorHandling
+            }
+            val now = DbClock.nowLocalDateTime()
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            if (rows.size >= EventIcsFeed.MAX_EVENTS) {
+                logger.warn { "Public iCal feed truncated at ${EventIcsFeed.MAX_EVENTS} events -- consider raising the cap." }
+            }
+            val body = EventIcsFeed.render(rows = rows, baseUrl = baseUrl, brandTitle = brandTitle)
+            call.response.header(
+                HttpHeaders.ContentDisposition,
+                ContentDisposition.Inline
+                    .withParameter(ContentDisposition.Parameters.FileName, "veranstaltungen.ics")
+                    .toString(),
+            )
+            call.respondPublicCacheable(body = body, contentType = ICS_CONTENT_TYPE, cacheControl = "public, max-age=900")
         }
     }
 

@@ -877,6 +877,9 @@ fun Application.module() {
     val eventCheckInRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes)
     val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val eventTicketCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
+    // Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- soft per-IP budget for
+    // GET /veranstaltung.ics, generous enough for normal calendar-client polling intervals.
+    val eventIcsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen" -- gates ONLY
     // IEventVolunteerService's two self-service methods (signUpSelf/cancelOwnSignup), member-keyed
     // -- same rate-limiting posture eventWriteRateLimiter establishes for
@@ -1478,6 +1481,7 @@ fun Application.module() {
             registrationRateLimiter = eventRegistrationRateLimiter,
             ticketPageRateLimiter = eventTicketPageRateLimiter,
             ticketCodeFailureLimiter = eventTicketCodeFailureLimiter,
+            icsFeedRateLimiter = eventIcsFeedRateLimiter,
         )
         // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
         // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei

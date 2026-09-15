@@ -602,6 +602,7 @@ class EmbedEventRoutesTest :
                 ticketCodeFailureLimiter =
                     network.lapis.cloud.server.security
                         .LoginRateLimiter(maxFailures = 10_000),
+                icsFeedRateLimiter = generousLimiter(),
             )
             registerEmbedEventRoutes(
                 config = enabledConfig,

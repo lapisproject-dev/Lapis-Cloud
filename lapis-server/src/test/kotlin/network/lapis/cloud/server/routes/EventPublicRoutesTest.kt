@@ -272,6 +272,7 @@ class EventPublicRoutesTest :
                             registrationRateLimiter = generousLimiter(),
                             ticketPageRateLimiter = generousLimiter(),
                             ticketCodeFailureLimiter = generousFailureLimiter(),
+                            icsFeedRateLimiter = generousLimiter(),
                         )
                     }
                 }
