@@ -37,9 +37,13 @@ import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PspWebhookEventTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.module
+import network.lapis.cloud.server.payment.psp.PaypalConfig
+import network.lapis.cloud.server.payment.psp.PaypalConfigState
+import network.lapis.cloud.server.payment.psp.PaypalOrdersClient
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PaymentGatewayComplianceDisclaimer
@@ -200,11 +204,12 @@ class GatewayPaymentJourneyTest :
             bankAccountId: Uuid,
             donationIncomeAccountId: Uuid,
             acknowledgedByMemberId: Uuid,
+            gatewayProvider: PaymentProvider = PaymentProvider.STRIPE,
         ) {
             transaction {
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[paymentGatewayEnabled] = true
-                    it[paymentGatewayProvider] = PaymentProvider.STRIPE
+                    it[paymentGatewayProvider] = gatewayProvider
                     it[paymentBankAccountId] = bankAccountId
                     it[OrganizationSettingsTable.donationIncomeAccountId] = donationIncomeAccountId
                     it[isPoliticalParty] = false
@@ -215,7 +220,7 @@ class GatewayPaymentJourneyTest :
                     it[acknowledgedAt] = DbClock.nowLocalDateTime()
                     it[disclaimerVersion] = PaymentGatewayComplianceDisclaimer.VERSION
                     it[disclaimerSha256] = PaymentGatewayComplianceDisclaimer.SHA256
-                    it[provider] = PaymentProvider.STRIPE
+                    it[provider] = gatewayProvider
                 }
             }
         }
@@ -229,6 +234,20 @@ class GatewayPaymentJourneyTest :
                         else -> null
                     }
                 } as? PspConfigState.Configured,
+            )
+
+        // Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- same throwaway-fixture-config idiom
+        // as e2eConfig() above, just for PaypalConfig.
+        fun e2ePaypalConfig(): PaypalConfigState.Configured =
+            requireNotNull(
+                PaypalConfig.load {
+                    when (it) {
+                        PaypalConfig.ENV_CLIENT_ID -> "e2e-gateway-payment-journey-paypal-clientid"
+                        PaypalConfig.ENV_CLIENT_SECRET -> "e2e-gateway-payment-journey-paypal-secret"
+                        PaypalConfig.ENV_WEBHOOK_ID -> "WH-E2E-GATEWAY-JOURNEY-0000"
+                        else -> null
+                    }
+                } as? PaypalConfigState.Configured,
             )
 
         test(
@@ -258,7 +277,15 @@ class GatewayPaymentJourneyTest :
                             registerPspWebhookRoutes(pspConfig = config, rateLimiter = FederationInboxRateLimiter())
                         }
                         post("/e2e-psp/create-donation-checkout") {
-                            val service = PaymentGatewayService(call = call, pspConfigState = config, checkoutClient = checkoutClient)
+                            val service =
+                                PaymentGatewayService(
+                                    call = call,
+                                    pspConfigState = config,
+                                    gateways =
+                                        mapOf(
+                                            PaymentProvider.STRIPE to checkoutClient,
+                                        ),
+                                )
                             val dto =
                                 service.createDonationCheckout(
                                     DonationCheckoutInput(
@@ -270,12 +297,28 @@ class GatewayPaymentJourneyTest :
                             call.respondText("${dto.id}|${dto.status}|${dto.amount}")
                         }
                         post("/e2e-psp/get-checkout-session/{id}") {
-                            val service = PaymentGatewayService(call = call, pspConfigState = config, checkoutClient = checkoutClient)
+                            val service =
+                                PaymentGatewayService(
+                                    call = call,
+                                    pspConfigState = config,
+                                    gateways =
+                                        mapOf(
+                                            PaymentProvider.STRIPE to checkoutClient,
+                                        ),
+                                )
                             val dto = service.getCheckoutSession(requireNotNull(call.parameters["id"]))
                             call.respondText("${dto.status}|${dto.paymentTransactionId}|${dto.journalEntryId}")
                         }
                         post("/e2e-psp/list-transactions") {
-                            val service = PaymentGatewayService(call = call, pspConfigState = config, checkoutClient = checkoutClient)
+                            val service =
+                                PaymentGatewayService(
+                                    call = call,
+                                    pspConfigState = config,
+                                    gateways =
+                                        mapOf(
+                                            PaymentProvider.STRIPE to checkoutClient,
+                                        ),
+                                )
                             // Test-quality fix (code review, Welle V1.2.8): scoped by the optional
                             // memberId query param instead of always querying UNFILTERED -- see the
                             // call site below for why (shared-test-DB flakiness, same scoping
@@ -395,6 +438,243 @@ class GatewayPaymentJourneyTest :
                         header("Stripe-Signature", e2eSignedHeader(body = body))
                         contentType(ContentType.Application.Json)
                         setBody(body)
+                    }
+                replayResponse.status shouldBe HttpStatusCode.OK
+                transaction {
+                    val transactionCount =
+                        PaymentTransactionTable
+                            .selectAll()
+                            .where { PaymentTransactionTable.checkoutSessionId eq Uuid.parse(checkoutSessionId) }
+                            .count()
+                    transactionCount shouldBe 1L
+                }
+            }
+        }
+
+        // Fix (Review round 1, MAJOR test-coverage gap): plan §5.4 required a full PayPal E2E
+        // journey and none existed -- the diff against this file only ever mechanically renamed the
+        // Stripe journey's own `checkoutClient` parameter to `gateways`. This is that missing
+        // journey, mirroring the Stripe test above step for step but through PaypalOrdersClient/
+        // registerPaypalWebhookRoutes: enable gateway with PAYPAL -> create checkout -> a verified
+        // CHECKOUT.ORDER.APPROVED webhook triggers the capture (no money booked yet) -> a verified
+        // PAYMENT.CAPTURE.COMPLETED webhook posts a balanced journal entry -> provider == PAYPAL in
+        // listPaymentTransactions.
+        test(
+            "donor creates a real PayPal checkout via RPC, CHECKOUT.ORDER.APPROVED triggers capture, " +
+                "PAYMENT.CAPTURE.COMPLETED posts a balanced journal entry with provider == PAYPAL",
+        ) {
+            testApplication {
+                val paypalOrderId = "EC-E2E-${Uuid.random()}"
+                val paypalCaptureId = "CAP-E2E-${Uuid.random()}"
+                val mockPaypalHttp =
+                    HttpClient(
+                        MockEngine { request ->
+                            val path = request.url.encodedPath
+                            when {
+                                path.endsWith("/v1/oauth2/token") ->
+                                    respond(
+                                        """{"access_token":"e2e-paypal-access-token","token_type":"Bearer","expires_in":32400}""",
+                                        HttpStatusCode.OK,
+                                        headersOf(HttpHeaders.ContentType, "application/json"),
+                                    )
+                                path.endsWith("/v2/checkout/orders") ->
+                                    respond(
+                                        """{"id":"$paypalOrderId","status":"CREATED","links":[
+                                        {"href":"https://www.paypal.com/checkoutnow?token=$paypalOrderId","rel":"approve","method":"GET"}
+                                        ]}""",
+                                        HttpStatusCode.OK,
+                                        headersOf(HttpHeaders.ContentType, "application/json"),
+                                    )
+                                path.endsWith("/capture") ->
+                                    respond(
+                                        """{"id":"$paypalOrderId","status":"COMPLETED","purchase_units":[{"payments":{"captures":[
+                                        {"id":"$paypalCaptureId","status":"COMPLETED","amount":{"currency_code":"EUR","value":"25.00"}}
+                                        ]}}]}""",
+                                        HttpStatusCode.OK,
+                                        headersOf(HttpHeaders.ContentType, "application/json"),
+                                    )
+                                path.endsWith("/v1/notifications/verify-webhook-signature") ->
+                                    respond(
+                                        """{"verification_status":"SUCCESS"}""",
+                                        HttpStatusCode.OK,
+                                        headersOf(HttpHeaders.ContentType, "application/json"),
+                                    )
+                                else -> respond("{}", HttpStatusCode.NotFound)
+                            }
+                        },
+                    )
+                val paypalConfig = e2ePaypalConfig()
+                val paypalClient = PaypalOrdersClient(config = paypalConfig.config, httpClient = mockPaypalHttp)
+
+                application {
+                    module()
+                    routing {
+                        route("/e2e-paypal") {
+                            registerPaypalWebhookRoutes(
+                                paypalConfig = paypalConfig,
+                                ordersClient = paypalClient,
+                                rateLimiter = FederationInboxRateLimiter(),
+                            )
+                        }
+                        post("/e2e-paypal/create-donation-checkout") {
+                            val service =
+                                PaymentGatewayService(
+                                    call = call,
+                                    paypalConfigState = paypalConfig,
+                                    gateways = mapOf(PaymentProvider.PAYPAL to paypalClient),
+                                )
+                            val dto =
+                                service.createDonationCheckout(
+                                    DonationCheckoutInput(
+                                        amount = BigDecimal("25.00"),
+                                        donorCategory = null,
+                                        purpose = "E2E PayPal-Spende fuer die Vereinsarbeit",
+                                    ),
+                                )
+                            call.respondText("${dto.id}|${dto.status}|${dto.amount}|${dto.provider}")
+                        }
+                        post("/e2e-paypal/get-checkout-session/{id}") {
+                            val service =
+                                PaymentGatewayService(
+                                    call = call,
+                                    paypalConfigState = paypalConfig,
+                                    gateways = mapOf(PaymentProvider.PAYPAL to paypalClient),
+                                )
+                            val dto = service.getCheckoutSession(requireNotNull(call.parameters["id"]))
+                            call.respondText("${dto.status}|${dto.paymentTransactionId}|${dto.journalEntryId}")
+                        }
+                        post("/e2e-paypal/list-transactions") {
+                            val service =
+                                PaymentGatewayService(
+                                    call = call,
+                                    paypalConfigState = paypalConfig,
+                                    gateways = mapOf(PaymentProvider.PAYPAL to paypalClient),
+                                )
+                            val memberIdFilter = call.request.queryParameters["memberId"]
+                            val page = service.listPaymentTransactions(PaymentTransactionQuery(memberId = memberIdFilter))
+                            call.respondText(
+                                page.rows.joinToString(";") { row -> "${row.amount}|${row.intent}|${row.provider}|${row.journalEntryId}" },
+                            )
+                        }
+                    }
+                }
+
+                fun paypalHeaders(transmissionId: String): Map<String, String> =
+                    mapOf(
+                        "PAYPAL-TRANSMISSION-ID" to transmissionId,
+                        "PAYPAL-TRANSMISSION-TIME" to Clock.System.now().toString(),
+                        "PAYPAL-TRANSMISSION-SIG" to "sig-$transmissionId",
+                        "PAYPAL-CERT-URL" to "https://api-m.paypal.com/cert",
+                        "PAYPAL-AUTH-ALGO" to "SHA256withRSA",
+                    )
+
+                // ── Setup: the accounting side of the gateway ("scene", not this journey's own actor). ──
+                val bankAccountId =
+                    createLedgerAccount(number = "F1${Uuid.random().toString().take(6)}", type = LedgerAccountType.ASSET)
+                val incomeAccountId =
+                    createLedgerAccount(number = "F2${Uuid.random().toString().take(6)}", type = LedgerAccountType.INCOME)
+                val adminId =
+                    createRealMember(displayName = "E2E PayPal Admin", email = "e2e-paypal-admin-${Uuid.random()}@example.org")
+                createdMemberIds += adminId
+                enableGatewayFor(
+                    bankAccountId = bankAccountId,
+                    donationIncomeAccountId = incomeAccountId,
+                    acknowledgedByMemberId = adminId,
+                    gatewayProvider = PaymentProvider.PAYPAL,
+                )
+
+                // ── Step 1: the donor logs in for real and creates a PayPal checkout via the real RPC. ──
+                val donorEmail = "e2e-paypal-donor-${Uuid.random()}@example.org"
+                val donorId = createRealMember(displayName = "E2E PayPal Spenderin", email = donorEmail, password = E2E_STRONG_PASSWORD)
+                createdMemberIds += donorId
+                val donorToken = client.realLogin(email = donorEmail, password = E2E_STRONG_PASSWORD)
+                val createResponse =
+                    client
+                        .post("/e2e-paypal/create-donation-checkout") { withSession(donorToken) }
+                        .bodyAsText()
+                        .split("|")
+                val checkoutSessionId = createResponse[0]
+                createResponse[1] shouldBe PaymentCheckoutSessionStatus.CREATED.toString()
+                createResponse[2] shouldBe "25.00"
+                createResponse[3] shouldBe PaymentProvider.PAYPAL.toString()
+                createdCheckoutSessionIds += Uuid.parse(checkoutSessionId)
+
+                // ── Step 2: PayPal delivers a verified CHECKOUT.ORDER.APPROVED -- triggers the capture, ──
+                // ── no money booked yet. ─────────────────────────────────────────────────────────────────
+                val approvedEventId = "WH-E2E-APPROVED-${Uuid.random()}"
+                val approvedBody =
+                    """
+                    {"id":"$approvedEventId","event_type":"CHECKOUT.ORDER.APPROVED",
+                    "resource":{"id":"$paypalOrderId","status":"APPROVED","custom_id":"$checkoutSessionId"}}
+                    """.trimIndent()
+                val approvedResponse =
+                    client.post("/e2e-paypal/api/webhooks/paypal") {
+                        paypalHeaders(approvedEventId).forEach { (name, value) -> header(name, value) }
+                        contentType(ContentType.Application.Json)
+                        setBody(approvedBody)
+                    }
+                approvedResponse.status shouldBe HttpStatusCode.OK
+                val sessionAfterApproval =
+                    client
+                        .post("/e2e-paypal/get-checkout-session/$checkoutSessionId") { withSession(donorToken) }
+                        .bodyAsText()
+                        .split("|")
+                // Still CREATED -- capture alone books nothing, see PaypalWebhookRoutes KDoc step 10.
+                sessionAfterApproval[0] shouldBe PaymentCheckoutSessionStatus.CREATED.toString()
+
+                // ── Step 3: PayPal delivers a verified PAYMENT.CAPTURE.COMPLETED -- posts the money. ────
+                val capturedEventId = "WH-E2E-CAPTURED-${Uuid.random()}"
+                val capturedBody =
+                    """
+                    {"id":"$capturedEventId","event_type":"PAYMENT.CAPTURE.COMPLETED",
+                    "resource":{"id":"$paypalCaptureId","status":"COMPLETED",
+                    "amount":{"currency_code":"EUR","value":"25.00"},
+                    "supplementary_data":{"related_ids":{"order_id":"$paypalOrderId"}}}}
+                    """.trimIndent()
+                val capturedResponse =
+                    client.post("/e2e-paypal/api/webhooks/paypal") {
+                        paypalHeaders(capturedEventId).forEach { (name, value) -> header(name, value) }
+                        contentType(ContentType.Application.Json)
+                        setBody(capturedBody)
+                    }
+                capturedResponse.status shouldBe HttpStatusCode.OK
+
+                val sessionAfterCapture =
+                    client
+                        .post("/e2e-paypal/get-checkout-session/$checkoutSessionId") { withSession(donorToken) }
+                        .bodyAsText()
+                        .split("|")
+                sessionAfterCapture[0] shouldBe PaymentCheckoutSessionStatus.COMPLETED.toString()
+                val paymentTransactionId = sessionAfterCapture[1]
+                paymentTransactionId shouldNotBe "null"
+                val journalEntryId = sessionAfterCapture[2]
+                journalEntryId shouldNotBe "null"
+
+                transaction {
+                    val postingCount =
+                        PostingTable.selectAll().where { PostingTable.journalEntryId eq Uuid.parse(journalEntryId) }.count()
+                    postingCount shouldBe 2L
+                }
+
+                // ── Step 4: the treasurer sees the posted transaction with provider == PAYPAL. ──────────
+                val treasurerRows =
+                    client
+                        .post("/e2e-paypal/list-transactions?memberId=$donorId") { header("X-Member-Id", TREASURER_ID) }
+                        .bodyAsText()
+                        .split(";")
+                treasurerRows shouldHaveSize 1
+                val (amount, intent, provider, journalEntryIdFromList) = treasurerRows[0].split("|")
+                amount shouldBe "25.00"
+                intent shouldBe PaymentIntent.DONATION.toString()
+                provider shouldBe PaymentProvider.PAYPAL.toString()
+                journalEntryIdFromList shouldBe journalEntryId
+
+                // ── Step 5: a replayed PAYMENT.CAPTURE.COMPLETED delivery is a pure no-op. ───────────────
+                val replayResponse =
+                    client.post("/e2e-paypal/api/webhooks/paypal") {
+                        paypalHeaders(capturedEventId).forEach { (name, value) -> header(name, value) }
+                        contentType(ContentType.Application.Json)
+                        setBody(capturedBody)
                     }
                 replayResponse.status shouldBe HttpStatusCode.OK
                 transaction {

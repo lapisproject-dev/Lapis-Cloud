@@ -170,6 +170,14 @@ services:
       LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS: ${LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS:-}
       LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR: ${LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR:-}
       LAPIS_PSP_CHECKOUT_TTL_MINUTES: ${LAPIS_PSP_CHECKOUT_TTL_MINUTES:-}
+      # PSP-Checkout via PayPal (V1.2.8b) -- ALL optional, but ALL-OR-NOTHING for the three
+      # required values: either all of LAPIS_PAYPAL_CLIENT_ID / LAPIS_PAYPAL_CLIENT_SECRET /
+      # LAPIS_PAYPAL_WEBHOOK_ID or none. A half configuration deliberately fails startup -- see
+      # PaypalConfig KDoc and .env.example. LAPIS_PAYPAL_API_BASE_URL selects live vs sandbox.
+      LAPIS_PAYPAL_CLIENT_ID: ${LAPIS_PAYPAL_CLIENT_ID:-}
+      LAPIS_PAYPAL_CLIENT_SECRET: ${LAPIS_PAYPAL_CLIENT_SECRET:-}
+      LAPIS_PAYPAL_WEBHOOK_ID: ${LAPIS_PAYPAL_WEBHOOK_ID:-}
+      LAPIS_PAYPAL_API_BASE_URL: ${LAPIS_PAYPAL_API_BASE_URL:-}
       # Ausgehende Webhooks (V1.3.2) -- OPTIONAL, default aus. LAPIS_WEBHOOKS_ENABLED=true also
       # requires LAPIS_SECRET_ENCRYPTION_KEY above (WebhookConfig.load fails fast otherwise, same
       # key as Wave 3 Streaming). LAPIS_WEBHOOKS_ALLOW_INSECURE intentionally omitted rather than

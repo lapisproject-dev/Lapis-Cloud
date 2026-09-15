@@ -370,8 +370,8 @@ class EventPaymentResumeTest :
                 )
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = pspConfigState,
-                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState),
+                    checkoutGateways =
+                        fakeSuccessfulCheckoutClient(pspConfigState)?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )
@@ -412,8 +412,8 @@ class EventPaymentResumeTest :
 
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = pspConfigState,
-                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState),
+                    checkoutGateways =
+                        fakeSuccessfulCheckoutClient(pspConfigState)?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )
@@ -444,8 +444,7 @@ class EventPaymentResumeTest :
                 )
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = PspConfigState.NotConfigured,
-                    checkoutClient = null,
+                    checkoutGateways = emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )
@@ -474,8 +473,10 @@ class EventPaymentResumeTest :
                 )
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = pspConfigState,
-                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState, sessionId = "cs_test_resume_reuse_fake"),
+                    checkoutGateways =
+                        mapOf(
+                            PaymentProvider.STRIPE to fakeSuccessfulCheckoutClient(pspConfigState, sessionId = "cs_test_resume_reuse_fake"),
+                        ),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )
@@ -528,8 +529,10 @@ class EventPaymentResumeTest :
                 )
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = pspConfigState,
-                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState, sessionId = "cs_test_dedup_window_fake"),
+                    checkoutGateways =
+                        mapOf(
+                            PaymentProvider.STRIPE to fakeSuccessfulCheckoutClient(pspConfigState, sessionId = "cs_test_dedup_window_fake"),
+                        ),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )
@@ -585,14 +588,13 @@ class EventPaymentResumeTest :
             )
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = pspConfigState,
-                    checkoutClient = fakeFailingCheckoutClient(pspConfigState),
+                    checkoutGateways = fakeFailingCheckoutClient(pspConfigState)?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )
 
             val result = runBlocking { submission.resumeCheckout(eventId = eventId, registrationId = registrationId) }
-            (result is EventRegistrationResult.StripeFailed) shouldBe true
+            (result is EventRegistrationResult.PaymentFailed) shouldBe true
 
             registrationRow(registrationId)[EventRegistrationTable.status] shouldBe EventRegistrationStatus.PENDING_PAYMENT
             val waitlistedCount =
@@ -624,8 +626,8 @@ class EventPaymentResumeTest :
                 )
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = pspConfigState,
-                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState),
+                    checkoutGateways =
+                        fakeSuccessfulCheckoutClient(pspConfigState)?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher = noOpMailDispatcher(),
                 )

@@ -40,7 +40,7 @@ class EmbedDonationPagesTest :
                         registerEmbedDonationRoutes(
                             config = enabledConfig,
                             pspConfigState = PspConfigState.NotConfigured,
-                            checkoutClient = null,
+                            checkoutGateways = emptyMap(),
                             donationCheckoutRateLimiter = generousLimiter(),
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),

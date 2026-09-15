@@ -24,7 +24,6 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
-import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -318,8 +317,7 @@ class EventIcsFeedTest :
                 application {
                     routing {
                         registerEventPublicRoutes(
-                            pspConfigState = PspConfigState.NotConfigured,
-                            checkoutClient = null,
+                            checkoutGateways = emptyMap(),
                             baseUrl = "https://example.org",
                             mailDispatcher = noOpMailDispatcher(),
                             brandTitle = "Testverein",

@@ -153,7 +153,7 @@ class EmbedRateLimitTest :
                         registerEmbedDonationRoutes(
                             config = enabledConfig,
                             pspConfigState = PspConfigState.Configured(testPspConfig),
-                            checkoutClient = mockCheckoutClient(),
+                            checkoutGateways = (mockCheckoutClient())?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             donationCheckoutRateLimiter =
                                 FederationInboxRateLimiter(
                                     maxRequests = 3,
@@ -216,7 +216,7 @@ class EmbedRateLimitTest :
                         registerEmbedDonationRoutes(
                             config = enabledConfig,
                             pspConfigState = PspConfigState.Configured(testPspConfig),
-                            checkoutClient = mockCheckoutClient(),
+                            checkoutGateways = (mockCheckoutClient())?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             donationCheckoutRateLimiter =
                                 FederationInboxRateLimiter(
                                     maxRequests = 3,
@@ -257,7 +257,7 @@ class EmbedRateLimitTest :
                         registerEmbedDonationRoutes(
                             config = enabledConfig,
                             pspConfigState = PspConfigState.Configured(testPspConfig),
-                            checkoutClient = mockCheckoutClient(),
+                            checkoutGateways = (mockCheckoutClient())?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             donationCheckoutRateLimiter =
                                 FederationInboxRateLimiter(
                                     maxRequests = 3,

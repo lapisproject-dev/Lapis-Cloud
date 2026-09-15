@@ -1,0 +1,179 @@
+= PayPal Payment Service Provider — Welle V1.2.8b (GitHub Issue #6)
+:description: Design rationale for PayPal as a second payment service provider alongside Stripe — the two resolved design decisions, the webhook-triggered capture-flow sequence, the verify-API 503-retry contract, and the anonymous-donation expiry-sweep gap.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Welle V1.2.8 (GitHub Issue #6) shipped Stripe as this codebase's first payment service provider —
+a Stripe-hosted Checkout for member contributions and donations, with `enablePaymentGateway`
+rejecting `PaymentProvider.PAYPAL` even though the enum literal already existed. Welle V1.2.8b
+(this document, same GitHub issue as a follow-up) closes that gap: PayPal is now a full second
+provider, accepted by `enablePaymentGateway` on equal footing with Stripe.
+
+The implementation deliberately reuses the structure V1.2.8 established rather than inventing a
+parallel one: `PspCheckoutGateway` is the provider-neutral abstraction (`createCheckout`/
+`maxCheckoutAmountEur`/`checkoutTtlMinutes`/`sessionLifetimeCap`) that `StripeCheckoutClient` and
+the new `PaypalOrdersClient` both implement, and `PspPaymentEvent` is the provider-neutral,
+already-signature-verified "money arrived" event both providers' webhook routes hand to the shared
+`PspWebhookIngestion`. `PaypalConfig`/`PaypalConfigState` mirror `PspConfig`/`PspConfigState`
+field-for-field rather than extending them — this codebase keeps `SmtpConfig`/`PspConfig`/
+`SepaConfig`/`DunningConfig`/`FinTsConfig` as separate single-purpose objects even where their
+shape is identical, and PayPal's config follows the same convention.
+
+See the README's link:../../README.adoc#_payment_service_providers_stripe_paypal[Payment service
+providers (Stripe + PayPal)] section for operator-facing setup (environment variables, dashboard
+webhook registration, current scope). This document covers the design rationale and mechanics
+behind that setup.
+
+== Decision 1: webhook signature verification via a live outbound call, not certificate-chain validation
+
+Stripe's webhook signature is a self-contained, dependency-free HMAC computed against the shared
+signing secret and the raw request body — no network call needed to verify a delivery
+(`StripeSignatureVerifier`). PayPal offers no equivalent: PayPal's own recommended verification
+mechanism requires either
+
+1. downloading the certificate PayPal names in the `PAYPAL-CERT-URL` request header and validating
+   the signature against it locally, or
+2. calling PayPal's own `POST /v1/notifications/verify-webhook-signature` API with the raw
+   transmission headers and body, and trusting its `verification_status` response.
+
+**This codebase chose option 2** (`PaypalOrdersClient.verifyWebhookSignature`). Option 1 was
+rejected: trusting a URL supplied by the *incoming, unauthenticated* request itself
+(`PAYPAL-CERT-URL`) to decide which certificate to fetch is a textbook unauthenticated SSRF vector
+— an attacker who can deliver a webhook POST can point that header anywhere. Pinning the
+certificate URL to PayPal's own domain would close that hole, but at that point option 2 is no
+worse in outbound-call terms (both require an outbound HTTPS call on the hot path) while requiring
+none of the certificate-parsing/pinning logic option 1 would need. Option 2's outbound dependency
+on PayPal's own API is accepted as the cost of a much smaller trust surface.
+
+=== The 503-retry contract this decision creates
+
+Because verification is a live outbound call, that call can itself fail for reasons that have
+nothing to do with the delivery being forged — PayPal's verify API timing out, returning a 5xx, or
+the outbound connection failing. `PaypalVerifyResult.Unavailable(statusCode)` represents exactly
+this case, and `registerPaypalWebhookRoutes` (step 6 of the route's 11-step skeleton, see that
+function's own KDoc) responds `503 Service Unavailable` for it — deliberately distinct from the
+`401 Unauthorized` a genuinely `NotVerified` signature gets.
+
+This distinction matters operationally: PayPal retries a non-2xx webhook delivery for **up to
+three days**. A `503` tells PayPal "try again, this may be transient"; a `401` would tell PayPal
+(and any operator inspecting delivery logs) "this delivery is invalid, don't bother" — which would
+be actively wrong for an outage of PayPal's own verify API, and would risk silently dropping a
+legitimate payment confirmation for good. The ordering the route follows is deliberate:
+`NotVerified` → `401`, `Unavailable` → `503`, `Verified` → only then does
+`checkTransmissionFreshness` run (an anti-timing-oracle ordering: freshness must never be checked
+before signature validity, mirroring the reasoning already in `StripeSignatureVerifier`'s own
+step 4 KDoc).
+
+== Decision 2: capture is webhook-triggered, never in the return-flow request
+
+Stripe's Checkout captures payment itself once the payer completes the hosted page; this server
+only ever learns about it after the fact via `checkout.session.completed`. PayPal's Orders v2 API
+splits creation and capture into two separate calls: `POST /v2/checkout/orders` creates an order
+the payer must still *approve*, and a **separate** `POST /v2/checkout/orders/{id}/capture` call is
+what actually moves the money — nothing captures automatically on approval.
+
+That leaves a choice of *where* the capture call happens. The rejected alternative was capturing
+synchronously in the browser return-flow request (i.e., when the payer's browser redirects back to
+`PaymentReturnScreen` after approving on PayPal's site). **This codebase captures in the webhook
+handler instead**, triggered by the `CHECKOUT.ORDER.APPROVED` event
+(`registerPaypalWebhookRoutes`, dispatch step 10):
+
+* A payer who approves on PayPal's site and then closes the tab **before** the return-flow request
+  ever fires would leave an approved-but-never-captured order forever under the return-flow
+  design. The webhook fires regardless of what the payer's browser does afterward.
+* No new RPC method and no client-side change were needed:
+  `PaymentReturnScreen`'s existing webhook-authoritative polling (it already never trusted the
+  return-flow request itself to mean "paid" — that was already true for Stripe) keeps working
+  unmodified for both providers.
+* `PaypalCaptureResult.AlreadyCaptured` (PayPal's `422`/`ORDER_ALREADY_CAPTURED`) makes a duplicate
+  `CHECKOUT.ORDER.APPROVED` delivery — or a delivery arriving after an operator-triggered retry —
+  a clean no-op rather than an error, so retried delivery of the same webhook is safe.
+
+=== Capture-flow sequence
+
+[kuml, paypal-capture-flow, svg]
+----
+sequenceDiagram(name = "PayPal checkout + capture (V1.2.8b)") {
+    val payer = participant(name = "Payer")
+    val server = participant(name = "Lapis Cloud Server")
+    val paypal = participant(name = "PayPal")
+
+    message(from = payer, to = server, text = "create checkout (amount, checkoutSessionId)")
+    message(from = server, to = paypal, text = "POST /v2/checkout/orders (intent=CAPTURE, custom_id=checkoutSessionId)")
+    message(from = paypal, to = server, text = "order id + approve link")
+    message(from = server, to = payer, text = "redirect to PayPal approve link")
+
+    message(from = payer, to = paypal, text = "approve order on PayPal's own page")
+    message(from = paypal, to = server, text = "webhook: CHECKOUT.ORDER.APPROVED")
+    message(from = server, to = paypal, text = "POST /v1/notifications/verify-webhook-signature")
+    message(from = paypal, to = server, text = "verification_status")
+    message(from = server, to = paypal, text = "POST /v2/checkout/orders/{id}/capture")
+    message(from = paypal, to = server, text = "capture result (Captured / AlreadyCaptured / Failed)")
+
+    message(from = paypal, to = server, text = "webhook: PAYMENT.CAPTURE.COMPLETED")
+    message(from = server, to = server, text = "PspWebhookIngestion.ingestCheckoutCompleted -> post to ledger")
+
+    message(from = payer, to = server, text = "browser return-flow redirect (informational only)")
+    message(from = server, to = payer, text = "PaymentReturnScreen polls webhook-authoritative status")
+}
+----
+
+Note the two independent webhook deliveries this creates: `CHECKOUT.ORDER.APPROVED` only triggers
+the capture call (no money is booked yet — see the dispatch table in
+`registerPaypalWebhookRoutes`'s own KDoc), and the *separate* `PAYMENT.CAPTURE.COMPLETED` delivery
+is what actually reaches `PspWebhookIngestion.ingestCheckoutCompleted` and posts to the ledger —
+exactly the same ingestion entry point Stripe's `checkout.session.completed` reaches, via the
+shared, provider-neutral `PspPaymentEvent`. `PAYMENT.CAPTURE.DENIED`/`CHECKOUT.ORDER.VOIDED` reach
+`PspWebhookIngestion.ingestCheckoutExpired` instead, cleaning up the placeholder rows exactly as
+Stripe's `checkout.session.expired` does.
+
+== Asymmetry: PayPal's own order lifetime as an end-to-end TTL ceiling
+
+Unlike Stripe, where `PspConfig.checkoutTtlMinutes` is this server's own independent clock racing
+against Stripe's much longer ~24h Checkout Session lifetime, PayPal's own order approval window is
+only around three hours. `PspCheckoutGateway.sessionLifetimeCap` exists precisely so a caller like
+`findReusableForRegistration` never hands back an already-provider-expired `redirectUrl` it
+believes is still live: `EventPolicy.PAYPAL_SESSION_LIFETIME_CAP` deliberately caps
+`event_registration.expires_at` at PayPal's own real ceiling rather than at this server's
+independently configured `checkoutTtlMinutes`, which for PayPal could otherwise be configured
+longer than PayPal itself would honor. `PaypalConfig.checkoutTtlMinutes`/`PspConfig
+.checkoutTtlMinutes` still reuse the three shared `LAPIS_PSP_*` knobs
+(`LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS`/`LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR`/
+`LAPIS_PSP_CHECKOUT_TTL_MINUTES`) — see `PaypalConfig`'s own KDoc for why those three, and only
+those three, count as shared rather than PayPal-specific configuration.
+
+== Known gap: the anonymous-donation expiry sweep is currently a no-op for PayPal
+
+`PspCheckoutSessions.sweepExpiredAnonymousSessions` cleans up an abandoned anonymous-donation
+checkout's placeholder `external_donor`/`payment_checkout_session` rows once its TTL has passed.
+`registerPaypalWebhookRoutes` calls it opportunistically after every PayPal webhook response
+(step 12), exactly mirroring the Stripe route.
+
+**In practice this call currently does nothing for PayPal**: the anonymous embed-widget donation
+path (`/api/embed/v1/donation/checkout`) is deliberately Stripe-only this wave —
+`AnonymousDonationCheckout.gatewayUsable` only ever resolves to `STRIPE` — so no PayPal
+`payment_checkout_session` row is ever created with a non-null `externalDonorId` for the sweep to
+match against. The call is kept anyway, ready for the day anonymous PayPal donations ship, rather
+than being wired up conditionally on a flag that would need to be found and flipped later. If a
+future wave decides anonymous PayPal donations will never ship, removing this call (or at least
+this explanatory comment) is the appropriate cleanup at that point — see the call site's own
+inline comment in `PaypalWebhookRoutes.kt`.
+
+This is a known, accepted gap for this wave, not a defect: no PayPal anonymous-donation session
+currently exists for a stale row to leak from, so nothing is actually orphaned in production today.
+
+== See also
+
+* `network.lapis.cloud.server.payment.psp.IPaymentGatewayService` KDoc — "The three-part usability
+  gate", the authoritative source for what actually blocks payment acceptance (both providers).
+* `network.lapis.cloud.server.payment.psp.PspCheckoutGateway` — the provider-neutral abstraction.
+* `network.lapis.cloud.server.payment.psp.PaypalOrdersClient` — the three outbound PayPal HTTP
+  calls (`orders`, `orders/{id}/capture`, `notifications/verify-webhook-signature`) in full KDoc
+  detail.
+* `network.lapis.cloud.server.routes.PaypalWebhookRoutes.kt` — the 11-step (+1 opportunistic sweep)
+  webhook route skeleton, and why it stays a separate file from `PspWebhookRoutes.kt` rather than
+  merging with it.
+* README `Payment service providers (Stripe + PayPal)` — operator-facing setup and current scope.

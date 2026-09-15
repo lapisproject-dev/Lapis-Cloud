@@ -24,8 +24,9 @@ import network.lapis.cloud.server.embed.respondEmbedPreflight
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.payment.psp.AnonymousDonationCheckout
 import network.lapis.cloud.server.payment.psp.AnonymousDonationResult
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.shared.domain.PaymentProvider
 import java.math.BigDecimal
 
 /** Hard cap on a `POST /api/embed/v1/donation/checkout` body -- generous for `{"amount":"...", "kommentar":"..."}`, same DoS-guard reasoning as `PspWebhookRoutes`' own `MAX_WEBHOOK_BODY_BYTES`. */
@@ -68,7 +69,11 @@ internal data class EmbedDonationCheckoutRequest(
 internal fun Route.registerEmbedDonationRoutes(
     config: EmbedConfig,
     pspConfigState: PspConfigState,
-    checkoutClient: StripeCheckoutClient?,
+    // Welle V1.2.8b "PayPal-Anbindung" -- the anonymous embed-widget donation path stays Stripe-only
+    // for this wave (the widget itself never lets an anonymous donor choose a provider, and
+    // AnonymousDonationCheckout's own gate hard-codes PaymentProvider.STRIPE, see that class KDoc);
+    // only the Stripe entry of the shared gateway map is used here.
+    checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     donationCheckoutRateLimiter: FederationInboxRateLimiter,
     donationCheckoutAttemptRateLimiter: FederationInboxRateLimiter,
     donationPageRateLimiter: FederationInboxRateLimiter,
@@ -78,7 +83,7 @@ internal fun Route.registerEmbedDonationRoutes(
     val checkout =
         AnonymousDonationCheckout(
             pspConfigState = pspConfigState,
-            checkoutClient = checkoutClient,
+            checkoutClient = checkoutGateways[PaymentProvider.STRIPE],
             baseUrl = baseUrl,
             checkoutRateLimiter = donationCheckoutRateLimiter,
         )

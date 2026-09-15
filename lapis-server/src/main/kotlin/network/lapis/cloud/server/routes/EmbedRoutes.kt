@@ -26,8 +26,8 @@ import network.lapis.cloud.server.embed.respondEmbedPreflight
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.paymentGatewayDisclaimerIsCurrentlyAcknowledged
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
@@ -92,7 +92,7 @@ fun Route.registerEmbedRoutes(
     // checkoutClient liegen in Application.module() bereits vor (siehe registerPspWebhookRoutes' eigene
     // Aufrufstelle) und werden hier lediglich durchgereicht.
     pspConfigState: PspConfigState,
-    checkoutClient: StripeCheckoutClient?,
+    checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     donationCheckoutRateLimiter: FederationInboxRateLimiter,
     donationCheckoutAttemptRateLimiter: FederationInboxRateLimiter,
     donationPageRateLimiter: FederationInboxRateLimiter,
@@ -112,7 +112,7 @@ fun Route.registerEmbedRoutes(
     registerEmbedAdminStatusRoute(
         config = config,
         adminStatusRateLimiter = adminStatusRateLimiter,
-        pspConfigState = pspConfigState,
+        checkoutGateways = checkoutGateways,
     )
 
     if (!config.enabled) return
@@ -122,6 +122,8 @@ fun Route.registerEmbedRoutes(
     // it into the widget bundle here carries no staleness risk. null whenever the donation form
     // itself would be unusable anyway (PSP not configured/incomplete, or the operator's own
     // maximum sits below EmbedDonationLimits.MIN_AMOUNT_EUR) -- see EmbedAssets.widgetJs KDoc.
+    // Welle V1.2.8b: the anonymous embed-widget donation path stays Stripe-only for now (the
+    // widget itself never lets the donor choose a provider) -- see EmbedDonationRoutes KDoc.
     val donationRange =
         (pspConfigState as? PspConfigState.Configured)?.config?.maxCheckoutAmountEur?.let { pspMax ->
             if (EmbedDonationLimits.rangeIsUsable(pspMax)) {
@@ -140,7 +142,7 @@ fun Route.registerEmbedRoutes(
     registerEmbedDonationRoutes(
         config = config,
         pspConfigState = pspConfigState,
-        checkoutClient = checkoutClient,
+        checkoutGateways = checkoutGateways,
         donationCheckoutRateLimiter = donationCheckoutRateLimiter,
         donationCheckoutAttemptRateLimiter = donationCheckoutAttemptRateLimiter,
         donationPageRateLimiter = donationPageRateLimiter,
@@ -151,8 +153,7 @@ fun Route.registerEmbedRoutes(
     // Welle V1.4.3.3 "Veranstaltungs-Anmeldung als einbettbares Website-Widget".
     registerEmbedEventRoutes(
         config = config,
-        pspConfigState = pspConfigState,
-        checkoutClient = checkoutClient,
+        checkoutGateways = checkoutGateways,
         mailDispatcher = mailDispatcher,
         baseUrl = baseUrl,
         attemptRateLimiter = eventRegistrationAttemptRateLimiter,
@@ -344,7 +345,7 @@ fun Route.registerEmbedRoutes(
 private fun Route.registerEmbedAdminStatusRoute(
     config: EmbedConfig,
     adminStatusRateLimiter: FederationInboxRateLimiter,
-    pspConfigState: PspConfigState,
+    checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
 ) {
     get("/api/embed/v1/admin/status") {
         if (!adminStatusRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -355,7 +356,7 @@ private fun Route.registerEmbedAdminStatusRoute(
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
         val (donationWidgetAvailable, donationWidgetUnavailableReason) =
-            donationWidgetAvailability(config = config, pspConfigState = pspConfigState)
+            donationWidgetAvailability(config = config, checkoutGateways = checkoutGateways)
         val response =
             EmbedAdminStatusResponse(
                 enabled = config.enabled,
@@ -384,7 +385,7 @@ private fun Route.registerEmbedAdminStatusRoute(
  */
 private fun donationWidgetAvailability(
     config: EmbedConfig,
-    pspConfigState: PspConfigState,
+    checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
 ): Pair<Boolean, String?> {
     if (!config.enabled) return false to "EMBED_DISABLED"
     val settingsRow =
@@ -393,11 +394,20 @@ private fun donationWidgetAvailability(
         }
     val gatewayEnabled = settingsRow?.get(OrganizationSettingsTable.paymentGatewayEnabled) ?: false
     val provider = settingsRow?.get(OrganizationSettingsTable.paymentGatewayProvider)
+    // Fix (Review round 1, CRITICAL): this check MUST stay Stripe-scoped, not provider-agnostic --
+    // the anonymous embed-widget donation checkout path (AnonymousDonationCheckout.gatewayUsable)
+    // is Stripe-only BY CONSTRUCTION (EmbedDonationRoutes.kt wires
+    // `checkoutClient = checkoutGateways[PaymentProvider.STRIPE]` unconditionally, never the
+    // org's selected provider). An org that has configured+selected PAYPAL must see this admin
+    // status endpoint report the SAME unavailability a real donor would hit, not a false
+    // "available" that every actual checkout attempt then contradicts with GatewayUnavailable.
+    // If the embed donation widget ever gains multi-provider support, widen BOTH this check and
+    // AnonymousDonationCheckout.gatewayUsable together -- never just one of the two.
     if (!gatewayEnabled || provider != PaymentProvider.STRIPE || !paymentGatewayDisclaimerIsCurrentlyAcknowledged()) {
         return false to "GATEWAY_DISABLED"
     }
-    val pspConfig = (pspConfigState as? PspConfigState.Configured)?.config ?: return false to "STRIPE_NOT_CONFIGURED"
-    if (!EmbedDonationLimits.rangeIsUsable(pspConfig.maxCheckoutAmountEur)) {
+    val gateway = checkoutGateways[PaymentProvider.STRIPE] ?: return false to "STRIPE_NOT_CONFIGURED"
+    if (!EmbedDonationLimits.rangeIsUsable(gateway.maxCheckoutAmountEur)) {
         return false to "AMOUNT_RANGE_EMPTY"
     }
     return true to null
@@ -417,7 +427,7 @@ internal data class EmbedAdminStatusResponse(
     val allowInsecureOrigins: Boolean,
     /** Welle V1.4.1b. */
     val donationWidgetAvailable: Boolean,
-    /** `null` when [donationWidgetAvailable]; sonst `"STRIPE_NOT_CONFIGURED"` | `"GATEWAY_DISABLED"` | `"EMBED_DISABLED"` | `"AMOUNT_RANGE_EMPTY"`. */
+    /** `null` when [donationWidgetAvailable]; sonst `"STRIPE_NOT_CONFIGURED"` | `"GATEWAY_DISABLED"` | `"EMBED_DISABLED"` | `"AMOUNT_RANGE_EMPTY"`. Stripe-scoped, see `donationWidgetAvailability` KDoc -- the embed donation widget is Stripe-only regardless of the org's selected provider. */
     val donationWidgetUnavailableReason: String?,
 )
 

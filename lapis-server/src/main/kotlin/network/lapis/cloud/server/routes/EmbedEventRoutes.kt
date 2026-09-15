@@ -31,9 +31,9 @@ import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
@@ -132,7 +132,7 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
             HttpStatusCode.Conflict to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.WAITLIST_FULL)
         EventRegistrationResult.GatewayUnavailable ->
             HttpStatusCode.ServiceUnavailable to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.UNAVAILABLE)
-        is EventRegistrationResult.StripeFailed ->
+        is EventRegistrationResult.PaymentFailed ->
             // result.message (Stripe's own text) stays server-side only -- never delivered here,
             // same posture EmbedDonationRoutes' own StripeFailed branch establishes.
             HttpStatusCode.BadGateway to EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.GATEWAY_ERROR)
@@ -192,8 +192,7 @@ internal fun embedEventResponseFor(result: EventRegistrationResult): Pair<HttpSt
  */
 internal fun Route.registerEmbedEventRoutes(
     config: EmbedConfig,
-    pspConfigState: PspConfigState,
-    checkoutClient: StripeCheckoutClient?,
+    checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     mailDispatcher: MailDispatcher,
     baseUrl: String,
     attemptRateLimiter: FederationInboxRateLimiter,
@@ -202,8 +201,7 @@ internal fun Route.registerEmbedEventRoutes(
 ) {
     val submission =
         EventRegistrationSubmission(
-            pspConfigState = pspConfigState,
-            checkoutClient = checkoutClient,
+            checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
         )

@@ -147,7 +147,7 @@ class PaymentComplianceGateTest :
 
         test(
             "Payment-gateway gate: provider=MANUAL rejected, wrong hash rejected, correct hash+STRIPE enables + records provider " +
-                "(Welle V1.2.8: provider=PAYPAL is now ALSO rejected -- see IPaymentGatewayService class KDoc)",
+                "(Welle V1.2.8b: provider=PAYPAL is now ALSO accepted here -- see IPaymentGatewayService class KDoc)",
         ) {
             testApplication {
                 application {
@@ -164,13 +164,15 @@ class PaymentComplianceGateTest :
                     }
                 manualRejected.status shouldBe HttpStatusCode.BadRequest
 
-                // Welle V1.2.8 scope decision -- PayPal stays a valid PaymentProvider literal
-                // (enum-order-pinned by PaymentsSchemaDriftTest) but is no longer accepted here.
-                val paypalRejected =
+                // Welle V1.2.8b -- PayPal is now a fully accepted provider at enable-time (only
+                // MANUAL is rejected) -- see IPaymentGatewayService KDoc "The three-part usability
+                // gate". Re-acknowledging afterwards with STRIPE below still succeeds (disable is
+                // not required first).
+                val paypalAccepted =
                     client.post("/test/gateway-enable?provider=PAYPAL&version=$version&sha256=$sha256") {
                         header("X-Member-Id", ADMIN_ID)
                     }
-                paypalRejected.status shouldBe HttpStatusCode.BadRequest
+                paypalAccepted.status shouldBe HttpStatusCode.OK
 
                 val wrongHash =
                     client.post("/test/gateway-enable?provider=STRIPE&version=$version&sha256=deadbeef") {

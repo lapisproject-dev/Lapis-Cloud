@@ -76,8 +76,8 @@ class EmbedEventOutcomeMappingTest :
             response shouldBe EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.UNAVAILABLE)
         }
 
-        test("StripeFailed -> 502 {\"outcome\":\"GATEWAY_ERROR\"}, Stripe's own message text never appears anywhere in the result") {
-            val (status, response) = embedEventResponseFor(EventRegistrationResult.StripeFailed(message = "geheimer Stripe-Text"))
+        test("PaymentFailed -> 502 {\"outcome\":\"GATEWAY_ERROR\"}, Stripe's own message text never appears anywhere in the result") {
+            val (status, response) = embedEventResponseFor(EventRegistrationResult.PaymentFailed(message = "geheimer Stripe-Text"))
             status shouldBe HttpStatusCode.BadGateway
             response shouldBe EmbedEventRegistrationResponse(outcome = EmbedEventOutcome.GATEWAY_ERROR)
             response.toString().contains("geheimer Stripe-Text") shouldBe false

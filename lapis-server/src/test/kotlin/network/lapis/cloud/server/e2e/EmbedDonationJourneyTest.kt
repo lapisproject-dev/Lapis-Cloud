@@ -288,7 +288,7 @@ class EmbedDonationJourneyTest :
                             registerEmbedDonationRoutes(
                                 config = embedTestConfig,
                                 pspConfigState = config,
-                                checkoutClient = checkoutClient,
+                                checkoutGateways = mapOf(PaymentProvider.STRIPE to checkoutClient),
                                 donationCheckoutRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationCheckoutAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationPageRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes),
@@ -466,7 +466,7 @@ class EmbedDonationJourneyTest :
                             registerEmbedDonationRoutes(
                                 config = embedTestConfig,
                                 pspConfigState = config,
-                                checkoutClient = checkoutClient,
+                                checkoutGateways = mapOf(PaymentProvider.STRIPE to checkoutClient),
                                 donationCheckoutRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationCheckoutAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationPageRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes),
@@ -531,7 +531,7 @@ class EmbedDonationJourneyTest :
                             registerEmbedDonationRoutes(
                                 config = embedTestConfig,
                                 pspConfigState = config,
-                                checkoutClient = checkoutClient,
+                                checkoutGateways = mapOf(PaymentProvider.STRIPE to checkoutClient),
                                 donationCheckoutRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationCheckoutAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationPageRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes),
@@ -597,7 +597,7 @@ class EmbedDonationJourneyTest :
                             registerEmbedDonationRoutes(
                                 config = embedTestConfig,
                                 pspConfigState = config,
-                                checkoutClient = checkoutClient,
+                                checkoutGateways = mapOf(PaymentProvider.STRIPE to checkoutClient),
                                 donationCheckoutRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationCheckoutAttemptRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.hours),
                                 donationPageRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes),

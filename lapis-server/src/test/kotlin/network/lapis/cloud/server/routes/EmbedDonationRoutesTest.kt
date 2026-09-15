@@ -141,7 +141,8 @@ class EmbedDonationRoutesTest :
                         registerEmbedDonationRoutes(
                             config = enabledConfig,
                             pspConfigState = if (configured) PspConfigState.Configured(testPspConfig) else PspConfigState.NotConfigured,
-                            checkoutClient = if (configured) mockCheckoutClient() else null,
+                            checkoutGateways =
+                                (if (configured) mockCheckoutClient() else null)?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             donationCheckoutRateLimiter = checkoutRateLimiter,
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),

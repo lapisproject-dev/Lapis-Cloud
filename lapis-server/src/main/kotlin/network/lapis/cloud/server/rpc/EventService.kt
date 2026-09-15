@@ -26,8 +26,7 @@ import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
-import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -51,6 +50,7 @@ import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.OpenItemDirection
 import network.lapis.cloud.shared.domain.OpenItemSnapshot
 import network.lapis.cloud.shared.domain.OpenItemStatus
+import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IEventService
@@ -101,8 +101,7 @@ private fun requireMaxLength(
  */
 class EventService(
     private val call: ApplicationCall,
-    private val pspConfigState: PspConfigState,
-    private val checkoutClient: StripeCheckoutClient?,
+    private val checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     private val baseUrl: String,
     private val mailDispatcher: MailDispatcher,
     private val writeRateLimiter: FederationInboxRateLimiter,
@@ -114,8 +113,7 @@ class EventService(
 ) : IEventService {
     private val submission by lazy {
         EventRegistrationSubmission(
-            pspConfigState = pspConfigState,
-            checkoutClient = checkoutClient,
+            checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
         )
@@ -379,7 +377,7 @@ class EventService(
             )
             EventRegistrationResult.WaitlistFull -> throw ConflictException("Die Warteliste dieser Veranstaltung ist voll.")
             EventRegistrationResult.GatewayUnavailable -> throw ConflictException("Zahlungsabwicklung derzeit nicht verfügbar.")
-            is EventRegistrationResult.StripeFailed -> throw ConflictException("Zahlungsvorgang konnte nicht gestartet werden.")
+            is EventRegistrationResult.PaymentFailed -> throw ConflictException("Zahlungsvorgang konnte nicht gestartet werden.")
         }
     }
 

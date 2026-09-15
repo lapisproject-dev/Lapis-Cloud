@@ -98,6 +98,11 @@ import network.lapis.cloud.server.payment.dunning.DunningPoller
 import network.lapis.cloud.server.payment.fints.FinTsConfig
 import network.lapis.cloud.server.payment.fints.FinTsPoller
 import network.lapis.cloud.server.payment.fints.Hbci4jFinTsClient
+import network.lapis.cloud.server.payment.psp.PaypalConfig
+import network.lapis.cloud.server.payment.psp.PaypalConfigState
+import network.lapis.cloud.server.payment.psp.PaypalOrdersClient
+import network.lapis.cloud.server.payment.psp.PaypalStartupCheck
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.PspStartupCheck
@@ -122,6 +127,7 @@ import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
+import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
 import network.lapis.cloud.server.routes.registerPublicLandingRoutes
@@ -194,6 +200,7 @@ import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.domain.AccountingExportProvider
+import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
@@ -394,11 +401,22 @@ fun Application.module() {
     // checkout-creation call before it would ever be needed in that state.
     val pspConfigState = PspConfig.load()
     PspStartupCheck.verifyAndLog(pspConfigState)
-    val checkoutClient: StripeCheckoutClient? =
+    val checkoutClient: PspCheckoutGateway? =
         when (pspConfigState) {
             is PspConfigState.Configured -> StripeCheckoutClient(pspConfig = pspConfigState.config)
             else -> null
         }
+    // Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- exact mirror of the PspConfig/
+    // PspStartupCheck pair above, for PayPal.
+    val paypalConfigState = PaypalConfig.load()
+    PaypalStartupCheck.verifyAndLog(paypalConfigState)
+    val paypalOrdersClient: PaypalOrdersClient? =
+        (paypalConfigState as? PaypalConfigState.Configured)?.let { PaypalOrdersClient(config = it.config) }
+    // The shared gateway map every checkout-creation call site now depends on instead of a single
+    // Stripe-only field -- ONE instance per configured provider, constructed once here and shared,
+    // same "never per-request" discipline oracleHttpClient() establishes.
+    val pspGateways: Map<PaymentProvider, PspCheckoutGateway> =
+        listOfNotNull(checkoutClient, paypalOrdersClient).associateBy { it.provider }
     // Own instance, own tuning -- same discipline as dunningPreviewRateLimiter/sepaMandateWriteRateLimiter
     // below. Security audit finding (Welle V1.2.8, MINOR) -- tightened from a prior 120/min: that
     // budget was sized for genuine Stripe delivery bursts, but MISSING_SIGNATURE and failed-signature
@@ -411,6 +429,13 @@ fun Application.module() {
     // meaningfully bounding a single-IP flood; per-IP keying (see rateLimitKeyFor below) means it does
     // NOT bound a multi-IP flood -- see that file's own KDoc for the accepted-risk framing.
     val pspWebhookRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    // Welle V1.2.8b -- PayPal gets its OWN limiter instance rather than sharing pspWebhookRateLimiter:
+    // this limiter bounds the OUTBOUND verify-webhook-signature API calls this server itself makes to
+    // PayPal (see PaypalWebhookRoutes KDoc decision §1.1), not merely psp_webhook_event row growth --
+    // PayPal delivers webhooks from a far wider, undocumented IP range than Stripe's small documented
+    // set, so a 20/min/IP budget here bounds a single-IP flood the same way, without conflating the
+    // two providers' very different delivery-network shapes under one counter.
+    val paypalWebhookRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     // Security audit finding (Welle V1.2.8, MAJOR) -- createDonationCheckout/createContributionCheckout
     // both call out to Stripe's live API; unlike the SEPA/dunning writes above, this class had NO
     // limiter at all, so a single low-privilege member could loop createDonationCheckout and exhaust
@@ -1222,7 +1247,8 @@ fun Application.module() {
             PaymentGatewayService(
                 call = call,
                 pspConfigState = pspConfigState,
-                checkoutClient = checkoutClient,
+                paypalConfigState = paypalConfigState,
+                gateways = pspGateways,
                 checkoutCreateRateLimiter = paymentCheckoutCreateRateLimiter,
             )
         }
@@ -1367,8 +1393,7 @@ fun Application.module() {
         registerService(IEventService::class) { call ->
             EventService(
                 call = call,
-                pspConfigState = pspConfigState,
-                checkoutClient = checkoutClient,
+                checkoutGateways = pspGateways,
                 baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
                 mailDispatcher = mailDispatcher,
                 writeRateLimiter = eventWriteRateLimiter,
@@ -1455,6 +1480,15 @@ fun Application.module() {
         // catch-all" reasoning as registerSocialPublicRoutes' own routes. Unauthenticated by design
         // -- see PspWebhookRoutes KDoc.
         registerPspWebhookRoutes(pspConfig = pspConfigState, rateLimiter = pspWebhookRateLimiter, mailDispatcher = mailDispatcher)
+        // Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- literal route (/api/webhooks/paypal),
+        // registered immediately after its Stripe sibling, same registration discipline.
+        // Unauthenticated by design -- see PaypalWebhookRoutes KDoc.
+        registerPaypalWebhookRoutes(
+            paypalConfig = paypalConfigState,
+            ordersClient = paypalOrdersClient,
+            rateLimiter = paypalWebhookRateLimiter,
+            mailDispatcher = mailDispatcher,
+        )
         registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)
         registerTrustAnchorRoutes()
         // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- literal routes (/s, /s/{id}, ...),
@@ -1499,8 +1533,7 @@ fun Application.module() {
         // Welle V1.4.3.1 "Veranstaltungen" -- literal routes (/veranstaltung/*), same "registered
         // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
         registerEventPublicRoutes(
-            pspConfigState = pspConfigState,
-            checkoutClient = checkoutClient,
+            checkoutGateways = pspGateways,
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             mailDispatcher = mailDispatcher,
             brandTitle = resolvedBranding.title,
@@ -1524,7 +1557,7 @@ fun Application.module() {
             sessionRateLimiter = embedSessionRateLimiter,
             adminStatusRateLimiter = embedAdminStatusRateLimiter,
             pspConfigState = pspConfigState,
-            checkoutClient = checkoutClient,
+            checkoutGateways = pspGateways,
             donationCheckoutRateLimiter = embedDonationCheckoutRateLimiter,
             donationCheckoutAttemptRateLimiter = embedDonationCheckoutAttemptRateLimiter,
             donationPageRateLimiter = embedDonationPageRateLimiter,

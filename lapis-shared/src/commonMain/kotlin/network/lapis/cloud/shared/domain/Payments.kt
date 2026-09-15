@@ -200,9 +200,18 @@ data class PaymentTransactionPageDto(
 @Serializable
 data class PspConfigStatusDto(
     val configuredProvider: PaymentProvider?,
+    /** Stripe (`LAPIS_STRIPE_SECRET_KEY`). Field name kept as-is (pre-dates PayPal) -- see [paypalClientIdConfigured] for the PayPal counterpart. */
     val secretKeyConfigured: Boolean,
+    /** Stripe (`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`). */
     val webhookSecretConfigured: Boolean,
+    /** Stripe's own webhook URL (`<publicBaseUrl>/api/webhooks/stripe`) -- kept as `webhookUrl` (a wire-break to rename it), never the PayPal one. See [paypalWebhookUrl]. */
     val webhookUrl: String,
+    /** Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6). Presence only, never a value (same discipline as the Stripe fields above). */
+    val paypalClientIdConfigured: Boolean = false,
+    val paypalClientSecretConfigured: Boolean = false,
+    val paypalWebhookIdConfigured: Boolean = false,
+    /** Welle V1.2.8b. `<publicBaseUrl>/api/webhooks/paypal` -- the URL to register in the PayPal developer dashboard. */
+    val paypalWebhookUrl: String = "",
     val publicBaseUrl: String,
     val paymentBankAccountConfigured: Boolean,
     val contributionIncomeAccountConfigured: Boolean,

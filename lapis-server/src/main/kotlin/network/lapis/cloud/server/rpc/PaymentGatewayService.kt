@@ -14,12 +14,16 @@ import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowled
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.payment.psp.PaypalConfig
+import network.lapis.cloud.server.payment.psp.PaypalConfigState
+import network.lapis.cloud.server.payment.psp.PaypalOrdersClient
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
+import network.lapis.cloud.server.payment.psp.PspCheckoutResult
 import network.lapis.cloud.server.payment.psp.PspCheckoutSessions
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
+import network.lapis.cloud.server.payment.psp.PspReturnUrls
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
-import network.lapis.cloud.server.payment.psp.StripeCheckoutResult
-import network.lapis.cloud.server.payment.psp.StripeReturnUrls
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -75,18 +79,32 @@ private const val MAX_DONATION_PURPOSE_LENGTH = 200
  * [SepaService] establishes for its own `sepaConfig`/`mandateWriteRateLimiter`.
  *
  * [checkoutCreateRateLimiter] throttles [createDonationCheckout]/[createContributionCheckout] --
- * both are member-reachable and each triggers one outbound Stripe API call
- * ([StripeCheckoutClient.createCheckoutSession]); without a limiter, a single low-privilege member
+ * both are member-reachable and each triggers one outbound PSP API call
+ * ([PspCheckoutGateway.createCheckout]); without a limiter, a single low-privilege member
  * (`AccountRole.MEMBER`, no `requireRole` gate on either method) could loop either call and exhaust
- * Stripe's write quota for every other member. Same per-member "member:\$memberId" keying, reusing
+ * the provider's write quota for every other member. Same per-member "member:\$memberId" keying, reusing
  * [FederationInboxRateLimiter] as a plain per-member counter, as [SepaService.mandateWriteRateLimiter]
  * (security audit finding, Welle V1.2.8, MAJOR).
+ *
+ * Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- [checkoutClient]/[pspConfigState] (Stripe-
+ * only) replaced by [paypalConfigState] and [gateways], a `Map<PaymentProvider, PspCheckoutGateway>`
+ * built from BOTH configured providers (`Application.module` constructs at most one instance per
+ * provider and shares it, same "never per-request" discipline the single Stripe field already
+ * established). A lookup miss (`gateways[provider] == null`) means either that provider's env
+ * secrets are absent/incomplete OR no provider is configured at all -- see
+ * [requirePaymentGatewayUsable].
  */
 class PaymentGatewayService(
     private val call: ApplicationCall,
     private val pspConfigState: PspConfigState = PspConfig.load(),
-    private val checkoutClient: StripeCheckoutClient? =
-        (pspConfigState as? PspConfigState.Configured)?.let { StripeCheckoutClient(pspConfig = it.config) },
+    private val paypalConfigState: PaypalConfigState = PaypalConfig.load(),
+    private val gateways: Map<PaymentProvider, PspCheckoutGateway> =
+        buildMap {
+            (pspConfigState as? PspConfigState.Configured)?.let { put(PaymentProvider.STRIPE, StripeCheckoutClient(pspConfig = it.config)) }
+            (paypalConfigState as? PaypalConfigState.Configured)?.let {
+                put(PaymentProvider.PAYPAL, PaypalOrdersClient(config = it.config))
+            }
+        },
     private val checkoutCreateRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
 ) : IPaymentGatewayService {
     override suspend fun getPaymentGatewayComplianceDisclaimer(): PaymentGatewayComplianceDisclaimerDto {
@@ -108,10 +126,9 @@ class PaymentGatewayService(
         if (provider == PaymentProvider.MANUAL) {
             throw BadRequestException("provider must be PAYPAL or STRIPE, never MANUAL")
         }
-        // Welle V1.2.8 scope decision -- see IPaymentGatewayService class KDoc.
-        if (provider == PaymentProvider.PAYPAL) {
-            throw BadRequestException("PayPal ist in dieser Version noch nicht implementiert -- bitte STRIPE waehlen.")
-        }
+        // Welle V1.2.8b (GitHub Issue #6): PAYPAL is now accepted here as well -- enabling a
+        // provider whose deployment secrets are not configured leaves the gateway merely UNUSABLE
+        // (see the three-part gate in requirePaymentGatewayUsable), it does not throw here.
         if (!PaymentGatewayComplianceDisclaimer.matches(
                 version = acknowledgment.disclaimerVersion,
                 sha256 = acknowledgment.disclaimerSha256,
@@ -170,21 +187,18 @@ class PaymentGatewayService(
             val enabled = settingsRow?.get(OrganizationSettingsTable.paymentGatewayEnabled) ?: false
             val provider = settingsRow?.get(OrganizationSettingsTable.paymentGatewayProvider)
             val isPoliticalParty = settingsRow?.get(OrganizationSettingsTable.isPoliticalParty) ?: false
-            val usable =
-                enabled &&
-                    paymentGatewayDisclaimerIsCurrentlyAcknowledged() &&
-                    pspConfigState is PspConfigState.Configured &&
-                    provider == PaymentProvider.STRIPE
+            // Welle V1.2.8b (GitHub Issue #6), Phase A4: "provider == PaymentProvider.STRIPE"
+            // widened to "the selected provider actually has a configured gateway instance".
+            val gateway = provider?.let { gateways[it] }
+            val usable = enabled && paymentGatewayDisclaimerIsCurrentlyAcknowledged() && gateway != null
             PaymentGatewayAvailabilityDto(
                 enabled = usable,
                 provider = if (usable) provider else null,
                 contributionCheckoutAvailable = usable,
                 donationCheckoutAvailable = usable,
                 donorCategoryRequired = usable && isPoliticalParty,
-                // Welle V1.2.9: only when usable -- `usable` already proved pspConfigState is
-                // Configured, so this cast cannot fail; a disabled/misconfigured gate reports no
-                // ceiling at all rather than a number from a dead config path.
-                maxCheckoutAmountEur = if (usable) (pspConfigState as PspConfigState.Configured).config.maxCheckoutAmountEur else null,
+                // Welle V1.2.9: only when usable -- `usable` already proved `gateway` is non-null.
+                maxCheckoutAmountEur = if (usable) gateway?.maxCheckoutAmountEur else null,
             )
         }
     }
@@ -217,11 +231,13 @@ class PaymentGatewayService(
                 "Fuer diesen Beitrag laeuft bereits eine SEPA-Lastschrift -- online bezahlen ist waehrenddessen nicht moeglich.",
             )
         }
-        requirePaymentGatewayUsable()
-        val client = requireNotNull(checkoutClient) { "requirePaymentGatewayUsable already guaranteed pspConfigState is Configured" }
+        val client = requirePaymentGatewayUsable()
 
         val now = DbClock.nowLocalDateTime()
-        val reusable = transaction { PspCheckoutSessions.findReusableForContribution(contributionId = contributionId, now = now) }
+        val reusable =
+            transaction {
+                PspCheckoutSessions.findReusableForContribution(contributionId = contributionId, provider = client.provider, now = now)
+            }
         if (reusable != null) {
             return reusable.toCheckoutSessionDto()
         }
@@ -229,19 +245,20 @@ class PaymentGatewayService(
         val amount = contributionRow[ContributionTable.amountDue]
         val checkoutSessionId = Uuid.random()
         val stripeResult =
-            client.createCheckoutSession(
+            client.createCheckout(
                 checkoutSessionId = checkoutSessionId.toString(),
                 amount = amount,
                 currency = "EUR",
                 description = "Mitgliedsbeitrag",
                 returnUrls =
-                    StripeReturnUrls.memberSpa(
+                    PspReturnUrls.memberSpa(
                         baseUrl = FederationConfig.publicBaseUrl,
                         checkoutSessionId = checkoutSessionId.toString(),
                     ),
             )
         return persistCheckoutSessionOrThrow(
-            stripeResult = stripeResult,
+            gateway = client,
+            checkoutResult = stripeResult,
             checkoutSessionId = checkoutSessionId,
             intent = PaymentIntent.CONTRIBUTION,
             contributionId = contributionId,
@@ -262,15 +279,13 @@ class PaymentGatewayService(
     override suspend fun createDonationCheckout(input: DonationCheckoutInput): CheckoutSessionDto {
         val current = resolveCurrentMember(call)
         requireWithinCheckoutCreateRate(current.memberId)
-        requirePaymentGatewayUsable()
-        val client = requireNotNull(checkoutClient) { "requirePaymentGatewayUsable already guaranteed pspConfigState is Configured" }
-        val pspConfig = (pspConfigState as PspConfigState.Configured).config
+        val client = requirePaymentGatewayUsable()
 
         val amount = input.amount
         if (amount <= BigDecimal.ZERO) throw BadRequestException("amount must be positive")
         if (amount.scale() > 2) throw BadRequestException("amount must have at most 2 fractional digits")
-        if (amount.compareTo(pspConfig.maxCheckoutAmountEur) > 0) {
-            throw BadRequestException("amount exceeds the configured maximum of ${pspConfig.maxCheckoutAmountEur} EUR")
+        if (amount.compareTo(client.maxCheckoutAmountEur) > 0) {
+            throw BadRequestException("amount exceeds the configured maximum of ${client.maxCheckoutAmountEur} EUR")
         }
         // MAJOR (code review, Welle V1.2.8): validate BEFORE the Stripe call below -- V13__psp_checkout.sql
         // declares payment_checkout_session.purpose as VARCHAR(200); without this check a too-long
@@ -314,19 +329,20 @@ class PaymentGatewayService(
         val checkoutSessionId = Uuid.random()
         val now = DbClock.nowLocalDateTime()
         val stripeResult =
-            client.createCheckoutSession(
+            client.createCheckout(
                 checkoutSessionId = checkoutSessionId.toString(),
                 amount = amount,
                 currency = "EUR",
                 description = input.purpose?.takeIf { it.isNotBlank() } ?: "Spende",
                 returnUrls =
-                    StripeReturnUrls.memberSpa(
+                    PspReturnUrls.memberSpa(
                         baseUrl = FederationConfig.publicBaseUrl,
                         checkoutSessionId = checkoutSessionId.toString(),
                     ),
             )
         return persistCheckoutSessionOrThrow(
-            stripeResult = stripeResult,
+            gateway = client,
+            checkoutResult = stripeResult,
             checkoutSessionId = checkoutSessionId,
             intent = PaymentIntent.DONATION,
             contributionId = null,
@@ -403,6 +419,10 @@ class PaymentGatewayService(
                 secretKeyConfigured = pspConfigState is PspConfigState.Configured,
                 webhookSecretConfigured = pspConfigState is PspConfigState.Configured,
                 webhookUrl = "${FederationConfig.publicBaseUrl}/api/webhooks/stripe",
+                paypalClientIdConfigured = paypalConfigState is PaypalConfigState.Configured,
+                paypalClientSecretConfigured = paypalConfigState is PaypalConfigState.Configured,
+                paypalWebhookIdConfigured = paypalConfigState is PaypalConfigState.Configured,
+                paypalWebhookUrl = "${FederationConfig.publicBaseUrl}/api/webhooks/paypal",
                 publicBaseUrl = FederationConfig.publicBaseUrl,
                 paymentBankAccountConfigured = settingsRow?.get(OrganizationSettingsTable.paymentBankAccountId) != null,
                 contributionIncomeAccountConfigured = settingsRow?.get(OrganizationSettingsTable.contributionIncomeAccountId) != null,
@@ -434,8 +454,14 @@ class PaymentGatewayService(
      * [SepaService.requireSepaUsable], including its own-`transaction {}` self-containment (that
      * function was non-functional for a whole release because it read outside a transaction --
      * see its own KDoc "why -- fixed").
+     *
+     * Welle V1.2.8b (GitHub Issue #6), Phase A5: returns the [PspCheckoutGateway] to use, instead of
+     * the caller separately `requireNotNull(checkoutClient)`-ing a single Stripe field. `null`
+     * -> [ConflictException] naming that provider's own env vars ([PspConfigState.NotConfigured]/
+     * [PaypalConfigState.NotConfigured] -> "kein Zahlungsdienstleister konfiguriert"; either
+     * `Incomplete` -> "Konfiguration ist unvollstaendig").
      */
-    private fun requirePaymentGatewayUsable() {
+    private fun requirePaymentGatewayUsable(): PspCheckoutGateway {
         val settingsRow =
             transaction {
                 OrganizationSettingsTable.selectAll().where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }.single()
@@ -446,24 +472,39 @@ class PaymentGatewayService(
         if (!paymentGatewayDisclaimerIsCurrentlyAcknowledged()) {
             throw ConflictException("Der aktuelle Zahlungsdienstleister-Rechtshinweis wurde noch nicht (erneut) bestaetigt.")
         }
-        when (pspConfigState) {
-            is PspConfigState.NotConfigured ->
-                throw ConflictException(
-                    "Kein Zahlungsdienstleister konfiguriert -- ${PspConfig.ENV_SECRET_KEY}/${PspConfig.ENV_WEBHOOK_SIGNING_SECRET} " +
-                        "sind nicht gesetzt.",
-                )
-            is PspConfigState.Incomplete ->
-                throw ConflictException("Die Zahlungsdienstleister-Konfiguration ist unvollstaendig.")
-            is PspConfigState.Configured -> Unit
-        }
-        val provider = settingsRow[OrganizationSettingsTable.paymentGatewayProvider]
-        if (provider != PaymentProvider.STRIPE) {
-            throw ConflictException("Der konfigurierte Zahlungsdienstleister ist nicht STRIPE.")
+        val provider =
+            settingsRow[OrganizationSettingsTable.paymentGatewayProvider]
+                ?: throw ConflictException("Kein Zahlungsdienstleister ausgewaehlt.")
+        gateways[provider]?.let { return it }
+        when (provider) {
+            PaymentProvider.STRIPE ->
+                when (pspConfigState) {
+                    is PspConfigState.NotConfigured ->
+                        throw ConflictException(
+                            "Kein Zahlungsdienstleister konfiguriert -- ${PspConfig.ENV_SECRET_KEY}/" +
+                                "${PspConfig.ENV_WEBHOOK_SIGNING_SECRET} sind nicht gesetzt.",
+                        )
+                    is PspConfigState.Incomplete -> throw ConflictException("Die Zahlungsdienstleister-Konfiguration ist unvollstaendig.")
+                    is PspConfigState.Configured -> error("unreachable -- gateways[STRIPE] would be non-null")
+                }
+            PaymentProvider.PAYPAL ->
+                when (paypalConfigState) {
+                    is PaypalConfigState.NotConfigured ->
+                        throw ConflictException(
+                            "Kein PayPal-Zahlungsdienstleister konfiguriert -- ${PaypalConfig.ENV_CLIENT_ID}/" +
+                                "${PaypalConfig.ENV_CLIENT_SECRET}/${PaypalConfig.ENV_WEBHOOK_ID} sind nicht gesetzt.",
+                        )
+                    is PaypalConfigState.Incomplete ->
+                        throw ConflictException("Die PayPal-Konfiguration ist unvollstaendig.")
+                    is PaypalConfigState.Configured -> error("unreachable -- gateways[PAYPAL] would be non-null")
+                }
+            PaymentProvider.MANUAL -> throw ConflictException("MANUAL ist kein online nutzbarer Zahlungsdienstleister.")
         }
     }
 
     private fun persistCheckoutSessionOrThrow(
-        stripeResult: StripeCheckoutResult,
+        gateway: PspCheckoutGateway,
+        checkoutResult: PspCheckoutResult,
         checkoutSessionId: Uuid,
         intent: PaymentIntent,
         contributionId: Uuid?,
@@ -476,16 +517,15 @@ class PaymentGatewayService(
         now: LocalDateTime,
     ): CheckoutSessionDto {
         val success =
-            stripeResult as? StripeCheckoutResult.Success
+            checkoutResult as? PspCheckoutResult.Success
                 ?: throw ConflictException(
-                    "Stripe-Checkout konnte nicht erzeugt werden: ${(stripeResult as StripeCheckoutResult.Failure).message}",
+                    "Checkout konnte nicht erzeugt werden: ${(checkoutResult as PspCheckoutResult.Failure).message}",
                 )
-        val pspConfig = (pspConfigState as PspConfigState.Configured).config
-        val expiresAt = (now.toInstant(TimeZone.UTC) + pspConfig.checkoutTtlMinutes.minutes).toLocalDateTime(TimeZone.UTC)
+        val expiresAt = (now.toInstant(TimeZone.UTC) + gateway.checkoutTtlMinutes.minutes).toLocalDateTime(TimeZone.UTC)
         return transaction {
             PspCheckoutSessions.create(
                 id = checkoutSessionId,
-                provider = PaymentProvider.STRIPE,
+                provider = gateway.provider,
                 providerSessionId = success.sessionId,
                 intent = intent,
                 contributionId = contributionId,

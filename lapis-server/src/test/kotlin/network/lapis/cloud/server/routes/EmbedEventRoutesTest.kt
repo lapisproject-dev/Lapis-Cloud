@@ -260,8 +260,7 @@ class EmbedEventRoutesTest :
                     routing {
                         registerEmbedEventRoutes(
                             config = enabledConfig,
-                            pspConfigState = pspConfigState,
-                            checkoutClient = checkoutClient,
+                            checkoutGateways = checkoutClient?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             mailDispatcher = noOpMailDispatcher(),
                             baseUrl = "https://lapis.example",
                             attemptRateLimiter = attemptRateLimiter,
@@ -491,7 +490,7 @@ class EmbedEventRoutesTest :
             }
         }
 
-        test("StripeFailed: Stripe rejects the checkout -> 502 GATEWAY_ERROR, Stripe's own text never appears") {
+        test("PaymentFailed: the checkout provider rejects the checkout -> 502 GATEWAY_ERROR, Stripe's own text never appears") {
             enableGateway()
             val pspConfigState = testPspConfigState()
             testApp(checkoutClient = failingCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {
@@ -590,8 +589,7 @@ class EmbedEventRoutesTest :
 
         fun Route.registerBothRouteFamilies(sharedRegistrationLimiter: FederationInboxRateLimiter) {
             registerEventPublicRoutes(
-                pspConfigState = PspConfigState.NotConfigured,
-                checkoutClient = null,
+                checkoutGateways = emptyMap(),
                 baseUrl = "https://lapis.example",
                 mailDispatcher = noOpMailDispatcher(),
                 brandTitle = "Testverein",
@@ -606,8 +604,7 @@ class EmbedEventRoutesTest :
             )
             registerEmbedEventRoutes(
                 config = enabledConfig,
-                pspConfigState = PspConfigState.NotConfigured,
-                checkoutClient = null,
+                checkoutGateways = emptyMap(),
                 mailDispatcher = noOpMailDispatcher(),
                 baseUrl = "https://lapis.example",
                 attemptRateLimiter = generousLimiter(),

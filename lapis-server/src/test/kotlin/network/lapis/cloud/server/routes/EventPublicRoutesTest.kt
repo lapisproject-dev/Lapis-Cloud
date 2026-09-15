@@ -262,8 +262,7 @@ class EventPublicRoutesTest :
                 application {
                     routing {
                         registerEventPublicRoutes(
-                            pspConfigState = pspConfigState,
-                            checkoutClient = checkoutClient,
+                            checkoutGateways = checkoutClient?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             baseUrl = "https://example.org",
                             mailDispatcher = noOpMailDispatcher(),
                             brandTitle = "Testverein",

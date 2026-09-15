@@ -8,6 +8,42 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**PayPal als zweiter Zahlungsdienstleister (V1.2.8b, GitHub Issue #6)**
+
+- **Hinzugefügt**: PayPal ist jetzt ein vollwertiger zweiter `PaymentProvider` neben Stripe (der
+  Enum-Literal war bereits vorhanden und bleibt unverändert -- keine Migration, keine
+  Ordnungsänderung). `enablePaymentGateway` akzeptiert PayPal jetzt genauso wie Stripe (nur
+  `MANUAL` wird weiterhin abgelehnt).
+- **Hinzugefügt**: Webhook-Signaturprüfung über PayPals eigene `POST
+  /v1/notifications/verify-webhook-signature`-API statt lokaler Zertifikatsketten-Validierung --
+  letztere hätte einen neuen, unauthentifizierten SSRF-Vektor über den `PAYPAL-CERT-URL`-Header
+  geöffnet, ohne den Vorteil eines wirklich Outbound-Call-freien Pfads zu bieten.
+- **Hinzugefügt**: Die Capture erfolgt WEBHOOK-GETRIGGERT, im `CHECKOUT.ORDER.APPROVED`-Handler --
+  nie im Return-Flow. Robust gegen einen Zahler, der genehmigt und dann den Tab schließt; braucht
+  keine neue RPC-Methode und keine Client-Änderung (`PaymentReturnScreen`s webhook-autoritatives
+  Polling funktioniert unverändert für beide Anbieter).
+- **Hinzugefügt**: `POST /api/webhooks/paypal` (eigene Route, eigener Rate-Limiter) verarbeitet
+  `CHECKOUT.ORDER.APPROVED` (Capture), `PAYMENT.CAPTURE.COMPLETED` (bucht das Geld),
+  `PAYMENT.CAPTURE.DENIED`/`CHECKOUT.ORDER.VOIDED` (Aufräumen).
+- **Hinzugefügt**: Neue Umgebungsvariablen `LAPIS_PAYPAL_CLIENT_ID`/`LAPIS_PAYPAL_CLIENT_SECRET`/
+  `LAPIS_PAYPAL_WEBHOOK_ID` (Pflicht, alle-oder-keine) und `LAPIS_PAYPAL_API_BASE_URL` (optional,
+  Live/Sandbox) -- siehe `.env.example`. Die drei geteilten `LAPIS_PSP_*`-Zahlenknöpfe
+  (Toleranzfenster/Höchstbetrag/Sitzungs-TTL) gelten unverändert für beide Anbieter.
+- **Refaktoriert**: `PspCheckoutGateway` -- eine provider-neutrale Abstraktion
+  (`createCheckout`/`maxCheckoutAmountEur`/`checkoutTtlMinutes`/`sessionLifetimeCap`), von der
+  jetzt jede Checkout-Aufrufstelle abhängt, statt von der konkreten Stripe-Klasse.
+  `StripeCheckoutClient` implementiert dieselbe Schnittstelle wie der neue `PaypalOrdersClient`;
+  `PspPaymentEvent` normalisiert ein bereits signaturgeprüftes Zahlungsereignis
+  providerübergreifend für `PspWebhookIngestion`. Reines Struktur-Refactoring, keine
+  Verhaltensänderung für Stripe.
+- **Bekannte Einschränkung dieser Welle**: der anonyme Embed-Widget-Spendenpfad
+  (`/api/embed/v1/donation/checkout`) bleibt bewusst Stripe-only -- das Widget selbst bietet dem
+  anonymen Spender keine Anbieterauswahl.
+- **Hinzugefügt (Review round 1)**: `PaymentGatewaySettingsScreen`s Aktivieren-Dialog hat jetzt
+  einen Anbieter-Auswahlschalter (zuvor hart auf Stripe verdrahtet) sowie eigene
+  PayPal-Diagnosezeilen (Client-Id/-Secret/Webhook-Id-Präsenz, Webhook-URL) im
+  PSP-Diagnose-Abschnitt -- die ADMIN-Oberfläche deckt damit beide Anbieter vollständig ab.
+
 **Kreditoren-/Debitorenbuchhaltung -- offene Posten, Verrechnung, Debitoren-Mahnwesen (V1.4.15)**
 
 - **Hinzugefügt**: `IOpenItemService` (`OpenItemService`) verwaltet offene Posten

@@ -3,29 +3,24 @@ package network.lapis.cloud.server.routes
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
-import network.lapis.cloud.server.events.EventTicketPolicy
-import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
-import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.CheckoutCompletedIngestionOutcome
-import network.lapis.cloud.server.payment.psp.EventTicketMail
 import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.PspWebhookEventLog
 import network.lapis.cloud.server.payment.psp.PspWebhookIngestion
 import network.lapis.cloud.server.payment.psp.PspWebhookOutcome
 import network.lapis.cloud.server.payment.psp.STRIPE_JSON
 import network.lapis.cloud.server.payment.psp.StripeSignatureResult
 import network.lapis.cloud.server.payment.psp.StripeSignatureVerifier
 import network.lapis.cloud.server.payment.psp.StripeWebhookEvent
+import network.lapis.cloud.server.payment.psp.toPspPaymentEvent
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.paymentGatewayDisclaimerIsCurrentlyAcknowledged
 import network.lapis.cloud.shared.domain.PaymentProvider
@@ -35,15 +30,8 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
-
-/** Hard cap on a raw `POST /api/webhooks/stripe` body -- same DoS-guard reasoning as `MAX_INBOX_BODY_BYTES` (`FederationRoutes.kt`), a generous ceiling for a Stripe Checkout Session event. */
-private const val MAX_WEBHOOK_BODY_BYTES = 64 * 1024
-
-/** Same linear, non-recursive JSON-nesting-depth cap as `FederationRoutes.kt`'s own `MAX_JSON_NESTING_DEPTH`. */
-private const val MAX_JSON_NESTING_DEPTH = 20
 
 /**
  * Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- `POST /api/webhooks/stripe`, the FIRST
@@ -118,6 +106,7 @@ fun Route.registerPspWebhookRoutes(
         if (pspConfig !is PspConfigState.Configured) {
             recordDeliveryAndRespond(
                 call = call,
+                provider = PaymentProvider.STRIPE,
                 status = HttpStatusCode.ServiceUnavailable,
                 bodyBytes = bodyBytes,
                 signatureVerified = false,
@@ -132,6 +121,7 @@ fun Route.registerPspWebhookRoutes(
         if (signatureHeader == null) {
             recordDeliveryAndRespond(
                 call = call,
+                provider = PaymentProvider.STRIPE,
                 status = HttpStatusCode.Unauthorized,
                 bodyBytes = bodyBytes,
                 signatureVerified = false,
@@ -153,6 +143,7 @@ fun Route.registerPspWebhookRoutes(
         if (verification is StripeSignatureResult.Invalid) {
             recordDeliveryAndRespond(
                 call = call,
+                provider = PaymentProvider.STRIPE,
                 status = HttpStatusCode.Unauthorized,
                 bodyBytes = bodyBytes,
                 signatureVerified = false,
@@ -164,9 +155,10 @@ fun Route.registerPspWebhookRoutes(
 
         // 7. ONLY NOW: a linear nesting-depth scan on the raw text.
         val bodyText = bodyBytes.toString(Charsets.UTF_8)
-        if (exceedsMaxJsonNestingDepth(text = bodyText, maxDepth = MAX_JSON_NESTING_DEPTH)) {
+        if (exceedsMaxJsonNestingDepth(text = bodyText, maxDepth = PSP_WEBHOOK_MAX_JSON_NESTING_DEPTH)) {
             recordDeliveryAndRespond(
                 call = call,
+                provider = PaymentProvider.STRIPE,
                 status = HttpStatusCode.BadRequest,
                 bodyBytes = bodyBytes,
                 signatureVerified = true,
@@ -181,6 +173,7 @@ fun Route.registerPspWebhookRoutes(
         if (event == null) {
             recordDeliveryAndRespond(
                 call = call,
+                provider = PaymentProvider.STRIPE,
                 status = HttpStatusCode.BadRequest,
                 bodyBytes = bodyBytes,
                 signatureVerified = true,
@@ -202,6 +195,7 @@ fun Route.registerPspWebhookRoutes(
         if (!gatewayEnabled || !paymentGatewayDisclaimerIsCurrentlyAcknowledged()) {
             recordDeliveryAndRespond(
                 call = call,
+                provider = PaymentProvider.STRIPE,
                 status = HttpStatusCode.ServiceUnavailable,
                 bodyBytes = bodyBytes,
                 signatureVerified = true,
@@ -218,10 +212,11 @@ fun Route.registerPspWebhookRoutes(
             "checkout.session.completed" -> {
                 val result =
                     try {
-                        PspWebhookIngestion.ingestCheckoutCompleted(event = event, bodyBytes = bodyBytes)
+                        PspWebhookIngestion.ingestCheckoutCompleted(event = event.toPspPaymentEvent(), bodyBytes = bodyBytes)
                     } catch (e: ConflictException) {
                         recordDeliveryAndRespond(
                             call = call,
+                            provider = PaymentProvider.STRIPE,
                             status = HttpStatusCode.InternalServerError,
                             bodyBytes = bodyBytes,
                             signatureVerified = true,
@@ -246,6 +241,7 @@ fun Route.registerPspWebhookRoutes(
                         }
                         recordDeliveryAndRespond(
                             call = call,
+                            provider = PaymentProvider.STRIPE,
                             status = HttpStatusCode.InternalServerError,
                             bodyBytes = bodyBytes,
                             signatureVerified = true,
@@ -270,6 +266,7 @@ fun Route.registerPspWebhookRoutes(
                 result.ticketMail?.let { mailEventTicket(mail = it, mailDispatcher = mailDispatcher) }
                 recordDeliveryAndRespond(
                     call = call,
+                    provider = PaymentProvider.STRIPE,
                     status = HttpStatusCode.OK,
                     bodyBytes = bodyBytes,
                     signatureVerified = true,
@@ -289,13 +286,14 @@ fun Route.registerPspWebhookRoutes(
                 // other branch. Same synchronous, already-committed `transaction {}` shape, so the
                 // same "no coroutine-cancellation-swallowing concern" reasoning applies verbatim.
                 try {
-                    PspWebhookIngestion.ingestCheckoutExpired(event = event, mailDispatcher = mailDispatcher)
+                    PspWebhookIngestion.ingestCheckoutExpired(event = event.toPspPaymentEvent(), mailDispatcher = mailDispatcher)
                 } catch (e: Exception) {
                     logger.error(e) {
                         "PspWebhookRoutes: unexpected exception ingesting checkout.session.expired (event ${event.id})"
                     }
                     recordDeliveryAndRespond(
                         call = call,
+                        provider = PaymentProvider.STRIPE,
                         status = HttpStatusCode.InternalServerError,
                         bodyBytes = bodyBytes,
                         signatureVerified = true,
@@ -308,6 +306,7 @@ fun Route.registerPspWebhookRoutes(
                 }
                 recordDeliveryAndRespond(
                     call = call,
+                    provider = PaymentProvider.STRIPE,
                     status = HttpStatusCode.OK,
                     bodyBytes = bodyBytes,
                     signatureVerified = true,
@@ -323,6 +322,7 @@ fun Route.registerPspWebhookRoutes(
                 // `dispatchInboundActivity` gives an unknown Activity `type`.
                 recordDeliveryAndRespond(
                     call = call,
+                    provider = PaymentProvider.STRIPE,
                     status = HttpStatusCode.OK,
                     bodyBytes = bodyBytes,
                     signatureVerified = true,
@@ -334,60 +334,4 @@ fun Route.registerPspWebhookRoutes(
             }
         }
     }
-}
-
-/**
- * Welle V1.4.3.2 -- sends the "your payment is confirmed, here is your ticket" mail for a paid
- * event registration. Deliberately its OWN, minimal mail (not `EventRegistrationSubmission`'s
- * `mailRegistrationReceived`, which never runs for this confirmation path at all -- the webhook
- * confirms the registration, not that class) -- kept in `PspWebhookRoutes` rather than
- * `PspWebhookIngestion` because building the URL needs [network.lapis.cloud.server.events
- * .EventTicketPolicy.ticketUrl], and this is the one call site in this file with a concrete
- * `baseUrl` available.
- */
-private fun mailEventTicket(
-    mail: EventTicketMail,
-    mailDispatcher: MailDispatcher,
-) {
-    val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
-    val ticketUrl = EventTicketPolicy.ticketUrl(baseUrl = baseUrl, slug = mail.slug, rawCode = mail.rawTicketCode)
-    val subject = "Zahlung bestätigt: ${mail.eventTitle}"
-    val body = "Ihre Zahlung für \"${mail.eventTitle}\" ist eingegangen -- Ihre Teilnahme ist bestätigt."
-    // Security-Review MINOR fix: `mail.recipientName`/`mail.eventTitle` can originate from an
-    // unauthenticated guest form / a BOARD-supplied event title -- htmlEscape() both before they
-    // reach `htmlBody` (see `network.lapis.cloud.server.mail.htmlEscape` KDoc).
-    val bodyHtml = "Ihre Zahlung für \"${htmlEscape(mail.eventTitle)}\" ist eingegangen -- Ihre Teilnahme ist bestätigt."
-    mailDispatcher.enqueue(
-        to = mail.to,
-        subject = subject,
-        plainTextBody = "Hallo ${mail.recipientName},\n\n$body\n\nIhr Ticket: $ticketUrl\n",
-        htmlBody = "<p>Hallo ${htmlEscape(mail.recipientName)},</p><p>$bodyHtml</p><p><a href=\"$ticketUrl\">Ihr Ticket</a></p>",
-        purpose = "event-ticket",
-    )
-}
-
-/** Writes exactly one [PspWebhookEventLog] row (its own transaction) and responds [status] to [call] -- the one place every branch of the handler above converges. */
-private suspend fun recordDeliveryAndRespond(
-    call: ApplicationCall,
-    status: HttpStatusCode,
-    bodyBytes: ByteArray,
-    signatureVerified: Boolean,
-    rejectReason: String?,
-    outcome: PspWebhookOutcome,
-    eventType: String? = null,
-    providerEventId: String? = null,
-    paymentTransactionId: Uuid? = null,
-) {
-    PspWebhookEventLog.record(
-        provider = PaymentProvider.STRIPE,
-        providerEventId = providerEventId,
-        eventType = eventType,
-        signatureVerified = signatureVerified,
-        rejectReason = rejectReason,
-        outcome = outcome,
-        paymentTransactionId = paymentTransactionId,
-        bodySha256 = sha256Hex(bodyBytes),
-        bodyByteSize = bodyBytes.size,
-    )
-    call.respond(status)
 }

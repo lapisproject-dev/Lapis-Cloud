@@ -31,6 +31,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.payment.psp.PaypalConfigState
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
@@ -354,7 +355,7 @@ class PaymentGatewayCheckoutServiceTest :
                                 PaymentGatewayService(
                                     call = call,
                                     pspConfigState = pspConfigState,
-                                    checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState),
+                                    gateways = mapOf(PaymentProvider.STRIPE to fakeSuccessfulCheckoutClient(pspConfigState)),
                                 ).createContributionCheckout(ContributionCheckoutInput(contributionId = id))
                             call.respondText("${session.amount}")
                         }
@@ -633,12 +634,15 @@ class PaymentGatewayCheckoutServiceTest :
             }
         }
 
-        test("enablePaymentGateway(PAYPAL, ...) -> BadRequestException") {
+        // Welle V1.2.8b (GitHub Issue #6) -- inverted: PAYPAL used to be BadRequestException-
+        // rejected outright at enable-time; it is now accepted like STRIPE (only MANUAL still
+        // throws) -- see PaymentGatewayService.enablePaymentGateway KDoc.
+        test("enablePaymentGateway(PAYPAL, ...) succeeds -- settings show PAYPAL") {
             testApplication {
                 application {
                     routing {
                         post("/test/enable-paypal") {
-                            shouldThrow<BadRequestException> {
+                            val dto =
                                 PaymentGatewayService(call = call).enablePaymentGateway(
                                     provider = PaymentProvider.PAYPAL,
                                     acknowledgment =
@@ -647,13 +651,42 @@ class PaymentGatewayCheckoutServiceTest :
                                             disclaimerSha256 = PaymentGatewayComplianceDisclaimer.SHA256,
                                         ),
                                 )
-                            }
-                            call.respondText("ok")
+                            call.respondText("${dto.paymentGatewayEnabled}:${dto.paymentGatewayProvider}")
                         }
                     }
                 }
                 val admin = createMember("checkout-enable-paypal-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
                 val response = client.post("/test/enable-paypal") { header("X-Member-Id", admin.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "true:PAYPAL"
+            }
+        }
+
+        test("enablePaymentGateway(PAYPAL, ...) without LAPIS_PAYPAL_* -> enabled but requirePaymentGatewayUsable rejects") {
+            testApplication {
+                application {
+                    routing {
+                        post("/test/enable-paypal-unusable") {
+                            PaymentGatewayService(call = call, paypalConfigState = PaypalConfigState.NotConfigured).enablePaymentGateway(
+                                provider = PaymentProvider.PAYPAL,
+                                acknowledgment =
+                                    network.lapis.cloud.shared.domain.PaymentGatewayComplianceAcknowledgmentInput(
+                                        disclaimerVersion = PaymentGatewayComplianceDisclaimer.VERSION,
+                                        disclaimerSha256 = PaymentGatewayComplianceDisclaimer.SHA256,
+                                    ),
+                            )
+                            shouldThrow<ConflictException> {
+                                PaymentGatewayService(
+                                    call = call,
+                                    paypalConfigState = PaypalConfigState.NotConfigured,
+                                ).createDonationCheckout(DonationCheckoutInput(amount = BigDecimal("10.00")))
+                            }
+                            call.respondText("ok")
+                        }
+                    }
+                }
+                val admin = createMember("checkout-enable-paypal-unusable-${Uuid.random()}@example.org", role = AccountRole.ADMIN)
+                val response = client.post("/test/enable-paypal-unusable") { header("X-Member-Id", admin.toString()) }
                 response.status shouldBe HttpStatusCode.OK
             }
         }

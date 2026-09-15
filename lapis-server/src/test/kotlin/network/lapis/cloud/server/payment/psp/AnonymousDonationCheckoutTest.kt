@@ -10,6 +10,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -23,6 +27,8 @@ import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PaymentGatewayComplianceDisclaimer
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
+import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.eq
@@ -108,7 +114,10 @@ class AnonymousDonationCheckoutTest :
             return StripeCheckoutClient(pspConfig = pspConfig, httpClient = HttpClient(engine))
         }
 
-        fun enableGateway(isPoliticalParty: Boolean = false) {
+        fun enableGateway(
+            isPoliticalParty: Boolean = false,
+            gatewayProvider: PaymentProvider = PaymentProvider.STRIPE,
+        ) {
             val adminId = Uuid.random()
             transaction {
                 MemberTable.insert {
@@ -121,7 +130,7 @@ class AnonymousDonationCheckoutTest :
                 }
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[paymentGatewayEnabled] = true
-                    it[paymentGatewayProvider] = PaymentProvider.STRIPE
+                    it[paymentGatewayProvider] = gatewayProvider
                     it[OrganizationSettingsTable.isPoliticalParty] = isPoliticalParty
                 }
                 PaymentGatewayComplianceAcknowledgmentTable.insert {
@@ -130,7 +139,7 @@ class AnonymousDonationCheckoutTest :
                     it[acknowledgedAt] = DbClock.nowLocalDateTime()
                     it[disclaimerVersion] = PaymentGatewayComplianceDisclaimer.VERSION
                     it[disclaimerSha256] = PaymentGatewayComplianceDisclaimer.SHA256
-                    it[provider] = PaymentProvider.STRIPE
+                    it[provider] = gatewayProvider
                 }
             }
             createdMemberIds += adminId
@@ -387,5 +396,178 @@ class AnonymousDonationCheckoutTest :
                     )
                 }
             (secondRealAttempt is AnonymousDonationResult.RateLimited) shouldBe true
+        }
+
+        // Fix (Review round 1, MAJOR test-coverage gap): regression pin for the CRITICAL fix that
+        // made EmbedRoutes.donationWidgetAvailability() Stripe-scoped again -- this proves the
+        // OTHER half of that consistency: an org that has configured+selected PAYPAL must still get
+        // GatewayUnavailable from the real anonymous-donation checkout path, exactly like the admin
+        // status endpoint now reports it unavailable too. Without this test, the two call sites could
+        // silently drift apart again (as they did before the fix) with nothing catching it.
+        test(
+            "org has configured+selected PAYPAL (not STRIPE) -> GatewayUnavailable, " +
+                "even though checkoutClient/pspConfig are both non-null (the embed donation path is Stripe-only by construction)",
+        ) {
+            enableGateway(gatewayProvider = PaymentProvider.PAYPAL)
+            val checkout =
+                AnonymousDonationCheckout(
+                    pspConfigState = testPspConfigState("paypal-selected"),
+                    checkoutClient = mockStripeClient(),
+                    baseUrl = "https://lapis.example",
+                    checkoutRateLimiter = generousLimiter(),
+                )
+
+            val result =
+                runBlocking {
+                    checkout.create(
+                        amountEur = BigDecimal("25.00"),
+                        honeypotValue = null,
+                        canonicalOrigin = "https://partei.example",
+                        rateLimitKey = "test-paypal-selected",
+                    )
+                }
+
+            result shouldBe AnonymousDonationResult.GatewayUnavailable
+        }
+
+        // Fix (Review round 2, CRITICAL): round 1 had added an opportunistic
+        // `sweepExpiredAnonymousSessions(provider = STRIPE, ...)` call to create()'s step 6, and this
+        // test originally asserted that call's effect. That call has since been REVERTED (see
+        // AnonymousDonationCheckout.kt step 6 KDoc) because `sweepExpiredAnonymousSessions` is only
+        // safe for PayPal, not for Stripe -- Stripe's local `expires_at` clock does not reflect
+        // Stripe's own real Checkout Session expiry, so sweeping by it could delete a still-payable
+        // donor's row out from under them. This test now proves the INVERSE of what it originally
+        // proved: a locally-expired-but-still-CREATED anonymous STRIPE session must NOT be touched by
+        // an unrelated create() call, precisely because no Stripe-safe sweep exists on this path --
+        // only Stripe's own `checkout.session.expired` webhook (`PspWebhookIngestion
+        // .ingestCheckoutExpired`) may ever remove such a row.
+        test(
+            "create() never deletes an unrelated, locally-expired anonymous STRIPE session -- only Stripe's " +
+                "own checkout.session.expired webhook may do that",
+        ) {
+            enableGateway()
+            val now = DbClock.nowLocalDateTime()
+
+            fun insertAnonymousSession(
+                providerSessionId: String,
+                status: PaymentCheckoutSessionStatus,
+                expiresAt: LocalDateTime,
+            ): Pair<Uuid, Uuid> {
+                val donorId = Uuid.random()
+                transaction {
+                    ExternalDonorTable.insert {
+                        it[id] = donorId
+                        it[displayName] = "AnonymousDonationCheckoutTest Sweep Donor"
+                        it[donorCategory] = DonorCategory.ANONYMOUS
+                        it[street] = null
+                        it[postalCode] = null
+                        it[city] = null
+                        it[country] = null
+                        it[active] = false
+                    }
+                }
+                val sessionId = Uuid.random()
+                transaction {
+                    PaymentCheckoutSessionTable.insert {
+                        it[id] = sessionId
+                        it[provider] = PaymentProvider.STRIPE
+                        it[PaymentCheckoutSessionTable.providerSessionId] = providerSessionId
+                        it[PaymentCheckoutSessionTable.status] = status
+                        it[intent] = PaymentIntent.DONATION
+                        it[contributionId] = null
+                        it[memberId] = null
+                        it[externalDonorId] = donorId
+                        it[eventRegistrationId] = null
+                        it[embedOrigin] = "https://partei.example"
+                        it[amount] = BigDecimal("10.00")
+                        it[currency] = "EUR"
+                        it[donorCategory] = DonorCategory.ANONYMOUS
+                        it[purpose] = null
+                        it[createdAt] = now
+                        it[PaymentCheckoutSessionTable.expiresAt] = expiresAt
+                        it[completedAt] = if (status == PaymentCheckoutSessionStatus.COMPLETED) now else null
+                        it[providerIdempotencyKey] = "idem-sweep-${sessionId.toString().take(8)}"
+                        it[redirectUrl] = "https://checkout.stripe.com/c/pay/$providerSessionId"
+                    }
+                }
+                return sessionId to donorId
+            }
+
+            val nowInstant = now.toInstant(TimeZone.UTC)
+            // Simulates the exact scenario the KDoc warns about: this session's local `expires_at`
+            // is in the past, but nothing here proves Stripe's OWN checkout page is dead too -- if
+            // create() swept it anyway, a real donor who is still mid-payment on that live Stripe
+            // page would lose their session + external_donor row to this unrelated call.
+            val (expiredSessionId, expiredDonorId) =
+                insertAnonymousSession(
+                    providerSessionId = "cs_anon_test_sweep_expired_${Uuid.random()}",
+                    status = PaymentCheckoutSessionStatus.CREATED,
+                    expiresAt = (nowInstant - 2.hours).toLocalDateTime(TimeZone.UTC),
+                )
+            val (stillValidSessionId, stillValidDonorId) =
+                insertAnonymousSession(
+                    providerSessionId = "cs_anon_test_sweep_valid_${Uuid.random()}",
+                    status = PaymentCheckoutSessionStatus.CREATED,
+                    expiresAt = (nowInstant + 2.hours).toLocalDateTime(TimeZone.UTC),
+                )
+            val (completedSessionId, completedDonorId) =
+                insertAnonymousSession(
+                    providerSessionId = "cs_anon_test_sweep_completed_${Uuid.random()}",
+                    status = PaymentCheckoutSessionStatus.COMPLETED,
+                    expiresAt = (nowInstant - 2.hours).toLocalDateTime(TimeZone.UTC),
+                )
+
+            val checkout =
+                AnonymousDonationCheckout(
+                    pspConfigState = testPspConfigState("sweep"),
+                    checkoutClient = mockStripeClient(),
+                    baseUrl = "https://lapis.example",
+                    checkoutRateLimiter = generousLimiter(),
+                )
+            val result =
+                runBlocking {
+                    checkout.create(
+                        amountEur = BigDecimal("25.00"),
+                        honeypotValue = null,
+                        canonicalOrigin = "https://partei.example",
+                        rateLimitKey = "test-sweep",
+                    )
+                }
+            (result is AnonymousDonationResult.Success) shouldBe true
+
+            // The locally-expired session must SURVIVE -- this is the assertion this test exists for.
+            transaction {
+                PaymentCheckoutSessionTable.selectAll().where { PaymentCheckoutSessionTable.id eq expiredSessionId }.toList()
+            }.size shouldBe 1
+            transaction {
+                ExternalDonorTable.selectAll().where { ExternalDonorTable.id eq expiredDonorId }.toList()
+            }.size shouldBe 1
+
+            transaction {
+                PaymentCheckoutSessionTable.selectAll().where { PaymentCheckoutSessionTable.id eq stillValidSessionId }.toList()
+            }.size shouldBe 1
+            transaction {
+                ExternalDonorTable.selectAll().where { ExternalDonorTable.id eq stillValidDonorId }.toList()
+            }.size shouldBe 1
+
+            transaction {
+                PaymentCheckoutSessionTable.selectAll().where { PaymentCheckoutSessionTable.id eq completedSessionId }.toList()
+            }.size shouldBe 1
+            transaction {
+                ExternalDonorTable.selectAll().where { ExternalDonorTable.id eq completedDonorId }.toList()
+            }.size shouldBe 1
+
+            // Cleanup for the three rows this test inserted directly via direct DB inserts (the
+            // afterTest hook only matches the `cs_anon_test_%` sessions this Spec's OWN
+            // checkout.create() calls create -- same idiom PspWebhookRoutesTest's own afterSpec
+            // documents for such direct-insert rows).
+            transaction {
+                PaymentCheckoutSessionTable.deleteWhere {
+                    PaymentCheckoutSessionTable.id inList listOf(expiredSessionId, stillValidSessionId, completedSessionId)
+                }
+                ExternalDonorTable.deleteWhere {
+                    ExternalDonorTable.id inList listOf(expiredDonorId, stillValidDonorId, completedDonorId)
+                }
+            }
         }
     })

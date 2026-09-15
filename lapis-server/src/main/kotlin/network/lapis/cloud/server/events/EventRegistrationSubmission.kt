@@ -9,11 +9,10 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
+import network.lapis.cloud.server.payment.psp.PspCheckoutResult
 import network.lapis.cloud.server.payment.psp.PspCheckoutSessions
-import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
-import network.lapis.cloud.server.payment.psp.StripeCheckoutResult
-import network.lapis.cloud.server.payment.psp.StripeReturnUrls
+import network.lapis.cloud.server.payment.psp.PspReturnUrls
 import network.lapis.cloud.server.routes.sha256Hex
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.paymentGatewayDisclaimerIsCurrentlyAcknowledged
@@ -71,7 +70,12 @@ internal sealed interface EventRegistrationResult {
     /** Never reveals WHICH precondition (gateway disabled/misconfigured/disclaimer not acknowledged) failed -- same posture `AnonymousDonationCheckout`'s own `GatewayUnavailable` establishes. */
     data object GatewayUnavailable : EventRegistrationResult
 
-    data class StripeFailed(
+    /**
+     * Renamed from `StripeFailed` (Review round 2, MINOR): event registration checkout can now use
+     * PayPal too, so this is no longer a Stripe-only outcome -- the wrapped [message] text was
+     * always provider-neutral, only the case name was a half-renamed leftover from before PayPal.
+     */
+    data class PaymentFailed(
         val message: String,
     ) : EventRegistrationResult
 }
@@ -122,8 +126,14 @@ internal sealed interface EventRegistrationResult {
  * `EventCapacityGuard` KDoc.
  */
 internal class EventRegistrationSubmission(
-    private val pspConfigState: PspConfigState,
-    private val checkoutClient: StripeCheckoutClient?,
+    /**
+     * Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- one gateway instance per configured
+     * provider, keyed by [PspCheckoutGateway.provider]. Replaces the single Stripe-only
+     * `checkoutClient: StripeCheckoutClient?` field; [resolveGateway] picks the ONE entry matching
+     * `organization_settings.payment_gateway_provider`, mirroring `PaymentGatewayService`'s own
+     * `gateways` map.
+     */
+    private val checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     private val baseUrl: String,
     private val mailDispatcher: MailDispatcher,
 ) {
@@ -358,7 +368,7 @@ internal class EventRegistrationSubmission(
                 EventRegistrationResult.PaymentRequired(registrationId = registrationId, redirectUrl = outcome.redirectUrl)
             }
             CheckoutOutcome.GatewayMissing -> EventRegistrationResult.GatewayUnavailable
-            is CheckoutOutcome.Failed -> EventRegistrationResult.StripeFailed(outcome.message)
+            is CheckoutOutcome.Failed -> EventRegistrationResult.PaymentFailed(outcome.message)
         }
     }
 
@@ -437,7 +447,7 @@ internal class EventRegistrationSubmission(
             is CheckoutOutcome.Success ->
                 EventRegistrationResult.PaymentRequired(registrationId = registrationId, redirectUrl = outcome.redirectUrl)
             CheckoutOutcome.GatewayMissing -> EventRegistrationResult.GatewayUnavailable
-            is CheckoutOutcome.Failed -> EventRegistrationResult.StripeFailed(outcome.message)
+            is CheckoutOutcome.Failed -> EventRegistrationResult.PaymentFailed(outcome.message)
         }
     }
 
@@ -477,20 +487,26 @@ internal class EventRegistrationSubmission(
         holdExpiresAt: LocalDateTime?,
         embedOrigin: String?,
     ): CheckoutOutcome {
-        val reusable = transaction { PspCheckoutSessions.findReusableForRegistration(eventRegistrationId = registrationId, now = now) }
-        val reusableRedirectUrl = reusable?.get(PaymentCheckoutSessionTable.redirectUrl)
-        if (reusableRedirectUrl != null) {
-            return CheckoutOutcome.Success(reusableRedirectUrl)
-        }
-        val client = checkoutClient
+        val client = resolveGateway()
         if (client == null) {
             if (freeSeatOnFailure) freeSeatAndSweepWaitlist(eventId = eventId, registrationId = registrationId, now = now)
             return CheckoutOutcome.GatewayMissing
         }
+        // Review round 2 (MAJOR fix): scoped to `client.provider` -- see
+        // PspCheckoutSessions.findReusableForRegistration KDoc. A session reused across a provider
+        // switch would hand back a redirectUrl pointing at the STALE provider's checkout page.
+        val reusable =
+            transaction {
+                PspCheckoutSessions.findReusableForRegistration(eventRegistrationId = registrationId, provider = client.provider, now = now)
+            }
+        val reusableRedirectUrl = reusable?.get(PaymentCheckoutSessionTable.redirectUrl)
+        if (reusableRedirectUrl != null) {
+            return CheckoutOutcome.Success(reusableRedirectUrl)
+        }
         val checkoutSessionId = Uuid.random()
-        val returnUrls = StripeReturnUrls.eventRegistration(baseUrl = baseUrl, slug = slug, registrationId = registrationId.toString())
+        val returnUrls = PspReturnUrls.eventRegistration(baseUrl = baseUrl, slug = slug, registrationId = registrationId.toString())
         val stripeResult =
-            client.createCheckoutSession(
+            client.createCheckout(
                 checkoutSessionId = checkoutSessionId.toString(),
                 amount = feeAmount.setScale(2, RoundingMode.UNNECESSARY),
                 currency = "EUR",
@@ -498,8 +514,8 @@ internal class EventRegistrationSubmission(
                 returnUrls = returnUrls,
             )
         val success =
-            stripeResult as? StripeCheckoutResult.Success ?: run {
-                val failure = stripeResult as StripeCheckoutResult.Failure
+            stripeResult as? PspCheckoutResult.Success ?: run {
+                val failure = stripeResult as PspCheckoutResult.Failure
                 logger.warn { "EventRegistrationSubmission: Stripe checkout failed for registration $registrationId -- ${failure.message}" }
                 if (freeSeatOnFailure) freeSeatAndSweepWaitlist(eventId = eventId, registrationId = registrationId, now = now)
                 return CheckoutOutcome.Failed(failure.message)
@@ -512,14 +528,15 @@ internal class EventRegistrationSubmission(
             // stopped considering a still-payable Stripe session "reusable" long before Stripe
             // itself would refuse it, minting an avoidable second session for the same
             // registration (and, if the registrant later paid on BOTH, a double charge). Capped at
-            // EventPolicy.STRIPE_SESSION_LIFETIME_CAP because Stripe's own Checkout Session expiry
-            // is ~24h regardless of what we track locally.
-            val cap = now.plusDuration(EventPolicy.STRIPE_SESSION_LIFETIME_CAP)
+            // client.sessionLifetimeCap because the provider's own Checkout Session/Order expiry is
+            // fixed (Stripe ~24h, PayPal ~3h -- see PspCheckoutGateway.sessionLifetimeCap KDoc)
+            // regardless of what we track locally.
+            val cap = now.plusDuration(client.sessionLifetimeCap)
             val fallback = now.plusDuration(EventPolicy.STANDARD_HOLD)
             val expiresAt = (holdExpiresAt ?: fallback).let { if (it < cap) it else cap }
             PspCheckoutSessions.create(
                 id = checkoutSessionId,
-                provider = PaymentProvider.STRIPE,
+                provider = client.provider,
                 providerSessionId = success.sessionId,
                 intent = PaymentIntent.EVENT_FEE,
                 contributionId = null,
@@ -594,10 +611,27 @@ internal class EventRegistrationSubmission(
         val gatewayEnabled = settingsRow?.get(OrganizationSettingsTable.paymentGatewayEnabled) ?: false
         val provider = settingsRow?.get(OrganizationSettingsTable.paymentGatewayProvider)
         return gatewayEnabled &&
-            provider == PaymentProvider.STRIPE &&
-            pspConfigState is PspConfigState.Configured &&
-            checkoutClient != null &&
+            provider != null &&
+            checkoutGateways[provider] != null &&
             paymentGatewayDisclaimerIsCurrentlyAcknowledged()
+    }
+
+    /**
+     * Welle V1.2.8b -- looks up [checkoutGateways] by the currently configured
+     * `organization_settings.payment_gateway_provider`, exactly mirroring [gatewayUsable]'s own
+     * settings read (`provider == checkoutGateways[provider]?.provider`, i.e. `checkoutGateways[
+     * provider] != null` -- Phase A4 of the neutralisation refactor).
+     */
+    private fun resolveGateway(): PspCheckoutGateway? {
+        val provider =
+            transaction {
+                OrganizationSettingsTable
+                    .selectAll()
+                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                    .singleOrNull()
+                    ?.get(OrganizationSettingsTable.paymentGatewayProvider)
+            }
+        return provider?.let { checkoutGateways[it] }
     }
 
     private fun mailRegistrationReceived(

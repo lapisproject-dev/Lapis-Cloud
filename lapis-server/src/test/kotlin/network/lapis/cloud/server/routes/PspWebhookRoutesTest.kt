@@ -48,6 +48,7 @@ import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.PspWebhookIngestion
 import network.lapis.cloud.server.payment.psp.STRIPE_JSON
 import network.lapis.cloud.server.payment.psp.StripeWebhookEvent
+import network.lapis.cloud.server.payment.psp.toPspPaymentEvent
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PaymentGatewayComplianceDisclaimer
 import network.lapis.cloud.shared.domain.AccountRole
@@ -1598,7 +1599,7 @@ class PspWebhookRoutesTest :
                 val eventId = "evt_anon_no_disclaimer_${Uuid.random()}"
                 val body = checkoutCompletedBody(eventId = eventId, sessionId = sessionId, amountTotalMinorUnits = 1500)
                 val event = STRIPE_JSON.decodeFromString(StripeWebhookEvent.serializer(), body.toString(Charsets.UTF_8))
-                val outcome = PspWebhookIngestion.ingestCheckoutCompleted(event = event, bodyBytes = body).outcome
+                val outcome = PspWebhookIngestion.ingestCheckoutCompleted(event = event.toPspPaymentEvent(), bodyBytes = body).outcome
                 outcome.shouldBeInstanceOf<CheckoutCompletedIngestionOutcome.Unposted>()
                 val note = outcome.note
                 note.contains("Anonyme Spende ohne") shouldBe true

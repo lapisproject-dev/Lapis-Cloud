@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
+import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -20,6 +21,7 @@ import network.lapis.cloud.shared.domain.PaymentGatewayComplianceAcknowledgmentI
 import network.lapis.cloud.shared.domain.PaymentGatewayComplianceDisclaimerDto
 import network.lapis.cloud.shared.domain.PaymentGatewaySettingsDto
 import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.PspConfigStatusDto
 import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 
 /**
@@ -66,11 +68,71 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
         }
     }
 
-    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
+    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2 align-items-center") }
+    // Fix (Review round 1, CRITICAL): Welle V1.2.8b added PAYPAL as a fully first-class provider
+    // server-side (`enablePaymentGateway` accepts both STRIPE and PAYPAL), but this screen never
+    // gained a picker -- `enablePaymentGateway` was called with the STRIPE literal unconditionally,
+    // making PayPal unreachable end-to-end despite ~1,900 lines of correct server-side plumbing.
+    // Order (PAYPAL, STRIPE) matches PaymentProvider's own declared order (see that enum's own
+    // "Literal order load-bearing" KDoc); MANUAL is deliberately excluded -- `enablePaymentGateway`
+    // rejects it server-side (see IPaymentGatewayService KDoc "Role: ADMIN. provider must be PAYPAL
+    // or STRIPE").
+    val providerSelect =
+        actionsRow.select(
+            options =
+                listOf(
+                    PaymentProvider.PAYPAL.name to paymentProviderLabel(PaymentProvider.PAYPAL),
+                    PaymentProvider.STRIPE.name to paymentProviderLabel(PaymentProvider.STRIPE),
+                ),
+            value = PaymentProvider.STRIPE.name,
+            label = tr("Anbieter"),
+        )
     val enableButton = actionsRow.button(tr("Online-Zahlung aktivieren …"), style = ButtonStyle.PRIMARY)
     val disableButton = actionsRow.button(tr("Online-Zahlung deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+    // Fix (Review round 2, MINOR): plan §C5 called for greying out/warning against a provider whose
+    // transport is not configured -- previously both options stayed selectable regardless of
+    // getPspConfigStatus(), so nothing warned an ADMIN at selection time that PayPal/Stripe had no
+    // env vars set (enablePaymentGateway would then fail server-side, or -- worse, if only the
+    // shared LAPIS_PSP_* knobs were set -- silently select a provider whose real credentials are
+    // missing). KVision's select() has no per-option disabled state, so this warns inline and
+    // disables the Enable button instead, achieving the same "cannot enable an unconfigured
+    // provider from this screen" outcome.
+    val unconfiguredWarning =
+        actionsRow.div { addCssClasses("text-danger small") }.apply { visible = false }
+    var configStatus: PspConfigStatusDto? = null
+
+    fun providerIsConfigured(provider: PaymentProvider): Boolean {
+        val status = configStatus ?: return true // unknown yet -- never block before the status has loaded
+        return when (provider) {
+            PaymentProvider.STRIPE -> status.secretKeyConfigured && status.webhookSecretConfigured
+            PaymentProvider.PAYPAL ->
+                status.paypalClientIdConfigured && status.paypalClientSecretConfigured && status.paypalWebhookIdConfigured
+            PaymentProvider.MANUAL -> true
+        }
+    }
+
+    fun refreshProviderWarning() {
+        val selectedProvider = PaymentProvider.entries.firstOrNull { it.name == providerSelect.value } ?: PaymentProvider.STRIPE
+        val configured = providerIsConfigured(selectedProvider)
+        enableButton.disabled = !configured
+        unconfiguredWarning.visible = !configured
+        if (!configured) {
+            unconfiguredWarning.content =
+                gettext(
+                    "%1 ist serverseitig noch nicht vollständig konfiguriert -- siehe Diagnose-Abschnitt unten.",
+                    paymentProviderLabel(selectedProvider),
+                )
+        }
+    }
+    providerSelect.subscribe { refreshProviderWarning() }
+    AppScope.launch {
+        configStatus = guarded { rpcService<IPaymentGatewayService>().getPspConfigStatus() }
+        refreshProviderWarning()
+    }
 
     fun acknowledgeAndEnable() {
+        val selectedProvider = PaymentProvider.entries.firstOrNull { it.name == providerSelect.value } ?: PaymentProvider.STRIPE
+        if (!providerIsConfigured(selectedProvider)) return
         enableButton.disabled = true
         AppScope.launch {
             val disclaimer = guarded { rpcService<IPaymentGatewayService>().getPaymentGatewayComplianceDisclaimer() }
@@ -81,7 +143,7 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
                         val result =
                             guarded {
                                 rpcService<IPaymentGatewayService>().enablePaymentGateway(
-                                    provider = PaymentProvider.STRIPE,
+                                    provider = selectedProvider,
                                     acknowledgment =
                                         PaymentGatewayComplianceAcknowledgmentInput(
                                             disclaimerVersion = disclaimer.version,
@@ -207,18 +269,32 @@ private fun renderPspConfigStatusSection(root: SimplePanel) {
     AppScope.launch {
         val status = guarded { rpcService<IPaymentGatewayService>().getPspConfigStatus() } ?: return@launch
         panel.removeAll()
+        panel.div(tr("Stripe")) { addCssClasses("fw-bold small mt-1") }
         renderPspConfigStatusRow(panel, tr("Geheimer Schlüssel gesetzt"), status.secretKeyConfigured)
         renderPspConfigStatusRow(panel, tr("Webhook-Signing-Secret gesetzt"), status.webhookSecretConfigured)
-        renderPspConfigStatusRow(panel, tr("Bankkonto zugeordnet"), status.paymentBankAccountConfigured)
-        renderPspConfigStatusRow(panel, tr("Beitragserlöskonto zugeordnet"), status.contributionIncomeAccountConfigured)
-        renderPspConfigStatusRow(panel, tr("Spendenerlöskonto zugeordnet"), status.donationIncomeAccountConfigured)
-        renderPspConfigStatusRow(panel, tr("Gebührenkonto zugeordnet"), status.paymentFeeAccountConfigured)
         panel.div(
             gettext(
                 "Im Stripe-Dashboard einzutragende Webhook-URL (Event checkout.session.completed): %1",
                 status.webhookUrl,
             ),
         ) { addCssClasses("small font-monospace mt-2") }
+        // Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- same presence-only discipline as the
+        // Stripe rows above, never a secret value.
+        panel.div(tr("PayPal")) { addCssClasses("fw-bold small mt-3") }
+        renderPspConfigStatusRow(panel, tr("Client-ID gesetzt"), status.paypalClientIdConfigured)
+        renderPspConfigStatusRow(panel, tr("Client-Secret gesetzt"), status.paypalClientSecretConfigured)
+        renderPspConfigStatusRow(panel, tr("Webhook-ID gesetzt"), status.paypalWebhookIdConfigured)
+        panel.div(
+            gettext(
+                "Im PayPal-Entwickler-Dashboard einzutragende Webhook-URL: %1",
+                status.paypalWebhookUrl,
+            ),
+        ) { addCssClasses("small font-monospace mt-2") }
+        panel.div(tr("Kontenzuordnung")) { addCssClasses("fw-bold small mt-3") }
+        renderPspConfigStatusRow(panel, tr("Bankkonto zugeordnet"), status.paymentBankAccountConfigured)
+        renderPspConfigStatusRow(panel, tr("Beitragserlöskonto zugeordnet"), status.contributionIncomeAccountConfigured)
+        renderPspConfigStatusRow(panel, tr("Spendenerlöskonto zugeordnet"), status.donationIncomeAccountConfigured)
+        renderPspConfigStatusRow(panel, tr("Gebührenkonto zugeordnet"), status.paymentFeeAccountConfigured)
     }
 }
 

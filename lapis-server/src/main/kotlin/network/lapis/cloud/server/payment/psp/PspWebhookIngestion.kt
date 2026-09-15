@@ -33,7 +33,6 @@ import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.ContributionStatusSets
 import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
-import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.domain.PaymentTransactionSnapshot
 import network.lapis.cloud.shared.domain.PaymentTransactionStatus
 import network.lapis.cloud.shared.domain.WebhookEventType
@@ -47,7 +46,6 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
@@ -154,23 +152,22 @@ internal data class EventTicketMail(
  * earlier in this same transaction, so they take no NEW lock.
  */
 object PspWebhookIngestion {
-    /** `internal` -- [StripeWebhookEvent] is itself `internal` (a wire-only type), so this function must stay non-public too; its only caller, `PspWebhookRoutes`, is in the same module. */
+    /** `internal` -- [PspPaymentEvent] is itself `internal` (a wire-only type), so this function must stay non-public too; its only caller, the per-provider webhook route, is in the same module. */
     internal fun ingestCheckoutCompleted(
-        event: StripeWebhookEvent,
+        event: PspPaymentEvent,
         bodyBytes: ByteArray,
     ): CheckoutCompletedIngestionResult =
         transaction {
-            val session = event.data.eventObject
-
             // Step 1 -- lock the checkout session.
             val sessionRow =
                 PspCheckoutSessions.findByProviderSessionForUpdate(
-                    provider = PaymentProvider.STRIPE,
-                    providerSessionId = session.id,
+                    provider = event.provider,
+                    providerSessionId = event.providerSessionId,
                 )
             if (sessionRow == null) {
                 logger.warn {
-                    "PspWebhookIngestion: no payment_checkout_session found for Stripe session ${session.id} (event ${event.id})"
+                    "PspWebhookIngestion: no payment_checkout_session found for ${event.provider} session " +
+                        "${event.providerSessionId} (event ${event.providerEventId})"
                 }
                 return@transaction CheckoutCompletedIngestionResult(
                     outcome =
@@ -204,9 +201,9 @@ object PspWebhookIngestion {
                 runCatching {
                     PaymentTransactionTable.insert {
                         it[id] = paymentTransactionId
-                        it[provider] = PaymentProvider.STRIPE
-                        it[providerEventId] = event.id
-                        it[providerPaymentId] = session.paymentIntent ?: session.id
+                        it[provider] = event.provider
+                        it[providerEventId] = event.providerEventId
+                        it[providerPaymentId] = event.providerPaymentId
                         it[status] = PaymentTransactionStatus.CAPTURED
                         it[amount] = sessionAmount
                         it[currency] = sessionCurrency
@@ -214,7 +211,7 @@ object PspWebhookIngestion {
                         it[intent] = sessionIntent
                         it[contributionId] = sessionContributionId
                         it[memberId] = sessionMemberId
-                        it[payerReference] = session.customer
+                        it[payerReference] = event.payerReference
                         it[receivedAt] = now
                         it[reconciledAt] = null
                         it[reconciledBy] = null
@@ -239,8 +236,8 @@ object PspWebhookIngestion {
             }
 
             // Step 3 -- reconcile the webhook's own amount/currency against the server-created session.
-            val webhookAmount = session.amountTotal?.let { minorUnitsToDecimal(it) }
-            val webhookCurrency = session.currency
+            val webhookAmount = event.amount
+            val webhookCurrency = event.currency
             val amountMismatch = webhookAmount == null || webhookAmount.compareTo(sessionAmount) != 0
             val currencyMismatch = webhookCurrency == null || !webhookCurrency.equals(sessionCurrency, ignoreCase = true)
             if (amountMismatch || currencyMismatch) {
@@ -262,15 +259,15 @@ object PspWebhookIngestion {
             // that assumption explicit here instead of leaving it implicit in a single line of a
             // different file. A null payment_status (older/mocked payloads) is treated as acceptable
             // rather than rejected, to avoid breaking existing fixtures/tests that predate this field.
-            if (session.paymentStatus != null && session.paymentStatus != "paid") {
+            if (event.paymentStatus != null && event.paymentStatus != "paid") {
                 val note =
-                    "Stripe payment_status ist '${session.paymentStatus}', nicht 'paid' -- vermutlich eine " +
+                    "PSP payment_status ist '${event.paymentStatus}', nicht 'paid' -- vermutlich eine " +
                         "verzoegerte Zahlart, deren Geld noch nicht eingetroffen ist."
                 PaymentTransactionTable.update({ PaymentTransactionTable.id eq paymentTransactionId }) {
                     it[reconciliationNote] = note
                 }
                 logger.warn {
-                    "PspWebhookIngestion: payment_status '${session.paymentStatus}' != paid for payment_transaction $paymentTransactionId -- $note"
+                    "PspWebhookIngestion: payment_status '${event.paymentStatus}' != paid for payment_transaction $paymentTransactionId -- $note"
                 }
                 return@transaction CheckoutCompletedIngestionResult(
                     outcome = CheckoutCompletedIngestionOutcome.Unposted(paymentTransactionId = paymentTransactionId, note = note),
@@ -452,7 +449,7 @@ object PspWebhookIngestion {
                                 providerFee = null,
                                 actorMemberId = actorMemberId,
                                 actorRole = actorRole,
-                                voucherReference = "PSP-STRIPE-${session.paymentIntent ?: session.id}",
+                                voucherReference = "PSP-${event.provider.name}-${event.providerPaymentId}",
                             )
                         }
                     PaymentIntent.DONATION ->
@@ -471,7 +468,7 @@ object PspWebhookIngestion {
                             donorCategory = sessionDonorCategory,
                             actorMemberId = actorMemberId,
                             actorRole = actorRole,
-                            voucherReference = "PSP-STRIPE-${session.paymentIntent ?: session.id}",
+                            voucherReference = "PSP-${event.provider.name}-${event.providerPaymentId}",
                         )
                     PaymentIntent.EVENT_FEE ->
                         EventFeePostingBridge.postEventFeePayment(
@@ -482,7 +479,7 @@ object PspWebhookIngestion {
                             providerFee = null,
                             actorMemberId = actorMemberId,
                             actorRole = actorRole,
-                            voucherReference = "PSP-STRIPE-${session.paymentIntent ?: session.id}",
+                            voucherReference = "PSP-${event.provider.name}-${event.providerPaymentId}",
                         )
                 }
 
@@ -558,9 +555,9 @@ object PspWebhookIngestion {
                     Json.encodeToString(
                         PaymentTransactionSnapshot.serializer(),
                         PaymentTransactionSnapshot(
-                            provider = PaymentProvider.STRIPE,
-                            providerEventId = event.id,
-                            providerPaymentId = session.paymentIntent ?: session.id,
+                            provider = event.provider,
+                            providerEventId = event.providerEventId,
+                            providerPaymentId = event.providerPaymentId,
                             status = PaymentTransactionStatus.CAPTURED,
                             amount = sessionAmount,
                             currency = sessionCurrency,
@@ -623,15 +620,15 @@ object PspWebhookIngestion {
      * loop rather than silently corrupting anything -- fail-closed, not a silent hazard.
      */
     internal fun ingestCheckoutExpired(
-        event: StripeWebhookEvent,
+        event: PspPaymentEvent,
         mailDispatcher: MailDispatcher,
     ): Boolean {
         val (handled, promotions) =
             transaction {
-                val providerSessionId = event.data.eventObject.id
+                val providerSessionId = event.providerSessionId
                 val sessionRow =
                     PspCheckoutSessions.findByProviderSessionForUpdate(
-                        provider = PaymentProvider.STRIPE,
+                        provider = event.provider,
                         providerSessionId = providerSessionId,
                     )
                 // Same "never downgrade a COMPLETED session" guard markExpiredIfStillCreated's own
@@ -665,7 +662,7 @@ object PspWebhookIngestion {
                     // other way -- see 33-payments.kuml.kts) that the `externalDonorId != null`
                     // branch's `deleteWhere` never has to worry about, because THIS branch never
                     // deletes the session row at all.
-                    PspCheckoutSessions.markExpiredIfStillCreated(provider = PaymentProvider.STRIPE, providerSessionId = providerSessionId)
+                    PspCheckoutSessions.markExpiredIfStillCreated(provider = event.provider, providerSessionId = providerSessionId)
                     val registrationRow = EventStore.getRegistrationOrNull(eventRegistrationId)
                     val sweepPromotions =
                         if (registrationRow != null) {
@@ -690,7 +687,7 @@ object PspWebhookIngestion {
                         }
                     true to sweepPromotions
                 } else {
-                    PspCheckoutSessions.markExpiredIfStillCreated(provider = PaymentProvider.STRIPE, providerSessionId = providerSessionId)
+                    PspCheckoutSessions.markExpiredIfStillCreated(provider = event.provider, providerSessionId = providerSessionId)
                     true to emptyList()
                 }
             }
@@ -719,8 +716,4 @@ object PspWebhookIngestion {
             .where { AccountTable.memberId eq memberId }
             .singleOrNull()
             ?.get(AccountTable.role) ?: AccountRole.MEMBER
-
-    /** Exact minor-units -> scale-2 [BigDecimal] conversion, NEVER via [Double] (e.g. `1234` -> `12.34`). */
-    private fun minorUnitsToDecimal(minorUnits: Long): BigDecimal =
-        BigDecimal(minorUnits).movePointLeft(2).setScale(2, RoundingMode.UNNECESSARY)
 }

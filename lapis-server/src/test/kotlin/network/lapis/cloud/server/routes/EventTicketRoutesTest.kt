@@ -23,7 +23,6 @@ import network.lapis.cloud.server.events.EventTicketPolicy
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
-import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.routes.sha256Hex
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -131,8 +130,7 @@ class EventTicketRoutesTest :
                 application {
                     routing {
                         registerEventPublicRoutes(
-                            pspConfigState = PspConfigState.NotConfigured,
-                            checkoutClient = null,
+                            checkoutGateways = emptyMap(),
                             baseUrl = "https://example.org",
                             mailDispatcher =
                                 MailDispatcher(

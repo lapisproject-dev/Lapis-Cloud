@@ -17,6 +17,10 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentGatewayComplianceAcknowledgmentTable
+import network.lapis.cloud.server.payment.psp.PaypalConfig
+import network.lapis.cloud.server.payment.psp.PaypalConfigState
+import network.lapis.cloud.server.payment.psp.PaypalOrdersClient
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.shared.domain.AccountRole
@@ -106,11 +110,14 @@ class PaymentGatewayAvailabilityTest :
                     ),
             )
 
-        fun enableGate(member: Uuid) {
+        fun enableGate(
+            member: Uuid,
+            gatewayProvider: PaymentProvider = PaymentProvider.STRIPE,
+        ) {
             transaction {
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[paymentGatewayEnabled] = true
-                    it[paymentGatewayProvider] = PaymentProvider.STRIPE
+                    it[paymentGatewayProvider] = gatewayProvider
                 }
                 PaymentGatewayComplianceAcknowledgmentTable.insert {
                     it[id] = Uuid.random()
@@ -118,10 +125,31 @@ class PaymentGatewayAvailabilityTest :
                     it[acknowledgedAt] = LocalDateTime(2026, 4, 1, 9, 0)
                     it[disclaimerVersion] = PaymentGatewayComplianceDisclaimer.VERSION
                     it[disclaimerSha256] = PaymentGatewayComplianceDisclaimer.SHA256
-                    it[provider] = PaymentProvider.STRIPE
+                    it[provider] = gatewayProvider
                 }
             }
         }
+
+        // Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- same fixture-config idiom as
+        // testPspConfigState above, just for PaypalConfig, so this file can pin a known PayPal cap
+        // without touching the process's real LAPIS_PAYPAL_* env.
+        fun testPaypalConfigState(maxCheckoutAmountEur: String = "8000.00"): PaypalConfigState.Configured =
+            PaypalConfigState.Configured(
+                config =
+                    requireNotNull(
+                        (
+                            PaypalConfig.load {
+                                when (it) {
+                                    PaypalConfig.ENV_CLIENT_ID -> "test-availability-paypal-client-id-000000"
+                                    PaypalConfig.ENV_CLIENT_SECRET -> "test-availability-paypal-client-secret-00"
+                                    PaypalConfig.ENV_WEBHOOK_ID -> "WH-AVAILABILITY-TEST-0000"
+                                    PspConfig.ENV_MAX_CHECKOUT_AMOUNT_EUR -> maxCheckoutAmountEur
+                                    else -> null
+                                }
+                            } as? PaypalConfigState.Configured
+                        )?.config,
+                    ),
+            )
 
         test("gate disabled -> usable=false and maxCheckoutAmountEur is null (no meaningful ceiling to show)") {
             testApplication {
@@ -232,6 +260,74 @@ class PaymentGatewayAvailabilityTest :
                 enableGate(member)
                 val afterGate = client.get("/test/availability") { header("X-Member-Id", member.toString()) }
                 afterGate.bodyAsText() shouldBe "true"
+            }
+        }
+
+        // Fix (Review round 1, MAJOR test-coverage gap): getPaymentGatewayAvailability's
+        // gateway-map lookup (`gateways[provider]`) had no dedicated regression test for the PayPal
+        // path -- these two tests close that gap.
+        test(
+            "gate on, disclaimer acknowledged for PAYPAL, PayPal configured -> usable=true, provider=PAYPAL, maxCheckoutAmountEur from PaypalConfig",
+        ) {
+            testApplication {
+                val paypalConfigState = testPaypalConfigState("8765.43")
+                application {
+                    routing {
+                        get("/test/availability") {
+                            val dto =
+                                PaymentGatewayService(
+                                    call = call,
+                                    pspConfigState = testPspConfigState(),
+                                    paypalConfigState = paypalConfigState,
+                                    gateways =
+                                        mapOf<PaymentProvider, PspCheckoutGateway>(
+                                            PaymentProvider.PAYPAL to PaypalOrdersClient(config = paypalConfigState.config),
+                                        ),
+                                ).getPaymentGatewayAvailability()
+                            call.respondText("${dto.enabled}:${dto.provider}:${dto.maxCheckoutAmountEur}")
+                        }
+                    }
+                }
+                val member = createMember("availability-paypal-usable-${Uuid.random()}@example.org")
+                enableGate(member, gatewayProvider = PaymentProvider.PAYPAL)
+
+                val response = client.get("/test/availability") { header("X-Member-Id", member.toString()) }
+                response.bodyAsText() shouldBe "true:PAYPAL:8765.43"
+            }
+        }
+
+        test(
+            "provider=PAYPAL selected but only Stripe is configured (gateways map lacks PAYPAL) -> enabled=false, provider=null",
+        ) {
+            testApplication {
+                application {
+                    routing {
+                        get("/test/availability") {
+                            val dto =
+                                PaymentGatewayService(
+                                    call = call,
+                                    pspConfigState = testPspConfigState(),
+                                    paypalConfigState = PaypalConfigState.NotConfigured,
+                                    // Deliberately only STRIPE in the gateway map -- mirrors a
+                                    // deployment where the org selected PAYPAL but the operator never
+                                    // set any LAPIS_PAYPAL_* env var.
+                                    gateways =
+                                        mapOf(
+                                            PaymentProvider.STRIPE to
+                                                network.lapis.cloud.server.payment.psp.StripeCheckoutClient(
+                                                    pspConfig = testPspConfigState().config,
+                                                ),
+                                        ),
+                                ).getPaymentGatewayAvailability()
+                            call.respondText("${dto.enabled}:${dto.provider}")
+                        }
+                    }
+                }
+                val member = createMember("availability-paypal-unconfigured-${Uuid.random()}@example.org")
+                enableGate(member, gatewayProvider = PaymentProvider.PAYPAL)
+
+                val response = client.get("/test/availability") { header("X-Member-Id", member.toString()) }
+                response.bodyAsText() shouldBe "false:null"
             }
         }
     })

@@ -3,6 +3,9 @@ package network.lapis.cloud.server.payment.psp
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.PaymentProvider
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- the narrow slice of Stripe's own wire
@@ -82,3 +85,29 @@ internal data class StripeErrorDetail(
     val type: String? = null,
     val code: String? = null,
 )
+
+/**
+ * Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6), Phase A6 der Neutralisierung -- baut das
+ * PSP-neutrale [PspPaymentEvent] aus einem bereits signaturgeprüften [StripeWebhookEvent]. Die
+ * Minor-Units-Umrechnung (`amount_total` -- Stripes eigene Ganzzahl-Darstellung) wandert hierher in
+ * den Stripe-Adapter, statt in [PspWebhookIngestion] selbst zu leben -- PayPal sendet stattdessen
+ * Dezimal-STRINGS (siehe `paypalAmountToDecimal` in `PaypalWire.kt`), es gibt keine gemeinsame
+ * Umrechnung, die beide Anbieter teilen könnten.
+ */
+internal fun StripeWebhookEvent.toPspPaymentEvent(): PspPaymentEvent {
+    val session = data.eventObject
+    return PspPaymentEvent(
+        provider = PaymentProvider.STRIPE,
+        providerEventId = id,
+        providerSessionId = session.id,
+        providerPaymentId = session.paymentIntent ?: session.id,
+        amount = session.amountTotal?.let { minorUnitsToDecimal(it) },
+        currency = session.currency,
+        paymentStatus = session.paymentStatus,
+        payerReference = session.customer,
+    )
+}
+
+/** Exact minor-units -> scale-2 [BigDecimal] conversion, NEVER via [Double] (e.g. `1234` -> `12.34`). */
+private fun minorUnitsToDecimal(minorUnits: Long): BigDecimal =
+    BigDecimal(minorUnits).movePointLeft(2).setScale(2, RoundingMode.UNNECESSARY)

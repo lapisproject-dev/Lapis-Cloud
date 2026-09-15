@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.payment.psp
 
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
@@ -11,6 +12,9 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -104,18 +108,27 @@ object PspCheckoutSessions {
             .singleOrNull()
 
     /**
-     * The most recent non-expired `CREATED` session for [contributionId] -- used by
-     * `createContributionCheckout` to reuse an existing session instead of minting a second Stripe
-     * checkout for the same contribution.
+     * The most recent non-expired `CREATED` session for [contributionId] under [provider] -- used by
+     * `createContributionCheckout` to reuse an existing session instead of minting a second checkout
+     * for the same contribution.
+     *
+     * **Provider-scoped (Review round 2, MAJOR fix, Welle V1.2.8b)**: now that the org's selected
+     * gateway is dynamic and two providers can coexist, a session minted under a previously-selected
+     * provider must NOT be handed back once the org has since switched to a different one -- the
+     * caller's freshly resolved [PspCheckoutGateway] would otherwise never even be consulted, and the
+     * returned `redirectUrl` would point at the stale provider's checkout page. Every call site must
+     * pass the provider of the [PspCheckoutGateway] it just resolved (`client.provider`).
      */
     fun findReusableForContribution(
         contributionId: Uuid,
+        provider: PaymentProvider,
         now: LocalDateTime,
     ): ResultRow? =
         PaymentCheckoutSessionTable
             .selectAll()
             .where {
                 (PaymentCheckoutSessionTable.contributionId eq contributionId) and
+                    (PaymentCheckoutSessionTable.provider eq provider) and
                     (PaymentCheckoutSessionTable.status eq PaymentCheckoutSessionStatus.CREATED) and
                     (PaymentCheckoutSessionTable.expiresAt greater now)
             }.orderBy(PaymentCheckoutSessionTable.createdAt, SortOrder.DESC)
@@ -123,20 +136,25 @@ object PspCheckoutSessions {
             .singleOrNull()
 
     /**
-     * The most recent non-expired `CREATED` session for [eventRegistrationId] -- same "reuse instead
-     * of minting a second Stripe checkout" idiom [findReusableForContribution] already establishes,
-     * used by `EventRegistrationSubmission.startStripeCheckout` (Review MINOR fix, Welle
+     * The most recent non-expired `CREATED` session for [eventRegistrationId] under [provider] --
+     * same "reuse instead of minting a second checkout" idiom [findReusableForContribution] already
+     * establishes, used by `EventRegistrationSubmission.startStripeCheckout` (Review MINOR fix, Welle
      * events-core-Runde-3): without this, two clicks on the same payment-resume link within one hold
      * window each created their own session, and nothing ever superseded the older one.
+     *
+     * **Provider-scoped (Review round 2, MAJOR fix, Welle V1.2.8b)** -- same reasoning as
+     * [findReusableForContribution]'s KDoc; pass `client.provider` of the freshly resolved gateway.
      */
     fun findReusableForRegistration(
         eventRegistrationId: Uuid,
+        provider: PaymentProvider,
         now: LocalDateTime,
     ): ResultRow? =
         PaymentCheckoutSessionTable
             .selectAll()
             .where {
                 (PaymentCheckoutSessionTable.eventRegistrationId eq eventRegistrationId) and
+                    (PaymentCheckoutSessionTable.provider eq provider) and
                     (PaymentCheckoutSessionTable.status eq PaymentCheckoutSessionStatus.CREATED) and
                     (PaymentCheckoutSessionTable.expiresAt greater now)
             }.orderBy(PaymentCheckoutSessionTable.createdAt, SortOrder.DESC)
@@ -168,4 +186,46 @@ object PspCheckoutSessions {
             it[status] = PaymentCheckoutSessionStatus.EXPIRED
             it[redirectUrl] = null
         }
+
+    /**
+     * Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6), Implementierungsplan §1.3 -- PayPal
+     * sendet KEIN Äquivalent zu `checkout.session.expired`, also ist [markExpiredIfStillCreated]
+     * hier keine verlässliche Aufräum-Auslösung. Löscht noch `CREATED`-Sitzungen von [provider],
+     * deren `expires_at < now` UND deren `externalDonorId` nicht `null` ist, zusammen mit der
+     * gepaarten `external_donor`-Zeile -- exakt dieselbe Zwei-Zeilen-Löschung, die
+     * `PspWebhookIngestion.ingestCheckoutExpired` bereits für Stripe durchführt. Anders als bei
+     * Stripe ist [PaymentCheckoutSessionTable.expiresAt] hier END-ZU-ENDE vertrauenswürdig
+     * (`LAPIS_PSP_CHECKOUT_TTL_MINUTES` ist bei PayPal eine Obergrenze, kein konkurrierender eigener
+     * Taktgeber, siehe [PspCheckoutGateway.sessionLifetimeCap] KDoc) -- deshalb ist diese Funktion
+     * NUR für PayPal sicher, nicht für Stripe (dessen `expires_at` NICHT Stripes eigene 24h-Session-
+     * Ablaufzeit widerspiegelt).
+     *
+     * Aufgerufen opportunistisch von [AnonymousDonationCheckout.create] Schritt 6 (vor dem Minten
+     * einer neuen Sitzung) und vom PayPal-Webhook-Handler, nach [PspWebhookEventLog.record].
+     * `limit` deckelt die Anzahl pro Aufruf (DoS-Schutz, kein unbegrenztes Batch-Delete).
+     */
+    fun sweepExpiredAnonymousSessions(
+        provider: PaymentProvider,
+        now: LocalDateTime,
+        limit: Int = 50,
+    ): Int {
+        val candidates =
+            PaymentCheckoutSessionTable
+                .selectAll()
+                .where {
+                    (PaymentCheckoutSessionTable.provider eq provider) and
+                        (PaymentCheckoutSessionTable.status eq PaymentCheckoutSessionStatus.CREATED) and
+                        (PaymentCheckoutSessionTable.expiresAt less now) and
+                        (PaymentCheckoutSessionTable.externalDonorId.isNotNull())
+                }.limit(limit)
+                .map { it[PaymentCheckoutSessionTable.id] to it[PaymentCheckoutSessionTable.externalDonorId] }
+        var deleted = 0
+        for ((sessionId, externalDonorId) in candidates) {
+            if (externalDonorId == null) continue
+            PaymentCheckoutSessionTable.deleteWhere { PaymentCheckoutSessionTable.id eq sessionId }
+            ExternalDonorTable.deleteWhere { ExternalDonorTable.id eq externalDonorId }
+            deleted++
+        }
+        return deleted
+    }
 }

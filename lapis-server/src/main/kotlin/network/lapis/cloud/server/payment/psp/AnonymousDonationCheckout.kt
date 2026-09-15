@@ -85,7 +85,7 @@ internal sealed interface AnonymousDonationResult {
  */
 internal class AnonymousDonationCheckout(
     private val pspConfigState: PspConfigState,
-    private val checkoutClient: StripeCheckoutClient?,
+    private val checkoutClient: PspCheckoutGateway?,
     private val baseUrl: String,
     private val checkoutRateLimiter: FederationInboxRateLimiter,
 ) {
@@ -167,22 +167,36 @@ internal class AnonymousDonationCheckout(
             return AnonymousDonationResult.RateLimited(retryAfterSeconds = checkoutRateLimiter.retryAfterSeconds(rateLimitKey))
         }
 
-        // 6. UUIDs minten.
+        // 6. UUIDs minten. Review round 2 (CRITICAL, reverted): round 1 had added an opportunistic
+        // `sweepExpiredAnonymousSessions(provider = STRIPE, ...)` call here, claiming it was
+        // "symmetric to PaypalWebhookRoutes' own sweep" -- but this path is STRIPE-only by design
+        // (see `gatewayUsable` above), and `sweepExpiredAnonymousSessions`'s own KDoc says the
+        // function is safe ONLY for PayPal, precisely BECAUSE `expires_at` for Stripe is a purely
+        // local clock (`LAPIS_PSP_CHECKOUT_TTL_MINUTES`) that does NOT reflect Stripe's own real
+        // Checkout Session expiry (`StripeCheckoutClient` deliberately never sends `expires_at` to
+        // Stripe). Calling it here for STRIPE could delete a still-live Stripe checkout's
+        // `payment_checkout_session` + `external_donor` row out from under a real donor who is
+        // simply slower than the local TTL -- when they then complete payment, Stripe captures real
+        // money with zero server-side record left to reconcile it against
+        // (`PspWebhookIngestion.ingestCheckoutCompleted` -> "Unbekannte Checkout-Session"). There is
+        // no Stripe-safe opportunistic cleanup call to make from this path; Stripe's own
+        // `checkout.session.expired` webhook (`PspWebhookIngestion.ingestCheckoutExpired`) remains
+        // the ONLY place that ever removes an abandoned Stripe anonymous-donation row.
         val externalDonorId = Uuid.random()
         val checkoutSessionId = Uuid.random()
 
         // 7. Stripe-Aufruf VOR der Persistenz -- ein Fehlschlag hinterlässt keine external_donor-Zeile.
         val stripeResult =
-            checkoutClient.createCheckoutSession(
+            checkoutClient.createCheckout(
                 checkoutSessionId = checkoutSessionId.toString(),
                 amount = amountEur,
                 currency = "EUR",
                 description = "Spende",
-                returnUrls = StripeReturnUrls.embedDonation(baseUrl = baseUrl, canonicalOrigin = canonicalOrigin),
+                returnUrls = PspReturnUrls.embedDonation(baseUrl = baseUrl, canonicalOrigin = canonicalOrigin),
             )
         val success =
-            stripeResult as? StripeCheckoutResult.Success
-                ?: return AnonymousDonationResult.StripeFailed((stripeResult as StripeCheckoutResult.Failure).message)
+            stripeResult as? PspCheckoutResult.Success
+                ?: return AnonymousDonationResult.StripeFailed((stripeResult as PspCheckoutResult.Failure).message)
 
         // 8. Eine einzige transaction {} -- beides oder nichts.
         val now = DbClock.nowLocalDateTime()
@@ -231,5 +245,5 @@ internal class AnonymousDonationCheckout(
     }
 
     private fun cancelUrl(canonicalOrigin: String): String =
-        StripeReturnUrls.embedDonation(baseUrl = baseUrl, canonicalOrigin = canonicalOrigin).cancelUrl
+        PspReturnUrls.embedDonation(baseUrl = baseUrl, canonicalOrigin = canonicalOrigin).cancelUrl
 }

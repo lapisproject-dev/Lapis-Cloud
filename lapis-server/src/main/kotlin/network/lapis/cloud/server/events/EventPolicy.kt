@@ -60,6 +60,15 @@ object EventPolicy {
      */
     val STRIPE_SESSION_LIFETIME_CAP: Duration = 24.hours
 
+    /**
+     * Welle V1.2.8b "PayPal-Anbindung" -- PayPal-Orders-v2-Sitzungen laufen nach ~3h ab, deutlich
+     * kürzer als Stripes ~24h ([STRIPE_SESSION_LIFETIME_CAP]). Siehe [PspCheckoutGateway
+     * .sessionLifetimeCap] KDoc bzw. Pitfall §6.11 des PayPal-Implementierungsplans: ein zu hoher
+     * Deckel würde `findReusableForRegistration` eine bereits vom Anbieter selbst abgelaufene, tote
+     * `redirectUrl` zurückliefern lassen.
+     */
+    val PAYPAL_SESSION_LIFETIME_CAP: Duration = 3.hours
+
     /** DoS deckel -- a waitlist is otherwise an unbounded insert surface for disposable addresses. */
     const val MAX_WAITLIST = 500
 

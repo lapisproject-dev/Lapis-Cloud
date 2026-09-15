@@ -35,7 +35,6 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.MailSendOutcome
 import network.lapis.cloud.server.mail.MailTransport
-import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventRegistrationDto
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -248,8 +247,7 @@ class EventInvoiceIssuanceTest :
             fun serviceFor(call: io.ktor.server.application.ApplicationCall) =
                 EventService(
                     call = call,
-                    pspConfigState = PspConfigState.NotConfigured,
-                    checkoutClient = null,
+                    checkoutGateways = emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher = mailDispatcher,
                     writeRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),

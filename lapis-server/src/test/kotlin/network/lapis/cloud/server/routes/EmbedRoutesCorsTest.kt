@@ -158,7 +158,7 @@ class EmbedRoutesCorsTest :
                             sessionRateLimiter = sessionRateLimiter,
                             adminStatusRateLimiter = generousLimiter(),
                             pspConfigState = network.lapis.cloud.server.payment.psp.PspConfigState.NotConfigured,
-                            checkoutClient = null,
+                            checkoutGateways = emptyMap(),
                             donationCheckoutRateLimiter = generousLimiter(),
                             donationCheckoutAttemptRateLimiter = generousLimiter(),
                             donationPageRateLimiter = generousLimiter(),

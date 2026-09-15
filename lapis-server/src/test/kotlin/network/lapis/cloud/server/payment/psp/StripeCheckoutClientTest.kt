@@ -58,12 +58,12 @@ class StripeCheckoutClientTest :
             val checkoutClient = StripeCheckoutClient(pspConfig = testPspConfig(), httpClient = client)
 
             val result =
-                checkoutClient.createCheckoutSession(
+                checkoutClient.createCheckout(
                     checkoutSessionId = "checkout-session-id",
                     amount = BigDecimal("12.34"),
                     currency = "EUR",
                     description = "Mitgliedsbeitrag",
-                    returnUrls = StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-id"),
+                    returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-id"),
                 )
 
             capturedAuth shouldBe "Bearer $TEST_SECRET_KEY"
@@ -77,7 +77,7 @@ class StripeCheckoutClientTest :
             // The form KEY itself is URL-encoded too (`[`/`]` -> `%5B`/`%5D`), so the literal
             // substring is `unit_amount%5D=1234`, not `unit_amount=1234`.
             capturedBody.contains("unit_amount%5D=1234") shouldBe true
-            (result is StripeCheckoutResult.Success) shouldBe true
+            (result is PspCheckoutResult.Success) shouldBe true
         }
 
         test("success_url/cancel_url carry the session id in the hash fragment") {
@@ -93,13 +93,13 @@ class StripeCheckoutClientTest :
                 }
             val checkoutClient = StripeCheckoutClient(pspConfig = testPspConfig(), httpClient = client)
 
-            checkoutClient.createCheckoutSession(
+            checkoutClient.createCheckout(
                 checkoutSessionId = "checkout-session-hash-test",
                 amount = BigDecimal("5.00"),
                 currency = "EUR",
                 description = "Spende",
                 returnUrls =
-                    StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-hash-test"),
+                    PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-hash-test"),
             )
 
             capturedBody.contains("success_url=") shouldBe true
@@ -120,16 +120,16 @@ class StripeCheckoutClientTest :
             val checkoutClient = StripeCheckoutClient(pspConfig = testPspConfig(), httpClient = client)
 
             val result =
-                checkoutClient.createCheckoutSession(
+                checkoutClient.createCheckout(
                     checkoutSessionId = "checkout-session-400",
                     amount = BigDecimal("1.00"),
                     currency = "EUR",
                     description = "Test",
-                    returnUrls = StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-400"),
+                    returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-400"),
                 )
 
-            (result is StripeCheckoutResult.Failure) shouldBe true
-            val failure = result as StripeCheckoutResult.Failure
+            (result is PspCheckoutResult.Failure) shouldBe true
+            val failure = result as PspCheckoutResult.Failure
             failure.statusCode shouldBe 400
             failure.message.contains(TEST_SECRET_KEY) shouldBe false
         }
@@ -139,15 +139,15 @@ class StripeCheckoutClientTest :
             val checkoutClient = StripeCheckoutClient(pspConfig = testPspConfig(), httpClient = client)
 
             val result =
-                checkoutClient.createCheckoutSession(
+                checkoutClient.createCheckout(
                     checkoutSessionId = "checkout-session-500",
                     amount = BigDecimal("1.00"),
                     currency = "EUR",
                     description = "Test",
-                    returnUrls = StripeReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-500"),
+                    returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-500"),
                 )
 
-            (result is StripeCheckoutResult.Failure) shouldBe true
-            (result as StripeCheckoutResult.Failure).statusCode shouldBe 500
+            (result is PspCheckoutResult.Failure) shouldBe true
+            (result as PspCheckoutResult.Failure).statusCode shouldBe 500
         }
     })

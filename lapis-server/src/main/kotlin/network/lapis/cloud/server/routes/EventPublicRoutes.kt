@@ -36,8 +36,7 @@ import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.events.mailPromotion
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
-import network.lapis.cloud.server.payment.psp.PspConfigState
-import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.pdf.EventTicketPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
@@ -46,6 +45,7 @@ import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.domain.PaymentProvider
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -95,8 +95,7 @@ private val ICS_CONTENT_TYPE = ContentType("text", "calendar").withParameter("ch
  * directly here because its error page is `SocialPublicHtml`-specific).
  */
 internal fun Route.registerEventPublicRoutes(
-    pspConfigState: PspConfigState,
-    checkoutClient: StripeCheckoutClient?,
+    checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     baseUrl: String,
     mailDispatcher: MailDispatcher,
     brandTitle: String,
@@ -115,8 +114,7 @@ internal fun Route.registerEventPublicRoutes(
 ) {
     val submission =
         EventRegistrationSubmission(
-            pspConfigState = pspConfigState,
-            checkoutClient = checkoutClient,
+            checkoutGateways = checkoutGateways,
             baseUrl = baseUrl,
             mailDispatcher = mailDispatcher,
         )
@@ -243,7 +241,7 @@ internal fun Route.registerEventPublicRoutes(
                 }
                 EventRegistrationResult.WaitlistFull -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
                 EventRegistrationResult.GatewayUnavailable -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
-                is EventRegistrationResult.StripeFailed -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                is EventRegistrationResult.PaymentFailed -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
             }
         }
     }

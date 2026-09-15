@@ -15,7 +15,6 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
-import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
@@ -126,8 +125,7 @@ class EventCapacityTest :
 
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = PspConfigState.NotConfigured,
-                    checkoutClient = null,
+                    checkoutGateways = emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher =
                         MailDispatcher(
@@ -197,8 +195,7 @@ class EventCapacityTest :
 
             val submission =
                 EventRegistrationSubmission(
-                    pspConfigState = PspConfigState.NotConfigured,
-                    checkoutClient = null,
+                    checkoutGateways = emptyMap(),
                     baseUrl = "https://example.org",
                     mailDispatcher =
                         MailDispatcher(

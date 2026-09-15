@@ -2,107 +2,18 @@ package network.lapis.cloud.server.payment.psp
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import io.ktor.utils.io.readAvailable
+import network.lapis.cloud.shared.domain.PaymentProvider
 import java.io.IOException
 import java.math.BigDecimal
 import java.net.URLEncoder
 import java.security.SecureRandom
 
 private val logger = KotlinLogging.logger {}
-
-/** Hard cap on how many bytes of a Stripe response body are ever read into memory -- see
- * [readCappedStripeBody] KDoc "Scope of the guarantee" for what this cap does and does NOT bound. */
-private const val MAX_STRIPE_RESPONSE_BYTES = 64 * 1024
-
-/**
- * Wohin Stripe den Zahlenden nach Erfolg/Abbruch zurückschickt -- a value class instead of two loose
- * `String` parameters so the two can never be transposed at a call site (Welle V1.4.1b). See the two
- * factories for the two shapes this codebase actually produces.
- */
-internal data class StripeReturnUrls(
-    val successUrl: String,
-    val cancelUrl: String,
-) {
-    companion object {
-        /**
-         * The unchanged V1.2.8 behaviour for the member path: the session id travels in the HASH
-         * FRAGMENT, never a query parameter -- see [StripeCheckoutClient.createCheckoutSession]
-         * KDoc "`success_url`/`cancel_url`". Welle V1.4.6: `/app` prefix, since the member SPA no
-         * longer lives at `$baseUrl/` -- see `network.lapis.cloud.server.routes.PublicLandingRoutes`
-         * KDoc.
-         */
-        fun memberSpa(
-            baseUrl: String,
-            checkoutSessionId: String,
-        ): StripeReturnUrls =
-            StripeReturnUrls(
-                successUrl = "$baseUrl/app#/payment-return?session=$checkoutSessionId",
-                cancelUrl = "$baseUrl/app#/payment-return?session=$checkoutSessionId&cancelled=true",
-            )
-
-        /**
-         * Welle V1.4.1b -- two fixed, public paths WITHOUT a session identifier: no new token-/
-         * polling surface for an anonymous donor. [canonicalOrigin] is ALWAYS the
-         * [network.lapis.cloud.server.embed.EmbedOriginAllowlist]-resolved canonical entry, never a
-         * raw request-supplied value.
-         */
-        fun embedDonation(
-            baseUrl: String,
-            canonicalOrigin: String,
-        ): StripeReturnUrls {
-            val encodedOrigin = URLEncoder.encode(canonicalOrigin, Charsets.UTF_8)
-            return StripeReturnUrls(
-                successUrl = "$baseUrl/embed/v1/spende/danke?origin=$encodedOrigin",
-                cancelUrl = "$baseUrl/embed/v1/spende/abgebrochen?origin=$encodedOrigin",
-            )
-        }
-
-        /**
-         * Welle V1.4.3.1 -- the server-rendered, same-origin event-registration return pages.
-         * [registrationId] travels as a plain query parameter (not the hash fragment the member SPA
-         * path uses): unlike [memberSpa], this destination is a classic multi-page `<form>` flow with
-         * no client-side router to read a hash fragment at all. Not a secret -- a checkout-return
-         * page for a random UUID a stranger does not already hold is functionally the same "empty
-         * confirmation" a not-found registration would show.
-         */
-        fun eventRegistration(
-            baseUrl: String,
-            slug: String,
-            registrationId: String,
-        ): StripeReturnUrls {
-            val encodedRegistrationId = URLEncoder.encode(registrationId, Charsets.UTF_8)
-            return StripeReturnUrls(
-                successUrl = "$baseUrl/veranstaltung/$slug/danke?r=$encodedRegistrationId",
-                cancelUrl = "$baseUrl/veranstaltung/$slug/abgebrochen?r=$encodedRegistrationId",
-            )
-        }
-    }
-}
-
-/** Outcome of [StripeCheckoutClient.createCheckoutSession]. */
-sealed interface StripeCheckoutResult {
-    data class Success(
-        val sessionId: String,
-        val redirectUrl: String,
-        /** The `Idempotency-Key` value actually sent -- persisted by the caller onto `payment_checkout_session.provider_idempotency_key` for forensics. */
-        val idempotencyKey: String,
-    ) : StripeCheckoutResult
-
-    /** [statusCode] is the raw HTTP status; [message] is Stripe's own error message when present -- NEVER the request headers/key. */
-    data class Failure(
-        val statusCode: Int,
-        val message: String,
-    ) : StripeCheckoutResult
-}
 
 /**
  * Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- the ONLY outbound HTTP this codebase
@@ -116,11 +27,21 @@ sealed interface StripeCheckoutResult {
  * Constructor default [httpClient] exists for tests only -- `Application.module` MUST pass one
  * shared instance (same "constructed once, held by the caller, never per-request" discipline
  * `oracleHttpClient()`'s own callers establish), never construct a fresh [HttpClient] per RPC call.
+ *
+ * Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) -- implements [PspCheckoutGateway] so every
+ * checkout-creation call site can depend on the provider-neutral abstraction instead of this
+ * concrete class; `createCheckoutSession` was renamed to [createCheckout] as part of that move
+ * (pure rename, no behaviour change) and `StripeReturnUrls`/`StripeCheckoutResult` moved to
+ * `PspCheckoutGateway.kt` as [PspReturnUrls]/[PspCheckoutResult].
  */
 class StripeCheckoutClient(
     private val pspConfig: PspConfig,
     private val httpClient: HttpClient = defaultStripeHttpClient(),
-) {
+) : PspCheckoutGateway {
+    override val provider: PaymentProvider = PaymentProvider.STRIPE
+    override val maxCheckoutAmountEur: BigDecimal get() = pspConfig.maxCheckoutAmountEur
+    override val checkoutTtlMinutes: Long get() = pspConfig.checkoutTtlMinutes
+
     /**
      * Creates a Stripe Checkout Session for [amount] (EUR, exact decimal, converted to Stripe's own
      * integer MINOR-UNITS `unit_amount` -- e.g. `12.34` -> `1234`, NEVER via [Double]).
@@ -128,10 +49,10 @@ class StripeCheckoutClient(
      * `client_reference_id` (the join key a webhook delivery carries back). [returnUrls] carries
      * `success_url`/`cancel_url` -- **no default value, Welle V1.4.1b**: every caller must state
      * explicitly where its own donor/payer returns to (a money path -- a hidden default is the
-     * wrong ergonomics here). The member path's own [StripeReturnUrls.memberSpa] embeds
+     * wrong ergonomics here). The member path's own [PspReturnUrls.memberSpa] embeds
      * [checkoutSessionId] in the HASH FRAGMENT (never a query parameter -- see `hashQueryParam`
      * precedent, `01-contribution.kuml.kts`/client `Routing.kt`: a hash fragment never reaches a
-     * server log or `Referer` header); the embed-widget path's [StripeReturnUrls.embedDonation]
+     * server log or `Referer` header); the embed-widget path's [PspReturnUrls.embedDonation]
      * carries no session identifier at all. `Idempotency-Key` is a fresh random value per call --
      * the CALLER (`PaymentGatewayService`/`AnonymousDonationCheckout`) is responsible for not
      * calling this twice for the same logical checkout (see `PaymentGatewayService`'s own
@@ -140,13 +61,13 @@ class StripeCheckoutClient(
      * for that field, so this server's `payment_checkout_session.expires_at` and Stripe's own
      * session expiry are two independent clocks; see [PspConfig.checkoutTtlMinutes] KDoc.
      */
-    internal suspend fun createCheckoutSession(
+    override suspend fun createCheckout(
         checkoutSessionId: String,
         amount: BigDecimal,
         currency: String,
         description: String,
-        returnUrls: StripeReturnUrls,
-    ): StripeCheckoutResult {
+        returnUrls: PspReturnUrls,
+    ): PspCheckoutResult {
         val unitAmountMinorUnits = amount.movePointRight(2).longValueExact()
         val successUrl = returnUrls.successUrl
         val cancelUrl = returnUrls.cancelUrl
@@ -175,10 +96,10 @@ class StripeCheckoutClient(
                 }
             } catch (e: IOException) {
                 logger.warn(e) { "StripeCheckoutClient: network failure calling POST /v1/checkout/sessions" }
-                return StripeCheckoutResult.Failure(statusCode = 0, message = "Netzwerkfehler beim Aufruf von Stripe")
+                return PspCheckoutResult.Failure(statusCode = 0, message = "Netzwerkfehler beim Aufruf von Stripe")
             }
 
-        val bodyBytes = response.readCappedStripeBody()
+        val bodyBytes = response.readCappedPspBody()
         if (response.status.value in 200..299) {
             val parsed =
                 bodyBytes?.let {
@@ -188,9 +109,9 @@ class StripeCheckoutClient(
             val redirectUrl = parsed?.url
             if (parsed == null || redirectUrl == null) {
                 logger.warn { "StripeCheckoutClient: 2xx response but unparseable body/missing url (status=${response.status.value})" }
-                return StripeCheckoutResult.Failure(statusCode = response.status.value, message = "Unerwartete Antwort von Stripe")
+                return PspCheckoutResult.Failure(statusCode = response.status.value, message = "Unerwartete Antwort von Stripe")
             }
-            return StripeCheckoutResult.Success(sessionId = parsed.id, redirectUrl = redirectUrl, idempotencyKey = idempotencyKey)
+            return PspCheckoutResult.Success(sessionId = parsed.id, redirectUrl = redirectUrl, idempotencyKey = idempotencyKey)
         }
 
         val errorMessage =
@@ -206,7 +127,7 @@ class StripeCheckoutClient(
                 ?.message
                 ?: "Stripe hat die Checkout-Erstellung abgelehnt (Status ${response.status.value})"
         logger.warn { "StripeCheckoutClient: non-2xx response (status=${response.status.value})" }
-        return StripeCheckoutResult.Failure(statusCode = response.status.value, message = errorMessage)
+        return PspCheckoutResult.Failure(statusCode = response.status.value, message = errorMessage)
     }
 
     companion object {
@@ -220,49 +141,4 @@ class StripeCheckoutClient(
 
         private fun urlEncode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8)
     }
-}
-
-/**
- * A hardened [HttpClient] for [StripeCheckoutClient] -- same `followRedirects = false`/
- * `expectSuccess = false`/[HttpTimeout] shape `oracleHttpClient()` establishes. Deliberately no
- * `ContentNegotiation`/`Logging` plugin -- responses are decoded manually via [STRIPE_JSON] after a
- * bounded read (see [readCappedStripeBody]), and a request-logging plugin would risk the
- * `Authorization: Bearer <key>` header reaching a log line.
- */
-internal fun defaultStripeHttpClient(): HttpClient =
-    HttpClient(CIO) {
-        install(HttpTimeout) {
-            requestTimeoutMillis = 10_000
-            connectTimeoutMillis = 5_000
-            socketTimeoutMillis = 10_000
-        }
-        expectSuccess = false
-        followRedirects = false
-    }
-
-/**
- * Bounded read, same [network.lapis.cloud.server.economy.oracle.readCappedBodyOrNull] idiom --
- * `null` if [MAX_STRIPE_RESPONSE_BYTES] is exceeded, the body discarded rather than partially
- * parsed.
- *
- * **Scope of the guarantee** (same correction [network.lapis.cloud.server.economy.oracle
- * .readCappedBodyOrNull] KDoc documents -- Security-Audit-Runde 1 / S3 -- applies verbatim here):
- * the one call site uses the non-streaming `httpClient.post(...)` request form, under which Ktor's
- * internal `SaveBody` plugin has already buffered the ENTIRE response body into memory
- * before this function ever runs. This cap therefore bounds the copy/parse step that follows, but
- * does **NOT** bound how much a single `pspConfig.apiBaseUrl` response can make the JVM buffer
- * before that. Genuinely closing that gap requires the streaming
- * `preparePost(...).execute { response -> ... }` idiom -- not done here, same deferred trade-off
- * the oracle client's own KDoc makes.
- */
-private suspend fun HttpResponse.readCappedStripeBody(): ByteArray? {
-    val channel = bodyAsChannel()
-    val buffer = ByteArray(MAX_STRIPE_RESPONSE_BYTES + 1)
-    var total = 0
-    while (total < buffer.size) {
-        val read = channel.readAvailable(buffer, total, buffer.size - total)
-        if (read == -1) break
-        total += read
-    }
-    return if (total > MAX_STRIPE_RESPONSE_BYTES) null else buffer.copyOf(total)
 }

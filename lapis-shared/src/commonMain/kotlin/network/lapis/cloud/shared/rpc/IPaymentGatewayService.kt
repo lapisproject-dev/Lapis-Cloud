@@ -17,12 +17,26 @@ import network.lapis.cloud.shared.domain.PspConfigStatusDto
  * Zahlungsdienstleister-Anbindung -- Welle V1.2.1 "Zahlungs-Fundament" shipped ONLY the
  * disclaimer-acknowledgment opt-in gate below (`OrganizationSettings.paymentGatewayEnabled`), with
  * no checkout/webhook functionality behind it. Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue
- * #6) adds that functionality, additively, on THIS SAME interface, per V1.2.1's own promise --
- * scoped to **Stripe only** (see `network.lapis.cloud.server.payment.psp.PspConfig` KDoc for the
- * reasoning: Stripe's webhook signature is a self-contained HMAC verifiable with zero outbound
- * calls and zero SDK; PayPal's Orders v2 flow needs OAuth2 token exchange and either a live
- * outbound verification call inside the webhook hot path or manual certificate-chain validation --
- * deferred entirely, see [enablePaymentGateway]).
+ * #6) added that functionality, additively, on THIS SAME interface -- scoped to **Stripe only** at
+ * the time (Stripe's webhook signature is a self-contained HMAC verifiable with zero outbound calls
+ * and zero SDK; PayPal's Orders v2 flow needs OAuth2 token exchange and a live outbound
+ * verification call).
+ *
+ * Welle V1.2.8b "PayPal-Anbindung" (GitHub Issue #6) adds PayPal as a second, equally first-class
+ * [PaymentProvider], on this same interface, additively. The two open design questions the V1.2.8
+ * KDoc deferred are resolved as follows -- see
+ * `network.lapis.cloud.server.payment.psp.PaypalOrdersClient`/`PaypalWebhookVerification` KDoc for
+ * the full reasoning:
+ * 1. **Webhook signature verification** uses PayPal's own `POST /v1/notifications/
+ *    verify-webhook-signature` API (option "verify API"), NOT local certificate-chain validation.
+ *    Local validation would still need an outbound HTTPS fetch of the certificate named in the
+ *    (attacker-controlled, unauthenticated) `PAYPAL-CERT-URL` header on a cold cache -- an SSRF
+ *    sink for no real benefit over the verify API, which fails BENIGN (PayPal retries a non-2xx
+ *    delivery for up to 3 days) and scopes verification to `LAPIS_PAYPAL_WEBHOOK_ID` for free.
+ * 2. **Capture happens inside the PayPal webhook handler**, on `CHECKOUT.ORDER.APPROVED`, never in
+ *    the return-flow -- robust against a payer who approves and then closes the tab, and needs
+ *    zero new RPC method and zero client change (`PaymentReturnScreen`'s webhook-authoritative
+ *    polling already works unchanged for either provider).
  *
  * ## The `paymentGatewayEnabled` gate
  *
@@ -48,19 +62,19 @@ import network.lapis.cloud.shared.domain.PspConfigStatusDto
  * 1. `organization_settings.payment_gateway_enabled` is `true` (this gate, above).
  * 2. The CURRENT disclaimer version was acknowledged (same "stale acknowledgment blocks writes"
  *    posture `SepaService.requireSepaUsable` already establishes for SEPA).
- * 3. The deployment's Stripe secrets (`LAPIS_STRIPE_SECRET_KEY`/`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`)
- *    are present and valid (`PspConfigState.Configured`), AND the configured
- *    `organization_settings.payment_gateway_provider` is `STRIPE` -- `PAYPAL` is a valid literal
- *    (enum-order-pinned by `PaymentsSchemaDriftTest`, never removed/reordered) but is REJECTED by
- *    [enablePaymentGateway] with [BadRequestException] ("PayPal ist in dieser Version noch nicht
- *    implementiert -- bitte STRIPE waehlen."), so a configured-but-unimplemented provider can never
- *    silently reach the checkout-creation code path.
+ * 3. The deployment's secrets for the SELECTED provider are present and valid
+ *    (`PspConfigState.Configured` for `STRIPE`, `PaypalConfigState.Configured` for `PAYPAL`), AND
+ *    `organization_settings.payment_gateway_provider` matches a provider whose transport is
+ *    actually configured. `enablePaymentGateway` accepts both `STRIPE` and `PAYPAL` (only `MANUAL`
+ *    is rejected) -- enabling a provider whose env transport is not configured leaves the gateway
+ *    merely UNUSABLE end-to-end (this three-part gate), it does not throw at enable-time.
  *
  * ## Never a secret-writing RPC
  *
  * **There is deliberately no `updatePspSettings`.** PSP secrets are env-only
- * (`LAPIS_STRIPE_SECRET_KEY`/`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`, never persisted, never
- * `SecretBox`-sealed -- see `PspConfig` KDoc) and can never be written through an RPC. The
+ * (`LAPIS_STRIPE_SECRET_KEY`/`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`/`LAPIS_PAYPAL_CLIENT_ID`/
+ * `LAPIS_PAYPAL_CLIENT_SECRET`/`LAPIS_PAYPAL_WEBHOOK_ID`, never persisted, never `SecretBox`-sealed
+ * -- see `PspConfig`/`PaypalConfig` KDoc) and can never be written through an RPC. The
  * Treasurer/ADMIN screen configures: the compliance gate ([enablePaymentGateway]/
  * [disablePaymentGateway]) and the four ledger-account mappings (through the existing
  * `IOrganizationSettingsService.updateOrganizationSettings`), and *reads* [getPspConfigStatus] to
@@ -74,9 +88,10 @@ interface IPaymentGatewayService {
     suspend fun getPaymentGatewayComplianceDisclaimer(): PaymentGatewayComplianceDisclaimerDto
 
     /**
-     * Role: ADMIN. `provider` must be `PAYPAL` or `STRIPE` (never `MANUAL`). See class KDoc "The
-     * disclaimer-acknowledgment mechanism". **Rejects `PAYPAL`** with [BadRequestException] (Welle
-     * V1.2.8 scope decision, see class KDoc) -- only `STRIPE` can actually be enabled this wave.
+     * Role: ADMIN. `provider` must be `PAYPAL` or `STRIPE` (never `MANUAL`, rejected with
+     * [BadRequestException]). See class KDoc "The disclaimer-acknowledgment mechanism" and "The
+     * three-part usability gate" -- enabling a provider whose deployment secrets are not configured
+     * succeeds here but leaves the gateway unusable, it does not throw.
      */
     suspend fun enablePaymentGateway(
         provider: PaymentProvider,
