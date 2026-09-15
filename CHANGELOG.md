@@ -474,6 +474,73 @@ All notable changes to this project are documented here. Format follows
   -- vorbereitet und dokumentiert, aber standardmäßig inaktiv, siehe
   `deploy/production/README.adoc`, „TURNS over TLS (port 443)".
 
+**Raumverwaltung für Veranstaltungen (V1.4.3.4)**
+
+- **Hinzugefügt**: Räume mit Kapazität lassen sich pro Veranstaltung anlegen und einem `EventRoom`
+  zuordnen; eine Doppelbuchungsprüfung verhindert, dass zwei zeitgleiche Veranstaltungen denselben
+  Raum belegen. Neuer Screen `EventRoomsScreen`, vollständige 4-Agenten-Pipeline, ein
+  CSV-Export-Überlauf-Fund (Raumbezeichnung mit Komma) noch vor dem Commit behoben.
+
+**Catering-Management für Veranstaltungen (V1.4.3.5)**
+
+- **Hinzugefügt**: Catering-Bestellungen (Menge, Allergen-/Ernährungshinweise) je Veranstaltung
+  erfassen und einer Bestellliste zusammenfassen. Ein Review-Fund (`updateCateringOrder` persistierte
+  die `eventId`-Zuordnung nicht) noch vor dem Commit behoben.
+
+**Externe Rechnungsstellung für Veranstaltungen (V1.4.3.6)**
+
+- **Hinzugefügt**: `issueEventInvoice` legt für eine bestätigte Registrierung (Mitglied oder Gast)
+  einen offenen Posten an statt eine Stripe-Zahlung zu erwarten -- Zahlungsverfolgung/Mahnwesen
+  laufen dadurch automatisch mit. Neuer `EventInvoicePdfGenerator` funktioniert auch für Gäste ohne
+  Mitgliedsdatensatz. Ein MAJOR-Review-Fund (Funktion zunächst ohne Bedienoberfläche) noch vor dem
+  Commit behoben -- minimale UI im bestehenden `EventCheckInScreen`.
+- **Bekannte Einschränkung**: die Check-in-Route ist auf BOARD/ADMIN gated, ein reiner Schatzmeister
+  ohne Board-Rolle kommt praktisch nicht an die neue UI heran (reines Usability-Problem, keine
+  Sicherheitslücke, Security-Audit bestätigt).
+
+**Helfer-/Schichtplanung für Veranstaltungen (V1.4.3.7)**
+
+- **Hinzugefügt**: Helfer für eine Veranstaltung in Schichten einteilen, `EventVolunteerShiftsScreen`.
+  Zwei Review-Funde noch vor dem Commit behoben: fehlende PUBLISHED-Sichtbarkeitsprüfung und ein
+  fehlendes Zeilen-Lock bei gleichzeitiger Schichtzuweisung.
+
+**iCal-Feed für öffentlichen Veranstaltungskalender (V1.4.1c, GitHub-Issue-Vorgänger)**
+
+- **Hinzugefügt**: `GET /veranstaltung.ics` (RFC 5545) -- öffentlicher Veranstaltungskalender zum
+  Abonnieren in jedem Kalenderprogramm. Sichtbarkeitsregel identisch zur bereits öffentlichen
+  Einzel-Event-Seite (`visibility=PUBLIC AND status=PUBLISHED`), kein zusätzliches Secret nötig. Nur
+  zukünftige Events, `LIMIT 500` als DoS-Guard, `DTSTART`/`DTEND` korrekt als UTC berechnet (Fund:
+  `EventTable.startsAt`/`endsAt` sind Wandzeit in der Server-Default-Zeitzone, kein blindes
+  `Z`-Suffix).
+
+**Mobile App: Server-Unterstützung (V1.5.1)**
+
+- **Hinzugefügt**: `sessionToken` im Login-Response-Body plus `MobileConferenceRoutes`/
+  `MobileWebviewSessionRoutes` für die Bearer→Cookie-Übersetzung -- das serverseitige Gegenstück zur
+  neuen, eigenständigen Companion-App (`lapisproject-dev/Lapis-Cloud-Mobile`, WebView-Ansatz für die
+  Videokonferenz-Teilnahme, da LiveKit kein einheitliches KMP-SDK anbietet). Dabei ein echter
+  Logout-Bug gefunden und behoben: Bearer-Token-Clients wurden vorher beim Logout nicht widerrufen.
+
+**Dunkler Modus, konfigurierbares Upload-Limit + Fortschrittsanzeige, Inter-Schrift (V1.4.16/17)**
+
+- **Hinzugefügt**: umschaltbarer dunkler Modus (Nutzerbeschwerde: Webseite nachts zu hell) --
+  Systemmodus-Fallback über `prefers-color-scheme`, `localStorage`-persistiert, kein
+  Flash-of-wrong-theme dank Inline-Script vor dem JS-Bundle.
+- **Geändert**: Dokumentenupload-Grenze konfigurierbar über `LAPIS_DOCUMENT_MAX_UPLOAD_MB`
+  (Default jetzt 128 statt fest codierter 25 MiB, `coerceAtLeast(1)`-Floor statt Fail-Fast).
+- **Hinzugefügt**: Fortschrittsbalken beim Dokumenten-Upload (`XMLHttpRequest.upload.onprogress`) --
+  als allgemeines Prinzip für künftige lange Backend-Operationen festgehalten, noch nicht auf andere
+  Screens ausgerollt.
+- **Hinzugefügt**: Inter-Schrift (`@fontsource-variable/inter`, PdV-Styleguide-Vorgabe) -- Textumbrüche
+  in allen 8 Sprachen geprüft, keine Überläufe.
+
+**Footer-Links: Betreiber-Webseite + Lapis Cloud (V1.4.18)**
+
+- **Hinzugefügt**: neue optionale `LAPIS_BRAND_WEBSITE_URL`-Umgebungsvariable (http/https-Allowlist,
+  nie fail-fast) verlinkt den Betreibernamen in der öffentlichen Fußzeile zur eigenen Webseite,
+  sofern gesetzt. Der „Lapis Cloud"-Teilstring im Fußzeilentext verlinkt jetzt immer zu
+  `https://cloud.lapisproject.dev` (analog zum bestehenden Impressum-Präzedenzfall).
+
 ### Changed
 
 - **`ZeroVatExportDisclaimer.VERSION` → `"2026-09-13.v3"` (V1.4.13)**: der Hinweistext wurde um
