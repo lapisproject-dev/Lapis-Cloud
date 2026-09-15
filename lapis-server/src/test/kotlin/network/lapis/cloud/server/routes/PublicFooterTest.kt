@@ -120,9 +120,35 @@ class PublicFooterTest :
             html shouldContain "Zur Timeline"
         }
 
-        test("F3: serverErrorPage's first footer line stays exactly \"{title} · Betrieben mit Lapis Cloud\" (regression, plan § 0/V5)") {
+        test(
+            "F3: serverErrorPage's first footer line stays \"{title} · Betrieben mit \" followed by a linked " +
+                "\"Lapis Cloud\" (V1.4.18 -- was a plain-text-only line before, plan § 0/V5)",
+        ) {
             val html = renderedPages.getValue("SocialPublicHtml.serverErrorPage")
-            html shouldContain "${BrandConfig.DEFAULT_TITLE} · Betrieben mit Lapis Cloud"
+            html shouldContain "${BrandConfig.DEFAULT_TITLE} · Betrieben mit "
+            html shouldContain "<a href=\"https://cloud.lapisproject.dev\" rel=\"noopener noreferrer\">Lapis Cloud</a>"
+        }
+
+        test("F6: the operator title is linked to ResolvedBranding.websiteUrl when the operator configured one (V1.4.18)") {
+            val brandedBranding =
+                ResolvedBranding(
+                    title = "Beispielverein e. V.",
+                    logoAvailable = false,
+                    logoPath = null,
+                    websiteUrl = "https://example.org",
+                )
+            val html =
+                SocialPublicHtml.timelinePage(
+                    view = PublicTimelineView(posts = emptyList(), page = 1, hasNext = false),
+                    baseUrl = baseUrl,
+                    branding = brandedBranding,
+                )
+            html shouldContain "<a href=\"https://example.org\" rel=\"noopener noreferrer\">Beispielverein e. V.</a>"
+        }
+
+        test("F7: the operator title stays plain text when no websiteUrl is configured (unchanged default behavior)") {
+            val html = renderedPages.getValue("SocialPublicHtml.timelinePage")
+            html shouldContain "<p>${BrandConfig.DEFAULT_TITLE} · "
         }
 
         test("F4: EmbedHtml pages carry no /impressum link (out of scope -- own legal notice is the embedding page's job)") {

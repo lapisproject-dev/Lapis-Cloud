@@ -608,7 +608,20 @@ internal object PublicChrome {
      * [extra], when given, renders BEFORE the brand/legal line -- its one caller is
      * [SocialPublicHtml.legallyRemovedPage], whose footer additionally carries the "back to
      * timeline" link.
+     *
+     * V1.4.18 -- Nutzer-Beschwerde 2026-09-15: this line named the operator and "Lapis Cloud" as
+     * plain text with no link to either. [branding].title is now wrapped in an `<a>` to
+     * [ResolvedBranding.websiteUrl] when the operator configured one (`LAPIS_BRAND_WEBSITE_URL`,
+     * see [network.lapis.cloud.server.branding.BrandConfig] KDoc) -- if not, it stays plain text,
+     * unchanged from before. The "Lapis Cloud" substring inside [PublicUiStrings.operatedBy] is
+     * ALWAYS linked to [LAPIS_CLOUD_PLATFORM_URL] (unconditional, mirrors the existing
+     * `LegalHtml.renderImprintBody` precedent) -- every one of the eight [operatedBy] translations
+     * ends with the literal words "Lapis Cloud" verbatim (untranslated brand name), so a plain
+     * substring split suffices without per-language special-casing.
      */
+    private const val LAPIS_CLOUD_PLATFORM_URL = "https://cloud.lapisproject.dev"
+    private const val LAPIS_CLOUD_BRAND_NAME = "Lapis Cloud"
+
     fun FlowContent.renderPublicFooter(
         lang: PublicLanguage,
         baseUrl: String,
@@ -618,7 +631,18 @@ internal object PublicChrome {
         val strings = stringsFor(lang)
         footer {
             extra?.invoke(this)
-            p { +"${branding.title} · ${strings.operatedBy}" }
+            p {
+                if (branding.websiteUrl != null) {
+                    a(href = branding.websiteUrl) {
+                        attributes["rel"] = "noopener noreferrer"
+                        +branding.title
+                    }
+                } else {
+                    +branding.title
+                }
+                +" · "
+                renderOperatedBy(strings.operatedBy)
+            }
             p(classes = "footer-legal") {
                 a(href = "$baseUrl/impressum") {
                     attributes["hreflang"] = "de"
@@ -634,6 +658,26 @@ internal object PublicChrome {
                 }
             }
         }
+    }
+
+    /**
+     * Renders [operatedBy] with its trailing "Lapis Cloud" substring linked to
+     * [LAPIS_CLOUD_PLATFORM_URL] (see [renderPublicFooter] KDoc). Falls back to plain text for the
+     * (currently impossible, but non-throwing by design -- same posture as the rest of this file)
+     * case where a future translation drops the literal brand name.
+     */
+    private fun FlowContent.renderOperatedBy(operatedBy: String) {
+        val index = operatedBy.indexOf(LAPIS_CLOUD_BRAND_NAME)
+        if (index < 0) {
+            +operatedBy
+            return
+        }
+        +operatedBy.substring(0, index)
+        a(href = LAPIS_CLOUD_PLATFORM_URL) {
+            attributes["rel"] = "noopener noreferrer"
+            +LAPIS_CLOUD_BRAND_NAME
+        }
+        +operatedBy.substring(index + LAPIS_CLOUD_BRAND_NAME.length)
     }
 
     /**

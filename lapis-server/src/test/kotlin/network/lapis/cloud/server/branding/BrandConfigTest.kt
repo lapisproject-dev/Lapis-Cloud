@@ -135,4 +135,61 @@ class BrandConfigTest :
             config.invalid shouldContain BrandConfig.ENV_TITLE
             config.invalid shouldContain BrandConfig.ENV_LOGO_PATH
         }
+
+        test("website url unset -> null, no invalid entry") {
+            val config = BrandConfig.load(envOf())
+            config.websiteUrl shouldBe null
+            config.invalid.shouldBeEmpty()
+        }
+
+        test("whitespace-only website url -> null, no invalid entry") {
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to "   "))
+            config.websiteUrl shouldBe null
+            config.invalid.shouldBeEmpty()
+        }
+
+        test("valid https website url -> trimmed value, no invalid entry") {
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to "  https://parteidervernunft.de  "))
+            config.websiteUrl shouldBe "https://parteidervernunft.de"
+            config.invalid.shouldBeEmpty()
+        }
+
+        test("valid http website url -> accepted") {
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to "http://example.org"))
+            config.websiteUrl shouldBe "http://example.org"
+            config.invalid.shouldBeEmpty()
+        }
+
+        test("javascript: scheme -> null, invalid names LAPIS_BRAND_WEBSITE_URL (XSS guard)") {
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to "javascript:alert(1)"))
+            config.websiteUrl shouldBe null
+            config.invalid shouldContain BrandConfig.ENV_WEBSITE_URL
+        }
+
+        test("no scheme at all -> null, invalid") {
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to "parteidervernunft.de"))
+            config.websiteUrl shouldBe null
+            config.invalid shouldContain BrandConfig.ENV_WEBSITE_URL
+        }
+
+        test("website url containing a control character -> null, invalid") {
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to "https://example.org/\r\nEvil"))
+            config.websiteUrl shouldBe null
+            config.invalid shouldContain BrandConfig.ENV_WEBSITE_URL
+        }
+
+        test("website url longer than 200 characters -> null, invalid (boundary)") {
+            val tooLong = "https://example.org/" + "a".repeat(200)
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to tooLong))
+            config.websiteUrl shouldBe null
+            config.invalid shouldContain BrandConfig.ENV_WEBSITE_URL
+        }
+
+        test("website url exactly 200 characters -> accepted (boundary)") {
+            val exactly200 = "https://example.org/" + "a".repeat(200 - "https://example.org/".length)
+            exactly200.length shouldBe 200
+            val config = BrandConfig.load(envOf(BrandConfig.ENV_WEBSITE_URL to exactly200))
+            config.websiteUrl shouldBe exactly200
+            config.invalid.shouldBeEmpty()
+        }
     })

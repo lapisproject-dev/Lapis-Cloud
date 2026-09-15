@@ -21,6 +21,8 @@ data class ResolvedBranding(
     val title: String,
     val logoAvailable: Boolean,
     val logoPath: String?,
+    /** `null` in the many test/preview default-parameter call sites that predate this field. */
+    val websiteUrl: String? = null,
 )
 
 /**
@@ -67,7 +69,7 @@ object BrandingStartupCheck {
         val logoPath = config.logoPath
         if (logoPath == null) {
             logger.info { "Branding aktiv: title='${config.title}', kein Logo konfiguriert (LAPIS_BRAND_LOGO_PATH unset)." }
-            return ResolvedBranding(title = config.title, logoAvailable = false, logoPath = null)
+            return ResolvedBranding(title = config.title, logoAvailable = false, logoPath = null, websiteUrl = config.websiteUrl)
         }
 
         val logoProbe = probe(logoPath)
@@ -81,7 +83,12 @@ object BrandingStartupCheck {
         } else {
             logger.info { "Branding aktiv: title='${config.title}', logo='$logoPath'." }
         }
-        return ResolvedBranding(title = config.title, logoAvailable = available, logoPath = if (available) logoPath else null)
+        return ResolvedBranding(
+            title = config.title,
+            logoAvailable = available,
+            logoPath = if (available) logoPath else null,
+            websiteUrl = config.websiteUrl,
+        )
     }
 
     private fun probeFile(path: String): LogoProbe? {

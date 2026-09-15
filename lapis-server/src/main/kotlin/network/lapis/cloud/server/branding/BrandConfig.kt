@@ -33,6 +33,20 @@ class BrandConfig private constructor(
      */
     val logoPath: String?,
     /**
+     * V1.4.18 -- Nutzer-Beschwerde 2026-09-15: die öffentliche Fußzeile nennt den Betreiber-Namen
+     * (dieses [title]) nur als Text, ohne Link zur eigentlichen Betreiber-Webseite (PdV/ELB o.ä.).
+     * Optional, `null` falls `LAPIS_BRAND_WEBSITE_URL` unset/leer/ungültig war -- die Fußzeile
+     * rendert den Betreiber-Namen dann weiterhin als reinen Text (unverändertes Verhalten), statt
+     * einen kaputten Link zu zeigen. Anders als [logoPath] eine ECHTE URL, kein Dateipfad -- aber
+     * anders als eine hypothetische `LAPIS_BRAND_LOGO_URL` (siehe Klassen-KDoc, bewusst nie
+     * eingeführt) löst dieser Wert NIEMALS einen serverseitigen Fetch aus, er landet nur als
+     * `href`-Attribut in selbst erzeugtem HTML (kotlinx.html escaped das Attribut automatisch) --
+     * das SSRF-Argument gegen eine Logo-URL trifft hier also nicht zu. Schema-Allowlist
+     * (http/https) bleibt trotzdem Pflicht, sonst könnte ein `javascript:`-Schema beim Klick
+     * beliebigen Code im Kontext dieser Seite ausführen.
+     */
+    val websiteUrl: String?,
+    /**
      * Namen der `LAPIS_BRAND_*`-Variablen, deren Wert verworfen wurde (auf den jeweiligen Default
      * zurückgefallen) -- NUR für Startup-Logging bestimmt (siehe [BrandingStartupCheck]), niemals
      * ein Grund zu werfen. Leer, wenn beide Werte entweder unset oder gültig waren.
@@ -42,9 +56,12 @@ class BrandConfig private constructor(
     companion object {
         const val ENV_TITLE = "LAPIS_BRAND_TITLE"
         const val ENV_LOGO_PATH = "LAPIS_BRAND_LOGO_PATH"
+        const val ENV_WEBSITE_URL = "LAPIS_BRAND_WEBSITE_URL"
         const val DEFAULT_TITLE = "Lapis Cloud"
         private const val MAX_TITLE_LENGTH = 80
+        private const val MAX_WEBSITE_URL_LENGTH = 200
         private val ALLOWED_LOGO_EXTENSIONS = setOf("svg", "png", "webp")
+        private val ALLOWED_WEBSITE_URL_SCHEMES = setOf("http", "https")
 
         /**
          * Pure string validation ONLY -- no DNS, no socket, no file I/O of any kind. Never throws
@@ -84,7 +101,18 @@ class BrandConfig private constructor(
                     else -> rawLogoPath
                 }
 
-            return BrandConfig(title = title, logoPath = logoPath, invalid = invalid)
+            val rawWebsiteUrl = env(ENV_WEBSITE_URL)?.trim()?.takeUnless { it.isBlank() }
+            val websiteUrl =
+                when {
+                    rawWebsiteUrl == null -> null
+                    !isValidWebsiteUrl(rawWebsiteUrl) -> {
+                        invalid += ENV_WEBSITE_URL
+                        null
+                    }
+                    else -> rawWebsiteUrl
+                }
+
+            return BrandConfig(title = title, logoPath = logoPath, websiteUrl = websiteUrl, invalid = invalid)
         }
 
         /**
@@ -100,6 +128,19 @@ class BrandConfig private constructor(
             if (!File(path).isAbsolute) return false
             val extension = path.substringAfterLast('.', missingDelimiterValue = "").lowercase()
             return extension in ALLOWED_LOGO_EXTENSIONS
+        }
+
+        /**
+         * `http(s)://` scheme allowlist only -- no reachability check, no DNS resolution, this
+         * value is never fetched (see [websiteUrl] KDoc). Control-character guard mirrors [title]'s
+         * own (this value can end up in a startup-log WARN line if rejected, same log-injection
+         * surface).
+         */
+        private fun isValidWebsiteUrl(url: String): Boolean {
+            if (url.any { it.code < 0x20 }) return false
+            if (url.length > MAX_WEBSITE_URL_LENGTH) return false
+            val scheme = url.substringBefore("://", missingDelimiterValue = "").lowercase()
+            return scheme in ALLOWED_WEBSITE_URL_SCHEMES
         }
     }
 }
