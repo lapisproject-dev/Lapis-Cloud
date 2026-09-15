@@ -272,6 +272,67 @@ class AuthRoutesTest :
             }
         }
 
+        // ── V1.5.1 Mobile App -- LoginResponse.sessionToken + Bearer-fallback logout ────────
+
+        test("login response's sessionToken field is the SAME raw token as the lapis_session cookie, not a second/different token") {
+            testApplication {
+                application { module() }
+
+                val response =
+                    client.post("/api/auth/login") {
+                        setBody("""{"email":"$ADMIN_EMAIL","password":"${DevSeedData.DEMO_PASSWORD}"}""")
+                    }
+                response.status shouldBe HttpStatusCode.OK
+
+                val cookieToken = rawTokenFromSetCookie(requireNotNull(response.headers[HttpHeaders.SetCookie]))
+                val bodyMatch = Regex(""""sessionToken"\s*:\s*"([^"]+)"""").find(response.bodyAsText())
+                val bodyToken = requireNotNull(bodyMatch) { "no sessionToken field in: ${response.bodyAsText()}" }.groupValues[1]
+
+                bodyToken shouldBe cookieToken
+            }
+        }
+
+        test(
+            "logout via Authorization: Bearer <sessionToken> alone (no cookie at all -- the mobile app's own transport) " +
+                "actually revokes the session, not a silent no-op",
+        ) {
+            testApplication {
+                application {
+                    module()
+                    routing {
+                        get("/test/whoami") {
+                            val current = resolveCurrentMember(call)
+                            call.respondText(current.memberId.toString())
+                        }
+                    }
+                }
+
+                val loginResponse =
+                    client.post("/api/auth/login") {
+                        setBody("""{"email":"$ADMIN_EMAIL","password":"${DevSeedData.DEMO_PASSWORD}"}""")
+                    }
+                val rawToken = rawTokenFromSetCookie(requireNotNull(loginResponse.headers[HttpHeaders.SetCookie]))
+
+                // Bearer-only whoami works BEFORE logout -- proves extractSessionToken's Bearer
+                // fallback is exercised, not just the cookie path.
+                client.get("/test/whoami") { header(HttpHeaders.Authorization, "Bearer $rawToken") }.status shouldBe
+                    HttpStatusCode.OK
+
+                // Logout carries ONLY the Authorization header, deliberately no Cookie header at
+                // all -- the exact shape a native mobile client (no cookie jar) sends. Before the
+                // V1.5.1 fix, AuthRoutes read call.request.cookies[SESSION_COOKIE_NAME] directly
+                // here and would have found nothing, silently skipping SessionStore.revoke while
+                // still returning 204 -- the session would stay live server-side.
+                val logoutResponse = client.post("/api/auth/logout") { header(HttpHeaders.Authorization, "Bearer $rawToken") }
+                logoutResponse.status shouldBe HttpStatusCode.NoContent
+
+                // The real assertion: the session is actually gone afterward, not just a 204 that
+                // lied about it.
+                client.get("/test/whoami") { header(HttpHeaders.Authorization, "Bearer $rawToken") }.status shouldBe
+                    HttpStatusCode.Unauthorized
+            }
+        }
+
         test("logout without any cookie still succeeds (idempotent, never leaks whether a session existed)") {
             testApplication {
                 application { module() }

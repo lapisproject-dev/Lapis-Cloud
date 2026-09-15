@@ -119,6 +119,8 @@ import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
+import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
+import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
@@ -529,6 +531,11 @@ fun Application.module() {
             apiSecret = conferenceConfig.apiSecret,
         )
     val conferenceRoomRateLimiter = LoginRateLimiter()
+    // V1.5.1 Mobile App -- own budget for /api/mobile/v1/conference/rooms/{roomId}/webview-session,
+    // NOT shared with conferenceRoomRateLimiter (createRoom's failure-counting budget) or any of
+    // the FederationInboxRateLimiter request-rate budgets below -- see
+    // MobileWebviewSessionRoutes.kt KDoc.
+    val mobileWebviewSessionRateLimiter = LoginRateLimiter()
 
     // Audit-round-1 fix (Wave 1): createRoom's own throttle above does NOT cover
     // joinRoom/leaveRoom/listActiveRooms/getRoom/listParticipants -- each of those funnels into a
@@ -1420,6 +1427,27 @@ fun Application.module() {
             passwordResetRateLimiter = passwordResetRateLimiter,
             passwordResetMailer = passwordResetMailer,
             friendEmailVerifyRateLimiter = friendEmailVerifyRateLimiter,
+        )
+        // V1.5.1 Mobile App -- thin REST wrapper around IConferenceService (see
+        // MobileConferenceRoutes.kt KDoc) plus the WebView session-bridge endpoint (see
+        // MobileWebviewSessionRoutes.kt KDoc). Same shared singletons as the IConferenceService
+        // Kilua-RPC registration above -- no second, independent rate-limiter/state lifecycle.
+        registerMobileConferenceRoutes(
+            liveKitAdminClient = liveKitAdminClient,
+            conferenceRoomRateLimiter = conferenceRoomRateLimiter,
+            conferenceJoinRateLimiter = conferenceJoinRateLimiter,
+            conferenceLeaveRateLimiter = conferenceLeaveRateLimiter,
+            conferenceListRateLimiter = conferenceListRateLimiter,
+            conferenceGuestInfoRateLimiter = conferenceGuestInfoRateLimiter,
+            conferenceGuestAccessRateLimiter = conferenceGuestAccessRateLimiter,
+            conferenceWhiteboardState = conferenceWhiteboardState,
+            conferenceNotesState = conferenceNotesState,
+            conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
+            config = conferenceConfig,
+        )
+        registerMobileWebviewSessionRoutes(
+            cookieSecure = cookieSecure,
+            rateLimiter = mobileWebviewSessionRateLimiter,
         )
         registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
         // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- literal route

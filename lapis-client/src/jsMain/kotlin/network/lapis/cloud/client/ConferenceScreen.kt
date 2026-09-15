@@ -350,8 +350,22 @@ import kotlin.time.Clock
  * - **D16 -- revoking guest access asks first.** [confirmDialog] warns that already-connected
  *   guests will be disconnected immediately before the moderator confirms (Norman: visible system
  *   status) -- see the "Gastzugang beenden" click handler in [enterCall].
+ *
+ * **V1.5.1 Mobile App -- [renderConferenceScreen]'s `autoJoinRoomId` parameter**: the additive
+ * `#/conference/:roomId` deep link (`Routing.kt`'s `Routes.CONFERENCE_ROOM`), used by the WebView
+ * session-bridge flow the `Lapis-Cloud-Mobile` app's join button navigates to (see that repo's
+ * `docs/webview-join-flow.adoc`). `null` for the plain `#/conference` route (unchanged behaviour:
+ * shows the room list, no auto-join). When set, [renderLobby] triggers the SAME
+ * join-then-`enterCall` click handler [renderRoomCard]'s "Beitreten" button already uses, once
+ * [IConferenceService.listActiveRooms] confirms a room with that id exists -- no new RPC call
+ * path, purely an automated click on the existing one. If the room is not in that list (already
+ * ended, or simply not found), the screen falls back to showing the normal room list with no
+ * error dialog -- the room just isn't there for this member anymore.
  */
-fun renderConferenceScreen(container: SimplePanel) {
+fun renderConferenceScreen(
+    container: SimplePanel,
+    autoJoinRoomId: String? = null,
+) {
     // V1.2.10 -- Root-Ursache des mobilen 960px-Overflows (Plan Abschnitt 0): eine feste
     // Pixelbreite ohne Fallback lässt `scrollWidth` auf schmalen Viewports nie unter 960px fallen,
     // egal wie sehr die Call-Ansicht selbst mobil optimiert wird. Fix nach dem bereits im Repo
@@ -402,9 +416,12 @@ fun renderConferenceScreen(container: SimplePanel) {
         // load, exactly the confusing generic toast this wave exists to avoid -- see design review
         // "Accepted as planned"). See [renderGuestLobby].
         if (AppState.session?.isGuest == true) {
+            // V1.5.1 Mobile App: no federation-guest-consent UI on mobile yet (see
+            // Lapis-Cloud-Mobile's docs/known-limitations.adoc) -- autoJoinRoomId is simply
+            // ignored for a GUEST/FRIEND caller, same as it always was for the web guest lobby.
             renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
         } else {
-            renderLobby(lobbyPanel, callPanel, setActiveSession)
+            renderLobby(lobbyPanel, callPanel, setActiveSession, autoJoinRoomId)
         }
     }
 }
@@ -432,9 +449,16 @@ private fun renderLobby(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    autoJoinRoomId: String? = null,
 ) {
     lobbyPanel.removeAll()
     lobbyPanel.show()
+
+    // V1.5.1 Mobile App -- guards against re-triggering the auto-join on a LATER loadRooms()
+    // call (e.g. the user hits "Aktualisieren", or a room card's own join flow calls
+    // refreshLobby()): the deep link should only ever drive ONE automatic join attempt per
+    // screen visit, exactly like a human only clicks "Beitreten" once.
+    var autoJoinConsumed = false
 
     // Wave 4 "Politur", D1: single-button "start now" flow -- no title-entry form for the common,
     // spontaneous case. See file KDoc "Wave 4 -- D1".
@@ -461,6 +485,19 @@ private fun renderLobby(
             } else {
                 rooms.forEach { room ->
                     renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession) {
+                        loadRooms()
+                        renderConferenceRecordingsPanel(recordingsSection)
+                    }
+                }
+            }
+            // V1.5.1 Mobile App -- see renderConferenceScreen's autoJoinRoomId KDoc. If the room
+            // is not (or no longer) in this list, nothing happens here: the screen simply shows
+            // the normal room list rendered above, no error dialog.
+            if (!autoJoinConsumed && autoJoinRoomId != null) {
+                val targetRoom = rooms.find { it.id == autoJoinRoomId }
+                if (targetRoom != null) {
+                    autoJoinConsumed = true
+                    joinConferenceRoomAndEnterCall(targetRoom, lobbyPanel, callPanel, setActiveSession) {
                         loadRooms()
                         renderConferenceRecordingsPanel(recordingsSection)
                     }
@@ -541,12 +578,28 @@ private fun renderRoomCard(
     joinButton.onClick {
         joinButton.disabled = true
         AppScope.launch {
-            val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+            joinConferenceRoomAndEnterCall(room, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
             joinButton.disabled = false
-            if (token != null) {
-                enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
-            }
         }
+    }
+}
+
+/**
+ * V1.5.1 Mobile App -- factored out of [renderRoomCard]'s "Beitreten" click handler so
+ * [renderLobby]'s `autoJoinRoomId` auto-join can call the EXACT same join-then-`enterCall` path,
+ * not a second, parallel one. Uses the same [IConferenceService.joinRoom] RPC call every other
+ * join already goes through -- no new authorization surface.
+ */
+private suspend fun joinConferenceRoomAndEnterCall(
+    room: ConferenceRoomDto,
+    lobbyPanel: SimplePanel,
+    callPanel: SimplePanel,
+    setActiveSession: (LiveKitRoomSession?) -> Unit,
+    onReturnedToLobby: () -> Unit,
+) {
+    val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+    if (token != null) {
+        enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
     }
 }
 

@@ -26,6 +26,7 @@ import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.extractSessionToken
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -49,6 +50,16 @@ data class LoginResponse(
     val memberId: String,
     val displayName: String,
     val role: AccountRole,
+    /**
+     * V1.5.1 Mobile App -- the exact same raw token also delivered as the `lapis_session` cookie
+     * on this same response (`issued.rawToken` below). No additional token is minted and no
+     * additional security surface is opened: the value is already present in this response
+     * either way. A native client that does not want to deal with a platform-specific cookie jar
+     * can use this instead, via `Authorization: Bearer <sessionToken>` -- see
+     * [network.lapis.cloud.server.security.extractSessionToken] KDoc, which already supports
+     * both transports.
+     */
+    val sessionToken: String,
 )
 
 @Serializable
@@ -190,12 +201,19 @@ fun Route.registerAuthRoutes(
                 memberId = memberId.toString(),
                 displayName = accountRow[MemberTable.displayName],
                 role = accountRow[AccountTable.role],
+                sessionToken = issued.rawToken,
             ),
         )
     }
 
     post("/api/auth/logout") {
-        val rawToken = call.request.cookies[SESSION_COOKIE_NAME]
+        // V1.5.1 Mobile App fix -- was `call.request.cookies[SESSION_COOKIE_NAME]` directly,
+        // which silently ignored a caller authenticating via `Authorization: Bearer <token>`
+        // only (no cookie at all, the mobile app's own transport -- see LoginResponse.sessionToken
+        // KDoc). A mobile logout call would return 204 without ever resolving/revoking anything,
+        // leaving the session live server-side. extractSessionToken already supports both
+        // transports (cookie first, then Bearer) -- see its own KDoc.
+        val rawToken = extractSessionToken(call)
         if (rawToken != null) {
             val resolved = SessionStore.resolve(rawToken)
             SessionStore.revoke(rawToken)

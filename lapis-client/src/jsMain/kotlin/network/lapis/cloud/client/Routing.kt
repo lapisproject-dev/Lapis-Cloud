@@ -216,6 +216,17 @@ object Routes {
     // OWN rendering on `isGuest` (`renderGuestLobby` vs. `renderLobby`), never a second route.
     const val CONFERENCE = "/conference"
 
+    // V1.5.1 Mobile App -- additive parameterized deep link, same `:id`-via-Navigo-`Match.data`
+    // shape as [SOCIAL_NETWORK_POST]. Lets `Lapis-Cloud-Mobile`'s WebView session-bridge flow
+    // (see that repo's docs/webview-join-flow.adoc) land directly on a specific room instead of
+    // the plain room list -- this codebase had "zero parameterized Navigo routes" for conference
+    // before this (see the now-superseded note in `IConferenceService`'s "Federated guest join"
+    // KDoc section, which explicitly called this a "wrong risk to add inside a trust-boundary
+    // wave" at the time). Same `requireAuth` gate as [CONFERENCE] -- no new authorization
+    // surface, this route only ever pre-fills which room `renderConferenceScreen`'s existing,
+    // already-gated `listActiveRooms`/`joinRoom` calls act on.
+    const val CONFERENCE_ROOM = "/conference/:roomId"
+
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- `IConferenceStreamingService`
     // destination (Stream-Ziele) credential CRUD. Role gate verified against
     // `ConferenceStreamingService.kt`: `listDestinations`/`createDestination`/`updateDestination`/
@@ -683,6 +694,16 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.CONFERENCE) {
         requireAuth(routing) { show(Routes.CONFERENCE, ::renderConferenceScreen) }
+    }
+    // V1.5.1 Mobile App -- same `:id`-via-`Match.data` shape as [Routes.SOCIAL_NETWORK_POST]
+    // above; see that route's own comment for why `kvOn`'s handler needs the one `asDynamic()`
+    // cast here too. A missing/blank `roomId` falls back to the plain room list rather than
+    // failing -- same defensive shape [Routes.SOCIAL_NETWORK_POST] uses for a missing `id`.
+    routing.kvOn(Routes.CONFERENCE_ROOM) { params ->
+        val roomId = params.asDynamic().data.roomId as? String
+        requireAuth(routing) {
+            show(Routes.CONFERENCE_ROOM) { container -> renderConferenceScreen(container, roomId) }
+        }
     }
     routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
         requireRole(routing, AccountRole.ADMIN) {
