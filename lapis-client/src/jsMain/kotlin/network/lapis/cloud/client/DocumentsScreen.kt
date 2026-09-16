@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.select
+import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.form.upload.upload
 import io.kvision.html.ButtonStyle
@@ -93,48 +94,108 @@ fun renderDocumentsScreen(container: SimplePanel) {
     fun loadDocuments(folderId: String) {
         documentPanel.removeAll()
         versionPanel.removeAll()
+        // Drei Geschwister-Panels statt einem gemeinsamen `documentPanel` fuer Suchzeile, Liste und
+        // Anlage-Formular (Stolperfalle 1 der Implementierungswelle): `renderDocumentCreation` lief
+        // frueher im selben Panel wie die Dokumentzeilen -- ein Filter-Re-Render haette das
+        // Anlage-Formular bei jedem Tastendruck abgerissen und den Fokus aus dem Suchfeld geworfen.
+        // Alle drei werden bei jedem `loadDocuments`-Aufruf frisch unter `documentPanel` erzeugt, das
+        // vorherige `documentPanel.removeAll()` entsorgt die alten Referenzen mit -- kein Extra-Reset
+        // beim Ordnerwechsel noetig.
+        val searchRow = documentPanel.hPanel(spacing = 8)
+        val listPanel = documentPanel.vPanel(spacing = 6)
+        val creationPanel = documentPanel.vPanel(spacing = 6)
+
         AppScope.launch {
             val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) } ?: return@launch
-            if (documents.isEmpty()) {
-                documentPanel.p(tr("Keine Dokumente in diesem Ordner."))
-            } else {
-                documents.forEach { document ->
-                    val row = documentPanel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-                    // dataNavigo = false: rein lokaler Klick-Handler (laedt Versionen unten,
-                    // keine Route) -- siehe LoginScreen.kt-Kommentar zum globalen
-                    // Link.useDataNavigoForLinks-Default (V1.2.4-Audit, dataNavigo-Sweep).
-                    row.icon("fas fa-file")
-                    val titleLink =
-                        row.link(document.title, url = "javascript:void(0)", dataNavigo = false) {
-                            addCssClass("flex-grow-1")
+
+            // Schwellenwert bewusst auf der tatsaechlich geladenen Liste, nicht auf
+            // `folder.documentCount` (der zaehlt server-seitig VOR der Access-Level-Filterung).
+            var searchInput: Text? = null
+            if (shouldShowDocumentSearch(documents.size)) {
+                searchInput = searchRow.text(label = tr("Dokumente in diesem Ordner durchsuchen"))
+            }
+
+            // Aktuell im Versionen-Panel geoeffnetes Dokument -- getrackt, damit `renderList` das
+            // Panel nur leert, wenn dieses Dokument durch den Filter tatsaechlich herausfaellt
+            // (nicht bei jeder Filteraenderung pauschal, siehe Kommentar in `renderList`).
+            var openDocumentId: String? = null
+
+            // Zuletzt tatsaechlich gerenderte Query -- dedupliziert einen doppelten `renderList`-Aufruf,
+            // falls das programmatische `searchInput.value = null` im Reset-Link-Handler zusaetzlich
+            // den `subscribe`-Callback ausloest (KVisions genaues Verhalten dabei ist nicht verifiziert,
+            // dieser Guard macht das Verhalten unabhaengig davon korrekt).
+            var lastRenderedQuery: String? = null
+
+            fun renderList(query: String) {
+                lastRenderedQuery = query
+                listPanel.removeAll()
+                val filtered = filterDocuments(documents, query)
+                // Versionspanel nur leeren, wenn das aktuell geoeffnete Dokument durch den Filter
+                // herausfaellt -- sonst bleibt es bei jeder Filteraenderung ersatzlos verschwinden,
+                // obwohl das angezeigte Dokument weiterhin in der gefilterten Liste sichtbar ist.
+                val currentlyOpenId = openDocumentId
+                if (currentlyOpenId != null && filtered.none { it.id == currentlyOpenId }) {
+                    versionPanel.removeAll()
+                    openDocumentId = null
+                }
+                if (documents.isEmpty()) {
+                    listPanel.p(tr("Keine Dokumente in diesem Ordner."))
+                } else if (filtered.isEmpty()) {
+                    listPanel.p(gettext("Kein Dokument mit \"%1\" in diesem Ordner.", query.trim()))
+                    val resetLink = listPanel.link(tr("Filter zurücksetzen"), url = "javascript:void(0)", dataNavigo = false)
+                    resetLink.onClick {
+                        // Reihenfolge bewusst so: `renderList("")` zuerst setzt `lastRenderedQuery = ""`,
+                        // sodass der `subscribe`-Callback (falls er durch das nachfolgende `value = null`
+                        // synchron feuert) den Dedupe-Guard tatsaechlich greifen sieht und nicht erneut
+                        // rendert. In der umgekehrten Reihenfolge sah der Guard noch die alte Query und
+                        // verhinderte das Doppel-Rendering nicht (siehe Review-Befund).
+                        renderList("")
+                        searchInput?.value = null
+                    }
+                } else {
+                    if (query.isNotBlank()) {
+                        listPanel.div(gettext("%1 von %2 Dokumenten", filtered.size, documents.size)) {
+                            addCssClasses("text-muted small")
                         }
-                    titleLink.onClick { loadVersions(document) }
-                    if (canManage) {
-                        val deleteButton = row.button(tr("Löschen"), icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
-                        deleteButton.onClick {
-                            confirmDialog(
-                                title = tr("Dokument löschen"),
-                                message =
-                                    gettext(
-                                        "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
-                                            "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
-                                        document.title,
-                                    ),
-                                confirmLabel = tr("Löschen"),
-                            ) {
-                                AppScope.launch {
-                                    val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
-                                    if (result != null) {
-                                        notifySuccess(tr("Gelöscht."))
-                                        loadDocuments(folderId)
-                                    }
-                                }
-                            }
-                        }
+                    }
+                    filtered.forEach { document ->
+                        renderDocumentRow(
+                            panel = listPanel,
+                            document = document,
+                            canManage = canManage,
+                            onOpen = {
+                                openDocumentId = document.id
+                                loadVersions(document)
+                            },
+                            onDeleted = { loadDocuments(folderId) },
+                        )
                     }
                 }
             }
-            if (canManage) renderDocumentCreation(documentPanel, folderId) { loadDocuments(folderId) }
+
+            renderList("")
+
+            // Kein Debounce (Design-Team-Entscheidung: rein clientseitige Filterung, kein
+            // RPC-Roundtrip pro Tastendruck) -- nur der `isInitialSearchEvent`-Guard, weil KVisions
+            // `subscribe` bei der Registrierung sofort einmal synthetisch mit dem aktuellen Wert
+            // aufruft (gleiches Muster wie `MemberAdministrationScreen.kt`).
+            searchInput?.let { input ->
+                var isInitialSearchEvent = true
+                input.subscribe { value ->
+                    if (isInitialSearchEvent) {
+                        isInitialSearchEvent = false
+                        return@subscribe
+                    }
+                    val normalized = value.orEmpty()
+                    // Bereits gerendert (z. B. weil der Reset-Link-Handler `renderList("")` schon
+                    // explizit aufgerufen hat, bevor/nachdem dieser Callback feuert) -- nicht doppelt
+                    // rendern.
+                    if (normalized == lastRenderedQuery) return@subscribe
+                    renderList(normalized)
+                }
+            }
+
+            if (canManage) renderDocumentCreation(creationPanel, folderId) { loadDocuments(folderId) }
         }
     }
 
@@ -161,6 +222,75 @@ fun renderDocumentsScreen(container: SimplePanel) {
     refreshFolders()
     if (canManage && folderCreationPanel != null) {
         renderFolderCreation(folderCreationPanel) { refreshFolders() }
+    }
+}
+
+/**
+ * Reines, DOM-unabhaengiges Filter-Praedikat fuer die Dokumentensuche -- testbar ohne Rendering-
+ * Harness (analog `FileDisplay.kt`). `DocumentDto` traegt kein `fileName`/`mimeType` (das existiert
+ * nur auf `DocumentVersionDto`, separat per `listVersions` geladen), Suche ist deshalb zwangslaeufig
+ * auf `title` beschraenkt.
+ */
+internal fun filterDocuments(
+    documents: List<DocumentDto>,
+    query: String,
+): List<DocumentDto> {
+    val trimmed = query.trim()
+    if (trimmed.isEmpty()) return documents
+    return documents.filter { it.title.contains(trimmed, ignoreCase = true) }
+}
+
+/**
+ * Sichtbarkeitsschwelle fuer das Suchfeld -- ab 5 Dokumenten (Design-Team-Fazit: "bei acht ist der
+ * Nutzer schon am Scrollen"). Isoliert als pure Funktion, damit sie unabhaengig vom DOM-Code
+ * testbar ist.
+ */
+internal fun shouldShowDocumentSearch(documentCount: Int): Boolean = documentCount >= 5
+
+/**
+ * Rendert eine einzelne Dokumentzeile -- extrahiert aus `loadDocuments`, damit sie sowohl im
+ * Ruhezustand als auch nach jedem Filter-Re-Render identisch aufgerufen werden kann, ohne
+ * Code-Duplikation.
+ */
+private fun renderDocumentRow(
+    panel: SimplePanel,
+    document: DocumentDto,
+    canManage: Boolean,
+    onOpen: () -> Unit,
+    onDeleted: () -> Unit,
+) {
+    val row = panel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
+    // dataNavigo = false: rein lokaler Klick-Handler (laedt Versionen unten,
+    // keine Route) -- siehe LoginScreen.kt-Kommentar zum globalen
+    // Link.useDataNavigoForLinks-Default (V1.2.4-Audit, dataNavigo-Sweep).
+    row.icon("fas fa-file")
+    val titleLink =
+        row.link(document.title, url = "javascript:void(0)", dataNavigo = false) {
+            addCssClass("flex-grow-1")
+        }
+    titleLink.onClick { onOpen() }
+    if (canManage) {
+        val deleteButton = row.button(tr("Löschen"), icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
+        deleteButton.onClick {
+            confirmDialog(
+                title = tr("Dokument löschen"),
+                message =
+                    gettext(
+                        "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
+                            "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
+                        document.title,
+                    ),
+                confirmLabel = tr("Löschen"),
+            ) {
+                AppScope.launch {
+                    val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
+                    if (result != null) {
+                        notifySuccess(tr("Gelöscht."))
+                        onDeleted()
+                    }
+                }
+            }
+        }
     }
 }
 
