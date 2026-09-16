@@ -8,6 +8,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.icon
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -61,18 +62,24 @@ fun renderDocumentsScreen(container: SimplePanel) {
             } else {
                 versions.forEach { version ->
                     val row = versionPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
+                    row.icon(fileTypeIcon(version.mimeType))
                     val changeNoteSuffix = version.changeNote?.let { gettext(" -- %1", it) } ?: ""
                     row.div(
                         gettext(
-                            "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)",
+                            "v%1: %2 (%3, hochgeladen von %4 am %5)",
                             version.versionNumber,
                             version.fileName,
-                            version.fileSizeBytes,
+                            formatFileSize(version.fileSizeBytes),
                             version.uploadedByDisplayName,
                             version.uploadedAt,
                         ) + changeNoteSuffix,
                     ) { addCssClass("flex-grow-1") }
-                    row.link(tr("Herunterladen"), url = DocumentHttp.downloadUrl(document.id, version.id), target = "_blank")
+                    row.link(
+                        tr("Herunterladen"),
+                        url = DocumentHttp.downloadUrl(document.id, version.id),
+                        icon = "fas fa-download",
+                        target = "_blank",
+                    )
                 }
             }
             if (canManage) renderVersionUpload(versionPanel, document.id) { loadVersions(document) }
@@ -92,13 +99,14 @@ fun renderDocumentsScreen(container: SimplePanel) {
                     // dataNavigo = false: rein lokaler Klick-Handler (laedt Versionen unten,
                     // keine Route) -- siehe LoginScreen.kt-Kommentar zum globalen
                     // Link.useDataNavigoForLinks-Default (V1.2.4-Audit, dataNavigo-Sweep).
+                    row.icon("fas fa-file")
                     val titleLink =
                         row.link(document.title, url = "javascript:void(0)", dataNavigo = false) {
                             addCssClass("flex-grow-1")
                         }
                     titleLink.onClick { loadVersions(document) }
                     if (canManage) {
-                        val deleteButton = row.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+                        val deleteButton = row.button(tr("Löschen"), icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
                         deleteButton.onClick {
                             confirmDialog(
                                 title = tr("Dokument löschen"),
@@ -134,7 +142,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
                 folderPanel.p(tr("Noch keine Ordner vorhanden."))
             } else {
                 folders.forEach { folder ->
-                    val folderButton = folderPanel.button(folder.name, style = ButtonStyle.OUTLINESECONDARY)
+                    val folderButton = folderPanel.button(folder.name, icon = "fas fa-folder", style = ButtonStyle.OUTLINESECONDARY)
                     folderButton.onClick { loadDocuments(folder.id) }
                 }
             }
@@ -152,7 +160,7 @@ private fun renderFolderCreation(
     onCreated: () -> Unit,
 ) {
     val nameInput = panel.text(label = tr("Neuer Ordnername"))
-    val createButton = panel.button(tr("Ordner anlegen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val createButton = panel.button(tr("Ordner anlegen"), icon = "fas fa-folder-plus", style = ButtonStyle.OUTLINEPRIMARY)
     createButton.onClick {
         val name = nameInput.value.orEmpty().trim()
         if (!Validation.isNonBlank(name)) return@onClick
@@ -178,7 +186,12 @@ private fun renderDocumentCreation(
     val titleInput = panel.text(label = tr("Neuer Dokumenttitel"))
     val accessSelect =
         panel.select(options = accessLevelOptions, value = DocumentAccessLevel.PUBLIC_MEMBERS.name, label = tr("Sichtbarkeit"))
-    val createButton = panel.button(tr("Dokument anlegen (danach Datei hochladen)"), style = ButtonStyle.OUTLINEPRIMARY)
+    val createButton =
+        panel.button(
+            tr("Dokument anlegen (danach Datei hochladen)"),
+            icon = "fas fa-file-circle-plus",
+            style = ButtonStyle.OUTLINEPRIMARY,
+        )
     createButton.onClick {
         val title = titleInput.value.orEmpty().trim()
         val accessLevelValue = accessSelect.value
@@ -222,7 +235,7 @@ private fun renderVersionUpload(
     progressBar.setAttribute("role", "progressbar")
     progressBar.setStyle("width", "0%")
 
-    val uploadButton = uploadRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    val uploadButton = uploadRow.button(tr("Hochladen"), icon = "fas fa-upload", style = ButtonStyle.PRIMARY)
     uploadButton.onClick {
         errorBox.hide()
         val selected = fileUpload.value?.firstOrNull()

@@ -8971,9 +8971,9 @@ msgstr "Infracción de derechos de autor"
 msgid "Ursprüngliches Gewicht"
 msgstr "Peso original"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:66
-msgid "v%1: %2 (%3 Bytes, hochgeladen von %4 am %5)"
-msgstr "v%1: %2 (%3 bytes, subido por %4 el %5)"
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:68
+msgid "v%1: %2 (%3, hochgeladen von %4 am %5)"
+msgstr "v%1: %2 (%3, subido por %4 el %5)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:203
 msgid "Verarbeiter"
