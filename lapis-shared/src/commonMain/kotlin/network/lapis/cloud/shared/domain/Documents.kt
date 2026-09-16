@@ -11,6 +11,7 @@ data class DocumentFolderDto(
     val id: String,
     val name: String,
     val parentFolderId: String?,
+    val documentCount: Int,
 )
 
 @Serializable
@@ -39,4 +40,5 @@ data class DocumentVersionDto(
     val uploadedByDisplayName: String,
     val uploadedAt: LocalDateTime,
     val changeNote: String?,
+    val downloadCount: Long,
 )

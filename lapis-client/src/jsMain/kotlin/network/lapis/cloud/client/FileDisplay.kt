@@ -1,5 +1,8 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
+
 // Welle "Documents Screen -- Icons + menschenlesbare Dateigrößen" -- Design-Team-Review-
 // Zusammenfassung (die vier Jobs-Rulings):
 // - [formatFileSize] als gemeinsame Norm mit Abschneiden-statt-Runden-Verhalten (Tesler vs. Ive):
@@ -39,6 +42,23 @@ private fun truncateOneDecimal(
     val fraction = tenths % 10
     return "$whole,$fraction"
 }
+
+/**
+ * "0" -> "noch nicht heruntergeladen"; "1" -> "1x heruntergeladen"; "n" -> "{n}x heruntergeladen".
+ * Design-Team-Ruling (Raskin/Norman-Kompromiss): Null ist kein Messwert, sondern ein Zustand --
+ * eigener Text statt "0x", gedämpft (Aufrufstelle setzt CSS-Klasse `text-muted small` auf ein
+ * eigenes Zeilenelement), kein Icon (Kare/Ive: das Download-Icon gehört dem Aktionslink am
+ * Zeilenende, nicht doppelt als Statistik-Präfix). Liefert den reinen Text ohne Trenner-Präfix --
+ * anders als das bestehende changeNoteSuffix-Muster (" -- %1") in DocumentsScreen.kt, weil dieser
+ * Text als eigenes, separat gestyltes Zeilenelement eingebunden wird, nicht in den gemeinsamen
+ * gettext-String.
+ */
+fun formatDownloadCount(count: Long): String =
+    when (count) {
+        0L -> tr("noch nicht heruntergeladen")
+        1L -> tr("1x heruntergeladen")
+        else -> gettext("%1x heruntergeladen", count)
+    }
 
 /**
  * MIME-Type -> Font-Awesome-Icon, nur für [network.lapis.cloud.shared.domain.DocumentVersionDto

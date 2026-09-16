@@ -5,12 +5,22 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
+import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.MemberStatus
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
+import kotlin.uuid.Uuid
 
 /**
  * ADR-0016 (MDA persistence pipeline) — document domain.
@@ -148,6 +158,82 @@ class DocumentSchemaDriftTest :
                     ?.foreignKey
                     ?.targetEntityId,
             ) shouldBe "member"
+        }
+
+        test("document_version.download_count matches the real migrated schema and defaults to 0") {
+            // Covered structurally by the "document_version table shape..." test above (name +
+            // nullability), but the DEFAULT 0 is a separate guarantee -- both the model's
+            // declared defaultValue and the real migrated schema's column default must actually
+            // apply on insert, not just be present as a comment (see DocumentVersionTable.kt's
+            // generated `.default(0L)` -- confirmed a real Exposed default, unlike e.g.
+            // document.is_deleted's TODO-comment-only default for Boolean columns).
+            val attr = model.entities.single { it.name == "document_version" }.attributeByName("download_count")
+            attr?.nullable shouldBe false
+
+            // document_version.document_id and .uploaded_by DO carry real FK constraints in the H2
+            // test schema (confirmed the hard way -- an initial version of this test without these
+            // seed rows failed with a referential-integrity violation) -- so a full folder/document/
+            // member chain is seeded here, deleted again in the finally block.
+            val memberId = Uuid.random()
+            val folderId = Uuid.random()
+            val documentId = Uuid.random()
+            val versionId = Uuid.random()
+            transaction {
+                MemberTable.insert {
+                    it[id] = memberId
+                    it[displayName] = "Schema-Drift-Download-Count-Testmitglied"
+                    it[email] = "schema-drift-download-count-test@example.org"
+                    it[status] = MemberStatus.ACTIVE
+                    it[joinedAt] = LocalDate(2026, 1, 1)
+                    it[membershipTierId] = null
+                }
+                DocumentFolderTable.insert {
+                    it[id] = folderId
+                    it[name] = "Schema-Drift-Download-Count-Test-Ordner"
+                    it[parentFolderId] = null
+                }
+                DocumentTable.insert {
+                    it[id] = documentId
+                    it[DocumentTable.folderId] = folderId
+                    it[title] = "Schema-Drift-Download-Count-Test-Dokument"
+                    it[currentVersionId] = null
+                    it[createdBy] = memberId
+                    it[createdAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[accessLevel] = DocumentAccessLevel.PUBLIC_MEMBERS
+                    it[isDeleted] = false
+                }
+                DocumentVersionTable.insert {
+                    it[id] = versionId
+                    it[DocumentVersionTable.documentId] = documentId
+                    it[versionNumber] = 1
+                    it[fileName] = "schema-drift-download-count-test.txt"
+                    it[mimeType] = "text/plain"
+                    it[fileSizeBytes] = 0L
+                    it[storageKey] = "schema-drift-download-count-test/$versionId.bin"
+                    it[checksumSha256] = "0".repeat(64)
+                    it[uploadedBy] = memberId
+                    it[uploadedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[changeNote] = null
+                    // downloadCount deliberately NOT set -- exercising the real default.
+                }
+            }
+            try {
+                val downloadCount =
+                    transaction {
+                        DocumentVersionTable
+                            .selectAll()
+                            .where { DocumentVersionTable.id eq versionId }
+                            .single()[DocumentVersionTable.downloadCount]
+                    }
+                downloadCount shouldBe 0L
+            } finally {
+                transaction {
+                    DocumentVersionTable.deleteWhere { DocumentVersionTable.id eq versionId }
+                    DocumentTable.deleteWhere { DocumentTable.id eq documentId }
+                    DocumentFolderTable.deleteWhere { DocumentFolderTable.id eq folderId }
+                    MemberTable.deleteWhere { MemberTable.id eq memberId }
+                }
+            }
         }
 
         test("document_version's composite UNIQUE constraint is pinned via a class-level «Index»") {

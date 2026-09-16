@@ -195,6 +195,21 @@ classDiagram(name = "Document") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "change_note"; "sqlType" to "VARCHAR(1000)" }
         }
+        // download_count: monoton wachsender Zaehler fuer ausgelieferte Voll-Downloads dieser
+        // Version (nicht "Downloads von diesem Dokument" -- DocumentDto traegt bewusst KEINEN
+        // Zaehler, Design-Team-Entscheidung 2026-09-16: eine Quelle, an der Version, nicht am
+        // Dokument). Zaehlt einen ausgelieferten LocalFileContent-Response (GET, kein
+        // Range-Header) im DocumentRoutes-Download-Handler -- NICHT HEAD, NICHT
+        // Range-Requests (PartialContent-Fortsetzungen desselben Downloads wuerden sonst mehrfach
+        // zaehlen, siehe DocumentRoutes.kt-Kommentar an der Inkrement-Stelle). Kuenftig aus einer
+        // document_download-Ereignishistorie ableitbar (COUNT(*) GROUP BY document_version_id)
+        // ohne dass sich diese Spalten-/DTO-Form aendert -- bewusst heute schon so benannt, dass
+        // ein spaeteres Event-Log sie ersetzen koennte, ohne die DTO-Form
+        // (DocumentVersionDto.downloadCount) zu brechen.
+        attribute(name = "downloadCount", type = "Long") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "download_count" }
+        }
     }
 
     // document_version.document_id -> document (id): the association-derived default name

@@ -74,6 +74,10 @@ fun renderDocumentsScreen(container: SimplePanel) {
                             version.uploadedAt,
                         ) + changeNoteSuffix,
                     ) { addCssClass("flex-grow-1") }
+                    // Eigenes Zeilenelement statt Teil des gemeinsamen gettext-Strings, damit
+                    // `text-muted small` als eigene CSS-Klasse greift (Design-Vorgabe, siehe
+                    // formatDownloadCount-KDoc in FileDisplay.kt).
+                    row.div(formatDownloadCount(version.downloadCount)) { addCssClasses("text-muted small") }
                     row.link(
                         tr("Herunterladen"),
                         url = DocumentHttp.downloadUrl(document.id, version.id),
@@ -142,7 +146,12 @@ fun renderDocumentsScreen(container: SimplePanel) {
                 folderPanel.p(tr("Noch keine Ordner vorhanden."))
             } else {
                 folders.forEach { folder ->
-                    val folderButton = folderPanel.button(folder.name, icon = "fas fa-folder", style = ButtonStyle.OUTLINESECONDARY)
+                    val folderButton =
+                        folderPanel.button(
+                            "${folder.name} (${folder.documentCount})",
+                            icon = "fas fa-folder",
+                            style = ButtonStyle.OUTLINESECONDARY,
+                        )
                     folderButton.onClick { loadDocuments(folder.id) }
                 }
             }

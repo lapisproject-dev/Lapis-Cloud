@@ -19,6 +19,7 @@ public object DocumentVersionTable : Table("document_version") {
     public val uploadedBy: Column<Uuid> = reference("uploaded_by", MemberTable.id)
     public val uploadedAt: Column<LocalDateTime> = datetime("uploaded_at")
     public val changeNote: Column<String?> = varchar("change_note", 1000).nullable()
+    public val downloadCount: Column<Long> = long("download_count").default(0L)
     public val documentId: Column<Uuid> = reference("document_id", DocumentTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)

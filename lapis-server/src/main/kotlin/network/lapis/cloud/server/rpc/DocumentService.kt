@@ -20,9 +20,11 @@ import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -50,11 +52,26 @@ class DocumentService(
      * already gate on [DocumentAccessLevel] per document. A [network.lapis.cloud.shared.domain
      * .MemberStatus.FRIEND] can therefore see folder NAMES (like any other authenticated caller
      * could before this fix) but not folder CONTENTS.
+     *
+     * **[DocumentFolderDto.documentCount]** (added alongside the download-counter wave) DOES
+     * respect the caller's [DocumentAccessLevel] visibility, unlike the folder listing itself: the
+     * count is computed with the exact same predicates [listDocuments] uses (`isDeleted eq false`
+     * plus the caller's `canAccessDocumentAtLevel`-derived allowed levels), so a folder never
+     * reports a count that includes documents the caller could not actually open — that would be
+     * an information leak through a number, not just through the accessLevel-gated listing.
      */
     override suspend fun listFolders(): List<DocumentFolderDto> {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         return transaction {
-            DocumentFolderTable.selectAll().map { it.toDocumentFolderDto() }
+            val allowedLevels = DocumentAccessLevel.entries.filter { current.canAccessDocumentAtLevel(it) }
+            val documentCountColumn = DocumentTable.id.count()
+            val countByFolderId: Map<Uuid, Long> =
+                DocumentTable
+                    .select(DocumentTable.folderId, documentCountColumn)
+                    .where { (DocumentTable.isDeleted eq false) and (DocumentTable.accessLevel inList allowedLevels) }
+                    .groupBy(DocumentTable.folderId)
+                    .associate { it[DocumentTable.folderId] to it[documentCountColumn] }
+            DocumentFolderTable.selectAll().map { it.toDocumentFolderDto(countByFolderId) }
         }
     }
 
@@ -71,11 +88,12 @@ class DocumentService(
                 it[DocumentFolderTable.name] = name
                 it[DocumentFolderTable.parentFolderId] = parentFolderId?.let(Uuid::parse)
             }
+            // Freshly created folder -- documentCount is always 0 by construction, no query needed.
             DocumentFolderTable
                 .selectAll()
                 .where { DocumentFolderTable.id eq id }
                 .single()
-                .toDocumentFolderDto()
+                .toDocumentFolderDto(emptyMap())
         }
     }
 
@@ -154,11 +172,12 @@ class DocumentService(
     }
 }
 
-private fun ResultRow.toDocumentFolderDto(): DocumentFolderDto =
+private fun ResultRow.toDocumentFolderDto(countByFolderId: Map<Uuid, Long>): DocumentFolderDto =
     DocumentFolderDto(
         id = this[DocumentFolderTable.id].toString(),
         name = this[DocumentFolderTable.name],
         parentFolderId = this[DocumentFolderTable.parentFolderId]?.toString(),
+        documentCount = (countByFolderId[this[DocumentFolderTable.id]] ?: 0L).toInt(),
     )
 
 private fun ResultRow.toDocumentDto(): DocumentDto =
@@ -187,4 +206,5 @@ private fun ResultRow.toDocumentVersionDto(): DocumentVersionDto =
         uploadedByDisplayName = this[MemberTable.displayName],
         uploadedAt = this[DocumentVersionTable.uploadedAt],
         changeNote = this[DocumentVersionTable.changeNote],
+        downloadCount = this[DocumentVersionTable.downloadCount],
     )

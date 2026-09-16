@@ -25,6 +25,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -223,6 +224,23 @@ fun Route.registerDocumentRoutes(storageRoot: File) {
         if (!file.exists()) {
             call.respond(HttpStatusCode.NotFound, "Stored file missing")
             return@get
+        }
+
+        // Zaehlt nur einen tatsaechlichen Voll-Download: kein Range-Request (PartialContent-
+        // Fortsetzung/Resume desselben Downloads), keine HEAD-Anfrage (diese Route ist nur `get`
+        // registriert, also ohnehin nie HEAD -- Ktors PartialContent-Plugin beantwortet HEAD
+        // separat, nie durch diesen Handler). Zwingend NACH der canAccessDocumentAtLevel-Pruefung
+        // und dem versionRow-Null-Check, sonst wuerde ein abgelehnter (403) oder nicht
+        // existierender (404) Versuch mitzaehlen -- Security-Pflichtpunkt dieser Welle: eine
+        // Zahl, die sich ohne Berechtigung bewegt, ist ein Kanal. Atomares server-seitiges
+        // Exposed-Update (`downloadCount + 1` als SQL-Ausdruck, kein Kotlin-seitiges Lesen+
+        // Schreiben) -- kein Read-Modify-Write-Race bei gleichzeitigen Downloads derselben Version.
+        if (call.request.headers[HttpHeaders.Range] == null) {
+            transaction {
+                DocumentVersionTable.update({ DocumentVersionTable.id eq versionId }) {
+                    it[downloadCount] = downloadCount + 1
+                }
+            }
         }
 
         call.response.header(

@@ -11163,3 +11163,15 @@ msgstr "Ta zmiana jest już w pełni obsadzona."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
 msgid "Sie haben sich für \"%1\" angemeldet."
 msgstr "Zapisałeś się na „%1”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:58
+msgid "noch nicht heruntergeladen"
+msgstr "jeszcze nie pobrano"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:59
+msgid "1x heruntergeladen"
+msgstr "pobrano 1x"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:60
+msgid "%1x heruntergeladen"
+msgstr "pobrano %1x"

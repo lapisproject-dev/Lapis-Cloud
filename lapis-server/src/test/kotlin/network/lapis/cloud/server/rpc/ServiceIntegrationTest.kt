@@ -414,6 +414,121 @@ class ServiceIntegrationTest :
             }
         }
 
+        test(
+            "documents: listFolders' documentCount respects the caller's access level, matches listDocuments " +
+                "for the same caller, excludes soft-deleted documents, and is 0 for an empty folder",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Forbidden)
+                        }
+                        exception<NotFoundException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.NotFound)
+                        }
+                    }
+                    routing {
+                        post("/test/create-folder2") {
+                            val service = DocumentService(call)
+                            val folder = service.createFolder(name = "Mischordner (Folder-Count-Test)")
+                            call.respondText(folder.id)
+                        }
+                        post("/test/create-document2/{folderId}/{level}") {
+                            val service = DocumentService(call)
+                            val doc =
+                                service.createDocument(
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "Folder-Count-Test-Dokument",
+                                    accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
+                                )
+                            call.respondText(doc.id)
+                        }
+                        get("/test/list-folders") {
+                            val service = DocumentService(call)
+                            val folders = service.listFolders()
+                            call.respondText(folders.joinToString(";") { "${it.id}=${it.documentCount}" })
+                        }
+                        get("/test/list-documents2/{folderId}") {
+                            val service = DocumentService(call)
+                            val docs = service.listDocuments(call.parameters["folderId"]!!)
+                            call.respondText(docs.size.toString())
+                        }
+                        post("/test/delete-document2/{documentId}") {
+                            val service = DocumentService(call)
+                            service.deleteDocument(call.parameters["documentId"]!!)
+                            call.respondText("ok")
+                        }
+                    }
+                }
+
+                fun documentCountOf(
+                    body: String,
+                    folderId: String,
+                ): Int =
+                    body
+                        .split(";")
+                        .single { it.startsWith("$folderId=") }
+                        .substringAfter("=")
+                        .toInt()
+
+                // Ordner ohne Dokumente -> documentCount == 0, nicht null/fehlend.
+                val emptyFolderId = client.post("/test/create-folder2") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                val emptyFolderListing =
+                    client.get("/test/list-folders") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                documentCountOf(emptyFolderListing, emptyFolderId) shouldBe 0
+
+                // Gemischter Ordner: 2x PUBLIC_MEMBERS, 3x BOARD_ONLY, 1x PUBLIC_MEMBERS (wird gleich
+                // soft-geloescht).
+                val folderId = client.post("/test/create-folder2") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                val publicDocIds =
+                    (1..2).map {
+                        client
+                            .post("/test/create-document2/$folderId/PUBLIC_MEMBERS") { header("X-Member-Id", BOARD_ID) }
+                            .bodyAsText()
+                    }
+                repeat(3) {
+                    client.post("/test/create-document2/$folderId/BOARD_ONLY") { header("X-Member-Id", BOARD_ID) }
+                }
+                val softDeletedDocId =
+                    client
+                        .post("/test/create-document2/$folderId/PUBLIC_MEMBERS") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+
+                // Vor dem Soft-Delete: MEMBER (nur PUBLIC_MEMBERS) sieht 3 (2 + das gleich zu
+                // loeschende), BOARD (PUBLIC_MEMBERS + BOARD_ONLY) sieht alle 6.
+                val listingForMemberBefore =
+                    client.get("/test/list-folders") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                documentCountOf(listingForMemberBefore, folderId) shouldBe 3
+                val listedCountForMemberBefore =
+                    client.get("/test/list-documents2/$folderId") { header("X-Member-Id", MEMBER_ID) }.bodyAsText().toInt()
+                documentCountOf(listingForMemberBefore, folderId) shouldBe listedCountForMemberBefore
+
+                // Board/Admin sieht mehr als ein einfaches Mitglied im selben Ordner -- die Zaehlung
+                // ist wirklich pro-Aufrufer, nicht global gecacht.
+                val listingForBoardBefore =
+                    client.get("/test/list-folders") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                documentCountOf(listingForBoardBefore, folderId) shouldBe 6
+                val listedCountForBoardBefore =
+                    client.get("/test/list-documents2/$folderId") { header("X-Member-Id", BOARD_ID) }.bodyAsText().toInt()
+                documentCountOf(listingForBoardBefore, folderId) shouldBe listedCountForBoardBefore
+
+                // Soft-Delete eines der PUBLIC_MEMBERS-Dokumente -> Count faellt fuer MEMBER von 3
+                // auf 2, fuer BOARD von 6 auf 5.
+                client.post("/test/delete-document2/$softDeletedDocId") { header("X-Member-Id", BOARD_ID) }
+
+                val listingForMemberAfter =
+                    client.get("/test/list-folders") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
+                documentCountOf(listingForMemberAfter, folderId) shouldBe 2
+
+                val listingForBoardAfter =
+                    client.get("/test/list-folders") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                documentCountOf(listingForBoardAfter, folderId) shouldBe 5
+
+                publicDocIds.size shouldBe 2
+            }
+        }
+
         test("mailing: sending an already-sent message is rejected, not re-delivered") {
             testApplication {
                 application {

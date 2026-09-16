@@ -11217,3 +11217,15 @@ msgstr "Questo turno è già al completo."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
 msgid "Sie haben sich für \"%1\" angemeldet."
 msgstr "Ti sei iscritto a \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:58
+msgid "noch nicht heruntergeladen"
+msgstr "non ancora scaricato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:59
+msgid "1x heruntergeladen"
+msgstr "scaricato 1x"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:60
+msgid "%1x heruntergeladen"
+msgstr "scaricato %1x"

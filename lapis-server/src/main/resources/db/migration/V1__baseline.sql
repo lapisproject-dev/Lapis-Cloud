@@ -324,6 +324,7 @@ CREATE TABLE document_version (
     uploaded_by UUID NOT NULL,
     uploaded_at TIMESTAMP NOT NULL,
     change_note VARCHAR(1000) NULL,
+    download_count BIGINT NOT NULL DEFAULT 0,
     document_id UUID NOT NULL
 );
 
