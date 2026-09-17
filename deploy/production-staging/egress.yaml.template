@@ -1,0 +1,21 @@
+# Lapis Cloud -- STAGING instance Egress config. This is a TEMPLATE, not the real file: the
+# placeholders below are substituted from deploy/production-staging/.env by render-secrets.sh (see
+# ../production/README.adoc "Video conferencing"). The rendered egress.yaml is gitignored -- never
+# commit it.
+#
+# Runs with `network_mode: host`, same as ../production/ and ../production-elb/'s own copies and
+# for the identical reason -- see ../production-elb/egress.yaml.template's own comment for the full
+# diagnosis. `ws_url`/`redis.address` use `127.0.0.1:<staging's own loopback-published port>`.
+#
+# `template_port: 7982` is disjoint from PdV's (default 7980) and ELB's (7981) -- see
+# ../production-elb/egress.yaml.template's own comment for why this field exists and matters when
+# three host-networked egress instances share one physical host.
+log_level: info
+api_key: ${LAPIS_LIVEKIT_API_KEY}
+api_secret: ${LAPIS_LIVEKIT_API_SECRET}
+ws_url: ws://127.0.0.1:7886
+insecure: true # plain ws:// over loopback only, never reaches the public internet.
+redis:
+  # 127.0.0.1:6381 -- staging's own redis loopback publish (docker-compose.yml).
+  address: 127.0.0.1:6381
+template_port: 7982

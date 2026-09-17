@@ -59,6 +59,7 @@ import network.lapis.cloud.server.contribution.ContributionReliefRedactionPoller
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.StagingSeedData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotConfig
@@ -269,6 +270,11 @@ import kotlin.time.Duration.Companion.minutes
 fun main() {
     DatabaseConfig.connect()
     DevSeedData.seedIfEmpty()
+    // Staging-Instanz-Welle: deliberately ONLY here, never in `module()` below -- see
+    // StagingSeedData KDoc "Production entry point" for why (module() re-runs on every
+    // testApplication { application { module() } } across this whole test suite). A no-op
+    // everywhere except a real deployment with LAPIS_STAGING_MODE=true set explicitly.
+    StagingSeedData.seedIfEmpty()
     // Welle V1.4.14 "Mehrere Bankkonten" -- deliberately ONLY here, never in `module()` below.
     // Unlike DevSeedData.seedIfEmpty() (whose "already seeded?" check is a stable, ambient-state-
     // independent fact), this backfill's own "anything to do?" check reads

@@ -8,6 +8,26 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Staging-/Test-Instanz (dritte, co-located Instanz)**
+
+- **Hinzugefügt**: `StagingSeedConfig.kt`/`StagingSeedData.kt` (`lapis-server/.../db/`) -- ein
+  neuer, von `DevSeedData` unabhängiger Seed-Mechanismus, der eine fiktive Vereins-Testinstanz
+  ("Testverein Musterstadt e.V.", `@staging.invalid`-E-Mails) gegen ein echtes Postgres seedet.
+  Vier unabhängige Schlösser: `LAPIS_STAGING_MODE` muss exakt `"true"` sein, ein starkes
+  `LAPIS_STAGING_SEED_PASSWORD` ist Pflicht (fail-fast sonst, nie `DevSeedData.DEMO_PASSWORD`), die
+  `member`-Tabelle muss leer sein, und die beiden Env-Variablen werden in
+  `deploy/production/docker-compose.yml`/`deploy/production-elb/docker-compose.yml` gar nicht erst
+  durchgereicht. `DevSeedData` bleibt vollständig unangetastet (nur lesender Zugriff auf
+  `demoLedgerAccounts`). Verdrahtet in `Application.kt`'s `main()`, bewusst nicht in `module()`.
+  Getestet in `StagingSeedConfigSafetyTest.kt` (reine Entscheidungslogik, exhaustives
+  Kreuzprodukt) und `StagingSeedDataTest.kt` (isolierte H2-Instanz, Idempotenz, Kernschutz bei
+  nicht-leerer `member`-Tabelle).
+- **Hinzugefügt**: `deploy/production-staging/` -- vollständiges drittes Compose-Deployment
+  (eigene Ports, eigene Volumes, eigene LiveKit/coturn/egress-Konfiguration, siehe dessen
+  `README.adoc`), analog zu `deploy/production-elb/` aber mit `LAPIS_STAGING_MODE`/
+  `LAPIS_STAGING_SEED_PASSWORD` durchgereicht und SMTP/SEPA-Poller/Mahnwesen/Webhooks hart
+  ausgeschaltet.
+
 **Price-Oracle: Kursverlauf-Diagramm (Client)**
 
 - **Hinzugefügt**: `PriceOracleScreen.kt` bekommt einen neuen "Kursverlauf"-Abschnitt zwischen

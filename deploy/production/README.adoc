@@ -825,3 +825,15 @@ independently on ELB's own volume the first time its own `egress` creates a reco
 Either add a second `systemctl enable --now` timer pointed at the second volume's mountpoint, or
 generalize the existing unit to loop over both -- this file does not prescribe which, only flags
 that skipping it silently leaves ELB's own recordings permanently `FAILED`.
+
+== A third, co-located instance (staging)
+
+`../production-staging/` is a third instance on the same host, structured identically to ELB above
+but running a dedicated STAGING/TEST deployment seeded with entirely fictitious data (`Testverein
+Musterstadt e.V.`, `@staging.invalid` emails) instead of any real membership data -- see its own
+`README.adoc` for the full setup, port table, and the `StagingSeedConfig`/`StagingSeedData` seed
+mechanism. The one structural difference from this directory and `../production-elb/`: its own
+`docker-compose.yml` forwards `LAPIS_STAGING_MODE`/`LAPIS_STAGING_SEED_PASSWORD` into the
+container -- this directory's and ELB's own `docker-compose.yml` deliberately do not, so those two
+variables can never reach a real deployment's process even if accidentally set in either instance's
+own `.env` file.

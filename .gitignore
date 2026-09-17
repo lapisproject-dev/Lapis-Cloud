@@ -155,6 +155,16 @@ deploy/production-elb/egress.yaml
 deploy/production-elb/branding/*
 !deploy/production-elb/branding/.gitkeep
 
+# Staging-instance deployment (Welle "Staging-Instanz") -- same reasoning as deploy/production/
+# above, mirrored for the third, co-located staging/test instance's own directory.
+deploy/production-staging/livekit.yaml
+deploy/production-staging/turnserver.conf
+deploy/production-staging/egress.yaml
+deploy/production-staging/branding/*
+!deploy/production-staging/branding/.gitkeep
+deploy/production-staging/coturn-certs/*
+!deploy/production-staging/coturn-certs/.gitkeep
+
 # V1.2.11 PdV-CSV-Mitglieder-Import -- die CRM-Exportdatei enthaelt echte personenbezogene
 # Daten von 581 realen Personen, ebenso der erzeugte Ausschluss-Bericht. Beides ist
 # deployment-lokal und darf NIEMALS Repo-Inhalt werden.
