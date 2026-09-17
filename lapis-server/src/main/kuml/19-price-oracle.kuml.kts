@@ -89,6 +89,22 @@
 // This file, like every other domain file with an FK to Member, carries a minimal id-only Member
 // stub (owned by Foundation) purely so UmlToErmTransformer can resolve the association and the
 // «Column».fkEntity override within this single-file evaluation.
+//
+// **Welle: Preishistorie -- `price_oracle_snapshot`.** Backend-Fundament fuer eine persistente
+// Kursreihe des Oracles (bislang nur der In-Memory-Cache in `PriceOracleOrchestrator`, bei jedem
+// Neustart verloren). `PriceOracleSnapshotPoller` schreibt stuendlich einen Snapshot je Anker (die
+// dritte, bewusste Erweiterung dieser Welle: der Poller fragt -- anders als der Orchestrator im
+// Normalbetrieb -- ALLE drei Anker ab, nicht nur den aktuell aktiven, siehe
+// `PriceOracleSnapshotPoller` KDoc). Kein Member-FK (reine Zeitreihe, siehe
+// `PersonalDataRegistry.noPersonalDataAllowlist`). `sourcesUsed` uebernimmt exakt das
+// `price_oracle_conversion.sources_used`-Idiom (komma-verbundener Audit-Trail, keine FK). Zwei
+// Zeitstempel, dieselbe Trennung wie bei `price_oracle_conversion`: `priceTimestamp` = der
+// Zeitstempel des Kurses selbst (kann bei CACHED/Refresh-Intervall-Replay aelter sein als der
+// Poll), `capturedAt` = wann der Poller die Zeile geschrieben hat -- Chart-/Historien-Queries
+// sortieren/filtern ausschliesslich ueber `priceTimestamp`. Kein `anchorUnitsPerLtr`/kein Peg --
+// der Peg ist eine reine Mint-Downstream-Groesse und wuerde die Kursreihe bei jeder Um-Pegung
+// verfaelschen. Der Unique-Index `uq_price_oracle_snapshot_anchor_ts` ist load-bearing (Dedupe
+// gegen den Refresh-Intervall-Replay -- ohne ihn wuerden 24 identische Gold-Zeilen/Tag entstehen).
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -234,6 +250,60 @@ classDiagram(name = "PriceOracle") {
         }
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
+        }
+    }
+
+    // Persistent price-history snapshot -- see file header "Welle: Preishistorie". No FK to
+    // Member at all (pure time series).
+    val priceOracleSnapshot = classOf(name = "PriceOracleSnapshot") {
+        stereotype("Entity") { "tableName" to "price_oracle_snapshot"; "kotlinObjectName" to "PriceOracleSnapshotTable" }
+        // Review Round finding (redundant index): a non-unique index over the same three columns
+        // in the same order was dropped -- the UNIQUE index below serves every query on this table
+        // (loadHistory's WHERE/ORDER BY, recordIfAbsent's existence check) and this table's rows
+        // are never deleted, so an unused second B-tree would only grow unbounded.
+        stereotype("Index") {
+            "columns" to listOf("anchor_asset", "donation_currency", "price_timestamp")
+            "unique" to true
+            "name" to "uq_price_oracle_snapshot_anchor_ts"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "anchorAsset", type = anchorAssetEnum) {
+            stereotype("Column") {
+                "columnName" to "anchor_asset"
+                "enumType" to "network.lapis.cloud.shared.domain.AnchorAsset"
+            }
+        }
+        attribute(name = "donationCurrency", type = "String") {
+            stereotype("Column") { "columnName" to "donation_currency"; "sqlType" to "VARCHAR(3)" }
+        }
+        attribute(name = "medianPrice", type = "BigDecimal") {
+            stereotype("Column") { "columnName" to "median_price"; "sqlType" to "DECIMAL(38,18)" }
+        }
+        attribute(name = "priceStatus", type = priceStatusEnum) {
+            stereotype("Column") {
+                "columnName" to "price_status"
+                "enumType" to "network.lapis.cloud.shared.domain.PriceStatus"
+            }
+        }
+        attribute(name = "sourceCount", type = "Int") {
+            stereotype("Column") { "columnName" to "source_count" }
+        }
+        // Comma-joined source ids -- an audit trail, NOT a FK. Same idiom
+        // price_oracle_conversion.sources_used already establishes.
+        attribute(name = "sourcesUsed", type = "String") {
+            stereotype("Column") { "columnName" to "sources_used"; "sqlType" to "VARCHAR(500)" }
+        }
+        // The price's OWN timestamp -- may predate capturedAt. See file header.
+        attribute(name = "priceTimestamp", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "price_timestamp" }
+        }
+        // When the poller actually wrote this row. See file header.
+        attribute(name = "capturedAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "captured_at" }
         }
     }
 

@@ -1,11 +1,14 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
+import network.lapis.cloud.shared.domain.PriceHistoryRange
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
+import network.lapis.cloud.shared.domain.PriceSnapshotDto
 
 /**
  * V0.6.5 Price-Oracle fuer die Anker-Bindung -- see `19-price-oracle.kuml.kts` file header for the
@@ -34,6 +37,14 @@ import network.lapis.cloud.shared.domain.PriceOracleConversionDto
  * **Scope-cut (payment intake)**: [convertDonationToLtr] is an operator-triggered booking of an
  * already-received donation (same tier as [ILtrLedgerService.mintLtr]), not a PSP-webhook intake
  * -- no automatic payment-gateway integration exists or is planned this wave.
+ *
+ * **Preishistorie (diese Welle)**: [getPriceHistory] reads the persisted `price_oracle_snapshot`
+ * rows [network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotPoller] writes stuendlich, in
+ * the BACKGROUND, for every anchor -- never triggering a network fan-out itself. Scope-cuts:
+ * **kein Client-Chart** (no consuming UI is built this wave, `PriceOracleScreen.kt` stays
+ * unangetastet), **kein Aggregations-/Downsampling-Endpunkt** (the row cap plus the time-range
+ * filter are the only shaping this wave does), **keine Retention-Automatik** (no row is ever
+ * deleted -- see that poller's own KDoc "Retention" for the growth-rate math that makes this safe).
  */
 @RpcService
 interface IPriceOracleService {
@@ -66,4 +77,22 @@ interface IPriceOracleService {
      * partial state -- see interface KDoc "Scope-cut (halt-queue)".
      */
     suspend fun convertDonationToLtr(input: DonationConversionInput): PriceOracleConversionDto
+
+    /**
+     * Role: TREASURER/BOARD/ADMIN (same tier as [previewCurrentPrice] -- the history carries, next
+     * to the price, operational/health data of the oracle: [PriceSnapshotDto.priceStatus]/
+     * [PriceSnapshotDto.sourceCount]/[PriceSnapshotDto.sourcesUsed]). Pure read -- NEVER triggers a
+     * network fan-out; it only reads the rows [network.lapis.cloud.server.economy.oracle
+     * .PriceOracleSnapshotPoller] already persisted in the background.
+     *
+     * [donationCurrency] `null` means the currently configured `price_oracle_config
+     * .donation_currency`. Result sorted ascending by [PriceSnapshotDto.priceTimestamp]
+     * (chart-ready). [limit] is server-side capped; on overflow the NEWEST rows are kept.
+     */
+    suspend fun getPriceHistory(
+        anchorAsset: AnchorAsset,
+        range: PriceHistoryRange = PriceHistoryRange.DAYS_30,
+        donationCurrency: String? = null,
+        limit: Int = 2_000,
+    ): List<PriceSnapshotDto>
 }

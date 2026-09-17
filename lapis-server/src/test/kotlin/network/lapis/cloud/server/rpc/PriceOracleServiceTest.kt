@@ -17,14 +17,21 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSource
 import network.lapis.cloud.server.economy.oracle.SourcePriceResult
@@ -33,7 +40,9 @@ import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PriceHistoryRange
 import network.lapis.cloud.shared.domain.PriceOracleConfigInput
+import network.lapis.cloud.shared.domain.PriceStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -42,6 +51,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -166,6 +176,35 @@ private fun setOracleConfig(
     }
 }
 
+/** Inserts a `price_oracle_snapshot` test row directly -- [PriceOracleSnapshotStore] writes are exercised by `PriceOracleSnapshotPollerTest`, this file only needs fixture data for `getPriceHistory`'s own read-path assertions. */
+private fun insertSnapshot(
+    anchorAsset: AnchorAsset,
+    daysAgo: Int,
+    price: BigDecimal,
+    donationCurrency: String = "EUR",
+    priceStatus: PriceStatus = PriceStatus.LIVE,
+) {
+    val priceTimestamp =
+        DbClock
+            .nowLocalDateTime()
+            .toInstant(TimeZone.currentSystemDefault())
+            .minus(daysAgo, DateTimeUnit.DAY, TimeZone.currentSystemDefault())
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+    transaction {
+        PriceOracleSnapshotTable.insert {
+            it[id] = Uuid.random()
+            it[PriceOracleSnapshotTable.anchorAsset] = anchorAsset
+            it[PriceOracleSnapshotTable.donationCurrency] = donationCurrency
+            it[medianPrice] = price
+            it[PriceOracleSnapshotTable.priceStatus] = priceStatus
+            it[sourceCount] = 2
+            it[sourcesUsed] = "a,b"
+            it[PriceOracleSnapshotTable.priceTimestamp] = priceTimestamp
+            it[capturedAt] = priceTimestamp
+        }
+    }
+}
+
 /**
  * Exercises [PriceOracleService] end to end -- same "throwaway routes calling the service class
  * directly" house style as [PeerTransferServiceTest]. [afterTest] restores `price_oracle_config`
@@ -195,6 +234,7 @@ class PriceOracleServiceTest :
             }
             cleanUpPriceOracleTestData(createdMemberIds)
             createdMemberIds.clear()
+            transaction { PriceOracleSnapshotTable.deleteAll() }
         }
 
         fun createTestMember(email: String): Uuid {
@@ -952,6 +992,136 @@ class PriceOracleServiceTest :
                 BigDecimal(ltrMinted).compareTo(BigDecimal("2.50")) shouldBe 0
             }
         }
+
+        // ── getPriceHistory (Welle "Price-Oracle-Preishistorie") ───────────────
+
+        test("getPriceHistory: role gating matches previewCurrentPrice -- unauthenticated/MEMBER rejected, TREASURER/BOARD/ADMIN allowed") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPriceOracleExceptionHandlers() }
+                    routing { registerPriceOracleTestRoutes(liveOrchestrator()) }
+                }
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 1, price = BigDecimal("50000"))
+
+                val unauthenticated = client.get("/test/price-history?anchorAsset=BITCOIN_BTC")
+                unauthenticated.status shouldBe HttpStatusCode.Unauthorized
+
+                val forbidden = client.get("/test/price-history?anchorAsset=BITCOIN_BTC") { header("X-Member-Id", MEMBER_ID) }
+                forbidden.status shouldBe HttpStatusCode.Forbidden
+
+                for (roleId in listOf(TREASURER_ID, BOARD_ID, ADMIN_ID)) {
+                    client
+                        .get("/test/price-history?anchorAsset=BITCOIN_BTC") { header("X-Member-Id", roleId) }
+                        .status shouldBe HttpStatusCode.OK
+                }
+            }
+        }
+
+        test("getPriceHistory: never triggers a network fan-out -- a counting source stays at zero calls") {
+            testApplication {
+                val counting = CountingFixedPriceSource(id = "a", price = BigDecimal("50000"))
+                application {
+                    install(StatusPages) { installPriceOracleExceptionHandlers() }
+                    routing { registerPriceOracleTestRoutes(PriceOracleOrchestrator(sources = listOf(counting, counting))) }
+                }
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 1, price = BigDecimal("50000"))
+
+                client.get("/test/price-history?anchorAsset=BITCOIN_BTC") { header("X-Member-Id", TREASURER_ID) }.status shouldBe
+                    HttpStatusCode.OK
+                counting.callCount.get() shouldBe 0
+            }
+        }
+
+        test("getPriceHistory: range filter selects the correct rows and result is sorted ascending by priceTimestamp") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPriceOracleExceptionHandlers() }
+                    routing { registerPriceOracleTestRoutes(liveOrchestrator()) }
+                }
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 100, price = BigDecimal("40000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 60, price = BigDecimal("41000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 20, price = BigDecimal("42000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 3, price = BigDecimal("43000"))
+                // Noise rows for a DIFFERENT anchor/currency, same day-range -- proves `loadHistory`'s
+                // `anchorAsset`/`donationCurrency` filter actually excludes them instead of merging every
+                // row into one undifferentiated series (regression guard: if either `and`-condition in
+                // `PriceOracleSnapshotStore.loadHistory`'s `where {}` were dropped, `countFor("ALL")` would
+                // jump from 4 to 6 below).
+                insertSnapshot(anchorAsset = AnchorAsset.GOLD_XAU, daysAgo = 3, price = BigDecimal("2000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 3, price = BigDecimal("50000"), donationCurrency = "USD")
+
+                suspend fun countFor(range: String): Int =
+                    client
+                        .get("/test/price-history?anchorAsset=BITCOIN_BTC&range=$range") { header("X-Member-Id", TREASURER_ID) }
+                        .bodyAsText()
+                        .let { if (it.isBlank()) 0 else it.split(";").size }
+
+                countFor("DAYS_7") shouldBe 1
+                countFor("DAYS_30") shouldBe 2
+                countFor("DAYS_90") shouldBe 3
+                countFor("ALL") shouldBe 4
+
+                val allResponse =
+                    client
+                        .get("/test/price-history?anchorAsset=BITCOIN_BTC&range=ALL") { header("X-Member-Id", TREASURER_ID) }
+                        .bodyAsText()
+                val prices = allResponse.split(";").map { BigDecimal(it.split(":")[0]) }
+                prices.size shouldBe 4
+                prices[0].compareTo(BigDecimal("40000")) shouldBe 0
+                prices[1].compareTo(BigDecimal("41000")) shouldBe 0
+                prices[2].compareTo(BigDecimal("42000")) shouldBe 0
+                prices[3].compareTo(BigDecimal("43000")) shouldBe 0
+            }
+        }
+
+        test("getPriceHistory: limit caps the result to the NEWEST rows, still returned ascending; limit is clamped into a sane range") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPriceOracleExceptionHandlers() }
+                    routing { registerPriceOracleTestRoutes(liveOrchestrator()) }
+                }
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 4, price = BigDecimal("40000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 3, price = BigDecimal("41000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 2, price = BigDecimal("42000"))
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 1, price = BigDecimal("43000"))
+
+                val response =
+                    client
+                        .get("/test/price-history?anchorAsset=BITCOIN_BTC&range=ALL&limit=2") { header("X-Member-Id", TREASURER_ID) }
+                        .bodyAsText()
+                val prices = response.split(";").map { BigDecimal(it.split(":")[0]) }
+                prices.size shouldBe 2
+                prices[0].compareTo(BigDecimal("42000")) shouldBe 0
+                prices[1].compareTo(BigDecimal("43000")) shouldBe 0
+
+                // limit=0 clamps to 1, an absurdly large limit clamps to MAX_PRICE_HISTORY_LIMIT -- neither throws.
+                client
+                    .get("/test/price-history?anchorAsset=BITCOIN_BTC&range=ALL&limit=0") { header("X-Member-Id", TREASURER_ID) }
+                    .status shouldBe HttpStatusCode.OK
+                client
+                    .get("/test/price-history?anchorAsset=BITCOIN_BTC&range=ALL&limit=999999") { header("X-Member-Id", TREASURER_ID) }
+                    .status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("getPriceHistory: donationCurrency null falls back to the configured currency; an unsupported currency is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installPriceOracleExceptionHandlers() }
+                    routing { registerPriceOracleTestRoutes(liveOrchestrator()) }
+                }
+                insertSnapshot(anchorAsset = AnchorAsset.BITCOIN_BTC, daysAgo = 1, price = BigDecimal("50000"), donationCurrency = "EUR")
+
+                client
+                    .get("/test/price-history?anchorAsset=BITCOIN_BTC") { header("X-Member-Id", TREASURER_ID) }
+                    .bodyAsText()
+                    .isBlank() shouldBe false
+
+                client
+                    .get("/test/price-history?anchorAsset=BITCOIN_BTC&donationCurrency=CHF") { header("X-Member-Id", TREASURER_ID) }
+                    .status shouldBe HttpStatusCode.Conflict
+            }
+        }
     })
 
 private fun cleanUpPriceOracleTestData(memberIds: List<Uuid>) {
@@ -1016,5 +1186,17 @@ private fun Route.registerPriceOracleTestRoutes(orchestrator: PriceOracleOrchest
         val service = PriceOracleService(call = call, orchestrator = orchestrator)
         val r = service.getOracleConfig()
         call.respondText("${r.anchorAsset}:${r.donationCurrency}")
+    }
+    get("/test/price-history") {
+        val service = PriceOracleService(call = call, orchestrator = orchestrator)
+        val q = call.request.queryParameters
+        val r =
+            service.getPriceHistory(
+                anchorAsset = AnchorAsset.valueOf(q["anchorAsset"]!!),
+                range = q["range"]?.let { PriceHistoryRange.valueOf(it) } ?: PriceHistoryRange.DAYS_30,
+                donationCurrency = q["donationCurrency"],
+                limit = q["limit"]?.toInt() ?: 2_000,
+            )
+        call.respondText(r.joinToString(";") { "${it.medianPrice}:${it.priceStatus}:${it.priceTimestamp}" })
     }
 }

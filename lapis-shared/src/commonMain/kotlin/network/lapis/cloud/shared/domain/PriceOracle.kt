@@ -193,3 +193,40 @@ data class PriceOracleConversionDto(
     val createdById: String?,
     val createdAt: LocalDateTime,
 )
+
+/**
+ * Display-/query time window for [IPriceOracleService.getPriceHistory] -- default 30 days.
+ * [ALL] means no lower time bound at all (still bounded by the server-side row cap, see
+ * [IPriceOracleService.getPriceHistory] KDoc).
+ */
+@Serializable
+enum class PriceHistoryRange(
+    val days: Int?,
+) {
+    DAYS_7(7),
+    DAYS_30(30),
+    DAYS_90(90),
+    ALL(null),
+}
+
+/**
+ * One persisted `price_oracle_snapshot` row -- written stuendlich by
+ * `network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotPoller`, never by a client
+ * request. See `19-price-oracle.kuml.kts` file header "Welle: Preishistorie" for the full model.
+ * [priceStatus]/[sourceCount]/[sourcesUsed] are the oracle's own operational/health data at the
+ * moment this snapshot was taken -- e.g. a GOLD_XAU/FIAT snapshot with [priceStatus] == CACHED
+ * within its 12h refresh window is the NORMAL operating mode for those anchors, not a degradation
+ * (their sources are only fanned out to a few times a day, see [AnchorPolicy.refreshIntervalSeconds]).
+ */
+@Serializable
+data class PriceSnapshotDto(
+    val id: String,
+    val anchorAsset: AnchorAsset,
+    val donationCurrency: String,
+    val medianPrice: Decimal,
+    val priceStatus: PriceStatus,
+    val sourceCount: Int,
+    val sourcesUsed: String,
+    val priceTimestamp: LocalDateTime,
+    val capturedAt: LocalDateTime,
+)

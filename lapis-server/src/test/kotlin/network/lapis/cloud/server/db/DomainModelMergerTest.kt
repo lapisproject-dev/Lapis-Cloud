@@ -414,7 +414,11 @@ class DomainModelMergerTest :
             // 39-events.kuml.kts's event) -- so it contributes +4 «Entity» declarations (2 stubs +
             // 2 real tables) and 2 drops, net +2 distinct table names versus the V1.4.3.5 baseline
             // above (150 -> 152).
-            val distinctTableNames = 152
+            // Welle "Price-Oracle-Preishistorie" adds 19-price-oracle.kuml.kts's ONE new real table
+            // (price_oracle_snapshot), with NO new cross-domain stub (the file's existing Member
+            // stub is reused) -- so it contributes +1 «Entity» declaration and 0 drops, net +1
+            // distinct table name versus the V1.4.3.7 baseline above (152 -> 153).
+            val distinctTableNames = 153
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -500,6 +504,7 @@ class DomainModelMergerTest :
                     "PeerTransferTable.kt",
                     "PriceOracleConfigTable.kt",
                     "PriceOracleConversionTable.kt",
+                    "PriceOracleSnapshotTable.kt",
                     "PoliticianProfileTable.kt",
                     "PoliticianReactionTable.kt",
                     "PoliticianWeightSnapshotTable.kt",

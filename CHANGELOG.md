@@ -8,6 +8,30 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Price-Oracle: Preishistorie-Backend**
+
+- **Hinzugefügt**: neue Flyway-Migration `V41__price_oracle_snapshot.sql` -- Tabelle
+  `price_oracle_snapshot` als reine Zeitreihe (kein FK zu `Member`), abgesichert durch den
+  eindeutigen Index `uq_price_oracle_snapshot_anchor_ts` über (`anchor_asset`,
+  `donation_currency`, `price_timestamp`).
+- **Hinzugefügt**: `IPriceOracleService.getPriceHistory` -- liest die persistierten Snapshots für
+  einen Anker/eine Spendenwährung, gefiltert nach Zeitraum (`DAYS_7`/`DAYS_30`/`DAYS_90`/`ALL`)
+  und `limit`, aufsteigend nach `priceTimestamp` sortiert. Löst KEINEN Netzwerk-Fan-out zu den
+  Preisquellen aus -- reiner DB-Read. Rollen-Gating identisch zu `previewCurrentPrice`
+  (TREASURER/BOARD/ADMIN).
+- **Hinzugefügt**: `PriceOracleSnapshotPoller` -- Hintergrund-Prozess, der in konfigurierbarem
+  Intervall einen Snapshot des aktuellen Preises schreibt (`PriceOracleSnapshotStore
+  .recordIfAbsent`, dedupliziert gegen wiederholte Cache-Treffer). Zwei neue
+  Betriebs-Umgebungsvariablen, **beide mit sicherem Default-Aus**:
+  - `LAPIS_ORACLE_SNAPSHOT_ENABLED` (default `false`) -- der Poller läuft NICHT von selbst
+    los, solange diese Variable nicht explizit auf `true` gesetzt ist. Ohne dieses Opt-in
+    bleibt `getPriceHistory` dauerhaft leer (`[]`), unabhängig davon, wie lange der Server
+    bereits läuft.
+  - `LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS` (default `3600`, Untergrenze `300`) -- Poll-Intervall
+    in Sekunden.
+  Siehe `deploy/production/README.adoc` (Abschnitt zu den Oracle-Snapshot-Variablen) für die
+  vollständige Betriebsanleitung.
+
 **Veranstaltungen: BOARD/ADMIN-Verwaltungsoberfläche (V1.4.3.x)**
 
 - **Hinzugefügt**: `EventsScreen.kt` (Route `/events`, BOARD/ADMIN) -- die in V1.4.3.1

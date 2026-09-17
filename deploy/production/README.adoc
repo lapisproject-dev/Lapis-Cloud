@@ -635,6 +635,29 @@ startup naming which variables are missing, never their values.
 party, § 25 PartG where relevant) before going live -- both pages carry an explicit
 disclaimer to this effect, but the disclaimer alone does not discharge that obligation.
 
+== Price-Oracle Snapshot Poller (optional)
+
+`LAPIS_ORACLE_SNAPSHOT_ENABLED` (default `false`) starts the background poller
+(`network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotPoller`) that persists an hourly
+snapshot per anchor asset into `price_oracle_snapshot`, feeding `getPriceHistory` for
+TREASURER/BOARD/ADMIN. **Same bug class as `LAPIS_SEPA_POLLER_ENABLED` above (F-2, 2026-08-26)**:
+this variable was not passed through `docker-compose.yml` until now -- the poller could not be
+enabled on any production deployment. Without it, `price_oracle_snapshot` stays permanently empty
+and `getPriceHistory` silently returns `[]` to every caller, with no error and no log.
+`LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS` (default 3600, floor 300) tunes the poll interval.
+
+**Set `LAPIS_ORACLE_SNAPSHOT_ENABLED=true` on at most one instance**, exactly like
+`LAPIS_SEPA_POLLER_ENABLED` below (Security-Audit finding "Kontingent-Erschoepfung durch
+Multi-Instanz-Betrieb", 2026-09-17) -- `recordIfAbsent`'s idempotency only covers the DATABASE
+write side (two instances racing to write the same snapshot row is harmless), not the NETWORK
+side. The two throttles that protect the gold/fiat sources' free-tier request budgets
+(`PriceOracleOrchestrator`'s `lastAttempts`/`lastFanoutAt` maps, see `GoldPriceSources.kt`'s
+"Free-tier request budget" KDoc) live entirely in that JVM's process memory and do not coordinate
+across instances at all -- enabling this poller on every instance multiplies the real fan-out rate
+against GoldAPI.io/MetalpriceAPI by the instance count, which can exceed their 100-requests/month
+free tier and get the organization's API key rate-limited or banned, halting the entire
+donation-to-LTR conversion path once `GOLD_XAU` falls below quorum.
+
 == SEPA-Lastschriftlauf-Poller (optional)
 
 `LAPIS_SEPA_POLLER_ENABLED` (default `false`) starts the background poller

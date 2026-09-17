@@ -112,6 +112,11 @@ services:
       LAPIS_ORACLE_GOLDAPI_KEY: ${LAPIS_ORACLE_GOLDAPI_KEY:-}
       LAPIS_ORACLE_METALPRICEAPI_KEY: ${LAPIS_ORACLE_METALPRICEAPI_KEY:-}
       LAPIS_ORACLE_ALPHAVANTAGE_KEY: ${LAPIS_ORACLE_ALPHAVANTAGE_KEY:-}
+      # Price-Oracle-Preishistorie -- OPTIONAL, default off, same "nirgends durchgereicht"
+      # bug class as LAPIS_SEPA_POLLER_ENABLED below (F-2, 2026-08-26). See README.adoc
+      # "Price-Oracle Snapshot Poller".
+      LAPIS_ORACLE_SNAPSHOT_ENABLED: ${LAPIS_ORACLE_SNAPSHOT_ENABLED:-}
+      LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS: ${LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS:-}
       # Echter E-Mail-Versand (SMTP, V1.2.3) -- alle OPTIONAL, aber ALL-OR-NOTHING: entweder alle
       # fünf Pflichtwerte (HOST/USERNAME/PASSWORD/FROM_ADDRESS/FROM_NAME) oder gar keiner. Eine
       # halbe Konfiguration lässt den Server bewusst nicht starten -- siehe README.adoc

@@ -149,6 +149,10 @@ object PersonalDataRegistry {
                 "dsgvo.adoc \"Audit log data protection\".",
             "price_oracle_config" to
                 "Pure single-row oracle policy (anchor/peg/TTL/thresholds), no member FK, no personal data.",
+            "price_oracle_snapshot" to
+                "Welle Preishistorie. Reine Kurs-Zeitreihe des Price-Oracles (Anker, Waehrung, Medianpreis, " +
+                "Quellen-Ids, Zeitstempel) -- kein Mitglieds-FK, kein Personenbezug; dieselbe Einstufung wie " +
+                "price_oracle_config.",
             "oidc_guest_login_event" to
                 "Forensic security-monitoring log, deliberately no member FK (references the subject only " +
                 "by an unconstrained UUID) -- same accountability-is-its-own-legal-basis treatment as " +

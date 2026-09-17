@@ -7,6 +7,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
+import network.lapis.cloud.server.db.generated.PriceOracleSnapshotTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -34,9 +35,9 @@ class PriceOracleSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the two price-oracle entities plus the Member stub") {
+        test("model declares exactly the three price-oracle entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "price_oracle_config", "price_oracle_conversion")
+                setOf("member", "price_oracle_config", "price_oracle_conversion", "price_oracle_snapshot")
         }
 
         // ── price_oracle_config ───────────────────────────────────────────────
@@ -105,6 +106,40 @@ class PriceOracleSchemaDriftTest :
             entity.attributeByName("anchor_price")?.type shouldBe ErmDataType.Decimal(38, 18)
             entity.attributeByName("anchor_units_per_ltr")?.type shouldBe ErmDataType.Decimal(38, 18)
 
+            entity.attributeByName("anchor_asset")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "AnchorAsset",
+                    values = listOf("BITCOIN_BTC", "GOLD_XAU", "FIAT"),
+                    externalFqName = "network.lapis.cloud.shared.domain.AnchorAsset",
+                )
+            entity.attributeByName("price_status")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "PriceStatus",
+                    values = listOf("LIVE", "DEGRADED", "CACHED", "DEFERRED"),
+                    externalFqName = "network.lapis.cloud.shared.domain.PriceStatus",
+                )
+        }
+
+        // ── price_oracle_snapshot ─────────────────────────────────────────────
+
+        test("price_oracle_snapshot table shape matches the real migrated schema and PriceOracleSnapshotTable 1:1, no FK to member") {
+            val entity = model.entities.single { it.name == "price_oracle_snapshot" }
+            val real = transaction { introspectPriceOracleTable("price_oracle_snapshot") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                val col = real.columns.getValue(attr.name!!)
+                withClue(clue = "column '${attr.name}'") {
+                    col.nullable shouldBe attr.nullable
+                }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder PriceOracleSnapshotTable.columns.map { it.name }
+
+            real.primaryKeyColumns shouldBe setOf("id")
+            entity.attributeByName("id")?.primaryKey shouldBe true
+            real.foreignKeys.isEmpty() shouldBe true
+
+            entity.attributeByName("median_price")?.type shouldBe ErmDataType.Decimal(38, 18)
             entity.attributeByName("anchor_asset")?.type shouldBe
                 ErmDataType.Enum(
                     name = "AnchorAsset",

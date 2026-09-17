@@ -1001,6 +1001,22 @@ CREATE TABLE price_oracle_conversion (
     CHECK (price_status IN ('LIVE', 'DEGRADED', 'CACHED', 'DEFERRED'))
 );
 
+-- Welle "Price-Oracle-Preishistorie" (V41__price_oracle_snapshot.sql) -- persistente Zeitreihe der
+-- Oracle-Kurse, kein FK zu member. Siehe 19-price-oracle.kuml.kts file header "Welle: Preishistorie".
+CREATE TABLE price_oracle_snapshot (
+    id UUID NOT NULL PRIMARY KEY,
+    anchor_asset VARCHAR(11) NOT NULL,
+    donation_currency VARCHAR(3) NOT NULL,
+    median_price DECIMAL(38, 18) NOT NULL,
+    price_status VARCHAR(8) NOT NULL,
+    source_count INT NOT NULL,
+    sources_used VARCHAR(500) NOT NULL,
+    price_timestamp TIMESTAMP NOT NULL,
+    captured_at TIMESTAMP NOT NULL,
+    CHECK (anchor_asset IN ('BITCOIN_BTC', 'GOLD_XAU', 'FIAT')),
+    CHECK (price_status IN ('LIVE', 'DEGRADED', 'CACHED', 'DEFERRED'))
+);
+
 -- V0.6.4 Politiker-Profile und Politiker-Ranking (see 20-politician.kuml.kts file header for the
 -- full fachlich model; renumbered from 19-politician.kuml.kts to 20 when merged onto master
 -- alongside V0.6.5, which independently claimed the same next-free slot 19 off the same V0.6.3
@@ -1428,6 +1444,7 @@ CREATE INDEX idx_friend_email_verification_token_member ON friend_email_verifica
 CREATE INDEX idx_friend_email_verification_token_expires_at ON friend_email_verification_token (expires_at);
 
 CREATE INDEX idx_price_oracle_conversion_member ON price_oracle_conversion (member_id);
+CREATE UNIQUE INDEX uq_price_oracle_snapshot_anchor_ts ON price_oracle_snapshot (anchor_asset, donation_currency, price_timestamp);
 
 -- V0.4.1 Serienbrief/PDF engine: exactly one organization_settings row must exist from first
 -- migration onward, in every environment (not just LAPIS_SEED_DEMO_DATA=true demo deployments) --

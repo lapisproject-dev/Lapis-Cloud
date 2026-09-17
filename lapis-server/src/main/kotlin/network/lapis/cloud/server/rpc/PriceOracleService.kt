@@ -2,8 +2,11 @@ package network.lapis.cloud.server.rpc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
@@ -11,6 +14,7 @@ import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.generated.PriceOracleConversionTable
 import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
+import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotStore
 import network.lapis.cloud.server.economy.oracle.QuoteOutcome
 import network.lapis.cloud.server.economy.oracle.plausiblePegBand
 import network.lapis.cloud.server.security.requireRole
@@ -21,9 +25,11 @@ import network.lapis.cloud.shared.domain.AnchorPolicy
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
+import network.lapis.cloud.shared.domain.PriceHistoryRange
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
+import network.lapis.cloud.shared.domain.PriceSnapshotDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -48,6 +54,9 @@ private val SUPPORTED_DONATION_CURRENCIES = setOf("EUR", "USD")
 private val MIN_LTR_MINTED = BigDecimal("0.01")
 
 private const val LTR_MINTED_SCALE = 2
+
+/** Welle "Price-Oracle-Preishistorie". Server-side hard cap for [PriceOracleService.getPriceHistory] -- see that function's KDoc. */
+private const val MAX_PRICE_HISTORY_LIMIT = 5_000
 
 private val logger = KotlinLogging.logger {}
 
@@ -308,6 +317,43 @@ class PriceOracleService(
             )
         }
         return ltrMinted
+    }
+
+    /**
+     * Welle "Price-Oracle-Preishistorie". Pure read of already-persisted `price_oracle_snapshot`
+     * rows ([PriceOracleSnapshotStore.loadHistory]) -- NEVER touches [orchestrator], NEVER
+     * triggers a network fan-out. [limit] is clamped to `1..MAX_PRICE_HISTORY_LIMIT` (same
+     * `.coerceIn` bounds-clamping discipline as [SepaConfig]'s poll-interval floor); a
+     * non-supported [donationCurrency] is rejected exactly like [updateOracleConfig] rejects one.
+     */
+    override suspend fun getPriceHistory(
+        anchorAsset: AnchorAsset,
+        range: PriceHistoryRange,
+        donationCurrency: String?,
+        limit: Int,
+    ): List<PriceSnapshotDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*PRICE_ORACLE_TREASURY_ROLES)
+        val boundedLimit = limit.coerceIn(1, MAX_PRICE_HISTORY_LIMIT)
+        val currency = (donationCurrency ?: transaction { loadConfig().donationCurrency }).uppercase()
+        if (currency !in SUPPORTED_DONATION_CURRENCIES) {
+            throw ConflictException("donationCurrency must be one of $SUPPORTED_DONATION_CURRENCIES")
+        }
+        val since =
+            range.days?.let { days ->
+                DbClock
+                    .nowLocalDateTime()
+                    .toInstant(TimeZone.currentSystemDefault())
+                    .minus(days, DateTimeUnit.DAY, TimeZone.currentSystemDefault())
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                    .truncatedToDbPrecision()
+            }
+        return PriceOracleSnapshotStore.loadHistory(
+            anchorAsset = anchorAsset,
+            donationCurrency = currency,
+            since = since,
+            limit = boundedLimit,
+        )
     }
 
     private fun loadConfig(): PriceOracleConfigDto =

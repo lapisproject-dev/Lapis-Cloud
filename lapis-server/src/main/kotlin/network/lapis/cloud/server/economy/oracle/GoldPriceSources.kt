@@ -24,10 +24,21 @@ import kotlin.time.Clock
  *
  * ## Free-tier request budget
  *
- * Sources are only ever queried while `GOLD_XAU` is the *active* anchor (see
- * [PriceOracleOrchestrator]'s anchor-keyed source selection), and then at most once per
- * `AnchorPolicy.refreshIntervalSeconds(GOLD_XAU)` = 12h regardless of how many operators hit
- * `previewCurrentPrice`/`convertDonationToLtr`.
+ * While `GOLD_XAU` is the *active* anchor, sources are queried via [PriceOracleOrchestrator]'s
+ * anchor-keyed source selection whenever an operator hits `previewCurrentPrice`/
+ * `convertDonationToLtr`, at most once per `AnchorPolicy.refreshIntervalSeconds(GOLD_XAU)` = 12h
+ * regardless of call volume. **Since the Welle "Price-Oracle-Preishistorie" (2026-09), this is no
+ * longer the only trigger**: `PriceOracleSnapshotPoller` (if `LAPIS_ORACLE_SNAPSHOT_ENABLED=true`)
+ * queries EVERY [AnchorAsset], including `GOLD_XAU`, on every tick REGARDLESS of which anchor is
+ * currently active -- see that class's KDoc "the one deliberate difference from
+ * [PriceOracleOrchestrator.currentQuote]'s own 'only the active anchor' behaviour". The same 12h
+ * [PriceOracleOrchestrator] `lastAttempts`/`lastFanoutAt` throttle still applies to those
+ * poller-triggered fan-outs, so the **per-instance** budget arithmetic below is unchanged either
+ * way -- but it means a deployment that configures `LAPIS_ORACLE_*` gold keys purely as a
+ * secondary history source (`GOLD_XAU` never actually active) now also spends this budget, and
+ * that throttle is process-local -- see `PriceOracleSnapshotPoller` KDoc / `deploy/production/
+ * README.adoc`'s "Price-Oracle Snapshot Poller" section for why `LAPIS_ORACLE_SNAPSHOT_ENABLED`
+ * must be set on at most one instance.
  * - 12h => <=2 fan-outs/day => **<=62 requests/month/source** (31-day month).
  * - GoldAPI.io free tier **100/month** => 62% consumed, **38 spare** (each JVM restart empties the
  *   in-memory cache and costs one extra fan-out, so ~38 restarts/month of headroom).

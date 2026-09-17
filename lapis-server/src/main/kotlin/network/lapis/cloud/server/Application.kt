@@ -61,6 +61,8 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
+import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotConfig
+import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotPoller
 import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
@@ -690,6 +692,20 @@ fun Application.module() {
     if (sepaConfig.pollerEnabled) {
         sepaBatchPoller.start()
     }
+
+    // Welle "Price-Oracle-Preishistorie" -- persists an hourly snapshot per anchor. Deliberately
+    // reuses the priceOracleOrchestrator SINGLETON constructed above (see PriceOracleSnapshotPoller
+    // KDoc "MUST be the application's singleton instance") -- a poller-owned second orchestrator
+    // would have its own cache/replay-floor state and DOUBLE the real network fan-out frequency
+    // against the gold/fiat sources' free-tier quotas.
+    val priceOracleSnapshotConfig = PriceOracleSnapshotConfig.load()
+    val priceOracleSnapshotPoller =
+        PriceOracleSnapshotPoller(orchestrator = priceOracleOrchestrator, config = priceOracleSnapshotConfig)
+    if (priceOracleSnapshotConfig.enabled) {
+        priceOracleSnapshotPoller.start()
+    }
+    monitor.subscribe(ApplicationStopping) { priceOracleSnapshotPoller.stop() }
+
     // Security Round 1 (2026-08-20, MINOR-4) -- shared, module-scoped instance for
     // SepaService.grantMandate/revokeMandate; see that class' own "Rate limiting" KDoc for why a
     // constructor-default instance would be non-functional in production.
