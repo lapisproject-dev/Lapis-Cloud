@@ -6,6 +6,28 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+**Veranstaltungen: BOARD/ADMIN-Verwaltungsoberfläche (V1.4.3.x)**
+
+- **Hinzugefügt**: `EventsScreen.kt` (Route `/events`, BOARD/ADMIN) -- die in V1.4.3.1
+  zurückgestellte KVision-Verwaltungsoberfläche für `event` ist jetzt umgesetzt: Liste (Filter
+  nach Status + „Vergangene anzeigen"), Anlegen, Bearbeiten, Veröffentlichen (mit Bestätigung,
+  eigener Warnhinweis bei `PUBLIC`-Sichtbarkeit), Absagen (mit Pflichtgrund + Hinweis auf die
+  automatische Benachrichtigung aller aktiven Anmeldungen), manuelles Wartelisten-Nachrücken. Löst
+  den in V1.4.3.1 dokumentierten Rückstand ein ("die BOARD/ADMIN-Verwaltungsoberfläche
+  (KVision-Screen) ... für eine Folgewelle vorgesehen"). Keine Server-/Migrations-Änderung -- die
+  RPC-Schnittstelle (`IEventService`) war bereits vollständig nutzbar.
+- **Hinzugefügt**: `EventFormValidation.kt`/`EventLabels.kt` -- pure, DOM-unabhängige
+  Formularvalidierung (spiegelt `EventPolicy.validate` Feld für Feld, inklusive der
+  `existingStartsAt`-Ausnahme für die Vergangenheits-Prüfung beim Bearbeiten) bzw. Label-/
+  Badge-Farbtabellen für `EventStatus`/`EventVisibility`.
+- **Verschoben**: die Raumzuordnung (welcher Raum, falls vorhanden, einer Veranstaltung zugeordnet
+  ist) lebt jetzt im neuen Anlage-/Bearbeitungsformular statt im bisherigen Notbehelf auf
+  `EventCheckInSelectionScreen.kt` (dort mangels eigenem Verwaltungs-Screen pragmatisch surfaced,
+  siehe V1.4.3.4) -- dieser Screen zeigt wieder nur seine ursprüngliche Aufgabe, die
+  Check-in-Event-Auswahl.
+
 ## [0.21.0] — 2026-09-15
 
 ### Added
@@ -1295,7 +1317,8 @@ All notable changes to this project are documented here. Format follows
   (`POST /api/public/v1/event/{slug}/registration`) und die BOARD/ADMIN-Verwaltungsoberfläche
   (KVision-Screen) — beides für eine Folgewelle vorgesehen, siehe Session-Notizen. Die
   RPC-Schnittstelle (`IEventService`) ist bereits vollständig für einen späteren Client-Screen
-  nutzbar.
+  nutzbar. **Nachtrag**: die BOARD/ADMIN-Verwaltungsoberfläche ist inzwischen umgesetzt, siehe
+  „Veranstaltungen: BOARD/ADMIN-Verwaltungsoberfläche (V1.4.3.x)" weiter oben in diesem Changelog.
 - **Offene Fragen, im Code markiert**: ob eine Teilnahmegebühr deutlich über den Veranstaltungs-
   kosten als verdeckte Parteispende zu behandeln ist (dieses System prüft das nicht — siehe
   `39-events.kuml.kts` Dateikopf); die Gemeinnützigkeits-Sphäre ist aktuell organisationsweit, nicht

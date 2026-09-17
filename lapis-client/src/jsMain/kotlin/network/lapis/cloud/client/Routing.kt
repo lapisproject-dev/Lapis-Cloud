@@ -373,6 +373,15 @@ object Routes {
     // top-level dropdown -- lives inside the existing "Verwaltung" dropdown, next to [API_KEYS].
     const val CRM = "/crm"
 
+    // Welle V1.4.3.x "Veranstaltungen: BOARD/ADMIN-Verwaltungsoberfläche" -- BOARD/ADMIN, verified
+    // against `EventService.kt`: `createEvent`/`updateEvent`/`publishEvent`/`cancelEvent`/
+    // `sweepEvent` all call `current.requireRole(*EVENT_MANAGE_ROLES)` where
+    // `EVENT_MANAGE_ROLES = [BOARD, ADMIN]` -- same tier as [EVENT_CHECKIN]/[CRM]. Liste +
+    // Anlage/Bearbeitung/Veröffentlichen/Absagen; die nachgelagerten Screens
+    // [EVENT_ROOMS]/[EVENT_VOLUNTEERS]/[CATERING]/[EVENT_CHECKIN] bleiben eigene Routen, hier nur
+    // als Sekundärlinks verlinkt (kein parametrisiertes Sub-Routing in dieser Welle).
+    const val EVENT_MANAGEMENT = "/events"
+
     // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- BOARD/ADMIN, verified against
     // `EventService.kt`: `openCheckIn`/`checkInByCode`/`checkInRegistration`/`reissueTicket` all
     // call `current.requireRole(*EVENT_MANAGE_ROLES)` where `EVENT_MANAGE_ROLES = [BOARD, ADMIN]` --
@@ -385,8 +394,8 @@ object Routes {
     // `EventRoomService.kt`: every `IEventRoomService` method calls
     // `current.requireRole(*EVENT_ROOM_MANAGE_ROLES)` where `EVENT_ROOM_MANAGE_ROLES = [BOARD, ADMIN]`
     // -- same tier as [EVENT_CHECKIN]/[CRM]. Room master-data CRUD only; assigning a room to an
-    // event happens on `EventCheckInSelectionScreen.kt`'s own event rows (see that screen's own
-    // comment), not here.
+    // event happens on `EventsScreen.kt`'s own create/edit form (see that screen's own comment),
+    // not here.
     const val EVENT_ROOMS = "/event-rooms"
 
     // Welle V1.4.3.5 "Catering-Management für Veranstaltungen" -- BOARD/ADMIN, verified against
@@ -793,6 +802,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.CRM) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.CRM, ::renderCrmContactsScreen)
+        }
+    }
+    routing.kvOn(Routes.EVENT_MANAGEMENT) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.EVENT_MANAGEMENT, ::renderEventsScreen)
         }
     }
     routing.kvOn(Routes.EVENT_CHECKIN) {
