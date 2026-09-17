@@ -18,21 +18,30 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.utils.perc
 import io.kvision.utils.px
+import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import network.lapis.cloud.client.chart.Chart
+import network.lapis.cloud.client.chart.MutationObserver
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
 import network.lapis.cloud.shared.domain.DonationConversionInput
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.OraclePriceStatusDto
+import network.lapis.cloud.shared.domain.PriceHistoryRange
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
 import network.lapis.cloud.shared.domain.PriceOracleConfigInput
 import network.lapis.cloud.shared.domain.PriceOracleConversionDto
+import network.lapis.cloud.shared.domain.PriceSnapshotDto
 import network.lapis.cloud.shared.domain.PriceStatus
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
+import org.w3c.dom.HTMLCanvasElement
+import org.w3c.dom.HTMLElement
 
 /**
  * LTR-Wirtschaft UI wave, screen 5 of 5 -- "Price-Oracle" (`IPriceOracleService`). Kept as its OWN
@@ -157,6 +166,13 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     val configPanel = root.vPanel(spacing = 6)
     configPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
+    // Set by renderPriceHistoryChart below once it has built its controls -- loadConfig()'s async
+    // config fetch below can resolve BEFORE or AFTER that section renders (both call sites run
+    // synchronously in this function, but this one's network round-trip is async), so the anchor
+    // pre-selection flows through this closure instead of relying on call order. See
+    // renderPriceHistoryChart's own KDoc "applyInitialHistoryAnchor".
+    var applyInitialHistoryAnchor: ((AnchorAsset) -> Unit)? = null
+
     fun loadConfig() {
         configPanel.removeAll()
         configPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
@@ -167,6 +183,7 @@ fun renderPriceOracleScreen(container: SimplePanel) {
             if (canManage) {
                 renderConfigForm(configPanel, config) { loadConfig() }
             }
+            applyInitialHistoryAnchor?.invoke(config.anchorAsset)
         }
     }
     loadConfig()
@@ -193,6 +210,10 @@ fun renderPriceOracleScreen(container: SimplePanel) {
             }
         }
     }
+
+    // ---- Kursverlauf ---------------------------------------------------------------------------
+    root.h2(tr("Kursverlauf"))
+    applyInitialHistoryAnchor = renderPriceHistoryChart(root, canManage)
 
     // ---- Spende zu LTR konvertieren ------------------------------------------------------------
     root.h2(tr("Spende zu LTR konvertieren"))
@@ -445,6 +466,377 @@ private fun renderPriceStatus(
     box.div(gettext("Median-Kurs: %1", status.medianPrice?.let { formatDonationAmount(it, "") } ?: "--")) { addCssClasses("small") }
     box.div(gettext("Quellen: %1", status.sourceIds.joinToString(", ").ifBlank { "--" })) { addCssClasses("text-muted small") }
     box.div(gettext("Zeitstempel: %1", status.priceTimestamp?.toString() ?: "--")) { addCssClasses("text-muted small") }
+}
+
+// ================================================================================================
+// Kursverlauf (Chart.js)
+// ================================================================================================
+
+private val HISTORY_RANGE_OPTIONS: List<Pair<PriceHistoryRange, String>>
+    get() =
+        listOf(
+            PriceHistoryRange.DAYS_7 to tr("7 Tage"),
+            PriceHistoryRange.DAYS_30 to tr("30 Tage"),
+            PriceHistoryRange.DAYS_90 to tr("90 Tage"),
+            PriceHistoryRange.ALL to tr("Alles"),
+        )
+
+/** Only the three custom properties the chart actually paints with -- `--lapis-surface` is
+ * deliberately NOT read here, since the chart never draws its own background (it sits on the
+ * page's existing background via a transparent canvas). */
+private data class PriceChartColors(
+    val accent: String,
+    val border: String,
+    val muted: String,
+)
+
+/** `getComputedStyle(...)` values can carry leading/trailing whitespace -- `.trim()` is required, not cosmetic (Chart.js/Canvas silently ignores an untrimmed CSS color string). */
+private fun readPriceChartColors(): PriceChartColors {
+    val style = window.getComputedStyle(document.documentElement!!)
+    return PriceChartColors(
+        accent = style.getPropertyValue("--lapis-accent").trim(),
+        border = style.getPropertyValue("--lapis-border").trim(),
+        muted = style.getPropertyValue("--lapis-muted").trim(),
+    )
+}
+
+/**
+ * Renders the "Kursverlauf" chart section, fed by [IPriceOracleService.getPriceHistory] (see that
+ * method's KDoc "Preishistorie", the RPC this Follow-up-Welle to `ea0fa97` finally consumes --
+ * `PriceOracleScreen.kt` was explicitly left `unangetastet` by that wave).
+ *
+ * **Anchor pre-selection.** This section renders synchronously with [AnchorAsset.BITCOIN_BTC] as
+ * its starting selection, BEFORE `renderPriceOracleScreen`'s own async `getOracleConfig()` fetch
+ * (above, "Konfiguration") resolves with the real configured anchor. The returned setter lets that
+ * caller correct the selection once the config arrives -- but only if the operator has not ALREADY
+ * clicked a different anchor button in the meantime (`userChangedAnchor`), so a slow network
+ * response can never silently override a deliberate click.
+ *
+ * **Row cap.** Always requests [PRICE_HISTORY_MAX_LIMIT] (5 000, the server's own
+ * `MAX_PRICE_HISTORY_LIMIT`) -- never the RPC's smaller `2_000` default, so a truncation warning
+ * (see [buildPriceHistoryChartData]) only ever fires at the server's real cap, not an
+ * artificially-lower client-chosen one.
+ *
+ * **Stale-response guard.** A rapid double-click (anchor then range, or two anchors in a row)
+ * fires two `getPriceHistory` calls; network reordering could let the OLDER one resolve last and
+ * overwrite the newer selection's chart with stale data. `loadSeq` -- bumped on every [load] call
+ * and compared when its own response arrives -- discards any response that is no longer the most
+ * recent request, the same "ignore a superseded async result" idiom `ConferenceScreen.kt` already
+ * uses for its own reflow scheduling.
+ *
+ * **Empty state vs. chart.** [buildPriceHistoryChartData] needs at least 2 (deduplicated) points to
+ * draw a meaningful line -- 0 or 1 renders the empty-state box instead (design decision, Don
+ * Norman): a single dot with no visible trend would just look broken, not informative.
+ *
+ * **Theme sync.** [MutationObserver] watches `document.documentElement`'s `data-theme` attribute
+ * (`ThemeToggle.kt` sets it on every toggle) and re-reads [readPriceChartColors] + calls
+ * `chart.update()` on change -- no hex color is ever hardcoded in this file, everything comes from
+ * `theme.css`'s `--lapis-*` custom properties via `getComputedStyle`.
+ *
+ * **Cleanup.** `root.addAfterDestroyHook` (KVision, same idiom `ConferenceScreen.kt` uses for its
+ * own `beforeunload` listener) destroys the Chart.js instance and disconnects the observer when the
+ * operator navigates away -- otherwise repeated visits to this route would leak both.
+ */
+private fun renderPriceHistoryChart(
+    root: SimplePanel,
+    canManage: Boolean,
+): (AnchorAsset) -> Unit {
+    var selectedAnchor = AnchorAsset.BITCOIN_BTC
+    var selectedRange = PriceHistoryRange.DAYS_30
+    var userChangedAnchor = false
+    var loadSeq = 0
+
+    val controlsRow = root.hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center") }
+    val anchorButtons = linkedMapOf<AnchorAsset, Button>()
+    val rangeButtons = linkedMapOf<PriceHistoryRange, Button>()
+
+    val chartArea =
+        root.div {
+            width = 100.perc
+            height = 280.px
+        }
+    val footerLine = root.div("") { addCssClasses("text-muted small") }
+
+    var chart: Chart? = null
+    var themeObserver: MutationObserver? = null
+
+    fun teardownChart() {
+        chart?.destroy()
+        chart = null
+        themeObserver?.disconnect()
+        themeObserver = null
+    }
+    root.addAfterDestroyHook { teardownChart() }
+
+    fun refreshButtonStyles() {
+        anchorButtons.forEach { (asset, btn) ->
+            btn.style = if (asset == selectedAnchor) ButtonStyle.PRIMARY else ButtonStyle.OUTLINESECONDARY
+        }
+        rangeButtons.forEach { (range, btn) ->
+            btn.style = if (range == selectedRange) ButtonStyle.PRIMARY else ButtonStyle.OUTLINESECONDARY
+        }
+    }
+
+    fun setControlsEnabled(enabled: Boolean) {
+        anchorButtons.values.forEach { it.disabled = !enabled }
+        rangeButtons.values.forEach { it.disabled = !enabled }
+    }
+
+    fun buildChartConfig(
+        data: PriceHistoryChartData,
+        colors: PriceChartColors,
+    ): dynamic {
+        val labels = data.points.map { it?.epochMillis?.toString() ?: "" }.toTypedArray()
+        val values = data.points.map { it?.yValue }.toTypedArray()
+        val tooltipLabels = data.points.map { it?.tooltipLabel }.toTypedArray()
+        val dateLabels = data.points.map { it?.dateLabel }.toTypedArray()
+
+        val dataset = js("({})")
+        dataset.data = values
+        dataset.borderColor = colors.accent
+        dataset.backgroundColor = colors.accent
+        dataset.spanGaps = false
+        dataset.tension = 0
+        dataset.fill = false
+        dataset.pointRadius = 0
+        dataset.borderWidth = 2
+
+        val chartData = js("({})")
+        chartData.labels = labels
+        chartData.datasets = arrayOf(dataset)
+
+        val tooltipCallback: (dynamic) -> String = { context ->
+            val index = context.dataIndex as Int
+            tooltipLabels.getOrNull(index) ?: ""
+        }
+        // Chart.js' Default-Title-Callback ist `items => items[0].label` -- fuer eine
+        // "category"-Skala exakt der rohe `labels`-Eintrag, also die epochMillis-Zahl aus Zeile
+        // oben (`xTicks.display = false` macht sie nur auf der Achse unsichtbar, NICHT im
+        // Tooltip). Ohne einen eigenen Callback zeigt jeder Hover die rohe Millisekundenzahl als
+        // Titel -- Review-Befund 2026-09-17. Signatur ist ein Array von Tooltip-Items (ueblicherweise
+        // genau eins bei einem Einzel-Datensatz-Chart wie diesem), das erste traegt denselben
+        // `dataIndex` wie der `label`-Callback oben.
+        val tooltipTitleCallback: (dynamic) -> String = { items ->
+            val first = (items as Array<dynamic>).getOrNull(0)
+            val index = first?.dataIndex as? Int
+            index?.let { dateLabels.getOrNull(it) } ?: ""
+        }
+        val tooltipCallbacks = js("({})")
+        tooltipCallbacks.label = tooltipCallback
+        tooltipCallbacks.title = tooltipTitleCallback
+        val tooltip = js("({})")
+        tooltip.callbacks = tooltipCallbacks
+
+        val legend = js("({})")
+        legend.display = false
+        val plugins = js("({})")
+        plugins.legend = legend
+        plugins.tooltip = tooltip
+
+        val xTicks = js("({})")
+        xTicks.display = false
+        val xGrid = js("({})")
+        xGrid.display = false
+        val xBorder = js("({})")
+        xBorder.color = colors.border
+        val xScale = js("({})")
+        xScale.type = "category"
+        xScale.ticks = xTicks
+        xScale.grid = xGrid
+        xScale.border = xBorder
+
+        val yTicks = js("({})")
+        yTicks.color = colors.muted
+        val yGrid = js("({})")
+        yGrid.color = colors.border
+        val yBorder = js("({})")
+        yBorder.color = colors.border
+        val yScale = js("({})")
+        yScale.beginAtZero = false
+        yScale.ticks = yTicks
+        yScale.grid = yGrid
+        yScale.border = yBorder
+
+        val scales = js("({})")
+        scales.x = xScale
+        scales.y = yScale
+
+        val options = js("({})")
+        options.responsive = true
+        options.maintainAspectRatio = false
+        options.animation = false
+        options.plugins = plugins
+        options.scales = scales
+
+        val config = js("({})")
+        config.type = "line"
+        config.data = chartData
+        config.options = options
+        return config
+    }
+
+    fun applyColors(
+        target: Chart,
+        colors: PriceChartColors,
+    ) {
+        val dataset = target.data.datasets[0]
+        dataset.borderColor = colors.accent
+        dataset.backgroundColor = colors.accent
+        val scales = target.options.scales
+        scales.x.border.color = colors.border
+        scales.y.ticks.color = colors.muted
+        scales.y.grid.color = colors.border
+        scales.y.border.color = colors.border
+    }
+
+    fun renderEmptyState() {
+        chartArea.removeAll()
+        val box = chartArea.vPanel(spacing = 4) { addCssClasses("border rounded p-4 text-center") }
+        box.div { addCssClasses("fas fa-chart-line fa-2x text-muted") }
+        box.div(tr("Noch keine Kursdaten erfasst.")) { addCssClass("fw-bold") }
+        box.div(
+            tr(
+                "Die Preishistorie wird stündlich im Hintergrund aufgezeichnet. Solange die Aufzeichnung " +
+                    "nicht läuft, bleibt dieser Bereich leer.",
+            ),
+        ) { addCssClasses("text-muted small") }
+        if (canManage) {
+            box.div(
+                tr(
+                    "Aufzeichnung aktivieren: Umgebungsvariable LAPIS_ORACLE_SNAPSHOT_ENABLED=true setzen und den " +
+                        "Server neu starten (Intervall über LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS, Standard 3600 s).",
+                ),
+            ) { addCssClasses("text-muted small font-monospace") }
+        }
+    }
+
+    fun renderChart(rows: List<PriceSnapshotDto>) {
+        teardownChart()
+        chartArea.removeAll()
+        val donationCurrency = rows.firstOrNull()?.donationCurrency.orEmpty()
+        val data =
+            buildPriceHistoryChartData(rows, selectedAnchor) { medianPrice ->
+                formatDonationAmount(medianPrice, donationCurrency)
+            }
+        if (data.pointCount <= 1) {
+            renderEmptyState()
+            footerLine.content = ""
+            return
+        }
+        // A freshly-created child widget, NOT `chartArea` itself (which stays mounted across
+        // repeated `renderChart` calls) -- `addAfterInsertHook` only fires on a widget's OWN first
+        // mount into the real DOM, so reusing `chartArea`'s hook here would silently do nothing on
+        // every selection change after the very first render (only the first call's hook would
+        // ever fire, since `chartArea` itself is never re-inserted, only its children swapped).
+        val canvasHost = chartArea.div {}
+        canvasHost.addAfterInsertHook { vnode ->
+            val container = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
+            val canvas = document.createElement("canvas") as HTMLCanvasElement
+            container.appendChild(canvas)
+            val initialColors = readPriceChartColors()
+            val newChart = Chart(canvas, buildChartConfig(data, initialColors))
+            chart = newChart
+            val observer =
+                MutationObserver { _, _ ->
+                    applyColors(newChart, readPriceChartColors())
+                    newChart.update()
+                }
+            val observerOptions = js("({})")
+            observerOptions.attributes = true
+            observerOptions.attributeFilter = arrayOf("data-theme")
+            observer.observe(document.documentElement!!, observerOptions)
+            themeObserver = observer
+        }
+
+        val firstTimestamp = rows.first().priceTimestamp
+        val lastTimestamp = rows.last().priceTimestamp
+        val gapText =
+            if (data.gapCount > 0) {
+                gettext("%1 Unterbrechung(en) in der Reihe (Poller war zeitweise aus).", data.gapCount)
+            } else {
+                null
+            }
+        val truncatedText =
+            if (data.truncated) {
+                tr("Nur die neuesten 5.000 Messpunkte werden angezeigt; ältere Daten fehlen in dieser Ansicht.")
+            } else {
+                null
+            }
+        footerLine.content =
+            listOfNotNull(
+                gettext("%1 Datenpunkte, %2 bis %3.", data.pointCount, firstTimestamp, lastTimestamp),
+                gapText,
+                truncatedText,
+            ).joinToString(" ")
+    }
+
+    fun load() {
+        val seq = ++loadSeq
+        setControlsEnabled(false)
+        teardownChart()
+        chartArea.removeAll()
+        chartArea.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        footerLine.content = ""
+        AppScope.launch {
+            val rows =
+                guarded {
+                    rpcService<IPriceOracleService>().getPriceHistory(
+                        anchorAsset = selectedAnchor,
+                        range = selectedRange,
+                        donationCurrency = null,
+                        limit = PRICE_HISTORY_MAX_LIMIT,
+                    )
+                }
+            if (seq != loadSeq) return@launch // superseded by a newer selection's request
+            setControlsEnabled(true)
+            if (rows == null) {
+                chartArea.removeAll()
+                return@launch
+            }
+            if (rows.isEmpty()) {
+                renderEmptyState()
+                footerLine.content = ""
+            } else {
+                renderChart(rows)
+            }
+        }
+    }
+
+    AnchorAsset.entries.forEach { asset ->
+        val btn = controlsRow.button(anchorAssetLabel(asset), style = ButtonStyle.OUTLINESECONDARY)
+        btn.addCssClass("btn-sm")
+        btn.onClick {
+            if (asset != selectedAnchor) {
+                userChangedAnchor = true
+                selectedAnchor = asset
+                refreshButtonStyles()
+                load()
+            }
+        }
+        anchorButtons[asset] = btn
+    }
+    HISTORY_RANGE_OPTIONS.forEach { (range, label) ->
+        val btn = controlsRow.button(label, style = ButtonStyle.OUTLINESECONDARY)
+        btn.addCssClass("btn-sm")
+        btn.onClick {
+            if (range != selectedRange) {
+                selectedRange = range
+                refreshButtonStyles()
+                load()
+            }
+        }
+        rangeButtons[range] = btn
+    }
+    refreshButtonStyles()
+    load()
+
+    return { configuredAnchor ->
+        if (!userChangedAnchor && configuredAnchor != selectedAnchor) {
+            selectedAnchor = configuredAnchor
+            refreshButtonStyles()
+            load()
+        }
+    }
 }
 
 // ================================================================================================

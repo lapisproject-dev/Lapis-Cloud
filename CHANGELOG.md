@@ -8,6 +8,38 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Price-Oracle: Kursverlauf-Diagramm (Client)**
+
+- **Hinzugefügt**: `PriceOracleScreen.kt` bekommt einen neuen "Kursverlauf"-Abschnitt zwischen
+  "Diagnose: aktueller Kurs" und "Spende zu LTR konvertieren" -- konsumiert die bereits fertige
+  `IPriceOracleService.getPriceHistory`-RPC (bisher ohne Client, siehe "Price-Oracle:
+  Preishistorie-Backend" unten). Anker- und Zeitraum-Knöpfe (7/30/90 Tage, Alles) laden sofort neu,
+  kein separater Abruf-Knopf.
+- **Hinzugefügt**: erste hand-deklarierte `npm("chart.js", "4.5.0")`-Abhängigkeit im `lapis-client`-
+  Modul (zweite nach `livekit-client`) -- Design-Team-Entscheidung gegen `kvision-chart`/uPlot/
+  ECharts/ApexCharts, siehe `build.gradle.kts`-Kommentar. Minimale Externals in
+  `chart/ChartJs.kt`/`chart/MutationObserverJs.kt`, exaktes `LiveKitJs.kt`-Muster
+  (`@JsModule`+`@JsNonModule`).
+- **Hinzugefügt**: `PriceHistoryChartData.kt` -- reine, DOM-freie Datenaufbereitung
+  (`buildPriceHistoryChartData`): dedupliziert Cache-Plateau-Wiederholungen (Gold/Fiat aktualisieren
+  sich alle 12h, der Poller schreibt aber stündlich) auf einen Punkt, fügt anker-abhängige
+  Lücken-Marker ein (Chart.js `spanGaps: false` bricht die Linie dort sichtbar ab, statt eine
+  erfundene Verbindung über eine echte Poller-Unterbrechung zu ziehen), und markiert die Historie
+  als `truncated`, wenn der Server-Cap von 5.000 Zeilen exakt erreicht wird (der Server schneidet
+  dann stillschweigend den ältesten Rand ab). X-Achse ist `priceTimestamp` (wann der Kurs GALT),
+  nie `capturedAt`. Vollständig getestet in `PriceHistoryChartDataTest.kt`, kein Rendering-Harness
+  nötig (dieselbe "reine Logik separat von der DOM-Funktion" Trennung wie `estimateLtrMinted`).
+- **Hinzugefügt**: Leerzustand ("Noch keine Kursdaten erfasst.") wenn 0 oder 1 (deduplizierte)
+  Punkte vorliegen -- inkl. ADMIN-only Hinweis auf `LAPIS_ORACLE_SNAPSHOT_ENABLED`/
+  `LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS`, falls die Aufzeichnung noch nicht läuft.
+- **Hinzugefügt**: Theme-Sync via `MutationObserver` auf `document.documentElement`s `data-theme`-
+  Attribut (`ThemeToggle.kt`) -- kein Hex-Farbwert im Kotlin-Code, alle Farben kommen aus
+  `theme.css`s `--lapis-accent`/`--lapis-border`/`--lapis-muted`-Variablen via `getComputedStyle`.
+  Chart.js-Instanz + Observer werden beim Verlassen der Route über `addAfterDestroyHook`
+  aufgeräumt.
+- Tooltip zeigt den wörtlichen, server-formatierten Preis (`formatDonationAmount`) -- nie über
+  `Double` nachgerechnet; nur die Y-Koordinaten-Geometrie selbst nutzt `Double`.
+
 **Price-Oracle: Preishistorie-Backend**
 
 - **Hinzugefügt**: neue Flyway-Migration `V41__price_oracle_snapshot.sql` -- Tabelle

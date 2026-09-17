@@ -74,6 +74,22 @@ kotlin {
                 // Schnitt. Requires re-running `./gradlew kotlinUpgradeYarnLock` after adding, siehe
                 // die `livekit-client`-Zeile oben für die Begründung.
                 implementation(npm("@fontsource-variable/inter", "5.3.0"))
+                // V0.6.x Price-Oracle Kursverlauf-Diagramm: zweite hand-deklarierte npm()-Abhängigkeit nach
+                // livekit-client. Design-Team-Entscheidung (Steve Jobs, Abschluss-Review): chart.js 4.x statt
+                // kvision-chart:9.6.0 (existiert auf Maven Central, passt zur gepinnten KVision-Version 9.6.0),
+                // uPlot oder ECharts/ApexCharts. Begruendung:
+                // - kvision-chart: typisierter Wrapper, würde bei einem eigenen Tick-Formatierer,
+                //   einer abstandsabhängigen Liniensegment-Unterbrechung (spanGaps-Schwelle je Anker) und einem
+                //   Tooltip mit wörtlicher Decimal-Zeichenkette (nie über Double geroutet) entweder passen oder
+                //   blockieren -- kein Plan, der von "passt hoffentlich" abhängt.
+                // - uPlot: kleiner, aber ohne eingebaute Tooltips -- die würden wir selbst bauen.
+                // - ECharts/ApexCharts: 3-10x das Bundle für Funktionen, die diese Welle nicht braucht.
+                // chart.js/auto ist ~65 KB gzip, deckt Achsen/Tooltip/Retina-Beschriftung fertig ab -- genau der
+                // Teil, der in Eigenbau (Alan Kay/Bill Atkinson im Design-Review) vierhundert Zeilen würde und
+                // trotzdem schlechter wäre. Externals nach exaktem `LiveKitJs.kt`-Muster in `chart/ChartJs.kt`.
+                // Requires re-running `./gradlew :lapis-client:kotlinUpgradeYarnLock` after adding, siehe die
+                // `livekit-client`-Zeile oben für die Begründung.
+                implementation(npm("chart.js", "4.5.0"))
             }
         }
         // V0.7.3 Basis-Mehrseiten-UI: this module had no jsTest source set at all before this wave
