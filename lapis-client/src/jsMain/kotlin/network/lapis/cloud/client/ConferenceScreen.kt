@@ -286,7 +286,10 @@ import kotlin.time.Clock
  *   [CONFERENCE_PRIORITY_ZONE_MAX], overflow + everyone else in a compact filmstrip). The DOM side
  *   (`applyConferenceGridReflow` inside [enterCall]) re-parents existing tile elements between two
  *   zone containers built ONCE (same "grab once, mutate forever" raw-DOM discipline this file already
- *   documents for `gridElement`/`stageElement`) -- never recreated. **Reflow cadence is deliberately
+ *   documents for `gridElement`/`stageElement`) -- never recreated (V1.4.19: should a re-render replace
+ *   the container itself, the insert hooks adopt the old zones/stage content in the same task via
+ *   [conferenceAdoptChildren], and the `resumeStalledVideos` watchdog resumes any `<video>` the browser
+ *   paused meanwhile -- see [conferenceVideoNeedsResume]). **Reflow cadence is deliberately
  *   decoupled from raw `RoomEvent.ActiveSpeakersChanged` pushes**: those pushes only update a
  *   `lastSpokeAtMs` timestamp map; a periodic ~2s sweep (mirroring `pollInFlightRecordingStatus`'s own
  *   shape) is the SOLE trigger that actually calls the reflow -- LiveKit's speaker-change events fire
@@ -939,7 +942,9 @@ private fun enterCall(
     // this file's original plan). The fix, used throughout this function: grab each KVision `Div`
     // container's real element ONCE via `addAfterInsertHook`, then manage every child of THAT element
     // with plain `document.createElement`/`appendChild`/`removeChild` -- never call `removeAll()` or
-    // re-render on `gridElement`/`stageElement` themselves.
+    // re-render on `gridElement`/`stageElement` themselves. (V1.4.19: das Vertrauen darauf, dass
+    // `gridElement`/`stageElement` nie ersetzt werden, war falsch -- ein Re-Render eines Vorfahren
+    // ersetzt den Container, die insert-Hooks unten adoptieren deshalb den alten Inhalt.)
     val tiles = LinkedHashMap<String, ConferenceTileEntry>()
     // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- identity -> homeserverUrl for
     // every CURRENTLY KNOWN guest participant, populated by `refreshGuestHomeservers` (a deliberate
@@ -2363,6 +2368,46 @@ private fun enterCall(
         AppScope.launch { pollInFlightStreamStatus() }
     }
 
+    // --- V1.4.19 Video-Resume-Watchdog (Bug: Kamerabild friert nach Klick auf "Mehr" ein) ----------
+    // Chrome pausiert ein `<video>`, das länger als einen Task lang aus dem Dokument entfernt war
+    // (HTML-Spec: "await a stable state", dann Pause, falls immer noch nicht im Dokument). Ein
+    // KVision/snabbdom-Re-Render eines Vorfahren kann genau das auslösen -- die rohen Tile-/Stage-
+    // Elemente hängen ausserhalb des Vnode-Baums (siehe `gridElement`/`stageElement`). Deshalb: die
+    // Ursache wird in den `addAfterInsertHook`s unten beseitigt (Kinder des ersetzten Containers
+    // werden im selben Task übernommen, `conferenceAdoptChildren`), und dieser Watchdog ist die
+    // Absicherung, die jeden verbleibenden Fall (auch andere Ersetzungs-Ursachen) abfängt. Muss
+    // textuell VOR `videoArea`, `applyConferenceGridReflow` und `applyPanelVisibility` stehen
+    // (Kotlin: keine Vorwärtsreferenz auf lokale Funktionen).
+    fun resumeStalledVideos(scope: org.w3c.dom.Element) {
+        val videos = scope.querySelectorAll("video")
+        for (i in 0 until videos.length) {
+            val video = videos.item(i) as? org.w3c.dom.HTMLVideoElement ?: continue
+            val srcObject: dynamic = video.asDynamic().srcObject
+            val hasSrcObject = srcObject != null
+            val streamActive = hasSrcObject && ((srcObject.active as? Boolean) ?: true)
+            if (
+                !conferenceVideoNeedsResume(
+                    isConnected = video.isConnected,
+                    paused = video.paused,
+                    ended = video.ended,
+                    hasSrcObject = hasSrcObject,
+                    streamActive = streamActive,
+                )
+            ) {
+                continue
+            }
+            try {
+                // `play()` liefert ein Promise; ein Autoplay-`NotAllowedError` o. Ä. darf nie
+                // unbehandelt entweichen -- der nächste Watchdog-Tick versucht es erneut. Bewusst
+                // KEIN `await` (der Watchdog-Pfad darf nie hängen).
+                val playPromise: dynamic = video.asDynamic().play()
+                if (playPromise != null) playPromise.catch { _: dynamic -> null }
+            } catch (ignored: Throwable) {
+                // synchroner Fehler (sehr selten) -- nächster Tick.
+            }
+        }
+    }
+
     // --- V1.2.9 Vollbildmodus: Video-Bereich, umschließt Bühne/Grid/Roster/Chat -----------------
     val videoArea = callPanel.vPanel(spacing = 10) { addCssClass("lapis-conference-video-area") }
 
@@ -2383,7 +2428,21 @@ private fun enterCall(
             addCssClasses("border rounded p-2 text-center")
             display = io.kvision.core.Display.NONE
         }
-    stageDiv.addAfterInsertHook { vnode -> stageElement = vnode.elm as? HTMLElement }
+    stageDiv.addAfterInsertHook { vnode ->
+        val newStage = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
+        val previousStage = stageElement
+        stageElement = newStage
+        if (previousStage != null && previousStage !== newStage) {
+            // V1.4.19 -- der Container wurde von einem Re-Render ersetzt: den laufenden Screen-Share
+            // (`<video>` + Label) SYNCHRON im selben Task übernehmen (sonst pausiert Chrome das Video)
+            // und den zuvor manuell gesetzten `display`-Stil mitnehmen -- das frisch gerenderte
+            // Element trägt nur den KVision-Stil (`display: none`).
+            val wasVisible = previousStage.style.display
+            conferenceAdoptChildren(oldRoot = previousStage, newRoot = newStage)
+            if (newStage.firstChild != null && wasVisible.isNotEmpty()) newStage.style.display = wasVisible
+            resumeStalledVideos(newStage)
+        }
+    }
 
     // --- Video tile grid (responsive CSS grid, D3) -------------------------------------------------
     val gridDiv =
@@ -2399,7 +2458,18 @@ private fun enterCall(
     var compactLabelElement: HTMLElement? = null
     gridDiv.addAfterInsertHook { vnode ->
         val root = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
+        val previousRoot = gridElement
         gridElement = root
+        if (previousRoot != null && previousRoot !== root && priorityZoneElement != null) {
+            // V1.4.19 -- der Grid-Container wurde von einem Re-Render ersetzt (Hook feuert erneut).
+            // Die drei bestehenden Zonen (samt aller Tiles/Videos) SYNCHRON im selben Task in den
+            // neuen Root umziehen, statt leere neue Zonen anzulegen und die alten Tiles erst beim
+            // nächsten 2-s-Sweep nachzufüllen (Chrome pausiert ein `<video>`, das länger als einen
+            // Task ausgehängt ist).
+            conferenceAdoptChildren(oldRoot = previousRoot, newRoot = root)
+            resumeStalledVideos(root)
+            return@addAfterInsertHook
+        }
         val priority = document.createElement("div") as HTMLElement
         priority.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;"
         root.appendChild(priority)
@@ -2444,7 +2514,11 @@ private fun enterCall(
 
     /**
      * Wave 4, D3 -- the ONE place tiles are actually re-parented/restyled. Re-parenting an EXISTING
-     * node moves it (no clone/recreate, no video/audio interruption) -- guarded by a `parentNode`
+     * node moves it (no clone/recreate). A SYNCHRONOUS move within one task does not pause a `<video>`
+     * (V1.4.19: the browser only pauses one that is still outside the document after "await a stable
+     * state"); what DOES interrupt playback is the zone container being REPLACED by a re-render and
+     * the tiles only being re-filled by the next sweep -- see `gridDiv`'s `addAfterInsertHook`
+     * (adopts the old zones) and `resumeStalledVideos` (safety net). Guarded by a `parentNode`
      * check so a tile already in its correct zone is left untouched on every sweep tick (repeated
      * `appendChild` on an already-correctly-placed `<video>`/`<audio>` element risks a real playback
      * hiccup in some browsers, not just wasted work). Called from [ensureTile]/[removeTile] (so a
@@ -2469,16 +2543,25 @@ private fun enterCall(
             compact.style.setProperty("display", "none")
             label.style.setProperty("display", "none")
         }
+        var moved = false
         layout.priorityIdentities.forEach { identity ->
             val entry = tiles[identity] ?: return@forEach
-            if (entry.element.parentNode !== priority) priority.appendChild(entry.element)
+            if (entry.element.parentNode !== priority) {
+                priority.appendChild(entry.element)
+                moved = true
+            }
             setTileZoneStyle(entry, if (layout.reflowed) ConferenceTileZone.PRIORITY_REFLOWED else ConferenceTileZone.FLAT)
         }
         layout.compactIdentities.forEach { identity ->
             val entry = tiles[identity] ?: return@forEach
-            if (entry.element.parentNode !== compact) compact.appendChild(entry.element)
+            if (entry.element.parentNode !== compact) {
+                compact.appendChild(entry.element)
+                moved = true
+            }
             setTileZoneStyle(entry, ConferenceTileZone.COMPACT)
         }
+        // V1.4.19 -- ein frisch (wieder) eingehängtes Tile: pausierte Videos sofort anstossen.
+        if (moved) resumeStalledVideos(priority.parentElement ?: priority)
     }
 
     // Required change 1 (design review): the SOLE trigger for `applyConferenceGridReflow` on a
@@ -2503,6 +2586,19 @@ private fun enterCall(
         }
     }
     AppScope.launch { sweepGridReflow() }
+
+    // V1.4.19 -- Video-Resume-Watchdog-Schleife (Absicherung, siehe `resumeStalledVideos`). Bewusst
+    // `!is Ended` statt `isLive()` als Schleifenbedingung: dieselbe Wave-6-Regression wie bei
+    // `sweepGridReflow` (der Zustand ist vor `session.connect(...)` noch `Disconnected`, ein
+    // `isLive()`-Guard würde die Schleife sofort beenden). Endet mit dem Call; sucht nur unterhalb
+    // von `callPanel`, nie im ganzen `document`.
+    suspend fun sweepVideoWatchdog() {
+        while (connectionState !is ConferenceConnectionState.Ended) {
+            delay(CONFERENCE_VIDEO_WATCHDOG_INTERVAL_MS)
+            if (connectionState.isLive()) callPanel.getElement()?.let { el -> resumeStalledVideos(el) }
+        }
+    }
+    AppScope.launch { sweepVideoWatchdog() }
 
     // --- Participant roster (live, driven by the same RoomEvent stream as the tiles) --------------
     // V1.2.9: erstmals togglebar (D7) -- Default im Normalmodus bleibt OFFEN (Julie Zhuo: kein
@@ -2699,6 +2795,10 @@ private fun enterCall(
         backToMainButton?.setStaticA11yLabel(tr("Zurück zum Hauptraum"))
         whiteboardToggleButton?.setStaticA11yLabel(tr("Whiteboard"))
         notesToggleButton?.setStaticA11yLabel(tr("Notizen"))
+
+        // V1.4.19 -- der Baum wird von KVision asynchron gepatcht; nach dem Patch pausierte Videos
+        // sofort (statt erst beim nächsten Watchdog-Tick) wieder anstossen.
+        window.setTimeout({ callPanel.getElement()?.let { el -> resumeStalledVideos(el) } }, 0)
     }
     applyPanelVisibility() // initialer Render, Default-Zustand
 
@@ -2907,6 +3007,7 @@ private fun enterCall(
         if (mediaElement != null) {
             mediaElement.style.cssText = "width:100%;height:100%;object-fit:cover;"
             entry.mediaSlot.appendChild(mediaElement)
+            entry.element.parentElement?.let { parent -> resumeStalledVideos(parent) }
         } else {
             // D4: camera off shows an avatar/initials placeholder, never a black rectangle -- this
             // distinction matters for a first-time user's trust in the tool (design review D4).
@@ -3105,6 +3206,7 @@ private fun enterCall(
         stage.appendChild(label)
         stage.style.display = "block"
         activeScreenShare = identity to track
+        resumeStalledVideos(stage)
     }
 
     fun hideScreenShareStageIfCurrent(
@@ -3223,8 +3325,19 @@ private fun enterCall(
             kindsAndSelects.forEach { (kind, select) ->
                 val options = guarded { session.listDevices(kind) }.orEmpty()
                 val storageKey = conferenceDeviceStorageKey(kind)
-                val stored = localStorage[storageKey]
-                val active = session.activeDeviceId(kind)
+                val rawStored = localStorage[storageKey]
+                val stored = conferenceStoredDeviceId(rawStored)
+                // V1.4.19 -- ein früher persistierter leerer/blanker Wert (Erst-Beitritt ohne
+                // Kamera-/Mikrofonfreigabe liefert `deviceId == ""`) wird verworfen und entfernt, nie an
+                // LiveKit weitergereicht (`exact: ""` -> OverconstrainedError).
+                if (rawStored != null && stored == null) {
+                    try {
+                        localStorage.removeItem(storageKey)
+                    } catch (e: Throwable) {
+                        // Storage gesperrt -- ohne Persistenz weiterlaufen.
+                    }
+                }
+                val active = conferenceUsableDeviceId(session.activeDeviceId(kind))
                 val availableDeviceIds = options.map { it.deviceId }
                 val preferred = conferencePreferredDeviceId(stored, active, availableDeviceIds)
                 // Hotplug-Fall (nicht die allererste Enumeration nach dem Beitritt): das bisher
@@ -3274,9 +3387,11 @@ private fun enterCall(
                 ConferenceDeviceKind.CAMERA -> cameraDeviceSelect
                 ConferenceDeviceKind.SPEAKER -> speakerDeviceSelect
             } ?: return
-        if (select.value == deviceId) return
+        // V1.4.19 -- ein blanker Wert ist nie eine gültige Auswahl.
+        val usableDeviceId = conferenceUsableDeviceId(deviceId) ?: return
+        if (select.value == usableDeviceId) return
         applyingProgrammaticDeviceValue = true
-        select.value = deviceId
+        select.value = usableDeviceId
         applyingProgrammaticDeviceValue = false
     }
 
@@ -3659,6 +3774,10 @@ private fun enterCall(
                 micEnabled = desired
                 setTileMic(tiles.getValue(joinToken.identity), micEnabled)
                 updateMicButtonState()
+                // V1.4.19 -- nach erteilter Freigabe liefert `enumerateDevices()` erst jetzt echte
+                // Geräte-IDs/Labels: Geräteliste neu aufbauen (Mutex-Flag `pendingDeviceRefresh`
+                // schützt vor Überlappung).
+                if (desired) AppScope.launch { refreshDeviceOptions() }
             } else {
                 notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.MICROPHONE, failure))
             }
@@ -3674,6 +3793,8 @@ private fun enterCall(
             if (failure == null) {
                 cameraEnabled = desired
                 updateCameraButtonState()
+                // V1.4.19 -- siehe micButton.onClick: erst nach Freigabe gibt es echte Geräte-IDs.
+                if (desired) AppScope.launch { refreshDeviceOptions() }
             } else {
                 notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.CAMERA, failure))
             }
@@ -3711,8 +3832,13 @@ private fun enterCall(
         select: Select,
         kind: ConferenceDeviceKind,
     ) {
-        select.subscribe { deviceId ->
-            if (applyingProgrammaticDeviceValue || deviceId == null) return@subscribe
+        select.subscribe { selected ->
+            // V1.4.19 -- zusätzlich zum synchronen Programmatik-Guard: leere/blanke Werte (der
+            // "Wird geladen …"-Platzhalter `"" to …` bzw. `enumerateDevices()` ohne Freigabe) sind nie
+            // eine Nutzerauswahl und greifen auch bei asynchronem Feuern des KVision-Subscribers nicht.
+            val deviceId =
+                conferenceDeviceSelectionToApply(applyingProgrammatic = applyingProgrammaticDeviceValue, deviceId = selected)
+                    ?: return@subscribe
             AppScope.launch {
                 val failure = guarded { session.switchDevice(kind, deviceId) }
                 if (failure != null) {
@@ -4499,12 +4625,39 @@ internal fun conferencePreferredDeviceId(
     stored: String?,
     active: String?,
     available: List<String>,
-): String? =
-    when {
-        stored != null && available.contains(stored) -> stored
-        active != null && available.contains(active) -> active
+): String? {
+    // V1.4.19 -- blanke Kandidaten (`""`, nur Leerraum) sind nie eine Geräte-ID (ohne Kamera-/
+    // Mikrofonfreigabe liefert `enumerateDevices()` leere `deviceId`s) und werden verworfen; blanke
+    // Einträge in [available] zählen nicht als Treffer.
+    val usableStored = conferenceUsableDeviceId(stored)
+    val usableActive = conferenceUsableDeviceId(active)
+    val usableAvailable = available.filter { it.isNotBlank() }
+    return when {
+        usableStored != null && usableAvailable.contains(usableStored) -> usableStored
+        usableActive != null && usableAvailable.contains(usableActive) -> usableActive
         else -> null
     }
+}
+
+/**
+ * V1.4.19 -- `null` for a `null`/blank device id, otherwise the id unchanged. A blank id is never a
+ * real device (browsers return `""` from `enumerateDevices()` until camera/microphone permission was
+ * granted) and must never reach `localStorage` or LiveKit (`exact: ""` -> `OverconstrainedError`).
+ */
+internal fun conferenceUsableDeviceId(id: String?): String? = if (id.isNullOrBlank()) null else id
+
+/** V1.4.19 -- `localStorage` read path: a stored blank/tampered value counts as "nothing stored". */
+internal fun conferenceStoredDeviceId(raw: String?): String? = conferenceUsableDeviceId(raw)
+
+/**
+ * V1.4.19 -- decision `wireDeviceSelect` makes for every select-change event: `null` (do nothing) for
+ * a programmatic assignment, a `null` value or a blank value (the "Wird geladen …" placeholder), else
+ * the device id to switch to.
+ */
+internal fun conferenceDeviceSelectionToApply(
+    applyingProgrammatic: Boolean,
+    deviceId: String?,
+): String? = if (applyingProgrammatic) null else conferenceUsableDeviceId(deviceId)
 
 /**
  * V1.3.x Geräteauswahl -- `MediaDeviceInfo.label` is the empty string when a browser has not yet
@@ -4651,7 +4804,7 @@ internal fun conferenceShouldNotifyDeviceLost(
     preferredDeviceId: String?,
 ): Boolean =
     preserveFocusedSelect &&
-        activeBeforeRefresh != null &&
+        !activeBeforeRefresh.isNullOrBlank() &&
         activeBeforeRefresh !in availableDeviceIds &&
         preferredDeviceId != null
 
@@ -5236,6 +5389,41 @@ internal const val CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS = 8_000L
  * specified -- matches the debounce cadence real conferencing UIs (Zoom/Meet) use for speaker-view
  * switching. */
 internal const val CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS = 2_000L
+
+/** V1.4.19 -- [enterCall]'s `sweepVideoWatchdog` cadence: how often `<video>` elements under the call
+ * panel that the browser paused (e.g. after being detached for longer than one task by a KVision
+ * re-render) are resumed. Short enough that a freeze is barely visible, cheap enough (one
+ * `querySelectorAll` over the call panel) to run for the whole call. */
+internal const val CONFERENCE_VIDEO_WATCHDOG_INTERVAL_MS = 500L
+
+/**
+ * V1.4.19 -- pure decision for the video-resume watchdog: a `<video>` needs an explicit `play()`
+ * only when it is in the document, paused, not ended, and still has a live [MediaStream] attached.
+ * `ended`/inactive streams are never resumed (would loop on a dead track).
+ */
+internal fun conferenceVideoNeedsResume(
+    isConnected: Boolean,
+    paused: Boolean,
+    ended: Boolean,
+    hasSrcObject: Boolean,
+    streamActive: Boolean,
+): Boolean = isConnected && paused && !ended && hasSrcObject && streamActive
+
+/**
+ * V1.4.19 -- moves every child of [oldRoot] into [newRoot] (no clone/recreate, so `<video>` elements
+ * and their attached streams stay identical). Used when a re-render replaced a raw-DOM container:
+ * must run synchronously in the same task as the replacement, or the browser pauses the videos.
+ */
+internal fun conferenceAdoptChildren(
+    oldRoot: HTMLElement,
+    newRoot: HTMLElement,
+) {
+    if (oldRoot === newRoot) return
+    while (true) {
+        val child = oldRoot.firstChild ?: break
+        newRoot.appendChild(child)
+    }
+}
 
 /** V1.2.10 -- how long (ms) the control bar stays visible after the last pointer/keyboard/touch
  * activity before [enterCall]'s auto-hide poll blends it out. Approved as specified (design review

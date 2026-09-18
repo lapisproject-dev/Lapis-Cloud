@@ -124,6 +124,33 @@ All notable changes to this project are documented here. Format follows
   siehe V1.4.3.4) -- dieser Screen zeigt wieder nur seine ursprüngliche Aufgabe, die
   Check-in-Event-Auswahl.
 
+### Fixed
+
+**Videokonferenz-Client: Kamerabild friert nach Klick auf "Mehr" nicht mehr ein; leere Geräte-IDs werden nicht mehr angeboten/persistiert (V1.4.19)**
+
+- **Behoben**: Ein Klick auf "Mehr" ließ das eigene und fremde Kamerabild einfrieren und erst nach
+  Sekunden wieder anlaufen. Ursache: Die rohen Grid-/Stage-Container (`gridElement`/`stageElement`,
+  außerhalb des KVision-Vnode-Baums) wurden von einem Re-Render ersetzt, die Tiles erst vom
+  2-s-Sweep in die neuen Zonen zurückgehängt -- Chrome pausiert ein `<video>`, das länger als einen
+  Task lang aus dem Dokument entfernt ist. Die `addAfterInsertHook`s von `gridDiv`/`stageDiv`
+  übernehmen bei einem ersetzten Container jetzt den alten Inhalt im selben Task
+  (`conferenceAdoptChildren`), und ein neuer Video-Resume-Watchdog (`conferenceVideoNeedsResume`,
+  500-ms-Schleife plus Sofort-Trigger nach Reflow/Panel-Umschaltung/neuem Track) startet jedes vom
+  Browser pausierte Video mit aktivem Stream wieder. Kommentare, die behaupteten, ein Re-Render
+  berühre die Tile-Subtrees nie, sind korrigiert.
+- **Behoben**: Beim ersten Beitritt ohne erteilte Kamera-/Mikrofonfreigabe liefert
+  `enumerateDevices()` leere `deviceId`s; daraus wurde `""` als Gerät angeboten, persistiert und mit
+  `exact: ""` an LiveKit übergeben ("Kamera/Mikrofon konnte nicht aktiviert werden"). Leere IDs
+  werden jetzt nicht mehr angeboten (`conferenceUsableDeviceOptions`), nicht gespeichert
+  (`conferenceDeviceSelectionToApply`, Guard in `switchDevice`), nicht an LiveKit gegeben, und ein
+  früher gespeichertes `""` wird beim Laden verworfen und entfernt.
+- **Geändert**: Nach erteilter Freigabe (erfolgreiches Aktivieren von Mikrofon bzw. Kamera) wird die
+  Geräteliste neu aufgebaut, damit echte Geräte-IDs und Labels erscheinen.
+- **Tests**: 22 neue jsTests -- `ConferenceVideoResumeTest` (10: Wahrheitstabelle
+  `conferenceVideoNeedsResume`, `conferenceAdoptChildren` mit echtem DOM) und 12 Fälle in
+  `ConferenceDeviceSelectionTest` (blanke IDs in Vorauswahl, Auswahl-Guard, Optionsfilter,
+  Verlust-Toast).
+
 ## [0.21.0] — 2026-09-15
 
 ### Added

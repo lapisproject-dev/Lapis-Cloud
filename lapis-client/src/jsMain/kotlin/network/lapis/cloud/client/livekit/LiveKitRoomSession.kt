@@ -45,6 +45,15 @@ data class ConferenceDeviceOption(
 )
 
 /**
+ * V1.4.19 -- drops device options whose [ConferenceDeviceOption.deviceId] is blank. Browsers return
+ * `""` for every `deviceId` from `enumerateDevices()` until camera/microphone permission was granted;
+ * offering, persisting or `exact`-constraining such an entry is meaningless and breaks LiveKit's
+ * later `setCameraEnabled`/`setMicrophoneEnabled` calls. Order of the remaining entries is preserved.
+ */
+internal fun conferenceUsableDeviceOptions(raw: List<ConferenceDeviceOption>): List<ConferenceDeviceOption> =
+    raw.filter { it.deviceId.isNotBlank() }
+
+/**
  * Connection-level failure kinds `ConferenceScreen.kt` needs to distinguish, mirroring the
  * established [ConferenceDeviceFailure] pattern: the ONE place a raw LiveKit/WebRTC error becomes
  * a translatable, non-technical Kotlin value. Never carries the raw `e.message` onward --
@@ -493,6 +502,13 @@ class LiveKitRoomSession(
                 // report of anything going wrong on the SENDING side. This is a best-effort mitigation
                 // for a hard-to-reproduce-outside-a-live-call issue, not a confirmed root-cause fix --
                 // re-open if the black-frame symptom persists after this change ships.
+                //
+                // V1.4.19 update: the real root cause of the "picture freezes after clicking 'Mehr'"
+                // symptom was DOM re-parenting, not `adaptiveStream` -- a KVision re-render replaced
+                // the raw-DOM grid/stage container, and the browser pauses a `<video>` that stays
+                // outside the document longer than one task. Fixed in `ConferenceScreen.kt`
+                // (`conferenceAdoptChildren` in the grid/stage insert hooks + the
+                // `resumeStalledVideos` watchdog); `adaptiveStream = false` remains a mitigation only.
                 adaptiveStream = false
                 dynacast = true
                 if (turnServers.isNotEmpty() || forceRelay) {
@@ -804,11 +820,16 @@ class LiveKitRoomSession(
         return raw
             .filter { it.kind.unsafeCast<String>() == kind.jsKind }
             .map { ConferenceDeviceOption(it.deviceId, it.label) }
+            // V1.4.19 -- ohne erteilte Kamera-/Mikrofonfreigabe liefert `enumerateDevices()` leere
+            // `deviceId`s; solche Einträge sind keine wählbaren Geräte (siehe `conferenceUsableDeviceOptions`).
+            .let(::conferenceUsableDeviceOptions)
     }
 
     /** V1.3.x Geräteauswahl -- pure synchronous read, `null` if [room] is absent or LiveKit does not
      * yet know an active device for [kind] (e.g. before the first publish attempt has resolved). */
-    fun activeDeviceId(kind: ConferenceDeviceKind): String? = room?.getActiveDevice(kind.jsKind)
+    fun activeDeviceId(kind: ConferenceDeviceKind): String? =
+        // V1.4.19 -- ein blanker LiveKit-Wert ist nie eine Auswahl (siehe `conferenceUsableDeviceOptions`).
+        room?.getActiveDevice(kind.jsKind)?.takeIf { it.isNotBlank() }
 
     /**
      * V1.3.x Geräteauswahl -- switches the currently active [kind] device to [deviceId]. Returns
@@ -836,6 +857,10 @@ class LiveKitRoomSession(
         deviceId: String,
     ): ConferenceDeviceFailure? {
         val currentRoom = room ?: throw IllegalStateException("switchDevice called with no active room")
+        // V1.4.19 -- Defense in depth: LiveKit wird nie mit `exact: ""` gerufen (OverconstrainedError; und
+        // `switchActiveDevice` würde die blanke ID als Capture-Default merken und spätere
+        // `setCamera`/`setMicrophone`-Aufrufe verseuchen). Der Aufrufer filtert bereits.
+        if (deviceId.isBlank()) return ConferenceDeviceFailure.OTHER
         return try {
             val ok = currentRoom.switchActiveDevice(kind.jsKind, deviceId, true).await()
             if (ok) null else ConferenceDeviceFailure.OTHER

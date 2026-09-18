@@ -2,6 +2,8 @@ package network.lapis.cloud.client
 
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.livekit.ConferenceDeviceOption
+import network.lapis.cloud.client.livekit.conferenceUsableDeviceOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -334,6 +336,96 @@ class ConferenceDeviceSelectionTest {
                 activeBeforeRefresh = "mic-still-here",
                 availableDeviceIds = listOf("mic-still-here", "mic-other"),
                 preferredDeviceId = "mic-still-here",
+            ),
+        )
+    }
+
+    // --- V1.4.19: blank device ids (no camera/microphone permission yet) ---------------------
+
+    @Test
+    fun conferenceUsableDeviceId_nullBlankAndWhitespace_returnNull() {
+        assertNull(conferenceUsableDeviceId(null))
+        assertNull(conferenceUsableDeviceId(""))
+        assertNull(conferenceUsableDeviceId("   "))
+    }
+
+    @Test
+    fun conferenceUsableDeviceId_realId_returnedUnchanged() {
+        assertEquals("abc", conferenceUsableDeviceId("abc"))
+    }
+
+    @Test
+    fun conferenceStoredDeviceId_blankStoredValueIsDiscarded() {
+        assertNull(conferenceStoredDeviceId(null))
+        assertNull(conferenceStoredDeviceId(""))
+        assertEquals("mic-1", conferenceStoredDeviceId("mic-1"))
+    }
+
+    @Test
+    fun conferencePreferredDeviceId_blankStoredAndActive_areDiscardedEvenIfListedAsAvailable() {
+        assertNull(conferencePreferredDeviceId(stored = "", active = "", available = listOf("")))
+        assertNull(conferencePreferredDeviceId(stored = "  ", active = null, available = listOf("  ", "mic-1")))
+    }
+
+    @Test
+    fun conferencePreferredDeviceId_blankStored_fallsBackToRealActive() {
+        assertEquals(
+            "mic-active",
+            conferencePreferredDeviceId(stored = "", active = "mic-active", available = listOf("", "mic-active")),
+        )
+    }
+
+    @Test
+    fun conferencePreferredDeviceId_blankAvailableEntriesIgnored_precedenceKept() {
+        assertEquals(
+            "mic-stored",
+            conferencePreferredDeviceId(stored = "mic-stored", active = "mic-active", available = listOf("", "mic-stored", "mic-active")),
+        )
+    }
+
+    @Test
+    fun conferenceDeviceSelectionToApply_programmaticAssignment_isIgnored() {
+        assertNull(conferenceDeviceSelectionToApply(applyingProgrammatic = true, deviceId = "mic-1"))
+    }
+
+    @Test
+    fun conferenceDeviceSelectionToApply_nullAndBlank_areIgnored() {
+        assertNull(conferenceDeviceSelectionToApply(applyingProgrammatic = false, deviceId = null))
+        assertNull(conferenceDeviceSelectionToApply(applyingProgrammatic = false, deviceId = ""))
+        assertNull(conferenceDeviceSelectionToApply(applyingProgrammatic = false, deviceId = "  "))
+    }
+
+    @Test
+    fun conferenceDeviceSelectionToApply_realUserPick_returnsId() {
+        assertEquals("mic-1", conferenceDeviceSelectionToApply(applyingProgrammatic = false, deviceId = "mic-1"))
+    }
+
+    @Test
+    fun conferenceUsableDeviceOptions_filtersBlankIdsAndKeepsOrder() {
+        val raw =
+            listOf(
+                ConferenceDeviceOption(deviceId = "", rawLabel = ""),
+                ConferenceDeviceOption(deviceId = "b", rawLabel = "B"),
+                ConferenceDeviceOption(deviceId = "  ", rawLabel = "blank"),
+                ConferenceDeviceOption(deviceId = "a", rawLabel = "A"),
+            )
+        assertEquals(listOf("b", "a"), conferenceUsableDeviceOptions(raw).map { it.deviceId })
+    }
+
+    @Test
+    fun conferenceUsableDeviceOptions_withoutPermission_isEmpty() {
+        val raw = listOf(ConferenceDeviceOption(deviceId = "", rawLabel = ""), ConferenceDeviceOption(deviceId = "", rawLabel = ""))
+        assertTrue(conferenceUsableDeviceOptions(raw).isEmpty())
+    }
+
+    @Test
+    fun conferenceShouldNotifyDeviceLost_blankActiveDevice_false() {
+        assertFalse(
+            conferenceShouldNotifyDeviceLost(
+                preserveFocusedSelect = true,
+                activeBeforeRefresh = "",
+                availableDeviceIds = listOf("mic-other"),
+                preferredDeviceId = "mic-other",
             ),
         )
     }
