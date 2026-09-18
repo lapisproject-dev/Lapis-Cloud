@@ -68,6 +68,10 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             // V1.2.11 PdV-CSV-Import: the source-CRM person number is a personal reference and
             // belongs in the Art. 15 DSGVO Auskunft alongside the other member fields above.
             put("externalReference", memberRow[MemberTable.externalReference])
+            // Welle "Digitaler Mitgliedsausweis (PDF)": member_number is UNIQUE and printed on the
+            // issued card -- structurally the same kind of personal reference as
+            // externalReference above, and belongs in the Art. 15 DSGVO Auskunft the same way.
+            put("memberNumber", memberRow[MemberTable.memberNumber])
 
             val accountRow = AccountTable.selectAll().where { AccountTable.memberId eq memberId }.singleOrNull()
             if (accountRow != null) {
@@ -117,6 +121,11 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 // key back into the source CRM -- nulled out on erasure like every other PII field
                 // above, so an erased member cannot be re-linked to the CRM export after the fact.
                 it[externalReference] = null
+                // Welle "Digitaler Mitgliedsausweis (PDF)": member_number is UNIQUE and appears on
+                // the issued/printed card -- nulled out on erasure for the same
+                // re-identification reason as externalReference above (anyone still holding an old
+                // card PDF or member list could otherwise re-link this anonymized row by number).
+                it[memberNumber] = null
             }
         val accountsDeleted = AccountTable.deleteWhere { AccountTable.memberId eq memberId }
         return listOf(

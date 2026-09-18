@@ -18,7 +18,10 @@ import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.member.MemberCardIssuance
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
+import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
+import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordHasher
@@ -42,6 +45,7 @@ import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberAdminSort
+import network.lapis.cloud.shared.domain.MemberCardReissueResultDto
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -194,6 +198,21 @@ class MemberService(
      * discipline every other rate-limiter constructor parameter on this class already establishes.
      */
     private val adminPasswordNotificationTargetRateLimiter: FederationInboxRateLimiter,
+    /**
+     * Security fix (Review MAJOR, 2026-09) -- [reissueMemberCard] rotates the exact same bearer
+     * credential as `POST /api/members/{id}/card.pdf` (both delegate to
+     * [MemberCardIssuance.rotate]), but until this fix only the HTTP route consulted a rate
+     * limiter; this RPC path had none at all. The SAME [FederationInboxRateLimiter] INSTANCE
+     * `Application.kt` wires into `registerMemberCardRoutes` is passed here too -- a genuinely
+     * SHARED budget, not a second instance with an identical cap, because the two entry points
+     * mint the identical side effect (revoke-then-mint) against the identical target. Two separate
+     * instances would let a caller double the effective rotation rate by alternating between the
+     * route and this RPC call. Keyed identically to the route (`"member-card:<targetId>"`, subject-
+     * keyed not caller-keyed -- see [network.lapis.cloud.server.routes.registerMemberCardRoutes]
+     * KDoc "Rate limiting" for why). No default value on purpose, same discipline every other
+     * rate-limiter constructor parameter on this class already establishes.
+     */
+    private val memberCardIssueRateLimiter: FederationInboxRateLimiter,
 ) : IMemberService {
     // V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller -- see
     // IMemberService.listMembers KDoc for the full rationale. Only id + displayName are selected,
@@ -1337,6 +1356,52 @@ class MemberService(
             passwordResetMailer.send(email = targetEmail, rawToken = rawToken)
         }.onFailure { e -> logger.error { "password-reset-mail token creation/send threw: ${e::class.simpleName}" } }
         return PasswordResetMailResultDto(delivery = MailDeliveryState.HANDED_TO_SMTP)
+    }
+
+    /**
+     * Welle "Digitaler Mitgliedsausweis (PDF)" -- see [IMemberService.reissueMemberCard]. Thin by
+     * design: every rule that matters (member-row lock, eligibility, revoke-then-mint, the
+     * `member_number` allocation a first card triggers) lives in
+     * [network.lapis.cloud.server.member.MemberCardIssuance], shared verbatim with the PDF download
+     * route so the two can never drift into two different notions of "issue a card".
+     *
+     * **Security fix (Review MAJOR, 2026-09)** -- rate-limited against [memberCardIssueRateLimiter]
+     * BEFORE `MemberCardIssuance.rotate` runs, using the exact same limiter instance and key
+     * (`"member-card:<targetId>"`) as `POST /api/members/{id}/card.pdf`. Without this check this
+     * RPC path could rotate the target's bearer credential an unbounded number of times, entirely
+     * bypassing the download route's documented budget -- see [memberCardIssueRateLimiter] KDoc.
+     *
+     * The audit entry deliberately reuses [AuditEntityType.MEMBER] with a short literal marker
+     * rather than introducing a new `AuditEntityType` -- a new enum constant would mean a schema/
+     * model change (`14-audit-log.kuml.kts` + `AuditLogSchemaDriftTest` pin the constant list) for
+     * a fact that is already about a member. The raw code is never recorded.
+     */
+    override suspend fun reissueMemberCard(memberId: String): MemberCardReissueResultDto {
+        val current = resolveCurrentMember(call)
+        val targetId = memberId.toMemberUuidOrThrow()
+        if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        if (!memberCardIssueRateLimiter.checkAndRecord("member-card:$targetId")) {
+            throw ConflictException("Zu viele Ausweis-Anfragen -- bitte spaeter erneut versuchen.")
+        }
+        return transaction {
+            val now = nowLocalDateTime()
+            val issued = MemberCardIssuance.rotate(memberId = targetId, now = now)
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                action = AuditAction.UPDATE,
+                after = if (issued.revoked) MEMBER_CARD_AUDIT_REISSUED else MEMBER_CARD_AUDIT_ISSUED,
+                occurredAt = now,
+            )
+            MemberCardReissueResultDto(
+                memberId = targetId.toString(),
+                memberNumber = issued.card.memberNumber,
+                issuedAt = now,
+                previousCardRevoked = issued.revoked,
+            )
+        }
     }
 
     // Security fix (2026-08-27, LOW TOCTOU) -- `.forUpdate()` added: without it, this read raced

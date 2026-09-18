@@ -262,6 +262,7 @@ class LegalHtmlTest :
                     "crm" to "(CRM)",
                     "events" to "Veranstaltungen",
                     "memberHonors" to "Ehrungen",
+                    "memberCard" to "Mitgliedsausweis",
                     "memberFamily" to "Familienmitgliedschaften",
                     "apiKeys" to "API-Schlüssel",
                     "webhookEndpoints" to "Webhooks",

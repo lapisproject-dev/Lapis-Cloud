@@ -45,6 +45,12 @@
 // Flyway `V10__member_donor_deceased_and_external_reference.sql` for the real-data migration on an
 // already-`V1` baseline.
 //
+// Welle "Digitaler Mitgliedsausweis (PDF)": `member` also gains `memberNumber`
+// ("M-<Beitrittsjahr>-<5-stellig>", unique, lazily allocated for ACTIVE members). See
+// `52-member-card.kuml.kts` for the two new tables the same wave introduces and
+// `network.lapis.cloud.server.member.MemberNumberAllocator` for the allocation logic. Flyway
+// `V43__member_card.sql`.
+//
 // V1.4.10 (Beitragsvergünstigungen -- Stundung/Befreiung/Sozialermäßigung): `member` gains three
 // nullable columns for the EXEMPTION effect (contributionExemptFrom/contributionExemptUntil/
 // contributionExemptRequestId) -- see 44-contribution-relief.kuml.kts file header and
@@ -233,6 +239,15 @@ classDiagram(name = "Foundation") {
         attribute(name = "externalReference", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "external_reference"; "sqlType" to "VARCHAR(50)" }
+        }
+        // Welle "Digitaler Mitgliedsausweis (PDF)" -- "M-<Beitrittsjahr>-<5-stellig>" (z.B.
+        // "M-2026-00042"), vergeben von network.lapis.cloud.server.member.MemberNumberAllocator.
+        // Deliberately NOT external_reference (siehe 52-member-card.kuml.kts file header): jenes
+        // Feld ist ein CSV-Import-Artefakt, NULL für organisch angelegte Mitglieder und nicht
+        // unique. member_number ist unique und wird für JEDES ACTIVE-Mitglied lazy vergeben.
+        attribute(name = "memberNumber", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "member_number"; "sqlType" to "VARCHAR(16)" }
         }
         // V1.4.10 Beitragsvergünstigungen -- see file header. All three nullable.
         attribute(name = "contributionExemptFrom", type = "LocalDate") {

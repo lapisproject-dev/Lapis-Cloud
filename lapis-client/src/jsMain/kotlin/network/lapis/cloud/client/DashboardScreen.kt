@@ -17,6 +17,8 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 
@@ -85,6 +87,7 @@ fun renderDashboardScreen(container: SimplePanel) {
     }
 
     root.h2(tr("Konto"))
+    renderMemberCard(root, session.status)
     renderChangePassword(root)
     renderAccountActions(root)
 }
@@ -108,6 +111,59 @@ private fun navTile(
     val body = card.div { addCssClasses("card-body py-2 px-3") }
     body.link(label, url = "#$route") {
         addCssClasses("card-title stretched-link text-decoration-none fw-semibold mb-0 d-block")
+    }
+}
+
+/**
+ * Welle "Digitaler Mitgliedsausweis (PDF)" -- Selbstbedienung fuer den eigenen Ausweis.
+ *
+ * **Warum hier und nicht in `ContributionsScreen`.** Der urspruengliche Wellen-Auftrag verwies auf
+ * die Stelle, an der Rechnungs-/Spendenbescheinigungs-Downloads verlinkt sind. Die gibt es fuer ein
+ * einfaches Mitglied nicht: `MailmergeHttp` ist server-seitig auf TREASURER/BOARD/ADMIN begrenzt
+ * (siehe dessen KDoc, "Access note"), die Links erscheinen ausschliesslich in den
+ * Vorstands-/Kassen-Ansichten. Der Ausweis ist die ERSTE echte Selbstbedienungs-PDF dieses
+ * Produkts und gehoert damit in den bestehenden "Konto"-Block des Dashboards -- neben Passwort
+ * aendern und Austritt -- und nicht in eine Beitragsuebersicht, mit der er fachlich nichts zu tun
+ * hat.
+ *
+ * **Warum ein Bestaetigungsschritt vor einem blossen Download.** Jeder Download praegt einen neuen
+ * Ausweis-Code und entwertet den vorherigen (`MemberCardRoutes` KDoc). Ein Knopf, der still einen
+ * bereits ausgedruckten Ausweis ungueltig macht, waere genau die Art unsichtbarer Nebenwirkung,
+ * gegen die die Hausregel "keine folgenreiche Aktion ohne sichtbare Ansage" steht. Der Dialog sagt
+ * die Folge vorher an, nicht hinterher.
+ *
+ * Rendert fuer Nicht-Mitglieder (Gast/Freund/Spender/Antragsteller/Ausgetretene) GAR NICHTS -- der
+ * Server lehnt deren Ausstellung ohnehin mit 409 ab (`MemberCardEligibility`), und ein Knopf fuer
+ * eine serverseitig abgelehnte Aktion ist dieselbe Hausregelverletzung wie in
+ * `MemberAdministrationScreen`.
+ */
+private fun renderMemberCard(
+    root: SimplePanel,
+    status: MemberStatus,
+) {
+    if (status !in MemberStatusSets.ORGANIZATION_MEMBER) return
+    val memberId = AppState.session?.memberId ?: return
+    val panel = root.vPanel(spacing = 6)
+    panel.p(tr("Digitaler Mitgliedsausweis"))
+    panel.div(
+        tr(
+            "Der Ausweis ist im Scheckkartenformat und traegt einen QR-Code, ueber den die Mitgliedschaft " +
+                "geprueft werden kann.",
+        ),
+    ) { addCssClasses("text-muted small") }
+    val downloadButton = panel.button(tr("Mitgliedsausweis herunterladen"), style = ButtonStyle.OUTLINESECONDARY)
+    downloadButton.onClick {
+        confirmDialog(
+            title = tr("Neuen Mitgliedsausweis ausstellen"),
+            message =
+                tr(
+                    "Beim Herunterladen wird ein neuer Ausweis ausgestellt. Ein frueher heruntergeladener oder " +
+                        "ausgedruckter Ausweis verliert damit seine Gueltigkeit.",
+                ),
+            confirmLabel = tr("Ausstellen und herunterladen"),
+        ) {
+            MemberCardHttp.submitCardPdfDownload(memberId)
+        }
     }
 }
 

@@ -38,6 +38,7 @@ import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberAdminSort
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.rpc.IContributionService
@@ -435,6 +436,42 @@ private fun renderMemberRosterRow(
                 honorsButton.tableActionTooltip(tr("DSGVO-gelöscht"))
             } else {
                 honorsButton.onClick { navigateTo(memberHonorsRoute(row.id)) }
+            }
+        }
+
+        // Welle "Digitaler Mitgliedsausweis (PDF)" -- fuenfter Einstieg der Aktionsspalte,
+        // BOARD/ADMIN (NICHT TREASURER: ein Mitgliedsausweis ist ein Identitaets-, kein
+        // Finanzdokument -- dieselbe Stufe, die `registerMemberCardRoutes` serverseitig erzwingt).
+        // Gleiches Icon-Knopf-Muster wie die vier Knoepfe darueber (Icon + Pflicht-Tooltip, siehe
+        // `DataScreenLayout.tableActionButton`).
+        //
+        // Nur fuer Mitglieder mit ausweisfaehigem Status sichtbar -- der Server lehnt alles andere
+        // mit 409 ab (`MemberCardEligibility`), und die Hausregel dieser Datei ist ausdruecklich:
+        // kein Client-Angebot fuer eine vom Server ohnehin abgelehnte Aktion. Deshalb wird der
+        // Knopf hier NICHT deaktiviert angeboten, sondern gar nicht erst gerendert -- anders als
+        // bei `row.anonymized`, wo ein sichtbarer, deaktivierter Knopf mit Begruendung dem
+        // Vorstand die Ursache erklaert, waehrend "Gast hat keinen Mitgliedsausweis" keine
+        // Erklaerung braucht.
+        if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN) && row.status in MemberStatusSets.ORGANIZATION_MEMBER) {
+            val cardButton = actionsCell.tableActionButton("fas fa-id-card", tr("Mitgliedsausweis ausstellen"))
+            if (row.anonymized) {
+                cardButton.disabled = true
+                cardButton.tableActionTooltip(tr("DSGVO-gelöscht"))
+            } else {
+                cardButton.onClick {
+                    confirmDialog(
+                        title = tr("Neuen Mitgliedsausweis ausstellen"),
+                        message =
+                            gettext(
+                                "Für %1 wird ein neuer Ausweis ausgestellt und als PDF heruntergeladen. Ein zuvor " +
+                                    "ausgestellter Ausweis dieses Mitglieds verliert damit seine Gültigkeit.",
+                                row.displayName,
+                            ),
+                        confirmLabel = tr("Ausstellen und herunterladen"),
+                    ) {
+                        MemberCardHttp.submitCardPdfDownload(row.id)
+                    }
+                }
             }
         }
 

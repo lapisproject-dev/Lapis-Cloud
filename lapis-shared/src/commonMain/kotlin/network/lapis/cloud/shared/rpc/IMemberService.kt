@@ -7,6 +7,7 @@ import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
+import network.lapis.cloud.shared.domain.MemberCardReissueResultDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
@@ -477,4 +478,30 @@ interface IMemberService {
      * DSGVO-anonymized or its status is `LOGIN_BLOCKED`.
      */
     suspend fun sendPasswordResetMailToMember(memberId: String): PasswordResetMailResultDto
+
+    /**
+     * Welle "Digitaler Mitgliedsausweis (PDF)" -- invalidates [memberId]'s current membership-card
+     * code and mints a replacement. The member themselves may do this for their OWN card (the
+     * lost-wallet case); BOARD/ADMIN may do it for anyone -- which is the case that actually needs a
+     * server-side endpoint at all: a member without a login account, or a card reported lost by
+     * phone. Deliberately NOT TREASURER, the same tier
+     * `network.lapis.cloud.server.routes.registerMemberCardRoutes` enforces: a membership card is an
+     * identity document, not a financial one.
+     *
+     * **Does not return the new code and cannot produce a PDF** -- see
+     * [network.lapis.cloud.shared.domain.MemberCardReissueResultDto] KDoc. The replacement card is
+     * downloaded separately via `POST /api/members/{memberId}/card.pdf`, which mints its own fresh
+     * code again. Calling this endpoint is therefore only necessary when the goal is to KILL the old
+     * card WITHOUT immediately printing a new one; a plain re-download already rotates.
+     *
+     * Throws [ForbiddenException] for a caller who is neither the subject nor BOARD/ADMIN,
+     * [NotFoundException] for an unknown `memberId`, and [ConflictException] for a member whose
+     * status is not [network.lapis.cloud.shared.domain.MemberStatusSets.ORGANIZATION_MEMBER] -- a
+     * card is a membership assertion, so a guest/friend/donor/applicant/former member has none to
+     * reissue. Also throws [ConflictException] once the target's rate-limit budget is exhausted --
+     * this call shares the SAME budget as `POST /api/members/{memberId}/card.pdf` (see
+     * `network.lapis.cloud.server.rpc.MemberService`'s own `memberCardIssueRateLimiter` KDoc), since
+     * both mint the identical revoke-then-rotate side effect against the identical target.
+     */
+    suspend fun reissueMemberCard(memberId: String): MemberCardReissueResultDto
 }

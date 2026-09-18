@@ -253,8 +253,8 @@ internal object LegalHtml {
             li {
                 +(
                     "Mitgliederverwaltung: Stammdaten, Beitritts- und Registrierungs-Workflow, Beiträge, " +
-                        "Mahnwesen, Familienmitgliedschaften, Ehrungen — Art. 6 Abs. 1 lit. b DSGVO (Vertrag " +
-                        "bzw. vorvertragliche Maßnahme, hier: die Mitgliedschaft)."
+                        "Mahnwesen, Familienmitgliedschaften, Ehrungen, digitaler Mitgliedsausweis — Art. 6 " +
+                        "Abs. 1 lit. b DSGVO (Vertrag bzw. vorvertragliche Maßnahme, hier: die Mitgliedschaft)."
                 )
             }
             li { +"Freund-/Fördererkonten — Art. 6 Abs. 1 lit. b DSGVO." }

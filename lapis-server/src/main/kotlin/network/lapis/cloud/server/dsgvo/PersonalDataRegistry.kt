@@ -59,6 +59,7 @@ object PersonalDataRegistry {
             VatPersonalData,
             BankAccountFinTsPersonalData,
             OpenItemPersonalData,
+            MemberCardPersonalData,
         )
 
     /**

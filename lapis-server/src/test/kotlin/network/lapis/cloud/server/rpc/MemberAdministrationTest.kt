@@ -2917,6 +2917,10 @@ private fun Route.registerMemberAdminTestRoutes(
     // fresh instance by default, same "no default in production, generous default here" shape
     // adminPasswordMailTargetRateLimiter above already establishes.
     adminPasswordNotificationTargetRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
+    // Security fix (Review MAJOR, 2026-09) -- see MemberService constructor KDoc
+    // "memberCardIssueRateLimiter". A fresh instance by default, same "no default in production,
+    // generous default here" shape every other rate-limiter parameter above already establishes.
+    memberCardIssueRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
 ) {
     get("/test/roster") {
         val service =
@@ -2931,6 +2935,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val statuses =
@@ -2969,6 +2974,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -2992,6 +2998,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -3017,6 +3024,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -3040,6 +3048,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto = service.updateMemberRole(memberId = call.parameters["id"]!!, newRole = AccountRole.valueOf(q["newRole"]!!))
@@ -3059,6 +3068,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -3083,6 +3093,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -3111,6 +3122,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val dto = service.getMemberAccessPreflight(memberId = call.parameters["id"]!!)
         call.respondText("${dto.mailDelivery}:${dto.activeSessionCount}")
@@ -3128,6 +3140,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val q = call.request.queryParameters
         val dto =
@@ -3153,6 +3166,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         val dto = service.sendPasswordResetMailToMember(memberId = call.parameters["id"]!!)
         call.respondText("${dto.delivery}")

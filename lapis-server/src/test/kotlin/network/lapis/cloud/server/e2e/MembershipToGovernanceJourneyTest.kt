@@ -394,6 +394,7 @@ class MembershipToGovernanceJourneyTest :
                                 adminPasswordMailTargetRateLimiter = FederationInboxRateLimiter(),
                                 adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                 adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
+                                memberCardIssueRateLimiter = FederationInboxRateLimiter(),
                             ).updateMemberAddress(
                                 memberId = call.parameters["memberId"]!!,
                                 street = "Musterstrasse 1",

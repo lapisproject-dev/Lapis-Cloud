@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 52 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 53 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -49,8 +49,9 @@ class DomainModelMergerTest :
             // 49-event-room.kuml.kts. Welle V1.4.3.5 "Catering-Management für Veranstaltungen" --
             // was 50, now 51 with the addition of 50-event-catering.kuml.kts. Welle V1.4.3.7
             // "Helfer-/Schichtplanung für Veranstaltungen" -- was 51, now 52 with the addition of
-            // 51-event-volunteer.kuml.kts.
-            scriptFiles shouldHaveSize 52
+            // 51-event-volunteer.kuml.kts. Welle "Digitaler Mitgliedsausweis (PDF)" -- was 52, now
+            // 53 with the addition of 52-member-card.kuml.kts.
+            scriptFiles shouldHaveSize 53
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -418,7 +419,12 @@ class DomainModelMergerTest :
             // (price_oracle_snapshot), with NO new cross-domain stub (the file's existing Member
             // stub is reused) -- so it contributes +1 «Entity» declaration and 0 drops, net +1
             // distinct table name versus the V1.4.3.7 baseline above (152 -> 153).
-            val distinctTableNames = 153
+            // Welle "Digitaler Mitgliedsausweis (PDF)" adds 52-member-card.kuml.kts's TWO real
+            // tables (member_number_sequence, member_card_code), WITH ONE cross-domain Member stub
+            // (dedups into the already-real 00-foundation.kuml.kts member entity) -- so it
+            // contributes +3 «Entity» declarations (1 stub + 2 real tables) and 1 drop, net +2
+            // distinct table names versus the price-oracle baseline above (153 -> 155).
+            val distinctTableNames = 155
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -679,6 +685,11 @@ class DomainModelMergerTest :
                     // for either.
                     "EventVolunteerShiftTable.kt",
                     "EventVolunteerSignupTable.kt",
+                    // Welle "Digitaler Mitgliedsausweis (PDF)" -- TWO new real tables
+                    // (member_number_sequence, member_card_code); its Member cross-domain stub
+                    // dedups into the already-real member entity, no new Table file for it.
+                    "MemberNumberSequenceTable.kt",
+                    "MemberCardCodeTable.kt",
                 )
         }
 

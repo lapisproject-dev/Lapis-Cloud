@@ -60,6 +60,10 @@ public object MemberTable : Table("member") {
     public val contributionExemptUntil: Column<LocalDate?> = date("contribution_exempt_until").nullable()
     public val contributionExemptRequestId: Column<Uuid?> = uuid("contribution_exempt_request_id").nullable()
 
+    // Welle "Digitaler Mitgliedsausweis (PDF)" -- "M-<Beitrittsjahr>-<5-stellig>", lazily allocated
+    // by network.lapis.cloud.server.member.MemberNumberAllocator. See 00-foundation.kuml.kts.
+    public val memberNumber: Column<String?> = varchar("member_number", 16).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

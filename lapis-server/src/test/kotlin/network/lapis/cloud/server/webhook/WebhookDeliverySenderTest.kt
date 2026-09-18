@@ -96,6 +96,35 @@ class WebhookDeliverySenderTest :
                 thread(start = true) {
                     runCatching {
                         serverSocket.accept().use { socket ->
+                            // Drain the client's ENTIRE request -- headers (terminated by the blank
+                            // line) AND body (per Content-Length, `send()` always POSTs a 2-byte
+                            // `{}` body) -- BEFORE writing/closing. Fixes a reproducible flake
+                            // (Review Runde 2 finding, 2026-09): closing a socket that still has
+                            // UNREAD inbound bytes sitting in its receive buffer makes the OS send
+                            // RST instead of a graceful FIN. A racing client then sees a connection
+                            // reset (IOException -> DNS_OR_TLS) instead of reading the malformed
+                            // response bytes flushed below, so the test asserted PROTOCOL_ERROR but
+                            // got DNS_OR_TLS whenever close() won the race against the client's
+                            // read. Draining only the headers (up to the blank line) was NOT
+                            // enough -- the still-unread body bytes alone are enough to trigger the
+                            // same RST, which is why that first attempt at this fix stayed flaky.
+                            val reader = socket.getInputStream().bufferedReader()
+                            var contentLength = 0
+                            while (true) {
+                                val line = reader.readLine() ?: break
+                                if (line.isEmpty()) break
+                                val sep = line.indexOf(':')
+                                if (sep > 0 && line.take(sep).trim().equals("Content-Length", ignoreCase = true)) {
+                                    contentLength = line.substring(sep + 1).trim().toIntOrNull() ?: 0
+                                }
+                            }
+                            var remaining = contentLength
+                            val buf = CharArray(256)
+                            while (remaining > 0) {
+                                val n = reader.read(buf, 0, minOf(buf.size, remaining))
+                                if (n == -1) break
+                                remaining -= n
+                            }
                             socket.getOutputStream().write("NOT AN HTTP RESPONSE AT ALL\r\n\r\n".toByteArray())
                             socket.getOutputStream().flush()
                         }

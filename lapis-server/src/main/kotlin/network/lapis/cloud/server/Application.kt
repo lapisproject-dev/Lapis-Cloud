@@ -127,6 +127,8 @@ import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
+import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
+import network.lapis.cloud.server.routes.registerMemberCardRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -1063,6 +1065,18 @@ fun Application.module() {
     // /transparenz -- a burst against one public route family must not eat into another's.
     val legalPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // Welle "Digitaler Mitgliedsausweis (PDF)" -- drei eigene Budgets, nie geteilt:
+    // [memberCardIssueRateLimiter] gilt fuer POST /api/members/{id}/card.pdf und ist bewusst KNAPP
+    // (pro betroffenem Mitglied, nicht pro Aufrufer): jeder erfolgreiche Aufruf rotiert einen
+    // Bearer-Code und entwertet den vorherigen Ausweis -- ein versehentlich wiederholter Download
+    // ist ein Bedienfehler, ein hundertfacher ist ein Angriff auf die Ausweisgueltigkeit eines
+    // Mitglieds. [memberCardPublicPageRateLimiter]/[memberCardCodeFailureLimiter] sind das
+    // bekannte Paar der oeffentlichen Ticket-Routen (weiches Seitenbudget je IP + strenger
+    // Fehlversuchs-Riegel), hier fuer GET /ausweis -- siehe registerMemberCardPublicRoutes KDoc.
+    val memberCardIssueRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
+    val memberCardPublicPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    val memberCardCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
+
     // Welle V1.4.1a "Öffentliche Website-Integration" -- vier neue, module-scoped Rate-Limiter,
     // NIEMALS als Konstruktor-Default (Stolperfalle 8, dieselbe Begründung wie jeder andere
     // Limiter in diesem Block). Alle vier sind internet-offen/unauthentifiziert -> maxTrackedKeys
@@ -1198,6 +1212,7 @@ fun Application.module() {
                 adminPasswordMailTargetRateLimiter = adminPasswordMailTargetRateLimiter,
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
+                memberCardIssueRateLimiter = memberCardIssueRateLimiter,
             )
         }
         registerService(IContributionService::class) { call -> ContributionService(call) }
@@ -1457,6 +1472,14 @@ fun Application.module() {
         }
         registerDocumentRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // Welle "Digitaler Mitgliedsausweis (PDF)" -- POST (nicht GET), weil jeder Aufruf einen
+        // frischen Ausweis-Code praegt und den vorherigen entwertet; siehe
+        // registerMemberCardRoutes KDoc.
+        registerMemberCardRoutes(
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            brandTitle = resolvedBranding.title,
+            rateLimiter = memberCardIssueRateLimiter,
+        )
         registerConferenceRecordingRoutes(documentStorageRoot)
         registerDsgvoRoutes()
         registerCrmRoutes()
@@ -1551,6 +1574,13 @@ fun Application.module() {
         registerPublicApiRoutes(
             preAuthRateLimiter = publicApiPreAuthRateLimiter,
             postAuthRateLimiter = publicApiPostAuthRateLimiter,
+        )
+        // Welle "Digitaler Mitgliedsausweis (PDF)" -- literale Route (/ausweis), dieselbe
+        // "literal schlaegt catch-all"-Begruendung wie registerLegalRoutes/registerEventPublicRoutes.
+        registerMemberCardPublicRoutes(
+            brandTitle = resolvedBranding.title,
+            pageRateLimiter = memberCardPublicPageRateLimiter,
+            codeFailureLimiter = memberCardCodeFailureLimiter,
         )
         // Welle V1.4.3.1 "Veranstaltungen" -- literal routes (/veranstaltung/*), same "registered
         // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
