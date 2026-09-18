@@ -16,12 +16,12 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.ResponsiveType
 import io.kvision.table.Table
 import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
@@ -53,11 +53,7 @@ import network.lapis.cloud.shared.rpc.IDunningService
  */
 fun renderDunningCasesScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 960.px
-            marginTop = 24.px
-        }
+        container.dataScreenRoot(spacing = 14)
     root.h1(tr("Mahnwesen"))
 
     val role = AppState.session?.role
@@ -115,6 +111,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
                             "",
                         ),
                     types = setOf(TableType.STRIPED, TableType.HOVER),
+                    responsiveType = ResponsiveType.RESPONSIVE,
                 )
             table = t
         }
@@ -258,7 +255,10 @@ private fun renderDunningCaseRow(
         }
         cell { moneySpan(case.totalFeesCharged) }
         val actionsCell = cell()
-        val showButton = actionsCell.button(tr("Details"), style = ButtonStyle.OUTLINESECONDARY)
+        // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte, Tooltip "Details anzeigen"
+        // (nicht das vorherige knappe "Details" -- ohne sichtbaren Text muss der Tooltip die
+        // vollstaendige Handlung benennen).
+        val showButton = actionsCell.tableActionButton("fas fa-eye", tr("Details anzeigen"))
         showButton.onClick { onSelect(case.contributionId) }
     }
 }
@@ -331,6 +331,7 @@ private fun renderDunningCaseDetail(
                         "",
                     ),
                 types = setOf(TableType.STRIPED, TableType.HOVER),
+                responsiveType = ResponsiveType.RESPONSIVE,
             )
         detail.notices.forEach { notice -> renderDunningNoticeRow(noticesTable, notice, role, onChanged) }
     }
@@ -369,7 +370,11 @@ private fun renderDunningNoticeRow(
         cell(notice.cancellationReason.orEmpty())
         val actionsCell = cell()
         if (DunningAuthzUi.canCancelNotice(role, notice.status)) {
-            val cancelButton = actionsCell.button(tr("Stornieren"), style = ButtonStyle.OUTLINEDANGER)
+            // `fa-rotate-left` (Rueckabwicklung), nicht `fa-ban`: eine Stornierung nimmt den
+            // Mahnzyklus zurueck, sie sperrt nichts -- `fa-ban` ist in dieser Welle durchgehend fuer
+            // "deaktivieren/widerrufen" reserviert.
+            val cancelButton =
+                actionsCell.tableActionButton("fas fa-rotate-left", tr("Stornieren"), ButtonStyle.OUTLINEDANGER)
             cancelButton.onClick {
                 confirmWithReasonDialog(
                     title = tr("Mahnung stornieren"),

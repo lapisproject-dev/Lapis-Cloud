@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.JournalEntryStatus
+import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.PostingSide
@@ -265,5 +266,67 @@ class LedgerScreenTest {
     fun journalEntryStatusLabel_draftIsEntwurfPostedIsGebucht() {
         assertEquals("Entwurf", journalEntryStatusLabel(JournalEntryStatus.DRAFT))
         assertEquals("Gebucht", journalEntryStatusLabel(JournalEntryStatus.POSTED))
+    }
+
+    // ============================================================================================
+    // Kontenplan-Live-Suche (Design-Team-Welle 2026-09-18)
+    // ============================================================================================
+
+    private fun account(
+        number: String,
+        name: String,
+    ) = LedgerAccountDto(
+        id = "acc-$number",
+        accountNumber = number,
+        name = name,
+        accountClass = number.first().digitToInt(),
+        type = LedgerAccountType.ASSET,
+        active = true,
+    )
+
+    private val accounts =
+        listOf(
+            account("1200", "Bank"),
+            account("1000", "Kasse"),
+            account("4200", "Spenden natürliche Personen"),
+            account("4210", "Mitgliedsbeiträge"),
+        )
+
+    @Test
+    fun filterLedgerAccounts_blankQueryKeepsEverything() {
+        assertEquals(accounts, filterLedgerAccounts(accounts, ""))
+        assertEquals(accounts, filterLedgerAccounts(accounts, "   "))
+    }
+
+    @Test
+    fun filterLedgerAccounts_matchesAccountNumberPrefix() {
+        val filtered = filterLedgerAccounts(accounts, "42")
+        assertEquals(listOf("4200", "4210"), filtered.map { it.accountNumber })
+    }
+
+    @Test
+    fun filterLedgerAccounts_matchesNameCaseInsensitively() {
+        // Der Gelegenheitsnutzer tippt "spenden", nicht "Spenden".
+        assertEquals(listOf("4200"), filterLedgerAccounts(accounts, "spenden").map { it.accountNumber })
+        assertEquals(listOf("4200"), filterLedgerAccounts(accounts, "SPENDEN").map { it.accountNumber })
+    }
+
+    @Test
+    fun filterLedgerAccounts_trimsSurroundingWhitespace() {
+        // Ein aus der Zwischenablage eingefuegter Kontoname bringt haeufig ein Leerzeichen mit.
+        assertEquals(listOf("1000"), filterLedgerAccounts(accounts, "  Kasse ").map { it.accountNumber })
+    }
+
+    @Test
+    fun filterLedgerAccounts_noMatchYieldsEmptyList() {
+        assertTrue(filterLedgerAccounts(accounts, "Rücklage").isEmpty())
+    }
+
+    @Test
+    fun filterLedgerAccounts_preservesInputOrder() {
+        // Die Sortierung nach Kontonummer passiert beim Laden, nicht im Filter -- der Filter darf
+        // sie nicht umwerfen, sonst springen Zeilen beim Tippen.
+        val filtered = filterLedgerAccounts(accounts.sortedBy { it.accountNumber }, "00")
+        assertEquals(listOf("1000", "1200", "4200"), filtered.map { it.accountNumber })
     }
 }

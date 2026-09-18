@@ -8,6 +8,26 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+**Datendichte Tabellen-Screens: Breite, kompakte Aktionsspalten, Kontenplan-Suche (Design-Team-Sitzung 2026-09-18)**
+
+- **Hinzugefügt**: `DataScreenLayout.kt` (`lapis-client/.../client/`) -- gemeinsames Layout-Vokabular
+  für datendichte Tabellen-Screens: `dataScreenRoot()` (responsives Root-Panel, `maxWidth` 1440 px
+  statt fester `width`, `px-3`-Seitenrinne) sowie `tableActionButton()`/`tableActionTooltip()`/
+  `tableActionGroup()` für Icon-Aktionsspalten mit Pflicht-Tooltip und `aria-label`.
+- **Hinzugefügt**: Live-Suche über Kontonummer UND Kontoname im Kontenplan (`LedgerScreen.kt`),
+  rein clientseitig ohne RPC pro Tastendruck -- Muster der Dokumentenablage-Suchwelle. Neue reine
+  Filterfunktion `filterLedgerAccounts`, abgedeckt durch sechs neue Tests in `LedgerScreenTest.kt`.
+- **Geändert**: Sieben Tabellen-Screens (`MemberAdministrationScreen`, `LedgerScreen`,
+  `AuditLogScreen`, `FinancialReportsScreen`, `DunningCasesScreen`, `SepaBatchesScreen`,
+  `SepaMandatesScreen`) nutzen statt einer festen Breite (720/800/860/900/960 px) das responsive
+  `dataScreenRoot()`; ihre breiten Tabellen bekommen `ResponsiveType.RESPONSIVE`, damit bei 375 px
+  die Tabelle scrollt statt der ganzen Seite.
+- **Geändert**: Aktionsspalten in Tabellenzeilen rendern Icon-Knöpfe nebeneinander statt gestapelter
+  Volltext-Knöpfe (Kontenplan: Details/Deaktivieren; Mahnwesen: Details/Stornieren; SEPA-Läufe:
+  Details; SEPA-Mandate: Widerrufen). Bedeutung trägt der Tooltip plus `aria-label`, nicht das Icon
+  allein. Volltext-Knöpfe in Karten-Screens und in Detailpanels (u. a. "Stornieren" im
+  SEPA-Lauf-Detail) bleiben bewusst unverändert.
+
 **Staging-/Test-Instanz (dritte, co-located Instanz)**
 
 - **Hinzugefügt**: `StagingSeedConfig.kt`/`StagingSeedData.kt` (`lapis-server/.../db/`) -- ein

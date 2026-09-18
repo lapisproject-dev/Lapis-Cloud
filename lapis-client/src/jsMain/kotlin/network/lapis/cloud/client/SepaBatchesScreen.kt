@@ -17,12 +17,12 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.ResponsiveType
 import io.kvision.table.Table
 import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -60,11 +60,7 @@ import kotlin.time.Clock
  */
 fun renderSepaBatchesScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 960.px
-            marginTop = 24.px
-        }
+        container.dataScreenRoot(spacing = 14)
     root.h1(tr("SEPA-Lastschrift"))
 
     val role = AppState.session?.role
@@ -124,6 +120,7 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
                                 "",
                             ),
                         types = setOf(TableType.STRIPED, TableType.HOVER),
+                        responsiveType = ResponsiveType.RESPONSIVE,
                     ).also { currentTable = it }
             batches.forEach { batch ->
                 renderSepaBatchRow(table, batch) { batchId ->
@@ -394,6 +391,7 @@ private fun renderBatchPreview(
             panel.table(
                 headerNames = listOf(tr("Mitglied"), tr("Betrag"), tr("Mandatsreferenz"), tr("IBAN"), tr("Erhöht?")),
                 types = setOf(TableType.STRIPED, TableType.HOVER),
+                responsiveType = ResponsiveType.RESPONSIVE,
             )
         preview.items.forEach { item ->
             table.row {
@@ -434,7 +432,11 @@ private fun renderSepaBatchRow(
         cell(batch.itemCount.toString())
         cell(formatMoney(batch.totalAmount))
         val actionsCell = cell()
-        val showButton = actionsCell.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+        // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte. Die "Stornieren"-Aktion
+        // weiter unten im DETAILPANEL behaelt bewusst ihren Volltext-Knopf -- sie steht nicht in
+        // einem dichten Raster, sondern allein in einer Aktionszeile, und eine irreversible
+        // Stornierung soll dort ihren Namen tragen (Norman/Raskin-Linie der Sitzung).
+        val showButton = actionsCell.tableActionButton("fas fa-eye", tr("Details anzeigen"))
         showButton.onClick { onSelect(batch.id) }
     }
 }
@@ -548,6 +550,7 @@ internal fun renderSepaBatchDetail(
             panel.table(
                 headerNames = listOf(tr("Mitglied"), tr("Betrag"), tr("Mandatsreferenz"), tr("IBAN"), tr("Status")),
                 types = setOf(TableType.STRIPED, TableType.HOVER),
+                responsiveType = ResponsiveType.RESPONSIVE,
             )
         detail.items.forEach { item -> renderSepaItemRow(itemsTable, item, detail.failedItemIds) }
     }
@@ -702,6 +705,7 @@ private fun renderSepaReturnsSection(
                 returnsPanel.table(
                     headerNames = listOf(tr("Mitglied"), tr("Datum"), tr("Grund"), tr("Gebühr"), tr("Mandat widerrufen")),
                     types = setOf(TableType.STRIPED, TableType.HOVER),
+                    responsiveType = ResponsiveType.RESPONSIVE,
                 )
             returns.forEach { renderSepaReturnRow(table, it) }
         }

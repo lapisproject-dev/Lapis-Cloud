@@ -61,11 +61,7 @@ import kotlin.time.Clock
  */
 fun renderFinancialReportsScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 900.px
-            marginTop = 24.px
-        }
+        container.dataScreenRoot(spacing = 14)
     root.h1(tr("Finanzberichte"))
 
     val toggleRow = root.hPanel(spacing = 8)

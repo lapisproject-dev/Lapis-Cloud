@@ -10,12 +10,12 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.ResponsiveType
 import io.kvision.table.Table
 import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.SepaMandateDto
@@ -30,11 +30,7 @@ import network.lapis.cloud.shared.rpc.ISepaService
  */
 fun renderSepaMandatesScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 860.px
-            marginTop = 24.px
-        }
+        container.dataScreenRoot(spacing = 14)
     root.h1(tr("SEPA-Mandate"))
 
     val canGrantOnBehalf = SepaAuthzUi.canGrantOnBehalf(AppState.session?.role)
@@ -92,6 +88,7 @@ fun renderSepaMandatesScreen(container: SimplePanel) {
                                 tr("Aktionen"),
                             ),
                         types = setOf(TableType.STRIPED, TableType.HOVER),
+                        responsiveType = ResponsiveType.RESPONSIVE,
                     ).also { currentTable = it }
             mandates.forEach { mandate -> renderSepaMandateRow(table, mandate) { loadPage(reset = true) } }
             lastGrantedAt = mandates.last().grantedAt
@@ -142,7 +139,11 @@ private fun renderSepaMandateRow(
         val actionsCell = cell()
         val ownMandate = mandate.memberId == AppState.session?.memberId
         if (SepaAuthzUi.canRevokeMandateOf(AppState.session?.role, ownMandate, mandate.status)) {
-            val revokeButton = actionsCell.button(tr("Widerrufen"), style = ButtonStyle.OUTLINEDANGER)
+            // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte (Tooltip/`aria-label`
+            // tragen die Bedeutung). Der Bestaetigungsdialog dahinter bleibt unveraendert -- er ist
+            // die eigentliche Sicherung gegen einen versehentlichen Widerruf, nicht die Knopfbreite.
+            val revokeButton =
+                actionsCell.tableActionButton("fas fa-ban", tr("Widerrufen"), ButtonStyle.OUTLINEDANGER)
             revokeButton.onClick {
                 confirmWithReasonDialog(
                     title = tr("Mandat widerrufen"),

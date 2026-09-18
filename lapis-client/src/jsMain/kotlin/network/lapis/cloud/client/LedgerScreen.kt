@@ -22,6 +22,7 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.ResponsiveType
 import io.kvision.table.Table
 import io.kvision.table.TableType
 import io.kvision.table.cell
@@ -112,16 +113,28 @@ fun renderLedgerScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 900.px
-            marginTop = 24.px
-        }
+        container.dataScreenRoot(spacing = 14)
     root.h1(tr("Kontenplan & Journal"))
 
     // ---- Accounts (Kontenplan) -------------------------------------------------------------
     root.h2(tr("Konten (SKR42 Kontenplan)"))
-    val accountsFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    // Design-Team-Welle 2026-09-18, Punkt 3: bis dahin gab es hier NUR die
+    // "Inaktive Konten anzeigen"-Checkbox -- ein SKR42-Kontenplan hat aber von Anfang an dutzende
+    // Zeilen, und wer ein bestimmtes Konto sucht, hat bisher gescrollt oder Strg+F benutzt. Muster
+    // uebernommen von der Dokumentenablage-Suchwelle (`DocumentsScreen.kt`, 2026-09-16): rein
+    // clientseitige Live-Filterung ohne RPC-Roundtrip pro Tastendruck, kein Server-Pagination-
+    // Aufwand -- ein Kontenplan bleibt ueberschaubar gross.
+    //
+    // ANDERS als in `DocumentsScreen` gibt es hier bewusst KEINE Sichtbarkeitsschwelle
+    // (`shouldShowDocumentSearch(count) = count >= 5`): das Suchfeld liegt in der Filterzeile, die
+    // -- anders als `accountListPanel` -- bei `refreshAccounts()` NICHT geleert wird. Genau das ist
+    // der Grund, warum es ausserhalb des Listen-Panels sitzt: sonst risse jeder Tastendruck das
+    // eigene Eingabefeld ab und wuerfe den Fokus heraus (dieselbe Falle, die `DocumentsScreen.kt`
+    // in seinem eigenen Kommentar beschreibt). Ein bedingt sichtbares Feld haette zusaetzlich nach
+    // jedem Ladevorgang umgeschaltet werden muessen -- und ein leerer Kontenplan existiert
+    // praktisch nicht, weil die SKR42-Grundausstattung beim Anlegen der Organisation gesetzt wird.
+    val accountsFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
+    val accountSearchInput = accountsFilterRow.text(label = tr("Konto suchen (Nummer oder Name)"))
     val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr("Inaktive Konten anzeigen"))
     val accountsRefreshButton = accountsFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val accountListPanel = root.vPanel(spacing = 6)
@@ -134,36 +147,78 @@ fun renderLedgerScreen(container: SimplePanel) {
         renderAccountDrillDown(accountDetailPanel, account)
     }
 
-    fun refreshAccounts() {
+    // Zuletzt geladene, ungefilterte Kontenliste -- die Live-Suche filtert auf dieser Kopie, statt
+    // pro Tastendruck erneut `listLedgerAccounts` zu rufen.
+    var loadedAccounts: List<LedgerAccountDto> = emptyList()
+
+    // Vorwaertsreferenz: `renderAccountList` reicht das Neuladen als `onChanged` an jede Zeile
+    // weiter, `refreshAccounts` ruft seinerseits `renderAccountList` -- eine echte Zyklus-Beziehung,
+    // die sich mit zwei lokalen `fun`s nicht ausdruecken laesst (die zweite waere im Rumpf der
+    // ersten noch nicht sichtbar).
+    var refreshAccounts: () -> Unit = {}
+
+    fun renderAccountList(query: String) {
+        accountListPanel.removeAll()
+        if (loadedAccounts.isEmpty()) {
+            accountListPanel.p(tr("Noch keine Konten angelegt."))
+            return
+        }
+        val filtered = filterLedgerAccounts(loadedAccounts, query)
+        if (filtered.isEmpty()) {
+            accountListPanel.p(gettext("Kein Konto passt zu \"%1\".", query.trim()))
+            return
+        }
+        if (query.isNotBlank()) {
+            accountListPanel.div(gettext("%1 von %2 Konten", filtered.size, loadedAccounts.size)) {
+                addCssClasses("text-muted small")
+            }
+        }
+        // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
+        // replacing the previous hand-rolled "border rounded p-2" vPanel-per-row layout -- see
+        // root CLAUDE.md "UI/UX-Design-Team" review.
+        val table =
+            accountListPanel.table(
+                headerNames = listOf(tr("Konto"), tr("Typ"), tr("Status"), tr("Details"), tr("Aktionen")),
+                types = setOf(TableType.STRIPED, TableType.HOVER),
+                responsiveType = ResponsiveType.RESPONSIVE,
+            )
+        filtered.forEach { account ->
+            renderAccountRow(table, account, canManage, ::selectAccount) { refreshAccounts() }
+        }
+    }
+
+    refreshAccounts = {
         accountListPanel.removeAll()
         AppScope.launch {
             val accounts =
                 guarded {
                     rpcService<IAccountingService>().listLedgerAccounts(activeOnly = !includeInactiveAccountsCheck.value)
                 } ?: return@launch
-            if (accounts.isEmpty()) {
-                accountListPanel.p(tr("Noch keine Konten angelegt."))
-                return@launch
-            }
-            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
-            // replacing the previous hand-rolled "border rounded p-2" vPanel-per-row layout -- see
-            // root CLAUDE.md "UI/UX-Design-Team" review.
-            val table =
-                accountListPanel.table(
-                    headerNames = listOf(tr("Konto"), tr("Typ"), tr("Status"), tr("Details"), tr("Aktionen")),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                )
-            accounts.sortedBy { it.accountNumber }.forEach { account ->
-                renderAccountRow(table, account, canManage, ::selectAccount, ::refreshAccounts)
-            }
+            loadedAccounts = accounts.sortedBy { it.accountNumber }
+            renderAccountList(accountSearchInput.value.orEmpty())
         }
     }
     accountsRefreshButton.onClick { refreshAccounts() }
+
+    // Kein Debounce -- rein clientseitige Filterung, kein RPC pro Tastendruck (gleiche Entscheidung
+    // wie in `DocumentsScreen.kt`). Der `isInitialSearchEvent`-Guard ist noetig, weil KVisions
+    // `subscribe` bei der Registrierung sofort einmal synthetisch mit dem aktuellen Wert feuert --
+    // ohne den Guard wuerde die Liste einmal gerendert, bevor `refreshAccounts()` ueberhaupt Daten
+    // geladen hat.
+    var isInitialSearchEvent = true
+    accountSearchInput.subscribe { value ->
+        if (isInitialSearchEvent) {
+            isInitialSearchEvent = false
+            return@subscribe
+        }
+        renderAccountList(value.orEmpty())
+    }
+
     refreshAccounts()
 
     if (canManage) {
         root.h2(tr("Neues Konto anlegen"))
-        renderAccountCreationForm(root, ::refreshAccounts)
+        renderAccountCreationForm(root) { refreshAccounts() }
     }
 
     // ---- Kontenzuordnung Zahlungsverkehr (V1.2.1 Zahlungs-Fundament) ----------------------
@@ -234,6 +289,7 @@ fun renderLedgerScreen(container: SimplePanel) {
                 journalListPanel.table(
                     headerNames = listOf(tr("Buchung"), tr("Status"), tr("Details"), tr("Aktionen")),
                     types = setOf(TableType.STRIPED, TableType.HOVER),
+                    responsiveType = ResponsiveType.RESPONSIVE,
                 )
             entries.forEach { entry ->
                 renderJournalRow(table, entry) { id ->
@@ -570,6 +626,28 @@ internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
 // Accounts (Kontenplan)
 // ============================================================================================
 
+/**
+ * Reines, DOM-unabhaengiges Filter-Praedikat der Kontenplan-Live-Suche -- testbar ohne
+ * Rendering-Harness (analog [filterDocuments] in `DocumentsScreen.kt`).
+ *
+ * Gesucht wird ueber **Kontonummer UND Kontoname**, weil beide Zugriffswege real vorkommen: wer den
+ * SKR42 kennt, tippt "4200"; wer ihn nicht kennt, tippt "Spenden". `accountNumber` ist ein `String`
+ * (nicht `Int`), Teiltreffer wie "42" auf "4200" funktionieren deshalb ohne Sonderbehandlung.
+ *
+ * `ignoreCase = true`: der Gelegenheitsnutzer (Schatzmeister, einmal im Monat) tippt nicht auf
+ * Grossschreibung.
+ */
+internal fun filterLedgerAccounts(
+    accounts: List<LedgerAccountDto>,
+    query: String,
+): List<LedgerAccountDto> {
+    val trimmed = query.trim()
+    if (trimmed.isEmpty()) return accounts
+    return accounts.filter {
+        it.accountNumber.contains(trimmed, ignoreCase = true) || it.name.contains(trimmed, ignoreCase = true)
+    }
+}
+
 private fun renderAccountRow(
     table: Table,
     account: LedgerAccountDto,
@@ -588,12 +666,17 @@ private fun renderAccountRow(
         cell(metaParts.joinToString(" · ")) { addCssClasses("text-muted small") }
 
         val actionsCell = cell()
-        val actionRow = actionsCell.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-        val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+        // Design-Team-Welle 2026-09-18: vorher zwei Volltext-Knoepfe in einem `flex-wrap`-hPanel,
+        // die in der schmalen Aktionsspalte untereinander umbrachen und jede Kontenzeile auf zwei
+        // Knopfhoehen aufblaehten. Jetzt Icon-Knoepfe nebeneinander -- Tooltip/`aria-label` tragen
+        // die Bedeutung (siehe `DataScreenLayout.tableActionButton` KDoc zu Don Normans Einwand).
+        val actionRow = actionsCell.tableActionGroup()
+        val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
         showButton.onClick { onSelect(account) }
 
         if (canManage && account.active) {
-            val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+            val deactivateButton =
+                actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
             deactivateButton.onClick {
                 confirmDialog(
                     title = tr("Konto deaktivieren"),
@@ -1072,6 +1155,7 @@ private fun renderPostingsTable(
         panel.table(
             headerNames = listOf(tr("Konto"), tr("Soll"), tr("Haben"), tr("Sphäre"), tr("Kostenstelle"), tr("USt")),
             types = setOf(TableType.STRIPED, TableType.HOVER),
+            responsiveType = ResponsiveType.RESPONSIVE,
         )
     postings.forEach { posting ->
         table.row {

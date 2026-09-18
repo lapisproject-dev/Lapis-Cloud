@@ -20,12 +20,12 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.ResponsiveType
 import io.kvision.table.Table
 import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -60,11 +60,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  */
 fun renderMemberAdministrationScreen(container: SimplePanel) {
     val root =
-        container.vPanel(spacing = 16) {
-            addCssClass("mx-auto")
-            width = 720.px
-            marginTop = 24.px
-        }
+        container.dataScreenRoot(spacing = 16)
     root.h1(tr("Mitgliederverwaltung"))
 
     val callerRole = AppState.session?.role
@@ -95,6 +91,7 @@ private fun renderPendingApplications(root: SimplePanel) {
                 pendingPanel.table(
                     headerNames = listOf(tr("Antragsteller"), tr("Rolle"), tr("Aktionen")),
                     types = setOf(TableType.STRIPED, TableType.HOVER),
+                    responsiveType = ResponsiveType.RESPONSIVE,
                 )
             applications.forEach { application ->
                 renderPendingApplicationRow(table, application, onChanged = ::refresh)
@@ -251,6 +248,7 @@ private fun renderMemberRoster(root: SimplePanel) {
                     tablePanel.table(
                         headerNames = listOf(tr("Name"), tr("E-Mail"), tr("Status"), tr("Rolle"), tr("Beitritt"), tr("Aktion")),
                         types = setOf(TableType.STRIPED, TableType.HOVER),
+                        responsiveType = ResponsiveType.RESPONSIVE,
                     )
                 page.rows.forEach { row -> renderMemberRosterRow(table, row, onChanged = { refresh() }) }
             }
@@ -371,13 +369,12 @@ private fun renderMemberRosterRow(
         // width; `title` is set unconditionally right below and is KVision's own `Widget.title`
         // property (not a raw DOM write), so no `###KvI18nS###` marker-leak risk -- see
         // `ConferenceScreen.kt`'s own KDoc on that bug class for why the distinction matters.
-        val editButton = actionsCell.button("", icon = "fas fa-pen", style = ButtonStyle.OUTLINEPRIMARY)
-        editButton.title = tr("Bearbeiten")
+        val editButton = actionsCell.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
         val callerRole = AppState.session?.role
         val callerMemberId = AppState.session?.memberId
         if (row.anonymized) {
             editButton.disabled = true
-            editButton.title = tr("DSGVO-gelöscht")
+            editButton.tableActionTooltip(tr("DSGVO-gelöscht"))
         } else if (!hasAnyEditableSectionFor(callerRole, callerMemberId, row)) {
             // Regression fix (Review Runde 3): before the per-section gating in openMemberEditorDialog
             // existed, "Stammdaten" was rendered UNCONDITIONALLY, so the modal could never be empty.
@@ -395,11 +392,12 @@ private fun renderMemberRosterRow(
             // was wrongly disabled even though `canEditMembershipTierOf` alone would allow the
             // "Tarif entfernen" action -- see [canEditMembershipTierOf] KDoc.
             editButton.disabled = true
-            editButton.title =
+            editButton.tableActionTooltip(
                 tr(
                     "Keine Bearbeitung möglich -- Peer-Schutz: Vorstand darf Vorstands-/Schatzmeister-/" +
                         "Admin-Konten (auch das eigene) nicht bearbeiten, das ist Admin vorbehalten.",
-                )
+                ),
+            )
         } else {
             editButton.onClick { openMemberEditorDialog(row, onChanged) }
         }
@@ -411,8 +409,7 @@ private fun renderMemberRosterRow(
         // Klassen-KDoc) -- der Rollen-Check hier ist also kein reines Zukunfts-Dokument mehr,
         // sondern der tatsächlich wirksame Gate für diesen Knopf.
         if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-            val financesButton = actionsCell.button("", icon = "fas fa-receipt", style = ButtonStyle.OUTLINESECONDARY)
-            financesButton.title = tr("Beitragshistorie")
+            val financesButton = actionsCell.tableActionButton("fas fa-receipt", tr("Beitragshistorie"))
             financesButton.onClick { navigateTo(memberFinancesRoute(row.id)) }
         }
 
@@ -432,11 +429,10 @@ private fun renderMemberRosterRow(
         // deaktiviert -- `MemberHonorsScreen` hat keine eigene Anzeige-Logik für einen
         // anonymisierten Zielmember (Welle-Plan §13 "S5").
         if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-            val honorsButton = actionsCell.button("", icon = "fas fa-medal", style = ButtonStyle.OUTLINESECONDARY)
-            honorsButton.title = tr("Ehrungen")
+            val honorsButton = actionsCell.tableActionButton("fas fa-medal", tr("Ehrungen"))
             if (row.anonymized) {
                 honorsButton.disabled = true
-                honorsButton.title = tr("DSGVO-gelöscht")
+                honorsButton.tableActionTooltip(tr("DSGVO-gelöscht"))
             } else {
                 honorsButton.onClick { navigateTo(memberHonorsRoute(row.id)) }
             }
@@ -450,12 +446,12 @@ private fun renderMemberRosterRow(
         // Prädikat berührt sie nicht. Icon `fa-key`, nicht `fa-user-lock`: ein Schloss hieße
         // "gesperrt" -- das ist der Zustand DANACH gerade nicht.
         if (AppState.hasRole(AccountRole.ADMIN)) {
-            val accessButton = actionsCell.button("", icon = "fas fa-key", style = ButtonStyle.OUTLINEWARNING)
-            accessButton.title = tr("Zugang zurücksetzen")
+            val accessButton =
+                actionsCell.tableActionButton("fas fa-key", tr("Zugang zurücksetzen"), ButtonStyle.OUTLINEWARNING)
             val block = passwordResetBlockReason(callerRole, callerMemberId, row)
             if (block != null) {
                 accessButton.disabled = true
-                accessButton.title = block
+                accessButton.tableActionTooltip(block)
             } else {
                 accessButton.onClick { openMemberPasswordResetDialog(row, onChanged) }
             }
