@@ -8,7 +8,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import kotlin.uuid.Uuid
 
 /**
- * Pure, DB-free unit coverage of [canAccessDocumentAtLevel]/[isPrivileged] directly on
+ * Pure, DB-free unit coverage of [canAccessDocumentAtLevel]/[isPrivileged]/[ESCALATED_ROLES] directly on
  * [CurrentMember] -- the exact function both [network.lapis.cloud.server.rpc.DocumentService]
  * (listDocuments/listVersions) and [network.lapis.cloud.server.routes.registerDocumentRoutes]'s
  * download route call, so this single table-driven test is the authoritative source of truth for
@@ -40,16 +40,17 @@ class RequestContextDocumentAccessTest :
         }
 
         test(
-            "BOARD_ONLY: unaffected by this fix -- BOARD/ADMIN allowed, MEMBER rejected, status irrelevant since a non-member's role is never BOARD/ADMIN",
+            "BOARD_ONLY: uses ESCALATED_ROLES (Welle Treasurer Document Upload) -- BOARD/TREASURER/ADMIN allowed, MEMBER rejected, status irrelevant since a non-member's role is never BOARD/TREASURER/ADMIN",
         ) {
             member(AccountRole.BOARD, MemberStatus.ACTIVE).canAccessDocumentAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe true
+            member(AccountRole.TREASURER, MemberStatus.ACTIVE).canAccessDocumentAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe true
             member(AccountRole.ADMIN, MemberStatus.ACTIVE).canAccessDocumentAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe true
             member(AccountRole.MEMBER, MemberStatus.ACTIVE).canAccessDocumentAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe false
             // A real guest/friend always has role = MEMBER (see OidcGuestMemberStore /
-            // RegistrationService.registerFriend), but even a hypothetical non-member + BOARD/ADMIN
-            // combination (never produced by any actual write path) is still correctly gated by
-            // role alone here -- BOARD_ONLY was never the gap, no status check was ever needed on
-            // this branch.
+            // RegistrationService.registerFriend), but even a hypothetical non-member + an
+            // ESCALATED_ROLES role (never produced by any actual write path) is still correctly
+            // gated by role alone here -- BOARD_ONLY was never the gap, no status check was ever
+            // needed on this branch.
             member(AccountRole.MEMBER, MemberStatus.GUEST).canAccessDocumentAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe false
             member(AccountRole.MEMBER, MemberStatus.FRIEND).canAccessDocumentAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe false
         }
@@ -69,6 +70,34 @@ class RequestContextDocumentAccessTest :
             member(AccountRole.MEMBER, MemberStatus.GUEST).isPrivileged shouldBe false
             member(AccountRole.MEMBER, MemberStatus.FRIEND).isPrivileged shouldBe false
             member(AccountRole.MEMBER, MemberStatus.ACTIVE).isPrivileged shouldBe false
+        }
+
+        test(
+            "canAccessRecordingAtLevel BOARD_ONLY: deliberately NOT widened to ESCALATED_ROLES -- " +
+                "only isPrivileged (BOARD/ADMIN) may read a BOARD_ONLY conference recording, TREASURER " +
+                "is rejected even though canAccessDocumentAtLevel(BOARD_ONLY) allows TREASURER for " +
+                "documents (Welle Treasurer Document Upload, review finding: recordings must not " +
+                "silently ride the document-access widening)",
+        ) {
+            member(AccountRole.BOARD, MemberStatus.ACTIVE).canAccessRecordingAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe true
+            member(AccountRole.ADMIN, MemberStatus.ACTIVE).canAccessRecordingAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe true
+            member(AccountRole.TREASURER, MemberStatus.ACTIVE).canAccessRecordingAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe false
+            member(AccountRole.MEMBER, MemberStatus.ACTIVE).canAccessRecordingAtLevel(DocumentAccessLevel.BOARD_ONLY) shouldBe false
+        }
+
+        test(
+            "canAccessRecordingAtLevel PUBLIC_MEMBERS/ADMIN_ONLY: identical to canAccessDocumentAtLevel -- " +
+                "neither tier was touched by the TREASURER wave",
+        ) {
+            AccountRole.entries.forEach { role ->
+                MemberStatus.entries.forEach { status ->
+                    val m = member(role, status)
+                    m.canAccessRecordingAtLevel(DocumentAccessLevel.PUBLIC_MEMBERS) shouldBe
+                        m.canAccessDocumentAtLevel(DocumentAccessLevel.PUBLIC_MEMBERS)
+                    m.canAccessRecordingAtLevel(DocumentAccessLevel.ADMIN_ONLY) shouldBe
+                        m.canAccessDocumentAtLevel(DocumentAccessLevel.ADMIN_ONLY)
+                }
+            }
         }
 
         test("isGuest/isNonMember derivation -- isGuest is GUEST-only, isNonMember covers GUEST and FRIEND") {

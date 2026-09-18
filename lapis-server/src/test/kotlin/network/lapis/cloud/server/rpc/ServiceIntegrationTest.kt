@@ -232,7 +232,9 @@ class ServiceIntegrationTest :
             }
         }
 
-        test("documents: board creates folder + document, member without privilege cannot") {
+        test(
+            "documents: board/treasurer/admin create folder + document + delete it, member without privilege cannot (Welle Treasurer Document Upload)",
+        ) {
             testApplication {
                 application {
                     install(StatusPages) {
@@ -256,6 +258,11 @@ class ServiceIntegrationTest :
                                 )
                             call.respondText(doc.id)
                         }
+                        post("/test/delete-document/{documentId}") {
+                            val service = DocumentService(call)
+                            service.deleteDocument(call.parameters["documentId"]!!)
+                            call.respondText("ok")
+                        }
                     }
                 }
 
@@ -266,8 +273,45 @@ class ServiceIntegrationTest :
                         .bodyAsText()
                 docId.isBlank() shouldBe false
 
-                val forbidden = client.post("/test/create-folder") { header("X-Member-Id", MEMBER_ID) }
-                forbidden.status shouldBe HttpStatusCode.Forbidden
+                // TREASURER: ESCALATED_ROLES (BOARD/TREASURER/ADMIN) grants the same three write
+                // gates as BOARD/ADMIN -- this is the exact gap "Marc Levi Mousa" hit in production
+                // (TREASURER could no longer create folders/upload documents).
+                val treasurerFolderId =
+                    client.post("/test/create-folder") { header("X-Member-Id", TREASURER_ID) }.bodyAsText()
+                treasurerFolderId.isBlank() shouldBe false
+                val treasurerDocId =
+                    client
+                        .post("/test/create-document/$treasurerFolderId") { header("X-Member-Id", TREASURER_ID) }
+                        .bodyAsText()
+                treasurerDocId.isBlank() shouldBe false
+                val treasurerDelete =
+                    client.post("/test/delete-document/$treasurerDocId") { header("X-Member-Id", TREASURER_ID) }
+                treasurerDelete.status shouldBe HttpStatusCode.OK
+
+                // ADMIN: same three write gates as BOARD/TREASURER -- review finding fix, the test
+                // NAME already claimed this axis was covered but the body never actually exercised
+                // ADMIN_ID before this addition, so a regression on ADMIN's ESCALATED_ROLES
+                // membership would have stayed green.
+                val adminFolderId =
+                    client.post("/test/create-folder") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                adminFolderId.isBlank() shouldBe false
+                val adminDocId =
+                    client
+                        .post("/test/create-document/$adminFolderId") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                adminDocId.isBlank() shouldBe false
+                val adminDelete =
+                    client.post("/test/delete-document/$adminDocId") { header("X-Member-Id", ADMIN_ID) }
+                adminDelete.status shouldBe HttpStatusCode.OK
+
+                // MEMBER: still rejected on all three write gates -- ESCALATED_ROLES did not widen
+                // access beyond BOARD/TREASURER/ADMIN.
+                val forbiddenFolder = client.post("/test/create-folder") { header("X-Member-Id", MEMBER_ID) }
+                forbiddenFolder.status shouldBe HttpStatusCode.Forbidden
+                val forbiddenDoc = client.post("/test/create-document/$folderId") { header("X-Member-Id", MEMBER_ID) }
+                forbiddenDoc.status shouldBe HttpStatusCode.Forbidden
+                val forbiddenDelete = client.post("/test/delete-document/$docId") { header("X-Member-Id", MEMBER_ID) }
+                forbiddenDelete.status shouldBe HttpStatusCode.Forbidden
             }
         }
 
@@ -338,6 +382,143 @@ class ServiceIntegrationTest :
                 val versionsForMember =
                     client.get("/test/list-versions/$adminOnlyDocId") { header("X-Member-Id", MEMBER_ID) }
                 versionsForMember.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test(
+            "documents: deleteDocument enforces canAccessDocumentAtLevel, not just the ESCALATED_ROLES role gate " +
+                "(review finding fix, Welle \"Treasurer Document Upload\")",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Forbidden)
+                        }
+                        exception<NotFoundException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.NotFound)
+                        }
+                    }
+                    routing {
+                        post("/test/create-folder") {
+                            val service = DocumentService(call)
+                            val folder = service.createFolder(name = "Beitragsrechnungen (Delete-Authz-Test)")
+                            call.respondText(folder.id)
+                        }
+                        post("/test/create-document/{folderId}/{level}") {
+                            val service = DocumentService(call)
+                            val doc =
+                                service.createDocument(
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "Spendenbescheinigung",
+                                    accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
+                                )
+                            call.respondText(doc.id)
+                        }
+                        post("/test/delete-document/{documentId}") {
+                            val service = DocumentService(call)
+                            service.deleteDocument(call.parameters["documentId"]!!)
+                            call.respondText("ok")
+                        }
+                    }
+                }
+
+                val folderId = client.post("/test/create-folder") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                val adminOnlyDocId =
+                    client
+                        .post("/test/create-document/$folderId/ADMIN_ONLY") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+
+                // TREASURER is role-wise in ESCALATED_ROLES but cannot read ADMIN_ONLY content ->
+                // must not be able to soft-delete it by proxy either. This is exactly the gap MAJOR
+                // #2 fixed in production code -- pin it so a future "simplification" that reverts to
+                // the old role-only gate on DocumentTable.update{} fails a test instead of shipping.
+                val treasurerDelete =
+                    client.post("/test/delete-document/$adminOnlyDocId") { header("X-Member-Id", TREASURER_ID) }
+                treasurerDelete.status shouldBe HttpStatusCode.Forbidden
+
+                // BOARD is likewise ESCALATED_ROLES but below ADMIN_ONLY's access level.
+                val boardDelete =
+                    client.post("/test/delete-document/$adminOnlyDocId") { header("X-Member-Id", BOARD_ID) }
+                boardDelete.status shouldBe HttpStatusCode.Forbidden
+
+                // ADMIN can delete its own ADMIN_ONLY document.
+                val adminDelete =
+                    client.post("/test/delete-document/$adminOnlyDocId") { header("X-Member-Id", ADMIN_ID) }
+                adminDelete.status shouldBe HttpStatusCode.OK
+
+                // Deleting an unknown document id is a 404, not a silent no-op 200.
+                val unknownDelete =
+                    client.post("/test/delete-document/${Uuid.random()}") { header("X-Member-Id", ADMIN_ID) }
+                unknownDelete.status shouldBe HttpStatusCode.NotFound
+
+                // Deleting an already-soft-deleted document id is a 404 as well (not idempotent 200).
+                val alreadyDeletedDelete =
+                    client.post("/test/delete-document/$adminOnlyDocId") { header("X-Member-Id", ADMIN_ID) }
+                alreadyDeletedDelete.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test(
+            "documents: createDocument enforces canAccessDocumentAtLevel, not just the ESCALATED_ROLES role gate " +
+                "(review finding fix Runde 4, Welle \"Treasurer Document Upload\")",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Forbidden)
+                        }
+                        exception<NotFoundException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.NotFound)
+                        }
+                    }
+                    routing {
+                        post("/test/create-folder") {
+                            val service = DocumentService(call)
+                            val folder = service.createFolder(name = "Vorstandsprotokolle (Create-Authz-Test)")
+                            call.respondText(folder.id)
+                        }
+                        post("/test/create-document/{folderId}/{level}") {
+                            val service = DocumentService(call)
+                            val doc =
+                                service.createDocument(
+                                    folderId = call.parameters["folderId"]!!,
+                                    title = "Vertrauliches Dokument",
+                                    accessLevel = DocumentAccessLevel.valueOf(call.parameters["level"]!!),
+                                )
+                            call.respondText(doc.id)
+                        }
+                    }
+                }
+
+                val folderId = client.post("/test/create-folder") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+
+                // TREASURER is role-wise in ESCALATED_ROLES (passes the createFolder/createDocument
+                // role gate) but cannot read ADMIN_ONLY content -> must not be able to create an
+                // ADMIN_ONLY document either. This is exactly the MAJOR #5 gap: without this check,
+                // the resulting document would be invisible in listDocuments, un-uploadable and
+                // un-deletable by its own creator -- an orphaned row only an ADMIN could ever fix.
+                val treasurerCreate =
+                    client.post("/test/create-document/$folderId/ADMIN_ONLY") { header("X-Member-Id", TREASURER_ID) }
+                treasurerCreate.status shouldBe HttpStatusCode.Forbidden
+
+                // BOARD is likewise ESCALATED_ROLES but below ADMIN_ONLY's access level.
+                val boardCreate =
+                    client.post("/test/create-document/$folderId/ADMIN_ONLY") { header("X-Member-Id", BOARD_ID) }
+                boardCreate.status shouldBe HttpStatusCode.Forbidden
+
+                // ADMIN can create its own ADMIN_ONLY document.
+                val adminCreate =
+                    client.post("/test/create-document/$folderId/ADMIN_ONLY") { header("X-Member-Id", ADMIN_ID) }
+                adminCreate.status shouldBe HttpStatusCode.OK
+                adminCreate.bodyAsText().isBlank() shouldBe false
+
+                // TREASURER can still create at a level it is itself allowed to read (BOARD_ONLY is
+                // ESCALATED_ROLES-gated, same as canAccessDocumentAtLevel's BOARD_ONLY branch).
+                val treasurerBoardOnlyCreate =
+                    client.post("/test/create-document/$folderId/BOARD_ONLY") { header("X-Member-Id", TREASURER_ID) }
+                treasurerBoardOnlyCreate.status shouldBe HttpStatusCode.OK
             }
         }
 

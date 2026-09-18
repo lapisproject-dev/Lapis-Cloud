@@ -181,11 +181,42 @@ internal val ESCALATED_ROLES: Set<AccountRole> = setOf(AccountRole.BOARD, Accoun
  * blocks [MemberStatus.WITHDRAWN]/[MemberStatus.REJECTED] -- was never meant to read internal
  * documents before being admitted). Both are closed by testing organization-membership positively
  * instead of guest-status negatively. `BOARD_ONLY`/`ADMIN_ONLY` need no separate non-member check:
- * neither a guest's nor a friend's `role` can ever be `BOARD`/`ADMIN` (nothing in this codebase
- * elevates a non-member's `Account.role` after creation), so [isPrivileged] and `role == ADMIN`
- * already exclude them transitively.
+ * neither a guest's nor a friend's `role` can ever be `BOARD`/`TREASURER`/`ADMIN` (nothing in this
+ * codebase elevates a non-member's `Account.role` after creation), so [ESCALATED_ROLES] and
+ * `role == ADMIN` already exclude them transitively.
+ *
+ * **BOARD_ONLY uses [ESCALATED_ROLES], not [isPrivileged]** (Welle "Treasurer Document Upload" --
+ * TREASURER can create/upload/delete documents just like BOARD/ADMIN via [ESCALATED_ROLES] in
+ * [network.lapis.cloud.server.rpc.DocumentService] and the upload route, so the read-side gate for
+ * BOARD_ONLY content must grant the same role set, otherwise a TREASURER could write a BOARD_ONLY
+ * document and then be unable to read it back).
  */
 fun CurrentMember.canAccessDocumentAtLevel(level: DocumentAccessLevel): Boolean =
+    when (level) {
+        DocumentAccessLevel.PUBLIC_MEMBERS -> status in MemberStatusSets.ORGANIZATION_MEMBER
+        DocumentAccessLevel.BOARD_ONLY -> role in ESCALATED_ROLES
+        DocumentAccessLevel.ADMIN_ONLY -> role == AccountRole.ADMIN
+    }
+
+/**
+ * Deliberately a SEPARATE predicate from [canAccessDocumentAtLevel], not a reuse of it, for
+ * conference recordings specifically -- [network.lapis.cloud.server.conference.ConferenceRecordingAccess.mayAccess]
+ * (used identically by [network.lapis.cloud.server.rpc.ConferenceRecordingService]'s `listRecordings`
+ * filter, its `deleteRecording` document-gate, and the media route). Found during review of Welle
+ * "Treasurer Document Upload": [canAccessDocumentAtLevel]'s `BOARD_ONLY` case was widened from
+ * [isPrivileged] to [ESCALATED_ROLES] so TREASURER could manage BOARD_ONLY documents -- but that
+ * predicate is ALSO the read/delete gate for conference recordings, which are a distinct fachlich
+ * concept (a board meeting's recording, not a document). Riding the document widening would have
+ * silently given every TREASURER read/stream/delete access to every BOARD_ONLY board-meeting
+ * recording, including ones they neither attended nor started -- never decided, never tested, and
+ * a materially different exposure than "can upload documents". Recordings therefore keep the
+ * pre-wave `BOARD_ONLY -> isPrivileged` (BOARD/ADMIN only) semantics; `PUBLIC_MEMBERS`/`ADMIN_ONLY`
+ * are identical to [canAccessDocumentAtLevel] because neither of those tiers was touched by the
+ * TREASURER wave. If TREASURER access to recordings is ever actually wanted, that is a deliberate,
+ * separately-reviewed decision -- change this function (and pin it with a test), not
+ * [canAccessDocumentAtLevel].
+ */
+fun CurrentMember.canAccessRecordingAtLevel(level: DocumentAccessLevel): Boolean =
     when (level) {
         DocumentAccessLevel.PUBLIC_MEMBERS -> status in MemberStatusSets.ORGANIZATION_MEMBER
         DocumentAccessLevel.BOARD_ONLY -> isPrivileged

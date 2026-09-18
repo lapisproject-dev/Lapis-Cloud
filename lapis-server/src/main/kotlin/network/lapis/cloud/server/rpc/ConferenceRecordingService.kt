@@ -17,7 +17,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
-import network.lapis.cloud.server.security.canAccessDocumentAtLevel
+import network.lapis.cloud.server.security.canAccessRecordingAtLevel
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -277,13 +277,23 @@ class ConferenceRecordingService(
      *    [requireModeratorOrPrivileged] is satisfied by the ROOM's creator, who may be a plain
      *    MEMBER -- while the linked `document` carries its own [DocumentAccessLevel], and any
      *    privileged participant may have started the recording at a level that creator can neither
-     *    read nor delete ([network.lapis.cloud.shared.rpc.IDocumentService.deleteDocument] is
-     *    BOARD/ADMIN-only). Deleting such a recording would otherwise let a MEMBER soft-delete an
-     *    `ADMIN_ONLY` document by proxy. A recording WITH a linked document therefore additionally
-     *    requires [canAccessDocumentAtLevel] for its own access level, or [CurrentMember.isPrivileged]
-     *    (`deleteDocument`'s own rule, mirrored exactly rather than re-invented). A failing check
-     *    rejects the WHOLE call with [ForbiddenException] -- silently skipping only the document
-     *    flip would hard-delete the recording row while leaving its document readable, i.e. a
+     *    read nor delete. Deleting such a recording would otherwise let a MEMBER soft-delete an
+     *    `ADMIN_ONLY` (or `BOARD_ONLY`) document by proxy. A recording WITH a linked document
+     *    therefore additionally requires [canAccessRecordingAtLevel] for its own access level.
+     *    Deliberately NOT a blanket [CurrentMember.isPrivileged] bypass on top of that check
+     *    (review finding fix -- a prior version had `!canAccessRecordingAtLevel(accessLevel) &&
+     *    !isPrivileged`, which is only ever a real narrowing for the `ADMIN_ONLY` tier, since
+     *    [canAccessRecordingAtLevel] already grants `BOARD_ONLY` via [CurrentMember.isPrivileged]
+     *    itself -- and for `ADMIN_ONLY` it let a BOARD member soft-delete an `ADMIN_ONLY` document
+     *    by proxy that [network.lapis.cloud.shared.rpc.IDocumentService.deleteDocument] itself
+     *    would reject for the very same member, directly contradicting this fact's own "by proxy"
+     *    goal). Deliberately NOT
+     *    [network.lapis.cloud.server.security.canAccessDocumentAtLevel] and NOT
+     *    [network.lapis.cloud.shared.rpc.IDocumentService.deleteDocument]'s own gate (ESCALATED_ROLES,
+     *    since Welle "Treasurer Document Upload") -- see [canAccessRecordingAtLevel]'s KDoc for why a
+     *    recording's access must not ride whatever role set document access happens to widen to. A
+     *    failing check rejects the WHOLE call with [ForbiddenException] -- silently skipping only the
+     *    document flip would hard-delete the recording row while leaving its document readable, i.e. a
      *    half-deleted state neither the caller nor a later auditor asked for. [ForbiddenException]
      *    and not [ConflictException] because this is a permission failure, matching how this same
      *    method already distinguishes the two (Conflict = wrong STATE, see the terminal-status check
@@ -344,8 +354,10 @@ class ConferenceRecordingService(
                 val accessLevel = row[ConferenceRecordingTable.accessLevel]
                 val documentId = row[ConferenceRecordingTable.documentId]
                 // See this method's own KDoc fact 1 -- moderator standing does not by itself
-                // authorize touching a document the caller may not even read.
-                if (documentId != null && !current.canAccessDocumentAtLevel(accessLevel) && !current.isPrivileged) {
+                // authorize touching a document the caller may not even read. No blanket
+                // isPrivileged bypass here -- canAccessRecordingAtLevel already grants BOARD_ONLY
+                // via isPrivileged itself, and ADMIN_ONLY must stay ADMIN-only (review finding fix).
+                if (documentId != null && !current.canAccessRecordingAtLevel(accessLevel)) {
                     throw ForbiddenException(
                         "Not authorized to delete the archived document of recording $recordingUuid",
                     )
@@ -520,7 +532,7 @@ class ConferenceRecordingService(
      * `WHERE` clause rather than a Kotlin filter.
      *
      * The translation is faithful, not an approximation, because `mayAccess`'s first half
-     * ([network.lapis.cloud.server.security.canAccessDocumentAtLevel]) depends only on the CALLER
+     * ([network.lapis.cloud.server.security.canAccessRecordingAtLevel]) depends only on the CALLER
      * ([CurrentMember.role]/[CurrentMember.status]) and the row's `access_level` -- never on
      * anything else about the row. The set of levels this caller may read is therefore fully
      * computable up front, exactly the same `DocumentAccessLevel.entries.filter { ... }` idiom
@@ -528,7 +540,7 @@ class ConferenceRecordingService(
      * ("the recording's own starter can always see it") is a plain column comparison.
      */
     private fun accessPredicate(current: CurrentMember): Op<Boolean> {
-        val allowedLevels = DocumentAccessLevel.entries.filter { current.canAccessDocumentAtLevel(it) }
+        val allowedLevels = DocumentAccessLevel.entries.filter { current.canAccessRecordingAtLevel(it) }
         val startedByMe = ConferenceRecordingTable.startedByMemberId eq current.memberId
         // A caller with no readable level at all (e.g. a GUEST) keeps ONLY the starter carve-out --
         // spelled out rather than relying on Exposed's own empty-`inList` degeneration, so the

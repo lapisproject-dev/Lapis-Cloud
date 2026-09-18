@@ -75,6 +75,13 @@ import kotlin.uuid.Uuid
 private const val ADMIN_ID = "00000000-0000-0000-0000-000000000001"
 private const val BOARD_ID = "00000000-0000-0000-0000-000000000002"
 
+// Review finding (Welle "Treasurer Document Upload"): canAccessDocumentAtLevel(BOARD_ONLY) was
+// widened to ESCALATED_ROLES (BOARD/TREASURER/ADMIN) for documents, but that must NOT silently
+// also widen who may read/stream a BOARD_ONLY conference recording -- see
+// canAccessRecordingAtLevel's KDoc. TREASURER_ID pins the seeded TREASURER account below for the
+// "listRecordings: TREASURER without attendance is rejected" test.
+private const val TREASURER_ID = "00000000-0000-0000-0000-000000000003"
+
 /** [ConferenceConfig] with `enabled=true` -- built via the injectable `env` seam, no real env vars touched. */
 private val ENABLED_CONFERENCE_CONFIG =
     ConferenceConfig.load { key ->
@@ -827,6 +834,31 @@ class ConferenceRecordingServiceTest :
             }
         }
 
+        test(
+            "listRecordings: TREASURER who neither attended nor started a BOARD_ONLY recording is " +
+                "REJECTED -- canAccessDocumentAtLevel's TREASURER widening (Welle Treasurer Document " +
+                "Upload) must not leak into conference recording access; regression pin for the " +
+                "review finding on ConferenceRecordingAccess/canAccessRecordingAtLevel",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                    routing { registerConferenceRecordingTestRoutes() }
+                }
+                val starter = createTestMember("rec-list-treasurer-starter@example.org")
+                val roomId = createTestRoom(starter, "Vorstandssitzung")
+
+                client.post("/test/start-recording?roomId=$roomId&accessLevel=BOARD_ONLY") { header("X-Member-Id", starter.toString()) }
+
+                val asTreasurer = client.get("/test/list-recordings?roomId=$roomId") { header("X-Member-Id", TREASURER_ID) }
+                asTreasurer.bodyAsText() shouldBe ""
+
+                // Control: BOARD still sees it, exactly as before this wave.
+                val asBoard = client.get("/test/list-recordings?roomId=$roomId") { header("X-Member-Id", BOARD_ID) }
+                asBoard.bodyAsText().split(";").filter { it.isNotBlank() } shouldHaveSize 1
+            }
+        }
+
         test("listRecordings: PUBLIC_MEMBERS is visible to any AKTIV member") {
             testApplication {
                 application {
@@ -1099,6 +1131,50 @@ class ConferenceRecordingServiceTest :
 
                 // ADMIN may delete exactly the same row -- the narrowing is about document access,
                 // not about making ADMIN_ONLY recordings undeletable.
+                client
+                    .post("/test/delete-recording?recordingId=$recordingId") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.OK
+                recordingExists(recordingId) shouldBe false
+            }
+        }
+
+        test(
+            "deleteRecording: a global BOARD account is rejected on the document gate for an ADMIN_ONLY recording " +
+                "(review finding fix -- isPrivileged no longer bypasses canAccessRecordingAtLevel)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                    routing { registerConferenceRecordingTestRoutes() }
+                }
+                // Before the fix: canAccessRecordingAtLevel(ADMIN_ONLY) is false for BOARD, but the
+                // old `|| isPrivileged` disjunct let BOARD through anyway -- exactly the "by proxy"
+                // soft-delete this method's own KDoc fact 1 claims to prevent, and strictly stricter
+                // than IDocumentService.deleteDocument itself (which rejects this same BOARD member
+                // for this same document, per Welle "Treasurer Document Upload").
+                val creator = createTestMember("rec-delete-board-admin-only-creator@example.org")
+                val roomId = createTestRoom(creator, "Vorstandssitzung")
+                val documentId = seedDocument(createdBy = creator, accessLevel = DocumentAccessLevel.ADMIN_ONLY)
+                val recordingId =
+                    seedRecording(
+                        roomId = roomId,
+                        startedByMemberId = Uuid.parse(ADMIN_ID),
+                        status = ConferenceRecordingStatus.READY,
+                        accessLevel = DocumentAccessLevel.ADMIN_ONLY,
+                        documentId = documentId,
+                    )
+
+                client
+                    .post("/test/delete-recording?recordingId=$recordingId") { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe HttpStatusCode.Forbidden
+
+                transaction {
+                    DocumentTable.selectAll().where { DocumentTable.id eq documentId }.single()[DocumentTable.isDeleted]
+                } shouldBe false
+                recordingExists(recordingId) shouldBe true
+
+                // ADMIN may still delete exactly the same row -- the narrowing is about BOARD losing
+                // the proxy bypass, not about ADMIN_ONLY recordings becoming undeletable.
                 client
                     .post("/test/delete-recording?recordingId=$recordingId") { header("X-Member-Id", ADMIN_ID) }
                     .status shouldBe HttpStatusCode.OK

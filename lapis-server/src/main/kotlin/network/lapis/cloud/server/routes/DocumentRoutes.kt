@@ -19,8 +19,8 @@ import io.ktor.utils.io.readAvailable
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
+import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
-import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.and
@@ -65,6 +65,18 @@ private val MAX_UPLOAD_BYTES = documentMaxUploadBytes()
  *   Exposed's `transaction {}` block.
  * - **Access control**: enforced both on listing (service-side filtering, see [DocumentService])
  *   and again here on download — never only hidden in the UI.
+ *
+ * Review finding fix (Runde 3, Welle "Treasurer Document Upload"): the upload route
+ * (`POST /api/documents/{documentId}/versions`) previously checked only [ESCALATED_ROLES] role
+ * membership and never [canAccessDocumentAtLevel] on the document it had already loaded — the
+ * same gap the Runde-2 fix closed on `deleteDocument`, left open here in the sibling write path.
+ * A TREASURER could therefore overwrite the current version of an `ADMIN_ONLY` document (e.g. an
+ * archived Serienbrief PDF, see [network.lapis.cloud.server.routes.registerMailmergeRoutes])
+ * despite never being able to read it. The route now mirrors `deleteDocument`'s shape exactly:
+ * 404 for a missing or already soft-deleted row, then 403 when the caller's role/access-level
+ * combination cannot read this document's [network.lapis.cloud.shared.domain.DocumentAccessLevel]
+ * — both checks now run in
+ * lockstep across all four write/read paths (upload, download, listVersions, deleteDocument).
  */
 fun Route.registerDocumentRoutes(storageRoot: File) {
     post("/api/documents/{documentId}/versions") {
@@ -79,12 +91,16 @@ fun Route.registerDocumentRoutes(storageRoot: File) {
             transaction {
                 DocumentTable.selectAll().where { DocumentTable.id eq documentId }.singleOrNull()
             }
-        if (documentRow == null) {
+        if (documentRow == null || documentRow[DocumentTable.isDeleted]) {
             call.respond(HttpStatusCode.NotFound)
             return@post
         }
-        if (!current.isPrivileged) {
-            call.respond(HttpStatusCode.Forbidden, "Only Board/Admin may upload document versions")
+        if (current.role !in ESCALATED_ROLES) {
+            call.respond(HttpStatusCode.Forbidden, "Only Board/Treasurer/Admin may upload document versions")
+            return@post
+        }
+        if (!current.canAccessDocumentAtLevel(documentRow[DocumentTable.accessLevel])) {
+            call.respond(HttpStatusCode.Forbidden, "Not authorized to upload versions for this document")
             return@post
         }
 

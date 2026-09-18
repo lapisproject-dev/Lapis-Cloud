@@ -6,10 +6,9 @@ import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
-import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
-import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
 import network.lapis.cloud.shared.domain.DocumentFolderDto
@@ -35,6 +34,14 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.server.routes.registerDocumentRoutes] over plain Ktor HTTP, not here —
  * see [IDocumentService] KDoc for why. Access-level filtering is applied on every read here,
  * mirrored again on the HTTP download route (never only in the UI).
+ *
+ * **Welle "Treasurer Document Upload"**: the three write gates ([createFolder], [createDocument],
+ * [deleteDocument]) use [ESCALATED_ROLES] (BOARD/TREASURER/ADMIN), not the narrower BOARD/ADMIN
+ * pair — TREASURER manages the document area (Belege, Jahresabschlüsse etc.) as part of the
+ * role's normal duties, same as [network.lapis.cloud.server.routes.registerDocumentRoutes]'
+ * upload route and [network.lapis.cloud.server.security.canAccessDocumentAtLevel]'s BOARD_ONLY
+ * branch, which must stay in lockstep with these three gates — otherwise a TREASURER could
+ * create/delete a document but not open the very BOARD_ONLY folder it lives in.
  */
 class DocumentService(
     private val call: ApplicationCall,
@@ -80,7 +87,7 @@ class DocumentService(
         parentFolderId: String?,
     ): DocumentFolderDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        if (current.role !in ESCALATED_ROLES) throw ForbiddenException()
         return transaction {
             val id = Uuid.random()
             DocumentFolderTable.insert {
@@ -111,13 +118,28 @@ class DocumentService(
         }
     }
 
+    /**
+     * Review finding fix (Welle "Treasurer Document Upload", Runde 4): this previously checked
+     * ONLY [ESCALATED_ROLES] role membership and accepted the caller-supplied [accessLevel]
+     * unchecked -- unlike [listVersions], [deleteDocument] and the upload/download routes, all of
+     * which additionally call [canAccessDocumentAtLevel]. A TREASURER or BOARD member could
+     * therefore create a document at `ADMIN_ONLY`, which [listDocuments] then filters out of their
+     * own view, the upload route (403) can never fill, and [deleteDocument] (403) can never clean
+     * up again -- a permanently orphaned, empty document row only an ADMIN can fix, created via a
+     * client that offers all [DocumentAccessLevel] entries regardless of role (`DocumentsScreen.kt`).
+     * Now mirrors [deleteDocument]'s shape exactly: ForbiddenException when the caller's
+     * role/access-level combination cannot itself read the requested level.
+     */
     override suspend fun createDocument(
         folderId: String,
         title: String,
         accessLevel: DocumentAccessLevel,
     ): DocumentDto {
         val current = resolveCurrentMember(call)
-        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        if (current.role !in ESCALATED_ROLES) throw ForbiddenException()
+        if (!current.canAccessDocumentAtLevel(accessLevel)) {
+            throw ForbiddenException("Not authorized to create a document at this access level")
+        }
         val now = DbClock.nowLocalDateTime()
         return transaction {
             val id = Uuid.random()
@@ -161,11 +183,37 @@ class DocumentService(
         }
     }
 
+    /**
+     * Review finding fix (Welle "Treasurer Document Upload"): this previously checked ONLY
+     * [ESCALATED_ROLES] role membership and never the document's own [DocumentAccessLevel] --
+     * unlike [listVersions] and the download route, both of which additionally call
+     * [canAccessDocumentAtLevel]. A TREASURER (role-only ESCALATED_ROLES member) could therefore
+     * soft-delete an `ADMIN_ONLY` document -- e.g. the archived Serienbrief PDFs
+     * [network.lapis.cloud.server.routes.registerMailmergeRoutes] files away as `ADMIN_ONLY`
+     * (Beitragsrechnungen, Spendenbescheinigungen) -- despite never being able to read it. Now
+     * mirrors [listVersions]'s row-lookup + access-level shape exactly: NotFoundException for a
+     * missing or already-deleted row (was previously a silent no-op 200 on
+     * [DocumentTable.update]), ForbiddenException when the caller's role/access-level combination
+     * cannot read this document's level.
+     */
     override suspend fun deleteDocument(documentId: String) {
         val current = resolveCurrentMember(call)
-        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        if (current.role !in ESCALATED_ROLES) throw ForbiddenException()
+        val docId = Uuid.parse(documentId)
         transaction {
-            DocumentTable.update({ DocumentTable.id eq Uuid.parse(documentId) }) {
+            val documentRow =
+                DocumentTable
+                    .selectAll()
+                    .where { DocumentTable.id eq docId }
+                    .singleOrNull()
+                    ?: throw NotFoundException("Document $documentId not found")
+            if (documentRow[DocumentTable.isDeleted]) {
+                throw NotFoundException("Document $documentId not found")
+            }
+            if (!current.canAccessDocumentAtLevel(documentRow[DocumentTable.accessLevel])) {
+                throw ForbiddenException("Not authorized to delete this document")
+            }
+            DocumentTable.update({ DocumentTable.id eq docId }) {
                 it[isDeleted] = true
             }
         }

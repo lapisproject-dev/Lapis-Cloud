@@ -29,9 +29,12 @@ import network.lapis.cloud.shared.rpc.IDocumentService
  * dedicated HTTP routes file bytes travel over (`network.lapis.cloud.server.routes.DocumentRoutes`,
  * see [DocumentHttp] and `IDocumentService` KDoc for why: not through Kilua RPC, which is
  * inefficient for large byte arrays). Server-side access-level filtering (`listDocuments`) and
- * role checks (`createFolder`/`createDocument`/`deleteDocument`/the upload route: BOARD/ADMIN
- * only) are the actual authority -- this screen's `canManage` gating is a UX nicety on top of that,
- * matching the same posture every other privileged action in this wave takes.
+ * role checks (`createFolder`/`createDocument`/`deleteDocument`/the upload route: BOARD/TREASURER/
+ * ADMIN, i.e. `ESCALATED_ROLES` -- Welle "Treasurer Document Upload") are the actual authority --
+ * this screen's `canManage` gating is a UX nicety on top of that, matching the same posture every
+ * other privileged action in this wave takes. Delegated to [DocumentsAuthzUi.canManage] (not
+ * computed inline any more -- review finding fix), which is the pure, unit-tested predicate that
+ * must mirror the server's role set exactly: see that object's own KDoc.
  */
 fun renderDocumentsScreen(container: SimplePanel) {
     val root =
@@ -41,7 +44,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
             marginTop = 24.px
         }
     root.h1(tr("Dokumentenablage"))
-    val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
+    val canManage = DocumentsAuthzUi.canManage(AppState.session?.role)
 
     root.h2(tr("Ordner"))
     val folderPanel = root.vPanel(spacing = 4)
@@ -195,7 +198,9 @@ fun renderDocumentsScreen(container: SimplePanel) {
                 }
             }
 
-            if (canManage) renderDocumentCreation(creationPanel, folderId) { loadDocuments(folderId) }
+            if (canManage) {
+                renderDocumentCreation(creationPanel, folderId, AppState.session?.role) { loadDocuments(folderId) }
+            }
         }
     }
 
@@ -319,9 +324,13 @@ private fun renderFolderCreation(
 private fun renderDocumentCreation(
     panel: SimplePanel,
     folderId: String,
+    role: AccountRole?,
     onCreated: () -> Unit,
 ) {
-    val accessLevelOptions = DocumentAccessLevel.entries.map { it.name to it.name }
+    // Review finding fix (Welle "Treasurer Document Upload", Runde 4): only offer access levels
+    // the current role is actually allowed to create at -- see [DocumentsAuthzUi.allowedCreateLevels]
+    // KDoc for the orphaned-document failure mode this prevents.
+    val accessLevelOptions = DocumentsAuthzUi.allowedCreateLevels(role).map { it.name to it.name }
     val titleInput = panel.text(label = tr("Neuer Dokumenttitel"))
     val accessSelect =
         panel.select(options = accessLevelOptions, value = DocumentAccessLevel.PUBLIC_MEMBERS.name, label = tr("Sichtbarkeit"))

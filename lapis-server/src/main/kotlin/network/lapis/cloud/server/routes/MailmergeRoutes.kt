@@ -100,12 +100,12 @@ private const val MAX_BODY_TEXT_LENGTH = 20_000
  * Document/DocumentVersion store via [archiveGeneratedPdf] right after generation (retention/
  * audit argument -- see that function's KDoc); Einladung is not (ephemeral governance
  * correspondence). Archived copies use [DocumentAccessLevel.ADMIN_ONLY] -- deliberately more
- * restrictive than `BOARD_ONLY`, sidestepping a pre-existing, unrelated gap in
- * [network.lapis.cloud.server.security.canAccessDocumentAtLevel]/
- * [network.lapis.cloud.server.security.isPrivileged] where a TREASURER cannot read a `BOARD_ONLY`
- * document at all (`isPrivileged` only recognises ADMIN/BOARD). That gap is flagged here, not
- * fixed -- the primary access path for Treasurer/Board remains these dedicated routes, not the
- * generic Document browser, so the restriction does not block the main workflow.
+ * restrictive than `BOARD_ONLY`, staying ADMIN_ONLY even now that the pre-existing gap this
+ * comment used to flag (`canAccessDocumentAtLevel(BOARD_ONLY)` delegating to `isPrivileged`,
+ * which a TREASURER never satisfied) is fixed -- see
+ * [network.lapis.cloud.server.security.canAccessDocumentAtLevel] KDoc ("Welle Treasurer Document
+ * Upload"). No reason to loosen these particular archived copies just because the general
+ * Document browser now lets a TREASURER read BOARD_ONLY content too.
  *
  * **V0.4.2 (Letterxpress postal-mail dispatch)** reuses [generateBeitragsrechnung]/
  * [generateSpendenbescheinigung]/[loadMailmergeMember]/[loadOrganizationSettingsDto]/
