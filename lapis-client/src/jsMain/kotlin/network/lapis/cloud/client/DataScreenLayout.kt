@@ -43,6 +43,14 @@ import io.kvision.utils.px
  * lesefreundliche Spalte -- deren Grosszuegigkeit ist fuer ihre Nutzung richtig und wurde in der
  * Sitzung ausdruecklich bestaetigt.
  *
+ * **`CostCentersScreen`/`DonorsScreen`: Nachtrag Design-Team-Sitzung 2026-09-18 (Nachmittag).**
+ * Beide standen am Vormittag noch auf der Karten-Ausnahmeliste ("Aktion nicht im dichten Raster").
+ * Steve Jobs' abschliessendes Review (Punkt 2) hat diese Entscheidung revidiert: Tesler gewinnt
+ * gegen Rams, weil auf dem Kostenstellen-Screen dieselben Objekte oben als Karten und im Bericht
+ * darunter bereits als Tabellenzeile erscheinen -- zwei Darstellungsgrammatiken fuer ein Objekt auf
+ * einem Screen war der eigentliche Defekt, nicht die Kartenform selbst. Beide Screens nutzen jetzt
+ * [dataScreenRoot] + eine echte Tabelle -- analog zu `LedgerScreen.kt`s Kontenplan-Tabelle.
+ *
  * ## Gegenstueck auf der Tabelle selbst: `ResponsiveType.RESPONSIVE`
  *
  * Solange das Root-Panel eine feste Breite von 900 px hatte, scrollte auf einem 375-px-Telefon die

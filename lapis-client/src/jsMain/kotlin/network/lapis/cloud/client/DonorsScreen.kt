@@ -14,6 +14,12 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.ResponsiveType
+import io.kvision.table.Table
+import io.kvision.table.TableType
+import io.kvision.table.cell
+import io.kvision.table.row
+import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -59,23 +65,24 @@ import kotlin.time.Clock
  * `moneySpan(..., warnIfNegative = true)` is deliberately never used on this screen -- matches D6's
  * "only where the DTO documents it may be negative" rule.
  *
- * The donor-detail expansion ([renderDonorRow]) deliberately does re-fetch via `getExternalDonor(id)`
- * on click rather than rendering the address fields already present on the row's own
- * [ExternalDonorDto] (returned in full by `listExternalDonors`) -- this exercises the RPC method the
- * plan's scope explicitly names ("Detail view via `getExternalDonor(id)`") and gives a genuinely
- * fresh read for a caller who has had the list open for a while, matching the same expand-in-place
- * accordion grammar `LedgerScreen.kt`'s account row and `NonprofitComplianceReportsScreen.kt`'s
- * sphere/year rows already established for this wave -- not a parallel pattern.
+ * The donor detail panel ([selectDonor], wired from [renderDonorRow]'s "Details anzeigen" icon
+ * button) deliberately re-fetches via `getExternalDonor(id)` on click rather than rendering the
+ * address fields already present on the row's own [ExternalDonorDto] (returned in full by
+ * `listExternalDonors`) -- this exercises the RPC method the plan's scope explicitly names ("Detail
+ * view via `getExternalDonor(id)`") and gives a genuinely fresh read for a caller who has had the
+ * list open for a while.
+ *
+ * **Nachtrag Design-Team-Sitzung 2026-09-18 (Nachmittag), siehe `DataScreenLayout.kt` KDoc:** die
+ * Liste ist jetzt eine echte Tabelle (Spender/Kategorie/Status/Aktionen), das per-Zeile expandierende
+ * `vPanel("border rounded p-2")`-Akkordeon ist entfallen -- eine Tabellenzeile traegt kein sauber
+ * ausklappbares Detail-Panel. Stattdessen sitzt EIN Detail-Panel unterhalb der Tabelle, das die
+ * Zeilenauswahl (`onSelect`/[selectDonor]) fuellt, analog zu [renderLedgerScreen]s
+ * Kontenplan-Zeile → `accountDetailPanel`-Kontenauswahl.
  */
 fun renderDonorsScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot(spacing = 14)
     root.h1(tr("Spender"))
     root.div(
         tr(
@@ -87,31 +94,108 @@ fun renderDonorsScreen(container: SimplePanel) {
 
     // ---- External donor list (Spenderstamm) -------------------------------------------------
     root.h2(tr("Externe Spender"))
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    // Design-Team-Welle 2026-09-18: Live-Suche analog `LedgerScreen.kt`s Kontenplan-Suche -- rein
+    // clientseitige Filterung ueber `displayName`, kein RPC-Roundtrip pro Tastendruck.
+    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
+    val donorSearchInput = filterRow.text(label = tr("Spender suchen (Name)"))
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Spender anzeigen"))
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val listPanel = root.vPanel(spacing = 6)
 
-    fun refreshList() {
+    root.h2(tr("Spenderdetails"))
+    val donorDetailPanel = root.vPanel(spacing = 10)
+    donorDetailPanel.p(tr("Spender oben auswählen, um Details zu sehen."))
+
+    var selectedDonorId: String? = null
+
+    fun selectDonor(donor: ExternalDonorDto) {
+        if (selectedDonorId == donor.id) {
+            // Erneuter Klick auf denselben Spender schliesst das Detail-Panel wieder -- ersetzt die
+            // vorherige Akkordeon-Zeile, die per erneutem Klick genauso zuklappte.
+            selectedDonorId = null
+            donorDetailPanel.removeAll()
+            donorDetailPanel.p(tr("Spender oben auswählen, um Details zu sehen."))
+            return
+        }
+        selectedDonorId = donor.id
+        donorDetailPanel.removeAll()
+        donorDetailPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        AppScope.launch {
+            val fresh = guarded { rpcService<IAccountingService>().getExternalDonor(donor.id) }
+            // Re-check gegen `selectedDonorId`: ein spaeter eintreffendes, veraltetes Ergebnis (z. B.
+            // wenn zwischenzeitlich ein anderer Spender angeklickt oder das Panel wieder geschlossen
+            // wurde) darf das inzwischen aktuellere Detail-Panel nicht ueberschreiben.
+            if (selectedDonorId != donor.id) return@launch
+            donorDetailPanel.removeAll()
+            if (fresh == null) return@launch
+            donorDetailPanel.h2(fresh.displayName) { addCssClass("h6") }
+            donorDetailPanel.div(donorAddressLine(fresh)) { addCssClasses("text-muted small") }
+        }
+    }
+
+    // Zuletzt geladene, ungefilterte Spenderliste -- die Live-Suche filtert auf dieser Kopie, statt
+    // pro Tastendruck erneut `listExternalDonors` zu rufen (Muster von `LedgerScreen.kt`).
+    var loadedDonors: List<ExternalDonorDto> = emptyList()
+
+    // Vorwaertsreferenz analog `LedgerScreen.refreshAccounts`: `renderDonorList` reicht das Neuladen
+    // als `onChanged` an jede Zeile weiter, `refreshList` ruft seinerseits `renderDonorList`.
+    var refreshList: () -> Unit = {}
+
+    fun renderDonorList(query: String) {
+        listPanel.removeAll()
+        if (loadedDonors.isEmpty()) {
+            listPanel.p(tr("Noch keine externen Spender angelegt."))
+            return
+        }
+        val filtered = filterExternalDonors(loadedDonors, query)
+        if (filtered.isEmpty()) {
+            listPanel.p(gettext("Kein Spender passt zu \"%1\".", query.trim()))
+            return
+        }
+        if (query.isNotBlank()) {
+            listPanel.div(gettext("%1 von %2 Spendern", filtered.size, loadedDonors.size)) {
+                addCssClasses("text-muted small")
+            }
+        }
+        val table =
+            listPanel.table(
+                headerNames = listOf(tr("Spender"), tr("Kategorie"), tr("Status"), tr("Aktionen")),
+                types = setOf(TableType.STRIPED, TableType.HOVER),
+                responsiveType = ResponsiveType.RESPONSIVE,
+            )
+        filtered.forEach { donor ->
+            renderDonorRow(table, donor, canManage, ::selectDonor) { refreshList() }
+        }
+    }
+
+    refreshList = {
         listPanel.removeAll()
         AppScope.launch {
             val donors =
                 guarded {
                     rpcService<IAccountingService>().listExternalDonors(activeOnly = !includeInactiveCheck.value)
                 } ?: return@launch
-            if (donors.isEmpty()) {
-                listPanel.p(tr("Noch keine externen Spender angelegt."))
-                return@launch
-            }
-            donors.forEach { donor -> renderDonorRow(listPanel, donor, canManage, ::refreshList) }
+            loadedDonors = donors
+            renderDonorList(donorSearchInput.value.orEmpty())
         }
     }
     refreshButton.onClick { refreshList() }
+
+    // Kein Debounce -- rein clientseitige Filterung (gleiche Entscheidung wie `LedgerScreen.kt`).
+    var isInitialSearchEvent = true
+    donorSearchInput.subscribe { value ->
+        if (isInitialSearchEvent) {
+            isInitialSearchEvent = false
+            return@subscribe
+        }
+        renderDonorList(value.orEmpty())
+    }
+
     refreshList()
 
     if (canManage) {
         root.h2(tr("Neuen Spender anlegen"))
-        renderDonorCreationForm(root, ::refreshList)
+        renderDonorCreationForm(root) { refreshList() }
     }
 
     // ---- Spendenrecht-Pflichten-Report (§25 PartG) -------------------------------------------
@@ -124,66 +208,49 @@ fun renderDonorsScreen(container: SimplePanel) {
 // ============================================================================================
 
 /**
- * List row stays terse (Name + Kategorie + Aktiv/Inaktiv, the same three-signal shape
- * `CostCentersScreen.renderCostCenterRow` already established); the address block is only fetched
- * and shown once a caller actually asks for it, via the "Details anzeigen" toggle -- see file KDoc
- * for why this deliberately calls `getExternalDonor(id)` rather than reusing the row's already-held
- * [ExternalDonorDto].
+ * Design-Team-Welle 2026-09-18 (Nachmittag): vorher ein `vPanel("border rounded p-2")`-Kartenrow mit
+ * eigenem In-Zeile-Akkordeon, jetzt eine echte Tabellenzeile -- Detail-Anzeige wandert an
+ * [renderDonorsScreen]s `selectDonor`/`donorDetailPanel`, siehe file KDoc. Die Aktionsspalte wird
+ * immer gerendert, damit alle Zeilen dieselbe Spaltenzahl behalten (Muster von
+ * `LedgerScreen.renderAccountRow`).
  */
 private fun renderDonorRow(
-    panel: SimplePanel,
+    table: Table,
     donor: ExternalDonorDto,
     canManage: Boolean,
+    onSelect: (ExternalDonorDto) -> Unit,
     onChanged: () -> Unit,
 ) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(donor.displayName) { addCssClasses("flex-grow-1 fw-bold") }
-    headerRow.typeBadge(donorCategoryLabel(donor.donorCategory), donorCategoryColor(donor.donorCategory))
-    headerRow.activeStatusBadge(donor.active)
-    val detailButton = headerRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+    table.row {
+        cell(donor.displayName) { addCssClass("fw-bold") }
+        cell { typeBadge(donorCategoryLabel(donor.donorCategory), donorCategoryColor(donor.donorCategory)) }
+        cell { activeStatusBadge(donor.active) }
 
-    val detailPanel = row.vPanel(spacing = 2) { hide() }
-    var expanded = false
-    detailButton.onClick {
-        expanded = !expanded
-        if (!expanded) {
-            detailPanel.hide()
-            return@onClick
-        }
-        detailPanel.removeAll()
-        detailPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        detailPanel.show()
-        AppScope.launch {
-            val fresh = guarded { rpcService<IAccountingService>().getExternalDonor(donor.id) }
-            detailPanel.removeAll()
-            if (fresh == null) {
-                detailPanel.show()
-                return@launch
-            }
-            detailPanel.div(donorAddressLine(fresh)) { addCssClasses("text-muted small") }
-        }
-    }
+        val actionsCell = cell()
+        val actionRow = actionsCell.tableActionGroup()
+        val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+        showButton.onClick { onSelect(donor) }
 
-    if (canManage && donor.active) {
-        val actionRow = row.hPanel(spacing = 8)
-        val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
-        deactivateButton.onClick {
-            confirmDialog(
-                title = tr("Spender deaktivieren"),
-                message =
-                    gettext(
-                        "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben " +
-                            "erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung.",
-                        donor.displayName,
-                    ),
-                confirmLabel = tr("Deaktivieren"),
-            ) {
-                AppScope.launch {
-                    val result = guarded { rpcService<IAccountingService>().deactivateExternalDonor(donor.id) }
-                    if (result != null) {
-                        notifyInfo(tr("Spender wurde deaktiviert."))
-                        onChanged()
+        if (canManage && donor.active) {
+            val deactivateButton =
+                actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+            deactivateButton.onClick {
+                confirmDialog(
+                    title = tr("Spender deaktivieren"),
+                    message =
+                        gettext(
+                            "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben " +
+                                "erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung.",
+                            donor.displayName,
+                        ),
+                    confirmLabel = tr("Deaktivieren"),
+                ) {
+                    AppScope.launch {
+                        val result = guarded { rpcService<IAccountingService>().deactivateExternalDonor(donor.id) }
+                        if (result != null) {
+                            notifyInfo(tr("Spender wurde deaktiviert."))
+                            onChanged()
+                        }
                     }
                 }
             }
@@ -351,7 +418,14 @@ private fun renderDonorDutiesTable(
         return
     }
 
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
+    // Design-Team-Welle 2026-09-18 (Nachmittag): `table-responsive`-Wrapper analog
+    // `CostCentersScreen.renderCostCenterReportBody` -- schuetzt das Raster auf 375 px, seit das
+    // Root nicht mehr die feste 900-px-Breite hat. `minWidth` = flex-grow-1-Spalte + 100 + 220 +
+    // 120 + 260 px Spaltenbreiten + Abstaende.
+    val scrollWrapper = panel.div { addCssClass("table-responsive") }
+    val reportGrid = scrollWrapper.vPanel(spacing = 0) { minWidth = 820.px }
+
+    val headerRow = reportGrid.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
     headerRow.div(tr("Spender")) { addCssClasses("flex-grow-1") }
     headerRow.div(tr("Typ")) { width = 100.px }
     headerRow.div(tr("Kategorie")) { width = 220.px }
@@ -359,7 +433,7 @@ private fun renderDonorDutiesTable(
     headerRow.div(tr("Pflichten")) { width = 260.px }
 
     duties.forEach { duty ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
+        val row = reportGrid.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
         row.div(duty.donorDisplayName) { addCssClasses("flex-grow-1") }
         val typeCell = row.div { width = 100.px }
         typeCell.typeBadge(donorTypeLabel(duty.donorType), donorTypeColor(duty.donorType))
@@ -399,13 +473,19 @@ private fun renderAnonymousForwardingTable(
         return
     }
 
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
+    // Design-Team-Welle 2026-09-18 (Nachmittag): `table-responsive`-Wrapper, siehe
+    // [renderDonorDutiesTable] KDoc-Kommentar. `minWidth` = 110 + 120 px Spalten + flex-grow-1 +
+    // Abstaende -- die kleinste Spaltensumme der drei Berichtsraster in diesem Screen.
+    val scrollWrapper = panel.div { addCssClass("table-responsive") }
+    val reportGrid = scrollWrapper.vPanel(spacing = 0) { minWidth = 480.px }
+
+    val headerRow = reportGrid.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
     headerRow.div(tr("Datum")) { width = 110.px }
     headerRow.div(tr("Betrag")) { width = 120.px }
     headerRow.div(tr("Pflicht")) { addCssClasses("flex-grow-1") }
 
     forwarding.forEach { entry ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
+        val row = reportGrid.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
         row.div(entry.entryDate.toString()) { width = 110.px }
         row.div(formatMoney(entry.amount)) { width = 120.px }
         val dutyCell = row.div { addCssClasses("flex-grow-1") }
@@ -419,6 +499,23 @@ private fun renderAnonymousForwardingTable(
 // ============================================================================================
 // Pure helpers -- covered by DonorsScreenTest.kt
 // ============================================================================================
+
+/**
+ * Reines, DOM-unabhaengiges Filter-Praedikat der Spender-Live-Suche -- testbar ohne
+ * Rendering-Harness (analog [filterLedgerAccounts]/`filterCostCenters`).
+ *
+ * Gesucht wird nur ueber [ExternalDonorDto.displayName] -- anders als beim Kontenplan/den
+ * Kostenstellen hat ein Spender keine zweite, kurze Kennung wie eine Kontonummer oder einen Code.
+ * `ignoreCase = true`: der Gelegenheitsnutzer tippt nicht auf Grossschreibung.
+ */
+internal fun filterExternalDonors(
+    donors: List<ExternalDonorDto>,
+    query: String,
+): List<ExternalDonorDto> {
+    val trimmed = query.trim()
+    if (trimmed.isEmpty()) return donors
+    return donors.filter { it.displayName.contains(trimmed, ignoreCase = true) }
+}
 
 /** Same natural-person-categories-first ordering `LedgerScreen.renderNewEntryForm`'s member donor
  * block already applies to its `DonorCategory` picker (D13) -- kept as a local `val` here rather
