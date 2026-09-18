@@ -5,6 +5,8 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.shared.domain.COMMITTEE_LEADERSHIP_ROLES
+import network.lapis.cloud.shared.domain.COMMITTEE_RECORDING_ROLES
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -34,11 +36,10 @@ import kotlin.uuid.Uuid
  * inside an already-open `transaction {}` (as `GovernanceService` typically does) is safe.
  */
 fun CurrentMember.canManageCommittee(committeeId: Uuid): Boolean =
-    isPrivileged || hasCommitteeRole(committeeId = committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR)
+    isPrivileged || hasCommitteeRole(committeeId = committeeId, *COMMITTEE_LEADERSHIP_ROLES.toTypedArray())
 
 fun CurrentMember.canRecordForMeeting(committeeId: Uuid): Boolean =
-    isPrivileged ||
-        hasCommitteeRole(committeeId = committeeId, CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
+    isPrivileged || hasCommitteeRole(committeeId = committeeId, *COMMITTEE_RECORDING_ROLES.toTypedArray())
 
 /**
  * Security-audit-round-2 L1 fix -- "is this member currently seated on this Committee, in ANY role"

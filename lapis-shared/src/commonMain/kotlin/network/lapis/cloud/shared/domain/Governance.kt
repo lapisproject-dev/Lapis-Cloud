@@ -16,9 +16,86 @@ enum class CommitteeType { EXECUTIVE_BOARD, WORKING_GROUP, COMMISSION, OTHER, GE
 /**
  * Role *within* a [CommitteeDto] — distinct from [AccountRole], the system-wide login role. A
  * person can be [AccountRole.MEMBER] system-wide but [CHAIR] of the Working Group IT.
+ *
+ * [GENERAL_SECRETARY]/[MANAGING_DIRECTOR]/[PRESS_SPOKESPERSON] added in the "committee-role-titles"
+ * wave to cover further Vorstand titles common in German parties/Vereine, beyond the original three
+ * leadership seats (CHAIR/DEPUTY_CHAIR/SECRETARY). See [rank]/[COMMITTEE_LEADERSHIP_ROLES]/
+ * [COMMITTEE_RECORDING_ROLES]/[SINGLE_HOLDER_COMMITTEE_ROLES] below for how each new role slots into
+ * the two existing authorization predicates (`canManageCommittee`/`canRecordForMeeting`) and the
+ * single-holder-seat rule -- no new authorization semantics were introduced, only new placements
+ * within the two that already existed. This remains a fixed Kotlin enum, not a runtime-editable
+ * catalog -- a new role still requires a code change + release (see project decision, "committee-
+ * role-titles" wave KDoc/plan).
  */
 @Serializable
-enum class CommitteeRole { CHAIR, DEPUTY_CHAIR, SECRETARY, MEMBER, ASSESSOR }
+enum class CommitteeRole {
+    CHAIR,
+    DEPUTY_CHAIR,
+    SECRETARY,
+    MEMBER,
+    ASSESSOR,
+    GENERAL_SECRETARY,
+    PRESS_SPOKESPERSON,
+    MANAGING_DIRECTOR,
+}
+
+/**
+ * Display/dropdown sort order for [CommitteeRole] -- lower ranks first. Deliberately NOT the enum's
+ * own [CommitteeRole.ordinal]/declaration order: new roles are always appended at the end of the
+ * enum (persistence is by name via `enumerationByName`, never by ordinal, so appending is safe), but
+ * their natural DISPLAY position is interleaved with the pre-existing roles (e.g.
+ * [CommitteeRole.GENERAL_SECRETARY] ranks right after [CommitteeRole.DEPUTY_CHAIR], not at the very
+ * end). [network.lapis.cloud.server.routes.PublicTransparencyReader]'s public board ordering uses
+ * this single source instead of its own now-removed `boardRolePriority` map.
+ */
+val CommitteeRole.rank: Int
+    get() =
+        when (this) {
+            CommitteeRole.CHAIR -> 0
+            CommitteeRole.DEPUTY_CHAIR -> 1
+            CommitteeRole.GENERAL_SECRETARY -> 2
+            CommitteeRole.MANAGING_DIRECTOR -> 3
+            CommitteeRole.SECRETARY -> 4
+            CommitteeRole.PRESS_SPOKESPERSON -> 5
+            CommitteeRole.ASSESSOR -> 6
+            CommitteeRole.MEMBER -> 7
+        }
+
+/**
+ * Mirrors `GovernanceAuthorization.canManageCommittee`'s role set -- CHAIR/DEPUTY_CHAIR-equivalent
+ * leadership. [CommitteeRole.GENERAL_SECRETARY] joins this tier (operative leadership alongside the
+ * chair, CDU/FDP/SPD-style Generalsekretär precedent) -- [CommitteeRole.MANAGING_DIRECTOR] does
+ * NOT (operative §26 BGB representation power, but not sitting-leadership/Beschlussfeststellung
+ * authority).
+ */
+val COMMITTEE_LEADERSHIP_ROLES: Set<CommitteeRole> =
+    setOf(CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.GENERAL_SECRETARY)
+
+/**
+ * Mirrors `GovernanceAuthorization.canRecordForMeeting`'s role set -- [COMMITTEE_LEADERSHIP_ROLES]
+ * plus [CommitteeRole.SECRETARY] and, new in this wave, [CommitteeRole.MANAGING_DIRECTOR] (Schrift-
+ * führer-equivalent recording/attendance authority, not full sitting-leadership).
+ */
+val COMMITTEE_RECORDING_ROLES: Set<CommitteeRole> =
+    COMMITTEE_LEADERSHIP_ROLES + setOf(CommitteeRole.SECRETARY, CommitteeRole.MANAGING_DIRECTOR)
+
+/**
+ * [CommitteeRole]s that can only be held by one member at a time -- named seats, as opposed to
+ * MEMBER/ASSESSOR which are ordinary board seats several people hold concurrently. All three new
+ * roles from this wave are single-holder seats too, including [CommitteeRole.PRESS_SPOKESPERSON]
+ * (unprivileged, but still an individual office -- no Verein/Partei seats two Pressesprecher at
+ * once). Single source for the server-side `BoardMembershipEvents` displaced-incumbent check and its
+ * client-side, purely-informational mirror in `BoardMembershipScreen`.
+ */
+val SINGLE_HOLDER_COMMITTEE_ROLES: Set<CommitteeRole> =
+    setOf(
+        CommitteeRole.CHAIR,
+        CommitteeRole.DEPUTY_CHAIR,
+        CommitteeRole.SECRETARY,
+        CommitteeRole.GENERAL_SECRETARY,
+        CommitteeRole.PRESS_SPOKESPERSON,
+        CommitteeRole.MANAGING_DIRECTOR,
+    )
 
 @Serializable
 enum class MeetingFormat { IN_PERSON, ONLINE, HYBRID }

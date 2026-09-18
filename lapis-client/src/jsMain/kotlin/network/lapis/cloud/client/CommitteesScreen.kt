@@ -29,6 +29,7 @@ import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMemberService
 import kotlin.time.Clock
@@ -377,7 +378,7 @@ private fun renderAddCommitteeMemberForm(
     onAdded: () -> Unit,
 ) {
     panel.p(tr("Mitglied hinzufügen")) { addCssClass("fw-bold") }
-    val roleOptions = CommitteeRole.entries.map { it.name to committeeRoleLabel(it) }
+    val roleOptions = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
     val memberSelect = panel.select(options = emptyList(), label = tr("Mitglied"))
     val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = tr("Rolle"))
     val sinceInput = panel.text(value = todayIso(), label = tr("Seit (JJJJ-MM-TT)"))
@@ -467,6 +468,9 @@ fun committeeRoleLabel(role: CommitteeRole): String =
         CommitteeRole.SECRETARY -> gettext("Schriftführung")
         CommitteeRole.MEMBER -> gettext("Mitglied")
         CommitteeRole.ASSESSOR -> gettext("Beisitz")
+        CommitteeRole.GENERAL_SECRETARY -> gettext("Generalsekretariat")
+        CommitteeRole.PRESS_SPOKESPERSON -> gettext("Pressesprecher")
+        CommitteeRole.MANAGING_DIRECTOR -> gettext("Geschäftsführung")
     }
 
 fun committeeRoleColor(role: CommitteeRole): String =
@@ -476,4 +480,7 @@ fun committeeRoleColor(role: CommitteeRole): String =
         CommitteeRole.SECRETARY -> "dark"
         CommitteeRole.MEMBER -> "secondary"
         CommitteeRole.ASSESSOR -> "info"
+        CommitteeRole.GENERAL_SECRETARY -> "primary"
+        CommitteeRole.PRESS_SPOKESPERSON -> "secondary"
+        CommitteeRole.MANAGING_DIRECTOR -> "dark"
     }

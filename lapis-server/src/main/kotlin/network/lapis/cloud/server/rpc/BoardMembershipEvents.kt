@@ -12,6 +12,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BoardChangeType
 import network.lapis.cloud.shared.domain.BoardMembershipSnapshot
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.SINGLE_HOLDER_COMMITTEE_ROLES
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.and
@@ -22,14 +23,6 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
-
-/**
- * [CommitteeRole]s that can only be held by one member at a time -- CHAIR/DEPUTY_CHAIR/SECRETARY
- * are named seats; MEMBER/ASSESSOR are ordinary board seats several people hold concurrently.
- * [recordBoardJoin] uses this to detect a "displaced incumbent" (a contested election unseating a
- * sitting CHAIR, e.g.) -- see that function's KDoc.
- */
-private val SINGLE_HOLDER_COMMITTEE_ROLES = setOf(CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
 
 /**
  * V0.5.2 §20 GwG Transparenzregister beneficial-owner event recording -- the single place
@@ -55,8 +48,9 @@ object BoardMembershipEvents {
      * choice is enough to prompt the manual register update on a role change.
      *
      * Displaced-incumbent handling: [role] may be a [SINGLE_HOLDER_COMMITTEE_ROLES] seat
-     * (CHAIR/DEPUTY_CHAIR/SECRETARY), which by definition can only be held by one member at a
-     * time. If some OTHER member currently holds an open [BoardMembershipTable] row for that same
+     * (CHAIR/DEPUTY_CHAIR/SECRETARY/GENERAL_SECRETARY/PRESS_SPOKESPERSON/MANAGING_DIRECTOR), which
+     * by definition can only be held by one member at a time. If some OTHER member currently holds
+     * an open [BoardMembershipTable] row for that same
      * [role] (a contested election unseating a sitting incumbent, e.g. `targetRole = CHAIR` and
      * `winner != incumbent`), that row is closed too and a `LEFT` reminder is emitted for it --
      * this genuinely is the other half of the Vorstandsaenderung, and without it the departed

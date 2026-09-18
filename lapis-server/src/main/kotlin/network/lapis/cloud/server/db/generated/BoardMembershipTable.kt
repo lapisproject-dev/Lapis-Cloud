@@ -11,7 +11,7 @@ import org.jetbrains.exposed.v1.datetime.date
 
 public object BoardMembershipTable : Table("board_membership") {
     public val id: Column<Uuid> = uuid("id")
-    public val committeeRole: Column<CommitteeRole> = enumerationByName<CommitteeRole>("committee_role", 12)
+    public val committeeRole: Column<CommitteeRole> = enumerationByName<CommitteeRole>("committee_role", 20)
     public val startedAt: Column<LocalDate> = date("started_at")
     public val endedAt: Column<LocalDate?> = date("ended_at").nullable()
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)

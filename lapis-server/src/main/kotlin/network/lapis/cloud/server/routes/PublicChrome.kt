@@ -133,6 +133,10 @@ internal data class PublicUiStrings(
     val committeeRoleSecretary: String,
     val committeeRoleAssessor: String,
     val committeeRoleMember: String,
+    /** "committee-role-titles" wave -- three additional Vorstand titles. */
+    val committeeRoleGeneralSecretary: String,
+    val committeeRolePressSpokesperson: String,
+    val committeeRoleManagingDirector: String,
 )
 
 internal object PublicChrome {
@@ -197,6 +201,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Schriftführung",
                     committeeRoleAssessor = "Beisitz",
                     committeeRoleMember = "Mitglied",
+                    committeeRoleGeneralSecretary = "Generalsekretariat",
+                    committeeRolePressSpokesperson = "Pressesprecher",
+                    committeeRoleManagingDirector = "Geschäftsführung",
                 ),
             PublicLanguage.EN to
                 PublicUiStrings(
@@ -239,6 +246,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Secretary",
                     committeeRoleAssessor = "Assessor",
                     committeeRoleMember = "Member",
+                    committeeRoleGeneralSecretary = "General Secretary",
+                    committeeRolePressSpokesperson = "Press Spokesperson",
+                    committeeRoleManagingDirector = "Managing Director",
                 ),
             PublicLanguage.FR to
                 PublicUiStrings(
@@ -281,6 +291,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Secrétariat",
                     committeeRoleAssessor = "Assesseur",
                     committeeRoleMember = "Membre",
+                    committeeRoleGeneralSecretary = "Secrétariat général",
+                    committeeRolePressSpokesperson = "Porte-parole",
+                    committeeRoleManagingDirector = "Direction générale",
                 ),
             PublicLanguage.ES to
                 PublicUiStrings(
@@ -323,6 +336,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Secretaría",
                     committeeRoleAssessor = "Vocalía",
                     committeeRoleMember = "Miembro",
+                    committeeRoleGeneralSecretary = "Secretaría General",
+                    committeeRolePressSpokesperson = "Portavoz",
+                    committeeRoleManagingDirector = "Dirección Gerencial",
                 ),
             PublicLanguage.IT to
                 PublicUiStrings(
@@ -365,6 +381,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Segreteria",
                     committeeRoleAssessor = "Assessorato",
                     committeeRoleMember = "Membro",
+                    committeeRoleGeneralSecretary = "Segreteria Generale",
+                    committeeRolePressSpokesperson = "Portavoce",
+                    committeeRoleManagingDirector = "Direzione Generale",
                 ),
             PublicLanguage.NL to
                 PublicUiStrings(
@@ -407,6 +426,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Secretariaat",
                     committeeRoleAssessor = "Bijzitter",
                     committeeRoleMember = "Lid",
+                    committeeRoleGeneralSecretary = "Secretaris-generaal",
+                    committeeRolePressSpokesperson = "Woordvoerder",
+                    committeeRoleManagingDirector = "Directie",
                 ),
             PublicLanguage.PL to
                 PublicUiStrings(
@@ -449,6 +471,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Sekretariat",
                     committeeRoleAssessor = "Członek zwyczajny",
                     committeeRoleMember = "Członek",
+                    committeeRoleGeneralSecretary = "Sekretariat Generalny",
+                    committeeRolePressSpokesperson = "Rzecznik prasowy",
+                    committeeRoleManagingDirector = "Dyrekcja Zarządzająca",
                 ),
             PublicLanguage.RU to
                 PublicUiStrings(
@@ -491,6 +516,9 @@ internal object PublicChrome {
                     committeeRoleSecretary = "Секретариат",
                     committeeRoleAssessor = "Заседатель",
                     committeeRoleMember = "Участник",
+                    committeeRoleGeneralSecretary = "Генеральный секретариат",
+                    committeeRolePressSpokesperson = "Пресс-секретарь",
+                    committeeRoleManagingDirector = "Исполнительное руководство",
                 ),
         )
 

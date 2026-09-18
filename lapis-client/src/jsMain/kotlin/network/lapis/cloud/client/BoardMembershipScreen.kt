@@ -27,8 +27,10 @@ import network.lapis.cloud.shared.domain.BoardMembershipDto
 import network.lapis.cloud.shared.domain.BoardMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.SINGLE_HOLDER_COMMITTEE_ROLES
 import network.lapis.cloud.shared.domain.TransparenzregisterReminderDto
 import network.lapis.cloud.shared.domain.TransparenzregisterReportDto
+import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.IMemberService
 import kotlin.time.Clock
@@ -100,7 +102,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
                 return@launch
             }
             board
-                .sortedWith(compareBy({ it.committeeRole.ordinal }, { it.memberDisplayName }))
+                .sortedWith(compareBy({ it.committeeRole.rank }, { it.memberDisplayName }))
                 .forEach { membership -> renderBoardRow(rosterPanel, membership, ::refreshAll) }
         }
     }
@@ -250,7 +252,7 @@ private fun renderAppointmentForm(
     onAppointed: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val roleOptions = CommitteeRole.entries.map { it.name to committeeRoleLabel(it) }
+    val roleOptions = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
     val memberSelect = panel.select(options = emptyList(), label = tr("Mitglied"))
     val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = tr("Rolle"))
     val startedAtInput = panel.text(value = todayIso(), label = tr("Seit (JJJJ-MM-TT)"))
@@ -308,13 +310,6 @@ private fun renderAppointmentForm(
         }
     }
 }
-
-/** [CommitteeRole]s that can only be held by one member at a time -- mirrors the server-side
- * `SINGLE_HOLDER_COMMITTEE_ROLES` set in `BoardMembershipEvents.kt` exactly (CHAIR/DEPUTY_CHAIR/
- * SECRETARY are named seats; MEMBER/ASSESSOR are ordinary board seats several people hold
- * concurrently). This client-side copy is purely informational (see [renderAppointmentForm] KDoc) --
- * the server is the actual enforcement point regardless of what this screen shows beforehand. */
-private val SINGLE_HOLDER_COMMITTEE_ROLES = setOf(CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
 
 /** Pure predicate covered by [BoardMembershipScreenTest] -- returns the currently active holder of
  * [role] (a different member than [targetMemberId]) if [role] is a single-holder seat and one is

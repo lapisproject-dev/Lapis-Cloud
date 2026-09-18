@@ -271,6 +271,9 @@ internal object PublicTransparencyHtml {
             CommitteeRole.SECRETARY -> strings.committeeRoleSecretary
             CommitteeRole.ASSESSOR -> strings.committeeRoleAssessor
             CommitteeRole.MEMBER -> strings.committeeRoleMember
+            CommitteeRole.GENERAL_SECRETARY -> strings.committeeRoleGeneralSecretary
+            CommitteeRole.PRESS_SPOKESPERSON -> strings.committeeRolePressSpokesperson
+            CommitteeRole.MANAGING_DIRECTOR -> strings.committeeRoleManagingDirector
         }
 
     private fun PublicPostView.excerptTitleForTeaser(): String {

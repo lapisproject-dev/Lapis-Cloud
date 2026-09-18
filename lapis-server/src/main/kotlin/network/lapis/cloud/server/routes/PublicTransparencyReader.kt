@@ -20,6 +20,7 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PublicRankingKind
+import network.lapis.cloud.shared.domain.rank
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -78,15 +79,6 @@ internal data class PublicTransparencyStats(
  * depends on this, same contract [SocialPublicHtml] KDoc point 4 establishes for `/s`.
  */
 internal object PublicTransparencyReader {
-    private val boardRolePriority: Map<CommitteeRole, Int> =
-        mapOf(
-            CommitteeRole.CHAIR to 0,
-            CommitteeRole.DEPUTY_CHAIR to 1,
-            CommitteeRole.SECRETARY to 2,
-            CommitteeRole.ASSESSOR to 3,
-            CommitteeRole.MEMBER to 4,
-        )
-
     /**
      * *Insgesamt ausgegebene LTR* sums ONLY [LtrLedgerEntryType.MINT] rows -- deliberately NOT
      * `SUM(amount_ltr)` over every entry type. A full-table sum would be the CURRENT free-balance
@@ -140,7 +132,7 @@ internal object PublicTransparencyReader {
                 }.toList()
         return rows
             .sortedWith(
-                compareBy<ResultRow> { boardRolePriority.getValue(it[CommitteeMembershipTable.role]) }
+                compareBy<ResultRow> { it[CommitteeMembershipTable.role].rank }
                     .thenBy { it[CommitteeMembershipTable.since] }
                     .thenBy { it[MemberTable.id].toString() },
             ).map { row ->

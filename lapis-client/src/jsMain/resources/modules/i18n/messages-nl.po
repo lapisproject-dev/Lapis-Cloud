@@ -11180,3 +11180,16 @@ msgstr "1x gedownload"
 #: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:60
 msgid "%1x heruntergeladen"
 msgstr "%1x gedownload"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:471
+msgid "Generalsekretariat"
+msgstr "Secretaris-generaal"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:472
+msgid "Pressesprecher"
+msgstr "Woordvoerder"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:473
+msgid "Geschäftsführung"
+msgstr "Directie"
+

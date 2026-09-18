@@ -97,7 +97,17 @@ class TransparenzregisterSchemaDriftTest :
             committeeRole?.type shouldBe
                 ErmDataType.Enum(
                     name = "CommitteeRole",
-                    values = listOf("CHAIR", "DEPUTY_CHAIR", "SECRETARY", "MEMBER", "ASSESSOR"),
+                    values =
+                        listOf(
+                            "CHAIR",
+                            "DEPUTY_CHAIR",
+                            "SECRETARY",
+                            "MEMBER",
+                            "ASSESSOR",
+                            "GENERAL_SECRETARY",
+                            "PRESS_SPOKESPERSON",
+                            "MANAGING_DIRECTOR",
+                        ),
                     externalFqName = "network.lapis.cloud.shared.domain.CommitteeRole",
                 )
         }
@@ -107,7 +117,17 @@ class TransparenzregisterSchemaDriftTest :
             entity.attributeByName("committee_role")?.type shouldBe
                 ErmDataType.Enum(
                     name = "CommitteeRole",
-                    values = listOf("CHAIR", "DEPUTY_CHAIR", "SECRETARY", "MEMBER", "ASSESSOR"),
+                    values =
+                        listOf(
+                            "CHAIR",
+                            "DEPUTY_CHAIR",
+                            "SECRETARY",
+                            "MEMBER",
+                            "ASSESSOR",
+                            "GENERAL_SECRETARY",
+                            "PRESS_SPOKESPERSON",
+                            "MANAGING_DIRECTOR",
+                        ),
                     externalFqName = "network.lapis.cloud.shared.domain.CommitteeRole",
                 )
             entity.attributeByName("change_type")?.type shouldBe

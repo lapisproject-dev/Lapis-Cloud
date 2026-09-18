@@ -428,7 +428,17 @@ class ElectionSchemaDriftTest :
             entity.attributeByName("target_role")?.type shouldBe
                 ErmDataType.Enum(
                     name = "CommitteeRole",
-                    values = listOf("CHAIR", "DEPUTY_CHAIR", "SECRETARY", "MEMBER", "ASSESSOR"),
+                    values =
+                        listOf(
+                            "CHAIR",
+                            "DEPUTY_CHAIR",
+                            "SECRETARY",
+                            "MEMBER",
+                            "ASSESSOR",
+                            "GENERAL_SECRETARY",
+                            "PRESS_SPOKESPERSON",
+                            "MANAGING_DIRECTOR",
+                        ),
                     externalFqName = "network.lapis.cloud.shared.domain.CommitteeRole",
                 )
         }

@@ -50,8 +50,10 @@
 // transparenzregister_reminder.committee_role/change_type, all modelled with only a
 // «Column».enumType tag and no «Column».sqlType override (post-87563ff convention, see
 // 06-vote.kuml.kts/07-election.kuml.kts's own current attribute shape) -- the generator derives the
-// VARCHAR width from the longest enum literal: CommitteeRole's longest literal (DEPUTY_CHAIR) is 12
-// characters, BoardChangeType's longest literal (JOINED) is 6 characters.
+// VARCHAR width from the longest enum literal: CommitteeRole's longest literal
+// (PRESS_SPOKESPERSON) is 18 characters (VARCHAR(20) chosen with a small buffer, matching the
+// other three CommitteeRole columns in this codebase -- see committee_membership.role/
+// election.target_role), BoardChangeType's longest literal (JOINED) is 6 characters.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -79,6 +81,9 @@ classDiagram(name = "Transparenzregister") {
         literal(name = "SECRETARY")
         literal(name = "MEMBER")
         literal(name = "ASSESSOR")
+        literal(name = "GENERAL_SECRETARY")
+        literal(name = "PRESS_SPOKESPERSON")
+        literal(name = "MANAGING_DIRECTOR")
     }
 
     val boardChangeType = enumOf(name = "BoardChangeType") {

@@ -10137,3 +10137,16 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/FileDisplay.kt:60
 msgid "%1x heruntergeladen"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:471
+msgid "Generalsekretariat"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:472
+msgid "Pressesprecher"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:473
+msgid "Geschäftsführung"
+msgstr ""
+

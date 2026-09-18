@@ -167,6 +167,9 @@ classDiagram(name = "Election") {
         literal(name = "SECRETARY")
         literal(name = "MEMBER")
         literal(name = "ASSESSOR")
+        literal(name = "GENERAL_SECRETARY")
+        literal(name = "PRESS_SPOKESPERSON")
+        literal(name = "MANAGING_DIRECTOR")
     }
 
     val election = classOf(name = "Election") {

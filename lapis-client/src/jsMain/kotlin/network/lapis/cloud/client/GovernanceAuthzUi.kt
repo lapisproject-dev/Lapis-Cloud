@@ -1,7 +1,7 @@
 package network.lapis.cloud.client
 
+import network.lapis.cloud.shared.domain.COMMITTEE_RECORDING_ROLES
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
-import network.lapis.cloud.shared.domain.CommitteeRole
 
 /**
  * Governance UI wave -- pure, DOM-free client-side mirror of
@@ -26,8 +26,6 @@ import network.lapis.cloud.shared.domain.CommitteeRole
  * than being duplicated per screen.
  */
 object GovernanceAuthzUi {
-    private val LEADERSHIP_ROLES = setOf(CommitteeRole.CHAIR, CommitteeRole.DEPUTY_CHAIR, CommitteeRole.SECRETARY)
-
     /**
      * Mirrors `GovernanceAuthorization.canRecordForMeeting(committeeId): Boolean =
      * isPrivileged || hasCommitteeRole(committeeId, CHAIR, DEPUTY_CHAIR, SECRETARY)`.
@@ -45,7 +43,7 @@ object GovernanceAuthzUi {
     ): Boolean {
         if (isBoardOrAdmin) return true
         return activeCommitteeMemberships.any {
-            it.committeeId == committeeId && it.memberId == currentMemberId && it.role in LEADERSHIP_ROLES
+            it.committeeId == committeeId && it.memberId == currentMemberId && it.role in COMMITTEE_RECORDING_ROLES
         }
     }
 }

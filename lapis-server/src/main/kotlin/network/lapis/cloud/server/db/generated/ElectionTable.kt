@@ -18,7 +18,7 @@ public object ElectionTable : Table("election") {
     public val secret: Column<Boolean> = bool("secret")
     public val seatCount: Column<Int> = integer("seat_count")
     public val targetCommitteeId: Column<Uuid?> = optReference("target_committee_id", CommitteeTable.id)
-    public val targetRole: Column<CommitteeRole?> = enumerationByName<CommitteeRole>("target_role", 12).nullable()
+    public val targetRole: Column<CommitteeRole?> = enumerationByName<CommitteeRole>("target_role", 20).nullable()
     public val requiredMajorityPercent: Column<Int> = integer("required_majority_percent")
     public val status: Column<ElectionStatus> = enumerationByName<ElectionStatus>("status", 23)
     public val openedBy: Column<Uuid> = reference("opened_by", MemberTable.id)

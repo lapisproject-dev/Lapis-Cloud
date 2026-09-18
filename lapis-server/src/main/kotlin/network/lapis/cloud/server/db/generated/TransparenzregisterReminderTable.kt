@@ -13,7 +13,7 @@ import org.jetbrains.exposed.v1.datetime.datetime
 public object TransparenzregisterReminderTable : Table("transparenzregister_reminder") {
     public val id: Column<Uuid> = uuid("id")
     public val triggeredAt: Column<LocalDateTime> = datetime("triggered_at")
-    public val committeeRole: Column<CommitteeRole> = enumerationByName<CommitteeRole>("committee_role", 12)
+    public val committeeRole: Column<CommitteeRole> = enumerationByName<CommitteeRole>("committee_role", 20)
     public val changeType: Column<BoardChangeType> = enumerationByName<BoardChangeType>("change_type", 6)
     public val resolved: Column<Boolean> = bool("resolved")
     public val resolvedAt: Column<LocalDateTime?> = datetime("resolved_at").nullable()

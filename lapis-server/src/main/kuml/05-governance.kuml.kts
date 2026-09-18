@@ -131,6 +131,9 @@ classDiagram(name = "Governance") {
         literal(name = "SECRETARY")
         literal(name = "MEMBER")
         literal(name = "ASSESSOR")
+        literal(name = "GENERAL_SECRETARY")
+        literal(name = "PRESS_SPOKESPERSON")
+        literal(name = "MANAGING_DIRECTOR")
     }
 
     val meetingsFormat = enumOf(name = "MeetingFormat") {
