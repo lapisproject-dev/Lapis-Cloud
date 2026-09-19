@@ -63,6 +63,13 @@ internal class AiConfig private constructor(
         const val ENV_MAX_OUTPUT_TOKENS = "LAPIS_AI_MAX_OUTPUT_TOKENS"
         const val ENV_REQUEST_TIMEOUT_MS = "LAPIS_AI_REQUEST_TIMEOUT_MS"
         const val ENV_MAX_RESPONSE_BYTES = "LAPIS_AI_MAX_RESPONSE_BYTES"
+
+        /**
+         * REMOVED (security audit 2026-09-19, MAJOR M-1): this variable used to pre-consent every member
+         * without any consent record (Art. 7 DSGVO evidence gap). It is deliberately no longer read --
+         * setting it has no effect and only produces a startup warning; consent is a member's own,
+         * recorded action. Kept as a constant so the warning can name it.
+         */
         const val ENV_MEMBER_OPT_IN_DEFAULT = "LAPIS_AI_MEMBER_OPT_IN_DEFAULT"
 
         const val DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com"
@@ -128,7 +135,9 @@ internal class AiConfig private constructor(
             val maxOutput = intVar(ENV_MAX_OUTPUT_TOKENS, DEFAULT_MAX_OUTPUT_TOKENS, 64..4_096)
             val requestTimeout = longVar(ENV_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS, 1_000L..300_000L)
             val maxResponse = intVar(ENV_MAX_RESPONSE_BYTES, DEFAULT_MAX_RESPONSE_BYTES, 4_096..4 * 1024 * 1024)
-            val optInDefault = env(ENV_MEMBER_OPT_IN_DEFAULT)?.trim().equals("true", ignoreCase = true)
+            // Ignored on purpose, see ENV_MEMBER_OPT_IN_DEFAULT. A set variable is reported, never honoured.
+            if (!env(ENV_MEMBER_OPT_IN_DEFAULT).isNullOrBlank()) invalid.add(ENV_MEMBER_OPT_IN_DEFAULT)
+            val optInDefault = false
 
             return AiConfig(
                 enabled = true,

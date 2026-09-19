@@ -134,6 +134,13 @@ class AiConfigTest :
             config.memberOptInDefault shouldBe false
         }
 
+        test("the removed member opt-in default variable is never honoured, only reported") {
+            val config = operational(AiConfig.ENV_MEMBER_OPT_IN_DEFAULT to "true")
+            config.memberOptInDefault shouldBe false
+            config.invalid shouldContain AiConfig.ENV_MEMBER_OPT_IN_DEFAULT
+            config.isOperational shouldBe true
+        }
+
         test("a control character in the API key or model rejects the value") {
             val config = operational(AiConfig.ENV_API_KEY to "sk-abc\ndef")
             config.isOperational shouldBe false

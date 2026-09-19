@@ -1028,7 +1028,7 @@ provider first (`deploy/production/README.adoc`, section "AI assistance").
 | `LAPIS_AI_ALLOW_PLAINTEXT_BASE_URL` | `true` allows plain HTTP for **loopback only** (a local Ollama). Default off.
 | `LAPIS_AI_TOP_K`, `LAPIS_AI_MAX_OUTPUT_TOKENS`, `LAPIS_AI_REQUEST_TIMEOUT_MS`, `LAPIS_AI_MAX_RESPONSE_BYTES` | Tuning; invalid values fall back to the default and are named in the startup log.
 | `LAPIS_AI_RATE_PER_MEMBER_HOUR`, `LAPIS_AI_RATE_PER_SERVER_DAY` | Question limits (default 10 per member and hour, 200 per server and day).
-| `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` | `true` pre-consents every member. Default off; the design decision is that consent is an active choice.
+| `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` | **Removed** (security audit): no longer read. Consent is always the member's own, recorded action; there is no server-wide pre-consent.
 |===
 
 === Own minimal client, not Koog

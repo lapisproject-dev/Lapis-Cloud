@@ -285,8 +285,18 @@ class MemberFamilyService(
         current.requireRole(*FAMILY_ROLES)
         val linkUuid = linkId.toUuidOrNotFound("MemberFamilyLink")
         return transaction {
+            // Lock order fix (2026-09-19): this read must take the link row lock FIRST (`.forUpdate()`),
+            // exactly like `changePayer` does, and only then the account-row lock in `currentAccountRole`
+            // below. Before, this method locked account -> link while `changePayer` locked link -> account,
+            // an inverted lock order that let the two deadlock under a real race (H2 lock timeout / Postgres
+            // 40P01 -> HTTP 500, seen as a sporadic failure of `MemberFamilyServiceTest` "changePayer racing
+            // removeFamilyMember").
             val row =
-                MemberFamilyLinkTable.selectAll().where { MemberFamilyLinkTable.id eq linkUuid }.singleOrNull()
+                MemberFamilyLinkTable
+                    .selectAll()
+                    .where { MemberFamilyLinkTable.id eq linkUuid }
+                    .forUpdate()
+                    .singleOrNull()
                     ?: throw NotFoundException("MemberFamilyLink $linkId not found")
             val familyUuid = row[MemberFamilyLinkTable.familyId]
             val targetMemberId = row[MemberFamilyLinkTable.memberId]

@@ -13,8 +13,9 @@ import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
- * Per-member, per-feature consent. **No row means "not opted in"** unless the operator flipped
- * `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` (default `false`). The opt-in is the member's own decision:
+ * Per-member, per-feature consent. **No row means "not opted in"**, always: there is no server-wide
+ * pre-consent (the former `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` switch was removed, it produced consent
+ * without a consent record). The opt-in is the member's own decision:
  * only [set] with the caller's own member id is ever reachable from the RPC layer.
  */
 internal object AiMemberOptInStore {

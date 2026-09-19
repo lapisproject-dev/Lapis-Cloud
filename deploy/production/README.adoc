@@ -651,8 +651,8 @@ other HTTPS host works when configured explicitly; it draws an INFO hint in the 
   of the DSGVO-compliance screen.
 * Check that the provider **does not train on API data** and where it processes it (EU hosting).
 * **Member opt-in is the precondition**: every member decides for themselves on the screen; there is
-  no server-wide consent. Do not enable `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` without a legal basis for
-  pre-consent.
+  no server-wide consent. The former `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` switch was removed (it produced
+  "consent" without a consent record); setting it has no effect and is only reported in the startup log.
 * Mention the processing in your privacy policy. `/datenschutz` renders a paragraph on it
   automatically, but only when the feature is on -- review that text and your own additions.
 * Only documents at access level `PUBLIC_MEMBERS` can be released to the knowledge base by BOARD/ADMIN

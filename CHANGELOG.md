@@ -8,6 +8,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- **Family: `removeFamilyMember` vs `changePayer` lock-order deadlock fixed** -- `removeFamilyMember` took the
+  account-row lock before the link-row lock while `changePayer` takes them in the opposite order, so a real
+  race between the two could deadlock (H2 lock timeout / Postgres `40P01`) and surface as an HTTP 500. It
+  showed up as a sporadic failure of `MemberFamilyServiceTest` ("changePayer racing removeFamilyMember").
+  `removeFamilyMember` now locks the link row first (`.forUpdate()`), matching `changePayer`.
+- **AI assistant: `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` removed** -- audit finding (MAJOR): the variable pre-consented
+  every member without any consent record (Art. 7 DSGVO evidence gap). It is no longer read; a set value is only
+  named in the startup log and never honoured. Consent is always the member's own, recorded action.
 - **Mobile WebView session bridge is now opt-in (default OFF)** -- an independent security audit
   of the V1.5.2 mobile wave found a MAJOR login-CSRF / session-fixation weakness in the (already
   deployed since `v0.21.0`) bridge routes `GET /api/mobile/v1/conference/rooms/{roomId}/webview-session`:
