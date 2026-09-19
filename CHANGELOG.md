@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-09-19
+
 ### Security
 
 - **AI assistant: disabled route answers a typed error instead of HTTP 500** -- with the AI layer off, the Kilua RPC
@@ -52,33 +54,49 @@ All notable changes to this project are documented here. Format follows
     generic text.
   - `roomId` is checked against a character allowlist before it reaches the `Location` header.
   - The kill switch default stays **OFF**; `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED` is still not passed
-    through by any compose file. `SameSite=Strict` on the 302 hop should be verified on real Android
-    and iOS devices before the switch is turned on.
-  - **Open follow-up (companion app, `Lapis-Cloud-Mobile`)**: the app still sends `?token=` and never
-    the header (`LapisApiClient.webviewSessionUrl`/`webviewSectionUrl`, Android `loadUrl(url)`, iOS
-    `NSURLRequest`) and its capability probe sends no `Authorization` header. Until the app is
-    switched to the header contract, `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED=true` breaks every
-    section tile and conference join (401) -- keep the switch OFF until then.
-
-### Fixed
-
-- **Conference: on narrow screens the participants list no longer hides the video** -- below 768 px the roster is a
-  full-screen `position: fixed` bottom sheet (`theme.css`), but it started OPEN like on desktop, so on a phone the
-  call opened as a mostly empty white page with the participants list on top and the video tiles hidden behind it
-  until the participant found the roster button. Found while testing the Android app's video screen on a real
-  phone. `conferenceInitialPanelState(narrowViewport)` now starts the roster closed on narrow viewports (wide
-  screens keep the historical open default); the participants button in the control bar still opens it on
-  demand. Tests: `ConferencePanelStateTest`.
-- **Client: 50 screen roots no longer overflow narrow viewports** -- almost every screen root carried a fixed
-  `width = 640/720/800/860/900/960.px`, which stays fixed on a phone and pushes inputs, buttons and cards out of
-  the right edge (found while testing the Android app's WebView on a real device: Dashboard, Dokumente and more).
-  The design-team decision of 2026-09-18 (`DataScreenLayout.kt`: "`width` statt `maxWidth` ist nicht responsiv")
-  had only been applied to seven table screens. The remaining 50 roots in 49 screens now use the same pattern:
-  `maxWidth = N.px` plus `w-100 px-3`. Unchanged on wide screens; on narrow screens the content shrinks with a
-  16 px gutter. Small fixed widths of filter inputs/table columns (110-260 px) stay. Verified on a Nokia 9
-  (Dashboard, Dokumente, Kontenplan).
+    through by any compose file. `SameSite=Strict` on the 302 hop was accepted on a real Android phone (see below) and
+    still has to be verified on iOS devices before the switch is turned on.
+  - **Companion app (`Lapis-Cloud-Mobile`, `1dfd901`)**: the app now sends the token in the `Authorization`
+    header for every bridge entry (never in a URL, only to the locked instance origin) and its capability
+    probe sends the header too. Verified on a real Android phone against a local demo server (probe `400`,
+    `302` to the dashboard, `SameSite=Strict` cookie accepted, dashboard/documents/video load); the iOS code builds
+    and its unit tests pass in CI on a simulator, but the app has not been run on an iOS device or simulator. Apps
+    built before V1.5.2 still send `?token=` and no longer work against a server
+    with the bridge switched on.
 
 ### Added
+
+**Digital membership card (PDF) -- V1.4.19 backlog item, decision 2026-09-18: PDF only, no Apple/Google Wallet, no photo**
+
+- **Added**: member numbers in the format `M-<join year>-<5 digits>` (`member.member_number`), assigned lazily under a row
+  lock from a sequence table (`member_number_sequence`, no `MAX()+1` race) -- Flyway `V43`.
+- **Added**: forgery-resistant bearer code for the card's QR (`member_card_code`, SHA-256 hash only, never plaintext),
+  modeled on `EventTicketCode`: Crockford Base32, 80 bit, rotates on every reissue.
+- **Added**: single-page ID-1 PDF (85.6 x 54 mm) with an embedded Unicode font (DejaVu Sans) so Georgian and Cyrillic
+  names render correctly instead of turning into `?` (the ASCII-only sanitizer of the letter PDFs would have); download
+  route for the member themselves or BOARD/ADMIN, public verification route for the QR code (rate-limited), dashboard
+  download button.
+- **Security**: a DSGVO-anonymized member (Art. 17) can no longer be issued a card or a fresh member number (the erasure
+  keeps `status = ACTIVE`, which the first version overlooked); the erasure contributor hard-deletes the code row and
+  nulls the member number; the public code lookup no longer allocates a number as a side effect (DoS).
+
+**Additional Vorstand titles: `GENERAL_SECRETARY`, `PRESS_SPOKESPERSON`, `MANAGING_DIRECTOR` -- Flyway `V42`**
+
+- **Added**: three more committee roles besides `CHAIR`/`DEPUTY_CHAIR`/`SECRETARY`/`ASSESSOR`/`MEMBER`. Titles only, no
+  new system-wide permissions: `GENERAL_SECRETARY` joins the leadership tier (`canManageCommittee`), `MANAGING_DIRECTOR`
+  the recording/attendance tier only (a general agency is not a meeting chair, section 26 BGB), `PRESS_SPOKESPERSON`
+  carries no additional rights. `CommitteeRole` stays a fixed enum (adding a role is a code change plus release);
+  persistence is by name, a display rank keeps the UI order independent of the declaration order. The public
+  transparency page (its own 8-language table) was synchronized.
+
+**Documents screen: icons, file sizes, download counter, folder counts, search -- Flyway `V40`**
+
+- **Added**: icons per file type and human-readable file sizes instead of raw byte counts.
+- **Added**: download counter per document version (`download_count`; range requests are not counted repeatedly) and
+  the number of documents per folder.
+- **Added**: client-side search/filter field for the documents of a folder.
+
+**Optional AI assistance: foundation and statute Q&A pilot (V1.6.1) -- default OFF**
 
 - **V1.6.1 -- Optional AI assistance: foundation and statute Q&A pilot ("Fragen zur Satzung"), default OFF.**
   A member can ask a question about the statutes and gets a short summary plus one to three verified
@@ -253,7 +271,33 @@ All notable changes to this project are documented here. Format follows
   siehe V1.4.3.4) -- dieser Screen zeigt wieder nur seine ursprüngliche Aufgabe, die
   Check-in-Event-Auswahl.
 
+### Changed
+
+- **Documents: TREASURER may manage documents** -- production incident (a member whose role changed from BOARD to
+  TREASURER could no longer create folders or upload). The document write gates had required BOARD/ADMIN since the
+  module's first commit; TREASURER now has parity with BOARD (create/upload/delete, read `BOARD_ONLY`) through the
+  existing `ESCALATED_ROLES` set (the global `isPrivileged` property stays untouched). Four review rounds closed real
+  gaps: the upload route now checks the caller's access level and `isDeleted` like every sibling path, and
+  `createDocument` refuses an access level the creator could not read back (no orphaned, invisible `ADMIN_ONLY`
+  documents). The client dropdown offers only the levels the caller's role may create.
+
 ### Fixed
+
+- **Conference: on narrow screens the participants list no longer hides the video** -- below 768 px the roster is a
+  full-screen `position: fixed` bottom sheet (`theme.css`), but it started OPEN like on desktop, so on a phone the
+  call opened as a mostly empty white page with the participants list on top and the video tiles hidden behind it
+  until the participant found the roster button. Found while testing the Android app's video screen on a real
+  phone. `conferenceInitialPanelState(narrowViewport)` now starts the roster closed on narrow viewports (wide
+  screens keep the historical open default); the participants button in the control bar still opens it on
+  demand. Tests: `ConferencePanelStateTest`.
+- **Client: 50 screen roots no longer overflow narrow viewports** -- almost every screen root carried a fixed
+  `width = 640/720/800/860/900/960.px`, which stays fixed on a phone and pushes inputs, buttons and cards out of
+  the right edge (found while testing the Android app's WebView on a real device: Dashboard, Dokumente and more).
+  The design-team decision of 2026-09-18 (`DataScreenLayout.kt`: "`width` statt `maxWidth` ist nicht responsiv")
+  had only been applied to seven table screens. The remaining 50 roots in 49 screens now use the same pattern:
+  `maxWidth = N.px` plus `w-100 px-3`. Unchanged on wide screens; on narrow screens the content shrinks with a
+  16 px gutter. Small fixed widths of filter inputs/table columns (110-260 px) stay. Verified on a Nokia 9
+  (Dashboard, Dokumente, Kontenplan).
 
 **Videokonferenz-Client: Kamerabild friert nach Klick auf "Mehr" nicht mehr ein; leere Geräte-IDs werden nicht mehr angeboten/persistiert (V1.4.19)**
 
