@@ -18,6 +18,32 @@ All notable changes to this project are documented here. Format follows
   (`mobileWebviewBridgeEnabled`, tests in `MobileWebviewBridgeKillSwitchTest`). The compose files do
   not pass the variable through, so PdV, ELB and Staging have the routes switched off (they answer 404).
   The mobile app is not distributed through any store yet, so no end-user flow is affected.
+- **Mobile WebView session bridge authenticates via `Authorization: Bearer` only (V1.5.2 header bridge)** -- both
+  bridge routes no longer read a `?token=` query parameter (or the `lapis_session` cookie) at all, so
+  a crafted link can no longer install an attacker's token as the victim's cookie (login CSRF /
+  session fixation: a browser link cannot set the header) and the 8h token no longer appears in URLs
+  or reverse-proxy access logs. **New app contract (breaking for the companion app)**: the entry
+  navigation carries the header (`WebView.loadUrl(url, additionalHttpHeaders)` /
+  `WKWebView.load(URLRequest)`); the capability probe is a valid header plus
+  `section=__capability_probe__` -> 400 (route present), 401 (header missing/invalid), 404 (bridge
+  switched off).
+  - New generic route `GET /api/mobile/v1/webview-session?section=<key>` with a server-side allowlist
+    (9 keys); an unknown value answers 400 and is never reflected.
+  - The cookie is now `SameSite=Strict` (like the login cookie in `AuthRoutes`), `HttpOnly`,
+    `Secure` per `cookieSecure`, `Path=/`, `Max-Age = SessionStore.SESSION_TTL`.
+  - Own, more generous limiters: a failures-only budget keyed by IP (a success never resets it; no
+    per-token key, because it could never trip before the IP budget and would only add
+    attacker-controlled keys to the limiter map) plus a request-rate guard; all 401s share one
+    generic text.
+  - `roomId` is checked against a character allowlist before it reaches the `Location` header.
+  - The kill switch default stays **OFF**; `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED` is still not passed
+    through by any compose file. `SameSite=Strict` on the 302 hop should be verified on real Android
+    and iOS devices before the switch is turned on.
+  - **Open follow-up (companion app, `Lapis-Cloud-Mobile`)**: the app still sends `?token=` and never
+    the header (`LapisApiClient.webviewSessionUrl`/`webviewSectionUrl`, Android `loadUrl(url)`, iOS
+    `NSURLRequest`) and its capability probe sends no `Authorization` header. Until the app is
+    switched to the header contract, `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED=true` breaks every
+    section tile and conference join (401) -- keep the switch OFF until then.
 
 ### Added
 

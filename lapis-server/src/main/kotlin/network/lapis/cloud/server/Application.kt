@@ -567,11 +567,11 @@ fun Application.module() {
             apiSecret = conferenceConfig.apiSecret,
         )
     val conferenceRoomRateLimiter = LoginRateLimiter()
-    // V1.5.1 Mobile App -- own budget for /api/mobile/v1/conference/rooms/{roomId}/webview-session,
-    // NOT shared with conferenceRoomRateLimiter (createRoom's failure-counting budget) or any of
-    // the FederationInboxRateLimiter request-rate budgets below -- see
-    // MobileWebviewSessionRoutes.kt KDoc.
-    val mobileWebviewSessionRateLimiter = LoginRateLimiter()
+    // V1.5.2 -- own, deliberately GENEROUS budget for the header-authenticated WebView bridge, shared
+    // with neither the login limiter nor conferenceRoomRateLimiter. Failures-only, IP-keyed, and NEVER
+    // reset by a successful call (see MobileWebviewSessionRoutes.kt KDoc "Rate limiting").
+    val mobileWebviewSessionFailureLimiter = LoginRateLimiter(maxFailures = 30, window = 15.minutes)
+    val mobileWebviewSessionRequestLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
     // Audit-round-1 fix (Wave 1): createRoom's own throttle above does NOT cover
     // joinRoom/leaveRoom/listActiveRooms/getRoom/listParticipants -- each of those funnels into a
@@ -1521,7 +1521,8 @@ fun Application.module() {
         if (mobileWebviewBridgeEnabled()) {
             registerMobileWebviewSessionRoutes(
                 cookieSecure = cookieSecure,
-                rateLimiter = mobileWebviewSessionRateLimiter,
+                failureLimiter = mobileWebviewSessionFailureLimiter,
+                requestLimiter = mobileWebviewSessionRequestLimiter,
             )
         }
         registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
