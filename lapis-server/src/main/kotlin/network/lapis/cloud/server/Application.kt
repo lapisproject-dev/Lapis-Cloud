@@ -113,6 +113,7 @@ import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
+import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
@@ -1515,10 +1516,14 @@ fun Application.module() {
             conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
             config = conferenceConfig,
         )
-        registerMobileWebviewSessionRoutes(
-            cookieSecure = cookieSecure,
-            rateLimiter = mobileWebviewSessionRateLimiter,
-        )
+        // Security mitigation 2026-09-19: the WebView session bridge is opt-in (default OFF) until it
+        // is replaced by a single-use ticket -- see mobileWebviewBridgeEnabled KDoc.
+        if (mobileWebviewBridgeEnabled()) {
+            registerMobileWebviewSessionRoutes(
+                cookieSecure = cookieSecure,
+                rateLimiter = mobileWebviewSessionRateLimiter,
+            )
+        }
         registerFederationRoutes(inboxRateLimiter = federationInboxRateLimiter, replayGuard = federationReplayGuard)
         // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- literal route
         // (/api/webhooks/stripe), registered before staticFiles below, same "literal beats

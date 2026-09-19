@@ -14,6 +14,24 @@ import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 
 /**
+ * Kill switch for the WebView session bridge routes ([registerMobileWebviewSessionRoutes]) --
+ * **opt-in, default OFF** (security mitigation 2026-09-19).
+ *
+ * Independent security audit finding (MAJOR, login CSRF / session fixation): the bridge is
+ * unauthenticated by design and installs ANY valid bearer token as the browser's `lapis_session`
+ * cookie. A member can craft `.../webview-session?token=<own token>` and send it to another member;
+ * opening it in a desktop browser silently logs the victim into the attacker's account. Until the
+ * bridge is replaced by a single-use, short-lived ticket (V1.5.2 ticket bridge), the routes are only
+ * registered when `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED` is exactly `true` (case-insensitive).
+ * Unset, empty or any other value keeps them off (the paths then answer 404).
+ *
+ * The deploy compose files deliberately do NOT pass this variable through, so PdV, ELB and Staging
+ * stay off unless an operator adds it to the service `environment:` block on purpose.
+ */
+internal fun mobileWebviewBridgeEnabled(getenv: (String) -> String? = System::getenv): Boolean =
+    getenv("LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED")?.trim().equals("true", ignoreCase = true)
+
+/**
  * V1.5.1 Mobile App -- übersetzt einen bereits gültigen mobilen Bearer-Session-Token EINMALIG in
  * ein `lapis_session`-Cookie im WebView-eigenen Cookie-Jar, dann Redirect in die unveränderte
  * KVision-SPA. Mintet NIEMALS einen neuen Token -- reine Cookie/Bearer-Übersetzung desselben,

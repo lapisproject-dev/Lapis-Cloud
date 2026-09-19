@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Security
+
+- **Mobile WebView session bridge is now opt-in (default OFF)** -- an independent security audit
+  of the V1.5.2 mobile wave found a MAJOR login-CSRF / session-fixation weakness in the (already
+  deployed since `v0.21.0`) bridge routes `GET /api/mobile/v1/conference/rooms/{roomId}/webview-session`:
+  the routes are unauthenticated by design and install any valid bearer token as the browser's
+  `lapis_session` cookie, so a member can send another member a crafted link and silently log that
+  member into the attacker's account. Until the bridge is replaced by a single-use, short-lived ticket,
+  the routes are only registered when `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED=true`
+  (`mobileWebviewBridgeEnabled`, tests in `MobileWebviewBridgeKillSwitchTest`). The compose files do
+  not pass the variable through, so PdV, ELB and Staging have the routes switched off (they answer 404).
+  The mobile app is not distributed through any store yet, so no end-user flow is affected.
+
 ### Added
 
 **Datendichte Tabellen-Screens: Breite, kompakte Aktionsspalten, Kontenplan-Suche (Design-Team-Sitzung 2026-09-18)**
