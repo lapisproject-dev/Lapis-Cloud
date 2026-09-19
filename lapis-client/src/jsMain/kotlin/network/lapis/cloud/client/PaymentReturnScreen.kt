@@ -45,8 +45,8 @@ fun renderPaymentReturnScreen(
 ) {
     val root =
         container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 560.px
+            addCssClasses("mx-auto w-100 px-3")
+            maxWidth = 560.px
             marginTop = 24.px
         }
     root.h1(tr("Zahlung"))

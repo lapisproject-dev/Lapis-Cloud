@@ -68,8 +68,8 @@ fun renderBankStatementImportScreen(
 
     val root =
         container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 1100.px
+            addCssClasses("mx-auto w-100 px-3")
+            maxWidth = 1100.px
             marginTop = 24.px
         }
 

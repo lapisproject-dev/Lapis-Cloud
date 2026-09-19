@@ -68,8 +68,8 @@ fun renderEventCheckInScreen(
 ) {
     val root =
         container.vPanel(spacing = 12) {
-            addCssClass("mx-auto")
-            width = 800.px
+            addCssClasses("mx-auto w-100 px-3")
+            maxWidth = 800.px
             marginTop = 24.px
         }
 

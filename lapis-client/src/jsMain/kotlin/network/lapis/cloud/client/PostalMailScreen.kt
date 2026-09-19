@@ -50,8 +50,8 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
 fun renderPostalMailScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 900.px
+            addCssClasses("mx-auto w-100 px-3")
+            maxWidth = 900.px
             marginTop = 24.px
         }
     root.h1(tr("Postversand"))

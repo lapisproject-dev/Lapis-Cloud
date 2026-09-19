@@ -60,6 +60,17 @@ All notable changes to this project are documented here. Format follows
     switched to the header contract, `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED=true` breaks every
     section tile and conference join (401) -- keep the switch OFF until then.
 
+### Fixed
+
+- **Client: 50 screen roots no longer overflow narrow viewports** -- almost every screen root carried a fixed
+  `width = 640/720/800/860/900/960.px`, which stays fixed on a phone and pushes inputs, buttons and cards out of
+  the right edge (found while testing the Android app's WebView on a real device: Dashboard, Dokumente and more).
+  The design-team decision of 2026-09-18 (`DataScreenLayout.kt`: "`width` statt `maxWidth` ist nicht responsiv")
+  had only been applied to seven table screens. The remaining 50 roots in 49 screens now use the same pattern:
+  `maxWidth = N.px` plus `w-100 px-3`. Unchanged on wide screens; on narrow screens the content shrinks with a
+  16 px gutter. Small fixed widths of filter inputs/table columns (110-260 px) stay. Verified on a Nokia 9
+  (Dashboard, Dokumente, Kontenplan).
+
 ### Added
 
 - **V1.6.1 -- Optional AI assistance: foundation and statute Q&A pilot ("Fragen zur Satzung"), default OFF.**

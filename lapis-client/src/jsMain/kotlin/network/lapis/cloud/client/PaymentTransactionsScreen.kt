@@ -32,8 +32,8 @@ private const val PAYMENT_TRANSACTIONS_PAGE_SIZE = 50
 fun renderPaymentTransactionsScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            width = 960.px
+            addCssClasses("mx-auto w-100 px-3")
+            maxWidth = 960.px
             marginTop = 24.px
         }
     root.h1(tr("Zahlungseingänge"))
