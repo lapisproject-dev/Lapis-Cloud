@@ -53,6 +53,11 @@ this repository. This README describes only the technical scope.
 * **PZB** (https://gitlab.com/pdv7/pzb) — the existing predecessor repository. Kept as a **reference**
   (architecture decisions, code patterns) but not adopted 1:1 — Lapis Cloud is
   a clean reimplementation.
+* https://github.com/lapisproject-dev/Lapis-Cloud-Mobile[Lapis Cloud Mobile] — companion app
+  (Kotlin Multiplatform, Android + iOS): login, video-conference join, a home hub that opens the
+  main web sections, and the member-card download. Not in any app store yet. Its section and video
+  features need the optional WebView bridge on the server (off by default, see `CHANGELOG.md`
+  `[0.22.0]`).
 * https://kuml.dev[kUML] — the modeling language used for every diagram in this repository
   (see below).
 
@@ -166,7 +171,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Nine further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Twelve further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -332,6 +337,41 @@ registration-outcome type down to four visitor-facing outcomes only, specificall
 a membership-enumeration oracle over guest email addresses. See `CHANGELOG.md` `[0.20.0]` for full
 detail.
 
+**`v0.21.0`** is a broad feature release. PayPal joins Stripe as a second payment service provider
+(V1.2.8b, see "Payment service providers"); accounting gains payables/receivables with open-item
+matching and a debtor dunning run (V1.4.15, backend/RPC only -- no client screen yet), several bank
+accounts per organization with file import per account plus read-only FinTS/HBCI live retrieval (never
+verified against a real bank, see `docs/architecture/bank-account.adoc`) and a bank-accounts management screen (V1.4.14, waves 1 and 2; the FinTS poller is off by default), and a
+VAT pre-return helper (V1.4.13); membership dues can be deferred, waived or
+reduced (V1.4.10), and board members can claim travel expenses (V1.4.11) and the volunteer/instructor
+allowance (V1.4.12). The event toolkit gains rooms, catering, external invoicing and volunteer shifts
+(V1.4.3.4 to V1.4.3.7) plus a subscribable iCal calendar feed. Video conferencing gets a TURN relay
+fallback. Server-side support for the mobile companion app (V1.5.1; its bridge routes were later found
+vulnerable to session fixation and are switched off by default since `v0.22.0`), a dark mode, a
+configurable upload limit with progress display and footer links round it out. See `CHANGELOG.md`
+`[0.21.0]` for full wave-by-wave detail.
+
+**`v0.22.0`** adds a downloadable PDF **membership card** in credit-card format with a QR code that opens
+a rate-limited public check page (Flyway `V43`, member numbers like `M-2026-00001`); the documents screen
+gets file icons, sizes, a download counter, folder counts and search (Flyway `V40`), and TREASURER
+now has BOARD-level document rights for folders, uploads and deletions (releasing a document into the
+AI knowledge base stays BOARD/ADMIN); three additional Vorstand titles (Flyway `V42`); a stored
+Price-Oracle history with an hourly snapshot poller and a price chart (Flyway `V41`; the poller is off by
+default and must be enabled on at most one instance, see `deploy/production/README.adoc`, "Price-Oracle
+Snapshot Poller"); a BOARD/ADMIN screen for creating and managing events; and a dedicated staging
+deployment (`deploy/production-staging/`, fictitious seed data only). **V1.6.1 optional AI assistance**
+(statute Q&A, Flyway `V44`) ships **off by default** and is not enabled on any shipped deployment, see
+"AI assistance" below. For the companion app, the server has a generic WebView bridge
+(`/api/mobile/v1/webview-session`) that is header-authenticated (the token is never in a URL) and
+**disabled by default** behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`; no compose file forwards that variable.
+The switch and the header-only design close a session-fixation weakness in the bridge routes shipped in
+`v0.21.0`; companion apps built before V1.5.2 (which send `?token=`) no longer work against a server with
+the bridge switched on. Security: a disabled AI route now answers a typed error instead of HTTP 500, the
+server-wide AI opt-in default was removed so no member is pre-consented, and a lock-order deadlock in
+family-member removal was fixed. Fixes: the camera picture froze after clicking "More" in a video
+conference, empty device ids were offered and persisted, 50 screens overflowed narrow viewports, and the
+participants list covered the video on phones. See `CHANGELOG.md` `[0.22.0]` for full detail.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -370,7 +410,8 @@ legal counsel — not something this project can decide once for everyone. See `
 * **UI coverage has grown substantially since `v0.10.0`, but is still not complete.** Governance,
   Accounting, SEPA direct debit (V1.2.2), automated dunning (V1.2.7), member administration
   (V1.2.12/V1.2.13), and the Stripe checkout (V1.2.8) all now have real client screens. Still
-  reachable only via Kilua RPC / raw HTTP: Compliance (Transparenzregister, §25 PartG, audit log,
+  reachable only via Kilua RPC / raw HTTP: payables/receivables including debtor
+  dunning (V1.4.15), Compliance (Transparenzregister, §25 PartG, audit log,
   backup/restore, DSGVO — beyond the new public transparency page, V1.3.0), mail-merge/postal
   dispatch, and the original LTR economy domains (Crowdfunding, Auction, Peer-Transfer, Politician
   Profiles). These remaining domains are lower day-to-day usage frequency per the pilots' own
@@ -662,7 +703,9 @@ error naming the variable, never its value.
 |`true` to turn the whole subsystem on. Anything else (including unset) leaves it off — no failure, no partial state.
 
 |`LAPIS_WEBHOOKS_ALLOW_INSECURE`
-|Development only — accepts plain `http://` endpoint URLs when set to `true`. Deliberately absent from both `docker-compose.yml` files rather than pinned to `"false"`, so a stray copy-paste in `.env` cannot flip it on by accident. A WARN is logged at startup whenever it is set at all.
+|Development only — accepts plain `http://` endpoint URLs when set to `true`. Deliberately absent from both
+`docker-compose.yml` files rather than pinned to `"false"`, so a stray copy-paste in `.env` cannot flip it on
+by accident. A WARN is logged at startup whenever it is set at all.
 
 |`LAPIS_WEBHOOK_POLL_INTERVAL_SECONDS`
 |Retry-queue poll cadence. Default 10, floored at 1 (a `0` or negative value would spin the poll loop with no pause).
@@ -704,10 +747,14 @@ shows what was loaded at startup.
 |`true` to serve the `/embed/v1/*`/`/api/embed/v1/*` routes at all. Anything else (including unset) leaves every one of those paths 404ing, as if this wave did not exist.
 
 |`LAPIS_EMBED_ALLOWED_ORIGINS`
-|Comma-separated exact `scheme://host[:port]` origins allowed to embed the widgets. Required and non-empty when `LAPIS_EMBED_ENABLED=true` — an invalid entry fails the server's startup with an explicit error naming the entry, never a silent skip. `www.` and the bare domain are different origins.
+|Comma-separated exact `scheme://host[:port]` origins allowed to embed the widgets. Required and non-empty
+when `LAPIS_EMBED_ENABLED=true` — an invalid entry fails the server's startup with an explicit error naming
+the entry, never a silent skip. `www.` and the bare domain are different origins.
 
 |`LAPIS_EMBED_ALLOW_INSECURE`
-|Development only — accepts plain `http://` origins when set to `true`. Deliberately absent from both `docker-compose.yml` files rather than pinned to `"false"`, same "O4" doctrine as `LAPIS_WEBHOOKS_ALLOW_INSECURE` above. A WARN is logged at startup whenever it is set at all.
+|Development only — accepts plain `http://` origins when set to `true`. Deliberately absent from both
+`docker-compose.yml` files rather than pinned to `"false"`, same "O4" doctrine as
+`LAPIS_WEBHOOKS_ALLOW_INSECURE` above. A WARN is logged at startup whenever it is set at all.
 |===
 
 CAUTION: The origins in `LAPIS_EMBED_ALLOWED_ORIGINS` are shipped inside the publicly downloadable
@@ -838,8 +885,8 @@ policy, and every alles-oder-nichts export blocker.
 
 === What doesn't work yet (this wave)
 
-A live DATEV Connect API integration, Debitoren-/Kreditorenkonten (accounts-receivable/-payable
-sub-ledgers), USt-Schlüssel (VAT codes), Kostenstellenübergabe (cost-center hand-off into DATEV's
+A live DATEV Connect API integration, Debitoren-/Kreditorenkonten in the DATEV file
+(accounts-receivable/-payable sub-ledgers), USt-Schlüssel (VAT codes), Kostenstellenübergabe (cost-center hand-off into DATEV's
 own KOST1/KOST2 fields), an abweichendes Wirtschaftsjahr (fiscal year other than the calendar
 year), and re-export/duplicate-marking are all deliberately out of scope — see
 `docs/architecture/datev-export.adoc`'s own "What doesn't work yet" section for why each one

@@ -457,19 +457,42 @@ All notable changes to this project are documented here. Format follows
   `organization_settings.bank_iban` wird beim ersten Serverstart automatisch als Standardkonto
   "Hauptkonto" in `bank_account` übernommen (`BankAccountStore.backfillLegacyDefaultAccountIfNeeded`,
   in `main()`, nicht in `Application.module()` -- siehe Kommentar dort für die Begründung).
-- **Bewusste Grenze (Scope-Cut dieser Welle)**: FinTS/HBCI-Live-Abruf (automatischer Kontoauszugs-
+- **Bewusste Grenze (Scope-Cut dieser Welle, später durch Wave 2 aufgehoben -- siehe unten)**:
+  FinTS/HBCI-Live-Abruf (automatischer Kontoauszugs-
   Abruf per Online-Banking-Zugangsdaten) ist **nicht** Teil dieser Welle. Die Lizenzfrage der
   in Frage kommenden Java-FinTS-Bibliothek (`hbci4j-core`, LGPL-2.1 -- bisher kein
   Versionskatalog-Präzedenzfall für dieses Lizenzmodell in diesem Codebase) ist noch nicht
   entschieden, und die eigentliche Bank-Protokoll-Implementierung braucht eine eigene, separate
   Sicherheits- und Review-Runde (PIN-Verwahrung, TAN-Handhabung, SSRF-Schutz gegen die FinTS-URL).
   Diese Welle liefert ausschließlich das Mehrkonten-Fundament (mehrere Konten, Datei-Import je
-  Konto) als eigenständig nutzbares Increment; der Live-Abruf folgt als eigene Welle V1.4.14.2,
-  sobald die Lizenzentscheidung getroffen ist. Es gibt noch keine Bedienoberfläche
-  (`BankAccountsScreen.kt`) -- diese Welle ist backend-only, analog zu mehreren vorherigen Wellen
+  Konto) als eigenständig nutzbares Increment; der Live-Abruf folgte als Wave 2 (siehe unten).
+  Diese Welle selbst ist backend-only (die Oberfläche `BankAccountsScreen.kt` kam mit Wave 2), analog zu
+  mehreren vorherigen Wellen
   (`BANK_STATEMENT_IMPORT`, `ACCOUNTING_EXPORT_CONNECTION` usw.).
 
-**Mehrere Bankkonten -- Review-Nachbesserung (Review Round 3)**
+**Mehrere Bankkonten -- Wave 2: FinTS/HBCI-Live-Kontoabruf und Bedienoberfläche (V1.4.14, Flyway `V33`/`V34`, nachgetragen)**
+
+- **Hinzugefügt**: read-only Kontoumsatz-/Saldenabruf per FinTS/HBCI (HKKAZ/HKSAL, keine Überweisungs- oder
+  Lastschriftausführung) über eine `FinTsClient`-Abstraktion; ein Hintergrund-Poller speist die Ergebnisse
+  unverändert in die bestehende `BankStatementImportService`-Pipeline ein. Der Poller ist standardmäßig aus
+  (`LAPIS_FINTS_POLLER_ENABLED`, nur auf genau einer Instanz aktivieren; Intervall
+  `LAPIS_FINTS_POLL_INTERVAL_SECONDS`, Standard 6 h).
+- **Sicherheit**: PIN/Benutzerkennung nur write-only, mit `SecretBox` versiegelt (nie im Klartext über RPC);
+  SSRF-Schutz für die FinTS-URL über den bestehenden `OutboundUrlGuard`; Compliance-Disclaimer vor der
+  Aktivierung; bei unerwarteter TAN-Anforderung im Hintergrundbetrieb degradiert das Konto auf
+  `REAUTH_REQUIRED` (kein Absturz, eine Benachrichtigungs-Mail). Die Wave-2-Review-Runden fanden zwei
+  unabhängige CRITICAL-Fehler in der Threaded-Callback-Logik von `hbci4j`, beide behoben.
+- **Hinzugefügt**: Bedienoberfläche `BankAccountsScreen.kt` für die Verwaltung mehrerer Konten und die
+  FinTS-Einrichtung.
+- **Lizenz**: `hbci4j-core` (LGPL-2.1) wurde per Nutzerentscheidung vom 2026-09-13 als Ausnahme akzeptiert,
+  analog zum Präzedenzfall `jakarta.mail`/`angus-mail` (dokumentiert in `gradle/libs.versions.toml`).
+- **Vorbehalt**: Das Live-Protokollverhalten von `hbci4j` ist durch keinen automatisierten Test gegen eine
+  echte Bank oder FinTS-Sandbox abgedeckt (keine verfügbar) -- nur per `javap`-Bytecode verifiziert; die erste
+  echte Kontoaktivierung sollte beaufsichtigt erfolgen, siehe `docs/architecture/bank-account.adoc`.
+- **Hinweis**: Diese Zeilen wurden nachträglich ergänzt -- der Wave-2-Commit `bf4b95e` hatte den CHANGELOG
+  nicht angefasst.
+
+**Mehrere Bankkonten -- Review-Nachbesserung (Wave 1, Review Round 3)**
 
 - **Behoben (BLOCKER)**: `messages.pot` (Referenzkatalog fuer `verifyI18nCatalogParity`) fehlte der
   in Runde 2 an alle sieben Sprachkataloge angehaengte Eintrag fuer
