@@ -69,6 +69,8 @@ class LedgerScreenTest {
                 datevMandantNummer = 7,
                 travelExpenseAccountId = "travel-1",
                 volunteerAllowanceAccountId = "volunteer-1",
+                receivablesAccountId = "receivables-1",
+                payablesAccountId = "payables-1",
             )
         assertEquals(fullSettings.name, input.name)
         assertEquals(fullSettings.isPoliticalParty, input.isPoliticalParty)
@@ -95,11 +97,60 @@ class LedgerScreenTest {
                 datevMandantNummer = null,
                 travelExpenseAccountId = null,
                 volunteerAllowanceAccountId = null,
+                receivablesAccountId = null,
+                payablesAccountId = null,
             )
         assertEquals(null, input.datevBeraterNummer)
         assertEquals(null, input.datevMandantNummer)
         assertEquals(null, input.travelExpenseAccountId)
         assertEquals(null, input.volunteerAllowanceAccountId)
+    }
+
+    // Welle V1.4.21 (Offene Posten) -- Regression fuer den Datenverlust-Bug: `receivableDunningEnabled`
+    // hat kein Formularfeld auf diesem Screen und wurde hier zuvor auf den Kotlin-Default `false`
+    // zurueckgesetzt. `fullSettings` traegt bewusst `true` -- sonst bliebe der Test auch mit Bug gruen.
+    @Test
+    fun toInputWithPaymentAccountMapping_keepsReceivableDunningEnabledAndPassesReceivablesAndPayablesAccountsThrough() {
+        val settings = fullSettings.copy(receivableDunningEnabled = true)
+        val input =
+            settings.toInputWithPaymentAccountMapping(
+                paymentBankAccountId = null,
+                paymentFeeAccountId = null,
+                contributionIncomeAccountId = null,
+                donationIncomeAccountId = null,
+                eventIncomeAccountId = null,
+                eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+                datevBeraterNummer = null,
+                datevMandantNummer = null,
+                travelExpenseAccountId = null,
+                volunteerAllowanceAccountId = null,
+                receivablesAccountId = "receivables-9",
+                payablesAccountId = "payables-9",
+            )
+        assertEquals(true, input.receivableDunningEnabled, "receivableDunningEnabled must survive a mapping save")
+        assertEquals("receivables-9", input.receivablesAccountId)
+        assertEquals("payables-9", input.payablesAccountId)
+    }
+
+    @Test
+    fun toInputWithPaymentAccountMapping_allowsClearingReceivablesAndPayablesAccounts() {
+        val input =
+            fullSettings.copy(receivablesAccountId = "r", payablesAccountId = "p").toInputWithPaymentAccountMapping(
+                paymentBankAccountId = null,
+                paymentFeeAccountId = null,
+                contributionIncomeAccountId = null,
+                donationIncomeAccountId = null,
+                eventIncomeAccountId = null,
+                eventIncomeSphere = GemeinnuetzigkeitSphere.ZWECKBETRIEB,
+                datevBeraterNummer = null,
+                datevMandantNummer = null,
+                travelExpenseAccountId = null,
+                volunteerAllowanceAccountId = null,
+                receivablesAccountId = null,
+                payablesAccountId = null,
+            )
+        assertEquals(null, input.receivablesAccountId)
+        assertEquals(null, input.payablesAccountId)
     }
 
     // Welle V1.4.11 "Reisekostenabrechnung" -- travelExpenseAccountId reaches
@@ -119,6 +170,8 @@ class LedgerScreenTest {
                 datevMandantNummer = 7,
                 travelExpenseAccountId = "travel-1",
                 volunteerAllowanceAccountId = "volunteer-1",
+                receivablesAccountId = "receivables-1",
+                payablesAccountId = "payables-1",
             )
         assertEquals("travel-1", input.travelExpenseAccountId)
         assertEquals("bank-1", input.paymentBankAccountId)
@@ -147,6 +200,8 @@ class LedgerScreenTest {
                 datevMandantNummer = 7,
                 travelExpenseAccountId = "travel-1",
                 volunteerAllowanceAccountId = "volunteer-1",
+                receivablesAccountId = "receivables-1",
+                payablesAccountId = "payables-1",
             )
         assertEquals("volunteer-1", input.volunteerAllowanceAccountId)
         assertEquals("travel-1", input.travelExpenseAccountId)
@@ -176,6 +231,8 @@ class LedgerScreenTest {
                 datevMandantNummer = 7,
                 travelExpenseAccountId = "travel-1",
                 volunteerAllowanceAccountId = "volunteer-1",
+                receivablesAccountId = "receivables-1",
+                payablesAccountId = "payables-1",
             )
         assertEquals(true, input.isKleinunternehmer)
         assertEquals("volunteer-1", input.volunteerAllowanceAccountId)

@@ -339,7 +339,8 @@ detail.
 
 **`v0.21.0`** is a broad feature release. PayPal joins Stripe as a second payment service provider
 (V1.2.8b, see "Payment service providers"); accounting gains payables/receivables with open-item
-matching and a debtor dunning run (V1.4.15, backend/RPC only -- no client screen yet), several bank
+matching and a debtor dunning run (V1.4.15; the client screens for open items, netting and debtor
+dunning followed in V1.4.21), several bank
 accounts per organization with file import per account plus read-only FinTS/HBCI live retrieval (never
 verified against a real bank, see `docs/architecture/bank-account.adoc`) and a bank-accounts management screen (V1.4.14, waves 1 and 2; the FinTS poller is off by default), and a
 VAT pre-return helper (V1.4.13); membership dues can be deferred, waived or
@@ -409,12 +410,17 @@ legal counsel — not something this project can decide once for everyone. See `
   automatically.
 * **UI coverage has grown substantially since `v0.10.0`, but is still not complete.** Governance,
   Accounting, SEPA direct debit (V1.2.2), automated dunning (V1.2.7), member administration
-  (V1.2.12/V1.2.13), and the Stripe checkout (V1.2.8) all now have real client screens. Still
-  reachable only via Kilua RPC / raw HTTP: payables/receivables including debtor
-  dunning (V1.4.15), Compliance (Transparenzregister, §25 PartG, audit log,
-  backup/restore, DSGVO — beyond the new public transparency page, V1.3.0), mail-merge/postal
-  dispatch, and the original LTR economy domains (Crowdfunding, Auction, Peer-Transfer, Politician
-  Profiles). These remaining domains are lower day-to-day usage frequency per the pilots' own
+  (V1.2.12/V1.2.13), the Stripe checkout (V1.2.8), and open items with netting and debtor dunning
+  (V1.4.21) all now have real client screens. So do the Compliance domains this sentence used to
+  list as missing — audit log (`/audit-log`), backup/restore (`/backup`), DSGVO compliance and
+  member DSGVO rights (`/dsgvo-compliance`, `/dsgvo-rights`), §20 GwG Transparenzregister
+  (`/board-membership`), §25 PartG donation duty (`/donors`) — as well as the postal-dispatch audit
+  trail (`/postal-mail`) and all four original LTR economy domains (`/crowdfunding`, `/auction`,
+  peer transfer on `/ltr-ledger`, `/politicians`). Three domains are genuinely still reachable only
+  via Kilua RPC / raw HTTP: **elections** (`IElectionService`), **systemisches Konsensieren**
+  (`ISystemicConsensusService`), and **federation/trust-anchor administration**
+  (`IFederationService`/`ITrustAnchorService`) — verified against `Routing.kt` (no route, no screen,
+  no client reference at all). These are lower day-to-day usage frequency per the pilots' own
   prioritization and are not yet scheduled as numbered waves.
 * **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
   layer; no existing content type (crowdfunding projects, politician profiles, governance

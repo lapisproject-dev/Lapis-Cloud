@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import network.lapis.cloud.shared.domain.OpenItemAgingBucket
 import network.lapis.cloud.shared.domain.OpenItemDirection
@@ -63,8 +64,39 @@ fun receivableDunningNoticeStatusLabel(status: ReceivableDunningNoticeStatus): S
         ReceivableDunningNoticeStatus.CANCELLED -> tr("Storniert")
     }
 
+fun receivableDunningNoticeStatusColor(status: ReceivableDunningNoticeStatus): String =
+    when (status) {
+        ReceivableDunningNoticeStatus.ISSUED -> "info"
+        ReceivableDunningNoticeStatus.SKIPPED -> "secondary"
+        ReceivableDunningNoticeStatus.CANCELLED -> "dark"
+    }
+
 /**
  * Ive-Ruling: GENAU EIN Überfälligkeits-Badge, kein vierstufiges Ampelsystem. Text daneben nennt
- * die exakte Tageszahl im Klartext -- siehe `OpenItemsScreen` KDoc.
+ * die exakte Tageszahl im Klartext ([openItemOverdueDaysLabel], aus `OpenItemDto.daysOverdue`) --
+ * siehe `OpenItemsScreen.kt` (`appendOpenItemRow`).
  */
 fun openItemOverdueLabel(): String = tr("Überfällig")
+
+/** Klartext-Tageszahl neben dem Überfällig-Badge; [daysOverdue] ist server-berechnet. */
+fun openItemOverdueDaysLabel(daysOverdue: Int): String = if (daysOverdue == 1) tr("seit 1 Tag") else gettext("seit %1 Tagen", daysOverdue)
+
+/** Segment-Beschriftung der Segmented Control. Fachbegriffe stehen nur in [openItemDirectionLabel]-Nähe. */
+fun openItemSegmentLabel(segment: OpenItemSegment): String =
+    when (segment) {
+        OpenItemSegment.ALL -> tr("Alle")
+        OpenItemSegment.PAYABLE -> tr("Kreditoren (Verbindlichkeiten)")
+        OpenItemSegment.RECEIVABLE -> tr("Debitoren (Forderungen)")
+    }
+
+/** Beschriftung der Kennzahl-Kacheln. */
+fun openItemMetricLabel(kind: OpenItemMetricKind): String =
+    when (kind) {
+        OpenItemMetricKind.PAYABLE_OPEN -> tr("Offene Verbindlichkeiten")
+        OpenItemMetricKind.RECEIVABLE_OPEN -> tr("Offene Forderungen")
+        OpenItemMetricKind.OVERDUE -> tr("Davon überfällig")
+        OpenItemMetricKind.NETTABLE -> tr("Verrechenbare Gegenparteien")
+    }
+
+/** Mahnstufen-Spalte: `null` = noch keine Mahnung ausgestellt. */
+fun receivableDunningLevelLabel(levelNumber: Int?): String = if (levelNumber == null) "–" else gettext("Stufe %1", levelNumber)

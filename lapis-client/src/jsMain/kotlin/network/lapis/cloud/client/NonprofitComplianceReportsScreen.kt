@@ -578,34 +578,13 @@ private fun renderVatGateSummary(
  * `toInputWithPaymentAccountMapping` and `PoliticianScreen.kt`'s `toInputWithPoliticianRankingEnabled`
  * (both of which had exactly this bug for `isKleinunternehmer` itself until the same review round
  * that added this toggle -- see their own KDoc/inline comments). `internal` (not `private`) for the
- * same testability reasoning those two give.
+ * same testability reasoning those two give. Baut [OrganizationSettingsInput] seit Audit-Fund M2
+ * nicht mehr selbst, sondern über [toInput].
  */
 internal fun OrganizationSettingsDto.toInputWithKleinunternehmerFlag(newValue: Boolean) =
-    OrganizationSettingsInput(
-        name = name,
-        street = street,
-        postalCode = postalCode,
-        city = city,
-        country = country,
-        bankIban = bankIban,
-        bankBic = bankBic,
-        taxExemptionAuthority = taxExemptionAuthority,
-        taxExemptionDate = taxExemptionDate,
-        isPoliticalParty = isPoliticalParty,
-        postalMailEnabled = postalMailEnabled,
-        politicianRankingEnabled = politicianRankingEnabled,
-        paymentBankAccountId = paymentBankAccountId,
-        paymentFeeAccountId = paymentFeeAccountId,
-        contributionIncomeAccountId = contributionIncomeAccountId,
-        donationIncomeAccountId = donationIncomeAccountId,
-        eventIncomeAccountId = eventIncomeAccountId,
-        eventIncomeSphere = eventIncomeSphere,
-        datevBeraterNummer = datevBeraterNummer,
-        datevMandantNummer = datevMandantNummer,
-        travelExpenseAccountId = travelExpenseAccountId,
-        volunteerAllowanceAccountId = volunteerAllowanceAccountId,
-        isKleinunternehmer = newValue,
-    )
+    // Audit-Fund M2: ein Feld umschalten, alles andere über [toInput] unverändert mitschicken --
+    // statt 26 Felder von Hand abzuschreiben (siehe [toInput] KDoc).
+    toInput().copy(isKleinunternehmer = newValue)
 
 private fun vatEnableDisclaimerModal(
     disclaimer: VatComplianceDisclaimerDto,

@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.OpenItemSettlementTable
 import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.ReceivableDunningNoticeTable
+import network.lapis.cloud.server.openitem.dunning.ReceivableDunningEngine
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -64,6 +65,36 @@ private val OPEN_ITEM_WRITE_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.A
 private const val MAX_LIST_RESULTS = 200
 private const val MAX_COUNTERPARTY_NAME_LENGTH = 200
 private const val MAX_AMOUNT_SCALE = 2
+
+/**
+ * Security fix (MINOR, second review pass): every `amount` on this subledger lands in a
+ * `numeric(12,2)` column (`open_item.amount`, `open_item_settlement.amount`,
+ * `open_item_netting.amount`), so anything at or above 10^10 is a DB overflow -- an unhandled HTTP
+ * 500 instead of a clean 400. Worse, `scale() > MAX_AMOUNT_SCALE` does NOT catch it: the client sends
+ * `Decimal` as a JSON double, so "99999999999999999999,99" arrives as `BigDecimal("1.0E20")` whose
+ * scale is **-19**, passing both the scale and the `<= ZERO` check. One billion is far above any
+ * plausible Verein/Partei invoice and two full orders of magnitude below the column's own ceiling.
+ * Mirrored (loosely, never as the security boundary) by `MAX_OPEN_ITEM_AMOUNT` in the client's
+ * `OpenItemFormValidation.kt`.
+ */
+private val MAX_AMOUNT: BigDecimal = BigDecimal("1000000000.00")
+
+/**
+ * The ONE amount pre-check of this file -- positive, at most [MAX_AMOUNT_SCALE] fractional digits,
+ * at most [MAX_AMOUNT]. `stripTrailingZeros()` first, so "12.3400" (scale 4, value exact to two
+ * digits) is accepted while "12.345" is not, and so a negative-scale value like `1.0E20` cannot slip
+ * past the scale check either (see [MAX_AMOUNT] KDoc).
+ */
+private fun requireValidAmount(
+    amount: BigDecimal,
+    fieldName: String = "amount",
+) {
+    if (amount <= BigDecimal.ZERO) throw BadRequestException("$fieldName must be positive")
+    if (amount.stripTrailingZeros().scale() > MAX_AMOUNT_SCALE) {
+        throw BadRequestException("$fieldName must have at most $MAX_AMOUNT_SCALE fractional digits")
+    }
+    if (amount > MAX_AMOUNT) throw BadRequestException("$fieldName must be at most ${MAX_AMOUNT.toPlainString()}")
+}
 
 /** Matches `reference VARCHAR(100)` in V35__open_items.sql. */
 private const val MAX_REFERENCE_LENGTH = 100
@@ -182,11 +213,15 @@ class OpenItemService(
                     .toList()
             val accountInfo = loadAccountInfo(rows.map { it[OpenItemTable.contraAccountId] })
             val settlementsByItem = loadActiveSettlements(rows.map { it[OpenItemTable.id] })
+            // Batch-loaded exactly like the two lines above (two queries for the whole page, never
+            // one per row) -- see ReceivableDunningEngine.loadDunningProgress KDoc.
+            val dunningByItem = ReceivableDunningEngine.loadDunningProgress(rows)
             rows.map { row ->
                 row.toOpenItemDto(
                     asOf = asOf,
                     accountInfo = accountInfo,
                     activeSettlements = settlementsByItem[row[OpenItemTable.id]].orEmpty(),
+                    dunningProgress = dunningByItem[row[OpenItemTable.id]],
                 )
             }
         }
@@ -209,12 +244,7 @@ class OpenItemService(
         if (counterpartyName.isEmpty() || counterpartyName.length > MAX_COUNTERPARTY_NAME_LENGTH) {
             throw BadRequestException("counterpartyName must be 1..$MAX_COUNTERPARTY_NAME_LENGTH characters after trim")
         }
-        if (input.amount <= BigDecimal.ZERO) throw BadRequestException("amount must be positive")
-        if (input.amount.scale() >
-            MAX_AMOUNT_SCALE
-        ) {
-            throw BadRequestException("amount must have at most $MAX_AMOUNT_SCALE fractional digits")
-        }
+        requireValidAmount(amount = input.amount)
         if (input.dueDate < input.itemDate) throw BadRequestException("dueDate must not be before itemDate")
         requireMaxLength(value = input.reference, max = MAX_REFERENCE_LENGTH, fieldName = "reference")
         requireMaxLength(value = input.note, max = MAX_NOTE_LENGTH, fieldName = "note")
@@ -418,8 +448,7 @@ class OpenItemService(
     ): OpenItemDetailDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*OPEN_ITEM_WRITE_ROLES)
-        if (amount <= BigDecimal.ZERO) throw BadRequestException("amount must be positive")
-        if (amount.scale() > MAX_AMOUNT_SCALE) throw BadRequestException("amount must have at most $MAX_AMOUNT_SCALE fractional digits")
+        requireValidAmount(amount = amount)
         val id = openItemId.toOpenItemUuid("openItemId")
         val explicitBankAccountId = bankAccountId?.toOpenItemUuid("bankAccountId")
 
@@ -607,6 +636,13 @@ class OpenItemService(
                     .singleOrNull()
                     ?: throw NotFoundException("OpenItem $id not found")
             if (row[OpenItemTable.creationJournalEntryId] != null) return@transaction loadOpenItemDetail(id)
+            // A cancelled/settled item never got (and must never subsequently get) a creation posting:
+            // cancelOpenItem posts no reversal when creationJournalEntryId is null and cannot run twice,
+            // so a late creation posting would leave a liability in the journal with no counter-entry.
+            val currentStatus = row[OpenItemTable.status]
+            if (currentStatus in OpenItemStatusSets.CLOSED) {
+                throw ConflictException("OpenItem $id is $currentStatus, posting can no longer be retried")
+            }
             val outcome =
                 OpenItemPostingBridge.postItemCreation(
                     itemId = id,
@@ -1083,8 +1119,7 @@ class OpenItemService(
         payableOpen: BigDecimal,
         receivableOpen: BigDecimal,
     ) {
-        if (amount <= BigDecimal.ZERO) throw BadRequestException("amount must be positive")
-        if (amount.scale() > MAX_AMOUNT_SCALE) throw BadRequestException("amount must have at most $MAX_AMOUNT_SCALE fractional digits")
+        requireValidAmount(amount = amount)
         val max = minOf(payableOpen, receivableOpen)
         if (amount > max) throw ConflictException("amount $amount exceeds the nettable maximum $max")
     }
@@ -1116,14 +1151,13 @@ class OpenItemService(
                 .toList()
         if (payableRows.isEmpty() || receivableRows.isEmpty()) return emptyList()
 
-        val allIds = (payableRows + receivableRows).map { it[OpenItemTable.id] }
-        val accountInfo = loadAccountInfo((payableRows + receivableRows).map { it[OpenItemTable.contraAccountId] })
-        val settlementsByItem = loadActiveSettlements(allIds)
-
-        fun ResultRow.dto() =
-            toOpenItemDto(asOf = asOf, accountInfo = accountInfo, activeSettlements = settlementsByItem[this[OpenItemTable.id]].orEmpty())
-
-        val candidates = mutableListOf<NettingCandidateDto>()
+        // Pairing FIRST, loading second (audit finding, second pass): matching only needs
+        // `crmContactId`/`counterpartyKey`/`id`, all of which are already on the scanned rows. Loading
+        // contra-account info, active settlements and the dunning progress for EVERY scanned row (up
+        // to 2 * NETTING_CANDIDATE_SCAN_CAP) was wasted work for every row that never becomes a
+        // candidate -- and the dunning progress in particular is only ever read for the receivable
+        // half. They are now loaded for the paired rows alone.
+        val pairs = mutableListOf<Pair<ResultRow, ResultRow>>()
         val usedReceivableIds = mutableSetOf<Uuid>()
         for (payable in payableRows) {
             val payableCrm = payable[OpenItemTable.crmContactId]
@@ -1137,21 +1171,38 @@ class OpenItemService(
                         )
                 } ?: continue
             usedReceivableIds += match[OpenItemTable.id]
+            pairs += payable to match
+        }
+        if (pairs.isEmpty()) return emptyList()
+
+        val pairedRows = pairs.flatMap { (payable, receivable) -> listOf(payable, receivable) }
+        val accountInfo = loadAccountInfo(pairedRows.map { it[OpenItemTable.contraAccountId] })
+        val settlementsByItem = loadActiveSettlements(pairedRows.map { it[OpenItemTable.id] })
+        val dunningByItem = ReceivableDunningEngine.loadDunningProgress(pairedRows)
+
+        fun ResultRow.dto() =
+            toOpenItemDto(
+                asOf = asOf,
+                accountInfo = accountInfo,
+                activeSettlements = settlementsByItem[this[OpenItemTable.id]].orEmpty(),
+                dunningProgress = dunningByItem[this[OpenItemTable.id]],
+            )
+
+        return pairs.map { (payable, match) ->
+            val payableCrm = payable[OpenItemTable.crmContactId]
             val matchedByCrm = payableCrm != null && payableCrm == match[OpenItemTable.crmContactId]
             val payableDto = payable.dto()
             val receivableDto = match.dto()
-            candidates +=
-                NettingCandidateDto(
-                    counterpartyKey = payableKey,
-                    counterpartyDisplayName = payable[OpenItemTable.counterpartyName],
-                    crmContactId = (payableCrm ?: match[OpenItemTable.crmContactId])?.toString(),
-                    matchedByNameOnly = !matchedByCrm,
-                    payable = payableDto,
-                    receivable = receivableDto,
-                    maxNettableAmount = minOf(payableDto.openAmount, receivableDto.openAmount),
-                )
+            NettingCandidateDto(
+                counterpartyKey = payable[OpenItemTable.counterpartyKey],
+                counterpartyDisplayName = payable[OpenItemTable.counterpartyName],
+                crmContactId = (payableCrm ?: match[OpenItemTable.crmContactId])?.toString(),
+                matchedByNameOnly = !matchedByCrm,
+                payable = payableDto,
+                receivable = receivableDto,
+                maxNettableAmount = minOf(payableDto.openAmount, receivableDto.openAmount),
+            )
         }
-        return candidates
     }
 
     /**
@@ -1243,10 +1294,22 @@ internal fun loadAccountInfo(accountIds: List<Uuid>): Map<Uuid, Pair<String, Str
         .associate { it[LedgerAccountTable.id] to (it[LedgerAccountTable.accountNumber] to it[LedgerAccountTable.name]) }
 }
 
+/**
+ * [dunningProgress] is deliberately a REQUIRED parameter without a default: the three dunning fields
+ * of [OpenItemDto] were shipped in V1.4.21 and left `null` at every call site because this mapper
+ * simply never set them, which silently disabled the whole debtor-dunning section of the UI
+ * (`OpenItemsScreen.renderDunningActions` always fell through to "Keine weitere Mahnstufe
+ * verfügbar", `OpenItemAuthzUi.canSkipDunningLevel` was always `false`, the "Mahnstufe" column always
+ * showed "–"). A default of `null` here would let the next call site reintroduce exactly that.
+ * Callers get the value from
+ * [network.lapis.cloud.server.openitem.dunning.ReceivableDunningEngine.loadDunningProgress], which
+ * batch-loads a whole page in two queries.
+ */
 internal fun ResultRow.toOpenItemDto(
     asOf: LocalDate,
     accountInfo: Map<Uuid, Pair<String, String>>,
     activeSettlements: List<ActiveSettlement>,
+    dunningProgress: ReceivableDunningEngine.DunningProgress?,
 ): OpenItemDto {
     val accountId = this[OpenItemTable.contraAccountId]
     val info = accountInfo[accountId]
@@ -1281,6 +1344,9 @@ internal fun ResultRow.toOpenItemDto(
         createdAt = this[OpenItemTable.createdAt],
         cancelledAt = this[OpenItemTable.cancelledAt],
         cancellationReason = this[OpenItemTable.cancellationReason],
+        highestDunningLevelNumber = dunningProgress?.highestIssuedLevelNumber,
+        nextDunningLevelNumber = dunningProgress?.nextLevelNumber,
+        nextDunningLevelDueOn = dunningProgress?.nextLevelDueOn,
     )
 }
 
@@ -1307,13 +1373,28 @@ internal fun loadOpenItemDetail(itemId: Uuid): OpenItemDetailDto {
     val row = OpenItemTable.selectAll().where { OpenItemTable.id eq itemId }.single()
     val asOf = DbClock.nowLocalDateTime().date
     val accountInfo = loadAccountInfo(listOf(row[OpenItemTable.contraAccountId]))
-    val settlementRows = OpenItemSettlementTable.selectAll().where { OpenItemSettlementTable.openItemId eq itemId }.toList()
+    // Explicit ORDER BY: without it Postgres returns rows in plan-dependent order, and the client
+    // relies on chronological order (oldest settlement first, newest last).
+    val settlementRows =
+        OpenItemSettlementTable
+            .selectAll()
+            .where { OpenItemSettlementTable.openItemId eq itemId }
+            .orderBy(OpenItemSettlementTable.createdAt to SortOrder.ASC, OpenItemSettlementTable.id to SortOrder.ASC)
+            .toList()
     val activeSettlements =
         settlementRows
             .filter {
                 it[OpenItemSettlementTable.reversedAt] == null
             }.map { ActiveSettlement(it[OpenItemSettlementTable.amount]) }
-    val item = row.toOpenItemDto(asOf = asOf, accountInfo = accountInfo, activeSettlements = activeSettlements)
+    val item =
+        row.toOpenItemDto(
+            asOf = asOf,
+            accountInfo = accountInfo,
+            activeSettlements = activeSettlements,
+            // Same mapper, same three fields as the list -- so detail and list can never disagree
+            // about the next dunning level (the review finding this fix closes).
+            dunningProgress = ReceivableDunningEngine.loadDunningProgress(listOf(row))[itemId],
+        )
     val settlementDtos =
         settlementRows.map {
             OpenItemSettlementDto(
@@ -1335,7 +1416,12 @@ internal fun loadOpenItemDetail(itemId: Uuid): OpenItemDetailDto {
         ReceivableDunningNoticeTable
             .selectAll()
             .where { ReceivableDunningNoticeTable.openItemId eq itemId }
-            .map {
+            .orderBy(
+                ReceivableDunningNoticeTable.cycleNumber to SortOrder.ASC,
+                ReceivableDunningNoticeTable.levelNumber to SortOrder.ASC,
+                ReceivableDunningNoticeTable.issuedAt to SortOrder.ASC,
+                ReceivableDunningNoticeTable.id to SortOrder.ASC,
+            ).map {
                 ReceivableDunningNoticeDto(
                     id = it[ReceivableDunningNoticeTable.id].toString(),
                     openItemId = itemId.toString(),

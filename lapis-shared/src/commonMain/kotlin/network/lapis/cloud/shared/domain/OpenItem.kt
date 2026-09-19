@@ -54,11 +54,18 @@ object OpenItemStatusSets {
 object CounterpartyKey {
     const val MAX_LENGTH = 200
 
+    /**
+     * Compiled ONCE, not per [of] call (review fund N11): the client's list filter runs [of] twice
+     * per loaded row per keystroke (`openItemFilterCounts` + `applyOpenItemFilter`, up to 200 rows),
+     * and `Regex("\\s+")` inside the function body meant one fresh `RegExp` compilation per call.
+     */
+    private val WHITESPACE_RUN = Regex("\\s+")
+
     /** `lower(trim(collapse_whitespace(name)))`, truncated to [MAX_LENGTH]. */
     fun of(name: String): String =
         name
             .trim()
-            .replace(Regex("\\s+"), " ")
+            .replace(WHITESPACE_RUN, " ")
             .lowercase()
             .take(MAX_LENGTH)
 }
@@ -92,8 +99,25 @@ data class OpenItemDto(
     val createdAt: LocalDateTime,
     val cancelledAt: LocalDateTime? = null,
     val cancellationReason: String? = null,
+    /**
+     * Highest dunning level with an **ISSUED** notice (a `SKIPPED` slot was deliberately not dunned, a
+     * `CANCELLED` one was withdrawn), `null` while nothing has been issued. RECEIVABLE items only --
+     * always `null` on a PAYABLE one, which this domain never duns.
+     */
     val highestDunningLevelNumber: Int? = null,
+    /**
+     * The level `issueReceivableDunningNotice` would really issue next, `null` when there is none (all
+     * active levels used, none configured, or the item is no longer settleable). An occupied
+     * `uq_rdn_slot` blocks re-issuing regardless of the notice's status, so this can be beyond
+     * [highestDunningLevelNumber] + 1.
+     */
     val nextDunningLevelNumber: Int? = null,
+    /**
+     * Server-computed date [nextDunningLevelNumber] becomes due ([dueDate] + that level's grace days),
+     * `null` whenever [nextDunningLevelNumber] is. It is **not** a lock: manual dunning is allowed
+     * before it (only the automatic run waits for it). Shown next to the issue button in the open-item
+     * detail ("Nächste Stufe fällig am …").
+     */
     val nextDunningLevelDueOn: LocalDate? = null,
 )
 

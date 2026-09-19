@@ -10282,3 +10282,830 @@ msgstr ""
 msgid "Ausblenden"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:287
+msgid "In „Offene Posten“ öffnen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:409
+msgid "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:485
+msgid "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:499
+msgid "Forderungskonto (Debitoren)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:505
+msgid "Verbindlichkeitenkonto (Kreditoren)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:43
+msgid "Posten ausgleichen: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:44
+msgid "Offen: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:45
+msgid "Betrag in EUR"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:46
+msgid "Zahlungsdatum (JJJJ-MM-TT)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:48
+msgid "(Standard-Bankkonto der Organisation)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:58
+msgid "Ausgleichen …"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:65
+msgid "Bitte einen Betrag angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:68
+msgid "Der Betrag darf den offenen Betrag (%1) nicht übersteigen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
+msgid "Bitte ein gültiges Datum angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:73
+msgid "Bitte die Eingaben prüfen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:81
+msgid "Ausgleich bestätigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:83
+msgid "%1 für \"%2\" als bezahlt buchen (Zahlungsdatum %3)?"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:89
+msgid "Jetzt ausgleichen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:111
+msgid "Ausgleich gebucht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:113
+msgid "Ausgleich vermerkt, aber nicht gebucht: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:125
+msgid "Beleg/Notiz bearbeiten: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:126
+msgid "Belegnummer"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:142
+msgid "Die Belegnummer darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:144
+msgid "Die Notiz darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:181
+msgid "Kreditor und Debitor verrechnen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:195
+msgid "Keine verrechenbaren Gegenparteien: Es braucht offene Posten als Kreditor UND als Debitor derselben Gegenpartei."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:217
+msgid "%1 · Kreditor offen %2 · Debitor offen %3"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:233
+msgid "Verrechnen …"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:256
+msgid "Vorschau der Buchung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:257
+msgid "Soll: %1 · %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:258
+msgid "Haben: %1 · %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:260
+msgid "Betrag:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:264
+msgid "Danach: Kreditor offen %1 (%2) · Debitor offen %3 (%4)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:283
+msgid "Nur über den Namen zugeordnet, nicht über einen gemeinsamen CRM-Kontakt -- bitte prüfen, ob dieselbe Gegenpartei gemeint ist."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:287
+msgid "Höchstens verrechenbar: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:291
+msgid "Bitte einen gültigen Betrag (größer 0, höchstens der verrechenbare Betrag) eingeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:296
+msgid "Vorschau wird geladen …"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:328
+msgid "Wirklich %1 verrechnen? Es wird sofort gebucht (Soll %2, Haben %3). Ein Storno ist möglich, aber nur einmal."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:336
+msgid "Endgültig verrechnen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:337
+msgid "Zurück"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:353
+msgid "Verrechnung gebucht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:48
+msgid "Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:53
+msgid "Höchstens %1 Nachkommastellen erlaubt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:57
+msgid "Der Betrag muss größer als 0 sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:80
+msgid "Bitte eine Richtung (Kreditor oder Debitor) wählen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:81
+msgid "Bitte eine Gegenpartei angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:83
+msgid "Die Gegenpartei darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:84
+msgid "Bitte ein Belegdatum angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:85
+msgid "Bitte ein Fälligkeitsdatum angeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:86
+msgid "Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:89
+msgid "Bitte ein Gegenkonto wählen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:122
+msgid "Kein Verbindlichkeitenkonto zugeordnet. Ein Administrator muss es im Kontenplan hinterlegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:124
+msgid "Kein Forderungskonto zugeordnet. Ein Administrator muss es im Kontenplan hinterlegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:126
+msgid "Kein Bankkonto zugeordnet. Bitte ein Bankkonto wählen oder im Kontenplan hinterlegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:127
+msgid "Ein beteiligtes Konto ist inaktiv oder nicht mehr vorhanden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:129
+msgid "Das Gegenkonto hat den falschen Kontotyp (Kreditor: Aufwandskonto, Debitor: Ertragskonto)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:130
+msgid "Das zugeordnete Forderungskonto ist kein Aktivkonto."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:131
+msgid "Das zugeordnete Verbindlichkeitenkonto ist kein Passivkonto."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:132
+msgid "Für Buchungen auf ein Kassenkonto ist ein Beleg erforderlich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:133
+msgid "Der Kassenbestand würde negativ."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:20
+msgid "Kreditor"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:21
+msgid "Debitor"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:33
+msgid "Teilweise ausgeglichen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:34
+msgid "Ausgeglichen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:48
+msgid "Zahlung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:49
+msgid "Verrechnung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:54
+msgid "Nicht fällig"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:55
+msgid "1–30 Tage"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:56
+msgid "31–90 Tage"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:57
+msgid "Über 90 Tage"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:62
+msgid "Ausgestellt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:63
+msgid "Übersprungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:79
+msgid "Überfällig"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:83
+msgid "seit 1 Tag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:83
+msgid "seit %1 Tagen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:89
+msgid "Kreditoren (Verbindlichkeiten)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:90
+msgid "Debitoren (Forderungen)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:96
+msgid "Offene Verbindlichkeiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:97
+msgid "Offene Forderungen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:98
+msgid "Davon überfällig"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:99
+msgid "Verrechenbare Gegenparteien"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:103
+msgid "Stufe %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:104
+msgid "Offene Posten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:113
+msgid "Altersstruktur anzeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:120
+msgid "Posten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:126
+msgid "Nur überfällige"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:127
+msgid "Suche (Gegenpartei, Beleg)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:132
+msgid "Seitengröße"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:140
+msgid "Anzeige begrenzt — bitte Filter einschränken."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:148
+msgid "Posten oben auswählen, um Details zu sehen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:175
+msgid "%1 Posten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:180
+msgid "Alle Posten zeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:180
+msgid "Nur diese zeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:195
+msgid "Kreditor und Debitor mit gleicher Gegenpartei"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:211
+msgid "Anzahl"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:239
+msgid "Forderungs- und Verbindlichkeitenkonto sind nicht zugeordnet -- neue Posten werden angelegt, aber nicht gebucht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:242
+msgid "Jetzt zuordnen (Kontenplan)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:245
+msgid "Ein Administrator muss im Kontenplan unter „Kontenzuordnung Zahlungsverkehr\" ein Forderungs- und ein Verbindlichkeitenkonto zuordnen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:267
+msgid "%1 von %2 geladenen Posten angezeigt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:268
+msgid "Weitere Posten liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:277
+msgid "Keine Posten für diese Filter."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:285
+msgid "Fällig am"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:289
+msgid "Mahnstufe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:396
+msgid "Posten nicht gefunden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:414
+msgid "Richtung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:429
+msgid "Altersstruktur ausblenden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:466
+msgid "Posten anlegen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:516
+msgid "Posten angelegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:519
+msgid "Posten angelegt, aber nicht gebucht: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:526
+msgid "Buchung nachgeholt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:529
+msgid "Weiterhin nicht gebucht: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:564
+msgid "Nicht gebucht"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:573
+msgid "Ausgleichen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:576
+msgid "Nachbuchen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:609
+msgid "Offen:"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:612
+msgid "Belegdatum %1 · fällig am %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:619
+msgid "Gegenkonto %1 · %2 · %3"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:630
+msgid "Storniert am %1 -- Grund: %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:635
+msgid "Dieser Posten ist angelegt, aber nicht gebucht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:654
+msgid "Ausgleiche"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:707
+msgid "Zahlung stornieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:711
+msgid "Die Zahlung wird durch eine Gegenbuchung storniert; der Posten ist danach wieder in Höhe des Betrags offen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:712
+msgid "Grund für die Stornierung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:720
+msgid "Zahlung storniert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:729
+msgid "Verrechnung stornieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:734
+msgid "Die Verrechnung wird für BEIDE beteiligten Posten (Kreditor und Debitor) durch eine Gegenbuchung storniert. Das ist nur einmal möglich."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:747
+msgid "Verrechnung storniert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:763
+msgid "Mahnhinweise"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:767
+msgid "Stufe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:767
+msgid "Ausgestellt am"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:767
+msgid "Antwort bis"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:767
+msgid "Stornogrund"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:794
+msgid "Mahnhinweis stornieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:795
+msgid "Der Mahnhinweis wird als storniert vermerkt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:797
+msgid "Eine bereits gebuchte Mahngebühr wird dadurch NICHT automatisch zurückgebucht. Es gibt weder PDF noch Briefversand -- der Hinweis existiert nur in dieser Ansicht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:810
+msgid "Mahnhinweis storniert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:840
+msgid "Noch nicht gebucht -- bitte zuerst nachbuchen, dann ausgleichen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:857
+msgid "Beleg/Notiz bearbeiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:864
+msgid "Posten stornieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:868
+msgid "Der Posten wird storniert; eine bereits erfolgte Buchung wird durch eine Gegenbuchung aufgehoben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:877
+msgid "Posten storniert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:884
+msgid "Zum Stornieren zuerst alle Ausgleiche stornieren."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:898
+msgid "Keine weitere Mahnstufe verfügbar (alle aktiven Stufen genutzt oder keine konfiguriert)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:903
+msgid "Mahnhinweis Stufe %1 ausstellen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:906
+msgid "Mahnhinweis ausstellen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:908
+msgid "Mahnhinweis der Stufe %1 jetzt ausstellen? Ist für die Stufe eine Gebühr hinterlegt, wird sie gebucht. Es wird kein PDF erzeugt und kein Brief versendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:913
+msgid "Jetzt ausstellen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:918
+msgid "Mahnhinweis ausgestellt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:925
+msgid "Stufe überspringen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:928
+msgid "Mahnstufe überspringen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:929
+msgid "Die nächste Mahnstufe wird ohne Mahnhinweis als übersprungen vermerkt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:932
+msgid "Überspringen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:938
+msgid "Mahnstufe übersprungen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:985
+msgid "(bitte wählen)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:993
+msgid "Belegdatum (JJJJ-MM-TT)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:997
+msgid "Fällig am (JJJJ-MM-TT)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:999
+msgid "Betrag in EUR (z. B. 1234,56)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1000
+msgid "Gegenkonto"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1015
+msgid "(kein CRM-Kontakt)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1015
+msgid "CRM-Kontakt (optional)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1032
+msgid "Zuerst die Richtung wählen -- sie bestimmt den passenden Kontotyp."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1041
+msgid "Zur Auswahl stehen Aufwandskonten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1043
+msgid "Zur Auswahl stehen Ertragskonten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1061
+msgid "Konto und Sphäre aus dem letzten Posten dieser Gegenpartei vorbelegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningLevelValidation.kt:34
+msgid "Die Stufennummer muss mindestens 1 sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningLevelValidation.kt:37
+msgid "Der Name muss zwischen 1 und %1 Zeichen lang sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningLevelValidation.kt:40
+msgid "Die Wartefrist muss zwischen %1 und %2 Tagen liegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningLevelValidation.kt:43
+msgid "Die Antwortfrist muss zwischen %1 und %2 Tagen liegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningLevelValidation.kt:47
+msgid "Die Gebühr muss zwischen 0,00 € und 25,00 € liegen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:52
+msgid "Forderungs-Mahnstufen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:54
+msgid "Konfiguration des Mahnwesens für offene Forderungen (Debitoren) -- getrennt vom Mahnwesen für Mitgliedsbeiträge."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:71
+msgid "Forderungs-Mahnwesen aktivieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:72
+msgid "Forderungs-Mahnwesen deaktivieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:89
+msgid "Ab jetzt kann der Mahnlauf für überfällige Debitor-Posten Mahnhinweise ausstellen. Es wird kein PDF erzeugt und kein Brief versendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:98
+msgid "Forderungs-Mahnwesen aktiviert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:108
+msgid "Der automatische Mahnlauf stellt keine Mahnhinweise mehr aus. Bereits ausgestellte Mahnhinweise bleiben in der Historie erhalten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:117
+msgid "Forderungs-Mahnwesen deaktiviert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:139
+msgid "Das Forderungs-Mahnwesen ist aktiviert, aber keine Mahnstufe ist aktiv -- es wird nichts gemahnt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:145
+msgid "Der automatische Mahnlauf ist auf dem Server nicht eingeschaltet (Umgebungsvariable LAPIS_RECEIVABLE_DUNNING_POLLER_ENABLED) -- Mahnhinweise lassen sich nur manuell ausstellen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:151
+msgid "Aktive Mahnstufen: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:153
+msgid "Automatischer Mahnlauf (Poller): %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:156
+msgid "Mahnhinweise erzeugen weder ein PDF noch einen Brief -- sie existieren nur in der Ansicht „Offene Posten“."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:165
+msgid "Mahnstufen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:167
+msgid "Inaktive Stufen anzeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:181
+msgid "Noch keine Mahnstufen konfiguriert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:186
+msgid "Wartefrist"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:186
+msgid "Antwortfrist"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:196
+msgid "Mahnstufe anlegen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:220
+msgid "Mahnstufe deaktivieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:222
+msgid "Mahnstufe \"%1 · %2\" wirklich deaktivieren? Bereits ausgestellte Mahnhinweise bleiben erhalten, die Stufe steht aber für künftige Eskalationen nicht mehr zur Verfügung. Stufen werden nie gelöscht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:234
+msgid "Mahnstufe deaktiviert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:249
+msgid "Mahnstufe \"%1\" bearbeiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:264
+msgid "Stufennummer (ab 1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:265
+msgid "Name (max. 100 Zeichen)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:266
+msgid "Wartefrist in Tagen (1-365)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:267
+msgid "Antwortfrist in Tagen (1-365)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:268
+msgid "Gebühr in EUR (optional, max. 25,00 €)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:287
+msgid "Die Gebühr muss, falls angegeben, ein gültiger Betrag sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:310
+msgid "Mahnstufe angelegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:310
+msgid "Mahnstufe gespeichert."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:188
+msgid "(Kreditoren + Debitoren)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:286
+msgid "Kacheln zählen alle Posten, die Liste nur die geladenen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:425
+msgid "Details konnten nicht geladen werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:762
+msgid "Forderungs-Mahnwesen ist deaktiviert; ein manuell ausgestellter Hinweis wird trotzdem ausgestellt und eine hinterlegte Gebühr gebucht."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1047
+msgid "Mahnhinweis der Stufe %1 jetzt ausstellen? Dabei wird eine Mahngebühr von %2 gebucht. Es wird kein PDF erzeugt und kein Brief versendet."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemFormValidation.kt:70
+msgid "Der Betrag ist zu groß (höchstens %1)."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1046
+msgid "Nächste Stufe fällig am %1"
+msgstr ""

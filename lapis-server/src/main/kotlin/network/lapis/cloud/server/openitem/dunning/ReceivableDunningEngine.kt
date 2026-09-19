@@ -27,6 +27,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -204,12 +205,96 @@ internal object ReceivableDunningEngine {
                 .singleOrNull()
                 ?.get(ReceivableDunningNoticeTable.levelNumber)
                 ?: 0
-        return ReceivableDunningLevelTable
+        return nextActiveLevelAbove(highestRecorded)
+    }
+
+    /**
+     * The ONE place the "which level comes next" rule is written in SQL -- shared by [findNextLevel]
+     * (single item, used by the two issuance paths) and mirrored in Kotlin by [loadDunningProgress]
+     * (whole page, read-only). Both must stay in agreement; the server round-trip test
+     * `OpenItemDunningProgressTest` pins exactly that (it reads `nextDunningLevelNumber` off the DTO
+     * and then issues, asserting the issued level IS the announced one).
+     */
+    private fun nextActiveLevelAbove(highestRecorded: Int): ResultRow? =
+        ReceivableDunningLevelTable
             .selectAll()
             .where { (ReceivableDunningLevelTable.active eq true) and (ReceivableDunningLevelTable.levelNumber greater highestRecorded) }
             .orderBy(ReceivableDunningLevelTable.levelNumber to SortOrder.ASC)
             .limit(1)
             .singleOrNull()
+
+    /**
+     * Escalation state of ONE receivable open item, exactly as `OpenItemDto`'s three dunning fields
+     * need it (`highestDunningLevelNumber`/`nextDunningLevelNumber`/`nextDunningLevelDueOn`).
+     *
+     * [highestIssuedLevelNumber] counts **only `ISSUED`** notices: a `SKIPPED` slot is the explicit
+     * record that this level was deliberately NOT dunned, and a `CANCELLED` one was withdrawn --
+     * showing either as "Mahnstufe N" in the list would claim a dunning notice that does not exist.
+     * It is reported for every RECEIVABLE item regardless of status, because it is a historical fact
+     * (a settled invoice that was dunned twice was dunned twice).
+     *
+     * [nextLevelNumber]/[nextLevelDueOn] describe a FUTURE action and are therefore `null` unless
+     * the item is still dunnable (`OpenItemStatusSets.SETTLEABLE`) -- exactly the gate
+     * [issueNextLevel] itself applies. Unlike [highestIssuedLevelNumber] the "what has already been
+     * recorded" basis here is **every** notice slot (any status, `SKIPPED`/`CANCELLED` included),
+     * because `uq_rdn_slot` blocks re-using an occupied `(open_item_id, cycle_number, level_number)`
+     * slot regardless of its status -- so this is the level [issueNextLevel] would really issue.
+     */
+    data class DunningProgress(
+        val highestIssuedLevelNumber: Int?,
+        val nextLevelNumber: Int?,
+        val nextLevelDueOn: LocalDate?,
+    )
+
+    /**
+     * Batch-loads [DunningProgress] for a whole page of `open_item` rows: **exactly two queries**
+     * regardless of how many rows are passed (one over `receivable_dunning_notice` for all ids at
+     * once, one over the item-independent `receivable_dunning_level` ladder), so
+     * `OpenItemService.listOpenItems` stays free of the N+1 it would otherwise get for its up-to-200
+     * rows -- same batching contract `loadActiveSettlements`/`loadAccountInfo` already establish.
+     *
+     * PAYABLE rows are dropped up front and are simply absent from the result map (the caller maps a
+     * missing entry to three `null` fields): a creditor item is never dunned by this domain
+     * ([issueNextLevel] refuses it structurally).
+     */
+    fun loadDunningProgress(rows: List<ResultRow>): Map<Uuid, DunningProgress> {
+        val receivableRows = rows.filter { it[OpenItemTable.direction] == OpenItemDirection.RECEIVABLE }
+        if (receivableRows.isEmpty()) return emptyMap()
+        val ids = receivableRows.map { it[OpenItemTable.id] }.distinct()
+        val noticeRows =
+            ReceivableDunningNoticeTable
+                .selectAll()
+                .where { ReceivableDunningNoticeTable.openItemId inList ids }
+                .toList()
+        val highestRecordedByItem =
+            noticeRows
+                .groupBy { it[ReceivableDunningNoticeTable.openItemId] }
+                .mapValues { (_, rs) -> rs.maxOf { it[ReceivableDunningNoticeTable.levelNumber] } }
+        val highestIssuedByItem =
+            noticeRows
+                .filter { it[ReceivableDunningNoticeTable.status] == ReceivableDunningNoticeStatus.ISSUED }
+                .groupBy { it[ReceivableDunningNoticeTable.openItemId] }
+                .mapValues { (_, rs) -> rs.maxOf { it[ReceivableDunningNoticeTable.levelNumber] } }
+        // levelNumber ASC, so `firstOrNull { it.first > highestRecorded }` is the same pick
+        // `nextActiveLevelAbove` makes in SQL.
+        val activeLevelLadder =
+            ReceivableDunningLevelTable
+                .selectAll()
+                .where { ReceivableDunningLevelTable.active eq true }
+                .orderBy(ReceivableDunningLevelTable.levelNumber to SortOrder.ASC)
+                .map { it[ReceivableDunningLevelTable.levelNumber] to it[ReceivableDunningLevelTable.graceDays] }
+        return receivableRows.associate { row ->
+            val id = row[OpenItemTable.id]
+            val dunnable = row[OpenItemTable.status] in OpenItemStatusSets.SETTLEABLE
+            val nextLevel =
+                if (dunnable) activeLevelLadder.firstOrNull { (levelNumber, _) -> levelNumber > (highestRecordedByItem[id] ?: 0) } else null
+            id to
+                DunningProgress(
+                    highestIssuedLevelNumber = highestIssuedByItem[id],
+                    nextLevelNumber = nextLevel?.first,
+                    nextLevelDueOn = nextLevel?.let { (_, graceDays) -> row[OpenItemTable.dueDate].plus(graceDays, DateTimeUnit.DAY) },
+                )
+        }
     }
 
     private fun recordAudit(

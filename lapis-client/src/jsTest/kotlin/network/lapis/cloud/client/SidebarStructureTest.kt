@@ -164,6 +164,41 @@ class SidebarStructureTest {
         )
     }
 
+    // Welle V1.4.21 (Offene Posten): `/open-items` (FINANCE, TREASURER/BOARD/ADMIN) und
+    // `/receivable-dunning-settings` (SYSTEM, ADMIN-only -- die SYSTEM-Gruppe existiert für
+    // TREASURER/BOARD gar nicht, expliziter Negativtest).
+    private fun sidebarLinkUrls(session: SessionInfoDto): Set<String> {
+        AppState.setSession(session)
+        val body = SimplePanel()
+        buildSidebar(body, session, activeRoute = null) {}
+        val nav = body.getChildren().single() as Nav
+        return nav
+            .getChildren()
+            .filterIsInstance<Nav>()
+            .flatMap { it.getChildren() }
+            .filterIsInstance<Link>()
+            .mapNotNull { it.url }
+            .toSet()
+    }
+
+    @Test
+    fun financeGroup_showsOpenItemsEntry_forTreasurerBoardAndAdmin() {
+        listOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN).forEach { role ->
+            assertTrue(
+                sidebarLinkUrls(adminSession.copy(role = role)).contains("#${Routes.OPEN_ITEMS}"),
+                "$role must see the Offene Posten entry",
+            )
+        }
+        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.MEMBER)).contains("#${Routes.OPEN_ITEMS}"))
+    }
+
+    @Test
+    fun systemGroup_showsReceivableDunningSettingsEntry_onlyForAdmin() {
+        assertTrue(sidebarLinkUrls(adminSession).contains("#${Routes.RECEIVABLE_DUNNING_SETTINGS}"))
+        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.TREASURER)).contains("#${Routes.RECEIVABLE_DUNNING_SETTINGS}"))
+        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.BOARD)).contains("#${Routes.RECEIVABLE_DUNNING_SETTINGS}"))
+    }
+
     @Test
     fun membershipGroup_showsStatuteQaEntry_onlyWhenTheServerReportsTheAiLayerOperational() {
         // V1.6.1: optional AI assistance, default OFF. The entry lives INSIDE the "Mitgliedschaft"

@@ -68,4 +68,29 @@ class OpenItemLabelsTest {
     fun overdueLabel_isStable() {
         assertEquals("${kvI18nMarker}Überfällig", openItemOverdueLabel())
     }
+
+    // ── Welle V1.4.21 ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun overdueDaysLabel_namesTheExactDayCount() {
+        assertEquals("${kvI18nMarker}seit 1 Tag", openItemOverdueDaysLabel(1))
+        assertEquals("seit 12 Tagen", openItemOverdueDaysLabel(12))
+    }
+
+    @Test
+    fun everySegmentAndMetricKind_hasALabel() {
+        OpenItemSegment.entries.forEach { assertTrue(openItemSegmentLabel(it).isNotBlank()) }
+        OpenItemMetricKind.entries.forEach { assertTrue(openItemMetricLabel(it).isNotBlank()) }
+    }
+
+    @Test
+    fun everyReceivableDunningNoticeStatus_hasAColor() {
+        ReceivableDunningNoticeStatus.entries.forEach { assertTrue(receivableDunningNoticeStatusColor(it).isNotBlank()) }
+    }
+
+    @Test
+    fun receivableDunningLevelLabel_nullMeansNoNoticeYet() {
+        assertEquals("–", receivableDunningLevelLabel(null))
+        assertEquals("Stufe 2", receivableDunningLevelLabel(2))
+    }
 }

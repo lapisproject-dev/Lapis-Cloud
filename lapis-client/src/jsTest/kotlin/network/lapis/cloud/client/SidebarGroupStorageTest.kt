@@ -78,6 +78,20 @@ class SidebarGroupStorageTest {
         assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/audit-log"))
     }
 
+    // Welle V1.4.21: die Offene-Posten-Route liegt in FINANCE, der Deep-Link-Query (`?item=`) darf die
+    // Gruppenauflösung nicht stören; der Mahnstufen-Screen liegt in SYSTEM (nicht ADMINISTRATION).
+    @Test
+    fun sidebarGroupForRoute_openItemsRoute_resolvesToFinance_evenWithDeepLinkQuery() {
+        assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/open-items"))
+        assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute("/open-items?item=abc"))
+    }
+
+    @Test
+    fun sidebarGroupForRoute_receivableDunningSettings_resolvesToSystem() {
+        assertEquals(SidebarGroupId.SYSTEM, sidebarGroupForRoute("/receivable-dunning-settings"))
+        assertEquals(SidebarGroupId.SYSTEM, sidebarGroupForRoute("/dunning-settings"))
+    }
+
     @Test
     fun sidebarGroupForRoute_ungroupedTopLevelRoute_isNull() {
         assertNull(sidebarGroupForRoute("/dashboard"))

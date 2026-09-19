@@ -8,6 +8,76 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Open items UI, debtor-dunning configuration (V1.4.21)** -- the client screens for the V1.4.15
+  payables/receivables backend. This closes the "Bekannte Lücke (Session 2026-09-14)" noted under
+  V1.4.15 (its original entry is left as it was written). New screen `/open-items` (sidebar group
+  "Finanzen", TREASURER/BOARD/ADMIN read, TREASURER/ADMIN write): one list with a segmented control
+  (all / creditors / debtors), a summary row of at most three tiles (never a netted figure) with a
+  collapsed aging section, status/search/"overdue only" filters, keyset "Mehr laden" (capped at 20
+  loads), a detail view with settlements and dunning notices, a create form (direction is a mandatory
+  choice, only pre-filled from the segment; the contra-account select is type-filtered; account and
+  sphere are pre-filled from the counterparty's last item), settle, reverse a payment, edit
+  reference/note, cancel, retry a failed posting, and a netting dialog whose "Net" button is enabled
+  only while the displayed server preview belongs to exactly the current (payable, receivable,
+  amount) triple. Debtor dunning: issue a notice, skip a level, cancel a notice. Every action follows
+  the confirmation matrix (reason dialog where the server requires a reason, plain confirmation where
+  money moves). New ADMIN-only screen `/receivable-dunning-settings` (sidebar group "System"): enable/
+  disable and level CRUD, no disclaimer flow. The chart-of-accounts screen gained the receivables
+  (ASSET-filtered) and payables (LIABILITY-filtered) account selects. The audit-log detail links an
+  open-item entry to the item (`?item=<uuid>`, opaque id only). `tableActionTooltip` and the new
+  `segmentedControl` strip the `tr()` marker from `aria-label`. `confirmWithReasonDialog` gained an
+  optional `reasonMaxLength` (disables the confirm button above it). All new strings are in the
+  eight catalogs with translations for all seven languages. Tests: `OpenItemFiltersTest`,
+  `OpenItemFormValidationTest`, `OpenItemNettingUiTest`, `ReceivableDunningLevelValidationTest`,
+  `OpenItemsScreenSmokeTest`, `DataScreenLayoutTest`, extensions of `OpenItemAuthzUiTest`,
+  `OpenItemLabelsTest`, `AuditLogScreenTest`, `Sidebar*Test`. Design: `docs/architecture/open-items.adoc`.
+  **Known gaps:** no server-side status filter or search (`listOpenItems` has neither; the screen
+  states "N of M loaded items" and adds that the tiles count every item while the list counts only
+  the loaded ones); no PDF and no postal dispatch for debtor dunning notices; no
+  assignment from bank statements (`BankStatementMatcher` unchanged); no dashboard integration
+  (counter badges stay out of scope); no audit trail for the dunning-level configuration
+  (`ReceivableDunningLevelSnapshot` is still written nowhere); dunning levels are deactivated, never
+  deleted. **Organization settings remain a wholesale replace without optimistic concurrency** —
+  `updateOrganizationSettings` carries no version/ETag, so a stale read can still lose a concurrent
+  change (an ADMIN saves the account mapping in tab 1 with a `receivableDunningEnabled = false` that
+  was true by then because tab 2 enabled it). The three client helpers now share one
+  `OrganizationSettingsDto.toInput()`, so a field can no longer be *forgotten* — but a stale value
+  stays stale; real optimistic concurrency is a separate wave. **Amounts are shown in the app-wide
+  format** (`formatMoney`, e.g. "1234.5 €" — a house rule from earlier waves, unchanged here) while
+  input accepts "1234,56". **Every action reloads the list from page one**, so a "Mehr laden" chain
+  is lost after a settle/cancel/netting/dunning action.
+
+- **Debtor dunning is reachable in the UI at all (V1.4.21 follow-up, blocking audit finding).**
+  `OpenItemDto.highestDunningLevelNumber`/`nextDunningLevelNumber`/`nextDunningLevelDueOn` existed on
+  the wire since V1.4.15 but were never written by the server, so the whole debtor-dunning half of
+  the new screen was dead: the detail view always said "Keine weitere Mahnstufe verfügbar", "Stufe
+  überspringen" never appeared, and the "Mahnstufe" column always showed "–". They are now filled by
+  a new `ReceivableDunningEngine.loadDunningProgress`, batch-loaded per page in exactly two queries
+  (so `listOpenItems`, up to 200 rows, gets no N+1), and `toOpenItemDto` takes the value as a
+  required parameter so a future call site cannot silently drop it again.
+  `highestDunningLevelNumber` counts `ISSUED` notices only (a `SKIPPED` slot was deliberately not
+  dunned, a `CANCELLED` one was withdrawn); the announced next level is exactly the level
+  `issueReceivableDunningNotice` would really issue, because an occupied `uq_rdn_slot` blocks
+  re-issuing regardless of status. Test: `OpenItemDunningProgressTest` (real HTTP round trip, list
+  vs. detail agreement, statement-count N+1 guard).
+
+- **Manual debtor dunning ignores the enable switch — now visibly so (V1.4.21 follow-up).**
+  `issueReceivableDunningNotice` deliberately does not check
+  `organization_settings.receivable_dunning_enabled` (that switch governs the automatic run; a
+  treasurer must be able to dun one invoice without switching the whole run on) and it books a
+  configured fee. While the switch is off, the open-item detail now shows a warning band saying
+  exactly that, and the issue confirmation names the fee amount whenever the next level carries one.
+  The band is only shown when a level can actually be issued (`nextDunningLevelNumber != null`) --
+  otherwise it announced a booking that cannot be triggered on that item at all.
+
+- **The open-item detail shows when the next dunning level falls due (V1.4.21 follow-up).**
+  `OpenItemDto.nextDunningLevelDueOn` travelled on the wire since V1.4.15 and has been populated
+  since the fix above, but was displayed nowhere. The detail now prints "Nächste Stufe fällig am …"
+  next to the issue button: server-computed (due date + that level's grace days), never re-derived on
+  the client, and explicitly not a gate — manual dunning stays allowed before that date, only the
+  automatic run waits for it. The three dunning fields of `OpenItemDto` now carry KDoc stating what
+  "highest" counts, why "next" can be beyond highest + 1, and that the date does not block anything.
+
 - **Client hint "new version available"** -- a browser tab that stays open across a server deploy kept
   running the old client bundle and could start failing against the newer server (seen as an upload
   error that vanished after a manual reload, with nothing telling the user to reload). The SPA now
@@ -32,6 +102,107 @@ All notable changes to this project are documented here. Format follows
   "live call" suppression latched until the page reloads, the pill can overlap the camera preview or the
   mobile roster/chat panel while a call is not live, the hint is not suppressed inside the mobile-app
   WebView, and language switching while the pill is visible was not verified in a browser.
+
+### Fixed
+
+- **Saving unrelated organization settings reset the receivables/payables accounts and switched debtor
+  dunning off** -- `LedgerScreen.toInputWithPaymentAccountMapping`,
+  `PoliticianScreen.toInputWithPoliticianRankingEnabled` and
+  `NonprofitComplianceReportsScreen.toInputWithKleinunternehmerFlag` rebuild `OrganizationSettingsInput`
+  wholesale and did not carry `receivablesAccountId`, `payablesAccountId` and `receivableDunningEnabled`
+  (V1.4.15 fields), so any of those saves (for example a mere politician-ranking toggle) silently set
+  them back to `null`/`false`. The fourth instance of the same bug class; regression tests in
+  `LedgerScreenTest`, `PoliticianScreenTest`, `NonprofitComplianceReportsScreenTest`.
+- **Open-items UI: nine smaller audit findings (V1.4.21 follow-up).** Amounts are now capped at
+  1.000.000.000,00 € on both sides — `open_item.amount` is `numeric(12,2)`, and because `Decimal`
+  travels as a JSON double a client-side "99999999999999999999,99" reached the server as
+  `BigDecimal("1.0E20")` whose scale is *negative*, passed the "at most 2 fractional digits" check and
+  overflowed the column as an HTTP 500 instead of a 400. The dunning-fee field uses the same amount
+  parser as the rest of the wave (it previously accepted "1e2" and silently rounded 12,999 to 13,00).
+  **Behaviour change in that field:** the shared parser requires an amount strictly greater than zero,
+  so an explicit "0" or "0,00" as a dunning fee is no longer accepted (it used to be, and was stored as
+  a zero fee). A level without a fee is entered by leaving the field **empty** — that is
+  `feeAmount = null`, "no fee", which is what an empty field always meant. The server-side bound
+  (`feeAmount must be 0..25`) is unchanged; its lower end is simply no longer reachable from the screen.
+  The settlement result toast identifies the settlement it describes by id instead of by highest
+  `createdAt` (equal timestamps are broken by a random UUID server-side, so it could report an older
+  settlement's posting error). The settlement confirmation moved inline into the same modal (the
+  grammar the netting dialog already uses): cancelling it no longer throws away amount, date and bank
+  account, and its confirm button is locked while the call runs (it previously ran without any button
+  lock, so a double click was a double settlement). The list row's
+  "Nachbuchen" button gets the same double-click lock the detail action bar already had, and its
+  settle dialog gets the live ledger-account list instead of a snapshot taken when the row was
+  rendered. A failed detail fetch now says "Details konnten nicht geladen werden." instead of
+  claiming the item does not exist. The list filters once per render instead of twice, and
+  `CounterpartyKey` compiles its whitespace regex once instead of per call. The counter label states
+  that the tiles count every item while the list counts only the loaded ones, and the overdue tile in
+  the "Alle" segment is labelled "(Kreditoren + Debitoren)". `tr("Bankkonto")` had an empty `msgstr`
+  in all seven catalogs; the unused "Verrechnung vermerkt, aber nicht gebucht" msgid was removed;
+  "Endgültig verrechnen" now says that it books immediately in all seven languages; and the Russian
+  and Polish catalogs use one term pair each for Forderungen/Verbindlichkeiten and for dunning
+  notice/level instead of mixing two. `OpenItemAuthzUi.canNet` was removed (no caller).
+  New/extended tests: `OpenItemI18nCatalogTest`, `OrganizationSettingsInputMappingTest`,
+  `OpenItemSettlementOutcomeTest`, `OpenItemFormValidationTest`, `ReceivableDunningLevelValidationTest`,
+  `OpenItemAuthzUiTest`, `OpenItemServiceTest`, `OrganizationSettingsFieldCoverageTest`.
+
+- **Open-items UI: the remaining findings of the second independent audit (V1.4.21 follow-up).**
+  - **A double click could book a second partial settlement.** The inner "Jetzt ausgleichen" /
+    "Endgültig verrechnen" button was locked while its request ran, but the OUTER "Ausgleichen …" /
+    "Verrechnen …" button never was — clicking it during the in-flight `settleOpenItem` call ran
+    `confirmBox.removeAll()` and built a fresh, unlocked final button, so a second real settlement was
+    one click away. The new `InlineConfirmGate` holds that state DOM-free (and is therefore unit-tested,
+    `InlineConfirmGateTest`): the outer button is locked while a confirmation is visible or a request is
+    in flight, "Zurück" and any input change release it, a confirmation is never pulled away under a
+    running request, and a failed request keeps it open for a retry instead of deadlocking the dialog.
+    Fixed in both money-moving dialogs.
+  - **The "dunning is disabled" warning band could be missing on the very first load.**
+    `refreshDunningContext()` and `openDetail(selectedId)` start in parallel while the detail renders
+    the band from the context as it is at render time, so a context arriving after the detail — the
+    normal case for a deep link — left the band out. The screen remembers which context the displayed
+    detail was rendered with and re-renders exactly once, only on a real change: no second fetch, no
+    second toast, no loop.
+  - **The amount cap lived twice in `OpenItemFormValidation.kt`**, as a constant and spelled out inside
+    the msgid, so changing the constant would have silently falsified eight catalog texts. The message
+    now carries a placeholder fed from the constant; the .pot and all seven catalogs were updated.
+  - **`nextDunningLevelDueOn` is displayed** (see the Added entry above) instead of being wire-only.
+  - **Polish catalog, N17 finished** where it can be: "Stufennummer (ab 1)" and "Die Stufennummer muss
+    mindestens 1 sein." now say "stopień" like the rest of the wave's Polish strings. "Stufe %1",
+    "Stufe", "Stufe überspringen" and "Inaktive Stufen anzeigen" deliberately keep "poziom": a source
+    search shows each of those msgids is **shared with the membership dunning**
+    (`DunningCasesScreen.kt`, `DunningSettingsScreen.kt`), and one gettext msgid is one translation for
+    both domains — retranslating it here would silently change the other domain's UI. Unifying the two
+    would mean splitting the msgids, which is a wave of its own.
+  - **`findAllNettingCandidates` loaded too much.** Contra-account info, active settlements and the
+    dunning progress were loaded for every scanned row (up to 2 × `NETTING_CANDIDATE_SCAN_CAP`) before
+    pairing, although matching only needs `crmContactId`/`counterpartyKey`/`id`, which the scanned rows
+    already carry. Pairing now runs first and the three loads see the paired rows alone — same pairs,
+    same order, same DTOs.
+  - **`OpenItemDunningProgressTest`**: new case for `skipReceivableDunningLevel` (a `SKIPPED` level
+    leaves `highestDunningLevelNumber` at `null` but its slot still blocks, so the announced next level
+    is 2, never 1 again), and its `afterEach` took over the sister test's "did this test create anything
+    at all" guard — the table-wide DELETEs would otherwise wipe rows the test never owned.
+
+- **`README.adoc` claimed a dozen domains were RPC-only that have had screens for waves.** The "Still
+  reachable only via Kilua RPC / raw HTTP" list named the audit log, backup/restore, DSGVO,
+  Transparenzregister, §25 PartG, postal dispatch, Crowdfunding, Auction, Peer-Transfer and Politician
+  Profiles — all of which have a route and a screen in `Routing.kt`. Verified against the client
+  sources: exactly three domains are genuinely still RPC-only (elections, systemisches Konsensieren,
+  federation/trust-anchor administration).
+
+- **The organization-settings field-coverage riegel did not cover the fields it was needed for.**
+  `OrganizationSettingsFieldCoverageTest.KNOWN_LEDGER_ACCOUNT_MAPPING_FIELDS` still had the seven
+  pre-V1.4.15 entries, so `receivablesAccountId`/`payablesAccountId` were never round-tripped — and
+  those are exactly the fields the wave right after their introduction then dropped client-side. The
+  list is now nine entries and `receivableDunningEnabled` rides the same "toggle something unrelated,
+  resend the rest" round trip. Separately, the three client-side wholesale-replace helpers no longer
+  keep three hand-maintained 26-field copies of `OrganizationSettingsInput`: they share one
+  `OrganizationSettingsDto.toInput()` and `copy(...)` only what their own screen edits.
+
+- **`aria-label` of table icon buttons leaked the KVision i18n marker** -- 14 existing call sites
+  pass `tr(...)` to `tableActionButton`/`tableActionTooltip`, which wrote it into `aria-label`
+  (a screen reader announced `###KvI18nS###Details anzeigen`). The helper now strips the marker
+  centrally; the call sites are unchanged. The `ClientTrAttributeLeakTest` tripwire cannot see this
+  indirect flow.
 
 ## [0.22.0] — 2026-09-19
 

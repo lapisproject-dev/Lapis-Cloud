@@ -798,53 +798,13 @@ private fun renderPoliticianRankingToggle(
  * next [OrganizationSettingsDto] field addition, per code review round 1.
  */
 internal fun OrganizationSettingsDto.toInputWithPoliticianRankingEnabled(newValue: Boolean) =
-    OrganizationSettingsInput(
-        name = name,
-        street = street,
-        postalCode = postalCode,
-        city = city,
-        country = country,
-        bankIban = bankIban,
-        bankBic = bankBic,
-        taxExemptionAuthority = taxExemptionAuthority,
-        taxExemptionDate = taxExemptionDate,
-        isPoliticalParty = isPoliticalParty,
-        postalMailEnabled = postalMailEnabled,
-        politicianRankingEnabled = newValue,
-        paymentBankAccountId = paymentBankAccountId,
-        paymentFeeAccountId = paymentFeeAccountId,
-        contributionIncomeAccountId = contributionIncomeAccountId,
-        // Review MAJOR fix: `donationIncomeAccountId` was already silently dropped here before this
-        // round (never listed by PoliticianScreenTest's own field-by-field assertions either) --
-        // `eventIncomeAccountId`/`eventIncomeSphere` (V1.4.3.1) would otherwise have joined it as a
-        // THIRD field this "wholesale-replace, one flag flipped" helper quietly resets to its
-        // Kotlin default the next time a BOARD/ADMIN merely toggles politician ranking. All three are
-        // fixed together -- see this function's own KDoc "never silently drop/reset a field".
-        donationIncomeAccountId = donationIncomeAccountId,
-        eventIncomeAccountId = eventIncomeAccountId,
-        eventIncomeSphere = eventIncomeSphere,
-        // Welle V1.4.5.2 "DATEV-Format-Export" -- same "never silently drop/reset a field" fix,
-        // applied at the moment the two new fields were introduced instead of after the fact.
-        datevBeraterNummer = datevBeraterNummer,
-        datevMandantNummer = datevMandantNummer,
-        // Review MAJOR fix (V1.4.11 "Reisekostenabrechnung"): `travelExpenseAccountId` joined the
-        // same recurring bug -- a fourth field silently dropped/reset to null by this "wholesale-
-        // replace, one flag flipped" helper the next time a BOARD/ADMIN merely toggles politician
-        // ranking. See this function's own KDoc "never silently drop/reset a field".
-        travelExpenseAccountId = travelExpenseAccountId,
-        // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- the THIRD instance of the exact
-        // same "wholesale-replace, one flag flipped" account-field-drop bug that
-        // `donationIncomeAccountId`/`eventIncomeAccountId`/`travelExpenseAccountId` already fixed
-        // here. Fixed at introduction time rather than after the fact this time.
-        volunteerAllowanceAccountId = volunteerAllowanceAccountId,
-        // Review MAJOR fix (V1.4.13 "USt-Voranmeldung"): `isKleinunternehmer` was silently dropped
-        // here the same way -- a BOARD/ADMIN merely toggling politician ranking would unset a
-        // Kleinunternehmer org's §19-UStG status back to `false`, which (given `vatEnabled = true`)
-        // flips `AccountingService.vatActive()` from inactive to active with immediate effects on
-        // journal-entry VAT normalization, the VAT return preview, and export blocking. Same
-        // "never silently drop/reset a field" fix as every account field above.
-        isKleinunternehmer = isKleinunternehmer,
-    )
+    // Audit-Fund M2: ein Feld umschalten, alles andere über `toInput()` unverändert mitschicken --
+    // statt 26 Felder von Hand abzuschreiben. Die ausführliche Historie der fünf Felder, die in
+    // dieser Kopie über die Wellen hinweg einzeln vergessen wurden (donationIncomeAccountId,
+    // eventIncomeAccountId/-Sphere, travelExpenseAccountId, volunteerAllowanceAccountId,
+    // isKleinunternehmer, receivablesAccountId/payablesAccountId/receivableDunningEnabled), steht
+    // jetzt im KDoc von `toInput` -- diese Funktion kann sie strukturell nicht mehr verlieren.
+    toInput().copy(politicianRankingEnabled = newValue)
 
 // ================================================================================================
 // German label/badge-color tables

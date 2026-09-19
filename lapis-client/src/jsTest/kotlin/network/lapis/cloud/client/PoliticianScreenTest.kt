@@ -71,6 +71,11 @@ class PoliticianScreenTest {
             // copy-bug that forgets isKleinunternehmer in toInputWithPoliticianRankingEnabled fails
             // loudly instead of hiding behind the field's own Kotlin default of `false`.
             isKleinunternehmer = true,
+            // Welle V1.4.21 (Offene Posten): dieselbe Regressions-Logik -- `receivableDunningEnabled`
+            // bewusst `true` (Kotlin-Default waere `false`), damit ein vergessenes Durchtragen laut faellt.
+            receivablesAccountId = "account-receivables-1",
+            payablesAccountId = "account-payables-1",
+            receivableDunningEnabled = true,
         )
 
     @Test
@@ -97,6 +102,9 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
         assertEquals(fullSettings.travelExpenseAccountId, input.travelExpenseAccountId)
         assertEquals(fullSettings.isKleinunternehmer, input.isKleinunternehmer)
+        assertEquals(fullSettings.receivablesAccountId, input.receivablesAccountId)
+        assertEquals(fullSettings.payablesAccountId, input.payablesAccountId)
+        assertEquals(true, input.receivableDunningEnabled, "receivableDunningEnabled must survive the toggle")
         assertTrue(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to true")
     }
 
@@ -124,6 +132,9 @@ class PoliticianScreenTest {
         assertEquals(fullSettings.datevMandantNummer, input.datevMandantNummer)
         assertEquals(fullSettings.travelExpenseAccountId, input.travelExpenseAccountId)
         assertEquals(fullSettings.isKleinunternehmer, input.isKleinunternehmer)
+        assertEquals(fullSettings.receivablesAccountId, input.receivablesAccountId)
+        assertEquals(fullSettings.payablesAccountId, input.payablesAccountId)
+        assertEquals(true, input.receivableDunningEnabled, "receivableDunningEnabled must survive the toggle")
         assertFalse(input.politicianRankingEnabled, "expected politicianRankingEnabled to be flipped to false")
     }
 

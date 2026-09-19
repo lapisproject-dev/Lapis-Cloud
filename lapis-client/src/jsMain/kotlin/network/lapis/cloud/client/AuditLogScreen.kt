@@ -283,10 +283,30 @@ private fun renderAuditLogDetail(
         panel.div(gettext("Zeitpunkt: %1", entry.occurredAt)) { addCssClasses("text-muted small") }
         panel.div(gettext("Akteur: %1", actorDisplayText(entry))) { addCssClasses("text-muted small") }
         panel.div(gettext("Entität: %1", entry.entityId)) { addCssClasses("text-muted small") }
+        auditEntityRoute(entry.entityType, entry.entityId)?.let { route ->
+            panel.button(tr("In „Offene Posten“ öffnen"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo(route) }
+        }
 
         renderSnapshotSection(panel, entry)
     }
 }
+
+/**
+ * Welle V1.4.21: Deep-Link vom Prüfprotokoll-Eintrag auf den Screen, der die Entität zeigt -- bisher
+ * nur für die Offene-Posten-Entitäten. In der URL steht ausschließlich die opake UUID, nie Name oder
+ * Betrag. `OPEN_ITEM_NETTING` führt nur auf den Screen (die Netting-ID ist keine Posten-ID);
+ * `RECEIVABLE_DUNNING_NOTICE` bleibt `null` (die Notice-ID lässt sich ohne Posten-ID nicht auflösen --
+ * bewusst nicht geraten). `null` = kein Link.
+ */
+internal fun auditEntityRoute(
+    entityType: AuditEntityType,
+    entityId: String,
+): String? =
+    when (entityType) {
+        AuditEntityType.OPEN_ITEM -> if (looksLikeOpenItemUuid(entityId)) "${Routes.OPEN_ITEMS}?item=${entityId.trim()}" else null
+        AuditEntityType.OPEN_ITEM_NETTING -> Routes.OPEN_ITEMS
+        else -> null
+    }
 
 /** D2: before/after render side-by-side when both are present (CREATE has only `after`,
  * UPDATE/POST have both) -- the same "before/after" visual grammar a diff view would use, without

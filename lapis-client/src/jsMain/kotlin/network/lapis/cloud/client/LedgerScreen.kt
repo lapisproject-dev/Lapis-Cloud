@@ -403,6 +403,15 @@ internal fun renderPaymentAccountMappingSection(
                         accounts.find { it.id == settings.volunteerAllowanceAccountId }?.name ?: unconfigured,
                     ),
                 )
+                // Welle V1.4.21 (Offene Posten): eigener Absatz statt Erweiterung des obigen
+                // %1..%8-Formatstrings -- dessen msgid bleibt in allen Katalogen unveraendert.
+                panel.p(
+                    gettext(
+                        "Forderungskonto (Debitoren): %1 · Verbindlichkeitenkonto (Kreditoren): %2",
+                        accounts.find { it.id == settings.receivablesAccountId }?.name ?: unconfigured,
+                        accounts.find { it.id == settings.payablesAccountId }?.name ?: unconfigured,
+                    ),
+                )
                 return@launch
             }
 
@@ -468,6 +477,34 @@ internal fun renderPaymentAccountMappingSection(
                     label = tr("Ehrenamtspauschalen-Aufwandskonto"),
                 )
 
+            // Welle V1.4.21 "Offene Posten" -- Forderungs-/Verbindlichkeitenkonto (Sammelkonten der
+            // Debitoren-/Kreditorenbuchhaltung). NUR Typfilter (ASSET bzw. LIABILITY), keine
+            // SKR42-Nummernlogik im Client -- der Server validiert (`receivables_account_not_asset_type`/
+            // `payables_account_not_liability_type`). Ohne beide Zuordnungen bucht kein offener Posten.
+            panel.p(
+                tr(
+                    "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht.",
+                ),
+            ) { addCssClasses("text-muted small") }
+            val receivablesOptions =
+                listOf("" to tr("(nicht konfiguriert)")) +
+                    accounts.filter { it.type == LedgerAccountType.ASSET }.map { it.id to "${it.accountNumber} · ${it.name}" }
+            val payablesOptions =
+                listOf("" to tr("(nicht konfiguriert)")) +
+                    accounts.filter { it.type == LedgerAccountType.LIABILITY }.map { it.id to "${it.accountNumber} · ${it.name}" }
+            val receivablesSelect =
+                panel.select(
+                    options = receivablesOptions,
+                    value = settings.receivablesAccountId.orEmpty(),
+                    label = tr("Forderungskonto (Debitoren)"),
+                )
+            val payablesSelect =
+                panel.select(
+                    options = payablesOptions,
+                    value = settings.payablesAccountId.orEmpty(),
+                    label = tr("Verbindlichkeitenkonto (Kreditoren)"),
+                )
+
             // Welle V1.4.5.2 "DATEV-Format-Export". Kein Fehlertext bei leerem Zustand -- eine
             // Anweisung (Zhuo/Jobs): der Steuerberater vergibt beide Nummern, nicht der Verein
             // selbst. Diese zwei Felder gehören hierher, weil dies bereits die einzige
@@ -526,6 +563,8 @@ internal fun renderPaymentAccountMappingSection(
                                         datevMandantNummer = (mandantInput as? DatevNumberInput.Valid)?.value,
                                         travelExpenseAccountId = travelExpenseSelect.value?.takeIf { it.isNotBlank() },
                                         volunteerAllowanceAccountId = volunteerAllowanceSelect.value?.takeIf { it.isNotBlank() },
+                                        receivablesAccountId = receivablesSelect.value?.takeIf { it.isNotBlank() },
+                                        payablesAccountId = payablesSelect.value?.takeIf { it.isNotBlank() },
                                     ),
                                 )
                             }
@@ -576,9 +615,16 @@ internal fun parseDatevNumberInput(raw: String?): DatevNumberInput {
     return DatevNumberInput.Valid(parsed)
 }
 
-/** `internal` (not `private`) so [LedgerScreenTest] can cover the "never silently drop/reset a
+/**
+ * `internal` (not `private`) so [LedgerScreenTest] can cover the "never silently drop/reset a
  * field" contract directly -- same testability reasoning [PoliticianScreen.kt]'s own
- * `toInputWithPoliticianRankingEnabled` KDoc gives for its `internal` visibility. */
+ * `toInputWithPoliticianRankingEnabled` KDoc gives for its `internal` visibility.
+ *
+ * Audit-Fund M2: baut [OrganizationSettingsInput] nicht mehr selbst Feld für Feld, sondern über
+ * [toInput] plus `copy(...)` der Felder, die dieser Bildschirm wirklich bearbeitet. Damit kann ein
+ * NEUES Settings-Feld hier nicht mehr vergessen werden -- siehe [toInput] KDoc für die fünf
+ * Vorfälle, die genau daran lagen.
+ */
 internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     paymentBankAccountId: String?,
     paymentFeeAccountId: String?,
@@ -590,26 +636,12 @@ internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     datevMandantNummer: Int?,
     travelExpenseAccountId: String?,
     volunteerAllowanceAccountId: String?,
-) = OrganizationSettingsInput(
-    name = name,
-    street = street,
-    postalCode = postalCode,
-    city = city,
-    country = country,
-    bankIban = bankIban,
-    bankBic = bankBic,
-    taxExemptionAuthority = taxExemptionAuthority,
-    taxExemptionDate = taxExemptionDate,
-    isPoliticalParty = isPoliticalParty,
-    postalMailEnabled = postalMailEnabled,
-    politicianRankingEnabled = politicianRankingEnabled,
-    // Review MAJOR fix (V1.4.13 "USt-Voranmeldung"): isKleinunternehmer has no dedicated form field
-    // on this screen and was forgotten here, silently resetting a Kleinunternehmer org's §19-UStG
-    // status to `false` the next time an ADMIN merely saves the payment account mapping. With
-    // `vatEnabled = true` that flips `AccountingService.vatActive()` from inactive to active, with
-    // immediate effects on journal-entry VAT normalization, the VAT return preview, and export
-    // blocking -- same "never silently drop/reset a field" bug class as every account field below.
-    isKleinunternehmer = isKleinunternehmer,
+    receivablesAccountId: String?,
+    payablesAccountId: String?,
+) = toInput().copy(
+    // Genau die Felder, die die "Kontenzuordnung Zahlungsverkehr"-Sektion dieses Bildschirms selbst
+    // bearbeitet (eigene Selects/Textfelder). Alles andere -- inklusive `isKleinunternehmer` und
+    // `receivableDunningEnabled`, die hier KEIN Formularfeld haben -- kommt unverändert aus [toInput].
     paymentBankAccountId = paymentBankAccountId,
     paymentFeeAccountId = paymentFeeAccountId,
     contributionIncomeAccountId = contributionIncomeAccountId,
@@ -620,6 +652,8 @@ internal fun OrganizationSettingsDto.toInputWithPaymentAccountMapping(
     datevMandantNummer = datevMandantNummer,
     travelExpenseAccountId = travelExpenseAccountId,
     volunteerAllowanceAccountId = volunteerAllowanceAccountId,
+    receivablesAccountId = receivablesAccountId,
+    payablesAccountId = payablesAccountId,
 )
 
 // ============================================================================================

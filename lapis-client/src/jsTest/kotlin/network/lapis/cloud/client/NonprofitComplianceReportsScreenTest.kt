@@ -131,6 +131,10 @@ class NonprofitComplianceReportsScreenTest {
             travelExpenseAccountId = "account-travel-expense-1",
             volunteerAllowanceAccountId = "account-volunteer-allowance-1",
             isKleinunternehmer = false,
+            // Welle V1.4.21 (Offene Posten): Regressionsabdeckung, siehe PoliticianScreenTest.
+            receivablesAccountId = "account-receivables-1",
+            payablesAccountId = "account-payables-1",
+            receivableDunningEnabled = true,
         )
 
     @Test
@@ -149,6 +153,9 @@ class NonprofitComplianceReportsScreenTest {
         assertEquals(fullOrganizationSettings.datevMandantNummer, input.datevMandantNummer)
         assertEquals(fullOrganizationSettings.travelExpenseAccountId, input.travelExpenseAccountId)
         assertEquals(fullOrganizationSettings.volunteerAllowanceAccountId, input.volunteerAllowanceAccountId)
+        assertEquals(fullOrganizationSettings.receivablesAccountId, input.receivablesAccountId)
+        assertEquals(fullOrganizationSettings.payablesAccountId, input.payablesAccountId)
+        assertEquals(true, input.receivableDunningEnabled, "receivableDunningEnabled must survive the flag flip")
         assertTrue(input.isKleinunternehmer, "expected isKleinunternehmer to be flipped to true")
     }
 

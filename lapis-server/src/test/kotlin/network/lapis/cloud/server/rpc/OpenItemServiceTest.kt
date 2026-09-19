@@ -358,6 +358,32 @@ class OpenItemServiceTest :
             }
         }
 
+        test("retryOpenItemPosting on a CANCELLED item -> Conflict, no creation posting is booked after the fact") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val expense = newLedgerAccount(LedgerAccountType.EXPENSE)
+                setMapping(receivablesAccountId = null, payablesAccountId = null, bankAccountId = null)
+
+                val detail = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+                detail.item.creationPostingError shouldBe "payables_account_not_configured"
+                val cancelled =
+                    client.post("/test/openitem/${detail.item.id}/cancel?reason=Fehlanlage") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                cancelled.status shouldBe HttpStatusCode.OK
+
+                val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = null)
+                val retried =
+                    client.post("/test/openitem/${detail.item.id}/retry") { header("X-Member-Id", treasurer.toString()) }
+                retried.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
         test("contra account of the wrong LedgerAccountType -> Failed(contra_account_wrong_type), no journal entry booked") {
             testApplication {
                 application {
@@ -406,6 +432,66 @@ class OpenItemServiceTest :
                         header("X-Member-Id", treasurer.toString())
                     }
                 cancelAfterSettled.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        /**
+         * Security fix N1 (second review pass): `Decimal` travels as a JSON double, so a client-side
+         * "99999999999999999999,99" arrives as `BigDecimal("1.0E20")` -- whose scale is **-19**, which
+         * passes both `scale() > MAX_AMOUNT_SCALE` and `<= ZERO`, and then overflows the
+         * `numeric(12,2)` column as an unhandled HTTP 500. `requireValidAmount` now rejects it as a
+         * 400 on creation AND on settlement (the netting amount goes through the same helper, see
+         * `requireNettableAmount`).
+         */
+        test("amounts at or above the numeric(12,2) ceiling are rejected as 400, on creation and on settlement") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val expense = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                val bank = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = bank)
+
+                // Exactly the shape the client's AMOUNT_SHAPE regex used to let through unbounded.
+                client
+                    .post(
+                        "/test/openitem/create?direction=PAYABLE&counterpartyName=X&itemDate=2026-01-01&dueDate=2026-02-01" +
+                            "&amount=99999999999999999999.99&contraAccountId=$expense&sphere=IDEELLER_BEREICH",
+                    ) { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                // One cent above the documented cap -- the boundary itself is still accepted.
+                client
+                    .post(
+                        "/test/openitem/create?direction=PAYABLE&counterpartyName=X&itemDate=2026-01-01&dueDate=2026-02-01" +
+                            "&amount=1000000000.01&contraAccountId=$expense&sphere=IDEELLER_BEREICH",
+                    ) { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                // A negative-scale value with an acceptable magnitude must still pass (1.0E2 == 100).
+                client
+                    .post(
+                        "/test/openitem/create?direction=PAYABLE&counterpartyName=X&itemDate=2026-01-01&dueDate=2026-02-01" +
+                            "&amount=1.0E2&contraAccountId=$expense&sphere=IDEELLER_BEREICH",
+                    ) { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+
+                val detail = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+                client
+                    .post("/test/openitem/${detail.item.id}/settle?amount=99999999999999999999.99&settledOn=2026-01-15") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/openitem/${detail.item.id}/settle?amount=1000000000.01&settledOn=2026-01-15") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                // Still a Conflict (not a BadRequest) for an amount that is well-formed but too high
+                // for THIS item -- the new range check must not swallow the openAmount check.
+                client
+                    .post("/test/openitem/${detail.item.id}/settle?amount=240.01&settledOn=2026-01-15") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.Conflict
             }
         }
 

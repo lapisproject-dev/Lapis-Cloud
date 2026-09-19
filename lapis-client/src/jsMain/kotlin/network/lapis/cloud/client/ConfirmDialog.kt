@@ -58,6 +58,7 @@ fun confirmWithReasonDialog(
     reasonLabel: String,
     reasonRequired: Boolean,
     confirmLabel: String = tr("Bestätigen"),
+    reasonMaxLength: Int? = null,
     onConfirm: (String?) -> Unit,
 ) {
     val modal = Modal(caption = title)
@@ -66,20 +67,27 @@ fun confirmWithReasonDialog(
     val reasonInput = modal.text(label = reasonLabel)
 
     val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+
+    // Welle V1.4.21: optionale Obergrenze (z. B. `reason` <= 500 Zeichen bei den Offene-Posten-Stornos) --
+    // eine Überschreitung sperrt den Bestätigen-Knopf, statt erst nach dem Round-Trip abgelehnt zu
+    // werden. `null` = unverändertes Verhalten für alle bisherigen Aufrufer.
+    fun reasonAcceptable(value: String?): Boolean {
+        val trimmed = value?.trim().orEmpty()
+        if (reasonRequired && trimmed.isBlank()) return false
+        return reasonMaxLength == null || trimmed.length <= reasonMaxLength
+    }
     val confirmButton =
         Button(confirmLabel, style = ButtonStyle.DANGER).apply {
             disabled = reasonRequired
             onClick {
+                if (!reasonAcceptable(reasonInput.value)) return@onClick
                 val reason = reasonInput.value?.trim()?.takeIf { it.isNotBlank() }
-                if (reasonRequired && reason == null) return@onClick
                 modal.hide()
                 onConfirm(reason)
             }
         }
-    if (reasonRequired) {
-        reasonInput.subscribe { value ->
-            confirmButton.disabled = value?.trim().isNullOrBlank()
-        }
+    if (reasonRequired || reasonMaxLength != null) {
+        reasonInput.subscribe { value -> confirmButton.disabled = !reasonAcceptable(value) }
     }
     // Raskin-Auflage: Abbrechen links, die eigentliche (rote) Aktion rechts -- kein Knopf an der
     // Stelle des Auslösers, unabhängig davon, wo im Bildschirm dieses Modal geöffnet wurde.

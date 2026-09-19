@@ -128,6 +128,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
         SidebarGroupId.FINANCE to
             listOf(
                 Routes.LEDGER,
+                Routes.OPEN_ITEMS,
                 Routes.FINANCIAL_REPORTS,
                 Routes.COMPLIANCE_REPORTS,
                 Routes.COST_CENTERS,
@@ -168,6 +169,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.SEPA_SETTINGS,
                 Routes.PAYMENT_GATEWAY_SETTINGS,
                 Routes.DUNNING_SETTINGS,
+                Routes.RECEIVABLE_DUNNING_SETTINGS,
                 Routes.EMBED_INTEGRATION,
             ),
     )
@@ -400,6 +402,8 @@ fun buildSidebar(
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
         nav.sidebarGroup(SidebarGroupId.FINANCE, tr("Finanzen"), "fas fa-chart-line") { toggle ->
             sidebarLink(Routes.LEDGER, tr("Kontenplan & Journal"), "fas fa-book", toggle)
+            // Welle V1.4.21 -- `fa-right-left` (Verrechnung/Gegenposten); in `lapis-client` noch frei.
+            sidebarLink(Routes.OPEN_ITEMS, tr("Offene Posten"), "fas fa-right-left", toggle)
             sidebarLink(Routes.FINANCIAL_REPORTS, tr("Finanzberichte"), "fas fa-chart-pie", toggle)
             sidebarLink(Routes.COMPLIANCE_REPORTS, tr("Gemeinnützigkeits-Berichte"), "fas fa-scale-balanced", toggle)
             sidebarLink(Routes.COST_CENTERS, tr("Kostenstellen"), "fas fa-tags", toggle)
@@ -524,6 +528,9 @@ fun buildSidebar(
                 toggle,
             )
             sidebarLink(Routes.DUNNING_SETTINGS, tr("Mahnwesen-Konfiguration"), "fas fa-scale-unbalanced", toggle)
+            // Welle V1.4.21 -- steht in SYSTEM (wie DUNNING_SETTINGS), nicht in ADMINISTRATION;
+            // `fa-bell` ist in `lapis-client` noch frei.
+            sidebarLink(Routes.RECEIVABLE_DUNNING_SETTINGS, tr("Forderungs-Mahnstufen"), "fas fa-bell", toggle)
             sidebarLink(Routes.EMBED_INTEGRATION, tr("Website-Integration"), "fas fa-code", toggle)
         }
     }

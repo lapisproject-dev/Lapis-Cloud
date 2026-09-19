@@ -124,7 +124,66 @@ fun Container.tableActionButton(
  */
 fun Button.tableActionTooltip(tooltip: String) {
     title = tooltip
-    setAttribute("aria-label", tooltip)
+    // Welle V1.4.21: `aria-label` geht per `setAttribute` am KVision-Patch-Zyklus vorbei -- ein `tr(...)`-
+    // Ergebnis trüge dort den `###KvI18nS###`-Marker in den DOM (Screenreader: "###KvI18nS###Details
+    // anzeigen"). `title` oben ist eine KVision-Property und wird korrekt aufgelöst. Das Entfernen
+    // des Markers ist für bereits aufgelöste Strings (`gettext`) ein No-op, gilt also unbedingt --
+    // Aufrufstellen dürfen weiter `tr(...)` übergeben. Der Tripwire `ClientTrAttributeLeakTest` sieht
+    // diesen indirekten Fluss (Aufrufstelle -> Helfer -> setAttribute) nicht.
+    setAttribute("aria-label", resolvedAttributeText(tooltip))
+}
+
+/** Marker, den KVisions `tr()` um jeden Text legt; nur der eigene Patch-Zyklus löst ihn auf. */
+private const val KV_I18N_MARKER = "###KvI18nS###"
+
+/**
+ * Für jeden Text, der per rohem `setAttribute(...)` in den DOM geht: entfernt den `tr()`-Marker
+ * (No-op für bereits aufgelöste Strings). Gleiche Idee wie `ConferenceScreen.resolvedA11yText`.
+ */
+internal fun resolvedAttributeText(text: String): String = text.removePrefix(KV_I18N_MARKER)
+
+/**
+ * Segmented Control (Bootstrap `btn-group btn-group-sm`, `role="group"`, je Knopf `aria-pressed`) für
+ * eine kleine, gegenseitig ausschließende Auswahl -- Welle V1.4.21 (Offene Posten: Alle / Kreditoren /
+ * Debitoren). [options] trägt bereits übersetzte Labels (sichtbarer Knopftext ist zugleich der
+ * zugängliche Name); [ariaLabel] benennt die Gruppe und läuft über [resolvedAttributeText], darf
+ * also `tr(...)` oder `gettext(...)` sein.
+ */
+fun <T> Container.segmentedControl(
+    options: List<Pair<T, String>>,
+    selected: T,
+    ariaLabel: String,
+    onSelect: (T) -> Unit,
+): HPanel {
+    val group =
+        hPanel(spacing = 0) {
+            addCssClasses("btn-group btn-group-sm")
+            setAttribute("role", "group")
+            setAttribute("aria-label", resolvedAttributeText(ariaLabel))
+        }
+    var current = selected
+    val buttons = mutableListOf<Pair<T, Button>>()
+
+    fun paint() {
+        buttons.forEach { (value, segmentButton) ->
+            val active = value == current
+            segmentButton.style = if (active) ButtonStyle.PRIMARY else ButtonStyle.OUTLINEPRIMARY
+            segmentButton.setAttribute("aria-pressed", active.toString())
+        }
+    }
+    options.forEach { (value, label) ->
+        val segmentButton = group.button(label, style = ButtonStyle.OUTLINEPRIMARY)
+        buttons.add(value to segmentButton)
+        segmentButton.onClick {
+            if (value != current) {
+                current = value
+                paint()
+                onSelect(value)
+            }
+        }
+    }
+    paint()
+    return group
 }
 
 /**

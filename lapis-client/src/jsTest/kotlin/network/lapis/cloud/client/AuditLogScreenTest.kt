@@ -189,4 +189,27 @@ class AuditLogScreenTest {
         // the raw-text display (D2), never throw out of this pure function.
         assertNull(decodeAuditSnapshot(AuditEntityType.JOURNAL_ENTRY, """{"unexpectedField":"value"}"""))
     }
+
+    // Welle V1.4.21: Deep-Link Prüfprotokoll -> Offene Posten. Nur opake UUIDs in der URL.
+    @Test
+    fun auditEntityRoute_openItem_linksToTheItemByOpaqueId() {
+        val id = "0b8a1d2e-1c3f-4a5b-9c7d-1234567890ab"
+        assertEquals("/open-items?item=$id", auditEntityRoute(AuditEntityType.OPEN_ITEM, id))
+    }
+
+    @Test
+    fun auditEntityRoute_openItemWithMalformedId_hasNoLink() {
+        assertNull(auditEntityRoute(AuditEntityType.OPEN_ITEM, "not-a-uuid<script>"))
+    }
+
+    @Test
+    fun auditEntityRoute_nettingLinksToTheScreenWithoutParameter() {
+        assertEquals("/open-items", auditEntityRoute(AuditEntityType.OPEN_ITEM_NETTING, "0b8a1d2e-1c3f-4a5b-9c7d-1234567890ab"))
+    }
+
+    @Test
+    fun auditEntityRoute_receivableDunningNoticeAndOtherTypes_haveNoLink() {
+        assertNull(auditEntityRoute(AuditEntityType.RECEIVABLE_DUNNING_NOTICE, "0b8a1d2e-1c3f-4a5b-9c7d-1234567890ab"))
+        assertNull(auditEntityRoute(AuditEntityType.JOURNAL_ENTRY, "0b8a1d2e-1c3f-4a5b-9c7d-1234567890ab"))
+    }
 }

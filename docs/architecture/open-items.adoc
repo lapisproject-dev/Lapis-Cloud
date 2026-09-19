@@ -169,6 +169,35 @@ increase the original item's `amount`/`openAmount` -- the fee is a separate, rec
 fact (`receivable_dunning_notice.fee_amount`/`.fee_journal_entry_id`), not a retroactive change to
 the frozen original invoice.
 
+=== The enable switch governs the automatic run, not the manual single case
+
+`organization_settings.receivable_dunning_enabled` gates `ReceivableDunningPoller` only.
+`ReceivableDunningService.issueReceivableDunningNotice` (the manual, single-item override) does
+**not** check it, and it books a configured fee like any other issuance. That is deliberate: a
+treasurer must be able to dun one overdue invoice without switching the whole automatic run on for
+the organization. But it must not be invisible -- so while the switch is off, the open-item detail
+view shows a warning band on every dunnable receivable ("Forderungs-Mahnwesen ist deaktiviert; ein
+manuell ausgestellter Hinweis wird trotzdem ausgestellt und eine hinterlegte Gebühr gebucht."), and
+the issue-confirmation names the fee amount whenever the next level carries one.
+
+=== What the three `OpenItemDto` dunning fields mean
+
+`highestDunningLevelNumber`/`nextDunningLevelNumber`/`nextDunningLevelDueOn` are filled by
+`ReceivableDunningEngine.loadDunningProgress`, batch-loaded per page (two queries, never one per
+row -- `listOpenItems` returns up to 200 rows):
+
+* `highestDunningLevelNumber` counts **`ISSUED` notices only**. A `SKIPPED` slot is the explicit
+  record that this level was deliberately not dunned, a `CANCELLED` one was withdrawn -- showing
+  either as "Mahnstufe N" would claim a notice that does not exist. It is reported for every
+  receivable regardless of status, because it is a historical fact.
+* `nextDunningLevelNumber`/`nextDunningLevelDueOn` describe a future action and are therefore `null`
+  unless the item is still settleable -- exactly the gate `issueNextLevel` applies. Their
+  "already recorded" basis is **every** notice slot (any status), because `uq_rdn_slot` blocks
+  re-using an occupied `(open_item_id, cycle_number, level_number)` slot regardless of its status.
+  So the announced level is always the level `issueReceivableDunningNotice` would really issue.
+* `nextDunningLevelDueOn` is the item's `dueDate` plus the next level's `graceDays` -- the date the
+  automatic run would reach that level, not a deadline for the manual one.
+
 == Deferred / out of scope
 
 * **Automatic bank-statement reconciliation.** `BankStatementMatcher` is unchanged -- its
@@ -186,8 +215,63 @@ the frozen original invoice.
   either (see above): no letter leaves the building in this wave.
 * **VAT/input-tax split on a payable.** Every posting this wave's bridge writes stays
   `VatRate.UNCLASSIFIED`, the same posture all six pre-existing posting bridges already have.
-* **The KVision client screens.** As of this wave's implementation session, only the DOM-free
-  building blocks (`OpenItemLabels.kt`, `OpenItemAuthzUi.kt`, both tested) exist client-side. The
-  list/detail screens, the creation form, the netting dialog with its mandatory preview, the
-  dunning-level administration UI, and the sidebar/routing/dashboard wiring are not yet built --
-  see `CHANGELOG.md`'s "Bekannte Lücke" note for this wave.
+
+== Client screens (V1.4.21)
+
+The KVision client followed in V1.4.21. Four design rulings shape it:
+
+. **One screen, three segments.** `/open-items` (`OpenItemsScreen.kt`) shows payables and
+  receivables in one list with a segmented control (all / creditors / debtors) instead of three
+  screens -- same objects, same grammar. The create form has a visible, mandatory "direction"
+  field that is only *pre-filled* from the segment (never in the "all" segment, so the choice is
+  deliberate).
+. **Three tiles plus a collapsed section.** The summary row shows at most three tiles
+  (`openItemMetricTiles`), never one netted payables-minus-receivables figure. The aging buckets sit
+  in a collapsed section. `openAmount` and `daysOverdue` are always the server-computed values.
+. **Account mapping stays in the chart-of-accounts screen.** The receivables/payables accounts are
+  two more selects (type-filtered ASSET/LIABILITY) in `LedgerScreen`'s "payment account mapping"
+  section; the new screen only points there when they are missing. Along the way the wholesale-replace
+  helpers of `LedgerScreen`, `PoliticianScreen` and `NonprofitComplianceReportsScreen` were fixed --
+  they silently reset `receivablesAccountId`, `payablesAccountId` and `receivableDunningEnabled`
+  on every unrelated settings save.
+. **One netting dialog with a preview-gated button.** Candidate, amount, the mandatory server preview
+  and the (inline) confirmation live in one modal. "Net" is enabled only while the *displayed*
+  preview belongs to exactly the current (payable, receivable, amount) triple
+  (`canExecuteNetting`); the preview is debounced.
+
+The debtor-dunning configuration (enable/disable, level CRUD) is the ADMIN-only screen
+`/receivable-dunning-settings` in the "System" sidebar group. Unlike the member-contribution
+dunning screen it has no disclaimer flow (`enableReceivableDunning()` takes no argument).
+
+Role gates mirror the server exactly: read = TREASURER/BOARD/ADMIN, everything that writes,
+including `previewNetting` and `getCounterpartyDefaults`, = TREASURER/ADMIN (BOARD sees neither the
+form nor any write action). A creation with a wrong-typed contra account still creates the item -- the
+server only rejects it in the posting bridge (`contra_account_wrong_type`), so the UI shows "created,
+but not booked" with a plain-text reason instead of a failure.
+
+Known gaps after V1.4.21:
+
+* No server-side status filter or search: `listOpenItems` has neither, so status, search and
+  "overdue only" act on the rows loaded so far. The screen says so with "N of M loaded items", and
+  adds that the summary tiles count every item while the list counts only the loaded ones.
+* No PDF and no postal dispatch for receivable dunning notices.
+* No assignment from bank statements (`BankStatementMatcher` is unchanged).
+* No dashboard integration (counter badges stay out of scope, see above).
+* No audit trail for the dunning-level configuration (`ReceivableDunningLevelSnapshot` is still
+  written nowhere); levels are deactivated, never deleted.
+* **Organization settings are still a wholesale replace with no optimistic concurrency.**
+  `updateOrganizationSettings` replaces the single `organization_settings` row completely and carries
+  no version/ETag, so a stale read can still lose a concurrent change: an ADMIN who opened the
+  chart-of-accounts screen, then enabled debtor dunning in a second tab, and then saves the account
+  mapping in the first tab writes that tab's stale `receivableDunningEnabled = false` back. The three
+  client helpers now all go through one `OrganizationSettingsDto.toInput()` (so a field can no longer
+  be *forgotten*), but that does not make a stale value fresh. Building real optimistic concurrency
+  (a row version the client must echo, a 409 on mismatch) is a change to a service every screen uses
+  and is deliberately out of scope here.
+* **Amounts are shown in the app-wide format** (`formatMoney`, e.g. "1234.5 €" -- a house rule from
+  earlier waves, unchanged here) while input accepts the German "1234,56". Input is additionally
+  capped at 1.000.000.000,00 € on both sides, because `open_item.amount` is `numeric(12,2)`.
+* **Every action reloads the list from page one.** After a settle/cancel/netting/dunning action the
+  screen calls `loadPage(reset = true)`, so an operator who had clicked "Mehr laden" several times
+  loses that chain and has to click through again. Keeping the loaded pages would mean re-fetching
+  each page (the keyset cursor is per page), which this wave did not build.

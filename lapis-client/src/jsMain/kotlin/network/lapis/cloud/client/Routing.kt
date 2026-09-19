@@ -318,6 +318,21 @@ object Routes {
     // reusing the [DUNNING_CASES] guard.
     const val DUNNING_SETTINGS = "/dunning-settings"
 
+    // Welle V1.4.21 "Bedienoberfläche Offene Posten" -- TREASURER/BOARD/ADMIN auf Routenebene,
+    // verifiziert gegen `OpenItemService.OPEN_ITEM_READ_ROLES`. Die engere TREASURER/ADMIN-Stufe
+    // (`OPEN_ITEM_WRITE_ROLES`: anlegen, ausgleichen, verrechnen, stornieren, mahnen) wird IN-SCREEN
+    // über `OpenItemAuthzUi` durchgesetzt, nie als zweite Route -- gleiche Haltung wie
+    // [DUNNING_CASES]/[BANK_IMPORT]. Optionaler Query-Parameter `?item=<uuid>` im Hash-Fragment
+    // (Muster [BANK_IMPORT]) wählt einen Posten direkt an -- Deep-Link aus dem Prüfprotokoll
+    // ([AuditLogScreen]); in der URL steht nur die opake UUID, nie Name oder Betrag.
+    const val OPEN_ITEMS = "/open-items"
+
+    // Welle V1.4.21 -- ADMIN-only, verifiziert gegen `ReceivableDunningService`: enable/disable und
+    // die Mahnstufen-CRUD sind `requireRole(ADMIN)`. Bewusst KEIN Disclaimer-Flow (anders als
+    // [DUNNING_SETTINGS]): `enableReceivableDunning()` nimmt kein Argument, siehe dessen KDoc
+    // "drei Sicherungen".
+    const val RECEIVABLE_DUNNING_SETTINGS = "/receivable-dunning-settings"
+
     // V1.2.3 Echter SMTP-Versand, Option B "Client-Deep-Links" -- the password-reset/FRIEND-email-
     // verification mails MailTemplates.kt builds now link here (`#/password-reset?token=...`,
     // `#/verify-email?token=...`), NOT a raw query on the actual page URL: the "?" lives inside the
@@ -770,6 +785,18 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.DUNNING_SETTINGS) {
         requireRole(routing, AccountRole.ADMIN) {
             show(Routes.DUNNING_SETTINGS, ::renderDunningSettingsScreen)
+        }
+    }
+    routing.kvOn(Routes.OPEN_ITEMS) {
+        requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
+            // `hashQueryParam` ist private in dieser Datei -- der Query-Parameter wird deshalb HIER
+            // gelesen und als Argument übergeben (Muster BANK_IMPORT), nicht im Screen.
+            show(Routes.OPEN_ITEMS) { container -> renderOpenItemsScreen(container, hashQueryParam("item")) }
+        }
+    }
+    routing.kvOn(Routes.RECEIVABLE_DUNNING_SETTINGS) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.RECEIVABLE_DUNNING_SETTINGS, ::renderReceivableDunningSettingsScreen)
         }
     }
     // V1.2.3 Echter SMTP-Versand, Option B -- deliberately UNGUARDED, see Routes.PASSWORD_RESET/
