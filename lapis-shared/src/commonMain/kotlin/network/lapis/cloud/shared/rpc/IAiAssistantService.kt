@@ -9,10 +9,10 @@ import network.lapis.cloud.shared.domain.StatuteAnswerDto
 /**
  * Welle V1.6.1 "KI-Fundament + Pilot Satzungs-Q&A" -- optional AI assistance, **default OFF**.
  *
- * **Only registered when the operator switched the feature on and configured a provider**
- * (`LAPIS_AI_ENABLED=true` plus a complete provider profile); otherwise every call on this
- * interface answers 404 and every server-side method would throw [AiFeatureDisabledException]
- * anyway. The client learns whether to show the entry from
+ * **Only backed by the real implementation when the operator switched the feature on and configured a
+ * provider** (`LAPIS_AI_ENABLED=true` plus a complete provider profile); otherwise a disabled stub is
+ * registered and every call on this interface throws [AiFeatureDisabledException] through the normal
+ * RPC protocol (an unregistered Kilua RPC service would answer an unhandled HTTP 500 instead). The client learns whether to show the entry from
  * [network.lapis.cloud.shared.domain.SessionInfoDto.aiAssistantEnabled].
  *
  * - Every member call additionally requires the member's own opt-in ([AiOptInMissingException]).

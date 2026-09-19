@@ -8,6 +8,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- **AI assistant: disabled route answers a typed error instead of HTTP 500** -- with the AI layer off, the Kilua RPC
+  route of `IAiAssistantService` (generated at compile time) answered every unauthenticated call with an
+  unhandled HTTP 500 and an ERROR stack trace in the log ("Service IAiAssistantService not found"), contradicting
+  the documented 404. `DisabledAiAssistantService` is now registered instead whenever the layer is not operational
+  and throws `AiFeatureDisabledException` through the normal RPC protocol: no stack trace, no service logic, no
+  authentication/role lookup, no database access. Found in the post-deploy check of V1.6.1; test:
+  `AiFeatureKillSwitchTest`.
 - **Family: `removeFamilyMember` vs `changePayer` lock-order deadlock fixed** -- `removeFamilyMember` took the
   account-row lock before the link-row lock while `changePayer` takes them in the opposite order, so a real
   race between the two could deadlock (H2 lock timeout / Postgres `40P01`) and surface as an HTTP 500. It

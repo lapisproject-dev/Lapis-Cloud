@@ -2,6 +2,7 @@ package network.lapis.cloud.server.ai
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.header
@@ -32,10 +33,11 @@ private suspend fun ApplicationTestBuilder.rpc(route: String) =
 
 /**
  * Kill-switch coverage (pattern of `MobileWebviewBridgeKillSwitchTest`, but at application level):
- * `IAiAssistantService` is registered **only** when the AI layer is operational. Kilua RPC still
- * exposes the generated route for an unregistered service, but with no handler behind it the call
- * fails with a 500 and never reaches any service logic -- verified here against a registered control
- * service and against the enabled configuration.
+ * The real `IAiAssistantService` implementation is registered **only** when the AI layer is operational.
+ * Otherwise `DisabledAiAssistantService` answers every call with `AiFeatureDisabledException` through the
+ * normal RPC protocol -- never an unhandled HTTP 500 (Kilua RPC generates the route at compile time, so
+ * an UNREGISTERED service would 500 with a stack trace in the log for every unauthenticated request).
+ * Verified here against a registered control service and against the enabled configuration.
  */
 class AiFeatureKillSwitchTest :
     FunSpec({
@@ -47,29 +49,35 @@ class AiFeatureKillSwitchTest :
                 AiConfig.ENV_API_KEY to "sk-test",
             )
 
-        test("default configuration: the AI service is not registered, nothing of it is reachable") {
+        test("default configuration: the AI service answers a typed 'disabled' error, never a 500, nothing of it is reachable") {
             testApplication {
                 application { module(aiConfig = AiConfig.load { null }) }
                 val ai = rpc(AI_ROUTE)
-                ai.status shouldBe HttpStatusCode.InternalServerError
+                ai.status shouldNotBe HttpStatusCode.InternalServerError
+                ai.bodyAsText() shouldContain "AiFeatureDisabledException"
+                // Nothing of the real service ran: no authentication or role lookup happened.
                 ai.bodyAsText() shouldNotContain "Unauthenticated"
                 // Control: a registered service answers through the normal RPC protocol.
                 rpc(CONTROL_ROUTE).bodyAsText() shouldContain "UnauthenticatedException"
             }
         }
 
-        test("enabled but with an incomplete profile: the server still starts, the service stays unregistered") {
+        test("enabled but with an incomplete profile: the server still starts, the disabled stub answers") {
             testApplication {
                 application { module(aiConfig = AiConfig.load { if (it == AiConfig.ENV_ENABLED) "true" else null }) }
-                rpc(AI_ROUTE).status shouldBe HttpStatusCode.InternalServerError
+                val ai = rpc(AI_ROUTE)
+                ai.status shouldNotBe HttpStatusCode.InternalServerError
+                ai.bodyAsText() shouldContain "AiFeatureDisabledException"
                 rpc(CONTROL_ROUTE).status shouldBe HttpStatusCode.OK
             }
         }
 
-        test("an invalid profile (bad base URL) starts without exception and stays unregistered") {
+        test("an invalid profile (bad base URL) starts without exception and the disabled stub answers") {
             testApplication {
                 application { module(aiConfig = AiConfig.load { (full + (AiConfig.ENV_BASE_URL to "http://insecure.example"))[it] }) }
-                rpc(AI_ROUTE).status shouldBe HttpStatusCode.InternalServerError
+                val ai = rpc(AI_ROUTE)
+                ai.status shouldNotBe HttpStatusCode.InternalServerError
+                ai.bodyAsText() shouldContain "AiFeatureDisabledException"
             }
         }
 
@@ -79,6 +87,7 @@ class AiFeatureKillSwitchTest :
                 val response = rpc(AI_ROUTE)
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsText() shouldContain "UnauthenticatedException"
+                response.bodyAsText() shouldNotContain "AiFeatureDisabledException"
             }
         }
 

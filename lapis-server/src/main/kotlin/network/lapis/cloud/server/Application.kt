@@ -175,6 +175,7 @@ import network.lapis.cloud.server.rpc.ContributionService
 import network.lapis.cloud.server.rpc.CrmService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DirectMessageService
+import network.lapis.cloud.server.rpc.DisabledAiAssistantService
 import network.lapis.cloud.server.rpc.DocumentService
 import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
@@ -1101,8 +1102,8 @@ internal fun Application.module(aiConfig: AiConfig) {
     // configuration only means "feature off", it never stops this server. Everything below is a
     // module-scoped singleton (registerService's factory lambda builds a fresh service per RPC call,
     // so a limiter/client constructed inside it would be empty/unpooled on every request). When the
-    // feature is not operational NO provider client is constructed and IAiAssistantService is not
-    // registered at all (its RPC path then answers 404).
+    // feature is not operational NO provider client is constructed and IAiAssistantService is served by
+    // DisabledAiAssistantService (every call answers AiFeatureDisabledException, never a 500).
     AiStartupCheck.log(aiConfig)
     val aiLlmClient = AiProviderFactory.create(aiConfig)
     val aiRetriever = KnowledgeRetrievers.forCurrentDatabase()
@@ -1367,6 +1368,10 @@ internal fun Application.module(aiConfig: AiConfig) {
                     rateLimiter = aiRateLimiter,
                 )
             }
+        } else {
+            // Not operational: answer every call with AiFeatureDisabledException instead of Kilua RPC's
+            // unhandled 500 for an unregistered service -- see DisabledAiAssistantService KDoc.
+            registerService(IAiAssistantService::class) { DisabledAiAssistantService() }
         }
         registerService(
             IRegistrationService::class,
