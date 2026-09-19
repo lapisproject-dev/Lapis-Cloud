@@ -31,6 +31,39 @@ class ConferencePanelStateTest {
     }
 
     @Test
+    fun conferenceInitialPanelState_wideViewport_keepsHistoricalDefault_rosterOpen() {
+        val state = conferenceInitialPanelState(narrowViewport = false)
+        assertEquals(ConferencePanelState(), state)
+        assertTrue(state.rosterVisible())
+    }
+
+    @Test
+    fun conferenceInitialPanelState_narrowViewport_startsWithRosterClosed_soVideoTilesAreVisible() {
+        val state = conferenceInitialPanelState(narrowViewport = true)
+        assertFalse(state.rosterVisible())
+        assertFalse(state.normalRosterOpen)
+        // Everything else is untouched: chat closed, controls visible, not fullscreen, "Mehr" closed.
+        assertFalse(state.chatVisible())
+        assertFalse(state.fullscreen)
+        assertTrue(state.controlsVisible)
+        assertFalse(state.moreOpen)
+    }
+
+    @Test
+    fun conferenceInitialPanelState_narrowViewport_rosterStillOpensOnDemandViaTheControlBarToggle() {
+        val opened = conferencePanelReduce(conferenceInitialPanelState(narrowViewport = true), ConferencePanelEvent.RosterToggled)
+        assertTrue(opened.rosterVisible())
+        val closedAgain = conferencePanelReduce(opened, ConferencePanelEvent.RosterToggled)
+        assertFalse(closedAgain.rosterVisible())
+    }
+
+    @Test
+    fun conferenceNarrowViewportBreakpoint_matchesTheThemeCssBottomSheetRule() {
+        // theme.css: `@media (max-width: 767.98px)` turns roster/chat into full-screen fixed sheets.
+        assertEquals("767.98px", CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH)
+    }
+
+    @Test
     fun conferencePanelReduce_rosterToggled_normalMode_flipsOnlyNormalRosterOpen() {
         val state = ConferencePanelState()
         val next = conferencePanelReduce(state, ConferencePanelEvent.RosterToggled)

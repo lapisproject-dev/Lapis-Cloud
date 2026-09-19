@@ -2413,7 +2413,13 @@ private fun enterCall(
 
     // --- V1.2.9 Vollbildmodus: Overlay-Controls-Ecke (Geschwister von gridDiv, NIEMALS Kind --
     // KVision/snabbdom-Re-Render-Grenze, siehe Datei-KDoc Zeilen 866-871) ---------------------------
-    var panelState = ConferencePanelState()
+    // Narrow viewports (< 768 px, same breakpoint as theme.css' `.lapis-conference-roster` bottom-sheet rule):
+    // the roster is a full-screen `position: fixed` overlay there, so an OPEN roster hides every video tile
+    // behind a mostly empty white page -- see conferenceInitialPanelState.
+    var panelState =
+        conferenceInitialPanelState(
+            narrowViewport = window.matchMedia("(max-width: $CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH)").matches,
+        )
     val overlayControls = videoArea.hPanel(spacing = 4) { addCssClass("lapis-conference-video-overlay-controls") }
     val fullscreenButton =
         if (fullscreenApiAvailable()) {
@@ -5695,6 +5701,24 @@ internal data class ConferencePanelState(
     val controlsVisible: Boolean = true, // V1.2.10
     val moreOpen: Boolean = false, // V1.2.10
 )
+
+/**
+ * `theme.css` turns the roster and chat panels into full-screen `position: fixed` bottom sheets below this
+ * width (`@media (max-width: 767.98px)`); keep both in sync.
+ */
+internal const val CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH = "767.98px"
+
+/**
+ * Initial [ConferencePanelState] for the viewport the call opens in.
+ *
+ * On wide screens the roster keeps its historical default (open, D8: existing behaviour unchanged). On narrow
+ * screens it starts CLOSED: there the roster is a full-screen fixed overlay (see
+ * `CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH`), so an open roster hid every video tile behind a mostly empty
+ * white page until the participant found the roster toggle -- found while testing the Android app's WebView on
+ * a real phone (2026-09-19). The participants button in the control bar still opens it on demand.
+ */
+internal fun conferenceInitialPanelState(narrowViewport: Boolean): ConferencePanelState =
+    ConferencePanelState(normalRosterOpen = !narrowViewport)
 
 /** V1.2.9 -- Events in [conferencePanelReduce]. [FullscreenEntered]/[FullscreenExited] werden
  * AUSSCHLIESSLICH vom `fullscreenchange`-Listener gefeuert, niemals vom Klick-Handler direkt --

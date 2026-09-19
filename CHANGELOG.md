@@ -62,6 +62,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Conference: on narrow screens the participants list no longer hides the video** -- below 768 px the roster is a
+  full-screen `position: fixed` bottom sheet (`theme.css`), but it started OPEN like on desktop, so on a phone the
+  call opened as a mostly empty white page with the participants list on top and the video tiles hidden behind it
+  until the participant found the roster button. Found while testing the Android app's video screen on a real
+  phone. `conferenceInitialPanelState(narrowViewport)` now starts the roster closed on narrow viewports (wide
+  screens keep the historical open default); the participants button in the control bar still opens it on
+  demand. Tests: `ConferencePanelStateTest`.
 - **Client: 50 screen roots no longer overflow narrow viewports** -- almost every screen root carried a fixed
   `width = 640/720/800/860/900/960.px`, which stays fixed on a phone and pushes inputs, buttons and cards out of
   the right edge (found while testing the Android app's WebView on a real device: Dashboard, Dokumente and more).
