@@ -1,0 +1,123 @@
+= Client Version Hint ("New version available")
+:description: How a long-lived browser tab learns that the server now serves a newer client bundle: a content-hash build id, one public read-only endpoint, and a non-blocking hint in the SPA.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+The SPA is a single Kotlin/JS bundle (`main.bundle.js`). A browser tab keeps running the bundle it
+was loaded with for as long as it stays open. After a server deploy such a tab can start failing
+against a newer server contract -- observed in production as an upload error that disappeared after
+a manual reload. Nothing told the user that a reload was the fix.
+
+Wave V1.4.20 adds a small, non-blocking hint: when the server serves a different client build than
+the tab runs, a pill appears with "Neu laden" / "Ausblenden". It never reloads by itself, never
+blocks, and never appears over a running video-conference call.
+
+== Mechanism
+
+[kuml, client-version-check-components, svg]
+----
+classDiagram(name = "Client version hint") {
+    class(name = "ClientBuildId") {
+        operation(name = "compute", returnType = "String?")
+        operation(name = "isWellFormed", returnType = "Boolean")
+    }
+    class(name = "ClientVersionHtml") {
+        operation(name = "inject", returnType = "String")
+    }
+    class(name = "ClientShell") {
+        attribute(name = "indexHtml", type = "String?")
+        attribute(name = "buildId", type = "String?")
+    }
+    class(name = "ClientVersionWatcher") {
+        operation(name = "start", returnType = "Unit")
+        operation(name = "notifyRpcFailure", returnType = "Unit")
+    }
+}
+----
+
+. **Build id.** `ClientBuildId.compute` is a SHA-256 over the `main.bundle.js` the server actually
+  serves, lower-case hex, truncated to 16 characters. It is computed once per process (inside the
+  lazy `ClientShell`), never per request.
+. **Shell stamping.** `ClientVersionHtml.inject` writes the id into
+  `<meta name="lapis-client-build" content="...">` of the served `index.html` and appends `?v=<id>`
+  to the bundle `src`. The raw file carries `content="dev"`, which the client treats as "unknown".
+. **Endpoint.** `GET /api/client-version` answers the id as `text/plain` (nothing else),
+  `Cache-Control: no-store`, per-IP rate limit (120/min, `Retry-After` on 429).
+. **Client.** `ClientVersionWatcher` compares the served id with the tab's own id: first check after
+  one interval (about 5 minutes, +/-20% jitter, exponential backoff up to 30 minutes on failure),
+  again when the tab becomes visible (at least 60 seconds after the previous check). The polling
+  loop ends by itself at the first mismatch.
+. **Pure logic.** All decisions live in `ClientVersionCheck.kt` (no DOM, no clock) and are unit tested.
+
+== Decisions
+
+[cols="1,4", options="header"]
+|===
+| Topic | Decision
+
+| Build id source
+| Content hash of the served bundle, not a Gradle build-time constant: it cannot drift from the
+  served artifact, is stable over a pure restart and needs no cross-module build plumbing.
+
+| `?v=` cache buster
+| Load-bearing. Without it a browser can combine a NEW `index.html` with an OLD cached bundle; the
+  old bundle would read the new id as its own and never notice it is stale.
+
+| `Cache-Control: no-cache` on `/app` and `/index.html`
+| Load-bearing. Without any header the shell is cached heuristically and a reload could be answered
+  with the old shell, bringing the hint back forever. `no-cache` (not `no-store`) forces revalidation.
+
+| Endpoint exposure
+| The id is a hash over a publicly downloadable file, so the endpoint reveals nothing that was not
+  already computable: no dependency versions, host names or paths.
+
+| Terminal `outdated`
+| Once a mismatch was seen it never reverts in this page life; a server rollback must not make the
+  hint flicker.
+
+| Dismiss
+| Snoozes for 30 minutes (wall clock). A failed RPC call while outdated lifts the snooze at once --
+  that is exactly when the hint matters.
+
+| Reload loop guard
+| A `sessionStorage` counter; after two "Neu laden" clicks the button is withdrawn (text stays). The own build id at the last click is stored too; when the tab later starts with a different build id the reload demonstrably helped and the counter is reset to zero, so only reloads that do NOT bring a newer bundle count.
+
+| Live call
+| No hint while a call may be alive. `Connecting`, `Connected`, `Reconnecting` and (conservatively)
+  `Resolving` count as live, because a breakout hand-off can still resume the call.
+
+| Accessibility
+| A permanently mounted `role="status"` / `aria-live="polite"` wrapper holds the pill: KVision
+  removes a hidden child from the DOM, and a live region inserted together with its content is not
+  announced.
+
+| Dev / tests
+| Without a known own id (`content="dev"`, missing meta) the watcher registers no listener, starts no
+  loop and makes no request.
+|===
+
+== Operational preconditions and known limits
+
+* **`?v=` keys the cache, it does not pin content.** The static route ignores the query string, so
+  `main.bundle.js?v=<any id>` always returns the bytes currently on disk. A cache layer that ignores
+  the shell's `Cache-Control: no-cache` (a CDN with a forced TTL, an offline cache) can therefore serve
+  an OLD shell whose `?v=OLD` request receives the NEW bundle; the tab then runs new code but reads
+  the old id and shows a permanently wrong "older version" hint that a reload cannot clear (the
+  button is withdrawn after two clicks). The normal case -- a new shell with an old cached bundle --
+  is prevented. Do not put a caching layer in front that overrides `no-cache`.
+* **A new client bundle needs a server process restart.** The build id is hashed once, lazily, and
+  the shell meta and the endpoint share that value. If `main.bundle.js` is replaced on disk without a
+  restart, the bundle is served but the id stays the old one, so open tabs are never told. The
+  documented production setup bakes the bundle into the image, so every deploy restarts the process.
+* **Single instance.** Two instances behind a load balancer serving different bundles would make the
+  reported id flip; because `outdated` is terminal, that would become a permanent false hint.
+
+== Non-goals
+
+* No auto-reload and no forced update.
+* No version handshake in the RPC protocol. Follow-up wave (not implemented here): a contract
+  version in the Kilua RPC handshake so the server can actively reject stale clients.
+* No `immutable` cache header on the bundle; the `?v=` buster solves the problem without it.

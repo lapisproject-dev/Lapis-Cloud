@@ -49,6 +49,7 @@ import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
@@ -126,6 +127,7 @@ import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
+import network.lapis.cloud.server.routes.registerClientVersionRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
 import network.lapis.cloud.server.routes.registerDatevRoutes
@@ -344,7 +346,7 @@ internal fun Application.module(aiConfig: AiConfig) {
     clientDistRoot.mkdirs()
 
     // V1.2.5 White-Label-Branding -- operator-supplied web-UI title/optional logo (see BrandConfig
-    // KDoc). Constructed here, right after clientDistRoot above (cachedIndexHtml below needs it).
+    // KDoc). Constructed here, right after clientDistRoot above (clientShell below needs it).
     // Deliberately NEVER fail-fast, unlike SmtpConfig/SmtpStartupCheck above -- see
     // BrandingStartupCheck KDoc "why branding is never fail-fast": broken cosmetic configuration
     // (a bad title, a missing/oversized logo file) must never stop this server from starting.
@@ -362,13 +364,11 @@ internal fun Application.module(aiConfig: AiConfig) {
     // resolution, a deployment whose client build appears on disk only AFTER this `by lazy` first
     // resolves would keep serving the pre-build 404 for "/" until the process restarts -- a
     // deliberate, documented divergence (V1.2.5 plan, stolperfalle 8.4), not a bug.
-    val cachedIndexHtml: String? by lazy {
-        val indexFile = File(clientDistRoot, "index.html")
-        if (!indexFile.exists()) {
-            null
-        } else {
-            BrandingHtml.inject(html = indexFile.readText(), brand = resolvedBranding)
-        }
+    // V1.4.20: the lazy value now also carries the client build id (ClientShell KDoc) -- same
+    // "once per process, never per request" property, and it now also covers the (multi-MB)
+    // bundle hash.
+    val clientShell: ClientShell by lazy {
+        ClientShell.load(clientDistRoot = clientDistRoot, branding = resolvedBranding)
     }
 
     // V0.4.2 Letterxpress postal-mail dispatch -- see LetterxpressPostalMailProvider KDoc for the
@@ -552,6 +552,11 @@ internal fun Application.module(aiConfig: AiConfig) {
     FederationActorKeyProvisioner.ensureProvisioned(FederationConfig.actorUri)
     FederationConfig.warnIfNotPubliclyReachable()
     val federationInboxRateLimiter = FederationInboxRateLimiter()
+    // V1.4.20 client-version hint: an idle tab polls about once per 5 minutes; every re-focus may add one
+    // request per tab and minute. 120/min per IP therefore carries a NAT'd office with many idle tabs,
+    // but not ~120 tabs actively switched at once -- that only yields 429s, which the client treats as
+    // a failed check (backoff, no toast).
+    val clientVersionRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
     val federationReplayGuard = FederationReplayGuard()
 
     // V0.8.2 OIDC-Gastzugang-Federation -- this server's own OIDC JWS signing keypair must exist
@@ -1689,7 +1694,7 @@ internal fun Application.module(aiConfig: AiConfig) {
         // V1.2.5 White-Label-Branding -- literal routes, registered before staticFiles below for
         // the same "literal beats catch-all" reasoning as registerSocialPublicRoutes' own routes.
         // "/app" and "/index.html" replace staticFiles' own handling of the SPA shell so the
-        // branding-injected index.html (cachedIndexHtml above) is served instead of the raw file on
+        // branding-injected index.html (clientShell above) is served instead of the raw file on
         // disk -- every OTHER asset (main.bundle.js, theme.css, ...) still falls through to
         // staticFiles unchanged.
         //
@@ -1702,10 +1707,12 @@ internal fun Application.module(aiConfig: AiConfig) {
         // would resolve to the nonexistent "/app/main.bundle.js" (a blank page, no console error).
         // No `IgnoreTrailingSlash` plugin is installed anywhere in this application, so "/app" and
         // "/app/" are two distinct route registrations, never automatically unified.
-        get("/app") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
+        get("/app") { serveIndexHtml(call = call, shell = clientShell) }
         get("/app/") { call.respondPublicCanonicalRedirect(canonicalUrl = "${FederationConfig.publicBaseUrl.trimEnd('/')}/app") }
-        get("/index.html") { serveIndexHtml(call = call, cachedIndexHtml = cachedIndexHtml) }
+        get("/index.html") { serveIndexHtml(call = call, shell = clientShell) }
         get("/api/branding/logo") { serveBrandingLogo(call = call, branding = resolvedBranding) }
+        // V1.4.20 client-version hint -- literal route, wins over the staticFiles catch-all below.
+        registerClientVersionRoutes(rateLimiter = clientVersionRateLimiter, buildIdProvider = { clientShell.buildId })
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last
         // documents the intent -- this is the fallback for everything not already handled above.
@@ -1724,16 +1731,21 @@ internal fun Application.module(aiConfig: AiConfig) {
  */
 private suspend fun serveIndexHtml(
     call: ApplicationCall,
-    cachedIndexHtml: String?,
+    shell: ClientShell,
 ) {
-    if (cachedIndexHtml == null) {
+    val indexHtml = shell.indexHtml
+    if (indexHtml == null) {
         call.respond(HttpStatusCode.NotFound)
         return
     }
+    // V1.4.20: `no-cache` (revalidate every time, NOT `no-store`) -- without any Cache-Control a
+    // browser caches the shell heuristically; a reload triggered by the "new version" hint could
+    // then be answered with the OLD shell from cache and the hint would return forever.
+    call.response.header(HttpHeaders.CacheControl, "no-cache")
     // Explicit charset -- `staticFiles` derives Content-Type/charset from the file extension
     // automatically; this manual handler must set it itself or a default-encoding mismatch could
     // corrupt the umlauts already present in index.html (stolperfalle 8.5).
-    call.respondText(text = cachedIndexHtml, contentType = ContentType.parse("text/html; charset=utf-8"))
+    call.respondText(text = indexHtml, contentType = ContentType.parse("text/html; charset=utf-8"))
 }
 
 /**

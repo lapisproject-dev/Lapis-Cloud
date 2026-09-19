@@ -3,11 +3,13 @@ package network.lapis.cloud.server
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import io.kotest.matchers.collections.shouldContain as shouldContainElement
 
 class ApplicationTest :
     FunSpec({
@@ -115,6 +117,76 @@ class ApplicationTest :
                 val response = client.get("/api/branding/logo")
 
                 response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        // V1.4.20 client-version hint. `LAPIS_CLIENT_DIST_ROOT` cannot be set from a test, and the
+        // default dist root only exists on a machine that built the client -- so under `clean check`
+        // this route answers 404 and on a developer machine with a client build it answers 200.
+        // The test is deliberately TOLERANT of both; the real determinism coverage (same bytes ->
+        // same id, changed bytes -> other id) lives in `ClientBuildIdTest`. Do not "tighten" this.
+        test("client-version route answers stably, never caches, and leaks nothing beyond the id") {
+            testApplication {
+                application { module() }
+
+                val first = client.get("/api/client-version")
+                val second = client.get("/api/client-version")
+
+                listOf(HttpStatusCode.NotFound, HttpStatusCode.OK) shouldContainElement first.status
+                second.status shouldBe first.status
+                val firstBody = first.bodyAsText()
+                firstBody shouldBe second.bodyAsText()
+                listOf(first, second).forEach { response ->
+                    response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+                    response.headers["X-Content-Type-Options"] shouldBe "nosniff"
+                }
+                if (first.status == HttpStatusCode.OK) {
+                    firstBody shouldMatch Regex("^[0-9a-f]{16}$")
+                    listOf("/", "\\", ".").forEach { firstBody.contains(it) shouldBe false }
+                }
+            }
+        }
+
+        test("client-version route is rate limited per IP and sets Retry-After") {
+            testApplication {
+                application { module() }
+
+                val responses = (1..130).map { client.get("/api/client-version") }
+                val limited = responses.filter { it.status == HttpStatusCode.TooManyRequests }
+
+                limited.isNotEmpty() shouldBe true
+                (limited.first().headers[HttpHeaders.RetryAfter] != null) shouldBe true
+            }
+        }
+
+        // Tolerant of 404 (no client build) and 200 (client build present) -- see the client-version
+        // test above. When a shell IS served it must revalidate, or a "Neu laden" click could be
+        // answered with the old shell from the browser cache and the hint would return forever.
+        test("/app carries Cache-Control no-cache whenever it serves the shell") {
+            testApplication {
+                application { module() }
+
+                val response = client.get("/app")
+
+                if (response.status == HttpStatusCode.OK) {
+                    response.headers[HttpHeaders.CacheControl] shouldBe "no-cache"
+                } else {
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
+            }
+        }
+
+        test("/index.html carries Cache-Control no-cache whenever it serves the shell") {
+            testApplication {
+                application { module() }
+
+                val response = client.get("/index.html")
+
+                if (response.status == HttpStatusCode.OK) {
+                    response.headers[HttpHeaders.CacheControl] shouldBe "no-cache"
+                } else {
+                    response.status shouldBe HttpStatusCode.NotFound
+                }
             }
         }
     })

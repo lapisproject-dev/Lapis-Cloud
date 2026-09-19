@@ -93,36 +93,41 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
         block()
     } catch (e: CancellationException) {
         throw e
-    } catch (e: UnauthenticatedException) {
-        sessionExpired()
-        null
-    } catch (e: ForbiddenException) {
-        notifyError(tr("Keine Berechtigung für diese Aktion."))
-        null
-    } catch (e: NotFoundException) {
-        notifyError(tr("Nicht gefunden."))
-        null
-    } catch (e: ConflictException) {
-        notifyError(tr("Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."))
-        null
-    } catch (e: BadRequestException) {
-        notifyError(tr("Ungültige Anfrage."))
-        null
-    } catch (e: InvalidPasswordException) {
-        notifyError(tr("Aktuelles Passwort ist falsch."))
-        null
-    } catch (e: WeakPasswordException) {
-        notifyError(tr("Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."))
-        null
     } catch (e: Throwable) {
-        val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
-        if (message.contains("Unauthorized")) {
-            sessionExpired()
-        } else {
-            notifyError(message)
-        }
+        // V1.4.20: every failed RPC lifts an active "new version available" snooze (a stale client
+        // failing against a newer server contract is exactly when the hint matters). Deliberately
+        // hooked HERE (AFTER the toast, and never throwing) and not into `notifyError`, which ~200 non-RPC call sites (form validation)
+        // also use.
+        handleGuardedFailure(e)
+        ClientVersionWatcher.notifyRpcFailure()
         null
     }
+
+/**
+ * The typed-exception -> toast mapping of [guarded] (see its KDoc), extracted unchanged in V1.4.20
+ * so [guarded] can hook every failure with a single line. Branch ORDER matters and is preserved:
+ * the specific `@RpcServiceException` subclasses first, the generic `Throwable` fallback last.
+ */
+private fun handleGuardedFailure(e: Throwable) {
+    when (e) {
+        is UnauthenticatedException -> sessionExpired()
+        is ForbiddenException -> notifyError(tr("Keine Berechtigung für diese Aktion."))
+        is NotFoundException -> notifyError(tr("Nicht gefunden."))
+        is ConflictException -> notifyError(tr("Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."))
+        is BadRequestException -> notifyError(tr("Ungültige Anfrage."))
+        is InvalidPasswordException -> notifyError(tr("Aktuelles Passwort ist falsch."))
+        is WeakPasswordException ->
+            notifyError(tr("Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."))
+        else -> {
+            val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
+            if (message.contains("Unauthorized")) {
+                sessionExpired()
+            } else {
+                notifyError(message)
+            }
+        }
+    }
+}
 
 private fun sessionExpired() {
     AppState.setSession(null)

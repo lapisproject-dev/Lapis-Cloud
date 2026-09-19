@@ -11308,3 +11308,15 @@ msgstr "Zaindeksuj ponownie"
 msgid "Wissensbasis aktualisiert."
 msgstr "Baza wiedzy została zaktualizowana."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:271
+msgid "Neue Version verfügbar – dieser Tab läuft auf einem älteren Stand."
+msgstr "Dostępna jest nowa wersja – ta karta korzysta ze starszej wersji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:275
+msgid "Neu laden"
+msgstr "Odśwież"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:279
+msgid "Ausblenden"
+msgstr "Ukryj"
+

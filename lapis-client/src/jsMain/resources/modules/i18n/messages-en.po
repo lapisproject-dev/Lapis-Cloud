@@ -11270,3 +11270,15 @@ msgstr "Re-index"
 msgid "Wissensbasis aktualisiert."
 msgstr "Knowledge base updated."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:271
+msgid "Neue Version verfügbar – dieser Tab läuft auf einem älteren Stand."
+msgstr "A new version is available – this tab is running an older build."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:275
+msgid "Neu laden"
+msgstr "Reload"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:279
+msgid "Ausblenden"
+msgstr "Dismiss"
+

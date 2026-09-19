@@ -11362,3 +11362,15 @@ msgstr "Reindicizza"
 msgid "Wissensbasis aktualisiert."
 msgstr "Base di conoscenza aggiornata."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:271
+msgid "Neue Version verfügbar – dieser Tab läuft auf einem älteren Stand."
+msgstr "È disponibile una nuova versione – questa scheda usa una versione precedente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:275
+msgid "Neu laden"
+msgstr "Ricarica"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ClientVersionWatcher.kt:279
+msgid "Ausblenden"
+msgstr "Nascondi"
+

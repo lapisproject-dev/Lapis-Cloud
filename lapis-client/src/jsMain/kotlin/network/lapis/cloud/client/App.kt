@@ -408,6 +408,8 @@ class App : Application() {
             lapisAttribution()
 
             initNotifications()
+            // V1.4.20: last child of the root -> last tab stop; global, started exactly once.
+            ClientVersionWatcher.start(this)
             AppState.onSessionChange = ::refreshShell
 
             AppScope.launch {

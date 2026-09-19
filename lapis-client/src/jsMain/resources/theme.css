@@ -831,3 +831,79 @@ body {
 .lapis-clickable-row {
   cursor: pointer;
 }
+
+/* V1.4.20 "Client-Hinweis: Neue Version verfügbar" (ClientVersionWatcher.kt) -- non-blocking pill
+   at the bottom of the viewport, shown when the server serves a newer client build than this tab
+   runs. Two elements on purpose: `.lapis-update-live` is the permanently mounted screen-reader live
+   region (`role="status"`), the pill is its toggled child -- KVision removes a hidden child from the
+   DOM, and a live region inserted together with its content is not announced. `display: contents`
+   keeps the wrapper out of the layout while its semantics survive (NOT `display: none`). */
+.lapis-update-live {
+  display: contents;
+}
+
+/* z-index 1035 is deliberate: above all app chrome in this file (transparency banner 6, conference
+   controls 5, "Mehr" sheet 4), but BELOW Bootstrap's offcanvas (1045) and its backdrop (1040) and
+   below modals (1055) -- an open sidebar or dialog correctly covers the pill. Never put
+   `transform`/`filter`/`perspective` on an ancestor of this element: it would silently turn
+   `position: fixed` into "fixed relative to that ancestor". */
+.lapis-update-pill {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 1035;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: min(40rem, calc(100vw - 2rem));
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+  background-color: var(--lapis-surface);
+  color: var(--lapis-text);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: 0.875rem;
+  line-height: 1.3;
+}
+
+/* Sits above the fixed conference control bar (Failed / post-call states keep it on screen). */
+.lapis-update-pill.lapis-update-pill-lifted {
+  bottom: 4.5rem;
+}
+
+.lapis-update-pill .lapis-update-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--lapis-fleck);
+}
+
+.lapis-update-pill .lapis-update-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lapis-update-pill .lapis-update-reload,
+.lapis-update-pill .lapis-update-pill-close {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.lapis-update-pill .lapis-update-pill-close {
+  color: var(--lapis-muted);
+  padding-inline: 0.5rem;
+}
+
+/* Desktop: the sidebar permanently occupies the left edge -- center under `.lapis-content`. */
+@media (min-width: 992px) {
+  .lapis-update-pill {
+    left: calc(var(--lapis-sidebar-width) + 1rem);
+    max-width: min(40rem, calc(100vw - var(--lapis-sidebar-width) - 2rem));
+  }
+}

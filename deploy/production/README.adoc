@@ -461,6 +461,27 @@ Webmaster Tools both accept `https://<LAPIS_PUBLIC_BASE_URL>/sitemap.xml` direct
 submission -- `robots.txt` also advertises it via its `Sitemap:` line, so a well-behaved crawler
 discovers it on its own, but an explicit submission speeds up first indexing.
 
+== Client version hint (V1.4.20)
+
+Welle V1.4.20 "Client-Hinweis: Neue Version verfügbar" adds one public, unauthenticated route and
+changes the caching of the app shell -- relevant for anyone putting a caching reverse proxy or CDN in
+front of Caddy:
+
+* `GET /api/client-version` returns the server's build id as plain text with `Cache-Control:
+  no-store`, rate-limited to 120 requests/minute per IP. Open tabs poll it (~every 5 minutes) to
+  detect a newer deploy. **Do not cache it** -- a cached answer would hide a deploy from every open
+  tab.
+* `GET /app` and `GET /index.html` now carry `Cache-Control: no-cache` (revalidate on every load), so
+  a reload after a deploy picks up the new bundle instead of a heuristically cached shell. A caching
+  layer must honour this and must not override it with its own TTL.
+
+* A new client bundle only takes effect for the hint after a **restart of the server process**
+  (the build id is computed once). Bind-mounting a client directory and swapping the bundle without a
+  restart would leave open tabs uninformed. The hint also assumes **one instance**; behind a load
+  balancer with differing bundles it would show a permanent false hint.
+
+See `docs/architecture/client-version-check.adoc` for the full design.
+
 == Secrets
 
 `.env` in this directory is the only place production secrets for this stack live (database

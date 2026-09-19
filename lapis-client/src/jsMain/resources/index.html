@@ -16,6 +16,17 @@
     -->
     <script type="application/json" id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null}</script>
     <!--
+      V1.4.20 client-version hint: the server (ClientVersionHtml.inject) overwrites the `content`
+      attribute of the meta element below with the client build id (SHA-256 prefix over the served
+      bundle) and appends the same id as a `?v=` cache buster to the bundle script's `src` -- only when
+      it serves "/app" or "/index.html". The value "dev" is the dev-time default (webpack-dev-server /
+      `jsBrowserDevelopmentRun` sees this file unfiltered): the client treats it as "unknown" and never
+      checks or polls. The server finds both injection points by their literal attribute text, so keep
+      the meta element's name/content attributes and the script's src attribute verbatim, and do not
+      repeat those literals inside comments (the server matches the FIRST occurrence).
+    -->
+    <meta name="lapis-client-build" content="dev">
+    <!--
       V1.4.16 Dark-Mode-Toggle: stamps `data-theme`/`data-bs-theme` on <html> BEFORE the (much
       larger, `kotlin/js`-compiled) bundle below has parsed and run -- avoids a flash of the wrong
       theme on load. Mirrors the read side of `ThemeToggle.kt`'s own `localStorage` key/values

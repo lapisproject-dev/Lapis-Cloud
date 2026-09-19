@@ -397,6 +397,8 @@ fun renderConferenceScreen(
     }
     window.addEventListener("beforeunload", beforeUnloadListener)
     root.addAfterDestroyHook {
+        // V1.4.20: a screen change mid-call must never strand the "call live" flag at true.
+        ConferenceCallPresence.set(live = false)
         window.removeEventListener("beforeunload", beforeUnloadListener)
         AppScope.launch { runCatching { activeSession?.disconnect() } }
     }
@@ -3288,6 +3290,7 @@ private fun enterCall(
      * thrown, so a duplicate/out-of-order LiveKit push can never crash this screen. */
     fun transition(event: ConferenceConnectionEvent) {
         connectionState = conferenceConnectionReduce(connectionState, event)
+        ConferenceCallPresence.set(live = connectionState.countsAsLiveCall())
         renderConnectionState()
     }
 
@@ -5616,6 +5619,20 @@ internal sealed class ConferenceConnectionEvent {
  */
 internal fun ConferenceConnectionState.isLive(): Boolean =
     this is ConferenceConnectionState.Connected || this is ConferenceConnectionState.Reconnecting
+
+/**
+ * V1.4.20 -- whether this state counts as "a call may still be alive" for the "new version
+ * available" hint ([ConferenceCallPresence]): [ConferenceConnectionState.Connecting], [Connected],
+ * [Reconnecting] and (conservatively) [Resolving] -- after a transport disconnect the call can still
+ * be resumed via a breakout hand-off, and a "Neu laden" click must not end it unannounced. Broader
+ * than [isLive], which deliberately gates background polling and excludes both Connecting and
+ * Resolving.
+ */
+internal fun ConferenceConnectionState.countsAsLiveCall(): Boolean =
+    this is ConferenceConnectionState.Connecting ||
+        this is ConferenceConnectionState.Connected ||
+        this is ConferenceConnectionState.Reconnecting ||
+        this is ConferenceConnectionState.Resolving
 
 /**
  * D10 -- the ONE place a transition happens. Unlisted (state, event) pairs are ignored (return the

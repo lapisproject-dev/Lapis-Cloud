@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Client hint "new version available"** -- a browser tab that stays open across a server deploy kept
+  running the old client bundle and could start failing against the newer server (seen as an upload
+  error that vanished after a manual reload, with nothing telling the user to reload). The SPA now
+  compares its own build id with the one the server serves and, on a mismatch, shows a non-blocking pill
+  ("Neu laden" / "Ausblenden"): never an automatic reload, never over a running video-conference call,
+  dismissible for 30 minutes and returning at once when an RPC call fails while the tab is outdated;
+  after two reload attempts the button is withdrawn (loop guard; the counter resets once a reload actually brought a newer bundle). The hint itself never throws into the app: rendering and the poll loop are exception-guarded, and it runs after the error toast in `guarded()`. The first check runs after one
+  interval (about 5 minutes, jittered, backing off to 30 minutes on failures) and again when the tab
+  becomes visible. New public, read-only `GET /api/client-version` (`text/plain`, `no-store`, per-IP rate
+  limit; the id is a SHA-256 prefix over the already public `main.bundle.js`, so it leaks nothing).
+  The served `index.html` now carries the id in `<meta name="lapis-client-build">` plus a `?v=` cache
+  buster on the bundle, and `/app` / `/index.html` answer `Cache-Control: no-cache` so a reload cannot
+  be served the old shell from cache. Tests: `ClientBuildIdTest`, `ClientVersionHtmlTest`,
+  `ClientShellTest`, `ApplicationTest` (client-version route + shell header), `ClientVersionCheckTest`,
+  `ClientVersionMetaTest`. Design: `docs/architecture/client-version-check.adoc`. Follow-up (own wave,
+  not part of this one): a contract version in the Kilua RPC handshake so the server can actively reject
+  stale clients.
+  **Known limits** (documented in the design doc and `deploy/production/README.adoc`): `?v=` keys the
+  browser cache but does not pin content (a cache layer that ignores `no-cache` can cause a persistent
+  false hint); a replaced bundle needs a server process restart for the hint to fire; the hint assumes a
+  single instance. Open follow-ups from the independent audit: a destroyed conference screen can leave the
+  "live call" suppression latched until the page reloads, the pill can overlap the camera preview or the
+  mobile roster/chat panel while a call is not live, the hint is not suppressed inside the mobile-app
+  WebView, and language switching while the pill is visible was not verified in a browser.
+
 ## [0.22.0] — 2026-09-19
 
 ### Security
