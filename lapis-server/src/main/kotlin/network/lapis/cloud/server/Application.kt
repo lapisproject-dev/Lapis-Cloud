@@ -36,6 +36,15 @@ import network.lapis.cloud.server.accounting.export.lexoffice.LexofficeRateLimit
 import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskAdapter
 import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskApiClient
 import network.lapis.cloud.server.accounting.export.sevdesk.SevDeskRateLimiter
+import network.lapis.cloud.server.ai.audit.DbAiCallAuditRecorder
+import network.lapis.cloud.server.ai.config.AiConfig
+import network.lapis.cloud.server.ai.config.AiStartupCheck
+import network.lapis.cloud.server.ai.kb.KnowledgeIndexer
+import network.lapis.cloud.server.ai.llm.AiProviderFactory
+import network.lapis.cloud.server.ai.qa.StatuteQaPipeline
+import network.lapis.cloud.server.ai.ratelimit.AiQuestionRateLimiter
+import network.lapis.cloud.server.ai.retrieval.KnowledgeRetrievers
+import network.lapis.cloud.server.ai.retrieval.PostgresFullTextIndexInitializer
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
@@ -145,6 +154,7 @@ import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
+import network.lapis.cloud.server.rpc.AiAssistantService
 import network.lapis.cloud.server.rpc.ApiKeyService
 import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
@@ -210,6 +220,7 @@ import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
+import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IApiKeyService
 import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
@@ -295,7 +306,14 @@ fun main() {
         .start(wait = true)
 }
 
-fun Application.module() {
+fun Application.module() = module(aiConfig = AiConfig.load())
+
+/**
+ * The real module body. [aiConfig] is a parameter (production always passes [AiConfig.load]) so
+ * tests can start the application with an explicit AI configuration without touching process-wide
+ * environment variables -- the kill-switch/registration tests depend on that.
+ */
+internal fun Application.module(aiConfig: AiConfig) {
     // Idempotent (see DatabaseConfig/DevSeedData KDoc) — safe to call again here so that
     // ApplicationTest's `testApplication { application { module() } }` also gets a migrated,
     // seeded H2 database without needing its own main()/DB bootstrap.
@@ -1078,6 +1096,25 @@ fun Application.module() {
     val memberCardPublicPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val memberCardCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
 
+    // V1.6.1 KI-Fundament + Pilot Satzungs-Q&A -- optional AI assistance, DEFAULT OFF (see AiConfig
+    // KDoc). Same "never fail-fast" posture as brandConfig above: a missing or broken LAPIS_AI_*
+    // configuration only means "feature off", it never stops this server. Everything below is a
+    // module-scoped singleton (registerService's factory lambda builds a fresh service per RPC call,
+    // so a limiter/client constructed inside it would be empty/unpooled on every request). When the
+    // feature is not operational NO provider client is constructed and IAiAssistantService is not
+    // registered at all (its RPC path then answers 404).
+    AiStartupCheck.log(aiConfig)
+    val aiLlmClient = AiProviderFactory.create(aiConfig)
+    val aiRetriever = KnowledgeRetrievers.forCurrentDatabase()
+    val aiRateLimiter =
+        AiQuestionRateLimiter(
+            perMemberPerHour = aiConfig.questionsPerMemberPerHour,
+            perServerPerDay = aiConfig.questionsPerServerPerDay,
+        )
+    val aiAuditSink = DbAiCallAuditRecorder()
+    val aiIndexer = KnowledgeIndexer(storageRoot = documentStorageRoot)
+    if (aiConfig.isOperational) PostgresFullTextIndexInitializer.ensureIndexes()
+
     // Welle V1.4.1a "Öffentliche Website-Integration" -- vier neue, module-scoped Rate-Limiter,
     // NIEMALS als Konstruktor-Default (Stolperfalle 8, dieselbe Begründung wie jeder andere
     // Limiter in diesem Block). Alle vier sind internet-offen/unauthentifiziert -> maxTrackedKeys
@@ -1313,7 +1350,24 @@ fun Application.module() {
                 reportRateLimiter = socialReportRateLimiter,
             )
         }
-        registerService(IAuthService::class) { call -> AuthService(call) }
+        registerService(IAuthService::class) { call -> AuthService(call = call, aiAssistantEnabled = aiConfig.isOperational) }
+        if (aiConfig.isOperational && aiLlmClient != null) {
+            registerService(IAiAssistantService::class) { call ->
+                AiAssistantService(
+                    call = call,
+                    config = aiConfig,
+                    pipeline =
+                        StatuteQaPipeline(
+                            retriever = aiRetriever,
+                            llmClient = aiLlmClient,
+                            auditSink = aiAuditSink,
+                            config = aiConfig,
+                        ),
+                    indexer = aiIndexer,
+                    rateLimiter = aiRateLimiter,
+                )
+            }
+        }
         registerService(
             IRegistrationService::class,
         ) { call ->
@@ -1573,6 +1627,7 @@ fun Application.module() {
             readRateLimiter = legalPageRateLimiter,
             branding = resolvedBranding,
             legal = legalConfig,
+            aiAssistantEnabled = aiConfig.isOperational,
         )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own

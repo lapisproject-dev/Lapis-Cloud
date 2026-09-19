@@ -57,6 +57,16 @@ Kotlin · Ktor (Server) · Exposed (DB-Zugriff) · Flyway (Migrationen) · KVisi
 Kotlin/JS) · Kilua RPC (typsichere Client-Server-Kommunikation) · Koog (Multi-LLM-Agent-Layer,
 JetBrains) — Details und Architektur-Hintergrund siehe `README.adoc`.
 
+> **Koog-Notiz (V1.6.1):** Die erste KI-Welle (`network.lapis.cloud.server.ai`, Satzungs-Q&A) baut
+> bewusst **ohne** Koog auf einem eigenen minimalen `LlmClient` (zwei schmale Ktor-Clients). Koog 1.2.0
+> (Maven Central, 2026-09-19 geprüft) zieht transitiv `ktor-client-logging` (widerspricht der Regel
+> „kein Logging-Plugin auf einem API-Key-Client", siehe `OracleHttpClient` und den
+> `io.ktor.client`-INFO-Floor in `logback.xml`), eine zweite Ktor-Server-Engine (CIO + SSE), eine
+> Ktor-3.3.3-Linie gegen die 3.5.2 dieses Repos und Jackson als zweiten Serialisierungs-Stack — für
+> einen Retrieval-Schritt und einen Modellaufruf. Wechsel neu prüfen, sobald Koog auf der Ktor-Linie
+> dieses Repos sitzt und ein logging-freies Client-Modul anbietet. Begründung ausführlich:
+> `docs/architecture/ai-assistant.adoc`.
+
 ## Verwandte Repositories
 
 - `kuml-dev/kUML` — Modellierungssprache für alle Diagramme

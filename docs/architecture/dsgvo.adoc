@@ -267,6 +267,26 @@ their own multi-role tables.
   automatic 12-month sweep (see that class' own KDoc) — it is a factual "when was this text actually
   removed" timestamp, true regardless of which of the two triggered it.
 
+== AI assistance (V1.6.1)
+
+`AiAssistantPersonalData` (`sectionKey = "aiAssistant"`) owns the three AI tables that carry a
+`member` FK:
+
+* `ai_member_opt_in` -- **hard DELETE** on erasure; a consent record for a feature the person no
+  longer uses has no retention interest of its own.
+* `ai_call_audit` -- **retain-and-redact**: the row is a usage/traceability record holding only
+  SHA-256 hashes and counters (never clear text), so erasure sets `member_id` to `NULL`, after which
+  the row has no personal reference. The column is therefore nullable.
+* `ai_knowledge_release` -- **retain-and-redact**: the release decision belongs to the knowledge base
+  record; erasure nulls `released_by` (nullable for the same reason).
+
+Export lists opt-in states, the member's calls (timestamp, agent type, outcome, token counts,
+retrieved chunk count) and the titles of documents the member released. The hashes are never
+exported -- like `code_hash` for `MemberCardPersonalData` they give the data subject no intelligible
+information. `ai_knowledge_chunk`/`ai_knowledge_index_state` carry no member FK (derivatives of
+document content, whose personal-data handling lives in `DocumentPersonalData`). Details and the
+data flow to the provider: xref:ai-assistant.adoc[ai-assistant.adoc].
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
@@ -280,6 +300,8 @@ their own multi-role tables.
   contributor for `member_family`/`member_family_link`.
 * `network.lapis.cloud.server.dsgvo.ContributionReliefPersonalData` — the three-role,
   single-field-redaction contributor for `contribution_relief_request` (Welle V1.4.10).
+* `network.lapis.cloud.server.dsgvo.AiAssistantPersonalData` — hard-delete plus retain-and-redact
+  contributor for the three AI tables with a member reference (Welle V1.6.1).
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

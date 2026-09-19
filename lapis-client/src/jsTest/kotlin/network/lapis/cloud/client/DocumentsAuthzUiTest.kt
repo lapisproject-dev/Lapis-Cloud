@@ -52,4 +52,24 @@ class DocumentsAuthzUiTest {
         assertEquals(listOf(DocumentAccessLevel.PUBLIC_MEMBERS), DocumentsAuthzUi.allowedCreateLevels(AccountRole.MEMBER))
         assertEquals(listOf(DocumentAccessLevel.PUBLIC_MEMBERS), DocumentsAuthzUi.allowedCreateLevels(null))
     }
+
+    /**
+     * V1.6.1 -- the knowledge-base switch mirrors the server's `isPrivileged` (BOARD/ADMIN), NOT the
+     * wider [DocumentsAuthzUi.MANAGE_ROLES] that includes TREASURER.
+     */
+    @Test
+    fun canManageKnowledgeBase_boardAndAdminOnly_notTreasurer() {
+        assertTrue(DocumentsAuthzUi.canManageKnowledgeBase(AccountRole.BOARD))
+        assertTrue(DocumentsAuthzUi.canManageKnowledgeBase(AccountRole.ADMIN))
+        assertFalse(DocumentsAuthzUi.canManageKnowledgeBase(AccountRole.TREASURER))
+        assertFalse(DocumentsAuthzUi.canManageKnowledgeBase(AccountRole.MEMBER))
+        assertFalse(DocumentsAuthzUi.canManageKnowledgeBase(null))
+    }
+
+    @Test
+    fun knowledgeBaseColumn_needsTheServerFlagToo() {
+        assertTrue(DocumentsAuthzUi.showsKnowledgeBaseColumn(AccountRole.ADMIN, aiAssistantEnabled = true))
+        assertFalse(DocumentsAuthzUi.showsKnowledgeBaseColumn(AccountRole.ADMIN, aiAssistantEnabled = false))
+        assertFalse(DocumentsAuthzUi.showsKnowledgeBaseColumn(AccountRole.TREASURER, aiAssistantEnabled = true))
+    }
 }

@@ -270,11 +270,11 @@ private fun Route.registerAuthServiceTestRoutes() {
     post("/test/change-password") {
         val currentPassword = call.request.headers["X-Current-Password"] ?: ""
         val newPassword = call.request.headers["X-New-Password"] ?: ""
-        AuthService(call).changePassword(currentPassword = currentPassword, newPassword = newPassword)
+        AuthService(call = call).changePassword(currentPassword = currentPassword, newPassword = newPassword)
         call.respondText("OK")
     }
     get("/test/session-info") {
-        val info = AuthService(call).getSessionInfo()
+        val info = AuthService(call = call).getSessionInfo()
         call.respondText("${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}")
     }
 }

@@ -31,6 +31,8 @@ fun Route.registerLegalRoutes(
     readRateLimiter: FederationInboxRateLimiter,
     branding: ResolvedBranding,
     legal: LegalConfig,
+    /** V1.6.1: renders the KI-assistance privacy paragraph -- only for an installation where the AI layer is operational. */
+    aiAssistantEnabled: Boolean = false,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
 
@@ -40,7 +42,13 @@ fun Route.registerLegalRoutes(
         }
     val privacyBodies: Map<PublicLanguage, String> =
         PublicLanguage.entries.associateWith { lang ->
-            LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang)
+            LegalHtml.privacyPage(
+                legal = legal,
+                baseUrl = baseUrl,
+                branding = branding,
+                lang = lang,
+                aiAssistantEnabled = aiAssistantEnabled,
+            )
         }
 
     get("/impressum") {

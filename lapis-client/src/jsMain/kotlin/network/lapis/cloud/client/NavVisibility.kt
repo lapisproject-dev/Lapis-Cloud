@@ -43,4 +43,14 @@ object NavVisibility {
 
     /** Crowdfunding/Auktion/Politiker -- bleiben ORGANIZATION_MEMBER-exklusiv. */
     fun showsMemberOnlyEconomy(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
+
+    /**
+     * "Fragen zur Satzung" (V1.6.1, optional AI assistance) -- only where the server reports the AI
+     * layer as operational ([network.lapis.cloud.shared.domain.SessionInfoDto.aiAssistantEnabled])
+     * AND for full organization members (the server refuses everyone else).
+     */
+    fun showsStatuteQa(
+        status: MemberStatus,
+        aiAssistantEnabled: Boolean,
+    ): Boolean = aiAssistantEnabled && status in MemberStatusSets.ORGANIZATION_MEMBER
 }

@@ -1614,3 +1614,14 @@ ledger-account mapping, the second EXPENSE-typed one after `travel_expense_accou
 mirroring `TravelExpensePostingBridge`'s posture (degrading cash-register guards,
 `IDEELLER_BEREICH` sphere) but as its own dedicated bridge, not a shared abstraction with travel
 expenses.
+
+== V1.6.1 -- AI assistance (statute Q&A)
+
+Five new tables modelled in `lapis-server/src/main/kuml/53-ai-assistant.kuml.kts` (migration
+`V44__ai_assistant.sql`, hand-written Exposed objects `AiKnowledgeReleaseTable`,
+`AiKnowledgeIndexStateTable`, `AiKnowledgeChunkTable`, `AiMemberOptInTable`, `AiCallAuditTable`):
+`ai_knowledge_release`, `ai_knowledge_index_state`, `ai_knowledge_chunk`, `ai_member_opt_in`,
+`ai_call_audit`. Three cross-domain id-only stubs (`Member`, `Document`, `DocumentVersion`).
+Deliberately no `access_level` copy on the chunk table -- the document's level is joined live at
+retrieval time. Rationale, boundary rules and the runtime full-text index decision:
+xref:ai-assistant.adoc[ai-assistant.adoc].

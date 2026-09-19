@@ -47,6 +47,63 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.6.1 -- Optional AI assistance: foundation and statute Q&A pilot ("Fragen zur Satzung"), default OFF.**
+  A member can ask a question about the statutes and gets a short summary plus one to three verified
+  citations (`Title · v2 · § 7 Abs. 2`) from documents BOARD/ADMIN released to a knowledge base; without
+  a verified citation there is no answer. Architecture, boundary rules and all decisions:
+  `docs/architecture/ai-assistant.adoc`; operator instructions and GDPR duties:
+  `deploy/production/README.adoc`, section "AI assistance".
+  - **Off by default and fail-safe.** The layer is on only when `LAPIS_AI_ENABLED` is exactly `true`
+    **and** a complete provider profile is configured (`LAPIS_AI_PROVIDER` = `anthropic` or
+    `openai_compatible`, `LAPIS_AI_MODEL`, `LAPIS_AI_API_KEY`, and `LAPIS_AI_BASE_URL` where required).
+    Anything else means "off": the server still starts (`AiConfig.load` never throws), the offending
+    variable names are logged, no provider client is constructed and `IAiAssistantService` is not
+    registered. **The compose files pass no `LAPIS_AI_*` variable through** (guarded by
+    `AiEnvNotForwardedInComposeTest`) -- an operator must add them on purpose, with a processing
+    agreement (Art. 28 GDPR) in place. `SessionInfoDto.aiAssistantEnabled` tells the client whether to
+    show the navigation entry.
+  - **Own minimal `LlmClient` instead of Koog.** Two thin Ktor clients (Anthropic Messages API,
+    OpenAI-compatible chat completions covering OpenAI/Mistral/OpenRouter/Ollama). Koog `1.2.0` was
+    checked against Maven Central and rejected: it transitively pulls `ktor-client-logging` (against the
+    "never a logging plugin on an API-key client" line documented in `OracleHttpClient`), a second Ktor
+    server engine, a Ktor 3.3.3 line against this repository's 3.5.2 and Jackson. Re-evaluate once Koog
+    sits on this repository's Ktor line and offers a logging-free client module.
+  - **SSRF and secret hygiene.** The base URL is operator configuration only, validated once (HTTPS only,
+    no userinfo/query/fragment, private/loopback/link-local/CGNAT literals rejected; plain-HTTP loopback
+    only with `LAPIS_AI_ALLOW_PLAINTEXT_BASE_URL=true`), pinned, and re-checked before every request; no
+    redirects; bounded timeouts; the response is read off the channel and capped before it is
+    materialized. The API key never appears in `toString`, logs or exception messages
+    (`AiSecretsNotLoggedTest`, which also pins the `io.ktor.client` INFO floor in `logback.xml`).
+  - **Knowledge base.** BOARD/ADMIN (not TREASURER) release documents from the document list; only
+    `PUBLIC_MEMBERS` documents are releasable. PDF (per page), plain text and Markdown are extracted and
+    chunked; a scanned PDF is reported as "format not readable", a corrupt file as "indexing failed".
+    Migration `V44__ai_assistant.sql` (five tables, additive, `53-ai-assistant.kuml.kts`). **No copied
+    access level**: the document's level is joined live at retrieval time, together with release,
+    deletion flag and current-version checks, so re-classifying a document takes effect immediately.
+  - **Q&A pipeline.** PII redaction (e-mail, IBAN, telephone, long numbers -- no anonymization promise) ->
+    exactly one retrieval -> no chunks means no model call -> one tool-less model call -> citations built
+    from stored records only -> no valid citation means no answer -> plain-text sanitizing. Prompt-injection
+    defence has two independent layers (delimiter neutralization; citations only from the retrieved set).
+    Boundary rules R1-R4 are enforced by `AiModuleBoundaryTest` (a package, not a Gradle module -- a
+    documented deviation, extraction is a follow-up wave).
+  - **Consent, limits, audit, DSGVO.** Per-member opt-in (default off, revocable on the screen); 10
+    questions per member and hour and 200 per server and day; one `ai_call_audit` row per model call
+    with hashes and counters only. `AiAssistantPersonalData`: opt-ins hard-deleted, audit and release rows
+    retained with the member reference nulled. `/datenschutz` carries a paragraph on the processing
+    only while the feature is on.
+  - **Client.** `/statute-qa` ("Fragen zur Satzung", magnifying-glass icon) in the "Mitgliedschaft"
+    group and a "Wissensbasis" switch in the document list, all model output rendered as plain text
+    nodes; all new strings in `messages.pot` and the seven language catalogs.
+  - **Not in this wave.** No pgvector/embeddings, no OCR, no streaming, no conversation memory, no
+    board-only knowledge base. **The PostgreSQL full-text path has no CI coverage beyond its SQL shape**
+    (no Testcontainers in this repository): verify it once manually against the real instance
+    (`PostgresFullTextRetrieverLiveTest`) before the first productive use.
+  - **Tests.** Config/kill switch, SSRF guard, provider clients (mock engine, no network), extraction,
+    chunking, indexing, retriever contract incl. the re-classification bypass guard, pipeline incl.
+    prompt injection, PII redaction, sanitizer, rate limiter, audit, RPC authorization matrix
+    (MEMBER/TREASURER refused, BOARD/ADMIN allowed), schema drift, DSGVO export/erasure, structural
+    boundary/secret/compose scans, and the client's pure logic.
+
 **Datendichte Tabellen-Screens: Breite, kompakte Aktionsspalten, Kontenplan-Suche (Design-Team-Sitzung 2026-09-18)**
 
 - **Hinzugefügt**: `DataScreenLayout.kt` (`lapis-client/.../client/`) -- gemeinsames Layout-Vokabular

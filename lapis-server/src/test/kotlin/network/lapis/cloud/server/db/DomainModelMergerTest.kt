@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 53 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 54 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -50,8 +50,9 @@ class DomainModelMergerTest :
             // was 50, now 51 with the addition of 50-event-catering.kuml.kts. Welle V1.4.3.7
             // "Helfer-/Schichtplanung für Veranstaltungen" -- was 51, now 52 with the addition of
             // 51-event-volunteer.kuml.kts. Welle "Digitaler Mitgliedsausweis (PDF)" -- was 52, now
-            // 53 with the addition of 52-member-card.kuml.kts.
-            scriptFiles shouldHaveSize 53
+            // 53 with the addition of 52-member-card.kuml.kts. Welle V1.6.1 "KI-Fundament + Pilot
+            // Satzungs-Q&A" -- was 53, now 54 with the addition of 53-ai-assistant.kuml.kts.
+            scriptFiles shouldHaveSize 54
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -424,7 +425,13 @@ class DomainModelMergerTest :
             // (dedups into the already-real 00-foundation.kuml.kts member entity) -- so it
             // contributes +3 «Entity» declarations (1 stub + 2 real tables) and 1 drop, net +2
             // distinct table names versus the price-oracle baseline above (153 -> 155).
-            val distinctTableNames = 155
+            // Welle V1.6.1 "KI-Fundament + Pilot Satzungs-Q&A" adds 53-ai-assistant.kuml.kts's FIVE
+            // real tables (ai_knowledge_release, ai_knowledge_index_state, ai_knowledge_chunk,
+            // ai_member_opt_in, ai_call_audit), WITH THREE cross-domain stubs (Member, Document,
+            // DocumentVersion -- all dedup into already-real entities) -- so it contributes +8
+            // «Entity» declarations (3 stubs + 5 real tables) and 3 drops, net +5 distinct table
+            // names versus the member-card baseline above (155 -> 160).
+            val distinctTableNames = 160
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -690,6 +697,14 @@ class DomainModelMergerTest :
                     // dedups into the already-real member entity, no new Table file for it.
                     "MemberNumberSequenceTable.kt",
                     "MemberCardCodeTable.kt",
+                    // Welle V1.6.1 "KI-Fundament + Pilot Satzungs-Q&A" -- FIVE new real tables; its
+                    // Member/Document/DocumentVersion cross-domain stubs all dedup into already-real
+                    // entities, no new Table file for any of them.
+                    "AiKnowledgeReleaseTable.kt",
+                    "AiKnowledgeIndexStateTable.kt",
+                    "AiKnowledgeChunkTable.kt",
+                    "AiMemberOptInTable.kt",
+                    "AiCallAuditTable.kt",
                 )
         }
 

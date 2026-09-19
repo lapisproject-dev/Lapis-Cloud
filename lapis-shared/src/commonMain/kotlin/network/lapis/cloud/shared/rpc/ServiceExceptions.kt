@@ -172,3 +172,29 @@ class WebhookUrlNotPubliclyRoutableException(
 class WebhookUrlTooLongException(
     override val message: String = "Webhook URL exceeds the maximum length",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.6.1 -- the AI assistance layer is switched off (default) or not fully configured on
+ * this server. A distinct type for the same wire-transparency reason as [MemberEmailInUseException]:
+ * Kilua RPC transmits only the subclass discriminator, never the message.
+ */
+@RpcServiceException
+class AiFeatureDisabledException(
+    override val message: String = "AI assistance is not available on this server",
+) : AbstractServiceException()
+
+/** Welle V1.6.1 -- the caller has not opted in to the requested AI feature. Distinct type, see [AiFeatureDisabledException]. */
+@RpcServiceException
+class AiOptInMissingException(
+    override val message: String = "Member has not opted in to AI assistance",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.6.1 -- only `PUBLIC_MEMBERS` documents may be released to the AI knowledge base (a
+ * `BOARD_ONLY`/`ADMIN_ONLY` text would otherwise leave the server towards an external provider).
+ * Distinct type, see [AiFeatureDisabledException].
+ */
+@RpcServiceException
+class AiDocumentNotReleasableException(
+    override val message: String = "Only PUBLIC_MEMBERS documents may be released to the knowledge base",
+) : AbstractServiceException()

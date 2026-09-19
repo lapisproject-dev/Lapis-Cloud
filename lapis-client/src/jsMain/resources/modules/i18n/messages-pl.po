@@ -11188,3 +11188,123 @@ msgstr "Rzecznik prasowy"
 msgid "Geschäftsführung"
 msgstr "Dyrekcja Zarządzająca"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:55
+msgid "Fragen zur Satzung"
+msgstr "Pytania o statut"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:73
+msgid "Ihre Frage"
+msgstr "Twoje pytanie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:76
+msgid "Frage stellen"
+msgstr "Zadaj pytanie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:95
+msgid "%1 von %2 Zeichen"
+msgstr "%1 z %2 znaków"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:110
+msgid "Durchsuchte Dokumente"
+msgstr "Przeszukane dokumenty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:112
+msgid "Noch keine Dokumente für die KI-Auskunft freigegeben."
+msgstr "Żaden dokument nie został jeszcze udostępniony dla odpowiedzi AI."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:1
+msgid "%1 · v%2"
+msgstr "%1 · v%2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:1
+msgid "%1 · v%2 (%3)"
+msgstr "%1 · v%2 (%3)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:176
+msgid "Ich stimme zu, dass meine Fragen von einer KI beantwortet werden"
+msgstr "Wyrażam zgodę na udzielanie odpowiedzi na moje pytania przez AI"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:190
+msgid "Zustimmung gespeichert."
+msgstr "Zgoda została zapisana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaScreen.kt:190
+msgid "Zustimmung widerrufen."
+msgstr "Zgoda została wycofana."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:50
+msgid "Wenn Sie zustimmen, wird Ihre Frage - nach dem Entfernen erkennbarer Kennungen wie E-Mail-Adressen, IBAN und Telefonnummern - zusammen mit passenden Auszügen aus den freigegebenen Dokumenten an einen externen KI-Anbieter übermittelt. Namen und andere Freitext-Angaben werden nicht erkannt, schreiben Sie deshalb keine personenbezogenen Daten in Ihre Frage; die Zustimmung können Sie hier jederzeit widerrufen."
+msgstr "Jeśli wyrażasz zgodę, Twoje pytanie - po usunięciu rozpoznawalnych identyfikatorów, takich jak adresy e-mail, numery IBAN i numery telefonów - zostanie przekazane wraz z odpowiednimi fragmentami udostępnionych dokumentów zewnętrznemu dostawcy AI. Imiona i nazwiska oraz inne dane w wolnym tekście nie są rozpoznawane, dlatego nie wpisuj w pytaniu danych osobowych; zgodę możesz w każdej chwili wycofać w tym miejscu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:47
+msgid "KI-generierte Zusammenfassung, kann Fehler enthalten. Maßgeblich ist der zitierte Originaltext."
+msgstr "Podsumowanie wygenerowane przez AI, może zawierać błędy. Wiążący jest cytowany tekst oryginalny."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:56
+msgid "Dazu wurde in den durchsuchten Dokumenten keine Fundstelle gefunden. Bitte wenden Sie sich bei Fragen zur Satzung an den Vorstand."
+msgstr "W przeszukanych dokumentach nie znaleziono pasującego fragmentu. W sprawie pytań o statut prosimy o kontakt z zarządem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:59
+msgid "Sie haben das Fragenlimit erreicht. Bitte versuchen Sie es in %1 erneut."
+msgstr "Osiągnięto limit pytań. Spróbuj ponownie za %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:60
+msgid "Die KI-Auskunft ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
+msgstr "Usługa AI jest obecnie niedostępna. Spróbuj ponownie później."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:61
+msgid "Diese Funktion ist auf diesem Server nicht verfügbar."
+msgstr "Ta funkcja nie jest dostępna na tym serwerze."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:62
+msgid "Bitte stimmen Sie oben zu, um Fragen stellen zu können."
+msgstr "Wyraź zgodę powyżej, aby móc zadawać pytania."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:63
+msgid "Die Auskunft wird erstellt ..."
+msgstr "Odpowiedź jest przygotowywana ..."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:65
+msgid "Format nicht lesbar"
+msgstr "Format nieczytelny"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:66
+msgid "Indexierung fehlgeschlagen"
+msgstr "Indeksowanie nie powiodło się"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:67
+msgid "Indexierung läuft"
+msgstr "Indeksowanie w toku"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:68
+msgid "indexiert"
+msgstr "zaindeksowano"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:69
+msgid "nicht freigegeben"
+msgstr "nie udostępniono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:71
+msgid "weniger als einer Minute"
+msgstr "mniej niż minuty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:72
+msgid "%1 Min."
+msgstr "%1 min"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/StatuteQaUi.kt:73
+msgid "%1 Std."
+msgstr "%1 godz."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:451
+msgid "Wissensbasis"
+msgstr "Baza wiedzy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:454
+msgid "Neu indexieren"
+msgstr "Zaindeksuj ponownie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:469
+msgid "Wissensbasis aktualisiert."
+msgstr "Baza wiedzy została zaktualizowana."
+

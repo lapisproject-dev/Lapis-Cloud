@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import network.lapis.cloud.server.ai.kb.KnowledgeReleaseStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
@@ -217,6 +218,9 @@ class DocumentService(
                 it[isDeleted] = true
             }
         }
+        // V1.6.1: a soft-deleted document leaves the AI knowledge base (release + chunks + state).
+        // Housekeeping only -- the retriever already filters is_deleted live -- so it never fails the delete.
+        runCatching { KnowledgeReleaseStore.revoke(docId) }
     }
 }
 

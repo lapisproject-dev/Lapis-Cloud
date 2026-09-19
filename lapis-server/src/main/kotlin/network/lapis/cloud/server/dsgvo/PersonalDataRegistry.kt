@@ -60,6 +60,7 @@ object PersonalDataRegistry {
             BankAccountFinTsPersonalData,
             OpenItemPersonalData,
             MemberCardPersonalData,
+            AiAssistantPersonalData,
         )
 
     /**

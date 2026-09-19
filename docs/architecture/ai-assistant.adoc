@@ -1,0 +1,277 @@
+= AI assistance: foundation and statute Q&A pilot (V1.6.1)
+
+NOTE: This document's `[kuml]` blocks are not rendered or validated by any Gradle task -- they are
+prose documentation only, kept in sync by hand with
+`lapis-server/src/main/kuml/53-ai-assistant.kuml.kts` (the actual, load-bearing model). Same
+convention `open-items.adoc`/`travel-expenses.adoc` establish.
+
+Lapis Cloud can optionally answer a member's question about the statutes ("Fragen zur Satzung").
+**The feature is off by default** and is a foundation as much as a pilot: the provider abstraction,
+the knowledge base, the audit trail and the boundary rules below are what later AI features build on.
+Operator instructions (variables, data-protection duties) live in
+`deploy/production/README.adoc`, the section "AI assistance".
+
+== What a member sees
+
+A single-column screen `/statute-qa` ("Fragen zur Satzung"), reachable from the "Mitgliedschaft"
+group only when the server reports the AI layer as operational
+(`SessionInfoDto.aiAssistantEnabled`). From the top: a consent switch (never pre-selected, revocable
+there at any time), the block of searched documents (indexed ones with version, then the ones that
+could not be indexed with the reason), the input, and the running session log (kept in memory only).
+Every answer is a short summary plus one to three citations (`Title · v2 · § 7 Abs. 2`) and the fixed
+sentence "KI-generierte Zusammenfassung, kann Fehler enthalten. Maßgeblich ist der zitierte
+Originaltext."
+
+There is no answer without a verified citation. If nothing is found, the screen says so, names the
+documents it searched, and points to the board -- it never suggests rewording the question.
+
+== Package layout and the deliberate deviation from Gradle modules
+
+The concept sketches `:ai-assistant`/`:ai-providers` Gradle modules. A real compile-time cut would
+first require extracting `DocumentTable`, `RequestContext` and `DbClock` out of `lapis-server` into a
+`lapis-server-core` -- a refactor that collides with the RPC/KSP/Flyway/DSGVO wiring living in that
+module and would dwarf this wave. Instead the layer is the package `network.lapis.cloud.server.ai`
+with sub-packages, and the boundary is enforced by a source-scan test (`AiModuleBoundaryTest`, same
+pattern as `AuditLogImmutabilityTest`). Extracting a real module is a follow-up wave.
+
+[cols="1,3"]
+|===
+| Sub-package | Content
+
+| `config`    | `AiConfig` (fail-safe, default off), `AiBaseUrlGuard` (SSRF guard), `AiStartupCheck`
+| `llm`       | `LlmClient` interface, hardened HTTP client, Anthropic and OpenAI-compatible implementations
+| `retrieval` | `KnowledgeRetriever` interface, PostgreSQL full-text and portable `LIKE` implementations
+| `kb`        | text extraction (PDF/TXT/MD), chunking, indexing, release store
+| `qa`        | `StatuteQaPipeline`, prompt, answer parser, citation validator, tool whitelist
+| `safety`    | `PiiRedactor`, `PlainTextSanitizer`
+| `audit`     | `AiCallAuditSink` interface and its database recorder
+| `optin`     | per-member, per-feature consent store
+| `ratelimit` | sliding-window question limiter
+|===
+
+=== Boundary rules R1-R4 (tested)
+
+* **R1** -- `qa/`, `llm/` and `safety/` import neither Exposed, nor `db.generated`, nor
+  `server.rpc`. The model-facing path sees only `KnowledgeRetriever`, `LlmClient` and
+  `AiCallAuditSink` -- no database handle, no service.
+* **R2** -- nothing below `ai/` imports governance, market, visibility, payment or accounting code
+  (`LtrLedger`, `Auction`, `Election`, `Governance`, `SystemicConsensus`, `Politician`,
+  `Crowdfunding`, `PeerTransfer`, `SocialNetwork`, `Boost`, `Vote`, `Ranking`, `PriceOracle`,
+  `Payment`, `Sepa`, `Dunning`, `Accounting`).
+* **R3** -- nothing below `ai/` writes to a table other than the five `Ai*Table` objects.
+* **R4** -- the tool whitelist has exactly one entry (knowledge search), and the pipeline has no
+  tool-dispatch loop: retrieval is called by our own code and the model is handed no tool
+  definition at all.
+
+== Provider abstraction: an own minimal `LlmClient`, not Koog
+
+The repository's stack lists Koog (JetBrains' multi-LLM agent layer). This wave deliberately does
+**not** use it. Checked against Maven Central on 2026-09-19: `ai.koog:koog-agents` is at `1.2.0`, and
+the POM of `agents-core-jvm:1.2.0` pulls, among others, `ktor-client-logging`, `ktor-server-cio`,
+`ktor-server-sse`, `ktor-client-content-negotiation` (all `3.3.3`), `kotlin-bom:2.3.10`,
+`serialization-jackson`, `kotlin-logging-jvm:8.0.01` and the `prompt-*` modules. Rejected, each reason
+sufficient on its own:
+
+. **`ktor-client-logging`** contradicts the hardening line of this repository. `OracleHttpClient`
+  documents at length that a logging plugin is never installed and that `logback.xml` floors
+  `io.ktor.client` at INFO, because otherwise API keys land in logs. A transitive logging plugin on
+  the classpath is exactly the regression that floor exists against.
+. **A second Ktor server engine (CIO)** next to the productive Netty, plus an SSE server module --
+  dead weight in the server artifact.
+. **Ktor 3.3.3 vs. this repository's 3.5.2**: Gradle would lift it, an unverified minor bump across
+  the Koog modules.
+. **Jackson** as a second serialization stack next to kotlinx.serialization -- new maintenance and
+  attack surface without benefit.
+. **The functional need is minimal**: one deterministic retrieval step, one model call, own citation
+  validation, own budget. Koog's agent loop would have to be constrained, not used.
+
+Consequence: a `LlmClient` interface with two thin Ktor clients (`AnthropicMessagesLlmClient`,
+`OpenAiCompatibleLlmClient`, the latter covering OpenAI, Mistral, OpenRouter and Ollama's compatible
+endpoint), built like `OracleHttpClient`/`LetterxpressPostalMailProvider`. Revisit once Koog sits on
+this repository's Ktor line and offers a logging-free client module.
+
+`LlmResult.Failure` deliberately carries no provider text: neither a provider name, a model name nor
+an error message can reach the UI or a log through it.
+
+=== HTTP hardening
+
+* `followRedirects = false`, bounded connect/request/socket timeouts, no Ktor `Logging` plugin
+  (guarded by `AiSecretsNotLoggedTest`, which also pins the `logback.xml` floor).
+* The response body is read through `prepareRequest { }.execute { }` directly off the channel and
+  capped at `LAPIS_AI_MAX_RESPONSE_BYTES` *before* it is materialized -- unlike the non-streaming
+  form, where Ktor's `SaveBody` plugin buffers everything first (the gap `OracleHttpClient`
+  documents as open).
+* The base URL comes only from operator configuration, is validated once (`AiBaseUrlGuard`: HTTPS
+  only, no userinfo/query/fragment, private/loopback/link-local/CGNAT literals rejected) and pinned;
+  every request URL is re-checked against the pinned base immediately before the call. The single
+  exception is plain-HTTP loopback for a local Ollama, which needs
+  `LAPIS_AI_ALLOW_PLAINTEXT_BASE_URL=true`. No DNS resolution is involved: there is no
+  attacker-controlled name that could be re-pointed between check and use.
+
+== Data model
+
+Five tables, migration `V44__ai_assistant.sql` (purely additive, idempotent).
+
+[kuml, ai-knowledge-erm, svg]
+----
+classDiagram(name = "AI assistance — ERM excerpt") {
+    class(name = "AiKnowledgeRelease") {
+        attribute(name = "documentId", type = "UUID") { note = "unique: one release per document" }
+        attribute(name = "releasedBy", type = "UUID") { note = "nullable, nulled on DSGVO erasure" }
+    }
+    class(name = "AiKnowledgeIndexState") {
+        attribute(name = "documentId", type = "UUID") { note = "unique" }
+        attribute(name = "status", type = "String") { note = "PENDING|INDEXED|UNSUPPORTED_FORMAT|FAILED" }
+        attribute(name = "chunkCount", type = "Int")
+    }
+    class(name = "AiKnowledgeChunk") {
+        attribute(name = "documentVersionId", type = "UUID")
+        attribute(name = "sectionLabel", type = "String") { note = "nullable, e.g. § 7 Abs. 2" }
+        attribute(name = "pageNumber", type = "Int") { note = "nullable" }
+        attribute(name = "content", type = "String") { note = "TEXT" }
+    }
+    class(name = "AiMemberOptIn") {
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "feature", type = "String") { note = "unique with memberId; no row means off" }
+        attribute(name = "enabled", type = "Boolean")
+    }
+    class(name = "AiCallAudit") {
+        attribute(name = "inputHash", type = "String") { note = "SHA-256 of the redacted question" }
+        attribute(name = "outputHash", type = "String") { note = "nullable" }
+        attribute(name = "outcome", type = "String") { note = "ANSWERED|NOTHING_FOUND|NO_VALID_CITATION|PROVIDER_ERROR" }
+        attribute(name = "memberId", type = "UUID") { note = "nullable, nulled on DSGVO erasure" }
+    }
+}
+----
+
+**No `access_level` column on `ai_knowledge_chunk` or `ai_knowledge_index_state`.** The document's
+access level is joined *live* from `document` at retrieval time. A copied column would silently go
+stale when a document is re-classified (`PUBLIC_MEMBERS` to `BOARD_ONLY`) and thereby bypass the
+check; `KnowledgeRetrieverContractTest` has an explicit bypass guard for it. The retriever also
+requires that the document is released, not soft-deleted, and that the chunk belongs to the
+document's *current* version -- so a stale index can never surface withdrawn text, whether or not the
+housekeeping hooks (`markStale` on upload, `purgeDocument` on revoke/delete) ran.
+
+=== Full-text index decision
+
+The migration contains no `tsvector`, `GIN` or `CREATE EXTENSION`: none of them parse on H2
+`MODE=PostgreSQL`, which every test migrates against. The optional index
+`idx_ai_knowledge_chunk_fts` is created at startup (`PostgresFullTextIndexInitializer`), only when
+the layer is operational and `LAPIS_DB_URL` is PostgreSQL. It is a pure accelerator -- the retriever
+is correct without it -- so a failing index build is a log line, never a startup failure. A vendor
+Flyway location was weighed and rejected: it would touch `DatabaseConfig` and hand H2 an empty
+location for no gain. `pg_trgm`/`unaccent` are created best-effort but unused in this wave (`unaccent`
+is not `IMMUTABLE`; typo tolerance is a later wave).
+
+The retriever reduces the question to alphanumeric tokens, joins them with `|` (OR semantics -- a
+natural-language question would return nothing under AND semantics as soon as one word is absent)
+and passes the result as a **bound parameter** to `to_tsquery('german', ?)`. Growth path: an
+embedding/pgvector retriever slots in behind the `KnowledgeRetriever` interface.
+
+**CI gap.** The repository uses no Testcontainers, so CI checks only the *shape* of the PostgreSQL
+statement (`PostgresFullTextRetrieverSqlTest`) and runs the contract tests against the portable
+retriever on H2. Before the first productive use, run `PostgresFullTextRetrieverLiveTest` once
+against the real instance (`LAPIS_TEST_POSTGRES_URL`, a migrated, disposable database).
+
+== Knowledge base administration
+
+BOARD/ADMIN (`isPrivileged`, deliberately **not** TREASURER) release documents from the existing
+document list ("Wissensbasis" switch, visible only with the layer on). Only documents at access level
+`PUBLIC_MEMBERS` are releasable (`AiDocumentNotReleasableException` otherwise): a `BOARD_ONLY` text
+would otherwise leave the server towards an external provider as soon as a board member asks. As
+defence in depth the service additionally intersects the caller's readable levels with
+`PUBLIC_MEMBERS`, so even a document released and later re-classified upwards never reaches the
+provider.
+
+Indexing runs synchronously inside the RPC (the repository has no scheduler); hard caps bound the
+cost (source file 20 MiB, 2,000 pages, 2,000,000 extracted characters, 2,000 chunks). Text extraction
+supports PDF (per page, so the page number survives as a locator), `text/plain` and Markdown. A
+scanned PDF without text is reported as *unsupported* -- exactly the case the "searched documents"
+block must show instead of pretending the document was searched. A genuinely corrupt file is
+`FAILED` (a fifth index state beyond the four originally specified; "format not readable" would be
+untrue for it).
+
+== The Q&A pipeline
+
+[kuml, ai-qa-pipeline, svg]
+----
+classDiagram(name = "Statute Q&A pipeline") {
+    class(name = "StatuteQaPipeline") {
+        operation(name = "answer", returnType = "QaOutcome")
+    }
+    interface(name = "KnowledgeRetriever") {
+        operation(name = "search", returnType = "List<RetrievedChunk>")
+    }
+    interface(name = "LlmClient") {
+        operation(name = "complete", returnType = "LlmResult")
+    }
+    interface(name = "AiCallAuditSink") {
+        operation(name = "record", returnType = "Unit")
+    }
+}
+----
+
+Strict order:
+
+. length check (8 to 500 characters);
+. PII redaction -- only the redacted text ever leaves the server, is hashed, or is used as the query;
+. exactly one retrieval (`ToolCallBudget`, hard cap 2);
+. **no chunks means no model call** -- saves cost and structurally rules out an unsupported summary;
+. prompt construction: the system prompt is a `const val` (not configurable), passages are numbered
+  `<auszug id="N">` blocks, and every embedded value is neutralized so it cannot close or forge a
+  block;
+. one tool-less model call;
+. parsing (`summary` plus a `QUELLEN: 1,3` line, robust against deviation);
+. citation validation: only ids of actually retrieved chunks are accepted, and the citation's title,
+  version, locator and excerpt are built from the stored records -- never from model text, so an
+  invented reference is not merely rejected, it cannot be expressed;
+. no valid citation means no answer;
+. plain-text sanitizing of the summary;
+. audit row -- always, also on failure.
+
+Prompt-injection defence therefore has two independent layers (delimiter neutralization, and the
+retrieved-set check on citations), both tested.
+
+`PiiRedactor` recognizes exactly four simple patterns (e-mail, IBAN, long digit runs, telephone
+numbers) and makes no anonymization promise: names and free text are not detected, which the consent
+text says. It is conservative against over-redaction on purpose -- `§ 12 Abs. 3`, `Art. 5` and years
+must survive, otherwise the search for a statute passage would be functionally dead.
+
+== Audit and data protection
+
+`ai_call_audit` records one row per model call: timestamp, agent type, provider dialect, model,
+SHA-256 of the *redacted* question and of the answer, token counts, tools called, outcome, retrieved
+chunk count. No clear text, no key. It is deliberately **not** routed through `AuditLogRecorder`
+(the GoBD hash-chained mutation trail): serializing every model call behind the global chain lock
+would be a throughput bottleneck for a usage log that is not a mutation record.
+
+`AiAssistantPersonalData` covers the three tables with a member reference: opt-in rows are
+hard-deleted on erasure; audit rows and release rows are retained with their member reference nulled
+(retain-and-redact; hence both columns are nullable). Hashes are never exported. See
+xref:dsgvo.adoc[dsgvo.adoc].
+
+The privacy page (`/datenschutz`) carries a paragraph on the AI assistance **only** when the layer is
+operational -- otherwise it would describe a data flow that does not exist on the installation.
+
+== Kill switch and configuration
+
+`AiConfig.load` never throws and never fails the startup. The layer is on only when
+`LAPIS_AI_ENABLED` is exactly `true` **and** a complete provider profile is present; anything else
+means "off", with the offending variable *names* logged. When off, no provider client is even
+constructed and `IAiAssistantService` is not registered (Kilua RPC still exposes the generated route,
+but with no handler behind it the call fails with a 500 and never reaches service logic --
+`AiFeatureKillSwitchTest`). The compose files deliberately do not forward any `LAPIS_AI_*` variable
+(`AiEnvNotForwardedInComposeTest`).
+
+== What doesn't work yet (this wave)
+
+* One feature only (statute Q&A). No agentic tool use, no streaming, no conversation memory: every
+  question stands alone and no context is handed to the model.
+* Only `PUBLIC_MEMBERS` documents are releasable. A board-only knowledge base needs a separate
+  answer path and a separate audit -- neither guessed at nor prepared.
+* Full-text search only; no embeddings/pgvector.
+* Plain text extraction only: no OCR (scanned PDFs are reported as unsupported), no Word/ODT.
+* The limiter is per JVM instance, like `LoginRateLimiter`.
+* The PostgreSQL full-text path has no CI coverage beyond its SQL shape (see above).
+* The consent text and the disclaimer wording have legal relevance to the statutes; they were fixed
+  by the design team and should be approved by the operator's board before deployment.

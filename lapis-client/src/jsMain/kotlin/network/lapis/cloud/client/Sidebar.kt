@@ -115,6 +115,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
             listOf(
                 Routes.CONTRIBUTIONS,
                 Routes.DOCUMENTS,
+                Routes.STATUTE_QA,
                 Routes.COMMUNICATION,
                 Routes.DONATE,
                 Routes.DSGVO_RIGHTS,
@@ -346,6 +347,11 @@ fun buildSidebar(
         nav.sidebarGroup(SidebarGroupId.MEMBERSHIP, tr("Mitgliedschaft"), "fas fa-id-card") { toggle ->
             sidebarLink(Routes.CONTRIBUTIONS, tr("Beiträge"), "fas fa-coins", toggle)
             sidebarLink(Routes.DOCUMENTS, tr("Dokumente"), "fas fa-file-lines", toggle)
+            // V1.6.1 -- optional AI assistance: shown only where the server reports it operational.
+            // A plain search-glass icon on purpose (no speech bubble/robot -- Design-Team decision).
+            if (NavVisibility.showsStatuteQa(session.status, session.aiAssistantEnabled)) {
+                sidebarLink(Routes.STATUTE_QA, tr("Fragen zur Satzung"), "fas fa-magnifying-glass", toggle)
+            }
             sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
             sidebarLink(Routes.DONATE, tr("Spenden"), "fas fa-hand-holding-heart", toggle)
             sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved", toggle)

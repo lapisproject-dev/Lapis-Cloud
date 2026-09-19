@@ -1000,6 +1000,54 @@ required to never call it a "Restbetrag" for exactly that reason). **No payout**
 travel expenses: the end state means a journal entry exists, not that a bank transfer has run. A
 single EXPENSE account serves both categories — no per-category account split.
 
+== AI assistance (optional, default off) (V1.6.1)
+
+Lapis Cloud can optionally answer a member's question about the statutes ("Fragen zur Satzung"):
+a short summary plus one to three verified citations from documents the board released to a
+knowledge base. **Off by default.** Full architecture, boundary rules and decisions:
+`docs/architecture/ai-assistant.adoc`.
+
+Switched on only when `LAPIS_AI_ENABLED` is exactly `true` **and** a complete provider profile is
+configured; anything else means "off" (the server still starts, the offending variable names are
+logged). When off, no provider client is constructed and the RPC service is not registered. The
+deploy compose files deliberately do **not** forward any `LAPIS_AI_*` variable -- an operator must add
+them to the service's `environment:` block on purpose, and needs a processing agreement with the
+provider first (`deploy/production/README.adoc`, section "AI assistance").
+
+=== Environment variables -- OPTIONAL, off by default
+
+[cols="2,3"]
+|===
+| Variable | Meaning
+
+| `LAPIS_AI_ENABLED` | Must be exactly `true` (any case) to switch the feature on.
+| `LAPIS_AI_PROVIDER` | `anthropic` or `openai_compatible` (OpenAI, Mistral, OpenRouter, Ollama's compatible endpoint).
+| `LAPIS_AI_MODEL` | Model name, passed through to the provider.
+| `LAPIS_AI_API_KEY` | Provider API key. Never logged, never part of any exception message.
+| `LAPIS_AI_BASE_URL` | Optional for `anthropic` (default `https://api.anthropic.com`), **required** for `openai_compatible`. HTTPS only.
+| `LAPIS_AI_ALLOW_PLAINTEXT_BASE_URL` | `true` allows plain HTTP for **loopback only** (a local Ollama). Default off.
+| `LAPIS_AI_TOP_K`, `LAPIS_AI_MAX_OUTPUT_TOKENS`, `LAPIS_AI_REQUEST_TIMEOUT_MS`, `LAPIS_AI_MAX_RESPONSE_BYTES` | Tuning; invalid values fall back to the default and are named in the startup log.
+| `LAPIS_AI_RATE_PER_MEMBER_HOUR`, `LAPIS_AI_RATE_PER_SERVER_DAY` | Question limits (default 10 per member and hour, 200 per server and day).
+| `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` | `true` pre-consents every member. Default off; the design decision is that consent is an active choice.
+|===
+
+=== Own minimal client, not Koog
+
+The technology stack lists Koog, but this wave builds an own minimal `LlmClient` (two thin Ktor
+clients) instead: Koog `1.2.0` transitively pulls `ktor-client-logging` (against this repository's
+"never a logging plugin on an API-key client" line), a second Ktor server engine, a Ktor 3.3.3 line
+against this repository's 3.5.2, and Jackson as a second serialization stack -- for one retrieval step
+and one model call. Rationale and the condition for re-evaluating it:
+`docs/architecture/ai-assistant.adoc`.
+
+=== What doesn't work yet (this wave)
+
+One feature only (statute Q&A); no agentic tool use, no streaming, no conversation memory; only
+`PUBLIC_MEMBERS` documents can be released; PostgreSQL full-text retrieval (no embeddings); no OCR
+for scanned PDFs (reported as "format not readable"); the PostgreSQL full-text path has no CI
+coverage beyond its SQL shape and must be verified once manually against the real instance
+(`PostgresFullTextRetrieverLiveTest`).
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

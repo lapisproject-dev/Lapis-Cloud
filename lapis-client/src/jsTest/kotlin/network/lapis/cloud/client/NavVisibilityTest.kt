@@ -71,4 +71,13 @@ class NavVisibilityTest {
             assertEquals(expected, NavVisibility.showsSocialNetwork(status), "showsSocialNetwork mismatch for $status")
         }
     }
+
+    @Test
+    fun statuteQa_needsBothTheServerFlagAndOrganizationMemberStatus() {
+        assertFalse(NavVisibility.showsStatuteQa(MemberStatus.ACTIVE, aiAssistantEnabled = false))
+        assertTrue(NavVisibility.showsStatuteQa(MemberStatus.ACTIVE, aiAssistantEnabled = true))
+        assertFalse(NavVisibility.showsStatuteQa(MemberStatus.FRIEND, aiAssistantEnabled = true))
+        assertFalse(NavVisibility.showsStatuteQa(MemberStatus.GUEST, aiAssistantEnabled = true))
+        assertFalse(NavVisibility.showsStatuteQa(MemberStatus.FRIEND, aiAssistantEnabled = false))
+    }
 }

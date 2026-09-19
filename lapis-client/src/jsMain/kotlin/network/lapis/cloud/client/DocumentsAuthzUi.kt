@@ -46,4 +46,23 @@ object DocumentsAuthzUi {
                 DocumentAccessLevel.ADMIN_ONLY -> role == AccountRole.ADMIN
             }
         }
+
+    /**
+     * V1.6.1 -- must mirror the server's `CurrentMember.isPrivileged` (BOARD/ADMIN), the gate of
+     * `IAiAssistantService`'s knowledge-base administration. Deliberately NOT [MANAGE_ROLES]:
+     * [MANAGE_ROLES] includes TREASURER, but what the AI may read is a governance decision the
+     * server reserves to BOARD/ADMIN. A wider client set would only show a switch that answers 403.
+     */
+    val KNOWLEDGE_BASE_ROLES: Set<AccountRole> = setOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+    fun canManageKnowledgeBase(role: AccountRole?): Boolean = role in KNOWLEDGE_BASE_ROLES
+
+    /**
+     * Whether the documents list shows the "Wissensbasis" column at all: only where the AI layer is
+     * operational (otherwise `IAiAssistantService` is not even registered) AND for BOARD/ADMIN.
+     */
+    fun showsKnowledgeBaseColumn(
+        role: AccountRole?,
+        aiAssistantEnabled: Boolean,
+    ): Boolean = aiAssistantEnabled && canManageKnowledgeBase(role)
 }

@@ -24,6 +24,12 @@ import org.jetbrains.exposed.v1.jdbc.update
  */
 class AuthService(
     private val call: ApplicationCall,
+    /**
+     * V1.6.1: whether the optional AI assistance layer is operational on this server (feeds
+     * [SessionInfoDto.aiAssistantEnabled]). Defaults to `false` -- feature off everywhere unless
+     * `Application.kt` passes the real value.
+     */
+    private val aiAssistantEnabled: Boolean = false,
 ) : IAuthService {
     override suspend fun changePassword(
         currentPassword: String,
@@ -88,6 +94,7 @@ class AuthService(
             isGuest = current.isGuest,
             homeserverUrl = homeserverUrl,
             status = current.status,
+            aiAssistantEnabled = aiAssistantEnabled,
         )
     }
 }

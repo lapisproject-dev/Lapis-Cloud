@@ -610,6 +610,65 @@ logo shows no mark at all next to it, rather than a mark that would misleadingly
 `LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
 platform itself comes from.
 
+== AI assistance (optional, default off)
+
+`LAPIS_AI_*` -- **not passed through by the compose files, on purpose.** Statute Q&A ("Fragen zur
+Satzung") sends a member's question **and the retrieved document excerpts to an external AI
+provider**. Enabling it is a data-protection decision of the operator, not a technical default.
+Architecture: xref:../../docs/architecture/ai-assistant.adoc[ai-assistant.adoc]; variable reference:
+`README.adoc` in the repository root, section "AI assistance".
+
+To enable it, add the variables to the service's `environment:` block yourself (copy-paste template;
+the `${...:-}` form keeps the value in `.env`, out of the compose file):
+
+[source,yaml]
+----
+    environment:
+      # ... existing entries ...
+      LAPIS_AI_ENABLED: "${LAPIS_AI_ENABLED:-}"
+      LAPIS_AI_PROVIDER: "${LAPIS_AI_PROVIDER:-}"            # anthropic | openai_compatible
+      LAPIS_AI_MODEL: "${LAPIS_AI_MODEL:-}"
+      LAPIS_AI_API_KEY: "${LAPIS_AI_API_KEY:-}"
+      LAPIS_AI_BASE_URL: "${LAPIS_AI_BASE_URL:-}"            # required for openai_compatible
+----
+
+The feature is on only when `LAPIS_AI_ENABLED` is exactly `true` **and** provider, model, API key and
+(where required) base URL are all present. A partial or invalid configuration means "off": the server
+still starts, and the startup log names the offending variables (never their values). With the
+feature off, no provider client is created and the RPC service is not registered.
+
+**Provider choice is yours.** The abstraction supports the Anthropic Messages API and any
+OpenAI-compatible endpoint (OpenAI, Mistral, OpenRouter, a self-hosted gateway, Ollama). For a
+EU-hosted profile use an EU provider such as Mistral through `openai_compatible`; for a fully local
+setup point `LAPIS_AI_BASE_URL` at Ollama's loopback address and set
+`LAPIS_AI_ALLOW_PLAINTEXT_BASE_URL=true` (loopback only; a private LAN address is rejected). Any
+other HTTPS host works when configured explicitly; it draws an INFO hint in the startup log.
+
+**Operator duties before enabling it (GDPR):**
+
+* **Processing agreement (Art. 28 GDPR)** with the provider -- the question and the retrieved
+  excerpts of released documents leave your server. Record it in the processing-agreement register
+  of the DSGVO-compliance screen.
+* Check that the provider **does not train on API data** and where it processes it (EU hosting).
+* **Member opt-in is the precondition**: every member decides for themselves on the screen; there is
+  no server-wide consent. Do not enable `LAPIS_AI_MEMBER_OPT_IN_DEFAULT` without a legal basis for
+  pre-consent.
+* Mention the processing in your privacy policy. `/datenschutz` renders a paragraph on it
+  automatically, but only when the feature is on -- review that text and your own additions.
+* Only documents at access level `PUBLIC_MEMBERS` can be released to the knowledge base by BOARD/ADMIN
+  (the switch is in the document list). Do not release documents containing third-party personal data.
+* The redaction of the question is simple pattern matching (e-mail, IBAN, telephone, long numbers);
+  names and free text are **not** detected -- the consent text tells members not to write personal
+  data into a question.
+* The usage log (`ai_call_audit`) keeps only hashes and counters, never clear text.
+
+**Before the first productive use**, verify the PostgreSQL full-text path once against the real
+instance: CI has no PostgreSQL container, so it only checks the SQL shape. Run
+`PostgresFullTextRetrieverLiveTest` with `LAPIS_TEST_POSTGRES_URL` pointing at a migrated, disposable
+database (never the production database). The GIN index is created automatically at startup when the
+feature is on and `LAPIS_DB_URL` is PostgreSQL; a failure there is only logged, retrieval stays
+correct without it.
+
 == Impressum & Datenschutz (V1.4.7)
 
 `GET /impressum` and `GET /datenschutz` render templates for the statutory Impressum

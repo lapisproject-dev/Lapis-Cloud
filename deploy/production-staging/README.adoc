@@ -250,6 +250,14 @@ enable it: a third DNS A record (`turn-staging.parteidervernunft.de` -> this hos
 `../production/README.adoc` "TURNS over TLS (port 443)" for the full mechanism this mirrors --
 and only then uncomment the three lines in `turnserver.conf.template`.
 
+== AI assistance
+
+The optional AI assistance ("Fragen zur Satzung") is **off here** and this compose file does not
+forward any `LAPIS_AI_*` variable (guarded by `AiEnvNotForwardedInComposeTest`). A tester who wants
+to exercise it adds the variables on purpose -- see
+xref:../production/README.adoc[../production/README.adoc], section "AI assistance", including the
+data-protection duties (never point a staging instance at a real provider account with real data).
+
 == What is deliberately off
 
 `docker-compose.yml` in this directory hardcodes (not `.env`-driven, so a stray `.env` entry cannot

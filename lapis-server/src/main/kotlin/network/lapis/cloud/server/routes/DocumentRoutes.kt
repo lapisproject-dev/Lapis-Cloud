@@ -16,6 +16,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
+import network.lapis.cloud.server.ai.kb.KnowledgeIndexer
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
@@ -184,6 +185,12 @@ fun Route.registerDocumentRoutes(storageRoot: File) {
                 it[currentVersionId] = versionId
             }
         }
+
+        // V1.6.1: a NEW version makes an existing AI knowledge-base index stale. Cheap marker only
+        // (no extraction in the upload request); a no-op unless the document is released. Never
+        // allowed to fail an upload -- the retriever ignores stale chunks regardless (it joins the
+        // document's current version live).
+        runCatching { KnowledgeIndexer.markStale(documentId) }
 
         call.respond(HttpStatusCode.Created, mapOf("versionId" to versionId.toString()))
     }

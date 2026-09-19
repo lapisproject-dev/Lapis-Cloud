@@ -44,6 +44,24 @@ class LegalHtmlTest :
             lang: PublicLanguage = PublicLanguage.DE,
         ): String = LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang)
 
+        test("V1.6.1: the KI-assistance privacy paragraph appears only when the AI layer is operational") {
+            val legal = completeLegalConfig()
+            LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DE).let {
+                it shouldNotContain "KI-gestützte Satzungsauskunft"
+            }
+            val enabled =
+                LegalHtml.privacyPage(
+                    legal = legal,
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = PublicLanguage.DE,
+                    aiAssistantEnabled = true,
+                )
+            enabled shouldContain "KI-gestützte Satzungsauskunft"
+            enabled shouldContain "Art. 28 DSGVO"
+            enabled shouldContain "Art. 6 Abs. 1 lit. a DSGVO"
+        }
+
         test("H1: complete config -- imprint shows fields, no incomplete notice") {
             val html = imprint(legal = completeLegalConfig())
             html shouldContain "Beispielverein e. V."
@@ -227,7 +245,16 @@ class LegalHtmlTest :
                 "that gap because a missing bullet does not fail PersonalDataCoverageTest's " +
                 "information_schema walk, only THIS test walks the rendered legal text itself.",
         ) {
-            val html = privacy(legal = completeLegalConfig())
+            // aiAssistantEnabled = true: the KI paragraph is conditional (V1.6.1), so the guard must
+            // render the variant in which the aiAssistant contributor actually has processing to describe.
+            val html =
+                LegalHtml.privacyPage(
+                    legal = completeLegalConfig(),
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = PublicLanguage.DE,
+                    aiAssistantEnabled = true,
+                )
             val purposesSection =
                 html.substringAfter("Zwecke und Rechtsgrundlagen der Verarbeitung").substringBefore("Empfänger")
 
@@ -273,6 +300,7 @@ class LegalHtmlTest :
                     "vat" to "Umsatzsteuer-Voranmeldung",
                     "bank-account-fints" to "FinTS/HBCI-Live-Kontoabruf",
                     "openItems" to "Kreditoren-/Debitorenbuchhaltung",
+                    "aiAssistant" to "KI-gestützte Satzungsauskunft",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

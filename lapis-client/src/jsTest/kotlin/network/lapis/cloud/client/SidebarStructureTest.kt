@@ -165,6 +165,32 @@ class SidebarStructureTest {
     }
 
     @Test
+    fun membershipGroup_showsStatuteQaEntry_onlyWhenTheServerReportsTheAiLayerOperational() {
+        // V1.6.1: optional AI assistance, default OFF. The entry lives INSIDE the "Mitgliedschaft"
+        // group (the two flat top-level links stay exactly Dashboard/Videokonferenz, see the
+        // structure test above) and appears only with SessionInfoDto.aiAssistantEnabled.
+        fun hasStatuteQaLink(session: SessionInfoDto): Boolean {
+            AppState.setSession(session)
+            val body = SimplePanel()
+            buildSidebar(body, session, activeRoute = null) {}
+            val nav = body.getChildren().single() as Nav
+            return nav
+                .getChildren()
+                .filterIsInstance<Nav>()
+                .flatMap { it.getChildren() }
+                .filterIsInstance<Link>()
+                .any { it.url == "#${Routes.STATUTE_QA}" }
+        }
+
+        assertFalse(hasStatuteQaLink(adminSession), "default (feature off) must not show the entry")
+        assertTrue(hasStatuteQaLink(adminSession.copy(aiAssistantEnabled = true)), "feature on must show the entry")
+        assertFalse(
+            hasStatuteQaLink(adminSession.copy(aiAssistantEnabled = true, status = MemberStatus.FRIEND)),
+            "a FRIEND has no membership group and the server refuses the feature for non-members",
+        )
+    }
+
+    @Test
     fun anonymousClearSidebar_stillLeavesBodyEmpty() {
         // Regressions-Abgrenzung: clearSidebar() bekommt KEINEN Wrapper (kein Inhalt), damit
         // .lapis-sidebar-empty weiterhin korrekt "wirklich nichts da" bedeutet.

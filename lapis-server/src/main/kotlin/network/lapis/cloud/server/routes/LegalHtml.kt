@@ -58,11 +58,18 @@ internal object LegalHtml {
             renderImprintBody(legal = legal)
         }
 
+    /**
+     * [aiAssistantEnabled] (V1.6.1): the KI-assistance paragraph is rendered **only** when the
+     * optional AI layer is operational on this installation -- otherwise the page would describe a
+     * data flow to an external provider that does not exist here (see the absolute rule in the class
+     * KDoc). Defaults to `false`.
+     */
     fun privacyPage(
         legal: LegalConfig,
         baseUrl: String,
         branding: ResolvedBranding,
         lang: PublicLanguage,
+        aiAssistantEnabled: Boolean = false,
     ): String =
         skeleton(
             baseUrl = baseUrl,
@@ -70,7 +77,7 @@ internal object LegalHtml {
             lang = lang,
             currentPath = "/datenschutz",
             pageTitle = "Datenschutzerklärung",
-        ) { renderPrivacyBody(legal = legal) }
+        ) { renderPrivacyBody(legal = legal, aiAssistantEnabled = aiAssistantEnabled) }
 
     private fun skeleton(
         baseUrl: String,
@@ -232,7 +239,10 @@ internal object LegalHtml {
         renderTemplateDisclaimer()
     }
 
-    private fun FlowContent.renderPrivacyBody(legal: LegalConfig) {
+    private fun FlowContent.renderPrivacyBody(
+        legal: LegalConfig,
+        aiAssistantEnabled: Boolean,
+    ) {
         h1 { +"Datenschutzerklärung" }
         h2 { +"Verantwortliche Stelle" }
         renderResponsiblePartyFields(legal = legal)
@@ -326,6 +336,23 @@ internal object LegalHtml {
                     "Veranstaltungen einschließlich Gästeanmeldung, sofern vom Betreiber genutzt — Art. 6 " +
                         "Abs. 1 lit. b DSGVO."
                 )
+            }
+            if (aiAssistantEnabled) {
+                li {
+                    +(
+                        "KI-gestützte Satzungsauskunft (nur nach Ihrer ausdrücklichen Zustimmung im Bereich " +
+                            "\u201EFragen zur Satzung\u201C): Ihre Frage wird zunächst von erkennbaren " +
+                            "Kennungen (E-Mail-Adressen, IBAN, Telefonnummern, lange Ziffernfolgen) bereinigt und " +
+                            "zusammen mit passenden Auszügen aus den für alle Mitglieder freigegebenen Dokumenten " +
+                            "an den vom Betreiber konfigurierten externen KI-Anbieter übermittelt " +
+                            "(Auftragsverarbeitung nach Art. 28 DSGVO; Name und Sitz des Anbieters erfahren Sie " +
+                            "vom Betreiber). Namen und andere Freitext-Angaben werden nicht erkannt \u2014 bitte " +
+                            "schreiben Sie keine personenbezogenen Daten in Ihre Frage. Protokolliert werden nur " +
+                            "Zeitpunkt, Prüfsummen (Hashes) und Zähler, niemals der Klartext von Frage oder " +
+                            "Antwort \u2014 Art. 6 Abs. 1 lit. a DSGVO (Einwilligung, jederzeit im selben Bereich " +
+                            "widerrufbar)."
+                    )
+                }
             }
             li {
                 +(

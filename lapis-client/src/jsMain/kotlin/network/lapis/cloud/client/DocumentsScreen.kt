@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
@@ -20,8 +21,11 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AiIndexStatus
+import network.lapis.cloud.shared.domain.AiKnowledgeEntryDto
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
+import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IDocumentService
 
 /**
@@ -111,6 +115,15 @@ fun renderDocumentsScreen(container: SimplePanel) {
         AppScope.launch {
             val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) } ?: return@launch
 
+            // V1.6.1 "Wissensbasis" column -- only where the AI layer is operational (else the service is
+            // not even registered) and only for BOARD/ADMIN. A failed load just hides the column.
+            val knowledgeEntries: Map<String, AiKnowledgeEntryDto> =
+                if (DocumentsAuthzUi.showsKnowledgeBaseColumn(AppState.session?.role, AppState.session?.aiAssistantEnabled == true)) {
+                    guarded { rpcService<IAiAssistantService>().listKnowledgeEntries() }?.associateBy { it.documentId }.orEmpty()
+                } else {
+                    emptyMap()
+                }
+
             // Schwellenwert bewusst auf der tatsaechlich geladenen Liste, nicht auf
             // `folder.documentCount` (der zaehlt server-seitig VOR der Access-Level-Filterung).
             var searchInput: Text? = null
@@ -166,6 +179,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
                             panel = listPanel,
                             document = document,
                             canManage = canManage,
+                            knowledgeEntry = knowledgeEntries[document.id],
                             onOpen = {
                                 openDocumentId = document.id
                                 loadVersions(document)
@@ -261,6 +275,7 @@ private fun renderDocumentRow(
     panel: SimplePanel,
     document: DocumentDto,
     canManage: Boolean,
+    knowledgeEntry: AiKnowledgeEntryDto?,
     onOpen: () -> Unit,
     onDeleted: () -> Unit,
 ) {
@@ -274,6 +289,7 @@ private fun renderDocumentRow(
             addCssClass("flex-grow-1")
         }
     titleLink.onClick { onOpen() }
+    if (knowledgeEntry != null) renderKnowledgeControls(row = row, initial = knowledgeEntry)
     if (canManage) {
         val deleteButton = row.button(tr("Löschen"), icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
         deleteButton.onClick {
@@ -412,6 +428,59 @@ private fun renderVersionUpload(
                 changeNoteInput.value = null
                 onUploaded()
             }
+        }
+    }
+}
+
+/**
+ * V1.6.1 "Wissensbasis" column of one document row -- a release switch plus a status mark, for
+ * BOARD/ADMIN on an installation with the AI layer on (the caller only passes [initial] then). No
+ * separate screen, no navigation entry: the decision belongs next to the document it concerns.
+ *
+ * The switch is enabled only for [AiKnowledgeEntryDto.releasable] documents (`PUBLIC_MEMBERS`); the
+ * server refuses every other level anyway (`AiDocumentNotReleasableException`) -- this is the UX
+ * echo of that rule. Marks: indexiert / Indexierung läuft / Format nicht lesbar / Indexierung
+ * fehlgeschlagen / nicht freigegeben (see [StatuteQaUi.statusMark]). A stale or failed index offers
+ * "Neu indexieren".
+ */
+private fun renderKnowledgeControls(
+    row: SimplePanel,
+    initial: AiKnowledgeEntryDto,
+) {
+    var entry = initial
+    val box = row.checkBox(value = entry.released, label = tr("Wissensbasis"))
+    box.disabled = !entry.releasable
+    val mark = row.div(tr(StatuteQaUi.statusMark(entry.status))) { addCssClasses("text-muted small") }
+    val reindex = row.button(tr("Neu indexieren"), icon = "fas fa-rotate", style = ButtonStyle.OUTLINESECONDARY)
+
+    fun refresh() {
+        box.value = entry.released
+        mark.content = tr(StatuteQaUi.statusMark(entry.status))
+        reindex.visible = entry.released && (entry.status == AiIndexStatus.PENDING || entry.status == AiIndexStatus.FAILED)
+    }
+    refresh()
+
+    box.subscribe { checked ->
+        if (checked == entry.released) return@subscribe
+        AppScope.launch {
+            val updated = guarded { rpcService<IAiAssistantService>().setKnowledgeBaseRelease(entry.documentId, checked) }
+            if (updated != null) {
+                entry = updated
+                notifySuccess(tr("Wissensbasis aktualisiert."))
+            }
+            refresh()
+        }
+    }
+    reindex.onClick {
+        reindex.disabled = true
+        AppScope.launch {
+            val updated = guarded { rpcService<IAiAssistantService>().reindexKnowledgeDocument(entry.documentId) }
+            reindex.disabled = false
+            if (updated != null) {
+                entry = updated
+                notifySuccess(tr("Wissensbasis aktualisiert."))
+            }
+            refresh()
         }
     }
 }

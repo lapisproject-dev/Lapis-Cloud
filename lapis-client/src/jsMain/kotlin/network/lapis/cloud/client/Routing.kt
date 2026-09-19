@@ -25,6 +25,10 @@ object Routes {
     const val MEMBERS = "/members"
     const val CONTRIBUTIONS = "/contributions"
     const val DOCUMENTS = "/documents"
+
+    // V1.6.1 -- optional AI assistance (default OFF server-side); `requireAuth` like DOCUMENTS, the
+    // server-side gates (feature switch, organization-member status, own opt-in) are the authority.
+    const val STATUTE_QA = "/statute-qa"
     const val COMMUNICATION = "/communication"
 
     // Governance UI wave: reads are open to any authenticated member (see `IGovernanceService`
@@ -617,6 +621,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.DOCUMENTS) {
         requireAuth(routing) { show(Routes.DOCUMENTS, ::renderDocumentsScreen) }
+    }
+    routing.kvOn(Routes.STATUTE_QA) {
+        requireAuth(routing) { show(Routes.STATUTE_QA, ::renderStatuteQaScreen) }
     }
     routing.kvOn(Routes.COMMUNICATION) {
         requireAuth(routing) { show(Routes.COMMUNICATION, ::renderCommunicationScreen) }

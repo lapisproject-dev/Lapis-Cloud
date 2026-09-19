@@ -22,6 +22,12 @@ import kotlinx.serialization.Serializable
  * driven from this one field rather than a new, independently-derived client-side boolean.
  * Defaults to [MemberStatus.ACTIVE] so every pre-existing construction site of this DTO stays
  * source-compatible without silently mis-describing a non-member session.
+ *
+ * [aiAssistantEnabled] (V1.6.1) tells the client whether the optional AI assistance layer is
+ * operational on this server (`LAPIS_AI_ENABLED` + complete provider profile) so it can decide
+ * whether the "Fragen zur Satzung" entry belongs in the navigation without an always-on probe
+ * endpoint. Defaults to `false` -- feature off is the default everywhere, including every
+ * pre-existing construction site.
  */
 @Serializable
 data class SessionInfoDto(
@@ -32,4 +38,5 @@ data class SessionInfoDto(
     val isGuest: Boolean = false,
     val homeserverUrl: String? = null,
     val status: MemberStatus = MemberStatus.ACTIVE,
+    val aiAssistantEnabled: Boolean = false,
 )
