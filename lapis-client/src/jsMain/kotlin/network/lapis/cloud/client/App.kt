@@ -485,7 +485,7 @@ private fun refreshNavbar(
             style = ButtonStyle.LINK,
             className = "lapis-sidebar-toggle",
         )
-    toggleButton.setAttribute("aria-label", tr("Menü"))
+    toggleButton.setAttribute("aria-label", gettext("Menü"))
     toggleButton.setAttribute("aria-controls", sidebar.id ?: "")
     // Review-Fund 2026-09-08 (Finding 3, MINOR/Barrierefreiheit, carried forward): reflects
     // [sidebar]'s ACTUAL current state, not a hardcoded "false" -- this function reruns on every

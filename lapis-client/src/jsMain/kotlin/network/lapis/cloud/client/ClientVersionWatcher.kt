@@ -6,6 +6,7 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.span
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import kotlinx.browser.document
@@ -276,8 +277,8 @@ internal object ClientVersionWatcher {
                             onClick { onReloadClicked() }
                         }
                     button(text = "", icon = "fas fa-xmark", style = ButtonStyle.LINK, className = "lapis-update-pill-close") {
-                        setAttribute("title", tr("Ausblenden"))
-                        setAttribute("aria-label", tr("Ausblenden"))
+                        setAttribute("title", gettext("Ausblenden"))
+                        setAttribute("aria-label", gettext("Ausblenden"))
                         onClick { onDismissClicked() }
                     }
                 }

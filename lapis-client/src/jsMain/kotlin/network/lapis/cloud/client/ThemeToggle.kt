@@ -1,6 +1,6 @@
 package network.lapis.cloud.client
 
-import io.kvision.i18n.tr
+import io.kvision.i18n.gettext
 import io.kvision.navbar.Nav
 import io.kvision.navbar.navLink
 import kotlinx.browser.document
@@ -68,7 +68,7 @@ fun addThemeToggle(rightNav: Nav) {
             icon = if (currentTheme() == THEME_DARK) "fas fa-sun" else "fas fa-moon",
             dataNavigo = false,
         )
-    link.setAttribute("aria-label", tr("Dunklen/hellen Modus umschalten"))
+    link.setAttribute("aria-label", gettext("Dunklen/hellen Modus umschalten"))
     link.onClick {
         val next = if (currentTheme() == THEME_DARK) THEME_LIGHT else THEME_DARK
         localStorage[THEME_STORAGE_KEY] = next
