@@ -1,9 +1,11 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
+import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.Button
@@ -16,6 +18,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.perc
@@ -378,26 +381,6 @@ fun renderConferenceScreen(
     container: SimplePanel,
     autoJoinRoomId: String? = null,
 ) {
-    // V1.2.10 -- Root-Ursache des mobilen 960px-Overflows (Plan Abschnitt 0): eine feste
-    // Pixelbreite ohne Fallback lässt `scrollWidth` auf schmalen Viewports nie unter 960px fallen,
-    // egal wie sehr die Call-Ansicht selbst mobil optimiert wird. Fix nach dem bereits im Repo
-    // etablierten Muster (PasswordResetDeepLinkScreen.kt/VerifyEmailDeepLinkScreen.kt): `maxWidth`
-    // statt `width` für die feste Obergrenze, `width = 100.perc` für den Schrumpf auf schmale
-    // Viewports. Dieselbe hartcodierte-Breite-ohne-Fallback-Falle besteht auf elf weiteren Screens
-    // (Dashboard etc.) -- bewusst NICHT Teil dieser Welle, siehe CHANGELOG.md.
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClass("mx-auto")
-            maxWidth = 960.px
-            width = 100.perc
-            marginTop = 24.px
-        }
-    root.h1(tr("Videokonferenz"))
-    val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-    val lobbyPanel = root.vPanel(spacing = 10)
-    val callPanel = root.vPanel(spacing = 10) { addCssClass("lapis-conference-call-panel") }
-    callPanel.hide()
-
     var activeSession: LiveKitRoomSession? = null
     val setActiveSession: (LiveKitRoomSession?) -> Unit = { activeSession = it }
 
@@ -405,12 +388,18 @@ fun renderConferenceScreen(
         AppScope.launch { runCatching { activeSession?.disconnect() } }
     }
     window.addEventListener("beforeunload", beforeUnloadListener)
-    root.addAfterDestroyHook {
-        // V1.4.20: a screen change mid-call must never strand the "call live" flag at true.
-        ConferenceCallPresence.set(live = false)
-        window.removeEventListener("beforeunload", beforeUnloadListener)
-        AppScope.launch { runCatching { activeSession?.disconnect() } }
-    }
+    val root =
+        container.conferenceScreenRoot {
+            // V1.4.20: a screen change mid-call must never strand the "call live" flag at true.
+            ConferenceCallPresence.set(live = false)
+            window.removeEventListener("beforeunload", beforeUnloadListener)
+            AppScope.launch { runCatching { activeSession?.disconnect() } }
+        }
+    root.h1(tr("Videokonferenz"))
+    val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    val lobbyPanel = root.vPanel(spacing = 10)
+    val callPanel = root.vPanel(spacing = 10) { addCssClass("lapis-conference-call-panel") }
+    callPanel.hide()
 
     AppScope.launch {
         val availability =
@@ -439,6 +428,65 @@ fun renderConferenceScreen(
         }
     }
 }
+
+/**
+ * The root panel of [renderConferenceScreen], with [onTeardown] registered as its destroy hook BEFORE the panel
+ * is added to [this] container.
+ *
+ * Order is load-bearing (see [addWithLifecycle]): the panel is added to an already mounted container, so it
+ * renders immediately; a hook registered on it afterwards changes its snabbdom key, the next patch of the
+ * page (the availability RPC finishing and hiding `statusLine`, a toast, ...) replaces the element and runs
+ * the destroy hook on the LIVE screen. That used to remove the `beforeunload` listener that disconnects a
+ * running LiveKit session on tab close, right after the screen came up. Guarded by
+ * `ConferenceScreenRootLifecycleDomTest`.
+ */
+internal fun Container.conferenceScreenRoot(onTeardown: () -> Unit): VPanel =
+    addWithLifecycle(
+        VPanel(spacing = 14) {
+            // V1.2.10 -- Root-Ursache des mobilen 960px-Overflows (Plan Abschnitt 0): eine feste
+            // Pixelbreite ohne Fallback lässt `scrollWidth` auf schmalen Viewports nie unter 960px fallen,
+            // egal wie sehr die Call-Ansicht selbst mobil optimiert wird. Fix nach dem bereits im Repo
+            // etablierten Muster (PasswordResetDeepLinkScreen.kt/VerifyEmailDeepLinkScreen.kt): `maxWidth`
+            // statt `width` für die feste Obergrenze, `width = 100.perc` für den Schrumpf auf schmale
+            // Viewports. Dieselbe hartcodierte-Breite-ohne-Fallback-Falle besteht auf elf weiteren Screens
+            // (Dashboard etc.) -- bewusst NICHT Teil dieser Welle, siehe CHANGELOG.md.
+            addCssClass("mx-auto")
+            maxWidth = 960.px
+            width = 100.perc
+            marginTop = 24.px
+        },
+        onDestroy = onTeardown,
+    )
+
+/**
+ * The inline-rename input of the conference title row: autofocus plus Enter-to-submit, both wired through a
+ * raw-DOM insert hook (same discipline as `chatRow`'s Enter-to-send hook).
+ *
+ * Built by constructor and added with [addWithLifecycle] so the hook exists BEFORE the input is rendered. The
+ * previous version added the input first and registered the hook afterwards -- as the last statement of the
+ * edit mode, with nothing patching the tree after it. The hook then did not fire until some unrelated widget
+ * of the call screen happened to patch (seconds later, or on the next chat message): no autofocus, Enter did
+ * nothing, and once it finally fired the focus jumped into the input. Guarded by `LateHookAuditDomTest`.
+ */
+internal fun Container.titleEditInput(
+    initialTitle: String,
+    onSubmit: () -> Unit,
+): Text =
+    addWithLifecycle(
+        Text(value = initialTitle) { addCssClasses("flex-grow-1") },
+        onInsert = { vnode ->
+            val root = vnode.elm as? HTMLElement
+            val inputElement = (root as? HTMLInputElement) ?: root?.querySelector("input") as? HTMLInputElement
+            inputElement?.focus()
+            inputElement?.addEventListener("keydown", { event ->
+                val keyEvent = event as? KeyboardEvent
+                if (keyEvent?.key == "Enter") {
+                    keyEvent.preventDefault()
+                    onSubmit()
+                }
+            })
+        },
+    )
 
 /**
  * Jobs' design-review verdict, D-item "Handle the getAvailability enabled=false case": an explicit
@@ -1678,7 +1726,11 @@ private fun enterCall(
 
     fun renderTitleEditMode() {
         titleRow.removeAll()
-        val editInput = titleRow.text(value = roomTitle) { addCssClasses("flex-grow-1") }
+        // `submitRename` needs `editInput`/`saveButton`, which do not exist yet when the input's Enter hook is
+        // wired -- hence the indirection (the hook must be registered BEFORE the input is added, see
+        // [titleEditInput]).
+        var submit: () -> Unit = {}
+        val editInput = titleRow.titleEditInput(roomTitle) { submit() }
         val saveButton = titleRow.button(tr("Speichern"), style = ButtonStyle.PRIMARY)
         val cancelButton = titleRow.button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
         cancelButton.onClick { renderTitleViewMode() }
@@ -1703,21 +1755,8 @@ private fun enterCall(
                 }
             }
         }
+        submit = ::submitRename
         saveButton.onClick { submitRename() }
-        // Should-fix, non-blocking per the design review: Enter-key submit + autofocus -- same raw-DOM
-        // discipline `chatRow`'s own Enter-to-send hook already uses further below in this function.
-        editInput.addAfterInsertHook { vnode ->
-            val root = vnode.elm as? HTMLElement
-            val inputElement = (root as? HTMLInputElement) ?: root?.querySelector("input") as? HTMLInputElement
-            inputElement?.focus()
-            inputElement?.addEventListener("keydown", { event ->
-                val keyEvent = event as? KeyboardEvent
-                if (keyEvent?.key == "Enter") {
-                    keyEvent.preventDefault()
-                    submitRename()
-                }
-            })
-        }
     }
     showTitleEditMode = ::renderTitleEditMode
     renderTitleViewMode()

@@ -160,6 +160,50 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **V1.4.25 follow-up: KVision hooks registered after the widget was rendered (client-wide audit)** -- the root cause
+  of the narrow-viewport bug below (a hook registered on a widget that is already part of a mounted tree) was
+  audited at every one of the ~30 `addAfterInsertHook`/`addAfterDestroyHook` call sites of the client. Two were real
+  defects and are fixed; the rest are correct for a concrete, tested reason and stay unchanged.
+  **What was wrong:** (1) `renderConferenceScreen` registered the destroy hook of its root panel after the panel was
+  rendered. The first patch of the page after that (the availability request finishing and hiding the status line)
+  swapped the root element and ran the hook on the LIVE screen: it removed the `beforeunload` listener that
+  disconnects a running LiveKit session when the tab is closed, reset `ConferenceCallPresence` and rebuilt the
+  lobby DOM. After that, closing the tab or navigating away during a call no longer disconnected the session
+  cleanly. (2) The inline "rename meeting" input of the conference screen wired its autofocus and its
+  Enter-to-submit listener through an insert hook registered as the very last statement of the edit mode, with no
+  patch following: the input was not focused and Enter did nothing until some unrelated widget of the call screen
+  (a chat message, a roster change) happened to patch the tree -- and then the focus jumped into the input.
+  **What it is now:** a new helper `Container.addWithLifecycle(widget, onInsert, onDestroy)`
+  (`KvisionLifecycle.kt`) registers the hooks first and adds the widget second; the conference root
+  (`conferenceScreenRoot`) and the rename input (`titleEditInput`) use it, so the key is stable from the first vnode,
+  the teardown runs only when the screen really goes away, and the input is focused and listening as soon as it is
+  in the document. **Audited and left alone, with evidence:** the price-oracle chart (its late destroy hook fires
+  once during the synchronous build, because `load()` patches right after it -- before any chart exists; the chart
+  is created once and destroyed once), the background-effect tile grid (built inside a hidden group; a hidden
+  widget has no element, so every hook there is registered early), the recording/stream/secret-ballot banners
+  (hidden first, hooked second: same), the whiteboard and chat panels (built hidden), the event check-in code
+  field, the bank-account PIN inputs (modal built completely before `show()`), the data-table sort buttons
+  (created inside `singleRender`), the roster/chat badges, the video grid/stage zones and the recording `<video>`
+  (the hook fires exactly once, for the element that stays). The shared-notes textarea (focus/blur tracking that
+  freezes a block against remote edits while somebody types in it) was first listed here as a documented residual
+  risk and then re-checked: the feared "replaced mid-typing by a foreign patch" does not happen, because
+  `createRow` adds six more widgets right after the hook and each `add` patches the mounted root synchronously --
+  the one-off replacement and the first fire of the hook both happen inside `createRow`, before the participant can
+  interact. It is nevertheless registered through `addWithLifecycle` now, so the textarea is rendered exactly once
+  instead of being built, thrown away and rebuilt while the row is assembled, and the ratchet no longer carries an
+  exception for it.
+  **Tests:** new real-`Root` Karma tests share one harness (`MountedRootHarness`): `KvisionHookOrderDomTest` pins
+  KVision 9.6.0's key/hook behaviour and proves `addWithLifecycle` (survives foreign patches, destroy exactly once on
+  removal, also when an ancestor is emptied, re-attach after a root restart); `ConferenceScreenRootLifecycleDomTest`
+  runs the real screen (red before the fix); `LateHookAuditDomTest` holds the rename-input tests (both red before
+  the fix) and the evidence for the harmless verdicts, including the real event check-in screen and the data-table
+  sort button; `PriceOracleChartLifecycleDomTest` counts chart creations/destructions through a new injectable
+  `PriceHistoryDeps` seam (production uses the defaults); `ConferenceBackgroundSectionDomTest` pins the hidden-group
+  assumption; `ConferenceNotesFocusDomTest` pins the notes textarea (focus survives a foreign patch, focus tracking
+  freezes the block against a remote edit, and a mutation-observer test that is red with the old order). On the server side `ClientLateHookRatchetTest` is a ratchet, not a
+  proof: every direct hook call in the client is listed per file with its reason, and a new one fails the build until it is audited (or written with
+  `addWithLifecycle`, which needs no entry). No RPC, DTO, table or migration.
+
 - **V1.4.25 the card list never appeared on a narrow resize** -- found in a live staging test (real Chrome 153) on the
   member roster: loaded at 1400 px and then shrunk below 768 px, the table stayed and no card list appeared, although
   the media query matched and a hand-registered `matchMedia` listener on the same page did fire. Loading the page

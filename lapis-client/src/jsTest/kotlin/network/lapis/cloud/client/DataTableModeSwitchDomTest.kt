@@ -2,9 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.html.span
 import io.kvision.i18n.tr
-import io.kvision.panel.ContainerType
 import io.kvision.panel.Root
-import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.get
 import kotlin.test.Test
@@ -58,26 +56,7 @@ class DataTableModeSwitchDomTest {
             textColumn<Person>(title = tr("Betrag"), numeric = true) { it.amount },
         )
 
-    /**
-     * Mounts a real [Root] on a fresh `div` in the document and disposes both afterwards. The element
-     * handed to [block] is resolved lazily on every call: KVision's `Root` constructor renders its vnode
-     * with the element name as `nodeName` gives it (`DIV`, upper case) while snabbdom's `emptyNodeAt`
-     * derives `div` from the existing element -- the selectors differ, so the very first patch REPLACES
-     * the container element. A handle captured before that is detached and finds nothing.
-     */
-    private fun withMountedRoot(block: (Root, () -> HTMLElement) -> Unit) {
-        val id = "data-table-mode-switch-test"
-        val container = document.createElement("div") as HTMLElement
-        container.id = id
-        document.body!!.appendChild(container)
-        val root = Root(id = id, containerType = ContainerType.NONE, addRow = false)
-        try {
-            block(root) { document.getElementById(id) as HTMLElement }
-        } finally {
-            root.dispose()
-            document.getElementById(id)?.remove()
-        }
-    }
+    private fun withMountedRoot(block: (Root, () -> HTMLElement) -> Unit) = withMountedRoot("data-table-mode-switch-test", block)
 
     private fun Root.build(viewport: FakeNarrowViewport): DataTablePanel =
         dataTableWith(

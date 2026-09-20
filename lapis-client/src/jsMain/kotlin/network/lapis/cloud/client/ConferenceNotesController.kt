@@ -79,8 +79,8 @@ internal const val NOTES_REFRESH_DEBOUNCE_MS = 400L
  * block, including blocks they aren't even looking at -- at this wave's own edit-rate budget across
  * up to 25 participants, this could fire every few seconds during a working session. [focusedBlockId]
  * tracks which row's textarea currently holds focus (native `focus`/`blur` DOM listeners, same
- * raw-DOM-under-`addAfterInsertHook` discipline `ConferenceScreen.kt`'s own inline-rename `editInput`
- * hook already uses); [syncRow] skips overwriting that row's rendered textarea value AND its
+ * raw-DOM-under-insert-hook discipline `ConferenceScreen.kt`'s own inline-rename `editInput`
+ * hook already uses, registered through `addWithLifecycle` so it precedes the textarea's first render); [syncRow] skips overwriting that row's rendered textarea value AND its
  * [RowUi.editingBaseVersion] for as long as it stays focused -- see [syncRow] KDoc for why freezing
  * BOTH (not just the visible text) is what keeps the version-conflict system correct, not just the
  * rendering.
@@ -267,7 +267,26 @@ class ConferenceNotesController(
 
     private fun createRow(block: NoteBlockDto) {
         val container = listPanel.vPanel(spacing = 2) { addCssClasses("border-bottom pb-2 mb-2") }
-        val textAreaWidget = container.textArea(value = block.content, rows = 3) { addCssClasses("w-100") }
+        // Built with its constructor and added through `addWithLifecycle`: the focus/blur hook must be registered
+        // BEFORE the textarea is rendered into the (possibly visible, mounted) list. A hook registered after
+        // `container.textArea(...)` changes the widget's snabbdom key between two renders, the next patch of the
+        // root replaces the textarea mid-typing (focus and cursor lost) and the listeners only arrive with that
+        // replacement -- too late for the focus protection of `syncRow`. See KvisionLifecycle.kt.
+        val textAreaWidget =
+            container.addWithLifecycle(
+                TextArea(value = block.content, rows = 3) { addCssClasses("w-100") },
+                onInsert = { vnode ->
+                    val root = vnode.elm as? HTMLElement
+                    val el = (root as? HTMLTextAreaElement) ?: root?.querySelector("textarea") as? HTMLTextAreaElement
+                    el?.addEventListener("focus", { focusedBlockId = block.id })
+                    el?.addEventListener(
+                        "blur",
+                        {
+                            if (focusedBlockId == block.id) focusedBlockId = null
+                        },
+                    )
+                },
+            )
         val captionDiv = container.div(captionText(block)) { addCssClasses("text-muted small") }
         val conflictBox = container.vPanel(spacing = 2) { addCssClasses("border rounded p-2 mt-1") }
         conflictBox.hide()
@@ -298,21 +317,6 @@ class ConferenceNotesController(
             )
         rows[block.id] = rowUi
         updateDeleteVisibility(rowUi, block)
-
-        // Raw-DOM focus/blur, same discipline as ConferenceScreen.kt's own inline-rename `editInput`
-        // hook (`addAfterInsertHook` + defensive `querySelector` fallback) -- see class KDoc
-        // "Required change #1".
-        textAreaWidget.addAfterInsertHook { vnode ->
-            val root = vnode.elm as? HTMLElement
-            val el = (root as? HTMLTextAreaElement) ?: root?.querySelector("textarea") as? HTMLTextAreaElement
-            el?.addEventListener("focus", { focusedBlockId = block.id })
-            el?.addEventListener(
-                "blur",
-                {
-                    if (focusedBlockId == block.id) focusedBlockId = null
-                },
-            )
-        }
 
         saveButton.onClick { doSaveBlockEdit(rowUi) }
         deleteButton.onClick {

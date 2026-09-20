@@ -501,6 +501,25 @@ private fun readPriceChartColors(): PriceChartColors {
 }
 
 /**
+ * The two side-effecting collaborators of [renderPriceHistoryChart], injectable so a real-`Root` test can
+ * feed rows without an RPC round trip and count chart creations/destructions without a real Chart.js
+ * instance. Production always uses the defaults.
+ */
+internal class PriceHistoryDeps(
+    val loadHistory: suspend (AnchorAsset, PriceHistoryRange) -> List<PriceSnapshotDto>? = { anchor, range ->
+        guarded {
+            rpcService<IPriceOracleService>().getPriceHistory(
+                anchorAsset = anchor,
+                range = range,
+                donationCurrency = null,
+                limit = PRICE_HISTORY_MAX_LIMIT,
+            )
+        }
+    },
+    val createChart: (HTMLCanvasElement, dynamic) -> Chart = { canvas, config -> Chart(canvas, config) },
+)
+
+/**
  * Renders the "Kursverlauf" chart section, fed by [IPriceOracleService.getPriceHistory] (see that
  * method's KDoc "Preishistorie", the RPC this Follow-up-Welle to `ea0fa97` finally consumes --
  * `PriceOracleScreen.kt` was explicitly left `unangetastet` by that wave).
@@ -536,10 +555,20 @@ private fun readPriceChartColors(): PriceChartColors {
  * **Cleanup.** `root.addAfterDestroyHook` (KVision, same idiom `ConferenceScreen.kt` uses for its
  * own `beforeunload` listener) destroys the Chart.js instance and disconnects the observer when the
  * operator navigates away -- otherwise repeated visits to this route would leak both.
+ *
+ * **Late hooks (audited, left as is).** The destroy hook on `root` and the insert hook on `canvasHost` are
+ * registered after those widgets were rendered, which in KVision changes their snabbdom key and makes the
+ * next patch swap the element (see [addWithLifecycle]). It is harmless here only because [load] patches the
+ * tree synchronously right after the destroy hook is registered -- the swap, and with it the one premature
+ * destroy call, happens before any chart exists -- and because `footerLine.content` patches right after the
+ * canvas host is created. `PriceOracleChartLifecycleDomTest` pins this in a real `Root` (one chart created,
+ * none destroyed by an unrelated patch, exactly one destroyed on a real removal); if it turns red, register
+ * the hooks through [addWithLifecycle] before adding the widgets.
  */
-private fun renderPriceHistoryChart(
+internal fun renderPriceHistoryChart(
     root: SimplePanel,
     canManage: Boolean,
+    deps: PriceHistoryDeps = PriceHistoryDeps(),
 ): (AnchorAsset) -> Unit {
     var selectedAnchor = AnchorAsset.BITCOIN_BTC
     var selectedRange = PriceHistoryRange.DAYS_30
@@ -734,7 +763,7 @@ private fun renderPriceHistoryChart(
             val canvas = document.createElement("canvas") as HTMLCanvasElement
             container.appendChild(canvas)
             val initialColors = readPriceChartColors()
-            val newChart = Chart(canvas, buildChartConfig(data, initialColors))
+            val newChart = deps.createChart(canvas, buildChartConfig(data, initialColors))
             chart = newChart
             val observer =
                 MutationObserver { _, _ ->
@@ -778,15 +807,7 @@ private fun renderPriceHistoryChart(
         chartArea.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         footerLine.content = ""
         AppScope.launch {
-            val rows =
-                guarded {
-                    rpcService<IPriceOracleService>().getPriceHistory(
-                        anchorAsset = selectedAnchor,
-                        range = selectedRange,
-                        donationCurrency = null,
-                        limit = PRICE_HISTORY_MAX_LIMIT,
-                    )
-                }
+            val rows = deps.loadHistory(selectedAnchor, selectedRange)
             if (seq != loadSeq) return@launch // superseded by a newer selection's request
             setControlsEnabled(true)
             if (rows == null) {
