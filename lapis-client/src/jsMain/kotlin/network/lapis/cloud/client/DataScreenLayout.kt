@@ -4,10 +4,20 @@ import io.kvision.core.Container
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
+import io.kvision.i18n.I18n
 import io.kvision.panel.HPanel
 import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.Cell
+import io.kvision.table.HeaderCell
+import io.kvision.table.ResponsiveType
+import io.kvision.table.Row
+import io.kvision.table.Scope
+import io.kvision.table.Table
+import io.kvision.table.TableType
+import io.kvision.table.cell
+import io.kvision.table.table
 import io.kvision.utils.px
 
 /**
@@ -64,6 +74,25 @@ import io.kvision.utils.px
 internal const val DATA_SCREEN_MAX_WIDTH_PX = 1440
 
 /**
+ * The other three screen widths of the UI/UX guideline (Welle V1.4.25, W1). Declared here so the later
+ * waves (W2-W5) migrate screens onto named widths instead of new magic numbers; W1 itself applies none
+ * of them.
+ *
+ * - [NARROW_FORM_MAX_WIDTH_PX]: single-purpose forms (login, password reset).
+ * - [READING_MAX_WIDTH_PX]: running text / card screens with a comfortable line length.
+ * - [DASHBOARD_MAX_WIDTH_PX]: the compact "what needs me" overview.
+ * - [CARD_LIST_BREAKPOINT_PX]: below this viewport width a [dataTable] renders as a card list (the one
+ *   new breakpoint; `theme.css` and [CARD_LIST_MEDIA_QUERY] use the matching `767.98px`).
+ */
+internal const val NARROW_FORM_MAX_WIDTH_PX = 480
+internal const val READING_MAX_WIDTH_PX = 720
+internal const val DASHBOARD_MAX_WIDTH_PX = 640
+internal const val CARD_LIST_BREAKPOINT_PX = 768
+
+/** Default vertical rhythm between the blocks of a data screen (UI/UX guideline: 16 px, was 14). */
+internal const val DATA_SCREEN_SPACING_PX = 16
+
+/**
  * Root-Panel eines datendichten Tabellen-Screens.
  *
  * `w-100` + `mx-auto` + [DATA_SCREEN_MAX_WIDTH_PX] als `maxWidth`: nimmt bis 1440 px die volle
@@ -71,7 +100,7 @@ internal const val DATA_SCREEN_MAX_WIDTH_PX = 1440
  * einem 375-px-Telefon nicht am Displayrand klebt -- ohne diese Rinne sass die Tabelle vorher
  * buendig auf Kante, sobald die feste Breite unterschritten wurde.
  */
-fun Container.dataScreenRoot(spacing: Int = 14): VPanel =
+fun Container.dataScreenRoot(spacing: Int = DATA_SCREEN_SPACING_PX): VPanel =
     vPanel(spacing = spacing) {
         addCssClasses("mx-auto w-100 px-3")
         maxWidth = DATA_SCREEN_MAX_WIDTH_PX.px
@@ -126,8 +155,9 @@ fun Button.tableActionTooltip(tooltip: String) {
     title = tooltip
     // Welle V1.4.21: `aria-label` geht per `setAttribute` am KVision-Patch-Zyklus vorbei -- ein `tr(...)`-
     // Ergebnis trüge dort den `###KvI18nS###`-Marker in den DOM (Screenreader: "###KvI18nS###Details
-    // anzeigen"). `title` oben ist eine KVision-Property und wird korrekt aufgelöst. Das Entfernen
-    // des Markers ist für bereits aufgelöste Strings (`gettext`) ein No-op, gilt also unbedingt --
+    // anzeigen"). `title` oben ist eine KVision-Property und wird korrekt aufgelöst. Marker und
+    // Übersetzung werden in `resolvedAttributeText` aufgelöst -- für bereits aufgelöste Strings
+    // (`gettext`) ein No-op, gilt also unbedingt --
     // Aufrufstellen dürfen weiter `tr(...)` übergeben. Der Tripwire `ClientTrAttributeLeakTest` sieht
     // diesen indirekten Fluss (Aufrufstelle -> Helfer -> setAttribute) nicht.
     setAttribute("aria-label", resolvedAttributeText(tooltip))
@@ -137,10 +167,14 @@ fun Button.tableActionTooltip(tooltip: String) {
 private const val KV_I18N_MARKER = "###KvI18nS###"
 
 /**
- * Für jeden Text, der per rohem `setAttribute(...)` in den DOM geht: entfernt den `tr()`-Marker
- * (No-op für bereits aufgelöste Strings). Gleiche Idee wie `ConferenceScreen.resolvedA11yText`.
+ * Für jeden Text, der per rohem `setAttribute(...)` in den DOM geht: löst den `tr()`-Marker UND die
+ * Übersetzung auf (`I18n.trans`). Nur den Marker zu entfernen (`removePrefix`) hinterließ den
+ * UNübersetzten deutschen Schlüssel -- der sichtbare Spaltenkopf war übersetzt, Tooltip/`aria-label`
+ * des Sortierknopfs und der Icon-Knöpfe blieben deutsch (Audit V1.4.25 M2). Für bereits aufgelöste
+ * Strings (`gettext`) ist das ein No-op. Gleiche Idee wie `ConferenceScreen.resolvedA11yText`, aber
+ * mit Übersetzung.
  */
-internal fun resolvedAttributeText(text: String): String = text.removePrefix(KV_I18N_MARKER)
+internal fun resolvedAttributeText(text: String): String = I18n.trans(text).removePrefix(KV_I18N_MARKER)
 
 /**
  * Segmented Control (Bootstrap `btn-group btn-group-sm`, `role="group"`, je Knopf `aria-pressed`) für
@@ -196,4 +230,51 @@ fun <T> Container.segmentedControl(
 fun Container.tableActionGroup(): HPanel =
     hPanel(spacing = 4) {
         addCssClasses("flex-nowrap align-items-center")
+    }
+
+/** One column header of a [standardTable]; [numeric] right-aligns it like its `td`s ([numCell]). */
+class TableHeader(
+    val title: String,
+    val numeric: Boolean = false,
+)
+
+/**
+ * The one table of the guideline: striped + hover + small rows, wrapped in Bootstrap's horizontally
+ * scrolling frame (`ResponsiveType.RESPONSIVE`) so a wide table scrolls itself, never the page. Every
+ * `table(...)` call in the client goes through this helper or [dataTable] (the `ClientUiGuidelineTripwireTest`
+ * rules R14/R15 enforce it for migrated files).
+ *
+ * Headers are always built as [HeaderCell] widgets (never `headerNames`): mixing both is unsafe because
+ * the `headerNames` setter empties the header row, and [dataTable] needs widget headers for its sort
+ * buttons. [headers] may be empty when the caller adds its own header cells.
+ */
+fun Container.standardTable(headers: List<TableHeader>): Table {
+    val standard =
+        table(
+            types = setOf(TableType.STRIPED, TableType.HOVER, TableType.SMALL),
+            responsiveType = ResponsiveType.RESPONSIVE,
+        )
+    headers.forEach { header -> standard.addHeaderCell(plainHeaderCell(header)) }
+    return standard
+}
+
+internal fun plainHeaderCell(header: TableHeader): HeaderCell =
+    HeaderCell(content = header.title, scope = Scope.COL) {
+        if (header.numeric) addCssClass(NUMERIC_CELL_CLASS)
+    }
+
+/** CSS class of right-aligned tabular-figure cells (`theme.css` `.lapis-num`). */
+internal const val NUMERIC_CELL_CLASS = "lapis-num"
+
+/**
+ * A numeric table cell: right-aligned, tabular figures. [content] as plain text, or build the content
+ * in [init] (e.g. `moneySpan(amount)`).
+ */
+fun Row.numCell(
+    content: String? = null,
+    init: (Cell.() -> Unit)? = null,
+): Cell =
+    cell(content = content) {
+        addCssClass(NUMERIC_CELL_CLASS)
+        init?.invoke(this)
     }

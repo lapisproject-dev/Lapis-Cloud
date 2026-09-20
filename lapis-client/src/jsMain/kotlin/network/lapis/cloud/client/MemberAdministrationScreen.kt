@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.form.text.password
 import io.kvision.form.text.text
@@ -19,13 +20,6 @@ import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
-import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -33,6 +27,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.FamilyMemberRole
+import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberAdminSort
@@ -60,8 +55,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  * client, so a TREASURER caller is never offered a section the server would reject anyway.
  */
 fun renderMemberAdministrationScreen(container: SimplePanel) {
-    val root =
-        container.dataScreenRoot(spacing = 16)
+    val root = container.dataScreenRoot()
     root.h1(tr("Mitgliederverwaltung"))
 
     val callerRole = AppState.session?.role
@@ -73,76 +67,82 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
 
 private fun renderPendingApplications(root: SimplePanel) {
     root.h2(tr("Offene Anträge"))
-    val pendingPanel = root.vPanel(spacing = 6)
-
-    fun refresh() {
-        pendingPanel.removeAll()
-        AppScope.launch {
-            val applications = guarded { rpcService<IRegistrationService>().listPendingApplications() } ?: return@launch
-            if (applications.isEmpty()) {
-                pendingPanel.p(tr("Keine offenen Anträge."))
-                return@launch
-            }
-            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
-            // replacing the previous hand-rolled "border rounded p-2" hPanel-per-row layout -- see
-            // root CLAUDE.md "UI/UX-Design-Team" review. `MemberDto.role` (unlike `MemberSummaryDto`,
-            // see `renderMemberDirectory` below) IS available here, so the "Rolle" column uses the
-            // new [accountRoleBadge] semantic role badge.
-            val table =
-                pendingPanel.table(
-                    headerNames = listOf(tr("Antragsteller"), tr("Rolle"), tr("Aktionen")),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                    responsiveType = ResponsiveType.RESPONSIVE,
+    // Welle V1.4.25: `dataSection` + `dataTable` replace the hand-built table -- the same density,
+    // loading/error/empty grammar and narrow-viewport card list as the roster below, so the two tables of
+    // this screen no longer follow two different conventions. The role column keeps the semantic
+    // [accountRoleBadge] (UI theme redesign wave 2026-08-20); `MemberDto.role` (unlike `MemberSummaryDto`)
+    // IS available here.
+    lateinit var section: DataSection
+    section =
+        root.dataSection<List<MemberDto>>(
+            emptyText = tr("Keine offenen Anträge."),
+            isEmpty = { it.isEmpty() },
+            load = { guarded { rpcService<IRegistrationService>().listPendingApplications() } },
+            render = { panel, applications ->
+                panel.dataTable(
+                    columns = pendingApplicationColumns(),
+                    rows = applications,
+                    actions = {
+                        actions,
+                        application,
+                        ->
+                        renderPendingApplicationActions(actions, application, onChanged = { section.reload() })
+                    },
                 )
-            applications.forEach { application ->
-                renderPendingApplicationRow(table, application, onChanged = ::refresh)
-            }
-        }
-    }
-    refresh()
+            },
+        )
+    section.reload()
 }
 
-private fun renderPendingApplicationRow(
-    table: Table,
+private fun pendingApplicationColumns(): List<DataColumn<MemberDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Antragsteller"),
+            primary = true,
+            cell = { container, application -> container.span(pendingApplicationLabel(application)) },
+        ),
+        DataColumn(title = tr("Rolle"), cell = { container, application -> container.accountRoleBadge(application.role) }),
+    )
+
+private fun pendingApplicationLabel(application: MemberDto): String {
+    val friendSince = application.friendSince
+    val summary =
+        gettext(
+            "%1 (%2) -- eingereicht am %3",
+            application.displayName,
+            application.email,
+            application.joinedAt,
+        )
+    // V0.11.0: shows the board that this applicant came from an existing FRIEND account
+    // (see MemberDto.friendSince KDoc "load-bearing") -- FriendUpgradePathTest covers the
+    // applyForMembership transition itself; this is purely informational.
+    return if (friendSince != null) gettext("%1 (Freund-Konto seit %2)", summary, friendSince) else summary
+}
+
+private fun renderPendingApplicationActions(
+    actionsContainer: Container,
     application: MemberDto,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        val friendSince = application.friendSince
-        val summary =
-            gettext(
-                "%1 (%2) -- eingereicht am %3",
-                application.displayName,
-                application.email,
-                application.joinedAt,
-            )
-        // V0.11.0: shows the board that this applicant came from an existing FRIEND account
-        // (see MemberDto.friendSince KDoc "load-bearing") -- FriendUpgradePathTest covers the
-        // applyForMembership transition itself; this is purely informational.
-        val label = if (friendSince != null) gettext("%1 (Freund-Konto seit %2)", summary, friendSince) else summary
-        cell(label)
-        cell { accountRoleBadge(application.role) }
-        val actionsCell = cell()
-        val actionsRow = actionsCell.hPanel(spacing = 8)
-        val approveButton = actionsRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
-        approveButton.onClick {
-            AppScope.launch {
-                val result = guarded { rpcService<IRegistrationService>().approveApplication(application.id) }
-                if (result != null) {
-                    notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
-                    onChanged()
-                }
+    val actionsRow = actionsContainer.hPanel(spacing = 8)
+    val approveButton = actionsRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
+    approveButton.onClick {
+        AppScope.launch {
+            val result = guarded { rpcService<IRegistrationService>().approveApplication(application.id) }
+            if (result != null) {
+                notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
+                onChanged()
             }
         }
-        val rejectButton = actionsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
-        rejectButton.onClick {
-            rejectApplicationDialog(application.displayName) { reason ->
-                AppScope.launch {
-                    val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason) }
-                    if (result != null) {
-                        notifyInfo(gettext("%1 wurde abgelehnt.", application.displayName))
-                        onChanged()
-                    }
+    }
+    val rejectButton = actionsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    rejectButton.onClick {
+        rejectApplicationDialog(application.displayName) { reason ->
+            AppScope.launch {
+                val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason) }
+                if (result != null) {
+                    notifyInfo(gettext("%1 wurde abgelehnt.", application.displayName))
+                    onChanged()
                 }
             }
         }
@@ -189,7 +189,7 @@ private fun rejectApplicationDialog(
  * review point: never drop the operator back to page 1 / an unfiltered view just because they
  * edited one row) is a single `copy()`, not five scattered `var`s to keep in sync by hand.
  */
-private data class RosterState(
+internal data class RosterState(
     val search: String = "",
     val statuses: Set<MemberStatus> = emptySet(),
     val sort: MemberAdminSort = MemberAdminSort.NAME_ASC,
@@ -212,20 +212,66 @@ private fun renderMemberRoster(root: SimplePanel) {
     root.h2(tr("Mitgliederverzeichnis"))
 
     var state = RosterState()
+    // Set by a sort click, consumed by the render of THAT click's load: hands the keyboard focus back to
+    // the header button of the clicked column (the re-render destroys the one the user just pressed).
+    // Expires when that load fails, is superseded or renders no table (see [SortFocusRequest]).
+    val sortFocus = SortFocusRequest()
 
     val filterRow = root.hPanel(spacing = 8)
     val searchInput = filterRow.text(label = tr("Suche nach Name, E-Mail oder Personennummer"))
     val chipsRow = root.hPanel(spacing = 6)
-    val tablePanel = root.vPanel(spacing = 2)
-    val pagerRow = root.hPanel(spacing = 8)
 
-    lateinit var refresh: () -> Unit
+    lateinit var section: DataSection
     lateinit var chipButtons: Map<MemberStatus?, Button>
+    lateinit var pagerRow: SimplePanel
 
-    fun loadAndRender() {
-        tablePanel.removeAll()
-        AppScope.launch {
-            val page =
+    fun refresh() {
+        // Hidden until the new page has settled: a pager for the previous page next to a new "loading"
+        // state would offer navigation from an offset that no longer matches what is shown.
+        pagerRow.hide()
+        sortFocus.beginLoad()
+        section.reload()
+    }
+
+    fun renderPager(page: MemberAdminPageDto) {
+        pagerRow.removeAll()
+        if (page.totalCount == 0) return // the section already says "no members" / "no match"
+        pagerRow.span(pagerLabel(page.offset, page.limit, page.totalCount))
+        val backButton = pagerRow.button(tr("‹ Zurück"), style = ButtonStyle.OUTLINESECONDARY)
+        backButton.disabled = page.offset <= 0
+        backButton.onClick {
+            state = state.copy(offset = (state.offset - page.limit).coerceAtLeast(0))
+            refresh()
+        }
+        val nextButton = pagerRow.button(tr("Weiter ›"), style = ButtonStyle.OUTLINESECONDARY)
+        nextButton.disabled = page.offset + page.rows.size >= page.totalCount
+        nextButton.onClick {
+            state = state.copy(offset = state.offset + page.limit)
+            refresh()
+        }
+        pagerRow.show()
+    }
+
+    section =
+        root.dataSection<MemberAdminPageDto>(
+            emptyText = tr("Noch keine Mitglieder vorhanden."),
+            filterTerm = { rosterFilterTerm(state) },
+            noMatchText = { term -> gettext("Kein Mitglied passt zu \"%1\".", term) },
+            isEmpty = { it.rows.isEmpty() },
+            onSettled = { page ->
+                sortFocus.settled(rendersTable = page != null && page.rows.isNotEmpty())
+                // Also for an empty page: the status counters must reflect an empty result, too.
+                if (page != null) {
+                    chipButtons.forEach { (status, button) ->
+                        val count = if (status == null) page.statusCounts.values.sum() else page.statusCounts[status] ?: 0
+                        // gettext (not `"${tr("Alle")} ($count)"`): a `tr()` marker inside a composed string looks up the
+                        // whole composed text in the catalog and finds nothing, so "Alle" stayed German (audit minor 2).
+                        button.text = if (status == null) gettext("Alle (%1)", count) else "${memberStatusLabel(status)} ($count)"
+                    }
+                    renderPager(page)
+                }
+            },
+            load = {
                 guarded {
                     rpcService<IMemberService>().listMembersForAdministration(
                         MemberAdminQuery(
@@ -235,42 +281,25 @@ private fun renderMemberRoster(root: SimplePanel) {
                             offset = state.offset,
                         ),
                     )
-                } ?: return@launch
-
-            chipButtons.forEach { (status, button) ->
-                val count = if (status == null) page.statusCounts.values.sum() else page.statusCounts[status] ?: 0
-                button.text = "${status?.let { memberStatusLabel(it) } ?: tr("Alle")} ($count)"
-            }
-
-            if (page.rows.isEmpty()) {
-                tablePanel.p(tr("Keine Treffer."))
-            } else {
-                val table =
-                    tablePanel.table(
-                        headerNames = listOf(tr("Name"), tr("E-Mail"), tr("Status"), tr("Rolle"), tr("Beitritt"), tr("Aktion")),
-                        types = setOf(TableType.STRIPED, TableType.HOVER),
-                        responsiveType = ResponsiveType.RESPONSIVE,
-                    )
-                page.rows.forEach { row -> renderMemberRosterRow(table, row, onChanged = { refresh() }) }
-            }
-
-            pagerRow.removeAll()
-            pagerRow.span(pagerLabel(page.offset, page.limit, page.totalCount))
-            val backButton = pagerRow.button(tr("‹ Zurück"), style = ButtonStyle.OUTLINESECONDARY)
-            backButton.disabled = page.offset <= 0
-            backButton.onClick {
-                state = state.copy(offset = (state.offset - page.limit).coerceAtLeast(0))
-                refresh()
-            }
-            val nextButton = pagerRow.button(tr("Weiter ›"), style = ButtonStyle.OUTLINESECONDARY)
-            nextButton.disabled = page.offset + page.rows.size >= page.totalCount
-            nextButton.onClick {
-                state = state.copy(offset = state.offset + page.limit)
-                refresh()
-            }
-        }
-    }
-    refresh = ::loadAndRender
+                }
+            },
+            render = { panel, page ->
+                panel.dataTable(
+                    columns = rosterColumns(),
+                    rows = page.rows,
+                    sort = state.sort.toSortState(),
+                    onSort = { clicked ->
+                        sortFocus.request((clicked ?: state.sort.toSortState()).key)
+                        state = state.withSortClick(clicked)
+                        refresh()
+                    },
+                    sortOptions = ROSTER_SORT_OPTIONS,
+                    actions = { actions, row -> renderRosterActions(actions, row, onChanged = { refresh() }) },
+                    focusSortKey = sortFocus.takeForRender(),
+                )
+            },
+        )
+    pagerRow = root.hPanel(spacing = 8)
 
     chipButtons =
         STATUS_CHIPS.associateWith { status ->
@@ -311,187 +340,261 @@ private fun renderMemberRoster(root: SimplePanel) {
     refresh()
 }
 
-private fun renderMemberRosterRow(
-    table: Table,
+/**
+ * The roster state after a sort-header click: the new sort, back on the first page (a new order makes the
+ * old offset meaningless). `null` cannot come from the roster's [ROSTER_SORT_OPTIONS] (`allowUnsorted =
+ * false`, and `MemberAdminSort` has no "unsorted" value) -- it keeps the current sort defensively.
+ */
+internal fun RosterState.withSortClick(clicked: SortState?): RosterState =
+    copy(sort = (clicked ?: sort.toSortState()).toMemberAdminSort(), offset = 0)
+
+/** First click on the "Beitritt" column shows the newest members first; every other column starts ascending. */
+private val ROSTER_SORT_OPTIONS =
+    SortOptions(
+        allowUnsorted = false,
+        firstDirection = { key -> if (key == ROSTER_SORT_JOINED) SortDirection.DESC else SortDirection.ASC },
+    )
+
+private const val ROSTER_SORT_NAME = "name"
+private const val ROSTER_SORT_JOINED = "joined"
+
+/** The columns of the roster table / card list; Name is the card title. */
+private fun rosterColumns(): List<DataColumn<MemberAdminRowDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Name"),
+            primary = true,
+            sortKey = ROSTER_SORT_NAME,
+            cell = { container, row -> container.renderRosterName(row) },
+        ),
+        textColumn(title = tr("E-Mail")) { row: MemberAdminRowDto -> row.email },
+        DataColumn(title = tr("Status"), cell = { container, row -> container.renderRosterStatus(row) }),
+        DataColumn(title = tr("Rolle"), cell = { container, row -> container.renderRosterRole(row) }),
+        DataColumn(
+            title = tr("Beitritt"),
+            numeric = true,
+            sortKey = ROSTER_SORT_JOINED,
+            cell = { container, row -> container.span(row.joinedAt.toString()) },
+        ),
+    )
+
+/**
+ * The term the "no match" sentence quotes: the search text, or -- with only a status chip active -- that
+ * chip's label. `null` when nothing filters (an empty page then means "no members yet").
+ */
+internal fun rosterFilterTerm(
+    search: String,
+    statuses: Set<MemberStatus>,
+): String? =
+    search.trim().takeIf { it.isNotEmpty() }
+        ?: statuses.singleOrNull()?.let { memberStatusLabel(it) }
+
+private fun rosterFilterTerm(state: RosterState): String? = rosterFilterTerm(state.search, state.statuses)
+
+/** `MemberAdminSort` <-> the generic [SortState] of `dataTable` (all four values, both directions). */
+internal fun MemberAdminSort.toSortState(): SortState =
+    when (this) {
+        MemberAdminSort.NAME_ASC -> SortState(key = ROSTER_SORT_NAME, direction = SortDirection.ASC)
+        MemberAdminSort.NAME_DESC -> SortState(key = ROSTER_SORT_NAME, direction = SortDirection.DESC)
+        MemberAdminSort.JOINED_ASC -> SortState(key = ROSTER_SORT_JOINED, direction = SortDirection.ASC)
+        MemberAdminSort.JOINED_DESC -> SortState(key = ROSTER_SORT_JOINED, direction = SortDirection.DESC)
+    }
+
+internal fun SortState.toMemberAdminSort(): MemberAdminSort {
+    val ascending = direction == SortDirection.ASC
+    return when (key) {
+        ROSTER_SORT_JOINED -> if (ascending) MemberAdminSort.JOINED_ASC else MemberAdminSort.JOINED_DESC
+        else -> if (ascending) MemberAdminSort.NAME_ASC else MemberAdminSort.NAME_DESC
+    }
+}
+
+/** Name column: display name plus the (BOARD/ADMIN-only) family badge -- also the title of the narrow card. */
+private fun Container.renderRosterName(row: MemberAdminRowDto) {
+    span(row.displayName)
+    // Welle V1.4.4.4 "Familienmitgliedschaften" -- unaufdringliches Badge, NUR wenn eine
+    // Familienverknüpfung existiert (kein Pixel für ein Mitglied ohne Familie). Kein
+    // eigener Knopf/Schalter -- der Badge selbst öffnet die gefilterte Familienansicht.
+    // Zusätzlich BOARD/ADMIN-only (Review-Fix, Regression): Ziel-Route
+    // `Routes.MEMBER_FAMILIES` (Routing.kt) und der Server (`MemberFamilyService.
+    // FAMILY_ROLES`) verlangen beide BOARD/ADMIN -- die V1.4.4.4-Erweiterung von
+    // `Routes.MEMBERS` auf TREASURER erlaubt einem Schatzmeister nur das Roster selbst zu
+    // sehen, nicht die Familienverwaltung dahinter. Ohne dieses Gate wuerde JEDE Zeile mit
+    // Familienbezug einem TREASURER einen Link anbieten, den Route-Guard und Server
+    // ohnehin ablehnen (Hausregel: kein Client-Angebot für eine vom Server ohnehin
+    // abgelehnte Aktion).
+    val familyId = row.familyId
+    if (familyId != null && AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+        // `link` (not a manual onClick) -- the app's hash-based routing already intercepts
+        // href="#..." navigation, same idiom every other cross-screen link in this codebase
+        // uses (see e.g. MemberHonorsScreen's "Alle Ehrungen anzeigen").
+        div { addCssClasses("small mt-1") }.link("", url = "#${memberFamiliesRoute(familyId)}") {
+            addCssClass("text-decoration-none")
+            typeBadge(
+                familyRosterBadgeText(row.familyName.orEmpty(), row.familyRole),
+                familyRoleBadgeColor(row.familyRole ?: FamilyMemberRole.DEPENDENT),
+            )
+        }
+    }
+}
+
+/** Status column: role-coloured status badge plus the recorded date of death, if any. */
+private fun Container.renderRosterStatus(row: MemberAdminRowDto) {
+    memberStatusRoleBadge(row.status)
+    // Welle V1.4.4.5 -- zeigt hinter dem "Verstorben"-Badge, ob (und ggf. welches)
+    // Sterbedatum erfasst ist.
+    deceasedDateNote(row.status, row.dateOfDeath)?.let { note ->
+        span(note) { addCssClasses("text-muted small ms-1") }
+    }
+}
+
+/** Role column: the account role badge, or a muted note for a CSV-imported member without account. */
+private fun Container.renderRosterRole(row: MemberAdminRowDto) {
+    val role = row.role
+    if (role != null) {
+        accountRoleBadge(role)
+    } else {
+        span(tr("— (kein Konto)")) {
+            title = tr("Kein Login-Konto -- CSV-importiertes Mitglied ohne Account-Zeile.")
+            addCssClass("text-muted")
+        }
+    }
+}
+
+/**
+ * Actions of one roster row. [actionsCell] is the actions cell of the table row or, in the narrow card
+ * list, the card's action group -- the buttons are identical in both (Welle V1.4.25: `dataTable` owns the
+ * container, this function owns the content, unchanged from the former `renderMemberRosterRow`).
+ */
+private fun renderRosterActions(
+    actionsCell: Container,
     row: MemberAdminRowDto,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        cell {
-            span(row.displayName)
-            // Welle V1.4.4.4 "Familienmitgliedschaften" -- unaufdringliches Badge, NUR wenn eine
-            // Familienverknüpfung existiert (kein Pixel für ein Mitglied ohne Familie). Kein
-            // eigener Knopf/Schalter -- der Badge selbst öffnet die gefilterte Familienansicht.
-            // Zusätzlich BOARD/ADMIN-only (Review-Fix, Regression): Ziel-Route
-            // `Routes.MEMBER_FAMILIES` (Routing.kt) und der Server (`MemberFamilyService.
-            // FAMILY_ROLES`) verlangen beide BOARD/ADMIN -- die V1.4.4.4-Erweiterung von
-            // `Routes.MEMBERS` auf TREASURER erlaubt einem Schatzmeister nur das Roster selbst zu
-            // sehen, nicht die Familienverwaltung dahinter. Ohne dieses Gate wuerde JEDE Zeile mit
-            // Familienbezug einem TREASURER einen Link anbieten, den Route-Guard und Server
-            // ohnehin ablehnen (Hausregel: kein Client-Angebot für eine vom Server ohnehin
-            // abgelehnte Aktion).
-            val familyId = row.familyId
-            if (familyId != null && AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-                // `link` (not a manual onClick) -- the app's hash-based routing already intercepts
-                // href="#..." navigation, same idiom every other cross-screen link in this codebase
-                // uses (see e.g. MemberHonorsScreen's "Alle Ehrungen anzeigen").
-                div { addCssClasses("small mt-1") }.link("", url = "#${memberFamiliesRoute(familyId)}") {
-                    addCssClass("text-decoration-none")
-                    typeBadge(
-                        familyRosterBadgeText(row.familyName.orEmpty(), row.familyRole),
-                        familyRoleBadgeColor(row.familyRole ?: FamilyMemberRole.DEPENDENT),
-                    )
-                }
-            }
-        }
-        cell(row.email)
-        cell {
-            memberStatusRoleBadge(row.status)
-            // Welle V1.4.4.5 -- zeigt hinter dem "Verstorben"-Badge, ob (und ggf. welches)
-            // Sterbedatum erfasst ist.
-            deceasedDateNote(row.status, row.dateOfDeath)?.let { note ->
-                span(note) { addCssClasses("text-muted small ms-1") }
-            }
-        }
-        cell {
-            val role = row.role
-            if (role != null) {
-                accountRoleBadge(role)
-            } else {
-                span(tr("— (kein Konto)")) {
-                    title = tr("Kein Login-Konto -- CSV-importiertes Mitglied ohne Account-Zeile.")
-                    addCssClass("text-muted")
-                }
-            }
-        }
-        cell(row.joinedAt.toString())
-        val actionsCell = cell()
-        // GitHub issue #1 -- icon instead of text, so the actions column stays narrow at any table
-        // width; `title` is set unconditionally right below and is KVision's own `Widget.title`
-        // property (not a raw DOM write), so no `###KvI18nS###` marker-leak risk -- see
-        // `ConferenceScreen.kt`'s own KDoc on that bug class for why the distinction matters.
-        val editButton = actionsCell.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
-        val callerRole = AppState.session?.role
-        val callerMemberId = AppState.session?.memberId
+    // GitHub issue #1 -- icon instead of text, so the actions column stays narrow at any table
+    // width; `title` is set unconditionally right below and is KVision's own `Widget.title`
+    // property (not a raw DOM write), so no `###KvI18nS###` marker-leak risk -- see
+    // `ConferenceScreen.kt`'s own KDoc on that bug class for why the distinction matters.
+    val editButton = actionsCell.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
+    val callerRole = AppState.session?.role
+    val callerMemberId = AppState.session?.memberId
+    if (row.anonymized) {
+        editButton.disabled = true
+        editButton.tableActionTooltip(tr("DSGVO-gelöscht"))
+    } else if (!hasAnyEditableSectionFor(callerRole, callerMemberId, row)) {
+        // Regression fix (Review Runde 3): before the per-section gating in openMemberEditorDialog
+        // existed, "Stammdaten" was rendered UNCONDITIONALLY, so the modal could never be empty.
+        // Now that all five sections are individually gated (Peer-Schutz), a BOARD caller on an
+        // escalated-role target (or their OWN row, which is itself BOARD/ADMIN/TREASURER-scoped)
+        // can hit a state where NONE of the five predicates allow anything -- opening the dialog
+        // would show only a title and a "Schließen" button. Same house rule this file's own KDoc
+        // on ESCALATED_ROLES already states: "the client does not OFFER an action the server's
+        // peer-protection rejects anyway" -- consequently applied here to the button itself, not
+        // just to the sections inside a dialog the caller would otherwise be free to open.
+        // Review fix (Welle V1.4.4.4, MAJOR finding): `hasAnyEditableSectionFor` did NOT
+        // originally include `canEditMembershipTierOf` -- a BOARD caller on an escalated-role
+        // target (TREASURER/BOARD/ADMIN, including their own row) with a removable tier
+        // (`row.membershipTierId != null`) has all four OTHER predicates false, so the button
+        // was wrongly disabled even though `canEditMembershipTierOf` alone would allow the
+        // "Tarif entfernen" action -- see [canEditMembershipTierOf] KDoc.
+        editButton.disabled = true
+        editButton.tableActionTooltip(
+            tr(
+                "Keine Bearbeitung möglich -- Peer-Schutz: Vorstand darf Vorstands-/Schatzmeister-/" +
+                    "Admin-Konten (auch das eigene) nicht bearbeiten, das ist Admin vorbehalten.",
+            ),
+        )
+    } else {
+        editButton.onClick { openMemberEditorDialog(row, onChanged) }
+    }
+
+    // Welle V1.4.4.1 "Beitragshistorie" -- der erste von zwei Einstiegen in
+    // MemberFinancialHistoryScreen.kt (der zweite ist der Link in ContributionsScreen.kt für
+    // die eigene Historie). Seit Welle V1.4.4.4 erreicht ein TREASURER `/members` tatsächlich
+    // (Routing.kt lässt TREASURER inzwischen zusätzlich zu BOARD/ADMIN zu, siehe dieser Datei
+    // Klassen-KDoc) -- der Rollen-Check hier ist also kein reines Zukunfts-Dokument mehr,
+    // sondern der tatsächlich wirksame Gate für diesen Knopf.
+    if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
+        val financesButton = actionsCell.tableActionButton("fas fa-receipt", tr("Beitragshistorie"))
+        financesButton.onClick { navigateTo(memberFinancesRoute(row.id)) }
+    }
+
+    // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- der zweite von zwei
+    // Einstiegen in MemberHonorsScreen.kt (der erste ist die board-weite Liste unter
+    // `Routes.MEMBER_HONORS` ohne Parameter). Anders als `financesButton` oben bleibt dieser
+    // Knopf bewusst BOARD/ADMIN-only: Ziel-Route `Routes.MEMBER_HONORS` (Routing.kt) und der
+    // Server (`MemberHonorService.HONOR_READ_WRITE_ROLES`) verlangen beide weiterhin BOARD/ADMIN,
+    // die V1.4.4.4-Erweiterung von `Routes.MEMBERS`/`updateMemberMembershipTier` auf TREASURER
+    // hat daran nichts geändert -- ein TREASURER erreicht `/members` seit Welle V1.4.4.4 zwar
+    // tatsächlich, aber NICHT die Ehrungsverwaltung. Review-Fix (Regression): dieser Knopf war
+    // versehentlich auf TREASURER erweitert worden, obwohl weder Route noch Server das erlauben
+    // (Hausregel: kein Client-Angebot für eine vom Server ohnehin abgelehnte Aktion).
+    // Anders als `financesButton`
+    // (der KEIN `row.anonymized`-Gate hat, weil `MemberFinancialHistoryScreen` selbst mit einem
+    // "DSGVO-gelöscht"-Badge umgehen kann) wird dieser Knopf für ein anonymisiertes Mitglied
+    // deaktiviert -- `MemberHonorsScreen` hat keine eigene Anzeige-Logik für einen
+    // anonymisierten Zielmember (Welle-Plan §13 "S5").
+    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+        val honorsButton = actionsCell.tableActionButton("fas fa-medal", tr("Ehrungen"))
         if (row.anonymized) {
-            editButton.disabled = true
-            editButton.tableActionTooltip(tr("DSGVO-gelöscht"))
-        } else if (!hasAnyEditableSectionFor(callerRole, callerMemberId, row)) {
-            // Regression fix (Review Runde 3): before the per-section gating in openMemberEditorDialog
-            // existed, "Stammdaten" was rendered UNCONDITIONALLY, so the modal could never be empty.
-            // Now that all five sections are individually gated (Peer-Schutz), a BOARD caller on an
-            // escalated-role target (or their OWN row, which is itself BOARD/ADMIN/TREASURER-scoped)
-            // can hit a state where NONE of the five predicates allow anything -- opening the dialog
-            // would show only a title and a "Schließen" button. Same house rule this file's own KDoc
-            // on ESCALATED_ROLES already states: "the client does not OFFER an action the server's
-            // peer-protection rejects anyway" -- consequently applied here to the button itself, not
-            // just to the sections inside a dialog the caller would otherwise be free to open.
-            // Review fix (Welle V1.4.4.4, MAJOR finding): `hasAnyEditableSectionFor` did NOT
-            // originally include `canEditMembershipTierOf` -- a BOARD caller on an escalated-role
-            // target (TREASURER/BOARD/ADMIN, including their own row) with a removable tier
-            // (`row.membershipTierId != null`) has all four OTHER predicates false, so the button
-            // was wrongly disabled even though `canEditMembershipTierOf` alone would allow the
-            // "Tarif entfernen" action -- see [canEditMembershipTierOf] KDoc.
-            editButton.disabled = true
-            editButton.tableActionTooltip(
-                tr(
-                    "Keine Bearbeitung möglich -- Peer-Schutz: Vorstand darf Vorstands-/Schatzmeister-/" +
-                        "Admin-Konten (auch das eigene) nicht bearbeiten, das ist Admin vorbehalten.",
-                ),
-            )
+            honorsButton.disabled = true
+            honorsButton.tableActionTooltip(tr("DSGVO-gelöscht"))
         } else {
-            editButton.onClick { openMemberEditorDialog(row, onChanged) }
+            honorsButton.onClick { navigateTo(memberHonorsRoute(row.id)) }
         }
+    }
 
-        // Welle V1.4.4.1 "Beitragshistorie" -- der erste von zwei Einstiegen in
-        // MemberFinancialHistoryScreen.kt (der zweite ist der Link in ContributionsScreen.kt für
-        // die eigene Historie). Seit Welle V1.4.4.4 erreicht ein TREASURER `/members` tatsächlich
-        // (Routing.kt lässt TREASURER inzwischen zusätzlich zu BOARD/ADMIN zu, siehe dieser Datei
-        // Klassen-KDoc) -- der Rollen-Check hier ist also kein reines Zukunfts-Dokument mehr,
-        // sondern der tatsächlich wirksame Gate für diesen Knopf.
-        if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
-            val financesButton = actionsCell.tableActionButton("fas fa-receipt", tr("Beitragshistorie"))
-            financesButton.onClick { navigateTo(memberFinancesRoute(row.id)) }
-        }
-
-        // Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- der zweite von zwei
-        // Einstiegen in MemberHonorsScreen.kt (der erste ist die board-weite Liste unter
-        // `Routes.MEMBER_HONORS` ohne Parameter). Anders als `financesButton` oben bleibt dieser
-        // Knopf bewusst BOARD/ADMIN-only: Ziel-Route `Routes.MEMBER_HONORS` (Routing.kt) und der
-        // Server (`MemberHonorService.HONOR_READ_WRITE_ROLES`) verlangen beide weiterhin BOARD/ADMIN,
-        // die V1.4.4.4-Erweiterung von `Routes.MEMBERS`/`updateMemberMembershipTier` auf TREASURER
-        // hat daran nichts geändert -- ein TREASURER erreicht `/members` seit Welle V1.4.4.4 zwar
-        // tatsächlich, aber NICHT die Ehrungsverwaltung. Review-Fix (Regression): dieser Knopf war
-        // versehentlich auf TREASURER erweitert worden, obwohl weder Route noch Server das erlauben
-        // (Hausregel: kein Client-Angebot für eine vom Server ohnehin abgelehnte Aktion).
-        // Anders als `financesButton`
-        // (der KEIN `row.anonymized`-Gate hat, weil `MemberFinancialHistoryScreen` selbst mit einem
-        // "DSGVO-gelöscht"-Badge umgehen kann) wird dieser Knopf für ein anonymisiertes Mitglied
-        // deaktiviert -- `MemberHonorsScreen` hat keine eigene Anzeige-Logik für einen
-        // anonymisierten Zielmember (Welle-Plan §13 "S5").
-        if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
-            val honorsButton = actionsCell.tableActionButton("fas fa-medal", tr("Ehrungen"))
-            if (row.anonymized) {
-                honorsButton.disabled = true
-                honorsButton.tableActionTooltip(tr("DSGVO-gelöscht"))
-            } else {
-                honorsButton.onClick { navigateTo(memberHonorsRoute(row.id)) }
-            }
-        }
-
-        // Welle "Digitaler Mitgliedsausweis (PDF)" -- fuenfter Einstieg der Aktionsspalte,
-        // BOARD/ADMIN (NICHT TREASURER: ein Mitgliedsausweis ist ein Identitaets-, kein
-        // Finanzdokument -- dieselbe Stufe, die `registerMemberCardRoutes` serverseitig erzwingt).
-        // Gleiches Icon-Knopf-Muster wie die vier Knoepfe darueber (Icon + Pflicht-Tooltip, siehe
-        // `DataScreenLayout.tableActionButton`).
-        //
-        // Nur fuer Mitglieder mit ausweisfaehigem Status sichtbar -- der Server lehnt alles andere
-        // mit 409 ab (`MemberCardEligibility`), und die Hausregel dieser Datei ist ausdruecklich:
-        // kein Client-Angebot fuer eine vom Server ohnehin abgelehnte Aktion. Deshalb wird der
-        // Knopf hier NICHT deaktiviert angeboten, sondern gar nicht erst gerendert -- anders als
-        // bei `row.anonymized`, wo ein sichtbarer, deaktivierter Knopf mit Begruendung dem
-        // Vorstand die Ursache erklaert, waehrend "Gast hat keinen Mitgliedsausweis" keine
-        // Erklaerung braucht.
-        if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN) && row.status in MemberStatusSets.ORGANIZATION_MEMBER) {
-            val cardButton = actionsCell.tableActionButton("fas fa-id-card", tr("Mitgliedsausweis ausstellen"))
-            if (row.anonymized) {
-                cardButton.disabled = true
-                cardButton.tableActionTooltip(tr("DSGVO-gelöscht"))
-            } else {
-                cardButton.onClick {
-                    confirmDialog(
-                        title = tr("Neuen Mitgliedsausweis ausstellen"),
-                        message =
-                            gettext(
-                                "Für %1 wird ein neuer Ausweis ausgestellt und als PDF heruntergeladen. Ein zuvor " +
-                                    "ausgestellter Ausweis dieses Mitglieds verliert damit seine Gültigkeit.",
-                                row.displayName,
-                            ),
-                        confirmLabel = tr("Ausstellen und herunterladen"),
-                    ) {
-                        MemberCardHttp.submitCardPdfDownload(row.id)
-                    }
+    // Welle "Digitaler Mitgliedsausweis (PDF)" -- fuenfter Einstieg der Aktionsspalte,
+    // BOARD/ADMIN (NICHT TREASURER: ein Mitgliedsausweis ist ein Identitaets-, kein
+    // Finanzdokument -- dieselbe Stufe, die `registerMemberCardRoutes` serverseitig erzwingt).
+    // Gleiches Icon-Knopf-Muster wie die vier Knoepfe darueber (Icon + Pflicht-Tooltip, siehe
+    // `DataScreenLayout.tableActionButton`).
+    //
+    // Nur fuer Mitglieder mit ausweisfaehigem Status sichtbar -- der Server lehnt alles andere
+    // mit 409 ab (`MemberCardEligibility`), und die Hausregel dieser Datei ist ausdruecklich:
+    // kein Client-Angebot fuer eine vom Server ohnehin abgelehnte Aktion. Deshalb wird der
+    // Knopf hier NICHT deaktiviert angeboten, sondern gar nicht erst gerendert -- anders als
+    // bei `row.anonymized`, wo ein sichtbarer, deaktivierter Knopf mit Begruendung dem
+    // Vorstand die Ursache erklaert, waehrend "Gast hat keinen Mitgliedsausweis" keine
+    // Erklaerung braucht.
+    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN) && row.status in MemberStatusSets.ORGANIZATION_MEMBER) {
+        val cardButton = actionsCell.tableActionButton("fas fa-id-card", tr("Mitgliedsausweis ausstellen"))
+        if (row.anonymized) {
+            cardButton.disabled = true
+            cardButton.tableActionTooltip(tr("DSGVO-gelöscht"))
+        } else {
+            cardButton.onClick {
+                confirmDialog(
+                    title = tr("Neuen Mitgliedsausweis ausstellen"),
+                    message =
+                        gettext(
+                            "Für %1 wird ein neuer Ausweis ausgestellt und als PDF heruntergeladen. Ein zuvor " +
+                                "ausgestellter Ausweis dieses Mitglieds verliert damit seine Gültigkeit.",
+                            row.displayName,
+                        ),
+                    confirmLabel = tr("Ausstellen und herunterladen"),
+                ) {
+                    MemberCardHttp.submitCardPdfDownload(row.id)
                 }
             }
         }
+    }
 
-        // Welle V1.4.9 "Admin-Passwort-Reset" -- vierter Einstieg der Aktionsspalte, ADMIN-exklusiv.
-        // BEWUSST NICHT als siebter Abschnitt im Editor-Dialog und BEWUSST NICHT in
-        // hasAnyEditableSectionFor aufgenommen (die ODER-Kette bleibt bei sechs): ein Zugriffs-Akt
-        // ist kategorial etwas anderes als Stammdatenpflege, und diese Kette hat in dieser Datei
-        // bereits zweimal Regressionen produziert (V1.4.4.4-MAJOR, Review Runde 3). Ein eigenes
-        // Prädikat berührt sie nicht. Icon `fa-key`, nicht `fa-user-lock`: ein Schloss hieße
-        // "gesperrt" -- das ist der Zustand DANACH gerade nicht.
-        if (AppState.hasRole(AccountRole.ADMIN)) {
-            val accessButton =
-                actionsCell.tableActionButton("fas fa-key", tr("Zugang zurücksetzen"), ButtonStyle.OUTLINEWARNING)
-            val block = passwordResetBlockReason(callerRole, callerMemberId, row)
-            if (block != null) {
-                accessButton.disabled = true
-                accessButton.tableActionTooltip(block)
-            } else {
-                accessButton.onClick { openMemberPasswordResetDialog(row, onChanged) }
-            }
+    // Welle V1.4.9 "Admin-Passwort-Reset" -- vierter Einstieg der Aktionsspalte, ADMIN-exklusiv.
+    // BEWUSST NICHT als siebter Abschnitt im Editor-Dialog und BEWUSST NICHT in
+    // hasAnyEditableSectionFor aufgenommen (die ODER-Kette bleibt bei sechs): ein Zugriffs-Akt
+    // ist kategorial etwas anderes als Stammdatenpflege, und diese Kette hat in dieser Datei
+    // bereits zweimal Regressionen produziert (V1.4.4.4-MAJOR, Review Runde 3). Ein eigenes
+    // Prädikat berührt sie nicht. Icon `fa-key`, nicht `fa-user-lock`: ein Schloss hieße
+    // "gesperrt" -- das ist der Zustand DANACH gerade nicht.
+    if (AppState.hasRole(AccountRole.ADMIN)) {
+        val accessButton =
+            actionsCell.tableActionButton("fas fa-key", tr("Zugang zurücksetzen"), ButtonStyle.OUTLINEWARNING)
+        val block = passwordResetBlockReason(callerRole, callerMemberId, row)
+        if (block != null) {
+            accessButton.disabled = true
+            accessButton.tableActionTooltip(block)
+        } else {
+            accessButton.onClick { openMemberPasswordResetDialog(row, onChanged) }
         }
     }
 }

@@ -37,6 +37,15 @@ private const val THICK_STROKE_WIDTH = 12.0
 private const val ERASER_STROKE_WIDTH = 24.0
 
 /**
+ * Whiteboard paper colour: canvas background, the fill that clears the canvas and the eraser colour.
+ * Deliberately a literal, NOT a theme token: it is a *document* colour, not a surface colour -- the
+ * eraser and the exported PNG must paint the same white the strokes were drawn on, in dark mode
+ * too, and a canvas `fillStyle` cannot resolve a CSS variable. The only hex literal the
+ * `ClientUiGuidelineTripwireTest` (R9) tolerates in the client sources.
+ */
+private const val WHITEBOARD_PAPER = "#ffffff"
+
+/**
  * V1.0 Wave 7 "Whiteboard" -- mirrors [network.lapis.cloud.server.conference.ConferenceWhiteboardState]'s
  * own defaults EXACTLY (see that class's own KDoc) -- used both for the client-side SOFT-cap guard
  * against the LOCAL author ([ConferenceWhiteboardController.canStartNewStroke]) and, since the
@@ -251,7 +260,7 @@ class ConferenceWhiteboardController(
             canvas.height = WHITEBOARD_CANVAS_HEIGHT
             // Forstall: touch-action:none, otherwise the browser scrolls the page on a touch/pen
             // device instead of letting pointer events drive drawing.
-            canvas.style.cssText = "width:100%;height:auto;display:block;touch-action:none;background:#ffffff;"
+            canvas.style.cssText = "width:100%;height:auto;display:block;touch-action:none;background:$WHITEBOARD_PAPER;"
             container.appendChild(canvas)
             canvasEl = canvas
             ctx = canvas.getContext("2d") as? CanvasRenderingContext2D
@@ -456,7 +465,7 @@ class ConferenceWhiteboardController(
     private fun redraw() {
         val context = ctx ?: return
         context.clearRect(0.0, 0.0, WHITEBOARD_CANVAS_WIDTH.toDouble(), WHITEBOARD_CANVAS_HEIGHT.toDouble())
-        context.asDynamic().fillStyle = "#ffffff"
+        context.asDynamic().fillStyle = WHITEBOARD_PAPER
         context.fillRect(0.0, 0.0, WHITEBOARD_CANVAS_WIDTH.toDouble(), WHITEBOARD_CANVAS_HEIGHT.toDouble())
         context.asDynamic().lineCap = "round"
         context.asDynamic().lineJoin = "round"
@@ -470,7 +479,7 @@ class ConferenceWhiteboardController(
         stroke: RenderableStroke,
     ) {
         if (stroke.points.isEmpty()) return
-        val color = if (stroke.tool == WhiteboardTool.ERASER) "#ffffff" else stroke.color
+        val color = if (stroke.tool == WhiteboardTool.ERASER) WHITEBOARD_PAPER else stroke.color
         context.asDynamic().strokeStyle = color
         context.asDynamic().fillStyle = color
         context.asDynamic().lineWidth = stroke.strokeWidth
@@ -493,7 +502,7 @@ class ConferenceWhiteboardController(
     private fun updateToolbarSelection() {
         colorSwatchElements.forEach { (el, hex) ->
             val isSelected = selectedTool == WhiteboardTool.PEN && selectedColor == hex
-            el.style.border = if (isSelected) "3px solid #212529" else "1px solid #ced4da"
+            el.style.border = if (isSelected) "3px solid var(--lapis-text)" else "1px solid var(--lapis-border-strong)"
         }
         eraserButtonElement?.let { el ->
             el.classList.toggle("active", selectedTool == WhiteboardTool.ERASER)

@@ -1,0 +1,158 @@
+= UI/UX Guideline -- Foundation Building Blocks (W1)
+:description: The shared table, state and token building blocks of the Lapis Cloud client UI/UX guideline, their rules and the tripwire that keeps migrated screens honest.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+The client had grown one bespoke table per screen: different densities, no shared loading/error/empty
+grammar, hard-coded hex colours in the conference code, no card layout on a phone and no way to sort. Wave V1.4.25
+("W1 Foundation") introduces the shared building blocks and migrates three screens onto them
+(`MemberAdministrationScreen`, `ContributionsScreen`, `OpenItemsScreen`). W2-W5 migrate the rest; until then a
+tripwire test keeps the debt visible and stops it from growing.
+
+It is a pure client wave: no RPC, DTO, table or migration.
+
+== Principles
+
+* One grammar per concept: one table density, one loading state, one error state, two empty texts.
+* A state is not a toast. The toast that `guarded` shows is the notification; the state box stays and offers the way out.
+* Colour is a token, never a literal. The one exception is a document colour on a canvas (whiteboard paper).
+* Touch targets are at least 44 px under `pointer: coarse`; nothing relies on hover.
+* Foreign data is text: cell content goes in as widget content, never as HTML.
+
+== Decisions
+
+[cols="1,3"]
+|===
+| Decision | Rule
+
+| Table density
+| `TableType.STRIPED`, `HOVER`, `SMALL` and `ResponsiveType.RESPONSIVE` together, always -- through `standardTable` or `dataTable`.
+
+| Narrow viewports
+| Below 768 px (`CARD_LIST_BREAKPOINT_PX`, media query `(max-width: 767.98px)`) a `dataTable` renders a card list. The only new breakpoint.
+
+| Numbers
+| Numeric columns are right-aligned with tabular figures (`.lapis-num`) on `th` and `td`. A date that identifies a row (the primary column) stays left.
+
+| Sorting
+| A native `button` in the `th`, `aria-sort` on exactly one column, tooltip = next action, `aria-label` = current state once sorted. The idle icon is `fa-sort` in `--lapis-muted`, never a dimmed opacity (WCAG 1.4.11).
+
+| Load states
+| Loading, error, empty, no-match, content. The error sentence is fixed (no exception text, no identifier).
+
+| Motion
+| One `prefers-reduced-motion: reduce` block, last in `theme.css`, listing every selector that has a `transition`.
+|===
+
+== Building blocks
+
+=== `DataTableState.kt` (pure)
+
+* `SortDirection`, `SortState(key, direction)`, `nextSortState(current, clicked, firstDirection, allowUnsorted)`
+* `ariaSortValue`, `sortIconClass`, `sortButtonTexts` -- ARIA value, icon class, tooltip and accessible name
+* `DataColumn<R>(title, numeric, primary, sortKey, cell)` -- exactly five fields; `textColumn` is a factory for plain text
+* `cardLayout(columnCount, primaryFlags)` -- primary column (default: column 0) and detail columns; a second primary is rejected
+* `DataViewState` and `resolveDataViewState(loaded, isEmpty, filterTerm)`
+
+=== `DataScreenLayout.kt`
+
+* `dataScreenRoot(spacing = 16)`; screen widths `DATA_SCREEN_MAX_WIDTH_PX` (1440), `NARROW_FORM_MAX_WIDTH_PX` (480),
+  `READING_MAX_WIDTH_PX` (720), `DASHBOARD_MAX_WIDTH_PX` (640) -- the last three are declared, not yet applied
+* `standardTable(headers: List<TableHeader>)` and `Row.numCell(...)` for hand-built tables
+
+=== `DataTable.kt`
+
+`dataTable(columns, rows, sort, onSort, sortOptions, actions, focusSortKey)` is stateless: rows and the current
+sort come from the caller, which reloads and calls it again on `onSort`. Pass `focusSortKey` so the keyboard focus
+returns to the header button that was pressed. The mode (table or cards) is decided synchronously at construction
+and re-decided on media-query changes, but re-rendered only when it really flips; the listener is released with the
+widget. Cell lambdas run again on every re-render -- keep no state in them.
+
+=== `DataSection.kt`
+
+`dataSection(emptyText, filterTerm, noMatchText, isEmpty, onSettled, load, render)` owns a load and returns a
+handle with `reload()` (call it once for the first load). The widget-free `DataLoadController` holds the lifecycle
+and a generation counter that drops superseded results. The loading text lives in a `role="status"` live region that is
+mounted once (`dataStatusRegion`, `DataSectionViews`) -- only its text changes, because a live region created together
+with its text is not announced. `dataErrorState(onRetry)` is also usable on its own -- `OpenItemsScreen` has its own
+cursor paging and client filter and only uses the error state.
+
+== Row heights
+
+[cols="1,1"]
+|===
+| Situation | Target
+
+| `pointer: fine`
+| `table-sm` rows
+
+| `pointer: coarse`, row without a button
+| at most 48 px
+
+| `pointer: coarse`, row with an icon button
+| at most 52 px (a 44 px button in a `table-sm` cell cannot be smaller; the cell padding drops to 2 px, about 49 px)
+
+| Card
+| 12 px padding, hairline border, no zebra, no shadow
+|===
+
+The 44 px target size is never undercut.
+
+== Tripwire and debt ledger
+
+`ClientUiGuidelineTripwireTest` (module `lapis-server`, it reads the client sources as text) enforces:
+
+[cols="1,3"]
+|===
+| Rule | Check
+
+| R2 | no `width = N.px` with N of 600 or more (use `maxWidth`)
+| R9 | no colour literal in client Kotlin: `#hex`, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `0xRRGGBB` (baseline: the whiteboard paper constant and three semi-transparent overlay chips in `ConferenceScreen`)
+| R11 | every colour token of ANY light `:root` block (hex, `rgb()`/`rgba()`/`hsl()`/`color-mix()`, colour keywords, `var()` aliases of colour tokens) exists in both dark blocks, no colour token exists only in a dark block, and the two dark blocks agree; non-colour tokens (fonts, widths) are exempt
+| R14 | every `table(...)` call carries `STRIPED`, `HOVER` and `SMALL` (also a call broken before the dot: `panel` newline `.table(`)
+| R15 | every `table(...)` call carries `ResponsiveType.RESPONSIVE`
+| R39 | an icon-only `button("", icon = ...)` (also `button(text = "", icon = ...)`) carries `title` and `aria-label` in the same block; the one factory line in `DataScreenLayout.kt` that labels its button in the next statement is exempted by name, not the file
+| R54 | every selector with a `transition` is in the single `prefers-reduced-motion` block, nothing else is, and no transition is longer than 200 ms
+|===
+
+Rules R2, R9, R14, R15 and R39 have a debt ledger with **one fingerprint per finding**: rule, file name, and the
+trimmed source line of the offending spot (no line number; a line that starts with `.` is prefixed with the previous
+code line). Compared as a multiset per file, so the test fails on a new finding, on a paid-off finding (delete its
+ledger line) and -- unlike a plain count -- when one violation is fixed and another added in the same file. Editing a
+ledgered line changes its fingerprint on purpose: re-list or pay the debt. Two findings with an identical line in one
+file are indistinguishable (their number is still pinned). Files not in the ledger are held strictly -- that includes
+the three migrated screens and the new building blocks. Every rule has a self-test with a bad and a good example.
+
+`UiFoundationI18nCatalogTest` guards the new strings: present in the template and all seven catalogs, translated,
+with the `%N` placeholders intact. It scans the three helper files completely, but `MemberAdministrationScreen.kt`
+only through an explicit list of the roster sentences -- the rest of that file is NOT covered (see Known gaps).
+
+== Rule precedence: attributes and `gettext`
+
+The guideline (section 2.14) says `tr()` only as widget content and, for attributes (`title`, `aria-label`,
+`placeholder`), string templates, concatenations and as an argument of `gettext()`, always `gettext()`; it also calls a
+`gettext()` without an argument a convention break. Where the two collide -- an attribute that needs a plain word, e.g.
+`title = gettext("Speichern")` -- **the attribute rule wins**: `gettext()` is correct there, `tr()` would leak
+KVision's `###KvI18nS###` marker into the DOM. `ClientTrAttributeLeakTest` sees only the direct case; helpers that
+receive a `tr()` string and set an attribute (`tableActionTooltip`, `segmentedControl`, `sortButtonTexts`) resolve it
+through `resolvedAttributeText` (marker stripped AND translated).
+
+== Known gaps
+
+* Only 3 of 67 screens are migrated; the ledger shows the rest.
+* The card list has no sort controls -- the order chosen on a wide screen stays.
+* `ContributionsScreen`: amounts are not formatted with `moneySpan`, the organisation table shows the raw status enum,
+  text buttons remain in action cells, the 760 px root remains (all W2).
+* `MemberAdministrationScreen.kt` carries about 80 German `tr()`/`gettext()` literals (68 distinct msgids) without a
+  catalog entry -- old debt (R51), scheduled with W5 and NOT translated in this wave. `UiFoundationI18nCatalogTest`
+  deliberately does not scan the file as a whole, so these gaps are invisible to the tests.
+* The status chips of the roster have no active state and no `aria-pressed` (R20/R48, W2; `segmentedControl` is the
+  intended replacement).
+* R9 debt: the whiteboard paper colour (a document colour) and three `rgba()` overlay-chip backgrounds in
+  `ConferenceScreen` (W5).
+* Minor audit findings left open: approximate `#:` source references of the new msgids, the `ntr` stub in
+  `I18nCatalogManager`, the period column not marked numeric.
+* Browser verification at 375, 767, 768 and 1440 px in both themes is manual.

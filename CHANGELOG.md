@@ -8,6 +8,64 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W1 "Foundation" (V1.4.25)** -- the shared building blocks of the UI/UX guideline plus
+  three screens migrated onto them; a pure client wave (no RPC, DTO, table or migration; server side only tests).
+  **What it is now:** `dataTable` renders one table grammar (striped, hover, small rows, own horizontal scroll
+  frame) and, below 768 px, switches to a card list (title = primary column, `dt`/`dd` pairs, action group;
+  empty pairs and empty groups are dropped). Sortable columns are a native `button` in the `th` with `aria-sort`
+  (exactly one column active), a tooltip that names the action and an accessible name that names the state; the
+  keyboard focus returns to the same header after the re-render. `dataSection` owns a load and shows exactly one of
+  loading / error (fixed sentence, "Erneut versuchen" inside the box, no exception text) / "nothing yet" / "nothing
+  matches "x"" / content, drops results of superseded loads and hands the focus to the region on retry.
+  `standardTable` + `numCell` give hand-built tables the same density and right-aligned tabular figures.
+  New tokens `--lapis-tile-*`, `--lapis-media-*`, `--lapis-guest-*` replace all 17 hex colour literals of the
+  conference/guest-badge code (one deliberate exception: the whiteboard paper colour, which is a document colour
+  and cannot be a CSS variable on a canvas). One `prefers-reduced-motion` block now covers all three transitions
+  of `theme.css`; touch targets are at least 44 px under `pointer: coarse`. `MemberAdministrationScreen` (roster and
+  pending applications), `ContributionsScreen` (own and organisation-wide tables) and `OpenItemsScreen` (all four
+  tables) use the blocks. Side effects worth knowing: the roster's sort options were dead -- the new header buttons
+  drive them (first click on "Beitritt" = newest first, no "unsorted" state); the roster no longer shows a stale
+  answer when two searches overlap; the open-items list shows an error state with retry instead of a silently
+  empty panel when its load fails (the same for the age structure and the item detail); the roster pager is hidden
+  while loading and when there is no result.
+  New `ClientUiGuidelineTripwireTest` (rules R2, R9, R11, R14, R15, R39, R54) with a per-finding debt ledger, and
+  `UiFoundationI18nCatalogTest`; 11 new i18n msgids in all eight catalogs. Design record:
+  `docs/architecture/ui-ux-guideline.adoc`.
+  **Independent audit, fixed in the same wave:** (1) the table scanner missed a `table(` broken before the dot
+  (`panel` newline `.table(`) -- 23 of 27 calls were seen; it now sees all 27 and the ledger was corrected
+  (`SepaBatchesScreen` 4 instead of 3, `SepaMandatesScreen` and `MemberHonorsScreen` were missing, `MemberFamiliesScreen`
+  has 2 tables). (2) The tooltip and `aria-label` of a sort header and of icon buttons mixed languages: only
+  `tr()`'s marker was stripped, so the translated column name stayed German -- `resolvedAttributeText` now resolves
+  marker AND translation. (3) The loading text of `dataSection` was mounted together with its `role="status"`
+  container and therefore not announced; the live region is now mounted once and only its text changes. (4) The
+  `pointer: coarse` 44 px rule no longer inflates an inline `btn-link`. (5) Tripwire hardening: the debt ledger holds
+  one fingerprint (the trimmed source line, no line number) per finding instead of a number per file, so fixing one
+  violation and adding another in the same file turns the test red; R54 also caps a transition at 200 ms; R11 reads
+  every `:root` block and every colour syntax (`rgb()`, `rgba()`, `hsl()`, `color-mix()`, `var()` aliases), not just
+  hex in the first block; R9 also flags `rgb()`/`rgba()`/`hsl()`/`hsla()`/`0xRRGGBB` (three semi-transparent
+  overlay chips in `ConferenceScreen` are now listed in the ledger, unchanged); R39 also flags `button(text = "",
+  icon = ...)` and no longer exempts `DataScreenLayout.kt` as a whole (one named line only). (6) The "Alle" status
+  chip stayed German (`"${tr("Alle")} ($count)"`) -- now `gettext("Alle (%1)", count)`; three catalog strings were
+  reworded (pl "noch keine", fr no doubled "par", nl infinitive). (7) A sort click's focus request no longer
+  survives a failed, superseded or empty load and cannot pull the focus on a later search keystroke.
+  **Known gaps:** only 3 of 67 screens are migrated (the tripwire baseline lists the rest with exact counts and the
+  wave assignment is provisional); the card list has no sort controls (the sort chosen on a wide screen stays);
+  the organisation-wide contribution table still shows the raw status enum and unformatted amounts, and text
+  buttons stay in its action cells; `ContributionsScreen` keeps its own 760 px root; `OpenItemsScreen` still uses its
+  own load handling (cursor paging, client filter) and only adopts the error state; the three new screen-width
+  constants are declared but applied by no screen yet; the Gast badge keeps `#A855F7`/`#FFFFFF` in the dark theme
+  (it always sits on a dark surface); under `pointer: coarse` rows with an icon button are about 49-52 px, not 48
+  (a 44 px button in a `table-sm` cell cannot be smaller); nothing was measured in a real browser at 375/767/768/1440
+  px in this wave's automated run -- that check is manual.
+  **Known gaps found by the audit (not fixed in this wave):** `MemberAdministrationScreen.kt` still carries about 80
+  German `tr()`/`gettext()` literals (68 distinct msgids) without a catalog entry -- old debt (R51), belongs to W5, and
+  `UiFoundationI18nCatalogTest` deliberately does not scan the file (it checks only the roster sentences it lists),
+  so the gap stays invisible to the tests; the status chips of the roster have no active state and no `aria-pressed`
+  (R20/R48, W2 -- `segmentedControl` is the intended replacement); the `#:` source references of the new msgids
+  in the catalogs are approximate line numbers and go stale; `I18nCatalogManager.ntr` is a stub (no plural forms are used);
+  the "Zeitraum" (period) column is not marked numeric; the whiteboard paper colour and the three
+  overlay-chip `rgba()` backgrounds in `ConferenceScreen` remain R9 debt (W5).
+
 - **Video background effects now also work in the Android WebView of the companion app (V1.4.24)** -- the section
   was switched off there because the combination (19 MB of WASM plus MediaPipe segmentation on a phone) had never
   been measured. It has now: on a Nokia 9 (Android 10, WebView 153, Adreno 630) via remote debugging (the page

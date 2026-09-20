@@ -72,6 +72,17 @@
   --lapis-role-guest:      #B35300;
   --lapis-role-inactive:   #6B7280;
 
+  /* V1.4.25 Medienflächen -- Konferenzkacheln, Aufzeichnungs-/Bildschirmteilungs-Player und das
+     Gast-Abzeichen sitzen in JEDEM Theme auf dunklem Grund (Video-Letterbox). Deshalb sind die
+     Werte in allen drei Blöcken (hell, System-dunkel, explizit dunkel) dunkel bzw. identisch. */
+  --lapis-tile-bg:           #111827;
+  --lapis-tile-border:       #374151;
+  --lapis-tile-text:         #EEEEEE;  /* auf --lapis-tile-bg ca. 14:1 */
+  --lapis-media-bg:          #000000;
+  --lapis-media-overlay-text: #FFFFFF; /* Beschriftung auf rgba(0,0,0,.55)-Overlays */
+  --lapis-guest-fill:        #A855F7;  /* Gast-Abzeichen: bewusst in beiden Themes gleich */
+  --lapis-guest-glyph:       #FFFFFF;
+
   --lapis-font-display: Georgia, serif;
   /* V1.4.16: PdV-Branding-Schrift Inter (siehe CLAUDE.md "PdV-Branding") für den Fließtext -- der
      Georgia-Serif-Auftritt oben bleibt auf die Wortmarke (`.lapis-brand-text`) beschränkt, keine
@@ -114,6 +125,14 @@
     --lapis-role-member:     #4DB6C4;
     --lapis-role-guest:      #F0A050;
     --lapis-role-inactive:   #9CA3AF;
+
+    --lapis-tile-bg:           #0B1220;
+    --lapis-tile-border:       #2A3441;
+    --lapis-tile-text:         #EEEEEE;
+    --lapis-media-bg:          #000000;
+    --lapis-media-overlay-text: #FFFFFF;
+    --lapis-guest-fill:        #A855F7;
+    --lapis-guest-glyph:       #FFFFFF;
   }
 }
 
@@ -148,6 +167,14 @@
   --lapis-role-member:     #4DB6C4;
   --lapis-role-guest:      #F0A050;
   --lapis-role-inactive:   #9CA3AF;
+
+  --lapis-tile-bg:           #0B1220;
+  --lapis-tile-border:       #2A3441;
+  --lapis-tile-text:         #EEEEEE;
+  --lapis-media-bg:          #000000;
+  --lapis-media-overlay-text: #FFFFFF;
+  --lapis-guest-fill:        #A855F7;
+  --lapis-guest-glyph:       #FFFFFF;
 }
 
 body {
@@ -724,12 +751,6 @@ body {
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lapis-conference-controls-row {
-    transition: none;
-  }
-}
-
 /* Reserviert Platz für die fixe untere Leiste, damit der letzte Inhalt im normalen Fluss
    (z.B. das Ende der Roster-Liste im Normalmodus) nicht dahinter verschwindet. */
 .lapis-conference-call-panel {
@@ -999,5 +1020,115 @@ body {
   .lapis-update-pill {
     left: calc(var(--lapis-sidebar-width) + 1rem);
     max-width: min(40rem, calc(100vw - var(--lapis-sidebar-width) - 2rem));
+  }
+}
+
+/* ------------------------------------------------------------------------------------------
+   V1.4.25 UI/UX-Richtlinie, Welle W1 "Fundament" -- Bausteine fuer `DataTable.kt` /
+   `DataScreenLayout.kt` (Zahlenspalten, Touch-Ziele, Kartenliste, Sortierkopf).
+   Einziger neuer Breakpoint: 767.98px (dieselbe Grenze wie die Konferenz-Regeln oben; im Code
+   `CARD_LIST_BREAKPOINT_PX = 768`).
+   ------------------------------------------------------------------------------------------ */
+
+/* Zahlenspalte: rechtsbuendig, tabellarische Ziffern -- Betraege/Daten stehen stellengerecht. */
+.lapis-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Sortierkopf: nativer <button> im <th> (Enter/Space und Fokus gratis). Der Fokusring ist der
+   globale :focus-visible -- hier bewusst kein `outline: none`. */
+.lapis-sort-th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Unsortiert: Farbe `--lapis-muted` statt `opacity` -- .35 Deckkraft laege bei ca. 2,4:1 und
+   verletzte WCAG 1.4.11; die Form (fa-sort vs. fa-sort-up/-down) unterscheidet den Zustand. */
+.lapis-sort-idle {
+  color: var(--lapis-muted);
+}
+
+/* Kartenliste (unter 768px ersetzt sie die Tabelle, siehe `dataTable`): Haarlinie, kein Zebra,
+   kein Schatten. */
+.lapis-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lapis-data-card {
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.lapis-data-card-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+
+.lapis-data-card dl {
+  display: grid;
+  grid-template-columns: minmax(96px, 35%) 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.lapis-data-card dt {
+  color: var(--lapis-muted);
+  font-weight: 400;
+}
+
+.lapis-data-card dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lapis-data-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* Touch-Ziele: mindestens 44x44px bei grobem Zeiger. Ein 44px-Knopf in einer `table-sm`-Zelle
+   (Padding 4+4, Rand 1) ergaebe ca. 52px Zeilenhoehe -- das Zellen-Padding sinkt daher bei
+   `pointer: coarse` auf 2px (ca. 49px). Kriterium: Zeilen mit Icon-Knopf <= 52px, Zeilen ohne
+   Knopf <= 48px; die 44px-Zielgroesse wird nie unterschritten.
+   `.btn-link` ist ausgenommen: ein Link-Knopf steht INLINE im Fliesstext bzw. in einer Zelle und
+   wuerde mit 44x44 die Zeile aufblaehen und den Satz zerreissen -- er bleibt, wie er ist. */
+@media (pointer: coarse) {
+  .btn:not(.btn-link),
+  .lapis-sidebar .nav-link,
+  .lapis-sort-th button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .table-sm > :not(caption) > * > * {
+    padding-block: 2px;
+  }
+}
+
+/* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser
+   Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau). Wer eine neue Transition ergaenzt,
+   ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .lapis-conference-controls-row,
+  .lapis-conference-background-preview {
+    transition: none;
   }
 }

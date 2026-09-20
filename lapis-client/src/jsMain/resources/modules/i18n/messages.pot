@@ -11278,3 +11278,47 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:132
 msgid "Hintergrundeffekte werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:135
+msgid "Erneut versuchen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:134
+msgid "Die Daten konnten nicht geladen werden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:92
+msgid "Keine Daten vorhanden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:93
+msgid "Kein Eintrag passt zu \"%1\"."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:250
+msgid "Noch keine Mitglieder vorhanden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:251
+msgid "Kein Mitglied passt zu \"%1\"."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:88
+msgid "Nach %1 aufsteigend sortieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:89
+msgid "Nach %1 absteigend sortieren"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:94
+msgid "Aufsteigend sortiert nach %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:95
+msgid "Absteigend sortiert nach %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:314
+msgid "Alle (%1)"
+msgstr ""

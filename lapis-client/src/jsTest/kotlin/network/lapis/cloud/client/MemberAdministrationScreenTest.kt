@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FamilyMemberRole
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
+import network.lapis.cloud.shared.domain.MemberAdminSort
 import network.lapis.cloud.shared.domain.MemberStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -521,5 +522,58 @@ class MemberAdministrationScreenTest {
     @Test
     fun grantAccountConsequence_active_isNull() {
         assertEquals(null, grantAccountConsequence(MemberStatus.ACTIVE))
+    }
+
+    // ── Welle V1.4.25: roster sort mapping + filter term ──
+
+    @Test
+    fun memberAdminSort_roundTripsThroughSortState_forAllFourValues() {
+        MemberAdminSort.entries.forEach { sort ->
+            assertEquals(sort, sort.toSortState().toMemberAdminSort(), "round trip of $sort")
+        }
+    }
+
+    @Test
+    fun memberAdminSort_defaultNameAsc_isNameAscendingInTheTable() {
+        assertEquals(SortState(key = "name", direction = SortDirection.ASC), MemberAdminSort.NAME_ASC.toSortState())
+        assertEquals("ascending", ariaSortValue(MemberAdminSort.NAME_ASC.toSortState(), "name"))
+        assertEquals("none", ariaSortValue(MemberAdminSort.NAME_ASC.toSortState(), "joined"))
+    }
+
+    @Test
+    fun memberAdminSort_joinedColumn_startsNewestFirst_andNeverYieldsUnsorted() {
+        val options =
+            SortOptions(allowUnsorted = false, firstDirection = { key ->
+                if (key ==
+                    "joined"
+                ) {
+                    SortDirection.DESC
+                } else {
+                    SortDirection.ASC
+                }
+            })
+        val first = nextSortState(MemberAdminSort.NAME_ASC.toSortState(), "joined", options.firstDirection("joined"), options.allowUnsorted)
+        assertEquals(MemberAdminSort.JOINED_DESC, first?.toMemberAdminSort())
+        val second = nextSortState(first, "joined", options.firstDirection("joined"), options.allowUnsorted)
+        assertEquals(MemberAdminSort.JOINED_ASC, second?.toMemberAdminSort())
+        val third = nextSortState(second, "joined", options.firstDirection("joined"), options.allowUnsorted)
+        assertEquals(MemberAdminSort.JOINED_DESC, third?.toMemberAdminSort())
+    }
+
+    @Test
+    fun rosterSortClick_setsTheNewSort_andResetsTheOffset() {
+        val state = RosterState(sort = MemberAdminSort.NAME_ASC, offset = 100)
+        val clicked = nextSortState(state.sort.toSortState(), "joined", SortDirection.DESC)
+        val after = state.withSortClick(clicked)
+        assertEquals(MemberAdminSort.JOINED_DESC, after.sort)
+        assertEquals(0, after.offset)
+        assertEquals(state.copy(offset = 0), state.withSortClick(null))
+    }
+
+    @Test
+    fun rosterFilterTerm_prefersTheSearchText_thenASingleStatusLabel_elseNull() {
+        assertEquals("Meier", rosterFilterTerm(search = " Meier ", statuses = setOf(MemberStatus.ACTIVE)))
+        assertEquals(memberStatusLabel(MemberStatus.ACTIVE), rosterFilterTerm(search = "", statuses = setOf(MemberStatus.ACTIVE)))
+        assertNull(rosterFilterTerm(search = "  ", statuses = emptySet()))
     }
 }

@@ -18,12 +18,9 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
 import io.kvision.table.Table
-import io.kvision.table.TableType
 import io.kvision.table.cell
 import io.kvision.table.row
-import io.kvision.table.table
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
@@ -120,7 +117,7 @@ fun renderOpenItemsScreen(
     container: SimplePanel,
     selectedItemId: String? = null,
 ) {
-    val root = container.dataScreenRoot(spacing = 14)
+    val root = container.dataScreenRoot()
     root.h1(tr("Offene Posten"))
 
     val role = AppState.session?.role
@@ -264,16 +261,18 @@ fun renderOpenItemsScreen(
         ) {
             title?.let { agingHost.div(it) { addCssClasses("fw-bold") } }
             val table =
-                agingHost.table(
-                    headerNames = listOf(tr("Fälligkeit"), tr("Anzahl"), tr("Betrag")),
-                    types = setOf(TableType.STRIPED),
-                    responsiveType = ResponsiveType.RESPONSIVE,
+                agingHost.standardTable(
+                    listOf(
+                        TableHeader(title = tr("Fälligkeit")),
+                        TableHeader(title = tr("Anzahl"), numeric = true),
+                        TableHeader(title = tr("Betrag"), numeric = true),
+                    ),
                 )
             buckets.forEach { bucket ->
                 table.row {
                     cell(openItemAgingBucketLabel(bucket.bucket))
-                    cell(bucket.count.toString())
-                    cell { moneySpan(bucket.totalAmount) }
+                    numCell(bucket.count.toString())
+                    numCell { moneySpan(bucket.totalAmount) }
                 }
             }
         }
@@ -309,7 +308,14 @@ fun renderOpenItemsScreen(
 
     fun refreshSummary() {
         AppScope.launch {
-            val summary = guarded { rpcService<IOpenItemService>().getOpenItemSummary(null) } ?: return@launch
+            val summary = guarded { rpcService<IOpenItemService>().getOpenItemSummary(null) }
+            if (summary == null) {
+                // The toast is out already; the age structure (the only part that can be opened on demand)
+                // gets a state with a way out instead of staying blank.
+                agingHost.removeAll()
+                agingHost.dataErrorState(onRetry = { refreshSummary() })
+                return@launch
+            }
             state.summary = summary
             renderBand()
             renderTiles()
@@ -340,21 +346,16 @@ fun renderOpenItemsScreen(
         val showLevelColumn = state.segment != OpenItemSegment.PAYABLE
         val headers =
             buildList {
-                add(tr("Gegenpartei"))
-                add(tr("Beleg"))
-                add(tr("Fällig am"))
-                add(tr("Betrag"))
-                add(tr("Offen"))
-                add(tr("Status"))
-                if (showLevelColumn) add(tr("Mahnstufe"))
-                add("")
+                add(TableHeader(title = tr("Gegenpartei")))
+                add(TableHeader(title = tr("Beleg")))
+                add(TableHeader(title = tr("Fällig am"), numeric = true))
+                add(TableHeader(title = tr("Betrag"), numeric = true))
+                add(TableHeader(title = tr("Offen"), numeric = true))
+                add(TableHeader(title = tr("Status")))
+                if (showLevelColumn) add(TableHeader(title = tr("Mahnstufe")))
+                add(TableHeader(title = ""))
             }
-        val table =
-            listPanel.table(
-                headerNames = headers,
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
+        val table = listPanel.standardTable(headers)
         visibleItems.forEach { item ->
             appendOpenItemRow(
                 table = table,
@@ -418,11 +419,15 @@ fun renderOpenItemsScreen(
             if (generation != state.generation) return@launch // ein neuerer Ladevorgang hat übernommen
             loadMoreButton.disabled = false
             if (items == null) {
-                // S3: guarded() hat den Toast schon ausgelöst; Platzhalter entfernen, Zähler-Etikett konsistent leeren.
+                // S3: guarded() hat den Toast schon ausgelöst. Beim Neuladen (Reset) ersetzt ein Fehlerzustand
+                // mit "Erneut versuchen" den Platzhalter -- vorher blieb hier ein stilles, leeres Panel; das
+                // Zähler-Etikett wird konsistent geleert. Beim Nachladen ("Mehr laden") bleibt die Ansicht
+                // bestehen, dort genügt der Toast.
                 if (reset) {
                     listPanel.removeAll()
                     countsLabel.content = ""
                     loadMoreButton.hide()
+                    listPanel.dataErrorState(onRetry = { loadPage(reset = true) })
                 }
                 return@launch
             }
@@ -479,7 +484,7 @@ fun renderOpenItemsScreen(
                 // N13: gescheiterter Abruf ist NICHT "nicht gefunden" -- `guarded()` hat den Fehler
                 // schon als Toast gezeigt, der Posten existiert vermutlich weiterhin. Deshalb auch
                 // `state.selectedId` nicht löschen (die Auswahl bleibt, "Aktualisieren" hilft).
-                detailPanel.p(tr("Details konnten nicht geladen werden.")) { addCssClasses("text-muted small") }
+                detailPanel.dataErrorState(onRetry = { openDetail(id) })
                 return@launch
             }
             val detail = loaded.firstOrNull()
@@ -714,15 +719,15 @@ private fun appendOpenItemRow(
         nameCell.span(item.counterpartyName)
         nameCell.typeBadge(openItemDirectionLabel(item.direction), openItemDirectionColor(item.direction)).addCssClass("ms-2")
         cell(item.reference.orEmpty())
-        val dueCell = cell()
+        val dueCell = numCell()
         dueCell.span(item.dueDate.toString())
         if (item.daysOverdue > 0 && item.status in OpenItemStatusSets.SETTLEABLE) {
             // Ive: genau ein Badge; die Tageszahl kommt server-berechnet aus `daysOverdue` (S5).
             dueCell.statusBadge(openItemOverdueLabel(), "danger")
             dueCell.span(openItemOverdueDaysLabel(item.daysOverdue)) { addCssClasses("text-muted small") }
         }
-        cell { moneySpan(item.amount) }
-        cell { moneySpan(item.openAmount) }
+        numCell { moneySpan(item.amount) }
+        numCell { moneySpan(item.openAmount) }
         val statusCell = cell()
         statusCell.statusBadge(openItemStatusLabel(item.status), openItemStatusColor(item.status))
         if (item.creationPostingError != null) {
@@ -872,16 +877,20 @@ private fun renderSettlementsSection(
     if (detail.settlements.isEmpty()) return
     panel.h2(tr("Ausgleiche")) { addCssClass("h6") }
     val table =
-        panel.table(
-            headerNames = listOf(tr("Art"), tr("Betrag"), tr("Datum"), tr("Status"), ""),
-            types = setOf(TableType.STRIPED, TableType.HOVER),
-            responsiveType = ResponsiveType.RESPONSIVE,
+        panel.standardTable(
+            listOf(
+                TableHeader(title = tr("Art")),
+                TableHeader(title = tr("Betrag"), numeric = true),
+                TableHeader(title = tr("Datum"), numeric = true),
+                TableHeader(title = tr("Status")),
+                TableHeader(title = ""),
+            ),
         )
     detail.settlements.sortedBy { it.createdAt }.forEach { settlement ->
         table.row {
             cell(openItemSettlementKindLabel(settlement.kind))
-            cell { moneySpan(settlement.amount) }
-            cell(settlement.settledOn.toString())
+            numCell { moneySpan(settlement.amount) }
+            numCell(settlement.settledOn.toString())
             val statusCell = cell()
             val postingError = settlement.postingError
             when {
@@ -984,11 +993,17 @@ private fun renderDunningNoticesSection(
     if (detail.dunningNotices.isEmpty()) return
     panel.h2(tr("Mahnhinweise")) { addCssClass("h6") }
     val table =
-        panel.table(
-            headerNames =
-                listOf(tr("Stufe"), tr("Name"), tr("Status"), tr("Ausgestellt am"), tr("Antwort bis"), tr("Gebühr"), tr("Stornogrund"), ""),
-            types = setOf(TableType.STRIPED, TableType.HOVER),
-            responsiveType = ResponsiveType.RESPONSIVE,
+        panel.standardTable(
+            listOf(
+                TableHeader(title = tr("Stufe"), numeric = true),
+                TableHeader(title = tr("Name")),
+                TableHeader(title = tr("Status")),
+                TableHeader(title = tr("Ausgestellt am"), numeric = true),
+                TableHeader(title = tr("Antwort bis"), numeric = true),
+                TableHeader(title = tr("Gebühr"), numeric = true),
+                TableHeader(title = tr("Stornogrund")),
+                TableHeader(title = ""),
+            ),
         )
     detail.dunningNotices
         .sortedWith(compareBy({ it.cycleNumber }, { it.levelNumber }, { it.issuedAt }))
@@ -1002,13 +1017,13 @@ private fun renderNoticeRow(
     onChanged: (OpenItemDetailDto) -> Unit,
 ) {
     table.row {
-        cell(notice.levelNumber.toString())
+        numCell(notice.levelNumber.toString())
         cell(notice.levelName)
         val statusCell = cell()
         statusCell.statusBadge(receivableDunningNoticeStatusLabel(notice.status), receivableDunningNoticeStatusColor(notice.status))
-        cell(notice.issuedAt.toString())
-        cell(notice.respondBy.toString())
-        cell { notice.feeAmount?.let { moneySpan(it) } ?: div("–") }
+        numCell(notice.issuedAt.toString())
+        numCell(notice.respondBy.toString())
+        numCell { notice.feeAmount?.let { moneySpan(it) } ?: div("–") }
         cell(notice.cancellationReason.orEmpty())
         val actionsCell = cell()
         if (OpenItemAuthzUi.canCancelDunningNotice(role, notice.status)) {

@@ -32,3 +32,24 @@ private val testI18nSetup =
         I18n.manager = I18nCatalogManager(emptyMap())
         I18n.language = "de"
     }
+
+/**
+ * Runs [block] with a translation catalog for the CURRENT test language (`de`) -- the German source text is
+ * the key, [entries] map it to a visibly different string -- and restores the previous manager afterwards.
+ * Lets a test prove that a helper TRANSLATES (not merely strips `tr()`'s marker), without switching
+ * `I18n.language` (its setter restarts the KVision root).
+ */
+internal fun <T> withTranslations(
+    entries: Map<String, String>,
+    block: () -> T,
+): T {
+    val previous = I18n.manager
+    val catalog = js("({})")
+    entries.forEach { (key, value) -> catalog[key] = value }
+    I18n.manager = I18nCatalogManager(mapOf(I18n.language to catalog))
+    try {
+        return block()
+    } finally {
+        I18n.manager = previous
+    }
+}

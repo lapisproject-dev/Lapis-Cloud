@@ -12362,3 +12362,47 @@ msgstr "Fondo: Estudio luminoso"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:132
 msgid "Hintergrundeffekte werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
 msgstr "Los efectos de fondo aún no se admiten en la aplicación: están disponibles en el navegador de este dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:135
+msgid "Erneut versuchen"
+msgstr "Reintentar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:134
+msgid "Die Daten konnten nicht geladen werden."
+msgstr "No se pudieron cargar los datos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:92
+msgid "Keine Daten vorhanden."
+msgstr "No hay datos disponibles."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:93
+msgid "Kein Eintrag passt zu \"%1\"."
+msgstr "Ninguna entrada coincide con \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:250
+msgid "Noch keine Mitglieder vorhanden."
+msgstr "Todavía no hay miembros."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:251
+msgid "Kein Mitglied passt zu \"%1\"."
+msgstr "Ningún miembro coincide con \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:88
+msgid "Nach %1 aufsteigend sortieren"
+msgstr "Ordenar por %1 de forma ascendente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:89
+msgid "Nach %1 absteigend sortieren"
+msgstr "Ordenar por %1 de forma descendente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:94
+msgid "Aufsteigend sortiert nach %1"
+msgstr "Ordenado de forma ascendente por %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt:95
+msgid "Absteigend sortiert nach %1"
+msgstr "Ordenado de forma descendente por %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:314
+msgid "Alle (%1)"
+msgstr "Todos (%1)"

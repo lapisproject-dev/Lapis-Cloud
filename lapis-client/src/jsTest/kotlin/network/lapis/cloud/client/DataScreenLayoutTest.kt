@@ -21,6 +21,35 @@ class DataScreenLayoutTest {
     }
 
     @Test
+    fun resolvedAttributeText_translatesNotJustStrips() {
+        // Audit V1.4.25 M2: `removePrefix(marker)` left the untranslated German key in the attribute.
+        withTranslations(mapOf("Details anzeigen" to "Show details")) {
+            assertEquals("Show details", resolvedAttributeText(tr("Details anzeigen")))
+            assertEquals("Show details", resolvedAttributeText("${kvI18nMarker}Details anzeigen"))
+            // an already resolved string stays as it is
+            assertEquals("Details anzeigen", resolvedAttributeText("Details anzeigen"))
+        }
+    }
+
+    @Test
+    fun tableActionButton_withATrTooltip_translatesTheAriaLabel() {
+        withTranslations(mapOf("Details anzeigen" to "Show details")) {
+            val button = SimplePanel().tableActionButton("fas fa-eye", tr("Details anzeigen"))
+            assertEquals("Show details", button.getAttribute("aria-label"))
+            button.tableActionTooltip(tr("Gesperrt"))
+            assertEquals("Gesperrt", button.getAttribute("aria-label")) // not in the catalog: falls back to the key
+        }
+    }
+
+    @Test
+    fun segmentedControl_ariaLabelOfTheGroupIsTranslated() {
+        withTranslations(mapOf("Richtung" to "Direction")) {
+            val group = SimplePanel().segmentedControl(options = listOf(1 to "A"), selected = 1, ariaLabel = tr("Richtung")) {}
+            assertEquals("Direction", group.getAttribute("aria-label"))
+        }
+    }
+
+    @Test
     fun tableActionButton_withATrTooltip_doesNotLeakTheMarkerIntoAriaLabel() {
         val button = SimplePanel().tableActionButton("fas fa-eye", tr("Details anzeigen"))
         assertEquals("Details anzeigen", button.getAttribute("aria-label"))

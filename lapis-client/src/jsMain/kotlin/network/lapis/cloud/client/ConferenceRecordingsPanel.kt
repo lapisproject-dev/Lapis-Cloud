@@ -221,7 +221,7 @@ private fun renderConferenceRecordingRow(
             val el = vnode.elm as? HTMLElement ?: return@addAfterInsertHook
             val video = document.createElement("video") as HTMLVideoElement
             video.controls = true
-            video.style.cssText = "width:100%;max-height:360px;border-radius:6px;background:#000;"
+            video.style.cssText = "width:100%;max-height:360px;border-radius:6px;background:var(--lapis-media-bg);"
             video.src = mediaUrl
             el.appendChild(video)
         }

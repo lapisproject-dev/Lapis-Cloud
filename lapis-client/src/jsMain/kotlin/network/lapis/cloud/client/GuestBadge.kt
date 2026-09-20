@@ -33,15 +33,17 @@ import io.kvision.utils.px
  */
 object GuestBadgeColors {
     /**
-     * Deliberately outside the four plausible organization brand hues (yellow/blue/green/red) so
-     * the badge never blends into a visited server's own branding. WCAG-AA verified: vs Bootstrap
-     * navbar-light `#F8F9FA` = 3.7:1, vs navbar-dark `#212529` = 3.9:1 (both clear the 3:1
-     * non-text/UI-component bar); white glyph on this fill = 4.0:1. Final value from this
-     * project's UI/UX-Design-Team review -- see the provenance note in this file's top-level
-     * KDoc above.
+     * CSS custom properties from `theme.css` (V1.4.25, UI foundation wave -- these used to be the
+     * literals `#A855F7`/`#FFFFFF`). Deliberately outside the four plausible organization brand hues
+     * (yellow/blue/green/red) so the badge never blends into a visited server's own branding. The
+     * badge always sits on a dark surface (navbar `--lapis-nav`, conference tile `--lapis-tile-bg`
+     * -- both dark in every theme), so fill and glyph are IDENTICAL in the light, system-dark and
+     * explicit-dark token blocks (`#A855F7` / `#FFFFFF`, the pair the design-team review verified:
+     * >= 3:1 non-text against the dark surfaces, white glyph on the fill 4.0:1). A dark-mode
+     * variant would only change the approved badge for no contrast gain.
      */
-    const val FILL = "#A855F7"
-    const val GLYPH = "#FFFFFF"
+    const val FILL = "var(--lapis-guest-fill)"
+    const val GLYPH = "var(--lapis-guest-glyph)"
 }
 
 private const val BADGE_SIZE_PX = 18
@@ -59,8 +61,8 @@ private const val GLYPH_SIZE_PX = 12
 private val WANDERER_SVG =
     """
     <svg viewBox="0 0 24 24" width="$GLYPH_SIZE_PX" height="$GLYPH_SIZE_PX" xmlns="http://www.w3.org/2000/svg"
-         stroke="${GuestBadgeColors.GLYPH}" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="5" r="2" fill="${GuestBadgeColors.GLYPH}" stroke="none"/>
+         stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="5" r="2" fill="currentColor" stroke="none"/>
       <path d="M12 9 L9 14 L7 20 M12 9 L15 13 L18 16 M11 10.5 L8 12.5 L6 19"/>
     </svg>
     """.trimIndent()
@@ -101,6 +103,8 @@ fun Container.guestBadge(homeserverUrl: String): Span =
         height = BADGE_SIZE_PX.px
         flexShrink = 0
         setStyle("background-color", GuestBadgeColors.FILL)
+        // The SVG glyph paints in `currentColor` -- resolved from this wrapper.
+        setStyle("color", GuestBadgeColors.GLYPH)
         role = "img"
         tabindex = 0
         setAttribute("aria-label", guestBadgeAriaLabel(homeserverUrl))

@@ -2513,7 +2513,7 @@ private fun enterCall(
         priorityZoneElement = priority
 
         val compactLabel = document.createElement("div") as HTMLElement
-        compactLabel.style.cssText = "font-size:12px;color:#666;margin-top:8px;display:none;"
+        compactLabel.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:8px;display:none;"
         root.appendChild(compactLabel)
         compactLabelElement = compactLabel
 
@@ -3076,26 +3076,26 @@ private fun enterCall(
     ): ConferenceTileEntry {
         val tile = document.createElement("div") as HTMLElement
         tile.style.cssText =
-            "position:relative;background:#111;border:1px solid #444;border-radius:6px;" +
+            "position:relative;background:var(--lapis-tile-bg);border:1px solid var(--lapis-tile-border);border-radius:6px;" +
             "overflow:hidden;min-height:150px;display:flex;align-items:center;justify-content:center;"
 
         val mediaSlot = document.createElement("div") as HTMLElement
         mediaSlot.style.cssText =
             "width:100%;height:100%;display:flex;align-items:center;justify-content:center;" +
-            "color:#eee;font-size:28px;font-weight:600;"
+            "color:var(--lapis-tile-text);font-size:28px;font-weight:600;"
         mediaSlot.textContent = conferenceInitials(displayName)
         tile.appendChild(mediaSlot)
 
         val nameBadge = document.createElement("div") as HTMLElement
         nameBadge.style.cssText =
-            "position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,0.55);color:#fff;" +
+            "position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,0.55);color:var(--lapis-media-overlay-text);" +
             "font-size:12px;padding:2px 6px;border-radius:3px;max-width:85%;overflow:hidden;" +
             "text-overflow:ellipsis;white-space:nowrap;"
         tile.appendChild(nameBadge)
 
         val micBadge = document.createElement("div") as HTMLElement
         micBadge.style.cssText =
-            "position:absolute;right:6px;top:6px;background:rgba(0,0,0,0.55);color:#fff;" +
+            "position:absolute;right:6px;top:6px;background:rgba(0,0,0,0.55);color:var(--lapis-media-overlay-text);" +
             "font-size:11px;padding:2px 5px;border-radius:3px;display:none;"
         // Same "###KvI18nS###" leak `resolvedA11yText`'s own KDoc documents (V1.2.10, title/aria-label
         // case) -- raw `.textContent` writes bypass KVision's tr() marker resolution just the same.
@@ -3105,12 +3105,12 @@ private fun enterCall(
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt", design review D12 -- top-left
         // pill: white text on rgba(0,0,0,0.55) (proven AA-4.5:1 combination the "Stumm" badge above
         // already ships, needed because the pill carries 11px TEXT) plus an 8px round dot filled
-        // with GuestBadgeColors.FILL (3:1-class non-text signal, ~4.7:1 on this #111 tile). Colour
+        // with `var(--lapis-guest-fill)` (3:1-class non-text signal on the always-dark tile). Colour
         // is never the sole signal -- the word "Gast" is always present (WCAG 1.4.1), same rule
         // StatusBadge.kt states app-wide. Hidden by default -- see `setTileGuest`.
         val guestBadgeEl = document.createElement("div") as HTMLElement
         guestBadgeEl.style.cssText =
-            "position:absolute;left:6px;top:6px;background:rgba(0,0,0,0.55);color:#fff;" +
+            "position:absolute;left:6px;top:6px;background:rgba(0,0,0,0.55);color:var(--lapis-media-overlay-text);" +
             "font-size:11px;padding:2px 5px;border-radius:3px;display:none;" +
             "align-items:center;gap:4px;"
         val dot = document.createElement("span") as HTMLElement
@@ -3243,10 +3243,10 @@ private fun enterCall(
         // invent a novel layout").
         clearElement(stage)
         val mediaElement = track.attach()
-        mediaElement.style.cssText = "width:100%;max-height:60vh;border-radius:6px;background:#000;"
+        mediaElement.style.cssText = "width:100%;max-height:60vh;border-radius:6px;background:var(--lapis-media-bg);"
         stage.appendChild(mediaElement)
         val label = document.createElement("div") as HTMLElement
-        label.style.cssText = "font-size:12px;color:#666;margin-top:4px;"
+        label.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:4px;"
         label.textContent = gettext("%1 teilt den Bildschirm", displayName)
         stage.appendChild(label)
         stage.style.display = "block"
