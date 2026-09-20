@@ -293,7 +293,7 @@ fun renderOpenItemsScreen(
         // doppelt je Zeile und Tastendruck) -- die Zähler kommen jetzt aus demselben Ergebnis.
         val visibleItems = applyOpenItemFilter(state.loaded, state.filter)
         val countsText = gettext("%1 von %2 geladenen Posten angezeigt", visibleItems.size, state.loaded.size)
-        val tileHint = tr("Kacheln zählen alle Posten, die Liste nur die geladenen.")
+        val tileHint = gettext("Kacheln zählen alle Posten, die Liste nur die geladenen.")
         val moreHint = tr("Weitere Posten liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen.")
         countsLabel.content =
             when {

@@ -290,11 +290,11 @@ private fun renderRosterRow(
         expanded = !expanded
         if (expanded) {
             detailsPanel.removeAll()
-            detailsPanel.div("${tr("E-Mail")}: ${row.email ?: "-"}")
-            detailsPanel.div("${tr("Status")}: ${row.status}")
-            detailsPanel.div("${tr("Ticket ausgestellt")}: ${if (row.hasTicket) tr("Ja") else tr("Nein")}")
+            detailsPanel.div("${gettext("E-Mail")}: ${row.email ?: "-"}")
+            detailsPanel.div("${gettext("Status")}: ${row.status}")
+            detailsPanel.div("${gettext("Ticket ausgestellt")}: ${if (row.hasTicket) gettext("Ja") else gettext("Nein")}")
             if (row.checkedInAt != null) {
-                detailsPanel.div("${tr("Eingecheckt um")}: ${row.checkedInAt} (${row.checkedInByDisplayName ?: "-"})")
+                detailsPanel.div("${gettext("Eingecheckt um")}: ${row.checkedInAt} (${row.checkedInByDisplayName ?: "-"})")
             }
             val reissueButton = detailsPanel.button(tr("Ticket neu ausstellen"), style = ButtonStyle.OUTLINEDANGER)
             reissueButton.disabled = row.status != EventRegistrationStatus.CONFIRMED

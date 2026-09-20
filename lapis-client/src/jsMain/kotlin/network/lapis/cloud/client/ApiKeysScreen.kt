@@ -146,8 +146,8 @@ private fun renderApiKeyCard(
     info.div("${key.keyPrefix}…") { addCssClasses("small font-monospace text-muted") }
     val statusLine =
         when {
-            key.revokedAt != null -> tr("Widerrufen am") + " ${key.revokedAt}"
-            key.expiresAt != null -> tr("Läuft ab am") + " ${key.expiresAt}"
+            key.revokedAt != null -> gettext("Widerrufen am") + " ${key.revokedAt}"
+            key.expiresAt != null -> gettext("Läuft ab am") + " ${key.expiresAt}"
             else -> tr("Kein Ablaufdatum")
         }
     info.div(statusLine) { addCssClasses("small text-muted") }

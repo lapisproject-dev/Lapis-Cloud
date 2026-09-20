@@ -149,7 +149,7 @@ private fun renderReceivableSettingsSummary(
     }
     panel.div(gettext("Aktive Mahnstufen: %1", settings.activeLevelCount)) { addCssClasses("text-muted small") }
     panel.div(
-        gettext("Automatischer Mahnlauf (Poller): %1", if (settings.pollerEnabled) tr("aktiv") else tr("inaktiv")),
+        gettext("Automatischer Mahnlauf (Poller): %1", if (settings.pollerEnabled) gettext("aktiv") else gettext("inaktiv")),
     ) { addCssClasses("text-muted small") }
     panel.div(
         tr("Mahnhinweise erzeugen weder ein PDF noch einen Brief -- sie existieren nur in der Ansicht „Offene Posten“."),

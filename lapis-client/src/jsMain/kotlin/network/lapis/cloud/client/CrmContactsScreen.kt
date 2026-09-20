@@ -231,7 +231,7 @@ private fun renderCrmContactDetail(
                 }
             }
         }
-        infoPanel.div(gettext("E-Mail-Ansprache erlaubt: %1", if (contact.mayReceiveEmail) tr("Ja") else tr("Nein")))
+        infoPanel.div(gettext("E-Mail-Ansprache erlaubt: %1", if (contact.mayReceiveEmail) gettext("Ja") else gettext("Nein")))
         infoPanel.div(gettext("Wiedervorlage fällig: %1", contact.retentionReviewDueAt.toString()))
     }
     renderInfo()

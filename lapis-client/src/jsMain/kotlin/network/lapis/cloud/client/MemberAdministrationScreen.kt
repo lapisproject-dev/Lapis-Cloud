@@ -812,7 +812,7 @@ private fun openMemberEditorDialog(
             // TREASURER-Aufrufer verweigert (nur `isPrivileged`, also BOARD/ADMIN) -- siehe
             // [canEditMembershipTierOf] KDoc. Anders als beim ADMIN-Zweig oben ist die Select-Liste
             // deshalb NIE leer wählbar; ein no-op-Klick ohne Tiers geladen wird unten abgefangen.
-            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: tr("beitragsfrei")))
+            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
             val tierSelect = modal.select(options = emptyList(), label = tr("Neuer Tarif"))
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
@@ -848,7 +848,7 @@ private fun openMemberEditorDialog(
             }
         } else {
             // BOARD: nur die Schaltfläche "Tarif entfernen" -- siehe canEditMembershipTierOf KDoc.
-            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: tr("beitragsfrei")))
+            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
             val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
             val removeTierButton = modal.button(tr("Tarif entfernen"), style = ButtonStyle.WARNING)
             removeTierButton.onClick {

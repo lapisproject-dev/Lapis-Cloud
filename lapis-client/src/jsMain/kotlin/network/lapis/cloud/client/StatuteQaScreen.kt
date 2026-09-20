@@ -143,7 +143,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
                 entryPanel.p(tr(StatuteQaUi.NOTHING_FOUND_TEXT))
                 if (answer.searchedDocuments.isNotEmpty()) {
                     val titles = answer.searchedDocuments.joinToString(separator = ", ") { it.documentTitle }
-                    entryPanel.div("${tr("Durchsuchte Dokumente")}: $titles") { addCssClasses("text-muted small") }
+                    entryPanel.div("${gettext("Durchsuchte Dokumente")}: $titles") { addCssClasses("text-muted small") }
                 }
             }
             AiAnswerOutcome.RATE_LIMITED -> {

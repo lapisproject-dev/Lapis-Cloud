@@ -155,7 +155,7 @@ fun reliefEffectDescription(
             }
         }
         ContributionReliefKind.REDUCTION ->
-            gettext("Neuer Beitragssatz: %1", tierAmountLabel ?: request.reductionTargetTierName ?: tr("unbekannte Beitragsstufe"))
+            gettext("Neuer Beitragssatz: %1", tierAmountLabel ?: request.reductionTargetTierName ?: gettext("unbekannte Beitragsstufe"))
     }
 
 /**

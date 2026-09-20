@@ -16,10 +16,9 @@ import kotlin.test.assertTrue
  * [TravelExpenseLabelsTest]'s shape).
  */
 class OpenItemLabelsTest {
-    // Fix (build gate, first review pass): every hardcoded-string comparison against a tr()-wrapped
-    // label must include this KVision i18n test marker -- see VolunteerAllowanceLabelsTest/
-    // SidebarLabelsTest for the established pattern this file's own author missed.
-    private val kvI18nMarker = "###KvI18nS###"
+    // The labels use gettext() (not tr()): they are embedded into other strings (e.g. the netting preview),
+    // and a tr() result would leak KVision's internal "###KvI18nS###" marker there. gettext() returns the
+    // plain, already translated String, so the tests compare against plain text.
 
     @Test
     fun everyOpenItemDirection_hasALabelAndAColor() {
@@ -31,8 +30,8 @@ class OpenItemLabelsTest {
 
     @Test
     fun payable_isKreditor_receivable_isDebitor() {
-        assertEquals("${kvI18nMarker}Kreditor", openItemDirectionLabel(OpenItemDirection.PAYABLE))
-        assertEquals("${kvI18nMarker}Debitor", openItemDirectionLabel(OpenItemDirection.RECEIVABLE))
+        assertEquals("Kreditor", openItemDirectionLabel(OpenItemDirection.PAYABLE))
+        assertEquals("Debitor", openItemDirectionLabel(OpenItemDirection.RECEIVABLE))
     }
 
     @Test
@@ -66,14 +65,14 @@ class OpenItemLabelsTest {
 
     @Test
     fun overdueLabel_isStable() {
-        assertEquals("${kvI18nMarker}Überfällig", openItemOverdueLabel())
+        assertEquals("Überfällig", openItemOverdueLabel())
     }
 
     // ── Welle V1.4.21 ────────────────────────────────────────────────────────────────────────────
 
     @Test
     fun overdueDaysLabel_namesTheExactDayCount() {
-        assertEquals("${kvI18nMarker}seit 1 Tag", openItemOverdueDaysLabel(1))
+        assertEquals("seit 1 Tag", openItemOverdueDaysLabel(1))
         assertEquals("seit 12 Tagen", openItemOverdueDaysLabel(12))
     }
 

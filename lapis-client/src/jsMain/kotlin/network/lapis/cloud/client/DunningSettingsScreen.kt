@@ -163,7 +163,7 @@ private fun renderDunningSettingsSummary(
     }
 
     panel.div(
-        gettext("Automatischer Mahnlauf (Poller): %1", if (settings.pollerEnabled) tr("aktiv") else tr("inaktiv")),
+        gettext("Automatischer Mahnlauf (Poller): %1", if (settings.pollerEnabled) gettext("aktiv") else gettext("inaktiv")),
     ) { addCssClasses("text-muted small") }
     panel.div(
         gettext(
