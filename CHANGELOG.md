@@ -8,6 +8,20 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Video background effects now also work in the Android WebView of the companion app (V1.4.24)** -- the section
+  was switched off there because the combination (19 MB of WASM plus MediaPipe segmentation on a phone) had never
+  been measured. It has now: on a Nokia 9 (Android 10, WebView 153, Adreno 630) via remote debugging (the page
+  was shown a Chrome user agent without the `; wv)` token for the test so the old block did not fire; the app
+  itself was not modified), the self view stays at ~20 frames/s with no dropped frames with and without an effect
+  (app CPU ~51 % without, ~77 % with strong blur, ~82 % with a background image; +1-2 °C after 30 s; +78 MB app
+  memory), an effect is applied in ~250 ms, MediaPipe segments on the GPU (WebGL 2.0), camera off/on with an
+  active effect rebuilds the graph cleanly, and "Verlassen" frees the camera in ~130 ms. The detection no longer
+  treats the `; wv)` token as unsupported; iOS `WKWebView`s and the third-party in-app browser tokens stay
+  switched off (untested). Still off by default, still lazy (nothing downloads before an effect is chosen).
+  **Known gaps:** measured on one device and one WebView version -- weaker phones are unmeasured; the image
+  quality (edges) was not assessed by the measurement; iOS is untested; any third-party Android app embedding a
+  WebView now also gets the section (the host app's media permissions still decide whether the camera opens).
+
 - **V1.4.23 Videokonferenz-Hintergrundeffekte** -- background blur and six built-in background images for
   the video conference, computed entirely in the participant's browser (a pure client wave: no RPC, DTO,
   table or migration).
@@ -41,17 +55,17 @@ All notable changes to this project are documented here. Format follows
   after it, and that cleanup takes no mutex and caps its own stop at 500 ms. (Pre-release, a click on
   "Verlassen"/"Für alle beenden"/"Zurück zum Hauptraum" during a hanging effect load could keep camera and
   microphone alive for up to ~13 s while the UI already said "left".)
-  **Inside an embedded app WebView the section is switched off** with its own explanation pointing at the device's
-  browser: such a WebView reports full support, but 19 MB of WASM over mobile data plus MediaPipe segmentation on a
-  phone has never been measured. Detection is a pure user-agent function (Android `; wv)`, AppleWebKit on a
-  mobile device without a `Safari/` token for iOS in-app WKWebViews, or one of the in-app browser tokens
-  `FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp`); the mobile app itself is unchanged.
+  **Inside an embedded iOS WKWebView or a known third-party in-app browser the section is switched off** with
+  its own explanation pointing at the device's browser (never measured there). Detection is a pure user-agent
+  function (AppleWebKit on a mobile device without a `Safari/` token, or one of the in-app browser tokens
+  `FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp`); the mobile app itself is unchanged. **The Android System
+  WebView is supported since V1.4.24** (see below).
   **Leaving is final for the controller:** after the call is left -- including via the disconnect path that a kick,
   "ended for everyone" and a breakout assignment/recall all take -- no processor is built or attached any more and
   no stale failure notice can appear in the next room or in the lobby.
   **Caching:** the version-carrying WASM path sends `public, max-age=31536000, immutable`, model and images one day
   without `immutable`; `image/webp` is excluded from the Compression plugin (already compressed).
-  **Known gaps:** no custom uploads; no server-side background; the mobile app/WebView is switched off rather than
+  **Known gaps:** no custom uploads; no server-side background; the iOS WKWebView is switched off rather than
   supported (see above); Firefox and Safari only work through the library's canvas fallback path (and
   `maxFps = 15` only applies there -- the modern Chrome/Edge path has no library-side throttle, load follows the
   camera capture rate); the segmentation model is a third-party artefact (Apache-2.0, checksum documented) and is

@@ -144,13 +144,18 @@ class ConferenceBackgroundEffectsTest {
 
     // --- Audit-Befund M5: eingebettete App-WebView --------------------------------------------
 
+    /**
+     * V1.4.24: Die Android System WebView (`; wv)`) ist NICHT mehr gesperrt -- auf einem Nokia 9 (Android 10,
+     * WebView 153) gemessen und in Ordnung. Die zweite UA ist die echte Kennung dieses Geraets.
+     */
     @Test
-    fun androidSystemWebView_isDetected_byTheWvToken() {
-        // Echte UA-Form der Android System WebView (`; wv)` nach der Android-Version).
-        val webView =
+    fun androidSystemWebView_isNoLongerBlocked_sinceItWasMeasuredOnARealDevice() {
+        listOf(
             "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A.240205.004; wv) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Version/4.0 Chrome/121.0.6167.143 Mobile Safari/537.36"
-        assertTrue(conferenceBackgroundIsInAppWebView(webView))
+                "(KHTML, like Gecko) Version/4.0 Chrome/121.0.6167.143 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 10; Nokia 9 Build/QKQ1.190828.002; wv) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Version/4.0 Chrome/153.0.8010.36 Mobile Safari/537.36",
+        ).forEach { userAgent -> assertFalse(conferenceBackgroundIsInAppWebView(userAgent), userAgent) }
     }
 
     @Test
@@ -185,6 +190,18 @@ class ConferenceBackgroundEffectsTest {
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) " +
                 "Mobile/15E148 Safari/604.1 LinkedInApp",
         ).forEach { userAgent -> assertTrue(conferenceBackgroundIsInAppWebView(userAgent), userAgent) }
+    }
+
+    /**
+     * Die Token-Regel steht VOR allem anderen: ein Drittanbieter-In-App-Browser auf Android traegt haeufig
+     * zusaetzlich `; wv)` -- er bleibt gesperrt, obwohl die reine Android-WebView seit V1.4.24 frei ist.
+     */
+    @Test
+    fun anAndroidWebViewWithAThirdPartyInAppToken_staysBlocked() {
+        val facebookOnAndroidWebView =
+            "Mozilla/5.0 (Linux; Android 10; Nokia 9 Build/QKQ1.190828.002; wv) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Version/4.0 Chrome/153.0.8010.36 Mobile Safari/537.36 [FBAV/450.0.0.38.109;]"
+        assertTrue(conferenceBackgroundIsInAppWebView(facebookOnAndroidWebView))
     }
 
     /**
@@ -223,7 +240,7 @@ class ConferenceBackgroundEffectsTest {
     @Test
     fun realBrowsers_areNeverMistakenForAnAppWebView() {
         listOf(
-            // Chrome auf Android (KEIN `; wv)`)
+            // Chrome auf Android
             "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/121.0.0.0 Mobile Safari/537.36",
             // Mobile Safari
@@ -249,14 +266,27 @@ class ConferenceBackgroundEffectsTest {
 
     @Test
     fun availability_prefersTheWebViewVerdictOverTheCapabilityGate() {
+        // Ein iOS-WKWebView (kein `Safari/`-Token) ist weiterhin gesperrt: nie auf einem Geraet getestet.
         val webView =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UQ1A; wv) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Version/4.0 Chrome/121.0.0.0 Mobile Safari/537.36"
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) " +
+                "Mobile/15E148"
+        val androidWebView =
+            "Mozilla/5.0 (Linux; Android 10; Nokia 9 Build/QKQ1.190828.002; wv) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Version/4.0 Chrome/153.0.8010.36 Mobile Safari/537.36"
         val desktop = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-        // Eine WebView meldet ueblicherweise voll unterstuetzt -- genau das ist der Befund.
+        // Eine WebView meldet ueblicherweise voll unterstuetzt -- deshalb sperrt nur die UA-Regel (iOS).
         assertEquals(
             ConferenceBackgroundAvailability.UNSUPPORTED_IN_APP_WEBVIEW,
             conferenceBackgroundAvailability(libraryReportsSupport = true, isSecureContext = true, userAgent = webView),
+        )
+        // Die Android-WebView laeuft durch das normale Faehigkeits-Gate (Bibliothek + sicherer Kontext).
+        assertEquals(
+            ConferenceBackgroundAvailability.AVAILABLE,
+            conferenceBackgroundAvailability(libraryReportsSupport = true, isSecureContext = true, userAgent = androidWebView),
+        )
+        assertEquals(
+            ConferenceBackgroundAvailability.UNSUPPORTED_BROWSER,
+            conferenceBackgroundAvailability(libraryReportsSupport = false, isSecureContext = true, userAgent = androidWebView),
         )
         assertEquals(
             ConferenceBackgroundAvailability.AVAILABLE,

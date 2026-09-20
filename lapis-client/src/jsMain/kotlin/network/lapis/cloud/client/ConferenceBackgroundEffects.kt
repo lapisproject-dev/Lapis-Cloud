@@ -199,12 +199,14 @@ internal fun conferenceBackgroundEffectsSupported(
 ): Boolean = libraryReportsSupport && isSecureContext
 
 /**
- * Drei Zustaende statt eines `Boolean` (Audit-Befund M5): eine eingebettete App-WebView meldet
+ * Drei Zustaende statt eines `Boolean` (Audit-Befund M5): eine eingebettete WebView meldet
  * `supportsBackgroundProcessors() == true`, obwohl die Kombination "19 MB WASM ueber Mobilfunk +
- * MediaPipe-Segmentierung auf einem Telefon" auf dieser Plattform noch NIE geprueft wurde
- * (`Lapis-Cloud-Mobile` bettet die Web-Meeting-Oberflaeche seit V1.5.1 in eine WebView ein). Bis das
- * nachgeholt ist, wird der Abschnitt dort ehrlich als "in der App noch nicht unterstuetzt" gezeigt --
- * dieselbe Gestaltung wie die Nichtunterstuetzungs-Zeile, kein Ausblenden (Norman-Ruling K4).
+ * MediaPipe-Segmentierung auf einem Telefon" dort nicht ueberall geprueft ist. Fuer die Android System
+ * WebView der `Lapis-Cloud-Mobile`-App wurde das mit V1.4.24 nachgeholt (Messung auf einem Nokia 9), sie ist
+ * deshalb [AVAILABLE]. Fuer iOS-WKWebViews und die bekannten Drittanbieter-In-App-Browser (siehe
+ * [conferenceBackgroundIsInAppWebView]) gilt es weiter nicht: dort wird der Abschnitt ehrlich als "in der App
+ * noch nicht unterstuetzt" gezeigt -- dieselbe Gestaltung wie die Nichtunterstuetzungs-Zeile, kein Ausblenden
+ * (Norman-Ruling K4).
  */
 internal enum class ConferenceBackgroundAvailability { AVAILABLE, UNSUPPORTED_BROWSER, UNSUPPORTED_IN_APP_WEBVIEW }
 
@@ -226,8 +228,12 @@ private val CONFERENCE_IN_APP_BROWSER_TOKENS = listOf("FBAN", "FBAV", "Instagram
  * Origin-Sperre, Medienrechte -- kein `settings.userAgentString`, kein `addJavascriptInterface`). Es gibt
  * dort also kein eigenes Signal, das ohne Aenderung am Mobil-Repo nutzbar waere; geprueft wird deshalb die
  * Plattform-Kennzeichnung selbst:
- * - **Android System WebView**: Chromes UA traegt in einer WebView das Token `; wv)` -- eindeutig und
- *   genau die Kennzeichnung, die Google fuer diesen Zweck vergibt.
+ * - **Android System WebView** (`; wv)`) wird seit V1.4.24 bewusst NICHT mehr gesperrt: auf einem Nokia 9
+ *   (Android 10, WebView 153, Adreno 630) ist es gemessen worden -- WebAssembly-SIMD, WebGL2 und Insertable
+ *   Streams vorhanden, ~20 Bilder/s ohne verworfene Bilder mit und ohne Effekt, Effekt in ~250 ms angewendet,
+ *   GPU-Segmentierung, Kamera nach "Verlassen" in ~130 ms frei (Daily Note 2026-09-20). Ob eine WebView die
+ *   Kamera freigibt, entscheidet die einbettende App ohnehin selbst (Medienrechte); die Bibliotheks-
+ *   Feature-Erkennung und der sichere Kontext bleiben das Gate.
  * - **iOS WKWebView in einer App**: traegt KEIN `Safari/`-Token, waehrend jeder iOS-BROWSER eines traegt
  *   (Mobile Safari, `CriOS/` und `FxiOS/` haengen es an). Deshalb: AppleWebKit + mobiles Geraet + kein
  *   `Safari/`.
@@ -242,7 +248,6 @@ private val CONFERENCE_IN_APP_BROWSER_TOKENS = listOf("FBAN", "FBAV", "Instagram
  */
 internal fun conferenceBackgroundIsInAppWebView(userAgent: String): Boolean {
     if (userAgent.isBlank()) return false
-    if (userAgent.contains("; wv)")) return true
     if (CONFERENCE_IN_APP_BROWSER_TOKENS.any { userAgent.contains(it) }) return true
     val isAndroid = userAgent.contains("Android")
     val isAppleMobile =

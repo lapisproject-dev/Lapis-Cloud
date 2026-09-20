@@ -202,16 +202,33 @@ Both output directories were checked by hand after `./gradlew clean :lapis-clien
   the account to another device.
 * Without a secure context (plain HTTP) there is neither camera access nor a guaranteed WebGL2 path; the row then
   explains that effects are unsupported instead of disappearing.
-* **Inside an embedded app WebView the section is deliberately switched off.** An Android System WebView usually
-  reports full support, so nothing would stop it from pulling 19 MB of WASM over mobile data and running MediaPipe
-  segmentation on a phone -- a combination that has never been measured on that platform. Until it has been,
-  `conferenceBackgroundIsInAppWebView` (a pure function over the user agent: the Android `; wv)` token,
-  AppleWebKit on a mobile device without a `Safari/` token for an iOS in-app `WKWebView`, or one of the in-app
-  browser tokens `FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp`) puts the section into the same
-  disabled-with-an-explanation state as an unsupported browser, with its own sentence pointing at the device's
-  browser. `Lapis-Cloud-Mobile` sets neither a custom user agent nor a JavaScript bridge, so those markers are the
-  only signal available without changing the mobile app -- see "Known gaps" for the two cases this deliberately
-  does not catch.
+* **The Android System WebView is supported (V1.4.24); iOS in-app `WKWebView`s and known third-party in-app
+  browsers are still switched off.** The Android WebView of the `Lapis-Cloud-Mobile` companion app was measured
+  on a real device (Nokia 9, Android 10, WebView 153, Adreno 630; see the measurement below): WebAssembly SIMD,
+  WebGL2 and insertable streams are present, the self view stays at ~20 frames/s with zero dropped frames with
+  and without an effect, an effect is applied in ~250 ms, MediaPipe segments on the GPU, and after "Verlassen"
+  the camera is free again within ~130 ms. Whether a WebView can use the camera at all is decided by the
+  embedding app (media permissions), so the library's feature detection plus the secure-context check remain the
+  gate. `conferenceBackgroundIsInAppWebView` (a pure function over the user agent) still puts the section into
+  the disabled-with-an-explanation state for AppleWebKit on a mobile device without a `Safari/` token (an iOS
+  in-app `WKWebView`, which has never been tested on a device) and for the in-app browser tokens
+  `FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp` (third-party apps that were not tested either).
+  `Lapis-Cloud-Mobile` sets neither a custom user agent nor a JavaScript bridge, so the user agent is the only
+  signal available without changing the mobile app -- see "Known gaps" for the two cases this deliberately does
+  not catch.
+
+[cols="2,1,1,1,1",options="header"]
+|===
+| Nokia 9, Android WebView (self view 720x1280, front camera) | frames/s | dropped | app CPU (`top`) | temperature
+| no effect | 19.8 | 0 | ~51 % | 30.0 °C
+| blur, strong | 19.7 | 0 | ~77 % | 31.0 °C
+| background image | 19.9 | 0 | ~82 % | 31-32 °C after 30 s
+|===
+
+A 30 s soak stayed at 19.7-19.9 frames/s without dropped frames; the app's memory (PSS) grew from 271 to 349 MB
+(model plus WASM heap). Camera off/on with an active effect closed the old graph, destroyed the WebGL context and
+started a new graph. Measured once, on one device, via remote debugging with a user-agent override (the app was
+not modified); weaker phones and iOS are unmeasured.
 
 == Known gaps
 
@@ -221,6 +238,10 @@ Both output directories were checked by hand after `./gradlew clean :lapis-clien
   build-time asset check above makes the current arrangement verifiable instead of merely hopeful -- it runs both
   on the staging directory and on the webpack output directory itself, so an incomplete copy into that
   foreign-owned directory fails the build.
+* **Every third-party Android app that embeds a `WebView` now gets the section too** (V1.4.24 no longer blocks the
+  `; wv)` token). Unless the app appears in the in-app browser token list, it is treated like a browser: the
+  library's feature detection and the secure-context check decide, and the embedding app's media permissions
+  decide whether the camera opens at all. Only the companion app's WebView was measured.
 * **The app-WebView detection has two known blind spots, and it is meant to.** It errs towards leaving the feature
   ON, because a false positive would take a working feature away from a real browser while a false negative only
   means the normal failure path may have to catch it:
@@ -361,10 +382,12 @@ there as part of M12.
 * *M12 Firefox and Safari (fallback path).* It works or shows the unsupported line, and never a black or frozen
   picture. Note the CPU load (`maxFps = 15`). Here the fallback attribute check IS meaningful: after switching effects
   on and off and leaving, `document.querySelectorAll('canvas[data-livekit-processor]').length` must be 0.
-* *M13 Mobile app (WebView).* Join a meeting from the Lapis-Cloud-Mobile app. Expect the "Hintergrund"-row to be
-  visible but disabled, with the sentence pointing at the device's browser -- and in particular *no* WASM download:
-  filter the server log (or a proxy) for `/assets/mediapipe/` during the whole session and expect nothing. Opening
-  the same meeting in the device's own mobile browser must offer the effects normally.
+* *M13 Mobile app (Android WebView).* Join a meeting from the Lapis-Cloud-Mobile app (two different accounts if
+  you also join from a PC: the same identity in one meeting makes LiveKit drop the older connection). Expect the
+  "Hintergrund"-row to be active, and no WASM download before an effect is chosen (filter the server log for
+  `/assets/mediapipe/`). After choosing an effect the picture must stay live; "Verlassen" must free the camera
+  immediately. On an iOS device (untested) expect the row to be visible but disabled with the sentence pointing at
+  the device's browser.
 * *M14 Grid is inert while applying.* Switch to a background image on a throttled connection and click other tiles
   while the preparing line is up. Expect no reaction (grid dimmed, `aria-busy="true"`) and exactly one apply, not a
   chain of them.
