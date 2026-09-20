@@ -17,6 +17,8 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
+import network.lapis.cloud.shared.domain.PaymentAccountMapping
+import network.lapis.cloud.shared.domain.paymentAccountMappingConflictOf
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -223,6 +225,17 @@ class OrganizationSettingsService(
                 accountId = payablesLedgerAccountId,
                 expectedType = LedgerAccountType.LIABILITY,
             )
+            // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): every check above validates ONE field in
+            // isolation, so a self-referential COMBINATION passed -- above all
+            // paymentBankAccountId == receivablesAccountId, which every settlement would then book
+            // debit and credit against the same account (the staging finding of this wave, from the
+            // other end). Shared rule, so the chart-of-accounts screen can say the same thing before
+            // the round trip.
+            requireConsistentPaymentAccountMapping(
+                bankAccountId = bankAccountId,
+                receivablesAccountId = receivablesLedgerAccountId,
+                payablesAccountId = payablesLedgerAccountId,
+            )
 
             val beforeRow =
                 OrganizationSettingsTable
@@ -401,6 +414,36 @@ private fun requireValidPaymentAccountMapping(
     if (row[LedgerAccountTable.type] != expectedType) {
         throw ConflictException("LedgerAccount $accountId ($role) must be of type $expectedType, got ${row[LedgerAccountTable.type]}")
     }
+}
+
+/**
+ * Welle V1.4.22 Audit-Nachtrag (MAJOR-3): rejects a payment-account mapping that contradicts itself --
+ * the bank account being the receivables or payables collective account (or those two being the same
+ * account). [ConflictException], the same tier [requireValidPaymentAccountMapping] uses for "the
+ * account exists but is wrong for this role"; the decision itself lives in
+ * [paymentAccountMappingConflictOf] so the client's own pre-check cannot drift from it.
+ *
+ * The message names the conflict literal rather than the account ids: the client shows its own,
+ * translated sentence (Kilua RPC never transmits this message anyway), and the ids would be noise in
+ * the server log where the conflict is obvious from the literal.
+ */
+private fun requireConsistentPaymentAccountMapping(
+    bankAccountId: Uuid?,
+    receivablesAccountId: Uuid?,
+    payablesAccountId: Uuid?,
+) {
+    val conflict =
+        paymentAccountMappingConflictOf(
+            PaymentAccountMapping(
+                defaultBankAccountId = bankAccountId?.toString(),
+                receivablesAccountId = receivablesAccountId?.toString(),
+                payablesAccountId = payablesAccountId?.toString(),
+            ),
+        ) ?: return
+    throw ConflictException(
+        "Payment-account mapping is self-referential ($conflict) -- the payment bank account must differ from the " +
+            "receivables and payables collective accounts",
+    )
 }
 
 private fun loadOrganizationSettings(): OrganizationSettingsDto =

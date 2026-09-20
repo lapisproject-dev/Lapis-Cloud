@@ -114,6 +114,62 @@ open item is still recorded, with `creationPostingError` set to a named reason
 `cash_register_balance_insufficient`). `retryOpenItemPosting`/`retrySettlementPosting` re-attempt
 the booking once the configuration is fixed.
 
+== Which account may be the "bank account" of a settlement (V1.4.22)
+
+The money side of a settlement is either the account the treasurer picks in the settle dialog or,
+when none is picked, `organization_settings.payment_bank_account_id`. Until V1.4.22 the dialog
+offered every `ASSET` account and the server accepted whatever arrived -- so the receivables
+collective account itself was selectable, and choosing it booked receivables against receivables:
+balanced, posted, and meaningless (found live on staging).
+
+`PaymentCapableAccounts` (in `lapis-shared`, so client and server share one rule) now answers
+"may money be booked against this account?" with four rejection reasons: the account is inactive,
+is not an `ASSET` account, is the configured receivables/payables collective account, or lies
+outside SKR42 Kontenklasse 1 ("liquide Mittel" -- the only signal this chart has for "bank or
+cash"). A cash register is deliberately payment-capable (paying a creditor in cash is ordinary, and
+the GoBD cash guards still apply to the posting), unlike the organization-wide default mapping,
+which rejects one.
+
+The two consumers use the same rule at different strictness, on purpose:
+
+* the settle dialog offers only accounts with no rejection at all, so a fixed-asset account is
+  never presented again;
+* `settleOpenItem`/`retrySettlementPosting` reject with `BadRequestException` only for the first
+  three reasons (`PaymentCapableAccounts.SERVER_ENFORCED`). The account class is a chart
+  convention, not an invariant this codebase owns -- refusing it server-side would break every
+  organization whose bank account carries a different Kontenklasse. An explicitly chosen
+  non-class-1 asset account is logged (WARN) and accepted. The configured default bank account is
+  exempt from the class check entirely, and only from that one.
+
+Four causes a treasurer can actually act on are distinct `@RpcServiceException` types instead of
+`ConflictException`/`BadRequestException` messages -- `PaymentBankAccountNotConfiguredException`,
+`OpenItemNotBookedException`, `OpenItemAmountExceedsOpenAmountException`,
+`PaymentAccountNotPaymentCapableException`. Kilua RPC transmits only the exception type, never its
+message, so a shared `ConflictException` left the client with one generic "the action conflicts with
+the current state -- please refresh the view" toast for all of them, including the case where nothing
+but an ADMIN configuring an account helps. `OpenItemRpcWireTest` pins that the type really does
+survive the wire (a real JSON-RPC request against the full `module()`); if the KSP-generated
+`registerRpcServiceExceptions()` ever stopped knowing a subclass, the client would silently fall back
+to the generic toast again.
+
+Two dead ends were closed alongside, both of which made the mapping rot unnoticed:
+`deactivateLedgerAccount` refuses to deactivate an account still mapped as the payment bank,
+receivables or payables account, and `updateOrganizationSettings` refuses a self-referential mapping
+(bank == receivables/payables, or those two equal). The settle dialog additionally treats the default
+option as valid only while that account is present in the active chart of accounts AND payment-capable,
+and it offers no accounts at all while chart or mapping are unknown -- without the mapping, the
+receivables account cannot be told apart from a bank account (both class 1).
+
+=== Behaviour change: an unusable payment account is refused, not degraded
+
+Before V1.4.22 a settlement against an inactive/missing account was RECORDED: the
+`open_item_settlement` row was written, the open amount dropped, and `posting_error` was set to
+`ledger_account_inactive` -- a bookkeeping fact with no journal entry behind it that somebody had to
+notice and reverse. It is now refused before anything is written. This deliberately narrows
+`OpenItemPostingBridge`'s "degrades instead of failing" posture for this one case (see that object's
+KDoc); every other degradation, above all the `*_account_not_configured` cases of item CREATION, is
+unchanged -- refusing there would mean losing the open item itself.
+
 == Netting without four-eyes
 
 A single `TREASURER`/`ADMIN` may execute a netting -- there is no second approver, unlike SEPA

@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -2461,6 +2462,74 @@ class AccountingServiceTest :
             }
         }
 
+        /**
+         * Welle V1.4.22 Audit-Nachtrag (MAJOR-1): `deactivateLedgerAccount` had no test at all, and no
+         * guard -- deactivating the account that `organization_settings.payment_bank_account_id` points
+         * at left the open-items settlement path in a dead end (the dialog kept offering
+         * "(Standard-Bankkonto der Organisation)", the server rejected every attempt as inactive).
+         */
+        test("deactivateLedgerAccount refuses an account still mapped as payment bank/receivables/payables, allows an unmapped one") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-deactivate-ledger@example.org", AccountRole.TREASURER)
+                val plainMember = createTestMember("acct-plain-deactivate-ledger@example.org", AccountRole.MEMBER)
+                val bank = createLedgerAccount(number = "1442001", type = LedgerAccountType.ASSET)
+                val receivables = createLedgerAccount(number = "1442002", type = LedgerAccountType.ASSET)
+                val payables = createLedgerAccount(number = "1442003", type = LedgerAccountType.LIABILITY)
+                val unmapped = createLedgerAccount(number = "1442004", type = LedgerAccountType.ASSET)
+                try {
+                    transaction {
+                        OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                            it[paymentBankAccountId] = bank
+                            it[receivablesAccountId] = receivables
+                            it[payablesAccountId] = payables
+                        }
+                    }
+
+                    listOf(bank, receivables, payables).forEach { mapped ->
+                        client
+                            .post("/test/deactivate-ledger-account/$mapped") { header("X-Member-Id", treasurer.toString()) }
+                            .status shouldBe HttpStatusCode.Conflict
+                    }
+                    withClue("a refused deactivation must not have written anything") {
+                        transaction {
+                            LedgerAccountTable
+                                .selectAll()
+                                .where { LedgerAccountTable.id eq bank }
+                                .single()[LedgerAccountTable.active]
+                        } shouldBe true
+                    }
+
+                    // An unmapped account is still deactivatable -- the guard is about the mapping, not
+                    // about deactivating in general.
+                    val deactivated =
+                        client.post("/test/deactivate-ledger-account/$unmapped") { header("X-Member-Id", treasurer.toString()) }
+                    deactivated.status shouldBe HttpStatusCode.OK
+                    deactivated.bodyAsText().split(":")[2] shouldBe "false"
+
+                    client
+                        .post("/test/deactivate-ledger-account/$unmapped") { header("X-Member-Id", plainMember.toString()) }
+                        .status shouldBe HttpStatusCode.Forbidden
+                    client
+                        .post("/test/deactivate-ledger-account/${Uuid.random()}") { header("X-Member-Id", treasurer.toString()) }
+                        .status shouldBe HttpStatusCode.NotFound
+                } finally {
+                    // MUST run even on an assertion failure: the afterEach cleanup deletes these
+                    // ledger accounts, which the mapping FKs into.
+                    transaction {
+                        OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                            it[paymentBankAccountId] = null
+                            it[receivablesAccountId] = null
+                            it[payablesAccountId] = null
+                        }
+                    }
+                }
+            }
+        }
+
         test("deactivateCostCenter sets active=false; unknown id NotFound; non-treasury forbidden") {
             testApplication {
                 application {
@@ -3520,6 +3589,11 @@ private fun Route.registerAccountingTestRoutes() {
                 ),
             )
         call.respondText("${dto.id}:${dto.code}:${dto.name}:${dto.active}")
+    }
+    post("/test/deactivate-ledger-account/{id}") {
+        val service = AccountingService(call)
+        val dto = service.deactivateLedgerAccount(call.parameters["id"]!!)
+        call.respondText("${dto.id}:${dto.accountNumber}:${dto.active}")
     }
     post("/test/deactivate-cost-center/{id}") {
         val service = AccountingService(call)

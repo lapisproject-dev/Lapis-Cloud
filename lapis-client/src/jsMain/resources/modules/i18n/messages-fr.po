@@ -12235,3 +12235,55 @@ msgstr "Le montant est trop élevé (au maximum %1)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1046
 msgid "Nächste Stufe fällig am %1"
 msgstr "Prochain niveau à échéance le %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
+msgid "Zahlungskonto (Bank oder Kasse)"
+msgstr "Compte de paiement (banque ou caisse)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:78
+msgid "Bitte ein Bankkonto wählen — für die Organisation ist kein Standard-Bankkonto hinterlegt."
+msgstr "Veuillez choisir un compte bancaire : aucun compte bancaire par défaut n'est configuré pour l'organisation."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:87
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Ein Administrator kann im Kontenplan unter „Kontenzuordnung Zahlungsverkehr\" ein Bankkonto zuordnen."
+msgstr "Aucun compte bancaire par défaut n'est configuré pour l'organisation. Un administrateur peut en attribuer un dans le plan comptable sous « Affectation des comptes de paiement »."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:94
+msgid "Kein Zahlungskonto (Bank oder Kasse) im Kontenplan gefunden. Ein Administrator muss ein Bank- oder Kassenkonto anlegen und im Kontenplan zuordnen."
+msgstr "Aucun compte de paiement (banque ou caisse) n'a été trouvé dans le plan comptable. Un administrateur doit créer un compte bancaire ou de caisse et l'y attribuer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:39
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Bitte ein Zahlungskonto wählen oder im Kontenplan eines zuordnen."
+msgstr "Aucun compte bancaire par défaut n'est configuré pour l'organisation. Veuillez choisir un compte de paiement ou en attribuer un dans le plan comptable."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:47
+msgid "Dieser Posten ist noch nicht gebucht — bitte zuerst nachbuchen, dann ausgleichen."
+msgstr "Ce poste n'est pas encore comptabilisé — veuillez d'abord recomptabiliser, puis régler."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:50
+msgid "Der Betrag übersteigt den offenen Betrag dieses Postens — bitte die Ansicht aktualisieren."
+msgstr "Le montant dépasse le montant ouvert de ce poste — veuillez actualiser l'affichage."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:120
+msgid "Konten und Zahlungskonto-Zuordnung sind noch nicht geladen. Es wird das Standard-Bankkonto der Organisation verwendet; für eine Auswahl bitte den Dialog erneut öffnen."
+msgstr "Les comptes et l'affectation des comptes de paiement ne sont pas encore chargés. Le compte bancaire par défaut de l'organisation sera utilisé ; pour en choisir un, veuillez réouvrir la boîte de dialogue."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:135
+msgid "%1 · %2 (Standard)"
+msgstr "%1 · %2 (par défaut)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:157
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Forderungskonto (Debitoren) sein."
+msgstr "Le compte bancaire ne doit pas être le même que le compte de créances (débiteurs)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:159
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Verbindlichkeitenkonto (Kreditoren) sein."
+msgstr "Le compte bancaire ne doit pas être le même que le compte de dettes (créanciers)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:161
+msgid "Forderungskonto (Debitoren) und Verbindlichkeitenkonto (Kreditoren) müssen verschiedene Konten sein."
+msgstr "Le compte de créances (débiteurs) et le compte de dettes (créanciers) doivent être deux comptes différents."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
+msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
+msgstr "Le compte choisi n'est pas un compte de paiement (banque ou caisse) ou n'est plus actif. Veuillez choisir un autre compte et actualiser l'affichage."

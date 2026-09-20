@@ -12147,3 +12147,55 @@ msgstr "Kwota jest za duża (maksymalnie %1)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1046
 msgid "Nächste Stufe fällig am %1"
 msgstr "Następny stopień wymagalny w dniu %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
+msgid "Zahlungskonto (Bank oder Kasse)"
+msgstr "Konto płatnicze (bank lub kasa)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:78
+msgid "Bitte ein Bankkonto wählen — für die Organisation ist kein Standard-Bankkonto hinterlegt."
+msgstr "Wybierz konto bankowe — dla organizacji nie skonfigurowano domyślnego konta bankowego."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:87
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Ein Administrator kann im Kontenplan unter „Kontenzuordnung Zahlungsverkehr\" ein Bankkonto zuordnen."
+msgstr "Dla organizacji nie skonfigurowano domyślnego konta bankowego. Administrator może je przypisać w planie kont w sekcji „Przypisanie kont płatności”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:94
+msgid "Kein Zahlungskonto (Bank oder Kasse) im Kontenplan gefunden. Ein Administrator muss ein Bank- oder Kassenkonto anlegen und im Kontenplan zuordnen."
+msgstr "Nie znaleziono konta płatniczego (bank lub kasa) w planie kont. Administrator musi utworzyć konto bankowe lub kasowe i przypisać je w planie kont."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:39
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Bitte ein Zahlungskonto wählen oder im Kontenplan eines zuordnen."
+msgstr "Dla organizacji nie skonfigurowano domyślnego konta bankowego. Wybierz konto płatnicze lub przypisz je w planie kont."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:47
+msgid "Dieser Posten ist noch nicht gebucht — bitte zuerst nachbuchen, dann ausgleichen."
+msgstr "Ta pozycja nie jest jeszcze zaksięgowana — najpierw ponów księgowanie, potem rozlicz."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:50
+msgid "Der Betrag übersteigt den offenen Betrag dieses Postens — bitte die Ansicht aktualisieren."
+msgstr "Kwota przekracza otwartą kwotę tej pozycji — odśwież widok."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:120
+msgid "Konten und Zahlungskonto-Zuordnung sind noch nicht geladen. Es wird das Standard-Bankkonto der Organisation verwendet; für eine Auswahl bitte den Dialog erneut öffnen."
+msgstr "Konta i przypisanie kont płatniczych nie zostały jeszcze wczytane. Zostanie użyte domyślne konto bankowe organizacji; aby wybrać inne, otwórz okno ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:135
+msgid "%1 · %2 (Standard)"
+msgstr "%1 · %2 (domyślne)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:157
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Forderungskonto (Debitoren) sein."
+msgstr "Konto bankowe nie może być tym samym kontem co konto należności (dłużnicy)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:159
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Verbindlichkeitenkonto (Kreditoren) sein."
+msgstr "Konto bankowe nie może być tym samym kontem co konto zobowiązań (wierzyciele)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:161
+msgid "Forderungskonto (Debitoren) und Verbindlichkeitenkonto (Kreditoren) müssen verschiedene Konten sein."
+msgstr "Konto należności (dłużnicy) i konto zobowiązań (wierzyciele) muszą być różnymi kontami."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
+msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
+msgstr "Wybrane konto nie jest kontem płatniczym (bank lub kasa) albo nie jest już aktywne. Wybierz inne konto i odśwież widok."

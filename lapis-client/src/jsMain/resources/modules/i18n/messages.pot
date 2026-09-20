@@ -11109,3 +11109,55 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1046
 msgid "Nächste Stufe fällig am %1"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
+msgid "Zahlungskonto (Bank oder Kasse)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:78
+msgid "Bitte ein Bankkonto wählen — für die Organisation ist kein Standard-Bankkonto hinterlegt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:87
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Ein Administrator kann im Kontenplan unter „Kontenzuordnung Zahlungsverkehr\" ein Bankkonto zuordnen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:94
+msgid "Kein Zahlungskonto (Bank oder Kasse) im Kontenplan gefunden. Ein Administrator muss ein Bank- oder Kassenkonto anlegen und im Kontenplan zuordnen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:39
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Bitte ein Zahlungskonto wählen oder im Kontenplan eines zuordnen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:47
+msgid "Dieser Posten ist noch nicht gebucht — bitte zuerst nachbuchen, dann ausgleichen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:50
+msgid "Der Betrag übersteigt den offenen Betrag dieses Postens — bitte die Ansicht aktualisieren."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:120
+msgid "Konten und Zahlungskonto-Zuordnung sind noch nicht geladen. Es wird das Standard-Bankkonto der Organisation verwendet; für eine Auswahl bitte den Dialog erneut öffnen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:135
+msgid "%1 · %2 (Standard)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:157
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Forderungskonto (Debitoren) sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:159
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Verbindlichkeitenkonto (Kreditoren) sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:161
+msgid "Forderungskonto (Debitoren) und Verbindlichkeitenkonto (Kreditoren) müssen verschiedene Konten sein."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
+msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
+msgstr ""

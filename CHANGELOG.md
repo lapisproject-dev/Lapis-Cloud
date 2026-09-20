@@ -6,6 +6,94 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **V1.4.22 Zahlungskonto im Offene-Posten-Pfad** -- two usability bugs found in a live staging test
+  (real Chrome, Postgres) of the V1.4.21 open-items screen.
+  **What was wrong:** (1) The settle dialog pre-selected "(Standard-Bankkonto der Organisation)"
+  even when `organization_settings.payment_bank_account_id` was not configured at all. The server
+  then refused the settlement with `ConflictException("no bankAccountId given and
+  organization_settings.payment_bank_account_id is not configured")`, and because Kilua RPC
+  transmits only an exception's TYPE and never its message, the treasurer saw nothing but the
+  generic "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren" --
+  advice that fixes nothing. (2) The bank-account select offered every `ASSET` account, including
+  "06500 Betriebs- und Geschäftsausstattung" and "12000 Forderungen aus Lieferungen und Leistungen"
+  -- the receivables collective account itself. Picking it booked Soll receivables / Haben
+  receivables: balanced, posted, and meaningless, and it closed the open item without any money
+  having moved. `settleOpenItem` validated nothing about the account it was handed.
+  **What it is now:** one shared rule, `PaymentCapableAccounts` in `lapis-shared`, answers "may
+  money be booked against this ledger account?" -- active, `ASSET`, not the configured receivables/
+  payables collective account, and inside SKR42 Kontenklasse 1 ("liquide Mittel", the only signal
+  this chart of accounts has for bank/cash; a cash register is deliberately included, the GoBD cash
+  guards still apply to the posting). Every criterion is an existing rule of this repo
+  (`requireValidPaymentAccountMapping`, `OpenItemPostingBridge`'s Buchungssätze,
+  `10-accounting.kuml.kts`) rather than a second, drifting one. The dialog offers only accounts that
+  pass it; the label now says "Zahlungskonto (Bank oder Kasse)". Without a configured default the
+  "(Standard-Bankkonto der Organisation)" option is gone, the choice becomes mandatory with a clear
+  message, and a hint points at the chart of accounts ("Kontenzuordnung Zahlungsverkehr"); if not
+  even one payment-capable account exists, the dialog says that instead of demanding an impossible
+  choice. Server-side, `settleOpenItem` and `retrySettlementPosting` validate the EFFECTIVE account
+  (explicit or default) and reject an inactive/non-`ASSET`/collective account. Four causes became
+  distinct `@RpcServiceException` types (`PaymentBankAccountNotConfiguredException`,
+  `OpenItemNotBookedException`, `OpenItemAmountExceedsOpenAmountException`,
+  `PaymentAccountNotPaymentCapableException`) so the new client-side `openItemGuarded` can show a
+  real reason; `AppState.guarded`'s generic mapping is untouched and remains the fallback for every
+  other screen and every other conflict.
+  **Dead ends closed (audit follow-up).** The dialog only treats "(Standard-Bankkonto der
+  Organisation)" as a valid pre-selection when that account is really usable -- present in the active
+  chart of accounts and payment-capable. `AccountingService.deactivateLedgerAccount` (which had no
+  test at all) now refuses to deactivate an account still mapped as the payment bank, receivables or
+  payables account, so that mapping cannot silently rot; and
+  `OrganizationSettingsService.updateOrganizationSettings` rejects a self-referential mapping
+  (payment bank account == receivables or payables account, or those two being the same), which every
+  per-field check had passed because each field was valid on its own. The chart-of-accounts screen
+  states the same thing before the round trip, so the treasurer reads a real sentence instead of the
+  generic conflict toast. While the accounts or the mapping are not loaded, the settle dialog offers
+  no half-filtered list at all (without the mapping, the receivables account is indistinguishable
+  from a bank account -- both SKR42 class 1): the select stays disabled with a hint, and opening the
+  dialog re-triggers the fetch that had failed, so the next attempt has the real list.
+  `OpenItemPostingBridge.postEntry` additionally refuses debit == credit outright (a balanced entry
+  that moves nothing); it is a tripwire, unreachable through any configuration this wave still allows.
+  Tests: `PaymentCapableAccountsTest` (lapis-shared, the rule and the new mapping-conflict rule),
+  `OpenItemPaymentAccountsTest` (jsTest, the offer list, the mandatory choice, the deactivated/
+  self-referential default, the unknown-context state, the per-conflict messages), five new
+  `OpenItemServiceTest` cases, a new `deactivateLedgerAccount` case in `AccountingServiceTest`, a new
+  self-referential-mapping case in `OrganizationSettingsServiceTest`. All of those drive the service
+  through in-test throwaway routes (an HTTP round trip through Ktor, not a raw method call, but with
+  the test's own `StatusPages` mapping) -- so the claim that matters for the client, *the exception
+  TYPE survives the Kilua RPC wire*, gets its own test: `OpenItemRpcWireTest` posts a real JSON-RPC
+  request to the generated `settleOpenItem` route against the full `module()` and asserts that
+  `PaymentBankAccountNotConfiguredException` appears in the response body (plus a control case where
+  the same route and params succeed). All thirteen new strings are translated in all eight catalogs.
+  **Known gaps:** the account-CLASS criterion is deliberately **not** enforced server-side
+  (`PaymentCapableAccounts.SERVER_ENFORCED`) -- an organization whose bank account carries a
+  different SKR42 Kontenklasse (this repo's own test fixtures use `accountClass = 0` throughout)
+  would otherwise be unable to settle anything; such an account is logged with a WARN and accepted,
+  so the UI is stricter than the server on that one point. The configured default bank account is
+  exempt from the class check, so a misconfigured (but active, `ASSET`, non-collective) default
+  stays selectable. `ADMIN`s can still map a payment account the dialog itself would not offer:
+  `OrganizationSettingsService.requireValidPaymentAccountMapping` is unchanged per field (active,
+  `ASSET`, non-cash-register) and deliberately does not learn the class rule in this wave -- only the
+  new cross-field check was added. While the accounts/mapping are unknown the dialog cannot offer a
+  choice at all; it falls back to the organization default and asks the user to reopen the dialog,
+  because a dialog is built once and does not re-render when the retry arrives. The deactivation
+  guard covers exactly the three hard-failing mappings; deactivating an account mapped as the fee/
+  income/expense target is still allowed (those only degrade a booking to a retryable
+  `postingError`). `PaymentAccountNotPaymentCapableException` folds "account does not exist" in
+  deliberately -- a `NotFoundException` would be indistinguishable on the client from "open item not
+  found". The unusual-account-class case is only a WARN log line with a stable
+  `event=payment_account_unusual_class …` prefix (machine-parseable, but no audit entry and no
+  metric: there is no fitting `AuditEntityType` and inventing one would be a schema migration).
+  Netting (`executeNetting`) needs no payment account at all and is untouched, as are the reversal
+  paths (they re-book the original entry's own postings).
+  **Behaviour change (deliberate, safer variant):** a settlement whose money-side account is
+  inactive, non-`ASSET` or a collective account is now REFUSED. Before, it was recorded --
+  `open_item_settlement` row written, open amount reduced, `postingError = "ledger_account_inactive"`
+  -- with no journal entry behind it, and a treasurer had to notice and reverse it. This narrows
+  `OpenItemPostingBridge`'s "degrades instead of failing" posture for exactly this case (its KDoc now
+  says so); the degradation path is unchanged everywhere else, above all for item CREATION, where
+  refusing would mean losing the open item.
+
 ### Added
 
 - **Open items UI, debtor-dunning configuration (V1.4.21)** -- the client screens for the V1.4.15

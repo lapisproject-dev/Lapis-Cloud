@@ -71,7 +71,20 @@ internal sealed interface OpenItemPostingOutcome {
  * `receivables_account_not_asset_type`, `payables_account_not_liability_type`,
  * `cash_voucher_required`, `cash_register_balance_insufficient`. [JournalEntryBalance
  * .validateBalanced] failing is NOT a degrading case (a code defect, not a state) ->
- * [ConflictException], rolling back the whole caller transaction.
+ * [ConflictException], rolling back the whole caller transaction. Same for "debit account == credit
+ * account" ([postEntry], Welle V1.4.22).
+ *
+ * **Scope of "degrades instead of failing" (precision added in V1.4.22).** The posture above describes
+ * what THIS object does with a configuration problem it discovers while booking. It never promised
+ * that every caller must reach it: since V1.4.22, `OpenItemService.settleOpenItem`/
+ * `.retrySettlementPosting` reject an unusable money-side account (inactive, non-`ASSET`, or the
+ * receivables/payables collective account) BEFORE calling [postSettlement], so such a settlement is
+ * now refused outright instead of being recorded with `postingError = "ledger_account_inactive"` and a
+ * settlement row that reduced the open amount without any journal entry behind it. That is a
+ * deliberate behaviour change (the safer variant: no bookkeeping fact is created that a treasurer
+ * would have to un-do), documented in the CHANGELOG and in `docs/architecture/open-items.adoc`. The
+ * degradation path itself is unchanged for everything it still covers -- above all the
+ * `*_account_not_configured` cases of item CREATION, where refusing would mean losing the open item.
  */
 internal object OpenItemPostingBridge {
     fun postItemCreation(
@@ -437,6 +450,19 @@ internal object OpenItemPostingBridge {
         actorRole: AccountRole,
         failureContext: String,
     ): OpenItemPostingOutcome {
+        // Welle V1.4.22 Audit-Nachtrag (MINOR-d): debit == credit is a balanced entry that moves
+        // nothing and silently closes whatever it was booked for -- exactly the staging finding
+        // (settling against the receivables account). That call path is now rejected before it gets
+        // here, and `updateOrganizationSettings` no longer accepts the configurations that could
+        // produce it, so this is a tripwire for a code/data defect: same tier as a failing
+        // [JournalEntryBalance.validateBalanced] (ConflictException, rolls the caller back), NOT a
+        // degrading `Failed(reason)` -- there is no configuration a treasurer could fix in response.
+        if (debitAccountId == creditAccountId) {
+            throw ConflictException(
+                "OpenItemPostingBridge.postEntry: debit and credit account are the same LedgerAccount " +
+                    "$debitAccountId ($failureContext) -- refusing to book an entry that moves nothing",
+            )
+        }
         val postingInputs =
             listOf(
                 PostingInput(ledgerAccountId = debitAccountId.toString(), side = PostingSide.DEBIT, amount = amount, sphere = sphere),

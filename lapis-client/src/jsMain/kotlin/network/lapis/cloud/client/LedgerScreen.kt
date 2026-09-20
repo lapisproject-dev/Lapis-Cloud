@@ -47,6 +47,7 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
+import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostingDto
 import network.lapis.cloud.shared.domain.PostingInput
@@ -549,6 +550,24 @@ internal fun renderPaymentAccountMappingSection(
                             eventIncomeSphereSelect.value
                                 ?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
                                 ?: GemeinnuetzigkeitSphere.ZWECKBETRIEB
+                        // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): `updateOrganizationSettings` lehnt
+                        // eine widersprüchliche Zuordnung jetzt mit `ConflictException` ab -- deren
+                        // Meldung erreicht den Browser nie (Kilua RPC überträgt nur den Typ), der
+                        // Nutzer hätte also für einen reinen Eingabefehler den generischen "steht im
+                        // Konflikt"-Toast gesehen. Dieselbe Regel, hier vor dem Round-Trip:
+                        // `paymentAccountMappingProblem`.
+                        val mappingProblem =
+                            paymentAccountMappingProblem(
+                                PaymentAccountMapping(
+                                    defaultBankAccountId = bankSelect.value?.takeIf { it.isNotBlank() },
+                                    receivablesAccountId = receivablesSelect.value?.takeIf { it.isNotBlank() },
+                                    payablesAccountId = payablesSelect.value?.takeIf { it.isNotBlank() },
+                                ),
+                            )
+                        if (mappingProblem != null) {
+                            notifyError(mappingProblem)
+                            return@launch
+                        }
                         val result =
                             guarded {
                                 rpcService<IOrganizationSettingsService>().updateOrganizationSettings(

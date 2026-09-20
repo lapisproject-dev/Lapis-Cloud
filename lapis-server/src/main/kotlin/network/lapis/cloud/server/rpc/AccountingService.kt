@@ -152,11 +152,30 @@ class AccountingService(
         }
     }
 
+    /**
+     * Welle V1.4.22 Audit-Nachtrag (MAJOR-1): deactivating an account that is still mapped as the
+     * organization's payment bank / receivables / payables account is now refused. Before this guard
+     * it left the open-items path in a dead end: the settle dialog kept offering "(Standard-Bankkonto
+     * der Organisation)" (the mapping still pointed somewhere), while `settleOpenItem` rejected every
+     * attempt because the account is inactive -- with no way out except an ADMIN noticing and
+     * re-mapping. Deactivating is not deleting, so the fix is to make the treasurer clear the mapping
+     * first, which is a two-second edit on the same screen ("Kontenzuordnung Zahlungsverkehr").
+     *
+     * Deliberately limited to those THREE mappings: they are the ones that HARD-fail (see
+     * `OpenItemService.requirePaymentCapableAccount` and `OpenItemPostingBridge`'s
+     * `receivables_account_not_asset_type`/`payables_*` paths). The fee/income/expense mappings only
+     * degrade a booking to a recorded `postingError` that a later retry can still fix, so refusing a
+     * deactivation for them would be stricter than the damage warrants -- and would break existing
+     * chart-of-accounts housekeeping. [ConflictException], the same tier
+     * `OrganizationSettingsService.requireValidPaymentAccountMapping` uses for "the account exists but
+     * is wrong for this role".
+     */
     override suspend fun deactivateLedgerAccount(id: String): LedgerAccountDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         val accountId = id.toAccountingUuid("LedgerAccount")
         return transaction {
+            requireNotMappedAsPaymentAccount(accountId)
             val updated =
                 LedgerAccountTable.update({ LedgerAccountTable.id eq accountId }) {
                     it[active] = false
@@ -1508,6 +1527,29 @@ class AccountingService(
             throw ConflictException(result.reason ?: "Donation prohibited under §25 PartG (donorCategory=$donorCategory)")
         }
         return result
+    }
+
+    /**
+     * See [deactivateLedgerAccount] KDoc. Reads the single seeded [OrganizationSettingsTable] row --
+     * inside the caller's transaction, and before the `update`, so a refusal writes nothing.
+     */
+    private fun requireNotMappedAsPaymentAccount(accountId: Uuid) {
+        val row =
+            OrganizationSettingsTable
+                .selectAll()
+                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                .singleOrNull() ?: return
+        val role =
+            when (accountId) {
+                row[OrganizationSettingsTable.paymentBankAccountId] -> "payment_bank_account_id"
+                row[OrganizationSettingsTable.receivablesAccountId] -> "receivables_account_id"
+                row[OrganizationSettingsTable.payablesAccountId] -> "payables_account_id"
+                else -> return
+            }
+        throw ConflictException(
+            "LedgerAccount $accountId is still mapped as organization_settings.$role -- clear that mapping " +
+                "(Kontenplan, \"Kontenzuordnung Zahlungsverkehr\") before deactivating the account",
+        )
     }
 
     /**

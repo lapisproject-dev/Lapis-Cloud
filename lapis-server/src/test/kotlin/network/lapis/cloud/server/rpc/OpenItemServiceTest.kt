@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -44,6 +45,10 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.OpenItemAmountExceedsOpenAmountException
+import network.lapis.cloud.shared.rpc.OpenItemNotBookedException
+import network.lapis.cloud.shared.rpc.PaymentAccountNotPaymentCapableException
+import network.lapis.cloud.shared.rpc.PaymentBankAccountNotConfiguredException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -130,6 +135,7 @@ class OpenItemServiceTest :
         fun newLedgerAccount(
             type: LedgerAccountType,
             active: Boolean = true,
+            ledgerAccountClass: Int = 0,
         ): Uuid {
             val id = Uuid.random()
             val number = "O${id.toString().filter { it.isDigit() }.take(9)}"
@@ -138,7 +144,7 @@ class OpenItemServiceTest :
                     it[LedgerAccountTable.id] = id
                     it[accountNumber] = number
                     it[name] = "Testkonto $number"
-                    it[accountClass] = 0
+                    it[accountClass] = ledgerAccountClass
                     it[LedgerAccountTable.type] = type
                     it[LedgerAccountTable.active] = active
                     it[reserveType] = null
@@ -495,6 +501,260 @@ class OpenItemServiceTest :
             }
         }
 
+        // ── Welle V1.4.22 "Zahlungskonto im Offene-Posten-Pfad" ──────────────────────────────────
+        // Two bugs found live on staging (real Chrome, Postgres): the settlement dialog offered every
+        // ASSET account -- including the configured receivables collective account, which booked
+        // receivables against receivables -- and the three actionable settlement conflicts were
+        // indistinguishable ConflictExceptions, so the client could only show one generic toast.
+
+        test("settleOpenItem rejects the configured receivables/payables collective account as bankAccountId (400)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val income = newLedgerAccount(LedgerAccountType.INCOME)
+                val receivables = newLedgerAccount(LedgerAccountType.ASSET)
+                val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                val bank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+                setMapping(receivablesAccountId = receivables, payablesAccountId = payables, bankAccountId = bank)
+                val detail = client.createItem(treasurer, OpenItemDirection.RECEIVABLE, income)
+
+                // THE staging finding: "12000 Forderungen aus Lieferungen und Leistungen" was in the
+                // dialog's list, and picking it booked Soll receivables / Haben receivables.
+                val againstReceivables =
+                    client.post("/test/openitem/${detail.item.id}/settle?amount=10.00&settledOn=2026-01-15&bankAccountId=$receivables") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                againstReceivables.status shouldBe HttpStatusCode.BadRequest
+                // MINOR-a: its own wire-visible type, so the client can name the reason.
+                againstReceivables.bodyAsText() shouldBe "PaymentAccountNotPaymentCapableException"
+                val againstPayables =
+                    client.post("/test/openitem/${detail.item.id}/settle?amount=10.00&settledOn=2026-01-15&bankAccountId=$payables") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                againstPayables.status shouldBe HttpStatusCode.BadRequest
+
+                withClue("a rejected settlement must leave no trace at all -- neither a settlement row nor a journal entry") {
+                    transaction { OpenItemSettlementTable.selectAll().count() } shouldBe 0L
+                    transaction { OpenItemTable.selectAll().where { OpenItemTable.id eq Uuid.parse(detail.item.id) }.single() }[
+                        OpenItemTable.status,
+                    ] shouldBe OpenItemStatus.OPEN
+                }
+            }
+        }
+
+        test("settleOpenItem rejects an inactive or non-ASSET bankAccountId (400), and accepts an explicitly chosen bank account") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val income = newLedgerAccount(LedgerAccountType.INCOME)
+                val receivables = newLedgerAccount(LedgerAccountType.ASSET)
+                val defaultBank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+                val secondBank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+                val closedBank = newLedgerAccount(LedgerAccountType.ASSET, active = false, ledgerAccountClass = 1)
+                setMapping(receivablesAccountId = receivables, payablesAccountId = null, bankAccountId = defaultBank)
+                val detail = client.createItem(treasurer, OpenItemDirection.RECEIVABLE, income)
+
+                client
+                    .post("/test/openitem/${detail.item.id}/settle?amount=10.00&settledOn=2026-01-15&bankAccountId=$closedBank") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/openitem/${detail.item.id}/settle?amount=10.00&settledOn=2026-01-15&bankAccountId=$income") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                // A well-formed id of an account that does not exist is deliberately NOT a
+                // NotFoundException: on the client that is indistinguishable from "the open item was
+                // not found" (see PaymentAccountNotPaymentCapableException KDoc).
+                val vanished =
+                    client.post(
+                        "/test/openitem/${detail.item.id}/settle?amount=10.00&settledOn=2026-01-15&bankAccountId=${Uuid.random()}",
+                    ) { header("X-Member-Id", treasurer.toString()) }
+                vanished.status shouldBe HttpStatusCode.BadRequest
+                vanished.bodyAsText() shouldBe "PaymentAccountNotPaymentCapableException"
+
+                // The whole point of the explicit select: a SECOND, legitimate bank/cash account must
+                // stay usable -- round trip down to the two postings.
+                val settled =
+                    client.post("/test/openitem/${detail.item.id}/settle?amount=40.00&settledOn=2026-01-15&bankAccountId=$secondBank") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                settled.status shouldBe HttpStatusCode.OK
+                val settledDto = Json.decodeFromString(OpenItemDetailDto.serializer(), settled.bodyAsText())
+                settledDto.item.status shouldBe OpenItemStatus.PARTIALLY_SETTLED
+                val settlement = settledDto.settlements.single()
+                settlement.postingError shouldBe null
+                val journalEntryId = Uuid.parse(requireNotNull(settlement.journalEntryId))
+                val postings = transaction { PostingTable.selectAll().where { PostingTable.journalEntryId eq journalEntryId }.toList() }
+                postings.single { it[PostingTable.side] == PostingSide.DEBIT }[PostingTable.ledgerAccountId] shouldBe secondBank
+                postings.single { it[PostingTable.side] == PostingSide.CREDIT }[PostingTable.ledgerAccountId] shouldBe receivables
+            }
+        }
+
+        /**
+         * An `accountClass` outside SKR42 class 1 is deliberately NOT refused server-side -- see
+         * [network.lapis.cloud.shared.domain.PaymentCapableAccounts.SERVER_ENFORCED]. Every other test
+         * in this file relies on it (its fixtures create `accountClass = 0` accounts throughout), so
+         * this test states the intent instead of leaving it as an accident.
+         */
+        test("settleOpenItem accepts an asset account outside SKR42 Kontenklasse 1 (offer list only, never a server rejection)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val expense = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                val classZeroBank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 0)
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = null)
+                val detail = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+
+                client
+                    .post("/test/openitem/${detail.item.id}/settle?amount=240.00&settledOn=2026-01-15&bankAccountId=$classZeroBank") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("the three actionable settlement conflicts are distinct exception types, not one generic ConflictException") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val expense = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                val bank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+
+                // (1) Item exists but was never booked (no payables mapping at creation time).
+                setMapping(receivablesAccountId = null, payablesAccountId = null, bankAccountId = bank)
+                val unbooked = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+                unbooked.item.creationJournalEntryId shouldBe null
+                val notBooked =
+                    client.post("/test/openitem/${unbooked.item.id}/settle?amount=10.00&settledOn=2026-01-15") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                notBooked.status shouldBe HttpStatusCode.Conflict
+                notBooked.bodyAsText() shouldBe "OpenItemNotBookedException"
+
+                // (2) Amount above the live open amount.
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = bank)
+                val booked = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+                val tooHigh =
+                    client.post("/test/openitem/${booked.item.id}/settle?amount=240.01&settledOn=2026-01-15") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                tooHigh.status shouldBe HttpStatusCode.Conflict
+                tooHigh.bodyAsText() shouldBe "OpenItemAmountExceedsOpenAmountException"
+
+                // (3) No explicit account AND no organization default -- THE staging report.
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = null)
+                val noDefault =
+                    client.post("/test/openitem/${booked.item.id}/settle?amount=10.00&settledOn=2026-01-15") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                noDefault.status shouldBe HttpStatusCode.Conflict
+                noDefault.bodyAsText() shouldBe "PaymentBankAccountNotConfiguredException"
+
+                withClue("an explicitly chosen account still works while no default is configured") {
+                    client
+                        .post("/test/openitem/${booked.item.id}/settle?amount=10.00&settledOn=2026-01-15&bankAccountId=$bank") {
+                            header("X-Member-Id", treasurer.toString())
+                        }.status shouldBe HttpStatusCode.OK
+                }
+            }
+        }
+
+        test("retrySettlementPosting: no default payment account -> PaymentBankAccountNotConfiguredException; with one it books") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val expense = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                val bank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+
+                // A settlement that is recorded but NOT booked: the item is booked, then the payables
+                // mapping is removed, so postSettlement degrades to payables_account_not_configured.
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = bank)
+                val detail = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+                setMapping(receivablesAccountId = null, payablesAccountId = null, bankAccountId = bank)
+                val settled =
+                    Json.decodeFromString(
+                        OpenItemDetailDto.serializer(),
+                        client
+                            .post("/test/openitem/${detail.item.id}/settle?amount=100.00&settledOn=2026-01-15&bankAccountId=$bank") {
+                                header("X-Member-Id", treasurer.toString())
+                            }.bodyAsText(),
+                    )
+                val settlementId = settled.settlements.single().id
+                settled.settlements.single().postingError shouldBe "payables_account_not_configured"
+
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = null)
+                val withoutDefault =
+                    client.post("/test/openitem/settlement/$settlementId/retry") { header("X-Member-Id", treasurer.toString()) }
+                withoutDefault.status shouldBe HttpStatusCode.Conflict
+                withoutDefault.bodyAsText() shouldBe "PaymentBankAccountNotConfiguredException"
+
+                setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = bank)
+                val retried =
+                    Json.decodeFromString(
+                        OpenItemDetailDto.serializer(),
+                        client
+                            .post("/test/openitem/settlement/$settlementId/retry") { header("X-Member-Id", treasurer.toString()) }
+                            .bodyAsText(),
+                    )
+                val settlement = retried.settlements.single()
+                settlement.postingError shouldBe null
+                val journalEntryId = Uuid.parse(requireNotNull(settlement.journalEntryId))
+                val postings = transaction { PostingTable.selectAll().where { PostingTable.journalEntryId eq journalEntryId }.toList() }
+                postings.single { it[PostingTable.side] == PostingSide.DEBIT }[PostingTable.ledgerAccountId] shouldBe payables
+                postings.single { it[PostingTable.side] == PostingSide.CREDIT }[PostingTable.ledgerAccountId] shouldBe bank
+            }
+        }
+
+        test("retrySettlementPosting rejects a default mapping that points at the payables collective account (400)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                    routing { registerOpenItemTestRoutes() }
+                }
+                val treasurer = newMember(AccountRole.TREASURER)
+                val income = newLedgerAccount(LedgerAccountType.INCOME)
+                val receivables = newLedgerAccount(LedgerAccountType.ASSET)
+                val bank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+
+                setMapping(receivablesAccountId = receivables, payablesAccountId = null, bankAccountId = bank)
+                val detail = client.createItem(treasurer, OpenItemDirection.RECEIVABLE, income)
+                setMapping(receivablesAccountId = null, payablesAccountId = null, bankAccountId = bank)
+                val settled =
+                    Json.decodeFromString(
+                        OpenItemDetailDto.serializer(),
+                        client
+                            .post("/test/openitem/${detail.item.id}/settle?amount=100.00&settledOn=2026-01-15&bankAccountId=$bank") {
+                                header("X-Member-Id", treasurer.toString())
+                            }.bodyAsText(),
+                    )
+                val settlementId = settled.settlements.single().id
+
+                // `requireValidPaymentAccountMapping` cannot catch this combination: the receivables
+                // account is itself an active, non-cash-register ASSET account.
+                setMapping(receivablesAccountId = receivables, payablesAccountId = null, bankAccountId = receivables)
+                client
+                    .post("/test/openitem/settlement/$settlementId/retry") { header("X-Member-Id", treasurer.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
         test("authz: BOARD may read but not write; MEMBER may neither read nor write") {
             testApplication {
                 application {
@@ -577,6 +837,10 @@ private fun Route.registerOpenItemTestRoutes() {
         val dto = service(call).retryOpenItemPosting(requireNotNull(call.parameters["id"]))
         call.respondText(Json.encodeToString(OpenItemDetailDto.serializer(), dto))
     }
+    post("/test/openitem/settlement/{id}/retry") {
+        val dto = service(call).retrySettlementPosting(requireNotNull(call.parameters["id"]))
+        call.respondText(Json.encodeToString(OpenItemDetailDto.serializer(), dto))
+    }
     post("/test/openitem/settlement/{id}/reverse") {
         val reason = call.request.queryParameters["reason"]?.replace('+', ' ') ?: "x"
         val dto = service(call).reverseSettlement(settlementId = requireNotNull(call.parameters["id"]), reason = reason)
@@ -632,6 +896,23 @@ private fun Route.registerOpenItemTestRoutes() {
 private fun StatusPagesConfig.installOpenItemTestExceptionHandlers() {
     exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
     exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }
+    // Welle V1.4.22: the three settlement conflicts a treasurer can act on are distinct types now
+    // (Kilua RPC transmits the TYPE, never the message -- see PaymentBankAccountNotConfiguredException
+    // KDoc). The body is the type's own name on purpose: what the client dispatches on is the type,
+    // so that is what these tests pin. The status stays Conflict -- they replace ConflictExceptions.
+    exception<PaymentBankAccountNotConfiguredException> { call, _ ->
+        call.respondText("PaymentBankAccountNotConfiguredException", status = HttpStatusCode.Conflict)
+    }
+    exception<OpenItemNotBookedException> { call, _ -> call.respondText("OpenItemNotBookedException", status = HttpStatusCode.Conflict) }
+    exception<OpenItemAmountExceedsOpenAmountException> { call, _ ->
+        call.respondText("OpenItemAmountExceedsOpenAmountException", status = HttpStatusCode.Conflict)
+    }
+    // Audit-Nachtrag (MINOR-a): the BadRequest TIER, but its own type -- "Ungültige Anfrage." says
+    // nothing to a treasurer whose account list went stale. Mapped to 400 here, so the assertions of
+    // the tests written before this type existed keep describing the same tier.
+    exception<PaymentAccountNotPaymentCapableException> { call, _ ->
+        call.respondText("PaymentAccountNotPaymentCapableException", status = HttpStatusCode.BadRequest)
+    }
     exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<BadRequestException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
 }

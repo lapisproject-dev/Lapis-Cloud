@@ -20,16 +20,20 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.BankAccountTable
+import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.payment.bankstatement.BankAccountStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankAccountInput
+import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -390,6 +394,74 @@ class OrganizationSettingsServiceTest :
                 }
             }
         }
+
+        /**
+         * Welle V1.4.22 Audit-Nachtrag (MAJOR-3): every mapping field was validated in ISOLATION, so
+         * `paymentBankAccountId == receivablesAccountId` was configurable -- and every settlement
+         * booked against it would debit and credit the same account. Each of the three accounts below
+         * passes its own per-field check (active, right type, no cash register); only the COMBINATION
+         * is wrong.
+         */
+        test("a self-referential payment-account mapping is rejected (bank == receivables/payables), a consistent one is accepted") {
+            val bank = Uuid.random()
+            val receivables = Uuid.random()
+            val payables = Uuid.random()
+            transaction {
+                listOf(bank to LedgerAccountType.ASSET, receivables to LedgerAccountType.ASSET, payables to LedgerAccountType.LIABILITY)
+                    .forEachIndexed { index, (id, type) ->
+                        LedgerAccountTable.insert {
+                            it[LedgerAccountTable.id] = id
+                            it[accountNumber] = "M1442$index"
+                            it[name] = "Mapping-Testkonto $index"
+                            it[accountClass] = 1
+                            it[LedgerAccountTable.type] = type
+                            it[active] = true
+                            it[reserveType] = null
+                            it[isCashRegister] = false
+                        }
+                    }
+            }
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) {
+                            exception<ConflictException> {
+                                call,
+                                cause,
+                                ->
+                                call.respondText(cause.message, status = HttpStatusCode.Conflict)
+                            }
+                        }
+                        routing { registerOrgSettingsTestRoutes() }
+                    }
+                    val base = "/test/update?name=Testverein%20e.V."
+
+                    client
+                        .post("$base&paymentBankAccountId=$receivables&receivablesAccountId=$receivables") {
+                            header("X-Member-Id", ADMIN_ID)
+                        }.status shouldBe HttpStatusCode.Conflict
+                    client
+                        .post("$base&paymentBankAccountId=$payables&payablesAccountId=$payables") { header("X-Member-Id", ADMIN_ID) }
+                        .status shouldBe HttpStatusCode.Conflict
+
+                    // The same three accounts, mapped to three different roles: accepted.
+                    client
+                        .post(
+                            "$base&paymentBankAccountId=$bank&receivablesAccountId=$receivables&payablesAccountId=$payables",
+                        ) { header("X-Member-Id", ADMIN_ID) }
+                        .status shouldBe HttpStatusCode.OK
+                }
+            } finally {
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[paymentBankAccountId] = null
+                        it[receivablesAccountId] = null
+                        it[payablesAccountId] = null
+                    }
+                    LedgerAccountTable.deleteWhere { LedgerAccountTable.id inList listOf(bank, receivables, payables) }
+                }
+            }
+        }
     })
 
 /** Shared throwaway routes for [OrganizationSettingsServiceTest] -- mirrors [AccountingServiceTest]'s own idiom. */
@@ -436,6 +508,11 @@ private fun Route.registerOrgSettingsTestRoutes() {
                     politicianRankingEnabled = q["politicianRankingEnabled"]?.toBoolean() ?: false,
                     datevBeraterNummer = q["datevBeraterNummer"]?.toInt(),
                     datevMandantNummer = q["datevMandantNummer"]?.toInt(),
+                    // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): the three mapping fields whose
+                    // COMBINATION is now cross-checked (see requireConsistentPaymentAccountMapping).
+                    paymentBankAccountId = q["paymentBankAccountId"],
+                    receivablesAccountId = q["receivablesAccountId"],
+                    payablesAccountId = q["payablesAccountId"],
                 ),
             )
         call.respondText("${dto.name}:${dto.street}:${dto.taxExemptionAuthority}:${dto.taxExemptionDate}")

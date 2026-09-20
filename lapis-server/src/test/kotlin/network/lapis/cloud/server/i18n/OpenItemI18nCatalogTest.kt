@@ -40,6 +40,10 @@ class OpenItemI18nCatalogTest :
                 "OpenItemDialogs.kt",
                 "OpenItemFilters.kt",
                 "OpenItemFormValidation.kt",
+                // Welle V1.4.22 "Zahlungskonto im Offene-Posten-Pfad" -- zwei neue Dateien dieser
+                // Welle, hier eingetragen, damit ihre Texte demselben Katalog-Waechter unterliegen.
+                "OpenItemGuard.kt",
+                "OpenItemPaymentAccounts.kt",
                 "OpenItemLabels.kt",
                 "OpenItemNettingUi.kt",
                 "ReceivableDunningLevelValidation.kt",

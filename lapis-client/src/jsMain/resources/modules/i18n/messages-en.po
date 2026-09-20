@@ -12109,3 +12109,55 @@ msgstr "The amount is too large (at most %1)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1046
 msgid "Nächste Stufe fällig am %1"
 msgstr "Next level due on %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
+msgid "Zahlungskonto (Bank oder Kasse)"
+msgstr "Payment account (bank or cash)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:78
+msgid "Bitte ein Bankkonto wählen — für die Organisation ist kein Standard-Bankkonto hinterlegt."
+msgstr "Please choose a bank account — no default bank account is configured for the organization."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:87
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Ein Administrator kann im Kontenplan unter „Kontenzuordnung Zahlungsverkehr\" ein Bankkonto zuordnen."
+msgstr "No default bank account is configured for the organization. An administrator can assign one in the chart of accounts under \"Payment account mapping\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:94
+msgid "Kein Zahlungskonto (Bank oder Kasse) im Kontenplan gefunden. Ein Administrator muss ein Bank- oder Kassenkonto anlegen und im Kontenplan zuordnen."
+msgstr "No payment account (bank or cash) was found in the chart of accounts. An administrator has to create a bank or cash account and assign it there."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:39
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Bitte ein Zahlungskonto wählen oder im Kontenplan eines zuordnen."
+msgstr "No default bank account is configured for the organization. Please choose a payment account or assign one in the chart of accounts."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:47
+msgid "Dieser Posten ist noch nicht gebucht — bitte zuerst nachbuchen, dann ausgleichen."
+msgstr "This item is not booked yet — please retry the booking first, then settle."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:50
+msgid "Der Betrag übersteigt den offenen Betrag dieses Postens — bitte die Ansicht aktualisieren."
+msgstr "The amount exceeds this item's open amount — please refresh the view."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:120
+msgid "Konten und Zahlungskonto-Zuordnung sind noch nicht geladen. Es wird das Standard-Bankkonto der Organisation verwendet; für eine Auswahl bitte den Dialog erneut öffnen."
+msgstr "Accounts and the payment-account mapping are not loaded yet. The organization's default bank account will be used; to choose one, please reopen the dialog."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:135
+msgid "%1 · %2 (Standard)"
+msgstr "%1 · %2 (default)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:157
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Forderungskonto (Debitoren) sein."
+msgstr "The bank account must not be the same account as the receivables account (debtors)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:159
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Verbindlichkeitenkonto (Kreditoren) sein."
+msgstr "The bank account must not be the same account as the payables account (creditors)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:161
+msgid "Forderungskonto (Debitoren) und Verbindlichkeitenkonto (Kreditoren) müssen verschiedene Konten sein."
+msgstr "The receivables account (debtors) and the payables account (creditors) have to be different accounts."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
+msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
+msgstr "The chosen account is not a payment account (bank or cash) or is no longer active. Please choose another account and refresh the view."

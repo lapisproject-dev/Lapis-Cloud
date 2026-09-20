@@ -38,11 +38,18 @@ import network.lapis.cloud.shared.domain.OpenItemSnapshot
 import network.lapis.cloud.shared.domain.OpenItemStatus
 import network.lapis.cloud.shared.domain.OpenItemStatusSets
 import network.lapis.cloud.shared.domain.OpenItemSummaryDto
+import network.lapis.cloud.shared.domain.PaymentAccountCandidate
+import network.lapis.cloud.shared.domain.PaymentAccountMapping
+import network.lapis.cloud.shared.domain.PaymentCapableAccounts
 import network.lapis.cloud.shared.domain.ReceivableDunningNoticeDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.OpenItemAmountExceedsOpenAmountException
+import network.lapis.cloud.shared.rpc.OpenItemNotBookedException
+import network.lapis.cloud.shared.rpc.PaymentAccountNotPaymentCapableException
+import network.lapis.cloud.shared.rpc.PaymentBankAccountNotConfiguredException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -139,6 +146,13 @@ private val logger = KotlinLogging.logger {}
  *    affected `open_item` row(s) FIRST.
  * 3. [AuditLogRecorder.record] is always the LAST lock-taking operation of that transaction.
  * 4. [NotFoundException] for a foreign/malformed id, [ConflictException] for a state violation.
+ *    **Exception (Welle V1.4.22)**: the three state violations of the settlement path a treasurer can
+ *    actually ACT on -- item not booked yet ([OpenItemNotBookedException]), amount above the live open
+ *    amount ([OpenItemAmountExceedsOpenAmountException]), no default payment account configured
+ *    ([PaymentBankAccountNotConfiguredException]) -- are distinct `@RpcServiceException` types, because
+ *    Kilua RPC transmits only the exception TYPE and the client could otherwise say nothing but "die
+ *    Aktion steht im Konflikt mit dem aktuellen Zustand" for all three (found live on staging). See
+ *    [PaymentBankAccountNotConfiguredException] KDoc.
  *
  * **`openAmount` is NEVER stored** -- see [OpenItemMath.openAmount] KDoc. `status` IS materialized
  * on every write (so `listOpenItems`/`getOpenItemSummary` can filter/sort in SQL), but it is never
@@ -462,9 +476,12 @@ class OpenItemService(
                     ?: throw NotFoundException("OpenItem $id not found")
             val status = row[OpenItemTable.status]
             if (status !in OpenItemStatusSets.SETTLEABLE) throw ConflictException("OpenItem $id is $status, cannot be settled")
+            // V1.4.22: the three rejections below used to be indistinguishable ConflictExceptions, so
+            // the client could only ever show one generic toast for all of them -- see
+            // OpenItemNotBookedException KDoc (Kilua RPC transmits the type, never the message).
             val creationJournalEntryId =
                 row[OpenItemTable.creationJournalEntryId]
-                    ?: throw ConflictException("OpenItem $id is not booked yet -- call retryOpenItemPosting first")
+                    ?: throw OpenItemNotBookedException("OpenItem $id is not booked yet -- call retryOpenItemPosting first")
 
             val activeSettlements = loadActiveSettlements(listOf(id))[id].orEmpty()
             val openAmount =
@@ -472,7 +489,9 @@ class OpenItemService(
                     amount = row[OpenItemTable.amount],
                     activeSettlementAmounts = activeSettlements.map { it.amount },
                 )
-            if (amount > openAmount) throw ConflictException("amount $amount exceeds openAmount $openAmount for OpenItem $id")
+            if (amount > openAmount) {
+                throw OpenItemAmountExceedsOpenAmountException("amount $amount exceeds openAmount $openAmount for OpenItem $id")
+            }
 
             val settingsRow =
                 OrganizationSettingsTable
@@ -481,7 +500,14 @@ class OpenItemService(
                     .singleOrNull()
             val effectiveBankAccountId =
                 explicitBankAccountId ?: settingsRow?.get(OrganizationSettingsTable.paymentBankAccountId)
-                    ?: throw ConflictException("no bankAccountId given and organization_settings.payment_bank_account_id is not configured")
+                    ?: throw PaymentBankAccountNotConfiguredException(
+                        "no bankAccountId given and organization_settings.payment_bank_account_id is not configured",
+                    )
+            requirePaymentCapableAccount(
+                bankAccountId = effectiveBankAccountId,
+                mapping = paymentAccountMappingOf(settingsRow),
+                explicitlyChosen = explicitBankAccountId != null,
+            )
 
             val settlementId = Uuid.random()
             val now = DbClock.nowLocalDateTime()
@@ -706,7 +732,15 @@ class OpenItemService(
                     .singleOrNull()
             val bankAccountId =
                 settingsRow?.get(OrganizationSettingsTable.paymentBankAccountId)
-                    ?: throw ConflictException("organization_settings.payment_bank_account_id is not configured")
+                    ?: throw PaymentBankAccountNotConfiguredException("organization_settings.payment_bank_account_id is not configured")
+            // V1.4.22: same rule as settleOpenItem. There is no explicit account on this path -- a
+            // retry always re-books against the CURRENT default mapping, which may meanwhile point at
+            // the receivables account.
+            requirePaymentCapableAccount(
+                bankAccountId = bankAccountId,
+                mapping = paymentAccountMappingOf(settingsRow),
+                explicitlyChosen = false,
+            )
             val outcome =
                 OpenItemPostingBridge.postSettlement(
                     settlementId = id,
@@ -1486,6 +1520,78 @@ private fun String.toOpenItemUuid(role: String): Uuid =
     runCatching {
         Uuid.parse(this)
     }.getOrElse { throw NotFoundException("Invalid $role: $this") }
+
+/**
+ * Welle V1.4.22: the `organization_settings` payment mapping in the form the shared rule
+ * ([PaymentCapableAccounts]) answers questions against. Reads from an ALREADY-loaded settings row,
+ * so no call site pays for a second `SELECT` (every one of them needs the row anyway).
+ */
+private fun paymentAccountMappingOf(settingsRow: ResultRow?): PaymentAccountMapping =
+    PaymentAccountMapping(
+        defaultBankAccountId = settingsRow?.get(OrganizationSettingsTable.paymentBankAccountId)?.toString(),
+        receivablesAccountId = settingsRow?.get(OrganizationSettingsTable.receivablesAccountId)?.toString(),
+        payablesAccountId = settingsRow?.get(OrganizationSettingsTable.payablesAccountId)?.toString(),
+    )
+
+/**
+ * Welle V1.4.22 "Zahlungskonto im Offene-Posten-Pfad" -- rejects a money-side account that is
+ * certainly wrong for a settlement posting, with the SAME rule the settlement dialog's offer list
+ * uses ([PaymentCapableAccounts], see its KDoc for where each criterion comes from and for the
+ * staging finding that prompted it).
+ *
+ * Before this check, `settleOpenItem` accepted ANY `bankAccountId` the caller sent and handed it
+ * straight to [OpenItemPostingBridge.postSettlement], which only verifies that the account exists
+ * and is active. Passing the configured receivables account therefore booked Soll receivables /
+ * Haben receivables -- balanced, posted, and meaningless.
+ *
+ * [PaymentAccountNotPaymentCapableException] -- the `BadRequestException` TIER (a caller-supplied
+ * value that is invalid for the operation, same tier `requireValidAmount` uses) but a distinct type,
+ * because Kilua RPC transmits only the type and "Ungültige Anfrage." is useless to a treasurer whose
+ * account list went stale; see that exception's KDoc, which also explains why a non-existent account
+ * id is folded into it instead of raising [NotFoundException]. Only
+ * [PaymentCapableAccounts.SERVER_ENFORCED] rejections are refused; a merely unusual account class is
+ * logged and accepted -- see that property's KDoc for why (existing organizations, and this repo's
+ * own test fixtures, run on `accountClass = 0` accounts).
+ *
+ * Applied to the EFFECTIVE account (explicit argument or the configured default): a default mapping
+ * pointing at the receivables account is exactly as wrong as an explicit one, and
+ * `OrganizationSettingsService.requireValidPaymentAccountMapping` cannot catch that case (the
+ * receivables account passes its active/`ASSET`/non-cash-register checks).
+ */
+private fun requirePaymentCapableAccount(
+    bankAccountId: Uuid,
+    mapping: PaymentAccountMapping,
+    explicitlyChosen: Boolean,
+) {
+    val row =
+        LedgerAccountTable.selectAll().where { LedgerAccountTable.id eq bankAccountId }.singleOrNull()
+            ?: throw PaymentAccountNotPaymentCapableException(
+                "LedgerAccount $bankAccountId (bankAccountId) does not exist and therefore cannot be used as a payment account",
+            )
+    val candidate =
+        PaymentAccountCandidate(
+            id = bankAccountId.toString(),
+            type = row[LedgerAccountTable.type],
+            accountClass = row[LedgerAccountTable.accountClass],
+            active = row[LedgerAccountTable.active],
+        )
+    val rejection = PaymentCapableAccounts.rejectionOf(account = candidate, mapping = mapping) ?: return
+    val origin = if (explicitlyChosen) "explicitly chosen" else "organization default"
+    if (PaymentCapableAccounts.isServerEnforced(rejection)) {
+        throw PaymentAccountNotPaymentCapableException(
+            "$origin bankAccountId $bankAccountId is not payment-capable ($rejection) -- a settlement must be booked " +
+                "against an active asset account that is not the receivables/payables collective account",
+        )
+    }
+    // Audit-Nachtrag (MINOR-f): machine-parseable `key=value` prefix, so this can be counted/alerted on
+    // without a schema change (there is no AuditEntityType for "a posting used an unusual account", and
+    // inventing one for a WARN would be a migration). Keep the keys stable if this line is ever edited.
+    logger.warn {
+        "event=payment_account_unusual_class rejection=$rejection origin=$origin ledgerAccountId=$bankAccountId " +
+            "accountClass=${candidate.accountClass} expectedClass=${PaymentCapableAccounts.LIQUID_ASSET_ACCOUNT_CLASS} " +
+            "-- accepted, but it is probably not a bank/cash account."
+    }
+}
 
 /**
  * Review MINOR fix (Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen"): the

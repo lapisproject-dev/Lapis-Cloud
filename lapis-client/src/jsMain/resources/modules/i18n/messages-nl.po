@@ -12152,3 +12152,55 @@ msgstr "Het bedrag is te groot (maximaal %1)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1046
 msgid "Nächste Stufe fällig am %1"
 msgstr "Volgend niveau vervalt op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
+msgid "Zahlungskonto (Bank oder Kasse)"
+msgstr "Betaalrekening (bank of kas)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:78
+msgid "Bitte ein Bankkonto wählen — für die Organisation ist kein Standard-Bankkonto hinterlegt."
+msgstr "Kies een bankrekening — voor de organisatie is geen standaardbankrekening ingesteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:87
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Ein Administrator kann im Kontenplan unter „Kontenzuordnung Zahlungsverkehr\" ein Bankkonto zuordnen."
+msgstr "Voor de organisatie is geen standaardbankrekening ingesteld. Een beheerder kan er een toewijzen in het rekeningschema onder \"Rekeningtoewijzing betalingsverkeer\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:94
+msgid "Kein Zahlungskonto (Bank oder Kasse) im Kontenplan gefunden. Ein Administrator muss ein Bank- oder Kassenkonto anlegen und im Kontenplan zuordnen."
+msgstr "Geen betaalrekening (bank of kas) in het rekeningschema gevonden. Een beheerder moet een bank- of kasrekening aanmaken en daar toewijzen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:39
+msgid "Für die Organisation ist kein Standard-Bankkonto hinterlegt. Bitte ein Zahlungskonto wählen oder im Kontenplan eines zuordnen."
+msgstr "Voor de organisatie is geen standaardbankrekening ingesteld. Kies een betaalrekening of wijs er een toe in het rekeningschema."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:47
+msgid "Dieser Posten ist noch nicht gebucht — bitte zuerst nachbuchen, dann ausgleichen."
+msgstr "Deze post is nog niet geboekt — probeer eerst de boeking opnieuw en letter daarna af."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:50
+msgid "Der Betrag übersteigt den offenen Betrag dieses Postens — bitte die Ansicht aktualisieren."
+msgstr "Het bedrag overschrijdt het openstaande bedrag van deze post — vernieuw de weergave."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:120
+msgid "Konten und Zahlungskonto-Zuordnung sind noch nicht geladen. Es wird das Standard-Bankkonto der Organisation verwendet; für eine Auswahl bitte den Dialog erneut öffnen."
+msgstr "Rekeningen en de betaalrekeningtoewijzing zijn nog niet geladen. De standaardbankrekening van de organisatie wordt gebruikt; open het dialoogvenster opnieuw om te kiezen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:135
+msgid "%1 · %2 (Standard)"
+msgstr "%1 · %2 (standaard)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:157
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Forderungskonto (Debitoren) sein."
+msgstr "De bankrekening mag niet dezelfde rekening zijn als de vorderingenrekening (debiteuren)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:159
+msgid "Das Bankkonto darf nicht dasselbe Konto wie das Verbindlichkeitenkonto (Kreditoren) sein."
+msgstr "De bankrekening mag niet dezelfde rekening zijn als de schuldenrekening (crediteuren)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemPaymentAccounts.kt:161
+msgid "Forderungskonto (Debitoren) und Verbindlichkeitenkonto (Kreditoren) müssen verschiedene Konten sein."
+msgstr "De vorderingenrekening (debiteuren) en de schuldenrekening (crediteuren) moeten verschillende rekeningen zijn."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
+msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
+msgstr "De gekozen rekening is geen betaalrekening (bank of kas) of is niet langer actief. Kies een andere rekening en vernieuw de weergave."

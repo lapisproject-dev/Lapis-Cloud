@@ -17,12 +17,12 @@ import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.LedgerAccountDto
-import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.NettingCandidateDto
 import network.lapis.cloud.shared.domain.NettingPreviewDto
 import network.lapis.cloud.shared.domain.OpenItemDetailDto
 import network.lapis.cloud.shared.domain.OpenItemDto
 import network.lapis.cloud.shared.domain.OpenItemSettlementDto
+import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.rpc.IOpenItemService
 
 // Welle V1.4.21 -- die drei Modal-Dialoge des Offene-Posten-Screens (Ausgleichen, Beleg/Notiz
@@ -37,16 +37,25 @@ import network.lapis.cloud.shared.rpc.IOpenItemService
 /**
  * [accounts] ist bewusst ein Lambda, keine Momentaufnahme (N12): der Zeilen-Aufrufer rendert die
  * Zeile, bevor `listLedgerAccounts` zurück ist -- eine zum Render-Zeitpunkt kopierte Liste war im
- * Dialog dann leer.
+ * Dialog dann leer. [paymentMapping] ist aus demselben Grund ein Lambda (`getOrganizationSettings`
+ * läuft parallel) und darf `null` sein, solange die Zuordnung nicht bekannt ist -- siehe
+ * [settlementBankChoice].
  *
  * [knownSettlementIds] sind die Ausgleich-Ids, die dem Aufrufer VOR dieser Aktion schon bekannt
  * waren; daran erkennt [newSettlementPostingError] den wirklich neu angelegten Ausgleich (N3).
  * `null` heißt "Aufrufer kennt sie nicht" (die Liste hat nur den [OpenItemDto], nicht seine
  * Ausgleiche) -- dann greift der dokumentierte Notnagel in [newSettlementPostingError].
+ *
+ * **Welle V1.4.22** (zwei Bedienfehler, live auf Staging gefunden): das Konten-Select bietet nur noch
+ * zahlungsfähige Konten an (Bank/Kasse, [SettlementBankChoice]) statt aller ASSET-Konten, die
+ * Standard-Option verschwindet, wenn gar kein Standard-Bankkonto hinterlegt ist, und der Ausgleich
+ * läuft über [openItemGuarded], damit der Server-Grund nicht mehr im generischen Konflikt-Toast
+ * verschwindet.
  */
 internal fun openItemSettlementDialog(
     item: OpenItemDto,
     accounts: () -> List<LedgerAccountDto>,
+    paymentMapping: () -> PaymentAccountMapping?,
     knownSettlementIds: Set<String>?,
     onDone: () -> Unit,
 ) {
@@ -54,10 +63,24 @@ internal fun openItemSettlementDialog(
     modal.div(gettext("Offen: %1", formatMoney(item.openAmount))) { addCssClasses("fw-bold mb-2") }
     val amountInput = modal.text(value = item.openAmount.toString(), label = tr("Betrag in EUR"))
     val dateInput = modal.text(value = todayLocalDate().toString(), label = tr("Zahlungsdatum (JJJJ-MM-TT)"))
+    val bankChoice = settlementBankChoice(accounts = accounts(), mapping = paymentMapping())
     val bankOptions =
-        listOf("" to tr("(Standard-Bankkonto der Organisation)")) +
-            accounts().filter { it.type == LedgerAccountType.ASSET }.map { it.id to "${it.accountNumber} · ${it.name}" }
-    val bankSelect = modal.select(options = bankOptions, value = "", label = tr("Bankkonto"))
+        listOf(
+            "" to if (bankChoice.selectionRequired) tr("(bitte wählen)") else tr("(Standard-Bankkonto der Organisation)"),
+        ) + bankChoice.eligible.map { it.id to settlementBankOptionLabel(account = it, choice = bankChoice) }
+    val bankSelect = modal.select(options = bankOptions, value = "", label = tr("Zahlungskonto (Bank oder Kasse)"))
+    if (bankChoice.selectionRequired) {
+        modal.div(missingDefaultBankAccountHint(bankChoice)) { addCssClasses("text-muted small") }
+    }
+    if (!bankChoice.contextKnown) {
+        // Audit-Nachtrag (MAJOR-2): ohne Kontenliste UND Zuordnung wird keine halb gefilterte Liste
+        // angeboten -- ohne die Zuordnung ist das Forderungskonto von einem Bankkonto nicht zu
+        // unterscheiden (beide Kontenklasse 1). Das Select bleibt gesperrt, der Ausgleich läuft über
+        // das Standardkonto der Organisation (der Server entscheidet), und der Hinweis sagt, wie man
+        // zur Auswahl kommt.
+        bankSelect.disabled = true
+        modal.div(paymentAccountsUnknownHint()) { addCssClasses("text-warning small") }
+    }
     val errorBox =
         modal.div().apply {
             addCssClass("text-danger")
@@ -102,6 +125,10 @@ internal fun openItemSettlementDialog(
         if (gate.blocked) return@onClick
         val amount = parseAmountInput(amountInput.value)
         val settledOn = runCatching { LocalDate.parse(dateInput.value.orEmpty().trim()) }.getOrNull()
+        // V1.4.22: die Kontowahl ist Pflicht, sobald es kein Standard-Bankkonto gibt -- vorher war
+        // "(Standard-Bankkonto der Organisation)" auch dann vorausgewählt, und der Server lehnte den
+        // Ausgleich mit einem Grund ab, den der generische Konflikt-Toast nicht nannte.
+        val bankProblem = settlementBankAccountProblem(selected = bankSelect.value, choice = bankChoice)
         val problem =
             when {
                 amount is AmountInput.Empty -> tr("Bitte einen Betrag angeben.")
@@ -109,6 +136,7 @@ internal fun openItemSettlementDialog(
                 amount is AmountInput.Valid && amount.value.toDouble() > item.openAmount.toDouble() ->
                     gettext("Der Betrag darf den offenen Betrag (%1) nicht übersteigen.", formatMoney(item.openAmount))
                 settledOn == null -> tr("Bitte ein gültiges Datum angeben.")
+                bankProblem != null -> bankProblem
                 else -> null
             }
         if (problem != null || amount !is AmountInput.Valid || settledOn == null) {
@@ -146,8 +174,10 @@ internal fun openItemSettlementDialog(
             runGuardedAction(finalButton) {
                 var succeeded = false
                 try {
+                    // V1.4.22: `openItemGuarded`, nicht `guarded` -- die drei handlungsrelevanten
+                    // Konflikte dieses Aufrufs bekommen einen eigenen Text (siehe dessen KDoc).
                     val result =
-                        guarded { rpcService<IOpenItemService>().settleOpenItem(item.id, amount.value, settledOn, bankAccountId) }
+                        openItemGuarded { rpcService<IOpenItemService>().settleOpenItem(item.id, amount.value, settledOn, bankAccountId) }
                     if (result != null) {
                         succeeded = true
                         modal.hide()

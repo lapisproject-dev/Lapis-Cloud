@@ -174,6 +174,75 @@ class WebhookUrlTooLongException(
 ) : AbstractServiceException()
 
 /**
+ * Welle V1.4.22 "Zahlungskonto im Offene-Posten-Pfad" -- see [MemberEmailInUseException] KDoc for why
+ * these are THREE distinct types rather than three `ConflictException` messages, or one exception
+ * carrying a reason code: Kilua RPC's polymorphic exception protocol transmits only the subclass
+ * discriminator, so neither `message` nor any other property ever reaches the browser. The exception
+ * TYPE is the only stable, wire-visible marker available -- exactly the constraint
+ * [WebhookUrlNotHttpsException] and friends already answer the same way.
+ *
+ * Found live on staging (V1.4.21): `settleOpenItem` rejected a settlement with
+ * `ConflictException("no bankAccountId given and organization_settings.payment_bank_account_id is
+ * not configured")`, and the treasurer saw `AppState.guarded`'s generic "Die Aktion steht im
+ * Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren" -- advice that fixes nothing,
+ * with the actual cause (an unconfigured organization setting) nowhere on screen.
+ *
+ * Thrown by `network.lapis.cloud.server.rpc.OpenItemService.settleOpenItem` (no explicit
+ * `bankAccountId` and no `organization_settings.payment_bank_account_id`) and
+ * `.retrySettlementPosting` (which has no explicit account at all and therefore ALWAYS needs the
+ * default mapping). Caught by `network.lapis.cloud.client.openItemGuarded`.
+ */
+@RpcServiceException
+class PaymentBankAccountNotConfiguredException(
+    override val message: String = "organization_settings.payment_bank_account_id is not configured",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.4.22 -- distinct type, see [PaymentBankAccountNotConfiguredException]. An open item whose
+ * creation posting failed (`creation_journal_entry_id IS NULL`) cannot be settled: the remedy is
+ * `retryOpenItemPosting`, which the generic conflict toast never mentioned. Thrown by
+ * `network.lapis.cloud.server.rpc.OpenItemService.settleOpenItem`.
+ */
+@RpcServiceException
+class OpenItemNotBookedException(
+    override val message: String = "OpenItem is not booked yet -- call retryOpenItemPosting first",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.4.22 -- distinct type, see [PaymentBankAccountNotConfiguredException]. The settled amount
+ * exceeds the item's live `openAmount`. The client pre-checks this against the row it displays, so
+ * reaching the server means the displayed row is stale (a concurrent settlement) -- which is the one
+ * case where "refresh the view" IS the right advice, but it has to say WHICH check failed. Thrown by
+ * `network.lapis.cloud.server.rpc.OpenItemService.settleOpenItem`.
+ */
+@RpcServiceException
+class OpenItemAmountExceedsOpenAmountException(
+    override val message: String = "amount exceeds the open amount of this OpenItem",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.4.22, Audit-Nachtrag -- the caller-supplied (or organization-default) ledger account cannot
+ * be the money side of a payment: it is inactive, not an `ASSET` account, the receivables/payables
+ * collective account, or does not exist at all. Distinct type for the same wire-transparency reason as
+ * [PaymentBankAccountNotConfiguredException]; without it this arrived as a plain
+ * [BadRequestException], which the client can only render as "Ungültige Anfrage." -- true but useless
+ * for a treasurer whose account list went stale while the dialog was open.
+ *
+ * **A non-existent account id is folded in deliberately.** The obvious alternative,
+ * [NotFoundException], is indistinguishable on the client from "the open item was not found" (Kilua
+ * RPC transmits only the type), which would be actively misleading. A malformed id string still
+ * becomes a [NotFoundException] before this point (`toOpenItemUuid`, this repo's established
+ * "well-formed-ness vs. semantic validity" split).
+ *
+ * Thrown by `network.lapis.cloud.server.rpc.OpenItemService.settleOpenItem`/`.retrySettlementPosting`
+ * via their shared `requirePaymentCapableAccount`.
+ */
+@RpcServiceException
+class PaymentAccountNotPaymentCapableException(
+    override val message: String = "The chosen ledger account cannot be used as a payment account",
+) : AbstractServiceException()
+
+/**
  * Welle V1.6.1 -- the AI assistance layer is switched off (default) or not fully configured on
  * this server. A distinct type for the same wire-transparency reason as [MemberEmailInUseException]:
  * Kilua RPC transmits only the subclass discriminator, never the message.

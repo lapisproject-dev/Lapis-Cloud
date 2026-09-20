@@ -42,12 +42,14 @@ import network.lapis.cloud.shared.domain.OpenItemSettlementKind
 import network.lapis.cloud.shared.domain.OpenItemStatus
 import network.lapis.cloud.shared.domain.OpenItemStatusSets
 import network.lapis.cloud.shared.domain.OpenItemSummaryDto
+import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.domain.ReceivableDunningLevelDto
 import network.lapis.cloud.shared.domain.ReceivableDunningNoticeDto
 import network.lapis.cloud.shared.domain.ReceivableDunningSettingsDto
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.ICrmService
 import network.lapis.cloud.shared.rpc.IOpenItemService
+import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IReceivableDunningService
 
 /** S8: hart gedeckelte "Mehr laden"-Kette -- höchstens 20 Ladevorgänge je Filterzustand (bei
@@ -97,6 +99,15 @@ private class OpenItemsState(
     var generation: Int = 0
     var loadedIncludesClosed: Boolean = false
     var accounts: List<LedgerAccountDto> = emptyList()
+
+    /**
+     * Welle V1.4.22: die Zahlungskonten-Zuordnung der Organisation (`getOrganizationSettings` ist
+     * TREASURER/BOARD/ADMIN -- genau die Leserollen dieses Screens, also kein stiller 403).
+     * **`null` heißt "noch nicht bekannt"**, nicht "nichts zugeordnet": scheitert der Abruf, bleibt
+     * der Ausgleichen-Dialog beim bisherigen Verhalten, statt zu behaupten, es sei kein
+     * Standard-Bankkonto hinterlegt (siehe [settlementBankChoice]).
+     */
+    var paymentMapping: PaymentAccountMapping? = null
 
     /** Welle V1.4.21 Audit-Fund M5: `null`, solange der Abruf nicht (erfolgreich) durch ist. */
     var dunningSettings: ReceivableDunningSettingsDto? = null
@@ -160,6 +171,27 @@ fun renderOpenItemsScreen(
     var reloadAll: () -> Unit = {}
     var openDetail: (String) -> Unit = {}
     var renderListFn: () -> Unit = {}
+
+    /**
+     * Welle V1.4.22 Audit-Nachtrag (MAJOR-2): Nachladen der Zahlungskonten-Zuordnung. Nur für
+     * Schreibrollen belegt (nur sie können ausgleichen), deshalb hier vorwärtsdeklariert -- die
+     * Zeilen-Aktion unten entsteht vor dem `canWrite`-Block.
+     */
+    var loadPaymentMappingFn: () -> Unit = {}
+
+    /**
+     * Die Zuordnung für den Ausgleichen-Dialog -- und, falls sie fehlt, ein neuer Abruf. Der erste
+     * Abruf beim Bildschirmaufbau hat keinen Wiederholversuch (anders als `loadAccounts`, das der
+     * Anlegen-Knopf notfalls erneut auslöst); ohne diesen Haken blieb ein einmal gescheiterter Abruf
+     * für die ganze Sitzung fehlend, und der Dialog konnte dauerhaft weder die Standard-Option
+     * ehrlich anbieten noch das Forderungskonto herausfiltern. Der laufende Abruf kommt zu spät für
+     * DIESEN Dialog (er wird einmal aufgebaut) -- deshalb sagt [paymentAccountsUnknownHint], dass ein
+     * erneutes Öffnen die Auswahl bringt.
+     */
+    fun paymentMappingOrReload(): PaymentAccountMapping? {
+        if (state.paymentMapping == null) loadPaymentMappingFn()
+        return state.paymentMapping
+    }
 
     // Audit-Fund (zweiter Durchgang) zu M5: `refreshDunningContext()` und `openDetail(selectedId)`
     // starten PARALLEL, und der Detailbereich liest den Mahnkontext zum RENDER-Zeitpunkt
@@ -332,8 +364,16 @@ fun renderOpenItemsScreen(
                 selected = item.id == state.selectedId,
                 onSelect = { openDetail(item.id) },
                 // N12: `accounts` als Lambda, nicht als Momentaufnahme -- eine Kontenliste, die erst
-                // NACH dem Rendern der Zeile eintrifft, war im Zeilen-Dialog sonst leer.
-                onSettle = { openItemSettlementDialog(item, { state.accounts }, knownSettlementIds = null) { reloadAll() } },
+                // NACH dem Rendern der Zeile eintrifft, war im Zeilen-Dialog sonst leer. Dasselbe
+                // gilt für die Zahlungskonten-Zuordnung (V1.4.22).
+                onSettle = {
+                    openItemSettlementDialog(
+                        item = item,
+                        accounts = { state.accounts },
+                        paymentMapping = { paymentMappingOrReload() },
+                        knownSettlementIds = null,
+                    ) { reloadAll() }
+                },
                 onRetry = {
                     val result = guarded { rpcService<IOpenItemService>().retryOpenItemPosting(item.id) }
                     if (result != null) {
@@ -413,6 +453,7 @@ fun renderOpenItemsScreen(
             detail = detail,
             role = role,
             accounts = { state.accounts },
+            paymentMapping = { paymentMappingOrReload() },
             dunningSettings = { state.dunningSettings },
             dunningLevels = { state.dunningLevels },
             onChanged = { changed ->
@@ -474,6 +515,10 @@ fun renderOpenItemsScreen(
     reloadAll = {
         refreshSummary()
         refreshDunningContext()
+        // V1.4.22: "Aktualisieren" holt die Zahlungskonten-Zuordnung mit -- ein Administrator kann sie
+        // in einem anderen Tab gerade erst gesetzt haben, und ohne diesen Abruf bliebe der
+        // Ausgleichen-Dialog bis zum Seiten-Neuladen bei "kein Standard-Bankkonto hinterlegt".
+        loadPaymentMappingFn()
         loadPage(reset = true)
         state.selectedId?.let { openDetail(it) }
     }
@@ -561,6 +606,18 @@ fun renderOpenItemsScreen(
             }
         }
 
+        // Welle V1.4.22: Welches Konto ist das Standard-Zahlungskonto, welches sind die
+        // Sammelkonten? Ohne diese Antwort kann der Ausgleichen-Dialog weder die Standard-Option
+        // ehrlich anbieten noch das Forderungskonto aus der Liste nehmen. Nur für Schreibrollen
+        // geladen -- nur sie können überhaupt ausgleichen (wie `loadAccounts` oben).
+        fun loadPaymentMapping() {
+            AppScope.launch {
+                val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } ?: return@launch
+                state.paymentMapping = settings.toPaymentAccountMapping()
+            }
+        }
+        loadPaymentMappingFn = ::loadPaymentMapping
+
         val createButton = actionRow.button(tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
         val nettingButton = actionRow.button(tr("Verrechnen …"), style = ButtonStyle.OUTLINESECONDARY)
         createButton.onClick {
@@ -595,8 +652,9 @@ fun renderOpenItemsScreen(
             if (state.accounts.isEmpty()) loadAccounts()
         }
         nettingButton.onClick { openItemNettingDialog { reloadAll() } }
-        // Konten für Gegenkonto-/Bankkonto-Selects laden; ohne sie bleibt das Formular leer.
+        // Konten für Gegenkonto-/Zahlungskonto-Selects laden; ohne sie bleibt das Formular leer.
         loadAccounts()
+        loadPaymentMapping()
     }
 
     refreshSummary()
@@ -696,6 +754,7 @@ private fun renderOpenItemDetail(
     detail: OpenItemDetailDto,
     role: AccountRole?,
     accounts: () -> List<LedgerAccountDto>,
+    paymentMapping: () -> PaymentAccountMapping?,
     dunningSettings: () -> ReceivableDunningSettingsDto?,
     dunningLevels: () -> List<ReceivableDunningLevelDto>,
     onChanged: (OpenItemDetailDto) -> Unit,
@@ -753,7 +812,16 @@ private fun renderOpenItemDetail(
         renderDunningDisabledBand(panel, item, role, dunningSettings())
     }
     if (canWrite) {
-        renderOpenItemActionBar(panel, detail, role, accounts, dunningLevels, onChanged, onReloadNeeded)
+        renderOpenItemActionBar(
+            panel = panel,
+            detail = detail,
+            role = role,
+            accounts = accounts,
+            paymentMapping = paymentMapping,
+            dunningLevels = dunningLevels,
+            onChanged = onChanged,
+            onReloadNeeded = onReloadNeeded,
+        )
     }
 }
 
@@ -846,7 +914,10 @@ private fun renderSettlementActions(
         val retry = actions.tableActionButton("fas fa-rotate-right", gettext("Nachbuchen"))
         retry.onClick {
             runGuardedAction(retry) {
-                val result = guarded { rpcService<IOpenItemService>().retrySettlementPosting(settlement.id) }
+                // V1.4.22: `openItemGuarded` -- dieser Aufruf hat KEIN explizites Konto und braucht
+                // deshalb immer das Standard-Bankkonto der Organisation. Fehlt es, war der Grund
+                // vorher im generischen Konflikt-Toast unsichtbar.
+                val result = openItemGuarded { rpcService<IOpenItemService>().retrySettlementPosting(settlement.id) }
                 if (result != null) {
                     notifySuccess(tr("Buchung nachgeholt."))
                     onChanged(result)
@@ -980,6 +1051,7 @@ private fun renderOpenItemActionBar(
     detail: OpenItemDetailDto,
     role: AccountRole?,
     accounts: () -> List<LedgerAccountDto>,
+    paymentMapping: () -> PaymentAccountMapping?,
     dunningLevels: () -> List<ReceivableDunningLevelDto>,
     onChanged: (OpenItemDetailDto) -> Unit,
     onReloadNeeded: () -> Unit,
@@ -994,6 +1066,7 @@ private fun renderOpenItemActionBar(
             openItemSettlementDialog(
                 item = item,
                 accounts = accounts,
+                paymentMapping = paymentMapping,
                 knownSettlementIds = detail.settlements.map { it.id }.toSet(),
             ) { onReloadNeeded() }
         }
