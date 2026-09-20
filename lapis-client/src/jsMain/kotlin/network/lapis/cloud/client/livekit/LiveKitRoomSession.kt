@@ -268,6 +268,14 @@ internal sealed interface ConnectAttemptResult {
  * verbatim, same "this class only relays the raw signal, `ConferenceScreen.kt` owns the UI"
  * discipline as [onReconnecting]/[onReconnected] above. See [classifyDeviceFailure] for the ONE
  * place a raw JS device error becomes a [ConferenceDeviceFailure].
+ *
+ * **Hintergrundeffekte** (V1.4.23): [onLocalCameraTrackPublished] relays ONLY the raw
+ * `RoomEvent.LocalTrackPublished` signal for the own camera; `ConferenceScreen.kt`/
+ * `ConferenceBackgroundController` own the application of the chosen effect. Verified against
+ * `livekit-client` 2.21.0: a processor that is set SURVIVES `switchActiveDevice`/`restartTrack`/camera
+ * off-on by itself (`setMediaStreamTrack` calls `processor.restart()`), so this event is an idempotent
+ * belt-and-braces path, not the main mechanism. [setCamera]/[setMicrophone]/`switchDevice`/[disconnect]
+ * are unchanged by that feature.
  */
 class LiveKitRoomSession(
     private val onRemoteTrack: (identity: String, displayName: String, track: Track, publication: TrackPublication) -> Unit,
@@ -302,6 +310,13 @@ class LiveKitRoomSession(
      * for the second, up-to-15-second attempt. Never fired when the first attempt succeeds, and never
      * more than once (there is no third attempt). */
     private val onRelayFallback: () -> Unit = {},
+    /** V1.4.23 Hintergrundeffekte -- relayt [RoomEvent.LocalTrackPublished], gefiltert auf die eigene
+     * Kamera (`publication.source == "camera"`, `track.kind == "video"`). Bis hierher war dieses Event
+     * NICHT verdrahtet (nur Reconnecting/Reconnected). Zweck ausschliesslich: den gewaehlten
+     * Hintergrundeffekt auf den (re-)publizierten Track anwenden -- die Selbstansicht bleibt unangetastet,
+     * dafuer ist [onLocalVideoTrack] weiterhin allein zustaendig, und es wird KEIN zweites `<video>` an
+     * denselben Track gehaengt (Atkinson-Ruling K3). */
+    private val onLocalCameraTrackPublished: (Track) -> Unit = {},
     /** Test seam (audit finding "Testabdeckung" -- [attemptConnect] previously hard-constructed
      * `Room(options)`, leaving [connect]'s own retry/orphan-guard/race-window orchestration
      * unreachable from a `jsTest` without a real browser/WebRTC stack). Defaults to the real
@@ -628,6 +643,14 @@ class LiveKitRoomSession(
             val publication = p0.unsafeCast<TrackPublication>()
             val identity = p1.unsafeCast<RemoteParticipant>().identity
             if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, false)
+        }
+        room.onOwned(RoomEvent.LocalTrackPublished) { p0, _, _, _ ->
+            val publication = p0.unsafeCast<TrackPublication>()
+            if (publication.source != "camera") return@onOwned
+            val rawTrack = publication.track ?: return@onOwned
+            val track = rawTrack.unsafeCast<Track>()
+            if (track.kind != "video") return@onOwned
+            onLocalCameraTrackPublished(track)
         }
         room.onOwned(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
         room.onOwned(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }

@@ -90,6 +90,14 @@ kotlin {
                 // Requires re-running `./gradlew :lapis-client:kotlinUpgradeYarnLock` after adding, siehe die
                 // `livekit-client`-Zeile oben für die Begründung.
                 implementation(npm("chart.js", "4.5.0"))
+                // V1.4.23 Videokonferenz-Hintergrundeffekte: dritte hand-deklarierte npm()-Abhängigkeit nach
+                // livekit-client und chart.js. Exakt gepinnt (kein `^`), gleiche Disziplin wie dort. Apache-2.0
+                // (verifiziert im Paket-package.json), Peer `livekit-client ^2.1.0` -- die hier gepinnte 2.21.0
+                // erfüllt das. Zieht GENAU EINE transitive Abhängigkeit: @mediapipe/tasks-vision, dort selbst
+                // exakt auf 0.10.14 gepinnt (kein Range) und ebenfalls Apache-2.0.
+                // Requires re-running `./gradlew kotlinUpgradeYarnLock` after adding, siehe die
+                // `livekit-client`-Zeile oben für die Begründung (sonst opaker YarnLockMismatch).
+                implementation(npm("@livekit/track-processors", "0.8.1"))
             }
         }
         // V0.7.3 Basis-Mehrseiten-UI: this module had no jsTest source set at all before this wave
@@ -103,3 +111,155 @@ kotlin {
         }
     }
 }
+
+// ── V1.4.23 Videokonferenz-Hintergrundeffekte: Assets (MediaPipe-WASM, Modell, Hintergrundbilder) ─────────────
+// Alles wird vom EIGENEN Server ausgeliefert, nie von einem CDN (Datenschutz: kein Dritter erfährt, dass eine
+// Konferenz stattfindet). Configuration-Cache-Disziplin: nur `Sync` mit Provider-basierten from/into, keine
+// `doLast`-Lambdas, die Build-Script-Objekte einfangen (siehe Root-Build, `VerifyI18nCatalogParity`).
+
+// Muss identisch zu ConferenceBackgroundAssets.MEDIAPIPE_TASKS_VISION_VERSION im Kotlin-Code und zu
+// MEDIAPIPE_TASKS_VISION_VERSION in ClientAssetRoutes.kt sein -- verifyMediaPipeVersion unten erzwingt, dass auch das
+// tatsächlich installierte Paket passt.
+val mediaPipeTasksVisionVersion = "0.10.14"
+
+val nodeModulesDir = rootProject.layout.buildDirectory.dir("js/node_modules")
+
+/**
+ * Config-Cache-safe worker that turns `stageVideoEffectAssets` into a real GUARD (audit finding M2). Same
+ * `Action<Task>` object idiom as [VerifyMediaPipeVersion] below and `VerifyI18nCatalogParity` in the root
+ * build script -- only plain `File`/`String` fields, no build-script object capture.
+ *
+ * Why it is needed: a Gradle `Sync` whose `from` directory does not exist is SILENTLY empty. If the
+ * node_modules layout ever shifts (a KGP upgrade, different hoisting), the staging directory would simply
+ * lose the 19 MB of MediaPipe WASM, the Docker image would ship without it, and every user would get a
+ * runtime LOAD_FAILED -- with a green `check`, because `verifyMediaPipeVersion` only compares the INSTALLED
+ * package's version and the Docker build does not run `check` at all (it runs
+ * `:lapis-server:installDist :lapis-client:jsBrowserProductionWebpack`).
+ *
+ * Used TWICE (follow-up audit, point 8): once on the staging task, and once on
+ * `copyVideoEffectAssetsToWebpack` against the real webpack output directory -- the one the Dockerfile
+ * copies. Checking only the staging directory would have left the copy itself unverified, and that copy is
+ * the step that writes into a directory another task owns.
+ */
+private class VerifyVideoEffectAssets(
+    private val taskName: String,
+    private val assetsDir: File,
+    private val expectedRelativePaths: List<String>,
+) : Action<Task> {
+    override fun execute(task: Task) {
+        val missing = expectedRelativePaths.filter { !File(assetsDir, it).isFile }
+        check(missing.isEmpty()) {
+            "$taskName: ${missing.size} Asset(s) fehlen unter ${assetsDir.path} -- " +
+                "${missing.joinToString()}. Ein Gradle-`Sync` mit einem nicht existierenden `from`-Verzeichnis " +
+                "ist STILL leer; ohne diese Dateien liefert der Server 404 und jeder Hintergrundeffekt " +
+                "scheitert zur Laufzeit. Pruefen: kotlinNpmInstall gelaufen? Liegt " +
+                "build/js/node_modules/@mediapipe/tasks-vision/wasm noch dort?"
+        }
+        val empty = expectedRelativePaths.filter { File(assetsDir, it).length() == 0L }
+        check(empty.isEmpty()) {
+            "$taskName: leere Asset-Datei(en) unter ${assetsDir.path} -- ${empty.joinToString()}."
+        }
+    }
+}
+
+// Die sechs Hintergrundbilder MUESSEN der `BG_*`-Whitelist in ConferenceBackgroundEffect entsprechen
+// (VideoBackgroundAssetsTest haelt Quellverzeichnis und Whitelist zusammen, dies hier das Staging-Ergebnis).
+val videoEffectBackgroundIds =
+    listOf("bg-warm-grey", "bg-cool-blue", "bg-sage", "bg-sandstone", "bg-midnight", "bg-studio")
+
+// Beide WASM-Varianten: die Bibliothek entscheidet zur Laufzeit per SIMD-Probe, welche sie laedt -- ein 404
+// auf dem no-SIMD-Zweig waere ein stiller Ausfall auf aelteren Geraeten.
+val videoEffectStagedPaths =
+    listOf(
+        "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_internal.js",
+        "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_internal.wasm",
+        "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.js",
+        "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.wasm",
+        "mediapipe/selfie_segmenter.tflite",
+    ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" }
+
+val videoEffectStagingDir = layout.buildDirectory.dir("video-effect-assets")
+
+// Bündelt Eigen-Assets + MediaPipe-WASM in EIN Staging-Verzeichnis, damit nur eine Quelle in die zwei
+// Ausgabeverzeichnisse gespiegelt werden muss.
+val stageVideoEffectAssets by tasks.registering(Sync::class) {
+    dependsOn(rootProject.tasks.named("kotlinNpmInstall")) // node_modules muss existieren
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/video-backgrounds")) {
+        into("video-backgrounds")
+        exclude("generate-backgrounds.py") // Generator wird nicht ausgeliefert
+    }
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/mediapipe")) {
+        into("mediapipe")
+        exclude("PROVENANCE.adoc")
+    }
+    from(nodeModulesDir.map { it.dir("@mediapipe/tasks-vision/wasm") }) {
+        into("mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm")
+    }
+    into(videoEffectStagingDir)
+    doLast(
+        VerifyVideoEffectAssets(
+            taskName = "stageVideoEffectAssets",
+            assetsDir = videoEffectStagingDir.get().asFile,
+            expectedRelativePaths = videoEffectStagedPaths,
+        ),
+    )
+}
+
+// Produktions-Bundle-Verzeichnis: der Dockerfile kopiert `build/kotlin-webpack/js/productionExecutable`.
+// `jsBrowserDistribution` (lokaler Serverstart liest per Default
+// `LAPIS_CLIENT_DIST_ROOT=../lapis-client/build/dist/js/productionExecutable`) spiegelt genau dieses Verzeichnis
+// nach `build/dist/...` -- deshalb hängt es von `copyVideoEffectAssetsToWebpack` ab (Gradle verlangt die explizite
+// Abhängigkeit, sonst schlägt die Task-Validierung fehl) und braucht KEIN eigenes Ziel. `Sync` statt `Copy`, damit
+// ein entfernter Asset auch wieder verschwindet.
+val videoEffectWebpackAssetsDir = layout.buildDirectory.dir("kotlin-webpack/js/productionExecutable/assets")
+
+val copyVideoEffectAssetsToWebpack by tasks.registering(Sync::class) {
+    from(stageVideoEffectAssets)
+    into(videoEffectWebpackAssetsDir)
+    // Folge-Audit, Punkt 8: dieselbe Pruefung noch einmal auf die ECHTE Webpack-Ausgabe -- das ist das
+    // Verzeichnis, das der Dockerfile kopiert. Ein unvollstaendiger oder leerer Kopiervorgang (fremdes Ziel:
+    // dieses Verzeichnis gehoert `jsBrowserProductionWebpack`) bricht damit den Build statt die Produktion.
+    doLast(
+        VerifyVideoEffectAssets(
+            taskName = "copyVideoEffectAssetsToWebpack",
+            assetsDir = videoEffectWebpackAssetsDir.get().asFile,
+            expectedRelativePaths = videoEffectStagedPaths,
+        ),
+    )
+}
+tasks.named("jsBrowserProductionWebpack") { finalizedBy(copyVideoEffectAssetsToWebpack) }
+tasks.named("jsBrowserDistribution") { dependsOn(copyVideoEffectAssetsToWebpack) }
+
+/**
+ * Config-Cache-safe worker for `verifyMediaPipeVersion` -- a real `Action<Task>` object (not a script-level
+ * lambda), same idiom as `VerifyI18nCatalogParity` in the root build script. Catches a silent transitive version
+ * jump: the served path claims 0.10.14, the installed package would be something else.
+ */
+private class VerifyMediaPipeVersion(
+    private val packageJson: File,
+    private val expected: String,
+) : Action<Task> {
+    override fun execute(task: Task) {
+        check(packageJson.exists()) {
+            "verifyMediaPipeVersion: ${packageJson.path} fehlt -- kotlinNpmInstall zuerst laufen lassen."
+        }
+        val actual = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(packageJson.readText())?.groupValues?.get(1)
+        check(actual == expected) {
+            "verifyMediaPipeVersion: @mediapipe/tasks-vision ist $actual, erwartet $expected. " +
+                "Die WASM-Dateien werden unter /assets/mediapipe/tasks-vision-$expected/wasm ausgeliefert und der " +
+                "Client fragt genau diesen Pfad ab (ConferenceBackgroundAssets). Beide Stellen gemeinsam anheben."
+        }
+    }
+}
+
+val verifyMediaPipeVersion by tasks.registering {
+    group = "verification"
+    description = "Fails if the installed @mediapipe/tasks-vision differs from the version the asset paths encode."
+    dependsOn(rootProject.tasks.named("kotlinNpmInstall"))
+    val packageJson = nodeModulesDir.map { it.file("@mediapipe/tasks-vision/package.json").asFile }
+    inputs.file(packageJson).withPropertyName("mediaPipePackageJson")
+    val expected = mediaPipeTasksVisionVersion
+    doLast(VerifyMediaPipeVersion(packageJson = packageJson.get(), expected = expected))
+}
+
+tasks.named("check") { dependsOn(verifyMediaPipeVersion) }

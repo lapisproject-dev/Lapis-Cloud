@@ -453,7 +453,11 @@ integration, matching this project's "own stack, own data" posture everywhere el
 covers room creation/join/leave/end, a live participant roster, and moderator actions
 (remove a participant, end the room for everyone); the KVision client (`ConferenceScreen.kt`) adds a
 responsive video-tile grid, a persistent control bar (microphone/camera/screen-share/chat/leave), and
-a collapsible ephemeral chat panel riding LiveKit's own data channel. Two-tier roles only in this
+a collapsible ephemeral chat panel riding LiveKit's own data channel. Since V1.4.23 the call also offers background blur and six built-in background images, processed
+locally in the browser (no image is sent to the server; the segmentation WASM and model are served from this
+server, never from a CDN). On a browser or device without the required support -- and, deliberately, inside the
+mobile app's embedded WebView, where the combination has never been measured -- the row stays visible but disabled
+with an explanation -- see link:docs/architecture/video-background-effects.adoc[video-background-effects.adoc]. Two-tier roles only in this
 wave: MODERATOR (the room's creator) and PARTICIPANT (everyone else), with a global BOARD/ADMIN
 escalation on the two moderator-only actions — see `IConferenceService` KDoc for the full
 per-method authorization table.

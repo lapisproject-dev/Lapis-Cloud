@@ -18,6 +18,7 @@ import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.compression.excludeContentType
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -127,6 +128,7 @@ import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
+import network.lapis.cloud.server.routes.registerClientAssetRoutes
 import network.lapis.cloud.server.routes.registerClientVersionRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
@@ -1222,7 +1224,20 @@ internal fun Application.module(aiConfig: AiConfig) {
         useLastProxy()
     }
     install(CallLogging)
-    install(Compression)
+    // V1.4.23, Audit-Befund N3 (teilweise): ein Konfigurations-Block, der KEINEN Encoder registriert, laesst
+    // Ktors Defaults (gzip/deflate/identity samt Standard-Bedingungen) unangetastet -- der Plugin-Aufbau ruft
+    // `default()` genau dann, wenn `encoders` leer ist (verifiziert im Bytecode von
+    // `io.ktor.server.plugins.compression.CompressionKt`). Nur die zusaetzliche Ausschluss-Bedingung kommt
+    // hinzu. `image/webp` ist bereits verlustbehaftet komprimiert: gzip darauf kostet CPU pro Anfrage und
+    // bringt praktisch nichts -- relevant, weil die sechs Hintergrundbilder ueber `/assets` OHNE
+    // Authentisierung erreichbar sind. Bewusst NICHT ausgeschlossen ist `application/wasm`: dort waere der
+    // Tausch schlecht, weil die 9,4-MB-Datei gzip-komprimiert auf etwa ein Drittel schrumpft -- ohne
+    // Kompression wuerde der Erstaufruf (besonders ueber Mobilfunk) dreimal so teuer. Dass diese grossen
+    // Dateien unauthentisiert und pro Anfrage neu komprimiert werden, bleibt als bekannte Luecke in
+    // `docs/architecture/video-background-effects.adoc` vermerkt.
+    install(Compression) {
+        excludeContentType(ContentType.Image.WEBP)
+    }
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
     // AutoHeadResponse (HEAD for the same GET routes) back the staticFiles() registration below --
     // both dependencies were already declared (see gradle/libs.versions.toml) but unused until now.
@@ -1713,6 +1728,9 @@ internal fun Application.module(aiConfig: AiConfig) {
         get("/api/branding/logo") { serveBrandingLogo(call = call, branding = resolvedBranding) }
         // V1.4.20 client-version hint -- literal route, wins over the staticFiles catch-all below.
         registerClientVersionRoutes(rateLimiter = clientVersionRateLimiter, buildIdProvider = { clientShell.buildId })
+        // V1.4.23 Videokonferenz-Hintergrundeffekte -- WASM/Modell/Hintergrundbilder mit Cache-Control, siehe
+        // `registerClientAssetRoutes` KDoc (ohne sie laedt jeder Kamera-Toggle 19 MB neu).
+        registerClientAssetRoutes(clientDistRoot = clientDistRoot)
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last
         // documents the intent -- this is the fallback for everything not already handled above.

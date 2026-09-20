@@ -200,9 +200,35 @@ external interface Track {
     fun detach(): Array<HTMLMediaElement>
 }
 
+/**
+ * V1.4.23 -- Prozessor-Oberfläche des LOKALEN Kamera-Tracks. `livekit-client` deklariert diese drei
+ * Methoden auf `LocalTrack`/`LocalVideoTrack`, nicht auf dem gemeinsamen [Track] (verifiziert gegen
+ * `dist/src/room/track/LocalTrack.d.ts`) -- deshalb ein eigener, per `unsafeCast` erreichbarer Typ und
+ * keine Erweiterung von [Track]. [setProcessor]'s `showProcessedStreamLocally` hat JS-seitig den Default
+ * `true`: bereits attachte Elemente (die Selbstansicht-Kachel) werden dann vom Rohtrack detacht und an den
+ * bearbeiteten Track attacht -- gewollt (die eigene Kachel IST die Vorschau), erzwingt aber ein
+ * `resumeStalledVideos()` danach (V1.4.19-Watchdog-Ursache: ein `srcObject`-Tausch pausiert `<video>`).
+ * `setProcessor` awaitet `processor.init(...)` als ERSTES und mutiert erst danach etwas -- eine gescheiterte
+ * Initialisierung lässt die Rohkamera völlig unangetastet.
+ */
+external interface LocalVideoTrack : Track {
+    fun setProcessor(
+        processor: BackgroundProcessorWrapper,
+        showProcessedStreamLocally: Boolean = definedExternally,
+    ): Promise<Unit>
+
+    fun stopProcessor(keepElement: Boolean = definedExternally): Promise<Unit>
+
+    fun getProcessor(): BackgroundProcessorWrapper?
+}
+
 external interface TrackPublication {
     val trackSid: String
     val source: String // "camera" | "microphone" | "screen_share" | ...
+
+    /** V1.4.23 -- `dynamic`, weil eine Publikation auch Audio tragen kann; die Aufrufstelle prüft
+     * `source`/`kind` und castet per `unsafeCast`. */
+    val track: dynamic
 }
 
 /** V1.0 Videokonferenzen Wave 4 "Politur", D3 -- see [Room] class KDoc "Deliberately minimal" for why

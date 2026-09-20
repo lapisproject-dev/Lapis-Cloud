@@ -12253,3 +12253,120 @@ msgstr "Il conto crediti (debitori) e il conto debiti (creditori) devono essere 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
 msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
 msgstr "Il conto scelto non è un conto di pagamento (banca o cassa) o non è più attivo. Selezionare un altro conto e aggiornare la vista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:133
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:151
+msgid "Aus"
+msgstr "Disattivato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:134
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:152
+msgid "Weichzeichnen leicht"
+msgstr "Sfocatura leggera"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:153
+msgid "Weichzeichnen stark"
+msgstr "Sfocatura forte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:136
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:154
+msgid "Warmes Grau"
+msgstr "Grigio caldo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:137
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:155
+msgid "Kühles Blau"
+msgstr "Blu freddo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:138
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:156
+msgid "Salbeigrün"
+msgstr "Verde salvia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:139
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:157
+msgid "Sandstein"
+msgstr "Arenaria"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:140
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:158
+msgid "Nachtblau"
+msgstr "Blu notte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:141
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:159
+msgid "Helles Studio"
+msgstr "Studio luminoso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:168
+msgid "Hintergrund: %1"
+msgstr "Sfondo: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:134
+msgid "Hintergrundeffekte werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Questo browser o dispositivo non supporta gli effetti di sfondo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:380
+msgid "Hintergrundeffekt konnte nicht geladen werden – die Kamera läuft ohne Effekt weiter."
+msgstr "Non è stato possibile caricare l'effetto di sfondo: la fotocamera continua a funzionare senza effetto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:382
+msgid "Hintergrundeffekt konnte nicht angewendet werden – die Kamera läuft ohne Effekt weiter."
+msgstr "Non è stato possibile applicare l'effetto di sfondo: la fotocamera continua a funzionare senza effetto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:384
+msgid "Hintergrundeffekt: Zeitüberschreitung – die Kamera läuft ohne Effekt weiter."
+msgstr "Effetto di sfondo: tempo scaduto; la fotocamera continua a funzionare senza effetto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:156
+msgid "Die Bearbeitung findet nur in diesem Browser statt. Es wird kein Bild an den Server gesendet."
+msgstr "L'elaborazione avviene solo in questo browser. Nessuna immagine viene inviata al server."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:160
+msgid "Hintergrund wird vorbereitet …"
+msgstr "Preparazione dello sfondo …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:166
+msgid "Hintergrundauswahl"
+msgstr "Selezione dello sfondo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:179
+msgid "Hintergrund: Aus"
+msgstr "Sfondo: Disattivato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:180
+msgid "Hintergrund: Weichzeichnen leicht"
+msgstr "Sfondo: Sfocatura leggera"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:181
+msgid "Hintergrund: Weichzeichnen stark"
+msgstr "Sfondo: Sfocatura forte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:182
+msgid "Hintergrund: Warmes Grau"
+msgstr "Sfondo: Grigio caldo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:183
+msgid "Hintergrund: Kühles Blau"
+msgstr "Sfondo: Blu freddo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:184
+msgid "Hintergrund: Salbeigrün"
+msgstr "Sfondo: Verde salvia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:185
+msgid "Hintergrund: Sandstein"
+msgstr "Sfondo: Arenaria"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:186
+msgid "Hintergrund: Nachtblau"
+msgstr "Sfondo: Blu notte"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:187
+msgid "Hintergrund: Helles Studio"
+msgstr "Sfondo: Studio luminoso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:132
+msgid "Hintergrundeffekte werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Gli effetti di sfondo non sono ancora supportati nell'app: sono disponibili nel browser di questo dispositivo."

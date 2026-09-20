@@ -36,6 +36,7 @@ import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
+import network.lapis.cloud.client.livekit.LocalVideoTrack
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
@@ -126,6 +127,14 @@ import kotlin.time.Clock
  * from the untrusted payload (see [ConferenceChatMessage] KDoc and `LiveKitRoomSession` KDoc "Chat
  * trust boundary"). Messages are rendered via KVision's default escaped `content` (never `rich =
  * true`), same posture every other screen in this app already takes.
+ *
+ * **V1.4.23 Videokonferenz-Hintergrundeffekte** (Weichzeichnen + sechs Bilder, rein clientseitig): eine
+ * eingeklappte Zeile im "Mehr"-Blatt (`ConferenceBackgroundSection`, Jobs-K1) statt eines zweiten Einstiegs
+ * am Kamera-Knopf; der Zustand steht im Knopftext (Tesler). Kachel = Bild UND Wort (Norman-K5), Fokus per
+ * Roving-Tabindex. Nichtunterstützung wird erklärt, nie ausgeblendet (K4). Ein Fehlschlag lässt die Kamera
+ * OHNE Effekt weiterlaufen, `desired` und der `localStorage`-Wert bleiben erhalten, höchstens ein
+ * automatischer Versuch pro Sitzung (Zhuo/Jobs-K6). Verarbeitung findet nur im Browser statt; WASM, Modell und
+ * Bilder kommen vom eigenen Server (`ConferenceBackgroundController`, `docs/architecture/video-background-effects.adoc`).
  *
  * **Cleanup**: [Room.addAfterDestroyHook]/`window.addEventListener("beforeunload", ...)` are the ONLY
  * two hooks this codebase has for "the user is leaving this screen/tab" -- `Routing.kt`'s `show()`
@@ -1140,6 +1149,26 @@ private fun enterCall(
         } else {
             null
         }
+
+    // V1.4.23 Videokonferenz-Hintergrundeffekte -- EINGEKLAPPTE Zeile im "Mehr"-Blatt, DOM-Position
+    // exakt "nach Whiteboard/Notizen, vor Geräte" (Jobs-Ruling K1: die Schublade wächst durch dieses
+    // Feature nicht). Zustand steht im TEXT des Knopfes (Tesler: kein unsichtbarer Modus). Die Gruppe
+    // trägt bewusst NICHT `lapis-conference-config-row` (wie `deviceGroup`) und überlebt so den
+    // Vollbildmodus; deshalb bleibt der "Mehr"-Knopf im Vollbild sichtbar, solange der Abschnitt
+    // unterstützt wird (siehe `applyPanelVisibility()`). Aufbau/Attribute/Tastatur: siehe
+    // `ConferenceBackgroundSection`. `onBackgroundSelect` wird erst NACH dem Controller zugewiesen
+    // (Kotlin: keine Vorwärtsreferenz auf eine später deklarierte lokale Variable).
+    var onBackgroundSelect: (ConferenceBackgroundEffect) -> Unit = {}
+    // V1.4.23, Audit-Befund M5: EINMAL ermittelt und an Abschnitt UND Controller gereicht -- drei Zustände
+    // (verfügbar / Browser-Gerät nicht unterstützt / in der App noch nicht unterstützt), siehe
+    // `ConferenceBackgroundAvailability`.
+    val backgroundAvailability = conferenceBackgroundAvailabilityInThisBrowser()
+    val backgroundSection =
+        ConferenceBackgroundSection(
+            parent = moreSheet,
+            availability = backgroundAvailability,
+            onSelect = { effect -> onBackgroundSelect(effect) },
+        )
 
     // V1.2.10 -- statische a11y-Labels (title/aria-label/data-label) für Buttons, deren Text sich
     // NIE ändert -- Kare/Norman-Regel: Handlungsknöpfe (mic/camera/screenShare/leave/backToMain)
@@ -2774,7 +2803,15 @@ private fun enterCall(
         // "Mehr"-Knopf bleibt im Vollbild daher sichtbar, SOLANGE die Geräte-Gruppe etwas anzuzeigen
         // hat -- kein Rückfall auf die alte "Vollbild = leerer Knopf weg"-Regel, kein versehentliches
         // Verstecken der einzigen im Vollbild noch erreichbaren Funktion.
-        if (panelState.fullscreen && !deviceGroupHasVisibleRows) moreToggleButton.hide() else moreToggleButton.show()
+        // V1.4.23 -- der Hintergrund-Abschnitt überlebt den Vollbildmodus ebenfalls (siehe
+        // `backgroundSection`); im nicht unterstützten Fall zeigt er nur einen Erklärsatz, der den
+        // Knopf im Vollbild nicht rechtfertigt.
+        if (panelState.fullscreen && !deviceGroupHasVisibleRows && !backgroundSection.supported) {
+            moreToggleButton.hide()
+        } else {
+            moreToggleButton.show()
+        }
+        backgroundSection.applyToggleAria()
 
         // V1.2.10 -- Auto-Hide-Sichtbarkeit der gesamten Steuerleiste (generell, nicht nur im
         // Vollbild -- iOS Safari hat keine Fullscreen-API, siehe `fullscreenApiAvailable`).
@@ -3404,6 +3441,42 @@ private fun enterCall(
         applyingProgrammaticDeviceValue = false
     }
 
+    // V1.4.23 Videokonferenz-Hintergrundeffekte -- Controller (Anwendung auf den lokalen Kamera-Track,
+    // Fehlerpfad, Persistenz) und der zuletzt bekannte LIVE-Kamera-Track. `localCameraTrack` ist `null`,
+    // solange die Kamera aus ist (`onLocalVideoTrack(null)`): ein Klick speichert dann nur die Absicht,
+    // angewendet wird mit dem nächsten Track. Nach jedem `setProcessor`/`stopProcessor` wird
+    // `resumeStalledVideos` angestoßen (ein `srcObject`-Tausch pausiert `<video>`, V1.4.19).
+    var localCameraTrack: LocalVideoTrack? = null
+    val backgroundController =
+        ConferenceBackgroundController(
+            notifyFailure = ::notifyError,
+            onProcessedStreamSwapped = { callPanel.getElement()?.let { el -> resumeStalledVideos(el) } },
+            // Audit-Befund N7: `render(...)` ist DOM-Arbeit ausserhalb des controller-eigenen try/catch --
+            // ein einzelner Renderfehler darf nie den Anwendungs-/Fehlerpfad des Controllers abbrechen
+            // (dieselbe Klammer wie in `disposeBackgroundEffects`).
+            onStateChanged = { state -> runCatching { backgroundSection.render(state) } },
+            supported = backgroundAvailability == ConferenceBackgroundAvailability.AVAILABLE,
+        )
+    backgroundController.restoreDesiredFromStorage()
+    onBackgroundSelect = { effect ->
+        AppScope.launch {
+            runCatching { backgroundController.select(effect, localCameraTrack?.let(::LiveKitBackgroundTrack)) }
+        }
+    }
+
+    // Deterministisches Aufräumen NACH jedem bewussten Verlassen (Audit-Befund B1: die Reihenfolge ist
+    // sicherheitsrelevant). `room.disconnect(stopTracks = true)` -> `LocalTrack.stop()` ->
+    // `processor.destroy()` räumt ohnehin auf (verifiziert gegen livekit-client 2.21.0); deshalb wird
+    // ZUERST getrennt und erst danach dies aufgerufen -- dann ist es ein billiger No-op. Vorher lief es
+    // davor und wartete über `ConferenceBackgroundController.dispose` bis zu ~13 s hinter einem hängenden
+    // Effektladen, während Kamera und Mikrofon weiter sendeten und die Oberfläche schon "verlassen" sagte
+    // (dieselbe Fehlerklasse wie die früher behobene "verwaiste Live-Session mit aktiver Kamera/Mikrofon",
+    // siehe `onDisconnected` oben). `dispose` nimmt inzwischen zusätzlich den Mutex nicht mehr.
+    suspend fun disposeBackgroundEffects() {
+        runCatching { backgroundController.dispose(localCameraTrack?.let(::LiveKitBackgroundTrack)) }
+        localCameraTrack = null
+    }
+
     session =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, publication ->
@@ -3445,6 +3518,23 @@ private fun enterCall(
             onLocalVideoTrack = { track ->
                 val entry = ensureTile(joinToken.identity, joinToken.displayName, isLocal = true)
                 setTileVideo(entry, track?.attach())
+                // V1.4.23 -- Kamera an: Track merken und den gewählten Effekt anwenden (idempotent, siehe
+                // `ConferenceBackgroundController.onLocalCameraTrack`; deckt auch "Effekt bei ausgeschalteter
+                // Kamera gewählt", bei dem `LocalTrackPublished` nicht erneut feuert). Kamera aus: `null`.
+                localCameraTrack = track?.unsafeCast<LocalVideoTrack>()
+                // Audit-Befund N7: `runCatching` wie bei `disposeBackgroundEffects` -- der Aufruf endet über
+                // `onStateChanged` in DOM-Arbeit.
+                localCameraTrack?.let { live ->
+                    AppScope.launch { runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) } }
+                }
+            },
+            // V1.4.23 -- Gürtel und Hosenträger: (Re-)Publish der eigenen Kamera (Reconnect, Geräte-Restart);
+            // ein gesetzter Prozessor überlebt das ohnehin, die Anwendung ist idempotent. KEIN zweites
+            // `attach()` -- die Selbstansicht bleibt allein bei `onLocalVideoTrack`.
+            onLocalCameraTrackPublished = { track ->
+                val live = track.unsafeCast<LocalVideoTrack>()
+                localCameraTrack = live
+                AppScope.launch { runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) } }
             },
             // Bug fix (GitHub issue #3, "Audio Mute and Camera Toggle Controls Are Unreliable") --
             // see LiveKitRoomSession KDoc "Local mute state is event-driven, never purely optimistic".
@@ -3562,6 +3652,15 @@ private fun enterCall(
                 if (connectionState.isLive()) {
                     transition(ConferenceConnectionEvent.DisconnectedSignal)
                     AppScope.launch {
+                        // V1.4.23, Folge-Audit Punkt 3: der EINZIGE Ausgang, der bisher ohne
+                        // `disposeBackgroundEffects()` auskam -- Kick, "für alle beendet",
+                        // Breakout-Zuweisung und -Rückholung laufen alle hier durch, nicht über die drei
+                        // Knöpfe unten. Billig, weil der Prozessor durch die Trennung ohnehin schon
+                        // zerstört ist; der Punkt ist, den Controller stillzulegen: ohne das könnte ein
+                        // noch laufender Anwendungsversuch danach seine Fehlermeldung ("Hintergrundeffekt
+                        // konnte nicht ...") in den NEUEN Raum oder in die Lobby hinein zeigen und auf
+                        // einem Track herumräumen, der zu dieser Ansicht nicht mehr gehört.
+                        disposeBackgroundEffects()
                         when (val destination = resolvePostDisconnectDestination(room.id)) {
                             is PostDisconnectDestination.Ended -> {
                                 transition(ConferenceConnectionEvent.ResolvedAsEnded)
@@ -3963,7 +4062,10 @@ private fun enterCall(
             // when `target is ConferenceCallTarget.BreakoutRoom`, which is exactly when
             // `breakoutRoomId` was assigned non-null too.
             guarded { rpcService<IConferenceBreakoutService>().returnToMainRoom(breakoutRoomId!!) }
+            // Audit-Befund B1: ZUERST trennen (das stoppt Kamera/Mikrofon und zerstört den Prozessor),
+            // danach aufräumen -- siehe `disposeBackgroundEffects`.
             guarded { session.disconnect() }
+            disposeBackgroundEffects()
             val mainToken = guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(room.id) }
             setActiveSession(null)
             if (mainToken != null) {
@@ -3994,7 +4096,10 @@ private fun enterCall(
         leaveButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
         AppScope.launch {
+            // Audit-Befund B1: Trennen zuerst, Hintergrundeffekt-Aufräumen danach (siehe
+            // `disposeBackgroundEffects`) -- nie umgekehrt, sonst sendet die Kamera weiter.
             guarded { session.disconnect() }
+            disposeBackgroundEffects()
             guarded { rpcService<IConferenceService>().leaveRoom(room.id) }
             setActiveSession(null)
             returnToLobby(
@@ -4013,7 +4118,9 @@ private fun enterCall(
             endButton.disabled = true
             transition(ConferenceConnectionEvent.UserLeft)
             AppScope.launch {
+                // Audit-Befund B1: Trennen zuerst, Hintergrundeffekt-Aufräumen danach.
                 guarded { session.disconnect() }
+                disposeBackgroundEffects()
                 val result = guarded { rpcService<IConferenceService>().endRoom(room.id) }
                 if (result != null) {
                     notifySuccess(gettext("Besprechung \"%1\" wurde für alle beendet.", result.title))

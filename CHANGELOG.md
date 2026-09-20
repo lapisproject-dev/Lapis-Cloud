@@ -6,6 +6,86 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **V1.4.23 Videokonferenz-Hintergrundeffekte** -- background blur and six built-in background images for
+  the video conference, computed entirely in the participant's browser (a pure client wave: no RPC, DTO,
+  table or migration).
+  **What it is now:** one collapsed row "Hintergrund: <effect>" in the call's "Mehr" sheet, between
+  Whiteboard/Notizen and the device selection (it survives fullscreen like the device group). It expands to a
+  privacy sentence ("Die Bearbeitung findet nur in diesem Browser statt. Es wird kein Bild an den Server
+  gesendet."), a preparing line and nine tiles, each with picture AND word: Aus, Weichzeichnen leicht/stark,
+  Warmes Grau, Kühles Blau, Salbeigrün, Sandstein, Nachtblau, Helles Studio. `role="radiogroup"`, roving
+  tabindex, arrow keys move, Enter/Space selects. Effects are applied with `@livekit/track-processors` 0.8.1
+  (Apache-2.0, pinned exactly; its one transitive dependency `@mediapipe/tasks-vision` 0.10.14 is Apache-2.0 and
+  pinned exactly by the parent). The chosen effect is stored per browser (`localStorage`,
+  `lapis-cloud-conference-background`), validated against a nine-id whitelist on every read, and restored on join.
+  **No CDN:** the library defaults (`cdn.jsdelivr.net` for the WASM, `storage.googleapis.com` for the model) are
+  overridden through `assetPaths`; WASM (both SIMD and no-SIMD variants), the 249 537-byte segmentation model
+  (SHA-256 documented in `PROVENANCE.adoc`, guarded by a test) and the six generated images (3-5 KB each) are
+  served from this server under `/assets/...`. Two Ktor routes (`registerClientAssetRoutes`, tested) set `Cache-Control` for them (one year for the
+  version-scoped WASM path, one day otherwise) -- the only server change, pure routing: without them the catch-all
+  static route would let every camera off/on re-download 19 MB, because `livekit-client` restarts the processor on
+  every media stream track change.
+  **Failure path:** if an effect cannot be applied (asset 404, WebGL/WASM error, 10 s timeout) the camera keeps
+  running without an effect, exactly one notice per cause is shown per session, the selection jumps to "Aus", and
+  the stored intent stays untouched; only one automatic restore attempt per session, a deliberate click tries again.
+  A failure always ends at "Aus", never half applied. "Aus" stops the processor (`stopProcessor(false)`) instead of
+  switching to `disabled`, so no frame pipeline keeps running. A background image is loaded by our own code BEFORE a
+  processor is built or switched, and the transformer is checked afterwards for actually holding it -- the library
+  swallows a failing image inside `init` and would otherwise report success and render the person over black. On a
+  timeout (or when `dispose`/a newer apply overtakes an attempt) an unbounded detached `stopProcessor` is scheduled
+  and the superseded attempt reports nothing, so a late-finishing apply can neither linger on the track nor
+  contradict what the user was told.
+  **Leaving the call never waits for an effect:** `session.disconnect()` runs first and the controller's cleanup
+  after it, and that cleanup takes no mutex and caps its own stop at 500 ms. (Pre-release, a click on
+  "Verlassen"/"Für alle beenden"/"Zurück zum Hauptraum" during a hanging effect load could keep camera and
+  microphone alive for up to ~13 s while the UI already said "left".)
+  **Inside an embedded app WebView the section is switched off** with its own explanation pointing at the device's
+  browser: such a WebView reports full support, but 19 MB of WASM over mobile data plus MediaPipe segmentation on a
+  phone has never been measured. Detection is a pure user-agent function (Android `; wv)`, AppleWebKit on a
+  mobile device without a `Safari/` token for iOS in-app WKWebViews, or one of the in-app browser tokens
+  `FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp`); the mobile app itself is unchanged.
+  **Leaving is final for the controller:** after the call is left -- including via the disconnect path that a kick,
+  "ended for everyone" and a breakout assignment/recall all take -- no processor is built or attached any more and
+  no stale failure notice can appear in the next room or in the lobby.
+  **Caching:** the version-carrying WASM path sends `public, max-age=31536000, immutable`, model and images one day
+  without `immutable`; `image/webp` is excluded from the Compression plugin (already compressed).
+  **Known gaps:** no custom uploads; no server-side background; the mobile app/WebView is switched off rather than
+  supported (see above); Firefox and Safari only work through the library's canvas fallback path (and
+  `maxFps = 15` only applies there -- the modern Chrome/Edge path has no library-side throttle, load follows the
+  camera capture rate); the segmentation model is a third-party artefact (Apache-2.0, checksum documented) and is
+  shipped with the image, about 19.4 MB of assets; those assets are served unauthenticated and the WASM is gzipped
+  per request (deliberately kept compressed -- uncompressed it would triple a first load; mitigated by the one-year
+  `immutable` policy, not by a limit); the asset copy writes into webpack's own output directory, so
+  `jsBrowserProductionWebpack` is never UP-TO-DATE locally; the library's own un-awaited `update()` in its
+  transformer constructor can in principle still raise an unhandled rejection (pre-loading the image closes the
+  practical window, the library exposes no handle on that promise); the app-WebView detection deliberately errs
+  towards leaving the feature on and misses an unlisted in-app browser that sends a `Safari/` token as well as an
+  iPad WKWebView requesting the desktop site (both pinned by a test so they cannot become false positives);
+  `AppScope` has no `SupervisorJob` (pre-existing and app-wide, deliberately untouched here), so an uncaught
+  exception in any other `AppScope.launch` would turn the detached `stopProcessor` cleanups into no-ops;
+  `blurRadius` is a library-internal value
+  (`floor(r / 4)`, saturating at 64), not a pixel value -- 8 and 24 were chosen so "strong" is really three times
+  "light"; the effect choice is per browser and does not follow the account; without a secure context (plain HTTP)
+  the row is disabled with an explanation.
+  **Tests:** `ConferenceBackgroundEffectsTest` (whitelist/parsing incl. tampered values, asset paths, blur
+  strengths, availability gate incl. app-WebView detection against seven real browser user agents, state machine
+  incl. "failure keeps intent" and "one automatic attempt", the `tr()`/`gettext()` marker contract of the label
+  pairs), `ConferenceBackgroundControllerTest` (26 tests through the `BackgroundTrack`/`BackgroundProcessorHandle`
+  seams: mutex serialisation, TIMEOUT/LOAD_FAILED/APPLY_FAILED classification, one message per cause, persistence,
+  a timing assertion that `dispose` is never queued behind an in-flight apply, a late-resolving fake `setProcessor`
+  that reproduces the zombie processor and its teardown, and the silently swallowed image failure on both
+  `setProcessor` and `switchTo`), `ClientAssetRoutesTest` (content types, both cache policies, no `immutable` on the
+  unversioned prefix, 404s, no directory listing, path traversal), `MediaPipeVersionConsistencyTest` (the three
+  places the MediaPipe version is written down, plus client-path-vs-server-prefix),
+  `VideoBackgroundAssetsTest` (model size + SHA-256, image set == whitelist, WebP magic bytes, size cap,
+  provenance), `ConferenceBackgroundI18nCatalogTest`, the `verifyMediaPipeVersion` Gradle check and the
+  `stageVideoEffectAssets` output check (all eleven assets must exist and be non-empty, so a shifted node_modules
+  layout fails the build instead of production). Camera, WASM and WebGL cannot run under Karma; the manual test plan
+  (privacy proof in the Network tab, forced failure of model AND image, leaving during a hanging load, camera
+  off/on, reconnect, cleanup, mobile app) is in `docs/architecture/video-background-effects.adoc`.
+
 ### Fixed
 
 - **V1.4.22 Zahlungskonto im Offene-Posten-Pfad** -- two usability bugs found in a live staging test

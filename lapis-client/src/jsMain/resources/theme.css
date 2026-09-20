@@ -778,6 +778,100 @@ body {
   width: 100%;
 }
 
+/* V1.4.23 Hintergrundeffekte -- bewusst KEINE `.lapis-conference-config-row`-Klasse (wie
+   `deviceGroup`): die Gruppe soll den Vollbildmodus überleben. */
+.lapis-conference-background-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.lapis-conference-background-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+/* Audit-Befund N5: während einer laufenden Anwendung nimmt das Raster keine Eingaben an (der
+   Klick-/Tasten-Handler prüft dasselbe, dies ist die sichtbare Entsprechung dazu). */
+.lapis-conference-background-grid-busy {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.lapis-conference-background-tile {
+  position: relative;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--lapis-border-strong); /* dunkle Verläufe verschwinden sonst auf --lapis-surface */
+  border-radius: 6px;
+  padding: 2px;
+}
+
+/* Tastaturbedienung sichtbar halten (Roving tabindex): der Fokusring darf nie nur aus dem
+   Auswahl-Rahmen bestehen, sonst ist beim Wandern mit den Pfeiltasten nicht erkennbar, wo man steht. */
+.lapis-conference-background-tile:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+.lapis-conference-background-tile[aria-checked="true"],
+.lapis-conference-background-tile-selected {
+  border: 2px solid var(--lapis-accent);
+  padding: 1px;
+}
+
+.lapis-conference-background-preview {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 120ms ease-in-out; /* Ives Überblendung, nichts Verspieltes */
+}
+
+.lapis-conference-background-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lapis-conference-background-preview-off {
+  background-color: var(--lapis-surface-sunken);
+}
+
+/* Weichzeichnen-Vorschauen: abstrakte Streifen, sichtbar unterschiedlich stark weichgezeichnet. */
+.lapis-conference-background-preview-blur-light,
+.lapis-conference-background-preview-blur-strong {
+  background-color: var(--lapis-surface-sunken);
+  background-image: repeating-linear-gradient(45deg, var(--lapis-border-strong) 0 6px, transparent 6px 12px);
+}
+
+.lapis-conference-background-preview-blur-light {
+  filter: blur(1.5px);
+}
+
+.lapis-conference-background-preview-blur-strong {
+  filter: blur(4px);
+}
+
+.lapis-conference-background-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: var(--lapis-accent-contrast);
+  background-color: var(--lapis-accent);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (max-width: 767.98px) {
   .lapis-conference-more-sheet {
     left: 0;

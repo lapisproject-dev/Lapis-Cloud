@@ -12186,3 +12186,120 @@ msgstr "Счёт дебиторской и счёт кредиторской з�
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemGuard.kt:55
 msgid "Das gewählte Konto ist kein Zahlungskonto (Bank oder Kasse) oder nicht mehr aktiv. Bitte ein anderes Konto wählen und die Ansicht aktualisieren."
 msgstr "Выбранный счёт не является платёжным счётом (банк или касса) или больше не активен. Выберите другой счёт и обновите представление."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:133
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:151
+msgid "Aus"
+msgstr "Выключено"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:134
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:152
+msgid "Weichzeichnen leicht"
+msgstr "Слабое размытие"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:153
+msgid "Weichzeichnen stark"
+msgstr "Сильное размытие"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:136
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:154
+msgid "Warmes Grau"
+msgstr "Тёплый серый"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:137
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:155
+msgid "Kühles Blau"
+msgstr "Холодный синий"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:138
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:156
+msgid "Salbeigrün"
+msgstr "Шалфейно-зелёный"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:139
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:157
+msgid "Sandstein"
+msgstr "Песчаник"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:140
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:158
+msgid "Nachtblau"
+msgstr "Ночной синий"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:141
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:159
+msgid "Helles Studio"
+msgstr "Светлая студия"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:168
+msgid "Hintergrund: %1"
+msgstr "Фон: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:134
+msgid "Hintergrundeffekte werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Этот браузер или устройство не поддерживает эффекты фона."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:380
+msgid "Hintergrundeffekt konnte nicht geladen werden – die Kamera läuft ohne Effekt weiter."
+msgstr "Не удалось загрузить эффект фона – камера продолжает работать без эффекта."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:382
+msgid "Hintergrundeffekt konnte nicht angewendet werden – die Kamera läuft ohne Effekt weiter."
+msgstr "Не удалось применить эффект фона – камера продолжает работать без эффекта."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:384
+msgid "Hintergrundeffekt: Zeitüberschreitung – die Kamera läuft ohne Effekt weiter."
+msgstr "Эффект фона: превышено время ожидания – камера продолжает работать без эффекта."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:156
+msgid "Die Bearbeitung findet nur in diesem Browser statt. Es wird kein Bild an den Server gesendet."
+msgstr "Обработка выполняется только в этом браузере. Изображение на сервер не отправляется."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:160
+msgid "Hintergrund wird vorbereitet …"
+msgstr "Подготовка фона …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:166
+msgid "Hintergrundauswahl"
+msgstr "Выбор фона"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:179
+msgid "Hintergrund: Aus"
+msgstr "Фон: Выключено"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:180
+msgid "Hintergrund: Weichzeichnen leicht"
+msgstr "Фон: Слабое размытие"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:181
+msgid "Hintergrund: Weichzeichnen stark"
+msgstr "Фон: Сильное размытие"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:182
+msgid "Hintergrund: Warmes Grau"
+msgstr "Фон: Тёплый серый"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:183
+msgid "Hintergrund: Kühles Blau"
+msgstr "Фон: Холодный синий"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:184
+msgid "Hintergrund: Salbeigrün"
+msgstr "Фон: Шалфейно-зелёный"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:185
+msgid "Hintergrund: Sandstein"
+msgstr "Фон: Песчаник"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:186
+msgid "Hintergrund: Nachtblau"
+msgstr "Фон: Ночной синий"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundEffects.kt:187
+msgid "Hintergrund: Helles Studio"
+msgstr "Фон: Светлая студия"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:132
+msgid "Hintergrundeffekte werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Эффекты фона пока не поддерживаются в приложении – они доступны в браузере этого устройства."

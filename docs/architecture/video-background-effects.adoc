@@ -1,0 +1,370 @@
+= Video-Conference Background Effects
+:description: Background blur and six built-in background images for the video conference, computed entirely in the participant's browser; WASM, model and images are served from this server, never from a CDN.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Wave V1.4.23 adds background effects to the video conference: two blur strengths and six built-in background
+images, chosen from one collapsed row in the "Mehr" sheet of the call. It is a pure client wave. There is no new
+RPC, DTO, table or migration; the chosen effect lives in the browser's `localStorage`.
+
+The privacy core is the reason the design looks the way it does:
+
+* The camera frames are segmented and composited in the participant's own browser (WebGL2 + WASM). No image is sent
+  to the server for this; only the already-processed track goes out over the existing LiveKit publication.
+* The segmentation WASM, the segmentation model and the background images are served by this server. No request
+  goes to a CDN or to Google, so no third party learns that a conference takes place.
+
+== Mechanism
+
+Effects are applied with https://github.com/livekit/track-processors-js[`@livekit/track-processors`] (0.8.1,
+Apache-2.0, pinned exactly), which pulls in exactly one transitive dependency,
+`@mediapipe/tasks-vision` 0.10.14 (Apache-2.0, itself pinned exactly).
+
+[kuml, video-background-effects-states, svg]
+----
+import dev.kuml.sysml2.dsl.sysml2Model
+
+sysml2Model(name = "VideoBackgroundEffects") {
+
+    val initial = stateDef(name = "Initial", isInitial = true)
+    val off = stateDef(name = "Off", entryAction = "camera published without processor")
+    val applying = stateDef(
+        name = "Applying",
+        entryAction = "loading WASM, model and image from this server",
+        doAction = "setProcessor / switchTo under a 10 s timeout",
+    )
+    val active = stateDef(name = "Active", entryAction = "processed track published")
+    val failed = stateDef(
+        name = "FailedFallback",
+        entryAction = "camera runs without effect, intent (desired) and stored value kept",
+    )
+
+    transition(name = "init", source = initial, target = off)
+    transition(name = "userSelects", source = off, target = applying, trigger = "click on a tile")
+    transition(
+        name = "restoreOnJoin", source = off, target = applying, trigger = "new camera track",
+        guard = "stored effect and one automatic attempt left",
+    )
+    transition(name = "applied", source = applying, target = active, trigger = "setProcessor / switchTo resolved")
+    transition(
+        name = "failedOrTimedOut", source = applying, target = failed, trigger = "reject or timeout",
+        effect = "stopProcessor, one notice per cause",
+    )
+    transition(name = "switchEffect", source = active, target = applying, trigger = "click on another tile")
+    transition(
+        name = "userSelectsOff", source = active, target = off, trigger = "click on Off",
+        effect = "stopProcessor(false)",
+    )
+    transition(name = "userRetries", source = failed, target = applying, trigger = "deliberate click")
+    transition(name = "userSelectsOffAfterFailure", source = failed, target = off, trigger = "click on Off")
+
+    stmDiagram(name = "Background effect lifecycle") {
+        include(state = initial)
+        include(state = off)
+        include(state = applying)
+        include(state = active)
+        include(state = failed)
+    }
+}
+----
+
+The code is split along the DOM boundary:
+
+[cols="2,3", options="header"]
+|===
+| Unit | Responsibility
+
+| `ConferenceBackgroundEffects.kt`
+| Pure logic, no DOM: the nine-id whitelist, asset paths, persisted value, the three-state availability gate
+  (`ConferenceBackgroundAvailability`, including the user-agent-only app-WebView detection), the state machine
+  (`conferenceBackgroundReduce`) and the "what goes on a new track" rule (`effectToApplyForNewTrack`). Unit tested.
+
+| `ConferenceBackgroundController.kt`
+| Holds at most one `BackgroundProcessorWrapper` per effect episode, pre-loads a background image before it builds
+  or switches one, applies it to the local camera track under a mutex and a 10 s timeout, and owns the failure path,
+  the generation counter and `localStorage`. `dispose` deliberately runs outside the mutex.
+
+| `ConferenceBackgroundSection.kt`
+| The collapsed row and the tile grid (roving tabindex, `role="radiogroup"`).
+
+| `TrackProcessorsJs.kt`
+| Minimal Kotlin externals for the npm package.
+
+| `LiveKitRoomSession.kt`
+| Relays `RoomEvent.LocalTrackPublished` for the own camera. Nothing else changed there.
+|===
+
+== No CDN
+
+`@livekit/track-processors` defaults to two foreign hosts. Both are overridden on every construction through its
+`assetPaths` option (verified against the package sources):
+
+[cols="2,3,3", options="header"]
+|===
+| Library default (never used) | Replacement | Served by
+
+| `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm`
+| `/assets/mediapipe/tasks-vision-0.10.14/wasm`
+| four files: `vision_wasm_internal.{js,wasm}` and `vision_wasm_nosimd_internal.{js,wasm}` (about 19 MB in total)
+
+| `https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite`
+| `/assets/mediapipe/selfie_segmenter.tflite`
+| 249 537 bytes
+|===
+
+Both WASM variants are shipped: the library decides at run time (a 25-byte SIMD probe) which one it loads, and a
+404 on the no-SIMD branch would be a silent failure on older devices.
+
+WARNING: `segmenterOptions` must never carry a `modelAssetPath`. The library spreads it into `baseOptions` *after*
+`assetPaths.modelAssetPath`, so it would silently override the same-origin path. The client sets `delegate` only.
+
+The files reach the browser through Gradle (`stageVideoEffectAssets` collects them, `copyVideoEffectAssetsToWebpack`
+mirrors them into `build/kotlin-webpack/js/productionExecutable/assets`, which the Dockerfile copies wholesale;
+`jsBrowserDistribution` depends on that copy and therefore also carries them into `build/dist/...` for a local server
+start, so the Dockerfile needed no change) and through two Ktor routes registered by `registerClientAssetRoutes`
+(`ClientAssetRoutes.kt`, tested by `ClientAssetRoutesTest`):
+
+* `/assets/mediapipe/tasks-vision-<version>` with `Cache-Control: public, max-age=31536000, immutable`. The path
+  carries the package version, so a year is correct there, and `immutable` (RFC 8246) stops a page reload from
+  revalidating a 9.4 MB file whose content can never change under that URL. Sent as a raw header because Ktor's
+  `CacheControl` types cannot express `immutable`.
+* `/assets` with `Cache-Control: max-age=86400` and deliberately WITHOUT `immutable` (model and background images
+  sit under an unversioned prefix, so replacing a file has to become visible).
+
+Why the routes exist: `livekit-client` calls `processor.restart()` whenever the media stream track changes (camera
+off/on, device switch, reconnect), and that rebuilds the segmenter and requests the WASM again. The catch-all
+`staticFiles("/")` sets neither `Cache-Control` nor `ETag`/`Last-Modified`, and neither `ConditionalHeaders` nor
+`CachingHeaders` is installed, so without these two routes every camera toggle would download 19 MB again. Ktor
+serves `.wasm` as `application/wasm` and `.webp` as `image/webp`; `.tflite` is unknown and goes out as
+`application/octet-stream`, which is fine for `fetch` + `arrayBuffer`.
+
+There is no global Content-Security-Policy for the SPA today, so none had to change. If one is ever introduced this
+feature needs `script-src 'wasm-unsafe-eval'` (WASM instantiation), `worker-src 'self' blob:` (the frame-ticker blob
+worker in the canvas fallback path) and `img-src 'self'`.
+
+== Asset provenance and licences
+
+[cols="2,1,3", options="header"]
+|===
+| Artefact | Licence | Notes
+
+| `@livekit/track-processors` 0.8.1 | Apache-2.0 | exact pin, `yarn.lock` carries `resolved` + `integrity`
+| `@mediapipe/tasks-vision` 0.10.14 | Apache-2.0 | transitive, exact pin by the parent
+| `selfie_segmenter.tflite` | Apache-2.0 | committed, SHA-256 `191ac9529ae506ee0beefa6b2c945a172dab9d07d1e802a290a4e4038226658b`,
+  see `lapis-client/src/jsMain/webAssets/mediapipe/PROVENANCE.adoc`
+| six background images | repository licence | generated by `video-backgrounds/generate-backgrounds.py`,
+  desaturated radial gradients, 3-5 KB each, no figurative motifs
+|===
+
+Guards against drift, in the order they catch things:
+
+. `stageVideoEffectAssets` verifies its OWN output: both `vision_wasm[_nosimd]_internal.{js,wasm}`,
+  `selfie_segmenter.tflite` and the six `.webp` must exist and be non-empty in the staging directory. This matters
+  because a Gradle `Sync` whose `from` directory does not exist is *silently empty* -- a shifted node_modules layout
+  (KGP upgrade, different hoisting) would otherwise produce an image without WASM and a runtime failure for every
+  user. `copyVideoEffectAssetsToWebpack` consumes the staging task, so the `jsBrowserProductionWebpack` finalizer
+  fails the build rather than production. Verified by moving `@mediapipe/tasks-vision/wasm` aside: the task fails and
+  names the missing files.
+. `verifyMediaPipeVersion` (Gradle, part of `check`) fails if the installed `@mediapipe/tasks-vision` differs from
+  the version encoded in the asset paths.
+. `MediaPipeVersionConsistencyTest` (lapis-server) compares all three places the version is written down --
+  `lapis-client/build.gradle.kts`, `ConferenceBackgroundAssets` in the client, and `ClientAssetRoutes` on the server
+  -- and checks that the path the client requests sits under the prefix the server serves with the one-year policy.
+  Without it, raising only the Gradle value would stage the WASM under a new path while the browser asks the old one:
+  404, feature dead, every test green.
+. `VideoBackgroundAssetsTest` fails if the model checksum, the image set or `PROVENANCE.adoc` no longer match the
+  files.
+
+Side effect worth knowing: because the asset copy writes into webpack's own output directory,
+`jsBrowserProductionWebpack` is no longer reported UP-TO-DATE on repeated local runs (a Docker build is a single run
+and unaffected). Writing into a task's own output directory is what makes this happen; a separate staging directory
+plus a third `COPY` in the Dockerfile would avoid it, but was judged the riskier change because the Docker build
+cannot be exercised here. See "Known gaps" below.
+
+Both output directories were checked by hand after `./gradlew clean :lapis-client:jsBrowserProductionWebpack` and
+`:lapis-client:jsBrowserDistribution`: eleven files, 19.4 MB, present under
+`build/kotlin-webpack/js/productionExecutable/assets` (what the Dockerfile copies) and under
+`build/dist/js/productionExecutable/assets` (what a local server start reads).
+
+== Limits, stated honestly
+
+* **`blurRadius` is not a pixel value.** The library computes `max(1, floor(radius / 4))` internally and its shader
+  saturates at 16 samples, so values from 64 up do nothing. "Light" is 8 (internal 2), "strong" is 24 (internal 6).
+* **`maxFps` only applies in the canvas fallback path** (browsers without `MediaStreamTrackProcessor`: Firefox,
+  Safari). The modern path (Chrome, Edge) has no library-side throttle; load follows the camera capture rate. The
+  client sets 15 for the fallback; do not read that as "15 fps on Chrome".
+* Chrome and Edge perform best. Firefox and Safari run through the canvas fallback with a blob worker. Weak phones
+  are not recommended.
+* The effect choice is stored per browser (`localStorage`), like the device choice and the theme. It does not follow
+  the account to another device.
+* Without a secure context (plain HTTP) there is neither camera access nor a guaranteed WebGL2 path; the row then
+  explains that effects are unsupported instead of disappearing.
+* **Inside an embedded app WebView the section is deliberately switched off.** An Android System WebView usually
+  reports full support, so nothing would stop it from pulling 19 MB of WASM over mobile data and running MediaPipe
+  segmentation on a phone -- a combination that has never been measured on that platform. Until it has been,
+  `conferenceBackgroundIsInAppWebView` (a pure function over the user agent: the Android `; wv)` token,
+  AppleWebKit on a mobile device without a `Safari/` token for an iOS in-app `WKWebView`, or one of the in-app
+  browser tokens `FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp`) puts the section into the same
+  disabled-with-an-explanation state as an unsupported browser, with its own sentence pointing at the device's
+  browser. `Lapis-Cloud-Mobile` sets neither a custom user agent nor a JavaScript bridge, so those markers are the
+  only signal available without changing the mobile app -- see "Known gaps" for the two cases this deliberately
+  does not catch.
+
+== Known gaps
+
+* **The asset copy writes into webpack's own output directory** (see "No CDN" above), so
+  `jsBrowserProductionWebpack` is never UP-TO-DATE locally. Accepted deliberately: the alternative (a separate
+  staging directory plus a third `COPY` in the Dockerfile) cannot be exercised in this environment, and the
+  build-time asset check above makes the current arrangement verifiable instead of merely hopeful -- it runs both
+  on the staging directory and on the webpack output directory itself, so an incomplete copy into that
+  foreign-owned directory fails the build.
+* **The app-WebView detection has two known blind spots, and it is meant to.** It errs towards leaving the feature
+  ON, because a false positive would take a working feature away from a real browser while a false negative only
+  means the normal failure path may have to catch it:
++
+--
+. An in-app browser that sends a `Safari/` token and is not in the token list
+  (`FBAN`/`FBAV`/`Instagram`/`Line/`/`LinkedInApp`) is not recognised. Those five cover the common cases; anything
+  else -- a smaller app's WebView, or a new one -- is treated as an ordinary browser.
+. An iPad `WKWebView` that requests the desktop site sends a `Macintosh; Intel Mac OS X` user agent with no
+  mobile marker at all and is indistinguishable from desktop Safari here.
+--
++
+Both are pinned by `theTwoDocumentedBlindSpots_stayUndetected` in `ConferenceBackgroundEffectsTest`, so they
+cannot silently turn into false positives later. Closing them properly needs a signal from the app itself (a custom
+user agent or a JS bridge in `Lapis-Cloud-Mobile`), which is a change to that repository.
+* **`AppScope` has no `SupervisorJob`.** `App.kt` builds it as `CoroutineScope(window.asCoroutineDispatcher())`,
+  which supplies a plain `Job()`. If any *other* `AppScope.launch` anywhere in the client ever fails with an
+  uncaught exception, that job is cancelled and every later `AppScope.launch` -- including this feature's detached
+  `stopProcessor` cleanups -- becomes a no-op, so a late-finishing processor would no longer be torn down. This is
+  pre-existing and app-wide, not specific to this wave, and is deliberately left alone here: switching `AppScope`
+  to a `SupervisorJob` changes the failure behaviour of every screen at once and belongs in its own change with its
+  own review.
+* **The assets are served without authentication and are large.** `/assets/...` is public, and a first load pulls
+  9.4 MB of WASM. `image/webp` is excluded from the global Compression plugin (already compressed, so gzip only
+  burns CPU), but `application/wasm` is not: gzip shrinks it to roughly a third, and dropping that would make a
+  first load three times as expensive over mobile data. The result is that a caller can repeatedly make the server
+  gzip a large file. Mitigated in practice by the one-year `immutable` policy (browsers and any intermediate cache
+  fetch it once), not by a limit. If this ever needs a real fix, pre-compressed files on disk
+  (`preCompressed(CompressedFileType.GZIP)`) or a rate limit on the asset prefix are the options.
+* **No custom background uploads, and no server-side background** -- by design for this wave.
+* **The segmentation model is a third-party artefact** (Apache-2.0, checksum documented in `PROVENANCE.adoc`) and is
+  shipped inside the image.
+* **Firefox and Safari only work through the library's canvas fallback path**, and the un-awaited
+  `this.update(opts)` in the library's own `BackgroundTransformer` constructor can in principle still raise an
+  unhandled rejection. Pre-loading the image in our own code first (see "Robustness rules") means the file is in the
+  browser cache by the time that call runs, which closes the practical window; the library gives no handle on that
+  promise, so it cannot be closed completely from here.
+
+== Robustness rules
+
+* **One automatic attempt per session.** On join the stored effect is restored once. If that fails, the camera keeps
+  running without an effect, exactly one notice per cause is shown, the selection jumps to "Aus", and the stored
+  intent (`desired`, `localStorage`) stays untouched. Only a deliberate click tries again.
+* **A failure always ends at "Aus".** `BackgroundTransformer.update` stores its new options *before* it awaits the
+  image load. If the load fails the transformer is left with `blurRadius = null` and a set `imagePath`, and its
+  `transform()` does not skip that combination: the person would be composited over an empty texture. So a failed
+  `switchTo` is never left half applied.
+* **The background image is loaded by our own code first, and checked afterwards.** `BackgroundTransformer.init`
+  *swallows* a failing image (`await this.loadAndSetBackground(...).catch(err => this.log.error(...))`), so
+  `setProcessor` resolves even when the WebGL background texture stayed empty -- pre-fix, a 404 on a background
+  image was reported as success and rendered the person over black, with nothing but a console line. Two guards
+  now: the controller loads the image itself before it builds or switches a processor (the same `Image` +
+  `createImageBitmap` path the library uses, so a success here means a success there, and the file is cached
+  afterwards), and after a resolved apply it compares the transformer's own `backgroundImageAndPath.path` with the
+  requested path. Both failures classify as `LOAD_FAILED` and end at "Aus", so the documented promise
+  "asset 404 -> the camera keeps running without an effect" now actually holds for the first application too.
+* **Leaving the call never waits for an effect.** `session.disconnect()` runs FIRST
+  (`room.disconnect(stopTracks = true)` -> `LocalTrack.stop()` -> `processor.destroy()` already tears the processor
+  down), and only then the controller's `dispose`. `dispose` itself takes no mutex, caps its own `stopProcessor` at
+  500 ms and schedules an unbounded detached cleanup if that cap is hit. The reason is not tidiness: with the old
+  order, and with `dispose` queueing behind a running apply (up to the 10 s timeout plus a 3 s stop cap), a click on
+  "Verlassen" left the caller connected with a live camera and microphone for up to ~13 s while the UI already said
+  "left".
+* **A timeout does not cancel the JS promise, so anything that finishes late is torn down.** `setProcessor` and
+  `stopProcessor` share livekit's `trackChangeLock`, so the capped cleanup after a timeout can itself be cut short
+  while the original apply still holds the lock -- and if that apply then succeeds, the processor really is on the
+  track. The controller therefore also schedules an *unbounded*, detached `stopProcessor` on a timeout, and a
+  generation counter makes any superseded attempt (timed out, or overtaken by `dispose` or a newer apply) report
+  nothing and keep nothing. The reported state can no longer say "the camera runs without an effect" while the
+  processed track is being published.
+* **A failed processor is never reused.** `ProcessorWrapper.destroy()` is a no-op unless the state is `running`; after
+  a failed `init()` it stays `initializing` and cleans up nothing (an OffscreenCanvas and a MediaStreamTrackProcessor
+  remain). The controller drops the object and builds a new one.
+* **`setProcessor` awaits `init()` first.** A failed initialisation leaves the raw camera untouched, so the fallback is
+  seamless.
+* **"Aus" is `stopProcessor(false)`, not `switchTo({mode: 'disabled'})`.** `disabled` would keep the whole frame
+  pipeline running and keep publishing the processed track. `stopProcessor` destroys the wrapper, so switching an
+  effect on again rebuilds it (WASM then comes from the browser cache).
+* **`setProcessor` swaps `srcObject`** of already attached elements (the self view). That is intended, but a swapped
+  `<video>` may pause, so `resumeStalledVideos` runs after every swap (the V1.4.19 watchdog exists for this class of
+  bug).
+* A set processor survives a device switch, `restartTrack` and camera off/on by itself (`setMediaStreamTrack` restarts
+  it). The `LocalTrackPublished` hook is an idempotent belt-and-braces path, not the main mechanism.
+
+== Manual test plan
+
+Karma cannot drive a camera or WASM, so these steps are manual: Chrome or Chromium with a real camera on HTTPS
+staging.
+
+* *M1 Privacy proof (the most important step).* Network tab, clear the filter, switch an effect on. Expect requests
+  only to the own origin: `/assets/mediapipe/tasks-vision-0.10.14/wasm/vision_wasm_internal.js` and `.wasm`,
+  `/assets/mediapipe/selfie_segmenter.tflite`, possibly `/assets/video-backgrounds/<id>.webp`. No hit on
+  `cdn.jsdelivr.net` or `storage.googleapis.com`. Type both host names into the filter field and capture the
+  "0 requests" state.
+* *M2 Content type and caching.* `.wasm`: `content-type: application/wasm`, `cache-control: max-age=31536000`.
+  `.tflite`: `max-age=86400`. On a second visit the responses come from the memory or disk cache, not as a 200 with
+  9.4 MB.
+* *M3 Applying.* Aus, Weichzeichnen leicht (the preparing line shows and disappears, the own tile shows the effect),
+  stark (clearly stronger, not 20 % different), each of the six images, back to Aus. No frame freezes during a switch.
+* *M4 Camera off/on.* Effect active, camera off, camera on: the effect is back, the self view runs, no black frame.
+  The WASM comes from the cache.
+* *M5 Device switch.* Pick a second camera in the "Mehr" sheet. The effect stays, the picture runs, no error notice.
+* *M6 Reconnect.* Cut the network for about five seconds (DevTools "Offline"). After the reconnect the effect is still
+  on the published track (check in a second browser).
+* *M7 Forced failure (model).* DevTools, Network, request blocking on `*selfie_segmenter.tflite*`, then switch an
+  effect on. Expect: the camera keeps running without an effect (no black frame, no still image), the selection jumps
+  to Aus, exactly one notice, and after another click exactly one further attempt. The `localStorage` value is still
+  there after a reload.
+* *M7b Forced failure (background image).* Block `*/video-backgrounds/*` instead, then pick one of the six images.
+  Expect exactly the same outcome -- and in particular *no black background*: pre-fix the library swallowed the image
+  error and reported success, so this step is the one that would have caught it. `M3`-style: also switch to
+  Weichzeichnen afterwards, which must still work (blur needs no image).
+* *M7c Leaving during a hanging load.* Throttle the network hard (DevTools "Slow 3G") or block
+  `*vision_wasm_internal.wasm*`, switch an effect on so the preparing line stays up, and click "Verlassen" while it
+  is still loading. Expect: the lobby appears immediately, and the camera LED goes out immediately -- not after ten
+  seconds. Repeat for "Für alle beenden" and, inside a breakout room, "Zurück zum Hauptraum". A second browser must
+  see the participant leave at once.
+* *M8 Persistence.* Set an effect, leave, rejoin: it is restored automatically. Then
+  `localStorage.setItem('lapis-cloud-conference-background', 'bg-does-not-exist')` and rejoin: Aus, no notice, no
+  network request for a phantom URL.
+* *M9 Second participant and egress.* A second browser sees the effect. Start a recording: the finished file shows
+  the effect (the published track is the processed one).
+* *M10 Cleanup.* Effect on and off ten times, then leave. Camera LED off, and memory in the task manager does not
+  climb monotonically (DevTools > Memory, take a heap snapshot before and after the ten cycles and compare the
+  retained size of `OffscreenCanvas`/`VideoFrame`; on the modern path also check that
+  `document.querySelectorAll('video').length` is back to its pre-effect count).
++
+NOTE: Do NOT use `document.querySelectorAll('canvas[data-livekit-processor]').length === 0` as the criterion on
+Chrome or Edge. That attribute is only ever set in the library's *canvas fallback* path
+(`ProcessorWrapper.initFallbackPath`), so on the modern `MediaStreamTrackProcessor` path the count is always 0 and
+the check passes even when nothing was cleaned up. It is a meaningful check only in Firefox and Safari -- run it
+there as part of M12.
+* *M11 Accessibility, dark mode, narrow.* Keyboard only: Tab to the row, Enter expands, arrow keys move, Space selects,
+  the focus ring is visible. A screen reader announces "Hintergrundauswahl", the tile names and the selected state.
+  Dark mode: every tile is delimited, `bg-midnight` does not vanish. At 375 px width the row is collapsed, the device
+  selection is still reachable without scrolling, the grid has 2-3 columns. Fullscreen: the "Mehr" button and the
+  section stay reachable.
+* *M12 Firefox and Safari (fallback path).* It works or shows the unsupported line, and never a black or frozen
+  picture. Note the CPU load (`maxFps = 15`). Here the fallback attribute check IS meaningful: after switching effects
+  on and off and leaving, `document.querySelectorAll('canvas[data-livekit-processor]').length` must be 0.
+* *M13 Mobile app (WebView).* Join a meeting from the Lapis-Cloud-Mobile app. Expect the "Hintergrund"-row to be
+  visible but disabled, with the sentence pointing at the device's browser -- and in particular *no* WASM download:
+  filter the server log (or a proxy) for `/assets/mediapipe/` during the whole session and expect nothing. Opening
+  the same meeting in the device's own mobile browser must offer the effects normally.
+* *M14 Grid is inert while applying.* Switch to a background image on a throttled connection and click other tiles
+  while the preparing line is up. Expect no reaction (grid dimmed, `aria-busy="true"`) and exactly one apply, not a
+  chain of them.
