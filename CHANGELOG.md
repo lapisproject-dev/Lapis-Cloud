@@ -160,6 +160,32 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **V1.4.25 the card list never appeared on a narrow resize** -- found in a live staging test (real Chrome 153) on the
+  member roster: loaded at 1400 px and then shrunk below 768 px, the table stayed and no card list appeared, although
+  the media query matched and a hand-registered `matchMedia` listener on the same page did fire. Loading the page
+  narrow was fine, and widening switched to the table exactly once -- after that no resize had any effect any more.
+  **What was wrong:** `dataTable` registered its insert and destroy hooks AFTER adding its panel to the container.
+  KVision's `addAfterInsertHook`/`addAfterDestroyHook` do not just store a lambda; the first hook of a widget calls
+  `useSnabbdomDistinctKey()`, which from then on writes a snabbdom `key` into every vnode of that widget. Registered
+  late, the key changed from `undefined` to `kv_widget_N` between two renders, so the next patch of the root no
+  longer recognised the already mounted vnode, threw the DOM element away, built a new one -- and ran the destroy
+  hook on a widget that was still alive. That hook released the media query listener. Any patch of the root was
+  enough: the member roster has a second `dataSection` whose load finishes after the roster's, and the switch's own
+  first re-render did it to itself, which is why exactly one switch still worked. The insert hook, registered just as
+  late, never fired at all, so the panel's "am I still in the document" guard was dead code as well.
+  **What it is now:** both hooks are registered before the panel is added, so the key is stable from the very first
+  vnode and the destroy hook only fires when the panel really leaves the document. A mode switch is one single patch
+  (`singleRender`) instead of one per added widget, so no child widget of the table can run into the same late-key
+  trap either. Re-attaching a panel whose destroy hook did run (`I18n.language` switches the language by restarting
+  the KVision root) picks the listener back up instead of silently ending the switch for the rest of the session.
+  **Tests:** new `DataTableModeSwitchDomTest` runs in a real, mounted `Root` under Karma/Chrome and asserts on the
+  document: repeated flips in both directions, a flip after an unrelated patch of the root, DOM element identity
+  across such a patch, that the listener is released only on a real removal, and the re-subscribe after a root
+  restart. Five of its six tests were red before the fix. The existing `DataTableWidgetTest` could not see any of
+  this and still cannot: it builds the panel in a bare `SimplePanel` that never reaches a `Root`, where `refresh()`
+  is a no-op and no snabbdom hook ever runs -- `modeSwitch_rendersAgainOnlyOnARealFlip` counted renders in a widget
+  tree that the patch cycle never touched. Its KDoc now says so.
+
 - **V1.4.22 Zahlungskonto im Offene-Posten-Pfad** -- two usability bugs found in a live staging test
   (real Chrome, Postgres) of the V1.4.21 open-items screen.
   **What was wrong:** (1) The settle dialog pre-selected "(Standard-Bankkonto der Organisation)"

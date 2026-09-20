@@ -21,23 +21,6 @@ import kotlin.test.assertTrue
  * as [DataScreenLayoutTest]). The viewport is a fake, so the mode switch needs no real resize.
  */
 class DataTableWidgetTest {
-    private class FakeViewport(
-        var narrow: Boolean,
-    ) : NarrowViewportSource {
-        val listeners = mutableListOf<(Boolean) -> Unit>()
-        override val matches: Boolean get() = narrow
-
-        override fun subscribe(listener: (Boolean) -> Unit): () -> Unit {
-            listeners += listener
-            return { listeners -= listener }
-        }
-
-        fun change(value: Boolean) {
-            narrow = value
-            listeners.toList().forEach { it(value) }
-        }
-    }
-
     private data class Person(
         val name: String,
         val amount: String,
@@ -58,7 +41,7 @@ class DataTableWidgetTest {
         )
 
     private fun SimplePanel.build(
-        viewport: FakeViewport,
+        viewport: FakeNarrowViewport,
         sort: SortState? = SortState("name", SortDirection.ASC),
         onSort: ((SortState?) -> Unit)? = {},
         actions: ((io.kvision.core.Container, Person) -> Unit)? = null,
@@ -86,7 +69,7 @@ class DataTableWidgetTest {
 
     @Test
     fun tableMode_isStripedHoverSmallAndResponsive() {
-        val panel = SimplePanel().build(FakeViewport(narrow = false))
+        val panel = SimplePanel().build(FakeNarrowViewport(narrow = false))
         val table = panel.table()
         assertEquals(setOf(TableType.STRIPED, TableType.HOVER, TableType.SMALL), table.types)
         assertEquals(ResponsiveType.RESPONSIVE, table.responsiveType)
@@ -95,7 +78,7 @@ class DataTableWidgetTest {
 
     @Test
     fun tableMode_exactlyOneHeaderCarriesAnActiveAriaSort() {
-        val panel = SimplePanel().build(FakeViewport(narrow = false), sort = SortState("amount", SortDirection.DESC))
+        val panel = SimplePanel().build(FakeNarrowViewport(narrow = false), sort = SortState("amount", SortDirection.DESC))
         val ariaSorts = panel.headerCells.map { it.getAttribute("aria-sort") }
         assertEquals(listOf("none", "descending", null), ariaSorts)
         assertEquals(1, ariaSorts.count { it != null && it != "none" })
@@ -103,7 +86,7 @@ class DataTableWidgetTest {
 
     @Test
     fun tableMode_sortHeader_hasANativeButtonWithTooltipAndStateLabel_withoutTheMarker() {
-        val panel = SimplePanel().build(FakeViewport(narrow = false), sort = SortState("name", SortDirection.ASC))
+        val panel = SimplePanel().build(FakeNarrowViewport(narrow = false), sort = SortState("name", SortDirection.ASC))
         val nameHeader = panel.headerCells.first()
         val button = nameHeader.getChildren().filterIsInstance<Tag>().single()
         assertEquals("button", button.getAttribute("type")) // a native <button type="button">
@@ -123,7 +106,7 @@ class DataTableWidgetTest {
                 "Aufsteigend sortiert nach %1" to "Sorted ascending by %1",
             ),
         ) {
-            val panel = SimplePanel().build(FakeViewport(narrow = false), sort = SortState("name", SortDirection.ASC))
+            val panel = SimplePanel().build(FakeNarrowViewport(narrow = false), sort = SortState("name", SortDirection.ASC))
             val button =
                 panel.headerCells
                     .first()
@@ -137,15 +120,15 @@ class DataTableWidgetTest {
 
     @Test
     fun tableMode_sortHeader_onlyForColumnsWithASortKey_andWhenOnSortIsGiven() {
-        val noSortKeys = SimplePanel().build(FakeViewport(narrow = false), columns = columns(sortable = false))
+        val noSortKeys = SimplePanel().build(FakeNarrowViewport(narrow = false), columns = columns(sortable = false))
         assertTrue(noSortKeys.headerCells.all { it.getAttribute("aria-sort") == null })
-        val noHandler = SimplePanel().build(FakeViewport(narrow = false), onSort = null)
+        val noHandler = SimplePanel().build(FakeNarrowViewport(narrow = false), onSort = null)
         assertTrue(noHandler.headerCells.all { it.getAttribute("aria-sort") == null })
     }
 
     @Test
     fun tableMode_numericColumn_hasLapisNumOnHeaderAndCells() {
-        val panel = SimplePanel().build(FakeViewport(narrow = false))
+        val panel = SimplePanel().build(FakeNarrowViewport(narrow = false))
         assertTrue(panel.headerCells[1].hasCssClass("lapis-num"))
         assertFalse(panel.headerCells[0].hasCssClass("lapis-num"))
         val firstRow = panel.table().getChildren().first() as SimplePanel
@@ -157,7 +140,7 @@ class DataTableWidgetTest {
     @Test
     fun tableMode_actionsColumn_hasAnEmptyVisibleHeaderWithAnAccessibleName() {
         val panel =
-            SimplePanel().build(FakeViewport(narrow = false), actions = {
+            SimplePanel().build(FakeNarrowViewport(narrow = false), actions = {
                 container,
                 person,
                 ->
@@ -174,7 +157,7 @@ class DataTableWidgetTest {
     @Test
     fun cellContent_isPlainTextNeverRichHtml() {
         val hostile = "<img src=x onerror=alert(1)>"
-        val table = SimplePanel().build(FakeViewport(narrow = false)).table()
+        val table = SimplePanel().build(FakeNarrowViewport(narrow = false)).table()
         val secondRow = table.getChildren()[1] as SimplePanel
         val nameCell = secondRow.getChildren().first() as SimplePanel
         val span = nameCell.getChildren().filterIsInstance<Span>().single()
@@ -186,7 +169,7 @@ class DataTableWidgetTest {
 
     @Test
     fun cardMode_rendersNoTable_oneCardPerRow_withThePrimaryColumnAsTitle() {
-        val panel = SimplePanel().build(FakeViewport(narrow = true))
+        val panel = SimplePanel().build(FakeNarrowViewport(narrow = true))
         assertTrue(panel.cardMode)
         assertTrue(panel.getChildren().filterIsInstance<Table>().isEmpty())
         val list = panel.getChildren().single() as SimplePanel
@@ -201,7 +184,7 @@ class DataTableWidgetTest {
 
     @Test
     fun cardMode_dropsDetailPairsWhoseValueIsEmpty() {
-        val panel = SimplePanel().build(FakeViewport(narrow = true))
+        val panel = SimplePanel().build(FakeNarrowViewport(narrow = true))
         val cards = (panel.getChildren().single() as SimplePanel).getChildren().filterIsInstance<SimplePanel>()
 
         fun pairCount(card: SimplePanel) = (card.getChildren()[1] as SimplePanel).getChildren().size
@@ -214,7 +197,7 @@ class DataTableWidgetTest {
     fun cardMode_actionsGroup_isLabelled_andDroppedWhenEmpty() {
         val withActions =
             SimplePanel().build(
-                FakeViewport(narrow = true),
+                FakeNarrowViewport(narrow = true),
                 actions = { container, person -> if (person.name == "Ada") container.add(Span("Bearbeiten")) },
             )
         val cards = (withActions.getChildren().single() as SimplePanel).getChildren().filterIsInstance<SimplePanel>()
@@ -227,9 +210,17 @@ class DataTableWidgetTest {
 
     // ── mode switch ──
 
+    /**
+     * Counts renders in an UNMOUNTED tree, and that is all it can do: `SimplePanel()` has no `Root` above
+     * it, so `getRoot()` is `null`, every `refresh()` returns without patching and no snabbdom hook ever
+     * runs. This test therefore stayed green while the mode switch was broken in the browser (V1.4.25) --
+     * the defect lived entirely in the patch cycle (see `DataTable.kt`'s KDoc on the hook order). What
+     * happens in a real, mounted `Root` is covered by [DataTableModeSwitchDomTest]; do not "strengthen"
+     * this test with DOM assertions, it has no DOM.
+     */
     @Test
     fun modeSwitch_rendersAgainOnlyOnARealFlip() {
-        val viewport = FakeViewport(narrow = false)
+        val viewport = FakeNarrowViewport(narrow = false)
         val panel = SimplePanel().build(viewport)
         assertEquals(1, panel.renderCount)
         viewport.change(false) // no flip
@@ -246,14 +237,14 @@ class DataTableWidgetTest {
 
     @Test
     fun modeSwitch_decidedSynchronouslyAtConstruction() {
-        assertTrue(SimplePanel().build(FakeViewport(narrow = true)).cardMode)
-        assertFalse(SimplePanel().build(FakeViewport(narrow = false)).cardMode)
+        assertTrue(SimplePanel().build(FakeNarrowViewport(narrow = true)).cardMode)
+        assertFalse(SimplePanel().build(FakeNarrowViewport(narrow = false)).cardMode)
     }
 
     @Test
     fun returnsThePanelItWasAddedTo() {
         val parent = SimplePanel()
-        val panel = parent.build(FakeViewport(narrow = false))
+        val panel = parent.build(FakeNarrowViewport(narrow = false))
         assertSame(panel, parent.getChildren().single())
         assertNotNull(panel.table())
     }

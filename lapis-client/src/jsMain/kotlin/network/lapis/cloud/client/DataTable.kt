@@ -65,8 +65,24 @@ internal object BrowserNarrowViewport : NarrowViewportSource {
  *   There are no sort buttons here -- the sort order chosen on a wide screen simply stays.
  * - **Mode switch**: decided synchronously at construction (no flicker) and re-decided on every media
  *   query change, but re-rendered only when the mode really flips (rotating a device must not lose
- *   anything). The listener is released when the widget is destroyed, and lazily when it fires for a
- *   widget that is no longer in the document.
+ *   anything). The listener is released when the widget is destroyed (and picked up again if the same
+ *   widget is re-inserted), and lazily when it fires for a widget that is no longer in the document.
+ *
+ * ## Why the insert/destroy hooks are registered BEFORE the panel is added
+ *
+ * `Widget.addAfterInsertHook`/`addAfterDestroyHook` do more than store a lambda: on the FIRST hook of a
+ * widget they call `useSnabbdomDistinctKey()`, which gives the widget a `vnkey` that every later
+ * `getSnOpt()` writes into the vnode as snabbdom's `key`. Registering a hook on a widget that is already
+ * rendered therefore changes its key from `undefined` to `kv_widget_N` between two renders -- and the
+ * next patch of the enclosing root no longer recognises the old vnode (`sameVnode` compares the key),
+ * throws the DOM element away, builds a fresh one and runs the **destroy hook on a widget that is still
+ * alive**. That is exactly what broke the narrow-viewport switch on a real page (V1.4.25): the destroy
+ * hook released the media query listener behind the widget's back, after which no resize reached it any
+ * more -- reproducibly on the member roster, where a second `dataSection` finishing its load patches the
+ * root right after this one was built. So: hooks first, `add` second, and the key is stable from the very
+ * first vnode on. `DataTableModeSwitchDomTest` guards this in a real, mounted `Root` -- a widget tree
+ * that never reaches a `Root` cannot see any of it, because `refresh()` is a no-op there and no hook
+ * ever runs.
  *
  * **Security**: cell content goes in as widget content only -- never `rich = true`, never `innerHTML`, no
  * data in `cssText`. Row values (member names, e-mail addresses) are foreign data.
@@ -109,53 +125,76 @@ internal fun <R> Container.dataTableWith(
     // Validates the primary flags eagerly, in both modes (a second primary is a programming error).
     val layout = cardLayout(columnCount = columns.size, primaryFlags = columns.map { it.primary })
     val host = DataTablePanel()
-    add(host)
     var cardMode = viewport.matches
     var pendingFocus = focusSortKey
 
     fun render() {
-        host.removeAll()
-        host.renderCount++
-        host.headerCells = emptyList()
-        host.cardMode = cardMode
-        if (cardMode) {
-            host.renderCardList(columns, rows, layout, actions)
-        } else {
-            host.renderTableMode(
-                columns = columns,
-                rows = rows,
-                sort = sort,
-                onSort = onSort,
-                sortOptions = sortOptions,
-                actions = actions,
-                focus = FocusRequest(key = { pendingFocus }, consumed = { pendingFocus = null }),
-            )
+        // One patch for the whole switch (`singleRender`), not one per added widget: the table is never
+        // half torn down on screen, and the listener below cannot observe a transient empty host.
+        host.singleRender {
+            host.removeAll()
+            host.renderCount++
+            host.headerCells = emptyList()
+            host.cardMode = cardMode
+            if (cardMode) {
+                host.renderCardList(columns, rows, layout, actions)
+            } else {
+                host.renderTableMode(
+                    columns = columns,
+                    rows = rows,
+                    sort = sort,
+                    onSort = onSort,
+                    sortOptions = sortOptions,
+                    actions = actions,
+                    focus = FocusRequest(key = { pendingFocus }, consumed = { pendingFocus = null }),
+                )
+            }
         }
     }
-    render()
 
-    var mounted = false
     var unsubscribe: (() -> Unit)? = null
 
     fun release() {
         unsubscribe?.invoke()
         unsubscribe = null
     }
-    unsubscribe =
-        viewport.subscribe { narrow ->
-            val element = host.getElement()
-            if (mounted && element != null && !element.isConnected) {
-                // Fired for a widget that has left the document without a destroy hook: stop listening.
-                release()
-                return@subscribe
+
+    /** Subscribes once; a second call while subscribed does nothing (see the insert hook below). */
+    fun listen() {
+        if (unsubscribe != null) return
+        unsubscribe =
+            viewport.subscribe { narrow ->
+                val element = host.getElement()
+                if (host.mounted && element != null && !element.isConnected) {
+                    // Fired for a widget that has left the document without a destroy hook: stop listening.
+                    release()
+                    return@subscribe
+                }
+                if (narrow != cardMode) {
+                    cardMode = narrow
+                    render()
+                }
             }
-            if (narrow != cardMode) {
-                cardMode = narrow
-                render()
-            }
-        }
-    host.addAfterInsertHook { mounted = true }
-    host.addAfterDestroyHook { release() }
+    }
+
+    // ── The hooks BEFORE `add(host)` -- load-bearing, see this function's KDoc ──
+    host.addAfterInsertHook {
+        host.mounted = true
+        // Re-attached after a detach that ran the destroy hook (`I18n.language` does exactly that via
+        // `Root.restart()`, keeping the widget objects): pick the listener back up. No render here -- we
+        // are inside a running snabbdom patch, and a re-render from within it would patch a stale root
+        // vnode. A detach/re-attach is synchronous, so the mode cannot have gone stale in between.
+        listen()
+    }
+    host.addAfterDestroyHook {
+        host.mounted = false
+        release()
+    }
+    render()
+    add(host)
+    // Only reached as a real subscription when the container is not (yet) mounted -- in a mounted tree the
+    // insert hook above has already subscribed during `add`.
+    listen()
     return host
 }
 
@@ -163,11 +202,15 @@ internal fun <R> Container.dataTableWith(
  * The panel [dataTable] returns. Plain [SimplePanel] for callers; the extra state exists for the widget
  * tests (KVision keeps a table's header row internal): the current mode, how often it was rendered and
  * the header cells of the last table render.
+ *
+ * [mounted] is not test-only: the mode-switch listener needs it to tell "never inserted" from "inserted
+ * and since then torn out of the document without a destroy hook".
  */
 internal class DataTablePanel : SimplePanel() {
     var cardMode: Boolean = false
     var renderCount: Int = 0
     var headerCells: List<HeaderCell> = emptyList()
+    var mounted: Boolean = false
 }
 
 private fun <R> DataTablePanel.renderTableMode(
