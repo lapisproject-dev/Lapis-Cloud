@@ -761,6 +761,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**CI: five client DOM tests failed only on the GitHub runners (timing, no product defect)**
+
+- **Cause**: Mocha's default 2000 ms per-test timeout was too short for `approvalQueues_…` and the triple-form
+  double-click test, and `ReportScreensDomTest` slept a fixed 200 ms before counting the error boxes of two parallel reloads
+  ("Expected <2>, actual <1>"). Both passed locally, on a slower runner they did not (red since V1.4.31, `313bded`).
+- **Fix**: `lapis-client/karma.config.d/mocha-timeout.js` raises the ceiling to 30 s (each wait keeps its own poll limit);
+  the reload check now polls until the expected number of error boxes is shown.
+
 **MT940-Import: SWIFT-Trennzeile `-` verwarf ganze Kontoauszüge (Saldo nicht lesbar)**
 
 - **Ursache**: Echte MT940-Dateien schließen jede Nachricht mit einer alleinstehenden Zeile `-`

@@ -36,6 +36,17 @@ class ReportScreensDomTest {
         assertTrue(false, "the failed load never produced the error box")
     }
 
+    /** Polls until exactly [count] error boxes are shown -- a fixed delay is too short for the parallel reloads on a slow CI runner. */
+    private suspend fun awaitErrorBoxes(
+        element: () -> HTMLElement,
+        count: Int,
+    ) {
+        repeat(200) {
+            if (errorBoxes(element()) == count) return
+            delay(50)
+        }
+    }
+
     private fun buttonWithText(
         element: HTMLElement,
         text: String,
@@ -65,7 +76,7 @@ class ReportScreensDomTest {
             val loadButton = assertNotNull(buttonWithText(element(), loadLabel), "$id: no '$loadLabel' button")
             loadButton.click()
             delay(200)
-            awaitErrorBox(element)
+            awaitErrorBoxes(element, expectedBoxes)
             assertEquals(expectedBoxes, errorBoxes(element()), "$id: the error state(s) after the filter reload")
         }
     }
