@@ -69,6 +69,7 @@ import network.lapis.cloud.shared.domain.SepaReturnInput
 import network.lapis.cloud.shared.domain.SepaReturnReasonSets
 import network.lapis.cloud.shared.domain.SepaSequenceType
 import network.lapis.cloud.shared.domain.SepaSettingsDto
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -108,6 +109,13 @@ private val SEPA_BATCH_IN_FLIGHT_STATUSES =
  * silent unbounded query.
  */
 private const val MAX_BATCH_ITEMS = 5_000
+
+/**
+ * Upper bound of a return fee. `sepa_return.return_fee` is `DECIMAL(12,2)` and overflows from 10^10 on -- an unhandled HTTP 500. The
+ * client sends `Decimal` as a JSON double, so `99999999999999999999` arrives as `1.0E20` (scale -19) and passes the `scale() > 2`
+ * check. One billion mirrors the open-item sub-ledger's bound for the same column width (`OpenItemService.MAX_AMOUNT`).
+ */
+private val MAX_RETURN_FEE: BigDecimal = BigDecimal("1000000000.00")
 
 /**
  * German SEPA creditor-identifier format: country code + check digits + business-area code +
@@ -1510,6 +1518,11 @@ class SepaService(
         val returnFee = input.returnFee
         if (returnFee != null && (returnFee.signum() <= 0 || returnFee.scale() > 2)) {
             throw ConflictException("Das Rueckgabeentgelt ist ungueltig.")
+        }
+        // An input error, not a state conflict: a BadRequestException (the client only ever sees the exception subclass, never the
+        // message -- a ConflictException would render "please refresh the view", advice that does not help for a too-large fee).
+        if (returnFee != null && returnFee > MAX_RETURN_FEE) {
+            throw BadRequestException("The return fee must be at most ${MAX_RETURN_FEE.toPlainString()}.")
         }
         val itemId = input.debitItemId.toSepaItemUuid()
 

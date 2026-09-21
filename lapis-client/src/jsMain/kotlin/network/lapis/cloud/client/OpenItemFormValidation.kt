@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import io.kvision.i18n.gettext
-import io.kvision.i18n.tr
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.OpenItemDirection
@@ -68,7 +67,7 @@ fun parseAmountInput(
     val trimmed = raw?.trim().orEmpty()
     if (trimmed.isEmpty()) return AmountInput.Empty
     if (!AMOUNT_SHAPE.matches(trimmed)) {
-        return AmountInput.Invalid(tr("Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."))
+        return AmountInput.Invalid(gettext("Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."))
     }
     val normalized = trimmed.replace(',', '.')
     val fractionDigits = normalized.substringAfter('.', "").length
@@ -77,13 +76,24 @@ fun parseAmountInput(
     }
     val value = normalized.toDoubleOrNull()
     if (value == null || !value.isFinite() || value < 0.0 || (value == 0.0 && !allowZero)) {
-        return AmountInput.Invalid(tr("Der Betrag muss größer als 0 sein."))
+        return AmountInput.Invalid(gettext("Der Betrag muss größer als 0 sein."))
     }
     if (enforceMaxAmount && value > MAX_OPEN_ITEM_AMOUNT) {
         return AmountInput.Invalid(gettext("Der Betrag ist zu groß (höchstens %1).", formatMoney(MAX_OPEN_ITEM_AMOUNT.toDecimal())))
     }
     return AmountInput.Valid(value.toDecimal())
 }
+
+/**
+ * Feldregel für einen Betrag der offenen Posten (Anlegen, Ausgleich, Verrechnung): [parseAmountInput] MIT der Teilbuch-Grenze
+ * ([MAX_OPEN_ITEM_AMOUNT]); die Meldung ist bereits aufgelöst (nie ein `tr()`-Marker). Leere behandelt `required`.
+ */
+internal fun openItemAmountCheck(value: String): FieldCheck =
+    when (val parsed = parseAmountInput(value)) {
+        is AmountInput.Empty -> FieldCheck.Ok
+        is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
+        is AmountInput.Valid -> FieldCheck.Ok
+    }
 
 /**
  * Lose Vorprüfung des Anlegen-Formulars; `null` = gültig, sonst der (bereits übersetzte) erste
@@ -103,16 +113,16 @@ fun validateOpenItemForm(
 ): String? {
     val name = counterpartyName.trim()
     return when {
-        direction == null -> tr("Bitte eine Richtung (Kreditor oder Debitor) wählen.")
-        name.isEmpty() -> tr("Bitte eine Gegenpartei angeben.")
+        direction == null -> gettext("Bitte eine Richtung (Kreditor oder Debitor) wählen.")
+        name.isEmpty() -> gettext("Bitte eine Gegenpartei angeben.")
         name.length > MAX_COUNTERPARTY_NAME_LENGTH ->
             gettext("Die Gegenpartei darf höchstens %1 Zeichen lang sein.", MAX_COUNTERPARTY_NAME_LENGTH)
-        itemDate == null -> tr("Bitte ein Belegdatum angeben.")
-        dueDate == null -> tr("Bitte ein Fälligkeitsdatum angeben.")
-        dueDate < itemDate -> tr("Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen.")
-        amount is AmountInput.Empty -> tr("Bitte einen Betrag angeben.")
+        itemDate == null -> gettext("Bitte ein Belegdatum angeben.")
+        dueDate == null -> gettext("Bitte ein Fälligkeitsdatum angeben.")
+        dueDate < itemDate -> gettext("Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen.")
+        amount is AmountInput.Empty -> gettext("Bitte einen Betrag angeben.")
         amount is AmountInput.Invalid -> amount.reason
-        contraAccountId.isNullOrBlank() -> tr("Bitte ein Gegenkonto wählen.")
+        contraAccountId.isNullOrBlank() -> gettext("Bitte ein Gegenkonto wählen.")
         (reference?.trim()?.length ?: 0) > MAX_OPEN_ITEM_REFERENCE_LENGTH ->
             gettext("Die Belegnummer darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_REFERENCE_LENGTH)
         (note?.trim()?.length ?: 0) > MAX_OPEN_ITEM_NOTE_LENGTH ->
@@ -145,17 +155,17 @@ fun expectedContraAccountType(direction: OpenItemDirection): LedgerAccountType =
 fun openItemPostingErrorMessage(code: String): String? =
     when (code) {
         "payables_account_not_configured" ->
-            tr("Kein Verbindlichkeitenkonto zugeordnet. Ein Administrator muss es im Kontenplan hinterlegen.")
+            gettext("Kein Verbindlichkeitenkonto zugeordnet. Ein Administrator muss es im Kontenplan hinterlegen.")
         "receivables_account_not_configured" ->
-            tr("Kein Forderungskonto zugeordnet. Ein Administrator muss es im Kontenplan hinterlegen.")
+            gettext("Kein Forderungskonto zugeordnet. Ein Administrator muss es im Kontenplan hinterlegen.")
         "payment_bank_account_not_configured" ->
-            tr("Kein Bankkonto zugeordnet. Bitte ein Bankkonto wählen oder im Kontenplan hinterlegen.")
-        "ledger_account_inactive" -> tr("Ein beteiligtes Konto ist inaktiv oder nicht mehr vorhanden.")
+            gettext("Kein Bankkonto zugeordnet. Bitte ein Bankkonto wählen oder im Kontenplan hinterlegen.")
+        "ledger_account_inactive" -> gettext("Ein beteiligtes Konto ist inaktiv oder nicht mehr vorhanden.")
         "contra_account_wrong_type" ->
-            tr("Das Gegenkonto hat den falschen Kontotyp (Kreditor: Aufwandskonto, Debitor: Ertragskonto).")
-        "receivables_account_not_asset_type" -> tr("Das zugeordnete Forderungskonto ist kein Aktivkonto.")
-        "payables_account_not_liability_type" -> tr("Das zugeordnete Verbindlichkeitenkonto ist kein Passivkonto.")
-        "cash_voucher_required" -> tr("Für Buchungen auf ein Kassenkonto ist ein Beleg erforderlich.")
-        "cash_register_balance_insufficient" -> tr("Der Kassenbestand würde negativ.")
+            gettext("Das Gegenkonto hat den falschen Kontotyp (Kreditor: Aufwandskonto, Debitor: Ertragskonto).")
+        "receivables_account_not_asset_type" -> gettext("Das zugeordnete Forderungskonto ist kein Aktivkonto.")
+        "payables_account_not_liability_type" -> gettext("Das zugeordnete Verbindlichkeitenkonto ist kein Passivkonto.")
+        "cash_voucher_required" -> gettext("Für Buchungen auf ein Kassenkonto ist ein Beleg erforderlich.")
+        "cash_register_balance_insufficient" -> gettext("Der Kassenbestand würde negativ.")
         else -> null
     }

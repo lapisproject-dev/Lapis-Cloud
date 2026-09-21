@@ -681,6 +681,282 @@ once (tested, no timer). **Deliberately not changed:** an `upload(label = ...)` 
 confirmation stay outside the scanners; the 32 old empty `msgstr` entries predate the wave; the member picker of the committee and
 the board appointment keeps its preselected first member (the old code did the same).
 
+== Wave W4c "Form grammar, part 3" (V1.4.30)
+
+The finance half of the form roll-out, cut by whole files -- all twelve, none held back: `LedgerScreen`, `OpenItemsScreen`,
+`OpenItemDialogs`, `SepaBatchesScreen`, `SepaMandatesScreen`, `SepaMandateSection`, `DonorsScreen`, `BankAccountsScreen`,
+`BankStatementImportScreen`, `CostCentersScreen`, `AccountingExportScreen`, `DunningCasesScreen`. A client wave **with three server
+production files touched**: `SepaService.kt` (the return-fee bound, +9 lines), `AccountingService.kt` (the journal amount bound and the
+text-length checks, +30) and `JournalEntryBalance.kt` (the shared bound and the length constants, +31). No RPC signature, DTO or
+migration was touched (`db/migration` holds 44 migrations, the last is `V44__ai_assistant.sql`; this wave and the unreleased waves
+V1.4.26-V1.4.29 added none, so there was no migration to extend). Roles, confirmations and required reasons are unchanged. **Server calls
+are unchanged except** that `JournalEntryBalance.validateBalanced` now also enforces the amount bound, and seven paths run through it: the
+posting bridges of the contribution, the donation, the event fee, the open item, the travel expense and the volunteer allowance, and
+`postDraftEntry` (as `postJournalEntry` itself). **The RULES are not all unchanged** -- the named exceptions are in the next section;
+nothing here says "rules unchanged" without them.
+
+=== Rules that changed (named)
+
+[cols="1,3"]
+|===
+| Change | Why / evidence
+
+| Posting amounts with more than two decimals are REJECTED at the field (`FormRules.postingAmount`), `10,005` used to be booked as
+  `10,01`
+| `JournalEntryBalance.MAX_AMOUNT_SCALE = 2` is enforced by the server already; the client rounded silently and booked something
+  other than what stood there. The rounding in `collectPostings()` stays as a net (`prefill()` takes that path). The journal has its own upper
+  bound, `MAX_POSTING_AMOUNT` (one trillion, well below the `DECIMAL(15,2)` column limit of 10^13). **The server draws both bounds** (10^12 for
+  the journal, 10^9 for the return fee, `MAX_RETURN_FEE` in `SepaService`) **and checks `description` (500) and `voucherReference` (100)
+  against their column width; the form mirrors them** -- the server is the authority. Before this wave neither existed for these columns, and
+  `99999999999999999999` used to travel as the JSON double `1.0E20` and end in a database overflow (HTTP 500). Both bounds throw a typed
+  `BadRequestException` (the fee bound was a `ConflictException` first, whose client text "please refresh the view" is wrong advice for an
+  input error). The status codes 400/409 exist in the HTTP test harness only; in production `Application.kt` installs `StatusPages` for
+  401/403 and the client only ever sees the exception subclass ("Ungültige Anfrage."). The bound is NOT `MAX_OPEN_ITEM_AMOUNT`, which belongs
+  to the open-item sub-ledger. A decimal comma is accepted now, too. **Named gaps:** the length is UTF-16 code units (`String.length`) while
+  the column counts characters; no limit on `postings.size`; and a draft saved earlier with an amount between 10^12 and about 10^13
+  cannot be booked any more (`postDraftEntry` runs `validateBalanced`; the UI has no edit path for a draft).
+
+| "Direkt buchen" checks the three balance conditions of `validateBalanced` BEFORE the dialog and names the difference
+| `journalPostingBalanceProblem`, pure, in whole cents. **Not** in front of "Als Entwurf speichern": `saveDraftEntry` allows an
+  unbalanced draft, a cross rule in the form would forbid what is allowed. The server stays the authority.
+
+| "Endgültig buchen" is one-shot (`ConfirmOnce`)
+| `postJournalEntry` has no idempotency key; the button could fire any number of times until the modal was gone.
+
+| "Zurück" stands before "Jetzt ausgleichen" / "Endgültig verrechnen"
+| Cancel left, confirming action right (2.5 / R27). Order only; handlers, gate and texts unchanged.
+
+| The IBAN echo is a reading aid (shown grouped also for a wrong check digit); FinTS and export acknowledgements are required checkboxes
+| The echo was first hidden while the IBAN was invalid; the audit reversed that (grouping in fours makes a typo visible) and reports the
+  validity separately at the field. A grey button that did not say what was missing was the same lie as a green "valid" banner (K2 of W4b).
+
+| The balance strip writes amounts through `formatMoney` ("100.5 €"), like the confirmation dialog
+| One money format in the booking workflow (audit M3). The global `formatMoney` is deliberately unchanged; the fee-range messages still
+  print "25,00 €" (decimal comma, padded) -- a known gap of the whole UI.
+
+| "Abbrechen" stands LEFT of "Posten anlegen" (open-item form), "Verbindung prüfen" left of the primary (export token form)
+| The grammar's order. Consequence, named: the cancel button now stands where the primary button used to stand and discards the form
+  without asking (there is no unsaved-changes prompt).
+
+| Return fee and netting amount got field rules
+| A fee with more than two decimals used to be rounded (`recordReturn` rejects `scale > 2`), now it is rejected; the netting amount
+  shows why the preview is missing.
+
+| Filter date labels "Von"/"Bis" without a format; number bounds in msgids became `%N`
+| Rules of the catalog guard (no date format, no "(optional)", no number bound in a msgid). The filters themselves stay filters.
+|===
+
+=== The posting lines
+
+A row of six controls (account, debit/credit, amount, sphere, cost centre, VAT if usable) is a table for the eyes and a form for
+everything else. Each control sits in its own cell; the error slots of the selects sit in ONE full-width row beneath the cells
+(`.invalid-feedback` has `width: 100%` and would squash six controls into one column). ONE visible column-header row
+(`aria-hidden`, star on the required columns) stands above the block; the field name stays on every control ("Betrag · Zeile 2":
+the line number is a `%2` placeholder, never a number in the msgid) and is visually clipped, never `display: none`, so a screen
+reader keeps it. **The header row shows the titles on every line -- the first line's own labels are clipped too** (a first line
+with visible labels next to a header row would print every title twice). Below 768 px the header row is hidden and each line
+becomes a card with its labels visible. At a coarse pointer all controls and the remove button already reach 44 px through the
+existing `.btn:not(.btn-link)` and `.lapis-form .form-control/.form-select` rules -- nothing was duplicated.
+
+`LapisForm.unregister(field)` / `LapisField.detach()` (idempotent) is the one grammar addition. The remove button deregisters the
+six fields FIRST and removes the widget afterwards; `resetForm()` and `prefill()` deregister the old lines before
+`rowsPanel.removeAll()`. A small internal `LapisField.relabel` renames a numbered field without losing its star (`appendRequiredMark`
+moved the label text into a `span` before the star; only that span is replaced) and keeps `resolvedLabel` in step. A line added
+AFTER `buttons()` marks its required labels itself (the grammar decides the stars once, when the form is completed). CSS: one block
+in `theme.css` (`.lapis-posting-row`, `--headed`, `-cell`, `-remove`, `.lapis-posting-header`, `.lapis-balance-strip`), tokens only,
+no hex. Contrast of the strip (measured): 16.6:1 light, 11.7:1 dark. **No third addition**: no date/time factory, no upload factory.
+
+=== The balance: inform, do not block
+
+The strip below the lines reads "Soll 1200 € · Haben 900 € · Differenz 300 €" (`postingBalanceText`, pure; `formatMoney`, the format of the
+confirmation dialog). It never
+shows an old sum: as soon as ANY amount is empty or invalid it reads dashes everywhere. No `role="alert"`, no traffic-light colour.
+It adds in whole cents because `Decimal` is a `Double` on JS (`0,1 + 0,2 = 0.3`). Deliberately no cross rule on the balance: see
+the second row of the table above.
+
+=== Decisions this wave had to make
+
+[cols="1,3"]
+|===
+| Decision | Result
+
+| Scope
+| All twelve files. Twenty-seven screens would not have fitted; the remaining ones are named in "Not done" with numbers.
+
+| A field that is only required for one choice
+| A blank value never reaches a field rule (the grammar treats empty itself), and `required` on a hidden field blocks with an
+  invisible error. So the conditions are CROSS rules (collective area + focus): the donor selects of the journal entry and of the bank
+  line donation, the free text of a return with the reason "Sonstiger Grund". Such a field carries the hint "Pflichtangabe für diesen
+  Spendertyp." (a sternless field under a visible "* Pflichtfeld" legend reads as "optional"), and a select that can never be empty (no
+  empty option) is NOT `required`: it would only distort which fields get the star.
+
+| Dates
+| Text fields with the example in the hint ("Beispiel: 2026-03-14."); no native date input (K1 of W4b stands).
+
+| Defaults
+| Unchanged: `todayIso()` for the booking date, debit then credit, the empty placeholder of every select, no preselected direction
+  of an open item (Jobs, V1.4.21), `item.openAmount` and `maxNettableAmount` as the prefilled amounts. A test pins them.
+
+| Secret fields of the FinTS assistant
+| `passwordField` plus the documented insert hook `hardenSecretInput` (`autocomplete="new-password"` keeps Chrome from filling the
+  Lapis password into a PIN field; `autocomplete="off"` of `suppressManagers` is ignored there). The late-hook ratchet is unchanged.
+
+| Filters
+| Stay outside `lapisForm` and are justified in the tripwire (R24/R24B). `AccountingFilters.kt` stays outside the strict set: its
+  fiscal-year field is a filter block.
+
+| `SepaMandatesScreen`, `DunningCasesScreen`
+| Only a filter and dialog-guarded actions: strict "without form" (there is no form to build); every writing call is guarded.
+|===
+
+=== Double-click protection (R29) in this wave
+
+All 47 unguarded writing coroutines of the twelve files run through `form.submit` / `runBusy` / `runGuardedAction` / `ConfirmOnce`;
+the R29 baseline stays at 39 (it did not rise). A business-state `disabled` (an SEPA run without items, the export's test/remove
+buttons) is not the click guard: a disabled button never reaches `runBusy`. `suggestMatches` is a read the scanner does not know by
+name and runs through `runGuardedAction(null)`. The three row buttons "Deaktivieren" (accounts, donors, cost centers) hand their own button to
+`runGuardedAction`; `cancelFinTsSetup` (the modal's own cancel) is the other call without a button.
+
+=== Ratchets and catalogs
+
+R24 225 -> 166 (59 labelled text fields moved in, 10 justified filters); R24B 131 -> 80 (51 moved in, 9 justified filters). 175
+catalog entries in eight files (168 new msgids + 7 that had an empty translation; 24 OLD entries per catalog are still empty, and
+`grep -c '^msgstr ""$'` reports 182-216 because it counts multi-line translations too) (`FormGrammarPart3I18nCatalogTest` scans all twelve files completely, the exception list
+is empty; it resolves constants built from constants, which the SEPA conflict messages need, and pins that the core accounting
+terms stay pairwise different words in all seven languages).
+
+=== Audit round of wave W4c (V1.4.30)
+
+The review and security loops of the pipeline found the items in the first table (they are fixed in the wave commit); an independent audit
+(an Opus audit, which found NO sign, debit/credit or amount error but two blocking documentation defects and ten major ones) found the
+items in the second and third table, fixed in the same wave.
+
+.Review and security loops (in the wave commit)
+[cols="1,3"]
+|===
+| Finding | Fix
+
+| Review: no upper bound on posting amounts in the ledger form
+| `FormRules.postingAmount` bounds the amount (`MAX_POSTING_AMOUNT`), the balance strip shows dashes above it.
+
+| Review: return-form `setValue` without follow-up; missing load-error state of the 0 % VAT notice; stale item options; the return fee's
+  bound per column; mobile posting row layout; empty balance strip
+| `validate(force = false)` after every programmatic write; error state with retry; generation guard; `MAX_RETURN_FEE_AMOUNT`; the card
+  layout below 768 px; dashes for "no lines".
+
+| Review: the accounting-export disclaimer test was missing
+| `AccountingExportDisclaimerDomTest`.
+
+| Security: the server accepted arbitrary journal amounts, values beyond `DECIMAL(15,2)` surfaced as HTTP 500
+| `JournalEntryBalance.MAX_POSTING_AMOUNT` (10^12) in `saveDraftEntry` / `postJournalEntry` / `validateBalanced`; server-side length checks
+  for `description` (500) and `voucherReference` (100), mirrored by `FormRules.maxLength`.
+|===
+
+.Independent audit: documentation
+[cols="1,3"]
+|===
+| Finding | Fix
+
+| B1 "A pure client wave ... no server production code" was false
+| Three server files are named (`AccountingService.kt`, `JournalEntryBalance.kt`, `SepaService.kt`), and the seven posting paths that
+  run through the new bound (see the start of this section).
+
+| B2 "the SERVER draws no upper bound" was refuted by `JournalEntryBalance.MAX_POSTING_AMOUNT` and `MAX_RETURN_FEE`; the length checks
+  were missing; `recordReturn` was named for `scale > 2` only
+| Rewritten: the server draws both bounds (10^12 / 10^9) and checks `description` 500 / `voucherReference` 100; the form mirrors them.
+
+| M10 This section was a placeholder
+| This table.
+
+| Catalog numbers ("174 ... none empty"), the migration statement ("last file V9")
+| 175 entries per catalog (168 new + 7 filled); 24 old entries per catalog are still empty; 44 migrations, the last `V44__ai_assistant.sql`.
+
+| The manual browser check
+| **Not done** (375 / 767 / 768 / 1440 px, light and dark): named under "Known gaps".
+|===
+
+.Independent audit: behaviour
+[cols="1,3"]
+|===
+| Finding | Fix
+
+| M1 The return-fee field replaced the reason of `FormRules.returnFee` with "must be a positive amount"
+| The field's rule IS `FormRules.returnFee`; `FormGrammarPart3AuditDomTest` drives "3,005", "0", "1.234,56" and an over-bound value.
+
+| M2 The "other reason" free text was focused through its wrapper `<div>`
+| `focusOn` and `watch` name the `<input>`; tested (focus, and the collective message clears on `change`).
+
+| M3 Two money formats in the booking workflow
+| The strip uses `formatMoney`; a test compares strip and confirmation dialog. The global `formatMoney` is deliberately unchanged.
+
+| M4 The bank-account IBAN had no rule
+| IBAN (mod 97, all whitespace stripped like `IbanValidator.normalize`, no country list -- never stricter than the server) and BIC (the
+  server's regex) are field rules; body tests for create and update with four same-typed neighbours.
+
+| M5 The resolve action locked both buttons for ever after a cancelled call
+| `runGuardedAction(foundButton)` plus a `finally` for the sibling. A `CancellationException` cannot be provoked in a DOM test; a dropped
+  connection is tested.
+
+| M6 The fee bound was a `ConflictException` ("please refresh the view")
+| `BadRequestException`; the HTTP mapping exists in the test harness only (see the rules table).
+
+| M7 The star sat on the pre-selected donor type, not on the fields that block
+| The type is not `required` (never empty), the conditional fields say "Pflichtangabe für diesen Spendertyp."; the netting candidate
+  select is not `required`, so the amount keeps its star and legend.
+
+| M8 No body tests for most money and security paths
+| `FormSubmitBodyPart3FinanceDomTest` (17), see the CHANGELOG for the list and for what stays uncovered.
+
+| M9 After a recorded return the next member's item was pre-selected
+| Position empty (placeholder), defaults back, a click without a choice sends nothing; tested.
+
+| Minor
+| Year filter of the donation-duty report as a grammar field with a hint; the returns filter reports an unreadable date at the field;
+  the failed batch creation withdraws its preview button; IBAN echo as reading aid; button order (export token form, resolve action,
+  open-item form); stale banner and form error cleared; raw statement line out of the `role="alert"` region; first render not "already
+  submitted"; the 44 px rule for the category select of the export preview; IBAN/BIC `autocomplete="off"`.
+|===
+
+.Independent audit: i18n
+[cols="1,3"]
+|===
+| Finding | Fix
+
+| B1 "Stornieren" and "Abbrechen" were the same word in all seven languages ([Cancel][Cancel] on three irreversible money paths)
+| Reverse / Anular / Contrepasser / Storna / Terugdraaien / Storno / Сторнировать; "Storniert" Reversed / Anulado / Contrepassé /
+  Stornato / Teruggedraaid / Stornowany / Сторнировано. The same msgids serve the event screens (a coarser word there: known gap).
+
+| M2 `###KvI18nS###` in a text: a `tr()` result as a `gettext` argument
+| The sites use `gettext`; `I18nCatalogManager.gettext` resolves a marker argument (net); the tripwire forbids `tr(` inside `gettext(`,
+  `FieldCheck.Invalid(` and `AmountInput.Invalid(`, and inside `FormRules.kt` / `OpenItemFormValidation.kt` altogether.
+
+| M3-M6 nl "Gebührenkonto" = "Aufwandskonto"; pl "Rachunek ..." for six ledger accounts; it "Ausgleich" = "Saldo" and "Abrechnen" =
+  "Regola"; es "Storniert" = "abgebrochen"
+| Fixed per language; the bare "Ausgleichen" and "Abrechnen" also equalled each other in en/es/fr/pl (now Post / Contabilizar /
+  Comptabiliser / Zaksięguj). All in the pairwise-different guard.
+
+| M7 Numbers inside msgids (2 decimals, 12 months, 5 MB)
+| `%1` placeholders (`SEPA_SIGNATURE_MAX_AGE_MONTHS`, `MAX_OPEN_ITEM_AMOUNT_SCALE`, `BankStatementHttp.MAX_UPLOAD_BYTES`); the guard regex
+  also catches "mehr als N", "bis zu N", "max. N", "min. N".
+
+| Minor: 42 orphaned msgids; en "Example: 1234,56."; ru "Summe"; "Mahnwesen" vs "Mahnhinweise" (it/nl/pl); pl "Übertragen"; fr
+  "Verwendungszweck"
+| Orphans removed from all eight catalogs; en "1234.56"; ru "Итого"; it "Gestione solleciti", nl "Aanmaningsbeheer", pl "Windykacja"; pl
+  "Przekaż"; fr "Libellé". **Deliberately not changed:** the duplicated msgids ("Mitglied auswählen" / "wählen"); plural forms are a known gap.
+|===
+
+**Deliberately not changed:** the global `formatMoney`; `runGuardedAction(null)` for `suggestMatches` (a read) and `cancelFinTsSetup`;
+the ratchets' presence check was made stricter only by a floor per file (`R24_MIN_FORMS`).
+
+=== Not done in this wave (named)
+
+W4d, still on the old grammar (text fields / choice fields): `TravelExpenseScreen` 7/0, `TravelExpenseApprovalsScreen` 4/1,
+`VolunteerAllowanceScreen` 3/1, `VolunteerAllowanceApprovalsScreen` 2/2, `ContributionsScreen` 8/5, `DocumentsScreen` 4/2,
+`PoliticianScreen` 3/2, `NonprofitComplianceReportsScreen` 0/1, `DashboardScreen` 3/0 (password change), `PaymentTransactionsScreen`
+1/1, `FinancialReportsScreen` 1/0, `LtrLedgerScreen` 6/8, `PriceOracleScreen` 7/4, `DonationCheckoutScreen` 2/1, the webhook fields of
+`ApiKeysScreen` (a named exception). Unchanged open: CRM 20/9, DSGVO (two screens) 25/15, events (three screens) 23/6, auction 7/1,
+crowdfunding 4/1, conference (three files) 4/11, social network 8/3, catering 6/1, honours and families 9/4, audit log 6/1.
+
 == Rule precedence: attributes and `gettext`
 
 The guideline (section 2.14) says `tr()` only as widget content and, for attributes (`title`, `aria-label`,
@@ -693,6 +969,19 @@ through `resolvedAttributeText` (marker stripped AND translated).
 
 == Known gaps
 
+* W4c audit: **the manual browser check at 375 / 767 / 768 / 1440 px, light and dark, was not done** -- the layout claims of this wave rest
+  on the DOM tests and the measured contrast numbers. Not covered by any test: the row action of `SepaMandatesScreen`, the accounting-export
+  run flow, the SEPA creditor settings, `cancelFinTsSetup`, the dunning-case actions. No plural forms in the catalogs; the event screens share
+  the msgids "Stornieren" / "Storniert" that are now "Reverse" / "Reversed". The length checks count UTF-16 code units, `postings.size` is
+  unlimited, and a draft with an amount between 10^12 and about 10^13 cannot be booked any more.
+* W4c: **W4d runs on the old grammar** -- the screens named under "Not done in this wave" of section W4c, with their numbers. R24 is
+  166 (31 files), R24B 80; R29 stays 39.
+* W4c: `formatMoney` and `sumPostingLines` still add `Double` values (the posting confirmation dialog can show `1234.5600000000001`
+  as its sum); only the balance strip and the balance check count in whole cents. Named, not fixed.
+* W4c: the header row of the posting lines is an `aria-hidden` flex row above the block, not a `<table>` with `headers=`; if it does not
+  sit cleanly over the controls at 375/767/768/1440 px in a manual check the alternative is a real table -- a third grammar addition
+  that needs a decision of its own. (The manual browser check at those widths, light and dark, has NOT been done by the
+  implementation agent.)
 * W4b: **W4c runs on the old grammar** -- the finance forms (ledger, open items, SEPA batches and mandates, donors, cost
   centers, bank accounts and statement import, documents, travel expense and volunteer allowance forms and their approvals,
   payment transactions, price oracle, politician, conference, dunning cases, financial reports, the webhook fields of
@@ -714,8 +1003,8 @@ through `resolvedAttributeText` (marker stripped AND translated).
   five forms with five `PRIMARY` buttons on purpose.
 * W4b: the `aria-*` attributes set imperatively do not follow a running language switch (W4a gap, not widened).
 * 23 of 67 screens are migrated to the table grammar (3 in W1, 11 in W2, 9 in W3); the ledger shows the rest. The FORM
-  grammar reaches 22 screens and dialogs (11 in W4a, 11 in W4b); 228 labelled text fields (R24) and 131 labelled choice
-  fields (R24B) remain in about 45 files: the seven W4b screens named in the W4b section (W4b2) and the finance forms (W4c).
+  grammar reaches 32 screens and dialogs (11 in W4a, 11 in W4b, 10 in W4c; two more W4c screens hold only filters and guarded
+  actions); 166 labelled text fields (R24) and 80 labelled choice fields (R24B) remain in 31 files (W4d and the areas named above).
 * W4a: an error message set from `gettext(...)` follows a language switch only at the next check (it is an imperatively
   set text); labels, legends and hints (`tr(...)`) follow immediately.
 * W4a: `autocomplete="off"` on a password field is browser dependent; the password-manager attributes are a request, not

@@ -1,8 +1,8 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
-import dev.kilua.rpc.types.toDecimal
-import io.kvision.form.select.select
+import io.kvision.core.Widget
+import io.kvision.form.select.Select
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -301,12 +301,12 @@ private fun renderAdminDisclaimerWarningBand(root: SimplePanel) {
 // Neuer Lauf (K7: preview -> create, label always carries the current preview numbers)
 // ================================================================================================
 
-private fun renderNewBatchSection(
+internal fun renderNewBatchSection(
     root: SimplePanel,
     onCreated: () -> Unit,
 ) {
     root.h2(tr("Neuer Lauf")) { addCssClass("h5") }
-    val formPanel = root.vPanel(spacing = 6)
+    val form = root.lapisForm()
     // MAJOR (Review Round 2, 2026-08-20): defaulting this to TODAY made the form's own standard
     // path fail every time -- `createDebitBatch` (SepaService.kt:552) rejects any
     // `requestedCollectionDate <= today` outright, but `previewDebitBatch` does NOT check the date
@@ -314,44 +314,56 @@ private fun renderNewBatchSection(
     // on "Lauf anlegen" that was then guaranteed to fail. Defaulting to tomorrow is still not a
     // guarantee of success (the real floor is the notice period), but it at least clears the
     // unconditional server-side rejection every prior default hit.
-    val collectionDateInput =
-        formPanel.text(value = todayLocalDate().plus(1, DateTimeUnit.DAY).toString(), label = tr("Einzugsdatum (JJJJ-MM-TT)"))
-    val dueOnOrBeforeInput = formPanel.text(value = todayLocalDate().toString(), label = tr("Fällig bis (JJJJ-MM-TT)"))
-    val tierSelect = formPanel.select(options = emptyList(), value = null, label = tr("Beitragssatz (optional, leer = alle)"))
+    // `createDebitBatch` lehnt `requestedCollectionDate <= today` ab, `previewDebitBatch` prüft das Datum gar nicht: die Regel steht
+    // deshalb am Einzugsdatum-Feld, damit schon die Vorschau nicht mit einem Datum gelingt, mit dem "Lauf anlegen" nie gelingen kann.
+    val collectionDateField =
+        form.textField(
+            label = tr("Einzugsdatum"),
+            value = todayLocalDate().plus(1, DateTimeUnit.DAY).toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { value ->
+                val check = FormRules.isoDate(value)
+                when {
+                    check is FieldCheck.Invalid -> check
+                    LocalDate.parse(
+                        value.trim(),
+                    ) <= todayLocalDate() -> FieldCheck.Invalid(gettext("Das Einzugsdatum muss in der Zukunft liegen."))
+                    else -> FieldCheck.Ok
+                }
+            },
+        )
+    val dueOnOrBeforeField =
+        form.textField(
+            label = tr("Fällig bis"),
+            value = todayLocalDate().toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val tierField =
+        form.selectField(
+            label = tr("Beitragssatz"),
+            options = emptyList(),
+            value = null,
+            hint = tr("Leer = alle Beitragssätze."),
+        )
     AppScope.launch {
         val tiers = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: return@launch
-        tierSelect.options = listOf("" to tr("Alle Beitragssätze")) + tiers.map { it.id to it.name }
-        tierSelect.value = ""
+        (tierField.control as Select).options = listOf("" to tr("Alle Beitragssätze")) + tiers.map { it.id to it.name }
+        tierField.setValue("")
     }
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val previewButton = formPanel.button(tr("Vorschau berechnen"), style = ButtonStyle.OUTLINEPRIMARY)
-    val previewPanel = formPanel.vPanel(spacing = 4)
-    val createButtonHost = formPanel.vPanel(spacing = 4)
+    val previewButton = Button(tr("Vorschau berechnen"), style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = previewButton)
+    val previewPanel = form.panel.vPanel(spacing = 4)
+    val createButtonHost = form.panel.vPanel(spacing = 4)
 
     fun buildInput(): SepaDebitBatchInput? {
-        val collectionDate = runCatching { LocalDate.parse(collectionDateInput.value.orEmpty().trim()) }.getOrNull()
-        val dueOnOrBefore = runCatching { LocalDate.parse(dueOnOrBeforeInput.value.orEmpty().trim()) }.getOrNull()
-        if (collectionDate == null || dueOnOrBefore == null) {
-            errorBox.content = tr("Bitte gültige Daten (JJJJ-MM-TT) für Einzugsdatum und Fälligkeit angeben.")
-            errorBox.show()
-            return null
-        }
-        // MAJOR (Review Round 2, 2026-08-20): mirrors `createDebitBatch`'s own
-        // `requestedCollectionDate <= today` rejection (SepaService.kt:552) client-side --
-        // `previewDebitBatch` does not check this at all, so without this check the preview step
-        // would happily succeed for a same-day/past date and only the SUBSEQUENT "Lauf anlegen"
-        // click would fail, with no indication the date field was the problem.
-        if (collectionDate <= todayLocalDate()) {
-            errorBox.content = tr("Das Einzugsdatum muss in der Zukunft liegen.")
-            errorBox.show()
-            return null
-        }
-        errorBox.hide()
-        val tierId = tierSelect.value?.takeIf { it.isNotBlank() }
+        val collectionDate = runCatching { LocalDate.parse(collectionDateField.value.trim()) }.getOrNull() ?: return null
+        val dueOnOrBefore = runCatching { LocalDate.parse(dueOnOrBeforeField.value.trim()) }.getOrNull() ?: return null
+        val tierId = tierField.value.takeIf { it.isNotBlank() }
         return SepaDebitBatchInput(requestedCollectionDate = collectionDate, dueOnOrBefore = dueOnOrBefore, membershipTierId = tierId)
     }
 
@@ -359,16 +371,14 @@ private fun renderNewBatchSection(
         previewPanel.removeAll()
         createButtonHost.removeAll()
     }
-    collectionDateInput.subscribe { resetPreview() }
-    dueOnOrBeforeInput.subscribe { resetPreview() }
-    tierSelect.subscribe { resetPreview() }
+    collectionDateField.subscribe { resetPreview() }
+    dueOnOrBeforeField.subscribe { resetPreview() }
+    tierField.subscribe { resetPreview() }
 
     previewButton.onClick {
-        val input = buildInput() ?: return@onClick
-        previewButton.disabled = true
-        AppScope.launch {
+        form.submit(previewButton) {
+            val input = buildInput() ?: return@submit
             val preview = sepaGuarded(tr(SEPA_WRITE_CONFLICT_MESSAGE)) { rpcService<ISepaService>().previewDebitBatch(input) }
-            previewButton.disabled = false
             if (preview != null) {
                 renderBatchPreview(previewPanel, preview)
                 createButtonHost.removeAll()
@@ -377,21 +387,22 @@ private fun renderNewBatchSection(
                         gettext("Lauf anlegen (%1 Positionen, %2)", preview.itemCount, formatMoney(preview.totalAmount)),
                         style = ButtonStyle.PRIMARY,
                     )
+                // Fachlicher Zustand, NICHT der Doppelklickschutz: ein Lauf ohne Positionen wird nicht angelegt. Ein gesperrter Knopf
+                // erreicht `runBusy` nie, dessen `finally` ihn also auch nie versehentlich entsperrt.
                 createButton.disabled = preview.itemCount == 0
                 createButton.onClick {
+                    if (!form.validateAndReport()) return@onClick
                     val currentInput = buildInput() ?: return@onClick
-                    createButton.disabled = true
-                    AppScope.launch {
+                    form.runBusy(createButton) {
                         val created =
                             sepaGuarded(
                                 tr(SEPA_BATCH_CREATE_CONFLICT_MESSAGE),
                             ) { rpcService<ISepaService>().createDebitBatch(currentInput) }
-                        createButton.disabled = false
-                        if (created != null) {
-                            notifySuccess(tr("Lauf angelegt."))
-                            resetPreview()
-                            onCreated()
-                        }
+                        if (created != null) notifySuccess(tr("Lauf angelegt."))
+                        // Erfolg wie Fehlschlag: die Vorschau (und mit ihr die Anzahl/Summe im Knopftext) gilt nicht mehr. Nach einem
+                        // Fehlschlag (Konflikt, geänderte Bestandslage) stand sonst der alte Knopf mit den alten Zahlen bereit.
+                        resetPreview()
+                        if (created != null) onCreated()
                     }
                 }
             }
@@ -547,13 +558,11 @@ internal fun renderSepaBatchDetail(
                 reasonRequired = true,
                 confirmLabel = tr("Stornieren"),
             ) { reason ->
-                cancelButton.disabled = true
-                AppScope.launch {
+                runGuardedAction(cancelButton) {
                     val result =
                         sepaGuarded(tr(SEPA_WRITE_CONFLICT_MESSAGE)) {
                             rpcService<ISepaService>().cancelBatch(batch.id, reason.orEmpty())
                         }
-                    cancelButton.disabled = false
                     if (result != null) {
                         notifySuccess(tr("Lauf storniert."))
                         onChanged()
@@ -631,7 +640,7 @@ private fun renderBatchActionButton(
                 confirmWithReasonDialog(
                     title = tr("Als eingereicht markieren"),
                     message = tr("Bestätigen Sie, dass diese Datei bei der Bank eingereicht wurde."),
-                    reasonLabel = tr("Notiz (optional)"),
+                    reasonLabel = tr("Notiz"),
                     reasonRequired = false,
                     confirmLabel = tr("Als eingereicht markieren"),
                 ) { note ->
@@ -642,23 +651,18 @@ private fun renderBatchActionButton(
         SepaBatchAction.SETTLE -> {
             val button = row.button(tr("Abrechnen"), style = ButtonStyle.SUCCESS)
             button.onClick {
-                button.disabled = true
-                AppScope.launch {
-                    try {
-                        val result = sepaGuarded(tr(SEPA_WRITE_CONFLICT_MESSAGE)) { rpcService<ISepaService>().settleBatch(batch.id) }
-                        if (result != null) {
-                            if (result.failedItemIds.isEmpty()) {
-                                notifySuccess(tr("Lauf abgerechnet."))
-                            } else {
-                                notifyError(gettext("%1 Positionen konnten nicht gebucht werden.", result.failedItemIds.size))
-                            }
-                            // MAJOR fix (see [showDetail] KDoc): pass the RESULT itself, never just
-                            // `onChanged()` -- `onChanged()` alone would re-fetch via `getBatch()`,
-                            // which always reports an empty `failedItemIds`.
-                            onSettled(result)
+                runGuardedAction(button) {
+                    val result = sepaGuarded(tr(SEPA_WRITE_CONFLICT_MESSAGE)) { rpcService<ISepaService>().settleBatch(batch.id) }
+                    if (result != null) {
+                        if (result.failedItemIds.isEmpty()) {
+                            notifySuccess(tr("Lauf abgerechnet."))
+                        } else {
+                            notifyError(gettext("%1 Positionen konnten nicht gebucht werden.", result.failedItemIds.size))
                         }
-                    } finally {
-                        button.disabled = false
+                        // MAJOR fix (see [showDetail] KDoc): pass the RESULT itself, never just
+                        // `onChanged()` -- `onChanged()` alone would re-fetch via `getBatch()`,
+                        // which always reports an empty `failedItemIds`.
+                        onSettled(result)
                     }
                 }
             }
@@ -672,16 +676,11 @@ private fun runBatchAction(
     conflictMessage: String = tr(SEPA_WRITE_CONFLICT_MESSAGE),
     call: suspend () -> SepaDebitBatchDto,
 ) {
-    button.disabled = true
-    AppScope.launch {
-        try {
-            val result = sepaGuarded(conflictMessage) { call() }
-            if (result != null) {
-                notifySuccess(tr("Gespeichert."))
-                onChanged()
-            }
-        } finally {
-            button.disabled = false
+    runGuardedAction(button) {
+        val result = sepaGuarded(conflictMessage) { call() }
+        if (result != null) {
+            notifySuccess(tr("Gespeichert."))
+            onChanged()
         }
     }
 }
@@ -712,15 +711,35 @@ private fun sepaItemColumns(failedItemIds: List<String>): List<DataColumn<SepaDe
 // Rücklastschriften (Plan §4.3)
 // ================================================================================================
 
-private fun renderSepaReturnsSection(
+internal fun renderSepaReturnsSection(
     root: SimplePanel,
     canRecordReturn: Boolean,
 ) {
     root.h2(tr("Rücklastschriften")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
-    val fromInput = filterRow.text(label = tr("Von (JJJJ-MM-TT, optional)"))
-    val toInput = filterRow.text(label = tr("Bis (JJJJ-MM-TT, optional)"))
+    val fromInput = filterRow.text(label = tr("Von"))
+    val toInput = filterRow.text(label = tr("Bis"))
     val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    // Das Datumsformat steht im Hinweis, nie im Label (W4c). Hinweis und Fehler hängen per `aria-describedby` an beiden Feldern; ein
+    // nicht lesbares Datum ("13.03.2026") ist ein Feldfehler -- vorher lief der Abruf still OHNE Filter, die volle Liste stand da und
+    // bei einer leeren Antwort behauptete die Leermeldung "Keine Rücklastschrift im gewählten Zeitraum".
+    val filterHintId = "sepa-returns-filter-hint"
+    val filterErrorId = "sepa-returns-filter-error"
+    root.div(tr("Beispiel: 2026-03-14.")) {
+        addCssClasses("text-muted small")
+        id = filterHintId
+    }
+    val filterError =
+        root.div {
+            addCssClasses("invalid-feedback lapis-field-error")
+            id = filterErrorId
+        }
+    listOf(fromInput, toInput).forEach { input ->
+        (input.input as? Widget)?.let {
+            it.setAttribute("aria-describedby", "$filterHintId $filterErrorId")
+            it.setAttribute("aria-invalid", "false")
+        }
+    }
     val returnsStatus = root.dataStatusRegion()
     val returnsPanel = root.vPanel(spacing = 6)
 
@@ -732,14 +751,34 @@ private fun renderSepaReturnsSection(
     var returnsGeneration = 0
 
     fun loadReturns() {
-        returnsGeneration++
-        val mine = returnsGeneration
-        returnsPanel.removeAll()
-        returnsStatus.showLoading()
         val fromRaw = fromInput.value.orEmpty().trim()
         val toRaw = toInput.value.orEmpty().trim()
         val from = runCatching { LocalDate.parse(fromRaw) }.getOrNull()
         val to = runCatching { LocalDate.parse(toRaw) }.getOrNull()
+        val badInputs =
+            listOfNotNull(
+                fromInput.takeIf { fromRaw.isNotEmpty() && from == null },
+                toInput.takeIf {
+                    toRaw.isNotEmpty() &&
+                        to == null
+                },
+            )
+        listOf(fromInput, toInput).forEach { input ->
+            val invalid = input in badInputs
+            if (invalid) input.addCssClass("is-invalid") else input.removeCssClass("is-invalid")
+            (input.input as? Widget)?.setAttribute("aria-invalid", invalid.toString())
+        }
+        if (badInputs.isNotEmpty()) {
+            filterError.content = gettext("Bitte ein gültiges Datum angeben.")
+            filterError.addCssClass("lapis-field-error--shown")
+            return // KEIN Abruf: eine unlesbare Eingabe ist kein Filter
+        }
+        filterError.content = null
+        filterError.removeCssClass("lapis-field-error--shown")
+        returnsGeneration++
+        val mine = returnsGeneration
+        returnsPanel.removeAll()
+        returnsStatus.showLoading()
         AppScope.launch {
             val returns = sepaGuarded(tr(SEPA_READ_CONFLICT_MESSAGE)) { rpcService<ISepaService>().listReturns(from, to) }
             if (mine != returnsGeneration) return@launch // ein neuerer Abruf hat übernommen
@@ -793,36 +832,79 @@ private fun sepaReturnColumns(): List<DataColumn<SepaReturnDto>> =
         },
     )
 
-private fun renderRecordReturnForm(
+internal fun renderRecordReturnForm(
     root: SimplePanel,
     onRecorded: () -> Unit,
 ) {
-    val formPanel = root.vPanel(spacing = 6)
-    val batchSelect = formPanel.select(options = emptyList(), value = null, label = tr("Lauf"))
-    val itemSelect = formPanel.select(options = emptyList(), value = null, label = tr("Position"))
-    val returnedAtInput = formPanel.text(value = todayLocalDate().toString(), label = tr("Rücklastschrift-Datum (JJJJ-MM-TT)"))
+    val form = root.lapisForm()
+    val batchField = form.selectField(label = tr("Lauf"), options = emptyList(), value = null, required = true)
+    val itemPlaceholder = listOf("" to tr("-- Position wählen --"))
+    val itemField =
+        form.selectField(
+            label = tr("Position"),
+            options = itemPlaceholder,
+            value = "",
+            required = true,
+            requiredMessage = tr("Bitte eine Position auswählen."),
+        )
+    val returnedAtField =
+        form.textField(
+            label = tr("Rücklastschrift-Datum"),
+            value = todayLocalDate().toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
     val reasonOptions = SepaReturnReason.entries.map { it.name to sepaReturnReasonLabel(it) }
-    val reasonSelect = formPanel.select(options = reasonOptions, value = reasonOptions.first().first, label = tr("Grund"))
+    val reasonField =
+        form.selectField(
+            label = tr("Grund"),
+            options = reasonOptions,
+            value = reasonOptions.first().first,
+            required = true,
+            requiredMessage = tr("Bitte einen Grund auswählen."),
+        )
     val revocationNote =
-        formPanel.div().apply {
+        form.panel.div().apply {
             addCssClasses("text-danger small")
             content = tr("Dieser Grund führt automatisch zum Widerruf des Mandats.")
             hide()
         }
-    val reasonTextInput = formPanel.text(label = tr("Freitext (Pflicht bei \"Sonstiger Grund\")"))
-    val feeInput = formPanel.text(label = tr("Rücklastschriftgebühr in EUR (optional)"))
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
+    // Der Freitext ist Pflicht NUR bei "Sonstiger Grund" -- eine Regel, die Pflicht wird nicht gelockert. Ein blanker Wert erreicht
+    // eine Feldregel nie (die Grammatik behandelt Leere selbst), deshalb steht die Bedingung als Querregel in der Sammelfläche und
+    // der Hinweis am Feld nennt sie.
+    val reasonTextField =
+        form.textField(label = tr("Freitext"), hint = tr("Pflicht bei \"Sonstiger Grund\"."))
+    // `focusOn` ist das <input> selbst (`control.input`), nicht der Wrapper-<div> des Textfeldes -- ein `focus()` auf den Wrapper
+    // fokussiert nichts. `watch` nennt den Auslöser (den Grund) UND das Freitext-Input: dessen `change` räumt die Sammelmeldung.
+    form.crossFieldRule(
+        focusOn = reasonTextField.control.input as? Widget,
+        watch = listOfNotNull(reasonField.control.input as? Widget, reasonTextField.control.input as? Widget),
+    ) {
+        if (reasonField.value == SepaReturnReason.OTHER.name && reasonTextField.value.isBlank()) {
+            FieldCheck.Invalid(gettext("Bei \"Sonstiger Grund\" ist ein Freitext erforderlich."))
+        } else {
+            FieldCheck.Ok
         }
-    val submitButton = formPanel.button(tr("Rücklastschrift erfassen"), style = ButtonStyle.PRIMARY)
+    }
+    // Die Rücklastschriftgebühr: der Server lehnt `<= 0` und mehr als zwei Nachkommastellen ab (`recordReturn`). Optional.
+    // Leere Werte erreichen die Regel nie (die Grammatik behandelt sie selbst); `FormRules.returnFee` liefert die echte Begründung
+    // (positiv, höchstens zwei Nachkommastellen, Obergrenze der Spalte `DECIMAL(12,2)`) -- ein eigener Umweg über
+    // `parseAmountInput` verschluckte sie und meldete für "3,005" oder "0" fälschlich "muss ein positiver Betrag sein".
+    val feeField =
+        form.textField(
+            label = tr("Rücklastschriftgebühr in EUR"),
+            rule = { FormRules.returnFee(it) },
+        )
+    val submitButton = Button(tr("Rücklastschrift erfassen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = submitButton)
 
     fun updateRevocationNote() {
-        val reason = runCatching { SepaReturnReason.valueOf(reasonSelect.value.orEmpty()) }.getOrNull()
+        val reason = runCatching { SepaReturnReason.valueOf(reasonField.value) }.getOrNull()
         if (reason != null && reason in SepaReturnReasonSets.FORCES_MANDATE_REVOCATION) revocationNote.show() else revocationNote.hide()
     }
-    reasonSelect.subscribe { updateRevocationNote() }
+    reasonField.subscribe { updateRevocationNote() }
     updateRevocationNote()
 
     // MINOR (Review Round 2, 2026-08-20): TWO calls, one per eligible status, instead of
@@ -836,11 +918,14 @@ private fun renderRecordReturnForm(
             guarded { rpcService<ISepaService>().listBatches(status = SepaDebitBatchStatus.SUBMITTED, limit = 100) }.orEmpty()
         val settled = guarded { rpcService<ISepaService>().listBatches(status = SepaDebitBatchStatus.SETTLED, limit = 100) }.orEmpty()
         val eligible = (submitted + settled).sortedByDescending { it.createdAt }
-        batchSelect.options = eligible.map { it.id to gettext("%1 (%2)", it.requestedCollectionDate, sepaBatchStatusLabel(it.status)) }
-        batchSelect.value = eligible.firstOrNull()?.id
+        (batchField.control as Select).options =
+            eligible.map { it.id to gettext("%1 (%2)", it.requestedCollectionDate, sepaBatchStatusLabel(it.status)) }
+        batchField.setValue(eligible.firstOrNull()?.id)
+        // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
+        batchField.validate(force = false)
     }
 
-    // MINOR (Review Round 2, 2026-08-20): factored out of `batchSelect.subscribe` so the post-submit
+    // MINOR (Review Round 2, 2026-08-20): factored out of `batchField.subscribe` so the post-submit
     // success handler below can call it too -- without this, a just-recorded return's item stayed
     // selectable in the dropdown (its status only changes server-side), and a second submission for
     // the SAME item hit `ConflictException("Fuer diese Position ist bereits ein Rueckläufer
@@ -848,78 +933,69 @@ private fun renderRecordReturnForm(
     // Also filters to `PENDING`/`SETTLEABLE` -- the only statuses `recordReturn` actually accepts
     // (SepaService.kt:1515) -- instead of offering every item and letting the same conflict surface
     // for one that was, say, already RETURNED or never debited at all.
-    fun refreshItemOptions(batchId: String?) {
-        itemSelect.options = emptyList()
-        itemSelect.value = null
+    //
+    // [preselectFirst] ist beim Wechsel des Laufs `true` (wie bisher: die erste Position steht bereit), nach einer ERFASSTEN
+    // Rücklastschrift aber `false` -- sonst wählte der Nachlauf automatisch die Position des NÄCHSTEN Mitglieds vor, und ein zweiter
+    // Klick erfasste ohne Bestätigung eine Rücklastschrift für eine andere Person.
+    fun refreshItemOptions(
+        batchId: String?,
+        preselectFirst: Boolean = true,
+    ) {
+        (itemField.control as Select).options = itemPlaceholder
+        itemField.setValue("")
+        itemField.validate(force = false)
         if (batchId.isNullOrBlank()) return
         AppScope.launch {
             val detail = guarded { rpcService<ISepaService>().getBatch(batchId) } ?: return@launch
+            // Eine späte Antwort für einen inzwischen abgewählten Lauf darf Optionen und Wert des Positionsfeldes nicht überschreiben.
+            if (batchId != batchField.value) return@launch
             val returnable = detail.items.filter { it.status in setOf(SepaDebitItemStatus.PENDING, SepaDebitItemStatus.SETTLEABLE) }
-            itemSelect.options = returnable.map { item -> item.id to gettext("%1 -- %2", item.memberDisplayName, formatMoney(item.amount)) }
-            itemSelect.value = returnable.firstOrNull()?.id
+            // Mit Platzhalter (`""`): ohne ihn zeigte ein leerer Wert (nach einer erfassten Rücklastschrift) im <select> trotzdem die
+            // erste Position, obwohl das Feld leer ist.
+            (itemField.control as Select).options =
+                itemPlaceholder +
+                returnable.map { item -> item.id to gettext("%1 -- %2", item.memberDisplayName, formatMoney(item.amount)) }
+            itemField.setValue(if (preselectFirst) returnable.firstOrNull()?.id ?: "" else "")
+            // Ein Lauf ohne rücklastschriftfähige Position ließ hier den Fehler "Bitte eine Position auswählen." stehen, obwohl der
+            // Nutzer gerade einen Lauf MIT Positionen gewählt hat (siehe `LapisField.setValue`).
+            itemField.validate(force = false)
         }
     }
-    batchSelect.subscribe { refreshItemOptions(it) }
+    batchField.subscribe { refreshItemOptions(it) }
 
     submitButton.onClick {
-        errorBox.hide()
-        val itemId = itemSelect.value
-        val returnedAt = runCatching { LocalDate.parse(returnedAtInput.value.orEmpty().trim()) }.getOrNull()
-        val reason = runCatching { SepaReturnReason.valueOf(reasonSelect.value.orEmpty()) }.getOrNull()
-        val reasonText = reasonTextInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val feeText = feeInput.value.orEmpty().trim()
-        // MINOR (Review Round 2, 2026-08-20): rounds to 2 decimal places BEFORE sending, same as
-        // every other Decimal-producing input in this client (`Validation.roundToTwoDecimalPlaces`,
-        // see e.g. `SocialNetworkScreen.kt`) -- `recordReturn` (SepaService.kt:1502) rejects a value
-        // with `returnFee.scale() > 2` outright, and without this a plausible-looking input like
-        // "3,005" passed `Validation.isPositiveDecimal` here only to be rejected server-side with the
-        // same generic conflict.
-        val fee: Decimal? =
-            when {
-                feeText.isBlank() -> null
-                !Validation.isPositiveDecimal(feeText) -> null
-                else -> Validation.roundToTwoDecimalPlaces(feeText.toDouble()).toDecimal()
-            }
-
-        val validationError =
-            when {
-                itemId == null -> tr("Bitte eine Position auswählen.")
-                returnedAt == null -> tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben.")
-                reason == null -> tr("Bitte einen Grund auswählen.")
-                reason == SepaReturnReason.OTHER && reasonText == null -> tr("Bei \"Sonstiger Grund\" ist ein Freitext erforderlich.")
-                feeText.isNotBlank() && fee == null -> tr("Die Rücklastschriftgebühr muss, falls angegeben, ein positiver Betrag sein.")
-                else -> null
-            }
-        if (validationError != null) {
-            errorBox.content = validationError
-            errorBox.show()
-            return@onClick
-        }
-
-        submitButton.disabled = true
-        AppScope.launch {
-            try {
-                val result =
-                    sepaGuarded(tr(SEPA_RECORD_RETURN_CONFLICT_MESSAGE)) {
-                        rpcService<ISepaService>().recordReturn(
-                            SepaReturnInput(
-                                debitItemId = itemId!!,
-                                returnedAt = returnedAt!!,
-                                reasonCode = reason!!,
-                                reasonText = reasonText,
-                                returnFee = fee,
-                            ),
-                        )
-                    }
-                if (result != null) {
-                    notifySuccess(tr("Rücklastschrift erfasst."))
-                    reasonTextInput.value = null
-                    feeInput.value = null
-                    refreshItemOptions(batchSelect.value)
-                    onRecorded()
+        form.submit(submitButton) {
+            val itemId = itemField.value
+            val returnedAt = runCatching { LocalDate.parse(returnedAtField.value.trim()) }.getOrNull() ?: return@submit
+            val reason = runCatching { SepaReturnReason.valueOf(reasonField.value) }.getOrNull() ?: return@submit
+            val reasonText = reasonTextField.value.trim().takeIf { it.isNotBlank() }
+            // Die Feldregel lässt nur einen Betrag mit höchstens zwei Nachkommastellen durch (`recordReturn` lehnt `scale > 2` ab).
+            val fee: Decimal? = (parseAmountInput(feeField.value, allowZero = false, enforceMaxAmount = false) as? AmountInput.Valid)?.value
+            val result =
+                sepaGuarded(gettext(SEPA_RECORD_RETURN_CONFLICT_MESSAGE, MAX_OPEN_ITEM_AMOUNT_SCALE)) {
+                    rpcService<ISepaService>().recordReturn(
+                        SepaReturnInput(
+                            debitItemId = itemId,
+                            returnedAt = returnedAt,
+                            reasonCode = reason,
+                            reasonText = reasonText,
+                            returnFee = fee,
+                        ),
+                    )
                 }
-            } finally {
-                submitButton.disabled = false
+            if (result != null) {
+                notifySuccess(tr("Rücklastschrift erfasst."))
+                // Zurück in den Ausgangszustand des ersten Öffnens: Position leer (Platzhalter), Datum heute, Grund der Standardgrund,
+                // Freitext und Gebühr leer. Nichts davon darf für die NÄCHSTE Rücklastschrift stehen bleiben.
+                itemField.reset()
+                returnedAtField.reset()
+                returnedAtField.setValue(todayLocalDate().toString())
+                reasonField.reset()
+                reasonField.setValue(reasonOptions.first().first)
+                reasonTextField.reset()
+                feeField.reset()
+                refreshItemOptions(batchField.value, preselectFirst = false)
+                onRecorded()
             }
         }
     }

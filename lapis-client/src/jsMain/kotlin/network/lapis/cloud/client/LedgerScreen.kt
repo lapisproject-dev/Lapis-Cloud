@@ -4,9 +4,10 @@ import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Container
+import io.kvision.core.Widget
+import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
-import io.kvision.form.select.select
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -299,8 +300,10 @@ fun renderLedgerScreen(container: SimplePanel) {
     val journalFilterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val journalSearchInput = journalFilterRow.text(label = tr("Buchung suchen (Beschreibung)"))
     val journalStatusSegmentHost = journalFilterRow.simplePanel()
-    val journalDateFilter = journalFilterRow.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
+    val journalDateFilter = journalFilterRow.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
     val journalRefreshButton = journalFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    // Das Datumsformat steht im Hinweis, nie im Label (W4c): ein Beispielsatz stimmt in jeder Sprache.
+    root.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
     val journalCountsLabel = root.div().apply { addCssClasses("text-muted small") }
     val journalStatusRegion = root.dataStatusRegion()
     val journalListPanel = root.vPanel(spacing = 6)
@@ -578,64 +581,63 @@ internal fun renderPaymentAccountMappingSection(
 
             val accountOptions = listOf("" to tr("(nicht konfiguriert)")) + accounts.map { it.id to "${it.accountNumber} · ${it.name}" }
 
-            val bankSelect =
-                panel.select(
-                    options = accountOptions,
-                    value = settings.paymentBankAccountId.orEmpty(),
-                    label = tr("Bankkonto"),
-                )
-            val feeSelect =
-                panel.select(options = accountOptions, value = settings.paymentFeeAccountId.orEmpty(), label = tr("Gebührenkonto"))
-            val incomeSelect =
-                panel.select(
+            // W4c: alle Zuordnungen sind ein Formular. Jedes Feld ist freiwillig -- die leere Auswahl IST eine gültige Antwort
+            // (sie setzt die Zuordnung zurück auf `null`), deshalb kein Stern und keine Legende.
+            val form = panel.lapisForm()
+            val bankField =
+                form.selectField(label = tr("Bankkonto"), options = accountOptions, value = settings.paymentBankAccountId.orEmpty())
+            val feeField =
+                form.selectField(label = tr("Gebührenkonto"), options = accountOptions, value = settings.paymentFeeAccountId.orEmpty())
+            val incomeField =
+                form.selectField(
+                    label = tr("Beitragserlöskonto"),
                     options = accountOptions,
                     value = settings.contributionIncomeAccountId.orEmpty(),
-                    label = tr("Beitragserlöskonto"),
                 )
-            val donationIncomeSelect =
-                panel.select(
+            val donationIncomeField =
+                form.selectField(
+                    label = tr("Spendenerlöskonto"),
                     options = accountOptions,
                     value = settings.donationIncomeAccountId.orEmpty(),
-                    label = tr("Spendenerlöskonto"),
                 )
             // Review MAJOR fix -- previously reachable only via a direct RPC call, no UI field at
             // all (see EventFeePostingBridge KDoc); this panel already establishes the pattern every
             // OTHER account-mapping field uses.
-            val eventIncomeSelect =
-                panel.select(
+            val eventIncomeField =
+                form.selectField(
+                    label = tr("Veranstaltungserlöskonto"),
                     options = accountOptions,
                     value = settings.eventIncomeAccountId.orEmpty(),
-                    label = tr("Veranstaltungserlöskonto"),
                 )
             val eventIncomeSphereOptions = GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) }
-            val eventIncomeSphereSelect =
-                panel.select(
+            val eventIncomeSphereField =
+                form.selectField(
+                    label = tr("Sphäre der Veranstaltungserlöse"),
                     options = eventIncomeSphereOptions,
                     value = settings.eventIncomeSphere.name,
-                    label = tr("Sphäre der Veranstaltungserlöse"),
                 )
             // Welle V1.4.11 "Reisekostenabrechnung" -- erste EXPENSE-Kontenzuordnung dieses
             // Panels (jede andere ist INCOME/ASSET), siehe TravelExpensePostingBridge KDoc.
-            val travelExpenseSelect =
-                panel.select(
+            val travelExpenseField =
+                form.selectField(
+                    label = tr("Reisekosten-Aufwandskonto"),
                     options = accountOptions,
                     value = settings.travelExpenseAccountId.orEmpty(),
-                    label = tr("Reisekosten-Aufwandskonto"),
                 )
             // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- zweite EXPENSE-Kontenzuordnung
             // dieses Panels, siehe VolunteerAllowancePostingBridge KDoc.
-            val volunteerAllowanceSelect =
-                panel.select(
+            val volunteerAllowanceField =
+                form.selectField(
+                    label = tr("Ehrenamtspauschalen-Aufwandskonto"),
                     options = accountOptions,
                     value = settings.volunteerAllowanceAccountId.orEmpty(),
-                    label = tr("Ehrenamtspauschalen-Aufwandskonto"),
                 )
 
             // Welle V1.4.21 "Offene Posten" -- Forderungs-/Verbindlichkeitenkonto (Sammelkonten der
             // Debitoren-/Kreditorenbuchhaltung). NUR Typfilter (ASSET bzw. LIABILITY), keine
             // SKR42-Nummernlogik im Client -- der Server validiert (`receivables_account_not_asset_type`/
             // `payables_account_not_liability_type`). Ohne beide Zuordnungen bucht kein offener Posten.
-            panel.p(
+            form.panel.p(
                 tr(
                     "Ohne Forderungs- und Verbindlichkeitenkonto werden offene Posten angelegt, aber nicht gebucht.",
                 ),
@@ -646,112 +648,107 @@ internal fun renderPaymentAccountMappingSection(
             val payablesOptions =
                 listOf("" to tr("(nicht konfiguriert)")) +
                     accounts.filter { it.type == LedgerAccountType.LIABILITY }.map { it.id to "${it.accountNumber} · ${it.name}" }
-            val receivablesSelect =
-                panel.select(
+            val receivablesField =
+                form.selectField(
+                    label = tr("Forderungskonto (Debitoren)"),
                     options = receivablesOptions,
                     value = settings.receivablesAccountId.orEmpty(),
-                    label = tr("Forderungskonto (Debitoren)"),
                 )
-            val payablesSelect =
-                panel.select(
+            val payablesField =
+                form.selectField(
+                    label = tr("Verbindlichkeitenkonto (Kreditoren)"),
                     options = payablesOptions,
                     value = settings.payablesAccountId.orEmpty(),
-                    label = tr("Verbindlichkeitenkonto (Kreditoren)"),
                 )
+            // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): `updateOrganizationSettings` lehnt eine widersprüchliche Zuordnung mit
+            // `ConflictException` ab -- deren Meldung erreicht den Browser nie (Kilua RPC überträgt nur den Typ). Dieselbe Regel,
+            // hier vor dem Round-Trip: `paymentAccountMappingProblem`. Eine Querregel (sie betrifft DREI Felder), die Meldung
+            // steht in der Sammelfläche.
+            form.crossFieldRule(
+                focusOn = bankField.control.input as? Widget,
+                watch = listOf(bankField, receivablesField, payablesField).mapNotNull { it.control.input as? Widget },
+            ) {
+                val problem =
+                    paymentAccountMappingProblem(
+                        PaymentAccountMapping(
+                            defaultBankAccountId = bankField.value.takeIf { it.isNotBlank() },
+                            receivablesAccountId = receivablesField.value.takeIf { it.isNotBlank() },
+                            payablesAccountId = payablesField.value.takeIf { it.isNotBlank() },
+                        ),
+                    )
+                if (problem == null) FieldCheck.Ok else FieldCheck.Invalid(resolvedAttributeText(problem))
+            }
 
             // Welle V1.4.5.2 "DATEV-Format-Export". Kein Fehlertext bei leerem Zustand -- eine
             // Anweisung (Zhuo/Jobs): der Steuerberater vergibt beide Nummern, nicht der Verein
             // selbst. Diese zwei Felder gehören hierher, weil dies bereits die einzige
             // ADMIN-Schreiboberfläche für `organization_settings` ist.
-            panel.p(
+            form.panel.p(
                 tr("Berater- und Mandantennummer erhalten Sie von Ihrem Steuerberater."),
             ) { addCssClasses("text-muted small") }
-            val datevBeraterInput =
-                panel.text(
-                    value = settings.datevBeraterNummer?.toString().orEmpty(),
+            // Review-Fund (2026-09): "Feld leer" und "Feld enthält keine ganze Zahl" sind zwei Zustände -- `.toIntOrNull()` allein
+            // machte beide zu `null`, und updateOrganizationSettings ersetzt den ganzen Feldsatz, ein Tippfehler (`1OO1`) setzte also
+            // eine gesetzte Beraternummer still zurück. Siehe [parseDatevNumberInput]. Die Regel sieht nur nicht-leere Werte;
+            // ein leeres Feld ist [DatevNumberInput.Empty] und gültig.
+            val datevBeraterField =
+                form.textField(
                     label = tr("DATEV-Beraternummer"),
+                    value = settings.datevBeraterNummer?.toString().orEmpty(),
+                    rule = {
+                        if (parseDatevNumberInput(it) is DatevNumberInput.Invalid) {
+                            FieldCheck.Invalid(gettext("DATEV-Beraternummer ist keine gültige Zahl."))
+                        } else {
+                            FieldCheck.Ok
+                        }
+                    },
                 )
-            val datevMandantInput =
-                panel.text(
-                    value = settings.datevMandantNummer?.toString().orEmpty(),
+            val datevMandantField =
+                form.textField(
                     label = tr("DATEV-Mandantennummer"),
+                    value = settings.datevMandantNummer?.toString().orEmpty(),
+                    rule = {
+                        if (parseDatevNumberInput(it) is DatevNumberInput.Invalid) {
+                            FieldCheck.Invalid(gettext("DATEV-Mandantennummer ist keine gültige Zahl."))
+                        } else {
+                            FieldCheck.Ok
+                        }
+                    },
                 )
 
-            val saveButton = panel.button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
+            val saveButton = Button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
+            form.buttons(primary = saveButton)
             saveButton.onClick {
-                saveButton.disabled = true
-                AppScope.launch {
-                    try {
-                        // Review-Fund (2026-09): distinguish "field left empty" from "field
-                        // contains something that isn't a whole number" -- `.toIntOrNull()` alone
-                        // collapsed both into the same `null`, and updateOrganizationSettings
-                        // replaces the whole field set wholesale, so a typo (`1OO1`) silently reset
-                        // an already-configured Beraternummer to unconfigured with no error shown
-                        // and no visible symptom until the next DATEV export failed cold. See
-                        // [parseDatevNumberInput] KDoc.
-                        val beraterInput = parseDatevNumberInput(datevBeraterInput.value)
-                        val mandantInput = parseDatevNumberInput(datevMandantInput.value)
-                        if (beraterInput is DatevNumberInput.Invalid) {
-                            notifyError(tr("DATEV-Beraternummer ist keine gültige Zahl."))
-                            return@launch
-                        }
-                        if (mandantInput is DatevNumberInput.Invalid) {
-                            notifyError(tr("DATEV-Mandantennummer ist keine gültige Zahl."))
-                            return@launch
-                        }
-                        val selectedEventIncomeSphere =
-                            eventIncomeSphereSelect.value
-                                ?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
-                                ?: GemeinnuetzigkeitSphere.ZWECKBETRIEB
-                        // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): `updateOrganizationSettings` lehnt
-                        // eine widersprüchliche Zuordnung jetzt mit `ConflictException` ab -- deren
-                        // Meldung erreicht den Browser nie (Kilua RPC überträgt nur den Typ), der
-                        // Nutzer hätte also für einen reinen Eingabefehler den generischen "steht im
-                        // Konflikt"-Toast gesehen. Dieselbe Regel, hier vor dem Round-Trip:
-                        // `paymentAccountMappingProblem`.
-                        val mappingProblem =
-                            paymentAccountMappingProblem(
-                                PaymentAccountMapping(
-                                    defaultBankAccountId = bankSelect.value?.takeIf { it.isNotBlank() },
-                                    receivablesAccountId = receivablesSelect.value?.takeIf { it.isNotBlank() },
-                                    payablesAccountId = payablesSelect.value?.takeIf { it.isNotBlank() },
+                // `form.submit` = Prüfung + Doppelklick-Schutz (`runGuardedAction`, `disabled` im `finally` zurückgesetzt -- auch bei
+                // einem Abbruch der Coroutine, Review Round 4, 2026-08-19).
+                form.submit(saveButton) {
+                    val beraterInput = parseDatevNumberInput(datevBeraterField.value)
+                    val mandantInput = parseDatevNumberInput(datevMandantField.value)
+                    val selectedEventIncomeSphere =
+                        eventIncomeSphereField.value
+                            .let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
+                            ?: GemeinnuetzigkeitSphere.ZWECKBETRIEB
+                    val result =
+                        guarded {
+                            rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
+                                settings.toInputWithPaymentAccountMapping(
+                                    paymentBankAccountId = bankField.value.takeIf { it.isNotBlank() },
+                                    paymentFeeAccountId = feeField.value.takeIf { it.isNotBlank() },
+                                    contributionIncomeAccountId = incomeField.value.takeIf { it.isNotBlank() },
+                                    donationIncomeAccountId = donationIncomeField.value.takeIf { it.isNotBlank() },
+                                    eventIncomeAccountId = eventIncomeField.value.takeIf { it.isNotBlank() },
+                                    eventIncomeSphere = selectedEventIncomeSphere,
+                                    datevBeraterNummer = (beraterInput as? DatevNumberInput.Valid)?.value,
+                                    datevMandantNummer = (mandantInput as? DatevNumberInput.Valid)?.value,
+                                    travelExpenseAccountId = travelExpenseField.value.takeIf { it.isNotBlank() },
+                                    volunteerAllowanceAccountId = volunteerAllowanceField.value.takeIf { it.isNotBlank() },
+                                    receivablesAccountId = receivablesField.value.takeIf { it.isNotBlank() },
+                                    payablesAccountId = payablesField.value.takeIf { it.isNotBlank() },
                                 ),
                             )
-                        if (mappingProblem != null) {
-                            notifyError(mappingProblem)
-                            return@launch
                         }
-                        val result =
-                            guarded {
-                                rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
-                                    settings.toInputWithPaymentAccountMapping(
-                                        paymentBankAccountId = bankSelect.value?.takeIf { it.isNotBlank() },
-                                        paymentFeeAccountId = feeSelect.value?.takeIf { it.isNotBlank() },
-                                        contributionIncomeAccountId = incomeSelect.value?.takeIf { it.isNotBlank() },
-                                        donationIncomeAccountId = donationIncomeSelect.value?.takeIf { it.isNotBlank() },
-                                        eventIncomeAccountId = eventIncomeSelect.value?.takeIf { it.isNotBlank() },
-                                        eventIncomeSphere = selectedEventIncomeSphere,
-                                        datevBeraterNummer = (beraterInput as? DatevNumberInput.Valid)?.value,
-                                        datevMandantNummer = (mandantInput as? DatevNumberInput.Valid)?.value,
-                                        travelExpenseAccountId = travelExpenseSelect.value?.takeIf { it.isNotBlank() },
-                                        volunteerAllowanceAccountId = volunteerAllowanceSelect.value?.takeIf { it.isNotBlank() },
-                                        receivablesAccountId = receivablesSelect.value?.takeIf { it.isNotBlank() },
-                                        payablesAccountId = payablesSelect.value?.takeIf { it.isNotBlank() },
-                                    ),
-                                )
-                            }
-                        if (result != null) {
-                            notifySuccess(tr("Kontenzuordnung gespeichert."))
-                            load()
-                        }
-                    } finally {
-                        // Review Round 4 (2026-08-19): guarded() rethrows CancellationException -- a
-                        // plain post-guarded() re-enable never runs if this coroutine is cancelled
-                        // mid-flight, leaving the button permanently disabled until a page refresh.
-                        // Same bug class as ContributionsScreen.kt's payButton (Review Round 2,
-                        // SHOULD-3) -- that fix's own comment named this call site as its model, but
-                        // the fix itself wasn't applied here at the time.
-                        saveButton.disabled = false
+                    if (result != null) {
+                        notifySuccess(tr("Kontenzuordnung gespeichert."))
+                        load()
                     }
                 }
             }
@@ -954,7 +951,8 @@ private fun Container.renderAccountActions(
                 ),
             confirmLabel = tr("Deaktivieren"),
         ) {
-            AppScope.launch {
+            // Der Zeilenknopf sperrt sich für die Dauer des Aufrufs (vorher `runGuardedAction(null)`: ein Schutz nur über die Einmal-Sperre des Dialogs).
+            runGuardedAction(deactivateButton) {
                 val result = guarded { rpcService<IAccountingService>().deactivateLedgerAccount(account.id) }
                 if (result != null) {
                     notifyInfo(tr("Konto wurde deaktiviert."))
@@ -971,72 +969,66 @@ private fun Container.renderAccountActions(
  * state is additionally applied once right after wiring, so the form starts consistent regardless
  * of whether `subscribe` itself fires immediately on subscription.
  */
-private fun renderAccountCreationForm(
+internal fun renderAccountCreationForm(
     root: SimplePanel,
     onCreated: () -> Unit,
 ) {
     val typeOptions = LedgerAccountType.entries.map { it.name to ledgerAccountTypeLabel(it) }
-    val panel = root.vPanel(spacing = 6)
-    val numberInput = panel.text(label = tr("Kontonummer (SKR42)"))
-    val nameInput = panel.text(label = tr("Name"))
-    val classInput = panel.text(label = tr("Kontenklasse (erste Ziffer der Kontonummer, 0-9)"))
-    val typeSelect = panel.select(options = typeOptions, value = LedgerAccountType.ASSET.name, label = tr("Kontotyp"))
+    val form = root.lapisForm()
+    val numberField = form.textField(label = tr("Kontonummer (SKR42)"), required = true)
+    val nameField = form.textField(label = tr("Name"), required = true)
+    // Die Grenze steht als Platzhalter im Hinweis, nie im msgid (W4c): eine Konstante im msgid sagte sie in acht Katalogen.
+    val classField =
+        form.textField(
+            label = tr("Kontenklasse"),
+            required = true,
+            hint = tr("Erste Ziffer der Kontonummer."),
+            rule = { FormRules.intInRange(it, min = 0, max = 9) },
+        )
+    val typeField =
+        form.selectField(label = tr("Kontotyp"), options = typeOptions, value = LedgerAccountType.ASSET.name, required = true)
     val reserveOptions = listOf("" to tr("-- keine Rücklage --")) + ReserveType.entries.map { it.name to reserveTypeLabel(it) }
-    val reserveSelect = panel.select(options = reserveOptions, value = "", label = tr("Rücklagenart"))
-    panel.div(tr("Nur bei Kontotyp „Eigenkapitalkonto\" wählbar.")) { addCssClasses("text-muted small") }
-    val cashRegisterCheck = panel.checkBox(label = tr("Kasse (Kassenbuch-fähig)"))
-    panel.div(tr("Nur bei Kontotyp „Aktivkonto\" wählbar.")) { addCssClasses("text-muted small") }
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val reserveField =
+        form.selectField(
+            label = tr("Rücklagenart"),
+            options = reserveOptions,
+            value = "",
+            hint = tr("Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."),
+        )
+    val cashField =
+        form.checkField(label = tr("Kasse (Kassenbuch-fähig)"), hint = tr("Nur bei Kontotyp „Aktivkonto\" wählbar."))
 
+    // D11: gesperrt-statt-versteckt, und zurückgesetzt, sobald der Kontotyp verlassen wird. Werte laufen über LapisField, nie am
+    // Control vorbei (`setValue` / `reset` räumen auch einen stehenden Fehler).
     fun applyTypeGating(typeValue: String?) {
         val isEquity = typeValue == LedgerAccountType.EQUITY.name
         val isAsset = typeValue == LedgerAccountType.ASSET.name
-        reserveSelect.disabled = !isEquity
-        if (!isEquity) reserveSelect.value = ""
-        cashRegisterCheck.disabled = !isAsset
-        if (!isAsset) cashRegisterCheck.value = false
-    }
-    applyTypeGating(typeSelect.value)
-    typeSelect.subscribe { applyTypeGating(it) }
-
-    val createButton = panel.button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
-    createButton.onClick {
-        errorBox.hide()
-        val accountNumber = numberInput.value.orEmpty().trim()
-        val name = nameInput.value.orEmpty().trim()
-        val accountClass =
-            classInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val typeValue = typeSelect.value
-
-        if (!Validation.isNonBlank(accountNumber) ||
-            !Validation.isNonBlank(name) ||
-            accountClass == null ||
-            accountClass !in 0..9 ||
-            typeValue == null
-        ) {
-            errorBox.content = tr("Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben.")
-            errorBox.show()
-            return@onClick
+        (reserveField.control as Select).disabled = !isEquity
+        if (!isEquity) {
+            reserveField.setValue("")
+            reserveField.validate(force = false)
         }
+        (cashField.control as CheckBox).disabled = !isAsset
+        if (!isAsset) cashField.reset()
+    }
+    applyTypeGating(typeField.value)
+    typeField.subscribe { applyTypeGating(it) }
 
-        val type = LedgerAccountType.valueOf(typeValue)
-        val reserveType =
-            if (type == LedgerAccountType.EQUITY) {
-                reserveSelect.value?.takeIf { it.isNotBlank() }?.let { ReserveType.valueOf(it) }
-            } else {
-                null
-            }
-        val isCashRegister = type == LedgerAccountType.ASSET && cashRegisterCheck.value
-
-        createButton.disabled = true
-        AppScope.launch {
+    val createButton = Button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
+    createButton.onClick {
+        form.submit(createButton) {
+            val accountNumber = numberField.value.trim()
+            val name = nameField.value.trim()
+            val accountClass = classField.value.trim().toInt()
+            val type = LedgerAccountType.valueOf(typeField.value)
+            val reserveType =
+                if (type == LedgerAccountType.EQUITY) {
+                    reserveField.value.takeIf { it.isNotBlank() }?.let { ReserveType.valueOf(it) }
+                } else {
+                    null
+                }
+            val isCashRegister = type == LedgerAccountType.ASSET && (cashField.control as CheckBox).value
             val result =
                 guarded {
                     rpcService<IAccountingService>().createLedgerAccount(
@@ -1051,14 +1043,13 @@ private fun renderAccountCreationForm(
                         ),
                     )
                 }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Konto \"%1 · %2\" wurde angelegt.", accountNumber, name))
-                numberInput.value = null
-                nameInput.value = null
-                classInput.value = null
-                reserveSelect.value = ""
-                cashRegisterCheck.value = false
+                numberField.reset()
+                nameField.reset()
+                classField.reset()
+                reserveField.setValue("")
+                cashField.reset()
                 onCreated()
             }
         }
@@ -1103,7 +1094,8 @@ internal fun renderHauptbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
 ) {
-    val filterControls = panel.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
+    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
+    panel.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." when the load fails.
     val section =
@@ -1156,7 +1148,8 @@ internal fun renderKassenbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
 ) {
-    val filterControls = panel.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
+    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
+    panel.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val section =
         panel.dataSection<KassenbuchDto>(
@@ -1371,19 +1364,12 @@ private fun renderJournalEntryDetailBody(
         val postButton = actionRow.button(tr("Buchen"), style = ButtonStyle.PRIMARY)
         postButton.onClick {
             postingConfirmDialog(entry.entryDate, entry.description, entry.voucherReference, postingDtosToDisplay(entry.postings)) {
-                // The confirm modal itself hides on the first click of "Endgültig buchen", which
-                // removes its backdrop and leaves this now-stale detail view's "Buchen" button
-                // fully clickable again while the RPC call below is still in flight -- disable it
-                // for the duration so an impatient double-click cannot fire `postDraftEntry` twice
-                // concurrently. `postDraftEntry` itself is idempotent (status-checked server-side,
-                // see its KDoc), so this is defense-in-depth against a confusing double toast, not
-                // a data-integrity fix -- unlike [renderNewEntryForm]'s `postDirectButton`, where
-                // the same guard prevents an actual duplicate POSTED entry (see that button's own
-                // KDoc for why `postJournalEntry` has no such server-side idempotency check at all).
-                postButton.disabled = true
-                AppScope.launch {
+                // The confirm modal hides on the first click of "Endgültig buchen" (one-shot, see [postingConfirmDialog]), which
+                // removes its backdrop and leaves this now-stale detail view's "Buchen" button clickable again while the RPC call
+                // is still in flight -- `runGuardedAction` locks it for the round trip. `postDraftEntry` itself is idempotent
+                // (status-checked server-side), so this is defense in depth against a confusing double toast.
+                runGuardedAction(postButton) {
                     val result = guarded { rpcService<IAccountingService>().postDraftEntry(entry.id) }
-                    postButton.disabled = false
                     if (result != null) {
                         notifySuccess(tr("Buchung wurde gebucht."))
                         onChanged()
@@ -1432,11 +1418,9 @@ private fun renderDonorInfo(
                         recipientDisplayName = entry.donorMemberDisplayName ?: entry.donorMemberId.orEmpty(),
                         documentLabel = gettext("Spendenbescheinigung %1", entry.entryDate),
                     ) {
-                        postalButton.disabled = true
                         outcomePanel.removeAll()
-                        AppScope.launch {
+                        runGuardedAction(postalButton) {
                             val result = guarded { rpcService<IPostalMailService>().dispatchSpendenbescheinigungByPost(entry.id) }
-                            postalButton.disabled = false
                             if (result != null) {
                                 if (result.status == PostalDeliveryStatus.SENT) {
                                     notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
@@ -1505,18 +1489,129 @@ private class PostingLineRow(
      *  isKleinunternehmer`), matching the server's own [VatRate.UNCLASSIFIED] normalization for
      *  that case (`AccountingService.insertJournalEntry`'s `vatActive` gate). */
     val vatRateSelect: Select?,
+    /** V1.4.30 (W4c): alle Felder dieser Zeile in Rendering-Reihenfolge -- der Entfernen-Knopf meldet sie ALLE ab
+     *  ([LapisForm.unregister]), sonst blockierte das Feld einer entfernten Zeile das Absenden unsichtbar für immer. */
+    val fields: List<LapisField>,
+    /** Das Betragsfeld -- Quelle des Saldostreifens. */
+    val amountField: LapisField,
+    /** Feld und aufgelöster Basistext ("Betrag"), für die Neu-Nummerierung nach Hinzufügen/Entfernen ("Betrag · Zeile 2"). */
+    val labelled: List<Pair<LapisField, String>>,
     /** Welle V1.4.13 -- `true` once the treasurer has touched [vatRateSelect] themselves; the
      *  sphere-change auto-suggestion (see [renderPostingLinesRow]) then stops overwriting their
      *  choice. */
     var vatRateUserTouched: Boolean = false,
 )
 
+/** "Betrag · Zeile 2": der Zeilenteil ist ein Platzhalter, nie eine Zahl im msgid. */
+private fun postingFieldLabel(
+    base: String,
+    line: Int,
+): String = gettext("%1 · Zeile %2", base, line)
+
+private const val DASH = "—"
+
+/** Ganze Cent eines Betragstextes; `null`, wenn er leer oder nach [FormRules.postingAmount] ungültig ist. */
+private fun amountTextCents(text: String): Long? {
+    // Ein Betrag über der Obergrenze ist ungültig (das Feld zeigt den Fehler) und darf nie in eine Summe eingehen -- sonst sättigt
+    // `centsOf` bei 1.0E20 auf Long.MAX_VALUE und der Streifen behauptete einen ausgeglichenen Saldo mit einer erfundenen Zahl.
+    if (FormRules.postingAmount(text) !is FieldCheck.Ok) return null
+    return (parseAmountInput(text, allowZero = false, enforceMaxAmount = false) as? AmountInput.Valid)?.let { centsOf(it.value.toDouble()) }
+}
+
+/**
+ * `Decimal` ist auf JS ein `Double`: `0.1 + 0.2` ergibt `0.30000000000000004`. Summen und Vergleiche laufen deshalb in ganzen Cent
+ * (jeder Betrag hat höchstens zwei Nachkommastellen, siehe [FormRules.postingAmount]); erst die Anzeige geht zurück zu Euro.
+ */
+private fun centsOf(amount: Double): Long = kotlin.math.round(amount * 100.0).toLong()
+
+/**
+ * Ganze Cent als Geldtext -- über [formatMoney], dasselbe Format wie der Bestätigungsdialog und die Journaltabelle ("100.5 €", ohne
+ * Auffüllung auf zwei Stellen, Dezimalpunkt): IM SELBEN Buchungsablauf gilt EIN Format (Audit V1.4.30, M3). Vorher stand im Saldostreifen
+ * "1200,00 €" und im Bestätigungsdialog "1200 €". Das globale [formatMoney] ist bewusst NICHT geändert (bekannte Lücke der ganzen
+ * Oberfläche, würde die Golden-Tests der Berichte kippen). Die Summe läuft trotzdem in ganzen Cent; erst die Anzeige geht zu Euro.
+ */
+internal fun moneyFromCents(cents: Long): String = formatMoney((cents / 100.0).toDecimal())
+
+/**
+ * Reine Anzeige unter dem Zeilenblock (V1.4.30, W4c): "informieren, nicht sperren". **Nie eine alte Summe**: sobald irgendein
+ * Betrag leer oder ungültig ist, steht überall ein Gedankenstrich (dieselbe Lehre wie der grüne Türbanner der W4b-Audits). Kein
+ * `role="alert"`, kein Blocker, keine Ampelfarbe. Rein und DOM-frei: bekommt die Rohtexte der Betragsfelder und die Seiten.
+ */
+internal fun postingBalanceText(
+    amounts: List<String>,
+    sides: List<PostingSide>,
+): String {
+    val cents = amounts.map { amountTextCents(it) }
+    // Ohne Zeile gibt es nichts zu bilanzieren: ein "Soll 0,00 · Haben 0,00" behauptete einen ausgeglichenen Nullsaldo.
+    if (cents.isEmpty() || cents.any { it == null }) return gettext("Soll %1 · Haben %2 · Differenz %3", DASH, DASH, DASH)
+    var debit = 0L
+    var credit = 0L
+    cents.zip(sides).forEach { (value, side) -> if (side == PostingSide.DEBIT) debit += value ?: 0L else credit += value ?: 0L }
+    return gettext(
+        "Soll %1 · Haben %2 · Differenz %3",
+        moneyFromCents(debit),
+        moneyFromCents(credit),
+        moneyFromCents(
+            kotlin.math.abs(
+                debit - credit,
+            ),
+        ),
+    )
+}
+
+/**
+ * Spiegel der Serverbedingungen von `JournalEntryBalance.validateBalanced`, die `saveDraftEntry` NICHT prüft: mindestens zwei
+ * Zeilen, mindestens eine Soll- und eine Habenzeile, Σ Soll = Σ Haben (auf Cent). Rein, DOM-frei, testbar. Der Server bleibt die
+ * Autorität; das hier spart den Round-Trip und nennt die Differenz. **Nur vor "Direkt buchen"**: ein Entwurf darf unausgeglichen
+ * sein (der Server erlaubt es) -- eine Bilanzregel im Formular verböte eine heute erlaubte Handlung. `null` = ausgeglichen.
+ */
+internal fun journalPostingBalanceProblem(postings: List<PostingInput>): String? {
+    if (postings.size < 2) return gettext("Eine Buchung braucht mindestens zwei Buchungszeilen.")
+    val debitLines = postings.filter { it.side == PostingSide.DEBIT }
+    val creditLines = postings.filter { it.side == PostingSide.CREDIT }
+    if (debitLines.isEmpty() || creditLines.isEmpty()) {
+        return gettext("Eine Buchung braucht mindestens eine Sollzeile und eine Habenzeile.")
+    }
+    val difference = debitLines.sumOf { centsOf(it.amount.toDouble()) } - creditLines.sumOf { centsOf(it.amount.toDouble()) }
+    if (difference != 0L) {
+        return gettext("Soll und Haben stimmen nicht überein (Differenz %1).", moneyFromCents(kotlin.math.abs(difference)))
+    }
+    return null
+}
+
+/** Die reine Kopie von `buildInput()` des Formulars (V1.4.30): erreichbar für Tests, ohne DOM. `null` bei ungültigem Datum/leerer Beschreibung. */
+internal fun buildJournalEntryInput(
+    dateText: String,
+    description: String,
+    voucherText: String?,
+    postings: List<PostingInput>,
+    donor: Triple<String?, String?, DonorCategory?>,
+): JournalEntryInput? {
+    val entryDate = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull() ?: return null
+    val trimmedDescription = description.trim()
+    if (!Validation.isNonBlank(trimmedDescription)) return null
+    val (donorMemberId, externalDonorId, donorCategory) = donor
+    return JournalEntryInput(
+        entryDate = entryDate,
+        description = trimmedDescription,
+        voucherReference = voucherText?.trim()?.takeIf { it.isNotBlank() },
+        postings = postings,
+        donorMemberId = donorMemberId,
+        externalDonorId = externalDonorId,
+        donorCategory = donorCategory,
+    )
+}
+
 /**
  * Returns a prefill function ([onDuplicate] in the caller) so the D3 "Als neuen Entwurf
  * duplizieren" action on an existing draft's detail view can populate this same, already-rendered
  * form rather than opening a second one.
+ *
+ * V1.4.30 (W4c): the form is a [LapisForm]. Posting lines are a table for the eyes (one visible column-header row, the field
+ * NAME stays on every control for screen readers) and a form for everything else; the balance strip below them informs, it does
+ * not block.
  */
-private fun renderNewEntryForm(
+internal fun renderNewEntryForm(
     root: SimplePanel,
     accounts: List<LedgerAccountDto>,
     costCenters: List<CostCenterDto>,
@@ -1531,12 +1626,52 @@ private fun renderNewEntryForm(
     onSaved: () -> Unit,
 ): (JournalEntryDto) -> Unit {
     val vatUsable = vatEnabled && !isKleinunternehmer
-    val panel = root.vPanel(spacing = 8)
-    val dateInput = panel.text(value = todayIso(), label = tr("Datum (JJJJ-MM-TT)"))
-    val descriptionInput = panel.text(label = tr("Beschreibung"))
-    val voucherInput = panel.text(label = tr("Belegnummer (optional)"))
+    val form = root.lapisForm()
+    val panel = form.panel
+    val dateField =
+        form.textField(
+            label = tr("Buchungsdatum"),
+            value = todayIso(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val descriptionField =
+        form.textField(
+            label = tr("Beschreibung"),
+            required = true,
+            rule = { FormRules.maxLength(it, MAX_JOURNAL_DESCRIPTION_LENGTH) },
+        )
+    val voucherField =
+        form.textField(label = tr("Belegnummer"), rule = { FormRules.maxLength(it, MAX_JOURNAL_VOUCHER_LENGTH) })
 
     panel.p(tr("Buchungszeilen")) { addCssClass("fw-bold") }
+    // Die EINE sichtbare Spaltenkopfzeile über dem Block (unter 768 px ausgeblendet, dort trägt jede Karte ihre Beschriftung selbst).
+    // `aria-hidden`: die echte Beschriftung hängt am Steuerelement.
+    val headerRow =
+        panel.hPanel(spacing = 8) {
+            addCssClasses("lapis-posting-header text-muted small")
+            setAttribute("aria-hidden", "true")
+        }
+
+    fun headerCell(
+        text: String,
+        required: Boolean,
+    ) {
+        headerRow.div {
+            addCssClass("lapis-posting-cell")
+            span(text)
+            if (required) span(" *") { addCssClass("lapis-required-mark") }
+        }
+    }
+    headerCell(tr("Konto"), required = true)
+    headerCell(tr("Soll/Haben"), required = true)
+    headerCell(tr("Betrag"), required = true)
+    headerCell(tr("Sphäre"), required = true)
+    headerCell(tr("Kostenstelle"), required = false)
+    if (vatUsable) headerCell(tr("USt"), required = false)
+    headerRow.div { addCssClass("lapis-posting-remove") }
+
     val rowsPanel = panel.vPanel(spacing = 4)
     val rows = mutableListOf<PostingLineRow>()
 
@@ -1552,6 +1687,32 @@ private fun renderNewEntryForm(
     // or the sphere-derived suggestion pre-fills one; there is no user-facing "unset" choice.
     val vatRateOptions = listOf(VatRate.NOT_SUBJECT, VatRate.ZERO, VatRate.REDUCED, VatRate.STANDARD).map { it.name to vatRateLabel(it) }
 
+    val addRowButton = panel.button(tr("Buchungszeile hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+    val balanceStrip = panel.div { addCssClass("lapis-balance-strip") }
+
+    // Erst nach `form.buttons(...)` entscheidet die Grammatik über die Sterne; eine später hinzugefügte Zeile markiert ihre Pflicht-
+    // Labels selbst -- sonst fehlte der Stern genau dort, wo der Behandler ihn braucht.
+    var formFinished = false
+
+    fun updateBalance() {
+        balanceStrip.content =
+            postingBalanceText(
+                amounts = rows.map { it.amountField.value },
+                sides =
+                    rows.map { row ->
+                        row.sideSelect.value?.let { runCatching { PostingSide.valueOf(it) }.getOrNull() }
+                            ?: PostingSide.DEBIT
+                    },
+            )
+    }
+
+    fun rowsChanged() {
+        rows.forEachIndexed { index, row ->
+            row.labelled.forEach { (field, base) -> field.relabel(postingFieldLabel(base, index + 1)) }
+        }
+        updateBalance()
+    }
+
     fun addRow(
         accountId: String = "",
         side: PostingSide = if (rows.size % 2 == 0) PostingSide.DEBIT else PostingSide.CREDIT,
@@ -1561,6 +1722,7 @@ private fun renderNewEntryForm(
         vatRate: VatRate? = null,
     ) {
         renderPostingLinesRow(
+            form,
             rowsPanel,
             accountOptions,
             sideOptions,
@@ -1575,20 +1737,31 @@ private fun renderNewEntryForm(
             costCenterId,
             vatRate,
             rows,
+            markRequiredNow = formFinished,
+            onBalanceChanged = ::updateBalance,
+            onRowRemoved = ::rowsChanged,
         )
+        rowsChanged()
+    }
+
+    /** Alle Zeilen abmelden UND entfernen: ohne `unregister` sammelte jeder Speichervorgang tote Felder an, und das Formular ließe
+     *  sich nach dem zweiten Speichern nie wieder absenden. */
+    fun clearRows() {
+        rows.forEach { row -> row.fields.forEach { form.unregister(it) } }
+        rowsPanel.removeAll()
+        rows.clear()
     }
     addRow()
     addRow()
-    val addRowButton = panel.button(tr("Buchungszeile hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
     addRowButton.onClick { addRow() }
 
     // D13 donor block
-    panel.p(tr("Spender-Zuordnung (optional)")) { addCssClass("fw-bold") }
+    panel.p(tr("Spender-Zuordnung")) { addCssClass("fw-bold") }
     panel.div(
         if (isPoliticalParty) {
-            tr("(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei)")
+            tr("Bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei.")
         } else {
-            tr("(optional, für Spendenbescheinigungen)")
+            tr("Für Spendenbescheinigungen.")
         },
     ) { addCssClasses("text-muted small") }
     val donorChoiceOptions =
@@ -1598,44 +1771,84 @@ private fun renderNewEntryForm(
             "EXTERNAL" to tr("Externer Spender"),
             "ANONYMOUS" to tr("Ausdrücklich anonym"),
         )
-    val donorChoiceSelect = panel.select(options = donorChoiceOptions, value = "", label = tr("Spendertyp"))
+    val donorChoiceField = form.selectField(label = tr("Spendertyp"), options = donorChoiceOptions, value = "")
 
+    // Die Auswahlfelder des Spenderblocks werden über ihren CONTAINER ein-/ausgeblendet (`LapisField.setVisible` kann nur Text). Ihre
+    // Pflicht gilt nur, wenn der Spendertyp sie braucht: eine Feldpflicht (`required`) blockierte das Absenden mit einem unsichtbaren
+    // Fehler -- deshalb Querregeln unten, die den Spendertyp mitlesen.
     val memberPanel = panel.vPanel(spacing = 4)
-    val memberSelect = memberPanel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    // Die Pflicht dieser drei Felder hängt am Spendertyp (Querregeln unten) -- ohne Hinweis läse ein sternloses Feld unter der sichtbaren
+    // Legende "* Pflichtfeld" wie "freiwillig", obwohl es das Absenden blockiert.
+    val donorRequiredHint = tr("Pflichtangabe für diesen Spendertyp.")
+    val memberField =
+        form.selectField(
+            label = tr("Mitglied"),
+            options = members.map { it.id to it.displayName },
+            hint = donorRequiredHint,
+            host = memberPanel,
+        )
     val naturalPersonFirst =
         listOf(DonorCategory.GERMAN_NATURAL_PERSON, DonorCategory.EU_NATURAL_PERSON, DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON)
     val donorCategoryOrder = naturalPersonFirst + (DonorCategory.entries - naturalPersonFirst.toSet())
     val memberCategoryOptions =
         listOf("" to tr("-- Spenderkategorie wählen --")) + donorCategoryOrder.map { it.name to donorCategoryLabel(it) }
-    val memberCategorySelect = memberPanel.select(options = memberCategoryOptions, value = "", label = tr("Spenderkategorie"))
+    val memberCategoryField =
+        form.selectField(
+            label = tr("Spenderkategorie"),
+            options = memberCategoryOptions,
+            value = "",
+            hint = donorRequiredHint,
+            host = memberPanel,
+        )
 
     val externalPanel = panel.vPanel(spacing = 4)
-    val externalSelect =
-        externalPanel.select(options = externalDonors.map { it.id to it.displayName }, label = tr("Externer Spender"))
+    val externalField =
+        form.selectField(
+            label = tr("Externer Spender"),
+            options = externalDonors.map { it.id to it.displayName },
+            hint = donorRequiredHint,
+            host = externalPanel,
+        )
 
     fun applyDonorGating(choice: String?) {
         if (choice == "MEMBER") memberPanel.show() else memberPanel.hide()
         if (choice == "EXTERNAL") externalPanel.show() else externalPanel.hide()
     }
-    applyDonorGating(donorChoiceSelect.value)
-    donorChoiceSelect.subscribe { applyDonorGating(it) }
+    applyDonorGating(donorChoiceField.value)
+    donorChoiceField.subscribe { applyDonorGating(it) }
 
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
+    val donorWidgets = listOf(donorChoiceField, memberField, memberCategoryField, externalField).mapNotNull { it.control.input as? Widget }
+    form.crossFieldRule(focusOn = memberField.control.input as? Widget, watch = donorWidgets) {
+        if (donorChoiceField.value == "MEMBER" && memberField.value.isBlank()) {
+            FieldCheck.Invalid(gettext("Bitte ein Mitglied wählen."))
+        } else {
+            FieldCheck.Ok
         }
+    }
+    form.crossFieldRule(focusOn = memberCategoryField.control.input as? Widget, watch = donorWidgets) {
+        when {
+            donorChoiceField.value != "MEMBER" -> FieldCheck.Ok
+            memberCategoryField.value.isBlank() -> FieldCheck.Invalid(gettext("Bitte eine Spenderkategorie wählen."))
+            memberCategoryField.value == DonorCategory.ANONYMOUS.name ->
+                FieldCheck.Invalid(gettext("Für ein Mitglied kann die Spenderkategorie nicht anonym sein."))
+            else -> FieldCheck.Ok
+        }
+    }
+    form.crossFieldRule(focusOn = externalField.control.input as? Widget, watch = donorWidgets) {
+        if (donorChoiceField.value == "EXTERNAL" && externalField.value.isBlank()) {
+            FieldCheck.Invalid(gettext("Bitte einen externen Spender wählen."))
+        } else {
+            FieldCheck.Ok
+        }
+    }
 
     fun collectPostings(): List<PostingInput>? {
         val result = mutableListOf<PostingInput>()
         for (row in rows) {
             val accountId = row.accountSelect.value?.takeIf { it.isNotBlank() } ?: return null
             val side = row.sideSelect.value?.let { runCatching { PostingSide.valueOf(it) }.getOrNull() } ?: return null
-            val amountText =
-                row.amountInput.value
-                    .orEmpty()
-                    .trim()
-            if (!Validation.isPositiveDecimal(amountText)) return null
+            val parsedAmount =
+                parseAmountInput(row.amountField.value, allowZero = false, enforceMaxAmount = false) as? AmountInput.Valid ?: return null
             val sphere = row.sphereSelect.value?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() } ?: return null
             val costCenterId = row.costCenterSelect.value?.takeIf { it.isNotBlank() }
             // Welle V1.4.13: hidden control (row.vatRateSelect == null, USt not usable for this
@@ -1647,13 +1860,10 @@ private fun renderNewEntryForm(
                 PostingInput(
                     ledgerAccountId = accountId,
                     side = side,
-                    // Rounded client-side, same as every other Decimal-producing input in this
-                    // client (Validation.roundToTwoDecimalPlaces, see SepaBatchesScreen/
-                    // SocialNetworkScreen/DunningSettingsScreen) -- Validation.isPositiveDecimal
-                    // above accepts a 3+-decimal string, which without this rounding step reaches
-                    // the server as a scale>2 BigDecimal and trips VatCalculator.vatAmountOf's
-                    // RoundingMode.UNNECESSARY guard with an uncaught 500 instead of posting.
-                    amount = Validation.roundToTwoDecimalPlaces(amountText.toDouble()).toDecimal(),
+                    // V1.4.30 (W4c): die Feldregel ([FormRules.postingAmount]) lehnt mehr als zwei Nachkommastellen jetzt VORHER ab
+                    // ("10,005" wurde bisher still zu 10,01 gebucht). Diese Rundung kann nur noch ein Rundungsartefakt glätten --
+                    // sie bleibt als Netz stehen, weil auch `prefill()` diesen Pfad nimmt.
+                    amount = Validation.roundToTwoDecimalPlaces(parsedAmount.value.toDouble()).toDecimal(),
                     sphere = sphere,
                     costCenterId = costCenterId,
                     vatRate = vatRate,
@@ -1664,16 +1874,16 @@ private fun renderNewEntryForm(
     }
 
     fun collectDonor(): Triple<String?, String?, DonorCategory?>? =
-        when (donorChoiceSelect.value) {
+        when (donorChoiceField.value) {
             "MEMBER" -> {
-                val memberId = memberSelect.value ?: return null
-                val categoryValue = memberCategorySelect.value?.takeIf { it.isNotBlank() } ?: return null
+                val memberId = memberField.value.takeIf { it.isNotBlank() } ?: return null
+                val categoryValue = memberCategoryField.value.takeIf { it.isNotBlank() } ?: return null
                 val category = runCatching { DonorCategory.valueOf(categoryValue) }.getOrNull() ?: return null
                 if (category == DonorCategory.ANONYMOUS) return null
                 Triple(memberId, null, category)
             }
             "EXTERNAL" -> {
-                val externalId = externalSelect.value ?: return null
+                val externalId = externalField.value.takeIf { it.isNotBlank() } ?: return null
                 Triple(null, externalId, null)
             }
             "ANONYMOUS" -> Triple(null, null, DonorCategory.ANONYMOUS)
@@ -1681,59 +1891,36 @@ private fun renderNewEntryForm(
         }
 
     fun buildInput(): JournalEntryInput? {
-        val entryDate = runCatching { LocalDate.parse(dateInput.value.orEmpty().trim()) }.getOrNull() ?: return null
-        val description = descriptionInput.value.orEmpty().trim()
-        if (!Validation.isNonBlank(description)) return null
-        val voucherReference = voucherInput.value?.trim()?.takeIf { it.isNotBlank() }
         val postings = collectPostings() ?: return null
-        val (donorMemberId, externalDonorId, donorCategory) = collectDonor() ?: return null
-        return JournalEntryInput(
-            entryDate = entryDate,
-            description = description,
-            voucherReference = voucherReference,
-            postings = postings,
-            donorMemberId = donorMemberId,
-            externalDonorId = externalDonorId,
-            donorCategory = donorCategory,
-        )
-    }
-
-    fun showValidationError() {
-        errorBox.content =
-            tr(
-                "Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und Sphäre angeben -- und, " +
-                    "falls ein Spendertyp gewählt ist, dessen Felder vollständig ausfüllen.",
-            )
-        errorBox.show()
+        val donor = collectDonor() ?: return null
+        return buildJournalEntryInput(dateField.value, descriptionField.value, voucherField.value, postings, donor)
     }
 
     fun resetForm() {
-        dateInput.value = todayIso()
-        descriptionInput.value = null
-        voucherInput.value = null
-        rowsPanel.removeAll()
-        rows.clear()
+        dateField.reset()
+        dateField.setValue(todayIso())
+        descriptionField.reset()
+        voucherField.reset()
+        clearRows()
         addRow()
         addRow()
-        donorChoiceSelect.value = ""
+        donorChoiceField.setValue("")
+        donorChoiceField.validate(force = false)
         applyDonorGating("")
+        form.clearFormError()
     }
 
-    val actionRow = panel.hPanel(spacing = 8)
-    val saveDraftButton = actionRow.button(tr("Als Entwurf speichern"), style = ButtonStyle.PRIMARY)
-    val postDirectButton = actionRow.button(tr("Direkt buchen"), style = ButtonStyle.OUTLINEDANGER)
+    val saveDraftButton = Button(tr("Als Entwurf speichern"), style = ButtonStyle.PRIMARY)
+    // "Direkt buchen" ist unwiderruflich: eigene Zone UNTER der Knopfzeile (Richtlinie 2.5 / R27).
+    val postDirectButton = Button(tr("Direkt buchen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = saveDraftButton, destructive = postDirectButton)
+    formFinished = true
 
     saveDraftButton.onClick {
-        errorBox.hide()
-        val input = buildInput()
-        if (input == null) {
-            showValidationError()
-            return@onClick
-        }
-        saveDraftButton.disabled = true
-        AppScope.launch {
+        // Ein Entwurf darf unausgeglichen sein (der Server erlaubt es): KEINE Bilanzregel hier.
+        form.submit(saveDraftButton) {
+            val input = buildInput() ?: return@submit
             val result = guarded { rpcService<IAccountingService>().saveDraftEntry(input) }
-            saveDraftButton.disabled = false
             if (result != null) {
                 notifySuccess(tr("Entwurf gespeichert."))
                 resetForm()
@@ -1743,27 +1930,23 @@ private fun renderNewEntryForm(
     }
 
     postDirectButton.onClick {
-        errorBox.hide()
-        val input = buildInput()
-        if (input == null) {
-            showValidationError()
+        if (!form.validateAndReport()) return@onClick
+        val input = buildInput() ?: return@onClick
+        // Die drei Serverbedingungen, die `saveDraftEntry` nicht prüft, VOR dem Bestätigungsdialog: kein Dialog, kein RPC.
+        val problem = journalPostingBalanceProblem(input.postings)
+        if (problem != null) {
+            form.showFormError(problem)
             return@onClick
         }
         val lines = postingInputsToDisplay(input.postings, accounts, costCenters)
         postingConfirmDialog(input.entryDate, input.description, input.voucherReference, lines) {
             // Unlike `postDraftEntry` (status-checked against an existing row -- a second concurrent
-            // call is safely rejected server-side, see `renderJournalEntryDetail`'s own `postButton`
-            // comment), `postJournalEntry` unconditionally inserts a brand-new POSTED, immutable entry
-            // on every call with no idempotency key. The confirm modal hides on the first click of
-            // "Endgültig buchen" (removing its backdrop) while this RPC call is still in flight and the
-            // form beneath it is untouched (`resetForm()` only runs after a successful response) -- an
-            // impatient double-click on "Direkt buchen" while the first request is still pending would
-            // open a second confirm dialog for the identical input and, if confirmed, create a genuine
-            // duplicate booking. Disabling the button for the round trip closes that window.
-            postDirectButton.disabled = true
-            AppScope.launch {
+            // call is safely rejected server-side), `postJournalEntry` unconditionally inserts a brand-new POSTED, immutable entry
+            // on every call with no idempotency key. The confirm modal hides on the first click of "Endgültig buchen" (removing
+            // its backdrop) while this RPC call is still in flight -- `runBusy` locks the button for the round trip (an impatient
+            // double-click would otherwise open a second confirm dialog for the identical input and create a genuine duplicate).
+            form.runBusy(postDirectButton) {
                 val result = guarded { rpcService<IAccountingService>().postJournalEntry(input) }
-                postDirectButton.disabled = false
                 if (result != null) {
                     notifySuccess(tr("Buchung wurde gebucht."))
                     resetForm()
@@ -1774,12 +1957,11 @@ private fun renderNewEntryForm(
     }
 
     fun prefill(entry: JournalEntryDto) {
-        errorBox.hide()
-        dateInput.value = entry.entryDate.toString()
-        descriptionInput.value = entry.description
-        voucherInput.value = entry.voucherReference
-        rowsPanel.removeAll()
-        rows.clear()
+        form.clearFormError()
+        dateField.setValue(entry.entryDate.toString())
+        descriptionField.setValue(entry.description)
+        voucherField.setValue(entry.voucherReference)
+        clearRows()
         entry.postings.forEach { posting ->
             addRow(
                 accountId = posting.ledgerAccountId,
@@ -1796,18 +1978,20 @@ private fun renderNewEntryForm(
         }
         when {
             entry.donorMemberId != null -> {
-                donorChoiceSelect.value = "MEMBER"
-                memberSelect.value = entry.donorMemberId
-                memberCategorySelect.value = entry.donorCategory?.name.orEmpty()
+                donorChoiceField.setValue("MEMBER")
+                memberField.setValue(entry.donorMemberId)
+                memberCategoryField.setValue(entry.donorCategory?.name.orEmpty())
             }
             entry.externalDonorId != null -> {
-                donorChoiceSelect.value = "EXTERNAL"
-                externalSelect.value = entry.externalDonorId
+                donorChoiceField.setValue("EXTERNAL")
+                externalField.setValue(entry.externalDonorId)
             }
-            entry.donorCategory == DonorCategory.ANONYMOUS -> donorChoiceSelect.value = "ANONYMOUS"
-            else -> donorChoiceSelect.value = ""
+            entry.donorCategory == DonorCategory.ANONYMOUS -> donorChoiceField.setValue("ANONYMOUS")
+            else -> donorChoiceField.setValue("")
         }
-        applyDonorGating(donorChoiceSelect.value)
+        applyDonorGating(donorChoiceField.value)
+        // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
+        form.fields.forEach { it.validate(force = false) }
         notifyInfo(gettext("Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern.", entry.description))
     }
 
@@ -1816,8 +2000,12 @@ private fun renderNewEntryForm(
 
 /** Factored out of [renderNewEntryForm] purely to keep that function's length manageable -- adds
  * one posting-line row to [rowsPanel] and registers it in [rows], with a self-removing "Entfernen"
- * button (first dynamic add/remove-row pattern in this client, see file KDoc). */
+ * button (first dynamic add/remove-row pattern in this client, see file KDoc).
+ *
+ * V1.4.30 (W4c): six [LapisField]s per row. Each control sits in its own cell (`host`), but the error slots of the selects sit in ONE
+ * full-width row beneath the cells (`slotHost`): `.invalid-feedback` has `width: 100%` and would squash six controls into one column. */
 private fun renderPostingLinesRow(
+    form: LapisForm,
     rowsPanel: SimplePanel,
     accountOptions: List<Pair<String, String>>,
     sideOptions: List<Pair<String, String>>,
@@ -1832,57 +2020,144 @@ private fun renderPostingLinesRow(
     costCenterId: String,
     vatRate: VatRate?,
     rows: MutableList<PostingLineRow>,
-) {
-    val rowPanel = rowsPanel.hPanel(spacing = 8) { addCssClasses("align-items-end border-bottom pb-2") }
-    val accountSelect = rowPanel.select(options = accountOptions, value = accountId, label = tr("Konto"))
-    val sideSelect = rowPanel.select(options = sideOptions, value = side.name, label = tr("Soll/Haben"))
-    val amountInput = rowPanel.text(value = amount.ifBlank { null }, label = tr("Betrag"))
-    val sphereSelect = rowPanel.select(options = sphereOptions, value = sphere?.name ?: "", label = tr("Sphäre"))
-    val costCenterSelect = rowPanel.select(options = costCenterOptions, value = costCenterId, label = tr("Kostenstelle"))
+    markRequiredNow: Boolean,
+    onBalanceChanged: () -> Unit,
+    onRowRemoved: () -> Unit,
+): PostingLineRow {
+    val line = rows.size + 1
+    val rowBlock = rowsPanel.simplePanel()
+    val rowPanel =
+        rowBlock.hPanel(spacing = 8) {
+            addCssClasses("lapis-posting-row lapis-posting-row--headed align-items-end border-bottom pb-2")
+        }
+    val slotRow = rowBlock.simplePanel()
+
+    fun cell(): SimplePanel = rowPanel.simplePanel { addCssClass("lapis-posting-cell") }
+    val labelled = mutableListOf<Pair<LapisField, String>>()
+
+    val accountBase = gettext("Konto")
+    val sideBase = gettext("Soll/Haben")
+    val amountBase = gettext("Betrag")
+    val sphereBase = gettext("Sphäre")
+    val costCenterBase = gettext("Kostenstelle")
+    val vatBase = gettext("USt")
+    val accountField =
+        form.selectField(
+            label = postingFieldLabel(accountBase, line),
+            options = accountOptions,
+            value = accountId,
+            required = true,
+            host = cell(),
+            slotHost = slotRow,
+        )
+    val sideField =
+        form.selectField(
+            label = postingFieldLabel(sideBase, line),
+            options = sideOptions,
+            value = side.name,
+            required = true,
+            host = cell(),
+            slotHost = slotRow,
+        )
+    // Kein Vorzeichen: die Richtung ist und bleibt allein das Soll/Haben-Feld. Höchstens zwei Nachkommastellen (Servergrenze).
+    val amountField =
+        form.textField(
+            label = postingFieldLabel(amountBase, line),
+            value = amount.ifBlank { null },
+            required = true,
+            host = cell(),
+            rule = { FormRules.postingAmount(it) },
+        )
+    val sphereField =
+        form.selectField(
+            label = postingFieldLabel(sphereBase, line),
+            options = sphereOptions,
+            value = sphere?.name ?: "",
+            required = true,
+            host = cell(),
+            slotHost = slotRow,
+        )
+    val costCenterField =
+        form.selectField(
+            label = postingFieldLabel(costCenterBase, line),
+            options = costCenterOptions,
+            value = costCenterId,
+            host = cell(),
+            slotHost = slotRow,
+        )
+    labelled += accountField to accountBase
+    labelled += sideField to sideBase
+    labelled += amountField to amountBase
+    labelled += sphereField to sphereBase
+    labelled += costCenterField to costCenterBase
     // Welle V1.4.13 "USt-Voranmeldung" -- sechstes Control, NUR gerendert wenn USt fuer diese
     // Organisation nutzbar ist (vatUsable). UNCLASSIFIED ist absichtlich nicht waehlbar (siehe
     // vatRateOptions KDoc am Aufrufer) -- ein Vorschlag aus der Sphaere ist vorausgewaehlt, siehe
     // unten.
-    val vatRateSelect =
-        if (vatUsable) {
-            rowPanel.select(
-                options = vatRateOptions,
-                value = (vatRate ?: sphere?.let { suggestedVatRate(it) })?.name,
-                label = tr("USt"),
-            )
-        } else {
-            null
+    val vatCell = if (vatUsable) cell() else null
+    val vatField =
+        vatCell?.let {
+            form
+                .selectField(
+                    label = postingFieldLabel(vatBase, line),
+                    options = vatRateOptions,
+                    value = (vatRate ?: sphere?.let { suggestedVatRate(it) })?.name,
+                    host = it,
+                    slotHost = slotRow,
+                ).also { field -> labelled += field to vatBase }
         }
-    val removeButton = rowPanel.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = Button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER) { addCssClass("lapis-posting-remove") }
+    rowPanel.add(removeButton)
 
-    val row = PostingLineRow(rowPanel, accountSelect, sideSelect, amountInput, sphereSelect, costCenterSelect, vatRateSelect)
+    val fields = listOfNotNull(accountField, sideField, amountField, sphereField, costCenterField, vatField)
+    if (markRequiredNow) fields.filter { it.required }.forEach { it.appendRequiredMark() }
+    val vatRateSelect = vatField?.control as? Select
+    val row =
+        PostingLineRow(
+            panel = rowBlock,
+            accountSelect = accountField.control as Select,
+            sideSelect = sideField.control as Select,
+            amountInput = amountField.control as Text,
+            sphereSelect = sphereField.control as Select,
+            costCenterSelect = costCenterField.control as Select,
+            vatRateSelect = vatRateSelect,
+            fields = fields,
+            amountField = amountField,
+            labelled = labelled,
+        )
     rows.add(row)
+    // Der Saldostreifen folgt Betrag UND Seite (`subscribe` feuert auch bei `setValue`; der Streifen hat keine Nebenwirkung).
+    amountField.subscribe { onBalanceChanged() }
+    sideField.subscribe { onBalanceChanged() }
 
-    if (vatRateSelect != null) {
+    if (vatField != null && vatCell != null && vatRateSelect != null) {
         // Duarte-Ruling: die USt-Auswahl folgt der Sphaere nur so lange, wie der Behandler sie
         // nicht selbst angefasst hat -- danach nie wieder ueberschrieben, auch nicht bei einem
         // weiteren Sphaerenwechsel. Ein sichtbarer Kurzhinweis erklaert die Herkunft des
         // Vorschlags; er verschwindet in dem Moment, in dem die Person selbst waehlt.
         val suggestionHint =
-            rowPanel.div(tr("Vorschlag aus der Sphäre -- jederzeit überschreibbar")) {
+            vatCell.div(tr("Vorschlag aus der Sphäre -- jederzeit überschreibbar")) {
                 addCssClasses("text-muted small")
             }
         if (vatRate != null) suggestionHint.hide()
-        // Guards against the programmatic `vatRateSelect.value = ...` write below itself firing
-        // `vatRateSelect`'s own `subscribe` callback -- KVision's reactive `.value` setter cannot
-        // distinguish "the user picked this" from "code just set this", so without this flag the
-        // very first auto-suggestion would immediately mark itself as user-touched and the
-        // suggestion would never update again on a later sphere change.
+        // Guards against the programmatic write below itself firing `vatField`'s own `subscribe` callback -- KVision's reactive
+        // `.value` setter cannot distinguish "the user picked this" from "code just set this", so without this flag the
+        // very first auto-suggestion would immediately mark itself as user-touched and the suggestion would never update again
+        // on a later sphere change.
         var applyingSuggestion = false
-        sphereSelect.subscribe {
+        sphereField.subscribe {
             if (row.vatRateUserTouched) return@subscribe
-            val newSphere = it?.let { name -> runCatching { GemeinnuetzigkeitSphere.valueOf(name) }.getOrNull() }
+            val newSphere =
+                it
+                    .takeIf { name ->
+                        name.isNotBlank()
+                    }?.let { name -> runCatching { GemeinnuetzigkeitSphere.valueOf(name) }.getOrNull() }
             applyingSuggestion = true
-            vatRateSelect.value = newSphere?.let { s -> suggestedVatRate(s) }?.name
+            vatField.setValue(newSphere?.let { s -> suggestedVatRate(s) }?.name)
             applyingSuggestion = false
             if (newSphere != null) suggestionHint.show() else suggestionHint.hide()
         }
-        vatRateSelect.subscribe {
+        vatField.subscribe {
             if (applyingSuggestion) return@subscribe
             row.vatRateUserTouched = true
             suggestionHint.hide()
@@ -1890,9 +2165,13 @@ private fun renderPostingLinesRow(
     }
 
     removeButton.onClick {
-        rowsPanel.remove(rowPanel)
+        // ZUERST abmelden, dann das Widget entfernen: das Feld einer entfernten Zeile darf `validateAndReport()` nicht mehr blockieren.
+        fields.forEach { form.unregister(it) }
+        rowsPanel.remove(rowBlock)
         rows.remove(row)
+        onRowRemoved()
     }
+    return row
 }
 
 // ============================================================================================
@@ -2036,14 +2315,17 @@ private fun postingConfirmDialog(
     renderPostingConfirmTable(modal, lines, showVatColumn)
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Endgültig buchen"), style = ButtonStyle.DANGER).apply {
-            onClick {
-                modal.hide()
-                onConfirm()
-            }
-        },
-    )
+    // Einmal-Objekt (R29): ohne die Sperre feuerte "Endgültig buchen" beliebig oft, bis das Modal weg ist -- bei `postJournalEntry`
+    // (kein Idempotenzschlüssel) eine echte Doppelbuchung.
+    val once = ConfirmOnce()
+    val confirmButton = Button(tr("Endgültig buchen"), style = ButtonStyle.DANGER)
+    confirmButton.onClick {
+        once.run(confirmButton) {
+            modal.hide()
+            onConfirm()
+        }
+    }
+    modal.addButton(confirmButton)
     modal.show()
 }
 

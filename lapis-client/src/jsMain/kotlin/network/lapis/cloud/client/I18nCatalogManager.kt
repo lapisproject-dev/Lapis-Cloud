@@ -40,7 +40,16 @@ class I18nCatalogManager(
         // arguments, so the arguments travel inside the key.
         if (args.isEmpty() && key.contains(I18N_ARG_SEPARATOR)) return composed(key)
         val translated = lookup(key)
-        return substitute(translated, args)
+        // Audit V1.4.30 (marker leak): an argument that is itself a `tr(...)` string carries KVision's marker prefix. Substituted as it is it
+        // ends up VISIBLE ("...nicht gebucht: ###KvI18nS###Kein Konto..."). Resolve it in the current language here, once, so no call site
+        // can leak the marker by passing a `tr(...)` result -- or a helper that returns one -- as a `gettext` argument. The call sites are
+        // still fixed at the source (`ClientUiGuidelineTripwireTest` forbids `tr(` inside a `gettext(` argument); this is the net.
+        val resolvedArgs =
+            Array<Any?>(args.size) { index ->
+                val argument = args[index]
+                if (argument is String && argument.startsWith(KV_I18N_MARKER)) gettext(argument.removePrefix(KV_I18N_MARKER)) else argument
+            }
+        return substitute(translated, resolvedArgs)
     }
 
     /**

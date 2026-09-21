@@ -109,8 +109,8 @@ private fun renderRatesAdminSection(panel: SimplePanel) {
                 panel.p(
                     gettext(
                         "Kilometersatz: %1 · Tagespauschale: %2",
-                        rates.mileageRatePerKm?.let { "${formatMoney(it)}/km" } ?: tr("nicht konfiguriert"),
-                        rates.perDiemRate?.let { formatMoney(it) } ?: tr("nicht konfiguriert"),
+                        rates.mileageRatePerKm?.let { "${formatMoney(it)}/km" } ?: gettext("nicht konfiguriert"),
+                        rates.perDiemRate?.let { formatMoney(it) } ?: gettext("nicht konfiguriert"),
                     ),
                 )
                 return@launch

@@ -1,9 +1,8 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.password
-import io.kvision.form.text.text
+import io.kvision.form.text.Text
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -133,7 +132,7 @@ private fun renderProviderButtons(
 // Connection (Token, Verbindungstest, 0%-USt-Quittung)
 // ============================================================================================
 
-private fun renderConnectionSection(
+internal fun renderConnectionSection(
     panel: SimplePanel,
     provider: AccountingExportProvider,
     connection: AccountingExportConnectionDto,
@@ -190,65 +189,60 @@ private fun renderConnectionSection(
     // ConferenceStreamDestinationsScreen.kt's stream-key fields, which this mirrors. A plain
     // type=text field shows the token in the clear on screen (shoulder-surfing/screenshare during
     // a board session) and is a browser autofill/form-history candidate that type=password is not.
-    val tokenInput = panel.password(label = if (connection.tokenLast4 == null) tr("Token") else tr("Token ersetzen"))
-    val actionsRow = panel.hPanel(spacing = 8)
-    val saveButton = actionsRow.button(tr("Token speichern"), style = ButtonStyle.PRIMARY)
-    val testButton = actionsRow.button(tr("Verbindung prüfen"), style = ButtonStyle.OUTLINESECONDARY)
-    val removeButton = actionsRow.button(tr("Token entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    // W4c: das Token-Formular ist ein [LapisForm] (Geheimnis: `suppressManagers`, kein Passwortmanager-Angebot). Das Token ist Pflicht --
+    // der Fehler steht am Feld (vorher ein Toast). "Verbindung prüfen" und "Token entfernen" sind eigene Aktionen desselben Feldes; die
+    // zerstörende steht in der Zone darunter.
+    val form = panel.lapisForm()
+    val tokenField =
+        form.passwordField(
+            label = if (connection.tokenLast4 == null) tr("Token") else tr("Token ersetzen"),
+            required = true,
+            suppressManagers = true,
+            requiredMessage = tr("Bitte ein Token eingeben."),
+        )
+    val saveButton = Button(tr("Token speichern"), style = ButtonStyle.PRIMARY)
+    val testButton = Button(tr("Verbindung prüfen"), style = ButtonStyle.OUTLINESECONDARY)
+    val removeButton = Button(tr("Token entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val actionsRow = form.buttons(primary = saveButton, destructive = removeButton)
+    // Grammatik: die Nebenaktion steht LINKS der Primäraktion (Abbrechen/Nebenaktion links, Primär rechts), nicht dahinter.
+    actionsRow.removeAll()
+    actionsRow.add(testButton)
+    actionsRow.add(saveButton)
+    // Fachlicher Zustand (ohne Token gibt es nichts zu prüfen/entfernen), NICHT der Doppelklickschutz: ein gesperrter Knopf erreicht
+    // `runGuardedAction` nie, dessen `finally` ihn also auch nie versehentlich entsperrt.
     testButton.disabled = connection.tokenLast4 == null
     removeButton.disabled = connection.tokenLast4 == null
 
     saveButton.onClick {
-        val token = tokenInput.value?.trim().orEmpty()
-        if (token.isBlank()) {
-            notifyError(tr("Bitte ein Token eingeben."))
-            return@onClick
-        }
-        saveButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<IAccountingExportService>().setToken(provider, token) }
-                if (result != null) {
-                    // The plaintext token stays in this password field's DOM value/in-memory state
-                    // until explicitly cleared -- reloadConnection() (via onChanged()) rebuilds the
-                    // whole panel from scratch so this input is discarded either way, but clearing it
-                    // here first (same idiom ConferenceStreamDestinationsScreen.kt's key field uses)
-                    // means the plaintext is gone even if a future refactor makes the panel rebuild
-                    // conditional instead of unconditional.
-                    tokenInput.value = null
-                    notifySuccess(tr("Token gespeichert."))
-                    onChanged()
-                }
-            } finally {
-                saveButton.disabled = false
+        form.submit(saveButton) {
+            val token = tokenField.value.trim()
+            val result = guarded { rpcService<IAccountingExportService>().setToken(provider, token) }
+            if (result != null) {
+                // The plaintext token stays in this password field's DOM value/in-memory state until explicitly cleared --
+                // reloadConnection() (via onChanged()) rebuilds the whole panel from scratch so this input is discarded either way,
+                // but clearing it here first (same idiom ConferenceStreamDestinationsScreen.kt's key field uses) means the plaintext
+                // is gone even if a future refactor makes the panel rebuild conditional instead of unconditional.
+                tokenField.reset()
+                notifySuccess(tr("Token gespeichert."))
+                onChanged()
             }
         }
     }
     testButton.onClick {
-        testButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<IAccountingExportService>().testConnection(provider) }
-                if (result != null) {
-                    notifySuccess(tr("Verbindung erfolgreich getestet."))
-                    onChanged()
-                }
-            } finally {
-                testButton.disabled = false
+        runGuardedAction(testButton) {
+            val result = guarded { rpcService<IAccountingExportService>().testConnection(provider) }
+            if (result != null) {
+                notifySuccess(tr("Verbindung erfolgreich getestet."))
+                onChanged()
             }
         }
     }
     removeButton.onClick {
-        removeButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<IAccountingExportService>().removeToken(provider) }
-                if (result != null) {
-                    notifySuccess(tr("Token entfernt."))
-                    onChanged()
-                }
-            } finally {
-                removeButton.disabled = false
+        runGuardedAction(removeButton) {
+            val result = guarded { rpcService<IAccountingExportService>().removeToken(provider) }
+            if (result != null) {
+                notifySuccess(tr("Token entfernt."))
+                onChanged()
             }
         }
     }
@@ -256,7 +250,7 @@ private fun renderConnectionSection(
     renderZeroVatSection(panel, provider, connection, onChanged)
 }
 
-private fun renderZeroVatSection(
+internal fun renderZeroVatSection(
     panel: SimplePanel,
     provider: AccountingExportProvider,
     connection: AccountingExportConnectionDto,
@@ -271,30 +265,40 @@ private fun renderZeroVatSection(
     panel.h3(tr("Hinweis zur Umsatzsteuer"))
     val textBox = panel.div { addCssClasses("border rounded p-2 small") }
     textBox.content = tr("Wird geladen …")
-    val ackRow = panel.hPanel(spacing = 8)
-    val ackCheck = ackRow.checkBox(label = tr("Zur Kenntnis genommen"))
-    val ackButton = ackRow.button(tr("Bestätigen"), style = ButtonStyle.OUTLINEPRIMARY)
+    // W4c: das Kästchen ist eine Pflicht-Checkbox statt eines grauen Knopfes ohne Erklärung (`ackButton.disabled = ackCheck.value != true`,
+    // K2-Beschluss W4b): die Meldung steht am Kästchen. Gesperrt bleibt der Knopf NUR, solange der Hinweistext noch nicht geladen ist
+    // (fachlicher Zustand -- ohne dessen Prüfsumme gibt es nichts zu quittieren).
+    val form = panel.lapisForm()
+    val ackField = form.checkField(label = tr("Zur Kenntnis genommen"), required = true)
+    val ackButton = Button(tr("Bestätigen"), style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = ackButton)
     var disclaimerSha256 = ""
     ackButton.disabled = true
 
-    AppScope.launch {
-        val disclaimer = guarded { rpcService<IAccountingExportService>().getZeroVatDisclaimer(provider) } ?: return@launch
-        textBox.content = disclaimer.text
-        disclaimerSha256 = disclaimer.sha256
+    // Scheitert das Laden, steht dort ein Fehlerzustand mit Wiederholen-Knopf (W3-Regel: kein dauerhaftes "Wird geladen …").
+    fun loadDisclaimer() {
+        textBox.removeAll()
+        textBox.content = tr("Wird geladen …")
+        AppScope.launch {
+            val disclaimer = guarded { rpcService<IAccountingExportService>().getZeroVatDisclaimer(provider) }
+            if (disclaimer == null) {
+                textBox.content = null
+                textBox.dataErrorState(onRetry = { loadDisclaimer() })
+                return@launch
+            }
+            textBox.content = disclaimer.text
+            disclaimerSha256 = disclaimer.sha256
+            ackButton.disabled = false
+        }
     }
-    ackCheck.onClick { ackButton.disabled = ackCheck.value != true }
+    loadDisclaimer()
     ackButton.onClick {
         if (disclaimerSha256.isBlank()) return@onClick
-        ackButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<IAccountingExportService>().acknowledgeZeroVat(provider, disclaimerSha256) }
-                if (result != null) {
-                    notifySuccess(tr("Hinweis quittiert."))
-                    onChanged()
-                }
-            } finally {
-                ackButton.disabled = false
+        form.submit(ackButton) {
+            val result = guarded { rpcService<IAccountingExportService>().acknowledgeZeroVat(provider, disclaimerSha256) }
+            if (result != null) {
+                notifySuccess(tr("Hinweis quittiert."))
+                onChanged()
             }
         }
     }
@@ -312,32 +316,44 @@ private fun renderExportSection(
     val role = AppState.session?.role
     panel.h3(tr("Export"))
     renderUnknownItemsSection(panel.vPanel(spacing = 4), provider)
-    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT)"), toLabel = tr("Bis (JJJJ-MM-TT)"))
-    filterControls.fromInput.value = "${currentYear()}-01-01"
-    filterControls.toInput.value = todayIso()
-    val checkButton = panel.button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // W4c: der Zeitraum ist ein [LapisForm] -- die Fehler stehen an den Feldern (vorher ein Sammelsatz über dem Knopf).
+    val form = panel.lapisForm()
+    val fromField =
+        form.textField(
+            label = tr("Von"),
+            value = "${currentYear()}-01-01",
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val toField =
+        form.textField(
+            label = tr("Bis"),
+            value = todayIso(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val filterControls = DateRangeFilterControls(fromField.control as Text, toField.control as Text)
+    val checkButton = Button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
+    form.buttons(primary = checkButton)
     val resultPanel = panel.vPanel(spacing = 8)
     val runPanel = panel.vPanel(spacing = 8)
 
     fun check() {
-        errorBox.hide()
-        val from = filterControls.parseFrom()
-        val to = filterControls.parseTo()
-        if (from == null || to == null) {
-            errorBox.content = tr("Bitte Von- und Bis-Datum angeben (JJJJ-MM-TT).")
-            errorBox.show()
-            return
-        }
+        if (!form.validateAndReport()) return
+        val from = filterControls.parseFrom() ?: return
+        val to = filterControls.parseTo() ?: return
+        // Spec H: die Ergebniszeilen des vorigen Prüfens verschwinden VOR dem neuen Lauf -- auch wenn dieser scheitert, steht danach nie
+        // die alte Vorschau mit ihrem "Übertragen"-Knopf da.
         resultPanel.removeAll()
         resultPanel.p(tr("Wird geprüft …")) { addCssClasses("text-muted small") }
         AppScope.launch {
-            val preview = guarded { rpcService<IAccountingExportService>().previewExport(provider, from, to) } ?: return@launch
+            val preview = guarded { rpcService<IAccountingExportService>().previewExport(provider, from, to) }
             resultPanel.removeAll()
+            if (preview == null) return@launch
             renderPreviewBody(resultPanel, provider, preview, role) { check() }
             renderStartButton(resultPanel, provider, from, to, preview, role, runPanel)
         }
@@ -377,7 +393,9 @@ private fun renderPreviewBody(
                 row.div(gettext("%1 · %2 (%3x)", account.accountNumber, account.accountName, account.entryCount)) {
                     addCssClass("small")
                 }
-                val categorySelect = row.select(options = options, label = null)
+                val categorySelect = row.select(options = options) { addCssClass("lapis-touch-target") }
+                // Ohne sichtbares Label (die Zeile nennt das Konto), aber nie ohne zugänglichen Namen.
+                categorySelect.setAttribute("aria-label", gettext("Kategorie für Konto %1", account.accountNumber))
                 val assignButton = row.button(tr("Zuordnen"), style = ButtonStyle.OUTLINEPRIMARY)
                 assignButton.onClick {
                     val categoryId = categorySelect.value
@@ -386,21 +404,16 @@ private fun renderPreviewBody(
                         return@onClick
                     }
                     val categoryName = categories.firstOrNull { it.id == categoryId }?.name
-                    assignButton.disabled = true
-                    AppScope.launch {
-                        try {
-                            guarded {
-                                rpcService<IAccountingExportService>().mapAccount(
-                                    provider,
-                                    account.ledgerAccountId,
-                                    categoryId,
-                                    categoryName,
-                                )
-                            }
-                            onMappingChanged()
-                        } finally {
-                            assignButton.disabled = false
+                    runGuardedAction(assignButton) {
+                        guarded {
+                            rpcService<IAccountingExportService>().mapAccount(
+                                provider,
+                                account.ledgerAccountId,
+                                categoryId,
+                                categoryName,
+                            )
                         }
+                        onMappingChanged()
                     }
                 }
             }
@@ -450,16 +463,12 @@ private fun renderStartButton(
     val startButton = panel.button(tr("Übertragen"), style = ButtonStyle.SUCCESS)
     startButton.disabled = !AccountingExportAuthzUi.canStartRun(role, preview)
     startButton.onClick {
-        startButton.disabled = true
-        AppScope.launch {
-            try {
-                val run = guarded { rpcService<IAccountingExportService>().startExport(provider, from, to) }
-                if (run != null) {
-                    runPanel.removeAll()
-                    renderRunSection(runPanel, provider, run)
-                }
-            } finally {
-                startButton.disabled = false
+        runGuardedAction(startButton) {
+            val run = guarded { rpcService<IAccountingExportService>().startExport(provider, from, to) }
+            if (run != null) {
+                // Spec H: das Ergebnis des vorigen Laufs wird VOR dem neuen Lauf geräumt.
+                runPanel.removeAll()
+                renderRunSection(runPanel, provider, run)
             }
         }
     }
@@ -536,7 +545,7 @@ private fun renderRunSection(
                 run.failed,
                 run.skipped,
                 run.unknown,
-                accountingExportRunStatusLabel(run.status),
+                resolvedAttributeText(accountingExportRunStatusLabel(run.status)),
             ),
         )
         val terminal =
@@ -597,15 +606,13 @@ private fun renderRunSection(
     }
 
     retryButton.onClick {
-        retryButton.disabled = true
-        AppScope.launch {
+        runGuardedAction(retryButton) {
             val updated = guarded { rpcService<IAccountingExportService>().retryFailed(initialRun.id) }
             if (updated != null) pollRun(panel, provider, updated)
         }
     }
     abortButton.onClick {
-        abortButton.disabled = true
-        AppScope.launch {
+        runGuardedAction(abortButton) {
             val updated = guarded { rpcService<IAccountingExportService>().abortRun(initialRun.id) }
             if (updated != null) renderRunSection(panel, provider, updated)
         }
@@ -682,38 +689,47 @@ private fun todayIso(): String =
  * other while a request is in flight, same idiom every other action button on this screen already
  * uses. [onResolved] re-renders the WHOLE run section (see [refreshRun]), not just this row --
  * resolving can change the run's own summary counts. */
-private fun SimplePanel.renderResolveUnknownActions(
+internal fun SimplePanel.renderResolveUnknownActions(
     provider: AccountingExportProvider,
     item: AccountingExportItemDto,
     onResolved: () -> Unit,
 ) {
-    val voucherIdInput =
-        text(label = gettext("%1-Belegnummer (optional)", provider.displayName)) { addCssClasses("form-control-sm") }
-    val actions = hPanel(spacing = 4) { addCssClass("mt-1") }
-    val foundButton = actions.button(gettext("In %1 gefunden", provider.displayName), style = ButtonStyle.OUTLINESUCCESS)
-    val notFoundButton = actions.button(tr("Nicht gefunden"), style = ButtonStyle.OUTLINEDANGER)
+    // W4c: ein Feld (die Belegnummer beim Anbieter, freiwillig -- deshalb weder Stern noch Legende) und zwei Aktionen als [LapisForm].
+    val form = lapisForm()
+    val voucherIdField =
+        form.textField(label = gettext("%1-Belegnummer", provider.displayName), init = { it.addCssClasses("form-control-sm") })
+    val foundButton = Button(gettext("In %1 gefunden", provider.displayName), style = ButtonStyle.OUTLINESUCCESS)
+    val notFoundButton = Button(tr("Nicht gefunden"), style = ButtonStyle.OUTLINEDANGER)
+    // "Nicht gefunden" gibt den Beleg zum erneuten Senden frei -- rot und getrennt in der Zone darunter (Grammatik: Primär rechts,
+    // Destruktives abgesetzt), nicht als zweiter Knopf rechts neben der Primäraktion.
+    form.buttons(primary = foundButton, destructive = notFoundButton)
 
     fun resolve(resolution: AccountingExportUnknownItemResolution) {
-        foundButton.disabled = true
+        // Beide Knöpfe sperren einander, solange eine Anfrage läuft (ein zweiter Klick auf den anderen wäre ein zweiter Aufruf).
+        if (foundButton.disabled || notFoundButton.disabled) return
         notFoundButton.disabled = true
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<IAccountingExportService>().resolveUnknownItem(
-                        item.id,
-                        resolution,
-                        if (resolution == AccountingExportUnknownItemResolution.CONFIRMED_SENT) {
-                            voucherIdInput.value?.trim()?.ifBlank { null }
-                        } else {
-                            null
-                        },
-                    )
+        // `runGuardedAction(foundButton)` sperrt "gefunden" und gibt es im `finally` frei (auch bei einer Abbruch-Ausnahme); die Schwester
+        // "nicht gefunden" gibt derselbe Block frei. Vorher lief hier `runGuardedAction(null)` mit einer Freigabe nur im else-Zweig --
+        // ein abgebrochener Aufruf ließ beide Knöpfe für immer gesperrt. Nach einem Erfolg baut `onResolved` die Zeile neu auf.
+        runGuardedAction(foundButton) {
+            try {
+                val result =
+                    guarded {
+                        rpcService<IAccountingExportService>().resolveUnknownItem(
+                            item.id,
+                            resolution,
+                            if (resolution == AccountingExportUnknownItemResolution.CONFIRMED_SENT) {
+                                voucherIdField.value.trim().ifBlank { null }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                if (result != null) {
+                    notifySuccess(tr("Beleg-Status geklärt."))
+                    onResolved()
                 }
-            if (result != null) {
-                notifySuccess(tr("Beleg-Status geklärt."))
-                onResolved()
-            } else {
-                foundButton.disabled = false
+            } finally {
                 notFoundButton.disabled = false
             }
         }

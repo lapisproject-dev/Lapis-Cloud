@@ -57,6 +57,7 @@ import network.lapis.cloud.shared.domain.SepaDebitBatchStatus
 import network.lapis.cloud.shared.domain.SepaDebitItemStatus
 import network.lapis.cloud.shared.domain.SepaMandateStatus
 import network.lapis.cloud.shared.domain.SepaReturnReason
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -1059,6 +1060,45 @@ class SepaServiceTest :
                         header("X-Member-Id", treasurer.toString())
                     }
                 second.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test(
+            "recordReturn: a fee above the DECIMAL(12,2) bound is a clean 400 (BadRequestException, an input error), not a DB overflow (HTTP 500); the bound itself is accepted",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSepaExceptionHandlers() }
+                    routing { registerSepaTestRoutes(sepaConfig = testSepaConfig) }
+                }
+                val treasurer = createTestMember("sepa-return-fee-treasurer-${Uuid.random()}@example.org", role = AccountRole.TREASURER)
+                val member = createTestMember("sepa-return-fee-member-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
+                val tier = createTier()
+                enableSepaForOrg(ackByMemberId = treasurer)
+                val mandateId = grantMandateRow(memberId = member, createdBy = member)
+                val contributionId = createOpenContribution(memberId = member, tierId = tier)
+                val (batchId, itemId) =
+                    insertPendingBatchItem(
+                        treasurer = treasurer,
+                        member = member,
+                        mandateId = mandateId,
+                        contributionId = contributionId,
+                    )
+                createdBatchIds += batchId
+                val today = DbClock.nowLocalDateTime().date
+
+                for (tooBig in listOf("1000000000.01", "10000000000", "1.0E20")) {
+                    val response =
+                        client.post("/test/sepa/return?debitItemId=$itemId&returnedAt=$today&reasonCode=AC01&returnFee=$tooBig") {
+                            header("X-Member-Id", treasurer.toString())
+                        }
+                    response.status shouldBe HttpStatusCode.BadRequest
+                }
+                val atBound =
+                    client.post("/test/sepa/return?debitItemId=$itemId&returnedAt=$today&reasonCode=AC01&returnFee=1000000000.00") {
+                        header("X-Member-Id", treasurer.toString())
+                    }
+                atBound.status shouldBe HttpStatusCode.OK
             }
         }
 
@@ -2220,7 +2260,7 @@ private fun Route.registerSepaTestRoutes(sepaConfig: SepaConfig) {
                     returnedAt = LocalDate.parse(q["returnedAt"]!!),
                     reasonCode = SepaReturnReason.valueOf(q["reasonCode"]!!),
                     reasonText = q["reasonText"],
-                    returnFee = null,
+                    returnFee = q["returnFee"]?.let { java.math.BigDecimal(it) },
                 ),
             )
         call.respondText("${dto.id}|${dto.mandateRevoked}")
@@ -2259,6 +2299,7 @@ private fun StatusPagesConfig.installSepaExceptionHandlers() {
     exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
     exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }
     exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+    exception<BadRequestException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
 }
 
 /**

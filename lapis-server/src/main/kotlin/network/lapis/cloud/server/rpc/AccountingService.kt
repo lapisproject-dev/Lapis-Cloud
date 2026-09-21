@@ -337,7 +337,9 @@ class AccountingService(
             // KDoc (Security Round 2 MINOR, the same regression class for the sign instead of the
             // scale: a negative amount reaches VatCalculator.vatAmountOf and can produce a negative
             // vat_amount, tripping chk_posting_vat_amount_non_negative as an uncaught 500).
+            requireValidTextLengths(input)
             requireValidScale(input.postings)
+            requireWithinMaxAmount(input.postings)
             requireNonNegativeAmounts(input.postings)
             val donorMemberId = input.donorMemberId?.toAccountingUuid("Member")
             val externalDonorId = input.externalDonorId?.toAccountingUuid("ExternalDonor")
@@ -367,6 +369,8 @@ class AccountingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         return transaction {
+            requireValidTextLengths(input)
+            requireWithinMaxAmount(input.postings)
             requireBalanced(input.postings)
             requireActiveLedgerAccounts(input.postings.map { it.ledgerAccountId.toAccountingUuid("LedgerAccount") })
             requireActiveCostCenters(input.postings.mapNotNull { it.costCenterId?.toAccountingUuid("CostCenter") })
@@ -1331,6 +1335,32 @@ class AccountingService(
         val tooFinelyScaled = JournalEntryBalance.tooFinelyScaledAmounts(postings)
         if (tooFinelyScaled.isNotEmpty()) {
             throw BadRequestException(JournalEntryBalance.scaleViolationMessage(tooFinelyScaled))
+        }
+    }
+
+    /**
+     * Throws [BadRequestException] if any [postings] amount exceeds [JournalEntryBalance.MAX_POSTING_AMOUNT] -- see that constant's KDoc
+     * for why a `1.0E20` (scale -19) amount otherwise passes every other check and ends in a `DECIMAL(15,2)` overflow (HTTP 500).
+     */
+    private fun requireWithinMaxAmount(postings: List<PostingInput>) {
+        val tooLarge = JournalEntryBalance.tooLargeAmounts(postings)
+        if (tooLarge.isNotEmpty()) {
+            throw BadRequestException(JournalEntryBalance.tooLargeViolationMessage(tooLarge))
+        }
+    }
+
+    /**
+     * Throws [BadRequestException] if [JournalEntryInput.description] or [JournalEntryInput.voucherReference] exceeds its column width
+     * (`journal_entry.description varchar(500)`, `voucher_reference varchar(100)`) -- otherwise the INSERT fails with an unmapped
+     * exception (HTTP 500) instead of a clean validation error.
+     */
+    private fun requireValidTextLengths(input: JournalEntryInput) {
+        if (input.description.length > JournalEntryBalance.MAX_DESCRIPTION_LENGTH) {
+            throw BadRequestException("description must be at most ${JournalEntryBalance.MAX_DESCRIPTION_LENGTH} characters")
+        }
+        val voucher = input.voucherReference
+        if (voucher != null && voucher.length > JournalEntryBalance.MAX_VOUCHER_REFERENCE_LENGTH) {
+            throw BadRequestException("voucherReference must be at most ${JournalEntryBalance.MAX_VOUCHER_REFERENCE_LENGTH} characters")
         }
     }
 

@@ -32,6 +32,21 @@ internal object JournalEntryBalance {
     private const val MAX_AMOUNT_SCALE = 2
 
     /**
+     * Upper bound of a single posting amount (one trillion). `posting.amount` is `DECIMAL(15,2)` and overflows from 10^13 on -- an
+     * unhandled HTTP 500 (`numeric field overflow`). The client sends `Decimal` as a JSON double, so `99999999999999999999` arrives as
+     * `1.0E20` (scale -19) and passes the `scale() > 2`, `<= 0` and Σdebit = Σcredit checks; only this bound stops it. Same error class
+     * as `OpenItemService.MAX_AMOUNT` and `SepaService.MAX_RETURN_FEE`. Mirrored (never as the security boundary) by
+     * `MAX_POSTING_AMOUNT` in the client's `FormRules.kt`.
+     */
+    val MAX_POSTING_AMOUNT: BigDecimal = BigDecimal("1000000000000.00")
+
+    /** Column width of `journal_entry.description` (`varchar(500)`). */
+    const val MAX_DESCRIPTION_LENGTH = 500
+
+    /** Column width of `journal_entry.voucher_reference` (`varchar(100)`). */
+    const val MAX_VOUCHER_REFERENCE_LENGTH = 100
+
+    /**
      * Validates [postings] as a complete (non-draft) double-entry set: at least two lines, at
      * least one [PostingSide.DEBIT] and one [PostingSide.CREDIT] line, every [PostingInput.amount]
      * strictly positive with a scale of at most [MAX_AMOUNT_SCALE] (see class KDoc), and
@@ -50,6 +65,10 @@ internal object JournalEntryBalance {
         val tooFinelyScaled = tooFinelyScaledAmounts(postings)
         if (tooFinelyScaled.isNotEmpty()) {
             return BalanceResult.invalid(scaleViolationMessage(tooFinelyScaled))
+        }
+        val tooLarge = tooLargeAmounts(postings)
+        if (tooLarge.isNotEmpty()) {
+            return BalanceResult.invalid(tooLargeViolationMessage(tooLarge))
         }
 
         val debitTotal = postings.filter { it.side == PostingSide.DEBIT }.sumAmounts()
@@ -81,6 +100,18 @@ internal object JournalEntryBalance {
      * same "callers decide" posture as [validateBalanced] itself.
      */
     fun tooFinelyScaledAmounts(postings: List<PostingInput>): List<PostingInput> = postings.filter { it.amount.scale() > MAX_AMOUNT_SCALE }
+
+    /**
+     * The upper-bound portion of [validateBalanced], extracted so [AccountingService.saveDraftEntry] can enforce it WITHOUT the rest
+     * of the balance check (see [MAX_POSTING_AMOUNT]). Compares via [BigDecimal.compareTo], which is scale-independent, so a
+     * negative-scale value like `1.0E20` is caught. Never throws.
+     */
+    fun tooLargeAmounts(postings: List<PostingInput>): List<PostingInput> = postings.filter { it.amount > MAX_POSTING_AMOUNT }
+
+    /** Shared message text for [validateBalanced] and [AccountingService.requireWithinMaxAmount] -- one wording, two callers. */
+    fun tooLargeViolationMessage(tooLarge: List<PostingInput>): String =
+        "Every posting amount must be at most ${MAX_POSTING_AMOUNT.toPlainString()}, got " +
+            tooLarge.map { it.amount.toPlainString() }
 
     /** Shared message text for [validateBalanced] and [AccountingService.requireValidScale] -- one wording, two callers. */
     fun scaleViolationMessage(tooFinelyScaled: List<PostingInput>): String =

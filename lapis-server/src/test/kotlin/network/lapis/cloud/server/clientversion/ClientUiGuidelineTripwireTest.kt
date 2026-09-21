@@ -531,6 +531,17 @@ private val R24_MIGRATED: Set<String> =
         "ContributionReliefQueueScreen.kt",
         "SocialModerationScreen.kt",
         "StatuteQaScreen.kt",
+        // W4c (V1.4.30): the finance forms and dialogs -- cut by whole files, the filters justified below.
+        "LedgerScreen.kt",
+        "OpenItemsScreen.kt",
+        "OpenItemDialogs.kt",
+        "SepaBatchesScreen.kt",
+        "SepaMandateSection.kt",
+        "DonorsScreen.kt",
+        "BankAccountsScreen.kt",
+        "BankStatementImportScreen.kt",
+        "CostCentersScreen.kt",
+        "AccountingExportScreen.kt",
     )
 
 /** Screens examined that have NO labelled text field to migrate: strict too, but there is no form to build. */
@@ -545,6 +556,11 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "PostalMailScreen.kt",
         "MemberAnniversariesScreen.kt",
         "MyVolunteerShiftsScreen.kt",
+        // W4c (V1.4.30): two screens of the finance wave that hold only a filter and actions behind confirmation dialogs -- no form to
+        // build (the mandate list revokes through `confirmWithReasonDialog`, the dunning list issues/cancels/skips/resets through
+        // dialogs); every writing call in them is guarded (`runGuardedAction`).
+        "SepaMandatesScreen.kt",
+        "DunningCasesScreen.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -574,13 +590,36 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
             listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Name, E-Mail oder Personennummer\"))"),
         "EventCheckInScreen.kt" to listOf("val searchField = root.text(label = tr(\"Name suchen\"))"),
         "MemberAnniversariesScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Name\"))"),
+        // W4c (V1.4.30) -- FILTER_IS_NOT_A_FORM: the search / filter fields of the finance screens. The labels of the date filters carry no
+        // format any more ("Von"/"Bis"; the example sits in a hint line).
+        "LedgerScreen.kt" to
+            listOf(
+                "val accountSearchInput = accountsFilterRow.text(label = tr(\"Konto suchen (Nummer oder Name)\"))",
+                "val journalSearchInput = journalFilterRow.text(label = tr(\"Buchung suchen (Beschreibung)\"))",
+            ),
+        "OpenItemsScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche (Gegenpartei, Beleg)\"))"),
+        "SepaBatchesScreen.kt" to
+            listOf(
+                "val fromInput = filterRow.text(label = tr(\"Von\"))",
+                "val toInput = filterRow.text(label = tr(\"Bis\"))",
+            ),
+        "SepaMandatesScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Mitglied oder Mandatsreferenz\"))"),
+        "DonorsScreen.kt" to listOf("val donorSearchInput = filterRow.text(label = tr(\"Spender suchen (Name)\"))"),
+        // The live search of the assignment workbench: it narrows a list of candidates, it is never submitted.
+        "BankStatementImportScreen.kt" to listOf("val searchInput = body.text(label = tr(\"Mitgliedsname oder Beitragssatz\"))"),
+        "CostCentersScreen.kt" to
+            listOf(
+                "val costCenterSearchInput = filterRow.text(label = tr(\"Kostenstelle suchen (Code oder Name)\"))",
+            ),
+        "DunningCasesScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Mitglied\"))"),
     )
 
 /**
  * The downward ratchet: labelled fields outside the strict set (297 in 54 files when W4a landed, 228 after W4b, 225 in 41 files after
- * the V1.4.29 audit moved `FormGrammar.kt` -- the factories -- into the strict set). Only ever lowered.
+ * the V1.4.29 audit moved `FormGrammar.kt` -- the factories -- into the strict set, 166 after W4c (V1.4.30: 59 labelled fields of the
+ * twelve finance screens moved in; ten of them are justified filters). Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 225
+private const val R24_REMAINING_MAX = 166
 
 private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
 
@@ -659,13 +698,31 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         // IMMEDIATE SWITCH (saves by itself, no submit)
         "StatuteQaScreen.kt" to
             listOf("consentPanel.checkBox( [label \"Ich stimme zu, dass meine Fragen von einer KI beantwortet werden\"]"),
+        // W4c (V1.4.30) -- FILTER_IS_NOT_A_FORM
+        "LedgerScreen.kt" to
+            listOf("val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr(\"Inaktive Konten anzeigen\"))"),
+        "OpenItemsScreen.kt" to
+            listOf(
+                "filterRow.checkBox(value = status in state.filter.statuses, label = openItemStatusLabel(status))",
+                "val overdueCheck = filterRow.checkBox(value = false, label = tr(\"Nur überfällige\"))",
+                "filterRow.select( [label \"Seitengröße\"]",
+            ),
+        "DonorsScreen.kt" to listOf("val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Spender anzeigen\"))"),
+        "BankStatementImportScreen.kt" to listOf("val includeNonPositiveCheck = root.checkBox(label = tr(\"Auch Abbuchungen anzeigen\"))"),
+        "CostCentersScreen.kt" to listOf("val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Kostenstellen anzeigen\"))"),
+        "DunningCasesScreen.kt" to
+            listOf(
+                "val onlyOpenCheck = filterRow.checkBox(value = true, label = tr(\"Nur offene Vorgänge\"))",
+                "filterRow.select( [label \"Seitengröße\"]",
+            ),
     )
 
 /**
  * The downward ratchet for labelled choice fields outside the strict set: 131 in 38 files (measured in the V1.4.29 audit; the figure
- * "45 files" of the wave's own comment was wrong). Only ever lowered.
+ * "45 files" of the wave's own comment was wrong), 80 after W4c (V1.4.30: 51 labelled choice fields of the twelve finance screens moved
+ * in; nine of them are justified filters). Only ever lowered.
  */
-private const val R24B_REMAINING_MAX = 131
+private const val R24B_REMAINING_MAX = 80
 
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())
@@ -922,6 +979,108 @@ internal fun tokenParityViolations(css: String): List<String> {
     }
     return violations
 }
+
+// ── the marker leak (V1.4.30 audit, M2): `tr(...)` as an ARGUMENT of `gettext` ─────────────────────────────
+// `gettext("... %1", tr("Kein Konto"))` substitutes KVision's marker prefix (`###KvI18nS###`) into a text that is already resolved --
+// it is VISIBLE on screen. The manager now resolves a marker argument (see `I18nCatalogManager.gettext`), so this is a net, not the fence:
+// the source is held to the rule too. Same for a message that a `FieldCheck`/`AmountInput` carries: it must be RESOLVED text (`gettext`).
+
+/** The text of the call whose `(` is at [openParen], through its balanced `)`; string literals are skipped, so a `)` inside a text does not count. */
+private fun balancedCall(
+    code: String,
+    openParen: Int,
+): String {
+    var depth = 0
+    var index = openParen
+    var inString = false
+    while (index < code.length) {
+        val c = code[index]
+        if (inString) {
+            if (c == '\\') {
+                index++
+            } else if (c == '"') {
+                inString = false
+            }
+        } else {
+            when (c) {
+                '"' -> inString = true
+                '(' -> depth++
+                ')' -> {
+                    depth--
+                    if (depth == 0) return code.substring(openParen, index + 1)
+                }
+            }
+        }
+        index++
+    }
+    return code.substring(openParen)
+}
+
+/** [text] with the CONTENT of every string literal removed, so `"str(x)"` is not seen as a `tr(` call. */
+private fun withoutStringContents(text: String): String {
+    val out = StringBuilder()
+    var inString = false
+    var index = 0
+    while (index < text.length) {
+        val c = text[index]
+        if (inString) {
+            if (c == '\\') {
+                index++
+            } else if (c == '"') {
+                inString = false
+                out.append('"')
+            }
+        } else {
+            out.append(c)
+            if (c == '"') inString = true
+        }
+        index++
+    }
+    return out.toString()
+}
+
+private val TR_CALL = Regex("""(?<![A-Za-z_.])tr\(""")
+
+/** One finding per call of [callStart] (a regex ending in `\(`) whose arguments contain a `tr(` call. */
+internal fun trInsideCallFindings(
+    text: String,
+    callStart: Regex,
+): List<String> =
+    callStart
+        .findAll(codeOnly(text))
+        .mapNotNull { match ->
+            val call = balancedCall(code = codeOnly(text), openParen = match.range.last)
+            if (TR_CALL.containsMatchIn(withoutStringContents(call))) {
+                call
+                    .lines()
+                    .first()
+                    .take(120)
+                    .trim()
+            } else {
+                null
+            }
+        }.toList()
+
+private val GETTEXT_CALL = Regex("""\bgettext\(""")
+private val INVALID_CALL = Regex("""\b(?:FieldCheck|AmountInput)\.Invalid\(""")
+
+/**
+ * Forms per migrated file (a FLOOR, not an exact count): `contains("lapisForm(")` alone would let a file lose all but one of its forms and stay
+ * green. Removing a form on purpose lowers the number here in the same commit; adding one needs no edit.
+ */
+private val R24_MIN_FORMS: Map<String, Int> =
+    mapOf(
+        "LedgerScreen.kt" to 3,
+        "OpenItemsScreen.kt" to 1,
+        "OpenItemDialogs.kt" to 3,
+        "SepaBatchesScreen.kt" to 2,
+        "SepaMandateSection.kt" to 1,
+        "DonorsScreen.kt" to 2,
+        "BankAccountsScreen.kt" to 3,
+        "BankStatementImportScreen.kt" to 2,
+        "CostCentersScreen.kt" to 2,
+        "AccountingExportScreen.kt" to 4,
+    )
 
 // ── the spec ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -1347,6 +1506,57 @@ class ClientUiGuidelineTripwireTest :
             ledgerDiff(actual = mapOf("B.kt" to listOf("x.table(")), ledger = ledger).contains("NEW      B.kt: x.table(") shouldBe true
             // a duplicated identical line is a multiset: 2 listed, 1 found -> one PAID OFF
             ledgerDiff(actual = mapOf("A.kt" to listOf("a")), ledger = mapOf("A.kt" to listOf("a", "a"))).size shouldBe 1
+        }
+
+        test(
+            "V1.4.30 audit M2: no client source passes a tr(...) result as an ARGUMENT of gettext (KVision's marker would show on screen)",
+        ) {
+            val findings =
+                clientKotlinFiles().flatMap { file ->
+                    trInsideCallFindings(text = file.readText(), callStart = GETTEXT_CALL).map { "${file.name}: $it" }
+                }
+            findings shouldBe emptyList()
+        }
+
+        test(
+            "V1.4.30 audit M2: a FieldCheck.Invalid / AmountInput.Invalid message is resolved text -- no tr( inside, and none in the rule files",
+        ) {
+            val findings =
+                clientKotlinFiles().flatMap { file ->
+                    trInsideCallFindings(text = file.readText(), callStart = INVALID_CALL).map { "${file.name}: $it" }
+                }
+            findings shouldBe emptyList()
+            // The two files that produce field-rule messages hold no tr( call at all (only gettext): a message is text, not a live label.
+            val byName = clientKotlinFiles().associateBy { it.name }
+            listOf("FormRules.kt", "OpenItemFormValidation.kt").forEach { name ->
+                withClue(name) { TR_CALL.containsMatchIn(withoutStringContents(codeOnly(byName.getValue(name).readText()))) shouldBe false }
+            }
+        }
+
+        test(
+            "the marker-leak scanner flags tr( inside gettext( (also through a nested call and a chain), ignores strings, comments and widget content",
+        ) {
+            val flag = { code: String -> trInsideCallFindings(text = code, callStart = GETTEXT_CALL).size }
+            flag("notify(gettext(\"a %1\", tr(\"x\")))") shouldBe 1
+            flag("gettext(\"a %1\", if (ok) tr(\"x\") else tr(\"y\"))") shouldBe 1
+            flag("gettext(\"a %1\", foo?.let { bar(it) } ?: tr(\"x\"))") shouldBe 1
+            flag("gettext(\"a %1\", \"str(x) and tr(y)\")") shouldBe 0
+            flag("// gettext(\"a %1\", tr(\"x\"))") shouldBe 0
+            flag("panel.div(tr(\"x\"))") shouldBe 0
+            flag("gettext(\"a\")") shouldBe 0
+            flag("gettext(\"a %1\", Regex(\"(a)\").find(b))") shouldBe 0
+            trInsideCallFindings(text = "FieldCheck.Invalid(tr(\"x\"))", callStart = INVALID_CALL).size shouldBe 1
+            trInsideCallFindings(text = "FieldCheck.Invalid(gettext(\"x\"))", callStart = INVALID_CALL).size shouldBe 0
+        }
+
+        test(
+            "V1.4.30 audit: every migrated finance file keeps AT LEAST as many lapisForm( calls as the wave built (a count, not just a presence)",
+        ) {
+            val byName = clientKotlinFiles().associateBy { it.name }
+            R24_MIN_FORMS.forEach { (name, minimum) ->
+                val forms = Regex("""\blapisForm\(""").findAll(codeOnly(byName.getValue(name).readText())).count()
+                withClue("$name: $forms forms, at least $minimum expected") { (forms >= minimum) shouldBe true }
+            }
         }
 
         test("fingerprints drop the line number and join a chain broken before the dot with its previous line") {

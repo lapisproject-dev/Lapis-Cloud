@@ -1286,8 +1286,78 @@ body {
    (Einlasskontrolle: ein Scanner-/Touch-Bediener trifft das Ticketfeld, ohne zu zielen). */
 @media (pointer: coarse) {
   .lapis-form .form-control,
-  .lapis-form .form-select {
+  .lapis-form .form-select,
+  /* V1.4.30 (Audit): ein Auswahlfeld in einer Tabellenzeile steht ausserhalb von `.lapis-form` und bekommt die Regel per Klasse. */
+  .lapis-touch-target {
     min-height: 44px;
+  }
+}
+
+/* V1.4.30 (W4c): Buchungszeilen sind eine Tabelle fuer die Augen und ein Formular fuer alles andere. Die Spaltenkopfzeile steht
+   EINMAL ueber dem Block (`.lapis-posting-header`); der Feldname am Steuerelement ist in JEDER Zeile weiterhin vorhanden
+   (Screenreader, `for`-Verknuepfung, Fehlermeldungen), nur visuell versteckt -- sonst stuende die Beschriftung neben der Kopfzeile
+   noch einmal in der ersten Zeile. `clip-path` + `position: absolute` statt `display: none`: ein mit
+   `display: none` ausgeblendetes Label waere fuer Screenreader weg. */
+.lapis-posting-row--headed .form-label {
+  border: 0;
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.lapis-posting-row > .lapis-posting-cell,
+.lapis-posting-header > .lapis-posting-cell {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Der Entfernen-Knopf und der gleich breite Platzhalter der Kopfzeile: gleiche Breite, damit die Spalten fluchten. */
+.lapis-posting-row > .lapis-posting-remove,
+.lapis-posting-header > .lapis-posting-remove {
+  flex: 0 0 7rem;
+}
+
+/* Der Saldostreifen unter dem Zeilenblock: reine Anzeige, kein role="alert", keine Ampelfarbe. Kontrast (nachgerechnet):
+   Text auf Streifen hell 16,6:1, dunkel 11,7:1 -- beide weit ueber AA. */
+.lapis-balance-strip {
+  background: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border);
+  border-radius: 4px;
+  color: var(--lapis-text);
+  font-variant-numeric: tabular-nums;
+  padding: 6px 12px;
+}
+
+/* Unter 768 px bricht die Zeile in Kartenform um; dort ist auch die Beschriftung wieder sichtbar. Die 44 px der Steuerelemente
+   und Knoepfe bei grobem Zeiger decken `.btn:not(.btn-link)` und `.lapis-form .form-control/.form-select` bereits ab. */
+@media (max-width: 767.98px) {
+  .lapis-posting-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  /* Die Flex-Basis der Desktop-Regeln (7rem bzw. 0) liegt in der Kartenform auf der nun VERTIKALEN Hauptachse: ohne dieses Zuruecksetzen
+     wuchs jeder Entfernen-Knopf auf 112 px Hoehe. Beide Zellen nehmen wieder ihre Inhaltshoehe. */
+  .lapis-posting-row > .lapis-posting-cell,
+  .lapis-posting-row > .lapis-posting-remove {
+    flex: 0 0 auto;
+  }
+
+  .lapis-posting-row--headed .form-label {
+    clip-path: none;
+    height: auto;
+    margin: 0;
+    position: static;
+    width: auto;
+  }
+
+  .lapis-posting-header {
+    display: none;
   }
 }
 

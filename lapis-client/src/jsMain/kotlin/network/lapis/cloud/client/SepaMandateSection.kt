@@ -1,8 +1,8 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.check.checkBox
-import io.kvision.form.select.select
-import io.kvision.form.text.text
+import io.kvision.form.check.CheckBox
+import io.kvision.html.Autocomplete
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -96,20 +96,15 @@ fun renderSepaMandateSection(root: SimplePanel) {
                                 "Das SEPA-Lastschriftmandat wird widerrufen. Zukünftige Beiträge können danach nicht mehr " +
                                     "per Lastschrift eingezogen werden.",
                             ),
-                        reasonLabel = tr("Grund (optional)"),
+                        reasonLabel = tr("Grund"),
                         reasonRequired = false,
                         confirmLabel = tr("Widerrufen"),
                     ) { reason ->
-                        revokeButton.disabled = true
-                        AppScope.launch {
-                            try {
-                                val result = guarded { rpcService<ISepaService>().revokeMandate(mandate.id, reason) }
-                                if (result != null) {
-                                    notifySuccess(tr("Mandat widerrufen."))
-                                    refresh()
-                                }
-                            } finally {
-                                revokeButton.disabled = false
+                        runGuardedAction(revokeButton) {
+                            val result = guarded { rpcService<ISepaService>().revokeMandate(mandate.id, reason) }
+                            if (result != null) {
+                                notifySuccess(tr("Mandat widerrufen."))
+                                refresh()
                             }
                         }
                     }
@@ -168,108 +163,127 @@ internal fun renderSepaMandateForm(
     memberOptions: List<Pair<String, String>>,
     onGranted: () -> Unit,
 ) {
-    val form = container.vPanel(spacing = 6)
-    val memberSelect =
+    val form = container.lapisForm()
+    val memberField =
         if (onBehalf) {
-            form.select(options = memberOptions, value = memberOptions.firstOrNull()?.first, label = tr("Mitglied"))
+            form.selectField(
+                label = tr("Mitglied"),
+                options = memberOptions,
+                value = memberOptions.firstOrNull()?.first,
+                required = true,
+                requiredMessage = tr("Bitte ein Mitglied auswählen."),
+            )
         } else {
             null
         }
-    val debtorNameInput = form.text(value = defaultDebtorName, label = tr("Name des Kontoinhabers"))
-    val ibanInput = form.text(label = tr("IBAN"))
-    val ibanEcho = form.div { addCssClasses("text-muted small font-monospace") }
-    ibanInput.subscribe { value -> ibanEcho.content = Validation.formatIbanGroups(value.orEmpty()) }
-    val bicInput = form.text(label = tr("BIC (optional)"))
-    val signatureDateInput = form.text(value = todayIso(), label = tr("Datum der Unterschrift (JJJJ-MM-TT)"))
-    val acknowledgedCheckbox =
-        form.checkBox(
+    val debtorNameField =
+        form.textField(
+            label = tr("Name des Kontoinhabers"),
+            value = defaultDebtorName,
+            required = true,
+            requiredMessage = tr("Bitte den Namen des Kontoinhabers angeben."),
+        )
+    // Aus der Absendeprüfung wird eine Feldregel (dieselbe Funktion, früher): der Fehler steht an der IBAN.
+    val ibanField =
+        form.textField(
+            label = tr("IBAN"),
+            // Kein Browser-Vorschlag: eine IBAN gehört zu genau EINEM Konto; nach dem Zurücksetzen (mehrere Fremdmandate hintereinander)
+            // darf das Feld nicht die IBAN des vorigen Mitglieds anbieten.
+            autocomplete = Autocomplete.OFF,
+            required = true,
+            requiredMessage = tr("Die IBAN ist ungültig."),
+            rule = { value ->
+                if (Validation.looksLikeIban(value.trim())) FieldCheck.Ok else FieldCheck.Invalid(gettext("Die IBAN ist ungültig."))
+            },
+        )
+    // S-15: [Validation.formatIbanGroups] is rendered ONLY into a separate, read-only echo line below the IBAN field -- never written
+    // back into the field's own value. W4c audit: the echo is a READING AID (four-character groups make a typo visible) and stays there
+    // for every non-empty entry, also one with a wrong check digit; whether the IBAN is valid is reported separately, at the field
+    // (rule + error slot), never by the presence or absence of the echo.
+    val ibanEcho = form.panel.div { addCssClasses("text-muted small font-monospace") }
+    ibanField.subscribe { value ->
+        ibanEcho.content = if (value.isBlank()) "" else Validation.formatIbanGroups(value.trim())
+    }
+    // Review Round 2 (2026-08-20, MAJOR): the BIC MUST be uppercased before it is sent -- unlike `IbanValidator.requireValid` (which
+    // normalizes internally), `BicValidator.isValid` (SepaService.kt grantMandate) matches its regex against the RAW string.
+    // [Validation.looksLikeBic] uppercases only for ITS OWN check; the value is NEVER written back into the field (Review-Runde-2-Befund
+    // 2026-08-20 -- do not "tidy" this): a lowercase-typed BIC used to pass this form's validation and then be rejected server-side.
+    val bicField =
+        form.textField(
+            label = tr("BIC"),
+            autocomplete = Autocomplete.OFF,
+            rule = { value ->
+                if (Validation.looksLikeBic(
+                        value.trim().uppercase(),
+                    )
+                ) {
+                    FieldCheck.Ok
+                } else {
+                    FieldCheck.Invalid(gettext("Die BIC ist ungültig."))
+                }
+            },
+        )
+    val signatureDateField =
+        form.textField(
+            label = tr("Datum der Unterschrift"),
+            value = todayIso(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val acknowledgedField =
+        form.checkField(
             label =
                 tr(
                     "Ich ermächtige, per SEPA-Lastschrift fällige Beträge von meinem Konto einzuziehen, und weise " +
                         "mein Kreditinstitut an, diese Lastschriften einzulösen. Ich kann innerhalb von acht Wochen, " +
                         "beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrags verlangen.",
                 ),
+            required = true,
+            requiredMessage = tr("Bitte das SEPA-Lastschriftmandat bestätigen."),
         )
-    val errorBox =
-        form.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val submitButton = form.button(tr("Mandat erteilen"), style = ButtonStyle.PRIMARY)
+    val submitButton = Button(tr("Mandat erteilen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = submitButton)
 
     submitButton.onClick {
-        errorBox.hide()
-        val memberId = if (onBehalf) memberSelect?.value else null
-        val debtorName = debtorNameInput.value.orEmpty().trim()
-        val ibanRaw = ibanInput.value.orEmpty().trim()
-        // Review Round 2 (2026-08-20, MAJOR): MUST be uppercased before it is sent -- unlike
-        // `IbanValidator.requireValid` (which normalizes internally, see `IbanValidator.normalize`),
-        // `BicValidator.isValid` (SepaService.kt grantMandate) matches its regex against the RAW
-        // string with no normalization at all. [Validation.looksLikeBic] below uppercases only for
-        // ITS OWN check, never writes that back into [bicRaw] -- a lowercase-typed BIC used to pass
-        // this form's validation and then get rejected server-side with a bare `ConflictException`
-        // that this client can only render as [SEPA_WRITE_CONFLICT_MESSAGE]'s three unrelated causes.
-        val bicRaw =
-            bicInput.value
-                ?.trim()
-                ?.uppercase()
-                .orEmpty()
-        val signatureDate = runCatching { LocalDate.parse(signatureDateInput.value.orEmpty().trim()) }.getOrNull()
-        val acknowledged = acknowledgedCheckbox.value
-
-        val validationError =
-            when {
-                onBehalf && memberId == null -> tr("Bitte ein Mitglied auswählen.")
-                debtorName.isBlank() -> tr("Bitte den Namen des Kontoinhabers angeben.")
-                !Validation.looksLikeIban(ibanRaw) -> tr("Die IBAN ist ungültig.")
-                bicRaw.isNotBlank() && !Validation.looksLikeBic(bicRaw) -> tr("Die BIC ist ungültig.")
-                signatureDate == null -> tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben.")
-                !acknowledged -> tr("Bitte das SEPA-Lastschriftmandat bestätigen.")
-                else -> null
-            }
-        if (validationError != null) {
-            errorBox.content = validationError
-            errorBox.show()
-            return@onClick
-        }
-
-        submitButton.disabled = true
-        AppScope.launch {
-            try {
-                val result =
-                    sepaGuarded(tr(SEPA_MANDATE_CONFLICT_MESSAGE)) {
-                        rpcService<ISepaService>().grantMandate(
-                            SepaMandateInput(
-                                memberId = memberId,
-                                debtorName = debtorName,
-                                debtorIban = ibanRaw,
-                                debtorBic = bicRaw.takeIf { it.isNotBlank() },
-                                signatureDate = signatureDate!!,
-                                mandateTextAcknowledged = acknowledged,
-                            ),
-                        )
-                    }
-                if (result != null) {
-                    notifySuccess(tr("Mandat erteilt."))
-                    // MINOR (Review Round 2, 2026-08-20): reset the form after every successful
-                    // grant, not just in the (onBehalf == false) case where `refresh()` happens to
-                    // rebuild this whole panel from scratch anyway. Without this, erfassing several
-                    // Fremdmandate back-to-back left the PREVIOUS member's name/IBAN sitting in the
-                    // fields -- switching only the member `select` and re-submitting would grant a
-                    // formally valid mandate on the WRONG member's account, and nothing server-side
-                    // catches that (the IBAN is only format-checked, never cross-checked against the
-                    // named account holder).
-                    memberSelect?.value = memberOptions.firstOrNull()?.first
-                    debtorNameInput.value = if (onBehalf) "" else defaultDebtorName
-                    ibanInput.value = ""
-                    ibanEcho.content = ""
-                    bicInput.value = ""
-                    signatureDateInput.value = todayIso()
-                    acknowledgedCheckbox.value = false
-                    onGranted()
+        form.submit(submitButton) {
+            val memberId = if (onBehalf) memberField?.value?.takeIf { it.isNotBlank() } else null
+            val debtorName = debtorNameField.value.trim()
+            val ibanRaw = ibanField.value.trim()
+            val bicRaw = bicField.value.trim().uppercase()
+            val signatureDate = runCatching { LocalDate.parse(signatureDateField.value.trim()) }.getOrNull() ?: return@submit
+            val acknowledged = (acknowledgedField.control as CheckBox).value
+            val result =
+                sepaGuarded(gettext(SEPA_MANDATE_CONFLICT_MESSAGE, SEPA_SIGNATURE_MAX_AGE_MONTHS)) {
+                    rpcService<ISepaService>().grantMandate(
+                        SepaMandateInput(
+                            memberId = memberId,
+                            debtorName = debtorName,
+                            debtorIban = ibanRaw,
+                            debtorBic = bicRaw.takeIf { it.isNotBlank() },
+                            signatureDate = signatureDate,
+                            mandateTextAcknowledged = acknowledged,
+                        ),
+                    )
                 }
-            } finally {
-                submitButton.disabled = false
+            if (result != null) {
+                notifySuccess(tr("Mandat erteilt."))
+                // MINOR (Review Round 2, 2026-08-20): reset the form after every successful grant, not just in the (onBehalf == false)
+                // case where `refresh()` happens to rebuild this whole panel from scratch anyway. Without this, erfassing several
+                // Fremdmandate back-to-back left the PREVIOUS member's name/IBAN sitting in the fields -- switching only the member
+                // `select` and re-submitting would grant a formally valid mandate on the WRONG member's account, and nothing
+                // server-side catches that (the IBAN is only format-checked, never cross-checked against the named account holder).
+                memberField?.setValue(memberOptions.firstOrNull()?.first)
+                debtorNameField.reset()
+                debtorNameField.setValue(if (onBehalf) "" else defaultDebtorName)
+                ibanField.reset()
+                ibanEcho.content = ""
+                bicField.reset()
+                signatureDateField.reset()
+                signatureDateField.setValue(todayIso())
+                acknowledgedField.reset()
+                onGranted()
             }
         }
     }
@@ -306,11 +320,14 @@ private const val SEPA_GATE_CONFLICT_HINT =
     "die Funktion ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es wurden " +
         "zu viele Anfragen in kurzer Zeit gestellt"
 
+/** Mirrors `SepaService.grantMandate`'s bound (`today.minus(1, DateTimeUnit.YEAR)`); a `%1` placeholder of the message, never a number in its msgid. */
+internal const val SEPA_SIGNATURE_MAX_AGE_MONTHS = 12
+
 /** `grantMandate`'s own conflict causes (`SepaService.kt:339-372`), see [SEPA_WRITE_CONFLICT_MESSAGE] KDoc. */
 internal const val SEPA_MANDATE_CONFLICT_MESSAGE =
     "Das Mandat konnte nicht erteilt werden -- mögliche Gründe: für dieses Mitglied besteht bereits ein aktives " +
         "Mandat, die IBAN ist ungültig oder liegt außerhalb des SEPA-Raums, der Name des Kontoinhabers ist leer, " +
-        "die BIC hat kein gültiges Format, das Unterschriftsdatum liegt in der Zukunft oder mehr als 12 Monate " +
+        "die BIC hat kein gültiges Format, das Unterschriftsdatum liegt in der Zukunft oder mehr als %1 Monate " +
         "zurück, oder " + SEPA_GATE_CONFLICT_HINT + "."
 
 /** `createDebitBatch`'s own conflict causes (`SepaService.kt:552-560`), see [SEPA_WRITE_CONFLICT_MESSAGE] KDoc.
@@ -333,6 +350,6 @@ internal const val SEPA_GENERATE_FILE_CONFLICT_MESSAGE =
  * [SEPA_WRITE_CONFLICT_MESSAGE] KDoc. */
 internal const val SEPA_RECORD_RETURN_CONFLICT_MESSAGE =
     "Die Rücklastschrift konnte nicht erfasst werden -- mögliche Gründe: das Rückgabedatum liegt in der Zukunft, " +
-        "die Rücklastschriftgebühr ist ungültig (nicht positiv oder mehr als 2 Nachkommastellen), für diese " +
+        "die Rücklastschriftgebühr ist ungültig (nicht positiv oder mehr als %1 Nachkommastellen), für diese " +
         "Position ist bereits ein Rückläufer erfasst, die Position befindet sich nicht mehr im dafür zulässigen " +
         "Status, oder " + SEPA_GATE_CONFLICT_HINT + "."

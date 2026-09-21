@@ -171,7 +171,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
             if (cases == null) {
                 loadMoreButton.hide()
                 // Vorher endete ein gescheiterter Abruf in `return@launch` und hinterliess ein stumm
-                // leeres Panel (der `errorBox`-Div darüber wurde nie befüllt -- toter Code).
+                // leeres Panel (der frühere `errorBox`-Div darüber wurde nie befüllt und ist in V1.4.30 entfernt).
                 if (reset) {
                     failed = true
                     listPanel.dataErrorState(onRetry = { loadPage(true) })
@@ -275,7 +275,7 @@ private fun renderDunningWarningBands(
                 gettext(
                     "Der rechtliche Hinweistext für das Mahnwesen wurde seit der letzten Bestätigung (Version %1) " +
                         "auf Version %2 aktualisiert.",
-                    settings.lastDisclaimerVersion ?: tr("keine"),
+                    settings.lastDisclaimerVersion ?: gettext("keine"),
                     disclaimer?.version.orEmpty(),
                 ),
             ) { addCssClass("fw-bold") }
@@ -496,13 +496,11 @@ private fun Container.renderDunningNoticeActions(
             reasonRequired = true,
             confirmLabel = tr("Stornieren"),
         ) { reason ->
-            cancelButton.disabled = true
-            AppScope.launch {
+            runGuardedAction(cancelButton) {
                 val result =
                     dunningGuarded(tr(DUNNING_ISSUE_CONFLICT_MESSAGE)) {
                         rpcService<IDunningService>().cancelDunningNotice(notice.id, reason.orEmpty())
                     }
-                cancelButton.disabled = false
                 if (result != null) {
                     notifySuccess(tr("Mahnung storniert."))
                     onChanged()
@@ -534,13 +532,11 @@ private fun renderDunningCaseActionBar(
     val actionsRow = panel.hPanel(spacing = 8) { addCssClasses("flex-wrap align-items-center mt-2") }
 
     fun issue(button: Button? = null) {
-        button?.disabled = true
-        AppScope.launch {
+        runGuardedAction(button) {
             val result =
                 dunningGuarded(tr(DUNNING_ISSUE_CONFLICT_MESSAGE)) {
                     rpcService<IDunningService>().issueDunningNotice(case.contributionId)
                 }
-            button?.disabled = false
             if (result != null) {
                 notifySuccess(tr("Mahnung ausgestellt."))
                 onChanged()
@@ -596,13 +592,11 @@ private fun renderDunningCaseActionBar(
                 reasonRequired = true,
                 confirmLabel = tr("Überspringen"),
             ) { reason ->
-                skipButton.disabled = true
-                AppScope.launch {
+                runGuardedAction(skipButton) {
                     val result =
                         dunningGuarded(tr(DUNNING_SKIP_CONFLICT_MESSAGE)) {
                             rpcService<IDunningService>().skipDunningLevel(case.contributionId, reason.orEmpty())
                         }
-                    skipButton.disabled = false
                     if (result != null) {
                         notifySuccess(tr("Mahnstufe übersprungen."))
                         onChanged()
@@ -631,13 +625,11 @@ private fun renderDunningCaseActionBar(
                 reasonRequired = true,
                 confirmLabel = tr("Zurücksetzen"),
             ) { reason ->
-                resetButton.disabled = true
-                AppScope.launch {
+                runGuardedAction(resetButton) {
                     val result =
                         dunningGuarded(tr(DUNNING_ISSUE_CONFLICT_MESSAGE)) {
                             rpcService<IDunningService>().resetDunning(case.contributionId, reason.orEmpty())
                         }
-                    resetButton.disabled = false
                     if (result != null) {
                         notifySuccess(tr("Mahnwesen zurückgesetzt."))
                         onChanged()

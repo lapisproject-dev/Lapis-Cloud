@@ -200,4 +200,45 @@ class JournalEntryBalanceTest :
                 )
             result.balanced shouldBe false
         }
+
+        test("a 1.0E20 amount (scale -19, as a JSON double arrives) is rejected: scale check passes, upper bound stops it") {
+            val huge = "1.0E20"
+            BigDecimal(huge).scale() shouldBe -19
+            val result =
+                JournalEntryBalance.validateBalanced(
+                    listOf(
+                        posting(PostingSide.DEBIT, huge, accountA),
+                        posting(PostingSide.CREDIT, huge, accountB),
+                    ),
+                )
+            result.balanced shouldBe false
+            result.reason shouldBe
+                "Every posting amount must be at most 1000000000000.00, got [100000000000000000000, 100000000000000000000]"
+        }
+
+        test("the upper bound itself is accepted, one cent above is rejected") {
+            JournalEntryBalance
+                .validateBalanced(
+                    listOf(
+                        posting(PostingSide.DEBIT, "1000000000000.00", accountA),
+                        posting(PostingSide.CREDIT, "1000000000000.00", accountB),
+                    ),
+                ).balanced shouldBe true
+            JournalEntryBalance
+                .validateBalanced(
+                    listOf(
+                        posting(PostingSide.DEBIT, "1000000000000.01", accountA),
+                        posting(PostingSide.CREDIT, "1000000000000.01", accountB),
+                    ),
+                ).balanced shouldBe false
+        }
+
+        test("tooLargeAmounts finds only the oversized postings, independent of balance") {
+            val postings =
+                listOf(
+                    posting(PostingSide.DEBIT, "1.0E20", accountA),
+                    posting(PostingSide.CREDIT, "5.00", accountB),
+                )
+            JournalEntryBalance.tooLargeAmounts(postings) shouldBe listOf(postings[0])
+        }
     })

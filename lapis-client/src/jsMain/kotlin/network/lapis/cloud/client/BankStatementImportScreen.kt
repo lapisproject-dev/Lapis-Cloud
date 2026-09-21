@@ -1,10 +1,11 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Widget
 import io.kvision.core.onClick
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.upload.upload
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
@@ -311,7 +312,7 @@ fun renderBankStatementImportScreen(
         uploadPanel.hide()
     }
 
-    renderUploadPanel(uploadPanel) { result -> onImported(result) }
+    renderUploadPanel(uploadPanel, onUploadStarted = { resultBannerHost.removeAll() }) { result -> onImported(result) }
     renderImports(reset = true)
 
     AppScope.launch {
@@ -326,54 +327,85 @@ fun renderBankStatementImportScreen(
 internal fun bankStatementImportHash(importId: String?): String =
     if (importId.isNullOrBlank()) "#${Routes.BANK_IMPORT}" else "#${Routes.BANK_IMPORT}?import=$importId"
 
-private fun renderUploadPanel(
+internal fun renderUploadPanel(
     panel: SimplePanel,
+    onUploadStarted: () -> Unit,
     onImported: (BankStatementImportResultDto) -> Unit,
 ) {
-    panel.p(tr("CSV (Sparkassen-CAMT-Export, generischer Auffangdialekt) oder MT940, max. 5 MB.")) { addCssClasses("text-muted small") }
-    val fileUpload = panel.upload(label = tr("Datei auswählen"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val uploadButton = panel.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    // W4c: der Upload ist ein [LapisForm]. Das rohe `Upload`-Control wird über `register` angemeldet (Muster `BackupScreen`): Hinweis-
+    // und Fehlerslot stehen als GESCHWISTER hinter dem Control, nie darin.
+    val form = panel.lapisForm()
+    form.panel.p(
+        // Die Grenze ist ein Platzhalter (nie eine Zahl im msgid) und kommt aus derselben Konstante wie die Vorprüfung.
+        gettext(
+            "CSV (Sparkassen-CAMT-Export, generischer Auffangdialekt) oder MT940, max. %1 MB.",
+            (BankStatementHttp.MAX_UPLOAD_BYTES / (1024 * 1024)).toInt(),
+        ),
+    ) { addCssClasses("text-muted small") }
+    val fileUpload = form.panel.upload(label = tr("Datei auswählen"))
+
+    fun selectedNativeFile() = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) }
+    val fileField =
+        form.register(
+            fileUpload,
+            label = tr("Datei auswählen"),
+            required = true,
+            requiredMessage = gettext("Bitte eine Datei auswählen."),
+            rule = {
+                val nativeFile = selectedNativeFile()
+                if (nativeFile != null && exceedsBankStatementUploadLimit(nativeFile.size.toLong())) {
+                    FieldCheck.Invalid(
+                        resolvedAttributeText(
+                            bankStatementRejectionMessage(
+                                BankStatementImportRejectionDto(code = BankStatementRejectionCode.FILE_TOO_LARGE),
+                            ),
+                        ),
+                    )
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
+    val uploadButton = Button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = uploadButton)
+    // Die Rohzeile eines abgelehnten Auszugs (enthält IBAN und Betrag) steht in einem gewöhnlichen Detailbereich, NICHT in der
+    // Sammelfläche des Formulars: die ist eine `role="alert"`-Live-Region, und ein Screenreader läse Kontodaten unaufgefordert vor.
+    val rawLineHost = panel.div { addCssClasses("text-muted small font-monospace") }
     uploadButton.onClick {
-        errorBox.hide()
-        val selected = fileUpload.value?.firstOrNull()
-        val nativeFile = selected?.let { fileUpload.getNativeFile(it) }
-        if (nativeFile == null) {
-            errorBox.content = tr("Bitte eine Datei auswählen.")
-            errorBox.show()
-            return@onClick
-        }
-        if (exceedsBankStatementUploadLimit(nativeFile.size.toLong())) {
-            errorBox.content =
-                bankStatementRejectionMessage(BankStatementImportRejectionDto(code = BankStatementRejectionCode.FILE_TOO_LARGE))
-            errorBox.show()
-            return@onClick
-        }
-        uploadButton.disabled = true
-        AppScope.launch {
-            when (val outcome = BankStatementHttp.import(nativeFile)) {
+        // Spec H: das Ergebnis des vorigen Laufs wird VOR jedem Absenden geräumt -- auch vor einem, das schon an der Feldprüfung
+        // scheitert (Datei zu groß): ein stehengelassenes Erfolgsbanner über einem gescheiterten Upload wäre dieselbe Lüge wie ein
+        // grüner "gültig"-Zustand. Vorher lief das erst NACH bestandener Prüfung.
+        onUploadStarted()
+        rawLineHost.content = ""
+        form.submit(uploadButton) {
+            val nativeFile = selectedNativeFile() ?: return@submit
+            val outcome =
+                try {
+                    BankStatementHttp.import(nativeFile)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    // Keine Antwort: der Server kann den Auszug bereits importiert haben -- das sagt die Meldung ehrlich.
+                    form.showFormError(
+                        gettext(
+                            "Die Verbindung wurde unterbrochen, eine Antwort des Servers fehlt. Der Auszug wurde möglicherweise " +
+                                "importiert -- prüfen Sie die Importliste, bevor Sie die Datei erneut hochladen.",
+                        ),
+                    )
+                    return@submit
+                }
+            when (outcome) {
                 is BankStatementImportOutcome.Success -> {
                     notifySuccess(tr("Auszug importiert."))
-                    fileUpload.clearInput()
-                    uploadButton.disabled = false
+                    fileField.reset()
                     onImported(outcome.result)
                 }
                 is BankStatementImportOutcome.Rejected -> {
-                    uploadButton.disabled = false
                     val rejection = outcome.rejection
-                    val details = listOfNotNull(bankStatementRejectionMessage(rejection), rejection.rawLineExcerpt)
-                    errorBox.content = details.joinToString(" ")
-                    errorBox.show()
+                    form.showFormError(resolvedAttributeText(bankStatementRejectionMessage(rejection)))
+                    rejection.rawLineExcerpt?.let { rawLineHost.content = gettext("Betroffene Zeile: %1", it) }
                 }
-                is BankStatementImportOutcome.Other -> {
-                    uploadButton.disabled = false
-                    errorBox.content = outcome.message
-                    errorBox.show()
-                }
+                is BankStatementImportOutcome.Other -> form.showFormError(resolvedAttributeText(outcome.message))
             }
         }
     }
@@ -452,7 +484,7 @@ private fun renderLineRow(
  * anonym", `LedgerScreen.collectDonor()` schliesst dieselbe Kombination bereits aktiv aus), und
  * Ignorieren (Pflichtbegruendung, [confirmWithReasonDialog]).
  */
-private fun renderAssignmentWorkbench(
+internal fun renderAssignmentWorkbench(
     host: SimplePanel,
     line: BankStatementLineDto,
     members: List<MemberSummaryDto>,
@@ -463,10 +495,14 @@ private fun renderAssignmentWorkbench(
     val panel = host.vPanel(spacing = 10) { addCssClasses("border rounded p-3") }
     panel.div(gettext("Zeile vom %1 -- %2", line.bookingDate.toString(), formatMoney(line.amount))) { addCssClass("fw-bold") }
 
-    val noteInput = panel.text(label = tr("Notiz (optional)"))
+    // W4c: die Arbeitsfläche ist EIN [LapisForm] (gemeinsame Notiz, Spendenzuordnung, Ignorieren in der Gefahrenzone). Die Vorschläge und
+    // die Freitextsuche stehen als Nicht-Felder dazwischen; die Suche ist ein Filter, kein Formularfeld.
+    val form = panel.lapisForm()
+    val body = form.panel
+    val noteField = form.textField(label = tr("Notiz"))
 
-    panel.div(tr("Vorschläge")) { addCssClasses("fw-bold mt-2") }
-    val suggestionsHost = panel.vPanel(spacing = 4)
+    body.div(tr("Vorschläge")) { addCssClasses("fw-bold mt-2") }
+    val suggestionsHost = body.vPanel(spacing = 4)
     suggestionsHost.div(tr("Lade Vorschläge …")) { addCssClasses("text-muted small") }
 
     fun renderCandidates(
@@ -492,15 +528,18 @@ private fun renderAssignmentWorkbench(
             )
             val assignButton = row.button(tr("Diesem Beitrag zuordnen"), style = ButtonStyle.OUTLINESECONDARY)
             assignButton.onClick {
-                AppScope.launch {
-                    val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
+                // Ein Formularfehler eines früheren Versuchs ("Als Spende zuordnen" gescheitert) darf nicht über einer anderen, neuen
+                // Aktion stehen bleiben.
+                form.clearFormError()
+                runGuardedAction(assignButton) {
+                    val note = noteField.value.trim().takeIf { it.isNotBlank() }
                     guarded {
                         rpcService<IBankStatementService>().assignLineToContribution(
                             lineId = line.id,
                             contributionId = candidate.contributionId,
                             note = note,
                         )
-                    } ?: return@launch
+                    } ?: return@runGuardedAction
                     notifySuccess(tr("Zeile zugeordnet."))
                     onChanged()
                 }
@@ -508,14 +547,16 @@ private fun renderAssignmentWorkbench(
         }
     }
 
-    AppScope.launch {
+    // `suggestMatches` ist trotz des Namens ein Lesevorgang; der R29-Scanner kennt das Präfix "suggest" nicht als Lese-Präfix -- der Aufruf
+    // läuft deshalb über `runGuardedAction(null)` (billiger und ehrlicher als eine Änderung des Scanners mitten in der Messung).
+    runGuardedAction(null) {
         val suggestions = guarded { rpcService<IBankStatementService>().suggestMatches(line.id) } ?: emptyList()
         renderCandidates(suggestionsHost, suggestions)
     }
 
-    panel.div(tr("Freitextsuche")) { addCssClasses("fw-bold mt-2") }
-    val searchInput = panel.text(label = tr("Mitgliedsname oder Beitragssatz"))
-    val searchResultsHost = panel.vPanel(spacing = 4)
+    body.div(tr("Freitextsuche")) { addCssClasses("fw-bold mt-2") }
+    val searchInput = body.text(label = tr("Mitgliedsname oder Beitragssatz"))
+    val searchResultsHost = body.vPanel(spacing = 4)
     var searchDebounceHandle: Int? = null
     var isInitialSearchEvent = true
     // Review fix (MINOR, Welle V1.4.5.1.1 Runde 2): `window.clearTimeout` only cancels a still-
@@ -556,85 +597,116 @@ private fun renderAssignmentWorkbench(
             }, SEARCH_DEBOUNCE_MS)
     }
 
-    panel.div(tr("Als Spende zuordnen")) { addCssClasses("fw-bold mt-2") }
-    val donorTypeSelect =
-        panel.select(
+    body.div(tr("Als Spende zuordnen")) { addCssClasses("fw-bold mt-2") }
+    val donorTypeField =
+        form.selectField(
+            label = tr("Spendertyp"),
             options = listOf("MEMBER" to tr("Mitglied"), "EXTERNAL" to tr("Externer Spender")),
             value = "MEMBER",
-            label = tr("Spendertyp"),
+            // Ohne leere Option nie leer: `required` wäre nur Schein und ließe die Kennzeichnung kippen -- `decideRequiredMarking` sähe
+            // "1 von 5 Feldern Pflicht" und setzte den Stern AUSGERECHNET an den vorbelegten Spendertyp, während Mitglied und
+            // Spenderkategorie (die per Querregel blockieren) ohne Stern blieben, unter einer sichtbaren "Pflichtfeld"-Legende. Die
+            // Pflicht der Folgefelder sagt ihr Hinweis; ohne Pflichtfeld gibt es weder Stern noch Legende.
+            required = false,
         )
-    val memberDonorPanel = panel.vPanel(spacing = 4)
-    val memberSelect = memberDonorPanel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    // Die Auswahlfelder des Spenderblocks werden über ihren CONTAINER ein-/ausgeblendet (`LapisField.setVisible` kann nur Text); ihre
+    // Pflicht gilt nur beim passenden Spendertyp -- deshalb Querregeln (Sammelfläche) statt `required`, sonst blockierte ein
+    // unsichtbares Pflichtfeld das Absenden.
+    val memberDonorPanel = body.vPanel(spacing = 4)
+    val donorRequiredHint = tr("Pflichtangabe für diesen Spendertyp.")
+    val memberField =
+        form.selectField(
+            label = tr("Mitglied"),
+            options = members.map { it.id to it.displayName },
+            hint = donorRequiredHint,
+            host = memberDonorPanel,
+        )
     val naturalPersonFirst =
         listOf(DonorCategory.GERMAN_NATURAL_PERSON, DonorCategory.EU_NATURAL_PERSON, DonorCategory.NON_EU_FOREIGN_NATURAL_PERSON)
     // OF-3: ANONYMOUS bewusst NICHT in dieser Liste -- siehe Funktions-KDoc.
     val donorCategoryOrder = naturalPersonFirst + (DonorCategory.entries - naturalPersonFirst.toSet() - DonorCategory.ANONYMOUS)
     val donorCategoryOptions =
         listOf("" to tr("-- Spenderkategorie wählen --")) + donorCategoryOrder.map { it.name to donorCategoryLabel(it) }
-    val donorCategorySelect = memberDonorPanel.select(options = donorCategoryOptions, value = "", label = tr("Spenderkategorie"))
-    val externalDonorPanel = panel.vPanel(spacing = 4)
-    val externalSelect = externalDonorPanel.select(options = externalDonors.map { it.id to it.displayName }, label = tr("Externer Spender"))
+    val donorCategoryField =
+        form.selectField(
+            label = tr("Spenderkategorie"),
+            options = donorCategoryOptions,
+            value = "",
+            hint = donorRequiredHint,
+            host = memberDonorPanel,
+        )
+    val externalDonorPanel = body.vPanel(spacing = 4)
+    val externalField =
+        form.selectField(
+            label = tr("Externer Spender"),
+            options = externalDonors.map { it.id to it.displayName },
+            hint = donorRequiredHint,
+            host = externalDonorPanel,
+        )
 
     fun applyDonorGating(choice: String?) {
         if (choice == "MEMBER") memberDonorPanel.show() else memberDonorPanel.hide()
         if (choice == "EXTERNAL") externalDonorPanel.show() else externalDonorPanel.hide()
     }
-    applyDonorGating(donorTypeSelect.value)
-    donorTypeSelect.subscribe { applyDonorGating(it) }
-
-    val donationErrorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
+    applyDonorGating(donorTypeField.value)
+    donorTypeField.subscribe { applyDonorGating(it) }
+    val donorWidgets = listOf(donorTypeField, memberField, donorCategoryField, externalField).mapNotNull { it.control.input as? Widget }
+    form.crossFieldRule(focusOn = memberField.control.input as? Widget, watch = donorWidgets) {
+        if (donorTypeField.value == "MEMBER" && (memberField.value.isBlank() || donorCategoryField.value.isBlank())) {
+            FieldCheck.Invalid(gettext("Bitte Mitglied und Spenderkategorie wählen."))
+        } else {
+            FieldCheck.Ok
         }
-    val assignDonationButton = panel.button(tr("Als Spende zuordnen"), style = ButtonStyle.OUTLINESECONDARY)
+    }
+    form.crossFieldRule(focusOn = externalField.control.input as? Widget, watch = donorWidgets) {
+        if (donorTypeField.value == "EXTERNAL" && externalField.value.isBlank()) {
+            FieldCheck.Invalid(gettext("Bitte einen externen Spender wählen."))
+        } else {
+            FieldCheck.Ok
+        }
+    }
+
+    val assignDonationButton = Button(tr("Als Spende zuordnen"), style = ButtonStyle.OUTLINESECONDARY)
+    // "Zeile ignorieren" ist unumkehrbar: eigene Gefahrenzone UNTER der Knopfzeile.
+    val ignoreButton = Button(tr("Zeile ignorieren"), style = ButtonStyle.DANGER)
+    form.buttons(primary = assignDonationButton, destructive = ignoreButton)
+
     assignDonationButton.onClick {
-        donationErrorBox.hide()
-        val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val input =
-            when (donorTypeSelect.value) {
-                "MEMBER" -> {
-                    val memberId = memberSelect.value
-                    val category =
-                        donorCategorySelect.value
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { runCatching { DonorCategory.valueOf(it) }.getOrNull() }
-                    if (memberId == null || category == null) {
-                        donationErrorBox.content = tr("Bitte Mitglied und Spenderkategorie wählen.")
-                        donationErrorBox.show()
-                        null
-                    } else {
-                        BankStatementDonationAssignmentInput(donorMemberId = memberId, donorCategory = category, note = note)
+        form.submit(assignDonationButton) {
+            val note = noteField.value.trim().takeIf { it.isNotBlank() }
+            val input =
+                when (donorTypeField.value) {
+                    "MEMBER" -> {
+                        val category = runCatching { DonorCategory.valueOf(donorCategoryField.value) }.getOrNull()
+                        if (memberField.value.isBlank() || category == null) {
+                            null
+                        } else {
+                            BankStatementDonationAssignmentInput(donorMemberId = memberField.value, donorCategory = category, note = note)
+                        }
                     }
-                }
-                "EXTERNAL" -> {
-                    val externalId = externalSelect.value
-                    if (externalId == null) {
-                        donationErrorBox.content = tr("Bitte einen externen Spender wählen.")
-                        donationErrorBox.show()
-                        null
-                    } else {
-                        val donor = externalDonors.firstOrNull { it.id == externalId }
-                        BankStatementDonationAssignmentInput(
-                            externalDonorId = externalId,
-                            donorCategory = donor?.donorCategory ?: DonorCategory.GERMAN_COMPANY_OR_ORGANIZATION,
-                            note = note,
-                        )
+                    "EXTERNAL" -> {
+                        val externalId = externalField.value.takeIf { it.isNotBlank() }
+                        if (externalId == null) {
+                            null
+                        } else {
+                            val donor = externalDonors.firstOrNull { it.id == externalId }
+                            BankStatementDonationAssignmentInput(
+                                externalDonorId = externalId,
+                                donorCategory = donor?.donorCategory ?: DonorCategory.GERMAN_COMPANY_OR_ORGANIZATION,
+                                note = note,
+                            )
+                        }
                     }
+                    else -> null
                 }
-                else -> null
-            }
-        if (input != null) {
-            AppScope.launch {
-                guarded { rpcService<IBankStatementService>().assignLineToDonation(lineId = line.id, input = input) } ?: return@launch
+            if (input != null) {
+                guarded { rpcService<IBankStatementService>().assignLineToDonation(lineId = line.id, input = input) } ?: return@submit
                 notifySuccess(tr("Zeile als Spende zugeordnet."))
                 onChanged()
             }
         }
     }
 
-    panel.div(tr("Ignorieren")) { addCssClasses("fw-bold mt-2") }
-    val ignoreButton = panel.button(tr("Zeile ignorieren"), style = ButtonStyle.DANGER)
     ignoreButton.onClick {
         confirmWithReasonDialog(
             title = tr("Zeile ignorieren"),
@@ -644,8 +716,9 @@ private fun renderAssignmentWorkbench(
             reasonRequired = true,
             confirmLabel = tr("Zeile ignorieren"),
         ) { reason ->
-            AppScope.launch {
-                guarded { rpcService<IBankStatementService>().ignoreLine(lineId = line.id, reason = reason.orEmpty()) } ?: return@launch
+            runGuardedAction(ignoreButton) {
+                guarded { rpcService<IBankStatementService>().ignoreLine(lineId = line.id, reason = reason.orEmpty()) }
+                    ?: return@runGuardedAction
                 notifySuccess(tr("Zeile ignoriert."))
                 onChanged()
             }

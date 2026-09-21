@@ -137,7 +137,8 @@ private fun renderApiKeyCard(
                 gettext(
                     "Webhook für „%1“ deaktiviert: %2.",
                     key.label,
-                    endpoint.deactivationReason?.let { webhookDeactivationReasonLabel(it) } ?: tr("unbekannter Grund"),
+                    endpoint.deactivationReason?.let { resolvedAttributeText(webhookDeactivationReasonLabel(it)) }
+                        ?: gettext("unbekannter Grund"),
                 )
         }
     }
@@ -350,12 +351,13 @@ private fun renderWebhookBlock(
                             gettext(
                                 "HTTP %1 -- %2",
                                 result.lastHttpStatus.toString(),
-                                if (delivered) tr("zugestellt") else tr("fehlgeschlagen"),
+                                if (delivered) gettext("zugestellt") else gettext("fehlgeschlagen"),
                             )
                         } else {
                             gettext(
                                 "Fehlgeschlagen: %1",
-                                result.lastErrorCode?.let { webhookFailureReasonLabel(it) } ?: tr("unbekannter Fehler"),
+                                result.lastErrorCode?.let { resolvedAttributeText(webhookFailureReasonLabel(it)) }
+                                    ?: gettext("unbekannter Fehler"),
                             )
                         }
                 }

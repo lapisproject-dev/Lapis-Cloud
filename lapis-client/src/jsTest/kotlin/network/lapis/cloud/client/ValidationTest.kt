@@ -233,6 +233,15 @@ class ValidationTest {
     }
 
     @Test
+    fun looksLikeIban_acceptsAnyWhitespaceLikeTheServersNormalizer_neverStricterThanTheServer() {
+        // `IbanValidator.normalize` strips every whitespace char (`isWhitespace`, also a no-break space from a copied IBAN); the field rule
+        // of the bank account form must not reject what the server accepts.
+        assertTrue(Validation.looksLikeIban("DE89\u00A03704\u00A00044\u00A00532\u00A00130\u00A000"))
+        assertTrue(Validation.looksLikeIban("DE89\t3704 0044 0532 0130 00"))
+        assertFalse(Validation.looksLikeIban("DE89 3704 0044 0532 0130 01"))
+    }
+
+    @Test
     fun looksLikeIban_acceptsValidGermanIbanInLowercase() {
         assertTrue(Validation.looksLikeIban("de89370400440532013000"))
     }

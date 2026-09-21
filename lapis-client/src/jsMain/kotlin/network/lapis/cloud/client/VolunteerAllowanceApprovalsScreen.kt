@@ -181,7 +181,7 @@ private fun renderVolunteerAllowanceDecisionSection(
                 formatMoney(yearStatus.postedTotalInThisOrganization),
                 formatMoney(payment.amount),
                 formatMoney(yearStatus.remainingInThisOrganization),
-                volunteerAllowanceRemainingLabel(),
+                resolvedAttributeText(volunteerAllowanceRemainingLabel()),
                 formatMoney(yearStatus.annualCap),
             ),
         ) { addCssClasses("small") }

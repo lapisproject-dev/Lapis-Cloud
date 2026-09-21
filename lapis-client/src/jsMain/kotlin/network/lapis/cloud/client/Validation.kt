@@ -135,12 +135,9 @@ object Validation {
      * human-typed/copy-pasted IBAN.
      */
     fun looksLikeIban(value: String): Boolean {
-        val normalized =
-            value
-                .trim()
-                .replace(" ", "")
-                .replace("\t", "")
-                .uppercase()
+        // ALLE Leerraumzeichen (auch ein eingefügtes geschütztes Leerzeichen), wie `IbanValidator.normalize` des Servers -- die Prüfung
+        // darf nie strenger sein als der Server (vorher: nur Leerzeichen und Tab).
+        val normalized = value.filterNot { it.isWhitespace() }.uppercase()
         if (!Regex("^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$").matches(normalized)) return false
         return ibanMod97Check(normalized)
     }

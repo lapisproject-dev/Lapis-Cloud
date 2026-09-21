@@ -47,17 +47,9 @@ msgstr "Bankrekening verwijderd."
 msgid "Bankleitzahl (BLZ)"
 msgstr "Bankcode (BLZ)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:256
-msgid "Bankname (optional)"
-msgstr "Banknaam (optioneel)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
 msgid "Benutzerkennung"
 msgstr "Gebruikersnaam"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:271
-msgid "Bezeichnung und IBAN sind Pflichtfelder."
-msgstr "Naam en IBAN zijn verplicht."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:235
 msgid "Erneute Anmeldung erforderlich"
@@ -314,8 +306,8 @@ msgid "CSV"
 msgstr "CSV"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:263
-msgid "CSV (Sparkassen-CAMT-Export, generischer Auffangdialekt) oder MT940, max. 5 MB."
-msgstr "CSV (Sparkasse CAMT-export, generiek dialect) of MT940, max. 5 MB."
+msgid "CSV (Sparkassen-CAMT-Export, generischer Auffangdialekt) oder MT940, max. %1 MB."
+msgstr "CSV (Sparkasse CAMT-export, generiek dialect) of MT940, max. %1 MB."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:107
 msgid "Das angegebene Bankkonto ist nicht (mehr) hinterlegt. Bitte ein aktuelles Bankkonto auswählen."
@@ -480,10 +472,6 @@ msgstr "Generiek CSV-formaat"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:335
 msgid "Herkunft der Einwilligung (z. B. \"Infostand Braunschweig\")"
 msgstr "Herkomst van de toestemming (bijv. \"Infostand Braunschweig\")"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:522
-msgid "Ignorieren"
-msgstr "Negeren"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:24
 msgid "Ignoriert"
@@ -865,19 +853,7 @@ msgstr "(jaarlijks tekort)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:324
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:343
 msgid "(nicht konfiguriert)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1011
-msgid ""
-"(optional -- bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen "
-"dieser Partei)"
-msgstr ""
-"(optioneel -- bij toewijzing gelden de §25-PartG-donatieacceptatiecontroles "
-"van deze partij)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1013
-msgid "(optional, für Spendenbescheinigungen)"
-msgstr "(optioneel, voor donatiebevestigingen)"
+msgstr "(niet geconfigureerd)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:310
 msgid "(Sie)"
@@ -2166,10 +2142,6 @@ msgstr "Bankrekening"
 msgid "Bankkonto (LedgerAccount-ID)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:326
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:635
 msgid "Beantragen"
 msgstr "Aanvragen"
@@ -2372,7 +2344,7 @@ msgstr "Verwijderingsverzoeken voor posts"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:357
 msgid "Beitragserlöskonto"
-msgstr ""
+msgstr "Opbrengstrekening bijdragen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:532
 msgid "Beitragserlöskonto (LedgerAccount-ID)"
@@ -2389,10 +2361,6 @@ msgstr "Bijdragefactuur per post versturen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:137
 msgid "Beitragssatz"
 msgstr "Bijdragetarief"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:300
-msgid "Beitragssatz (optional, leer = alle)"
-msgstr "Contributietarief (optioneel, leeg = alle)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:121
 msgid "Beitragssätze und Beitragsgenerierung"
@@ -2423,10 +2391,6 @@ msgstr "Bewijsstuk"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:795
 msgid "Beleg: %1"
 msgstr "Bewijsstuk: %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:967
-msgid "Belegnummer (optional)"
-msgstr "Bewijsstuknummer (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:559
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:572
@@ -2549,12 +2513,6 @@ msgstr "Besluittekst"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:966
 msgid "Beschreibung"
 msgstr "Beschrijving"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:155
-#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:155
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:637
-msgid "Beschreibung (optional)"
-msgstr "Beschrijving (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:272
 msgid "Besetzung: %1"
@@ -2684,10 +2642,6 @@ msgstr "Benaming"
 msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
 msgstr "Benaming (bijv. \"PdV YouTube-kanaal\")"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:182
-msgid "BIC (optional)"
-msgstr "BIC (optioneel)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:552
 msgid "Bieten"
 msgstr "Bieden"
@@ -2718,13 +2672,6 @@ msgstr "Schermdelen beëindigen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:217
 msgid "Bis (Geschäftsjahr)"
 msgstr "Tot (boekjaar)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:178
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:608
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:668
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:684
-msgid "Bis (JJJJ-MM-TT, optional)"
-msgstr "Tot (JJJJ-MM-DD, optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:521
 msgid "Bis (JJJJ-MM-TT, Pflichtfeld)"
@@ -2798,23 +2745,9 @@ msgstr "Bevestig dat u de toetredingsovereenkomst hebt gelezen."
 msgid "Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."
 msgstr "Bevestig dat u de gebruiksvoorwaarden hebt gelezen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:170
-msgid "Bitte Code und Name angeben."
-msgstr "Geef code en naam op."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:227
 msgid "Bitte das SEPA-Lastschriftmandat bestätigen."
 msgstr "Bevestig de SEPA-incassomachtiging."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1113
-msgid ""
-"Bitte Datum, Beschreibung und für jede Buchungszeile Konto, Betrag und "
-"Sphäre angeben -- und, falls ein Spendertyp gewählt ist, dessen Felder "
-"vollständig ausfüllen."
-msgstr ""
-"Geef datum, beschrijving en voor elke boekingsregel rekening, bedrag en "
-"sfeer op -- en, indien een donateurtype is geselecteerd, vul de bijbehorende "
-"velden volledig in."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:223
 msgid "Bitte den Namen des Kontoinhabers angeben."
@@ -2831,20 +2764,9 @@ msgid ""
 "Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis)."
 msgstr "Geef een geldig \"van\"- en \"tot\"-boekjaar op (Van ≤ Tot)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:220
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:357
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:820
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:226
-msgid "Bitte ein gültiges Datum (JJJJ-MM-TT) angeben."
-msgstr "Geef een geldige datum op (JJJJ-MM-DD)."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:245
 msgid "Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026)."
 msgstr "Geef een geldig boekjaar op (bijv. 2026)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:299
-msgid "Bitte ein gültiges Kalenderjahr angeben (JJJJ)."
-msgstr "Geef een geldig kalenderjaar op (JJJJ)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:622
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:222
@@ -2954,12 +2876,6 @@ msgid ""
 "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
 msgstr "Geef een reden voor afwijzing op (wordt bij het lid opgeslagen)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:319
-msgid ""
-"Bitte gültige Daten (JJJJ-MM-TT) für Einzugsdatum und Fälligkeit angeben."
-msgstr ""
-"Geef geldige data (JJJJ-MM-DD) op voor de incassodatum en de vervaldatum."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:241
 msgid ""
 "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer "
@@ -2987,10 +2903,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:404
 msgid "Bitte Kategorie, Titel und Beschreibung angeben."
 msgstr "Geef categorie, titel en beschrijving op."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:526
-msgid "Bitte Kontonummer, Name, Kontenklasse (0-9) und Kontotyp angeben."
-msgstr "Geef rekeningnummer, naam, rekeningklasse (0-9) en rekeningtype op."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:874
 msgid ""
@@ -3025,10 +2937,6 @@ msgstr "Geef ten minste 2 verschillende opties op."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:510
 msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
 msgstr "Geef lid en een positief LTR-bedrag op."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:230
-msgid "Bitte Name und Spenderkategorie angeben."
-msgstr "Geef naam en donateurcategorie op."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:534
 msgid ""
@@ -3217,10 +3125,6 @@ msgstr "Chat"
 msgid "Chat (%1)"
 msgstr "Chat (%1)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:153
-msgid "Code (eindeutig, z. B. SOMMERFEST-2027)"
-msgstr "Code (uniek, bijv. ZOMERFEEST-2027)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:719
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:745
 msgid "Committee-Quorum entscheiden"
@@ -3342,14 +3246,6 @@ msgstr "Gegevensstand"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:700
 msgid "Datum"
 msgstr "Datum"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:965
-msgid "Datum (JJJJ-MM-TT)"
-msgstr "Datum (JJJJ-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:183
-msgid "Datum der Unterschrift (JJJJ-MM-TT)"
-msgstr "Datum van ondertekening (JJJJ-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:794
 msgid "Datum: %1"
@@ -3644,12 +3540,6 @@ msgid ""
 msgstr ""
 "De ruwe opnamen blijven bewaard -- neem contact op met een beheerder als de "
 "opname moet worden hersteld."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:823
-msgid ""
-"Die Rücklastschriftgebühr muss, falls angegeben, ein positiver Betrag sein."
-msgstr ""
-"Indien opgegeven, moet de terugboekingskosten een positief bedrag zijn."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:793
 msgid ""
@@ -4189,10 +4079,6 @@ msgstr "Waarschijnlijkheid"
 msgid "Einzelne Person"
 msgstr "Individuele persoon"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:298
-msgid "Einzugsdatum (JJJJ-MM-TT)"
-msgstr "Incassodatum (JJJJ-MM-DD)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:462
 msgid "Einzugsdatum %1"
 msgstr "Incassodatum %1"
@@ -4459,10 +4345,6 @@ msgstr "Verleend op"
 msgid "Ertragskonto"
 msgstr "Opbrengstrekening"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:120
-msgid "Es können höchstens 10 Mandate pro Minute erfasst werden."
-msgstr "Er kunnen maximaal 10 machtigingen per minuut worden geregistreerd."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:731
 msgid ""
 "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe "
@@ -4550,10 +4432,6 @@ msgstr "Externe donateur"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:446
 msgid "Externer Spender (ID)"
 msgstr "Externe donateur (ID)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:299
-msgid "Fällig bis (JJJJ-MM-TT)"
-msgstr "Vervalt op (JJJJ-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:119
 msgid "Fälligkeit"
@@ -4658,10 +4536,6 @@ msgstr "Formaat"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:52
 msgid "Freie Rücklage (%1)"
 msgstr "Vrije reserve (%1)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:745
-msgid "Freitext (Pflicht bei \"Sonstiger Grund\")"
-msgstr "Vrije tekst (verplicht bij \"Overige reden\")"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:27
 msgid "Freund"
@@ -4828,7 +4702,7 @@ msgstr "Kosten"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:352
 msgid "Gebührenkonto"
-msgstr ""
+msgstr "Rekening transactiekosten"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:530
 msgid "Gebührenkonto (LedgerAccount-ID)"
@@ -5050,11 +4924,6 @@ msgstr "Orgaan: %1 · ingediend door %2 op %3"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:738
 msgid "Grund"
 msgstr "Reden"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:99
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:150
-msgid "Grund (optional)"
-msgstr "Reden (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:107
 msgid "Grund bankseitig nicht spezifiziert (MS03)"
@@ -5466,10 +5335,6 @@ msgstr "Journaal (dagboek)"
 msgid "Journaldetails"
 msgstr "Journaaldetails"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:286
-msgid "Kalenderjahr (JJJJ)"
-msgstr "Kalenderjaar (JJJJ)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:325
 msgid "Kalenderjahr %1"
 msgstr "Kalenderjaar %1"
@@ -5682,17 +5547,9 @@ msgstr "Geen geplande vergaderingen beschikbaar."
 msgid "Keine Kostenstelle mit Buchungen im gewählten Zeitraum."
 msgstr "Geen kostenplaats met boekingen in de geselecteerde periode."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:109
-msgid "Keine Läufe vorhanden."
-msgstr "Geen batches beschikbaar."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:253
 msgid "Keine Löschanträge für diese Filter gefunden."
 msgstr "Geen verwijderingsverzoeken gevonden voor deze filters."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:77
-msgid "Keine Mandate für diese Filter gefunden."
-msgstr "Geen machtigingen gevonden voor deze filters."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:238
 msgid "Keine Meldung erforderlich"
@@ -5726,10 +5583,6 @@ msgid "Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr."
 msgstr ""
 "Geen openstaande melding-/openbaarmakingsplichten in het geselecteerde "
 "kalenderjaar."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:695
-msgid "Keine Rücklastschriften für diese Filter."
-msgstr "Geen terugboekingen voor deze filters."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:998
 msgid "Keine Tagesordnungspunkte."
@@ -5782,10 +5635,6 @@ msgstr "Rekeningen (SKR42-rekeningschema)"
 msgid "Kontenklasse"
 msgstr "Rekeningklasse"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:484
-msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
-msgstr "Rekeningklasse (eerste cijfer van het rekeningnummer, 0-9)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:433
 msgid "Kontenklasse %1"
 msgstr "Rekeningklasse %1"
@@ -5798,11 +5647,11 @@ msgstr "Rekeningschema & journaal"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:376
 msgid "Kontenzuordnung gespeichert."
-msgstr ""
+msgstr "Rekeningtoewijzing opgeslagen."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:360
 msgid "Kontenzuordnung speichern"
-msgstr ""
+msgstr "Rekeningtoewijzing opslaan"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:172
 msgid "Kontenzuordnung Zahlungsverkehr"
@@ -6188,7 +6037,7 @@ msgstr "LTR-overdracht bevestigen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:92
 msgid "Mahnung"
-msgstr ""
+msgstr "Aanmaningsbrief"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:203
 msgid "Mailingliste"
@@ -7694,17 +7543,9 @@ msgstr "Terugboeking registreren"
 msgid "Rücklastschrift erfasst."
 msgstr "Terugboeking geregistreerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:736
-msgid "Rücklastschrift-Datum (JJJJ-MM-TT)"
-msgstr "Terugboekingsdatum (JJJJ-MM-DD)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:681
 msgid "Rücklastschriften"
 msgstr "Terugboekingen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:746
-msgid "Rücklastschriftgebühr in EUR (optional)"
-msgstr "Terugboekingskosten in EUR (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:631
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:689
@@ -8200,7 +8041,7 @@ msgid ""
 "Solange eines der drei Konten nicht zugeordnet ist, wird ein als bezahlt "
 "markierter Beitrag NICHT gebucht -- der Status wechselt trotzdem auf "
 "\"bezahlt\"."
-msgstr ""
+msgstr "Zolang een van de drie rekeningen niet is toegewezen, wordt een als betaald gemarkeerde bijdrage NIET geboekt -- de status wijzigt toch naar \"betaald\"."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1342
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1417
@@ -8318,10 +8159,6 @@ msgstr "Donateur deactiveren"
 msgid "Spender wurde deaktiviert."
 msgstr "Donateur is gedeactiveerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1008
-msgid "Spender-Zuordnung (optional)"
-msgstr "Donateurtoewijzing (optioneel)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:851
 msgid "Spender: %1 (extern)"
 msgstr "Donateur: %1 (extern)"
@@ -8434,7 +8271,7 @@ msgstr "Peildatum: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:501
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:509
 msgid "Stornieren"
-msgstr "Annuleren"
+msgstr "Terugdraaien"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:506
 msgid "Stornieren kann nicht rückgängig gemacht werden."
@@ -8443,7 +8280,7 @@ msgstr "Annuleren kan niet ongedaan worden gemaakt."
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:45
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:64
 msgid "Storniert"
-msgstr "Geannuleerd"
+msgstr "Teruggedraaid"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:482
 msgid "Storniert: %1"
@@ -10822,10 +10659,6 @@ msgstr "Reiskostenrekening"
 msgid "Reisekosten-Freigaben (%1)"
 msgstr "Reiskostengoedkeuringen (%1)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
-msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7"
-msgstr "Bankrekening: %1 · Kostenrekening: %2 · Contributie-inkomstenrekening: %3 · Donatie-inkomstenrekening: %4 · Evenementeninkomstenrekening: %5 (%6) · Reiskostenrekening: %7"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Catering"
 msgstr "Catering"
@@ -11245,10 +11078,6 @@ msgstr "Het bedrag mag het openstaande bedrag (%1) niet overschrijden."
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:69
 msgid "Bitte ein gültiges Datum angeben."
 msgstr "Voer een geldige datum in."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:73
-msgid "Bitte die Eingaben prüfen."
-msgstr "Controleer uw invoer."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:81
 msgid "Ausgleich bestätigen"
@@ -11806,18 +11635,6 @@ msgstr "Aanmaningsniveau overgeslagen."
 msgid "(bitte wählen)"
 msgstr "(maak een keuze)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:993
-msgid "Belegdatum (JJJJ-MM-TT)"
-msgstr "Documentdatum (JJJJ-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:997
-msgid "Fällig am (JJJJ-MM-TT)"
-msgstr "Vervaldatum (JJJJ-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:999
-msgid "Betrag in EUR (z. B. 1234,56)"
-msgstr "Bedrag in EUR (bijv. 1234,56)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1000
 msgid "Gegenkonto"
 msgstr "Tegenrekening"
@@ -11825,10 +11642,6 @@ msgstr "Tegenrekening"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1015
 msgid "(kein CRM-Kontakt)"
 msgstr "(geen CRM-contact)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1015
-msgid "CRM-Kontakt (optional)"
-msgstr "CRM-contact (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1032
 msgid "Zuerst die Richtung wählen -- sie bestimmt den passenden Kontotyp."
@@ -11969,10 +11782,6 @@ msgstr "(crediteuren + debiteuren)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:286
 msgid "Kacheln zählen alle Posten, die Liste nur die geladenen."
 msgstr "De tegels tellen alle posten, de lijst alleen de geladen posten."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:425
-msgid "Details konnten nicht geladen werden."
-msgstr "De details konden niet worden geladen."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:762
 msgid "Forderungs-Mahnwesen ist deaktiviert; ein manuell ausgestellter Hinweis wird trotzdem ausgestellt und eine hinterlegte Gebühr gebucht."
@@ -13117,3 +12926,691 @@ msgstr "Het aanmaningsniveau kon niet worden opgeslagen -- mogelijke oorzaken: h
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt
 msgid "Mahnwesen-Daten konnten nicht geladen werden."
 msgstr "De aanmaninggegevens konden niet worden geladen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:204
+msgid "%1 von %2 Konten"
+msgstr "%1 van %2 rekeningen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:121
+msgid "%1 von %2 Kostenstellen"
+msgstr "%1 van %2 kostenplaatsen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:159
+msgid "%1 von %2 Spendern"
+msgstr "%1 van %2 donateurs"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:528
+msgid "%1 von %2 übertragen, %3 fehlgeschlagen, %4 übersprungen, %5 unklar (%6)"
+msgstr "%1 van %2 overgedragen, %3 mislukt, %4 overgeslagen, %5 onduidelijk (%6)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:379
+msgid "%1 · %2 (%3x)"
+msgstr "%1 · %2 (%3x)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1509
+msgid "%1 · Zeile %2"
+msgstr "%1 · Regel %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:686
+msgid "%1-Belegnummer"
+msgstr "%1-referentienummer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:147
+msgid "(Name unbekannt -- %1 hat keinen Firmennamen geliefert)"
+msgstr "(naam onbekend -- %1 heeft geen bedrijfsnaam geleverd)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:429
+msgid "(keine Zuordnung)"
+msgstr "(geen toewijzing)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:522
+msgid "Alle konfigurierten Mahnstufen sind im laufenden Zyklus bereits genutzt."
+msgstr "Alle geconfigureerde aanmaningsniveaus zijn in de lopende cyclus al gebruikt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:208
+msgid "BIC"
+msgstr "BIC"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:553
+msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7 · Ehrenamtspauschalen-Aufwandskonto: %8"
+msgstr "Bankrekening: %1 · Rekening transactiekosten: %2 · Opbrengstrekening bijdragen: %3 · Opbrengstrekening donaties: %4 · Opbrengstrekening evenementen: %5 (%6) · Reiskostenrekening: %7 · Kostenrekening vrijwilligersvergoedingen: %8"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:321
+msgid "Bankname"
+msgstr "Banknaam"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1733
+msgid "Bei Zuordnung greifen die §25-PartG-Spendenannahme-Prüfungen dieser Partei."
+msgstr "Bij toewijzing van een donateur gelden de controles op de aanvaarding van donaties van deze partij volgens §25 PartG."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1298
+msgid "Beispiel: 1234,56."
+msgstr "Voorbeeld: 1234,56."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:519
+msgid "Beitrag hat den Status \"%1\" -- kein Mahnvorgang möglich."
+msgstr "De bijdrage heeft de status \"%1\" -- er is geen aanmaningsdossier mogelijk."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:325
+msgid "Beitragsstatus"
+msgstr "Status van de bijdrage"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:711
+msgid "Beleg-Status geklärt."
+msgstr "Status van het bewijsstuk opgehelderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1268
+msgid "Belegdatum"
+msgstr "Datum bewijsstuk"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:368
+msgid "Bereits übertragen: %1"
+msgstr "Reeds overgedragen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2256
+msgid "Beträge oben sind BRUTTO (inkl. USt)."
+msgstr "De bedragen hierboven zijn BRUTO (incl. btw)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:304
+msgid "Bis"
+msgstr "Tot"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1774
+msgid "Bitte ein Mitglied wählen."
+msgstr "Kies een lid."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:201
+msgid "Bitte ein Token eingeben."
+msgstr "Voer een token in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:350
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben."
+msgstr "Geef een geldige \"Tot\"-datum op."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:405
+msgid "Bitte ein gültiges Kalenderjahr angeben."
+msgstr "Geef een geldig kalenderjaar op."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:389
+msgid "Bitte eine Kategorie auswählen."
+msgstr "Selecteer een categorie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1782
+msgid "Bitte eine Spenderkategorie wählen."
+msgstr "Kies een donateurscategorie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:581
+msgid "Brief-Vorschau (PDF)"
+msgstr "Briefvoorbeeld (PDF)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:70
+msgid "Buchhaltungs-Export"
+msgstr "Boekhoudexport"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:645
+msgid "Buchungen mit Umsatzsteuersatz können nicht übertragen werden"
+msgstr "Boekingen met een btw-tarief kunnen niet worden overgedragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1347
+msgid "CRM-Kontakt"
+msgstr "CRM-contact"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:300
+msgid "Code"
+msgstr "Code"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:245
+msgid "Das Mandat konnte nicht erteilt werden -- mögliche Gründe: für dieses Mitglied besteht bereits ein aktives Mandat, die IBAN ist ungültig oder liegt außerhalb des SEPA-Raums, der Name des Kontoinhabers ist leer, die BIC hat kein gültiges Format, das Unterschriftsdatum liegt in der Zukunft oder mehr als %1 Monate zurück, oder die Funktion ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "De machtiging kon niet worden verleend -- mogelijke redenen: dit lid heeft al een actieve machtiging, de IBAN is ongeldig of ligt buiten het SEPA-gebied, de naam van de rekeninghouder is leeg, de BIC heeft geen geldig formaat, de ondertekeningsdatum ligt in de toekomst of meer dan %1 maanden terug, of de functie is niet geactiveerd, de actuele juridische kennisgeving is niet opnieuw bevestigd, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:215
+msgid "Datum der Unterschrift"
+msgstr "Datum van ondertekening"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:621
+msgid "Der Automat kann daraufhin eine neue Mahnung ab Stufe 1 ausstellen -- bei aktiviertem Postversand als echter, kostenpflichtiger Brief."
+msgstr "De automaat kan vervolgens een nieuwe aanmaningsbrief uitgeven vanaf niveau 1 -- bij geactiveerde postverzending als echte, kostenplichtige brief."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:394
+msgid "Der Betrag darf den verrechenbaren Betrag (%1) nicht übersteigen."
+msgstr "Het bedrag mag het verrekenbare bedrag (%1) niet overschrijden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:392
+msgid "Der Lauf konnte nicht angelegt werden -- mögliche Gründe: das Einzugsdatum liegt nicht in der Zukunft, es wurde kein fälliger Beitrag mit aktivem SEPA-Mandat gefunden, der Lauf hätte mehr Positionen als zulässig, oder die Funktion ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "De batch kon niet worden aangemaakt -- mogelijke redenen: de incassodatum ligt niet in de toekomst, er is geen verschuldigde bijdrage met een actieve SEPA-machtiging gevonden, de batch zou meer posities hebben dan toegestaan, of de functie is niet geactiveerd, de actuele juridische kennisgeving is niet opnieuw bevestigd, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:487
+msgid "Der gesamte Mahnzyklus dieses Beitrags wird storniert, nicht nur diese eine Mahnung. Der Beitrag fällt auf den Status Überfällig zurück."
+msgstr "De volledige aanmaningscyclus van deze bijdrage wordt geannuleerd, niet alleen deze ene aanmaningsbrief. De bijdrage valt terug naar de status Achterstallig."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:616
+msgid "Der gesamte laufende Mahnzyklus dieses Beitrags wird storniert und beginnt beim nächsten Fälligkeitslauf von vorn."
+msgstr "De volledige lopende aanmaningscyclus van deze bijdrage wordt geannuleerd en begint bij de volgende vervaldatumrun opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:276
+msgid "Der rechtliche Hinweistext für das Mahnwesen wurde seit der letzten Bestätigung (Version %1) auf Version %2 aktualisiert."
+msgstr "De juridische kennisgeving voor aanmaningen is sinds de laatste bevestiging (versie %1) bijgewerkt naar versie %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:501
+msgid "Die Aktion war nicht erfolgreich (Konflikt) -- mögliche Gründe: der Beitrag befindet sich nicht mehr im mahnfähigen Zustand, es ist keine weitere Mahnstufe im laufenden Zyklus verfügbar, diese Mahnstufe wurde soeben bereits ausgestellt, der Mahnzyklus hat sich zwischenzeitlich geändert (z. B. durch eine gleichzeitige Stornierung/Zurücksetzung), es wurden zu viele Anfragen in kurzer Zeit gestellt, oder das Mahnwesen ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es ist keine aktive Mahnstufe konfiguriert."
+msgstr "De actie is niet geslaagd (conflict) -- mogelijke redenen: de bijdrage bevindt zich niet meer in een aanmaanbare toestand, er is geen verder aanmaningsniveau beschikbaar in de lopende cyclus, dit aanmaningsniveau is zojuist al uitgegeven, de aanmaningscyclus is tussentijds gewijzigd (bijv. door een gelijktijdige annulering/reset), er zijn te veel verzoeken in korte tijd gedaan, of aanmaningen zijn niet geactiveerd, de actuele juridische kennisgeving is niet opnieuw bevestigd, of er is geen actief aanmaningsniveau geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:605
+msgid "Die Datei konnte nicht erzeugt werden -- mögliche Gründe: die Vorabankündigungsfrist ist für das Einzugsdatum dieses Laufs nicht gewahrt, die Gläubiger-Stammdaten der Organisation (Gläubiger-ID, Name, IBAN oder BIC in den Organisationseinstellungen) fehlen oder sind ungültig, alle Positionen des Laufs wurden zwischenzeitlich storniert, der Lauf wurde bereits von einem gleichzeitigen Versuch verarbeitet, oder die Funktion ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "Het bestand kon niet worden gegenereerd -- mogelijke redenen: de termijn voor de voorafgaande kennisgeving is voor de incassodatum van deze batch niet gehaald, de crediteurstamgegevens van de organisatie (crediteur-ID, naam, IBAN of BIC in de organisatie-instellingen) ontbreken of zijn ongeldig, alle posities van de batch zijn tussentijds geannuleerd, de batch is al door een gelijktijdige poging verwerkt, of de functie is niet geactiveerd, de actuele juridische kennisgeving is niet opnieuw bevestigd, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:597
+msgid "Die Mahnstufe konnte nicht übersprungen werden -- mögliche Gründe: der Beitrag befindet sich nicht mehr im mahnfähigen Zustand, es ist keine weitere Mahnstufe im laufenden Zyklus verfügbar, diese Mahnstufe wurde soeben bereits ausgestellt, oder das Mahnwesen ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es ist keine aktive Mahnstufe konfiguriert."
+msgstr "Het aanmaningsniveau kon niet worden overgeslagen -- mogelijke redenen: de bijdrage bevindt zich niet meer in een aanmaanbare toestand, er is geen verder aanmaningsniveau beschikbaar in de lopende cyclus, dit aanmaningsniveau is zojuist al uitgegeven, of aanmaningen zijn niet geactiveerd, de actuele juridische kennisgeving is niet opnieuw bevestigd, of er is geen actief aanmaningsniveau geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:912
+msgid "Die Rücklastschrift konnte nicht erfasst werden -- mögliche Gründe: das Rückgabedatum liegt in der Zukunft, die Rücklastschriftgebühr ist ungültig (nicht positiv oder mehr als %1 Nachkommastellen), für diese Position ist bereits ein Rückläufer erfasst, die Position befindet sich nicht mehr im dafür zulässigen Status, oder die Funktion ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, oder es wurden zu viele Anfragen in kurzer Zeit gestellt."
+msgstr "De terugboeking kon niet worden geregistreerd -- mogelijke redenen: de terugboekingsdatum ligt in de toekomst, de terugboekingskosten zijn ongeldig (niet positief of meer dan %1 decimalen), voor deze positie is al een terugboeking geregistreerd, de positie bevindt zich niet meer in een daarvoor toegestane status, of de functie is niet geactiveerd, de actuele juridische kennisgeving is niet opnieuw bevestigd, of er zijn te veel verzoeken in korte tijd gedaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:377
+msgid "Die Verbindung wurde unterbrochen, eine Antwort des Servers fehlt. Der Auszug wurde möglicherweise importiert -- prüfen Sie die Importliste, bevor Sie die Datei erneut hochladen."
+msgstr "De verbinding is verbroken en er is geen antwoord van de server ontvangen. De afschrift is mogelijk geïmporteerd -- controleer de importlijst voordat u het bestand opnieuw uploadt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:590
+msgid "Die nächste Mahnstufe wird ohne Versand einer Mahnung als übersprungen vermerkt."
+msgstr "Het volgende aanmaningsniveau wordt als overgeslagen vastgelegd zonder een aanmaningsbrief te verzenden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:71
+msgid "Diese Ansicht ist Schatzmeister/Admin vorbehalten."
+msgstr "Deze weergave is voorbehouden aan de penningmeester/beheerder."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:484
+msgid "Diese Belege haben einen ungeklärten %1-Sendestatus aus einem früheren Lauf. Bitte in %1 prüfen und hier auflösen -- die betroffenen Zeiträume bleiben sonst dauerhaft nicht erneut übertragbar."
+msgstr "Deze bewijsstukken hebben een onduidelijke %1-verzendstatus uit een eerdere run. Controleer ze in %1 en los ze hier op -- anders kunnen de betreffende periodes nooit meer worden overgedragen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:570
+msgid "Diese Mahnstufe ist planmäßig erst ab %1 fällig. Trotzdem jetzt ausstellen?"
+msgstr "Dit aanmaningsniveau is volgens planning pas vanaf %1 verschuldigd. Toch nu uitgeven?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:573
+msgid "Diese Mahnstufe ist planmäßig noch nicht fällig. Trotzdem jetzt ausstellen?"
+msgstr "Dit aanmaningsniveau is volgens planning nog niet verschuldigd. Toch nu uitgeven?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:410
+msgid "Dieser Zeitraum kann nicht (vollständig) übertragen werden:"
+msgstr "Deze periode kan niet (volledig) worden overgedragen:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:632
+msgid "Ehrenamtspauschalen-Aufwandskonto"
+msgstr "Kostenrekening vrijwilligersvergoedingen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:267
+msgid "Ein Administrator muss unter „Mahnwesen-Konfiguration\" mindestens eine Mahnstufe anlegen."
+msgstr "Een beheerder moet onder \"Aanmaningsconfiguratie\" minstens één aanmaningsniveau aanmaken."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:300
+msgid "Eindeutig. Beispiel: SOMMERFEST-2027."
+msgstr "Uniek. Voorbeeld: SOMMERFEST-2027."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1554
+msgid "Eine Buchung braucht mindestens eine Sollzeile und eine Habenzeile."
+msgstr "Een boeking heeft minstens één debetregel en één creditregel nodig."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1550
+msgid "Eine Buchung braucht mindestens zwei Buchungszeilen."
+msgstr "Een boeking heeft minstens twee boekingsregels nodig."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:322
+msgid "Einzugsdatum"
+msgstr "Incassodatum"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:282
+msgid "Erneut bestätigen (Mahnwesen-Konfiguration)"
+msgstr "Opnieuw bevestigen (aanmaningsconfiguratie)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:985
+msgid "Erste Ziffer der Kontonummer."
+msgstr "Eerste cijfer van het rekeningnummer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:640
+msgid "Export läuft bereits"
+msgstr "Er loopt al een export"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:832
+msgid "Freitext"
+msgstr "Vrije tekst"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:408
+msgid "Fällig am %1"
+msgstr "Vervalt op %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:338
+msgid "Fällig bis"
+msgstr "Vervaldatum tot en met"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1735
+msgid "Für Spendenbescheinigungen."
+msgstr "Voor donatiebewijzen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1784
+msgid "Für ein Mitglied kann die Spenderkategorie nicht anonym sein."
+msgstr "Voor een lid kan de donateurscategorie niet anoniem zijn."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:354
+msgid "Gebühren gesamt"
+msgstr "Totaal kosten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:624
+msgid "Grund für das Zurücksetzen"
+msgstr "Reden voor het resetten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:492
+msgid "Hinweis"
+msgstr "Opmerking"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:286
+msgid "Hinweis quittiert."
+msgstr "Opmerking bevestigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:262
+msgid "Hinweis zur Umsatzsteuer"
+msgstr "Opmerking over de btw"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:634
+msgid "Hinweis zur Umsatzsteuer nicht bestätigt"
+msgstr "Opmerking over de btw niet bevestigd"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:258
+msgid "Hinweis zur Umsatzsteuer quittiert am %1."
+msgstr "Opmerking over de btw bevestigd op %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:163
+msgid "Ihr persönliches API-Zugangstoken erzeugen Sie in Ihrem eigenen Lexware-Office-Konto unter Einstellungen → Erweiterungen → Public API (app.lexware.de/addons/public-api)."
+msgstr "U maakt uw persoonlijke API-toegangstoken aan in uw eigen Lexware Office-account onder Instellingen → Extensies → Public API (app.lexware.de/addons/public-api)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:170
+msgid "Ihr persönliches API-Zugangstoken erzeugen Sie in Ihrem eigenen sevDesk-Konto unter Einstellungen → Benutzer → API-Token."
+msgstr "U maakt uw persoonlijke API-toegangstoken aan in uw eigen sevDesk-account onder Instellingen → Gebruikers → API-token."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:180
+msgid "Ihr sevDesk-API-Token hat vollen Zugriff auf Ihr sevDesk-Konto -- sevDesk kennt keine eingeschränkten Token."
+msgstr "Uw sevDesk-API-token heeft volledige toegang tot uw sevDesk-account -- sevDesk kent geen beperkte tokens."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:687
+msgid "In %1 gefunden"
+msgstr "Gevonden in %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:263
+msgid "Jetzt konfigurieren (Mahnwesen-Konfiguration)"
+msgstr "Nu configureren (aanmaningsconfiguratie)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:382
+msgid "Kalenderjahr"
+msgstr "Kalenderjaar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:384
+msgid "Kategorie für Konto %1"
+msgstr "Categorie voor rekening %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:206
+msgid "Kein Konto passt zu \"%1\"."
+msgstr "Geen rekening komt overeen met \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:161
+msgid "Kein Spender passt zu \"%1\"."
+msgstr "Geen donateur komt overeen met \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:117
+msgid "Keine Kostenstelle passt zu \"%1\"."
+msgstr "Geen kostenplaats komt overeen met \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:635
+msgid "Konten ohne Kategorie-Zuordnung"
+msgstr "Rekeningen zonder categorietoewijzing"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:373
+msgid "Konten ohne Kategorie-Zuordnung:"
+msgstr "Rekeningen zonder categorietoewijzing:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:137
+msgid "Konto suchen (Nummer oder Name)"
+msgstr "Rekening zoeken (nummer of naam)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:80
+msgid "Kostenstelle suchen (Code oder Name)"
+msgstr "Kostenplaats zoeken (code of naam)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:522
+msgid "Lauf abbrechen"
+msgstr "Run afbreken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:345
+msgid "Leer = alle Beitragssätze."
+msgstr "Leeg = alle bijdragetarieven."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:517
+msgid "Letzter Lauf"
+msgstr "Laatste run"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:541
+msgid "Mahnung ausgestellt."
+msgstr "Aanmaningsbrief uitgegeven."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:555
+msgid "Mahnung ausstellen"
+msgstr "Aanmaningsbrief uitgeven"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:484
+msgid "Mahnung stornieren"
+msgstr "Aanmaningsbrief annuleren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:505
+msgid "Mahnung storniert."
+msgstr "Aanmaningsbrief geannuleerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:411
+msgid "Mahnungen"
+msgstr "Aanmaningsbrieven"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:58
+msgid "Mahnwesen"
+msgstr "Aanmaningsbeheer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:634
+msgid "Mahnwesen zurückgesetzt."
+msgstr "Aanmaningen gereset."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:610
+msgid "Mahnwesen zurücksetzen"
+msgstr "Aanmaningen resetten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:492
+msgid "Nach dem Stornieren stellt der Automat eine neue Mahnung ab Stufe 1 aus -- bei aktiviertem Postversand als echter, kostenpflichtiger Brief."
+msgstr "Na het annuleren geeft de automaat een nieuwe aanmaningsbrief uit vanaf niveau 1 -- bij geactiveerde postverzending als echte, kostenplichtige brief."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:636
+msgid "Nicht abbildbare Sammelbuchung (n:m)"
+msgstr "Niet af te beelden verzamelboeking (n:m)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:688
+msgid "Nicht gefunden"
+msgstr "Niet gevonden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:633
+msgid "Nicht verbunden"
+msgstr "Niet verbonden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:153
+msgid "Nicht verbunden."
+msgstr "Niet verbonden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:521
+msgid "Nur fehlgeschlagene erneut versuchen"
+msgstr "Alleen mislukte opnieuw proberen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:63
+msgid "Nur offene Vorgänge"
+msgstr "Alleen open dossiers"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:342
+msgid "Nächste Stufe"
+msgstr "Volgend niveau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:60
+msgid "Offene Mahnvorgänge"
+msgstr "Open aanmaningsdossiers"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:457
+msgid "PDF"
+msgstr "PDF"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:832
+msgid "Pflicht bei \"Sonstiger Grund\"."
+msgstr "Verplicht bij \"Overige reden\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:637
+msgid "Richtung nicht bestimmbar"
+msgstr "Richting niet te bepalen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:806
+msgid "Rücklastschrift-Datum"
+msgstr "Terugboekingsdatum"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:846
+msgid "Rücklastschriftgebühr in EUR"
+msgstr "Terugboekingskosten in EUR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:374
+msgid "SEPA-Lastschrift-Aktion war nicht erfolgreich (Konflikt) -- häufige Gründe sind, dass die Funktion nicht aktiviert ist, der aktuelle Rechtshinweis noch nicht erneut bestätigt wurde, zu viele Anfragen in kurzer Zeit gestellt wurden, oder sich der Status von Lauf/Mandat zwischenzeitlich geändert hat. Ein Administrator prüft das ggf. unter SEPA-Konfiguration."
+msgstr "De SEPA-incasso-actie is niet geslaagd (conflict) -- veelvoorkomende redenen zijn dat de functie niet is geactiveerd, de actuele juridische kennisgeving nog niet opnieuw is bevestigd, er te veel verzoeken in korte tijd zijn gedaan, of de status van de batch/machtiging tussentijds is gewijzigd. Een beheerder kan dit zo nodig controleren onder SEPA-configuratie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1536
+msgid "Soll %1 · Haben %2 · Differenz %3"
+msgstr "Debet %1 · Credit %2 · Verschil %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1558
+msgid "Soll und Haben stimmen nicht überein (Differenz %1)."
+msgstr "Debet en credit komen niet overeen (verschil %1)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:600
+msgid "Spendenerlöskonto"
+msgstr "Opbrengstrekening donaties"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:104
+msgid "Spender oben auswählen, um Details zu sehen."
+msgstr "Selecteer hierboven een donateur om details te zien."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:95
+msgid "Spender suchen (Name)"
+msgstr "Donateur zoeken (naam)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1730
+msgid "Spender-Zuordnung"
+msgstr "Toewijzing van de donateur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:102
+msgid "Spenderdetails"
+msgstr "Details van de donateur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:616
+msgid "Sphäre der Veranstaltungserlöse"
+msgstr "Sfeer van de evenementopbrengsten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:501
+msgid "Status unklar -- bitte in %1 unter Belegnummer %2 prüfen."
+msgstr "Status onduidelijk -- controleer in %1 onder bewijsstuknummer %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:198
+msgid "Token"
+msgstr "Token"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:205
+msgid "Token entfernen"
+msgstr "Token verwijderen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:241
+msgid "Token entfernt."
+msgstr "Token verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:198
+msgid "Token ersetzen"
+msgstr "Token vervangen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:223
+msgid "Token gespeichert."
+msgstr "Token opgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:151
+msgid "Token hinterlegt, aber noch nicht erfolgreich getestet."
+msgstr "Token opgeslagen, maar nog niet met succes getest."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:203
+msgid "Token speichern"
+msgstr "Token opslaan"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:155
+msgid "Token: ••••%1"
+msgstr "Token: ••••%1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1474
+msgid "USt"
+msgstr "Btw"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:481
+msgid "Ungeklärte Belege (alle Läufe)"
+msgstr "Onopgehelderde bewijsstukken (alle runs)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:641
+msgid "Ungeklärter Sendestatus aus einem vorherigen Lauf"
+msgstr "Onopgehelderde verzendstatus uit een eerdere run"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:609
+msgid "Veranstaltungserlöskonto"
+msgstr "Opbrengstrekening evenementen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:141
+msgid "Verbindung"
+msgstr "Verbinding"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:232
+msgid "Verbindung erfolgreich getestet."
+msgstr "Verbinding met succes getest."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:204
+msgid "Verbindung prüfen"
+msgstr "Verbinding testen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:145
+msgid "Verbunden mit: %1"
+msgstr "Verbonden met: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:308
+msgid "Verstorben"
+msgstr "Overleden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:304
+msgid "Von"
+msgstr "Van"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:376
+msgid "Vorgang nicht gefunden."
+msgstr "Dossier niet gevonden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:78
+msgid "Vorgang oben auswählen, um Details zu sehen."
+msgstr "Selecteer hierboven een dossier om details te zien."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2087
+msgid "Vorschlag aus der Sphäre -- jederzeit überschreibbar"
+msgstr "Suggestie op basis van de sfeer -- op elk moment te overschrijven"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:562
+msgid "Vorzeitig ausstellen"
+msgstr "Vroegtijdig uitgeven"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:561
+msgid "Vorzeitig ausstellen (planmäßig ab %1)"
+msgstr "Vroegtijdig uitgeven (gepland vanaf %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:369
+msgid "Werden gesendet: %1"
+msgstr "Worden verzonden: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:87
+msgid "Zahlungsdatum"
+msgstr "Betaaldatum"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:401
+msgid "Zeitraum %1 – %2"
+msgstr "Periode %1 – %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:639
+msgid "Zu viele Buchungen im Zeitraum"
+msgstr "Te veel boekingen in de periode"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:269
+msgid "Zur Kenntnis genommen"
+msgstr "Kennisgenomen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:626
+msgid "Zurücksetzen"
+msgstr "Resetten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:309
+msgid "Zustellung an den Nachlass — offene Forderung besteht fort."
+msgstr "Bezorging aan de nalatenschap — de openstaande vordering blijft bestaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:338
+msgid "Zyklus %1"
+msgstr "Cyclus %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:654
+msgid "abgebrochen"
+msgstr "afgebroken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:652
+msgid "abgeschlossen"
+msgstr "voltooid"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:653
+msgid "abgeschlossen mit Fehlern"
+msgstr "voltooid met fouten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
+msgid "bereits übertragen"
+msgstr "reeds overgedragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:650
+msgid "geplant"
+msgstr "gepland"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:278
+msgid "keine"
+msgstr "geen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:731
+msgid "unklar"
+msgstr "onduidelijk"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:726
+msgid "wartet"
+msgstr "wacht"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:431
+msgid "wird gesendet"
+msgstr "wordt verzonden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:449
+msgid "Übertragen"
+msgstr "Overdragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:730
+msgid "übersprungen"
+msgstr "overgeslagen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:728
+msgid "übertragen"
+msgstr "overgedragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:370
+msgid "Σ %1"
+msgstr "Σ %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:435
+msgid "… und %1 weitere."
+msgstr "… en nog %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:192
+msgid "Es können höchstens %1 Mandate pro Minute erfasst werden."
+msgstr "Er kunnen maximaal %1 machtigingen per minuut worden vastgelegd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
+msgid "Pflichtangabe für diesen Spendertyp."
+msgstr "Verplicht voor dit donateurstype."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:1
+msgid "Beispiel: %1."
+msgstr "Voorbeeld: %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:1
+msgid "-- Position wählen --"
+msgstr "-- positie selecteren --"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:1
+msgid "Betroffene Zeile: %1"
+msgstr "Betreffende regel: %1"

@@ -168,13 +168,13 @@ private fun renderDunningSettingsSummary(
     panel.div(
         gettext(
             "Postversand (Umgebung): %1",
-            if (settings.postalDispatchEnabled) tr("aktiv") else tr("inaktiv"),
+            if (settings.postalDispatchEnabled) gettext("aktiv") else gettext("inaktiv"),
         ),
     ) { addCssClasses("text-muted small") }
     panel.div(
         gettext(
             "Postversand (Organisation): %1",
-            if (settings.postalMailEnabled) tr("aktiviert") else tr("deaktiviert"),
+            if (settings.postalMailEnabled) gettext("aktiviert") else gettext("deaktiviert"),
         ),
     ) { addCssClasses("text-muted small") }
     panel.div(gettext("Aktive Mahnstufen: %1", settings.activeLevelCount)) { addCssClasses("text-muted small") }

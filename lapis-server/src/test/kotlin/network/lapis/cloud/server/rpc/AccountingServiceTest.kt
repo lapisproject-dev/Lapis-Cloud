@@ -1856,6 +1856,94 @@ class AccountingServiceTest :
             }
         }
 
+        test("postJournalEntry/saveDraftEntry reject an amount above the DECIMAL(15,2)-safe bound with 400, not a DB overflow (500)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-maxamount@example.org", AccountRole.TREASURER)
+                val bank = createLedgerAccount("0990", LedgerAccountType.ASSET)
+                val beitraege = createLedgerAccount("4090", LedgerAccountType.INCOME, accountClass = 4)
+
+                fun pair(amount: String) =
+                    listOf(
+                        PostingInput(
+                            ledgerAccountId = bank.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal(amount),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                        PostingInput(
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal(amount),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                    )
+                val tooLarge = "100000000000000000000" // 10^20: the plain form of the JSON double 1.0E20
+
+                client
+                    .post("/test/post-entry?${entryParams(LocalDate(2026, 8, 3), "Zu-gross", pair(tooLarge))}") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/save-draft?${entryParams(LocalDate(2026, 8, 3), "Zu-gross-Entwurf", pair(tooLarge))}") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/post-entry?${entryParams(LocalDate(2026, 8, 3), "Knapp-drueber", pair("1000000000000.01"))}") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/post-entry?${entryParams(LocalDate(2026, 8, 3), "An-der-Grenze", pair("1000000000000.00"))}") {
+                        header("X-Member-Id", treasurer.toString())
+                    }.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("postJournalEntry/saveDraftEntry reject an over-long description or voucherReference with 400; the limits themselves pass") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAccountingExceptionHandlers() }
+                    routing { registerAccountingTestRoutes() }
+                }
+                val treasurer = createTestMember("acct-treasurer-textlen@example.org", AccountRole.TREASURER)
+                val bank = createLedgerAccount("0991", LedgerAccountType.ASSET)
+                val beitraege = createLedgerAccount("4091", LedgerAccountType.INCOME, accountClass = 4)
+                val postings =
+                    listOf(
+                        PostingInput(
+                            ledgerAccountId = bank.toString(),
+                            side = PostingSide.DEBIT,
+                            amount = BigDecimal("1.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                        PostingInput(
+                            ledgerAccountId = beitraege.toString(),
+                            side = PostingSide.CREDIT,
+                            amount = BigDecimal("1.00"),
+                            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                        ),
+                    )
+
+                suspend fun post(
+                    route: String,
+                    description: String,
+                    voucher: String? = null,
+                ) = client.post("/test/$route?${entryParams(LocalDate(2026, 8, 4), description, postings, voucher = voucher)}") {
+                    header("X-Member-Id", treasurer.toString())
+                }
+
+                post("post-entry", "d".repeat(501)).status shouldBe HttpStatusCode.BadRequest
+                post("save-draft", "d".repeat(501)).status shouldBe HttpStatusCode.BadRequest
+                post("post-entry", "ok", "v".repeat(101)).status shouldBe HttpStatusCode.BadRequest
+                post("save-draft", "ok", "v".repeat(101)).status shouldBe HttpStatusCode.BadRequest
+                post("post-entry", "d".repeat(500), "v".repeat(100)).status shouldBe HttpStatusCode.OK
+                post("save-draft", "d".repeat(500), "v".repeat(100)).status shouldBe HttpStatusCode.OK
+            }
+        }
+
         test("postJournalEntry touching a non-cash ASSET account without a voucherReference still succeeds (regression guard)") {
             testApplication {
                 application {

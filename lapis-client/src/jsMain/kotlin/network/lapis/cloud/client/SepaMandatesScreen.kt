@@ -188,11 +188,17 @@ fun renderSepaMandatesScreen(container: SimplePanel) {
                 loadPage(true)
             }
         }
-        root.p(tr("Es können höchstens 10 Mandate pro Minute erfasst werden.")) { addCssClasses("text-muted small") }
+        // Die Grenze steht als Platzhalter im Satz, nie im msgid (W4c): eine Konstante im msgid sagte sie in acht Katalogen.
+        root.p(gettext("Es können höchstens %1 Mandate pro Minute erfasst werden.", SEPA_MANDATES_PER_MINUTE_LIMIT)) {
+            addCssClasses("text-muted small")
+        }
     }
 }
 
 private const val SEPA_MANDATES_PAGE_SIZE = 50
+
+/** Spiegel der Server-Ratenbegrenzung für das Erfassen von Mandaten im Namen eines Mitglieds (loser Spiegel, der Server bleibt Autorität). */
+private const val SEPA_MANDATES_PER_MINUTE_LIMIT = 10
 
 internal const val SEPA_READ_CONFLICT_MESSAGE = "SEPA-Lastschrift ist für diese Organisation nicht aktiviert."
 
@@ -254,14 +260,12 @@ private fun Container.renderSepaMandateActions(
         confirmWithReasonDialog(
             title = tr("Mandat widerrufen"),
             message = tr("Mandat wirklich widerrufen?"),
-            reasonLabel = tr("Grund (optional)"),
+            reasonLabel = tr("Grund"),
             reasonRequired = false,
             confirmLabel = tr("Widerrufen"),
         ) { reason ->
-            revokeButton.disabled = true
-            AppScope.launch {
+            runGuardedAction(revokeButton) {
                 val result = guarded { rpcService<ISepaService>().revokeMandate(mandate.id, reason) }
-                revokeButton.disabled = false
                 if (result != null) {
                     notifySuccess(tr("Mandat widerrufen."))
                     onChanged()

@@ -554,6 +554,23 @@ class LapisForm internal constructor(
         slot.removeCssClass("lapis-form-alert--shown")
     }
 
+    /**
+     * Meldet ein Feld wieder ab (der Entfernen-Knopf einer Buchungszeile). Ohne das blockierte das Feld einer entfernten Zeile
+     * [validateAndReport] unsichtbar für immer: es steht nicht mehr im DOM, hält aber seinen Fehler und seine Regel. Räumt den
+     * Fehler, nimmt das Feld aus [fields] und leert seine Zusatzprüfungen. Idempotent: ein zweiter Aufruf ist wirkungslos.
+     *
+     * Eine Querregel ([crossFieldRule] ohne `field`), die ein abgemeldetes Feld liest, ist ein Aufruferfehler -- sie bleibt
+     * unberührt. Das Entfernen des Widgets bleibt Sache des Aufrufers (`rowsPanel.remove(rowPanel)`); der Fehlerslot verschwindet
+     * mit dem Zeilencontainer.
+     */
+    fun unregister(field: LapisField) {
+        // ZUERST aus der Liste, dann räumen: `clearError()` ruft `onFieldStateChanged()`, und das darf das Feld nicht mehr prüfen.
+        if (!fieldList.remove(field)) return
+        field.detachInternal()
+        // Die Sammelmeldung kann durch das Entfernen gültig geworden sein.
+        onFieldStateChanged()
+    }
+
     /** Ein Feld hat seinen Fehler verloren / eine Querregel-Eingabe hat sich geändert: die Sammelmeldung räumt sich, sobald alles gültig ist. */
     internal fun onFieldStateChanged() {
         if (!collectiveShown) return
@@ -654,6 +671,7 @@ class LapisForm internal constructor(
                 errorSlot = errorSlot,
                 inputWidget = inputWidget,
                 onStateChange = { onFieldStateChanged() },
+                owner = this,
             )
         // `onEvent` am Control landet am <input> (AbstractText delegiert), und genau dort feuert blur -- blur bubbelt nicht.
         // Select/CheckBox delegieren NICHT: ihr Wrapper bekäme nie ein `blur`, also hängt der Listener an `control.input`.
@@ -692,15 +710,19 @@ class LapisForm internal constructor(
 
 class LapisField internal constructor(
     val control: FormControl,
-    /** [resolvedAttributeText] des Labels -- für Sammelmeldungen, NIE der `tr()`-Marker. */
-    val resolvedLabel: String,
+    /** [resolvedAttributeText] des Labels -- für Sammelmeldungen, NIE der `tr()`-Marker. Ändert nur [relabel]. */
+    resolvedLabel: String,
     internal val required: Boolean,
     private val requiredMessage: String?,
     private val rule: (String) -> FieldCheck,
     private val errorSlot: Div,
     private val inputWidget: Widget?,
     private val onStateChange: () -> Unit = {},
+    private val owner: LapisForm? = null,
 ) {
+    var resolvedLabel: String = resolvedLabel
+        private set
+
     /** Das Feld wurde getippt oder geändert. */
     var dirty: Boolean = false
         private set
@@ -745,6 +767,18 @@ class LapisField internal constructor(
         dirty = false
         submitted = false
         clearError()
+    }
+
+    /** Kurzform für `form.unregister(this)` -- siehe [LapisForm.unregister]. */
+    fun detach() {
+        owner?.unregister(this)
+    }
+
+    internal fun detachInternal() {
+        clearError() // räumt auch `is-invalid` und `aria-invalid`
+        // `setAttribute` (KVision), nie rohes `getElement()?.setAttribute`.
+        inputWidget?.setAttribute("aria-describedby", "")
+        extraChecks.clear()
     }
 
     /** `true`, solange ein Fehler am Feld angezeigt wird. */
@@ -825,6 +859,18 @@ class LapisField internal constructor(
     internal fun onInput() {
         dirty = true
         if (errorShown && evaluate() is FieldCheck.Ok) clearError()
+    }
+
+    /**
+     * Benennt das Feld um (nummerierte Buchungszeilen: "Betrag · Zeile 2", nachdem Zeile 1 entfernt wurde). Der Pflicht-Stern bleibt:
+     * [appendRequiredMark] hat den Labeltext bereits in ein `span` VOR dem Stern verschoben -- nur dieses `span` wird ersetzt, das
+     * Label-`content` zu überschreiben ließe den Text doppelt stehen. Auch [resolvedLabel] (die Sammelmeldung) folgt.
+     */
+    internal fun relabel(text: String) {
+        resolvedLabel = resolvedAttributeText(text)
+        val label = control.flabel
+        val first = label.getChildren().firstOrNull()
+        if (first is io.kvision.html.Span) first.content = text else label.content = text
     }
 
     internal fun appendRequiredMark() {

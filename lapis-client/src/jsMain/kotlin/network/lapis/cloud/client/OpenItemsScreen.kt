@@ -3,8 +3,10 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.toDouble
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
+import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.form.text.text
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -1217,7 +1219,7 @@ private fun renderDunningActions(
 // Anlegen-Formular
 // ================================================================================================
 
-private fun renderOpenItemCreateForm(
+internal fun renderOpenItemCreateForm(
     host: SimplePanel,
     role: AccountRole?,
     accounts: () -> List<LedgerAccountDto>,
@@ -1229,54 +1231,132 @@ private fun renderOpenItemCreateForm(
     registerAccountsLoadedListener: ((() -> Unit) -> Unit) = {},
 ) {
     val surface = host.div { addCssClasses("lapis-surface border rounded p-3") }
-    val panel = surface.vPanel(spacing = 6)
-    panel.h2(tr("Posten anlegen")) { addCssClass("h6") }
+    surface.h2(tr("Posten anlegen")) { addCssClass("h6") }
+    // W4c: das Anlegen-Formular ist ein [LapisForm]. `validateOpenItemForm` bleibt die Regelquelle UND der letzte Riegel vor dem RPC
+    // (eigene Tests); jede ihrer Bedingungen ist zusätzlich eine Feldregel, damit der Fehler am Feld steht.
+    val form = surface.lapisForm()
+    val panel = form.panel
 
-    val directionSelect =
-        panel.select(
+    val directionField =
+        form.selectField(
+            label = tr("Richtung"),
             options =
                 listOf("" to tr("(bitte wählen)")) +
                     OpenItemDirection.entries.map { it.name to openItemDirectionLabel(it) },
+            // Jobs-Ruling 1 (V1.4.21): KEINE Vorauswahl in der "Alle"-Sicht -- eine Wahl, die der Behandler nicht getroffen hat, ist keine.
             value = defaultDirection?.name.orEmpty(),
-            label = tr("Richtung"),
+            required = true,
+            requiredMessage = tr("Bitte eine Richtung (Kreditor oder Debitor) wählen."),
         )
-    val nameInput = panel.text(label = tr("Gegenpartei"))
+    val nameField =
+        form.textField(
+            label = tr("Gegenpartei"),
+            required = true,
+            requiredMessage = tr("Bitte eine Gegenpartei angeben."),
+            rule = {
+                if (it.trim().length > MAX_COUNTERPARTY_NAME_LENGTH) {
+                    FieldCheck.Invalid(gettext("Die Gegenpartei darf höchstens %1 Zeichen lang sein.", MAX_COUNTERPARTY_NAME_LENGTH))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
     val prefillHint = panel.div().apply { addCssClasses("text-muted small") }
     val today = todayLocalDate()
-    val itemDateInput = panel.text(value = today.toString(), label = tr("Belegdatum (JJJJ-MM-TT)"))
-    val dueDateInput =
-        panel.text(
-            value = today.plus(DatePeriod(days = OPEN_ITEMS_DEFAULT_DUE_DAYS)).toString(),
-            label = tr("Fällig am (JJJJ-MM-TT)"),
+    val itemDateField =
+        form.textField(
+            label = tr("Belegdatum"),
+            value = today.toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein Belegdatum angeben."),
+            rule = { FormRules.isoDate(it) },
         )
-    val amountInput = panel.text(label = tr("Betrag in EUR (z. B. 1234,56)"))
-    val contraSelect = panel.select(options = listOf("" to tr("(bitte wählen)")), value = "", label = tr("Gegenkonto"))
+    val dueDateField =
+        form.textField(
+            label = tr("Fällig am"),
+            value = today.plus(DatePeriod(days = OPEN_ITEMS_DEFAULT_DUE_DAYS)).toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein Fälligkeitsdatum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
+    // Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen -- am Fälligkeitsfeld gezeigt, geprüft, sobald beide Daten echte Daten sind.
+    form.crossFieldRule(field = dueDateField) {
+        val itemDate = runCatching { LocalDate.parse(itemDateField.value.trim()) }.getOrNull()
+        val dueDate = runCatching { LocalDate.parse(dueDateField.value.trim()) }.getOrNull()
+        if (itemDate != null && dueDate != null && dueDate < itemDate) {
+            FieldCheck.Invalid(gettext("Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen."))
+        } else {
+            FieldCheck.Ok
+        }
+    }
+    val amountField =
+        form.textField(
+            label = tr("Betrag in EUR"),
+            required = true,
+            hint = tr("Beispiel: 1234,56."),
+            requiredMessage = tr("Bitte einen Betrag angeben."),
+            // Mit der Obergrenze des Teilbuchs (`MAX_OPEN_ITEM_AMOUNT`) -- die gehört den offenen Posten, nicht dem Journal.
+            rule = { openItemAmountCheck(it) },
+        )
+    val contraField =
+        form.selectField(
+            label = tr("Gegenkonto"),
+            options = listOf("" to tr("(bitte wählen)")),
+            value = "",
+            required = true,
+            requiredMessage = tr("Bitte ein Gegenkonto wählen."),
+        )
+    val contraSelect = contraField.control as Select
     val contraHint = panel.div().apply { addCssClasses("text-muted small") }
-    val sphereSelect =
-        panel.select(
+    val sphereField =
+        form.selectField(
+            label = tr("Sphäre"),
             options = GemeinnuetzigkeitSphere.entries.map { it.name to sphereLabel(it) },
             value = GemeinnuetzigkeitSphere.IDEELLER_BEREICH.name,
-            label = tr("Sphäre"),
+            required = true,
         )
-    val referenceInput = panel.text(label = tr("Belegnummer (optional)"))
-    val noteInput = panel.text(label = tr("Notiz (optional)"))
+    val referenceField =
+        form.textField(
+            label = tr("Belegnummer"),
+            rule = {
+                if (it.trim().length > MAX_OPEN_ITEM_REFERENCE_LENGTH) {
+                    FieldCheck.Invalid(gettext("Die Belegnummer darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_REFERENCE_LENGTH))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
+    val noteField =
+        form.textField(
+            label = tr("Notiz"),
+            rule = {
+                if (it.trim().length > MAX_OPEN_ITEM_NOTE_LENGTH) {
+                    FieldCheck.Invalid(gettext("Die Notiz darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_NOTE_LENGTH))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
 
     // CRM-Verknüpfung: `ICrmService.listContacts` ist BOARD/ADMIN -- ein TREASURER bekäme einen stillen
     // 403-Toast (K3-Verwandter), deshalb nur für [OpenItemAuthzUi.canLinkCrmContact].
-    val crmSelect =
+    val crmField =
         if (OpenItemAuthzUi.canLinkCrmContact(role)) {
-            panel.select(options = listOf("" to tr("(kein CRM-Kontakt)")), value = "", label = tr("CRM-Kontakt (optional)"))
+            form.selectField(label = tr("CRM-Kontakt"), options = listOf("" to tr("(kein CRM-Kontakt)")), value = "")
         } else {
             null
         }
-    if (crmSelect != null) {
+    if (crmField != null) {
         AppScope.launch {
             val page = guarded { rpcService<ICrmService>().listContacts(limit = CRM_CONTACT_LIMIT) } ?: return@launch
-            crmSelect.options = listOf("" to tr("(kein CRM-Kontakt)")) + page.items.map { it.id to it.displayName }
+            (crmField.control as Select).options = listOf("" to tr("(kein CRM-Kontakt)")) + page.items.map { it.id to it.displayName }
         }
     }
 
-    fun selectedDirection(): OpenItemDirection? = directionSelect.value?.let { runCatching { OpenItemDirection.valueOf(it) }.getOrNull() }
+    fun selectedDirection(): OpenItemDirection? =
+        directionField.value.takeIf { it.isNotBlank() }?.let { runCatching { OpenItemDirection.valueOf(it) }.getOrNull() }
 
     fun rebuildContraOptions() {
         val direction = selectedDirection()
@@ -1289,9 +1369,11 @@ private fun renderOpenItemCreateForm(
         val candidates = accounts().filter { it.type == expected }
         // Keep a still-valid selection (an accounts reload must not wipe a choice already made); a
         // direction change switches the expected type, so the old id is then no longer a candidate.
-        val previous = contraSelect.value
+        val previous = contraField.value
         contraSelect.options = listOf("" to tr("(bitte wählen)")) + candidates.map { it.id to "${it.accountNumber} · ${it.name}" }
-        contraSelect.value = if (previous != null && candidates.any { it.id == previous }) previous else ""
+        contraField.setValue(if (previous.isNotBlank() && candidates.any { it.id == previous }) previous else "")
+        // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
+        contraField.validate(force = false)
         contraHint.content =
             if (direction == OpenItemDirection.PAYABLE) {
                 tr("Zur Auswahl stehen Aufwandskonten.")
@@ -1307,71 +1389,67 @@ private fun renderOpenItemCreateForm(
 
     fun requestPrefill() {
         val direction = selectedDirection() ?: return
-        val name = nameInput.value?.trim().orEmpty()
-        if (name.isEmpty() || !contraSelect.value.isNullOrBlank()) return
+        val name = nameField.value.trim()
+        if (name.isEmpty() || contraField.value.isNotBlank()) return
         AppScope.launch {
             val defaults =
                 guarded { rpcService<IOpenItemService>().getCounterpartyDefaults(name, direction) }?.firstOrNull() ?: return@launch
-            if (!contraSelect.value.isNullOrBlank()) return@launch
+            if (contraField.value.isNotBlank()) return@launch
             if (accounts().any { it.id == defaults.contraAccountId && it.type == expectedContraAccountType(direction) }) {
-                contraSelect.value = defaults.contraAccountId
-                sphereSelect.value = defaults.sphere.name
+                contraField.setValue(defaults.contraAccountId)
+                contraField.validate(force = false)
+                sphereField.setValue(defaults.sphere.name)
                 prefillHint.content = tr("Konto und Sphäre aus dem letzten Posten dieser Gegenpartei vorbelegt.")
             }
         }
     }
-    nameInput.subscribe {
+    nameField.subscribe {
         prefillHint.content = ""
         prefillTimer?.let { window.clearTimeout(it) }
         prefillTimer = window.setTimeout({ requestPrefill() }, OPEN_ITEMS_PREFILL_DEBOUNCE_MS)
     }
-    directionSelect.subscribe {
+    directionField.subscribe {
         rebuildContraOptions()
         prefillHint.content = ""
         requestPrefill()
     }
 
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val buttons = panel.hPanel(spacing = 8)
-    val saveButton = buttons.button(tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
-    buttons.button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).onClick { onCancel() }
+    val saveButton = Button(tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
+    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
+    form.buttons(primary = saveButton, cancel = cancelButton)
+    cancelButton.onClick { onCancel() }
 
     saveButton.onClick {
-        errorBox.hide()
-        val direction = selectedDirection()
-        val itemDate = runCatching { LocalDate.parse(itemDateInput.value.orEmpty().trim()) }.getOrNull()
-        val dueDate = runCatching { LocalDate.parse(dueDateInput.value.orEmpty().trim()) }.getOrNull()
-        val amount = parseAmountInput(amountInput.value)
-        val contraAccountId = contraSelect.value?.takeIf { it.isNotBlank() }
-        val reference = referenceInput.value?.trim()?.takeIf { it.isNotEmpty() }
-        val note = noteInput.value?.trim()?.takeIf { it.isNotEmpty() }
-        val validationError =
-            validateOpenItemForm(direction, nameInput.value.orEmpty(), itemDate, dueDate, amount, contraAccountId, reference, note)
-        if (validationError != null) {
-            errorBox.content = validationError
-            errorBox.show()
-            return@onClick
-        }
-        val input =
-            OpenItemInput(
-                direction = direction!!,
-                counterpartyName = nameInput.value.orEmpty().trim(),
-                crmContactId = crmSelect?.value?.takeIf { it.isNotBlank() },
-                reference = reference,
-                itemDate = itemDate!!,
-                dueDate = dueDate!!,
-                amount = (amount as AmountInput.Valid).value,
-                contraAccountId = contraAccountId!!,
-                sphere =
-                    sphereSelect.value?.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
-                        ?: GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
-                note = note,
-            )
-        runGuardedAction(saveButton) {
+        form.submit(saveButton) {
+            val direction = selectedDirection()
+            val itemDate = runCatching { LocalDate.parse(itemDateField.value.trim()) }.getOrNull()
+            val dueDate = runCatching { LocalDate.parse(dueDateField.value.trim()) }.getOrNull()
+            val amount = parseAmountInput(amountField.value)
+            val contraAccountId = contraField.value.takeIf { it.isNotBlank() }
+            val reference = referenceField.value.trim().takeIf { it.isNotEmpty() }
+            val note = noteField.value.trim().takeIf { it.isNotEmpty() }
+            // Der letzte Riegel vor dem RPC: dieselben Bedingungen wie die Feldregeln oben (die Feldregeln haben schon geprüft).
+            val validationError =
+                validateOpenItemForm(direction, nameField.value, itemDate, dueDate, amount, contraAccountId, reference, note)
+            if (validationError != null) {
+                form.showFormError(validationError)
+                return@submit
+            }
+            val input =
+                OpenItemInput(
+                    direction = direction!!,
+                    counterpartyName = nameField.value.trim(),
+                    crmContactId = crmField?.value?.takeIf { it.isNotBlank() },
+                    reference = reference,
+                    itemDate = itemDate!!,
+                    dueDate = dueDate!!,
+                    amount = (amount as AmountInput.Valid).value,
+                    contraAccountId = contraAccountId!!,
+                    sphere =
+                        sphereField.value.let { runCatching { GemeinnuetzigkeitSphere.valueOf(it) }.getOrNull() }
+                            ?: GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+                    note = note,
+                )
             val created = guarded { rpcService<IOpenItemService>().createOpenItem(input) }
             if (created != null) onCreated(created)
         }

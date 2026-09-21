@@ -8,6 +8,191 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W4c "Form grammar, part 3" (V1.4.30)** -- the finance forms and dialogs, cut by whole files (all
+  twelve, none held back): the ledger (`LedgerScreen`: chart of accounts, the account form, the payment-account mapping, the
+  journal entry with its posting lines), open items (`OpenItemsScreen`, `OpenItemDialogs`: create, settle, edit reference/note,
+  net), SEPA (`SepaBatchesScreen`, `SepaMandatesScreen`, `SepaMandateSection`), donors, bank accounts (including the FinTS
+  assistant), the bank statement import and its assignment workbench, cost centers, the accounting export and the dunning cases.
+  A client wave **with three server production files touched**: `SepaService.kt` (the return-fee bound, +9 lines), `AccountingService.kt`
+  (the journal amount bound and the text-length checks, +30) and `JournalEntryBalance.kt` (the shared bound `MAX_POSTING_AMOUNT` and the
+  length constants, +31) -- all named under "Rules that changed". No RPC signature, DTO or migration was touched (`db/migration` holds 44
+  migrations, the last is `V44__ai_assistant.sql`; neither this wave nor the earlier unreleased waves V1.4.26-V1.4.29 added one, so there was
+  nothing to extend in place). Roles, confirmations and required reasons are unchanged. **Server calls are unchanged EXCEPT one thing:**
+  `JournalEntryBalance.validateBalanced` now also enforces the amount bound (10^12), and seven paths run through it -- the posting bridges
+  of the contribution, the donation, the event fee, the open item, the travel expense and the volunteer allowance, and `postDraftEntry`
+  (`postJournalEntry` itself as well). An automatic posting above 10^12 used to reach the `DECIMAL(15,2)` column limit; it now fails at the
+  bound. Please do not read this as "no rule changed".
+  **Two building blocks, nothing else.** `LapisForm.unregister(field)` / `LapisField.detach()`: the remove button of a posting line
+  deregisters its six fields (idempotent; the widget removal stays the caller's job). Without it the field of a removed line stayed in
+  the form, kept its error and its rule, and blocked `validateAndReport()` invisibly for ever -- the slot is gone from the DOM but the
+  field is not. `resetForm()`/`prefill()` deregister the old lines first, otherwise every save would pile up dead fields and the form
+  could not be submitted a second time (tested three saves in a row). A small internal helper, `LapisField.relabel`, renames a field
+  ("Betrag · Zeile 2") without losing the required star (the star is a span next to the label text span; overwriting the label
+  content would print the text twice) and keeps `resolvedLabel` -- the name in the collective message -- in step. Posting lines are a
+  table for the eyes and a form for everything else: ONE visible column-header row (hidden below 768 px, where each line becomes a
+  card), the field name stays on every control for screen readers (visually clipped, never `display: none`). **No date/time factory,
+  no upload factory, no third grammar.**
+  **The balance strip.** Below the lines: "Soll 1200 € · Haben 900 € · Differenz 300 €" -- information, not a lock: no
+  `role="alert"`, no traffic-light colour. As soon as any amount is empty or invalid it shows dashes everywhere, never an old sum. It
+  adds in whole cents (`Decimal` is a `Double` on JS: 0.1 + 0.2 must be 0.3, not 0.30000000000000004). **One money format in the booking
+  workflow (audit M3):** the strip writes its amounts through `formatMoney`, exactly like the confirmation dialog and the journal table
+  ("100.5 €": decimal point, no padding to two places) -- it first padded ("1200,00 €") while the confirmation dialog of the same workflow
+  printed "1200 €". The global `formatMoney` is deliberately NOT changed (a known gap of the whole UI, it would flip the golden tests of the
+  reports); a second format still exists for the fee-range messages ("Die Gebühr muss zwischen 0,00 € und 25,00 € liegen", decimal comma,
+  padded) -- separator and padding diverge across the app, named here, not fixed.
+  **Rules that changed (named, not "unchanged").**
+  1. Posting amounts with more than two decimal places are now REJECTED at the field instead of being silently rounded (`10,005`
+     used to be posted as `10,01`). This aligns the client with `JournalEntryBalance.MAX_AMOUNT_SCALE = 2`, which the server already
+     enforced -- a named tightening, not an unchanged rule. The same amount grammar now also accepts a decimal COMMA in the posting
+     lines (`1234,56`, like everywhere else in the finance screens; the old parser silently rejected it). The return fee of a SEPA
+     return and the netting amount got their field rules the same way (a fee with more than two decimals used to be rounded, now it is
+     rejected, as the server does). Both amounts also have an upper bound now, each matching ITS column: the posting amount `MAX_POSTING_AMOUNT` (one trillion,
+     `posting.amount` is `DECIMAL(15,2)`), the return fee `MAX_RETURN_FEE_AMOUNT` (one billion, `sepa_return.return_fee` is
+     `DECIMAL(12,2)` and overflows from 10^10 on). Before this wave the server drew none for these two columns (only the open-item
+     sub-ledger had its own), and `99999999999999999999` used to travel as the JSON double `1.0E20` and end in a DB overflow (HTTP 500).
+     `SepaService.recordReturn` now rejects a fee above one billion with a typed `BadRequestException` (a `ConflictException` first --
+     the audit changed it: its client text "please refresh the view" is wrong advice for an input error), and
+     `AccountingService.saveDraftEntry`/`postJournalEntry`/`postDraftEntry` reject a posting amount above one trillion
+     (`JournalEntryBalance.MAX_POSTING_AMOUNT`) with a typed `BadRequestException` instead of the database overflow -- the server, not the
+     form, is the authority for both bounds. **Honest about the status code:** "400"/"409" exist in the HTTP test harness only
+     (`installAccountingExceptionHandlers` and `installSepaExceptionHandlers` are test code); in production `Application.kt` installs
+     `StatusPages` for 401/403 only, and Kilua RPC carries just the exception SUBCLASS to the client, never its message -- the client shows
+     the static toast "Ungültige Anfrage."; the client-side mirror of both bounds is what prevents the normal case.
+     Likewise the journal `description` (500 characters) and `voucherReference` (100 characters) are now checked against their column
+     width on the server (a typed `BadRequestException` instead of an unmapped HTTP 500), and the form mirrors both limits
+     (`FormRules.maxLength`). **Named gaps of these checks:** the length is `String.length` (UTF-16 code units) while `VARCHAR(500)` counts
+     characters, so text with characters outside the BMP counts double and is rejected earlier than the column would; and there is no
+     limit on `postings.size`. **Data regression:** a draft saved earlier with an amount between 10^12 and about 10^13 (it fitted the
+     column) cannot be booked any more -- `postDraftEntry` runs `validateBalanced` -- and the UI has no edit path for a draft (only
+     "Als neuen Entwurf duplizieren"); such a draft has to be corrected on the database or discarded. The balance strip shows dashes for an amount
+     above the bound instead of a saturated made-up sum.
+     The balance strip shows dashes when the last posting line was removed (it claimed a balanced zero), and on mobile the remove
+     button of a posting line keeps its normal height.
+  2. The direct-posting path checks the three server balance conditions (at least two lines, at least one debit and one credit line,
+     debit sum = credit sum) BEFORE the confirmation dialog and names the difference. Drafts are deliberately NOT checked: the server
+     allows an unbalanced draft, and a balance rule in the form would forbid something that is allowed today.
+  3. "Endgültig buchen" is a one-shot button (`ConfirmOnce`): before, it could fire any number of times until the modal was gone --
+     with `postJournalEntry` (no idempotency key) a real double booking.
+  4. The two confirmation buttons of the settle and net dialogs swapped places: "Zurück" now stands BEFORE "Jetzt ausgleichen" /
+     "Endgültig verrechnen" (cancel left, confirming action right). Handlers, gate and texts are unchanged.
+  5. The IBAN echo of the mandate form is a reading aid: it shows the grouped entry for every non-empty input, also one with a wrong check
+     digit (this wave first hid it while the IBAN was invalid; the audit reversed that -- grouping in fours is what makes a typo visible),
+     and whether the IBAN is valid is reported separately, at the field. The BIC is still only upper-cased for the check, never written
+     back. The IBAN and BIC fields carry `autocomplete="off"`, so a reset form does not offer the previous member's IBAN.
+  6. The FinTS assistant's grey "Aktivieren" button without an explanation (`disabled = checked != true`) became a required checkbox
+     with a message; the accounting export's acknowledgement checkbox the same.
+  7. Result areas are cleared before every run (statement upload banner, export preview, latest run) and a dropped connection during
+     an upload shows an honest message ("the statement may have been imported -- check the list") instead of an exception in
+     `AppScope`; the dead `errorBox` of `DunningCasesScreen` is gone.
+  8. The date labels of the FILTER rows lost their format ("Von (JJJJ-MM-TT, optional)" -> "Von"/"Bis", the example sits in a hint
+     line), and the labels/messages that carried "(optional)", a date format or a number bound (`Bitte ... (0-9)`, "höchstens 10
+     Mandate pro Minute") were rewritten with `%N` placeholders. The filter fields themselves are still filters, not forms.
+  **Where a field is only required for one choice** (the donor selects of the entry form, the free text of a return with the reason
+  "Sonstiger Grund", the member/category of a bank line donation) a field rule can not express it: the grammar treats an empty value
+  itself and never asks the rule. These conditions are cross rules (message in the collective area, focus on the field) instead of
+  `required`, which would block with an invisible error.
+  **Double-click protection (R29).** All 47 writing coroutines of the twelve files (measured with a re-implementation of the
+  tripwire's regexes) now run through `form.submit` / `runBusy` / `runGuardedAction` / `ConfirmOnce`; **R29 stays at 39** (the
+  ratchet of the earlier files -- it does not rise). Two collisions were checked: `createButton.disabled = preview.itemCount == 0`
+  (SEPA) and the disabled test/remove buttons of the export are business state, not the click guard -- a disabled button never
+  reaches `runBusy`, so its `finally` cannot re-enable it. `suggestMatches` is a read with a name the scanner does not know; it runs
+  through `runGuardedAction(null)` instead of changing the scanner in the middle of the measurement. **Audit:** the three row buttons
+  "Deaktivieren" (chart of accounts, donors, cost centers) now hand THEIR button to `runGuardedAction` (before: `runGuardedAction(null)`,
+  protected only by the one-shot of the confirmation dialog); still without a button: `suggestMatches` (a read) and `cancelFinTsSetup`
+  (the modal's own cancel, no button of its own to lock).
+  **Ratchets.** R24 225 -> 166 (59 labelled text fields moved in, 10 justified filters), R24B 131 -> 80 (51 moved in, 9 justified
+  filters). `SepaMandatesScreen` and `DunningCasesScreen` hold only a filter and dialog-guarded actions: they are in the strict set
+  "without form" (nothing to build), the other ten hold a `lapisForm`. **Audit:** the presence check `contains("lapisForm(")` alone would let a
+  file lose all but one of its forms; a floor per file (`R24_MIN_FORMS`, at least as many forms as the wave built) now pins the count.
+  **Catalogs.** The commit put **175 entries** into each of the eight catalogs (168 new msgids + 7 that existed with an empty translation),
+  all of them translated. That is the whole claim: **24 OLD entries per catalog still have an empty translation** (they predate the wave),
+  and a plain `grep -c '^msgstr ""$'` reports 182-216 per file because it also counts every multi-line `msgstr`. The long SEPA/dunning
+  conflict messages and the whole accounting export and dunning list had never been translated. The catalog guard now also resolves a
+  constant built from another constant (`"..." + SEPA_GATE_CONFLICT_HINT + "."`) -- the part-2 guard saw a truncated text that exists
+  in no catalog. Guards: no number bound in a msgid (audit: also "mehr als N", "bis zu N", "max. N", "min. N"), and the core accounting terms stay
+  pairwise different words in all seven languages -- Soll, Haben, Aktivkonto, Passivkonto, Betrag, Konto, Buchung, Gebühr, Sphäre,
+  Kostenstelle, Mahnung, Mahnhinweise, Mahnstufe, Ausgleichen …, Verrechnen …, Beleg, Belegnummer, Lauf and (audit) Stornieren,
+  Abbrechen, Storniert, abgebrochen, Summe, Mahnwesen, Gebührenkonto, Aufwandskonto, Hochladen, Übertragen, Saldo, Ausgleiche,
+  the BARE Ausgleichen and Abrechnen, Verwendungszweck, Grund. The scan now also covers `FormGrammar.kt`, `FormRules.kt` and
+  `OpenItemFormValidation.kt`.
+  **Tests.** Before the audit: `FormGrammarPart3DomTest` (13) and `FormGrammarPart3FlowsDomTest` (6) covered the request bodies of
+  `postJournalEntry` (direct), `saveDraftEntry`, account creation, cost-center creation, donor creation, `createOpenItem` and
+  `previewDebitBatch`, with distinct neighbours (debit/credit not swapped, amount unchanged, item date vs due date, collection date vs
+  due date), no RPC at all for invalid input, the scale rule, the balance check in front of direct posting but not of a draft, a removed
+  line never blocks, the renumbered label keeps its star, three saves in a row, one booking for three clicks on the confirmation, the
+  defaults unchanged, the upload slots as siblings and a counterparty name with markup shown as text; `LedgerFormPart3Test` (pure rules).
+  **Audit round:** `FormSubmitBodyPart3FinanceDomTest` (17) adds the bodies of `settleOpenItem`, `executeNetting` (with the candidate-switch
+  validation), `updateOpenItemMetadata`, `recordReturn`, `grantMandate`, `createDebitBatch`, `revokeMandate` (the mandate section),
+  `markBatchSubmitted`, `cancelBatch`, `settleBatch`, `beginFinTsSetup`/`submitFinTsTan` (user id and PIN in their own slots, the PIN
+  in no DOM attribute), `assignLineToDonation` (member and external donor), `assignLineToContribution`, `setToken` (never in the DOM),
+  `resolveUnknownItem`, `acknowledgeZeroVat` (unticked box: no RPC), `createBankAccount`/`updateBankAccount`; `FormGrammarPart3AuditDomTest`
+  (15) pins the behaviours listed below. Expected values come from the OLD code (`git show b776e93:<file>`) and the server limits.
+  **Not covered by any W4c test (named):** the row action of `SepaMandatesScreen` (same dialog and call as the section that IS covered),
+  the accounting-export run flow (`previewExport`, `startExport`, `mapAccount`, `retryFailed`, `abortRun`), the SEPA creditor settings,
+  `cancelFinTsSetup`, and the dunning-case actions. A `CancellationException` inside the resolve action cannot be provoked in a DOM test
+  (Kilua's fetch await is not cancellable; the coroutine only ends when the response arrives) -- the failed-call path is tested, the
+  `finally` covers the rest. There is **no "Kleinunternehmer gate" in the W4c files**: the only VAT acknowledgement here is the 0 % notice of
+  the accounting export, which is tested.
+  **Audit round of W4c (finding -> fix).** Documentation: the guideline said "a pure client wave" and "the server draws no upper bound" --
+  both were false and are corrected (three server files; the server draws both bounds and checks the two text lengths); the empty
+  "audit round" placeholder of the guideline is filled. Behaviour: (M1) the return-fee field showed "must be a positive amount" for
+  "3,005", "1.234,56" and "0" -- its rule now IS `FormRules.returnFee` and names the real reason; (M2) the "other reason" free text was
+  focused through its wrapper `<div>` and only worked by accident of the listener -- `focusOn` and `watch` now name the `<input>`;
+  (M3) the strip and the confirmation dialog used two money formats -- both use `formatMoney` now (see the balance strip above);
+  (M4) the bank-account IBAN and BIC fields had no rule -- both now check the server's own shape (a mod-97 IBAN check without the country
+  list, so the field is never stricter than `BankAccountStore`; the BIC regex is identical); `Validation.looksLikeIban` strips ALL
+  whitespace like `IbanValidator.normalize` (a no-break space of a copied IBAN was rejected client-side and accepted by the server);
+  (M5) the resolve action of unknown export items locked both buttons for ever if the call did not return normally -- it runs through
+  `runGuardedAction` with a `finally` now; (M6) the SEPA fee bound is a `BadRequestException` (see rule 1); (M7) the donation blocks
+  starred the pre-selected donor type and left the fields that actually block unstarred, under a visible legend -- the type is no longer
+  `required` (a select without an empty option is never empty), the conditional fields say "Pflichtangabe für diesen Spendertyp." in their
+  hint, and the netting dialog's never-empty candidate select lost its `required` so that the amount keeps its star and its legend;
+  (M9) after a recorded return the position list re-selected the NEXT member's item, date and reason stayed, so one more click recorded a
+  return for another person without asking -- the position is now empty (a placeholder option), date, reason, free text and fee are back at
+  their defaults, and a click without a choice sends nothing.
+  **Minor, done:** the year filter of the donation-duty report is a field of the grammar (example in the hint, error at the field, no loose
+  `errorBox`); the returns filter shows an unreadable date ("13.03.2026") as a field error with `aria-describedby` instead of silently
+  loading the full list under a false "nothing in this period"; a failed batch creation withdraws the preview button with its old
+  numbers; the IBAN echo is a reading aid (rule 5); the button order follows the grammar: the token form of the export puts "Verbindung
+  prüfen" LEFT of the primary, "Nicht gefunden" of the resolve action stands in the danger zone instead of as a second button right of
+  the primary, and in the open-item form the order is now "Abbrechen" left, "Posten anlegen" right -- the cancel button therefore stands
+  where the primary button used to stand and discards the form without a question (the grammar has no unsaved-changes prompt); the
+  statement upload clears the old result BEFORE every submit (also one that already fails the file check), a stale form error is
+  cleared before "Diesem Beitrag zuordnen", a rejected statement's raw line (it carries IBAN and amount) sits in an ordinary detail area,
+  not in the `role="alert"` region that a screen reader reads aloud; the first render of the cost-centre report and of the donation-duty
+  report no longer marks the form "already submitted"; the category select of an unmapped account in the export preview sits
+  under the 44 px touch rule (`.lapis-touch-target`, it stands outside `.lapis-form`). **i18n audit:** (B1) "Stornieren" and
+  "Abbrechen" were the SAME word in all seven languages, so three irreversible money paths (cancel a SEPA run, a dunning notice, an open
+  item) showed [Cancel][Cancel] with the red one booking -- "Stornieren" is now Reverse / Anular / Contrepasser / Storna / Terugdraaien /
+  Storno / Сторнировать, "Storniert" Reversed / Anulado / Contrepassé / Stornato / Teruggedraaid / Stornowany / Сторнировано (the same
+  msgids also serve the event screens, where "reverse" is a coarser word -- a separate msgid there is a known gap); (M2) `openItemPostingErrorMessage`,
+  the "keine" fallback of the dunning banner and further call sites in `ApiKeysScreen`, `DunningSettingsScreen` and the two travel-expense
+  screens passed a `tr()` result as a `gettext` argument and printed KVision's marker (`###KvI18nS###`) into the text -- the sites use `gettext`, `I18nCatalogManager.gettext` resolves a marker argument as a net,
+  and the tripwire forbids `tr(` inside `gettext(`/`FieldCheck.Invalid(`/`AmountInput.Invalid(` (a helper that RETURNS a marker string, e.g. `memberHonorCategoryLabel`, is not visible to a source scan: its call sites in the honours, webhook, travel-expense, volunteer-allowance and export screens pass `resolvedAttributeText(...)`, and `MemberHonorsScreenTest` had asserted the leaked marker itself as the expected value -- corrected); (M3) nl "Gebührenkonto" no longer equals
+  "Aufwandskonto"; (M4) six Polish ledger accounts are "Konto ..." (a "Rachunek" is the bank account); (M5) it "Ausgleich" nouns no longer
+  read "Saldo", the SEPA "Abrechnen" family is "Contabilizza" in Italian and (its bare button equalled "Ausgleichen" in four languages)
+  Post / Contabilizar / Comptabiliser / Zaksięguj in en/es/fr/pl; (M6) es "Storniert" no longer equals "abgebrochen"; (M7) the three
+  numbers inside msgids (2 decimals, 12 months, 5 MB) are `%1` placeholders; 42 orphaned msgids of the wave files (labels with "(optional)"
+  and date formats, the four collective sentences, "Ignorieren", ...) are gone from all eight catalogs (the audit counted 35); en "Example:
+  1234.56."; ru "Summe" is "Итого" (not "Сумма" = "Betrag"); "Mahnwesen" differs from "Mahnhinweise" in it/nl/pl; pl "Übertragen" is
+  "Przekaż"; fr "Verwendungszweck" is "Libellé" (not "Motif" = "Grund"). **Deliberately not changed:** the global `formatMoney`; the
+  duplicated msgids ("Mitglied auswählen" / "wählen" ...); the fee-range messages' decimal comma; `runGuardedAction(null)` for
+  `suggestMatches` (a read) and `cancelFinTsSetup`.
+  **Known gaps of the audit round.** **The manual browser check at 375 / 767 / 768 / 1440 px, light and dark, was NOT done** -- the
+  layout claims of this wave (posting-row cards, header row, contrast values) rest on the DOM tests and on the measured contrast
+  numbers, not on a look at the screen. No plural forms in the catalogs (`ngettext` is unused; "1 Positionen" style sentences remain). The
+  status code of the two new server bounds is not observable in production (see rule 1).
+  **Not in this wave (named, with numbers).** W4d -- still on the old grammar: `TravelExpenseScreen` (7 text fields),
+  `TravelExpenseApprovalsScreen` (4/1), `VolunteerAllowanceScreen` (3/1), `VolunteerAllowanceApprovalsScreen` (2/2),
+  `ContributionsScreen` (8/5), `DocumentsScreen` (4/2), `PoliticianScreen` (3/2), `NonprofitComplianceReportsScreen` (0/1),
+  `DashboardScreen` (3, the password change), `PaymentTransactionsScreen` (1/1), `FinancialReportsScreen` (1), `LtrLedgerScreen`
+  (6/8), `PriceOracleScreen` (7/4), `DonationCheckoutScreen` (2/1), `ApiKeysScreen`'s webhook fields (already a named exception).
+  Unchanged open: CRM (20/9), DSGVO (25 + 15), events (23/6), auction (7/1), crowdfunding (4/1), conference (4/11), social network
+  (8/3), catering (6/1), honours/families (9/4), audit log (6/1). `AccountingFilters.kt` (3) stays outside the strict set on purpose:
+  its year filter is a filter block, not a form. **Not fixed, only named:** `formatMoney`/`sumPostingLines` still add `Double` values
+  (`sumPostingLines` of the confirmation dialog can show `1234.5600000000001 EUR`); only the new balance strip and balance check
+  count in cents.
+
 - **UI/UX guideline, wave W4b "Form grammar, part 2" (V1.4.29)** -- the second half of the form roll-out, cut by whole
   files: the door check-in, the member administration (the editor modal with its six independent forms, rejecting an
   application, direct member creation), meetings, motions, committees, board membership, communication, the contribution

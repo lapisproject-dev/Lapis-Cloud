@@ -2,7 +2,9 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.form.check.checkBox
+import io.kvision.form.text.Text
 import io.kvision.form.text.text
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -271,7 +273,8 @@ private fun Container.renderCostCenterActions(
                 ),
             confirmLabel = tr("Deaktivieren"),
         ) {
-            AppScope.launch {
+            // Der Zeilenknopf sperrt sich für die Dauer des Aufrufs (vorher `runGuardedAction(null)`: ein Schutz nur über die Einmal-Sperre des Dialogs).
+            runGuardedAction(deactivateButton) {
                 val result = guarded { rpcService<IAccountingService>().deactivateCostCenter(costCenter.id) }
                 if (result != null) {
                     notifyInfo(tr("Kostenstelle wurde deaktiviert."))
@@ -289,47 +292,34 @@ private fun Container.renderCostCenterActions(
  * .createCostCenter` KDoc); a race or a validation this client does not mirror correctly still
  * surfaces through `guarded()`'s generic error toast.
  */
-private fun renderCostCenterCreationForm(
+internal fun renderCostCenterCreationForm(
     root: SimplePanel,
     onCreated: () -> Unit,
 ) {
-    val panel = root.vPanel(spacing = 6)
-    val codeInput = panel.text(label = tr("Code (eindeutig, z. B. SOMMERFEST-2027)"))
-    val nameInput = panel.text(label = tr("Name"))
-    val descriptionInput = panel.text(label = tr("Beschreibung (optional)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val form = root.lapisForm()
+    // Das Beispiel steht im Hinweis, nie im Label (W4c).
+    val codeField = form.textField(label = tr("Code"), required = true, hint = tr("Eindeutig. Beispiel: SOMMERFEST-2027."))
+    val nameField = form.textField(label = tr("Name"), required = true)
+    val descriptionField = form.textField(label = tr("Beschreibung"))
 
-    val createButton = panel.button(tr("Kostenstelle anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = Button(tr("Kostenstelle anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
     createButton.onClick {
-        errorBox.hide()
-        val code = codeInput.value.orEmpty().trim()
-        val name = nameInput.value.orEmpty().trim()
-        val description = descriptionInput.value?.trim()?.takeIf { it.isNotBlank() }
-
-        if (!Validation.isNonBlank(code) || !Validation.isNonBlank(name)) {
-            errorBox.content = tr("Bitte Code und Name angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val code = codeField.value.trim()
+            val name = nameField.value.trim()
+            val description = descriptionField.value.trim().takeIf { it.isNotBlank() }
             val result =
                 guarded {
                     rpcService<IAccountingService>().createCostCenter(
                         CostCenterInput(code = code, name = name, description = description, active = true),
                     )
                 }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Kostenstelle \"%1 · %2\" wurde angelegt.", code, name))
-                codeInput.value = null
-                nameInput.value = null
-                descriptionInput.value = null
+                codeField.reset()
+                nameField.reset()
+                descriptionField.reset()
                 onCreated()
             }
         }
@@ -346,15 +336,24 @@ private fun renderCostCenterCreationForm(
  * meaningful report instead of an immediate validation error before the treasurer has touched
  * anything, mirroring `FinancialReportsScreen.renderIncomeStatementView`'s identical precedent.
  */
-private fun renderCostCenterReportView(panel: SimplePanel) {
-    val filterControls = panel.dateRangeFilter()
-    filterControls.toInput.value = todayIso()
-    val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+internal fun renderCostCenterReportView(panel: SimplePanel) {
+    // W4c: der Zeitraum ist ein [LapisForm] -- der Fehler steht am Feld (vorher ein Sammelsatz über dem Knopf). "Bis" ist Pflicht und
+    // vorbelegt, "Von" bleibt leer = seit Gründung.
+    val form = panel.lapisForm()
+    val fromField =
+        form.textField(label = tr("Von"), hint = tr("Beispiel: 2026-03-14."), rule = { FormRules.isoDate(it) })
+    val toField =
+        form.textField(
+            label = tr("Bis"),
+            value = todayIso(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges \"Bis\"-Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val filterControls = DateRangeFilterControls(fromField.control as Text, toField.control as Text)
+    val loadButton = Button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
+    form.buttons(primary = loadButton)
     // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." on a failed load; the date validation
     // stays in front of the reload so an invalid date keeps its own message.
     val section =
@@ -368,17 +367,10 @@ private fun renderCostCenterReportView(panel: SimplePanel) {
             render = { body, report -> renderCostCenterReportBody(body, report, captionVisible = false) },
         )
 
-    fun load() {
-        errorBox.hide()
-        if (filterControls.parseTo() == null) {
-            errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
-            errorBox.show()
-            return
-        }
-        section.reload()
-    }
-    loadButton.onClick { load() }
-    load()
+    loadButton.onClick { if (form.validateAndReport()) section.reload() }
+    // Der erste Abruf läuft mit den Vorbelegungen (Von leer, Bis heute: beides gültig) OHNE `validateAndReport()`: das markierte jedes Feld
+    // als "schon abgesendet", und das frisch gezeigte Formular startete nie unberührt.
+    section.reload()
 }
 
 private val COST_CENTER_REPORT_HEADERS =

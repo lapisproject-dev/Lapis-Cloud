@@ -2,8 +2,8 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.select
 import io.kvision.form.text.text
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -283,7 +283,8 @@ private fun Container.renderDonorActions(
                 ),
             confirmLabel = tr("Deaktivieren"),
         ) {
-            AppScope.launch {
+            // Der Zeilenknopf sperrt sich für die Dauer des Aufrufs (vorher `runGuardedAction(null)`: ein Schutz nur über die Einmal-Sperre des Dialogs).
+            runGuardedAction(deactivateButton) {
                 val result = guarded { rpcService<IAccountingService>().deactivateExternalDonor(donor.id) }
                 if (result != null) {
                     notifyInfo(tr("Spender wurde deaktiviert."))
@@ -303,63 +304,56 @@ private fun Container.renderDonorActions(
  * donor block (D13) and posting-line `sphere` select already apply, extended here to this screen's
  * own creation form for consistency across the wave.
  */
-private fun renderDonorCreationForm(
+internal fun renderDonorCreationForm(
     root: SimplePanel,
     onCreated: () -> Unit,
 ) {
-    val panel = root.vPanel(spacing = 6)
-    val displayNameInput = panel.text(label = tr("Name"))
+    val form = root.lapisForm()
+    val displayNameField = form.textField(label = tr("Name"), required = true)
     val categoryOptions =
         listOf("" to tr("-- Spenderkategorie wählen --")) + donorCategoryCreationOrder.map { it.name to donorCategoryLabel(it) }
-    val categorySelect = panel.select(options = categoryOptions, value = "", label = tr("Spenderkategorie"))
-    val streetInput = panel.text(label = tr("Straße (optional)"))
-    val postalCodeInput = panel.text(label = tr("PLZ (optional)"))
-    val cityInput = panel.text(label = tr("Ort (optional)"))
-    val countryInput = panel.text(label = tr("Land (optional)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val categoryField =
+        form.selectField(
+            label = tr("Spenderkategorie"),
+            options = categoryOptions,
+            value = "",
+            required = true,
+        )
+    // Die Adresse ist freiwillig (das Sternsystem kennzeichnet die Pflichtfelder, kein "(optional)" im Label).
+    val streetField = form.textField(label = tr("Straße"))
+    val postalCodeField = form.textField(label = tr("PLZ"))
+    val cityField = form.textField(label = tr("Ort"))
+    val countryField = form.textField(label = tr("Land"))
 
-    val createButton = panel.button(tr("Spender anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = Button(tr("Spender anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
     createButton.onClick {
-        errorBox.hide()
-        val displayName = displayNameInput.value.orEmpty().trim()
-        val categoryValue = categorySelect.value.orEmpty()
-        val category = runCatching { DonorCategory.valueOf(categoryValue) }.getOrNull()
-
-        if (!Validation.isNonBlank(displayName) || category == null) {
-            errorBox.content = tr("Bitte Name und Spenderkategorie angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val displayName = displayNameField.value.trim()
+            val category = runCatching { DonorCategory.valueOf(categoryField.value) }.getOrNull() ?: return@submit
             val result =
                 guarded {
                     rpcService<IAccountingService>().createExternalDonor(
                         ExternalDonorInput(
                             displayName = displayName,
                             donorCategory = category,
-                            street = streetInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            postalCode = postalCodeInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            city = cityInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            country = countryInput.value?.trim()?.takeIf { it.isNotBlank() },
+                            street = streetField.value.trim().takeIf { it.isNotBlank() },
+                            postalCode = postalCodeField.value.trim().takeIf { it.isNotBlank() },
+                            city = cityField.value.trim().takeIf { it.isNotBlank() },
+                            country = countryField.value.trim().takeIf { it.isNotBlank() },
                             active = true,
                         ),
                     )
                 }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Spender \"%1\" wurde angelegt.", displayName))
-                displayNameInput.value = null
-                categorySelect.value = ""
-                streetInput.value = null
-                postalCodeInput.value = null
-                cityInput.value = null
-                countryInput.value = null
+                displayNameField.reset()
+                categoryField.reset()
+                categoryField.setValue("")
+                streetField.reset()
+                postalCodeField.reset()
+                cityField.reset()
+                countryField.reset()
                 onCreated()
             }
         }
@@ -375,7 +369,7 @@ private fun renderDonorCreationForm(
  * [fiscalYearFilter] (`AccountingFilters.kt`, D12) is reused verbatim here with a report-specific
  * label rather than introducing a second, near-identical year-input control.
  */
-private fun renderDonationDutyReportView(panel: SimplePanel) {
+internal fun renderDonationDutyReportView(panel: SimplePanel) {
     panel.div(
         tr(
             "Zeigt offene Melde-/Offenlegungs-/Weiterleitungspflichten nach §25 PartG für ein " +
@@ -385,14 +379,29 @@ private fun renderDonationDutyReportView(panel: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
 
-    val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val yearControls = filterRow.fiscalYearFilter(currentYear = currentYear(), label = tr("Kalenderjahr (JJJJ)"))
-    val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // Audit V1.4.30: das Jahr ist ein Feld der Grammatik (Beispiel im Hinweis, Fehler AM Feld) -- vorher ein Feld ohne Formatangabe und
+    // ein loser roter Satz darunter (`errorBox`). Wie der Zeitraum des Kostenstellenberichts.
+    val form = panel.lapisForm()
+    val yearField =
+        form.textField(
+            label = tr("Kalenderjahr"),
+            value = currentYear().toString(),
+            required = true,
+            hint = gettext("Beispiel: %1.", currentYear()),
+            requiredMessage = tr("Bitte ein gültiges Kalenderjahr angeben."),
+            rule = { value ->
+                if (value.trim().toIntOrNull() ==
+                    null
+                ) {
+                    FieldCheck.Invalid(gettext("Bitte ein gültiges Kalenderjahr angeben."))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
+    val yearControls = FiscalYearFilterControls(yearField.control as io.kvision.form.text.Text)
+    val loadButton = Button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
+    form.buttons(primary = loadButton)
     // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." on a failed load; the year validation
     // stays in front of the reload so an invalid year keeps its own message.
     val section =
@@ -406,17 +415,9 @@ private fun renderDonationDutyReportView(panel: SimplePanel) {
             render = { body, report -> renderDonationDutyReportBody(body, report) },
         )
 
-    fun load() {
-        errorBox.hide()
-        if (yearControls.parseYear() == null) {
-            errorBox.content = tr("Bitte ein gültiges Kalenderjahr angeben (JJJJ).")
-            errorBox.show()
-            return
-        }
-        section.reload()
-    }
-    loadButton.onClick { load() }
-    load()
+    loadButton.onClick { if (form.validateAndReport()) section.reload() }
+    // Der erste Abruf läuft mit dem vorbelegten Jahr OHNE `validateAndReport()` (das Formular startet nie "schon abgesendet").
+    section.reload()
 }
 
 /**

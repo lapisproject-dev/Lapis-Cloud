@@ -98,8 +98,8 @@ private fun renderRatesBanner(
         panel.p(
             gettext(
                 "Kilometersatz: %1 · Tagespauschale: %2",
-                mileage?.let { "${formatMoney(it)}/km" } ?: tr("nicht konfiguriert"),
-                perDiem?.let { formatMoney(it) } ?: tr("nicht konfiguriert"),
+                mileage?.let { "${formatMoney(it)}/km" } ?: gettext("nicht konfiguriert"),
+                perDiem?.let { formatMoney(it) } ?: gettext("nicht konfiguriert"),
             ),
         ) { addCssClasses("text-muted small") }
     }
@@ -199,7 +199,10 @@ private fun renderDraftEditor(
     TravelExpenseLineKind.entries.forEach { kind ->
         val enabled = travelExpenseLineKindEnabled(kind, rates)
         val addButton =
-            addButtonsRow.button(gettext("%1 hinzufügen", travelExpenseLineKindLabel(kind)), style = ButtonStyle.OUTLINESECONDARY) {
+            addButtonsRow.button(
+                gettext("%1 hinzufügen", resolvedAttributeText(travelExpenseLineKindLabel(kind))),
+                style = ButtonStyle.OUTLINESECONDARY,
+            ) {
                 icon = travelExpenseLineKindIcon(kind)
                 disabled = !enabled
                 if (!enabled) {

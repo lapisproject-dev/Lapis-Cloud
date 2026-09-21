@@ -2,9 +2,8 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.core.Overflow
-import io.kvision.form.check.checkBox
-import io.kvision.form.text.password
 import io.kvision.form.text.text
+import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
@@ -178,15 +177,10 @@ private fun Container.renderBankAccountActions(
     if (account.isDefault) return
     val setDefaultButton = group.tableActionButton("fas fa-star", tr("Als Standard setzen"))
     setDefaultButton.onClick {
-        setDefaultButton.disabled = true
-        AppScope.launch {
-            try {
-                guarded { rpcService<IBankAccountService>().setDefaultBankAccount(account.id) } ?: return@launch
-                notifySuccess(tr("Standardkonto gesetzt."))
-                onChanged()
-            } finally {
-                setDefaultButton.disabled = false
-            }
+        runGuardedAction(setDefaultButton) {
+            guarded { rpcService<IBankAccountService>().setDefaultBankAccount(account.id) } ?: return@runGuardedAction
+            notifySuccess(tr("Standardkonto gesetzt."))
+            onChanged()
         }
     }
     val deleteButton = group.tableActionButton("fas fa-trash", tr("Löschen"), ButtonStyle.OUTLINEDANGER)
@@ -201,15 +195,10 @@ private fun Container.renderBankAccountActions(
                 ),
             confirmLabel = tr("Löschen"),
             onConfirm = {
-                deleteButton.disabled = true
-                AppScope.launch {
-                    try {
-                        guarded { rpcService<IBankAccountService>().deleteBankAccount(account.id) } ?: return@launch
-                        notifySuccess(tr("Bankkonto gelöscht."))
-                        onChanged()
-                    } finally {
-                        deleteButton.disabled = false
-                    }
+                runGuardedAction(deleteButton) {
+                    guarded { rpcService<IBankAccountService>().deleteBankAccount(account.id) } ?: return@runGuardedAction
+                    notifySuccess(tr("Bankkonto gelöscht."))
+                    onChanged()
                 }
             },
         )
@@ -270,8 +259,8 @@ private fun renderFinTsCell(
             if (canManageFinTs) {
                 val disableButton = panel.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINESECONDARY)
                 disableButton.onClick {
-                    AppScope.launch {
-                        guarded { rpcService<IBankAccountService>().disableFinTs(account.id) } ?: return@launch
+                    runGuardedAction(disableButton) {
+                        guarded { rpcService<IBankAccountService>().disableFinTs(account.id) } ?: return@runGuardedAction
                         notifySuccess(tr("FinTS-Live-Abruf deaktiviert."))
                         onChanged()
                     }
@@ -318,56 +307,63 @@ private fun renderFinTsGapNotice(
 // Wave 1 CRUD -- minimal create/edit form, structure mirrors SepaSettingsScreen's own modal idiom.
 // ================================================================================================
 
-private fun bankAccountEditModal(
+internal fun bankAccountEditModal(
     existing: BankAccountDto?,
     onSaved: () -> Unit,
 ) {
     val modal = Modal(caption = if (existing == null) tr("Bankkonto anlegen") else tr("Bankkonto bearbeiten"))
-    val labelInput = modal.text(label = tr("Bezeichnung")).apply { value = existing?.label }
-    val ibanInput = modal.text(label = tr("IBAN")).apply { value = existing?.iban }
-    val bicInput = modal.text(label = tr("BIC (optional)")).apply { value = existing?.bic }
-    val bankNameInput = modal.text(label = tr("Bankname (optional)")).apply { value = existing?.bankName }
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // W4c: das Konto-Modal ist ein [LapisForm] (Knöpfe in der Modal-Fußleiste, deshalb `finish()`).
+    val form = modal.lapisForm()
+    val labelField = form.textField(label = tr("Bezeichnung"), value = existing?.label, required = true)
+    // Regeln = die Prüfung des Servers (`BankAccountStore`: `IbanValidator.requireValid` -- Länge je Land, Prüfsumme, SEPA-Raum;
+    // `BicValidator`, dieselbe Regex). Die Feldregel ist die lockere Spiegelung ([Validation.looksLikeIban]: Form + Prüfsumme, KEINE
+    // Länderliste) und damit nie strenger als der Server, der maßgeblich bleibt. Kein Browser-Vorschlag für eine IBAN.
+    val ibanField =
+        form.textField(
+            label = tr("IBAN"),
+            value = existing?.iban,
+            required = true,
+            autocomplete = Autocomplete.OFF,
+            rule = { value ->
+                if (Validation.looksLikeIban(value)) FieldCheck.Ok else FieldCheck.Invalid(gettext("Die IBAN ist ungültig."))
+            },
+        )
+    val bicField =
+        form.textField(
+            label = tr("BIC"),
+            value = existing?.bic,
+            autocomplete = Autocomplete.OFF,
+            rule = { value ->
+                if (Validation.looksLikeBic(value)) FieldCheck.Ok else FieldCheck.Invalid(gettext("Die BIC ist ungültig."))
+            },
+        )
+    val bankNameField = form.textField(label = tr("Bankname"), value = existing?.bankName)
+    form.finish()
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
-            onClick {
-                errorBox.hide()
-                val label = labelInput.value?.trim().orEmpty()
-                val iban = ibanInput.value?.trim().orEmpty()
-                if (label.isBlank() || iban.isBlank()) {
-                    errorBox.content = tr("Bezeichnung und IBAN sind Pflichtfelder.")
-                    errorBox.show()
-                    return@onClick
+    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    saveButton.onClick {
+        form.submit(saveButton) {
+            val input =
+                BankAccountInput(
+                    label = labelField.value.trim(),
+                    iban = ibanField.value.trim(),
+                    bic = bicField.value.trim().takeIf { it.isNotBlank() },
+                    bankName = bankNameField.value.trim().takeIf { it.isNotBlank() },
+                )
+            guarded {
+                if (existing == null) {
+                    rpcService<IBankAccountService>().createBankAccount(input)
+                } else {
+                    rpcService<IBankAccountService>().updateBankAccount(existing.id, input)
                 }
-                val input =
-                    BankAccountInput(
-                        label = label,
-                        iban = iban,
-                        bic = bicInput.value?.trim()?.takeIf { it.isNotBlank() },
-                        bankName = bankNameInput.value?.trim()?.takeIf { it.isNotBlank() },
-                    )
-                AppScope.launch {
-                    val result =
-                        guarded {
-                            if (existing == null) {
-                                rpcService<IBankAccountService>().createBankAccount(input)
-                            } else {
-                                rpcService<IBankAccountService>().updateBankAccount(existing.id, input)
-                            }
-                        } ?: return@launch
-                    modal.hide()
-                    notifySuccess(tr("Gespeichert."))
-                    onSaved()
-                }
-            }
-        },
-    )
+            } ?: return@submit
+            modal.hide()
+            notifySuccess(tr("Gespeichert."))
+            onSaved()
+        }
+    }
+    modal.addButton(saveButton)
     modal.show()
 }
 
@@ -386,7 +382,7 @@ private fun finTsSetupModal(
     }
 }
 
-private fun showFinTsSetupModal(
+internal fun showFinTsSetupModal(
     account: BankAccountDto,
     disclaimer: FinTsComplianceDisclaimerDto,
     onChanged: () -> Unit,
@@ -401,7 +397,7 @@ private fun showFinTsSetupModal(
                 val handle = openHandle
                 modal.hide()
                 if (handle != null) {
-                    AppScope.launch { guarded { rpcService<IBankAccountService>().cancelFinTsSetup(handle) } }
+                    runGuardedAction(null) { guarded { rpcService<IBankAccountService>().cancelFinTsSetup(handle) } }
                 }
             }
         }
@@ -417,7 +413,11 @@ private fun showFinTsSetupModal(
         overflow = Overflow.AUTO
         content = disclaimer.text
     }
-    val acceptCheck = credentialsPanel.checkBox(label = tr("Ich habe den Hinweistext vollständig gelesen und bestätige ihn."))
+    // W4c: die Zugangsdaten sind ein [LapisForm]. Das Bestätigungskästchen ist eine Pflicht-Checkbox: der frühere graue "Aktivieren"-Knopf
+    // ohne Erklärung (`disabled = checked != true`) sagte nicht, was fehlt -- jetzt steht die Meldung am Kästchen (K2-Beschluss W4b).
+    val credentialsForm = credentialsPanel.lapisForm()
+    val acceptField =
+        credentialsForm.checkField(label = tr("Ich habe den Hinweistext vollständig gelesen und bestätige ihn."), required = true)
     // Review fix (MINOR): warn BEFORE the confirmation, not only after a failed delete attempt --
     // BankAccountStore.delete() permanently refuses to delete any account with a FinTS-disclaimer
     // acknowledgment row (Art. 5(2) DSGVO retention, see that function's own KDoc), and that row is
@@ -425,39 +425,34 @@ private fun showFinTsSetupModal(
     // runs, so it applies even to an attempt that then fails (wrong PIN, unreachable bank, ...).
     // Without this notice an ADMIN who mistypes the IBAN/BLZ on this very form has no way to know,
     // until a LATER delete attempt throws a ConflictException, that the mistake is now permanent.
-    credentialsPanel.div(
+    credentialsForm.panel.div(
         tr(
             "Hinweis: Mit der Bestätigung wird eine unlöschbare Nachweiszeile gespeichert (Art. 5 Abs. 2 DSGVO) -- " +
                 "dieses Bankkonto kann danach nicht mehr gelöscht werden, auch wenn der Live-Abruf fehlschlägt.",
         ),
     ) { addCssClasses("text-muted small") }
 
-    val blzInput = credentialsPanel.text(label = tr("Bankleitzahl (BLZ)"))
-    val urlInput = credentialsPanel.text(label = tr("FinTS/HBCI-URL")).apply { value = account.finTsUrl }
-    val userIdRow = credentialsPanel.hPanel()
-    val userIdInput = userIdRow.password(label = tr("Benutzerkennung"))
+    val blzField = credentialsForm.textField(label = tr("Bankleitzahl (BLZ)"), required = true)
+    val urlField = credentialsForm.textField(label = tr("FinTS/HBCI-URL"), value = account.finTsUrl, required = true)
+    // D-PIN: keine Passwortmanager-Angebote für Benutzerkennung/PIN -- der dokumentierte Insert-Hook [hardenSecretInput] bleibt
+    // unverändert (`autocomplete="new-password"` hält auch Chrome vom Ausfüllen des Lapis-Passworts ab; `autocomplete="off"` von
+    // `suppressManagers` ignoriert Chrome bei Passwortfeldern).
+    val userIdRow = credentialsForm.panel.hPanel()
+    val userIdField = credentialsForm.passwordField(label = tr("Benutzerkennung"), required = true, host = userIdRow)
     hardenSecretInput(userIdRow)
-    val pinRow = credentialsPanel.hPanel()
-    val pinInput = pinRow.password(label = tr("PIN"))
+    val pinRow = credentialsForm.panel.hPanel()
+    val pinField = credentialsForm.passwordField(label = tr("PIN"), required = true, host = pinRow)
     hardenSecretInput(pinRow)
+    credentialsForm.finish()
 
-    val credentialsError =
-        credentialsPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val activateButton = Button(tr("Aktivieren"), style = ButtonStyle.PRIMARY).apply { disabled = true }
-    acceptCheck.subscribe { checked -> activateButton.disabled = checked != true }
+    val activateButton = Button(tr("Aktivieren"), style = ButtonStyle.PRIMARY)
     modal.addButton(activateButton)
 
     val tanPromptLabel = tanPanel.div()
     val tanExpiryLabel = tanPanel.div { addCssClasses("text-muted small") }
-    val tanInput = tanPanel.text(label = tr("TAN"))
-    val tanError =
-        tanPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val tanForm = tanPanel.lapisForm()
+    val tanField = tanForm.textField(label = tr("TAN"), required = true)
+    tanForm.finish()
     val submitTanButton = Button(tr("TAN bestätigen"), style = ButtonStyle.PRIMARY).apply { hide() }
     modal.addButton(submitTanButton)
 
@@ -470,14 +465,14 @@ private fun showFinTsSetupModal(
         submitTanButton.show()
         tanPromptLabel.content = outcome.bankPrompt
         tanExpiryLabel.content = gettext("Gültig bis %1 Uhr.", outcome.expiresAt.toString())
-        tanInput.value = ""
+        tanField.reset()
     }
 
     fun handleSetupResult(result: FinTsSetupResultDto?) {
         when (result) {
             is FinTsSetupResultDto.Verified -> {
-                pinInput.value = ""
-                userIdInput.value = ""
+                pinField.reset()
+                userIdField.reset()
                 modal.hide()
                 notifySuccess(tr("FinTS-Live-Abruf aktiviert."))
                 onChanged()
@@ -485,11 +480,9 @@ private fun showFinTsSetupModal(
             is FinTsSetupResultDto.TanRequested -> enterTanStep(result)
             is FinTsSetupResultDto.Failed -> {
                 if (inTanStep) {
-                    tanError.content = result.message
-                    tanError.show()
+                    tanForm.showFormError(result.message)
                 } else {
-                    credentialsError.content = result.message
-                    credentialsError.show()
+                    credentialsForm.showFormError(result.message)
                 }
             }
             null -> Unit
@@ -497,46 +490,30 @@ private fun showFinTsSetupModal(
     }
 
     activateButton.onClick {
-        credentialsError.hide()
-        val blz = blzInput.value?.trim().orEmpty()
-        val url = urlInput.value?.trim().orEmpty()
-        val userId = userIdInput.value.orEmpty()
-        val pin = pinInput.value.orEmpty()
-        if (blz.isBlank() || url.isBlank() || userId.isBlank() || pin.isBlank()) {
-            credentialsError.content = tr("Alle Felder sind Pflichtfelder.")
-            credentialsError.show()
-            return@onClick
-        }
-        activateButton.disabled = true
-        AppScope.launch {
+        credentialsForm.submit(activateButton) {
             val result =
                 guarded {
                     rpcService<IBankAccountService>().beginFinTsSetup(
                         FinTsSetupInput(
                             bankAccountId = account.id,
-                            blz = blz,
-                            url = url,
-                            userId = userId,
-                            pin = pin,
+                            blz = blzField.value.trim(),
+                            url = urlField.value.trim(),
+                            userId = userIdField.value,
+                            pin = pinField.value,
                             disclaimerVersion = disclaimer.version,
                             disclaimerSha256 = disclaimer.sha256,
                         ),
                     )
                 }
-            activateButton.disabled = false
             handleSetupResult(result)
         }
     }
 
     submitTanButton.onClick {
-        tanError.hide()
         val handle = openHandle ?: return@onClick
-        val tan = tanInput.value?.trim().orEmpty()
-        if (tan.isBlank()) return@onClick
-        submitTanButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IBankAccountService>().submitFinTsTan(handle, tan) }
-            submitTanButton.disabled = false
+        // Eine TAN-Einreichung ist unwiederholbar: der Doppelklickschutz ([LapisForm.submit] -> `runGuardedAction`) ist Pflicht.
+        tanForm.submit(submitTanButton) {
+            val result = guarded { rpcService<IBankAccountService>().submitFinTsTan(handle, tanField.value.trim()) }
             handleSetupResult(result)
         }
     }

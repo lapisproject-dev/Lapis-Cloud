@@ -447,7 +447,7 @@ internal fun memberHonorsEmptyStateText(
     category: MemberHonorCategory? = null,
 ): String =
     if (category != null) {
-        gettext("Keine Ehrung in der Kategorie \"%1\".", memberHonorCategoryLabel(category))
+        gettext("Keine Ehrung in der Kategorie \"%1\".", resolvedAttributeText(memberHonorCategoryLabel(category)))
     } else if (memberDisplayName == null) {
         tr("Keine Ehrungen erfasst.")
     } else {

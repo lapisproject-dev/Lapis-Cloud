@@ -1,8 +1,7 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDouble
-import io.kvision.form.select.select
-import io.kvision.form.text.text
+import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -61,31 +60,65 @@ internal fun openItemSettlementDialog(
 ) {
     val modal = Modal(caption = gettext("Posten ausgleichen: %1", item.counterpartyName))
     modal.div(gettext("Offen: %1", formatMoney(item.openAmount))) { addCssClasses("fw-bold mb-2") }
-    val amountInput = modal.text(value = item.openAmount.toString(), label = tr("Betrag in EUR"))
-    val dateInput = modal.text(value = todayLocalDate().toString(), label = tr("Zahlungsdatum (JJJJ-MM-TT)"))
+    // W4c: der Ausgleich ist ein [LapisForm] (die Knöpfe stehen in der Modal-Fußleiste, deshalb `finish()`). Die Fehler stehen am
+    // Feld; die Regeln sind dieselben wie vorher (Betrag > 0 und <= offener Betrag, echtes Datum, Zahlungskonto).
+    val form = modal.lapisForm()
+    val amountField =
+        form.textField(
+            label = tr("Betrag in EUR"),
+            value = item.openAmount.toString(),
+            required = true,
+            requiredMessage = tr("Bitte einen Betrag angeben."),
+            rule = { text ->
+                when (val parsed = parseAmountInput(text)) {
+                    is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
+                    is AmountInput.Valid ->
+                        if (parsed.value.toDouble() > item.openAmount.toDouble()) {
+                            FieldCheck.Invalid(
+                                gettext("Der Betrag darf den offenen Betrag (%1) nicht übersteigen.", formatMoney(item.openAmount)),
+                            )
+                        } else {
+                            FieldCheck.Ok
+                        }
+                    is AmountInput.Empty -> FieldCheck.Ok
+                }
+            },
+        )
+    val dateField =
+        form.textField(
+            label = tr("Zahlungsdatum"),
+            value = todayLocalDate().toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            requiredMessage = tr("Bitte ein gültiges Datum angeben."),
+            rule = { FormRules.isoDate(it) },
+        )
     val bankChoice = settlementBankChoice(accounts = accounts(), mapping = paymentMapping())
     val bankOptions =
         listOf(
             "" to if (bankChoice.selectionRequired) tr("(bitte wählen)") else tr("(Standard-Bankkonto der Organisation)"),
         ) + bankChoice.eligible.map { it.id to settlementBankOptionLabel(account = it, choice = bankChoice) }
-    val bankSelect = modal.select(options = bankOptions, value = "", label = tr("Zahlungskonto (Bank oder Kasse)"))
-    if (bankChoice.selectionRequired) {
-        modal.div(missingDefaultBankAccountHint(bankChoice)) { addCssClasses("text-muted small") }
-    }
+    // V1.4.22: die Kontowahl ist Pflicht, sobald es kein Standard-Bankkonto gibt -- vorher war "(Standard-Bankkonto der Organisation)"
+    // auch dann vorausgewählt, und der Server lehnte den Ausgleich mit einem Grund ab, den der generische Konflikt-Toast nicht nannte.
+    val bankField =
+        form.selectField(
+            label = tr("Zahlungskonto (Bank oder Kasse)"),
+            options = bankOptions,
+            value = "",
+            required = bankChoice.selectionRequired,
+            requiredMessage = settlementBankAccountProblem(selected = "", choice = bankChoice),
+            hint = if (bankChoice.selectionRequired) missingDefaultBankAccountHint(bankChoice) else null,
+        )
     if (!bankChoice.contextKnown) {
         // Audit-Nachtrag (MAJOR-2): ohne Kontenliste UND Zuordnung wird keine halb gefilterte Liste
         // angeboten -- ohne die Zuordnung ist das Forderungskonto von einem Bankkonto nicht zu
         // unterscheiden (beide Kontenklasse 1). Das Select bleibt gesperrt, der Ausgleich läuft über
         // das Standardkonto der Organisation (der Server entscheidet), und der Hinweis sagt, wie man
         // zur Auswahl kommt.
-        bankSelect.disabled = true
-        modal.div(paymentAccountsUnknownHint()) { addCssClasses("text-warning small") }
+        (bankField.control as Select).disabled = true
+        form.panel.div(paymentAccountsUnknownHint()) { addCssClasses("text-warning small") }
     }
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    form.finish()
     // N5/N6: Bestätigung INLINE im selben Modal -- genau die Grammatik, die der Verrechnen-Dialog
     // weiter unten schon hat (Forstall-Ruling: kein zweites Modal). Vorher wurde dieses Modal VOR
     // einem `confirmDialog` versteckt: wer dort "Abbrechen" wählte, hatte Betrag, Datum und Bankkonto
@@ -113,38 +146,20 @@ internal fun openItemSettlementDialog(
         confirmBox.hide()
         syncSettleButton()
     }
-    amountInput.subscribe { invalidateConfirmation() }
-    dateInput.subscribe { invalidateConfirmation() }
-    bankSelect.subscribe { invalidateConfirmation() }
+    amountField.subscribe { invalidateConfirmation() }
+    dateField.subscribe { invalidateConfirmation() }
+    bankField.subscribe { invalidateConfirmation() }
 
     settleButton.onClick {
-        errorBox.hide()
         // Erst der Riegel, dann die Vorprüfung: ein abgelehnter Klick darf keine Bestätigung öffnen,
         // eine gescheiterte Vorprüfung darf den Riegel nicht zuziehen (sonst wäre der Knopf nach
         // einem Eingabefehler gesperrt, ohne dass je eine Bestätigung sichtbar war).
         if (gate.blocked) return@onClick
-        val amount = parseAmountInput(amountInput.value)
-        val settledOn = runCatching { LocalDate.parse(dateInput.value.orEmpty().trim()) }.getOrNull()
-        // V1.4.22: die Kontowahl ist Pflicht, sobald es kein Standard-Bankkonto gibt -- vorher war
-        // "(Standard-Bankkonto der Organisation)" auch dann vorausgewählt, und der Server lehnte den
-        // Ausgleich mit einem Grund ab, den der generische Konflikt-Toast nicht nannte.
-        val bankProblem = settlementBankAccountProblem(selected = bankSelect.value, choice = bankChoice)
-        val problem =
-            when {
-                amount is AmountInput.Empty -> tr("Bitte einen Betrag angeben.")
-                amount is AmountInput.Invalid -> amount.reason
-                amount is AmountInput.Valid && amount.value.toDouble() > item.openAmount.toDouble() ->
-                    gettext("Der Betrag darf den offenen Betrag (%1) nicht übersteigen.", formatMoney(item.openAmount))
-                settledOn == null -> tr("Bitte ein gültiges Datum angeben.")
-                bankProblem != null -> bankProblem
-                else -> null
-            }
-        if (problem != null || amount !is AmountInput.Valid || settledOn == null) {
-            errorBox.content = problem ?: tr("Bitte die Eingaben prüfen.")
-            errorBox.show()
-            return@onClick
-        }
-        val bankAccountId = bankSelect.value?.takeIf { it.isNotBlank() }
+        // Die Feldregeln prüfen Betrag, Datum und Zahlungskonto; die Fehler stehen an den Feldern.
+        if (!form.validateAndReport()) return@onClick
+        val amount = parseAmountInput(amountField.value) as? AmountInput.Valid ?: return@onClick
+        val settledOn = runCatching { LocalDate.parse(dateField.value.trim()) }.getOrNull() ?: return@onClick
+        val bankAccountId = bankField.value.takeIf { it.isNotBlank() }
         if (!gate.openConfirmation()) return@onClick
         syncSettleButton()
         // Norman-Regel: der Server verlangt keinen Grund, aber es bewegt sich Geld -> Bestätigung.
@@ -158,13 +173,14 @@ internal fun openItemSettlementDialog(
                 settledOn,
             ),
         ) { addCssClasses("mb-2") }
+        // Abbrechen links, bestätigende Aktion rechts (Richtlinie 2.5 / R27): "Zurück" steht VOR "Jetzt ausgleichen".
         val confirmRow = confirmBox.hPanel(spacing = 8)
-        val finalButton = confirmRow.button(tr("Jetzt ausgleichen"), style = ButtonStyle.DANGER)
         confirmRow.button(tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
             if (!gate.cancelConfirmation()) return@onClick
             confirmBox.hide()
             syncSettleButton()
         }
+        val finalButton = confirmRow.button(tr("Jetzt ausgleichen"), style = ButtonStyle.DANGER)
         finalButton.onClick {
             // S4/N5: Knopfsperre mit try/finally um den Aufruf -- ein zweiter Klick auf "Jetzt
             // ausgleichen" darf nicht zu einem zweiten Ausgleich führen. Der Riegel deckt zusätzlich
@@ -249,33 +265,38 @@ internal fun openItemMetadataDialog(
     onChanged: (OpenItemDetailDto) -> Unit,
 ) {
     val modal = Modal(caption = gettext("Beleg/Notiz bearbeiten: %1", item.counterpartyName))
-    val referenceInput = modal.text(value = item.reference, label = tr("Belegnummer"))
-    val noteInput = modal.text(value = item.note, label = tr("Notiz"))
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val form = modal.lapisForm()
+    val referenceField =
+        form.textField(
+            label = tr("Belegnummer"),
+            value = item.reference,
+            rule = {
+                if (it.trim().length > MAX_OPEN_ITEM_REFERENCE_LENGTH) {
+                    FieldCheck.Invalid(gettext("Die Belegnummer darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_REFERENCE_LENGTH))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
+    val noteField =
+        form.textField(
+            label = tr("Notiz"),
+            value = item.note,
+            rule = {
+                if (it.trim().length > MAX_OPEN_ITEM_NOTE_LENGTH) {
+                    FieldCheck.Invalid(gettext("Die Notiz darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_NOTE_LENGTH))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
+    form.finish()
     val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
-        errorBox.hide()
-        val reference = referenceInput.value?.trim()?.takeIf { it.isNotEmpty() }
-        val note = noteInput.value?.trim()?.takeIf { it.isNotEmpty() }
-        val problem =
-            when {
-                (reference?.length ?: 0) > MAX_OPEN_ITEM_REFERENCE_LENGTH ->
-                    gettext("Die Belegnummer darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_REFERENCE_LENGTH)
-                (note?.length ?: 0) > MAX_OPEN_ITEM_NOTE_LENGTH ->
-                    gettext("Die Notiz darf höchstens %1 Zeichen lang sein.", MAX_OPEN_ITEM_NOTE_LENGTH)
-                else -> null
-            }
-        if (problem != null) {
-            errorBox.content = problem
-            errorBox.show()
-            return@onClick
-        }
-        runGuardedAction(saveButton) {
+        form.submit(saveButton) {
+            val reference = referenceField.value.trim().takeIf { it.isNotEmpty() }
+            val note = noteField.value.trim().takeIf { it.isNotEmpty() }
             val result = guarded { rpcService<IOpenItemService>().updateOpenItemMetadata(item.id, reference, note) }
             if (result != null) {
                 modal.hide()
@@ -337,8 +358,13 @@ private fun renderNettingBody(
     candidates: List<NettingCandidateDto>,
     onExecuted: () -> Unit,
 ) {
-    val candidateSelect =
-        body.select(
+    // W4c: Kandidat und Betrag sind ein [LapisForm]; die Vorschau, die Inline-Bestätigung und die Knopflogik ([canExecuteNetting],
+    // [InlineConfirmGate]) sind unverändert. Die Feldfehler stehen am Feld; der graue "Verrechnen"-Knopf ohne Vorschau wird
+    // zusätzlich durch den Satz in der Vorschau erklärt.
+    val form = body.lapisForm()
+    val candidateField =
+        form.selectField(
+            label = tr("Gegenpartei"),
             options =
                 candidates.mapIndexed { index, candidate ->
                     index.toString() to
@@ -350,15 +376,42 @@ private fun renderNettingBody(
                         )
                 },
             value = "0",
-            label = tr("Gegenpartei"),
+            // Ein Auswahlfeld ohne leere Option ist nie leer: `required` wäre hier nur Schein -- und kippte die Formularkennzeichnung auf
+            // "zwei Felder, beide Pflicht: weder Stern noch Legende", sodass das einzige Feld, das der Nutzer wirklich ausfüllen muss (der
+            // Betrag), seinen Stern verlöre.
+            required = false,
         )
-    val matchHint = body.div().apply { addCssClasses("text-warning small") }
-    val amountInput = body.text(value = candidates.first().maxNettableAmount.toString(), label = tr("Betrag in EUR"))
-    val maxHint = body.div().apply { addCssClasses("text-muted small") }
-    val previewHost = body.vPanel(spacing = 4)
-    val confirmBox = body.div { addCssClasses("border border-danger rounded p-2") }.apply { hide() }
-    val actionRow = body.hPanel(spacing = 8)
-    val executeButton = actionRow.button(tr("Verrechnen …"), style = ButtonStyle.PRIMARY)
+    val matchHint = form.panel.div().apply { addCssClasses("text-warning small") }
+
+    fun candidateOf(index: String): NettingCandidateDto? = index.toIntOrNull()?.let { candidates.getOrNull(it) }
+    val amountField =
+        form.textField(
+            label = tr("Betrag in EUR"),
+            value = candidates.first().maxNettableAmount.toString(),
+            required = true,
+            requiredMessage = tr("Bitte einen Betrag angeben."),
+            rule = { text ->
+                when (val parsed = parseAmountInput(text)) {
+                    is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
+                    is AmountInput.Valid -> {
+                        val max = candidateOf(candidateField.value)?.maxNettableAmount
+                        if (max != null && parsed.value.toDouble() > max.toDouble()) {
+                            FieldCheck.Invalid(
+                                gettext("Der Betrag darf den verrechenbaren Betrag (%1) nicht übersteigen.", formatMoney(max)),
+                            )
+                        } else {
+                            FieldCheck.Ok
+                        }
+                    }
+                    is AmountInput.Empty -> FieldCheck.Ok
+                }
+            },
+        )
+    val maxHint = form.panel.div().apply { addCssClasses("text-muted small") }
+    val previewHost = form.panel.vPanel(spacing = 4)
+    val confirmBox = form.panel.div { addCssClasses("border border-danger rounded p-2") }.apply { hide() }
+    val executeButton = Button(tr("Verrechnen …"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = executeButton)
     executeButton.disabled = true
 
     var lastPreviewed: NettingPreviewToken? = null
@@ -370,12 +423,12 @@ private fun renderNettingBody(
     // entsperrten "Endgültig verrechnen"-Knopf erzeugt.
     val gate = InlineConfirmGate()
 
-    fun selectedCandidate(): NettingCandidateDto? = candidateSelect.value?.toIntOrNull()?.let { candidates.getOrNull(it) }
+    fun selectedCandidate(): NettingCandidateDto? = candidateOf(candidateField.value)
 
     /** `null`, solange Kandidat oder Betrag ungültig sind (Betrag > 0, <= 2 Nachkommastellen, <= max. verrechenbar). */
     fun currentToken(): NettingPreviewToken? {
         val candidate = selectedCandidate() ?: return null
-        val amount = parseAmountInput(amountInput.value) as? AmountInput.Valid ?: return null
+        val amount = parseAmountInput(amountField.value) as? AmountInput.Valid ?: return null
         if (amount.value.toDouble() > candidate.maxNettableAmount.toDouble()) return null
         return nettingPreviewToken(candidate, amount.value)
     }
@@ -450,11 +503,13 @@ private fun renderNettingBody(
             }, NETTING_PREVIEW_DEBOUNCE_MS)
     }
 
-    candidateSelect.subscribe {
-        selectedCandidate()?.let { amountInput.value = it.maxNettableAmount.toString() }
+    candidateField.subscribe {
+        selectedCandidate()?.let { amountField.setValue(it.maxNettableAmount.toString()) }
+        // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
+        amountField.validate(force = false)
         schedulePreview()
     }
-    amountInput.subscribe { schedulePreview() }
+    amountField.subscribe { schedulePreview() }
 
     executeButton.onClick {
         if (gate.blocked) return@onClick
@@ -472,13 +527,14 @@ private fun renderNettingBody(
                 preview.creditAccountName,
             ),
         ) { addCssClasses("fw-bold mb-2") }
+        // Abbrechen links, bestätigende Aktion rechts (Richtlinie 2.5 / R27): "Zurück" steht VOR "Endgültig verrechnen".
         val confirmRow = confirmBox.hPanel(spacing = 8)
-        val finalButton = confirmRow.button(tr("Endgültig verrechnen"), style = ButtonStyle.DANGER)
         confirmRow.button(tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
             if (!gate.cancelConfirmation()) return@onClick
             confirmBox.hide()
             updateExecuteState()
         }
+        val finalButton = confirmRow.button(tr("Endgültig verrechnen"), style = ButtonStyle.DANGER)
         finalButton.onClick {
             val token = currentToken()
             // Zweite Absicherung: der Server hat die Vorschau nicht gemerkt, der Client prüft das Tripel erneut.
