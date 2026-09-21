@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.select
-import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -158,18 +157,27 @@ private fun renderReportRow(
     }
 }
 
-private fun renderReportDecidePanel(
+internal fun renderReportDecidePanel(
     row: SimplePanel,
     report: SocialPostReportDto,
     onChanged: () -> Unit,
 ) {
     val decidePanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (optional, rein intern)"), rows = 2)
-    val buttonsRow = decidePanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
+    // Formular-Grammatik (V1.4.29, W4b), zwei Formulare mit je eigener Knopfzeile: (1) die interne Entscheidung ("In Prüfung
+    // nehmen" als Primäraktion, "Abgelehnt" in der Gefahrenzone), (2) die öffentliche Begründung der Beitragsentfernung.
+    val form = decidePanel.lapisForm()
+    val noteField = form.textAreaField(label = tr("Entscheidungsnotiz"), rows = 2, hint = tr("Rein intern."))
+    val reviewButton =
+        if (report.status == SocialPostReportStatus.OPEN) Button(tr("In Prüfung nehmen"), style = ButtonStyle.SUCCESS) else null
+    val dismissButton = Button(tr("Abgelehnt"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = reviewButton, destructive = dismissButton)
 
-    fun decide(status: SocialPostReportStatus) {
-        val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
-        AppScope.launch {
+    fun decide(
+        status: SocialPostReportStatus,
+        pressed: Button,
+    ) {
+        form.submit(pressed) {
+            val note = noteField.value.trim().takeIf { it.isNotBlank() }
             val result = guarded { rpcService<ISocialNetworkService>().decideReport(report.id, status, note) }
             if (result != null) {
                 notifySuccess(tr("Meldung aktualisiert."))
@@ -177,32 +185,30 @@ private fun renderReportDecidePanel(
             }
         }
     }
-    if (report.status == SocialPostReportStatus.OPEN) {
-        buttonsRow.button(tr("In Prüfung nehmen"), style = ButtonStyle.SUCCESS).onClick { decide(SocialPostReportStatus.UNDER_REVIEW) }
-    }
-    buttonsRow.button(tr("Abgelehnt"), style = ButtonStyle.OUTLINEDANGER).onClick { decide(SocialPostReportStatus.DISMISSED) }
+    reviewButton?.onClick { decide(SocialPostReportStatus.UNDER_REVIEW, reviewButton) }
+    dismissButton.onClick { decide(SocialPostReportStatus.DISMISSED, dismissButton) }
 
     // "Beitrag entfernen" ruft removePostForLegalReason mit einer eigenen Pflicht-Begründung auf --
     // schließt die Meldung dabei automatisch (siehe removePostForLegalReason KDoc), ein separates
     // "ACTION_TAKEN" hier wäre redundant/inkonsistent.
-    val removeButtonRow = decidePanel.hPanel(spacing = 8) { addCssClasses("border-top pt-2 mt-1 flex-wrap") }
-    val reasonInput = removeButtonRow.textArea(label = tr("Begründung für Beitragsentfernung"), rows = 2)
-    removeButtonRow.div(tr("Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher.")) {
+    val removePanel = decidePanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
+    val removeForm = removePanel.lapisForm()
+    val reasonField = removeForm.textAreaField(label = tr("Begründung für Beitragsentfernung"), rows = 2, required = true)
+    removeForm.panel.div(tr("Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher.")) {
         addCssClasses("text-danger small fw-bold")
     }
-    val removeButton = removeButtonRow.button(tr("Beitrag entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = Button(tr("Beitrag entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    // Die Entfernung ist die einzige Aktion dieses Formulars und destruktiv: kein `PRIMARY`, Gefahrenzone.
+    removeForm.buttons(primary = null, destructive = removeButton)
     removeButton.onClick {
-        val reason = reasonInput.value.orEmpty().trim()
-        if (!Validation.isNonBlank(reason)) {
-            notifyError(tr("Bitte eine Begründung angeben."))
-            return@onClick
-        }
+        if (!removeForm.validateAndReport()) return@onClick
+        val reason = reasonField.value.trim()
         confirmDialog(
             title = tr("Beitrag rechtlich entfernen"),
             message = tr("Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher."),
             confirmLabel = tr("Entfernen"),
         ) {
-            AppScope.launch {
+            removeForm.runBusy(removeButton) {
                 val result = guarded { rpcService<ISocialNetworkService>().removePostForLegalReason(report.postId, reason) }
                 if (result != null) {
                     notifySuccess(tr("Beitrag entfernt."))
@@ -300,20 +306,24 @@ private fun renderErasureRow(
     }
 }
 
-private fun renderErasureDecidePanel(
+internal fun renderErasureDecidePanel(
     row: SimplePanel,
     erasure: SocialPostErasureDto,
     onChanged: () -> Unit,
 ) {
     val decidePanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (optional)"), rows = 2)
-    val buttonsRow = decidePanel.hPanel(spacing = 8)
-    val approveButton = buttonsRow.button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val form = decidePanel.lapisForm()
+    val noteField = form.textAreaField(label = tr("Entscheidungsnotiz"), rows = 2)
+    val approveButton = Button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = approveButton, destructive = rejectButton)
 
-    fun decide(approve: Boolean) {
-        val note = noteInput.value?.trim()?.takeIf { it.isNotBlank() }
-        AppScope.launch {
+    fun decide(
+        approve: Boolean,
+        pressed: Button,
+    ) {
+        form.submit(pressed) {
+            val note = noteField.value.trim().takeIf { it.isNotBlank() }
             val result = guarded { rpcService<ISocialNetworkService>().decideContentErasure(erasure.id, approve, note) }
             if (result != null) {
                 notifySuccess(if (approve) tr("Antrag genehmigt.") else tr("Antrag abgelehnt."))
@@ -321,8 +331,8 @@ private fun renderErasureDecidePanel(
             }
         }
     }
-    approveButton.onClick { decide(true) }
-    rejectButton.onClick { decide(false) }
+    approveButton.onClick { decide(true, approveButton) }
+    rejectButton.onClick { decide(false, rejectButton) }
 }
 
 /** Irreversibel -- analog `DsgvoRightsScreen.executeErasureConfirmDialog`, inkl. Hinweis auf den manuellen Google-Search-Console-Schritt (Plan § 6.3). */

@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.clientversion
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.io.File
@@ -372,6 +373,83 @@ internal fun iconOnlyButtonFindings(text: String): List<String> {
         .toList()
 }
 
+// ── R29: a writing coroutine without a guard (V1.4.29 audit M-6) ─────────────────────────────────────
+// R29 says: every writing call is protected against a double click. The protection is `form.submit`/`runBusy`/`runGuardedAction`
+// (all of which run the action through `runGuardedAction`, the only place with an `AppScope.launch` in `FormGrammar.kt`), or a
+// one-shot dialog. A plain `AppScope.launch { ... rpcService<S>().write(...) }` in a migrated file has NONE of them. This scan finds
+// those -- HONESTLY: it cannot tell a write from a read by anything but the method NAME (the read prefixes below), it does not see
+// a guard implemented by hand (a `disabled = true` around the launch), and it cannot judge whether a write is idempotent. So it is a
+// RATCHET with a named baseline, not a proof: the count may only go down, and the baseline lists what exists today.
+
+/** RPC method names that start like this are reads (or pure computations): a double click on them changes nothing. */
+private val R29_READ_PREFIXES =
+    listOf("list", "get", "find", "count", "search", "unread", "is", "has", "can", "preview", "load", "read", "fetch", "download", "export")
+
+private val LAUNCH_CALL = Regex("""AppScope\.launch\s*\{""")
+private val RPC_CALL = Regex("""rpcService<\w+>\(\)\s*\.\s*(\w+)\(""")
+
+/** The body of the `{ ... }` block whose opening brace is at [open] (braces balanced; strings are not parsed, as in [callWithTrailingLambda]). */
+private fun braceBody(
+    text: String,
+    open: Int,
+): String {
+    var depth = 0
+    var i = open
+    while (i < text.length) {
+        when (text[i]) {
+            '{' -> depth++
+            '}' -> {
+                depth--
+                if (depth == 0) return text.substring(open, i + 1)
+            }
+        }
+        i++
+    }
+    return text.substring(open)
+}
+
+/** Names that start like a write but are reads (`openCheckIn` loads the door roster; `openVote` IS a write and stays one). */
+private val R29_READ_NAMES = setOf("openCheckIn")
+
+private val GUARD_CALL = Regex("""(?<![A-Za-z0-9_])(?:runBusy|runGuardedAction|submit)\(""")
+
+/** [body] with every guarded block (`runBusy(...) { }`, `runGuardedAction(...) { }`, `form.submit(...) { }`) blanked: a write inside one has its guard. */
+private fun withoutGuardedBlocks(body: String): String {
+    var out = body
+    for (match in GUARD_CALL.findAll(body).toList().reversed()) {
+        val call = callWithTrailingLambda(text = body, openParen = match.range.last)
+        out = out.replaceRange(match.range.last, match.range.last + call.length, " ".repeat(call.length))
+    }
+    return out
+}
+
+/** One entry per `AppScope.launch { }` whose body calls a NON-read service method outside a guarded block: `<first line of the launch> -> <method, ...>`. */
+internal fun unguardedWriteLaunchFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    return LAUNCH_CALL
+        .findAll(code)
+        .mapNotNull { match ->
+            val body = withoutGuardedBlocks(braceBody(text = code, open = match.range.last))
+            val writes =
+                RPC_CALL
+                    .findAll(body)
+                    .map { it.groupValues[1] }
+                    .filterNot { name ->
+                        name in R29_READ_NAMES ||
+                            R29_READ_PREFIXES.any { name.startsWith(it) && (name.length == it.length || name[it.length].isUpperCase()) }
+                    }.distinct()
+                    .toList()
+            if (writes.isEmpty()) null else "${fingerprintAt(code = code, offset = match.range.first)} -> ${writes.joinToString(", ")}"
+        }.toList()
+}
+
+/**
+ * The baseline: unguarded writing launches in the migrated files, by file (V1.4.29 audit). NOT a list of justified exemptions -- a list
+ * of things nobody has judged yet (many are a one-click toggle whose second call is harmless, or sit behind a confirmation dialog
+ * that is one-shot now). The number may only go down; a migrated file that gains a writing launch fails the count.
+ */
+private const val R29_UNGUARDED_WRITE_LAUNCH_MAX = 39
+
 // ── R24: the form grammar (Welle V1.4.28, W4a) ────────────────────────────────────────────────────────
 
 /**
@@ -382,26 +460,54 @@ internal fun iconOnlyButtonFindings(text: String): List<String> {
  */
 private val FIELD_CALL = Regex("""(?<![A-Za-z0-9_])(?:text|password|textArea)\(""")
 
+/** The first string literal of a `label = tr("...")` / `label = "..."` argument: what tells two multi-line calls on the same receiver apart. */
+private val LABEL_LITERAL = Regex("""label = (?:tr|gettext)?\(?"((?:[^"\\]|\\.)*)"""")
+
+/**
+ * [fingerprintAt], made precise for a call whose first line does not carry its `label =` (a multi-line call): the fingerprint of
+ * `filterRow.select(` alone would justify EVERY select of that receiver, so the label literal is appended. A call that carries its
+ * label on the first line keeps the plain line (the existing ledger entries do not change).
+ */
+private fun labelledFingerprint(
+    code: String,
+    match: MatchResult,
+    call: String,
+): String {
+    val line = fingerprintAt(code = code, offset = match.range.first)
+    if (line.contains("label =")) return line
+    val literal = LABEL_LITERAL.find(call)?.groupValues?.get(1) ?: return line
+    return "$line [label \"$literal\"]"
+}
+
 internal fun labelledFieldFindings(text: String): List<String> {
     val code = codeOnly(text)
     return FIELD_CALL
         .findAll(code)
-        .filter { match -> callWithTrailingLambda(text = code, openParen = match.range.last).contains("label =") }
-        .map { fingerprintAt(code = code, offset = it.range.first) }
-        .toList()
+        .mapNotNull { match ->
+            val call = callWithTrailingLambda(text = code, openParen = match.range.last)
+            if (call.contains("label =")) labelledFingerprint(code = code, match = match, call = call) else null
+        }.toList()
+}
+
+/** [this] without the elements of [other], counted: a fingerprint justified once does not justify a second identical call. */
+private fun <T> List<T>.minusMultiset(other: List<T>): List<T> {
+    val rest = other.toMutableList()
+    return filterNot { rest.remove(it) }
 }
 
 /**
- * The screens migrated to the form grammar (`lapisForm`, `FormGrammar.kt`) in W4a. They are held STRICTLY: zero labelled
- * `text`/`password`/`textArea` calls and (positive checks) a `lapisForm(` call plus at least as many `buttons(`/`finish(`
- * closers as forms -- nobody may quietly rebuild one of them by hand. **This is ALL the tripwire checks**: it does not verify
- * `aria-required`, the required marks, the button order or the error display -- those are covered by the DOM tests
- * (`FormGrammarDomTest`, `LoginFormGrammarDomTest`, `SecretFieldDomTest`) and by the design review, not by this scan. A ledger of fingerprints (the shape of R2..R55) would need ~350 lines for the not yet migrated screens and
- * would turn red on every renamed variable in any W4b/W4c file, so R24 is a strict set plus a global downward ratchet
- * ([R24_REMAINING_MAX]); the ratchet is lowered by the wave that migrates the next screens.
+ * The screens migrated to the form grammar (`lapisForm`, `FormGrammar.kt`): 11 in W4a, 11 more in W4b (V1.4.29). They are held
+ * STRICTLY: zero labelled `text`/`password`/`textArea` calls and (positive checks) a `lapisForm(` call plus at least as many
+ * `buttons(`/`finish(` closers as forms -- nobody may quietly rebuild one of them by hand. **This is ALL the tripwire
+ * checks**: it does not verify `aria-required`, the required marks, the button order or the error display -- those are
+ * covered by the DOM tests (`FormGrammarDomTest`, `LoginFormGrammarDomTest`, `SecretFieldDomTest`, `FormGrammarPart2DomTest`)
+ * and by the design review, not by this scan. A ledger of fingerprints (the shape of R2..R55) would need ~250 lines for the
+ * not yet migrated screens and would turn red on every renamed variable in any W4c file, so R24 is a strict set plus a
+ * global downward ratchet ([R24_REMAINING_MAX]); the ratchet is lowered by the wave that migrates the next screens.
  */
 private val R24_MIGRATED: Set<String> =
     setOf(
+        // W4a
         "LoginScreen.kt",
         "RegistrationScreen.kt",
         "FriendRegistrationScreen.kt",
@@ -413,32 +519,156 @@ private val R24_MIGRATED: Set<String> =
         "ConferenceStreamDestinationsScreen.kt",
         "BackupScreen.kt",
         "ApiKeysScreen.kt",
+        // W4b (V1.4.29)
+        "ConfirmDialog.kt",
+        "MemberAdministrationScreen.kt",
+        "EventCheckInScreen.kt",
+        "MeetingsScreen.kt",
+        "MotionsScreen.kt",
+        "CommitteesScreen.kt",
+        "BoardMembershipScreen.kt",
+        "CommunicationScreen.kt",
+        "ContributionReliefQueueScreen.kt",
+        "SocialModerationScreen.kt",
+        "StatuteQaScreen.kt",
     )
 
-/** Screens W4a examined that have NO labelled text field at all: strict too, but there is no form to build. */
-private val R24_STRICT_WITHOUT_FORM: Set<String> = setOf("PaymentGatewaySettingsScreen.kt", "EmbedIntegrationScreen.kt")
+/** Screens examined that have NO labelled text field to migrate: strict too, but there is no form to build. */
+private val R24_STRICT_WITHOUT_FORM: Set<String> =
+    setOf(
+        // The factories themselves (`textField`/`passwordField`/`textAreaField`/`selectField`/`checkField` call the raw widget):
+        // strict too, with the five raw calls justified below -- a sixth raw call in there is a finding, not a silent one.
+        "FormGrammar.kt",
+        "PaymentGatewaySettingsScreen.kt",
+        "EmbedIntegrationScreen.kt",
+        // W4b: only filters / a selector (justified below), or no field at all (PostalMailScreen: two bespoke confirm modals).
+        "PostalMailScreen.kt",
+        "MemberAnniversariesScreen.kt",
+        "MyVolunteerShiftsScreen.kt",
+    )
+
+/** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
+private const val FILTER_IS_NOT_A_FORM = "Filter: no required field, no submit, no validation"
 
 /**
  * Justified exceptions inside a migrated file, by fingerprint (the pattern of [R39_JUSTIFIED]): the two webhook URL
- * fields of `ApiKeysScreen` belong to W4c (the webhook management form), not to the W4a issue form.
+ * fields of `ApiKeysScreen` belong to W4c (the webhook management form), not to the W4a issue form; the search/filter
+ * fields of W4b are FILTERS ([FILTER_IS_NOT_A_FORM]) -- the rule "filter fields are not forms" (`ui-ux-guideline.adoc`).
  */
-private val R24_JUSTIFIED: Map<String, Set<String>> =
+private val R24_JUSTIFIED: Map<String, List<String>> =
     mapOf(
+        // The factories: the raw widget calls the grammar wraps.
+        "FormGrammar.kt" to
+            listOf(
+                "val control = host.text(type = type, value = value, label = label)",
+                "val control = host.password(value = value, label = label)",
+                "val control = host.textArea(rows = rows, value = value, label = label)",
+            ),
         "ApiKeysScreen.kt" to
-            setOf(
+            listOf(
                 "val urlInput = row.text(label = tr(\"Webhook-URL (https://…)\"))",
                 "val urlInput = editRow.text(label = tr(\"Neue Webhook-URL\")) { hide() }",
             ),
+        // FILTER_IS_NOT_A_FORM:
+        "MemberAdministrationScreen.kt" to
+            listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Name, E-Mail oder Personennummer\"))"),
+        "EventCheckInScreen.kt" to listOf("val searchField = root.text(label = tr(\"Name suchen\"))"),
+        "MemberAnniversariesScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Name\"))"),
     )
 
-/** The downward ratchet: labelled fields outside the strict set (297 in 54 files when W4a landed). Only ever lowered. */
-private const val R24_REMAINING_MAX = 297
+/**
+ * The downward ratchet: labelled fields outside the strict set (297 in 54 files when W4a landed, 228 after W4b, 225 in 41 files after
+ * the V1.4.29 audit moved `FormGrammar.kt` -- the factories -- into the strict set). Only ever lowered.
+ */
+private const val R24_REMAINING_MAX = 225
 
-private fun r24Findings(file: File): List<String> =
-    labelledFieldFindings(file.readText()).filterNot {
-        it in
-            R24_JUSTIFIED[file.name].orEmpty()
-    }
+private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
+
+// ── R24B: labelled SELECT / CHECKBOX fields (Welle V1.4.29, W4b) ─────────────────────────────────────────
+// A SECOND, separate counter (its own ratchet; it shares R24's strict file set, so it is NOT independent of it) -- R24 is NOT redefined (a measure changed in the middle of the measuring is no measure): a
+// labelled `select(`/`checkBox(` is a form field too (it can be required, can be invalid, has an error to show), and W4a
+// held only text-like fields. Same mechanics as R24.
+
+/** `select(` / `checkBox(` as a call that carries a `label =`: a labelled CHOICE field (a `segmentedControl(`/`selectFilter(` is not one). */
+private val SELECT_CALL = Regex("""(?<![A-Za-z0-9_])(?:select|checkBox)\(""")
+
+internal fun labelledSelectFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    return SELECT_CALL
+        .findAll(code)
+        .mapNotNull { match ->
+            val call = callWithTrailingLambda(text = code, openParen = match.range.last)
+            if (call.contains("label =")) labelledFingerprint(code = code, match = match, call = call) else null
+        }.toList()
+}
+
+/**
+ * Justified choice fields inside the strict set, by fingerprint. Three reasons only, each named in the comment above its
+ * group: a FILTER ([FILTER_IS_NOT_A_FORM]), an AREA/ACTION SELECTOR (picks what the screen shows or which action button applies;
+ * it is never submitted), an IMMEDIATE SWITCH (saves by itself, no submit) and a SELECTION LIST (a checkbox per member -- one
+ * error slot per member would be absurd; "at least one" is a cross rule).
+ */
+private val R24B_JUSTIFIED: Map<String, List<String>> =
+    mapOf(
+        // The factories: the raw widget calls the grammar wraps.
+        "FormGrammar.kt" to
+            listOf(
+                "val control = host.select(options = options, value = value, label = label)",
+                "val control = host.checkBox(value = value, label = label)",
+            ),
+        // FILTER_IS_NOT_A_FORM
+        "DunningSettingsScreen.kt" to listOf("val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Stufen anzeigen\"))"),
+        "ReceivableDunningSettingsScreen.kt" to
+            listOf("val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Stufen anzeigen\"))"),
+        "BoardMembershipScreen.kt" to listOf("val includeResolvedCheck = reminderFilterRow.checkBox(label = tr(\"Erledigte anzeigen\"))"),
+        "CommitteesScreen.kt" to
+            listOf(
+                "val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Gremien anzeigen\"))",
+                "val includeEndedCheck = rosterFilterRow.checkBox(label = tr(\"Ausgeschiedene anzeigen\"))",
+            ),
+        "ContributionReliefQueueScreen.kt" to
+            listOf(
+                "val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))",
+                "val kindSelect = filterRow.select(options = kindOptions, value = \"\", label = tr(\"Art\"))",
+                "val reviewDueOnlyCheck = filterRow.checkBox(label = tr(\"Nur zur Wiedervorlage fällig\"))",
+            ),
+        "MeetingsScreen.kt" to
+            listOf(
+                "val committeeFilterSelect = filterRow.select(options = listOf(\"\" to tr(\"Alle Gremien\")), value = \"\", label = tr(\"Gremium\"))",
+                "val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = \"\", label = tr(\"Status\"))",
+                // SELECTION LIST (a checkbox per eligible member)
+                "eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }",
+            ),
+        "MotionsScreen.kt" to
+            listOf(
+                "val committeeFilterSelect = filterRow.select(options = listOf(\"\" to tr(\"Alle Gremien\")), value = \"\", label = tr(\"Gremium\"))",
+                "val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = \"\", label = tr(\"Status\"))",
+            ),
+        // two filters (reports, erasure requests) with the same line: the multiset justifies BOTH, a third would be a finding
+        "SocialModerationScreen.kt" to
+            listOf(
+                "val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))",
+                "val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))",
+            ),
+        "MemberAnniversariesScreen.kt" to listOf("filterRow.select( [label \"Zeitraum\"]"),
+        // AREA / ACTION SELECTOR (never submitted)
+        "CommunicationScreen.kt" to listOf("val listSelect = row.select(options = emptyList(), label = tr(\"Mailingliste\"))"),
+        "MyVolunteerShiftsScreen.kt" to
+            listOf("val eventSelect = eventSelectRow.select(options = emptyList(), label = tr(\"Veranstaltung\"))"),
+        "PaymentGatewaySettingsScreen.kt" to listOf("actionsRow.select( [label \"Anbieter\"]"),
+        // IMMEDIATE SWITCH (saves by itself, no submit)
+        "StatuteQaScreen.kt" to
+            listOf("consentPanel.checkBox( [label \"Ich stimme zu, dass meine Fragen von einer KI beantwortet werden\"]"),
+    )
+
+/**
+ * The downward ratchet for labelled choice fields outside the strict set: 131 in 38 files (measured in the V1.4.29 audit; the figure
+ * "45 files" of the wave's own comment was wrong). Only ever lowered.
+ */
+private const val R24B_REMAINING_MAX = 131
+
+private fun r24bFindings(file: File): List<String> =
+    labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())
 
 private fun scanFile(
     rule: String,
@@ -757,16 +987,20 @@ class ClientUiGuidelineTripwireTest :
         test("R24 justified exemptions are still needed (a stale exemption must go)") {
             R24_JUSTIFIED.forEach { (fileName, fingerprints) ->
                 val raw = clientKotlinFiles().first { it.name == fileName }.readText().let { labelledFieldFindings(it) }
-                (fingerprints - raw.toSet()) shouldBe emptySet()
+                withClue(fileName) { fingerprints.minusMultiset(raw) shouldBe emptyList() }
             }
         }
 
         test("R24 ratchet: the labelled fields outside the strict set only ever go down, and the scanner is not vacuous") {
             val strict = R24_MIGRATED + R24_STRICT_WITHOUT_FORM
             val outside = clientKotlinFiles().filter { it.name !in strict }.sumOf { labelledFieldFindings(it.readText()).size }
-            // Not vacuous: the not yet migrated W4b/W4c screens are full of them.
-            (outside >= 200) shouldBe true
-            (outside <= R24_REMAINING_MAX) shouldBe true
+            // Not vacuous: the not yet migrated W4b2/W4c screens are full of them. The floor sits just under the ratchet
+            // ([R24_REMAINING_MAX] - 5): a scanner that stopped finding most of them (a broken regex) fails HERE, instead of
+            // passing a ratchet that only ever checks "not more". Lowering the ratchet lowers the floor with it.
+            withClue("labelled fields outside the strict set: $outside") {
+                (outside >= R24_REMAINING_MAX - 5) shouldBe true
+                (outside <= R24_REMAINING_MAX) shouldBe true
+            }
         }
 
         test("R24 flags a labelled text/password/textArea call, ignores gettext/richText/textField, unlabelled calls and comments") {
@@ -781,6 +1015,103 @@ class ClientUiGuidelineTripwireTest :
             labelledFieldFindings("val t = richText(label = x)").size shouldBe 0
             labelledFieldFindings("root.textArea(value = snippet, rows = 12) { readonly = true }").size shouldBe 0
             labelledFieldFindings("// panel.text(label = tr(\"E-Mail\"))").size shouldBe 0
+        }
+
+        test("R29 ratchet: writing AppScope.launch blocks without a guard in the migrated files only ever go down") {
+            val findings =
+                clientKotlinFiles()
+                    .filter { it.name in R24_MIGRATED && it.name != "FormGrammar.kt" }
+                    .flatMap { file -> unguardedWriteLaunchFindings(file.readText()).map { "${file.name}: $it" } }
+            withClue("unguarded writing launches: $findings") {
+                (findings.size <= R29_UNGUARDED_WRITE_LAUNCH_MAX) shouldBe true
+                // not vacuous: a scanner that stopped finding them (a broken regex) fails here, not silently
+                (findings.size >= R29_UNGUARDED_WRITE_LAUNCH_MAX - 5) shouldBe true
+            }
+        }
+
+        test("R29 flags a writing launch, ignores reads, guarded blocks, hand-written reads and comments") {
+            unguardedWriteLaunchFindings("AppScope.launch {\n    val r = guarded { rpcService<IThing>().deleteThing(id) }\n}").size shouldBe
+                1
+            unguardedWriteLaunchFindings("AppScope.launch { guarded { rpcService<IThing>().listThings() } }").size shouldBe 0
+            unguardedWriteLaunchFindings("AppScope.launch { guarded { rpcService<IThing>().getThing(id) } }").size shouldBe 0
+            unguardedWriteLaunchFindings("AppScope.launch { guarded { rpcService<IEventService>().openCheckIn(id) } }").size shouldBe 0
+            unguardedWriteLaunchFindings("AppScope.launch { guarded { rpcService<IGov>().openVote(input) } }").size shouldBe 1
+            unguardedWriteLaunchFindings(
+                "AppScope.launch { form.runBusy(b) { guarded { rpcService<IThing>().deleteThing(id) } } }",
+            ).size shouldBe
+                0
+            unguardedWriteLaunchFindings("AppScope.launch { runGuardedAction(b) { rpcService<IThing>().deleteThing(id) } }").size shouldBe 0
+            unguardedWriteLaunchFindings("// AppScope.launch { rpcService<IThing>().deleteThing(id) }").size shouldBe 0
+            // a read-prefixed NAME that merely starts with the letters (`island`) is a write
+            unguardedWriteLaunchFindings("AppScope.launch { rpcService<IThing>().islandCreate() }").size shouldBe 1
+        }
+
+        test("R24B: the strict screens hold no labelled select/checkBox call outside their justified fingerprints") {
+            val byName = clientKotlinFiles().associateBy { it.name }
+            (R24_MIGRATED + R24_STRICT_WITHOUT_FORM).forEach { name ->
+                withClue(name) { r24bFindings(byName.getValue(name)) shouldBe emptyList() }
+            }
+        }
+
+        test("R24B justified exemptions are still needed (a stale exemption must go)") {
+            R24B_JUSTIFIED.forEach { (fileName, fingerprints) ->
+                val raw = clientKotlinFiles().first { it.name == fileName }.readText().let { labelledSelectFindings(it) }
+                withClue(fileName) { fingerprints.minusMultiset(raw) shouldBe emptyList() }
+            }
+        }
+
+        test("R24B ratchet: the labelled choice fields outside the strict set only ever go down, and the scanner is not vacuous") {
+            val strict = R24_MIGRATED + R24_STRICT_WITHOUT_FORM
+            val outside = clientKotlinFiles().filter { it.name !in strict }.sumOf { labelledSelectFindings(it.readText()).size }
+            withClue("labelled select/checkBox fields outside the strict set: $outside") {
+                (outside >= R24B_REMAINING_MAX - 5) shouldBe true
+                (outside <= R24B_REMAINING_MAX) shouldBe true
+            }
+        }
+
+        test("R24B flags a labelled select/checkBox call, ignores segmentedControl, selectFilter, selectField, checkField and comments") {
+            labelledSelectFindings("val s = panel.select(options = o, label = tr(\"Rolle\"))") shouldBe
+                listOf("val s = panel.select(options = o, label = tr(\"Rolle\"))")
+            labelledSelectFindings("val c = filterRow.checkBox(label = tr(\"Aktiv\"))").size shouldBe 1
+            labelledSelectFindings("topRow.select(options = o, value = v, label = tr(\"Status\")) { addCssClass(\"x\") }").size shouldBe 1
+            labelledSelectFindings("val s = select(options = o, label = tr(\"Rolle\"))").size shouldBe 1
+            labelledSelectFindings("form.selectField(label = tr(\"Rolle\"), options = o)").size shouldBe 0
+            labelledSelectFindings("form.checkField(label = tr(\"Aktiv\"))").size shouldBe 0
+            labelledSelectFindings("panel.segmentedControl(label = tr(\"Ansicht\"))").size shouldBe 0
+            labelledSelectFindings("panel.selectFilter(label = tr(\"Status\"))").size shouldBe 0
+            labelledSelectFindings("val s = panel.select(options = o)").size shouldBe 0
+            labelledSelectFindings("// panel.select(options = o, label = tr(\"Rolle\"))").size shouldBe 0
+        }
+
+        test("R24/R24B fingerprints tell multi-line calls on one receiver apart by their label literal (no receiver-wide exemption)") {
+            labelledSelectFindings("filterRow.select(\n    options = o,\n    label = tr(\"Zeitraum\"),\n)") shouldBe
+                listOf("filterRow.select( [label \"Zeitraum\"]")
+            labelledSelectFindings(
+                "filterRow.select(\n    options = o,\n    label = tr(\"A\"),\n)\nfilterRow.select(\n    options = o,\n    label = tr(\"B\"),\n)",
+            ) shouldBe listOf("filterRow.select( [label \"A\"]", "filterRow.select( [label \"B\"]")
+            labelledFieldFindings("val t = panel.text(\n    label = tr(\"Suche\"),\n)") shouldBe
+                listOf("val t = panel.text( [label \"Suche\"]")
+            // a call that carries its label on the first line keeps the plain line
+            labelledSelectFindings("val s = panel.select(options = o, label = tr(\"Rolle\"))") shouldBe
+                listOf("val s = panel.select(options = o, label = tr(\"Rolle\"))")
+        }
+
+        test("a justified fingerprint justifies exactly as many calls as it is listed (multiset, not set)") {
+            listOf("a", "a", "b").minusMultiset(listOf("a")) shouldBe listOf("a", "b")
+            listOf("a").minusMultiset(listOf("a", "a")) shouldBe emptyList()
+            // a second identical call in a justified file is a finding again
+            listOf("x.text(label = tr(\"A\"))", "x.text(label = tr(\"A\"))").minusMultiset(listOf("x.text(label = tr(\"A\"))")) shouldBe
+                listOf("x.text(label = tr(\"A\"))")
+        }
+
+        test("the coarse-pointer rule gives checkboxes a 44 px target too (M-8 of the V1.4.29 audit)") {
+            val coarse =
+                parseCssRules(THEME_CSS.readText())
+                    .filter { "@media (pointer: coarse)" in it.atRules }
+                    .filter { "min-height: 44px" in it.body }
+                    .flatMap { selectorsOf(it) }
+            (".lapis-form .form-check" in coarse) shouldBe true
+            (".lapis-form .form-check .form-check-label" in coarse) shouldBe true
         }
 
         test("R39 justified exemption is still needed (a stale exemption must go)") {

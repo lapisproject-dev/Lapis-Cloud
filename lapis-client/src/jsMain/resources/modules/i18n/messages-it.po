@@ -1641,10 +1641,6 @@ msgstr ""
 msgid "Andere Partei/Fraktion"
 msgstr "Altro partito/gruppo parlamentare"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:300
-msgid "Ändert bestehenden Antrag (optional)"
-msgstr "Modifica una mozione esistente (opzionale)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:570
 msgid "Änderungen speichern"
 msgstr "Salva modifiche"
@@ -1838,7 +1834,7 @@ msgstr "Gestisci mozioni"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:75
 msgid "Antragsteller"
-msgstr ""
+msgstr "Richiedente"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:309
 msgid "Antragstext"
@@ -2813,10 +2809,6 @@ msgstr "Confermi di aver letto il contratto di adesione."
 msgid "Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."
 msgstr "Conferma di aver letto le condizioni d'uso."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:319
-msgid "Bitte Betreff und Text angeben."
-msgstr "Indicare oggetto e testo."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:170
 msgid "Bitte Code und Name angeben."
 msgstr "Indicare codice e nome."
@@ -2893,10 +2885,6 @@ msgstr "Indicare una denominazione."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:221
 msgid "Bitte eine Datei auswählen."
 msgstr "Selezionare un file."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:659
-msgid "Bitte eine gültige Position und einen Titel angeben."
-msgstr "Indicare una posizione e un titolo validi."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:384
 msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
@@ -2977,13 +2965,6 @@ msgid ""
 "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
 msgstr "Indichi un motivo di rifiuto (verrà salvato presso il socio)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:253
-msgid ""
-"Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein "
-"Format angeben."
-msgstr ""
-"Indicare organo, titolo, una data valida (AAAA-MM-GGTHH:MM) e un formato."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:319
 msgid ""
 "Bitte gültige Daten (JJJJ-MM-TT) für Einzugsdatum und Fälligkeit angeben."
@@ -3053,45 +3034,13 @@ msgstr "Effettui l'accesso con il Suo indirizzo e-mail."
 msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
 msgstr "Indicare almeno 2 opzioni diverse."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:485
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:518
-msgid ""
-"Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen "
-"gültigen Termin (JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben."
-msgstr ""
-"Indicare almeno un destinatario/una destinataria, il titolo, una data valida "
-"(AAAA-MM-GGTHH:MM), il luogo e il testo dell'invito."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:510
 msgid "Bitte Mitglied und einen positiven LTR-Betrag angeben."
 msgstr "Indicare il socio e un importo LTR positivo."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:278
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:405
-msgid "Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben."
-msgstr "Indicare socio, ruolo e una data valida (AAAA-MM-GG)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:95
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:90
-msgid "Bitte Name und eine gültige E-Mail-Adresse angeben."
-msgstr "Indicare nome e un indirizzo e-mail valido."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:230
 msgid "Bitte Name und Spenderkategorie angeben."
 msgstr "Indicare nome e categoria donatore."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:255
-msgid "Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben."
-msgstr "Indicare nome, un indirizzo e-mail valido e un ruolo."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:177
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:235
-msgid "Bitte Name, Typ und ein gültiges Quorum (0-100) angeben."
-msgstr "Indicare nome, tipo e un quorum valido (0-100)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:786
-msgid "Bitte nicht-negative Stimmzahlen und einen Status angeben."
-msgstr "Indicare numeri di voto non negativi e uno stato."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:534
 msgid ""
@@ -3100,12 +3049,6 @@ msgid ""
 msgstr ""
 "Indicare data di inizio e di fine nel formato AAAA-MM-GG -- entrambi i campi "
 "sono qui obbligatori."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:891
-msgid ""
-"Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben."
-msgstr ""
-"Indicare titolo, testo della delibera, stato e numeri di voto non negativi."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:217
 msgid ""
@@ -4375,10 +4318,6 @@ msgstr "Decisione per \"%1\" salvata."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:757
 msgid "Entscheidung speichern"
 msgstr "Salva decisione"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:167
-msgid "Entscheidungsnotiz (optional, rein intern)"
-msgstr "Nota di decisione (facoltativa, solo interna)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:309
@@ -5869,7 +5808,7 @@ msgstr "Salva configurazione"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:150
 msgid "Kontakt für Rückmeldung: %1"
-msgstr ""
+msgstr "Contatto per il riscontro: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:121
 msgid "Konten (SKR42 Kontenplan)"
@@ -7249,10 +7188,6 @@ msgstr "Senza riferimento (es. accredito)"
 msgid "Option"
 msgstr "Opzione"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:821
-msgid "Optionen (kommagetrennt, mind. 2)"
-msgstr "Opzioni (separate da virgola, almeno 2)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:434
 msgid "Orakel angehalten (HALT) -- kein aktueller Kurs verfügbar."
 msgstr "Oracolo sospeso (HALT) -- nessuna quotazione attuale disponibile."
@@ -7616,10 +7551,6 @@ msgstr "Verbale: %1"
 msgid "Protokollentwurf erzeugen"
 msgstr "Genera bozza di verbale"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:234
-msgid "Protokollführung (optional)"
-msgstr "Verbalizzazione (facoltativa)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:356
 msgid "Protokollführung: %1"
 msgstr "Verbalizzazione: %1"
@@ -7663,11 +7594,6 @@ msgstr "Fonti: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1034
 msgid "Quorum erreicht"
 msgstr "Quorum raggiunto"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:156
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:215
-msgid "Quorum in % (0-100)"
-msgstr "Quorum in % (0-100)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1034
 msgid "Quorum nicht erreicht"
@@ -7901,11 +7827,6 @@ msgstr "Stato finale"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:467
 msgid "Schriftführung"
 msgstr "Segreteria"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:256
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:383
-msgid "Seit (JJJJ-MM-TT)"
-msgstr "Da (AAAA-MM-GG)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:171
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:315
@@ -8256,10 +8177,6 @@ msgstr "Seduta: non collegata"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:110
 msgid "Sitzungen"
 msgstr "Sedute"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:233
-msgid "Sitzungsleitung (optional)"
-msgstr "Presidenza della seduta (facoltativa)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:353
 msgid "Sitzungsleitung: %1"
@@ -8707,10 +8624,6 @@ msgstr "Ordine del giorno"
 msgid "Tagesordnungspunkt \"%1\" hinzugefügt."
 msgstr "Punto all'ordine del giorno \"%1\" aggiunto."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:843
-msgid "Tagesordnungspunkt (optional)"
-msgstr "Punto all'ordine del giorno (facoltativo)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:610
 msgid "Tagesordnungspunkt entfernt."
 msgstr "Punto all'ordine del giorno rimosso."
@@ -8740,14 +8653,6 @@ msgstr "Partecipanti: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3312
 msgid "Teilnehmer entfernen"
 msgstr "Rimuovi partecipante"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:228
-msgid "Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"
-msgstr "Data e ora (AAAA-MM-GGTHH:MM, es. 2026-08-15T18:00)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:441
-msgid "Termin (JJJJ-MM-TTTHH:MM)"
-msgstr "Data e ora (AAAA-MM-GGTHH:MM)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:658
 msgid "Terminieren"
@@ -9250,10 +9155,6 @@ msgstr "Appartenenza al consiglio direttivo"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:198
 msgid "Vorstandsmitgliedschaft beenden"
 msgstr "Termina appartenenza al consiglio direttivo"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:639
-msgid "Vortragend (optional)"
-msgstr "Relatore/Relatrice (facoltativo)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:602
 msgid "Vortragend: %1"
@@ -10174,7 +10075,6 @@ msgstr "Origine consentita?"
 msgid "Konsolenmeldung vorhanden?"
 msgstr "Messaggio in console presente?"
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:83
 msgid "Spenden-Widget: verfügbar"
 msgstr "Widget di donazione: disponibile"
@@ -10974,7 +10874,6 @@ msgstr "Approvazioni spese di viaggio (%1)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
 msgid "Bankkonto: %1 · Gebührenkonto: %2 · Beitragserlöskonto: %3 · Spendenerlöskonto: %4 · Veranstaltungserlöskonto: %5 (%6) · Reisekosten-Aufwandskonto: %7"
 msgstr "Conto bancario: %1 · Conto commissioni: %2 · Conto ricavi da contributi: %3 · Conto ricavi da donazioni: %4 · Conto ricavi da eventi: %5 (%6) · Conto spese di viaggio: %7"
-
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt
 msgid "Catering"
@@ -12786,10 +12685,6 @@ msgid "Antwortfrist in Tagen"
 msgstr "Termine di risposta in giorni"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
-msgid "Gebühr in EUR (optional)"
-msgstr "Spese in EUR (facoltative)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
 msgid "Höchstens %1."
 msgstr "Al massimo %1."
 
@@ -12832,3 +12727,442 @@ msgstr "Alla pagina iniziale pubblica"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt
 msgid "Vorabankündigungsfrist in Tagen"
 msgstr "Termine di preavviso in giorni"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:206
+msgid "Enddatum"
+msgstr "Data di fine"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:213
+msgid "Beispiel: 2026-03-14."
+msgstr "Esempio: 2026-03-14."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:133
+msgid "Seit"
+msgstr "Dal"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:160
+msgid "Quorum in %"
+msgstr "Quorum in %"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:163
+msgid "%1 bis %2."
+msgstr "Da %1 a %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:49
+msgid "Entscheidungsnotiz"
+msgstr "Nota di decisione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:80
+msgid "Keine Verbindung -- bitte auf Papier abhaken und später nachtragen."
+msgstr "Nessuna connessione -- spuntare su carta e registrare più tardi."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:102
+msgid "Ticket-Code"
+msgstr "Codice del biglietto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:116
+msgid "Name suchen"
+msgstr "Cerca nome"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:128
+msgid "Eingecheckt: %1"
+msgstr "Check-in effettuato: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:132
+msgid "Bereits eingecheckt um %1 durch %2."
+msgstr "Check-in già effettuato alle %1 da %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:134
+msgid "Dieses Ticket gehört zu einer anderen Veranstaltung."
+msgstr "Questo biglietto appartiene a un altro evento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:136
+msgid "Anmeldung noch nicht bestätigt (Zahlung offen oder Warteliste)."
+msgstr "Iscrizione non ancora confermata (pagamento in sospeso o lista d'attesa)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:137
+msgid "Diese Anmeldung wurde storniert."
+msgstr "Questa iscrizione è stata annullata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:138
+msgid "Code unbekannt."
+msgstr "Codice sconosciuto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:185
+msgid "%1 von %2 eingecheckt"
+msgstr "%1 su %2 con check-in"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:281
+msgid "Einchecken"
+msgstr "Effettua check-in"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:313
+msgid "Ticket ausgestellt"
+msgstr "Biglietto emesso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:315
+msgid "Eingecheckt um"
+msgstr "Check-in alle"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:48
+msgid "Ticket neu ausstellen"
+msgstr "Riemetti il biglietto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:322
+msgid "Das bisher ausgestellte Ticket wird dadurch ungültig."
+msgstr "Il biglietto emesso finora diventa non valido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:335
+msgid "Neues Ticket ausgestellt und versendet."
+msgstr "Nuovo biglietto emesso e inviato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:425
+msgid "Straße"
+msgstr "Via"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:426
+msgid "PLZ"
+msgstr "CAP"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:428
+msgid "Land"
+msgstr "Paese"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:128
+msgid "Eingecheckt"
+msgstr "Check-in effettuato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:171
+msgid "Bestätigt"
+msgstr "Confermato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:136
+msgid "Zahlung offen"
+msgstr "Pagamento in sospeso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:136
+msgid "Warteliste"
+msgstr "Lista d'attesa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:780
+msgid "Bitte dieses Kästchen ankreuzen."
+msgstr "Selezionare questa casella."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt:100
+msgid "Bitte einen gültigen Termin angeben."
+msgstr "Indicare una data e un'ora valide."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt:113
+msgid "Bitte eine ganze Zahl eingeben."
+msgstr "Inserire un numero intero."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt:122
+msgid "Bitte eine ganze Zahl von %1 oder größer eingeben."
+msgstr "Inserire un numero intero pari o superiore a %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:73
+msgid "Termin"
+msgstr "Data e ora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:235
+msgid "Beispiel: 2026-08-15T18:00."
+msgstr "Esempio: 2026-08-15T18:00."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:243
+msgid "Sitzungsleitung"
+msgstr "Presidenza della seduta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:244
+msgid "Protokollführung"
+msgstr "Verbalizzazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:459
+msgid "Bitte mindestens eine Empfängerin/einen Empfänger auswählen."
+msgstr "Selezionare almeno un destinatario."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:578
+msgid "Vortragend"
+msgstr "Relatore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:571
+msgid "Tagesordnungspunkt"
+msgstr "Punto all'ordine del giorno"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:218
+msgid "Suche nach Name, E-Mail oder Personennummer"
+msgstr "Cerca per nome, e-mail o numero di persona"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:117
+msgid "‹ Zurück"
+msgstr "‹ Indietro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:123
+msgid "Weiter ›"
+msgstr "Avanti ›"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundController.kt:233
+msgid "Beitritt"
+msgstr "Adesione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:453
+msgid "— (kein Konto)"
+msgstr "— (nessun account)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:454
+msgid "Kein Login-Konto -- CSV-importiertes Mitglied ohne Account-Zeile."
+msgstr "Nessun account di accesso -- socio importato da CSV senza riga di account."
+
+msgid "Keine Bearbeitung möglich -- Peer-Schutz: Vorstand darf Vorstands-/Schatzmeister-/Admin-Konten (auch das eigene) nicht bearbeiten, das ist Admin vorbehalten."
+msgstr "Modifica non possibile -- protezione tra pari: il consiglio direttivo non può modificare gli account di consiglio, tesoreria o amministrazione (nemmeno il proprio); ciò è riservato agli amministratori."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:426
+msgid "Ehrungen"
+msgstr "Onorificenze"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:157
+msgid "Mitgliedsausweis ausstellen"
+msgstr "Emetti la tessera associativa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:157
+msgid "Neuen Mitgliedsausweis ausstellen"
+msgstr "Emetti una nuova tessera associativa"
+
+msgid "Für %1 wird ein neuer Ausweis ausgestellt und als PDF heruntergeladen. Ein zuvor ausgestellter Ausweis dieses Mitglieds verliert damit seine Gültigkeit."
+msgstr "Viene emessa una nuova tessera per %1 e scaricata come PDF. Una tessera emessa in precedenza per questo socio perde la sua validità."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:163
+msgid "Ausstellen und herunterladen"
+msgstr "Emetti e scarica"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:588
+msgid "Zugang zurücksetzen"
+msgstr "Reimposta l'accesso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:610
+msgid "%1 bearbeiten"
+msgstr "Modifica %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:630
+msgid "Stammdaten speichern"
+msgstr "Salva i dati anagrafici"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:638
+msgid "Stammdaten gespeichert."
+msgstr "Dati anagrafici salvati."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:653
+msgid "Neuer Status"
+msgstr "Nuovo stato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:715
+msgid "Sterbedatum"
+msgstr "Data del decesso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:679
+msgid "Leer lassen, wenn das genaue Datum noch nicht feststeht — später korrigierbar."
+msgstr "Lasciare vuoto se la data esatta non è ancora nota — potrà essere corretta in seguito."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:689
+msgid "Austrittserklärung liegt vor"
+msgstr "Dichiarazione di recesso pervenuta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:690
+msgid "Sterbefall gemeldet"
+msgstr "Decesso comunicato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:691
+msgid "Datenkorrektur CSV-Import"
+msgstr "Correzione dati importazione CSV"
+
+msgid "Datenkorrektur -- diese Person ist im System als verstorben geführt. Ein widerrufenes SEPA-Mandat wird dadurch nicht wiederhergestellt."
+msgstr "Correzione dei dati -- questa persona risulta deceduta nel sistema. Un mandato SEPA revocato non viene ripristinato in questo modo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:722
+msgid "Status ändern"
+msgstr "Modifica lo stato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:736
+msgid "Status geändert."
+msgstr "Stato modificato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:757
+msgid "Leer lassen nimmt ein irrtümlich erfasstes Datum zurück."
+msgstr "Lasciare vuoto annulla una data registrata per errore."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:761
+msgid "Sterbedatum korrigieren"
+msgstr "Correggi la data del decesso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:771
+msgid "Sterbedatum korrigiert."
+msgstr "Data del decesso corretta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:785
+msgid "Rolle ändern"
+msgstr "Modifica il ruolo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:792
+msgid "Rolle geändert."
+msgstr "Ruolo modificato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:49
+msgid "Beitragstarif"
+msgstr "Tariffa contributiva"
+
+msgid "Ab der nächsten Beitragserzeugung entsteht für dieses Mitglied eine Forderung. Bereits erzeugte Beiträge werden nicht rückwirkend berührt."
+msgstr "Dalla prossima generazione dei contributi sorge un credito per questo socio. I contributi già generati non vengono modificati retroattivamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:285
+msgid "Tarif"
+msgstr "Tariffa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
+msgid "— beitragsfrei / kein Tarif —"
+msgstr "— esente da contributi / nessuna tariffa —"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:841
+msgid "Tarif speichern"
+msgstr "Salva la tariffa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:850
+msgid "Beitragstarif gespeichert."
+msgstr "Tariffa contributiva salvata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:863
+msgid "Aktueller Tarif: %1"
+msgstr "Tariffa attuale: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
+msgid "beitragsfrei"
+msgstr "esente da contributi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:866
+msgid "Neuer Tarif"
+msgstr "Nuova tariffa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:869
+msgid "Bitte einen Tarif auswählen."
+msgstr "Selezionare una tariffa."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:880
+msgid "Tarif zuweisen"
+msgstr "Assegna la tariffa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
+msgid "Beitragstarif zugewiesen."
+msgstr "Tariffa contributiva assegnata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:495
+msgid "Tarif entfernen"
+msgstr "Rimuovi la tariffa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:906
+msgid "Beitragstarif entfernt."
+msgstr "Tariffa contributiva rimossa."
+
+msgid "Legt für dieses Mitglied ein Login-Konto an. Das vorläufige Passwort wird NICHT per E-Mail versendet -- geben Sie es der Person persönlich weiter; sie kann es danach selbst ändern."
+msgstr "Crea un account di accesso per questo socio. La password provvisoria NON viene inviata per e-mail -- la consegni di persona all'interessato; potrà poi modificarla autonomamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:962
+msgid "Login-Konto für %1 angelegt."
+msgstr "Account di accesso creato per %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:992
+msgid "Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."
+msgstr "Indicare una data valida che non sia nel futuro."
+
+msgid "Für Spender ist der Login gesperrt. Das Konto wird angelegt, die Person kann sich aber erst anmelden, wenn der Status auf Aktiv geändert wird."
+msgstr "Per i donatori l'accesso è bloccato. L'account viene creato, ma la persona potrà accedere solo quando lo stato sarà impostato su Attivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1146
+msgid "Für diesen Status ist der Login gesperrt. Das Konto bleibt bis zu einer Statusänderung wirkungslos."
+msgstr "Per questo stato l'accesso è bloccato. L'account resta inefficace fino a un cambio di stato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1192
+msgid "Sterbedatum fehlt"
+msgstr "Data del decesso mancante"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1193
+msgid "verstorben am %1"
+msgstr "deceduto il %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1235
+msgid "Die Mitgliedschaft endete mit dem Tod (§ 38 BGB). Dieser Eintrag hält das fest, er beendet sie nicht."
+msgstr "L'appartenenza è cessata con il decesso (§ 38 BGB). Questa registrazione lo attesta, non la pone fine."
+
+msgid "Sitzungen werden beendet, offene Gremiensitze enden, ein aktives SEPA-Mandat wird widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine Nachlassangelegenheit."
+msgstr "Le sessioni vengono terminate, i seggi aperti negli organi cessano e un mandato SEPA attivo viene revocato. I crediti già aperti restano — sono una questione ereditaria."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1241
+msgid "Es wird niemand benachrichtigt."
+msgstr "Nessuno viene avvisato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1243
+msgid "Diese Person ist Beitragszahler einer Familie — die Angehörigen brauchen einen neuen Zahler."
+msgstr "Questa persona è il pagante dei contributi di una famiglia — i familiari hanno bisogno di un nuovo pagante."
+
+msgid "Alle Sitzungen werden sofort beendet, offene Gremien-Mitgliedschaften werden beendet, ein aktives SEPA-Mandat wird widerrufen."
+msgstr "Tutte le sessioni vengono terminate subito, le appartenenze aperte agli organi cessano e un mandato SEPA attivo viene revocato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
+msgid "Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."
+msgstr "L'accesso viene bloccato. Nessun contributo, nessun diritto di governance."
+
+msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordneten Beitragstarif entstehen außerdem keine Beiträge."
+msgstr "Questo socio non ha un account di accesso -- un cambio di stato non ne crea alcuno. Senza una tariffa contributiva assegnata non sorgono nemmeno contributi."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1259
+msgid "Status wird von %1 auf %2 geändert."
+msgstr "Lo stato passa da %1 a %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:478
+msgid "Keine Treffer"
+msgstr "Nessun risultato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1271
+msgid "%1–%2 von %3"
+msgstr "%1–%2 di %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:301
+msgid "Ändert bestehenden Antrag"
+msgstr "Modifica una mozione esistente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:169
+msgid "Rein intern."
+msgstr "Solo per uso interno."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "— bitte wählen —"
+msgstr "— selezionare —"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Gebühr in EUR"
+msgstr "Spese in EUR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt
+msgid "Optionen"
+msgstr "Opzioni"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt
+msgid "Kommagetrennt, mindestens %1 verschiedene Optionen."
+msgstr "Separate da virgole, almeno %1 opzioni diverse."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
+msgid "Nur für \"Ablehnen\" erforderlich."
+msgstr "Obbligatorio solo per \"Rifiuta\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
+msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jede aktive Abonnentin und jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
+msgstr "In questa versione l'invio è una voce di registro interna -- non viene ancora inviata alcuna vera e-mail tramite un servizio di spedizione esterno. Ogni iscritta e ogni iscritto attivo riceve una voce con lo stato \"Inviato\" nel registro di sistema, non una consegna effettiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt
+msgid "Mahnwesen-Aktion war nicht erfolgreich (Konflikt) -- mögliche Gründe: der übermittelte Hinweistext entspricht nicht mehr der aktuellen Version (erneut abrufen), oder es wurden zu viele Anfragen in kurzer Zeit gestellt. Ein Administrator prüft das ggf. unter Mahnwesen-Konfiguration."
+msgstr "L'azione di sollecito non è riuscita (conflitto) -- possibili motivi: il testo dell'avviso inviato non corrisponde più alla versione attuale (richiamarlo di nuovo) oppure sono state effettuate troppe richieste in poco tempo. Un amministratore può verificarlo, se necessario, in Configurazione dei solleciti."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt
+msgid "Die Mahnstufe konnte nicht gespeichert werden -- mögliche Gründe: die Stufennummer existiert bereits, ein Wert liegt außerhalb des zulässigen Bereichs, oder auf der ersten Mahnstufe wurde eine Gebühr angegeben (unzulässig, § 286 BGB)."
+msgstr "Impossibile salvare il livello di sollecito -- possibili motivi: il numero del livello esiste già, un valore è fuori dall'intervallo consentito oppure è stata indicata una spesa al primo livello di sollecito (non consentito, § 286 BGB)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt
+msgid "Mahnwesen-Daten konnten nicht geladen werden."
+msgstr "Impossibile caricare i dati dei solleciti."

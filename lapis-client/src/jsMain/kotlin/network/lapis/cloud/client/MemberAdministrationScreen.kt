@@ -1,10 +1,8 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
-import io.kvision.form.select.select
-import io.kvision.form.text.password
+import io.kvision.form.select.Select
 import io.kvision.form.text.text
-import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
@@ -151,33 +149,32 @@ private fun renderPendingApplicationActions(
 
 /** Reject requires a non-blank reason -- see `IRegistrationService.rejectApplication` KDoc, a real
  * modal input rather than a bare confirm, since [confirmDialog] has no input field of its own. */
-private fun rejectApplicationDialog(
+internal fun rejectApplicationDialog(
     applicantName: String,
     onConfirm: (String) -> Unit,
 ) {
     val modal = Modal(caption = gettext("Antrag von %1 ablehnen", applicantName))
     modal.p(tr("Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."))
-    val reasonInput = modal.textArea(rows = 3)
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // Formular-Grammatik (V1.4.29): das früher UNBESCHRIFTETE Pflichtfeld hat jetzt ein Label, einen Feldfehler und einen
+    // Fokus dorthin. Die Serverregel (nicht leer) bleibt unverändert; die Regel hier spiegelt sie nur früher.
+    val form = modal.lapisForm()
+    val reasonField =
+        form.textAreaField(
+            label = tr("Begründung"),
+            rows = 3,
+            required = true,
+            requiredMessage = gettext("Bitte einen Grund angeben."),
+        )
+    form.finish()
+    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.DANGER)
+    rejectButton.onClick {
+        if (!form.validateAndReport()) return@onClick
+        val reason = reasonField.value.trim()
+        modal.hide()
+        onConfirm(reason)
+    }
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Ablehnen"), style = ButtonStyle.DANGER).apply {
-            onClick {
-                val reason = reasonInput.value.orEmpty().trim()
-                if (reason.isBlank()) {
-                    errorBox.content = tr("Bitte einen Grund angeben.")
-                    errorBox.show()
-                    return@onClick
-                }
-                modal.hide()
-                onConfirm(reason)
-            }
-        },
-    )
+    modal.addButton(rejectButton)
     modal.show()
 }
 
@@ -604,45 +601,40 @@ private fun renderRosterActions(
  * `rejectApplicationDialog` in dieser Datei. Kein gemeinsamer "Speichern"-Knopf, weil die drei
  * Abschnitte drei unterschiedlich autorisierte, unabhängige RPCs sind (siehe `IMemberService`).
  */
-private fun openMemberEditorDialog(
+internal fun openMemberEditorDialog(
     row: MemberAdminRowDto,
     onChanged: () -> Unit,
 ) {
     val callerRole = AppState.session?.role
     val callerMemberId = AppState.session?.memberId
     val modal = Modal(caption = gettext("%1 bearbeiten", row.displayName))
+    // Sechs Formulare in einem Modal: die Legende "* Pflichtfeld" steht nur einmal (beim ersten Formular, das sie braucht).
+    val legendGroup = LegendGroup()
+
+    // Formular-Grammatik (V1.4.29, W4b): jeder Abschnitt ist ein EIGENES Formular mit eigener Knopfzeile -- die Abschnitte sind
+    // unabhängig gespeicherte, unterschiedlich autorisierte RPCs. R28 (genau ein `PRIMARY`) gilt deshalb je FORMULAR, nicht je
+    // Modal. Die Knöpfe stehen im Modal-KÖRPER (nicht in der Fußleiste), also `buttons()`, nicht `finish()`. Fehler stehen am
+    // Feld; die sechs handgebauten `text-danger`-Boxen sind entfallen, Serverfehler meldet `memberAdminGuarded`.
 
     // ── Stammdaten ──
     if (canEditCoreDataOf(callerRole, row)) {
         modal.h2(tr("Stammdaten")) { addCssClass("h6") }
-        val nameInput = modal.text(value = row.displayName, label = tr("Name"))
-        val emailInput = modal.text(type = InputType.EMAIL, value = row.email, label = tr("E-Mail"))
-        val coreDataError =
-            modal.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
-        val saveCoreDataButton = modal.button(tr("Stammdaten speichern"), style = ButtonStyle.PRIMARY)
+        val form = modal.lapisForm(legendGroup)
+        val nameField = form.textField(label = tr("Name"), value = row.displayName, required = true)
+        val emailField =
+            form.textField(
+                label = tr("E-Mail"),
+                type = InputType.EMAIL,
+                value = row.email,
+                required = true,
+                rule = { FormRules.email(value = it) },
+            )
+        val saveCoreDataButton = Button(tr("Stammdaten speichern"), style = ButtonStyle.PRIMARY)
+        form.buttons(primary = saveCoreDataButton)
         saveCoreDataButton.onClick {
-            coreDataError.hide()
-            val name = nameInput.value.orEmpty().trim()
-            val email = emailInput.value.orEmpty().trim()
-            if (email.length > Validation.EMAIL_MAX_LENGTH) {
-                // Review Runde 3 NIT fix -- a specific message, not the generic one below: without
-                // this, an overlong address either silently passed as "looks like an email" (before
-                // EMAIL_MAX_LENGTH was folded into looksLikeEmail) or, now that it is folded in,
-                // would produce the SAME generic "invalid address" message a typo would -- worse
-                // guidance than telling the operator exactly what is wrong.
-                coreDataError.content = gettext("Die E-Mail-Adresse ist zu lang (höchstens %1 Zeichen).", Validation.EMAIL_MAX_LENGTH)
-                coreDataError.show()
-                return@onClick
-            }
-            if (!Validation.isNonBlank(name) || !Validation.looksLikeEmail(email)) {
-                coreDataError.content = tr("Bitte Name und eine gültige E-Mail-Adresse angeben.")
-                coreDataError.show()
-                return@onClick
-            }
-            AppScope.launch {
+            form.submit(saveCoreDataButton) {
+                val name = nameField.value.trim()
+                val email = emailField.value.trim()
                 val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberCoreData(row.id, name, email) }
                 if (result != null) {
                     notifySuccess(tr("Stammdaten gespeichert."))
@@ -656,46 +648,48 @@ private fun openMemberEditorDialog(
     if (canChangeStatusOf(callerRole, callerMemberId, row)) {
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Status")) { addCssClass("h6") }
+        val form = modal.lapisForm(legendGroup)
         val targets = MemberStatusTransitions.allowedTargets(row.status).toList()
-        val statusSelect =
-            modal.select(
+        val statusField =
+            form.selectField(
+                label = tr("Neuer Status"),
                 options = targets.map { it.name to memberStatusLabel(it) },
                 value = targets.firstOrNull()?.name,
-                label = tr("Neuer Status"),
+                required = true,
             )
         // Bug fix (live user report after V1.2.12 deploy): addCssClass() only ever adds a single
         // literal token (classList.add() throws InvalidCharacterError on a space-containing
         // string) -- addCssClass("alert alert-secondary") crashed uncaught inside this onClick
-        // handler (outside initRouting's render-time try/catch, see that KDoc for the identical
-        // bug shape hit before in DashboardScreen), aborting openMemberEditorDialog() before
-        // modal.show() ever ran. Every click on "Bearbeiten" for a row whose status has any
-        // allowed transition silently did nothing. Use addCssClasses() (see CssClasses.kt) for
-        // any multi-class string.
-        val consequenceBox = modal.div { addCssClasses("alert alert-secondary") }
+        // handler, aborting openMemberEditorDialog() before modal.show() ever ran. Use
+        // addCssClasses() (see CssClasses.kt) for any multi-class string.
+        val consequenceBox = form.panel.div { addCssClasses("alert alert-secondary") }
         val warningBox =
-            modal.div {
+            form.panel.div {
                 addCssClasses("alert alert-warning")
                 hide()
             }
+
         // Welle V1.4.4.5 -- nur sichtbar, wenn der Zielstatus "Verstorben" ist. BEWUSST NICHT mit
         // todayLocalDate() vorbefüllt (anders als BoardMembershipScreen.todayIso()): ein
         // vorbefülltes heutiges Datum in einem Sterbedatumsfeld ist eine Behauptung, die die
         // Software aufstellt und der Mensch nur noch bestätigt -- übersieht er das Feld, hat dieses
         // System aus eigenem Antrieb einen Todestag erfunden und in eine GoBD-unveränderliche
         // Buchhaltung geschrieben. Leer. Immer leer.
-        val deathDatePanel = modal.div { hide() }
-        val deathDateInput = deathDatePanel.text(label = tr("Sterbedatum (JJJJ-MM-TT, optional)"))
-        deathDatePanel.div(tr("Leer lassen, wenn das genaue Datum noch nicht feststeht — später korrigierbar.")) {
-            addCssClasses("form-text text-muted")
-        }
-        val reasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
+        fun deceasedSelected(): Boolean = statusField.value == MemberStatus.DECEASED.name
+        val deathDateField =
+            form.textField(
+                label = tr("Sterbedatum"),
+                hint = "${gettext(
+                    "Beispiel: 2026-03-14.",
+                )} ${gettext("Leer lassen, wenn das genaue Datum noch nicht feststeht — später korrigierbar.")}",
+                // Ein ausgeblendetes Feld darf das Absenden nicht durch einen unsichtbaren Fehler blockieren.
+                rule = { if (deceasedSelected()) deathDateCheck(value = it) else FieldCheck.Ok },
+            )
+        val reasonField = memberReasonField(form)
         // Bug fix (live user report): hPanel is a non-wrapping flex row by default -- four chip
-        // buttons ("Austrittserklärung liegt vor" / "Sterbefall gemeldet" / "Datenkorrektur
-        // CSV-Import" / "Sonstiges") together exceed the modal's width, so the last one ("Sonstiges")
-        // got clipped/pushed outside the visible dialog instead of wrapping onto a second line --
-        // same "flex-wrap" fix already used elsewhere in this codebase for a wide button row (see
-        // ConferenceScreen.kt's controlsRow).
-        val statusChipsRow = modal.hPanel(spacing = 6) { addCssClasses("flex-wrap") }
+        // buttons together exceed the modal's width, so the last one got clipped -- "flex-wrap"
+        // (same fix as ConferenceScreen.kt's controlsRow).
+        val statusChipsRow = form.panel.hPanel(spacing = 6) { addCssClasses("flex-wrap") }
         listOf(
             tr("Austrittserklärung liegt vor"),
             tr("Sterbefall gemeldet"),
@@ -703,16 +697,18 @@ private fun openMemberEditorDialog(
             tr("Sonstiges"),
         ).forEach { suggestion ->
             statusChipsRow.button(suggestion, style = ButtonStyle.OUTLINESECONDARY).onClick {
-                reasonInput.value = suggestion
+                // Über das Feld, nie am Control vorbei: ein stehender "zu kurz"-Fehler muss am neuen Wert verschwinden.
+                reasonField.setValue(resolvedAttributeText(suggestion))
+                reasonField.validate(force = false)
             }
         }
 
         fun refreshConsequence() {
-            val target = statusSelect.value?.let { MemberStatus.valueOf(it) } ?: return
+            val target = statusField.value.takeIf { it.isNotBlank() }?.let { MemberStatus.valueOf(it) } ?: return
             consequenceBox.content =
                 statusChangeConsequence(row.status, target, hasAccount = row.role != null, familyRole = row.familyRole)
             // Welle V1.4.4.5 -- das Sterbedatumsfeld erscheint nur, wenn der Zielstatus DECEASED ist.
-            if (target == MemberStatus.DECEASED) deathDatePanel.show() else deathDatePanel.hide()
+            deathDateField.setVisible(target == MemberStatus.DECEASED)
             if (MemberStatusTransitions.requiresAdmin(row.status)) {
                 warningBox.content =
                     tr(
@@ -724,43 +720,21 @@ private fun openMemberEditorDialog(
                 warningBox.hide()
             }
         }
-        statusSelect.subscribe { refreshConsequence() }
+        statusField.subscribe { refreshConsequence() }
         refreshConsequence()
 
-        val statusError =
-            modal.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
         val statusButtonStyle = if (MemberStatusTransitions.requiresAdmin(row.status)) ButtonStyle.WARNING else ButtonStyle.PRIMARY
-        val saveStatusButton = modal.button(tr("Status ändern"), style = statusButtonStyle)
+        val saveStatusButton = Button(tr("Status ändern"), style = statusButtonStyle)
+        form.buttons(primary = saveStatusButton)
         saveStatusButton.onClick {
-            statusError.hide()
-            val target = statusSelect.value?.let { MemberStatus.valueOf(it) }
-            val reason = reasonInput.value.orEmpty().trim()
-            if (target == null || reason.length < 3 || reason.length > 1000) {
-                statusError.content = tr("Bitte einen Zielstatus und eine Begründung (3-1000 Zeichen) angeben.")
-                statusError.show()
-                return@onClick
-            }
-            // Welle V1.4.4.5 -- nur relevant, wenn der Zielstatus DECEASED ist; leer bleibt erlaubt
-            // ("Datum noch nicht bekannt", siehe deathDatePanel-Kommentar oben).
-            val rawDeathDate = deathDateInput.value.orEmpty().trim()
-            val deathDate =
-                if (target == MemberStatus.DECEASED && rawDeathDate.isNotEmpty()) {
-                    val parsed = runCatching { LocalDate.parse(rawDeathDate) }.getOrNull()
-                    if (parsed == null ||
-                        DeathDateRules.violation(dateOfDeath = parsed, dateOfBirth = null, today = todayLocalDate()) != null
-                    ) {
-                        statusError.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben, das nicht in der Zukunft liegt.")
-                        statusError.show()
-                        return@onClick
-                    }
-                    parsed
-                } else {
-                    null
-                }
-            AppScope.launch {
+            form.submit(saveStatusButton) {
+                val target = MemberStatus.valueOf(statusField.value)
+                val reason = reasonField.value.trim()
+                // Welle V1.4.4.5 -- nur relevant, wenn der Zielstatus DECEASED ist; leer bleibt erlaubt
+                // ("Datum noch nicht bekannt", siehe Kommentar oben). Die Feldregel hat das Datum bereits geprüft.
+                val rawDeathDate = deathDateField.value.trim()
+                val deathDate =
+                    if (target == MemberStatus.DECEASED && rawDeathDate.isNotEmpty()) LocalDate.parse(rawDeathDate) else null
                 val result =
                     memberAdminGuarded { rpcService<IMemberService>().updateMemberStatus(row.id, target, reason, deathDate) }
                 if (result != null) {
@@ -780,42 +754,22 @@ private fun openMemberEditorDialog(
     if (canCorrectDateOfDeathOf(callerRole, callerMemberId, row)) {
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Sterbedatum")) { addCssClass("h6") }
-        val correctionInput =
-            modal.text(value = row.dateOfDeath?.toString(), label = tr("Sterbedatum (JJJJ-MM-TT, optional)"))
-        modal.div(tr("Leer lassen nimmt ein irrtümlich erfasstes Datum zurück.")) {
-            addCssClasses("form-text text-muted")
-        }
-        val correctionReason = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
-        val correctionError =
-            modal.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
-        val correctButton = modal.button(tr("Sterbedatum korrigieren"), style = ButtonStyle.WARNING)
+        val form = modal.lapisForm(legendGroup)
+        val correctionField =
+            form.textField(
+                label = tr("Sterbedatum"),
+                value = row.dateOfDeath?.toString(),
+                hint = "${gettext("Beispiel: 2026-03-14.")} ${gettext("Leer lassen nimmt ein irrtümlich erfasstes Datum zurück.")}",
+                rule = { deathDateCheck(value = it) },
+            )
+        val correctionReason = memberReasonField(form)
+        val correctButton = Button(tr("Sterbedatum korrigieren"), style = ButtonStyle.WARNING)
+        form.buttons(primary = correctButton)
         correctButton.onClick {
-            correctionError.hide()
-            val reason = correctionReason.value.orEmpty().trim()
-            if (reason.length < 3 || reason.length > 1000) {
-                correctionError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
-                correctionError.show()
-                return@onClick
-            }
-            val raw = correctionInput.value.orEmpty().trim()
-            val parsedDate =
-                if (raw.isEmpty()) {
-                    null
-                } else {
-                    val parsed = runCatching { LocalDate.parse(raw) }.getOrNull()
-                    if (parsed == null ||
-                        DeathDateRules.violation(dateOfDeath = parsed, dateOfBirth = null, today = todayLocalDate()) != null
-                    ) {
-                        correctionError.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben, das nicht in der Zukunft liegt.")
-                        correctionError.show()
-                        return@onClick
-                    }
-                    parsed
-                }
-            AppScope.launch {
+            form.submit(correctButton) {
+                val reason = correctionReason.value.trim()
+                val raw = correctionField.value.trim()
+                val parsedDate = if (raw.isEmpty()) null else LocalDate.parse(raw)
                 val result =
                     memberAdminGuarded { rpcService<IMemberService>().correctDateOfDeath(row.id, parsedDate, reason) }
                 if (result != null) {
@@ -830,12 +784,14 @@ private fun openMemberEditorDialog(
     if (canEditRoleOf(callerRole, callerMemberId, row)) {
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Rolle")) { addCssClass("h6") }
+        val form = modal.lapisForm(legendGroup)
         val roleOptions = AccountRole.entries.map { it.name to accountRoleLabel(it) }
-        val roleSelect = modal.select(options = roleOptions, value = row.role?.name, label = tr("Rolle"))
-        val saveRoleButton = modal.button(tr("Rolle ändern"), style = ButtonStyle.PRIMARY)
+        val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = row.role?.name, required = true)
+        val saveRoleButton = Button(tr("Rolle ändern"), style = ButtonStyle.PRIMARY)
+        form.buttons(primary = saveRoleButton)
         saveRoleButton.onClick {
-            val newRole = roleSelect.value?.let { AccountRole.valueOf(it) } ?: return@onClick
-            AppScope.launch {
+            form.submit(saveRoleButton) {
+                val newRole = AccountRole.valueOf(roleField.value)
                 val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberRole(row.id, newRole) }
                 if (result != null) {
                     notifySuccess(tr("Rolle geändert."))
@@ -850,13 +806,9 @@ private fun openMemberEditorDialog(
     if (canEditMembershipTierOf(callerRole, callerMemberId, row)) {
         modal.div { addCssClass("mt-3") }
         modal.h2(tr("Beitragstarif")) { addCssClass("h6") }
-        val tierError =
-            modal.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
+        val form = modal.lapisForm(legendGroup)
         val tierWarning =
-            modal.div {
+            form.panel.div {
                 addCssClasses("alert alert-warning")
                 hide()
             }
@@ -875,30 +827,28 @@ private fun openMemberEditorDialog(
         }
 
         if (callerRole == AccountRole.ADMIN) {
-            val tierSelect =
-                modal.select(
+            val tierField =
+                form.selectField(
+                    label = tr("Tarif"),
                     options = listOf("" to tr("— beitragsfrei / kein Tarif —")),
                     value = row.membershipTierId ?: "",
-                    label = tr("Tarif"),
                 )
+            val tierSelect = tierField.control as Select
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
                 tierSelect.options = listOf("" to tr("— beitragsfrei / kein Tarif —")) + tiers.map { it.id to it.name }
-                tierSelect.value = row.membershipTierId ?: ""
+                // Über das Feld (Select-fähiges `setValue`), dann `validate(force = false)`: ein Fehler kann hier noch nicht stehen.
+                tierField.setValue(row.membershipTierId ?: "")
+                tierField.validate(force = false)
             }
-            tierSelect.subscribe { value -> showTierConsequence(!value.isNullOrBlank()) }
-            val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
-            val saveTierButton = modal.button(tr("Tarif speichern"), style = ButtonStyle.PRIMARY)
+            tierField.subscribe { value -> showTierConsequence(value.isNotBlank()) }
+            val tierReasonField = memberReasonField(form)
+            val saveTierButton = Button(tr("Tarif speichern"), style = ButtonStyle.PRIMARY)
+            form.buttons(primary = saveTierButton)
             saveTierButton.onClick {
-                tierError.hide()
-                val reason = tierReasonInput.value.orEmpty().trim()
-                if (reason.length < 3 || reason.length > 1000) {
-                    tierError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
-                    tierError.show()
-                    return@onClick
-                }
-                val chosenTierId = tierSelect.value?.takeIf { it.isNotBlank() }
-                AppScope.launch {
+                form.submit(saveTierButton) {
+                    val reason = tierReasonField.value.trim()
+                    val chosenTierId = tierField.value.takeIf { it.isNotBlank() }
                     val result =
                         memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, chosenTierId, reason) }
                     if (result != null) {
@@ -914,32 +864,30 @@ private fun openMemberEditorDialog(
             // (`updateMemberMembershipTier`, `membershipTierId == null`-Zweig) das Entfernen einem
             // TREASURER-Aufrufer verweigert (nur `isPrivileged`, also BOARD/ADMIN) -- siehe
             // [canEditMembershipTierOf] KDoc. Anders als beim ADMIN-Zweig oben ist die Select-Liste
-            // deshalb NIE leer wählbar; ein no-op-Klick ohne Tiers geladen wird unten abgefangen.
-            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
-            val tierSelect = modal.select(options = emptyList(), label = tr("Neuer Tarif"))
+            // deshalb NIE leer wählbar; ein Absenden ohne geladene Tarife meldet der Feldfehler.
+            form.panel.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
+            val tierField =
+                form.selectField(
+                    label = tr("Neuer Tarif"),
+                    options = emptyList(),
+                    required = true,
+                    requiredMessage = gettext("Bitte einen Tarif auswählen."),
+                )
+            val tierSelect = tierField.control as Select
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
                 tierSelect.options = tiers.map { it.id to it.name }
-                tierSelect.value = row.membershipTierId ?: tiers.firstOrNull()?.id
+                tierField.setValue(row.membershipTierId ?: tiers.firstOrNull()?.id)
+                tierField.validate(force = false)
             }
-            tierSelect.subscribe { value -> showTierConsequence(!value.isNullOrBlank()) }
-            val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
-            val saveTierButton = modal.button(tr("Tarif zuweisen"), style = ButtonStyle.PRIMARY)
+            tierField.subscribe { value -> showTierConsequence(value.isNotBlank()) }
+            val tierReasonField = memberReasonField(form)
+            val saveTierButton = Button(tr("Tarif zuweisen"), style = ButtonStyle.PRIMARY)
+            form.buttons(primary = saveTierButton)
             saveTierButton.onClick {
-                tierError.hide()
-                val chosenTierId = tierSelect.value?.takeIf { it.isNotBlank() }
-                if (chosenTierId == null) {
-                    tierError.content = tr("Bitte einen Tarif auswählen.")
-                    tierError.show()
-                    return@onClick
-                }
-                val reason = tierReasonInput.value.orEmpty().trim()
-                if (reason.length < 3 || reason.length > 1000) {
-                    tierError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
-                    tierError.show()
-                    return@onClick
-                }
-                AppScope.launch {
+                form.submit(saveTierButton) {
+                    val chosenTierId = tierField.value
+                    val reason = tierReasonField.value.trim()
                     val result =
                         memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, chosenTierId, reason) }
                     if (result != null) {
@@ -951,18 +899,13 @@ private fun openMemberEditorDialog(
             }
         } else {
             // BOARD: nur die Schaltfläche "Tarif entfernen" -- siehe canEditMembershipTierOf KDoc.
-            modal.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
-            val tierReasonInput = modal.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
-            val removeTierButton = modal.button(tr("Tarif entfernen"), style = ButtonStyle.WARNING)
+            form.panel.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
+            val tierReasonField = memberReasonField(form)
+            val removeTierButton = Button(tr("Tarif entfernen"), style = ButtonStyle.WARNING)
+            form.buttons(primary = removeTierButton)
             removeTierButton.onClick {
-                tierError.hide()
-                val reason = tierReasonInput.value.orEmpty().trim()
-                if (reason.length < 3 || reason.length > 1000) {
-                    tierError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
-                    tierError.show()
-                    return@onClick
-                }
-                AppScope.launch {
+                form.submit(removeTierButton) {
+                    val reason = tierReasonField.value.trim()
                     val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, null, reason) }
                     if (result != null) {
                         notifySuccess(tr("Beitragstarif entfernt."))
@@ -988,37 +931,30 @@ private fun openMemberEditorDialog(
         grantAccountConsequence(row.status)?.let { hint ->
             modal.div(hint) { addCssClasses("alert alert-secondary") }
         }
-        val grantPasswordInput =
-            modal.password(label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
-        val grantRoleSelect =
-            modal.select(
+        val form = modal.lapisForm(legendGroup)
+        // Ein Passwort für einen ANDEREN Menschen: keine Passwortmanager-Angebote (`suppressManagers`), aber aufdeckbar.
+        val grantPasswordField =
+            form.passwordField(
+                label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH),
+                required = true,
+                suppressManagers = true,
+                reveal = true,
+                rule = { FormRules.newPassword(value = it, email = row.email) },
+            )
+        val grantRoleField =
+            form.selectField(
+                label = tr("Rolle"),
                 options = AccountRole.entries.map { it.name to accountRoleLabel(it) },
                 value = AccountRole.MEMBER.name,
-                label = tr("Rolle"),
+                required = true,
             )
-        val grantError =
-            modal.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
-        val grantButton = modal.button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
+        val grantButton = Button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
+        form.buttons(primary = grantButton)
         grantButton.onClick {
-            grantError.hide()
-            val password = grantPasswordInput.value.orEmpty()
-            val selectedRole = grantRoleSelect.value?.let { AccountRole.valueOf(it) }
-            if (selectedRole == null) {
-                grantError.content = tr("Bitte eine Rolle auswählen.")
-                grantError.show()
-                return@onClick
-            }
-            val passwordHint = Validation.passwordHint(password, row.email)
-            if (passwordHint != null) {
-                grantError.content = passwordHint
-                grantError.show()
-                return@onClick
-            }
-            grantButton.disabled = true
-            AppScope.launch {
+            form.submit(grantButton) {
+                // Ein Passwort wird NIE getrimmt: ein getrimmtes wäre ein anderes als das gewählte.
+                val password = grantPasswordField.value
+                val selectedRole = AccountRole.valueOf(grantRoleField.value)
                 val updated =
                     memberAdminGuarded {
                         rpcService<IMemberService>().grantMemberAccount(
@@ -1027,7 +963,6 @@ private fun openMemberEditorDialog(
                             role = selectedRole,
                         )
                     }
-                grantButton.disabled = false
                 if (updated != null) {
                     notifySuccess(gettext("Login-Konto für %1 angelegt.", row.displayName))
                     modal.hide()
@@ -1040,6 +975,29 @@ private fun openMemberEditorDialog(
 
     modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
+}
+
+/** Begründung mit Protokollwirkung (3..1000 Zeichen, spiegelt die Servergrenze) -- ein Feld, fünfmal im Editor-Dialog. */
+private fun memberReasonField(form: LapisForm): LapisField =
+    form.textAreaField(
+        label = tr("Begründung"),
+        rows = 2,
+        required = true,
+        hint = gettext("%1 bis %2 Zeichen.", FormRules.REASON_MIN_LENGTH, FormRules.REASON_MAX_LENGTH),
+        rule = { FormRules.reasonText(value = it) },
+    )
+
+/**
+ * Sterbedatum: ein echtes Kalenderdatum, das nicht in der Zukunft liegt ([DeathDateRules], gleiche Regel wie der Server). Leer
+ * ist gültig (die Prüfung sieht nur nicht-leere Werte). Der Text nennt KEIN Format -- das Beispiel steht im Hinweis des Feldes.
+ */
+internal fun deathDateCheck(value: String): FieldCheck {
+    val parsed = runCatching { LocalDate.parse(value.trim()) }.getOrNull()
+    return if (parsed == null || DeathDateRules.violation(dateOfDeath = parsed, dateOfBirth = null, today = todayLocalDate()) != null) {
+        FieldCheck.Invalid(gettext("Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."))
+    } else {
+        FieldCheck.Ok
+    }
 }
 
 /**
@@ -1318,7 +1276,7 @@ fun pagerLabel(
     return gettext("%1–%2 von %3", from, to, totalCount)
 }
 
-private fun renderDirectMemberCreation(root: SimplePanel) {
+internal fun renderDirectMemberCreation(root: SimplePanel) {
     root.h2(tr("Mitglied direkt anlegen"))
     root.p(
         tr(
@@ -1330,58 +1288,61 @@ private fun renderDirectMemberCreation(root: SimplePanel) {
     val callerRole = AppState.session?.role ?: AccountRole.MEMBER
     val roleOptions = selectableRolesFor(callerRole).map { it.name to it.name }
 
-    val nameInput = root.text(label = tr("Name"))
-    val emailInput = root.text(type = InputType.EMAIL, label = tr("E-Mail"))
-    val passwordInput = root.password(label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
-    val roleSelect = root.select(options = roleOptions, value = roleOptions.firstOrNull()?.first, label = tr("Rolle"))
+    // Formular-Grammatik (V1.4.29): vier Pflichtfelder => Fall (b), keine Sterne, Legende "Alle Felder sind Pflichtfelder."
+    val form = root.lapisForm()
+    val nameField = form.textField(label = tr("Name"), required = true)
+    val emailField =
+        form.textField(
+            label = tr("E-Mail"),
+            type = InputType.EMAIL,
+            required = true,
+            rule = { FormRules.email(value = it) },
+        )
+    val passwordField =
+        form.passwordField(
+            label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH),
+            required = true,
+            suppressManagers = true,
+            reveal = true,
+            rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
+        )
+    val roleField =
+        form.selectField(
+            label = tr("Rolle"),
+            options = roleOptions,
+            value = roleOptions.firstOrNull()?.first,
+            required = true,
+        )
     if (roleOptions.size == 1) {
-        root.p(tr("Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."))
+        form.panel.p(
+            tr("Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."),
+        )
     }
-    val errorBox =
-        root.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
 
-    val createButton = root.button(tr("Mitglied anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = Button(tr("Mitglied anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
     createButton.onClick {
-        errorBox.hide()
-        val name = nameInput.value.orEmpty().trim()
-        val email = emailInput.value.orEmpty().trim()
-        val temporaryPassword = passwordInput.value.orEmpty()
-        val roleValue = roleSelect.value
-
-        if (!Validation.isNonBlank(name) || !Validation.looksLikeEmail(email) || roleValue == null) {
-            errorBox.content = tr("Bitte Name, eine gültige E-Mail-Adresse und eine Rolle angeben.")
-            errorBox.show()
-            return@onClick
-        }
-        val passwordHint = Validation.passwordHint(temporaryPassword, email)
-        if (passwordHint != null) {
-            errorBox.content = passwordHint
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val name = nameField.value.trim()
+            val email = emailField.value.trim()
+            // Ein Passwort wird NIE getrimmt.
+            val temporaryPassword = passwordField.value
             val result =
                 guarded {
                     rpcService<IRegistrationService>().createMemberDirect(
                         AdminCreateMemberInput(
                             displayName = name,
                             email = email,
-                            role = AccountRole.valueOf(roleValue),
+                            role = AccountRole.valueOf(roleField.value),
                             temporaryPassword = temporaryPassword,
                         ),
                     )
                 }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("%1 wurde angelegt.", name))
-                nameInput.value = null
-                emailInput.value = null
-                passwordInput.value = null
+                nameField.reset()
+                emailField.reset()
+                passwordField.reset()
             }
         }
     }

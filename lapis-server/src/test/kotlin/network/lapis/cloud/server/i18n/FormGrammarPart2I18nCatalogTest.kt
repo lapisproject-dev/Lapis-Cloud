@@ -6,18 +6,22 @@ import io.kotest.matchers.shouldBe
 import java.io.File
 
 /**
- * Welle V1.4.28 "UI/UX guideline wave W4a -- form grammar, part 1" -- i18n guard for the sentences of the screens this
- * wave moved onto the form grammar, same extraction/parsing logic as [PseudoTableI18nCatalogTest] (see there for the
- * reasoning; `jsTest` has no file system, hence this lives in `lapis-server`).
+ * Welle V1.4.29 "UI/UX guideline wave W4b -- form grammar, part 2" -- i18n guard for the screens this wave moved onto the form
+ * grammar (member administration, the door check-in, meetings, motions, committees, board membership, communication, the relief
+ * queue, social moderation, the statute Q&A) and for the two building blocks it extended. Same extraction/parsing logic as
+ * [FormGrammarI18nCatalogTest] (see there for the reasoning; `jsTest` has no file system, hence this lives in `lapis-server`).
  *
- * **Every migrated file is scanned completely** (audit V1.4.28: the first version scanned only the two building blocks plus
- * an explicit list of sentences, so 46 literals of two of the migrated screens had no catalog entry and nobody noticed).
- * [foreignGaps] is the honest exception list: pre-existing gaps of somebody else's code that this guard must not fail
- * for -- currently EMPTY, every literal of the scanned files is in the catalogs. `tr(CONSTANT)` / `gettext(CONSTANT)` is resolved to the
- * constant's text (`const val`); a `gettext(variable)` is NOT extracted, which is a limit of this guard, not a proof of completeness.
- * Every constant is a `%N` placeholder, never part of a msgid.
+ * **Every file is scanned completely and the exception list is EMPTY** ([foreignGaps]): the V1.4.28 audit found 46 literals
+ * without a catalog entry precisely because an exception list and a partial scan had hidden them. This wave found 103 more in
+ * `MemberAdministrationScreen` and `EventCheckInScreen` that had never been translated and put every one of them in the eight
+ * catalogs. `tr(CONSTANT)` / `gettext(CONSTANT)` is resolved to the constant's text (`const val`); a `gettext(variable)` is NOT extracted, which is a limit of this
+ * guard, not a proof of completeness.
+ *
+ * Two rules of the wave are pinned here: **no label carries `(optional)`** (the star / the legend is the only marking system) and
+ * **no msgid carries a date format** ("JJJJ-MM-TT" is wrong in every one of the seven other languages -- the example sits in the
+ * hint, "Beispiel: 2026-03-14.", a sentence that is right in all of them).
  */
-class FormGrammarI18nCatalogTest :
+class FormGrammarPart2I18nCatalogTest :
     FunSpec({
         val clientSrc: File =
             File("../lapis-client/src/jsMain/kotlin/network/lapis/cloud/client")
@@ -32,28 +36,40 @@ class FormGrammarI18nCatalogTest :
             listOf(
                 "FormGrammar.kt",
                 "FormRules.kt",
-                "Validation.kt",
-                "OpenItemFormValidation.kt",
-                "LoginScreen.kt",
-                "RegistrationScreen.kt",
-                "FriendRegistrationScreen.kt",
-                "PasswordResetDeepLinkScreen.kt",
-                "MemberPasswordResetDialog.kt",
-                "SepaSettingsScreen.kt",
-                "DunningSettingsScreen.kt",
-                "ReceivableDunningSettingsScreen.kt",
-                "ReceivableDunningLevelValidation.kt",
-                "ConferenceStreamDestinationsScreen.kt",
-                "BackupScreen.kt",
-                "BackupHttp.kt",
-                "ApiKeysScreen.kt",
-                "EmbedIntegrationScreen.kt",
+                "ConfirmDialog.kt",
+                "MemberAdministrationScreen.kt",
+                "EventCheckInScreen.kt",
+                "MeetingsScreen.kt",
+                "MotionsScreen.kt",
+                "CommitteesScreen.kt",
+                "BoardMembershipScreen.kt",
+                "CommunicationScreen.kt",
+                "ContributionReliefQueueScreen.kt",
+                "SocialModerationScreen.kt",
+                "StatuteQaScreen.kt",
+                "PostalMailScreen.kt",
+                "MemberAnniversariesScreen.kt",
+                "MyVolunteerShiftsScreen.kt",
             )
 
         /** file -> msgids that are known to be missing for reasons outside this wave. Empty: nothing is excused. */
         val foreignGaps: Map<String, Set<String>> = emptyMap()
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")
+
+        /** Sentences this wave put into the catalog (previously untranslated or new): held to the French non-breaking-space rule. */
+        val newSentences =
+            listOf(
+                "Beispiel: 2026-03-14.",
+                "Beispiel: 2026-08-15T18:00.",
+                "Eingecheckt: %1",
+                "Bitte dieses Kästchen ankreuzen.",
+                "Bitte einen gültigen Termin angeben.",
+                "Bitte eine ganze Zahl eingeben.",
+                "Bitte eine ganze Zahl von %1 oder größer eingeben.",
+                "Aktueller Tarif: %1",
+                "Bitte einen Tarif auswählen.",
+            )
 
         data class WaveMessage(
             val file: String,
@@ -273,27 +289,41 @@ class FormGrammarI18nCatalogTest :
         test("the building blocks really carry the new sentences (extraction finds them)") {
             val ids = waveMessages.map { it.msgid }
             listOf(
-                "* Pflichtfeld",
-                "Alle Felder sind Pflichtfelder.",
-                "Dieses Feld muss ausgefüllt werden.",
-                "Bitte korrigieren Sie diese Felder: %1.",
-                "Passwort anzeigen",
-                "Passwort verbergen",
-                "Bitte eine gültige E-Mail-Adresse eingeben.",
-                "Die E-Mail-Adresse ist zu lang (höchstens %1 Zeichen).",
-                "Bitte eine ganze Zahl zwischen %1 und %2 eingeben.",
-                "Die Gebühr muss zwischen %1 und %2 liegen.",
+                "Bitte dieses Kästchen ankreuzen.",
+                "Bitte einen gültigen Termin angeben.",
+                "Bitte eine ganze Zahl eingeben.",
+                "Bitte eine ganze Zahl von %1 oder größer eingeben.",
+                "Bitte eine Begründung mit %1 bis %2 Zeichen angeben.",
+                "%1 bis %2 Zeichen.",
             ).forEach { (it in ids) shouldBe true }
         }
 
-        test("the two files the first audit found incomplete are scanned and their literals are in the catalogs") {
-            val ids = waveMessages.filter { it.file in setOf("MemberPasswordResetDialog.kt", "DunningSettingsScreen.kt") }.map { it.msgid }
+        test("the two files with the most previously untranslated sentences are scanned and their literals are in the catalogs") {
+            val ids = waveMessages.filter { it.file in setOf("MemberAdministrationScreen.kt", "EventCheckInScreen.kt") }.map { it.msgid }
             listOf(
-                "Temporäres Passwort",
-                "Stufennummer",
-                "Wartefrist in Tagen",
-                "Zulässig: %1 bis %2.",
+                "Sterbedatum",
+                "Beispiel: 2026-03-14.",
+                "Ticket-Code",
+                "Code unbekannt.",
+                "Beitragstarif",
             ).forEach { (it in ids) shouldBe true }
+        }
+
+        test("no label or hint carries an '(optional)' suffix (the star and the legend are the only marking system)") {
+            val marked = Regex("""\(\s*optional\b|\(\s*Pflicht\s*\)""", RegexOption.IGNORE_CASE)
+            waveMessages.filter { marked.containsMatchIn(it.msgid) }.map { "${it.file}:${it.line} \"${it.msgid}\"" }.shouldBeEmpty()
+        }
+
+        test("no msgid carries a date format (the example sits in the hint, in a sentence that is right in every language)") {
+            val dateFormat = Regex("""JJJJ|YYYY|\bTT\b|\bhh:mm\b|HH:MM""")
+            waveMessages.filter { dateFormat.containsMatchIn(it.msgid) }.map { "${it.file}:${it.line} \"${it.msgid}\"" }.shouldBeEmpty()
+        }
+
+        test("the formerly numeric labels are now labels with a placeholder hint") {
+            val ids = waveMessages.map { it.msgid }
+            (("Quorum in %") in ids) shouldBe true
+            (("%1 bis %2.") in ids) shouldBe true
+            (ids.none { it.contains("3-1000") || it.contains("0-100") }) shouldBe true
         }
 
         test("structural invariants of the translations (not frozen wording)") {
@@ -301,13 +331,14 @@ class FormGrammarI18nCatalogTest :
             languages.forEach { lang -> catalogs.getValue(lang).getValue("* Pflichtfeld").startsWith("* ") shouldBe true }
             // French: a colon, semicolon, question or exclamation mark is preceded by a NON-BREAKING space (U+00A0), never a
             // breakable one -- a line break must not strand the mark at the start of the next line. Held for the sentences of
-            // the building blocks (`FormGrammar.kt`, `FormRules.kt`); the rest of the French catalog predates this and uses
-            // ordinary spaces throughout (a catalog-wide clean-up, not part of this wave).
+            // the building blocks (`FormGrammar.kt`, `FormRules.kt`) and for every sentence THIS wave added to the catalog
+            // (`newSentences`); the rest of the French catalog predates this and uses ordinary spaces throughout (a
+            // catalog-wide clean-up, not part of this wave).
             val breakablePunctuation = Regex(""" [:;?!]""")
             val buildingBlockIds =
                 waveMessages.filter { it.file in setOf("FormGrammar.kt", "FormRules.kt") }.map { it.msgid }.distinct()
             val frenchOffenders =
-                buildingBlockIds
+                (buildingBlockIds + newSentences)
                     .filter { breakablePunctuation.containsMatchIn(catalogs.getValue("fr").getValue(it)) }
                     .map { "\"${catalogs.getValue("fr").getValue(it)}\"" }
             frenchOffenders.shouldBeEmpty()
@@ -317,32 +348,54 @@ class FormGrammarI18nCatalogTest :
             }
         }
 
-        test("the error message of a field names the field with the word the label uses (Begründung)") {
+        test("the error message of a field names the field with the word the label uses (Begründung, Entscheidungsnotiz)") {
             // A relation, not a frozen wording: whatever the label says, the message must say the same word.
             languages.forEach { lang ->
                 val field = catalogs.getValue(lang).getValue("Begründung").lowercase()
                 val error = catalogs.getValue(lang).getValue("Bitte eine Begründung mit %1 bis %2 Zeichen angeben.").lowercase()
                 error.contains(field) shouldBe true
+                // The decision-note error names the note, not "the reason": the stem of the label "Entscheidungsnotiz" (the first six
+                // letters -- Polish inflects the noun: "Notatka decyzyjna" / "notatkę decyzyjną").
+                val noteStem =
+                    catalogs
+                        .getValue(lang)
+                        .getValue("Entscheidungsnotiz")
+                        .lowercase()
+                        .take(6)
+                val noteError = catalogs.getValue(lang).getValue("Bitte eine Entscheidungsnotiz eingeben.").lowercase()
+                noteError.contains(noteStem) shouldBe true
             }
         }
 
-        test("the two show/hide sentences of the reveal toggle are different words in every catalog") {
+        test("Begründung, Entscheidungsnotiz, Notiz and Beschreibung stay four different words in every catalog") {
             languages.forEach { lang ->
-                (catalogs.getValue(lang).getValue("Passwort anzeigen") != catalogs.getValue(lang).getValue("Passwort verbergen")) shouldBe
-                    true
+                val words = listOf("Begründung", "Entscheidungsnotiz", "Notiz", "Beschreibung").map { catalogs.getValue(lang).getValue(it) }
+                (words.toSet().size == words.size) shouldBe true
             }
         }
 
         test("sanity: the scan yielded strings at all (extraction is not broken)") {
-            (uniqueMsgids.size >= 200) shouldBe true
+            (uniqueMsgids.size >= 300) shouldBe true
         }
 
-        test("a tr(CONSTANT) call is resolved to the constant's text and held to the catalogs (the dunning conflict messages)") {
+        test("a tr(CONSTANT) call is resolved to the constant's text and held to the catalogs (the mailing send caption)") {
+            waveMessages.any {
+                it.file == "CommunicationScreen.kt" &&
+                    it.msgid.startsWith(
+                        "Der Versand ist in dieser Version ein interner",
+                    )
+            } shouldBe
+                true
+        }
+
+        test("the new sentences of the audit round are in the wave scan (constants of the hint, the placeholder and the Ablehnen note)") {
             val ids = waveMessages.map { it.msgid }
             listOf(
-                "Mahnwesen-Aktion war nicht erfolgreich",
-                "Die Mahnstufe konnte nicht gespeichert werden",
-                "Mahnwesen-Daten konnten nicht geladen werden",
-            ).forEach { start -> ids.any { it.startsWith(start) } shouldBe true }
+                "— bitte wählen —",
+                "Kommagetrennt, mindestens %1 verschiedene Optionen.",
+                "Nur für \"Ablehnen\" erforderlich.",
+                "Höchstens %1 Zeichen.",
+                "Optionen",
+            ).forEach { (it in ids) shouldBe true }
         }
     })

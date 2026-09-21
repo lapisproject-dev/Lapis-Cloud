@@ -91,26 +91,4 @@ class ContributionReliefQueueScreenTest {
         val request = reliefRequest(subjectMemberId = "member-1")
         assertFalse(reliefDecisionBlockedBySelf(request, currentMemberId = null))
     }
-
-    // ---- reliefDecisionNoteIsValid ---------------------------------------------------------------
-
-    @Test
-    fun reliefDecisionNoteIsValid_null_isFalse() {
-        assertFalse(reliefDecisionNoteIsValid(null))
-    }
-
-    @Test
-    fun reliefDecisionNoteIsValid_blank_isFalse() {
-        assertFalse(reliefDecisionNoteIsValid(""))
-    }
-
-    @Test
-    fun reliefDecisionNoteIsValid_whitespaceOnly_isFalse() {
-        assertFalse(reliefDecisionNoteIsValid("   "))
-    }
-
-    @Test
-    fun reliefDecisionNoteIsValid_realText_isTrue() {
-        assertTrue(reliefDecisionNoteIsValid("Rücksprache mit dem Mitglied gehalten."))
-    }
 }

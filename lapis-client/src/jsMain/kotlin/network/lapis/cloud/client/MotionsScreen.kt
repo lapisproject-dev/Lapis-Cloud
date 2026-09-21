@@ -2,8 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
 import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -285,75 +284,65 @@ private fun renderMotionRow(
  * silently OVERRIDES whatever the target-Committee select shows (the amendment's own
  * `targetCommitteeId` is what's actually submitted) -- explained in the helper text beneath it.
  */
-private fun renderMotionSubmissionForm(
+internal fun renderMotionSubmissionForm(
     panel: SimplePanel,
     submittableCommittees: List<CommitteeDto>,
     amendableMotions: List<Pair<CommitteeDto, MotionDto>>,
     onSubmitted: () -> Unit,
 ) {
+    // Formular-Grammatik (V1.4.29, W4b): Titel und Antragstext sind Pflicht, Begründung und der zu ändernde Antrag optional => Fall (a).
+    val form = panel.lapisForm()
     val committeeOptions = submittableCommittees.map { it.id to it.name }
-    val committeeSelect =
-        panel.select(options = committeeOptions, value = submittableCommittees.firstOrNull()?.id, label = tr("Zielgremium"))
+    val committeeField =
+        form.selectField(label = tr("Zielgremium"), options = committeeOptions, value = submittableCommittees.firstOrNull()?.id)
     val amendsOptions =
         listOf("" to tr("-- kein (neuer Hauptantrag) --")) +
             amendableMotions.map { (committee, motion) -> motion.id to gettext("%1: %2", committee.name, motion.title) }
-    val amendsSelect = panel.select(options = amendsOptions, value = "", label = tr("Ändert bestehenden Antrag (optional)"))
-    panel.div(
+    val amendsField = form.selectField(label = tr("Ändert bestehenden Antrag"), options = amendsOptions, value = "")
+    form.panel.div(
         tr(
             "Wird ein bestehender Antrag zum Ändern ausgewählt, wird dessen Gremium automatisch verwendet -- " +
                 "das Zielgremium oben wird dann ignoriert.",
         ),
     ) { addCssClasses("text-muted small") }
-    val titleInput = panel.text(label = tr("Titel"))
-    val rationaleInput = panel.text(label = tr("Begründung"))
-    val textInput = panel.textArea(label = tr("Antragstext"), rows = 4)
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val titleField = form.textField(label = tr("Titel"), required = true)
+    val rationaleField = form.textField(label = tr("Begründung"))
+    val textField = form.textAreaField(label = tr("Antragstext"), rows = 4, required = true)
 
-    val submitButton = panel.button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
+    val submitButton = Button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = submitButton)
     submitButton.onClick {
-        errorBox.hide()
-        val amendsId = amendsSelect.value?.takeIf { it.isNotBlank() }
-        val targetCommitteeId =
-            if (amendsId != null) {
-                amendableMotions.find { (_, motion) -> motion.id == amendsId }?.first?.id
-            } else {
-                committeeSelect.value
+        form.submit(submitButton) {
+            val amendsId = amendsField.value.takeIf { it.isNotBlank() }
+            val targetCommitteeId =
+                if (amendsId != null) {
+                    amendableMotions.find { (_, motion) -> motion.id == amendsId }?.first?.id
+                } else {
+                    committeeField.value.takeIf { it.isNotBlank() }
+                }
+            if (targetCommitteeId == null) {
+                form.showFormError(tr("Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben."))
+                return@submit
             }
-        val title = titleInput.value.orEmpty().trim()
-        val rationale = rationaleInput.value.orEmpty().trim()
-        val text = textInput.value.orEmpty().trim()
-
-        if (targetCommitteeId == null || !Validation.isNonBlank(title) || !Validation.isNonBlank(text)) {
-            errorBox.content = tr("Bitte Zielgremium (oder einen zu ändernden Antrag), Titel und Antragstext angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        submitButton.disabled = true
-        AppScope.launch {
+            val title = titleField.value.trim()
             val result =
                 guarded {
                     rpcService<IGovernanceService>().submitMotion(
                         MotionInput(
                             targetCommitteeId = targetCommitteeId,
                             title = title,
-                            rationale = rationale,
-                            text = text,
+                            rationale = rationaleField.value.trim(),
+                            text = textField.value.trim(),
                             amendsMotionId = amendsId,
                         ),
                     )
                 }
-            submitButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Antrag \"%1\" wurde eingereicht.", title))
-                titleInput.value = null
-                rationaleInput.value = null
-                textInput.value = null
-                amendsSelect.value = ""
+                titleField.reset()
+                rationaleField.reset()
+                textField.reset()
+                amendsField.setValue("")
                 onSubmitted()
             }
         }
@@ -545,7 +534,7 @@ private fun renderAmendmentsSection(
     }
 }
 
-private fun renderReviewSection(
+internal fun renderReviewSection(
     panel: SimplePanel,
     motion: MotionDto,
     canManage: Boolean,
@@ -553,39 +542,46 @@ private fun renderReviewSection(
 ) {
     if (!canManage) return
     panel.h2(tr("Prüfung")) { addCssClass("h5") }
-    val noteInput = panel.text(label = tr("Notiz (optional)"))
-    val actionRow = panel.hPanel(spacing = 8)
-    val acceptButton = actionRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = actionRow.button(tr("Vorläufig ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    // Formular-Grammatik (V1.4.29): eine optionale Notiz, "Annehmen" als Primäraktion, "Vorläufig ablehnen" in der Gefahrenzone.
+    val form = panel.lapisForm()
+    val noteField = form.textField(label = tr("Notiz"))
+    val acceptButton = Button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = Button(tr("Vorläufig ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = acceptButton, destructive = rejectButton)
 
-    fun review(decision: MotionReviewDecision) {
-        acceptButton.disabled = true
-        rejectButton.disabled = true
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<IGovernanceService>().reviewMotion(
-                        motion.id,
-                        decision,
-                        noteInput.value?.trim()?.takeIf { it.isNotBlank() },
-                    )
-                }
-            acceptButton.disabled = false
-            rejectButton.disabled = false
-            if (result != null) {
-                val message =
-                    if (decision == MotionReviewDecision.ACCEPT) {
-                        tr("Antrag angenommen zur Terminierung.")
-                    } else {
-                        tr("Antrag vorläufig abgelehnt.")
+    fun review(
+        decision: MotionReviewDecision,
+        pressed: Button,
+        other: Button,
+    ) {
+        form.submit(pressed) {
+            other.disabled = true
+            try {
+                val result =
+                    guarded {
+                        rpcService<IGovernanceService>().reviewMotion(
+                            motion.id,
+                            decision,
+                            noteField.value.trim().takeIf { it.isNotBlank() },
+                        )
                     }
-                notifySuccess(message)
-                onChanged()
+                if (result != null) {
+                    val message =
+                        if (decision == MotionReviewDecision.ACCEPT) {
+                            tr("Antrag angenommen zur Terminierung.")
+                        } else {
+                            tr("Antrag vorläufig abgelehnt.")
+                        }
+                    notifySuccess(message)
+                    onChanged()
+                }
+            } finally {
+                other.disabled = false
             }
         }
     }
-    acceptButton.onClick { review(MotionReviewDecision.ACCEPT) }
-    rejectButton.onClick { review(MotionReviewDecision.REJECT) }
+    acceptButton.onClick { review(MotionReviewDecision.ACCEPT, acceptButton, rejectButton) }
+    rejectButton.onClick { review(MotionReviewDecision.REJECT, rejectButton, acceptButton) }
 }
 
 /**
@@ -640,39 +636,34 @@ private fun renderScheduleSection(
     }
 }
 
-private fun renderScheduleForm(
+internal fun renderScheduleForm(
     panel: SimplePanel,
     motion: MotionDto,
     meetings: List<MeetingDto>,
     onChanged: () -> Unit,
 ) {
+    val form = panel.lapisForm()
     val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, it.scheduledAt) }
-    val meetingSelect = panel.select(options = meetingOptions, value = meetings.firstOrNull()?.id, label = tr("Sitzung"))
-    val positionInput = panel.text(value = "1", label = tr("Position auf der Tagesordnung"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val meetingField = form.selectField(label = tr("Sitzung"), options = meetingOptions, value = meetings.firstOrNull()?.id)
+    val positionField =
+        form.textField(
+            label = tr("Position auf der Tagesordnung"),
+            value = "1",
+            required = true,
+            rule = { FormRules.wholeNumber(value = it) },
+        )
 
-    val scheduleButton = panel.button(tr("Terminieren"), style = ButtonStyle.PRIMARY)
+    val scheduleButton = Button(tr("Terminieren"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = scheduleButton)
     scheduleButton.onClick {
-        errorBox.hide()
-        val meetingId = meetingSelect.value
-        val position =
-            positionInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        if (meetingId == null || position == null) {
-            errorBox.content = tr("Bitte eine Sitzung und eine gültige Position angeben.")
-            errorBox.show()
-            return@onClick
-        }
-        scheduleButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IGovernanceService>().scheduleMotion(motion.id, meetingId, position) }
-            scheduleButton.disabled = false
+        form.submit(scheduleButton) {
+            val meetingId = meetingField.value.takeIf { it.isNotBlank() }
+            if (meetingId == null) {
+                form.showFormError(tr("Bitte eine Sitzung und eine gültige Position angeben."))
+                return@submit
+            }
+            val result =
+                guarded { rpcService<IGovernanceService>().scheduleMotion(motion.id, meetingId, positionField.value.trim().toInt()) }
             if (result != null) {
                 notifySuccess(gettext("Antrag \"%1\" terminiert.", motion.title))
                 onChanged()
@@ -736,73 +727,41 @@ private fun renderResolutionSection(
     renderOpenVoteForm(panel, motion, onChanged)
 }
 
-private fun renderCommitteeQuorumResolutionForm(
+internal fun renderCommitteeQuorumResolutionForm(
     panel: SimplePanel,
     motion: MotionDto,
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     formPanel.p(tr("Committee-Quorum entscheiden")) { addCssClass("fw-bold") }
-    val votesYesInput = formPanel.text(value = "0", label = tr("Ja-Stimmen"))
-    val votesNoInput = formPanel.text(value = "0", label = tr("Nein-Stimmen"))
-    val votesAbstainInput = formPanel.text(value = "0", label = tr("Enthaltungen"))
+    // Formular-Grammatik (V1.4.29): Ja/Nein/Enthaltungen sind drei gleichtypige Zahlenfelder -- der Body-Test pinnt die Zuordnung.
+    val form = formPanel.lapisForm()
+    val votesYesField =
+        form.textField(label = tr("Ja-Stimmen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
+    val votesNoField =
+        form.textField(label = tr("Nein-Stimmen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
+    val votesAbstainField =
+        form.textField(label = tr("Enthaltungen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
     val statusOptions = ResolutionStatus.entries.map { it.name to resolutionStatusLabel(it) }
-    val statusSelect = formPanel.select(options = statusOptions, value = ResolutionStatus.ADOPTED.name, label = tr("Status"))
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val statusField =
+        form.selectField(label = tr("Status"), options = statusOptions, value = ResolutionStatus.ADOPTED.name, required = true)
 
-    val resolveButton = formPanel.button(tr("Entscheidung speichern"), style = ButtonStyle.PRIMARY)
+    val resolveButton = Button(tr("Entscheidung speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = resolveButton)
     resolveButton.onClick {
-        errorBox.hide()
-        val votesYes =
-            votesYesInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val votesNo =
-            votesNoInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val votesAbstain =
-            votesAbstainInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val statusValue = statusSelect.value
-
-        if (
-            votesYes == null ||
-            votesNo == null ||
-            votesAbstain == null ||
-            votesYes < 0 ||
-            votesNo < 0 ||
-            votesAbstain < 0 ||
-            statusValue == null
-        ) {
-            errorBox.content = tr("Bitte nicht-negative Stimmzahlen und einen Status angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        resolveButton.disabled = true
-        AppScope.launch {
+        form.submit(resolveButton) {
             val result =
                 guarded {
                     rpcService<IGovernanceService>().resolveMotion(
                         motion.id,
                         MotionResolutionInput(
-                            votesYes = votesYes,
-                            votesNo = votesNo,
-                            votesAbstain = votesAbstain,
-                            status = ResolutionStatus.valueOf(statusValue),
+                            votesYes = votesYesField.value.trim().toInt(),
+                            votesNo = votesNoField.value.trim().toInt(),
+                            votesAbstain = votesAbstainField.value.trim().toInt(),
+                            status = ResolutionStatus.valueOf(statusField.value),
                         ),
                     )
                 }
-            resolveButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Entscheidung für \"%1\" gespeichert.", motion.title))
                 onChanged()
@@ -811,40 +770,48 @@ private fun renderCommitteeQuorumResolutionForm(
     }
 }
 
-private fun renderOpenVoteForm(
+/** Kleinste zulässige Zahl unterschiedlicher Optionen einer Konsensieren-Abstimmung (Serverregel bleibt Autorität). */
+private const val MIN_VOTE_OPTIONS = 2
+
+internal fun renderOpenVoteForm(
     panel: SimplePanel,
     motion: MotionDto,
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     formPanel.p(tr("Meritokratische Vote eröffnen")) { addCssClass("fw-bold") }
-    val labelsInput = formPanel.text(value = "YES,NO", label = tr("Optionen (kommagetrennt, mind. 2)"))
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // Systemisches Konsensieren: die Optionen sind kommagetrennte Labels (mindestens zwei verschiedene).
+    val form = formPanel.lapisForm()
 
-    val openButton = formPanel.button(tr("Vote eröffnen"), style = ButtonStyle.OUTLINEPRIMARY)
+    fun parsedLabels(raw: String): List<String> =
+        raw
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+    val labelsField =
+        form.textField(
+            label = tr("Optionen"),
+            value = "YES,NO",
+            required = true,
+            // Die Untergrenze steht als Platzhalter im Hinweis, nicht im msgid des Labels (eine Konstante in acht Katalogen).
+            hint = gettext("Kommagetrennt, mindestens %1 verschiedene Optionen.", MIN_VOTE_OPTIONS),
+            rule = { raw ->
+                if (parsedLabels(raw).size < MIN_VOTE_OPTIONS) {
+                    FieldCheck.Invalid(gettext("Bitte mindestens 2 unterschiedliche Optionen angeben."))
+                } else {
+                    FieldCheck.Ok
+                }
+            },
+        )
+
+    val openButton = Button(tr("Vote eröffnen"), style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = openButton)
     openButton.onClick {
-        errorBox.hide()
-        val labels =
-            labelsInput.value
-                .orEmpty()
-                .split(",")
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-        if (labels.size < 2) {
-            errorBox.content = tr("Bitte mindestens 2 unterschiedliche Optionen angeben.")
-            errorBox.show()
-            return@onClick
-        }
-        openButton.disabled = true
-        AppScope.launch {
+        form.submit(openButton) {
+            val labels = parsedLabels(labelsField.value)
             val result =
                 guarded { rpcService<IGovernanceService>().openVote(VoteOpenInput(motionId = motion.id, optionLabels = labels)) }
-            openButton.disabled = false
             if (result != null) {
                 notifySuccess(tr("Vote eröffnet."))
                 onChanged()
@@ -971,7 +938,7 @@ private fun renderVoteSection(
     }
 }
 
-private fun renderBallotForm(
+internal fun renderBallotForm(
     panel: SimplePanel,
     vote: VoteDto,
     currentOptionId: String?,
@@ -979,39 +946,53 @@ private fun renderBallotForm(
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     formPanel.p(tr("Gebot abgeben")) { addCssClass("fw-bold") }
+    val form = formPanel.lapisForm()
     val optionOptions = vote.options.sortedBy { it.position }.map { it.id to it.label }
-    val optionSelect =
-        formPanel.select(
+    val optionField =
+        form.selectField(
+            label = tr("Option"),
             options = optionOptions,
             value = currentOptionId ?: optionOptions.firstOrNull()?.first,
-            label = tr("Option"),
         )
-    val stakeInput = formPanel.text(label = tr("Einsatz (LTR)"))
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val stakeField =
+        form.textField(
+            label = tr("Einsatz (LTR)"),
+            required = true,
+            rule = { value ->
+                if (Validation.isPositiveDecimal(
+                        value.trim(),
+                    )
+                ) {
+                    FieldCheck.Ok
+                } else {
+                    FieldCheck.Invalid(gettext("Bitte einen positiven Betrag (LTR) angeben."))
+                }
+            },
+        )
 
-    val castButton = formPanel.button(tr("Gebot abgeben"), style = ButtonStyle.PRIMARY)
+    val castButton = Button(tr("Gebot abgeben"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = castButton)
     castButton.onClick {
-        errorBox.hide()
-        val optionId = optionSelect.value
-        val stakeText = stakeInput.value.orEmpty().trim()
-        if (optionId == null || !Validation.isPositiveDecimal(stakeText)) {
-            errorBox.content = tr("Bitte eine Option und einen positiven LTR-Einsatz angeben.")
-            errorBox.show()
-            return@onClick
-        }
-        castButton.disabled = true
-        AppScope.launch {
+        form.submit(castButton) {
+            val optionId = optionField.value.takeIf { it.isNotBlank() }
+            if (optionId == null) {
+                form.showFormError(tr("Bitte eine Option und einen positiven LTR-Einsatz angeben."))
+                return@submit
+            }
             val result =
                 guarded {
                     rpcService<IGovernanceService>().castVoteBallot(
-                        VoteBallotInput(voteId = vote.id, optionId = optionId, stakeLtr = stakeText.toDouble().toDecimal()),
+                        VoteBallotInput(
+                            voteId = vote.id,
+                            optionId = optionId,
+                            stakeLtr =
+                                stakeField.value
+                                    .trim()
+                                    .toDouble()
+                                    .toDecimal(),
+                        ),
                     )
                 }
-            castButton.disabled = false
             if (result != null) {
                 notifySuccess(tr("Gebot gespeichert."))
                 onChanged()

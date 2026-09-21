@@ -1,6 +1,6 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.select.select
+import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -184,9 +184,14 @@ private fun renderDestinationCreateForm(
     val form = card.lapisForm()
     val labelField = form.textField(label = tr("Bezeichnung (z. B. \"PdV YouTube-Kanal\")"), required = true)
     val platformOptions = ConferenceStreamPlatform.entries.map { it.name to conferenceStreamPlatformLabel(it) }
-    val platformSelect =
-        form.panel.select(options = platformOptions, value = ConferenceStreamPlatform.GENERIC_RTMP.name, label = tr("Plattform"))
-    form.register(platformSelect, label = tr("Plattform"), required = true)
+    val platformField =
+        form.selectField(
+            label = tr("Plattform"),
+            options = platformOptions,
+            value = ConferenceStreamPlatform.GENERIC_RTMP.name,
+            required = true,
+        )
+    val platformSelect = platformField.control as Select
     val urlField =
         form.textField(
             label = tr("RTMP-Basis-URL"),

@@ -56,7 +56,6 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
         "ConferenceBackgroundSection.kt" to
             (2 to "RawAttributes hook and tile keyboard hook: the group is hidden while the tiles are built, so no element exists yet"),
         "BankAccountsScreen.kt" to (1 to "hardenSecretInput: the modal is built completely before modal.show()"),
-        "EventCheckInScreen.kt" to (1 to "late, but the following widgets patch the screen synchronously (LateHookAuditDomTest)"),
         "ConferenceRecordingsPanel.kt" to
             (1 to "raw <video> in a late insert hook; more widgets follow in the same card, exactly one video results"),
         "ConferenceWhiteboardController.kt" to

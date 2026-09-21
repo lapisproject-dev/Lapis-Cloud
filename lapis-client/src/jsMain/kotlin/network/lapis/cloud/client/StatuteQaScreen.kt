@@ -2,10 +2,10 @@ package network.lapis.cloud.client
 
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
-import io.kvision.form.text.textArea
+import io.kvision.form.text.TextArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
@@ -70,19 +70,21 @@ fun renderStatuteQaScreen(container: SimplePanel) {
     var lastOutcome: AiAnswerOutcome? = null
     val log = mutableListOf<QaEntry>()
 
-    val question = inputPanel.textArea(label = tr("Ihre Frage"), rows = 3) { addCssClass("w-100") }
-    val counter = inputPanel.div { addCssClasses("text-muted small") }
-    val hint = inputPanel.div { addCssClasses("text-muted small") }
-    val submit = inputPanel.button(tr("Frage stellen"), icon = "fas fa-magnifying-glass", style = ButtonStyle.PRIMARY)
+    // Formular-Grammatik (V1.4.29, W4b): ein einziges Pflichtfeld: Stern und Legende (kein Fall (c)), keine Sammelmeldung (Einfeld-Formular). Der
+    // Absenden-Knopf bleibt an [StatuteQaUi.canSubmit] gebunden (Längen, Einwilligung, Ladezustand); der Hinweis darunter
+    // erklärt die Sperre.
+    val form = inputPanel.lapisForm()
+    val questionField = form.textAreaField(label = tr("Ihre Frage"), rows = 3, required = true, init = { it.addCssClass("w-100") })
+    val question = questionField.control as TextArea
+    val counter = form.panel.div { addCssClasses("text-muted small") }
+    val hint = form.panel.div { addCssClasses("text-muted small") }
+    val submit = Button(tr("Frage stellen"), icon = "fas fa-magnifying-glass", style = ButtonStyle.PRIMARY)
+    form.buttons(primary = submit)
     counter.hide()
 
     fun refreshInput() {
         val current = state
-        val length =
-            question.value
-                .orEmpty()
-                .trim()
-                .length
+        val length = questionField.value.trim().length
         val locked = loading || !optIn || current == null
         question.disabled = locked
         submit.disabled =
@@ -94,7 +96,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
                 optIn = optIn,
                 loading = loading,
             )
-        val rawLength = question.value.orEmpty().length
+        val rawLength = questionField.value.length
         if (current != null && StatuteQaUi.counterVisible(rawLength)) {
             counter.content = gettext("%1 von %2 Zeichen", rawLength, current.maxQuestionChars)
             counter.show()
@@ -200,7 +202,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
     }
 
     submit.onClick {
-        val text = question.value.orEmpty().trim()
+        val text = questionField.value.trim()
         val current = state ?: return@onClick
         if (!StatuteQaUi.canSubmit(text.length, current.minQuestionChars, current.maxQuestionChars, optIn, loading)) return@onClick
         loading = true
@@ -212,7 +214,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
             if (answer != null) {
                 lastOutcome = answer.outcome
                 log.add(0, QaEntry(question = text, answer = answer))
-                question.value = null
+                questionField.reset()
             } else {
                 // The error toast was already shown by `guarded`; refresh the server state (an opt-in
                 // revoked in another tab, say) so the screen does not keep a stale picture.
@@ -226,7 +228,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
             refreshInput()
         }
     }
-    question.subscribe { refreshInput() }
+    questionField.subscribe { refreshInput() }
 
     refreshInput()
     AppScope.launch {

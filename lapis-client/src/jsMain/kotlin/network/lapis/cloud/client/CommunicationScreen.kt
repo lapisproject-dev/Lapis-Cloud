@@ -1,8 +1,8 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.select.Select
 import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -144,41 +144,29 @@ private fun renderMailingListAdminSection(
  * [onCreated] lets the caller re-render the selector so the new list is immediately pickable
  * without a full page reload.
  */
-private fun renderCreateMailingListForm(
+internal fun renderCreateMailingListForm(
     root: SimplePanel,
     refreshSelfService: () -> Unit,
     onCreated: (newListId: String) -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     panel.div(tr("Neue Mailingliste anlegen")) { addCssClass("fw-bold") }
-    val nameInput = panel.text(label = tr("Name"))
-    val descriptionInput = panel.text(label = tr("Beschreibung (optional)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val createButton = panel.button(tr("Anlegen"), style = ButtonStyle.PRIMARY)
+    // Formular-Grammatik (V1.4.29, W4b): Name ist Pflicht, Beschreibung optional => Fall (a).
+    val form = panel.lapisForm()
+    val nameField = form.textField(label = tr("Name"), required = true)
+    val descriptionField = form.textField(label = tr("Beschreibung"))
+    val createButton = Button(tr("Anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
 
     createButton.onClick {
-        errorBox.hide()
-        val name = nameInput.value.orEmpty().trim()
-        val description = descriptionInput.value?.trim()?.takeIf { it.isNotBlank() }
-
-        if (!Validation.isNonBlank(name)) {
-            errorBox.content = tr("Bitte einen Namen angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val name = nameField.value.trim()
+            val description = descriptionField.value.trim().takeIf { it.isNotBlank() }
             val result = guarded { rpcService<IMailingService>().createMailingList(name, description) }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Mailingliste \"%1\" wurde angelegt.", name))
-                nameInput.value = null
-                descriptionInput.value = null
+                nameField.reset()
+                descriptionField.reset()
                 refreshSelfService()
                 onCreated(result.id)
             }
@@ -228,7 +216,7 @@ private fun renderManageListSelector(
  * ([IMailingService.adminSubscribeMember]), and Nachrichten (compose draft + send, D2). Re-rendered
  * from scratch on every "Verwalten" click, so no cross-list stale state can leak between selections.
  */
-private fun renderMailingListDetail(
+internal fun renderMailingListDetail(
     panel: SimplePanel,
     list: MailingListDto,
     refreshSelfService: () -> Unit,
@@ -259,19 +247,32 @@ private fun renderMailingListDetail(
 
     // ---- Mitglied hinzufügen ---------------------------------------------------------------------
     detail.div(tr("Mitglied hinzufügen")) { addCssClasses("fw-bold mt-2") }
-    val addRow = detail.hPanel(spacing = 8) { addCssClasses("align-items-end") }
-    val memberSelect = addRow.select(options = emptyList(), label = tr("Mitglied"))
+    val addForm = detail.lapisForm()
+    val addRow = addForm.panel.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+    val memberField =
+        addForm.selectField(
+            label = tr("Mitglied"),
+            options = listOf("" to gettext("— bitte wählen —")),
+            value = "",
+            required = true,
+            host = addRow,
+            slotHost = addForm.panel, // Fehlerslot UNTER die Zeile, nicht als Flex-Element zwischen Feld und Knopf
+            requiredMessage = gettext("Bitte ein Mitglied auswählen."),
+        )
+    val memberSelect = memberField.control as Select
     val addButton = addRow.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
+    addForm.finish()
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-        memberSelect.options = members.map { it.id to it.displayName }
+        // Keine Vorauswahl: ein einzelner Klick auf "Hinzufügen" darf nie ein Mitglied eintragen, das niemand gewählt hat
+        // (personenbezogene Schreiboperation). Der leere Platzhalter bleibt gewählt; required lässt ihn nicht durch.
+        memberSelect.options = listOf("" to gettext("— bitte wählen —")) + members.map { it.id to it.displayName }
+        memberField.setValue("")
+        memberField.validate(force = false)
     }
     addButton.onClick {
-        val memberId = memberSelect.value ?: return@onClick
-        addButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IMailingService>().adminSubscribeMember(list.id, memberId) }
-            addButton.disabled = false
+        addForm.submit(addButton) {
+            val result = guarded { rpcService<IMailingService>().adminSubscribeMember(list.id, memberField.value) }
             if (result != null) {
                 notifySuccess(tr("Mitglied wurde eingetragen."))
                 refreshSubscribers()
@@ -283,14 +284,12 @@ private fun renderMailingListDetail(
     // ---- Nachrichten -------------------------------------------------------------------------
     detail.div(tr("Nachrichten")) { addCssClasses("fw-bold mt-2") }
     val composePanel = detail.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val subjectInput = composePanel.text(label = tr("Betreff"))
-    val bodyInput = composePanel.textArea(label = tr("Text"), rows = 4)
-    val composeErrorBox =
-        composePanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val draftButton = composePanel.button(tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+    // Zwei Pflichtfelder => Fall (c): kein Stern, keine Legende.
+    val composeForm = composePanel.lapisForm()
+    val subjectField = composeForm.textField(label = tr("Betreff"), required = true)
+    val bodyField = composeForm.textAreaField(label = tr("Text"), rows = 4, required = true)
+    val draftButton = Button(tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+    composeForm.buttons(primary = draftButton)
     // D2: permanent, always-visible honesty caption -- not conditional on having just sent a
     // message. See MAILING_SEND_STUB_CAPTION KDoc.
     composePanel.div(tr(MAILING_SEND_STUB_CAPTION)) { addCssClasses("text-muted small") }
@@ -311,24 +310,13 @@ private fun renderMailingListDetail(
     refreshMessages()
 
     draftButton.onClick {
-        composeErrorBox.hide()
-        val subject = subjectInput.value.orEmpty().trim()
-        val bodyText = bodyInput.value.orEmpty().trim()
-
-        if (!Validation.isNonBlank(subject) || !Validation.isNonBlank(bodyText)) {
-            composeErrorBox.content = tr("Bitte Betreff und Text angeben.")
-            composeErrorBox.show()
-            return@onClick
-        }
-
-        draftButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IMailingService>().createDraftMessage(list.id, subject, bodyText) }
-            draftButton.disabled = false
+        composeForm.submit(draftButton) {
+            val subject = subjectField.value.trim()
+            val result = guarded { rpcService<IMailingService>().createDraftMessage(list.id, subject, bodyField.value.trim()) }
             if (result != null) {
                 notifySuccess(gettext("Entwurf \"%1\" wurde gespeichert.", subject))
-                subjectInput.value = null
-                bodyInput.value = null
+                subjectField.reset()
+                bodyField.reset()
                 refreshMessages()
             }
         }

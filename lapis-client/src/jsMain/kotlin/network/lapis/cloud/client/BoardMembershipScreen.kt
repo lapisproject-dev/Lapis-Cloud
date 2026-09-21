@@ -1,8 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.select
-import io.kvision.form.text.text
+import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -26,7 +25,6 @@ import network.lapis.cloud.shared.domain.BeneficialOwnerDataGapDto
 import network.lapis.cloud.shared.domain.BoardMembershipDto
 import network.lapis.cloud.shared.domain.BoardMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
-import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.SINGLE_HOLDER_COMMITTEE_ROLES
 import network.lapis.cloud.shared.domain.TransparenzregisterReminderDto
 import network.lapis.cloud.shared.domain.TransparenzregisterReportDto
@@ -193,7 +191,7 @@ private fun renderBoardRow(
 /** Plain confirm-with-a-date-input modal -- same shape as `CommitteesScreen.endCommitteeMembershipDialog`
  * (this is not itself the design's irreversible-data-loss tier -- ending a board membership is an
  * ordinary, reversible-by-re-appointing administrative action, unlike Backup-restore/executeErasure). */
-private fun endBoardMembershipDialog(
+internal fun endBoardMembershipDialog(
     membership: BoardMembershipDto,
     onConfirm: (LocalDate) -> Unit,
 ) {
@@ -205,24 +203,25 @@ private fun endBoardMembershipDialog(
             committeeRoleLabel(membership.committeeRole),
         ),
     )
-    val untilInput = modal.text(value = todayIso(), label = tr("Enddatum (JJJJ-MM-TT)"))
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // Formular-Grammatik (V1.4.29): ein einziges Pflichtfeld (Enddatum): Stern und Legende (kein Fall (c)), keine Sammelmeldung (Einfeld-Formular).
+    val form = modal.lapisForm()
+    val untilField =
+        form.textField(
+            label = tr("Enddatum"),
+            value = todayIso(),
+            required = true,
+            hint = gettext("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(value = it) },
+        )
+    form.finish()
     modal.addButton(
         Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
     )
     modal.addButton(
         Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
-                val until = runCatching { LocalDate.parse(untilInput.value.orEmpty().trim()) }.getOrNull()
-                if (until == null) {
-                    errorBox.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben.")
-                    errorBox.show()
-                    return@onClick
-                }
+                if (!form.validateAndReport()) return@onClick
+                val until = LocalDate.parse(untilField.value.trim())
                 modal.hide()
                 onConfirm(until)
             }
@@ -246,50 +245,52 @@ private fun endBoardMembershipDialog(
  * plain [confirmDialog] naming who gets displaced, before calling [IBoardMembershipService
  * .appointBoardMember].
  */
-private fun renderAppointmentForm(
+internal fun renderAppointmentForm(
     root: SimplePanel,
     currentBoardProvider: () -> List<BoardMembershipDto>,
     onAppointed: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    // Formular-Grammatik (V1.4.29): drei Pflichtfelder => Fall (b), Legende "Alle Felder sind Pflichtfelder.".
+    val form = panel.lapisForm()
     val roleOptions = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
-    val memberSelect = panel.select(options = emptyList(), label = tr("Mitglied"))
-    val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = tr("Rolle"))
-    val startedAtInput = panel.text(value = todayIso(), label = tr("Seit (JJJJ-MM-TT)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val memberField =
+        form.selectField(
+            label = tr("Mitglied"),
+            options = emptyList(),
+            required = true,
+            requiredMessage = gettext("Bitte ein Mitglied auswählen."),
+        )
+    val memberSelect = memberField.control as Select
+    val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.MEMBER.name, required = true)
+    val startedAtField =
+        form.textField(
+            label = tr("Seit"),
+            value = todayIso(),
+            required = true,
+            hint = gettext("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(value = it) },
+        )
 
-    var members: List<MemberSummaryDto> = emptyList()
     AppScope.launch {
-        members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
+        val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
         memberSelect.options = members.map { it.id to it.displayName }
-        memberSelect.value = members.firstOrNull()?.id
+        memberField.setValue(members.firstOrNull()?.id)
+        memberField.validate(force = false)
     }
 
-    val appointButton = panel.button(tr("Vorstandsmitglied ernennen"), style = ButtonStyle.PRIMARY)
+    val appointButton = Button(tr("Vorstandsmitglied ernennen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = appointButton)
     appointButton.onClick {
-        errorBox.hide()
-        val memberId = memberSelect.value
-        val roleValue = roleSelect.value
-        val startedAt = runCatching { LocalDate.parse(startedAtInput.value.orEmpty().trim()) }.getOrNull()
-
-        if (memberId == null || roleValue == null || startedAt == null) {
-            errorBox.content = tr("Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        val role = CommitteeRole.valueOf(roleValue)
-        val input = BoardMembershipInput(memberId = memberId, committeeRole = role, startedAt = startedAt)
+        if (!form.validateAndReport()) return@onClick
+        val memberId = memberField.value
+        val role = CommitteeRole.valueOf(roleField.value)
+        val input =
+            BoardMembershipInput(memberId = memberId, committeeRole = role, startedAt = LocalDate.parse(startedAtField.value.trim()))
 
         fun doAppoint() {
-            appointButton.disabled = true
-            AppScope.launch {
+            form.runBusy(appointButton) {
                 val result = guarded { rpcService<IBoardMembershipService>().appointBoardMember(input) }
-                appointButton.disabled = false
                 if (result != null) {
                     notifySuccess(gettext("%1 wurde als %2 ernannt.", result.memberDisplayName, committeeRoleLabel(role)))
                     onAppointed()

@@ -1,9 +1,9 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -216,67 +216,57 @@ private fun renderMeetingRow(
     showButton.onClick { onSelect(meeting) }
 }
 
-private fun renderMeetingCreationForm(
+internal fun renderMeetingCreationForm(
     panel: SimplePanel,
     committees: List<CommitteeDto>,
     memberCandidates: List<MemberSummaryDto>,
     onCreated: () -> Unit,
 ) {
+    // Formular-Grammatik (V1.4.29, W4b): Titel und Termin sind Pflicht, Ort und die beiden Rollen optional => Fall (a).
+    val form = panel.lapisForm()
     val committeeOptions = committees.map { it.id to it.name }
-    val committeeSelect = panel.select(options = committeeOptions, value = committees.firstOrNull()?.id, label = tr("Gremium"))
-    val titleInput = panel.text(label = tr("Titel"))
-    val scheduledAtInput = panel.text(label = tr("Termin (JJJJ-MM-TTTHH:MM, z. B. 2026-08-15T18:00)"))
-    val locationInput = panel.text(label = tr("Ort (optional)"))
+    val committeeField =
+        form.selectField(label = tr("Gremium"), options = committeeOptions, value = committees.firstOrNull()?.id, required = true)
+    val titleField = form.textField(label = tr("Titel"), required = true)
+    val scheduledAtField =
+        form.textField(
+            label = tr("Termin"),
+            required = true,
+            hint = gettext("Beispiel: 2026-08-15T18:00."),
+            rule = { FormRules.localDateTime(value = it) },
+        )
+    val locationField = form.textField(label = tr("Ort"))
     val formatOptions = MeetingFormat.entries.map { it.name to meetingFormatLabel(it) }
-    val formatSelect = panel.select(options = formatOptions, value = MeetingFormat.IN_PERSON.name, label = tr("Format"))
+    val formatField =
+        form.selectField(label = tr("Format"), options = formatOptions, value = MeetingFormat.IN_PERSON.name, required = true)
     val memberOptions = listOf("" to tr("-- keine --")) + memberCandidates.map { it.id to it.displayName }
-    val chairSelect = panel.select(options = memberOptions, value = "", label = tr("Sitzungsleitung (optional)"))
-    val minuteTakerSelect = panel.select(options = memberOptions, value = "", label = tr("Protokollführung (optional)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val chairField = form.selectField(label = tr("Sitzungsleitung"), options = memberOptions, value = "")
+    val minuteTakerField = form.selectField(label = tr("Protokollführung"), options = memberOptions, value = "")
 
-    val createButton = panel.button(tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = Button(tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
     createButton.onClick {
-        errorBox.hide()
-        val committeeId = committeeSelect.value
-        val title = titleInput.value.orEmpty().trim()
-        val scheduledAt = runCatching { LocalDateTime.parse(scheduledAtInput.value.orEmpty().trim()) }.getOrNull()
-        val location = locationInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val formatValue = formatSelect.value
-        val chairId = chairSelect.value?.takeIf { it.isNotBlank() }
-        val minuteTakerId = minuteTakerSelect.value?.takeIf { it.isNotBlank() }
-
-        if (committeeId == null || !Validation.isNonBlank(title) || scheduledAt == null || formatValue == null) {
-            errorBox.content = tr("Bitte Gremium, Titel, einen gültigen Termin (JJJJ-MM-TTTHH:MM) und ein Format angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val title = titleField.value.trim()
             val result =
                 guarded {
                     rpcService<IGovernanceService>().createMeeting(
                         MeetingInput(
-                            committeeId = committeeId,
+                            committeeId = committeeField.value,
                             title = title,
-                            scheduledAt = scheduledAt,
-                            location = location,
-                            format = MeetingFormat.valueOf(formatValue),
-                            chairMemberId = chairId,
-                            minuteTakerMemberId = minuteTakerId,
+                            scheduledAt = LocalDateTime.parse(scheduledAtField.value.trim()),
+                            location = locationField.value.trim().takeIf { it.isNotBlank() },
+                            format = MeetingFormat.valueOf(formatField.value),
+                            chairMemberId = chairField.value.takeIf { it.isNotBlank() },
+                            minuteTakerMemberId = minuteTakerField.value.takeIf { it.isNotBlank() },
                         ),
                     )
                 }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Sitzung \"%1\" wurde angelegt.", title))
-                titleInput.value = null
-                scheduledAtInput.value = null
-                locationInput.value = null
+                titleField.reset()
+                scheduledAtField.reset()
+                locationField.reset()
                 onCreated()
             }
         }
@@ -402,7 +392,7 @@ private fun renderMeetingMeta(
  * is not -- the form's location field is therefore required regardless of whether the meeting
  * already has one on file, and both submit handlers validate it non-blank before proceeding.
  */
-private fun renderEinladungSection(
+internal fun renderEinladungSection(
     panel: SimplePanel,
     meeting: MeetingDto,
     canManage: Boolean,
@@ -437,13 +427,23 @@ private fun renderEinladungSection(
     }
 
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val titleInput = formPanel.text(value = meeting.title, label = tr("Titel"))
-    val eventDateTimeInput = formPanel.text(value = meeting.scheduledAt.toString(), label = tr("Termin (JJJJ-MM-TTTHH:MM)"))
-    val locationInput = formPanel.text(value = meeting.location.orEmpty(), label = tr("Ort"))
-    val bodyTextInput = formPanel.textArea(label = tr("Einladungstext"), rows = 4)
+    // Formular-Grammatik (V1.4.29): vier Pflichtfelder => Fall (b). Die Empfängerliste ist eine Auswahlliste, keine Feldgruppe
+    // (ein Fehlerslot je Mitglied wäre absurd): "mindestens ein Empfänger" ist eine Querregel in der Sammelfläche.
+    val form = formPanel.lapisForm()
+    val titleField = form.textField(label = tr("Titel"), value = meeting.title, required = true)
+    val eventDateTimeField =
+        form.textField(
+            label = tr("Termin"),
+            value = meeting.scheduledAt.toString(),
+            required = true,
+            hint = gettext("Beispiel: 2026-08-15T18:00."),
+            rule = { FormRules.localDateTime(value = it) },
+        )
+    val locationField = form.textField(label = tr("Ort"), value = meeting.location.orEmpty(), required = true)
+    val bodyTextField = form.textAreaField(label = tr("Einladungstext"), rows = 4, required = true)
 
-    formPanel.p(tr("Empfänger")) { addCssClasses("fw-bold mb-1") }
-    val recipientsPanel = formPanel.vPanel(spacing = 2) { addCssClasses("border rounded p-2") }
+    form.panel.p(tr("Empfänger")) { addCssClasses("fw-bold mb-1") }
+    val recipientsPanel = form.panel.vPanel(spacing = 2) { addCssClasses("border rounded p-2") }
     val quickToggleRow = recipientsPanel.hPanel(spacing = 8)
     // dataNavigo = false auf beiden: rein lokale Checkbox-Toggle, keine Route (V1.2.4-Audit,
     // dataNavigo-Sweep) -- siehe LoginScreen.kt-Kommentar zum globalen Default.
@@ -452,92 +452,72 @@ private fun renderEinladungSection(
     // Unchecked by default -- a costly/PII-sharing action must never default to "everyone selected".
     val checkboxesByMember =
         eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }
-    selectAllLink.onClick { checkboxesByMember.values.forEach { checkbox -> checkbox.value = true } }
-    deselectAllLink.onClick { checkboxesByMember.values.forEach { checkbox -> checkbox.value = false } }
-
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val outcomePanel = formPanel.vPanel(spacing = 4)
 
     fun selectedRecipients(): List<MemberSummaryDto> = checkboxesByMember.filterValues { it.value }.keys.toList()
-
-    val actionRow = formPanel.hPanel(spacing = 8)
-    val downloadButton = actionRow.button(tr("Als PDF herunterladen"), style = ButtonStyle.OUTLINEPRIMARY)
-    downloadButton.onClick {
-        errorBox.hide()
-        val recipients = selectedRecipients()
-        val title = titleInput.value.orEmpty().trim()
-        val eventDateTimeText = eventDateTimeInput.value.orEmpty().trim()
-        val location = locationInput.value.orEmpty().trim()
-        val bodyText = bodyTextInput.value.orEmpty().trim()
-        val eventDateTime = runCatching { LocalDateTime.parse(eventDateTimeText) }.getOrNull()
-        if (
-            recipients.isEmpty() ||
-            !Validation.isNonBlank(title) ||
-            eventDateTime == null ||
-            !Validation.isNonBlank(location) ||
-            !Validation.isNonBlank(bodyText)
-        ) {
-            errorBox.content =
-                tr(
-                    "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
-                        "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben.",
-                )
-            errorBox.show()
-            return@onClick
+    // `.input`, nicht der Wrapper-<div> der CheckBox: nur das <input> nimmt `focus()` an. `watch`: jede Checkbox räumt die
+    // Sammelmeldung (ein Listener nur an der ersten sähe Klicks auf die übrigen nie).
+    val recipientInputs = checkboxesByMember.values.mapNotNull { it.input as? Widget }
+    form.crossFieldRule(focusOn = recipientInputs.firstOrNull(), watch = recipientInputs) {
+        if (selectedRecipients().isEmpty()) {
+            FieldCheck.Invalid(gettext("Bitte mindestens eine Empfängerin/einen Empfänger auswählen."))
+        } else {
+            FieldCheck.Ok
         }
-        MailmergeHttp.submitEinladungPdfDownload(title, eventDateTime, location, bodyText, recipients.map { it.id })
+    }
+    // Programmatisches Setzen löst kein DOM-`change` aus: die Sammelmeldung räumt sich hier von Hand.
+    selectAllLink.onClick {
+        checkboxesByMember.values.forEach { checkbox -> checkbox.value = true }
+        form.onFieldStateChanged()
+    }
+    deselectAllLink.onClick {
+        checkboxesByMember.values.forEach { checkbox -> checkbox.value = false }
+        form.onFieldStateChanged()
+    }
+
+    val outcomePanel = form.panel.vPanel(spacing = 4)
+
+    val downloadButton = Button(tr("Als PDF herunterladen"), style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = downloadButton)
+    downloadButton.onClick {
+        if (!form.validateAndReport()) return@onClick
+        MailmergeHttp.submitEinladungPdfDownload(
+            titleField.value.trim(),
+            LocalDateTime.parse(eventDateTimeField.value.trim()),
+            locationField.value.trim(),
+            bodyTextField.value.trim(),
+            selectedRecipients().map { it.id },
+        )
     }
 
     // D7: the postal-dispatch button is fetched-and-populated asynchronously (whether
     // postalMailEnabled is true) -- the free-PDF download button above is never gated by this flag,
     // since it never touches Letterxpress.
-    val postalActionPanel = formPanel.vPanel(spacing = 4)
+    val postalActionPanel = form.panel.vPanel(spacing = 4)
     AppScope.launch {
         if (isPostalMailEnabled()) {
             val postalButton = postalActionPanel.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
             postalButton.onClick {
-                errorBox.hide()
+                if (!form.validateAndReport()) return@onClick
                 val recipients = selectedRecipients()
-                val title = titleInput.value.orEmpty().trim()
-                val eventDateTimeText = eventDateTimeInput.value.orEmpty().trim()
-                val location = locationInput.value.orEmpty().trim()
-                val bodyText = bodyTextInput.value.orEmpty().trim()
-                val eventDateTime = runCatching { LocalDateTime.parse(eventDateTimeText) }.getOrNull()
-                if (
-                    recipients.isEmpty() ||
-                    !Validation.isNonBlank(title) ||
-                    eventDateTime == null ||
-                    !Validation.isNonBlank(location) ||
-                    !Validation.isNonBlank(bodyText)
-                ) {
-                    errorBox.content =
-                        tr(
-                            "Bitte mindestens eine Empfängerin/einen Empfänger sowie Titel, einen gültigen Termin " +
-                                "(JJJJ-MM-TTTHH:MM), Ort und Einladungstext angeben.",
-                        )
-                    errorBox.show()
-                    return@onClick
-                }
+                val title = titleField.value.trim()
+                val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
+                val location = locationField.value.trim()
+                val bodyText = bodyTextField.value.trim()
                 if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS_UI) {
-                    errorBox.content =
+                    form.showFormError(
                         gettext(
                             "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr " +
                                 "Empfänger bitte das PDF herunterladen und selbst verteilen.",
                             MAX_POSTAL_INVITATION_RECIPIENTS_UI,
                             recipients.size,
-                        )
-                    errorBox.show()
+                        ),
+                    )
                     return@onClick
                 }
 
                 postalEinladungDispatchConfirmDialog(recipients.map { it.displayName }) {
-                    postalButton.disabled = true
                     outcomePanel.removeAll()
-                    AppScope.launch {
+                    form.runBusy(postalButton) {
                         val results =
                             guarded {
                                 rpcService<IPostalMailService>().dispatchEinladungByPost(
@@ -550,7 +530,6 @@ private fun renderEinladungSection(
                                     ),
                                 )
                             }
-                        postalButton.disabled = false
                         if (results != null) {
                             val sentCount = results.count { it.status == PostalDeliveryStatus.SENT }
                             if (sentCount == results.size) {
@@ -623,7 +602,7 @@ private fun renderAgendaSection(
 
 private fun nextAgendaPosition(agenda: List<AgendaItemDto>): Int = (agenda.maxOfOrNull { it.position } ?: 0) + 1
 
-private fun renderAddAgendaItemForm(
+internal fun renderAddAgendaItemForm(
     panel: SimplePanel,
     meetingId: String,
     nextPosition: Int,
@@ -632,50 +611,37 @@ private fun renderAddAgendaItemForm(
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
     formPanel.p(tr("Tagesordnungspunkt hinzufügen")) { addCssClass("fw-bold") }
-    val positionInput = formPanel.text(value = nextPosition.toString(), label = tr("Position"))
-    val titleInput = formPanel.text(label = tr("Titel"))
-    val descriptionInput = formPanel.text(label = tr("Beschreibung (optional)"))
+    // Formular-Grammatik (V1.4.29): Position und Titel sind Pflicht, Beschreibung und Vortragende optional => Fall (a).
+    val form = formPanel.lapisForm()
+    val positionField =
+        form.textField(
+            label = tr("Position"),
+            value = nextPosition.toString(),
+            required = true,
+            rule = { FormRules.wholeNumber(value = it) },
+        )
+    val titleField = form.textField(label = tr("Titel"), required = true)
+    val descriptionField = form.textField(label = tr("Beschreibung"))
     val presenterOptions = listOf("" to tr("-- kein --")) + eligibleMembers.map { it.id to it.displayName }
-    val presenterSelect = formPanel.select(options = presenterOptions, value = "", label = tr("Vortragend (optional)"))
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val presenterField = form.selectField(label = tr("Vortragend"), options = presenterOptions, value = "")
 
-    val addButton = formPanel.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val addButton = Button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = addButton)
     addButton.onClick {
-        errorBox.hide()
-        val position =
-            positionInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val title = titleInput.value.orEmpty().trim()
-        val description = descriptionInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val presenterId = presenterSelect.value?.takeIf { it.isNotBlank() }
-
-        if (position == null || !Validation.isNonBlank(title)) {
-            errorBox.content = tr("Bitte eine gültige Position und einen Titel angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        addButton.disabled = true
-        AppScope.launch {
+        form.submit(addButton) {
+            val title = titleField.value.trim()
             val result =
                 guarded {
                     rpcService<IGovernanceService>().addAgendaItem(
                         meetingId,
                         AgendaItemInput(
-                            position = position,
+                            position = positionField.value.trim().toInt(),
                             title = title,
-                            description = description,
-                            presenterMemberId = presenterId,
+                            description = descriptionField.value.trim().takeIf { it.isNotBlank() },
+                            presenterMemberId = presenterField.value.takeIf { it.isNotBlank() },
                         ),
                     )
                 }
-            addButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Tagesordnungspunkt \"%1\" hinzugefügt.", title))
                 onChanged()
@@ -715,7 +681,7 @@ private fun renderAttendanceSection(
     }
 }
 
-private fun renderAttendanceRecordingForm(
+internal fun renderAttendanceRecordingForm(
     panel: SimplePanel,
     meetingId: String,
     eligibleMembers: List<MemberSummaryDto>,
@@ -735,32 +701,43 @@ private fun renderAttendanceRecordingForm(
     eligibleMembers.forEach { member ->
         val existing = existingByMember[member.id]
         val row = formPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-        val topRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+        // Ein Mini-Formular je Person (V1.4.29): ein Auswahlfeld hat hier immer einen Wert, kein Feld ist Pflicht => keine
+        // Sterne, keine Legende. Die Zeile "Status" steht neben dem Namen, deshalb `host = topRow`.
+        val form = row.lapisForm()
+        val topRow = form.panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
         topRow.div(member.displayName) { addCssClasses("flex-grow-1") }
-        val statusSelect =
-            topRow.select(
+        val statusField =
+            form.selectField(
+                label = tr("Status"),
                 options = statusOptions,
                 value = (existing?.status ?: AttendanceStatus.PRESENT).name,
-                label = tr("Status"),
+                host = topRow,
+                slotHost = form.panel,
             )
-        val representedBySelect =
-            row.select(
+        val representedByField =
+            form.selectField(
+                label = tr("Vertreten durch (nur bei \"Vertreten\")"),
                 options = representedOptions,
                 value = existing?.representedByMemberId.orEmpty(),
-                label = tr("Vertreten durch (nur bei \"Vertreten\")"),
             )
-        val noteInput = row.text(value = existing?.note, label = tr("Notiz (optional)"))
-        val saveButton = row.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
-        saveButton.onClick {
-            val statusValue = statusSelect.value ?: return@onClick
-            val status = AttendanceStatus.valueOf(statusValue)
-            val representedById = representedBySelect.value?.takeIf { it.isNotBlank() }
-            if (status == AttendanceStatus.REPRESENTED && representedById == null) {
-                notifyError(tr("Bitte bei \"Vertreten\" angeben, durch wen."))
-                return@onClick
+        val noteField = form.textField(label = tr("Notiz"), value = existing?.note)
+        // "Vertreten" verlangt eine Vertretung -- ein leeres Auswahlfeld ist sonst gültig, also eine Querregel.
+        form.crossFieldRule(
+            focusOn = representedByField.control.input as? Widget,
+            watch = listOfNotNull(statusField.control.input as? Widget),
+        ) {
+            if (statusField.value == AttendanceStatus.REPRESENTED.name && representedByField.value.isBlank()) {
+                FieldCheck.Invalid(gettext("Bitte bei \"Vertreten\" angeben, durch wen."))
+            } else {
+                FieldCheck.Ok
             }
-            saveButton.disabled = true
-            AppScope.launch {
+        }
+        val saveButton = Button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+        form.buttons(primary = saveButton)
+        saveButton.onClick {
+            form.submit(saveButton) {
+                // Fail-safe wie im Alt-Code: ein leerer Wert (nicht Pflicht, hier nie zu erwarten) sendet nichts statt zu werfen.
+                val status = parseOptionalEnum<AttendanceStatus>(statusField.value) ?: return@submit
                 val result =
                     guarded {
                         rpcService<IGovernanceService>().recordAttendance(
@@ -768,12 +745,11 @@ private fun renderAttendanceRecordingForm(
                             AttendanceInput(
                                 memberId = member.id,
                                 status = status,
-                                representedByMemberId = representedById,
-                                note = noteInput.value?.trim()?.takeIf { it.isNotBlank() },
+                                representedByMemberId = representedByField.value.takeIf { it.isNotBlank() },
+                                note = noteField.value.trim().takeIf { it.isNotBlank() },
                             ),
                         )
                     }
-                saveButton.disabled = false
                 if (result != null) {
                     notifySuccess(gettext("Anwesenheit von %1 gespeichert.", member.displayName))
                     onChanged()
@@ -829,7 +805,7 @@ fun renderResolutionRow(
     ) { addCssClasses("text-muted small") }
 }
 
-private fun renderRecordResolutionForm(
+internal fun renderRecordResolutionForm(
     panel: SimplePanel,
     meetingId: String,
     agenda: List<AgendaItemDto>,
@@ -837,87 +813,52 @@ private fun renderRecordResolutionForm(
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
     formPanel.p(tr("Beschluss erfassen (Gremienbeschluss)")) { addCssClass("fw-bold") }
+    // Formular-Grammatik (V1.4.29): die Abstimmung eines Gremiums (Ja/Nein/Enthaltungen, Status). Alle Felder außer dem
+    // Tagesordnungspunkt sind Pflicht.
+    val form = formPanel.lapisForm()
     val agendaOptions =
         listOf("" to tr("-- kein Tagesordnungspunkt --")) +
             agenda.sortedBy { it.position }.map { it.id to gettext("%1. %2", it.position, it.title) }
-    val agendaSelect = formPanel.select(options = agendaOptions, value = "", label = tr("Tagesordnungspunkt (optional)"))
-    val titleInput = formPanel.text(label = tr("Titel"))
-    val textInput = formPanel.textArea(label = tr("Beschlusstext"), rows = 3)
-    val votesYesInput = formPanel.text(value = "0", label = tr("Ja-Stimmen"))
-    val votesNoInput = formPanel.text(value = "0", label = tr("Nein-Stimmen"))
-    val votesAbstainInput = formPanel.text(value = "0", label = tr("Enthaltungen"))
+    val agendaField = form.selectField(label = tr("Tagesordnungspunkt"), options = agendaOptions, value = "")
+    val titleField = form.textField(label = tr("Titel"), required = true)
+    val textField = form.textAreaField(label = tr("Beschlusstext"), rows = 3, required = true)
+    val votesYesField =
+        form.textField(label = tr("Ja-Stimmen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
+    val votesNoField =
+        form.textField(label = tr("Nein-Stimmen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
+    val votesAbstainField =
+        form.textField(label = tr("Enthaltungen"), value = "0", required = true, rule = { FormRules.intAtLeast(value = it, min = 0) })
     val statusOptions = ResolutionStatus.entries.map { it.name to resolutionStatusLabel(it) }
-    val statusSelect = formPanel.select(options = statusOptions, value = ResolutionStatus.ADOPTED.name, label = tr("Status"))
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val statusField =
+        form.selectField(label = tr("Status"), options = statusOptions, value = ResolutionStatus.ADOPTED.name, required = true)
 
-    val saveButton = formPanel.button(tr("Beschluss speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = Button(tr("Beschluss speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
     saveButton.onClick {
-        errorBox.hide()
-        val title = titleInput.value.orEmpty().trim()
-        val text = textInput.value.orEmpty().trim()
-        val votesYes =
-            votesYesInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val votesNo =
-            votesNoInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val votesAbstain =
-            votesAbstainInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        val statusValue = statusSelect.value
-        val agendaItemId = agendaSelect.value?.takeIf { it.isNotBlank() }
-
-        if (
-            !Validation.isNonBlank(title) ||
-            !Validation.isNonBlank(text) ||
-            votesYes == null ||
-            votesNo == null ||
-            votesAbstain == null ||
-            votesYes < 0 ||
-            votesNo < 0 ||
-            votesAbstain < 0 ||
-            statusValue == null
-        ) {
-            errorBox.content = tr("Bitte Titel, Beschlusstext, Status und nicht-negative Stimmzahlen angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        saveButton.disabled = true
-        AppScope.launch {
+        form.submit(saveButton) {
+            val title = titleField.value.trim()
             val result =
                 guarded {
                     rpcService<IGovernanceService>().recordResolution(
                         meetingId,
                         ResolutionInput(
-                            agendaItemId = agendaItemId,
+                            agendaItemId = agendaField.value.takeIf { it.isNotBlank() },
                             title = title,
-                            text = text,
-                            votesYes = votesYes,
-                            votesNo = votesNo,
-                            votesAbstain = votesAbstain,
-                            status = ResolutionStatus.valueOf(statusValue),
+                            text = textField.value.trim(),
+                            votesYes = votesYesField.value.trim().toInt(),
+                            votesNo = votesNoField.value.trim().toInt(),
+                            votesAbstain = votesAbstainField.value.trim().toInt(),
+                            status = ResolutionStatus.valueOf(statusField.value),
                         ),
                     )
                 }
-            saveButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Beschluss \"%1\" wurde erfasst.", title))
-                titleInput.value = null
-                textInput.value = null
-                votesYesInput.value = "0"
-                votesNoInput.value = "0"
-                votesAbstainInput.value = "0"
+                titleField.reset()
+                textField.reset()
+                votesYesField.setValue("0")
+                votesNoField.setValue("0")
+                votesAbstainField.setValue("0")
                 onChanged()
             }
         }

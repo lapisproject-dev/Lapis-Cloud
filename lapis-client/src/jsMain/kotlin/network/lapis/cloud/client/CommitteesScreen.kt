@@ -1,8 +1,8 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.select
-import io.kvision.form.text.text
+import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -28,7 +28,6 @@ import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
-import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMemberService
@@ -145,57 +144,47 @@ private fun renderCommitteeRow(
     }
 }
 
-private fun renderCommitteeEditForm(
+internal fun renderCommitteeEditForm(
     panel: SimplePanel,
     committee: CommitteeDto,
     onSaved: () -> Unit,
 ) {
+    // Formular-Grammatik (V1.4.29, W4b): Name und Quorum sind Pflicht, Beschreibung optional => Fall (a).
+    val form = panel.lapisForm()
     val typeOptions = CommitteeType.entries.map { it.name to committeeTypeLabel(it) }
-    val nameInput = panel.text(value = committee.name, label = tr("Name"))
-    val typeSelect = panel.select(options = typeOptions, value = committee.type.name, label = tr("Typ"))
-    val descriptionInput = panel.text(value = committee.description, label = tr("Beschreibung"))
-    val quorumInput = panel.text(value = committee.quorumPercent.toString(), label = tr("Quorum in % (0-100)"))
-    val activeCheck = panel.checkBox(value = committee.active, label = tr("Aktiv"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val nameField = form.textField(label = tr("Name"), value = committee.name, required = true)
+    val typeField = form.selectField(label = tr("Typ"), options = typeOptions, value = committee.type.name)
+    val descriptionField = form.textField(label = tr("Beschreibung"), value = committee.description)
+    val quorumField =
+        form.textField(
+            label = tr("Quorum in %"),
+            value = committee.quorumPercent.toString(),
+            required = true,
+            hint = gettext("%1 bis %2.", 0, 100),
+            rule = { FormRules.intInRange(value = it, min = 0, max = 100) },
+        )
+    val activeField = form.checkField(label = tr("Aktiv"), value = committee.active)
 
-    val saveButton = panel.button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
     saveButton.onClick {
-        errorBox.hide()
-        val name = nameInput.value.orEmpty().trim()
-        val typeValue = typeSelect.value
-        val description = descriptionInput.value.orEmpty().trim()
-        val quorumPercent =
-            quorumInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-
-        if (!Validation.isNonBlank(name) || typeValue == null || quorumPercent == null || quorumPercent !in 0..100) {
-            errorBox.content = tr("Bitte Name, Typ und ein gültiges Quorum (0-100) angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        saveButton.disabled = true
-        AppScope.launch {
+        form.submit(saveButton) {
+            val name = nameField.value.trim()
+            // Fail-safe wie im Alt-Code: ein leerer Typ (nicht Pflicht, hier nie zu erwarten) sendet nichts statt zu werfen.
+            val type = parseOptionalEnum<CommitteeType>(typeField.value) ?: return@submit
             val result =
                 guarded {
                     rpcService<IGovernanceService>().updateCommittee(
                         committee.id,
                         CommitteeInput(
                             name = name,
-                            type = CommitteeType.valueOf(typeValue),
-                            description = description,
-                            quorumPercent = quorumPercent,
-                            active = activeCheck.value,
+                            type = type,
+                            description = descriptionField.value.trim(),
+                            quorumPercent = quorumField.value.trim().toInt(),
+                            active = (activeField.control as CheckBox).value,
                         ),
                     )
                 }
-            saveButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("\"%1\" wurde aktualisiert.", name))
                 onSaved()
@@ -204,60 +193,48 @@ private fun renderCommitteeEditForm(
     }
 }
 
-private fun renderCommitteeCreation(
+internal fun renderCommitteeCreation(
     root: SimplePanel,
     onCreated: () -> Unit,
 ) {
-    val typeOptions = CommitteeType.entries.map { it.name to committeeTypeLabel(it) }
     val panel = root.vPanel(spacing = 6)
-    val nameInput = panel.text(label = tr("Name"))
-    val typeSelect = panel.select(options = typeOptions, value = CommitteeType.WORKING_GROUP.name, label = tr("Typ"))
-    val descriptionInput = panel.text(label = tr("Beschreibung"))
-    val quorumInput = panel.text(value = "50", label = tr("Quorum in % (0-100)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val form = panel.lapisForm()
+    val typeOptions = CommitteeType.entries.map { it.name to committeeTypeLabel(it) }
+    val nameField = form.textField(label = tr("Name"), required = true)
+    val typeField = form.selectField(label = tr("Typ"), options = typeOptions, value = CommitteeType.WORKING_GROUP.name)
+    val descriptionField = form.textField(label = tr("Beschreibung"))
+    val quorumField =
+        form.textField(
+            label = tr("Quorum in %"),
+            value = "50",
+            required = true,
+            hint = gettext("%1 bis %2.", 0, 100),
+            rule = { FormRules.intInRange(value = it, min = 0, max = 100) },
+        )
 
-    val createButton = panel.button(tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = Button(tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
     createButton.onClick {
-        errorBox.hide()
-        val name = nameInput.value.orEmpty().trim()
-        val typeValue = typeSelect.value
-        val description = descriptionInput.value.orEmpty().trim()
-        val quorumPercent =
-            quorumInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-
-        if (!Validation.isNonBlank(name) || typeValue == null || quorumPercent == null || quorumPercent !in 0..100) {
-            errorBox.content = tr("Bitte Name, Typ und ein gültiges Quorum (0-100) angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val name = nameField.value.trim()
+            val type = parseOptionalEnum<CommitteeType>(typeField.value) ?: return@submit
             val result =
                 guarded {
                     rpcService<IGovernanceService>().createCommittee(
                         CommitteeInput(
                             name = name,
-                            type = CommitteeType.valueOf(typeValue),
-                            description = description,
-                            quorumPercent = quorumPercent,
+                            type = type,
+                            description = descriptionField.value.trim(),
+                            quorumPercent = quorumField.value.trim().toInt(),
                             active = true,
                         ),
                     )
                 }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("\"%1\" wurde angelegt.", name))
-                nameInput.value = null
-                descriptionInput.value = null
-                quorumInput.value = "50"
+                nameField.reset()
+                descriptionField.reset()
+                quorumField.setValue("50")
                 onCreated()
             }
         }
@@ -335,30 +312,31 @@ private fun renderRosterRow(
 
 /** Real confirm step with an `until` date -- mirrors `rejectApplicationDialog`'s "needs one extra
  * input, [confirmDialog] has no input field of its own" pattern from `MemberAdministrationScreen.kt`. */
-private fun endCommitteeMembershipDialog(
+internal fun endCommitteeMembershipDialog(
     memberDisplayName: String,
     onConfirm: (LocalDate) -> Unit,
 ) {
     val modal = Modal(caption = tr("Mitgliedschaft beenden"))
     modal.p(gettext("Mitgliedschaft von \"%1\" wirklich beenden?", memberDisplayName))
-    val untilInput = modal.text(value = todayIso(), label = tr("Enddatum (JJJJ-MM-TT)"))
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // Formular-Grammatik (V1.4.29): ein einziges Pflichtfeld (Enddatum): Stern und Legende (kein Fall (c)), keine Sammelmeldung (Einfeld-Formular).
+    val form = modal.lapisForm()
+    val untilField =
+        form.textField(
+            label = tr("Enddatum"),
+            value = todayIso(),
+            required = true,
+            hint = gettext("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(value = it) },
+        )
+    form.finish()
     modal.addButton(
         Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
     )
     modal.addButton(
         Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
-                val until = runCatching { LocalDate.parse(untilInput.value.orEmpty().trim()) }.getOrNull()
-                if (until == null) {
-                    errorBox.content = tr("Bitte ein gültiges Datum (JJJJ-MM-TT) angeben.")
-                    errorBox.show()
-                    return@onClick
-                }
+                if (!form.validateAndReport()) return@onClick
+                val until = LocalDate.parse(untilField.value.trim())
                 modal.hide()
                 onConfirm(until)
             }
@@ -372,52 +350,55 @@ private fun endCommitteeMembershipDialog(
  * `MemberAdministrationScreen.renderMemberDirectory` already uses (see plan §5: this structurally
  * satisfies "clear error for a non-ACTIVE target", a non-ACTIVE member cannot be selected here).
  */
-private fun renderAddCommitteeMemberForm(
+internal fun renderAddCommitteeMemberForm(
     panel: SimplePanel,
     committeeId: String,
     onAdded: () -> Unit,
 ) {
     panel.p(tr("Mitglied hinzufügen")) { addCssClass("fw-bold") }
+    // Formular-Grammatik (V1.4.29): drei Pflichtfelder => Fall (b), Legende "Alle Felder sind Pflichtfelder.".
+    val form = panel.lapisForm()
     val roleOptions = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
-    val memberSelect = panel.select(options = emptyList(), label = tr("Mitglied"))
-    val roleSelect = panel.select(options = roleOptions, value = CommitteeRole.MEMBER.name, label = tr("Rolle"))
-    val sinceInput = panel.text(value = todayIso(), label = tr("Seit (JJJJ-MM-TT)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val memberField =
+        form.selectField(
+            label = tr("Mitglied"),
+            options = emptyList(),
+            required = true,
+            requiredMessage = gettext("Bitte ein Mitglied auswählen."),
+        )
+    val memberSelect = memberField.control as Select
+    val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.MEMBER.name, required = true)
+    val sinceField =
+        form.textField(
+            label = tr("Seit"),
+            value = todayIso(),
+            required = true,
+            hint = gettext("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(value = it) },
+        )
 
-    var members: List<MemberSummaryDto> = emptyList()
     AppScope.launch {
-        members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
+        val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
         memberSelect.options = members.map { it.id to it.displayName }
-        memberSelect.value = members.firstOrNull()?.id
+        memberField.setValue(members.firstOrNull()?.id)
+        memberField.validate(force = false)
     }
 
-    val addButton = panel.button(tr("Mitglied hinzufügen"), style = ButtonStyle.PRIMARY)
+    val addButton = Button(tr("Mitglied hinzufügen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = addButton)
     addButton.onClick {
-        errorBox.hide()
-        val memberId = memberSelect.value
-        val roleValue = roleSelect.value
-        val since = runCatching { LocalDate.parse(sinceInput.value.orEmpty().trim()) }.getOrNull()
-
-        if (memberId == null || roleValue == null || since == null) {
-            errorBox.content = tr("Bitte Mitglied, Rolle und ein gültiges Datum (JJJJ-MM-TT) angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        addButton.disabled = true
-        AppScope.launch {
+        form.submit(addButton) {
             val result =
                 guarded {
                     rpcService<IGovernanceService>().addCommitteeMember(
                         committeeId,
-                        CommitteeMembershipInput(memberId = memberId, role = CommitteeRole.valueOf(roleValue), since = since),
+                        CommitteeMembershipInput(
+                            memberId = memberField.value,
+                            role = CommitteeRole.valueOf(roleField.value),
+                            since = LocalDate.parse(sinceField.value.trim()),
+                        ),
                     )
                 }
-            addButton.disabled = false
             if (result != null) {
                 notifySuccess(tr("Mitglied wurde hinzugefügt."))
                 onAdded()

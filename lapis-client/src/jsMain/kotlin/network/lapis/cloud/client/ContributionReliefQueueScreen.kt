@@ -2,7 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -170,70 +170,77 @@ private fun renderReliefRequestCard(
     }
 }
 
-private fun renderReliefRequestedDecidePanel(
+internal fun renderReliefRequestedDecidePanel(
     card: SimplePanel,
     request: ContributionReliefRequestDto,
     onChanged: () -> Unit,
 ) {
     val decidePanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (Pflicht)"), rows = 2) { maxlength = 1000 }
-    val errorBox =
-        decidePanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val buttonsRow = decidePanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val approveButton = buttonsRow.button(tr("Genehmigen und ausführen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    // Formular-Grammatik (V1.4.29, W4b): ein einziges Pflichtfeld (Entscheidungsnotiz) => Stern + Legende "* Pflichtfeld" (ein einzelnes
+    // Pflichtfeld ist nie "Fall (c)"; sonst wäre die Pflicht nicht erkennbar). "Genehmigen" ist die Primäraktion,
+    // "Ablehnen" steht in der Gefahrenzone unter der Knopfzeile (Richtlinie 2.5).
+    val form = decidePanel.lapisForm()
+    val noteField = reliefDecisionNoteField(form)
+    val approveButton = Button(tr("Genehmigen und ausführen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = approveButton, destructive = rejectButton)
 
-    fun decide(approve: Boolean) {
-        errorBox.hide()
-        val note = noteInput.value?.trim()
-        if (!reliefDecisionNoteIsValid(note)) {
-            errorBox.content = tr("Bitte eine Entscheidungsnotiz eingeben.")
-            errorBox.show()
-            return
-        }
-        approveButton.disabled = true
-        rejectButton.disabled = true
-        AppScope.launch {
+    fun decide(
+        approve: Boolean,
+        pressed: Button,
+        other: Button,
+    ) {
+        form.submit(pressed) {
+            other.disabled = true
             try {
+                val note = noteField.value.trim()
                 val result = guarded { rpcService<IContributionReliefService>().decideReliefRequest(request.id, approve, note) }
                 if (result != null) {
                     notifySuccess(if (approve) tr("Antrag genehmigt und ausgeführt.") else tr("Antrag abgelehnt."))
                     onChanged()
                 }
             } finally {
-                approveButton.disabled = false
-                rejectButton.disabled = false
+                other.disabled = false
             }
         }
     }
-    approveButton.onClick { decide(true) }
-    rejectButton.onClick { decide(false) }
+    approveButton.onClick { decide(true, approveButton, rejectButton) }
+    rejectButton.onClick { decide(false, rejectButton, approveButton) }
 }
 
+/** Die Pflicht-Notiz einer Entscheidung: die Serverregel (`chk_crr_approved_needs_note`) bleibt Autorität. */
+private fun reliefDecisionNoteField(
+    form: LapisForm,
+    hint: String? = null,
+): LapisField =
+    form.textAreaField(
+        label = tr("Entscheidungsnotiz"),
+        rows = 2,
+        required = true,
+        hint = hint,
+        requiredMessage = gettext("Bitte eine Entscheidungsnotiz eingeben."),
+        init = { it.maxlength = 1000 },
+    )
+
 /** F1: der einzige Kartenzustand mit zwei Buttons statt einem Genehmigen/Ablehnen-Paar. */
-private fun renderReliefApprovedRetryPanel(
+internal fun renderReliefApprovedRetryPanel(
     card: SimplePanel,
     request: ContributionReliefRequestDto,
     onChanged: () -> Unit,
 ) {
     card.div(reliefExecutionErrorMessage(request.executionError)) { addCssClasses("alert alert-danger") }
     val decidePanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (Pflicht)"), rows = 2) { maxlength = 1000 }
-    val errorBox =
-        decidePanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val buttonsRow = decidePanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val retryButton = buttonsRow.button(tr("Ausführung wiederholen"), style = ButtonStyle.PRIMARY)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val form = decidePanel.lapisForm()
+    // Der Stern gilt nur für "Ablehnen": ohne den Hinweis läse sich das Feld, als brauchte auch die Wiederholung eine Notiz.
+    val noteField = reliefDecisionNoteField(form, hint = gettext("Nur für \"Ablehnen\" erforderlich."))
+    val retryButton = Button(tr("Ausführung wiederholen"), style = ButtonStyle.PRIMARY)
+    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = retryButton, destructive = rejectButton)
 
+    // Die Wiederholung braucht keine Notiz: sie läuft OHNE Prüfung (`runBusy`), nur "Ablehnen" prüft das Pflichtfeld.
     retryButton.onClick {
-        retryButton.disabled = true
-        AppScope.launch {
+        rejectButton.disabled = true
+        form.runBusy(retryButton) {
             try {
                 val result = guarded { rpcService<IContributionReliefService>().retryReliefExecution(request.id) }
                 if (result != null) {
@@ -241,30 +248,22 @@ private fun renderReliefApprovedRetryPanel(
                     onChanged()
                 }
             } finally {
-                retryButton.disabled = false
+                rejectButton.disabled = false
             }
         }
     }
     rejectButton.onClick {
-        errorBox.hide()
-        val note = noteInput.value?.trim()
-        if (!reliefDecisionNoteIsValid(note)) {
-            errorBox.content = tr("Bitte eine Entscheidungsnotiz eingeben.")
-            errorBox.show()
-            return@onClick
-        }
-        retryButton.disabled = true
-        rejectButton.disabled = true
-        AppScope.launch {
+        form.submit(rejectButton) {
+            retryButton.disabled = true
             try {
-                val result = guarded { rpcService<IContributionReliefService>().decideReliefRequest(request.id, false, note) }
+                val result =
+                    guarded { rpcService<IContributionReliefService>().decideReliefRequest(request.id, false, noteField.value.trim()) }
                 if (result != null) {
                     notifySuccess(tr("Antrag abgelehnt."))
                     onChanged()
                 }
             } finally {
                 retryButton.disabled = false
-                rejectButton.disabled = false
             }
         }
     }
@@ -302,9 +301,3 @@ internal fun reliefDecisionBlockedBySelf(
     request: ContributionReliefRequestDto,
     currentMemberId: String?,
 ): Boolean = request.subjectMemberId == currentMemberId
-
-/**
- * Pure -- see `ContributionReliefQueueScreenTest`. Client-seitige UX-Vorprüfung, ersetzt nie die
- * Server-Pflicht (`chk_crr_approved_needs_note`).
- */
-internal fun reliefDecisionNoteIsValid(note: String?): Boolean = !note.isNullOrBlank()

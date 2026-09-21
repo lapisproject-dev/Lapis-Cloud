@@ -1,10 +1,13 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.button
 import io.kvision.i18n.tr
+import io.kvision.panel.hPanel
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -383,7 +386,7 @@ class FormGrammarDomTest {
             val form = root.lapisForm()
             form.textField(label = tr("Name"))
             val agree = form.panel.checkBox(label = tr("Ich akzeptiere."))
-            agree.markAriaRequired()
+            (agree.input as? Widget)?.setAttribute("aria-required", "true")
             form.crossFieldRule(focusOn = agree.input) {
                 if (agree.value) FieldCheck.Ok else FieldCheck.Invalid("Bitte bestätigen Sie die Bedingungen.")
             }
@@ -403,6 +406,70 @@ class FormGrammarDomTest {
             form.submit(Button("x")) { calls++ }
             val remaining = element().alertRegion().textContent.orEmpty()
             assertEquals("", remaining.trim(), "a passing submit clears the message")
+        }
+    }
+
+    // ── V1.4.29-Review: Fokus, Sammelmeldung über eine Gruppe, setVisible, Slot-Host ──
+
+    @Test
+    fun aGroupRule_focusesTheInputNotTheWrapper_andAnyMemberOfTheGroupClearsTheAlert(): Promise<Unit> =
+        test {
+            withMountedRoot("form-grammar-cross-group") { root, element ->
+                val form = root.lapisForm()
+                val boxes = (1..3).map { form.panel.checkBox(label = tr("Person $it")) }
+                val inputs = boxes.mapNotNull { it.input as? Widget }
+                form.crossFieldRule(focusOn = inputs.first(), watch = inputs) {
+                    if (boxes.any { it.value }) FieldCheck.Ok else FieldCheck.Invalid("Bitte mindestens eine Person auswählen.")
+                }
+                form.buttons(primary = Button("Weiter"))
+                var calls = 0
+                form.submit(Button("x")) { calls++ }
+                assertEquals(0, calls)
+                val checkboxes = element().inputs().filter { it.type == "checkbox" }
+                assertEquals(checkboxes.first(), document.activeElement, "focus must land on the first <input>, not on its wrapper")
+                assertEquals("Bitte mindestens eine Person auswählen.", element().alertRegion().textContent?.trim())
+
+                checkboxes[2].click() // NICHT die erste Checkbox
+                delay(50)
+                val remaining = element().alertRegion().textContent.orEmpty()
+                assertEquals("", remaining.trim(), "ticking the third box must clear the alert")
+            }
+        }
+
+    @Test
+    fun setVisible_false_clearsAShownError_andRejectsNonTextControls() {
+        withMountedRoot("form-grammar-set-visible") { root, element ->
+            val form = root.lapisForm()
+            val text = form.textField(label = tr("Sterbedatum"), required = true)
+            val select = form.selectField(label = tr("Status"), options = listOf("a" to "A"), value = "a")
+            form.buttons(primary = Button("Weiter"))
+            assertFalse(form.validateAll(force = true), "the required text field is empty")
+            assertEquals(1, element().querySelectorAll(".lapis-field-error--shown").length)
+
+            text.setVisible(false)
+            assertEquals(0, element().querySelectorAll(".lapis-field-error--shown").length, "hiding the field clears its error")
+            var failed = false
+            try {
+                select.setVisible(false)
+            } catch (_: IllegalStateException) {
+                failed = true
+            }
+            assertTrue(failed, "setVisible on a select must fail loudly instead of leaving its slots behind")
+        }
+    }
+
+    @Test
+    fun aSelectFieldWithASlotHost_putsItsErrorSlotOutsideTheFlexRow() {
+        withMountedRoot("form-grammar-slot-host") { root, element ->
+            val form = root.lapisForm()
+            val row = form.panel.hPanel(spacing = 8)
+            form.selectField(label = tr("Mitglied"), options = emptyList(), required = true, host = row, slotHost = form.panel)
+            row.button("Hinzufügen")
+            form.buttons(primary = null)
+            assertFalse(form.validateAll(force = true))
+            val error = assertNotNull(element().querySelector(".lapis-field-error--shown") as? HTMLElement, "no error shown")
+            val rowElement = assertNotNull(row.getElement(), "row not mounted")
+            assertFalse(rowElement.contains(error), "the error must not be a child of the flex row")
         }
     }
 }

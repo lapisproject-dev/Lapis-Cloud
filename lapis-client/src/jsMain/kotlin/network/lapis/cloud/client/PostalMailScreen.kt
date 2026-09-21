@@ -219,14 +219,17 @@ fun postalDispatchConfirmDialog(
     documentRow.div(documentLabel) { addCssClass("flex-grow-1") }
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Jetzt per Post versenden"), style = ButtonStyle.DANGER).apply {
-            onClick {
-                modal.hide()
-                onConfirm()
-            }
-        },
-    )
+    // Kostenpflichtig und endgültig: ein Doppelklick (oder ein Klick während das Modal noch ausgeblendet wird) darf nie ein
+    // zweites Mal versenden -- siehe [ConfirmOnce].
+    val once = ConfirmOnce()
+    val dispatchButton = Button(tr("Jetzt per Post versenden"), style = ButtonStyle.DANGER)
+    dispatchButton.onClick {
+        once.run(dispatchButton) {
+            modal.hide()
+            onConfirm()
+        }
+    }
+    modal.addButton(dispatchButton)
     modal.show()
 }
 
@@ -253,13 +256,16 @@ fun postalEinladungDispatchConfirmDialog(
     modal.div(tr("Maximal 50 Empfänger pro Versand.")) { addCssClasses("text-muted small") }
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Jetzt per Post versenden"), style = ButtonStyle.DANGER).apply {
-            onClick {
-                modal.hide()
-                onConfirm()
-            }
-        },
-    )
+    // Kostenpflichtig und endgültig: ein Doppelklick (oder ein Klick während das Modal noch ausgeblendet wird) darf nie ein
+    // zweites Mal versenden -- siehe [ConfirmOnce].
+    val once = ConfirmOnce()
+    val dispatchButton = Button(tr("Jetzt per Post versenden"), style = ButtonStyle.DANGER)
+    dispatchButton.onClick {
+        once.run(dispatchButton) {
+            modal.hide()
+            onConfirm()
+        }
+    }
+    modal.addButton(dispatchButton)
     modal.show()
 }

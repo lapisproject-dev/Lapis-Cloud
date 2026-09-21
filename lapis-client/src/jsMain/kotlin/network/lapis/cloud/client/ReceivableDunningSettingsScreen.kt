@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
+import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -313,13 +314,13 @@ internal fun renderReceivableLevelForm(
         )
     val feeField =
         form.textField(
-            label = tr("Gebühr in EUR (optional)"),
+            label = tr("Gebühr in EUR"),
             value = existing?.feeAmount?.toString(),
             hint = gettext("Höchstens %1.", feeBound(MAX_RECEIVABLE_FEE_AMOUNT)),
             rule = { receivableFeeCheck(it) },
         )
     // Nur beim Bearbeiten: Reaktivierung einer deaktivierten Stufe (eine neu angelegte Stufe ist immer aktiv).
-    val activeCheck = if (existing != null) form.panel.checkBox(value = existing.active, label = tr("Aktiv")) else null
+    val activeField = if (existing != null) form.checkField(value = existing.active, label = tr("Aktiv")) else null
     val submitButton = Button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
     if (modal != null) {
         // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
@@ -352,7 +353,7 @@ internal fun renderReceivableLevelForm(
                             graceDays = graceDaysField.value,
                             responseDays = responseDaysField.value,
                             fee = parsedFee(),
-                            active = activeCheck?.value ?: true,
+                            active = (activeField?.control as CheckBox?)?.value ?: true,
                         )
                     val service = rpcService<IReceivableDunningService>()
                     if (existing == null) {

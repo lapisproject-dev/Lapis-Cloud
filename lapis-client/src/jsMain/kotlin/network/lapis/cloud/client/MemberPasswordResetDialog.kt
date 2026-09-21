@@ -133,17 +133,6 @@ fun generateDictatablePasswordOrNull(): String? {
     return formatDictatablePassword(indices)
 }
 
-/** Grenzen der Begründung -- spiegeln die Servergrenze (3..1000), der Server bleibt Autorität. */
-private const val REASON_MIN_LENGTH: Int = 3
-private const val REASON_MAX_LENGTH: Int = 1000
-
-private fun reasonCheck(value: String): FieldCheck =
-    if (value.trim().length in REASON_MIN_LENGTH..REASON_MAX_LENGTH) {
-        FieldCheck.Ok
-    } else {
-        FieldCheck.Invalid(gettext("Bitte eine Begründung mit %1 bis %2 Zeichen angeben.", REASON_MIN_LENGTH, REASON_MAX_LENGTH))
-    }
-
 /**
  * Öffnet den Dialog. **Nicht** aus [openMemberEditorDialog] erreichbar -- kein Modal-im-Modal.
  * [row] muss [canResetPasswordOf] erfüllen, das prüft der aufrufende Knopf bereits (siehe
@@ -197,8 +186,8 @@ fun openMemberPasswordResetDialog(
             label = tr("Begründung"),
             rows = 2,
             required = true,
-            hint = gettext("%1 bis %2 Zeichen.", REASON_MIN_LENGTH, REASON_MAX_LENGTH),
-            rule = { reasonCheck(it) },
+            hint = gettext("%1 bis %2 Zeichen.", FormRules.REASON_MIN_LENGTH, FormRules.REASON_MAX_LENGTH),
+            rule = { FormRules.reasonText(value = it) },
         )
     val consequenceBox = form.panel.div { addCssClasses("alert alert-danger") }
     consequenceBox.content = tr("Sitzungszahl wird geladen …")

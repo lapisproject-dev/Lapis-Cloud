@@ -215,7 +215,12 @@ class LateHookAuditDomTest {
                 assertSame(input, document.activeElement, "autofocus landed on the field that is live")
                 input.value = "garbage"
                 input.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Enter", cancelable = true)))
-                assertTrue(element().querySelector(".alert") != null, "Enter reaches the submit handler through the hook's listener")
+                // W4b: Enter reaches the submit handler through the field's own `keydown` listener, and the local pre-check now
+                // reports at the FIELD (no round-trip, no banner).
+                assertTrue(
+                    element().querySelector(".lapis-field-error--shown") != null,
+                    "Enter reaches the submit handler and reports at the field",
+                )
             }
         }
 }

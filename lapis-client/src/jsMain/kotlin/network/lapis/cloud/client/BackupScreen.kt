@@ -1,6 +1,6 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.check.checkBox
+import io.kvision.form.check.CheckBox
 import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -110,11 +110,11 @@ private fun renderRestorePanel(
     onCompleted: () -> Unit,
 ) {
     val card = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
-    // Formular-Grammatik (V1.4.28): nur die Datei ist Pflicht (die Checkbox ist eine bewusste Zusatzwahl) => Fall (c), das
-    // Formular hat ein Pflichtfeld: weder Stern noch Legende, `aria-required` steht am Upload.
+    // Formular-Grammatik (V1.4.28): nur die Datei ist Pflicht (die Checkbox ist eine bewusste Zusatzwahl) => gemischt (Fall a):
+    // Stern an der Datei und die Legende "* Pflichtfeld"; `aria-required` steht am Upload.
     val form = card.lapisForm()
 
-    val allowNonEmptyTargetCheck = form.panel.checkBox(label = tr("Ziel überschreiben (Zielorganisation enthält bereits Daten)"))
+    val allowNonEmptyTargetField = form.checkField(label = tr("Ziel überschreiben (Zielorganisation enthält bereits Daten)"))
     form.panel.div(
         tr(
             "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht " +
@@ -214,7 +214,7 @@ private fun renderRestorePanel(
             fileField.showError(gettext("Bitte eine Datei auswählen."))
             return@onClick
         }
-        val allowNonEmptyTarget = allowNonEmptyTargetCheck.value
+        val allowNonEmptyTarget = (allowNonEmptyTargetField.control as CheckBox).value
 
         restoreConfirmDialog(nativeFile, allowNonEmptyTarget) {
             // The confirm modal itself hides on the first click of "Endgültig wiederherstellen", which leaves this

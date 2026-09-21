@@ -283,16 +283,18 @@ class FormGrammarAuditDomTest {
     }
 
     @Test
-    fun setValue_onANonTextControl_failsLoudly_resetOnAnUploadClearsIt() {
+    fun setValue_onACheckbox_failsLoudly_onASelectItWorks_resetOnAnUploadClearsIt() {
         withMountedRoot("audit-set-value") { root, element ->
             val form = root.lapisForm()
-            val select = form.panel.select(options = listOf("a" to "A"), value = "a", label = tr("Plattform"))
-            val selectField = form.register(select, label = tr("Plattform"))
+            // V1.4.29: a SELECT takes `setValue` now (the W4b screens fill their options asynchronously); a checkbox has no text value.
+            val selectField = form.selectField(label = tr("Plattform"), options = listOf("a" to "A", "b" to "B"), value = "a")
+            selectField.setValue("b")
+            assertEquals("b", selectField.value)
+            val checkField = form.checkField(label = tr("Zustimmung"))
             val upload = form.panel.upload(label = tr("Datei"))
             val uploadField = form.register(upload, label = tr("Datei"), required = true)
             form.buttons(primary = Button("Weiter"))
-            assertFailsWith<IllegalStateException> { selectField.setValue("b") }
-            assertFailsWith<IllegalStateException> { selectField.reset() }
+            assertFailsWith<IllegalStateException> { checkField.setValue("true") }
             val fileInput = element().first("input[type=file]") as HTMLInputElement
             val transfer = js("new DataTransfer()")
             transfer.items.add(File(arrayOf<dynamic>("x"), "backup.zip"))

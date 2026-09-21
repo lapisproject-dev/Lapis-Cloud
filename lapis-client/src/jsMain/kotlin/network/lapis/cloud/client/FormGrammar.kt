@@ -4,6 +4,10 @@ import io.kvision.core.Container
 import io.kvision.core.Widget
 import io.kvision.core.onEvent
 import io.kvision.form.FormControl
+import io.kvision.form.check.CheckBox
+import io.kvision.form.check.checkBox
+import io.kvision.form.select.Select
+import io.kvision.form.select.select
 import io.kvision.form.text.AbstractText
 import io.kvision.form.text.Password
 import io.kvision.form.text.Text
@@ -30,7 +34,6 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import org.w3c.dom.Element
-import org.w3c.dom.events.Event
 
 /*
  * Welle V1.4.28 (W4a) "Formular-Grammatik, Teil 1" -- die Bausteine. Vertrag: docs/architecture/ui-ux-guideline.adoc,
@@ -43,7 +46,7 @@ import org.w3c.dom.events.Event
  *    Einfeld-Formular meldet nur am Feld). Der Fehlerslot ist DAUERHAFT montiert: ein Fehler ändert nur `content` und eine
  *    Klasse, nie die Struktur -- das ist für Screenreader wichtig (eine Live-Region meldet Textänderungen), NICHT für das
  *    Layout: ein sichtbarer Fehler (`display: block`) verschiebt alles darunter, auch den Absenden-Knopf.
- *  - Deshalb der Mausriegel ([LapisForm.installPointerGate]): `blur` feuert schon beim `mousedown` auf einem Knopf. Würde
+ *  - Deshalb der Mausriegel ([PointerGate]): `blur` feuert schon beim `mousedown` auf einem Knopf. Würde
  *    dort sofort geprüft, erschiene der Fehler, der Knopf rutschte zwischen `mousedown` und `mouseup` weg, `mouseup` fiele auf
  *    ein anderes Element und der `click` ginge verloren -- der erste Klick auf "Absenden" wäre nach einem ungültigen Feld
  *    verschluckt. Solange die Maustaste auf einem Knopf gedrückt ist, wird die `blur`-Prüfung zurückgestellt und erst nach
@@ -67,9 +70,25 @@ sealed interface FieldCheck {
     ) : FieldCheck
 }
 
-/** Erzeugt ein Formular: `vPanel(spacing = 8)` mit Klasse `lapis-form` und einem (zunächst leeren) Legenden-Slot. */
-fun Container.lapisForm(init: (LapisForm.() -> Unit)? = null): LapisForm {
-    val form = LapisForm(vPanel(spacing = 8) { addCssClass("lapis-form") })
+/**
+ * Fasst mehrere Formulare EINES Dialogs zusammen (der Mitglieder-Editor hat sechs unabhängig gespeicherte Formulare in einem
+ * Modal): dieselbe Legende ("* Pflichtfeld") steht dann nur über dem ERSTEN Formular, das sie braucht -- sechsmal derselbe Satz
+ * im selben Dialog wäre Rauschen. Die Sterne an den Pflicht-Labels bleiben in jedem Formular. Eine ANDERE Legende ("Alle Felder
+ * sind Pflichtfelder." meint nur das eigene Formular) wird nie unterdrückt.
+ */
+class LegendGroup {
+    internal val shown = mutableSetOf<String>()
+}
+
+/**
+ * Erzeugt ein Formular: `vPanel(spacing = 8)` mit Klasse `lapis-form` und einem (zunächst leeren) Legenden-Slot.
+ * [legendGroup]: siehe [LegendGroup].
+ */
+fun Container.lapisForm(
+    legendGroup: LegendGroup? = null,
+    init: (LapisForm.() -> Unit)? = null,
+): LapisForm {
+    val form = LapisForm(vPanel(spacing = 8) { addCssClass("lapis-form") }, legendGroup)
     init?.invoke(form)
     return form
 }
@@ -101,19 +120,84 @@ fun HPanel.lockIcon() {
     }
 }
 
-/** `aria-required` an einem beliebigen Formularsteuerelement (auch `checkBox`, das die Grammatik nicht selbst baut). */
-fun FormControl.markAriaRequired() {
-    (input as? Widget)?.setAttribute("aria-required", "true")
-}
-
 private class CrossRule(
     val focusOn: Widget?,
     val check: () -> FieldCheck,
 )
 
+/**
+ * Mausriegel gegen den verlorenen ersten Klick (siehe Kopfkommentar): zwischen `mousedown` und `mouseup` auf einem Knopf
+ * wird keine `blur`-Prüfung angezeigt, sie wird nach dem Klick nachgeholt. Es gibt genau EIN Paar Beobachter am `document`
+ * für die gesamte Anwendung (Modal-Fußleisten liegen NICHT im Formular-Panel, und ein verborgenes KVision-Modal bleibt im
+ * DOM -- pro Formular registrierte Beobachter würden sich also nie lösen und bei jeder Dialog-Öffnung anwachsen).
+ *
+ * Der Riegel ist global und wird nie abgebaut -- deshalb darf er nie "hängen bleiben": bleibt das `mouseup` aus (Zeiger außerhalb
+ * des Fensters losgelassen, Fensterwechsel per Alt-Tab, Kontextmenü, abgebrochene Zeigergeste), bliebe `pointerDownOnButton`
+ * gesetzt und JEDE spätere `blur`-Prüfung der Anwendung würde still zurückgestellt. Deshalb gibt jedes dieser Ereignisse den
+ * Riegel frei ([release]), und ein Zeitlimit ([safetyTimeoutMs]) fängt den Rest ab. Freigeben holt die zurückgestellten
+ * Prüfungen nach.
+ */
+internal object PointerGate {
+    private var installed = false
+    private var pointerDownOnButton = false
+    private var safetyTimer: Int? = null
+    private val deferredBlurs = linkedSetOf<LapisField>()
+
+    /** Längste Zeit, die ein Knopfdruck den Riegel halten darf; ein Klick dauert Millisekunden, ein Halten über Sekunden ist ein verlorenes `mouseup`. */
+    internal var safetyTimeoutMs: Int = 5000
+
+    /** `true`, solange ein Knopfdruck läuft (für Tests). */
+    internal val isHeld: Boolean get() = pointerDownOnButton
+
+    fun ensureInstalled() {
+        if (installed) return
+        installed = true
+        document.addEventListener(
+            "mousedown",
+            { event ->
+                // Ein früheres, nie beendetes Drücken (verlorenes `mouseup`) wird zuerst freigegeben.
+                if (pointerDownOnButton) release()
+                pointerDownOnButton = (event.target as? Element)?.closest("button, .btn, [role=button]") != null
+                if (pointerDownOnButton) safetyTimer = window.setTimeout({ release() }, safetyTimeoutMs)
+            },
+            true,
+        )
+        document.addEventListener(
+            "mouseup",
+            {
+                if (pointerDownOnButton) {
+                    // Nach dem `click`, der im selben Task auf `mouseup` folgt: dann erst ist der Klick sicher zugestellt.
+                    window.setTimeout({ release() }, 0)
+                }
+            },
+            true,
+        )
+        // Ereignisse, nach denen ein `mouseup` ausbleiben kann: das Drücken ist zu Ende, der Riegel muss weg.
+        window.addEventListener("blur", { release() })
+        document.addEventListener("pointercancel", { release() }, true)
+        document.addEventListener("contextmenu", { release() }, true)
+        document.addEventListener("dragend", { release() }, true)
+        document.documentElement?.addEventListener("mouseleave", { release() })
+    }
+
+    private fun release() {
+        safetyTimer?.let { window.clearTimeout(it) }
+        safetyTimer = null
+        pointerDownOnButton = false
+        val pending = deferredBlurs.toList()
+        deferredBlurs.clear()
+        pending.forEach { it.onBlur() }
+    }
+
+    fun blurOrDefer(field: LapisField) {
+        if (pointerDownOnButton) deferredBlurs += field else field.onBlur()
+    }
+}
+
 class LapisForm internal constructor(
     /** Der Formular-Container (Klasse `lapis-form`). Weitere Inhalte (Hinweisboxen, Abschnittstitel) dürfen hier hinein. */
     val panel: VPanel,
+    private val legendGroup: LegendGroup? = null,
 ) {
     private val fieldList = mutableListOf<LapisField>()
     private val crossRules = mutableListOf<CrossRule>()
@@ -130,54 +214,14 @@ class LapisForm internal constructor(
     /** `true`, solange die Sammelmeldung der Validierung (nicht ein Servertext!) angezeigt wird -- nur die räumt sich selbst. */
     private var collectiveShown = false
 
-    /** Mausriegel: die Maustaste ist gerade auf einem Knopf gedrückt (siehe [installPointerGate]). */
-    private var pointerDownOnButton = false
-    private val deferredBlurs = linkedSetOf<LapisField>()
-    private var everMounted = false
-
     init {
-        installPointerGate()
+        PointerGate.ensureInstalled()
     }
 
     val fields: List<LapisField> get() = fieldList
 
-    /**
-     * Mausriegel gegen den verlorenen ersten Klick (siehe Kopfkommentar): zwischen `mousedown` und `mouseup` auf einem Knopf
-     * wird keine `blur`-Prüfung angezeigt, sie wird nach dem Klick nachgeholt. Die Beobachter hängen am `document` (Modal-
-     * Fußleisten liegen NICHT in [panel]) und lösen sich selbst, sobald das Formular nicht mehr im Dokument steht.
-     */
-    private fun installPointerGate() {
-        lateinit var onDown: (Event) -> Unit
-        lateinit var onUp: (Event) -> Unit
-        onDown = { event ->
-            val element = panel.getElement()
-            val mounted = element != null && document.contains(element)
-            if (mounted) everMounted = true
-            if (everMounted && !mounted) {
-                document.removeEventListener("mousedown", onDown, true)
-                document.removeEventListener("mouseup", onUp, true)
-                pointerDownOnButton = false
-            } else {
-                pointerDownOnButton = (event.target as? Element)?.closest("button, .btn, [role=button]") != null
-            }
-        }
-        onUp = {
-            if (pointerDownOnButton) {
-                // Nach dem `click`, der im selben Task auf `mouseup` folgt: dann erst ist der Klick sicher zugestellt.
-                window.setTimeout({
-                    pointerDownOnButton = false
-                    val pending = deferredBlurs.toList()
-                    deferredBlurs.clear()
-                    pending.forEach { it.onBlur() }
-                }, 0)
-            }
-        }
-        document.addEventListener("mousedown", onDown, true)
-        document.addEventListener("mouseup", onUp, true)
-    }
-
     internal fun handleBlur(field: LapisField) {
-        if (pointerDownOnButton) deferredBlurs += field else field.onBlur()
+        PointerGate.blurOrDefer(field)
     }
 
     fun textField(
@@ -187,11 +231,12 @@ class LapisForm internal constructor(
         required: Boolean = false,
         autocomplete: Autocomplete? = null,
         hint: String? = null,
+        host: Container = panel,
         requiredMessage: String? = null,
         rule: (String) -> FieldCheck = { FieldCheck.Ok },
         init: ((Text) -> Unit)? = null,
     ): LapisField {
-        val control = panel.text(type = type, value = value, label = label)
+        val control = host.text(type = type, value = value, label = label)
         if (autocomplete != null) control.autocomplete = autocomplete
         init?.invoke(control)
         require(autocomplete == null || control.autocomplete == autocomplete) {
@@ -216,6 +261,7 @@ class LapisForm internal constructor(
         suppressManagers: Boolean = false,
         hint: String? = null,
         reveal: Boolean = false,
+        host: Container = panel,
         requiredMessage: String? = null,
         rule: (String) -> FieldCheck = { FieldCheck.Ok },
         actions: ((HPanel) -> Unit)? = null,
@@ -225,7 +271,7 @@ class LapisForm internal constructor(
         require(!(suppressManagers && autocomplete != null)) {
             "passwordField: autocomplete and suppressManagers are mutually exclusive (suppressManagers sets autocomplete=off)"
         }
-        val control = panel.password(value = value, label = label)
+        val control = host.password(value = value, label = label)
         if (autocomplete != null) control.autocomplete = autocomplete
         init?.invoke(control)
         val field =
@@ -239,8 +285,8 @@ class LapisForm internal constructor(
                 // Die Knopfzeile gehört zum Feld und steht VOR Hinweis und Fehlerslot.
                 beforeMessages =
                     if (reveal || actions != null) {
-                        { host ->
-                            val row = host.hPanel(spacing = 8) { addCssClass("lapis-field-actions") }
+                        { slotHost ->
+                            val row = slotHost.hPanel(spacing = 8) { addCssClass("lapis-field-actions") }
                             if (reveal) row.add(revealToggle(control))
                             actions?.invoke(row)
                         }
@@ -262,13 +308,76 @@ class LapisForm internal constructor(
         value: String? = null,
         required: Boolean = false,
         hint: String? = null,
+        host: Container = panel,
         requiredMessage: String? = null,
         rule: (String) -> FieldCheck = { FieldCheck.Ok },
         init: ((TextArea) -> Unit)? = null,
     ): LapisField {
-        val control = panel.textArea(rows = rows, value = value, label = label)
+        val control = host.textArea(rows = rows, value = value, label = label)
         init?.invoke(control)
         return wire(control = control, label = label, required = required, hint = hint, requiredMessage = requiredMessage, rule = rule)
+    }
+
+    /**
+     * Auswahlfeld. Hinweis- und Fehlerslot stehen als GESCHWISTER hinter dem `<select>`, nie darin:
+     * `Select.add()` delegiert an das `<select>`, dort würden die Kinder nie gerendert und `aria-describedby` zeigte auf
+     * einen Nachkommen (W4a-Audit-Befund). Steht das Auswahlfeld in einer Flex-Zeile ([host], z. B. neben einem Knopf), gehört
+     * [slotHost] auf den Container UNTER der Zeile: `.invalid-feedback` hat `width: 100%` und quetschte sonst Feld und Knopf
+     * zusammen. [required] verlangt einen nicht-leeren Wert (ein `""`-Eintrag wie
+     * "— kein Tarif —" gilt als leer).
+     */
+    fun selectField(
+        label: String,
+        options: List<Pair<String, String>>? = null,
+        value: String? = null,
+        required: Boolean = false,
+        hint: String? = null,
+        host: Container = panel,
+        slotHost: Container = host,
+        requiredMessage: String? = null,
+        rule: (String) -> FieldCheck = { FieldCheck.Ok },
+        init: ((Select) -> Unit)? = null,
+    ): LapisField {
+        val control = host.select(options = options, value = value, label = label)
+        init?.invoke(control)
+        return wire(
+            control = control,
+            label = label,
+            required = required,
+            hint = hint,
+            requiredMessage = requiredMessage,
+            rule = rule,
+            slotHost = slotHost,
+        )
+    }
+
+    /**
+     * Zustimmungs-/Schalter-Checkbox mit FELDGEBUNDENEM Fehlerslot (löst die W4a-Notlösung "Kreuzregel in die Sammelfläche"
+     * ab). [required] `== true` heißt "muss angekreuzt sein" -- NICHT über den Leerwert-Pfad von [LapisField] (KVisions
+     * `CheckBox.getValueAsString()` liefert `"false"`, also nicht-leer, und `required` wäre wirkungslos), sondern über eine
+     * eigene Prüfung im Feld. `aria-required` wird trotzdem gesetzt.
+     */
+    fun checkField(
+        label: String,
+        value: Boolean = false,
+        required: Boolean = false,
+        hint: String? = null,
+        host: Container = panel,
+        requiredMessage: String? = null,
+        rule: (Boolean) -> FieldCheck = { FieldCheck.Ok },
+        init: ((CheckBox) -> Unit)? = null,
+    ): LapisField {
+        val control = host.checkBox(value = value, label = label)
+        init?.invoke(control)
+        return wire(
+            control = control,
+            label = label,
+            required = required,
+            hint = hint,
+            requiredMessage = requiredMessage,
+            rule = { text -> rule(text == "true") },
+            slotHost = host,
+        )
     }
 
     /**
@@ -286,11 +395,13 @@ class LapisForm internal constructor(
 
     /**
      * Formularübergreifende Regel (Passwortgleichheit, Zustimmungs-Checkbox). Mit [field] wird der Fehler an DIESEM Feld
-     * gezeigt (und bei dessen `blur` geprüft); ohne [field] steht er in der Sammelfläche, [focusOn] bekommt dann den Fokus.
+     * gezeigt (und bei dessen `blur` geprüft); ohne [field] steht er in der Sammelfläche, [focusOn] bekommt dann den Fokus
+     * (immer `control.input`, siehe unten) und [watch] räumt die Sammelmeldung bei Änderung.
      */
     fun crossFieldRule(
         field: LapisField? = null,
         focusOn: Widget? = null,
+        watch: List<Widget> = emptyList(),
         check: () -> FieldCheck,
     ) {
         if (field != null) {
@@ -299,7 +410,12 @@ class LapisForm internal constructor(
             crossRules += CrossRule(focusOn = focusOn, check = check)
             // Eine Zustimmungs-Checkbox hat kein LapisField: ihre Änderung muss die Sammelmeldung von sich aus räumen können.
             // Zurückgestellt (`setTimeout`), weil KVision den Wert der Checkbox erst in seinem eigenen `change`-Handler nachzieht.
-            focusOn?.onEvent { change = { window.setTimeout({ onFieldStateChanged() }, 0) } }
+            // [focusOn] muss das ELEMENT sein, das `focus()` wirklich fokussiert (`control.input`, nicht der Wrapper-<div>). [watch]
+            // nennt weitere Elemente, deren Änderung die Regel berührt (z. B. die übrigen Checkboxen einer Empfängerliste):
+            // `change` bubbelt nur den eigenen Ast hoch, ein Listener am ersten Element sähe die anderen nie.
+            (listOfNotNull(focusOn) + watch).distinct().forEach { widget ->
+                widget.onEvent { change = { window.setTimeout({ onFieldStateChanged() }, 0) } }
+            }
         }
     }
 
@@ -309,7 +425,8 @@ class LapisForm internal constructor(
      *
      *  - (a) gemischt (mind. 1 Pflicht UND mind. 1 optional): `*` am Label jedes Pflichtfelds, Legende "* Pflichtfeld";
      *  - (b) mind. 3 Felder, alle Pflicht: keine Sterne, Legende "Alle Felder sind Pflichtfelder.";
-     *  - (c) höchstens 2 Felder, alle Pflicht: weder Sterne noch Legende.
+     *  - (c) genau 2 Felder, beide Pflicht: weder Sterne noch Legende. Ein EINZELNES Pflichtfeld fällt NICHT unter (c): es wird wie
+     *    (a) mit Stern und Legende gekennzeichnet (sonst ist es als Pflicht nicht erkennbar, siehe Audit V1.4.29 M-7).
      *
      * [primary] und [cancel] müssen NEU erzeugt, nicht bereits eingehängt sein. [primary] darf fehlen, wenn die einzige Aktion
      * destruktiv ist (dann steht sie allein in der Zone darunter und das Formular hat KEIN `PRIMARY`; erlaubt, R28 verbietet nur zwei). Reihenfolge: Abbrechen links, Primäraktion
@@ -470,14 +587,20 @@ class LapisForm internal constructor(
         val total = fieldList.size
         val requiredCount = fieldList.count { it.required }
         when {
-            requiredCount in 1 until total -> {
+            // (a) gemischt -- ODER ein Formular mit genau einem Feld, das Pflicht ist: ein einzelnes Pflichtfeld ohne Stern und ohne
+            // Legende wäre als Pflicht nicht erkennbar (Alt-Label "Entscheidungsnotiz (Pflicht)"), also wie (a) markieren.
+            requiredCount in 1 until total || (total == 1 && requiredCount == 1) -> {
                 fieldList.filter { it.required }.forEach { it.appendRequiredMark() }
-                legendSlot.content = tr("* Pflichtfeld")
-                legendSlot.show()
+                if (legendGroup?.shown?.add("* Pflichtfeld") != false) {
+                    legendSlot.content = tr("* Pflichtfeld")
+                    legendSlot.show()
+                }
             }
             requiredCount == total && total >= 3 -> {
-                legendSlot.content = tr("Alle Felder sind Pflichtfelder.")
-                legendSlot.show()
+                if (legendGroup?.shown?.add("Alle Felder sind Pflichtfelder.") != false) {
+                    legendSlot.content = tr("Alle Felder sind Pflichtfelder.")
+                    legendSlot.show()
+                }
             }
         }
     }
@@ -490,13 +613,14 @@ class LapisForm internal constructor(
         requiredMessage: String?,
         rule: (String) -> FieldCheck,
         beforeMessages: ((Container) -> Unit)? = null,
+        slotHost: Container = panel,
     ): LapisField {
         val inputWidget = control.input as? Widget
         val baseId = inputWidget?.id ?: "lapis-field-${fieldIdCounter++}"
         // Nur Textsteuerelemente nehmen Hinweis und Fehlerslot in ihren eigenen Wrapper: `Select.add()` delegiert an das
         // <select>, dort würden die Kinder nie gerendert (und `aria-describedby` zeigte auf einen Nachkommen). Alles andere
         // (Select, Upload) bekommt die Slots als Geschwister direkt hinter sich im Formular.
-        val host: Container = if (control is AbstractText) control else panel
+        val host: Container = if (control is AbstractText) control else slotHost
         beforeMessages?.invoke(host)
         val describedBy = mutableListOf<String>()
         if (hint != null) {
@@ -532,7 +656,9 @@ class LapisForm internal constructor(
                 onStateChange = { onFieldStateChanged() },
             )
         // `onEvent` am Control landet am <input> (AbstractText delegiert), und genau dort feuert blur -- blur bubbelt nicht.
-        (control as? Widget)?.onEvent {
+        // Select/CheckBox delegieren NICHT: ihr Wrapper bekäme nie ein `blur`, also hängt der Listener an `control.input`.
+        val eventTarget: Widget? = if (control is AbstractText) control as Widget else control.input as? Widget
+        eventTarget?.onEvent {
             blur = { handleBlur(field) }
             input = { field.onInput() }
             change = { field.onInput() }
@@ -598,10 +724,12 @@ class LapisField internal constructor(
      */
     fun setValue(newValue: String?) {
         // Laut scheitern statt still nichts tun: ein Aufruf, der wirkungslos verpufft, verschwiege dem Aufrufer, dass sein Wert
-        // nie im Feld stand. (Ein Upload kennt nur [reset]; ein Select hat keinen Textwert.)
-        val text = control as? AbstractText
-        checkNotNull(text) { "LapisField.setValue() supports text controls only, not ${control::class.simpleName}" }
-        text.value = newValue
+        // nie im Feld stand. (Ein Upload kennt nur [reset]; eine Checkbox hat keinen Textwert.)
+        when (control) {
+            is AbstractText -> control.value = newValue
+            is Select -> control.value = newValue
+            else -> error("LapisField.setValue() supports text and select controls only, not ${control::class.simpleName}")
+        }
     }
 
     /**
@@ -611,6 +739,7 @@ class LapisField internal constructor(
     fun reset() {
         when (control) {
             is Upload -> control.clearInput()
+            is CheckBox -> control.value = false
             else -> setValue(null)
         }
         dirty = false
@@ -637,6 +766,38 @@ class LapisField internal constructor(
     }
 
     fun focus() = focusAndReveal(inputWidget)
+
+    /**
+     * Blendet ein Textfeld samt Label, Hinweis- und Fehlerslot ein oder aus (bei [AbstractText] liegen alle im Wrapper) --
+     * für ein Feld, das nur bei einer bestimmten Auswahl gilt (Sterbedatum bei Zielstatus "Verstorben"). Für `select` und
+     * `check` liegen Hinweis- und Fehlerslot als Geschwister außerhalb des Steuerelements; dort würde nur das Steuerelement
+     * verschwinden und ein Fehlertext ohne Feld stehen bleiben, deshalb scheitert der Aufruf laut. Ein bereits angezeigter
+     * Fehler wird beim Ausblenden geräumt; die Feldregel eines ausgeblendeten Feldes muss der Aufrufer selbst stillegen
+     * (sonst blockiert ein unsichtbarer Fehler das Absenden).
+     */
+    fun setVisible(visible: Boolean) {
+        val widget = control as? AbstractText
+        check(widget != null) { "LapisField.setVisible() supports text controls only, not ${control::class.simpleName}" }
+        if (visible) {
+            widget.show()
+        } else {
+            clearError()
+            widget.hide()
+        }
+    }
+
+    /**
+     * Ruft [handler] bei jeder Wertänderung (Tippen ODER [setValue] -- KVisions `subscribe` feuert bei beidem, siehe die
+     * Reentrancy-Notiz in `ConferenceScreen`; ein Handler mit Nebenwirkung darf sich also nicht selbst wieder auslösen).
+     */
+    fun subscribe(handler: (String) -> Unit) {
+        when (control) {
+            is Select -> control.subscribe { handler(it.orEmpty()) }
+            is AbstractText -> control.subscribe { handler(it.orEmpty()) }
+            is CheckBox -> control.subscribe { handler(it.toString()) }
+            else -> error("LapisField.subscribe() supports text, select and checkbox controls only, not ${control::class.simpleName}")
+        }
+    }
 
     fun showError(message: String) {
         // Auch ein tr()-Marker wird hier aufgelöst: die Meldung steht später in einer Sammelmeldung / einem Attribut.
@@ -680,6 +841,13 @@ class LapisField internal constructor(
     }
 
     private fun evaluate(): FieldCheck {
+        if (control is CheckBox) {
+            // KVisions `CheckBox.getValueAsString()` ist `"false"` (nicht leer): die Pflicht heißt hier "angekreuzt".
+            if (required && !control.value) return FieldCheck.Invalid(requiredMessage ?: gettext("Bitte dieses Kästchen ankreuzen."))
+            val own = rule(control.value.toString())
+            if (own is FieldCheck.Invalid) return own
+            return extraChecks.map { it() }.firstOrNull { it is FieldCheck.Invalid } ?: FieldCheck.Ok
+        }
         val current = value
         if (current.isBlank()) {
             return if (required) FieldCheck.Invalid(requiredMessage ?: gettext("Dieses Feld muss ausgefüllt werden.")) else FieldCheck.Ok
@@ -710,6 +878,9 @@ internal fun runGuardedAction(
     button: Button?,
     block: suspend () -> Unit,
 ) {
+    // Ein zweiter Aufruf, solange der erste läuft, ist wirkungslos. `disabled` wird am Widget SOFORT gelesen -- am DOM-Knopf käme
+    // das Attribut erst mit dem nächsten Render an, ein sehr schneller zweiter Klick liefe also noch durch.
+    if (button?.disabled == true) return
     button?.disabled = true
     AppScope.launch {
         try {

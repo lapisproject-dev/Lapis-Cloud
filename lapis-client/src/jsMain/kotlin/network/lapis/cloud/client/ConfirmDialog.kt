@@ -29,15 +29,39 @@ fun confirmDialog(
             onClick { modal.hide() }
         },
     )
-    modal.addButton(
-        Button(confirmLabel, style = ButtonStyle.DANGER).apply {
-            onClick {
-                modal.hide()
-                onConfirm()
-            }
-        },
-    )
+    val once = ConfirmOnce()
+    val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER)
+    confirmButton.onClick {
+        once.run(confirmButton) {
+            modal.hide()
+            onConfirm()
+        }
+    }
+    modal.addButton(confirmButton)
     modal.show()
+}
+
+/**
+ * Doppelklick-Sperre der Bestätigungsdialoge (R29): Der Dialog ist ein Einmal-Objekt -- ist er bestätigt, ist die Aktion
+ * ausgelöst. Ein zweiter Klick auf denselben Knopf (Doppelklick, oder ein Klick während das Modal noch ausgeblendet wird: das
+ * Element bleibt bis zum Ende der Animation im DOM und klickbar) dürfte [onConfirm] sonst ein zweites Mal aufrufen -- bei den
+ * Geld- und Buchungspfaden also eine zweite Buchung. Die Sperre sitzt im Dialog selbst und deckt damit alle Aufrufstellen ab,
+ * auch die, deren [onConfirm] nur einen ungeschützten `AppScope.launch` startet. Ein späterer Fehler der Aktion ändert daran
+ * nichts: der Dialog ist dann schon zu, ein neuer Versuch öffnet einen neuen Dialog.
+ */
+internal class ConfirmOnce {
+    private var fired = false
+
+    /** Führt [action] höchstens EINMAL aus und sperrt [button] dabei; jeder weitere Aufruf ist wirkungslos. */
+    fun run(
+        button: Button,
+        action: () -> Unit,
+    ) {
+        if (fired) return
+        fired = true
+        button.disabled = true
+        action()
+    }
 }
 
 /**
@@ -48,8 +72,8 @@ fun confirmDialog(
  *
  * Raskin-Auflage (dieser Wellen-Plan §3): der Bestätigen-Knopf sitzt NICHT an der Stelle des
  * Auslösers -- Modal-Footer, `SECONDARY` links ("Abbrechen"), `DANGER` rechts ([confirmLabel]).
- * When [reasonRequired] is `true`, that button starts (and stays) `disabled` while the reason field
- * is blank -- [onConfirm] is only ever invoked with a non-blank, trimmed reason in that case.
+ * When [reasonRequired] is `true`, a click with a blank reason reports the error at the field (no `disabled` button, W4b)
+ * -- [onConfirm] is only ever invoked with a non-blank, trimmed reason in that case.
  */
 fun confirmWithReasonDialog(
     title: String,
@@ -64,30 +88,40 @@ fun confirmWithReasonDialog(
     val modal = Modal(caption = title)
     dangerNote?.let { modal.div(it) { addCssClasses("fw-bold text-danger") } }
     modal.div(message)
-    val reasonInput = modal.text(label = reasonLabel)
+
+    // Welle V1.4.29 (W4b): die Begründung ist ein Feld der Formular-Grammatik. Der Bestätigen-Knopf ist NICHT mehr `disabled`
+    // (ein grauer Knopf ohne Erklärung ist eine Lüge über den Systemzustand, Raskin); ein Klick auf ein ungültiges Feld
+    // meldet den Fehler AM Feld und setzt den Fokus dorthin. Die Invariante bleibt: [onConfirm] erhält ausschließlich eine
+    // nicht-leere, getrimmte Begründung -- bzw. bei `reasonRequired = false` und leerem Feld `null`.
+    val form = modal.lapisForm()
+    val minLength = if (reasonRequired) 1 else 0
+    val reasonField =
+        form.textField(
+            label = reasonLabel,
+            required = reasonRequired,
+            // Welle V1.4.21: optionale Obergrenze (z. B. `reason` <= 500 Zeichen bei den Offene-Posten-Stornos) -- eine
+            // Überschreitung wird vor dem Round-Trip abgewiesen. `null` = unverändertes Verhalten für alle Aufrufer.
+            hint =
+                reasonMaxLength?.let {
+                    if (reasonRequired) gettext("%1 bis %2 Zeichen.", minLength, it) else gettext("Höchstens %1 Zeichen.", it)
+                },
+            rule = { value ->
+                if (reasonMaxLength != null) FormRules.reasonText(value = value, min = minLength, max = reasonMaxLength) else FieldCheck.Ok
+            },
+        )
+    form.finish()
 
     val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
-
-    // Welle V1.4.21: optionale Obergrenze (z. B. `reason` <= 500 Zeichen bei den Offene-Posten-Stornos) --
-    // eine Überschreitung sperrt den Bestätigen-Knopf, statt erst nach dem Round-Trip abgelehnt zu
-    // werden. `null` = unverändertes Verhalten für alle bisherigen Aufrufer.
-    fun reasonAcceptable(value: String?): Boolean {
-        val trimmed = value?.trim().orEmpty()
-        if (reasonRequired && trimmed.isBlank()) return false
-        return reasonMaxLength == null || trimmed.length <= reasonMaxLength
-    }
-    val confirmButton =
-        Button(confirmLabel, style = ButtonStyle.DANGER).apply {
-            disabled = reasonRequired
-            onClick {
-                if (!reasonAcceptable(reasonInput.value)) return@onClick
-                val reason = reasonInput.value?.trim()?.takeIf { it.isNotBlank() }
-                modal.hide()
-                onConfirm(reason)
-            }
+    val once = ConfirmOnce()
+    val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER)
+    confirmButton.onClick {
+        // Erst prüfen, dann sperren: ein ungültiger Klick verbraucht die Einmal-Sperre nicht (der Nutzer korrigiert und klickt erneut).
+        if (!form.validateAndReport()) return@onClick
+        val reason = reasonField.value.trim().takeIf { it.isNotBlank() }
+        once.run(confirmButton) {
+            modal.hide()
+            onConfirm(reason)
         }
-    if (reasonRequired || reasonMaxLength != null) {
-        reasonInput.subscribe { value -> confirmButton.disabled = !reasonAcceptable(value) }
     }
     // Raskin-Auflage: Abbrechen links, die eigentliche (rote) Aktion rechts -- kein Knopf an der
     // Stelle des Auslösers, unabhängig davon, wo im Bildschirm dieses Modal geöffnet wurde.
@@ -118,15 +152,15 @@ fun confirmWithTypedConfirmationDialog(
     val typedInput = modal.text()
 
     val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
-    val confirmButton =
-        Button(confirmLabel, style = ButtonStyle.DANGER).apply {
-            disabled = true
-            onClick {
-                if (typedInput.value != expectedText) return@onClick
-                modal.hide()
-                onConfirm()
-            }
+    val once = ConfirmOnce()
+    val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER).apply { disabled = true }
+    confirmButton.onClick {
+        if (typedInput.value != expectedText) return@onClick
+        once.run(confirmButton) {
+            modal.hide()
+            onConfirm()
         }
+    }
     typedInput.subscribe { value -> confirmButton.disabled = value != expectedText }
     modal.addButton(cancelButton)
     modal.addButton(confirmButton)

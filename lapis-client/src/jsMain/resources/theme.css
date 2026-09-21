@@ -1267,13 +1267,62 @@ body {
   color: var(--lapis-invalid);
 }
 
-.lapis-form .form-control.is-invalid {
+.lapis-form .form-control.is-invalid,
+.lapis-form .form-select.is-invalid {
+  border-color: var(--lapis-invalid);
+}
+
+.lapis-form .form-check-input.is-invalid {
   border-color: var(--lapis-invalid);
 }
 
 /* Der goldene Fokusring bleibt das EINZIGE Fokussignal. */
-.lapis-form .form-control.is-invalid:focus {
+.lapis-form .form-control.is-invalid:focus,
+.lapis-form .form-select.is-invalid:focus {
   box-shadow: none;
+}
+
+/* V1.4.29 (W4b): Touch-Ziele in Formularen -- Eingabefelder und Auswahlfelder erreichen bei grobem Zeiger 44 px
+   (Einlasskontrolle: ein Scanner-/Touch-Bediener trifft das Ticketfeld, ohne zu zielen). */
+@media (pointer: coarse) {
+  .lapis-form .form-control,
+  .lapis-form .form-select {
+    min-height: 44px;
+  }
+}
+
+/* V1.4.29 (W4b, Audit M-8): auch Kaestchen (Zustimmungen, "Aktiv", "Ziel ueberschreiben", Empfaengerlisten) erreichen bei grobem
+   Zeiger 44 px: die ganze Zeile aus Kaestchen und Beschriftung ist ein Ziel (das Label ist per `for` mit dem Kaestchen verknuepft
+   und schaltet es). Bootstraps float-Aufbau (Kaestchen links herausgezogen, Label daneben) wird dafuer in eine zentrierte Flex-Zeile
+   umgebaut; das Kaestchen selbst wird 1.5rem gross. min-width 44px: ein Kaestchen in einer Flex-Zeile (host-Parameter) darf nicht
+   auf die Breite seines Textes schrumpfen. */
+@media (pointer: coarse) {
+  .lapis-form .form-check {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    min-height: 44px;
+    min-width: 44px;
+    padding-left: 0;
+  }
+
+  .lapis-form .form-check .form-check-input {
+    flex: none;
+    float: none;
+    height: 1.5rem;
+    margin: 0;
+    width: 1.5rem;
+  }
+
+  .lapis-form .form-check .form-check-label {
+    align-items: center;
+    display: flex;
+    flex: 1 1 auto;
+    margin-bottom: 0;
+    min-height: 44px;
+    min-width: 44px;
+    padding-block: 4px;
+  }
 }
 
 /* Sichtbarkeit per Klasse, nicht per :empty (ein leerer Textknoten laesst :empty in Chrome nicht matchen). (0,2,0) schlaegt

@@ -115,7 +115,8 @@ The 44 px target size is never undercut.
 | R14 | every `table(...)` call carries `STRIPED`, `HOVER` and `SMALL` (also a call broken before the dot: `panel` newline `.table(`)
 | R15 | every `table(...)` call carries `ResponsiveType.RESPONSIVE`
 | R39 | an icon-only `button("", icon = ...)` (also `button(text = "", icon = ...)`) carries `title` and `aria-label` in the same block; the one factory line in `DataScreenLayout.kt` that labels its button in the next statement is exempted by name, not the file
-| R24 | (W4a) no labelled `text(`/`password(`/`textArea(` call (a call that carries `label =`) in the 11 screens migrated to the form grammar or in the two W4a screens that have no labelled field, and every migrated screen calls `lapisForm(` and closes every form with `buttons(` or `finish(` (at least as many closers as forms). That is ALL it checks -- it does not verify `aria-required`, the required marks, the button order or the error display; the DOM tests (`FormGrammarDomTest`, `FormGrammarAuditDomTest`, `LoginFormGrammarDomTest`, `SecretFieldDomTest`) and the design review cover those. Deliberately NOT a fingerprint ledger: the ~300 remaining fields of the W4b/W4c screens would need 300 ledger lines that turn red on every renamed variable in any of those files. Instead a strict set plus a global downward ratchet (`R24_REMAINING_MAX`, 297 when W4a landed, only ever lowered by the wave that migrates the next screens). The two webhook URL fields in `ApiKeysScreen` (W4c) are named exceptions by fingerprint
+| R24 | (W4a, extended W4b) no labelled `text(`/`password(`/`textArea(` call (a call that carries `label =`) in the 22 screens and dialogs migrated to the form grammar or in the 5 screens that have no labelled field to migrate, and (positive check) a `lapisForm(` in each migrated file, closed by `buttons(` or `finish(`; the search/filter fields of W4b are named exceptions (fingerprint, reason "a filter is not a form"). A downward ratchet (`R24_REMAINING_MAX`, 228 after W4b) covers the labelled fields outside the strict set; its floor (150) only guards against a vacuous scan
+| R24B | (W4b) the same for labelled `select(`/`checkBox(` calls -- a SECOND counter, R24 is not redefined. The strict set holds them only as named exceptions (filter, area/action selector, immediate switch, selection list); a downward ratchet (`R24B_REMAINING_MAX`, 131 after W4b) covers the rest. The factories in `FormGrammar.kt` are exempt
 | R55 | no `width = N.px` in client Kotlin (a fixed column width on a row or header cell is the mark of a pseudo-table; `maxWidth`/`minWidth` are not matched). Ledgered per file: after W3 `AuctionScreen`, `CrowdfundingScreen` and `PoliticianScreen` remain as hand-built pseudo-tables (a remainder wave, W5 in this document) and `SocialNetworkScreen` as one genuine form field (W4) -- they are not "form screens"
 | C7c | no `reportTable(` call carries sort wiring (`onSort`, `sort =`, `sortOptions`, `sortKey`, `focusSortKey`); a text check of the call's own arguments, so a sort control added by a later statement is not seen -- the runtime side is `ReportTableDomTest`
 | R54 | every selector with a `transition` is in the single `prefers-reduced-motion` block, nothing else is, and no transition is longer than 200 ms
@@ -306,7 +307,11 @@ finance forms) reuse the same building blocks.
 | Marked ONCE per form, in one of three ways (decided in `LapisForm.buttons`, where the field set is complete): (a) mixed
   (at least one required AND one optional field) -- a `*` on every required label plus the legend "* Pflichtfeld" above
   the first field; (b) three or more fields, all required -- no stars, the legend "Alle Felder sind Pflichtfelder.";
-  (c) at most two fields, all required -- neither stars nor a legend. `aria-required` is on the input in ALL three cases.
+  (c) exactly two fields, both required -- neither stars nor a legend. **A single required field is NOT case (c)** (V1.4.29
+  audit): it is marked like (a), a star plus the legend, because a lone required field without any marking is not
+  recognisable as required. Several forms in ONE dialog (the member editor has six) share a `LegendGroup`: the same legend
+  stands once, over the first form that needs it; the stars stay on every required label. `aria-required` is on the input in
+  ALL three cases.
   The star is `aria-hidden` and NOT red: an empty required field in a fresh form is not an error.
 
 | Errors
@@ -320,8 +325,12 @@ finance forms) reuse the same building blocks.
 | `blur` fires on the mousedown of a button. If the error appeared then, the button would slide down between mousedown and
   mouseup, the mouseup would land on another element and the browser would fire no `click`. So while the mouse button is
   pressed on a button (`button`, `.btn`, `role=button`) the blur check is DEFERRED and made up after the mouseup (and its
-  click). The document-level observers of a form remove themselves once the form leaves the document. Chosen over a
-  reserved error height because a message wraps differently per language and width -- a fixed height guarantees no
+  click). There is exactly ONE pair of `document` observers for the whole application (`PointerGate`), never one per form: a
+  hidden KVision modal stays in the DOM, so per-form observers would never be released. Because that gate is global and never
+  torn down it must not get stuck: a `mouseup` that never arrives (released outside the window, Alt-Tab, a context menu, a
+  cancelled pointer gesture, a drag) would otherwise defer every later blur check of the application. The window `blur`,
+  `pointercancel`, `contextmenu`, `dragend`, the pointer leaving the window and a 5 s time limit therefore release the gate
+  and run the deferred checks. Chosen over a reserved error height because a message wraps differently per language and width -- a fixed height guarantees no
   stability and leaves a gap between every pair of fields. The keyboard (Tab) is not affected: there is no mouseup to miss.
   `FormGrammarAuditDomTest.theFirstClickOnAButton_afterLeavingAnInvalidField_isNotLost` asserts the button position and
   the element under the mousedown point at mouseup time (a synthetic `.click()` cannot show the defect).
@@ -355,7 +364,9 @@ finance forms) reuse the same building blocks.
   Text`): a control write raises no `input` event, so a field error that was already showing would stay. Directly after
   `setValue` call `validate(force = false)` (the new value may be valid or invalid; an untouched field stays silent) or,
   when the field is emptied and disabled in the same step, `clearError()`. Only where no error can be showing yet (the
-  first load of saved settings) may the follow-up call be left out. This class of defect appeared three times in W4a
+  first load of saved settings) may the follow-up call be left out. Since W4b this also holds for a `Select` (`setValue` takes
+  one; the options of a select that is filled after an RPC are set on the control first, then the value through the field) and
+  for a reset of a `checkField`. This class of defect appeared three times in W4a
   (`MemberPasswordResetDialog` regenerate, `DunningSettingsScreen.updateFeeLock`,
   `ConferenceStreamDestinationsScreen.applyPlatformDefaults`); `ProgrammaticFieldWriteDomTest` and
   `SecretFieldDomTest` pin the three paths. There is no textual tripwire for it (a `.control as` cast is also a
@@ -502,6 +513,174 @@ temporary-password action is a `destructive` button; `autocomplete` and `suppres
 (`AUTH_CARD_MAX_WIDTH_PX`, `NARROW_FORM_MAX_WIDTH_PX`); the DTOs are built inside the `guarded` block; the dead cross rule
 of the receivable form is gone; six orphaned msgids were removed from the catalogs (plus the labels this audit replaced).
 
+== Wave W4b "Form grammar, part 2" (V1.4.29)
+
+The second half of the form roll-out, cut by whole files: the door check-in, the member administration (the editor modal
+with its six independent forms, the rejection of an application, direct member creation), meetings, motions, committees,
+board membership, communication, the contribution relief queue, social moderation, the statute Q&A and the shared
+confirmation dialog (`ConfirmDialog.kt`, which 14 call sites in seven files share). A pure client wave: no RPC, DTO, table
+or migration was touched and **every validation RULE is unchanged** -- the rules only became visible earlier and at the
+field. The server stays the authority.
+
+**Where are "the elections and the consensing"?** There is no screen file of that name. The vote and the resolution live in
+`MeetingsScreen` (the resolution: text, yes/no/abstain counts, status), in `MotionsScreen` (the option labels and the LTR
+stake of the systemic consensing) and, for the occupation of a committee, in `BoardMembershipScreen` and `CommitteesScreen`.
+The guideline names these places so nobody looks for a screen that does not exist.
+
+**The rule "a filter is not a form".** A search or filter field has no required state, no submit and no validation: it stays
+OUTSIDE `lapisForm`, and the tripwire holds it as a named exception with the reason "filter" (R24 for text fields, R24B for
+choice fields). Without this rule the lie moves into the test (a filter listed as a form field, or the whole screen
+exempted). The same applies to an area or action selector (which mailing list, which event) and to an immediate switch
+(the statute Q&A consent saves by itself).
+
+=== Two more factories and one parameter
+
+`selectField` and `checkField` are members of `LapisForm` (they need its private wiring) -- **and nothing else is added: no
+date or time factory** (K1). `selectField` puts hint and error slot BESIDE the `<select>`, never inside it (`Select.add()`
+delegates to the `<select>`). `checkField` treats "required" as "ticked": KVision's `CheckBox.getValueAsString()` is the
+string `"false"`, never empty, so the empty-value path of `LapisField` would make `required` silently useless. Three
+corrections to existing behaviour came with them, each pinned by a DOM test: `LapisField.setValue` takes a `Select` (the
+options of most W4b selects arrive asynchronously, and a `checkField` resets to unchecked); the listener of a select or a
+checkbox sits on `control.input` (a `blur` does not bubble to the wrapper, so blur validation of a choice field never ran);
+and every field factory takes `host: Container = panel` for the eight fields that sit in a horizontal row (inline rename,
+the door's code row, the attendance status beside the name) -- `host` must be a descendant of `form.panel`.
+
+=== Decisions this wave had to make
+
+[cols="1,3"]
+|===
+| Question | Decision
+
+| K1 -- a date factory?
+| No. `textField` with a hint ("Beispiel: 2026-03-14." / "Beispiel: 2026-08-15T18:00."), and the rule in `FormRules`
+  (`isoDate`, `localDateTime`). The format is never in a `msgid` and never in a message: "JJJJ-MM-TT" is wrong in every other
+  language, the example is right in all of them (`FormGrammarPart2I18nCatalogTest` pins both).
+
+| K2 -- the confirmation dialogs
+| Split by tier. The reason dialog (`confirmWithReasonDialog`) uses the grammar: the confirm button is NOT disabled any more
+  (a grey button without an explanation lies about the state), a click on an invalid field reports at the field and moves
+  the focus there; signature and all 14 call sites are unchanged, and `onConfirm` still receives only a non-empty, trimmed
+  reason. All three dialogs are ONE-SHOT (`ConfirmOnce`, V1.4.29 audit): the first valid click locks the button and runs
+  `onConfirm` once -- the modal stays in the DOM until its hide animation ends, so without it a second click would have run
+  `onConfirm` again (a second booking; six of the 14 call sites start an unguarded coroutine). An invalid click (an empty
+  reason) does not use it up. The two paid postal dispatch dialogs use the same lock. The typed confirmation (`confirmWithTypedConfirmationDialog`) keeps its disabled button: the line above it EXPLAINS
+  the lock, and the friction is the point of the most irreversible action.
+
+| K3 -- what is touched
+| `ConfirmDialog.kt` (a first work item, not the last) and the two W4a checkbox notes: the consent checkboxes of the two
+  registration screens, the "Aktiv" checkbox of both dunning level forms and the restore's "overwrite target" checkbox are
+  `checkField`s now, and the stream destination platform select is a `selectField` (its label was duplicated).
+
+| K4 -- the death date
+| A text field with a hint now; the native date type is a named wave of its own (see Known gaps), not a hidden gap.
+
+| K5 -- attendance rows, the invitation
+| A mini-form per person (no field is required: a select always holds a value, so no star, no legend). The invitation's
+  recipient list is a selection list, not a group of fields -- one error slot per member would be absurd -- so it stays a
+  list of checkboxes (named in R24B) with a cross rule "at least one recipient".
+
+| K6 -- how is progress measured?
+| Two counters, not one moved goalpost: R24 keeps its definition, R24B counts labelled `select`/`checkBox` calls.
+  "Programmatic writes" (row above) now covers a `Select`: `LapisField.setValue`, then `validate(force = false)`.
+
+| Which button is the `PRIMARY`?
+| One per FORM, not per modal. Two equal decisions (approve / reject) put the approval right and the rejection in the danger
+  zone under the button row (contribution relief, social moderation, the motion review); the confirmation of a removal is a
+  destructive-only form (`primary = null`). The retry of a failed relief execution runs WITHOUT validation (`runBusy`): only the
+  rejection needs the note.
+|===
+
+=== The door
+
+The ticket field is the barcode scanner at the entrance. It is a field of the grammar now (required, the local check
+`EventTicketCode.extractAndCanonicalize` as its rule, so obvious garbage is reported at the field without a round trip), but
+the fast path did not change: a scanner types the code and sends `Enter`, the `keydown` listener sends it -- also while the
+field still shows an error. After a successful check-in the field is reset (empty, no error, untouched) and focused again.
+The initial focus is registered through `addWithLifecycle` (before the widget is added), so the direct hook call of the file
+disappeared from the `ClientLateHookRatchetTest` list. At a coarse pointer the fields reach 44 px (theme.css). A real-DOM test
+drives the whole chain (`FormGrammarPart2DomTest.door_*`).
+
+**The result banner is the door's signal (V1.4.29 audit, blocking).** The local check being a field rule made it stop BEFORE the
+banner was touched: after a valid scan ("Eingecheckt: Anna Schmidt", green) a nonsense code left the green banner standing, and so
+did a network error -- the door would wave the next guest through. Now `submitCode` clears the banner before every scan, and a
+locally invalid code shows the red "Code unbekannt." in the banner as well as at the field (as the old code did). A banner patch
+re-creates the `<input>` element and keeps the focus in it; a test must look the field up again instead of holding a reference
+(`FormAuditFixesDomTest.door_*`: valid scan -> garbage -> corrected scan, and valid scan -> network error).
+
+=== Dependable double-click protection (R29)
+
+Before W4a/W4b only `ReceivableDunningSettingsScreen` of the 22 files used `runGuardedAction` (three call sites), none used
+`InlineConfirmGate`; 18 of the other 21 guarded some of their writes by hand with `button.disabled = true`, and
+`EventCheckInScreen`, `SocialModerationScreen` and `StatuteQaScreen` had no guard (the last has its own `loading` flag). A hand-set
+flag that is not released in `finally` is not a guard. `form.submit(button) { ... }` runs the action through `runBusy`, which is
+`runGuardedAction`, so the ten W4b screens that submit through a form have it. Three things the wave first claimed and the
+audit corrected:
+
+* **The dialogs.** `confirmWithReasonDialog` had no protection (its `onConfirm` is a plain callback, and the modal's button stays
+  clickable during the hide animation). The three dialogs and the two postal dispatch dialogs are one-shot now (`ConfirmOnce`).
+* **The guard itself is tested.** `runGuardedAction` returns while the button is disabled (the DOM attribute lags one render
+  behind the widget, so two fast clicks got through). `FormAuditFixesDomTest.submit_aDoubleClick_*` clicks twice at once and once
+  later against a slow request and counts one request; the dialog tests do the same for the three dialogs.
+* **A ratchet (tripwire R29).** A plain `AppScope.launch { ... rpcService<S>().write(...) }` in a migrated file, outside a
+  `runBusy`/`submit`/`runGuardedAction` block, is counted (39 today; only ever lowered). It is honest about its limits: writes are
+  told from reads by the method NAME, a hand-written guard is not seen, idempotency is not judged -- the 39 are a baseline of
+  unjudged sites, not justified exemptions.
+
+=== Not done in this wave (named)
+
+W4b2: `MemberHonorsScreen`, `MemberFamiliesScreen`, `EventsScreen`, `EventRoomsScreen`, `EventVolunteerShiftsScreen`,
+`DsgvoRightsScreen`, `DashboardScreen` (the password change). W4c: the finance forms and the screens listed under Known gaps.
+Those screens stay counted in R24/R24B.
+
+=== Audit round of wave W4b (V1.4.29)
+
+A second independent audit found one blocking and nine major defects plus smaller ones. All were fixed in the same wave.
+
+[cols="1,3"]
+|===
+| Finding | Fix
+
+| B-1 The green door banner survived a garbage scan
+| See "The door": banner cleared before every scan, red "Code unbekannt." in the banner and at the field, tested.
+
+| M-1 A mailing-list subscription without a choice
+| No preselection: an empty placeholder "-- bitte waehlen --" and `required`. The old code had no value and did nothing.
+
+| M-2 `confirmWithReasonDialog` claimed R29 and had none
+| One-shot dialogs, see R29 above; also the two paid postal dispatch dialogs.
+
+| M-3, M-5 No body tests for a dozen forms; `null` vs `""` unpinned
+| `FormSubmitBodyPart3DomTest` (28 tests) and `FormAuditFixesDomTest`: field by field, same-typed neighbours distinct, decision
+  flags `true` AND `false`, empty optional fields absent/`null`, calls attributed by their ROUTE (`routeOf`), negative cases
+  "no RPC at all". `FormSubmitBodyPart2DomTest` moved to the same attribution.
+
+| M-4 The note rule lost its tests
+| Replaced by real-form tests (`reliefDecide_*`, `reliefRetry_*`).
+
+| M-6 The guard itself was untested
+| See R29 above.
+
+| M-7 A lone required field had no marking
+| Case (c) narrowed (table above); the reason of every confirmation dialog and the relief note carry star and legend; the retry
+  panel says the note is for "Ablehnen" only.
+
+| M-8 Checkboxes below 44 px
+| Coarse-pointer rule in `theme.css` (flex row, label with 44 px, 1.5 rem box); the tripwire checks it.
+
+| M-9 Documentation
+| Known gaps completed (named counts), "five" -> six forms, the R29 statement corrected (see above), "45 files" -> 38,
+  "independent counter" -> "separate counter" (R24B shares R24's strict file set), the labels `Optionen` / `Gebuehr in EUR` without
+  bound and without "(optional)" in the msgid.
+|===
+
+Also: the tripwire floors are the ratchet minus five (were 150 and 80, far below the real 225/131); `R24_JUSTIFIED` and
+`R24B_JUSTIFIED` are multisets (a second identical call is a finding; it exposed a second identical filter line in
+`SocialModerationScreen`); the fingerprints of three multi-line exceptions carry their label; `FormGrammar.kt` is in the strict
+set; the catalog scan resolves `tr(CONSTANT)`; the non-required `valueOf` calls fail safe; the checkbox `change` clears an error at
+once (tested, no timer). **Deliberately not changed:** an `upload(label = ...)` and the unlabelled `modal.text()` of the typed
+confirmation stay outside the scanners; the 32 old empty `msgstr` entries predate the wave; the member picker of the committee and
+the board appointment keeps its preselected first member (the old code did the same).
+
 == Rule precedence: attributes and `gettext`
 
 The guideline (section 2.14) says `tr()` only as widget content and, for attributes (`title`, `aria-label`,
@@ -514,9 +693,29 @@ through `resolvedAttributeText` (marker stripped AND translated).
 
 == Known gaps
 
+* W4b: **W4c runs on the old grammar** -- the finance forms (ledger, open items, SEPA batches and mandates, donors, cost
+  centers, bank accounts and statement import, documents, travel expense and volunteer allowance forms and their approvals,
+  payment transactions, price oracle, politician, conference, dunning cases, financial reports, the webhook fields of
+  `ApiKeysScreen`, the organisation settings) and the CRM, the DSGVO compliance screen, social network, catering, auction,
+  crowdfunding, donation checkout, audit log and contributions screens (W4b2/W4c).
+* W4b: **an event or an honour form is not yet on the grammar**: `MemberHonorsScreen`, `MemberFamiliesScreen`,
+  `EventsScreen`, `EventRoomsScreen`, `EventVolunteerShiftsScreen`, `DsgvoRightsScreen` and `DashboardScreen` (the password
+  change) are W4b2 -- a half migrated screen is worse than an unmigrated one (two grammars in one file), so the wave was cut
+  by whole files, decided at the start (about 118 more catalog entries in eight files, the bottleneck of this wave, not the code).
+* W4b: **a native date input type is a named wave of its own.** The death date, the meeting time and the like are still text
+  fields with the example in the hint ("Beispiel: 2026-03-14."), because a `type="date"` field renders in the browser's
+  locale and needs a date/time factory the grammar deliberately does not have (K1).
+* W4b: pressing Enter does not submit anywhere except the door check-in (its `keydown` listener is the barcode-scanner
+  path). The forms are still no `<form>` elements.
+* W4b: `confirmWithTypedConfirmationDialog` keeps its unlabelled typing field and its disabled button on purpose (K2); the
+  two `PostalMailScreen` confirmation modals stay bespoke (the recipient and document lists sit in the body; they already
+  follow the grammar of an irreversible action).
+* W4b: R28 (exactly one `PRIMARY` per form) stays a check by eye. It applies per FORM, not per modal: the member editor holds
+  five forms with five `PRIMARY` buttons on purpose.
+* W4b: the `aria-*` attributes set imperatively do not follow a running language switch (W4a gap, not widened).
 * 23 of 67 screens are migrated to the table grammar (3 in W1, 11 in W2, 9 in W3); the ledger shows the rest. The FORM
-  grammar reaches 11 screens and dialogs (W4a); the other ~54 files with labelled fields (about 300 fields, R24 ratchet)
-  are W4b/W4c.
+  grammar reaches 22 screens and dialogs (11 in W4a, 11 in W4b); 228 labelled text fields (R24) and 131 labelled choice
+  fields (R24B) remain in about 45 files: the seven W4b screens named in the W4b section (W4b2) and the finance forms (W4c).
 * W4a: an error message set from `gettext(...)` follows a language switch only at the next check (it is an imperatively
   set text); labels, legends and hints (`tr(...)`) follow immediately.
 * W4a: `autocomplete="off"` on a password field is browser dependent; the password-manager attributes are a request, not
@@ -551,9 +750,7 @@ through `resolvedAttributeText` (marker stripped AND translated).
 * `ContributionsScreen`: amounts are not formatted with `moneySpan`, the organisation table shows the raw status enum,
   text buttons remain in action cells, the 760 px root remains -- NOT closed by W2 (that wave covered the eleven
   files with a non-compliant raw `table(` call; `ContributionsScreen` was already on `dataTable` since W1).
-* `MemberAdministrationScreen.kt` carries about 80 German `tr()`/`gettext()` literals (68 distinct msgids) without a
-  catalog entry -- old debt (R51), scheduled with W5 and NOT translated in this wave. `UiFoundationI18nCatalogTest`
-  deliberately does not scan the file as a whole, so these gaps are invisible to the tests.
+* `MemberAdministrationScreen.kt`'s literals without a catalog entry (old R51 debt) were translated in W4b (see there); `UiFoundationI18nCatalogTest` still does not scan the file as a whole, `FormGrammarPart2I18nCatalogTest` does.
 * The status chips of the roster have no active state and no `aria-pressed` (R20/R48, W2; `segmentedControl` is the
   intended replacement).
 * R9 debt: the whiteboard paper colour (a document colour) and three `rgba()` overlay-chip backgrounds in

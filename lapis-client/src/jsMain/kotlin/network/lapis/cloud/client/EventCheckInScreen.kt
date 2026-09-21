@@ -1,6 +1,10 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Widget
+import io.kvision.core.onEvent
+import io.kvision.form.text.Text
 import io.kvision.form.text.text
+import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -12,6 +16,7 @@ import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
+import io.kvision.panel.HPanel
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -30,7 +35,6 @@ import network.lapis.cloud.shared.domain.EventTicketCode
 import network.lapis.cloud.shared.rpc.IEventService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.events.KeyboardEvent
 
 /**
  * Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- the door. Design decisions (see the wave
@@ -84,9 +88,35 @@ fun renderEventCheckInScreen(
 
     val resultBanner = root.div("") { hide() }
 
-    val codeRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end") }
-    val codeField = codeRow.text(label = tr("Ticket-Code"))
+    // Welle V1.4.29 (W4b): Das Ticket-Feld ist ein Feld der Formular-Grammatik -- und der Barcode-Scanner an der Tür.
+    // Ein Scanner tippt den Code und sendet `Enter`: das bleibt der schnelle Weg (unten, `keydown`), auch wenn das Feld gerade
+    // einen Fehler zeigt. Der Startfokus kommt über [addWithLifecycle] (Hook VOR dem Einhängen), nicht über einen späten
+    // `addAfterInsertHook` (ClientLateHookRatchetTest).
+    val codeForm = root.lapisForm()
+    val codeRow = HPanel(spacing = 8) { addCssClasses("align-items-end") }
+    val codeField =
+        codeForm.textField(
+            label = tr("Ticket-Code"),
+            required = true,
+            autocomplete = Autocomplete.OFF,
+            host = codeRow,
+            rule = { ticketCodeCheck(it) },
+            init = { control ->
+                control.placeholder = "ABCD-EFGH-JKMN-PQRS"
+                // Am <input> selbst (nicht am Wrapper des Controls): nur dort wirken Autokorrektur- und Großschreibungs-Bitten.
+                (control.input as? Widget)?.let { input ->
+                    input.setAttribute("autocapitalize", "characters")
+                    input.setAttribute("spellcheck", "false")
+                }
+            },
+        )
     val codeSubmitButton = codeRow.button(tr("Prüfen"), style = ButtonStyle.PRIMARY)
+    // The row is complete (field and button inside) BEFORE it is added, so the insert hook finds the input.
+    codeForm.panel.addWithLifecycle(
+        widget = codeRow,
+        onInsert = { vnode -> ((vnode.elm as? HTMLElement)?.querySelector("input") as? HTMLInputElement)?.focus() },
+    )
+    codeForm.finish()
 
     val searchField = root.text(label = tr("Name suchen"))
     val listPanel = root.vPanel(spacing = 4)
@@ -185,37 +215,48 @@ fun renderEventCheckInScreen(
         }
     }
 
+    /** Räumt den Ergebnis-Banner: er ist das Bediensignal der Tür und darf nie das Ergebnis des VORIGEN Scans zeigen. */
+    fun clearResult() {
+        resultBanner.hide()
+        resultBanner.content = ""
+        resultBanner.removeCssClass("alert-success")
+        resultBanner.removeCssClass("alert-secondary")
+        resultBanner.removeCssClass("alert-warning")
+        resultBanner.removeCssClass("alert-danger")
+    }
+
     fun submitCode() {
-        val raw = codeField.value.orEmpty()
-        // Local pre-validation with the SAME grammar the server applies -- rejects obvious garbage
-        // without a round-trip (EventTicketCode is shared commonMain, see its own KDoc).
-        if (EventTicketCode.extractAndCanonicalize(raw) == null) {
+        // Ein zweiter Scan, während der erste noch unterwegs ist, wird nicht doppelt gesendet.
+        if (codeSubmitButton.disabled) return
+        // Der Banner wird VOR jedem Absenden geräumt: nach einem gültigen Scan ("Eingecheckt: Anna") darf ein Unsinn-Code oder ein
+        // Netzfehler den grünen Banner nicht stehen lassen -- die Tür würde den nächsten Gast durchwinken.
+        clearResult()
+        // Die lokale Vorprüfung (dieselbe Grammatik wie auf dem Server, `EventTicketCode` ist shared commonMain) ist die Feldregel:
+        // offensichtlicher Unsinn wird am Feld gemeldet, ohne Round-Trip. ZUSÄTZLICH zeigt der Banner wie früher das rote
+        // "Code unbekannt." -- der Banner ist das Signal, auf das die Tür schaut, nicht das Feld.
+        if (!codeForm.validateAndReport()) {
             renderResult(EventCheckInResultDto(outcome = EventCheckInOutcome.UNKNOWN_CODE))
             return
         }
-        AppScope.launch {
-            val result = guarded { rpcService<IEventService>().checkInByCode(eventId = eventId, code = raw) } ?: return@launch
-            codeField.value = ""
+        codeForm.runBusy(codeSubmitButton) {
+            val raw = codeField.value
+            val result = guarded { rpcService<IEventService>().checkInByCode(eventId = eventId, code = raw) } ?: return@runBusy
+            // `reset()` statt `value = ""`: räumt auch Fehler und Berührt-Zustand; der Fokus zurück ins Feld, sonst tippt der
+            // nächste Scan ins Leere.
+            codeField.reset()
+            codeField.focus()
             renderResult(result)
             refreshRoster()
         }
     }
     codeSubmitButton.onClick { submitCode() }
-    codeRow.addAfterInsertHook { vnode ->
-        val rowElement = vnode.elm as? HTMLElement
-        val inputElement = rowElement?.querySelector("input") as? HTMLInputElement
-        inputElement?.setAttribute("placeholder", "ABCD-EFGH-JKMN-PQRS")
-        inputElement?.setAttribute("autocapitalize", "characters")
-        inputElement?.setAttribute("autocomplete", "off")
-        inputElement?.setAttribute("spellcheck", "false")
-        inputElement?.focus()
-        inputElement?.addEventListener("keydown", { event ->
-            val keyEvent = event as? KeyboardEvent
-            if (keyEvent?.key == "Enter") {
-                keyEvent.preventDefault()
+    (codeField.control as Text).onEvent {
+        keydown = { event ->
+            if (event.key == "Enter") {
+                event.preventDefault()
                 submitCode()
             }
-        })
+        }
     }
 
     searchField.subscribe { value -> renderRoster(value.orEmpty()) }
@@ -372,53 +413,59 @@ private fun renderInvoiceLine(
  * `IEventService.issueEventInvoice` KDoc) since a non-positive value would otherwise round-trip
  * into a `BadRequestException` toast with no field-level indication of what was wrong.
  */
-private fun eventInvoiceModal(
+internal fun eventInvoiceModal(
     row: EventCheckInRowDto,
     onIssued: () -> Unit,
 ) {
     val modal = Modal(caption = gettext("Rechnung stellen: %1", row.displayName))
-    val streetInput = modal.text(label = tr("Straße (optional)"))
-    val postalCodeInput = modal.text(label = tr("PLZ (optional)"))
-    val cityInput = modal.text(label = tr("Ort (optional)"))
-    val countryInput = modal.text(label = tr("Land (optional)"))
-    val dueInDaysInput = modal.text(label = tr("Fälligkeitsfrist (Tage)")).apply { value = "14" }
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    // Formular-Grammatik (V1.4.29): die Rechnungsanschrift ist optional (spiegelt [EventInvoiceRequestDto]), nur die
+    // Fälligkeitsfrist ist Pflicht => Fall (a), Stern nur an der Frist. Kein "(optional)" im Label.
+    val form = modal.lapisForm()
+    val streetField = form.textField(label = tr("Straße"))
+    val postalCodeField = form.textField(label = tr("PLZ"))
+    val cityField = form.textField(label = tr("Ort"))
+    val countryField = form.textField(label = tr("Land"))
+    val dueInDaysField =
+        form.textField(
+            label = tr("Fälligkeitsfrist (Tage)"),
+            value = "14",
+            required = true,
+            rule = { value ->
+                if ((value.trim().toIntOrNull() ?: 0) > 0) {
+                    FieldCheck.Ok
+                } else {
+                    FieldCheck.Invalid(gettext("Fälligkeitsfrist muss eine positive Zahl von Tagen sein."))
+                }
+            },
+        )
+    form.finish()
 
+    val submitButton = Button(tr("Rechnung stellen"), style = ButtonStyle.PRIMARY)
+    submitButton.onClick {
+        form.submit(submitButton) {
+            val input =
+                EventInvoiceRequestDto(
+                    registrationId = row.registrationId,
+                    billingStreet = streetField.value.trim().takeIf { it.isNotBlank() },
+                    billingPostalCode = postalCodeField.value.trim().takeIf { it.isNotBlank() },
+                    billingCity = cityField.value.trim().takeIf { it.isNotBlank() },
+                    billingCountry = countryField.value.trim().takeIf { it.isNotBlank() },
+                    dueInDays = dueInDaysField.value.trim().toInt(),
+                )
+            guarded { rpcService<IEventService>().issueEventInvoice(input) } ?: return@submit
+            modal.hide()
+            notifySuccess(tr("Rechnung wurde gestellt."))
+            onIssued()
+        }
+    }
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Rechnung stellen"), style = ButtonStyle.PRIMARY).apply {
-            onClick {
-                errorBox.hide()
-                val dueInDays = dueInDaysInput.value?.trim()?.toIntOrNull()
-                if (dueInDays == null || dueInDays <= 0) {
-                    errorBox.content = tr("Fälligkeitsfrist muss eine positive Zahl von Tagen sein.")
-                    errorBox.show()
-                    return@onClick
-                }
-                val input =
-                    EventInvoiceRequestDto(
-                        registrationId = row.registrationId,
-                        billingStreet = streetInput.value?.trim()?.takeIf { it.isNotBlank() },
-                        billingPostalCode = postalCodeInput.value?.trim()?.takeIf { it.isNotBlank() },
-                        billingCity = cityInput.value?.trim()?.takeIf { it.isNotBlank() },
-                        billingCountry = countryInput.value?.trim()?.takeIf { it.isNotBlank() },
-                        dueInDays = dueInDays,
-                    )
-                AppScope.launch {
-                    guarded { rpcService<IEventService>().issueEventInvoice(input) } ?: return@launch
-                    modal.hide()
-                    notifySuccess(tr("Rechnung wurde gestellt."))
-                    onIssued()
-                }
-            }
-        },
-    )
+    modal.addButton(submitButton)
     modal.show()
 }
+
+/** Feldregel des Ticket-Felds: dieselbe Grammatik wie der Server (`EventTicketCode`), damit offensichtlicher Unsinn keinen Round-Trip braucht. */
+internal fun ticketCodeCheck(raw: String): FieldCheck =
+    if (EventTicketCode.extractAndCanonicalize(raw) == null) FieldCheck.Invalid(gettext("Code unbekannt.")) else FieldCheck.Ok
 
 /** Outcome/status -> (Bootstrap-Farbe, deutsches Label) -- [statusBadge]'s own WCAG-1.4.1-Farbe-ist-nie-das-einzige-Signal-Regel gilt auch hier. */
 private fun statusBadgeSpec(row: EventCheckInRowDto): Pair<String, String> =

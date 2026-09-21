@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
-import io.kvision.form.check.checkBox
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -100,19 +99,13 @@ private fun renderFriendRegistrationForm(
     form.crossFieldRule(field = confirmPasswordField) {
         FormRules.passwordsMatch(password = passwordField.value, confirmation = confirmPasswordField.value)
     }
-    // Die Zustimmung bleibt eine Checkbox (KVisions CheckBox rendert Label und Fehlerzustand anders): `aria-required` am
-    // Input, die Prüfung als Querregel mit Meldung in der Sammelfläche und Fokus auf die Checkbox.
-    val agreeCheck = form.panel.checkBox(label = tr("Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere sie."))
-    agreeCheck.markAriaRequired()
-    form.crossFieldRule(focusOn = agreeCheck.input) {
-        if (agreeCheck.value) {
-            FieldCheck.Ok
-        } else {
-            FieldCheck.Invalid(
-                gettext("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."),
-            )
-        }
-    }
+    // Die Zustimmung ist ein Feld der Grammatik (V1.4.29, `checkField`): Pflicht heißt "angekreuzt", der Fehler steht AM Feld
+    // (nicht mehr in der Sammelfläche), `aria-required` setzt der Baustein.
+    form.checkField(
+        label = tr("Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere sie."),
+        required = true,
+        requiredMessage = gettext("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."),
+    )
 
     val submitButton = Button(tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton)

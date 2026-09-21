@@ -20,6 +20,13 @@ internal class RecordedRequest(
 
     val isRpc: Boolean get() = url.contains("/rpc/")
 
+    /**
+     * Kilua RPC: the route the call went to (`/rpc/route<Service>Manager<n>`, the `method` of the JSON-RPC body). It IDENTIFIES the
+     * called service method -- unlike the parameter count, which several methods share. The index `<n>` is not stable across
+     * interface changes, so a test never hard-codes it: it asks [routeOf] for the route of a method by calling that method.
+     */
+    val rpcRoute: String get() = json.method as String
+
     /** Kilua RPC: parameter [index] parsed from its own JSON string. */
     fun rpcParam(index: Int): dynamic = JSON.parse<dynamic>(json.params[index] as String)
 }
@@ -118,4 +125,27 @@ internal suspend fun awaitUntil(
         waited += 20
     }
     kotlin.test.assertTrue(condition(), "timeout: $message")
+}
+
+/**
+ * The route [call] goes to (see [RecordedRequest.rpcRoute]), learned by actually performing it against a private stub. The call is a
+ * direct reference to the service method, so the compiler checks the name and a renamed/removed method breaks this test at build time
+ * instead of silently matching nothing. Use dummy arguments; the outer stub (if any) is restored afterwards.
+ */
+internal suspend fun routeOf(call: suspend () -> Unit): String {
+    var route = ""
+    withFetchStub(
+        respond = { request ->
+            if (request.isRpc) route = request.rpcRoute
+            StubResponse(networkError = true)
+        },
+    ) {
+        try {
+            call()
+        } catch (ignored: Throwable) {
+            // The answer is a dropped connection on purpose: only the outgoing request matters.
+        }
+    }
+    kotlin.test.assertTrue(route.isNotEmpty(), "routeOf: the call sent no RPC request")
+    return route
 }

@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Overflow
+import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.text.Text
 import io.kvision.html.Button
@@ -384,7 +385,7 @@ internal fun renderDunningLevelForm(
         )
     val feeField =
         form.textField(
-            label = tr("Gebühr in EUR (optional)"),
+            label = tr("Gebühr in EUR"),
             value = existing?.feeAmount?.toString(),
             hint = gettext("Höchstens %1.", feeBound(MAX_DUNNING_FEE_AMOUNT)),
             rule = { dunningFeeCheck(it) },
@@ -404,9 +405,9 @@ internal fun renderDunningLevelForm(
     // UI counterpart, and re-creating the level number after deactivation is blocked server-side
     // by the active-agnostic duplicate check in `createDunningLevel`/`updateDunningLevel`). Only
     // shown when editing -- a freshly created level is always active.
-    val activeCheck =
+    val activeField =
         if (existing != null) {
-            form.panel.checkBox(value = existing.active, label = tr("Aktiv"))
+            form.checkField(value = existing.active, label = tr("Aktiv"))
         } else {
             null
         }
@@ -480,7 +481,7 @@ internal fun renderDunningLevelForm(
                             graceDays = graceDaysField.value,
                             responseDays = responseDaysField.value,
                             fee = parseFee(),
-                            active = activeCheck?.value ?: true,
+                            active = (activeField?.control as CheckBox?)?.value ?: true,
                         )
                     if (existing == null) {
                         rpcService<IDunningService>().createDunningLevel(input)
