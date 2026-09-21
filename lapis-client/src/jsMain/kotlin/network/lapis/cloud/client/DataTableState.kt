@@ -233,6 +233,61 @@ fun <T> resolveDataViewState(
     }
 }
 
+/**
+ * Der Trefferzähler über einer Datentabelle -- EINE Funktion für die drei Ladeformen dieses Clients
+ * (Richtlinie 2.4: „Bei geladener Teilmenge muss der Text sagen, dass gezählt wird, was geladen ist").
+ * Welle V1.4.26 (W2), pur und testbar -- siehe `DataCountTextTest`.
+ *
+ * - **[filtered] = true** (ein clientseitiger Filter/eine Suche ist aktiv): „%1 von %2 geladenen Einträgen
+ *   angezeigt". [hasMore] hängt den Satz an, dass Filter und Suche nur auf die geladenen Zeilen wirken.
+ *   Vorbild ist `OpenItemsScreen`s eigener Zähler, der genau diese Falle benennt: ein reiner „0 von 40"-
+ *   Zähler über einer clientseitig gefilterten Teilmenge liest sich wie „gibt es nicht", obwohl die
+ *   gesuchte Zeile auf Seite 3 liegen kann.
+ * - **kein Filter, [total] bekannt** (Offset-Paginierung): „12 von 40 Einträgen geladen".
+ * - **kein Filter, [total] unbekannt** (Cursor-Chronologie): „12 Einträge geladen", mit [hasMore] plus dem
+ *   Hinweis, dass weitere auf dem Server liegen. Ein „12 von 12" wäre hier eine Behauptung über eine
+ *   Gesamtzahl, die der Client nicht kennt.
+ *
+ * Die Teile laufen über `gettext` (nicht `tr`), weil sie zu einem String zusammengesetzt werden: ein
+ * `tr()`-Ergebnis in einer Verkettung würde den zusammengesetzten Text im Katalog suchen und nichts finden
+ * (Richtlinie 2.14, `ClientTrAttributeLeakTest`).
+ */
+fun dataCountText(
+    shown: Int,
+    loaded: Int,
+    total: Int? = null,
+    hasMore: Boolean = false,
+    filtered: Boolean = false,
+): String =
+    when {
+        filtered -> {
+            val counted = gettext("%1 von %2 geladenen Einträgen angezeigt", shown, loaded)
+            if (hasMore) {
+                counted + " · " +
+                    gettext("Weitere Einträge liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen.")
+            } else {
+                counted
+            }
+        }
+        total != null -> gettext("%1 von %2 Einträgen geladen", loaded, total)
+        hasMore -> gettext("%1 Einträge geladen", loaded) + " · " + gettext("Weitere Einträge liegen noch auf dem Server.")
+        else -> gettext("%1 Einträge geladen", loaded)
+    }
+
+/**
+ * „Nichts gefunden" für eine clientseitig gefilterte, geladene Teilmenge -- getrennt vom „noch keine
+ * Daten"-Satz (Richtlinie 2.4). Mit [hasMore] sagt der Text zusätzlich, was hilft (nachladen), statt den
+ * Leser vor einer Sackgasse stehen zu lassen.
+ */
+fun loadedSubsetNoMatchText(
+    term: String,
+    hasMore: Boolean,
+): String {
+    val quoted = gettext("Kein geladener Eintrag passt zu \"%1\".", term)
+    if (!hasMore) return quoted
+    return quoted + " " + gettext("Weitere Einträge nachladen und erneut suchen.")
+}
+
 /** The one media query that switches a [dataTable] between table and card list (max-width 767.98px). */
 internal const val CARD_LIST_MEDIA_QUERY = "(max-width: 767.98px)"
 

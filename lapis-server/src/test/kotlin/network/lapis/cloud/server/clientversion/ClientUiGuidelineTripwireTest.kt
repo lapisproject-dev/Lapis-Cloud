@@ -84,94 +84,32 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
             ),
         R14 to
             mapOf(
-                // W3 accounting / banking
+                // W3 accounting export
                 "AccountingExportScreen.kt" to
                     listOf(
                         "itemsPanel.table(",
                         "panel.table(",
                         "panel.table(",
                     ),
-                // W3 accounting / banking
-                "BankAccountsScreen.kt" to
-                    listOf(
-                        "val table = tableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
-                    ),
-                // W3 accounting / banking
+                // W3 banking
                 "BankStatementImportScreen.kt" to
                     listOf(
                         "lineTable = lineTableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
                     ),
-                // W3 accounting / banking
+                // W3 cost centres (the screen also carries the pseudo-table report part)
                 "CostCentersScreen.kt" to
                     listOf(
                         "listPanel.table(",
                     ),
-                // W3 accounting / banking
-                "DonorsScreen.kt" to
-                    listOf(
-                        "listPanel.table(",
-                    ),
-                // W4 dunning
-                "DunningCasesScreen.kt" to
-                    listOf(
-                        "listPanel.table(",
-                        "panel.table(",
-                    ),
-                // W4 dunning
+                // W4 dunning settings
                 "DunningSettingsScreen.kt" to
                     listOf(
                         "listPanel.table(",
                     ),
-                // W3 accounting / banking
-                "LedgerScreen.kt" to
-                    listOf(
-                        "accountListPanel.table(",
-                        "journalListPanel.table(",
-                        "panel.table(",
-                    ),
-                // W2 member area
-                "MemberAnniversariesScreen.kt" to
-                    listOf(
-                        "resultPanel.table(",
-                    ),
-                // W2 member area
-                "MemberFamiliesScreen.kt" to
-                    listOf(
-                        "body.table(",
-                        "table ?: listPanel .table(",
-                    ),
-                // W2 member area
-                "MemberFinancialHistoryScreen.kt" to
-                    listOf(
-                        "tableWrapper.table(",
-                    ),
-                // W2 member area
-                "MemberHonorsScreen.kt" to
-                    listOf(
-                        "table ?: listPanel .table(",
-                    ),
-                // W3 accounting / banking
-                "PaymentTransactionsScreen.kt" to
-                    listOf(
-                        "tableHost.table(",
-                    ),
-                // W4 dunning
+                // W4 receivable dunning settings
                 "ReceivableDunningSettingsScreen.kt" to
                     listOf(
                         "listPanel.table(",
-                    ),
-                // W3 accounting / banking
-                "SepaBatchesScreen.kt" to
-                    listOf(
-                        "currentTable ?: listPanel .table(",
-                        "panel.table(",
-                        "panel.table(",
-                        "returnsPanel.table(",
-                    ),
-                // W3 accounting / banking
-                "SepaMandatesScreen.kt" to
-                    listOf(
-                        "currentTable ?: listPanel .table(",
                     ),
                 // W5 admin / integrations
                 "WebhookDeliveryLogPanel.kt" to
@@ -181,53 +119,22 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
             ),
         R15 to
             mapOf(
-                // W3 accounting / banking
+                // W3 accounting export
                 "AccountingExportScreen.kt" to
                     listOf(
                         "itemsPanel.table(",
                         "panel.table(",
                         "panel.table(",
                     ),
-                // W3 accounting / banking
-                "BankAccountsScreen.kt" to
-                    listOf(
-                        "val table = tableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
-                    ),
-                // W3 accounting / banking
+                // W3 banking
                 "BankStatementImportScreen.kt" to
                     listOf(
                         "lineTable = lineTableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
                     ),
-                // W4 dunning
+                // W4 dunning settings
                 "DunningSettingsScreen.kt" to
                     listOf(
                         "listPanel.table(",
-                    ),
-                // W2 member area
-                "MemberAnniversariesScreen.kt" to
-                    listOf(
-                        "resultPanel.table(",
-                    ),
-                // W2 member area
-                "MemberFamiliesScreen.kt" to
-                    listOf(
-                        "body.table(",
-                        "table ?: listPanel .table(",
-                    ),
-                // W2 member area
-                "MemberFinancialHistoryScreen.kt" to
-                    listOf(
-                        "tableWrapper.table(",
-                    ),
-                // W2 member area
-                "MemberHonorsScreen.kt" to
-                    listOf(
-                        "table ?: listPanel .table(",
-                    ),
-                // W3 accounting / banking
-                "PaymentTransactionsScreen.kt" to
-                    listOf(
-                        "tableHost.table(",
                     ),
                 // W5 admin / integrations
                 "WebhookDeliveryLogPanel.kt" to
@@ -254,18 +161,6 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                         "val micButton = controlsRow.button(\"\", icon = \"fas fa-microphone\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val moreToggleButton = controlsRow.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
-                    ),
-                // W2 member area
-                "MemberFamiliesScreen.kt" to
-                    listOf(
-                        "val openButton = actionsCell.button(\"\", icon = \"fas fa-arrow-right\", style = ButtonStyle.OUTLINEPRIMARY)",
-                        "val removeButton = actionsCell.button(\"\", icon = \"fas fa-user-minus\", style = ButtonStyle.OUTLINEDANGER)",
-                    ),
-                // W2 member area
-                "MemberHonorsScreen.kt" to
-                    listOf(
-                        "val deleteButton = actionsCell.button(\"\", icon = \"fas fa-trash\", style = ButtonStyle.OUTLINEDANGER)",
-                        "val editButton = actionsCell.button(\"\", icon = \"fas fa-pen\", style = ButtonStyle.OUTLINEPRIMARY)",
                     ),
                 // W2 member area
                 "MemberPasswordResetDialog.kt" to
@@ -668,8 +563,8 @@ class ClientUiGuidelineTripwireTest :
             }
         }
 
-        test("R14/R15 see every table( call of the client, also the ones broken before the dot (27 including the standardTable helper)") {
-            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 27
+        test("R14/R15 see every table( call of the client, also the ones broken before the dot (9 including the standardTable helper)") {
+            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 9
         }
 
         test("R39 justified exemption is still needed (a stale exemption must go)") {

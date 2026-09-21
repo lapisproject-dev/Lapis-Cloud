@@ -12347,3 +12347,159 @@ msgstr "Отсортировано по %1 по убыванию"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:314
 msgid "Alle (%1)"
 msgstr "Все (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "%1 Einträge geladen"
+msgstr "Загружено записей: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "%1 von %2 Einträgen geladen"
+msgstr "Загружено %1 из %2 записей"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "%1 von %2 geladenen Einträgen angezeigt"
+msgstr "Показано %1 из %2 загруженных записей"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt
+msgid "Alle Zahlungseingänge sind gebucht."
+msgstr "Все поступившие платежи проведены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt
+msgid "Bankkonto %1 (%2) löschen? Bereits gebuchte Kontoauszüge bleiben erhalten."
+msgstr "Удалить банковский счёт %1 (%2)? Уже проведённые выписки сохранятся."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt
+msgid "Bankkonto löschen"
+msgstr "Удалить банковский счёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Buchung suchen (Beschreibung)"
+msgstr "Поиск проводки (описание)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Geburtstage"
+msgstr "Дни рождения"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "In diesem Zeitraum stehen keine Geburtstage oder Jubiläen an."
+msgstr "В этом периоде нет дней рождения и юбилеев."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "In diesem Zeitraum steht kein Geburtstag an."
+msgstr "В этом периоде нет дней рождения."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "In diesem Zeitraum steht kein Jubiläum an."
+msgstr "В этом периоде нет юбилеев."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Jubiläen"
+msgstr "Юбилеи"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Kein Eintrag passt zu den gewählten Filtern."
+msgstr "Ни одна запись не соответствует выбранным фильтрам."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt
+msgid "Kein Mandat mit dem Status \"%1\"."
+msgstr "Нет мандатов со статусом \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt
+msgid "Kein aktiver externer Spender vorhanden. Inaktive Spender einblenden, um auch stillgelegte zu sehen."
+msgstr "Нет активных внешних жертвователей. Включите показ неактивных, чтобы увидеть отключённых."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Kein aktives Konto vorhanden. Inaktive Konten einblenden, um auch stillgelegte zu sehen."
+msgstr "Нет активных счетов. Включите показ неактивных счетов, чтобы увидеть отключённые."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Kein geladener Eintrag passt zu \"%1\"."
+msgstr "Ни одна загруженная запись не соответствует \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt
+msgid "Kein offener Mahnvorgang."
+msgstr "Нет открытых дел по напоминаниям."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Keine Buchung mit dem Status \"%1\" im gewählten Zeitraum."
+msgstr "Нет проводок со статусом \"%1\" в выбранном периоде."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Keine Buchung mit dem Status \"%1\"."
+msgstr "Нет проводок со статусом \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Keine Buchung passt zu \"%1\"."
+msgstr "Ни одна проводка не соответствует \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt
+msgid "Keine Familie passt zu \"%1\"."
+msgstr "Ни одна семья не соответствует \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt
+msgid "Keine Rücklastschrift im gewählten Zeitraum."
+msgstr "Нет возвратов списаний в выбранном периоде."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt
+msgid "Noch kein Bankkonto angelegt."
+msgstr "Банковский счёт ещё не создан."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt
+msgid "Noch kein SEPA-Lauf angelegt."
+msgstr "Пакет SEPA ещё не создан."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Noch keine Buchungen erfasst."
+msgstr "Проводки ещё не внесены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt
+msgid "Noch keine Mahnvorgänge erfasst."
+msgstr "Дела по напоминаниям ещё не внесены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt
+msgid "Noch keine Rücklastschriften erfasst."
+msgstr "Возвраты списаний ещё не внесены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt
+msgid "Noch keine SEPA-Mandate erfasst."
+msgstr "Мандаты SEPA ещё не внесены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt
+msgid "Noch keine Zahlungseingänge erfasst."
+msgstr "Поступления платежей ещё не внесены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt
+msgid "Suche nach Familienname oder Zahler"
+msgstr "Поиск по названию семьи или плательщику"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt
+msgid "Suche nach Mitglied"
+msgstr "Поиск по участнику"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt
+msgid "Suche nach Mitglied oder Hinweis"
+msgstr "Поиск по участнику или примечанию"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt
+msgid "Suche nach Mitglied oder Mandatsreferenz"
+msgstr "Поиск по участнику или номеру мандата"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
+msgid "Suche nach Titel oder Mitglied"
+msgstr "Поиск по названию или участнику"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Weitere Einträge liegen noch auf dem Server."
+msgstr "На сервере есть ещё записи."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Weitere Einträge liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen."
+msgstr "На сервере есть ещё записи; фильтры и поиск действуют только на загруженные строки."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Weitere Einträge nachladen und erneut suchen."
+msgstr "Загрузите больше записей и повторите поиск."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
+msgid "Keine Ehrung in der Kategorie \"%1\"."
+msgstr "Нет наград в категории \"%1\"."

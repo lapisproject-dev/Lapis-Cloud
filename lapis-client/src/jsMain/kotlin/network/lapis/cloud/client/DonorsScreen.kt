@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
@@ -9,17 +10,12 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -82,7 +78,7 @@ import kotlin.time.Clock
 fun renderDonorsScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
-    val root = container.dataScreenRoot(spacing = 14)
+    val root = container.dataScreenRoot()
     root.h1(tr("Spender"))
     root.div(
         tr(
@@ -96,10 +92,12 @@ fun renderDonorsScreen(container: SimplePanel) {
     root.h2(tr("Externe Spender"))
     // Design-Team-Welle 2026-09-18: Live-Suche analog `LedgerScreen.kt`s Kontenplan-Suche -- rein
     // clientseitige Filterung ueber `displayName`, kein RPC-Roundtrip pro Tastendruck.
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val donorSearchInput = filterRow.text(label = tr("Spender suchen (Name)"))
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Spender anzeigen"))
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val countsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
 
     root.h2(tr("Spenderdetails"))
@@ -141,45 +139,85 @@ fun renderDonorsScreen(container: SimplePanel) {
     // als `onChanged` an jede Zeile weiter, `refreshList` ruft seinerseits `renderDonorList`.
     var refreshList: () -> Unit = {}
 
+    var generation = 0
+    var loading = false
+    // Fehlerzustand des Abrufs: solange er steht, darf die Suche ihn weder wegzeichnen noch die Liste des
+    // vorigen Filters darüber malen.
+    var failed = false
+
     fun renderDonorList(query: String) {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): während eines laufenden Abrufs sagt allein die
+        // Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld die zuletzt
+        // geladene (jetzt veraltete) Liste unter den Ladehinweis -- zwei Zustände gleichzeitig.
+        if (loading) return
+        // Der Fehlerkasten mit `Erneut versuchen` bleibt stehen.
+        if (failed) return
         listPanel.removeAll()
         if (loadedDonors.isEmpty()) {
-            listPanel.p(tr("Noch keine externen Spender angelegt."))
+            countsLabel.content = ""
+            // Welle V1.4.26 (W2): der Leertext nennt jetzt auch, welcher Ausschnitt gemeint ist -- eine
+            // leere Liste bei aktivem „nur aktive"-Filter heisst nicht „noch keine Spender angelegt".
+            val text =
+                if (includeInactiveCheck.value) {
+                    tr("Noch keine externen Spender angelegt.")
+                } else {
+                    tr("Kein aktiver externer Spender vorhanden. Inaktive Spender einblenden, um auch stillgelegte zu sehen.")
+                }
+            listPanel.p(text) { addCssClasses("text-muted") }
             return
         }
         val filtered = filterExternalDonors(loadedDonors, query)
+        // Trefferzähler jetzt IMMER, nicht nur bei nicht-leerer Suche (R19/Richtlinie 2.4).
+        countsLabel.content = gettext("%1 von %2 Spendern", filtered.size, loadedDonors.size)
         if (filtered.isEmpty()) {
-            listPanel.p(gettext("Kein Spender passt zu \"%1\".", query.trim()))
+            listPanel.p(gettext("Kein Spender passt zu \"%1\".", query.trim())) { addCssClasses("text-muted") }
             return
         }
-        if (query.isNotBlank()) {
-            listPanel.div(gettext("%1 von %2 Spendern", filtered.size, loadedDonors.size)) {
-                addCssClasses("text-muted small")
-            }
-        }
-        val table =
-            listPanel.table(
-                headerNames = listOf(tr("Spender"), tr("Kategorie"), tr("Status"), tr("Aktionen")),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
-        filtered.forEach { donor ->
-            renderDonorRow(table, donor, canManage, ::selectDonor) { refreshList() }
-        }
+        listPanel.dataTable(
+            columns = donorColumns(),
+            rows = filtered,
+            actions = { actions, donor -> actions.renderDonorActions(donor, canManage, ::selectDonor) { refreshList() } },
+        )
     }
 
     refreshList = {
+        generation++
+        val mine = generation
         listPanel.removeAll()
+        countsLabel.content = ""
+        statusRegion.showLoading()
+        loading = true
+        failed = false
         AppScope.launch {
             val donors =
                 guarded {
                     rpcService<IAccountingService>().listExternalDonors(activeOnly = !includeInactiveCheck.value)
-                } ?: return@launch
+                }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
+            if (donors == null) {
+                // Vorher blieb hier ein stumm leeres Panel zurück (`?: return@launch`).
+                failed = true
+                loadedDonors = emptyList()
+                listPanel.dataErrorState(onRetry = { refreshList() })
+                return@launch
+            }
             loadedDonors = donors
             renderDonorList(donorSearchInput.value.orEmpty())
         }
     }
     refreshButton.onClick { refreshList() }
+    // Der Inaktiv-Filter wirkt sofort (er ist eine Server-Abfrage, kein Client-Filter) -- Guard gegen das
+    // synthetische erste `subscribe`-Ereignis, siehe `MemberAdministrationScreen`.
+    var isInitialInactiveEvent = true
+    includeInactiveCheck.subscribe {
+        if (isInitialInactiveEvent) {
+            isInitialInactiveEvent = false
+            return@subscribe
+        }
+        refreshList()
+    }
 
     // Kein Debounce -- rein clientseitige Filterung (gleiche Entscheidung wie `LedgerScreen.kt`).
     var isInitialSearchEvent = true
@@ -214,44 +252,54 @@ fun renderDonorsScreen(container: SimplePanel) {
  * immer gerendert, damit alle Zeilen dieselbe Spaltenzahl behalten (Muster von
  * `LedgerScreen.renderAccountRow`).
  */
-private fun renderDonorRow(
-    table: Table,
+private fun donorColumns(): List<DataColumn<ExternalDonorDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Spender"),
+            primary = true,
+            cell = { container, donor -> container.span(donor.displayName) { addCssClass("fw-bold") } },
+        ),
+        DataColumn(
+            title = tr("Kategorie"),
+            cell = { container, donor ->
+                container.typeBadge(donorCategoryLabel(donor.donorCategory), donorCategoryColor(donor.donorCategory))
+            },
+        ),
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, donor -> container.activeStatusBadge(donor.active) },
+        ),
+    )
+
+/** Zeilenaktionen -- Rollen-Gate und Bestätigungsdialog unverändert gegenüber der Welle vom 2026-09-18. */
+private fun Container.renderDonorActions(
     donor: ExternalDonorDto,
     canManage: Boolean,
     onSelect: (ExternalDonorDto) -> Unit,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        cell(donor.displayName) { addCssClass("fw-bold") }
-        cell { typeBadge(donorCategoryLabel(donor.donorCategory), donorCategoryColor(donor.donorCategory)) }
-        cell { activeStatusBadge(donor.active) }
+    val actionRow = tableActionGroup()
+    val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+    showButton.onClick { onSelect(donor) }
 
-        val actionsCell = cell()
-        val actionRow = actionsCell.tableActionGroup()
-        val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
-        showButton.onClick { onSelect(donor) }
-
-        if (canManage && donor.active) {
-            val deactivateButton =
-                actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
-            deactivateButton.onClick {
-                confirmDialog(
-                    title = tr("Spender deaktivieren"),
-                    message =
-                        gettext(
-                            "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben " +
-                                "erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung.",
-                            donor.displayName,
-                        ),
-                    confirmLabel = tr("Deaktivieren"),
-                ) {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IAccountingService>().deactivateExternalDonor(donor.id) }
-                        if (result != null) {
-                            notifyInfo(tr("Spender wurde deaktiviert."))
-                            onChanged()
-                        }
-                    }
+    if (!canManage || !donor.active) return
+    val deactivateButton = actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+    deactivateButton.onClick {
+        confirmDialog(
+            title = tr("Spender deaktivieren"),
+            message =
+                gettext(
+                    "\"%1\" wirklich deaktivieren? Bestehende Buchungen mit diesem Spender bleiben " +
+                        "erhalten, er steht aber für neue Buchungen nicht mehr zur Verfügung.",
+                    donor.displayName,
+                ),
+            confirmLabel = tr("Deaktivieren"),
+        ) {
+            AppScope.launch {
+                val result = guarded { rpcService<IAccountingService>().deactivateExternalDonor(donor.id) }
+                if (result != null) {
+                    notifyInfo(tr("Spender wurde deaktiviert."))
+                    onChanged()
                 }
             }
         }

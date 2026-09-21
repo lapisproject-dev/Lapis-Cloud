@@ -1,7 +1,9 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
+import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -16,12 +18,7 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
@@ -52,18 +49,17 @@ import network.lapis.cloud.shared.rpc.IDunningService
  * `dueDate`/`contributionId`.
  */
 fun renderDunningCasesScreen(container: SimplePanel) {
-    val root =
-        container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Mahnwesen"))
-
+    val root = container.dataScreenRoot()
     val role = AppState.session?.role
 
     if (DunningAuthzUi.showDunningWarningBands(role)) {
         renderDunningWarningBands(root, role)
     }
+    root.h1(tr("Mahnwesen"))
 
     root.h2(tr("Offene Mahnvorgänge")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val searchInput = filterRow.text(label = tr("Suche nach Mitglied"))
     val onlyOpenCheck = filterRow.checkBox(value = true, label = tr("Nur offene Vorgänge"))
     val limitSelect =
         filterRow.select(
@@ -72,11 +68,8 @@ fun renderDunningCasesScreen(container: SimplePanel) {
             label = tr("Seitengröße"),
         )
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
-    val errorBox =
-        root.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val countsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
@@ -88,66 +81,104 @@ fun renderDunningCasesScreen(container: SimplePanel) {
     // see the file KDoc above and `DunningService.listDunningCases`'s own compound-cursor comment.
     var cursorDueDate: LocalDate? = null
     var cursorContributionId: String? = null
-    var table: Table? = null
+    var hasMore = false
+    var searchTerm = ""
+    var generation = 0
+    val loaded = mutableListOf<DunningCaseDto>()
+    var loading = false
+    // Fehlerzustand des Erstabrufs: solange er steht, darf die Suche ihn nicht wegzeichnen.
+    var failed = false
 
-    fun appendCase(
-        case: DunningCaseDto,
-        reload: () -> Unit,
-    ) {
-        var t = table
-        if (t == null) {
-            t =
-                listPanel.table(
-                    headerNames =
-                        listOf(
-                            tr("Mitglied"),
-                            tr("Zeitraum"),
-                            tr("Betrag"),
-                            tr("Fällig am"),
-                            tr("Beitragsstatus"),
-                            tr("Stufe"),
-                            tr("Nächste Stufe"),
-                            tr("Gebühren gesamt"),
-                            "",
-                        ),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                    responsiveType = ResponsiveType.RESPONSIVE,
-                )
-            table = t
+    lateinit var loadPage: (Boolean) -> Unit
+
+    fun renderList() {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): solange der erste Ladevorgang läuft, sagt allein
+        // die Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld während
+        // des Ladens den Leertext über den Ladehinweis -- „lädt" und „keine Daten" gleichzeitig.
+        if (loading && loaded.isEmpty()) return
+        // Der Fehlerkasten mit `Erneut versuchen` bleibt stehen (kein „Noch keine …" darüber).
+        if (failed) return
+        listPanel.removeAll()
+        if (loaded.isEmpty()) {
+            countsLabel.content = ""
+            // Welle V1.4.26 (W2): „nichts offen" ist eine andere Aussage als „nichts vorhanden" -- bei
+            // aktivem „Nur offene Vorgänge" ist eine leere Liste die gute Nachricht.
+            val text =
+                if (onlyOpenCheck.value) {
+                    tr("Kein offener Mahnvorgang.")
+                } else {
+                    tr("Noch keine Mahnvorgänge erfasst.")
+                }
+            listPanel.p(text) { addCssClasses("text-muted") }
+            return
         }
-        renderDunningCaseRow(t, case) { contributionId ->
-            selectDunningCase(detailPanel, role, contributionId, reload)
+        val visible = filterDunningCases(loaded, searchTerm)
+        countsLabel.content =
+            dataCountText(shown = visible.size, loaded = loaded.size, hasMore = hasMore, filtered = searchTerm.isNotBlank())
+        if (visible.isEmpty()) {
+            listPanel.p(loadedSubsetNoMatchText(term = searchTerm.trim(), hasMore = hasMore)) { addCssClasses("text-muted") }
+            return
         }
+        listPanel.dataTable(
+            columns = dunningCaseColumns(),
+            rows = visible,
+            actions = { actions, case ->
+                // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte, Tooltip "Details anzeigen"
+                // (nicht das vorherige knappe "Details" -- ohne sichtbaren Text muss der Tooltip die
+                // vollstaendige Handlung benennen).
+                val showButton = actions.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+                showButton.onClick {
+                    selectDunningCase(detailPanel, role, case.contributionId) { loadPage(true) }
+                }
+            },
+        )
     }
 
-    fun loadPage(reset: Boolean) {
-        errorBox.hide()
+    loadPage = { reset ->
         if (reset) {
-            listPanel.removeAll()
-            table = null
+            generation++
+            loaded.clear()
             cursorDueDate = null
             cursorContributionId = null
+            hasMore = false
+            listPanel.removeAll()
+            countsLabel.content = ""
+            loadMoreButton.hide()
+            statusRegion.showLoading()
+            loading = true
+            failed = false
         }
+        val mine = generation
         val limit = limitSelect.value?.toIntOrNull() ?: 50
+        val afterDueDate = cursorDueDate
+        val afterContributionId = cursorContributionId
+        val requestOnlyOpen = onlyOpenCheck.value
         loadMoreButton.disabled = true
         AppScope.launch {
             val cases =
                 guarded {
                     rpcService<IDunningService>().listDunningCases(
-                        onlyOpen = onlyOpenCheck.value,
+                        onlyOpen = requestOnlyOpen,
                         limit = limit,
-                        afterDueDate = cursorDueDate,
-                        afterContributionId = cursorContributionId,
+                        afterDueDate = afterDueDate,
+                        afterContributionId = afterContributionId,
                     )
                 }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
             loadMoreButton.disabled = false
-            if (cases == null) return@launch
-            if (cases.isEmpty() && reset) {
-                listPanel.p(tr("Keine Mahnvorgänge für diese Filter."))
+            if (cases == null) {
                 loadMoreButton.hide()
+                // Vorher endete ein gescheiterter Abruf in `return@launch` und hinterliess ein stumm
+                // leeres Panel (der `errorBox`-Div darüber wurde nie befüllt -- toter Code).
+                if (reset) {
+                    failed = true
+                    listPanel.dataErrorState(onRetry = { loadPage(true) })
+                }
                 return@launch
             }
-            cases.forEach { appendCase(it) { loadPage(reset = true) } }
+            loaded += cases
             cases.lastOrNull()?.let { last ->
                 cursorDueDate = last.dueDate
                 cursorContributionId = last.contributionId
@@ -155,12 +186,49 @@ fun renderDunningCasesScreen(container: SimplePanel) {
             // Same size-vs-limit heuristic the previous version used to decide whether more rows
             // might exist -- exact (not `>=`), since `listDunningCases` never returns more than
             // `limit` rows itself.
-            if (cases.size == limit) loadMoreButton.show() else loadMoreButton.hide()
+            hasMore = cases.size == limit
+            if (hasMore) loadMoreButton.show() else loadMoreButton.hide()
+            renderList()
         }
     }
-    refreshButton.onClick { loadPage(reset = true) }
-    loadMoreButton.onClick { loadPage(reset = false) }
-    loadPage(reset = true)
+    refreshButton.onClick { loadPage(true) }
+    loadMoreButton.onClick { loadPage(false) }
+    // Der Arbeitsvorrat-Filter wirkt sofort (wie in `PaymentTransactionsScreen`); die Seitengröße bleibt
+    // bewusst an `Aktualisieren` -- sie entscheidet, wie viel geholt wird, nicht was zu sehen ist.
+    var isInitialOnlyOpenEvent = true
+    onlyOpenCheck.subscribe {
+        if (isInitialOnlyOpenEvent) {
+            isInitialOnlyOpenEvent = false
+            return@subscribe
+        }
+        loadPage(true)
+    }
+
+    var isInitialSearchEvent = true
+    var debounceHandle: Int? = null
+    searchInput.subscribe { value ->
+        if (isInitialSearchEvent) {
+            isInitialSearchEvent = false
+            return@subscribe
+        }
+        debounceHandle?.let { window.clearTimeout(it) }
+        debounceHandle =
+            window.setTimeout({
+                searchTerm = value.orEmpty()
+                renderList()
+            }, 300)
+    }
+    loadPage(true)
+}
+
+/** Clientseitige Suche über die geladene Teilmenge (pur, siehe `DunningCasesScreenTest`): Mitgliedsname. */
+internal fun filterDunningCases(
+    cases: List<DunningCaseDto>,
+    search: String,
+): List<DunningCaseDto> {
+    val term = search.trim()
+    if (term.isEmpty()) return cases
+    return cases.filter { it.memberDisplayName.contains(term, ignoreCase = true) }
 }
 
 // ================================================================================================
@@ -221,47 +289,73 @@ private fun renderDunningWarningBands(
 // Liste (Zeile)
 // ================================================================================================
 
-private fun renderDunningCaseRow(
-    table: Table,
-    case: DunningCaseDto,
-    onSelect: (String) -> Unit,
-) {
-    table.row {
-        cell {
-            span(case.memberDisplayName)
-            // Welle V1.4.4.5 -- kein Filter, keine Aktions-Sperre: wer einen Verstorbenen mahnt,
-            // mahnt wissentlich (Zustellung an den Nachlass, siehe DunningCaseDto.memberStatus KDoc).
-            if (case.memberStatus == MemberStatus.DECEASED) {
-                typeBadge(tr("Verstorben"), "dark")
-                span(tr("Zustellung an den Nachlass — offene Forderung besteht fort.")) {
-                    addCssClasses("text-muted small d-block")
+/**
+ * Spalten der Mahnvorgangs-Liste / Kartenliste; das Mitglied ist die Identität der Zeile. Bewusst keine
+ * Sortierköpfe: die Liste ist eine Cursor-Chronologie nach Fälligkeitsdatum (Pflichtreihenfolge der
+ * Mahnarbeit) und der Server kennt keinen Sortierparameter -- ein clientseitiges Umsortieren der
+ * geladenen Teilmenge würde genau diese Arbeitsreihenfolge zerstören.
+ */
+private fun dunningCaseColumns(): List<DataColumn<DunningCaseDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Mitglied"),
+            primary = true,
+            cell = { container, case ->
+                container.span(case.memberDisplayName)
+                // Welle V1.4.4.5 -- kein Filter, keine Aktions-Sperre: wer einen Verstorbenen mahnt,
+                // mahnt wissentlich (Zustellung an den Nachlass, siehe DunningCaseDto.memberStatus KDoc).
+                if (case.memberStatus == MemberStatus.DECEASED) {
+                    container.typeBadge(tr("Verstorben"), "dark")
+                    container.span(tr("Zustellung an den Nachlass — offene Forderung besteht fort.")) {
+                        addCssClasses("text-muted small d-block")
+                    }
                 }
-            }
-        }
-        cell(gettext("%1 – %2", case.periodStart, case.periodEnd))
-        cell { moneySpan(case.amountDue) }
-        cell(case.dueDate.toString())
-        val statusCell = cell()
-        statusCell.statusBadge(contributionStatusLabel(case.contributionStatus), contributionStatusColor(case.contributionStatus))
-        val levelCell = cell()
-        levelCell.div(case.highestLevelNumber?.toString() ?: "–")
-        levelCell.div(gettext("Zyklus %1", case.currentCycleNumber)) { addCssClasses("text-muted small") }
-        val nextCell = cell()
-        if (case.nextLevelNumber != null) {
-            nextCell.div(gettext("Stufe %1", case.nextLevelNumber))
-            nextCell.div(case.nextLevelDueOn?.toString() ?: "–") { addCssClasses("text-muted small") }
-        } else {
-            nextCell.div("–")
-        }
-        cell { moneySpan(case.totalFeesCharged) }
-        val actionsCell = cell()
-        // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte, Tooltip "Details anzeigen"
-        // (nicht das vorherige knappe "Details" -- ohne sichtbaren Text muss der Tooltip die
-        // vollstaendige Handlung benennen).
-        val showButton = actionsCell.tableActionButton("fas fa-eye", tr("Details anzeigen"))
-        showButton.onClick { onSelect(case.contributionId) }
-    }
-}
+            },
+        ),
+        textColumn(title = tr("Zeitraum"), numeric = true) { case: DunningCaseDto ->
+            gettext("%1 – %2", case.periodStart, case.periodEnd)
+        },
+        DataColumn(
+            title = tr("Betrag"),
+            numeric = true,
+            cell = { container, case -> container.moneySpan(case.amountDue) },
+        ),
+        textColumn(title = tr("Fällig am"), numeric = true) { case: DunningCaseDto -> case.dueDate.toString() },
+        DataColumn(
+            title = tr("Beitragsstatus"),
+            cell = { container, case ->
+                container.statusBadge(
+                    contributionStatusLabel(case.contributionStatus),
+                    contributionStatusColor(case.contributionStatus),
+                )
+            },
+        ),
+        DataColumn(
+            title = tr("Stufe"),
+            numeric = true,
+            cell = { container, case ->
+                container.div(case.highestLevelNumber?.toString() ?: "–")
+                container.div(gettext("Zyklus %1", case.currentCycleNumber)) { addCssClasses("text-muted small") }
+            },
+        ),
+        DataColumn(
+            title = tr("Nächste Stufe"),
+            numeric = true,
+            cell = { container, case ->
+                if (case.nextLevelNumber != null) {
+                    container.div(gettext("Stufe %1", case.nextLevelNumber))
+                    container.div(case.nextLevelDueOn?.toString() ?: "–") { addCssClasses("text-muted small") }
+                } else {
+                    container.div("–")
+                }
+            },
+        ),
+        DataColumn(
+            title = tr("Gebühren gesamt"),
+            numeric = true,
+            cell = { container, case -> container.moneySpan(case.totalFeesCharged) },
+        ),
+    )
 
 // ================================================================================================
 // Detailbereich (mount-agnostisch)
@@ -315,25 +409,11 @@ private fun renderDunningCaseDetail(
 
     if (detail.notices.isNotEmpty()) {
         panel.h2(tr("Mahnungen")) { addCssClass("h6") }
-        val noticesTable =
-            panel.table(
-                headerNames =
-                    listOf(
-                        tr("Stufe"),
-                        tr("Name"),
-                        tr("Status"),
-                        tr("Ausgestellt am"),
-                        tr("Antwort bis"),
-                        tr("Gebühr"),
-                        tr("Postversand"),
-                        tr("PDF"),
-                        tr("Stornogrund"),
-                        "",
-                    ),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
-        detail.notices.forEach { notice -> renderDunningNoticeRow(noticesTable, notice, role, onChanged) }
+        panel.dataTable(
+            columns = dunningNoticeColumns(role),
+            rows = detail.notices,
+            actions = { actions, notice -> actions.renderDunningNoticeActions(notice, role, onChanged) },
+        )
     }
 
     if (DunningAuthzUi.canTreasuryAct(role)) {
@@ -341,69 +421,91 @@ private fun renderDunningCaseDetail(
     }
 }
 
-private fun renderDunningNoticeRow(
-    table: Table,
+/**
+ * Spalten der Mahnungen-Tabelle im Detailbereich; die Mahnstufe ist die Identität der Zeile.
+ * Die PDF-Spalte bleibt ein beschrifteter Download-Link (kein [tableActionButton]): `tableActionButton`
+ * erzeugt einen `button`, ein Download braucht aber ein echtes `a[href]` mit `target="_blank"`. Dass ein
+ * beschrifteter Link in einer Tabellenzelle die Zeilenhöhe treibt, ist eine bekannte Lücke (R38) und
+ * gehört zusammen mit den übrigen Download-Links dieses Clients in eine eigene Welle.
+ */
+private fun dunningNoticeColumns(role: AccountRole?): List<DataColumn<DunningNoticeDto>> =
+    listOf(
+        textColumn(title = tr("Stufe"), numeric = true) { notice: DunningNoticeDto -> notice.levelNumber.toString() },
+        textColumn(title = tr("Name"), primary = true) { notice: DunningNoticeDto -> notice.levelName },
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, notice ->
+                container.statusBadge(dunningNoticeStatusLabel(notice.status), dunningNoticeStatusColor(notice.status))
+            },
+        ),
+        textColumn(title = tr("Ausgestellt am"), numeric = true) { notice: DunningNoticeDto -> notice.issuedAt.toString() },
+        textColumn(title = tr("Antwort bis"), numeric = true) { notice: DunningNoticeDto -> notice.respondBy.toString() },
+        DataColumn(
+            title = tr("Gebühr"),
+            numeric = true,
+            cell = { container, notice -> notice.feeAmount?.let { container.moneySpan(it) } ?: container.div("–") },
+        ),
+        DataColumn(
+            title = tr("Postversand"),
+            cell = { container, notice ->
+                notice.postalDeliveryStatus?.let {
+                    container.statusBadge(postalDeliveryStatusLabel(it), postalDeliveryStatusColor(it))
+                } ?: container.div("–") { addCssClasses("text-muted small") }
+            },
+        ),
+        DataColumn(
+            title = tr("PDF"),
+            cell = { container, notice ->
+                if (DunningAuthzUi.canDownloadNoticePdf(role, notice.documentId)) {
+                    container.link(tr("Herunterladen"), url = DunningHttp.noticePdfUrl(notice.id), target = "_blank") {
+                        addCssClasses("btn btn-sm btn-outline-primary")
+                    }
+                } else {
+                    container.div("–") { addCssClasses("text-muted small") }
+                }
+            },
+        ),
+        textColumn(title = tr("Stornogrund")) { notice: DunningNoticeDto -> notice.cancellationReason.orEmpty() },
+    )
+
+/** Zeilenaktion -- Rollen-/Statusprüfung und der Begründungs-Dialog sind gegenüber dem Bestand unverändert. */
+private fun Container.renderDunningNoticeActions(
     notice: DunningNoticeDto,
     role: AccountRole?,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        cell(notice.levelNumber.toString())
-        cell(notice.levelName)
-        val statusCell = cell()
-        statusCell.statusBadge(dunningNoticeStatusLabel(notice.status), dunningNoticeStatusColor(notice.status))
-        cell(notice.issuedAt.toString())
-        cell(notice.respondBy.toString())
-        cell { notice.feeAmount?.let { moneySpan(it) } ?: div("–") }
-        val postalCell = cell()
-        notice.postalDeliveryStatus?.let {
-            postalCell.statusBadge(postalDeliveryStatusLabel(it), postalDeliveryStatusColor(it))
-        } ?: postalCell.div("–") { addCssClasses("text-muted small") }
-        val pdfCell = cell()
-        if (DunningAuthzUi.canDownloadNoticePdf(role, notice.documentId)) {
-            pdfCell.link(tr("Herunterladen"), url = DunningHttp.noticePdfUrl(notice.id), target = "_blank") {
-                addCssClasses("btn btn-sm btn-outline-primary")
-            }
-        } else {
-            pdfCell.div("–") { addCssClasses("text-muted small") }
-        }
-        cell(notice.cancellationReason.orEmpty())
-        val actionsCell = cell()
-        if (DunningAuthzUi.canCancelNotice(role, notice.status)) {
-            // `fa-rotate-left` (Rueckabwicklung), nicht `fa-ban`: eine Stornierung nimmt den
-            // Mahnzyklus zurueck, sie sperrt nichts -- `fa-ban` ist in dieser Welle durchgehend fuer
-            // "deaktivieren/widerrufen" reserviert.
-            val cancelButton =
-                actionsCell.tableActionButton("fas fa-rotate-left", tr("Stornieren"), ButtonStyle.OUTLINEDANGER)
-            cancelButton.onClick {
-                confirmWithReasonDialog(
-                    title = tr("Mahnung stornieren"),
-                    message =
-                        tr(
-                            "Der gesamte Mahnzyklus dieses Beitrags wird storniert, nicht nur diese eine Mahnung. " +
-                                "Der Beitrag fällt auf den Status Überfällig zurück.",
-                        ),
-                    dangerNote =
-                        tr(
-                            "Nach dem Stornieren stellt der Automat eine neue Mahnung ab Stufe 1 aus -- bei " +
-                                "aktiviertem Postversand als echter, kostenpflichtiger Brief.",
-                        ),
-                    reasonLabel = tr("Grund für die Stornierung"),
-                    reasonRequired = true,
-                    confirmLabel = tr("Stornieren"),
-                ) { reason ->
-                    cancelButton.disabled = true
-                    AppScope.launch {
-                        val result =
-                            dunningGuarded(tr(DUNNING_ISSUE_CONFLICT_MESSAGE)) {
-                                rpcService<IDunningService>().cancelDunningNotice(notice.id, reason.orEmpty())
-                            }
-                        cancelButton.disabled = false
-                        if (result != null) {
-                            notifySuccess(tr("Mahnung storniert."))
-                            onChanged()
-                        }
+    if (!DunningAuthzUi.canCancelNotice(role, notice.status)) return
+    // `fa-rotate-left` (Rueckabwicklung), nicht `fa-ban`: eine Stornierung nimmt den
+    // Mahnzyklus zurueck, sie sperrt nichts -- `fa-ban` ist in dieser Welle durchgehend fuer
+    // "deaktivieren/widerrufen" reserviert.
+    val cancelButton = tableActionButton("fas fa-rotate-left", tr("Stornieren"), ButtonStyle.OUTLINEDANGER)
+    cancelButton.onClick {
+        confirmWithReasonDialog(
+            title = tr("Mahnung stornieren"),
+            message =
+                tr(
+                    "Der gesamte Mahnzyklus dieses Beitrags wird storniert, nicht nur diese eine Mahnung. " +
+                        "Der Beitrag fällt auf den Status Überfällig zurück.",
+                ),
+            dangerNote =
+                tr(
+                    "Nach dem Stornieren stellt der Automat eine neue Mahnung ab Stufe 1 aus -- bei " +
+                        "aktiviertem Postversand als echter, kostenpflichtiger Brief.",
+                ),
+            reasonLabel = tr("Grund für die Stornierung"),
+            reasonRequired = true,
+            confirmLabel = tr("Stornieren"),
+        ) { reason ->
+            cancelButton.disabled = true
+            AppScope.launch {
+                val result =
+                    dunningGuarded(tr(DUNNING_ISSUE_CONFLICT_MESSAGE)) {
+                        rpcService<IDunningService>().cancelDunningNotice(notice.id, reason.orEmpty())
                     }
+                cancelButton.disabled = false
+                if (result != null) {
+                    notifySuccess(tr("Mahnung storniert."))
+                    onChanged()
                 }
             }
         }

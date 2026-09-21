@@ -12,17 +12,12 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -35,6 +30,7 @@ import network.lapis.cloud.shared.domain.SepaDebitBatchDetailDto
 import network.lapis.cloud.shared.domain.SepaDebitBatchDto
 import network.lapis.cloud.shared.domain.SepaDebitBatchInput
 import network.lapis.cloud.shared.domain.SepaDebitBatchPreviewDto
+import network.lapis.cloud.shared.domain.SepaDebitBatchPreviewItemDto
 import network.lapis.cloud.shared.domain.SepaDebitBatchStatus
 import network.lapis.cloud.shared.domain.SepaDebitItemDto
 import network.lapis.cloud.shared.domain.SepaDebitItemStatus
@@ -59,18 +55,18 @@ import kotlin.time.Clock
  * via [sepaGuarded] on the actual write attempt) is the substitute.
  */
 fun renderSepaBatchesScreen(container: SimplePanel) {
-    val root =
-        container.dataScreenRoot(spacing = 14)
-    root.h1(tr("SEPA-Lastschrift"))
-
+    val root = container.dataScreenRoot()
     val role = AppState.session?.role
     val canTreasuryAct = SepaAuthzUi.canTreasuryAct(role)
 
     if (AppState.hasRole(AccountRole.ADMIN)) {
         renderAdminDisclaimerWarningBand(root)
     }
+    root.h1(tr("SEPA-Lastschrift"))
 
     root.h2(tr("Läufe")) { addCssClass("h5") }
+    val statusRegion = root.dataStatusRegion()
+    val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
@@ -79,56 +75,80 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
     detailPanel.p(tr("Lauf oben auswählen, um Details zu sehen.")) { addCssClasses("text-muted small") }
 
     var lastCreatedAt: LocalDateTime? = null
-    var currentTable: Table? = null
+    var hasMore = false
+    var generation = 0
+    val loaded = mutableListOf<SepaDebitBatchDto>()
+    var loading = false
     // Fresh per screen instance -- see [SelectedBatchState] KDoc.
     val batchState = SelectedBatchState()
 
     // Defined before `showDetail`/`selectBatch` below, purely so those closures can reference it --
     // Kotlin local functions, unlike top-level ones, are not forward-referenceable within the same
     // block.
-    fun loadBatches(reset: Boolean) {
-        if (reset) {
-            listPanel.removeAll()
-            lastCreatedAt = null
-            currentTable = null
+    lateinit var loadBatches: (Boolean) -> Unit
+
+    fun renderBatchList() {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): solange der erste Ladevorgang läuft, sagt allein
+        // die Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld während
+        // des Ladens den Leertext über den Ladehinweis -- „lädt" und „keine Daten" gleichzeitig.
+        if (loading && loaded.isEmpty()) return
+        listPanel.removeAll()
+        if (loaded.isEmpty()) {
+            countsLabel.content = ""
+            listPanel.p(tr("Noch kein SEPA-Lauf angelegt.")) { addCssClasses("text-muted") }
+            return
         }
+        countsLabel.content = dataCountText(shown = loaded.size, loaded = loaded.size, hasMore = hasMore)
+        listPanel.dataTable(
+            columns = sepaBatchColumns(),
+            rows = loaded,
+            actions = { actions, batch ->
+                // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte. Die "Stornieren"-Aktion
+                // weiter unten im DETAILPANEL behaelt bewusst ihren Volltext-Knopf -- sie steht nicht in
+                // einem dichten Raster, sondern allein in einer Aktionszeile, und eine irreversible
+                // Stornierung soll dort ihren Namen tragen (Norman/Raskin-Linie der Sitzung).
+                val showButton = actions.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+                showButton.onClick {
+                    selectBatch(detailPanel, role, batchState, batch.id) { loadBatches(true) }
+                }
+            },
+        )
+    }
+
+    loadBatches = { reset ->
+        if (reset) {
+            generation++
+            loaded.clear()
+            lastCreatedAt = null
+            hasMore = false
+            listPanel.removeAll()
+            countsLabel.content = ""
+            loadMoreButton.hide()
+            statusRegion.showLoading()
+            loading = true
+        }
+        val mine = generation
+        val cursor = if (reset) null else lastCreatedAt
+        loadMoreButton.disabled = true
         AppScope.launch {
             val batches =
                 sepaGuarded(tr(SEPA_READ_CONFLICT_MESSAGE)) {
-                    rpcService<ISepaService>().listBatches(beforeCreatedAt = if (reset) null else lastCreatedAt)
+                    rpcService<ISepaService>().listBatches(beforeCreatedAt = cursor)
                 }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
+            loadMoreButton.disabled = false
             if (batches == null) {
                 loadMoreButton.hide()
+                if (reset) listPanel.dataErrorState(onRetry = { loadBatches(true) })
                 return@launch
             }
-            if (batches.isEmpty()) {
-                if (reset) listPanel.p(tr("Keine Läufe vorhanden."))
-                loadMoreButton.hide()
-                return@launch
-            }
-            val table =
-                currentTable ?: listPanel
-                    .table(
-                        headerNames =
-                            listOf(
-                                tr("Erstellt am"),
-                                tr("Fälligkeit"),
-                                tr("Sequenztyp"),
-                                tr("Status"),
-                                tr("Positionen"),
-                                tr("Summe"),
-                                "",
-                            ),
-                        types = setOf(TableType.STRIPED, TableType.HOVER),
-                        responsiveType = ResponsiveType.RESPONSIVE,
-                    ).also { currentTable = it }
-            batches.forEach { batch ->
-                renderSepaBatchRow(table, batch) { batchId ->
-                    selectBatch(detailPanel, role, batchState, batchId) { loadBatches(true) }
-                }
-            }
-            lastCreatedAt = batches.last().createdAt
-            if (batches.size < SEPA_BATCHES_PAGE_SIZE) loadMoreButton.hide() else loadMoreButton.show()
+            loaded += batches
+            batches.lastOrNull()?.let { lastCreatedAt = it.createdAt }
+            hasMore = batches.size >= SEPA_BATCHES_PAGE_SIZE
+            if (hasMore) loadMoreButton.show() else loadMoreButton.hide()
+            renderBatchList()
         }
     }
 
@@ -387,21 +407,27 @@ private fun renderBatchPreview(
     if (preview.items.isEmpty()) {
         panel.p(tr("Keine fälligen Beiträge mit aktivem Mandat gefunden.")) { addCssClasses("text-muted small") }
     } else {
-        val table =
-            panel.table(
-                headerNames = listOf(tr("Mitglied"), tr("Betrag"), tr("Mandatsreferenz"), tr("IBAN"), tr("Erhöht?")),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
-        preview.items.forEach { item ->
-            table.row {
-                cell(item.memberDisplayName)
-                cell(formatMoney(item.amount))
-                cell(item.mandateReference)
-                cell(formatIbanLast4(item.debtorIbanLast4))
-                cell(if (item.amountIncreased) tr("Ja") else tr("Nein"))
-            }
-        }
+        panel.dataTable(
+            columns =
+                listOf(
+                    textColumn(title = tr("Mitglied"), primary = true) { item: SepaDebitBatchPreviewItemDto ->
+                        item.memberDisplayName
+                    },
+                    DataColumn(
+                        title = tr("Betrag"),
+                        numeric = true,
+                        cell = { container, item -> container.moneySpan(item.amount) },
+                    ),
+                    textColumn(title = tr("Mandatsreferenz")) { item: SepaDebitBatchPreviewItemDto -> item.mandateReference },
+                    textColumn(title = tr("IBAN"), numeric = true) { item: SepaDebitBatchPreviewItemDto ->
+                        formatIbanLast4(item.debtorIbanLast4)
+                    },
+                    textColumn(title = tr("Erhöht?")) { item: SepaDebitBatchPreviewItemDto ->
+                        if (item.amountIncreased) tr("Ja") else tr("Nein")
+                    },
+                ),
+            rows = preview.items,
+        )
     }
     if (preview.excluded.isNotEmpty()) {
         panel.div(tr("Ausgeschlossen:")) { addCssClasses("text-muted small mt-1") }
@@ -417,29 +443,37 @@ private fun renderBatchPreview(
 // Läufe-Liste (Zeile)
 // ================================================================================================
 
-private fun renderSepaBatchRow(
-    table: Table,
-    batch: SepaDebitBatchDto,
-    onSelect: (String) -> Unit,
-) {
-    table.row {
-        cell(batch.createdAt.toString())
-        cell(batch.requestedCollectionDate.toString())
-        val seqCell = cell()
-        seqCell.typeBadge(sepaSequenceTypeLabel(batch.sequenceType), sepaSequenceTypeColor(batch.sequenceType))
-        val statusCell = cell()
-        statusCell.statusBadge(sepaBatchStatusLabel(batch.status), sepaBatchStatusColor(batch.status))
-        cell(batch.itemCount.toString())
-        cell(formatMoney(batch.totalAmount))
-        val actionsCell = cell()
-        // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte. Die "Stornieren"-Aktion
-        // weiter unten im DETAILPANEL behaelt bewusst ihren Volltext-Knopf -- sie steht nicht in
-        // einem dichten Raster, sondern allein in einer Aktionszeile, und eine irreversible
-        // Stornierung soll dort ihren Namen tragen (Norman/Raskin-Linie der Sitzung).
-        val showButton = actionsCell.tableActionButton("fas fa-eye", tr("Details anzeigen"))
-        showButton.onClick { onSelect(batch.id) }
-    }
-}
+/**
+ * Spalten der Läufe-Liste / Kartenliste. Das Erstellungsdatum ist die Identität eines Laufes (es gibt
+ * keinen Namen), bleibt aber linksbündig -- ein Datum, das eine Zeile identifiziert, ist kein Messwert
+ * (Richtlinie K8, gleiche Entscheidung wie „Zeitraum" in `ContributionsScreen`). Keine Sortierköpfe: die
+ * Liste ist eine Cursor-Chronologie, neueste zuerst.
+ */
+private fun sepaBatchColumns(): List<DataColumn<SepaDebitBatchDto>> =
+    listOf(
+        textColumn(title = tr("Erstellt am"), primary = true) { batch: SepaDebitBatchDto -> batch.createdAt.toString() },
+        textColumn(title = tr("Fälligkeit"), numeric = true) { batch: SepaDebitBatchDto ->
+            batch.requestedCollectionDate.toString()
+        },
+        DataColumn(
+            title = tr("Sequenztyp"),
+            cell = { container, batch ->
+                container.typeBadge(sepaSequenceTypeLabel(batch.sequenceType), sepaSequenceTypeColor(batch.sequenceType))
+            },
+        ),
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, batch ->
+                container.statusBadge(sepaBatchStatusLabel(batch.status), sepaBatchStatusColor(batch.status))
+            },
+        ),
+        textColumn(title = tr("Positionen"), numeric = true) { batch: SepaDebitBatchDto -> batch.itemCount.toString() },
+        DataColumn(
+            title = tr("Summe"),
+            numeric = true,
+            cell = { container, batch -> container.moneySpan(batch.totalAmount) },
+        ),
+    )
 
 // ================================================================================================
 // Detailpanel (mount-agnostisch, s. Plan §2.7/K6/K7)
@@ -546,13 +580,7 @@ internal fun renderSepaBatchDetail(
     // ── Positionen ──────────────────────────────────────────────────────────────────────────────
     if (detail.items.isNotEmpty()) {
         panel.h2(tr("Positionen")) { addCssClass("h6") }
-        val itemsTable =
-            panel.table(
-                headerNames = listOf(tr("Mitglied"), tr("Betrag"), tr("Mandatsreferenz"), tr("IBAN"), tr("Status")),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
-        detail.items.forEach { item -> renderSepaItemRow(itemsTable, item, detail.failedItemIds) }
+        panel.dataTable(columns = sepaItemColumns(detail.failedItemIds), rows = detail.items)
     }
 }
 
@@ -658,23 +686,27 @@ private fun runBatchAction(
     }
 }
 
-private fun renderSepaItemRow(
-    table: Table,
-    item: SepaDebitItemDto,
-    failedItemIds: List<String>,
-) {
-    table.row {
-        cell(item.memberDisplayName)
-        cell(formatMoney(item.amount))
-        cell(item.mandateReference)
-        cell(formatIbanLast4(item.debtorIbanLast4))
-        val statusCell = cell()
-        statusCell.statusBadge(sepaItemStatusLabel(item.status), sepaItemStatusColor(item.status))
-        if (item.id in failedItemIds) {
-            statusCell.div(tr("fehlgeschlagen")) { addCssClasses("text-danger small") }
-        }
-    }
-}
+/** Spalten der Positionen-Tabelle im Detailbereich; das Mitglied ist die Identität der Zeile. */
+private fun sepaItemColumns(failedItemIds: List<String>): List<DataColumn<SepaDebitItemDto>> =
+    listOf(
+        textColumn(title = tr("Mitglied"), primary = true) { item: SepaDebitItemDto -> item.memberDisplayName },
+        DataColumn(
+            title = tr("Betrag"),
+            numeric = true,
+            cell = { container, item -> container.moneySpan(item.amount) },
+        ),
+        textColumn(title = tr("Mandatsreferenz")) { item: SepaDebitItemDto -> item.mandateReference },
+        textColumn(title = tr("IBAN"), numeric = true) { item: SepaDebitItemDto -> formatIbanLast4(item.debtorIbanLast4) },
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, item ->
+                container.statusBadge(sepaItemStatusLabel(item.status), sepaItemStatusColor(item.status))
+                if (item.id in failedItemIds) {
+                    container.div(tr("fehlgeschlagen")) { addCssClasses("text-danger small") }
+                }
+            },
+        ),
+    )
 
 // ================================================================================================
 // Rücklastschriften (Plan §4.3)
@@ -685,29 +717,50 @@ private fun renderSepaReturnsSection(
     canRecordReturn: Boolean,
 ) {
     root.h2(tr("Rücklastschriften")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val fromInput = filterRow.text(label = tr("Von (JJJJ-MM-TT, optional)"))
     val toInput = filterRow.text(label = tr("Bis (JJJJ-MM-TT, optional)"))
     val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val returnsStatus = root.dataStatusRegion()
     val returnsPanel = root.vPanel(spacing = 6)
 
+    // Welle V1.4.26 (W2): eigener Abruf mit Generation-Guard (analog `DataLoadController`) -- Lade-, Fehler- und zwei
+    // getrennte Leerzustände. Der Zeitraum ist ein echter Filter des Lesers, deshalb ist eine leere
+    // Antwort mit gesetztem Datum „nichts gefunden", ohne Datum „noch keine Rücklastschriften".
+    // Generation-Zähler: bei zwei schnellen Klicks auf `Filtern` (oder Filtern gleichzeitig mit dem
+    // Erfassen einer Rücklastschrift) darf die ältere Antwort die des neueren Zeitraums nicht überschreiben.
+    var returnsGeneration = 0
+
     fun loadReturns() {
+        returnsGeneration++
+        val mine = returnsGeneration
         returnsPanel.removeAll()
-        val from = runCatching { LocalDate.parse(fromInput.value.orEmpty().trim()) }.getOrNull()
-        val to = runCatching { LocalDate.parse(toInput.value.orEmpty().trim()) }.getOrNull()
+        returnsStatus.showLoading()
+        val fromRaw = fromInput.value.orEmpty().trim()
+        val toRaw = toInput.value.orEmpty().trim()
+        val from = runCatching { LocalDate.parse(fromRaw) }.getOrNull()
+        val to = runCatching { LocalDate.parse(toRaw) }.getOrNull()
         AppScope.launch {
             val returns = sepaGuarded(tr(SEPA_READ_CONFLICT_MESSAGE)) { rpcService<ISepaService>().listReturns(from, to) }
-            if (returns.isNullOrEmpty()) {
-                returnsPanel.p(tr("Keine Rücklastschriften für diese Filter.")) { addCssClasses("text-muted small") }
+            if (mine != returnsGeneration) return@launch // ein neuerer Abruf hat übernommen
+            returnsStatus.clearStatus()
+            returnsPanel.removeAll()
+            if (returns == null) {
+                returnsPanel.dataErrorState(onRetry = { loadReturns() })
                 return@launch
             }
-            val table =
-                returnsPanel.table(
-                    headerNames = listOf(tr("Mitglied"), tr("Datum"), tr("Grund"), tr("Gebühr"), tr("Mandat widerrufen")),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                    responsiveType = ResponsiveType.RESPONSIVE,
-                )
-            returns.forEach { renderSepaReturnRow(table, it) }
+            if (returns.isEmpty()) {
+                val hasRange = fromRaw.isNotEmpty() || toRaw.isNotEmpty()
+                val text =
+                    if (hasRange) {
+                        tr("Keine Rücklastschrift im gewählten Zeitraum.")
+                    } else {
+                        tr("Noch keine Rücklastschriften erfasst.")
+                    }
+                returnsPanel.p(text) { addCssClasses("text-muted") }
+                return@launch
+            }
+            returnsPanel.dataTable(columns = sepaReturnColumns(), rows = returns)
         }
     }
     filterButton.onClick { loadReturns() }
@@ -719,19 +772,26 @@ private fun renderSepaReturnsSection(
     }
 }
 
-private fun renderSepaReturnRow(
-    table: Table,
-    sepaReturn: SepaReturnDto,
-) {
-    table.row {
-        cell(sepaReturn.memberDisplayName)
-        cell(sepaReturn.returnedAt.toString())
-        val reasonCell = cell()
-        reasonCell.sepaReturnReasonBadge(sepaReturn.reasonCode)
-        cell(sepaReturn.returnFee?.let { formatMoney(it) } ?: "–")
-        cell(if (sepaReturn.mandateRevoked) tr("Ja") else tr("Nein"))
-    }
-}
+/** Spalten der Rücklastschriften-Tabelle / Kartenliste; das Mitglied ist die Identität der Zeile. */
+private fun sepaReturnColumns(): List<DataColumn<SepaReturnDto>> =
+    listOf(
+        textColumn(title = tr("Mitglied"), primary = true) { sepaReturn: SepaReturnDto -> sepaReturn.memberDisplayName },
+        textColumn(title = tr("Datum"), numeric = true) { sepaReturn: SepaReturnDto -> sepaReturn.returnedAt.toString() },
+        DataColumn(
+            title = tr("Grund"),
+            cell = { container, sepaReturn -> container.sepaReturnReasonBadge(sepaReturn.reasonCode) },
+        ),
+        DataColumn(
+            title = tr("Gebühr"),
+            numeric = true,
+            cell = { container, sepaReturn ->
+                sepaReturn.returnFee?.let { container.moneySpan(it) } ?: container.span("–")
+            },
+        ),
+        textColumn(title = tr("Mandat widerrufen")) { sepaReturn: SepaReturnDto ->
+            if (sepaReturn.mandateRevoked) tr("Ja") else tr("Nein")
+        },
+    )
 
 private fun renderRecordReturnForm(
     root: SimplePanel,

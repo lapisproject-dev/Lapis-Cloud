@@ -8,6 +8,62 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W2 "Hot tables" (V1.4.26)** -- the eleven most used real-table screens moved onto the
+  W1 building blocks. A pure client wave: no RPC, DTO, table or migration was touched; role checks, per-row
+  actions, filters, pagination and the double-click guards are unchanged, and the server-side additions are tests
+  and translations only.
+  **What it is now:** `LedgerScreen` (chart of accounts, journal, posting lines), `SepaBatchesScreen` (runs,
+  preview, items, direct-debit returns), `SepaMandatesScreen`, `PaymentTransactionsScreen`, `DunningCasesScreen`
+  (cases and notices), `DonorsScreen`, `BankAccountsScreen`, `MemberFinancialHistoryScreen`,
+  `MemberAnniversariesScreen`, `MemberHonorsScreen` and `MemberFamiliesScreen` (list and the dialog's member
+  table) render through `dataTable`: compact rows, striped plus hover, their own horizontal scroll frame, and
+  below 768 px a card list instead of a sideways-scrolling table. Every amount, count, date and number column is
+  right-aligned with tabular figures, so a column of figures finally lines up. Each of these screens now has all
+  four states spelled out: a "loading" line in a live region that is mounted once, an error box in the page with
+  "Erneut versuchen" (eleven screens previously left a silently empty panel when a load failed -- only the toast
+  said anything), and two separate empty texts. The second one is the substantive part: "no bank account yet" is
+  now a different sentence from "no ACTIVE account -- show inactive ones", "no dunning case yet" from "nothing
+  open right now", "no journal entries yet" from "nothing in this period" and "nothing with this status".
+  Five screens gained a search field with a 300 ms debounce (mandates, payments, dunning cases, honours,
+  anniversaries); where the server has no search parameter the counter above the table says so in as many words
+  ("3 of 40 loaded entries shown -- more are still on the server; filters and search apply only to the loaded
+  rows"), because a bare "0 of 40" reads like "does not exist". Four status selects became a `segmentedControl`
+  with a visible active state and `aria-pressed` (mandate status, honour category, anniversary kind, journal
+  status). The chart of accounts and the journal got clickable sort headers -- both lists are fully loaded, so
+  they sort client-side through a pure function; account numbers sort as text so `0400` and `400` stay apart, and
+  the account name and the entry date became columns of their own (they were buried in a combined cell and could
+  not be sorted at all). Nine text buttons left table rows for icon buttons with a tooltip and an accessible
+  name; the star glyph that meant "default account" is now a badge that reads "Standard".
+  Side effect worth knowing: because deleting a bank account became an unlabelled bin icon next to two other
+  icons, it now asks for confirmation first -- it had no second step at all before. Four filters that previously
+  did nothing until "Aktualisieren" was pressed now apply immediately, and four screens no longer fire two
+  identical requests per mount (KVision's `subscribe` fires once synthetically on registration).
+  New `dataCountText`/`loadedSubsetNoMatchText` in `DataTableState.kt`, `DateRangeFilterControls.hasRange()`;
+  37 new client tests (5 in a real mounted DOM) plus `HotTableI18nCatalogTest`; 38 new msgids translated in all
+  eight catalogs. The tripwire debt ledger shrank from 21 to 6 files for R14 and from 10 to 4 for R15, and four
+  R39 findings were paid off; 18 of the client's 27 raw `table(` calls are gone.
+  **Review fixes:** a failed first load now stays a failed state -- typing into a search field (mandates,
+  payments, dunning cases, honours, donors, chart of accounts, journal) no longer wipes the error box with
+  "Erneut versuchen" and replaces it with a false "no data yet" sentence, and a failed reload after a filter
+  change no longer lets the next keystroke redraw the previous filter's list over the error. The honours list
+  says "no honour in this category" for an empty category segment instead of "no honours recorded". The direct-debit
+  returns list discards superseded responses (generation guard), and the family list's "no match" text names the
+  term that was actually queried. A mounted-screen test (`HotTableFailedStateDomTest`) pins the error-state
+  behaviour for five screens.
+  **Known gaps:** six files deliberately stay on the baseline and are named in the ledger --
+  `AccountingExportScreen` (3 tables), `BankStatementImportScreen`, `CostCentersScreen`, `DunningSettingsScreen`,
+  `ReceivableDunningSettingsScreen` and `WebhookDeliveryLogPanel`; the pseudo-tables built from `hPanel` plus
+  fixed pixel widths (financial reports, the cost-centre report part, the donors' duty report) are W3 and were not
+  touched. Neither cursor list gained the load cap with its hint text that the guideline asks for (R21) --
+  pagination was to stay unchanged in this wave. Sort headers exist only where the whole list is loaded; the
+  cursor and offset lists have none, because the server has no sort parameter and re-ordering only the loaded
+  subset would contradict the next page. Download links inside table rows (the dunning notice PDF, the pain.008
+  file) are still labelled text and keep driving up the row height (R38). `MemberFinancialHistoryScreen` still
+  has two `h1` call sites, the four screens' page heads were not restructured, and mandatory-field marking and
+  inline validation are untouched -- those are W4/W5. Nothing was measured in a real browser at 375/767/768/1440
+  px, in both themes, or with a screen reader in this wave's automated run; the 40 px row-height target (R22) and
+  the dark-mode acceptance (R49) remain manual checks.
+
 - **UI/UX guideline, wave W1 "Foundation" (V1.4.25)** -- the shared building blocks of the UI/UX guideline plus
   three screens migrated onto them; a pure client wave (no RPC, DTO, table or migration; server side only tests).
   **What it is now:** `dataTable` renders one table grammar (striped, hover, small rows, own horizontal scroll

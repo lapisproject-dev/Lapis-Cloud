@@ -13,14 +13,10 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.FinancialHistoryEntryDto
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind.CONTRIBUTION_DEBIT_IN_FLIGHT
 import network.lapis.cloud.shared.domain.FinancialHistoryEntryKind.CONTRIBUTION_OUTSTANDING
@@ -58,20 +54,25 @@ fun renderMemberFinancialHistoryScreen(
     val effectiveId = requestedMemberId ?: session.memberId
     val isSelf = effectiveId == session.memberId
 
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 760.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot()
 
-    AppScope.launch {
-        val dto = guarded { rpcService<IMemberFinancialHistoryService>().getMemberFinancialHistory(effectiveId) } ?: return@launch
-        renderFinancialHistoryHead(root, dto, isSelf)
-        renderExemptionBadge(root, effectiveId, isSelf)
-        renderFinancialHistoryTiles(root, dto, isSelf)
-        renderFinancialHistoryYears(root, dto)
-    }
+    // Welle V1.4.26 (W2): der Abruf liegt in einem `dataSection` -- vorher endete ein gescheiterter
+    // `getMemberFinancialHistory`-Aufruf in `?: return@launch` und hinterliess eine vollstaendig leere
+    // Seite (der Toast von `guarded` war die einzige Spur). `isEmpty = { false }`: ein Mitglied ohne
+    // Zahlungen hat trotzdem Kopf, Kacheln und den eigenen Leertext aus [financialHistoryEmptyStateText]
+    // -- die Seite ist nie inhaltsleer, nur die Jahresliste kann es sein.
+    val section =
+        root.dataSection<MemberFinancialHistoryDto>(
+            isEmpty = { false },
+            load = { guarded { rpcService<IMemberFinancialHistoryService>().getMemberFinancialHistory(effectiveId) } },
+            render = { panel, dto ->
+                renderFinancialHistoryHead(panel, dto, isSelf)
+                renderExemptionBadge(panel, effectiveId, isSelf)
+                renderFinancialHistoryTiles(panel, dto, isSelf)
+                renderFinancialHistoryYears(panel, dto)
+            },
+        )
+    section.reload()
 }
 
 /**
@@ -180,25 +181,40 @@ private fun renderFinancialHistoryYear(
     // would draw a striped table with the five column headers and zero data rows, the same empty
     // shell the server-side fix (Review MINOR, net-zero year) was meant to prevent (Review MINOR).
     if (year.entries.isEmpty()) return
-    val tableWrapper = root.div { addCssClass("table-responsive") }
-    val table =
-        tableWrapper.table(
-            headerNames = listOf(tr("Datum"), tr("Art"), tr("Beschreibung"), tr("Betrag"), tr("Status")),
-            types = setOf(TableType.STRIPED, TableType.HOVER),
-        )
-    year.entries.forEach { entry ->
-        table.row {
-            cell(entry.date.toString())
-            cell { typeBadge(financialHistoryKindLabel(entry.kind), financialHistoryKindColor(entry.kind)) }
-            cell(entry.label)
-            cell { moneySpan(entry.amount) }
-            cell {
-                val status = entry.contributionStatus
-                if (status != null) statusBadge(contributionStatusLabel(status), contributionStatusColor(status))
-            }
-        }
-    }
+    // Welle V1.4.26 (W2): `dataTable` statt `table-responsive`-Div + `table(...)` -- kompakte Dichte,
+    // Betrag rechtsbuendig mit Tabellenziffern, unter 768 px eine Kartenliste. Bewusst KEINE
+    // Sortierkoepfe: ein Jahresblock ist eine bereits chronologisch sortierte Chronologie mit wenigen
+    // Zeilen, ein Sortierknopf waere ein Bedienelement ohne Entscheidung dahinter.
+    root.dataTable(
+        columns = financialHistoryColumns(),
+        rows = year.entries,
+    )
 }
+
+/** Columns of a year block; the date is the row's identity (primary, left-aligned), the amount is numeric. */
+private fun financialHistoryColumns(): List<DataColumn<FinancialHistoryEntryDto>> =
+    listOf(
+        textColumn(title = tr("Datum"), primary = true) { entry -> entry.date.toString() },
+        DataColumn(
+            title = tr("Art"),
+            cell = { container, entry ->
+                container.typeBadge(financialHistoryKindLabel(entry.kind), financialHistoryKindColor(entry.kind))
+            },
+        ),
+        textColumn(title = tr("Beschreibung")) { entry -> entry.label },
+        DataColumn(
+            title = tr("Betrag"),
+            numeric = true,
+            cell = { container, entry -> container.moneySpan(entry.amount) },
+        ),
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, entry ->
+                val status = entry.contributionStatus
+                if (status != null) container.statusBadge(contributionStatusLabel(status), contributionStatusColor(status))
+            },
+        ),
+    )
 
 internal fun financialHistoryKindLabel(kind: FinancialHistoryEntryKind): String =
     when (kind) {

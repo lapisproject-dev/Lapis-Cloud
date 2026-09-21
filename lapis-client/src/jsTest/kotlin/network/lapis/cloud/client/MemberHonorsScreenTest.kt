@@ -56,4 +56,17 @@ class MemberHonorsScreenTest {
         val text = memberHonorsEmptyStateText("Erika Musterfrau")
         assertEquals(true, text.contains("Erika Musterfrau"))
     }
+
+    @Test
+    fun memberHonorsEmptyStateText_withCategory_namesTheCategoryNotAGlobalEmptiness() {
+        val text = memberHonorsEmptyStateText(null, MemberHonorCategory.HONORARY_MEMBERSHIP)
+        assertEquals(true, text.contains(memberHonorCategoryLabel(MemberHonorCategory.HONORARY_MEMBERSHIP)))
+        assertNotEquals(memberHonorsEmptyStateText(null), text)
+    }
+
+    @Test
+    fun memberHonorsEmptyStateText_withCategoryAndName_stillNamesTheCategory() {
+        val text = memberHonorsEmptyStateText("Erika Musterfrau", MemberHonorCategory.SERVICE_AWARD)
+        assertEquals(true, text.contains(memberHonorCategoryLabel(MemberHonorCategory.SERVICE_AWARD)))
+    }
 }

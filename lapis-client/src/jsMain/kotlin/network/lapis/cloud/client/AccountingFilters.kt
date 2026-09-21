@@ -39,6 +39,15 @@ class DateRangeFilterControls(
             ?.trim()
             ?.takeIf { it.isNotBlank() }
             ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    /**
+     * Welle V1.4.26 (W2): „hat der Leser überhaupt einen Zeitraum eingegrenzt?" -- die Frage, die ein
+     * Leerzustand beantworten muss, um „noch keine Daten" von „nichts in diesem Zeitraum" zu trennen
+     * (Richtlinie 2.4). Absichtlich über die ROHE Eingabe, nicht über [parseFrom]/[parseTo]: ein
+     * unvollständig getipptes Datum ist serverseitig kein Filter, für den Leser aber sehr wohl eine
+     * Eingrenzungsabsicht -- der Satz „nichts in diesem Zeitraum" ist dann der hilfreichere.
+     */
+    fun hasRange(): Boolean = !fromInput.value.isNullOrBlank() || !toInput.value.isNullOrBlank()
 }
 
 fun Container.dateRangeFilter(

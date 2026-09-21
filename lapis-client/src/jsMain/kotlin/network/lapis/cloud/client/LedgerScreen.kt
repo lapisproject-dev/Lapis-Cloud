@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
@@ -16,18 +17,14 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -113,8 +110,7 @@ import kotlin.time.Clock
 fun renderLedgerScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
-    val root =
-        container.dataScreenRoot(spacing = 14)
+    val root = container.dataScreenRoot()
     root.h1(tr("Kontenplan & Journal"))
 
     // ---- Accounts (Kontenplan) -------------------------------------------------------------
@@ -134,10 +130,12 @@ fun renderLedgerScreen(container: SimplePanel) {
     // in seinem eigenen Kommentar beschreibt). Ein bedingt sichtbares Feld haette zusaetzlich nach
     // jedem Ladevorgang umgeschaltet werden muessen -- und ein leerer Kontenplan existiert
     // praktisch nicht, weil die SKR42-Grundausstattung beim Anlegen der Organisation gesetzt wird.
-    val accountsFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
+    val accountsFilterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val accountSearchInput = accountsFilterRow.text(label = tr("Konto suchen (Nummer oder Name)"))
     val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr("Inaktive Konten anzeigen"))
     val accountsRefreshButton = accountsFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val accountsCountsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val accountsStatusRegion = root.dataStatusRegion()
     val accountListPanel = root.vPanel(spacing = 6)
 
     root.h2(tr("Kontodetails"))
@@ -158,48 +156,113 @@ fun renderLedgerScreen(container: SimplePanel) {
     // ersten noch nicht sichtbar).
     var refreshAccounts: () -> Unit = {}
 
+    var accountsGeneration = 0
+    var accountsLoading = false
+    // Fehlerzustand des Abrufs: solange er steht, darf die Suche ihn weder wegzeichnen noch die Liste des
+    // vorigen Filters darüber malen.
+    var accountsFailed = false
+    // Welle V1.4.26 (W2): der eine aktive Sortierzustand der Kontenliste. Startwert Kontonummer
+    // aufsteigend -- genau die Ordnung, die `refreshAccounts` bisher fest verdrahtet hatte.
+    var accountSort = SortState(key = ACCOUNT_SORT_NUMBER, direction = SortDirection.ASC)
+    // Welche Spaltenkopf-Schaltfläche nach dem nächsten Rendern den Tastaturfokus bekommt. Bewusst ein
+    // schlichtes `var` statt `SortFocusRequest`: dort löst ein ASYNCHRONER Ladevorgang das Rendern aus
+    // (Mitgliederverzeichnis), hier ist das Sortieren rein clientseitig und synchron -- es gibt kein
+    // Zeitfenster, in dem ein überholter Ladevorgang den Wunsch ins nächste Rendern schleppen könnte,
+    // solange jedes Rendern ihn genau einmal verbraucht (siehe `renderAccountList` unten).
+    var pendingAccountSortFocus: String? = null
+
     fun renderAccountList(query: String) {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): während eines laufenden Abrufs sagt allein die
+        // Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld die zuletzt
+        // geladene (jetzt veraltete) Liste unter den Ladehinweis -- zwei Zustände gleichzeitig.
+        if (accountsLoading) return
+        // Der Fehlerkasten mit `Erneut versuchen` bleibt stehen.
+        if (accountsFailed) return
         accountListPanel.removeAll()
+        // Genau einmal verbraucht -- auch wenn dieses Rendern in einem Leer-/Fehlerzweig endet, sonst
+        // würde der Fokuswunsch in ein späteres, unverwandtes Rendern durchschlagen.
+        val sortFocusKey = pendingAccountSortFocus
+        pendingAccountSortFocus = null
         if (loadedAccounts.isEmpty()) {
-            accountListPanel.p(tr("Noch keine Konten angelegt."))
+            accountsCountsLabel.content = ""
+            // Welle V1.4.26 (W2): der Leertext nennt den gewählten Ausschnitt -- eine leere Liste bei
+            // aktivem „nur aktive" heisst nicht „noch keine Konten angelegt".
+            val text =
+                if (includeInactiveAccountsCheck.value) {
+                    tr("Noch keine Konten angelegt.")
+                } else {
+                    tr("Kein aktives Konto vorhanden. Inaktive Konten einblenden, um auch stillgelegte zu sehen.")
+                }
+            accountListPanel.p(text) { addCssClasses("text-muted") }
             return
         }
         val filtered = filterLedgerAccounts(loadedAccounts, query)
+        // Trefferzähler jetzt IMMER, nicht nur bei nicht-leerer Suche (Richtlinie 2.4).
+        accountsCountsLabel.content = gettext("%1 von %2 Konten", filtered.size, loadedAccounts.size)
         if (filtered.isEmpty()) {
-            accountListPanel.p(gettext("Kein Konto passt zu \"%1\".", query.trim()))
+            accountListPanel.p(gettext("Kein Konto passt zu \"%1\".", query.trim())) { addCssClasses("text-muted") }
             return
         }
-        if (query.isNotBlank()) {
-            accountListPanel.div(gettext("%1 von %2 Konten", filtered.size, loadedAccounts.size)) {
-                addCssClasses("text-muted small")
-            }
-        }
-        // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
-        // replacing the previous hand-rolled "border rounded p-2" vPanel-per-row layout -- see
-        // root CLAUDE.md "UI/UX-Design-Team" review.
-        val table =
-            accountListPanel.table(
-                headerNames = listOf(tr("Konto"), tr("Typ"), tr("Status"), tr("Details"), tr("Aktionen")),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
-        filtered.forEach { account ->
-            renderAccountRow(table, account, canManage, ::selectAccount) { refreshAccounts() }
-        }
+        // UI theme redesign wave (2026-08-20): real Bootstrap table, Welle V1.4.26 (W2): `dataTable` --
+        // kompakte Dichte, Kartenliste unter 768 px, klickbare Sortierköpfe für Kontonummer, Typ und
+        // Name. Die Kontenliste ist VOLLSTÄNDIG geladen, deshalb sortiert sie clientseitig über eine
+        // reine, testbare Funktion ([sortLedgerAccounts]) -- `listLedgerAccounts` kennt keinen
+        // Sortierparameter, ein Server-Sortieren wäre hier eine Schnittstellenänderung.
+        accountListPanel.dataTable(
+            columns = ledgerAccountColumns(),
+            rows = sortLedgerAccounts(filtered, accountSort),
+            sort = accountSort,
+            onSort = { clicked ->
+                val next = clicked ?: accountSort
+                accountSort = next
+                pendingAccountSortFocus = next.key
+                // Rein clientseitig: kein Nachladen, also direkt neu rendern.
+                renderAccountList(accountSearchInput.value.orEmpty())
+            },
+            actions = { actions, account ->
+                actions.renderAccountActions(account, canManage, ::selectAccount) { refreshAccounts() }
+            },
+            focusSortKey = sortFocusKey,
+        )
     }
 
     refreshAccounts = {
+        accountsGeneration++
+        val mine = accountsGeneration
         accountListPanel.removeAll()
+        accountsCountsLabel.content = ""
+        accountsStatusRegion.showLoading()
+        accountsLoading = true
+        accountsFailed = false
         AppScope.launch {
             val accounts =
                 guarded {
                     rpcService<IAccountingService>().listLedgerAccounts(activeOnly = !includeInactiveAccountsCheck.value)
-                } ?: return@launch
+                }
+            if (mine != accountsGeneration) return@launch // ein neuerer Ladevorgang hat übernommen
+            accountsStatusRegion.clearStatus()
+            accountsLoading = false
+            if (accounts == null) {
+                // Vorher blieb hier ein stumm leeres Panel zurück (`?: return@launch`).
+                accountsFailed = true
+                loadedAccounts = emptyList()
+                accountListPanel.dataErrorState(onRetry = { refreshAccounts() })
+                return@launch
+            }
             loadedAccounts = accounts.sortedBy { it.accountNumber }
             renderAccountList(accountSearchInput.value.orEmpty())
         }
     }
     accountsRefreshButton.onClick { refreshAccounts() }
+    // Der Inaktiv-Filter wirkt sofort (Server-Abfrage) -- Guard gegen das synthetische erste Ereignis.
+    var isInitialInactiveEvent = true
+    includeInactiveAccountsCheck.subscribe {
+        if (isInitialInactiveEvent) {
+            isInitialInactiveEvent = false
+            return@subscribe
+        }
+        refreshAccounts()
+    }
 
     // Kein Debounce -- rein clientseitige Filterung, kein RPC pro Tastendruck (gleiche Entscheidung
     // wie in `DocumentsScreen.kt`). Der `isInitialSearchEvent`-Guard ist noetig, weil KVisions
@@ -232,11 +295,13 @@ fun renderLedgerScreen(container: SimplePanel) {
 
     // ---- Journal (Grundbuch) --------------------------------------------------------------
     root.h2(tr("Journal (Grundbuch)"))
-    val journalFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val journalFilterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val journalSearchInput = journalFilterRow.text(label = tr("Buchung suchen (Beschreibung)"))
+    val journalStatusSegmentHost = journalFilterRow.simplePanel()
     val journalDateFilter = journalFilterRow.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
-    val journalStatusOptions = listOf("" to tr("Alle Status")) + JournalEntryStatus.entries.map { it.name to journalEntryStatusLabel(it) }
-    val journalStatusSelect = journalFilterRow.select(options = journalStatusOptions, value = "", label = tr("Status"))
     val journalRefreshButton = journalFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val journalCountsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val journalStatusRegion = root.dataStatusRegion()
     val journalListPanel = root.vPanel(spacing = 6)
 
     root.h2(tr("Journaldetails"))
@@ -271,38 +336,125 @@ fun renderLedgerScreen(container: SimplePanel) {
         )
     }
 
-    fun refreshJournal() {
+    // Welle V1.4.26 (W2): die geladene Journal-Seite wird gehalten, damit Suche und Sortierung
+    // clientseitig darauf wirken können, ohne pro Tastendruck erneut `listJournal` zu rufen.
+    var loadedJournal: List<JournalEntryDto> = emptyList()
+    var journalStatusFilter: JournalEntryStatus? = null
+    var journalSearchTerm = ""
+    var journalSort = SortState(key = JOURNAL_SORT_DATE, direction = SortDirection.DESC)
+    var pendingJournalSortFocus: String? = null
+    var journalGeneration = 0
+    var journalLoading = false
+    // Fehlerzustand des Abrufs: siehe `accountsFailed`.
+    var journalFailed = false
+
+    fun renderJournalList() {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): während eines laufenden Abrufs sagt allein die
+        // Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld die zuletzt
+        // geladene (jetzt veraltete) Liste unter den Ladehinweis -- zwei Zustände gleichzeitig.
+        if (journalLoading) return
+        // Der Fehlerkasten mit `Erneut versuchen` bleibt stehen.
+        if (journalFailed) return
         journalListPanel.removeAll()
+        val sortFocusKey = pendingJournalSortFocus
+        pendingJournalSortFocus = null
+        if (loadedJournal.isEmpty()) {
+            journalCountsLabel.content = ""
+            journalListPanel.p(journalEmptyText(journalStatusFilter, journalDateFilter.hasRange())) {
+                addCssClasses("text-muted")
+            }
+            return
+        }
+        val filtered = filterJournalEntries(loadedJournal, journalSearchTerm)
+        journalCountsLabel.content =
+            dataCountText(shown = filtered.size, loaded = loadedJournal.size, filtered = journalSearchTerm.isNotBlank())
+        if (filtered.isEmpty()) {
+            journalListPanel.p(gettext("Keine Buchung passt zu \"%1\".", journalSearchTerm.trim())) {
+                addCssClasses("text-muted")
+            }
+            return
+        }
+        // UI theme redesign wave (2026-08-20): real Bootstrap table, Welle V1.4.26 (W2): `dataTable`
+        // mit kompakter Dichte, Kartenliste unter 768 px und clientseitig sortierbaren Spaltenköpfen
+        // (Datum, Beschreibung) -- `listJournal` liefert die gefilterte Menge vollständig und kennt
+        // keinen Sortierparameter.
+        journalListPanel.dataTable(
+            columns = journalEntryColumns(),
+            rows = sortJournalEntries(filtered, journalSort),
+            sort = journalSort,
+            onSort = { clicked ->
+                val next = clicked ?: journalSort
+                journalSort = next
+                pendingJournalSortFocus = next.key
+                renderJournalList()
+            },
+            // Erster Klick auf „Datum" zeigt die neuesten Buchungen zuerst -- die Reihenfolge, in der
+            // ein Schatzmeister ein Journal liest (gleiche Entscheidung wie „Beitritt" im Roster).
+            sortOptions = JOURNAL_SORT_OPTIONS,
+            actions = { actions, entry ->
+                val showButton = actions.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+                showButton.onClick {
+                    selectJournalEntry(entry.id)
+                    refreshJournalDetail()
+                }
+            },
+            focusSortKey = sortFocusKey,
+        )
+    }
+
+    fun refreshJournal() {
+        journalGeneration++
+        val mine = journalGeneration
+        journalListPanel.removeAll()
+        journalCountsLabel.content = ""
+        journalStatusRegion.showLoading()
+        journalLoading = true
+        journalFailed = false
+        val status = journalStatusFilter
         AppScope.launch {
-            val status = journalStatusSelect.value?.takeIf { it.isNotBlank() }?.let { JournalEntryStatus.valueOf(it) }
             val entries =
                 guarded {
                     rpcService<IAccountingService>().listJournal(journalDateFilter.parseFrom(), journalDateFilter.parseTo(), status)
-                } ?: return@launch
-            if (entries.isEmpty()) {
-                journalListPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
+                }
+            if (mine != journalGeneration) return@launch // ein neuerer Ladevorgang hat übernommen
+            journalStatusRegion.clearStatus()
+            journalLoading = false
+            if (entries == null) {
+                // Vorher blieb hier ein stumm leeres Panel zurück (`?: return@launch`).
+                journalFailed = true
+                loadedJournal = emptyList()
+                journalListPanel.dataErrorState(onRetry = { refreshJournalFn?.invoke() })
                 return@launch
             }
-            // UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover),
-            // replacing the previous hand-rolled "border rounded p-2" vPanel-per-row layout -- see
-            // root CLAUDE.md "UI/UX-Design-Team" review.
-            val table =
-                journalListPanel.table(
-                    headerNames = listOf(tr("Buchung"), tr("Status"), tr("Details"), tr("Aktionen")),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                    responsiveType = ResponsiveType.RESPONSIVE,
-                )
-            entries.forEach { entry ->
-                renderJournalRow(table, entry) { id ->
-                    selectJournalEntry(id)
-                    refreshJournalDetail()
-                }
-            }
+            loadedJournal = entries
+            renderJournalList()
         }
     }
     refreshJournalFn = ::refreshJournal
 
+    // Der Status-`select` mit „Alle Status" + drei Lebenszyklus-Werten ist ein `segmentedControl`
+    // geworden: gegenseitig ausschliessend, mit Aktivzustand und `aria-pressed` (R20/R48).
+    journalStatusSegmentHost.segmentedControl(
+        options = listOf(null to tr("Alle")) + JournalEntryStatus.entries.map { it to journalEntryStatusLabel(it) },
+        selected = journalStatusFilter,
+        ariaLabel = tr("Status"),
+    ) { status ->
+        journalStatusFilter = status
+        refreshJournal()
+    }
     journalRefreshButton.onClick { refreshJournal() }
+
+    var isInitialJournalSearchEvent = true
+    journalSearchInput.subscribe { value ->
+        if (isInitialJournalSearchEvent) {
+            isInitialJournalSearchEvent = false
+            return@subscribe
+        }
+        // Kein Debounce -- rein clientseitige Filterung über die bereits geladene Seite, gleiche
+        // Entscheidung wie bei der Kontensuche darüber.
+        journalSearchTerm = value.orEmpty()
+        renderJournalList()
+    }
     refreshJournal()
 
     if (canManage) {
@@ -701,54 +853,111 @@ internal fun filterLedgerAccounts(
     }
 }
 
-private fun renderAccountRow(
-    table: Table,
+/** Sortierschlüssel der Kontenliste (Welle V1.4.26 / W2) -- die drei Spalten, die eine Ordnung tragen. */
+internal const val ACCOUNT_SORT_NUMBER = "accountNumber"
+internal const val ACCOUNT_SORT_NAME = "name"
+internal const val ACCOUNT_SORT_TYPE = "type"
+
+/**
+ * Clientseitige Sortierung der VOLLSTÄNDIG geladenen Kontenliste -- pur und testbar (siehe
+ * `LedgerScreenTest`). Kontonummern werden als **Text** verglichen, nicht als Zahl: ein SKR42-Konto ist
+ * eine Kontonummer, keine Menge, und kann führende Nullen tragen (`0400`) -- eine numerische Sortierung
+ * würde `0400` und `400` zusammenwerfen und bei nicht rein numerischen Nummern gar nicht greifen. Der
+ * Typ wird über sein übersetztes Label sortiert, damit die Reihenfolge der Sprache des Lesers folgt und
+ * nicht der Deklarationsreihenfolge des Enums. Sekundärschlüssel ist immer die Kontonummer, damit die
+ * Ordnung bei gleichen Werten stabil bleibt.
+ */
+internal fun sortLedgerAccounts(
+    accounts: List<LedgerAccountDto>,
+    sort: SortState,
+): List<LedgerAccountDto> {
+    val byKey: Comparator<LedgerAccountDto> =
+        when (sort.key) {
+            ACCOUNT_SORT_NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }
+            ACCOUNT_SORT_TYPE -> compareBy(String.CASE_INSENSITIVE_ORDER) { ledgerAccountTypeLabel(it.type) }
+            else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.accountNumber }
+        }
+    val comparator = byKey.thenBy(String.CASE_INSENSITIVE_ORDER) { it.accountNumber }
+    return accounts.sortedWith(if (sort.direction == SortDirection.ASC) comparator else comparator.reversed())
+}
+
+/**
+ * Spalten der Kontenliste / Kartenliste. Konto (Nummer · Name) ist die Identität der Zeile und damit der
+ * Kartentitel; es ist nach Nummer sortierbar, weil das die Ordnung ist, in der ein Schatzmeister einen
+ * Kontenplan liest. Der Name bekommt eine eigene, alphabetisch sortierbare Spalte -- vorher steckte er
+ * mit der Nummer in einer Zelle und war damit gar nicht sortierbar.
+ */
+private fun ledgerAccountColumns(): List<DataColumn<LedgerAccountDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Konto"),
+            primary = true,
+            sortKey = ACCOUNT_SORT_NUMBER,
+            cell = { container, account ->
+                container.span(gettext("%1 · %2", account.accountNumber, account.name)) { addCssClass("fw-bold") }
+            },
+        ),
+        textColumn(title = tr("Name"), sortKey = ACCOUNT_SORT_NAME) { account: LedgerAccountDto -> account.name },
+        DataColumn(
+            title = tr("Typ"),
+            sortKey = ACCOUNT_SORT_TYPE,
+            cell = { container, account ->
+                container.typeBadge(ledgerAccountTypeLabel(account.type), ledgerAccountTypeColor(account.type))
+            },
+        ),
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, account -> container.activeStatusBadge(account.active) },
+        ),
+        textColumn(title = tr("Details")) { account: LedgerAccountDto -> ledgerAccountMetaText(account) },
+    )
+
+/** Die Meta-Zeile eines Kontos („Kontenklasse 4 · Kasse") -- pur, siehe `LedgerScreenTest`. */
+internal fun ledgerAccountMetaText(account: LedgerAccountDto): String {
+    val metaParts = mutableListOf(gettext("Kontenklasse %1", account.accountClass))
+    account.reserveType?.let { metaParts.add(reserveTypeLabel(it)) }
+    if (account.isCashRegister) metaParts.add(gettext("Kasse"))
+    return metaParts.joinToString(" · ")
+}
+
+/**
+ * Zeilenaktionen der Kontenliste. Rollen-Gate (`canManage`) und Statusbedingung (`account.active`) sowie
+ * der Bestätigungsdialog sind gegenüber der Welle vom 2026-09-18 unverändert.
+ *
+ * Design-Team-Welle 2026-09-18: vorher zwei Volltext-Knoepfe in einem `flex-wrap`-hPanel,
+ * die in der schmalen Aktionsspalte untereinander umbrachen und jede Kontenzeile auf zwei
+ * Knopfhoehen aufblaehten. Jetzt Icon-Knoepfe nebeneinander -- Tooltip/`aria-label` tragen
+ * die Bedeutung (siehe `DataScreenLayout.tableActionButton` KDoc zu Don Normans Einwand).
+ */
+private fun Container.renderAccountActions(
     account: LedgerAccountDto,
     canManage: Boolean,
     onSelect: (LedgerAccountDto) -> Unit,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        cell(gettext("%1 · %2", account.accountNumber, account.name)) { addCssClass("fw-bold") }
-        cell { typeBadge(ledgerAccountTypeLabel(account.type), ledgerAccountTypeColor(account.type)) }
-        cell { activeStatusBadge(account.active) }
+    val actionRow = tableActionGroup()
+    val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+    showButton.onClick { onSelect(account) }
 
-        val metaParts = mutableListOf(gettext("Kontenklasse %1", account.accountClass))
-        account.reserveType?.let { metaParts.add(reserveTypeLabel(it)) }
-        if (account.isCashRegister) metaParts.add(gettext("Kasse"))
-        cell(metaParts.joinToString(" · ")) { addCssClasses("text-muted small") }
-
-        val actionsCell = cell()
-        // Design-Team-Welle 2026-09-18: vorher zwei Volltext-Knoepfe in einem `flex-wrap`-hPanel,
-        // die in der schmalen Aktionsspalte untereinander umbrachen und jede Kontenzeile auf zwei
-        // Knopfhoehen aufblaehten. Jetzt Icon-Knoepfe nebeneinander -- Tooltip/`aria-label` tragen
-        // die Bedeutung (siehe `DataScreenLayout.tableActionButton` KDoc zu Don Normans Einwand).
-        val actionRow = actionsCell.tableActionGroup()
-        val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
-        showButton.onClick { onSelect(account) }
-
-        if (canManage && account.active) {
-            val deactivateButton =
-                actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
-            deactivateButton.onClick {
-                confirmDialog(
-                    title = tr("Konto deaktivieren"),
-                    message =
-                        gettext(
-                            "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht " +
-                                "aber für neue Buchungen nicht mehr zur Verfügung.",
-                            account.accountNumber,
-                            account.name,
-                        ),
-                    confirmLabel = tr("Deaktivieren"),
-                ) {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IAccountingService>().deactivateLedgerAccount(account.id) }
-                        if (result != null) {
-                            notifyInfo(tr("Konto wurde deaktiviert."))
-                            onChanged()
-                        }
-                    }
+    if (!canManage || !account.active) return
+    val deactivateButton = actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+    deactivateButton.onClick {
+        confirmDialog(
+            title = tr("Konto deaktivieren"),
+            message =
+                gettext(
+                    "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, das Konto steht " +
+                        "aber für neue Buchungen nicht mehr zur Verfügung.",
+                    account.accountNumber,
+                    account.name,
+                ),
+            confirmLabel = tr("Deaktivieren"),
+        ) {
+            AppScope.launch {
+                val result = guarded { rpcService<IAccountingService>().deactivateLedgerAccount(account.id) }
+                if (result != null) {
+                    notifyInfo(tr("Konto wurde deaktiviert."))
+                    onChanged()
                 }
             }
         }
@@ -1017,7 +1226,67 @@ private fun renderKassenbuchView(
 // Journal (Grundbuch): list, detail, posting/duplicate actions
 // ============================================================================================
 
+/** Sortierschlüssel der Journal-Liste (Welle V1.4.26 / W2). */
+internal const val JOURNAL_SORT_DATE = "entryDate"
+internal const val JOURNAL_SORT_DESCRIPTION = "description"
+
+/** Erster Klick auf „Datum" zeigt die neuesten Buchungen zuerst; jede andere Spalte beginnt aufsteigend. */
+private val JOURNAL_SORT_OPTIONS =
+    SortOptions(
+        allowUnsorted = false,
+        firstDirection = { key -> if (key == JOURNAL_SORT_DATE) SortDirection.DESC else SortDirection.ASC },
+    )
+
+/** Clientseitige Suche über die geladene Journal-Seite (pur, siehe `LedgerScreenTest`): Beschreibung. */
+internal fun filterJournalEntries(
+    entries: List<JournalEntryDto>,
+    search: String,
+): List<JournalEntryDto> {
+    val term = search.trim()
+    if (term.isEmpty()) return entries
+    return entries.filter { it.description.contains(term, ignoreCase = true) }
+}
+
 /**
+ * Clientseitige Sortierung der geladenen Journal-Seite -- pur und testbar (siehe `LedgerScreenTest`).
+ * Sekundärschlüssel ist immer das Buchungsdatum, damit die Ordnung bei gleichen Beschreibungen stabil
+ * bleibt. Das Datum wird über seine ISO-Textform verglichen (`LocalDate.toString()` ist `JJJJ-MM-TT` und
+ * damit lexikografisch = chronologisch) -- so braucht diese reine Funktion keine Datumsarithmetik.
+ */
+internal fun sortJournalEntries(
+    entries: List<JournalEntryDto>,
+    sort: SortState,
+): List<JournalEntryDto> {
+    val byKey: Comparator<JournalEntryDto> =
+        when (sort.key) {
+            JOURNAL_SORT_DESCRIPTION -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.description }
+            else -> compareBy { it.entryDate.toString() }
+        }
+    val comparator = byKey.thenBy { it.entryDate.toString() }
+    return entries.sortedWith(if (sort.direction == SortDirection.ASC) comparator else comparator.reversed())
+}
+
+/**
+ * „Noch keine Daten" der Journal-Liste, getrennt nach dem Ausschnitt, den der Leser gewählt hat (R41):
+ * ein leeres Journal ist eine andere Aussage als „in diesem Zeitraum" oder „mit diesem Status". Pur,
+ * siehe `LedgerScreenTest`.
+ */
+internal fun journalEmptyText(
+    status: JournalEntryStatus?,
+    hasDateRange: Boolean,
+): String =
+    when {
+        status != null && hasDateRange ->
+            gettext("Keine Buchung mit dem Status \"%1\" im gewählten Zeitraum.", journalEntryStatusLabel(status))
+        status != null -> gettext("Keine Buchung mit dem Status \"%1\".", journalEntryStatusLabel(status))
+        hasDateRange -> gettext("Keine Buchungen im gewählten Zeitraum.")
+        else -> gettext("Noch keine Buchungen erfasst.")
+    }
+
+/**
+ * Die Meta-Zeile einer Buchung („01.03.2026 · 2 Buchungszeilen · erfasst von …") -- pur, siehe
+ * `LedgerSortAndEmptyStateTest`.
+ *
  * Deliberately shows a posting-line COUNT, not a Σ amount -- the plan's own suggested "Σamount"
  * column would require this screen to sum already-persisted [Decimal] figures purely for a
  * read-only list display, which is exactly the kind of client-side re-derivation of backend-owned
@@ -1025,27 +1294,40 @@ private fun renderKassenbuchView(
  * stays scoped to the pre-submission confirm dialog, where the sum is the whole point of the step,
  * not an incidental display convenience.
  */
-private fun renderJournalRow(
-    table: Table,
-    entry: JournalEntryDto,
-    onSelect: (String) -> Unit,
-) {
-    table.row {
-        cell(entry.description) { addCssClass("fw-bold") }
-        cell { statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status)) }
-
-        val postingsCount = entry.postings.size
-        val postingsNoun = if (postingsCount == 1) gettext("1 Buchungszeile") else gettext("%1 Buchungszeilen", postingsCount)
-        cell(gettext("%1 · %2 · erfasst von %3", entry.entryDate, postingsNoun, entry.createdByDisplayName)) {
-            addCssClasses("text-muted small")
-        }
-
-        cell {
-            val showButton = button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-            showButton.onClick { onSelect(entry.id) }
-        }
-    }
+internal fun journalEntryMetaText(entry: JournalEntryDto): String {
+    val postingsCount = entry.postings.size
+    val postingsNoun = if (postingsCount == 1) gettext("1 Buchungszeile") else gettext("%1 Buchungszeilen", postingsCount)
+    return gettext("%1 · %2 · erfasst von %3", entry.entryDate, postingsNoun, entry.createdByDisplayName)
 }
+
+/**
+ * Spalten der Journal-Liste / Kartenliste. Die Beschreibung ist die Identität der Buchung (Kartentitel);
+ * das Buchungsdatum bekommt eine eigene, sortierbare Spalte -- vorher steckte es in der Meta-Zelle und war
+ * damit weder sortierbar noch als Datum erkennbar. Die Aktion ist ein Icon-Knopf statt des vorherigen
+ * Volltext-Knopfes „Details anzeigen" in der Tabellenzeile (R38).
+ */
+private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Buchung"),
+            primary = true,
+            sortKey = JOURNAL_SORT_DESCRIPTION,
+            cell = { container, entry -> container.span(entry.description) { addCssClass("fw-bold") } },
+        ),
+        textColumn(title = tr("Datum"), numeric = true, sortKey = JOURNAL_SORT_DATE) { entry: JournalEntryDto ->
+            entry.entryDate.toString()
+        },
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, entry ->
+                container.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
+            },
+        ),
+        DataColumn(
+            title = tr("Details"),
+            cell = { container, entry -> container.span(journalEntryMetaText(entry)) { addCssClasses("text-muted small") } },
+        ),
+    )
 
 /**
  * D1: the lifecycle caption states the irreversibility difference in plain text beneath the header
@@ -1201,31 +1483,42 @@ private fun renderPostingsTable(
     postings: List<PostingDto>,
 ) {
     if (postings.isEmpty()) {
-        panel.p(tr("Keine Buchungszeilen."))
+        panel.p(tr("Keine Buchungszeilen.")) { addCssClasses("text-muted") }
         return
     }
-    val table =
-        panel.table(
-            headerNames = listOf(tr("Konto"), tr("Soll"), tr("Haben"), tr("Sphäre"), tr("Kostenstelle"), tr("USt")),
-            types = setOf(TableType.STRIPED, TableType.HOVER),
-            responsiveType = ResponsiveType.RESPONSIVE,
-        )
-    postings.forEach { posting ->
-        table.row {
-            cell(gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName))
-            cell(if (posting.side == PostingSide.DEBIT) formatMoney(posting.amount) else "")
-            cell(if (posting.side == PostingSide.CREDIT) formatMoney(posting.amount) else "")
-            cell { typeBadge(sphereLabel(posting.sphere), sphereColor(posting.sphere)) }
-            cell(posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--") {
-                addCssClasses("text-muted small")
-            }
-            // Welle V1.4.13 "USt-Voranmeldung" -- Text, nie eine Farbe (siehe vatRateLabel KDoc).
-            // Bewusst ohne Betrag zusaetzlich -- der Betrag oben ist BRUTTO inkl. USt, siehe
-            // NonprofitComplianceReportsScreen.kt fuer den ausdruecklichen Brutto-Hinweis.
-            cell(vatRateLabel(posting.vatRate)) { addCssClasses("text-muted small") }
-        }
-    }
+    // Welle V1.4.26 (W2): `dataTable` -- Soll und Haben sind jetzt rechtsbündig mit Tabellenziffern,
+    // damit die beiden Spalten wie in einem Buchhaltungsprogramm untereinander stehen. Keine
+    // Sortierköpfe: die Reihenfolge der Buchungszeilen ist die Reihenfolge der Buchung selbst.
+    panel.dataTable(columns = postingColumns(), rows = postings)
 }
+
+private fun postingColumns(): List<DataColumn<PostingDto>> =
+    listOf(
+        textColumn(title = tr("Konto"), primary = true) { posting: PostingDto ->
+            gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName)
+        },
+        DataColumn(
+            title = tr("Soll"),
+            numeric = true,
+            cell = { container, posting -> if (posting.side == PostingSide.DEBIT) container.moneySpan(posting.amount) },
+        ),
+        DataColumn(
+            title = tr("Haben"),
+            numeric = true,
+            cell = { container, posting -> if (posting.side == PostingSide.CREDIT) container.moneySpan(posting.amount) },
+        ),
+        DataColumn(
+            title = tr("Sphäre"),
+            cell = { container, posting -> container.typeBadge(sphereLabel(posting.sphere), sphereColor(posting.sphere)) },
+        ),
+        textColumn(title = tr("Kostenstelle")) { posting: PostingDto ->
+            posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--"
+        },
+        // Welle V1.4.13 "USt-Voranmeldung" -- Text, nie eine Farbe (siehe vatRateLabel KDoc).
+        // Bewusst ohne Betrag zusaetzlich -- der Betrag oben ist BRUTTO inkl. USt, siehe
+        // NonprofitComplianceReportsScreen.kt fuer den ausdruecklichen Brutto-Hinweis.
+        textColumn(title = tr("USt")) { posting: PostingDto -> vatRateLabel(posting.vatRate) },
+    )
 
 // ============================================================================================
 // New Journal entry form (posting-lines editor + D13 donor block)

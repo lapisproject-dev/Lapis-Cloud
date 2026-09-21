@@ -12448,3 +12448,159 @@ msgstr "Trié par %1 (décroissant)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:314
 msgid "Alle (%1)"
 msgstr "Tous (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "%1 Einträge geladen"
+msgstr "%1 entrées chargées"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "%1 von %2 Einträgen geladen"
+msgstr "%1 sur %2 entrées chargées"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "%1 von %2 geladenen Einträgen angezeigt"
+msgstr "%1 sur %2 entrées chargées affichées"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt
+msgid "Alle Zahlungseingänge sind gebucht."
+msgstr "Tous les paiements reçus sont comptabilisés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt
+msgid "Bankkonto %1 (%2) löschen? Bereits gebuchte Kontoauszüge bleiben erhalten."
+msgstr "Supprimer le compte bancaire %1 (%2) ? Les relevés déjà comptabilisés sont conservés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt
+msgid "Bankkonto löschen"
+msgstr "Supprimer le compte bancaire"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Buchung suchen (Beschreibung)"
+msgstr "Rechercher une écriture (libellé)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Geburtstage"
+msgstr "Anniversaires"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "In diesem Zeitraum stehen keine Geburtstage oder Jubiläen an."
+msgstr "Aucun anniversaire ni jubilé n'est prévu sur cette période."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "In diesem Zeitraum steht kein Geburtstag an."
+msgstr "Aucun anniversaire n'est prévu sur cette période."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "In diesem Zeitraum steht kein Jubiläum an."
+msgstr "Aucun jubilé n'est prévu sur cette période."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Jubiläen"
+msgstr "Jubilés"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
+msgid "Kein Eintrag passt zu den gewählten Filtern."
+msgstr "Aucune entrée ne correspond aux filtres sélectionnés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt
+msgid "Kein Mandat mit dem Status \"%1\"."
+msgstr "Aucun mandat avec le statut \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt
+msgid "Kein aktiver externer Spender vorhanden. Inaktive Spender einblenden, um auch stillgelegte zu sehen."
+msgstr "Aucun donateur externe actif. Affichez les donateurs inactifs pour voir également ceux qui sont désactivés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Kein aktives Konto vorhanden. Inaktive Konten einblenden, um auch stillgelegte zu sehen."
+msgstr "Aucun compte actif. Affichez les comptes inactifs pour voir également ceux qui sont désactivés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Kein geladener Eintrag passt zu \"%1\"."
+msgstr "Aucune entrée chargée ne correspond à \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt
+msgid "Kein offener Mahnvorgang."
+msgstr "Aucun dossier de relance ouvert."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Keine Buchung mit dem Status \"%1\" im gewählten Zeitraum."
+msgstr "Aucune écriture avec le statut \"%1\" sur la période sélectionnée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Keine Buchung mit dem Status \"%1\"."
+msgstr "Aucune écriture avec le statut \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Keine Buchung passt zu \"%1\"."
+msgstr "Aucune écriture ne correspond à \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt
+msgid "Keine Familie passt zu \"%1\"."
+msgstr "Aucune famille ne correspond à \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt
+msgid "Keine Rücklastschrift im gewählten Zeitraum."
+msgstr "Aucun rejet de prélèvement sur la période sélectionnée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt
+msgid "Noch kein Bankkonto angelegt."
+msgstr "Aucun compte bancaire créé pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt
+msgid "Noch kein SEPA-Lauf angelegt."
+msgstr "Aucune remise SEPA créée pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt
+msgid "Noch keine Buchungen erfasst."
+msgstr "Aucune écriture enregistrée pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt
+msgid "Noch keine Mahnvorgänge erfasst."
+msgstr "Aucun dossier de relance enregistré pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt
+msgid "Noch keine Rücklastschriften erfasst."
+msgstr "Aucun rejet de prélèvement enregistré pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt
+msgid "Noch keine SEPA-Mandate erfasst."
+msgstr "Aucun mandat SEPA enregistré pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt
+msgid "Noch keine Zahlungseingänge erfasst."
+msgstr "Aucun paiement reçu enregistré pour le moment."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt
+msgid "Suche nach Familienname oder Zahler"
+msgstr "Rechercher par nom de famille ou payeur"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt
+msgid "Suche nach Mitglied"
+msgstr "Rechercher par membre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt
+msgid "Suche nach Mitglied oder Hinweis"
+msgstr "Rechercher par membre ou remarque"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt
+msgid "Suche nach Mitglied oder Mandatsreferenz"
+msgstr "Rechercher par membre ou référence de mandat"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
+msgid "Suche nach Titel oder Mitglied"
+msgstr "Rechercher par intitulé ou membre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Weitere Einträge liegen noch auf dem Server."
+msgstr "D'autres entrées se trouvent encore sur le serveur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Weitere Einträge liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen."
+msgstr "D'autres entrées se trouvent encore sur le serveur ; les filtres et la recherche ne portent que sur les lignes chargées."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataTableState.kt
+msgid "Weitere Einträge nachladen und erneut suchen."
+msgstr "Chargez d'autres entrées et relancez la recherche."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
+msgid "Keine Ehrung in der Kategorie \"%1\"."
+msgstr "Aucune distinction dans la catégorie \"%1\"."

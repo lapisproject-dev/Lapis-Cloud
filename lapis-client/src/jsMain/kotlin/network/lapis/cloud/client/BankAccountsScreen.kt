@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
 import io.kvision.form.text.password
@@ -17,11 +18,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.BankAccountDto
@@ -62,32 +58,35 @@ import org.w3c.dom.HTMLInputElement
  *   out button) -- a plain explanatory line instead.
  */
 fun renderBankAccountsScreen(container: SimplePanel) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot()
+    // Warnband über dem Titel (Richtlinie 2.8: es betrifft den ganzen Screen) -- unverändert gegenüber
+    // V1.4.14, nur die Reihenfolge stimmt jetzt mit der Richtlinie überein.
+    val warningBand = root.div().apply { hide() }
     root.h1(tr("Bankkonten"))
 
-    val warningBand = root.div().apply { hide() }
-    val tableHost = root.div()
     val actionsRow = root.hPanel(spacing = 8)
 
-    fun reload() {
-        AppScope.launch {
-            val accounts = guarded { rpcService<IBankAccountService>().listBankAccounts() } ?: return@launch
-            renderWarningBand(warningBand, accounts)
-            renderAccountsTable(tableHost, accounts) { reload() }
-        }
-    }
+    // Welle V1.4.26 (W2): der Abruf liegt in einem `dataSection` -- Lade-, Fehler- und Leerzustand statt
+    // eines stumm leeren Bereichs, wenn `listBankAccounts` scheitert (`?: return@launch` vorher).
+    lateinit var section: DataSection
+    section =
+        root.dataSection<List<BankAccountDto>>(
+            emptyText = tr("Noch kein Bankkonto angelegt."),
+            isEmpty = { it.isEmpty() },
+            // Nur bei ERFOLG neu zeichnen: `orEmpty()` auf einem gescheiterten Abruf hätte das Warnband
+            // versteckt und damit „keine erneute FinTS-Anmeldung nötig" behauptet, obwohl der Client
+            // gerade nichts weiß (Audit dieser Welle).
+            onSettled = { accounts -> if (accounts != null) renderWarningBand(warningBand, accounts) },
+            load = { guarded { rpcService<IBankAccountService>().listBankAccounts() } },
+            render = { panel, accounts -> renderAccountsTable(panel, accounts) { section.reload() } },
+        )
 
     if (BankAccountAuthzUi.canWrite(AppState.session?.role)) {
         val createButton = actionsRow.button(tr("Bankkonto anlegen"), style = ButtonStyle.PRIMARY)
-        createButton.onClick { bankAccountEditModal(null) { reload() } }
+        createButton.onClick { bankAccountEditModal(null) { section.reload() } }
     }
 
-    reload()
+    section.reload()
 }
 
 private fun renderWarningBand(
@@ -112,70 +111,114 @@ private fun renderWarningBand(
 }
 
 private fun renderAccountsTable(
-    tableHost: Div,
+    tableHost: SimplePanel,
     accounts: List<BankAccountDto>,
     onChanged: () -> Unit,
 ) {
-    tableHost.removeAll()
     val currentRole = AppState.session?.role
     val canWrite = BankAccountAuthzUi.canWrite(currentRole)
     val canManageFinTs = BankAccountAuthzUi.canManageFinTs(currentRole)
-    val headers =
-        buildList {
-            add(tr("Bezeichnung"))
-            add(tr("IBAN"))
-            add(tr("Bank"))
-            add(tr("Standard"))
-            add(tr("FinTS-Live-Abruf"))
-            if (canWrite) add(tr("Aktionen"))
-        }
-    val table = tableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))
-    accounts.forEach { account -> renderAccountRow(table, account, canWrite, canManageFinTs, onChanged) }
+    // Bewusst kein Suchfeld: eine Organisation führt eine Handvoll Bankkonten, nie die 20+ Zeilen, ab
+    // denen die Richtlinie (R19) ein Suchfeld verlangt. Ebenso keine Sortierköpfe -- `listBankAccounts`
+    // liefert eine kurze, serverseitig geordnete Liste.
+    tableHost.dataTable(
+        columns = bankAccountColumns(canManageFinTs = canManageFinTs, onChanged = onChanged),
+        rows = accounts,
+        actions =
+            if (!canWrite) {
+                null
+            } else {
+                { actions, account -> actions.renderBankAccountActions(account, onChanged) }
+            },
+    )
 }
 
-private fun renderAccountRow(
-    table: Table,
-    account: BankAccountDto,
-    canWrite: Boolean,
+/** Spalten der Bankkonten-Tabelle / Kartenliste; die Bezeichnung ist die Identität der Zeile. */
+private fun bankAccountColumns(
     canManageFinTs: Boolean,
     onChanged: () -> Unit,
+): List<DataColumn<BankAccountDto>> =
+    listOf(
+        textColumn(title = tr("Bezeichnung"), primary = true) { account: BankAccountDto -> account.label },
+        textColumn(title = tr("IBAN"), numeric = true) { account: BankAccountDto -> account.ibanMasked },
+        textColumn(title = tr("Bank")) { account: BankAccountDto -> account.bankName ?: "—" },
+        DataColumn(
+            title = tr("Standard"),
+            cell = { container, account ->
+                // Welle V1.4.26 (W2): ein `typeBadge` mit dem Wort „Standard" statt eines nackten
+                // Sternchen-Glyphs. Das Sternchen war der einzige Kanal -- ein Screenreader las an
+                // dieser Stelle gar nichts, und in der Kartenliste stand ein `dd` mit einem Icon ohne
+                // Bedeutung. „Standard" ist eine feste Kategorie, kein Lebenszyklus, also `typeBadge`
+                // (Badge-Grammatik 2.3).
+                if (account.isDefault) container.typeBadge(tr("Standard"), "primary")
+            },
+        ),
+        DataColumn(
+            title = tr("FinTS-Live-Abruf"),
+            cell = { container, account -> renderFinTsCell(container, account, canManageFinTs, onChanged) },
+        ),
+    )
+
+/**
+ * Zeilenaktionen. Rollen-Gate ([BankAccountAuthzUi.canWrite], vom Aufrufer geprüft) und die
+ * Standard-Konto-Bedingung (`!isDefault` für Standard-Setzen und Löschen) sind gegenüber V1.4.14
+ * unverändert. Zwei Änderungen dieser Welle: Icon-Knöpfe statt drei Volltext-Knöpfe, die eine
+ * Bankkonto-Zeile auf drei Zeilen Höhe trieben (R38) -- und, als notwendige Folge davon, eine
+ * **Bestätigung vor dem Löschen**. Ein unbeschrifteter Mülleimer neben zwei weiteren Icons ist
+ * erheblich leichter versehentlich zu treffen als ein Knopf mit dem Wort „Löschen"; die Löschung lief
+ * bisher ohne jeden zweiten Schritt (Richtlinie P6/R30).
+ */
+private fun Container.renderBankAccountActions(
+    account: BankAccountDto,
+    onChanged: () -> Unit,
 ) {
-    table.row {
-        cell(account.label)
-        cell(account.ibanMasked)
-        cell(account.bankName ?: "—")
-        cell { if (account.isDefault) icon("fas fa-star") }
-        cell { renderFinTsCell(this, account, canManageFinTs, onChanged) }
-        if (canWrite) {
-            cell {
-                val editButton = button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
-                editButton.onClick { bankAccountEditModal(account) { onChanged() } }
-                if (!account.isDefault) {
-                    val setDefaultButton = button(tr("Als Standard setzen"), style = ButtonStyle.OUTLINESECONDARY)
-                    setDefaultButton.onClick {
-                        AppScope.launch {
-                            val result = guarded { rpcService<IBankAccountService>().setDefaultBankAccount(account.id) } ?: return@launch
-                            notifySuccess(tr("Standardkonto gesetzt."))
-                            onChanged()
-                        }
-                    }
-                    val deleteButton = button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
-                    deleteButton.onClick {
-                        AppScope.launch {
-                            guarded { rpcService<IBankAccountService>().deleteBankAccount(account.id) } ?: return@launch
-                            notifySuccess(tr("Bankkonto gelöscht."))
-                            onChanged()
-                        }
-                    }
-                }
+    val group = tableActionGroup()
+    val editButton = group.tableActionButton("fas fa-pen", tr("Bearbeiten"))
+    editButton.onClick { bankAccountEditModal(account) { onChanged() } }
+    if (account.isDefault) return
+    val setDefaultButton = group.tableActionButton("fas fa-star", tr("Als Standard setzen"))
+    setDefaultButton.onClick {
+        setDefaultButton.disabled = true
+        AppScope.launch {
+            try {
+                guarded { rpcService<IBankAccountService>().setDefaultBankAccount(account.id) } ?: return@launch
+                notifySuccess(tr("Standardkonto gesetzt."))
+                onChanged()
+            } finally {
+                setDefaultButton.disabled = false
             }
         }
+    }
+    val deleteButton = group.tableActionButton("fas fa-trash", tr("Löschen"), ButtonStyle.OUTLINEDANGER)
+    deleteButton.onClick {
+        confirmDialog(
+            title = tr("Bankkonto löschen"),
+            message =
+                gettext(
+                    "Bankkonto %1 (%2) löschen? Bereits gebuchte Kontoauszüge bleiben erhalten.",
+                    account.label,
+                    account.ibanMasked,
+                ),
+            confirmLabel = tr("Löschen"),
+            onConfirm = {
+                deleteButton.disabled = true
+                AppScope.launch {
+                    try {
+                        guarded { rpcService<IBankAccountService>().deleteBankAccount(account.id) } ?: return@launch
+                        notifySuccess(tr("Bankkonto gelöscht."))
+                        onChanged()
+                    } finally {
+                        deleteButton.disabled = false
+                    }
+                }
+            },
+        )
     }
 }
 
 /** D-REAUTH: the status cell carries the action, D-UNAVAILABLE: no controls at all when `finTsAvailable == false`. */
 private fun renderFinTsCell(
-    panel: SimplePanel,
+    panel: Container,
     account: BankAccountDto,
     canManageFinTs: Boolean,
     onChanged: () -> Unit,
@@ -255,7 +298,7 @@ private fun renderFinTsCell(
 
 /** See [renderFinTsCell]'s own "Review fix (MEDIUM, Runde 3)" call-site comment. */
 private fun renderFinTsGapNotice(
-    panel: SimplePanel,
+    panel: Container,
     account: BankAccountDto,
 ) {
     val detectedAt = account.finTsGapDetectedAt ?: return

@@ -1,20 +1,18 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.check.checkBox
+import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
+import io.kvision.html.p
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
-import io.kvision.utils.px
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.PaymentTransactionDto
 import network.lapis.cloud.shared.domain.PaymentTransactionQuery
@@ -28,87 +26,215 @@ private const val PAYMENT_TRANSACTIONS_PAGE_SIZE = 50
  * BOARD/ADMIN. Paged table over `listPaymentTransactions`, with a prominent "Nur nicht gebucht"
  * filter (`unreconciledOnly`) -- the treasurer's work queue for `UNPOSTED`-adjacent rows (a
  * `payment_transaction` with `journalEntryId == null`), each showing its `reconciliationNote`.
+ *
+ * Welle V1.4.26 (W2 der UI/UX-Richtlinie): die Tabelle laeuft ueber [dataTable] (kompakte Dichte,
+ * Betrag/Datum rechtsbuendig mit Tabellenziffern, unter 768 px Kartenliste). Die Offset-Paginierung mit
+ * "Mehr laden" ist unveraendert; neu sind Lade-, Fehler- und getrennte Leerzustaende sowie eine
+ * clientseitige Suche ueber die geladene Teilmenge (der Server hat keinen Suchparameter -- deshalb sagt
+ * der Zaehler ausdruecklich, dass gezaehlt wird, was geladen ist, siehe [dataCountText]).
  */
 fun renderPaymentTransactionsScreen(container: SimplePanel) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 960.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot()
     root.h1(tr("Zahlungseingänge"))
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val searchInput = filterRow.text(label = tr("Suche nach Mitglied oder Hinweis"))
     val unreconciledOnlyCheck = filterRow.checkBox(label = tr("Nur nicht gebuchte Zahlungen"))
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
 
+    val countsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val statusRegion = root.dataStatusRegion()
     val tableHost = root.vPanel(spacing = 8)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
     var offset = 0
+    var totalCount = 0
+    var hasMore = false
+    var searchTerm = ""
+    var generation = 0
     val loaded = mutableListOf<PaymentTransactionDto>()
-    lateinit var table: Table
+    var loading = false
+    // Fehlerzustand des Erstabrufs: solange er steht, darf die Suche ihn nicht wegzeichnen.
+    var failed = false
 
-    fun renderRow(transaction: PaymentTransactionDto) {
-        table.row {
-            cell(paymentIntentLabel(transaction.intent))
-            cell(formatMoney(transaction.amount))
-            cell(transaction.memberDisplayName ?: transaction.memberId ?: "—")
-            cell { statusBadge(paymentTransactionStatusLabel(transaction.status), paymentTransactionStatusColor(transaction.status)) }
-            cell(transaction.receivedAt.toString())
-            cell(transaction.journalEntryId?.let { tr("Ja") } ?: tr("Nein")) {
-                if (transaction.journalEntryId == null) addCssClasses("text-danger fw-bold")
-            }
-            cell(transaction.reconciliationNote.orEmpty())
+    lateinit var loadPage: (Boolean) -> Unit
+
+    fun renderList() {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): solange der erste Ladevorgang läuft, sagt allein
+        // die Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld während
+        // des Ladens den Leertext über den Ladehinweis -- „lädt" und „keine Daten" gleichzeitig.
+        if (loading && loaded.isEmpty()) return
+        // Der Fehlerkasten mit `Erneut versuchen` bleibt stehen (kein „Noch keine …" darüber).
+        if (failed) return
+        tableHost.removeAll()
+        if (loaded.isEmpty()) {
+            countsLabel.content = ""
+            tableHost.p(paymentTransactionsEmptyText(unreconciledOnlyCheck.value)) { addCssClasses("text-muted") }
+            return
         }
+        val visible = filterPaymentTransactions(loaded, searchTerm)
+        countsLabel.content =
+            dataCountText(
+                shown = visible.size,
+                loaded = loaded.size,
+                total = totalCount,
+                hasMore = hasMore,
+                filtered = searchTerm.isNotBlank(),
+            )
+        if (visible.isEmpty()) {
+            tableHost.p(loadedSubsetNoMatchText(term = searchTerm.trim(), hasMore = hasMore)) { addCssClasses("text-muted") }
+            return
+        }
+        tableHost.dataTable(columns = paymentTransactionColumns(), rows = visible)
     }
 
-    fun loadPage(reset: Boolean) {
+    loadPage = { reset ->
         if (reset) {
+            generation++
             offset = 0
+            totalCount = 0
+            hasMore = false
             loaded.clear()
             tableHost.removeAll()
-            table =
-                tableHost.table(
-                    headerNames =
-                        listOf(
-                            tr("Art"),
-                            tr("Betrag"),
-                            tr("Mitglied"),
-                            tr("Status"),
-                            tr("Eingegangen"),
-                            tr("Gebucht"),
-                            tr("Hinweis"),
-                        ),
-                    types = setOf(TableType.STRIPED, TableType.HOVER),
-                )
+            countsLabel.content = ""
+            loadMoreButton.hide()
+            statusRegion.showLoading()
+            loading = true
+            failed = false
         }
+        val mine = generation
+        val requestOffset = offset
+        val requestUnreconciledOnly = unreconciledOnlyCheck.value
+        loadMoreButton.disabled = true
         AppScope.launch {
             val page =
                 guarded {
                     rpcService<IPaymentGatewayService>().listPaymentTransactions(
                         PaymentTransactionQuery(
-                            unreconciledOnly = unreconciledOnlyCheck.value,
+                            unreconciledOnly = requestUnreconciledOnly,
                             limit = PAYMENT_TRANSACTIONS_PAGE_SIZE,
-                            offset = offset,
+                            offset = requestOffset,
                         ),
                     )
-                } ?: return@launch
-            page.rows.forEach { renderRow(it) }
+                }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
+            loadMoreButton.disabled = false
+            if (page == null) {
+                loadMoreButton.hide()
+                // `guarded` hat den Toast schon gezeigt; beim Neuladen ersetzt der Fehlerzustand mit
+                // `Erneut versuchen` das vorher stumm leere Panel.
+                if (reset) {
+                    failed = true
+                    tableHost.dataErrorState(onRetry = { loadPage(true) })
+                }
+                return@launch
+            }
             loaded += page.rows
             offset += page.rows.size
-            loadMoreButton.show()
-            if (loaded.size >= page.totalCount || page.rows.isEmpty()) {
-                loadMoreButton.hide()
-            }
-            if (loaded.isEmpty()) {
-                tableHost.div(tr("Keine Zahlungen gefunden.")) { addCssClasses("text-muted small") }
-            }
+            totalCount = page.totalCount
+            hasMore = loaded.size < totalCount && page.rows.isNotEmpty()
+            if (hasMore) loadMoreButton.show() else loadMoreButton.hide()
+            renderList()
         }
     }
 
-    refreshButton.onClick { loadPage(reset = true) }
-    loadMoreButton.onClick { loadPage(reset = false) }
+    refreshButton.onClick { loadPage(true) }
+    loadMoreButton.onClick { loadPage(false) }
+    // Der Arbeitsvorrat-Filter wirkt sofort -- gleiches `subscribe`-Muster wie die Statusfilter in
+    // `OpenItemsScreen`; `Aktualisieren` bleibt für das erneute Holen derselben Auswahl. Der Guard gegen
+    // das synthetische erste `subscribe`-Ereignis verhindert einen zweiten Abruf beim Seitenaufbau.
+    var isInitialFilterEvent = true
+    unreconciledOnlyCheck.subscribe {
+        if (isInitialFilterEvent) {
+            isInitialFilterEvent = false
+            return@subscribe
+        }
+        loadPage(true)
+    }
 
-    loadPage(reset = true)
+    var isInitialSearchEvent = true
+    var debounceHandle: Int? = null
+    searchInput.subscribe { value ->
+        if (isInitialSearchEvent) {
+            isInitialSearchEvent = false
+            return@subscribe
+        }
+        debounceHandle?.let { window.clearTimeout(it) }
+        debounceHandle =
+            window.setTimeout({
+                searchTerm = value.orEmpty()
+                renderList()
+            }, 300)
+    }
+
+    loadPage(true)
 }
+
+/**
+ * Clientseitige Suche über die geladene Teilmenge (pur, siehe `PaymentTransactionsScreenTest`):
+ * Mitgliedsname oder Abstimmungshinweis, ohne Groß-/Kleinschreibung. Die rohe `memberId` ist bewusst
+ * nicht durchsuchbar -- sie ist eine technische Kennung, kein Text, den jemand eintippt.
+ */
+internal fun filterPaymentTransactions(
+    transactions: List<PaymentTransactionDto>,
+    search: String,
+): List<PaymentTransactionDto> {
+    val term = search.trim()
+    if (term.isEmpty()) return transactions
+    return transactions.filter {
+        it.memberDisplayName?.contains(term, ignoreCase = true) == true ||
+            it.reconciliationNote?.contains(term, ignoreCase = true) == true
+    }
+}
+
+/**
+ * „Noch keine Daten" -- getrennt danach, ob der Arbeitsvorrat-Filter aktiv ist (R41). Ein leerer
+ * „nur nicht gebucht"-Vorrat ist die gute Nachricht und wird auch so benannt.
+ */
+internal fun paymentTransactionsEmptyText(unreconciledOnly: Boolean): String =
+    if (unreconciledOnly) {
+        gettext("Alle Zahlungseingänge sind gebucht.")
+    } else {
+        gettext("Noch keine Zahlungseingänge erfasst.")
+    }
+
+/** Spalten der Zahlungstabelle / Kartenliste; das Mitglied ist die Identität der Zeile, also der Kartentitel. */
+private fun paymentTransactionColumns(): List<DataColumn<PaymentTransactionDto>> =
+    listOf(
+        textColumn(title = tr("Mitglied"), primary = true) { transaction: PaymentTransactionDto ->
+            transaction.memberDisplayName ?: transaction.memberId ?: "—"
+        },
+        textColumn(title = tr("Art")) { transaction: PaymentTransactionDto -> paymentIntentLabel(transaction.intent) },
+        DataColumn(
+            title = tr("Betrag"),
+            numeric = true,
+            cell = { container, transaction -> container.moneySpan(transaction.amount) },
+        ),
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, transaction ->
+                container.statusBadge(
+                    paymentTransactionStatusLabel(transaction.status),
+                    paymentTransactionStatusColor(transaction.status),
+                )
+            },
+        ),
+        textColumn(title = tr("Eingegangen"), numeric = true) { transaction: PaymentTransactionDto ->
+            transaction.receivedAt.toString()
+        },
+        DataColumn(
+            title = tr("Gebucht"),
+            cell = { container, transaction ->
+                // Farbe ist nie der einzige Kanal (R/P4): „Nein" steht als Wort da, die Rotfärbung
+                // verstärkt es nur -- unverändert gegenüber V1.2.8.
+                if (transaction.journalEntryId == null) {
+                    container.div(tr("Nein")) { addCssClasses("text-danger fw-bold") }
+                } else {
+                    container.div(tr("Ja"))
+                }
+            },
+        ),
+        textColumn(title = tr("Hinweis")) { transaction: PaymentTransactionDto -> transaction.reconciliationNote.orEmpty() },
+    )

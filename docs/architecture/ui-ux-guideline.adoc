@@ -126,9 +126,56 @@ ledgered line changes its fingerprint on purpose: re-list or pay the debt. Two f
 file are indistinguishable (their number is still pinned). Files not in the ledger are held strictly -- that includes
 the three migrated screens and the new building blocks. Every rule has a self-test with a bad and a good example.
 
-`UiFoundationI18nCatalogTest` guards the new strings: present in the template and all seven catalogs, translated,
-with the `%N` placeholders intact. It scans the three helper files completely, but `MemberAdministrationScreen.kt`
-only through an explicit list of the roster sentences -- the rest of that file is NOT covered (see Known gaps).
+`UiFoundationI18nCatalogTest` (W1) and `HotTableI18nCatalogTest` (W2) guard the new strings: present in the template and all seven catalogs, translated,
+with the `%N` placeholders intact. Each scans its own helper files completely and the migrated screens only through an
+explicit list of the sentences that wave added -- the rest of those files is NOT covered (see Known gaps), because
+they carry pre-existing debt that would fail the test for somebody else's reason.
+
+== Wave W2 "Hot tables" (V1.4.26)
+
+Eleven files migrated: `LedgerScreen` (chart of accounts, journal, posting lines), `SepaBatchesScreen` (runs,
+preview, items, returns), `SepaMandatesScreen`, `PaymentTransactionsScreen`, `DunningCasesScreen` (cases, notices),
+`DonorsScreen`, `BankAccountsScreen`, `MemberFinancialHistoryScreen`, `MemberAnniversariesScreen`,
+`MemberHonorsScreen`, `MemberFamiliesScreen` (list and dialog table). 18 of the client's 27 raw `table(` calls are
+gone; the R14 ledger shrank from 21 to 6 files, R15 from 10 to 4, and four R39 findings were paid off.
+
+=== Decisions this wave had to make
+
+[cols="1,3"]
+|===
+| Question | Decision
+
+| Where do sort headers belong?
+| Only on a list that is loaded COMPLETELY (chart of accounts, journal page). There the sort is a pure function
+  (`sortLedgerAccounts`, `sortJournalEntries`) over the loaded rows. A cursor or offset list gets none: the server
+  has no sort parameter, so re-ordering the loaded subset would contradict the order of the next page.
+
+| Account numbers: number or text?
+| Text. `0400` and `400` are two different accounts; a numeric comparison collapses them and fails outright on a
+  non-numeric number. Secondary key is always the account number, so equal values keep a stable order.
+
+| A search field over a partially loaded list?
+| Yes, but never silently. `dataCountText(..., filtered = true, hasMore = true)` states that filters and search
+  reach only the loaded rows, and `loadedSubsetNoMatchText` offers loading more as the way out. A bare "0 of 40"
+  over a partial list is a false statement about the data.
+
+| Which counter form?
+| One function, three forms: filtered -> "shown of loaded"; unfiltered with a known total -> "loaded of total";
+  unfiltered cursor list -> "N loaded" (+ "more on the server"). A cursor list never prints "12 of 12" -- it does
+  not know a total.
+
+| Does a phone get a card list inside a modal too?
+| Yes. The member table of the family dialog used to run out of the dialog sideways; the breakpoint is a property
+  of `dataTable`, not of the screen.
+
+| The "default account" star glyph?
+| Replaced by a `typeBadge` reading "Standard". A lone glyph is one channel, and a screen reader read nothing
+  there. "Default" is a fixed category, not a lifecycle, so `typeBadge` is the right one of the three badges.
+
+| Deleting a bank account had no confirmation.
+| Added, as a direct consequence of this wave: an unlabelled bin icon between two other icons is far easier to hit
+  by accident than a button reading "Löschen" (P6/R30).
+|===
 
 == Rule precedence: attributes and `gettext`
 
@@ -142,10 +189,17 @@ through `resolvedAttributeText` (marker stripped AND translated).
 
 == Known gaps
 
-* Only 3 of 67 screens are migrated; the ledger shows the rest.
+* 14 of 67 screens are migrated (3 in W1, 11 in W2); the ledger shows the rest.
+* Six files deliberately stay on the baseline after W2 and are named in the ledger: `AccountingExportScreen`
+  (3 tables), `BankStatementImportScreen`, `CostCentersScreen`, `DunningSettingsScreen`,
+  `ReceivableDunningSettingsScreen`, `WebhookDeliveryLogPanel`.
+* Neither cursor list gained the load cap plus hint text R21 asks for -- pagination was to stay unchanged in W2.
+* Download links inside table rows (dunning notice PDF, pain.008) are still labelled text and drive up the row
+  height (R38); `tableActionButton` produces a `button`, a download needs a real `a[href]`.
 * The card list has no sort controls -- the order chosen on a wide screen stays.
 * `ContributionsScreen`: amounts are not formatted with `moneySpan`, the organisation table shows the raw status enum,
-  text buttons remain in action cells, the 760 px root remains (all W2).
+  text buttons remain in action cells, the 760 px root remains -- NOT closed by W2 (that wave covered the eleven
+  files with a non-compliant raw `table(` call; `ContributionsScreen` was already on `dataTable` since W1).
 * `MemberAdministrationScreen.kt` carries about 80 German `tr()`/`gettext()` literals (68 distinct msgids) without a
   catalog entry -- old debt (R51), scheduled with W5 and NOT translated in this wave. `UiFoundationI18nCatalogTest`
   deliberately does not scan the file as a whole, so these gaps are invisible to the tests.
@@ -155,4 +209,5 @@ through `resolvedAttributeText` (marker stripped AND translated).
   `ConferenceScreen` (W5).
 * Minor audit findings left open: approximate `#:` source references of the new msgids, the `ntr` stub in
   `I18nCatalogManager`, the period column not marked numeric.
-* Browser verification at 375, 767, 768 and 1440 px in both themes is manual.
+* Browser verification at 375, 767, 768 and 1440 px in both themes is manual; the 40 px row-height target (R22) and
+  the dark-mode acceptance (R49) have no automated check in either wave.

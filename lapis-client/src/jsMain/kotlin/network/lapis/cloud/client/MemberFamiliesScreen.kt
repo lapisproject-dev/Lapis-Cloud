@@ -16,12 +16,7 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
-import io.kvision.utils.px
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnniversaryCalendar
@@ -29,6 +24,7 @@ import network.lapis.cloud.shared.domain.FamilyMemberRole
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberFamilyDetailDto
 import network.lapis.cloud.shared.domain.MemberFamilyLimits
+import network.lapis.cloud.shared.domain.MemberFamilyLinkDto
 import network.lapis.cloud.shared.domain.MemberFamilySummaryDto
 import network.lapis.cloud.shared.domain.UpcomingMajorityEntryDto
 import network.lapis.cloud.shared.domain.UpcomingMajorityOverviewDto
@@ -61,12 +57,7 @@ fun renderMemberFamiliesScreen(
     container: SimplePanel,
     requestedFamilyId: String?,
 ) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot()
 
     root.h1(tr("Familienmitgliedschaften"))
     root.div(
@@ -78,56 +69,101 @@ fun renderMemberFamiliesScreen(
 
     val majorityPanel = root.vPanel(spacing = 6)
 
-    val searchRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    val searchInput = searchRow.text(label = tr("Suche"))
+    val searchRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val searchInput = searchRow.text(label = tr("Suche nach Familienname oder Zahler"))
     val newFamilyButton = searchRow.button(tr("Familie anlegen"), style = ButtonStyle.PRIMARY)
 
+    val countsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
     var loadedOffset = 0
-    var table: Table? = null
+    var totalCount = 0
+    var hasMore = false
+    var generation = 0
+    val loaded = mutableListOf<MemberFamilySummaryDto>()
+    var loading = false
+    // Suchbegriff des Abrufs, dessen Antwort gerade gezeigt wird -- NICHT der aktuelle Feldwert: tippt der
+    // Nutzer während einer laufenden Antwort weiter, darf der Leertext keinen Begriff nennen, der nie
+    // abgefragt wurde.
+    var loadedSearch = ""
 
     var refreshFamilies: (Boolean) -> Unit = {}
     var refreshMajorities: () -> Unit = {}
 
-    fun loadFamilyPage() {
+    // Welle V1.4.26 (W2): die Suche bleibt SERVERSEITIG (`listFamilies(search = ...)`) -- deshalb
+    // unterscheidet der Leertext hier „noch keine Familien" von „nichts gefunden" am Suchbegriff des
+    // Abrufs, nicht an einem clientseitigen Filter.
+    fun renderList() {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): solange der erste Ladevorgang läuft, sagt allein
+        // die Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld während
+        // des Ladens den Leertext über den Ladehinweis -- „lädt" und „keine Daten" gleichzeitig.
+        if (loading && loaded.isEmpty()) return
+        listPanel.removeAll()
+        val term = loadedSearch
+        if (loaded.isEmpty()) {
+            countsLabel.content = ""
+            val text = if (term.isEmpty()) familiesEmptyStateText() else gettext("Keine Familie passt zu \"%1\".", term)
+            listPanel.p(text) { addCssClasses("text-muted") }
+            return
+        }
+        countsLabel.content = dataCountText(shown = loaded.size, loaded = loaded.size, total = totalCount)
+        listPanel.dataTable(
+            columns = familyColumns(),
+            rows = loaded,
+            actions = { actions, family ->
+                val openButton = actions.tableActionButton("fas fa-arrow-right", tr("Öffnen"), ButtonStyle.OUTLINEPRIMARY)
+                openButton.onClick { openFamilyDetailDialog(family.id) { refreshFamilies(true) } }
+            },
+        )
+    }
+
+    fun loadFamilyPage(reset: Boolean) {
+        if (reset) {
+            generation++
+            loadedOffset = 0
+            totalCount = 0
+            hasMore = false
+            loaded.clear()
+            listPanel.removeAll()
+            countsLabel.content = ""
+            loadMoreButton.hide()
+            statusRegion.showLoading()
+            loading = true
+        }
+        val mine = generation
+        val requestOffset = loadedOffset
+        val requestSearch = searchInput.value?.trim()?.takeIf { it.isNotBlank() }
+        loadMoreButton.disabled = true
         AppScope.launch {
             val page =
                 guarded {
                     rpcService<IMemberFamilyService>().listFamilies(
-                        search = searchInput.value?.trim()?.takeIf { it.isNotBlank() },
+                        search = requestSearch,
                         limit = MemberFamilyLimits.MAX_LIMIT,
-                        offset = loadedOffset,
+                        offset = requestOffset,
                     )
-                } ?: return@launch
-
-            if (loadedOffset == 0) {
-                listPanel.removeAll()
-                table = null
-            }
-            if (page.entries.isEmpty() && loadedOffset == 0) {
-                listPanel.p(familiesEmptyStateText())
+                }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
+            loadMoreButton.disabled = false
+            if (page == null) {
                 loadMoreButton.hide()
+                if (reset) listPanel.dataErrorState(onRetry = { loadFamilyPage(true) })
                 return@launch
             }
-            val currentTable =
-                table ?: listPanel
-                    .table(
-                        headerNames = listOf(tr("Familie"), tr("Mitglieder"), tr("Zahler"), tr("Aktionen")),
-                        types = setOf(TableType.STRIPED, TableType.HOVER),
-                    ).also { table = it }
-            page.entries.forEach { family ->
-                renderFamilyRow(currentTable, family, onOpen = { openFamilyDetailDialog(family.id) { refreshFamilies(true) } })
-            }
+            loaded += page.entries
             loadedOffset += page.entries.size
-            if (loadedOffset < page.totalCount) loadMoreButton.show() else loadMoreButton.hide()
+            totalCount = page.totalCount
+            hasMore = loadedOffset < totalCount && page.entries.isNotEmpty()
+            if (hasMore) loadMoreButton.show() else loadMoreButton.hide()
+            loadedSearch = requestSearch.orEmpty()
+            renderList()
         }
     }
-    loadMoreButton.onClick { loadFamilyPage() }
-    refreshFamilies = { reset ->
-        if (reset) loadedOffset = 0
-        loadFamilyPage()
-    }
+    loadMoreButton.onClick { loadFamilyPage(false) }
+    refreshFamilies = { reset -> loadFamilyPage(reset) }
     // Review fix (Welle V1.4.4.4, LOW finding): KVision's `subscribe` invokes the observer
     // IMMEDIATELY with the field's current value on registration, not just on later user input --
     // same guard idiom `MemberAdministrationScreen.kt`'s `searchInput.subscribe {}` already
@@ -137,12 +173,16 @@ fun renderMemberFamiliesScreen(
     // `loadFamilyPage` calls `listPanel.removeAll()` at `loadedOffset == 0`, an unlucky response
     // order could transiently render a doubly-populated or half-emptied table.
     var isInitialSearchEvent = true
+    var debounceHandle: Int? = null
     searchInput.subscribe {
         if (isInitialSearchEvent) {
             isInitialSearchEvent = false
             return@subscribe
         }
-        refreshFamilies(true)
+        // Welle V1.4.26 (W2): 300 ms Debounce (R19). Vorher löste JEDER Tastendruck sofort ein
+        // `listFamilies` aus -- bei einem getippten Namen ein Abruf je Buchstabe.
+        debounceHandle?.let { window.clearTimeout(it) }
+        debounceHandle = window.setTimeout({ refreshFamilies(true) }, 300)
     }
     newFamilyButton.onClick { openCreateFamilyDialog { refreshFamilies(true) } }
 
@@ -256,25 +296,39 @@ private fun renderMajoritySection(
     }
 }
 
-private fun renderFamilyRow(
-    table: Table,
-    family: MemberFamilySummaryDto,
-    onOpen: () -> Unit,
-) {
-    table.row {
-        val nameCell = cell()
-        nameCell.span(family.name) { addCssClass("fw-semibold") }
-        if (!family.hasPayer) {
-            nameCell.typeBadge(payerlessWarningText(), "warning")
-        }
-        cell(family.memberCount.toString())
-        cell(family.payerDisplayName.orEmpty())
-        val actionsCell = cell()
-        val openButton = actionsCell.button("", icon = "fas fa-arrow-right", style = ButtonStyle.OUTLINEPRIMARY)
-        openButton.title = tr("Öffnen")
-        openButton.onClick { onOpen() }
-    }
-}
+/**
+ * Spalten der Familienliste / Kartenliste. Bewusst keine Sortierköpfe: `listFamilies` sortiert
+ * zahlerlose Familien serverseitig nach oben (siehe [IMemberFamilyService.listFamilies]) -- ein
+ * clientseitiges Umsortieren der geladenen Teilmenge würde genau diese Arbeitsreihenfolge zerstören.
+ */
+private fun familyColumns(): List<DataColumn<MemberFamilySummaryDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Familie"),
+            primary = true,
+            cell = { container, family ->
+                container.span(family.name) { addCssClass("fw-semibold") }
+                if (!family.hasPayer) container.typeBadge(payerlessWarningText(), "warning")
+            },
+        ),
+        textColumn(title = tr("Mitglieder"), numeric = true) { family: MemberFamilySummaryDto -> family.memberCount.toString() },
+        textColumn(title = tr("Zahler")) { family: MemberFamilySummaryDto -> family.payerDisplayName.orEmpty() },
+    )
+
+/** Spalten der Mitglieder-Tabelle im Familien-Dialog; das Mitglied ist die Identität der Zeile. */
+private fun familyLinkColumns(): List<DataColumn<MemberFamilyLinkDto>> =
+    listOf(
+        textColumn(title = tr("Mitglied"), primary = true) { link: MemberFamilyLinkDto -> link.memberDisplayName },
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, link -> container.memberStatusRoleBadge(link.memberStatus) },
+        ),
+        DataColumn(
+            title = tr("Rolle"),
+            cell = { container, link -> container.typeBadge(familyRoleLabel(link.role), familyRoleBadgeColor(link.role)) },
+        ),
+        textColumn(title = tr("Tarif")) { link: MemberFamilyLinkDto -> link.membershipTierName ?: tr("beitragsfrei") },
+    )
 
 private fun openCreateFamilyDialog(onSaved: () -> Unit) {
     val modal = Modal(caption = tr("Familie anlegen"))
@@ -352,32 +406,34 @@ private fun renderFamilyDetailBody(
         }
     }
 
-    val table =
-        body.table(
-            headerNames = listOf(tr("Mitglied"), tr("Status"), tr("Rolle"), tr("Tarif"), tr("Aktionen")),
-            types = setOf(TableType.STRIPED),
-        )
-    detail.links.forEach { link ->
-        table.row {
-            cell(link.memberDisplayName)
-            cell { memberStatusRoleBadge(link.memberStatus) }
-            cell { typeBadge(familyRoleLabel(link.role), familyRoleBadgeColor(link.role)) }
-            cell(link.membershipTierName ?: tr("beitragsfrei"))
-            val actionsCell = cell()
+    // Welle V1.4.26 (W2): `dataTable` statt `table(types = setOf(STRIPED))` -- die Tabelle trug bisher
+    // weder Hover noch kompakte Dichte noch den Responsive-Rahmen, und auf einem Telefon lief sie im
+    // Modal aus dem Dialog heraus. Die Zeilenaktionen sind jetzt Icon-Knöpfe: „Als Zahler festlegen" war
+    // ein Volltext-Knopf in einer Tabellenzeile (R38) und stapelte sich mit „Entfernen" übereinander.
+    body.dataTable(
+        columns = familyLinkColumns(),
+        rows = detail.links,
+        actions = { actions, link ->
+            val group = actions.tableActionGroup()
             if (link.role != FamilyMemberRole.PAYER) {
-                val payerButton = actionsCell.button(tr("Als Zahler festlegen"), style = ButtonStyle.OUTLINESECONDARY)
+                val payerButton =
+                    group.tableActionButton("fas fa-hand-holding-dollar", tr("Als Zahler festlegen"), ButtonStyle.OUTLINESECONDARY)
                 payerButton.onClick {
+                    payerButton.disabled = true
                     AppScope.launch {
-                        val result = guarded { rpcService<IMemberFamilyService>().changePayer(detail.id, link.memberId) }
-                        if (result != null) {
-                            notifySuccess(tr("Zahler geändert."))
-                            onChanged()
+                        try {
+                            val result = guarded { rpcService<IMemberFamilyService>().changePayer(detail.id, link.memberId) }
+                            if (result != null) {
+                                notifySuccess(tr("Zahler geändert."))
+                                onChanged()
+                            }
+                        } finally {
+                            payerButton.disabled = false
                         }
                     }
                 }
             }
-            val removeButton = actionsCell.button("", icon = "fas fa-user-minus", style = ButtonStyle.OUTLINEDANGER)
-            removeButton.title = tr("Entfernen")
+            val removeButton = group.tableActionButton("fas fa-user-minus", tr("Entfernen"), ButtonStyle.OUTLINEDANGER)
             removeButton.onClick {
                 confirmDialog(
                     title = tr("Mitglied entfernen"),
@@ -394,8 +450,8 @@ private fun renderFamilyDetailBody(
                     },
                 )
             }
-        }
-    }
+        },
+    )
 
     body.div { addCssClass("mt-2") }
     body.h2(tr("Mitglied hinzufügen")) { addCssClass("h6") }

@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
@@ -16,13 +17,9 @@ import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
-import io.kvision.utils.px
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -70,12 +67,7 @@ fun renderMemberHonorsScreen(
     container: SimplePanel,
     requestedMemberId: String?,
 ) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot()
 
     val headingPanel = root.vPanel(spacing = 2)
     val headingText = headingPanel.h1(memberHonorsHeading(null))
@@ -91,10 +83,12 @@ fun renderMemberHonorsScreen(
         ),
     ) { addCssClasses("text-muted small") }
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    val categoryOptions =
-        listOf("" to tr("-- Alle Kategorien --")) + MemberHonorCategory.entries.map { it.name to memberHonorCategoryLabel(it) }
-    val categorySelect = filterRow.select(options = categoryOptions, value = "", label = tr("Kategorie"))
+    // Welle V1.4.26 (W2): Filterleiste nach Richtlinie 2.4 -- Suchfeld, Kategorie-Segment (der
+    // `select` mit fünf gegenseitig ausschließenden Werten trug keinen Aktivzustand und kein
+    // `aria-pressed`), Primäraktion rechts.
+    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val searchInput = filterRow.text(label = tr("Suche nach Titel oder Mitglied"))
+    val categorySegmentHost = filterRow.simplePanel()
     val newHonorButton = filterRow.button(tr("Ehrung erfassen"), style = ButtonStyle.PRIMARY)
 
     var members: List<MemberSummaryDto> = emptyList()
@@ -102,82 +96,128 @@ fun renderMemberHonorsScreen(
         members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
     }
 
+    val countsLabel = root.div().apply { addCssClasses("text-muted small") }
+    val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
     var loadedOffset = 0
+    var totalCount = 0
+    var hasMore = false
+    var searchTerm = ""
+    var categoryFilter: MemberHonorCategory? = null
     var resolvedMemberDisplayName: String? = null
-    var table: Table? = null
-
-    fun categoryFilter(): MemberHonorCategory? = runCatching { MemberHonorCategory.valueOf(categorySelect.value.orEmpty()) }.getOrNull()
+    var generation = 0
+    val loaded = mutableListOf<MemberHonorDto>()
+    var loading = false
+    // Fehlerzustand des Erstabrufs: solange er steht, darf die Suche ihn nicht wegzeichnen.
+    var failed = false
 
     // Forward-reference break: `loadPage`'s own row callbacks need to call back into `refresh`,
     // defined further below -- same nullable-function-reference-var idiom `BoardMembershipScreen.kt`
     // establishes for its own cross-section refresh (Kotlin has no forward-referencing local funs).
     var refresh: (Boolean) -> Unit = {}
 
-    fun loadPage() {
+    fun renderList() {
+        // Genau EIN ablesbarer Zustand (Richtlinie P7): solange der erste Ladevorgang läuft, sagt allein
+        // die Live-Region „Wird geladen …". Ohne diesen Riegel malte ein Tastendruck im Suchfeld während
+        // des Ladens den Leertext über den Ladehinweis -- „lädt" und „keine Daten" gleichzeitig.
+        if (loading && loaded.isEmpty()) return
+        // Der Fehlerkasten mit `Erneut versuchen` bleibt stehen (kein „Keine Ehrungen erfasst." darüber).
+        if (failed) return
+        listPanel.removeAll()
+        if (loaded.isEmpty()) {
+            countsLabel.content = ""
+            listPanel.p(memberHonorsEmptyStateText(resolvedMemberDisplayName, categoryFilter)) { addCssClasses("text-muted") }
+            return
+        }
+        val visible = filterMemberHonors(loaded, searchTerm)
+        countsLabel.content =
+            dataCountText(
+                shown = visible.size,
+                loaded = loaded.size,
+                total = totalCount,
+                hasMore = hasMore,
+                filtered = searchTerm.isNotBlank(),
+            )
+        if (visible.isEmpty()) {
+            listPanel.p(loadedSubsetNoMatchText(term = searchTerm.trim(), hasMore = hasMore)) { addCssClasses("text-muted") }
+            return
+        }
+        listPanel.dataTable(
+            columns = memberHonorColumns(showMemberColumn = requestedMemberId == null),
+            rows = visible,
+            actions = { actions, honor ->
+                actions.renderHonorActions(honor = honor, members = { members }, onChanged = { refresh(true) })
+            },
+        )
+    }
+
+    fun loadPage(reset: Boolean) {
+        if (reset) {
+            generation++
+            loadedOffset = 0
+            totalCount = 0
+            hasMore = false
+            loaded.clear()
+            listPanel.removeAll()
+            countsLabel.content = ""
+            loadMoreButton.hide()
+            statusRegion.showLoading()
+            loading = true
+            failed = false
+        }
+        val mine = generation
+        val requestOffset = loadedOffset
+        val requestCategory = categoryFilter
+        loadMoreButton.disabled = true
         AppScope.launch {
             val page =
                 guarded {
                     rpcService<IMemberHonorService>().listHonors(
                         memberId = requestedMemberId,
-                        category = categoryFilter(),
+                        category = requestCategory,
                         limit = MemberHonorLimits.MAX_LIMIT,
-                        offset = loadedOffset,
+                        offset = requestOffset,
                     )
-                } ?: return@launch
-
-            if (loadedOffset == 0) {
-                listPanel.removeAll()
-                table = null
-            }
-
-            if (page.entries.isEmpty() && loadedOffset == 0) {
-                listPanel.p(memberHonorsEmptyStateText(resolvedMemberDisplayName))
+                }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
+            loadMoreButton.disabled = false
+            if (page == null) {
                 loadMoreButton.hide()
+                if (reset) {
+                    failed = true
+                    listPanel.dataErrorState(onRetry = { loadPage(true) })
+                }
                 return@launch
             }
-
             page.entries.firstOrNull()?.let { first ->
                 if (requestedMemberId != null && resolvedMemberDisplayName == null) {
                     resolvedMemberDisplayName = first.memberDisplayName
                     headingText.content = memberHonorsHeading(resolvedMemberDisplayName)
                 }
             }
-
-            val currentTable =
-                table ?: listPanel
-                    .table(
-                        headerNames =
-                            if (requestedMemberId == null) {
-                                listOf(tr("Datum"), tr("Mitglied"), tr("Ehrung"), tr("Verliehen durch"), tr("Aktionen"))
-                            } else {
-                                listOf(tr("Datum"), tr("Ehrung"), tr("Verliehen durch"), tr("Aktionen"))
-                            },
-                        types = setOf(TableType.STRIPED, TableType.HOVER),
-                    ).also { table = it }
-
-            page.entries.forEach { honor ->
-                renderHonorRow(
-                    table = currentTable,
-                    honor = honor,
-                    showMemberColumn = requestedMemberId == null,
-                    members = { members },
-                    onChanged = { refresh(true) },
-                )
-            }
+            loaded += page.entries
             loadedOffset += page.entries.size
-            if (loadedOffset < page.totalCount) loadMoreButton.show() else loadMoreButton.hide()
+            totalCount = page.totalCount
+            hasMore = loadedOffset < totalCount && page.entries.isNotEmpty()
+            if (hasMore) loadMoreButton.show() else loadMoreButton.hide()
+            renderList()
         }
     }
-    loadMoreButton.onClick { loadPage() }
+    loadMoreButton.onClick { loadPage(false) }
 
-    refresh = { reset ->
-        if (reset) loadedOffset = 0
-        loadPage()
+    refresh = { reset -> loadPage(reset) }
+
+    categorySegmentHost.segmentedControl(
+        options = listOf(null to tr("Alle")) + MemberHonorCategory.entries.map { it to memberHonorCategoryLabel(it) },
+        selected = categoryFilter,
+        ariaLabel = tr("Kategorie"),
+    ) { category ->
+        categoryFilter = category
+        loadPage(true)
     }
-
-    categorySelect.subscribe { refresh(true) }
     newHonorButton.onClick {
         openMemberHonorEditorDialog(
             existing = null,
@@ -186,56 +226,102 @@ fun renderMemberHonorsScreen(
             onSaved = { refresh(true) },
         )
     }
+
+    var isInitialSearchEvent = true
+    var debounceHandle: Int? = null
+    searchInput.subscribe { value ->
+        if (isInitialSearchEvent) {
+            isInitialSearchEvent = false
+            return@subscribe
+        }
+        debounceHandle?.let { window.clearTimeout(it) }
+        debounceHandle =
+            window.setTimeout({
+                searchTerm = value.orEmpty()
+                renderList()
+            }, 300)
+    }
     refresh(true)
 }
 
-private fun renderHonorRow(
-    table: Table,
+/** Clientseitige Suche über die geladene Teilmenge (pur, siehe `MemberHonorsScreenTest`): Titel oder Mitglied. */
+internal fun filterMemberHonors(
+    honors: List<MemberHonorDto>,
+    search: String,
+): List<MemberHonorDto> {
+    val term = search.trim()
+    if (term.isEmpty()) return honors
+    return honors.filter {
+        it.title.contains(term, ignoreCase = true) || it.memberDisplayName.contains(term, ignoreCase = true)
+    }
+}
+
+/**
+ * Spalten der Ehrungstabelle / Kartenliste. In der ungefilterten Sicht ist das Mitglied die Identität
+ * der Zeile (Kartentitel); in der auf ein Mitglied gefilterten Sicht entfällt die Spalte -- dann ist die
+ * Ehrung selbst die Identität. Bewusst keine Sortierköpfe: `listHonors` sortiert serverseitig und kennt
+ * keinen Sortierparameter, ein clientseitiges Sortieren würde nur die geladene Teilmenge umordnen und die
+ * Serverordnung der nächsten Seite widersprechen.
+ */
+private fun memberHonorColumns(showMemberColumn: Boolean): List<DataColumn<MemberHonorDto>> =
+    buildList {
+        if (showMemberColumn) {
+            add(textColumn(title = tr("Mitglied"), primary = true) { honor: MemberHonorDto -> honor.memberDisplayName })
+        }
+        add(textColumn(title = tr("Datum"), numeric = true) { honor: MemberHonorDto -> honor.awardedAt.toString() })
+        add(
+            DataColumn(
+                title = tr("Ehrung"),
+                primary = !showMemberColumn,
+                cell = { container, honor ->
+                    container.icon(memberHonorCategoryIcon(honor.category))
+                    container.span(" ${honor.title} ")
+                    container.typeBadge(memberHonorCategoryLabel(honor.category), memberHonorCategoryColor(honor.category))
+                },
+            ),
+        )
+        add(textColumn(title = tr("Verliehen durch")) { honor: MemberHonorDto -> honor.awardedBy.orEmpty() })
+    }
+
+/**
+ * Zeilenaktionen. Gegenüber V1.4.4.3 unverändert: Bearbeiten für BOARD/ADMIN, Löschen **nur** für ADMIN
+ * und für BOARD gar nicht gerendert (kein sichtbar toter Knopf), Bestätigungsdialog mit demselben Text.
+ * Neu ist allein der Weg über [tableActionButton] -- dadurch tragen beide Knöpfe jetzt auch ein
+ * `aria-label` (vorher nur `title`, R39).
+ */
+private fun Container.renderHonorActions(
     honor: MemberHonorDto,
-    showMemberColumn: Boolean,
     members: () -> List<MemberSummaryDto>,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        cell(honor.awardedAt.toString())
-        if (showMemberColumn) cell(honor.memberDisplayName)
-        val honorCell = cell()
-        honorCell.icon(memberHonorCategoryIcon(honor.category))
-        honorCell.span(" ${honor.title} ")
-        honorCell.typeBadge(memberHonorCategoryLabel(honor.category), memberHonorCategoryColor(honor.category))
-        cell(honor.awardedBy.orEmpty())
-        val actionsCell = cell()
-        val editButton = actionsCell.button("", icon = "fas fa-pen", style = ButtonStyle.OUTLINEPRIMARY)
-        editButton.title = tr("Bearbeiten")
-        editButton.onClick {
-            openMemberHonorEditorDialog(existing = honor, defaultMemberId = null, members = members, onSaved = onChanged)
-        }
-        if (AppState.hasRole(AccountRole.ADMIN)) {
-            val deleteButton = actionsCell.button("", icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
-            deleteButton.title = tr("Eintrag korrigieren (löschen)")
-            deleteButton.onClick {
-                confirmDialog(
-                    title = tr("Eintrag korrigieren (löschen)"),
-                    message =
-                        gettext(
-                            "Diese Ehrung (%1) unwiderruflich löschen? Dies ist eine Datenkorrektur, keine " +
-                                "Aberkennung -- für eine echte Aberkennung ist ein eigener Vorstandsbeschluss " +
-                                "vorgesehen, keine Löschung dieses Eintrags.",
-                            honor.title,
-                        ),
-                    confirmLabel = tr("Löschen"),
-                    onConfirm = {
-                        AppScope.launch {
-                            val result = guarded { rpcService<IMemberHonorService>().deleteHonor(honor.id) }
-                            if (result != null) {
-                                notifySuccess(tr("Eintrag gelöscht."))
-                                onChanged()
-                            }
-                        }
-                    },
-                )
-            }
-        }
+    val group = tableActionGroup()
+    val editButton = group.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
+    editButton.onClick {
+        openMemberHonorEditorDialog(existing = honor, defaultMemberId = null, members = members, onSaved = onChanged)
+    }
+    if (!AppState.hasRole(AccountRole.ADMIN)) return
+    val deleteButton = group.tableActionButton("fas fa-trash", tr("Eintrag korrigieren (löschen)"), ButtonStyle.OUTLINEDANGER)
+    deleteButton.onClick {
+        confirmDialog(
+            title = tr("Eintrag korrigieren (löschen)"),
+            message =
+                gettext(
+                    "Diese Ehrung (%1) unwiderruflich löschen? Dies ist eine Datenkorrektur, keine " +
+                        "Aberkennung -- für eine echte Aberkennung ist ein eigener Vorstandsbeschluss " +
+                        "vorgesehen, keine Löschung dieses Eintrags.",
+                    honor.title,
+                ),
+            confirmLabel = tr("Löschen"),
+            onConfirm = {
+                AppScope.launch {
+                    val result = guarded { rpcService<IMemberHonorService>().deleteHonor(honor.id) }
+                    if (result != null) {
+                        notifySuccess(tr("Eintrag gelöscht."))
+                        onChanged()
+                    }
+                }
+            },
+        )
     }
 }
 
@@ -352,8 +438,17 @@ private fun memberHonorCategoryColor(category: MemberHonorCategory): String =
 internal fun memberHonorsHeading(memberDisplayName: String?): String =
     if (memberDisplayName == null) tr("Ehrungen & Auszeichnungen") else gettext("Ehrungen · %1", memberDisplayName)
 
-internal fun memberHonorsEmptyStateText(memberDisplayName: String?): String =
-    if (memberDisplayName == null) {
+/**
+ * Leertext der Ehrungsliste. Bei aktivem Kategorie-Segment sagt er „keine in dieser Kategorie" statt „noch
+ * keine erfasst" -- sonst behauptet ein leeres Segment, es gäbe überhaupt keine Ehrung.
+ */
+internal fun memberHonorsEmptyStateText(
+    memberDisplayName: String?,
+    category: MemberHonorCategory? = null,
+): String =
+    if (category != null) {
+        gettext("Keine Ehrung in der Kategorie \"%1\".", memberHonorCategoryLabel(category))
+    } else if (memberDisplayName == null) {
         tr("Keine Ehrungen erfasst.")
     } else {
         gettext("Für %1 sind noch keine Ehrungen erfasst.", memberDisplayName)

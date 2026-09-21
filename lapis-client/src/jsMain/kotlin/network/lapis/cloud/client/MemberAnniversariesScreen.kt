@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.select.select
+import io.kvision.form.text.text
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.icon
@@ -10,14 +12,8 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
-import io.kvision.panel.vPanel
-import io.kvision.table.Table
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
-import io.kvision.utils.px
-import kotlinx.coroutines.launch
+import io.kvision.panel.simplePanel
+import kotlinx.browser.window
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import network.lapis.cloud.shared.domain.AnniversaryCalendar
@@ -59,12 +55,7 @@ import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
  * `Routes.MEMBER_ANNIVERSARIES`.
  */
 fun renderMemberAnniversariesScreen(container: SimplePanel) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot()
     root.h1(tr("Geburtstage & Jubiläen"))
     root.div(
         tr(
@@ -73,7 +64,11 @@ fun renderMemberAnniversariesScreen(container: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    // Welle V1.4.26 (W2): Filterleiste in der Reihenfolge der Richtlinie 2.4 -- Suchfeld, Segment, Detailfilter.
+    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val searchInput = filterRow.text(label = tr("Suche nach Name"))
+    var searchTerm = ""
+    val kindSegmentHost = filterRow.simplePanel()
     val windowOptions = AnniversaryCalendar.WINDOW_PRESETS.map { it.toString() to gettext("%1 Tage", it) }
     val windowSelect =
         filterRow.select(
@@ -81,67 +76,159 @@ fun renderMemberAnniversariesScreen(container: SimplePanel) {
             value = AnniversaryCalendar.DEFAULT_WINDOW_DAYS.toString(),
             label = tr("Zeitraum"),
         )
-    val kindOptions =
-        listOf(
-            "" to tr("-- Alle --"),
-            AnniversaryEntryKind.BIRTHDAY.name to tr("Nur Geburtstage"),
-            AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY.name to tr("Nur Jubiläen"),
-        )
-    val kindSelect = filterRow.select(options = kindOptions, value = "", label = tr("Art"))
 
-    val resultPanel = root.vPanel(spacing = 8)
-    var currentDto: MemberAnniversaryOverviewDto? = null
+    // The client-side kind filter of Welle V1.4.4.4 stays a CLIENT filter (see the file KDoc: one list,
+    // one request) -- it only re-renders [contentHost], it never reloads. `dataSection` therefore cannot
+    // decide "no match" for it; [renderFiltered] says that sentence itself.
+    var loadedDto: MemberAnniversaryOverviewDto? = null
+    var contentHost: SimplePanel? = null
+    var kindFilter: AnniversaryEntryKind? = null
 
-    fun renderResults() {
-        val dto = currentDto ?: return
-        resultPanel.removeAll()
-        anniversaryCoverageText(dto)?.let { text -> resultPanel.div(text) { addCssClasses("text-muted small") } }
+    fun renderFiltered() {
+        val dto = loadedDto ?: return
+        val host = contentHost ?: return
+        host.removeAll()
+        anniversaryCoverageText(dto)?.let { text -> host.div(text) { addCssClasses("text-muted small") } }
 
-        val filterKind = runCatching { AnniversaryEntryKind.valueOf(kindSelect.value.orEmpty()) }.getOrNull()
-        val visibleEntries = if (filterKind == null) dto.entries else dto.entries.filter { it.kind == filterKind }
-
+        val visibleEntries = filterAnniversaryEntries(dto.entries, kindFilter, searchTerm)
         if (visibleEntries.isEmpty()) {
-            resultPanel.p(tr("Keine Treffer in diesem Zeitraum."))
+            host.p(anniversaryNoMatchText(kindFilter, searchTerm)) { addCssClasses("text-muted") }
             return
         }
-        val table =
-            resultPanel.table(
-                headerNames = listOf(tr("Datum"), tr("Mitglied"), tr("Anlass")),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-            )
-        visibleEntries.forEach { entry -> renderAnniversaryRow(table = table, entry = entry, today = dto.from) }
+        host.div(
+            dataCountText(
+                shown = visibleEntries.size,
+                loaded = dto.entries.size,
+                filtered = kindFilter != null || searchTerm.isNotBlank(),
+            ),
+        ) { addCssClasses("text-muted small") }
+        host.dataTable(
+            columns = anniversaryColumns(today = dto.from),
+            rows = visibleEntries,
+        )
     }
 
-    fun loadOverview() {
-        val windowDays = windowSelect.value?.toIntOrNull() ?: AnniversaryCalendar.DEFAULT_WINDOW_DAYS
-        AppScope.launch {
-            val dto = guarded { rpcService<IMemberAnniversaryService>().getUpcomingAnniversaries(windowDays) } ?: return@launch
-            currentDto = dto
-            renderResults()
+    val section =
+        root.dataSection<MemberAnniversaryOverviewDto>(
+            // The window is the view's scope, not a filter the reader typed -- so an empty window is
+            // "nothing coming up", never "nothing found".
+            emptyText = tr("In diesem Zeitraum stehen keine Geburtstage oder Jubiläen an."),
+            isEmpty = { it.entries.isEmpty() },
+            load = {
+                // Hier, nicht nur im Zeitraum-Handler: jeder Ladevorgang -- auch der über „Erneut
+                // versuchen" -- muss den gehaltenen Stand fallen lassen, sonst könnte ein Tastendruck im
+                // Suchfeld nach einem gescheiterten Abruf in ein abgehängtes Panel schreiben.
+                loadedDto = null
+                contentHost = null
+                val windowDays = windowSelect.value?.toIntOrNull() ?: AnniversaryCalendar.DEFAULT_WINDOW_DAYS
+                guarded { rpcService<IMemberAnniversaryService>().getUpcomingAnniversaries(windowDays) }
+            },
+            render = { panel, dto ->
+                loadedDto = dto
+                contentHost = panel.simplePanel()
+                renderFiltered()
+            },
+        )
+
+    kindSegmentHost.segmentedControl(
+        options =
+            listOf(
+                null to tr("Alle"),
+                AnniversaryEntryKind.BIRTHDAY to tr("Geburtstage"),
+                AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY to tr("Jubiläen"),
+            ),
+        selected = kindFilter,
+        ariaLabel = tr("Art"),
+    ) { kind ->
+        kindFilter = kind
+        renderFiltered()
+    }
+
+    // Same synthetic-first-event guard as the search field below: without it KVisions `subscribe`
+    // registration alone would fire one `getUpcomingAnniversaries` request on top of the explicit
+    // `section.reload()` at the end of this function (two round trips per screen mount, as before this wave).
+    var isInitialWindowEvent = true
+    windowSelect.subscribe {
+        if (isInitialWindowEvent) {
+            isInitialWindowEvent = false
+            return@subscribe
         }
+        section.reload()
     }
-
-    windowSelect.subscribe { loadOverview() }
-    kindSelect.subscribe { renderResults() }
-    loadOverview()
+    // 300 ms Debounce ohne Suchknopf, mit `isInitialSearchEvent`-Guard -- Muster aus
+    // `MemberAdministrationScreen` (KVisions `subscribe` feuert bei der Registrierung synthetisch mit).
+    var isInitialSearchEvent = true
+    var debounceHandle: Int? = null
+    searchInput.subscribe { value ->
+        if (isInitialSearchEvent) {
+            isInitialSearchEvent = false
+            return@subscribe
+        }
+        debounceHandle?.let { window.clearTimeout(it) }
+        debounceHandle =
+            window.setTimeout({
+                searchTerm = value.orEmpty()
+                renderFiltered()
+            }, 300)
+    }
+    section.reload()
 }
 
-private fun renderAnniversaryRow(
-    table: Table,
-    entry: AnniversaryEntryDto,
-    today: LocalDate,
-) {
-    table.row {
-        val dateCell = cell()
-        dateCell.span(anniversaryDateLabel(entry))
-        if (entry.occursOn == today) {
-            dateCell.typeBadge(tr("Heute"), "success")
-        }
-        cell(entry.memberDisplayName)
-        val occasionCell = cell()
-        occasionCell.icon(anniversaryKindIcon(entry.kind))
-        occasionCell.span(anniversaryRowLabel(entry)) { addCssClass(anniversaryEmphasisCssClass(entry.emphasis)) }
+/**
+ * The two client-side filters of this screen as ONE pure function (see `MemberAnniversariesScreenTest`):
+ * the kind segment and the name search. A blank [search] filters nothing; matching is case-insensitive on
+ * the display name only -- there is no other free text in a row.
+ */
+internal fun filterAnniversaryEntries(
+    entries: List<AnniversaryEntryDto>,
+    kind: AnniversaryEntryKind?,
+    search: String,
+): List<AnniversaryEntryDto> {
+    val term = search.trim()
+    return entries.filter { entry ->
+        (kind == null || entry.kind == kind) &&
+            (term.isEmpty() || entry.memberDisplayName.contains(term, ignoreCase = true))
     }
+}
+
+/**
+ * "Nothing matches" -- and it names WHICH of the two client filters is responsible (pure, see
+ * `MemberAnniversariesScreenTest`). Both active quotes the search term, because that is the one the
+ * reader typed and can correct.
+ */
+internal fun anniversaryNoMatchText(
+    kind: AnniversaryEntryKind?,
+    search: String,
+): String {
+    val term = search.trim()
+    return when {
+        term.isNotEmpty() -> gettext("Kein Eintrag passt zu \"%1\".", term)
+        kind == AnniversaryEntryKind.BIRTHDAY -> gettext("In diesem Zeitraum steht kein Geburtstag an.")
+        kind == AnniversaryEntryKind.MEMBERSHIP_ANNIVERSARY -> gettext("In diesem Zeitraum steht kein Jubiläum an.")
+        else -> gettext("Kein Eintrag passt zu den gewählten Filtern.")
+    }
+}
+
+/** Columns of the anniversary table / card list; the member is the row's identity, so it is the card title. */
+private fun anniversaryColumns(today: LocalDate): List<DataColumn<AnniversaryEntryDto>> =
+    listOf(
+        textColumn(title = tr("Mitglied"), primary = true) { entry: AnniversaryEntryDto -> entry.memberDisplayName },
+        DataColumn(
+            title = tr("Datum"),
+            cell = { container, entry ->
+                container.span(anniversaryDateLabel(entry))
+                if (entry.occursOn == today) container.typeBadge(tr("Heute"), "success")
+            },
+        ),
+        DataColumn(
+            title = tr("Anlass"),
+            cell = { container, entry -> container.renderAnniversaryOccasion(entry) },
+        ),
+    )
+
+private fun Container.renderAnniversaryOccasion(entry: AnniversaryEntryDto) {
+    icon(anniversaryKindIcon(entry.kind))
+    span(anniversaryRowLabel(entry)) { addCssClass(anniversaryEmphasisCssClass(entry.emphasis)) }
 }
 
 private fun anniversaryKindIcon(kind: AnniversaryEntryKind): String =
