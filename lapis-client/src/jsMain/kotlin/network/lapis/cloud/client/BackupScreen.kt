@@ -4,7 +4,6 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
@@ -110,10 +109,13 @@ private fun renderRestorePanel(
     root: SimplePanel,
     onCompleted: () -> Unit,
 ) {
-    val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    val card = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
+    // Formular-Grammatik (V1.4.28): nur die Datei ist Pflicht (die Checkbox ist eine bewusste Zusatzwahl) => Fall (c), das
+    // Formular hat ein Pflichtfeld: weder Stern noch Legende, `aria-required` steht am Upload.
+    val form = card.lapisForm()
 
-    val allowNonEmptyTargetCheck = panel.checkBox(label = tr("Ziel überschreiben (Zielorganisation enthält bereits Daten)"))
-    panel.div(
+    val allowNonEmptyTargetCheck = form.panel.checkBox(label = tr("Ziel überschreiben (Zielorganisation enthält bereits Daten)"))
+    form.panel.div(
         tr(
             "Ohne diese Option lehnt der Server die Wiederherstellung ab, sobald die Zielorganisation nicht " +
                 "leer ist -- das ist der sichere Standardpfad. Aktivieren Sie diese Option nur, wenn Sie " +
@@ -121,15 +123,17 @@ private fun renderRestorePanel(
         ),
     ) { addCssClasses("text-muted small") }
 
-    val fileUpload = panel.upload(label = tr("Backup-Datei (.zip)"))
+    val fileUpload = form.panel.upload(label = tr("Backup-Datei (.zip)"))
+    val fileField =
+        form.register(
+            fileUpload,
+            label = tr("Backup-Datei (.zip)"),
+            required = true,
+            requiredMessage = gettext("Bitte eine Datei auswählen."),
+        )
 
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val incompleteWarningPanel = panel.vPanel(spacing = 2)
-    val successSummaryPanel = panel.vPanel(spacing = 2)
+    val incompleteWarningPanel = form.panel.vPanel(spacing = 4)
+    val successSummaryPanel = form.panel.vPanel(spacing = 4)
 
     // The "three distinct restore error paths" design decision, plus a success path this design
     // extends (not explicitly specified, but a direct application of the same "never one generic
@@ -158,19 +162,16 @@ private fun renderRestorePanel(
                     }
                 }
             }
-            is RestoreOutcome.IncompatibleBundle -> {
-                errorBox.content = gettext("Diese Datei passt nicht zum erwarteten Sicherungsformat: %1", outcome.message)
-                errorBox.show()
-            }
-            is RestoreOutcome.NonEmptyTarget -> {
-                errorBox.content =
+            is RestoreOutcome.IncompatibleBundle ->
+                form.showFormError(gettext("Diese Datei passt nicht zum erwarteten Sicherungsformat: %1", outcome.message))
+            is RestoreOutcome.NonEmptyTarget ->
+                form.showFormError(
                     gettext(
                         "Die Zielorganisation enthält bereits Daten. Aktivieren Sie „Ziel überschreiben\", falls " +
                             "das beabsichtigt ist: %1",
                         outcome.message,
-                    )
-                errorBox.show()
-            }
+                    ),
+                )
             is RestoreOutcome.Incomplete -> {
                 val box = incompleteWarningPanel.vPanel(spacing = 2) { addCssClasses("alert alert-danger") }
                 box.div(
@@ -183,40 +184,55 @@ private fun renderRestorePanel(
                     ),
                 ) { addCssClass("fw-bold") }
             }
-            is RestoreOutcome.Other -> {
-                errorBox.content = gettext("Unerwarteter Fehler (HTTP %1): %2", outcome.status, outcome.message)
-                errorBox.show()
-            }
+            is RestoreOutcome.Other ->
+                if (outcome.status == BackupHttp.NETWORK_FAILURE_STATUS) {
+                    // Keine Antwort erhalten: der Server kann bereits geschrieben haben -- das sagt die Meldung ehrlich.
+                    form.showFormError(
+                        gettext(
+                            "Die Verbindung wurde unterbrochen, eine Antwort des Servers fehlt: %1. Die Wiederherstellung " +
+                                "wurde möglicherweise teilweise ausgeführt -- prüfen Sie den Datenbestand, bevor Sie es erneut versuchen.",
+                            outcome.message,
+                        ),
+                    )
+                } else {
+                    form.showFormError(gettext("Unerwarteter Fehler (HTTP %1): %2", outcome.status, outcome.message))
+                }
         }
     }
 
-    val restoreButton = panel.button(tr("Wiederherstellen"), style = ButtonStyle.PRIMARY)
+    // O1 (Design-Review): Wiederherstellen überschreibt eine Organisation -- eine destruktive Aktion (Richtlinie 2.5). Sie steht
+    // deshalb als OUTLINEDANGER in der abgesetzten Zone unter dem Formular; das Formular hat damit KEIN `PRIMARY`.
+    val restoreButton = Button(tr("Wiederherstellen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = null, destructive = restoreButton)
     restoreButton.onClick {
-        errorBox.hide()
+        // Erst die Feldprüfung (Datei gewählt?), dann der Bestätigungsdialog -- kein Serveraufruf und keine Sperre des Knopfs
+        // hier: die eigentliche Wiederherstellung startet erst NACH dem Dialog (siehe unten).
+        if (!form.validateAndReport()) return@onClick
         val selected = fileUpload.value?.firstOrNull()
         val nativeFile = selected?.let { fileUpload.getNativeFile(it) }
         if (nativeFile == null) {
-            errorBox.content = tr("Bitte eine Datei auswählen.")
-            errorBox.show()
+            fileField.showError(gettext("Bitte eine Datei auswählen."))
             return@onClick
         }
         val allowNonEmptyTarget = allowNonEmptyTargetCheck.value
 
         restoreConfirmDialog(nativeFile, allowNonEmptyTarget) {
-            // The confirm modal itself hides on the first click of "Endgültig wiederherstellen", which
-            // leaves this "Wiederherstellen" button clickable again while the upload is still in
-            // flight -- disable it for the duration so an impatient double-click cannot fire a second
-            // concurrent restore attempt against the same target, same idiom `postingConfirmDialog`'s
-            // call site already establishes.
-            restoreButton.disabled = true
+            // The confirm modal itself hides on the first click of "Endgültig wiederherstellen", which leaves this
+            // "Wiederherstellen" button clickable again while the upload is still in flight -- disable it for the duration
+            // so an impatient double-click cannot fire a second concurrent restore attempt against the same target, same
+            // idiom `postingConfirmDialog`'s call site already establishes.
             incompleteWarningPanel.removeAll()
             successSummaryPanel.removeAll()
-            AppScope.launch {
+            // Der Knopf wird erst NACH der sichtbaren Meldung wieder frei ([BackupHttp.restore] wirft bei Netzfehlern nicht, es
+            // liefert `RestoreOutcome.Other`); `aria-busy` wie bei jedem Formular-Absenden.
+            form.runBusy(restoreButton) {
                 val outcome = BackupHttp.restore(nativeFile, allowNonEmptyTarget)
-                restoreButton.disabled = false
                 handleRestoreOutcome(outcome)
                 onCompleted()
-                fileUpload.clearInput()
+                // Nur nach Erfolg: bei einem Fehlschlag bleibt die Datei für den nächsten Versuch gewählt. `reset()` statt
+                // `clearInput()` am Feld vorbei: es setzt auch "angefasst/abgesendet" zurück, sonst stünde später ein
+                // Pflichtfehler an einem ungerührten Feld.
+                if (outcome is RestoreOutcome.Success) fileField.reset()
             }
         }
     }

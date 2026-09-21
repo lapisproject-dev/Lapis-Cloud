@@ -5,7 +5,6 @@ import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -1210,25 +1209,6 @@ private fun renderDunningActions(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * S4: Doppelklick-Schutz. `guarded {}` wirft [kotlinx.coroutines.CancellationException] weiter -- ein
- * `button.disabled = false` NACH dem `guarded`-Aufruf liefe bei einem Abbruch nie. Deshalb immer
- * try/finally (Muster `LedgerScreen.saveButton`).
- */
-internal fun runGuardedAction(
-    button: Button?,
-    block: suspend () -> Unit,
-) {
-    button?.disabled = true
-    AppScope.launch {
-        try {
-            block()
-        } finally {
-            button?.disabled = false
         }
     }
 }

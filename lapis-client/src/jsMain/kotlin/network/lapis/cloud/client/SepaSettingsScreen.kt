@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
-import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -191,21 +190,43 @@ private fun sepaDisableConfirmDialog(onConfirm: () -> Unit) {
 // Gläubigereinstellungen
 // ================================================================================================
 
+/** Server-Grenze der Vorabankündigungsfrist (Tage), loser Spiegel -- der Server bleibt Autorität. */
+private const val PRENOTIFICATION_DAYS_MIN: Int = 1
+private const val PRENOTIFICATION_DAYS_MAX: Int = 30
+
+/**
+ * Baut die Anfrage aus den ROHEN Feldwerten. `sepaCreditorId` und `sepaCreditorName` sind BEIDE `String?` (leer = nicht
+ * gesetzt) und damit für den Compiler vertauschbar -- deshalb eine eigene, einzeln testbare Funktion.
+ */
+internal fun buildSepaCreditorSettingsInput(
+    creditorId: String,
+    creditorName: String,
+    prenotificationDays: String,
+): SepaCreditorSettingsInput =
+    SepaCreditorSettingsInput(
+        sepaCreditorId = creditorId.trim().takeIf { it.isNotBlank() },
+        sepaCreditorName = creditorName.trim().takeIf { it.isNotBlank() },
+        sepaPrenotificationDays = prenotificationDays.trim().toInt(),
+    )
+
 private fun renderSepaCreditorSettingsSection(root: SimplePanel) {
     root.h2(tr("Gläubigereinstellungen")) { addCssClass("h5") }
-    val formPanel = root.vPanel(spacing = 6)
-    val creditorIdInput = formPanel.text(label = tr("Gläubiger-Identifikationsnummer"))
-    val creditorNameInput = formPanel.text(label = tr("Gläubigername"))
-    val prenotificationDaysInput = formPanel.text(label = tr("Vorabankündigungsfrist in Tagen (1-30)"))
-    val readyRow = formPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    // Formular-Grammatik (V1.4.28): Gläubiger-ID/-Name optional, die Frist Pflicht => Fall (a), Stern nur an der Frist.
+    val form = root.lapisForm()
+    val creditorIdField = form.textField(label = tr("Gläubiger-Identifikationsnummer"))
+    val creditorNameField = form.textField(label = tr("Gläubigername"))
+    val prenotificationDaysField =
+        form.textField(
+            label = tr("Vorabankündigungsfrist in Tagen"),
+            required = true,
+            hint = gettext("Zulässig: %1 bis %2.", PRENOTIFICATION_DAYS_MIN, PRENOTIFICATION_DAYS_MAX),
+            rule = { FormRules.intInRange(value = it, min = PRENOTIFICATION_DAYS_MIN, max = PRENOTIFICATION_DAYS_MAX) },
+        )
+    val readyRow = form.panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     readyRow.div(tr("Bereit für Dateierzeugung:")) { addCssClasses("text-muted small") }
     val readyBadgeHost = readyRow.div()
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val saveButton = formPanel.button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
 
     fun renderReady(ready: Boolean) {
         readyBadgeHost.removeAll()
@@ -213,9 +234,12 @@ private fun renderSepaCreditorSettingsSection(root: SimplePanel) {
     }
 
     fun applySettings(settings: SepaCreditorSettingsDto) {
-        creditorIdInput.value = settings.sepaCreditorId
-        creditorNameInput.value = settings.sepaCreditorName
-        prenotificationDaysInput.value = settings.sepaPrenotificationDays.toString()
+        creditorIdField.setValue(settings.sepaCreditorId)
+        creditorNameField.setValue(settings.sepaCreditorName)
+        prenotificationDaysField.setValue(settings.sepaPrenotificationDays.toString())
+        // Programmatisches Schreiben ist kein Tippen (siehe LapisField.setValue): ein schon angezeigter Fehler (Pflicht/Bereich
+        // aus einem früheren, ungültigen Versuch) darf nicht am nun gespeicherten, gültigen Wert stehen bleiben.
+        form.fields.forEach { it.validate(force = false) }
         renderReady(settings.readyForFileGeneration)
     }
 
@@ -227,32 +251,18 @@ private fun renderSepaCreditorSettingsSection(root: SimplePanel) {
     }
 
     saveButton.onClick {
-        errorBox.hide()
-        val creditorId = creditorIdInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val creditorName = creditorNameInput.value?.trim()?.takeIf { it.isNotBlank() }
-        val prenotificationDays =
-            prenotificationDaysInput.value
-                .orEmpty()
-                .trim()
-                .toIntOrNull()
-        if (prenotificationDays == null || prenotificationDays !in 1..30) {
-            errorBox.content = tr("Die Vorabankündigungsfrist muss zwischen 1 und 30 Tagen liegen.")
-            errorBox.show()
-            return@onClick
-        }
-        saveButton.disabled = true
-        AppScope.launch {
+        form.submit(saveButton) {
             val result =
                 guarded {
                     rpcService<ISepaService>().updateSepaCreditorSettings(
-                        SepaCreditorSettingsInput(
-                            sepaCreditorId = creditorId,
-                            sepaCreditorName = creditorName,
-                            sepaPrenotificationDays = prenotificationDays,
+                        buildSepaCreditorSettingsInput(
+                            creditorId = creditorIdField.value,
+                            creditorName = creditorNameField.value,
+                            // Die Feldregel hat die Zahl bereits geprüft.
+                            prenotificationDays = prenotificationDaysField.value,
                         ),
                     )
                 }
-            saveButton.disabled = false
             if (result != null) {
                 notifySuccess(tr("Gläubigereinstellungen gespeichert."))
                 applySettings(result)

@@ -52,7 +52,7 @@ internal fun validateReceivableDunningLevelInput(
     }
     if (feeAmount != null) {
         val fee = feeAmount.toDouble()
-        if (fee < 0.0 || fee > MAX_RECEIVABLE_FEE_AMOUNT) return tr("Die Gebühr muss zwischen 0,00 € und 25,00 € liegen.")
+        if (fee < 0.0 || fee > MAX_RECEIVABLE_FEE_AMOUNT) return feeRangeMessage(MAX_RECEIVABLE_FEE_AMOUNT)
     }
     return null
 }

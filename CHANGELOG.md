@@ -8,6 +8,99 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W4a "Form grammar, part 1" (V1.4.28)** -- the building blocks of the form grammar and the
+  screens where a form decides whether a person gets in or can safely change something. A pure client wave: no RPC,
+  DTO, table or migration was touched, and **every validation rule is unchanged** (password 12..128, e-mail 320, 1..30
+  days of prenotification, the dunning bounds, 3..1000 characters for a reason) -- the rules only became visible
+  earlier and at the field; the server stays the authority.
+  **New building blocks.** `lapisForm { ... }` (`FormGrammar.kt`) with `textField`, `passwordField`, `textAreaField`,
+  `register` (select, upload), `crossFieldRule`, `buttons`, `submit`, `showFormError`, plus `FormRules.kt` (e-mail,
+  integer range, new password, password match) and the client-side helper `runGuardedAction` moved out of the
+  open-items screen into `FormGrammar.kt` (same package, no caller changed).
+  **What a form does now.** Required fields are marked once per form (a star plus "* Pflichtfeld" when required and optional
+  fields mix; "Alle Felder sind Pflichtfelder." for three or more required fields; nothing for one or two), and
+  `aria-required` is on the input in every case. Errors stand at the field (`aria-describedby`, `aria-invalid`); the
+  slot is mounted permanently (for screen readers, which announce a text change in an existing region -- NOT layout-neutral:
+  a visible error pushes the submit button down; the first click is saved by the pointer gate, see the audit corrections
+  below). A field is checked when it is left, but only if it was typed into; typing clears an error and never creates one. A submit with
+  errors focuses the first invalid field, names all invalid fields in one `role="alert"` message and calls no server;
+  a valid submit locks the button (`aria-busy`, no spinner). Cancel stands left, the confirming action right; a
+  destructive action stands in its own zone below the button row.
+  **Screens (11).** Login (only "not empty" for the password -- a valid old password is never declared wrong; the server
+  text is shown word for word; `autocomplete` username/current-password), the member and friend registration (the
+  password rule is a hint under the field instead of part of the label, new-password autocomplete, the confirmation
+  is checked at its own field), the password-reset deep link, the admin password reset (the temporary password is a
+  reveal-able secret field without password-manager offers), SEPA creditor settings, dunning and receivable-dunning
+  levels, stream destinations (create form and edit modal; the footer buttons now stand cancel/done left of save), the
+  restore form (the button is a destructive action in its own zone) and the API-key issue form (an empty label is a
+  field error, not a toast). `EmbedIntegrationScreen` sets `readonly` through the typed property (the raw DOM call was
+  lost on a language switch).
+  **Also:** the new colour token `--lapis-invalid` (7.1:1 light, 6.5:1 dark), the new sentences in all eight catalogs,
+  the tripwire R24 (strict set plus a downward ratchet: 297 labelled fields remain outside the migrated screens; it checks
+  ONLY that the migrated screens hold no hand-built labelled field and that every `lapisForm(` is closed by `buttons(` or
+  `finish(` -- not `aria-required`, the marks, the button order or the error display, which the DOM tests cover) and the
+  R39 ledger line of `MemberPasswordResetDialog` paid off.
+  **Known gaps:** the W4b/W4c screens still carry the old grammar (one submit-triggered error box, no `aria-required`).
+  Error message texts follow a running language switch only at the next check (imperatively set from `gettext`);
+  labels, legends and hints follow at once. `autocomplete="off"` on a password field is browser dependent -- the
+  password-manager attributes are a request, not a guarantee. The two webhook URL fields in `ApiKeysScreen` stay on the
+  old grammar (W4c; a named exception in R24). R28 (exactly one primary button per form) remains a check by eye. Consent
+  checkboxes stay checkboxes, with their message in the collective region. No release tag, no version bump, no deploy.
+  **Review corrections (same wave).** The login screen and its "request reset" form no longer run an e-mail format check
+  at all (only "not empty"): accounts whose identifier has no dot after the `@` (`admin@localhost` from
+  `LAPIS_BOOTSTRAP_ADMIN_EMAIL`, `hans@intranet` from a CSV import) exist and must stay able to sign in and to request a
+  reset -- the client had turned into the lock, the server is the authority. One root cause showed up at three places
+  and is fixed at all three: code wrote a field value past `LapisField` (straight into the control), so no `input`
+  event ran and an error that was already showing stayed. (1) "Neu erzeugen" in the admin password reset now clears it;
+  (2) the dunning fee field, emptied and locked on level 1 (`updateFeeLock`), no longer keeps a stale "invalid amount";
+  (3) the stream destination URL, filled from the platform preset (`applyPlatformDefaults`), no longer keeps a stale
+  URL error. The rule (write through `LapisField.setValue`, then `validate(force = false)` or `clearError()`) is now a
+  row "Programmatic writes" in the guideline and in the `setValue` KDoc. The dunning
+  fee field uses the same amount parser as the receivable-dunning form (no silent rounding of "12,999" to 13,00, no
+  "1e1"; "2,50" is accepted); "0" stays a valid fee here, as before. New DOM tests pin `LapisForm.finish()`,
+  `register()` with an upload, the unbound `crossFieldRule` (consent checkbox with `aria-required`), the login with a
+  dot-less domain, the regenerate button and the two other programmatic writes (`ProgrammaticFieldWriteDomTest`). The
+  orphaned message "Die Gebühr muss, falls angegeben, ein gültiger Betrag sein." (no source left after the parser
+  change) was removed from `messages.pot` and all seven `messages-<lang>.po`.
+  **Audit corrections (same wave, a second independent audit).** Login, registration and reset were functionally
+  equivalent to before (no blocker); seven major and many minor defects were fixed here because W4b builds on these
+  blocks.
+  (MA-1) *The first click was lost.* The claim "the slot never moves the button" was wrong: the structure was stable, the
+  layout was not (`.lapis-field-error--shown` is `display: block`). Clicking a button after leaving an invalid field made the
+  error appear on `blur`, the button slid down between mousedown and mouseup, no `click` fired. Fixed with a pointer gate
+  (the blur check is deferred while the mouse button is pressed on a button, and made up after the click) instead of a
+  reserved error height (a message wraps differently per language and width; a fixed height guarantees nothing and leaves
+  a gap between every pair of fields). Tests drive the real event chain (mousedown, blur, mouseup, click) and assert the
+  button position and the element under the mousedown point.
+  (MA-2) *A registered `select` swallowed hint and error* (`Select.add()` delegates to the `<select>`): the slots are now
+  siblings behind it. (MA-3) *A restore with a dropped connection failed silently* and its exception cancelled `AppScope`
+  for every later launch: `BackupHttp.restore` returns a visible `RestoreOutcome.Other(status = 0)` ("the target may be
+  half-written"), the trigger is freed only after that message, and `AppScope` has a `SupervisorJob`. (MA-4) *Half-German
+  messages*: the two labels without a catalog entry and every other literal of `MemberPasswordResetDialog` and
+  `DunningSettingsScreen` (46) are translated in all eight catalogs; `FormGrammarI18nCatalogTest` now scans every migrated
+  file completely, reads `#, fuzzy` and compares placeholders as a multiset; field bounds are `%N` hints, no longer part of a
+  msgid. (MA-5) *No test looked at what a form sends*: `FormSubmitBodyDomTest` stubs `fetch` and parses the request body of
+  every form (a password is sent untrimmed, text fields trimmed, same-typed fields in their own slot). (MA-6) *A fee of 0 made
+  a receivable-dunning level un-editable* (a strict "greater than 0" parser; the server allows 0..25): one shared
+  `FormRules.optionalFee`, and the message names 0,00 to 25,00 instead of the one-billion booking limit. (MA-7) *The restore
+  form was a second copy of the submit logic* and left "submitted" set: it uses `LapisForm.validateAndReport()`/`runBusy()`
+  and `LapisField.reset()`.
+  Smaller: `FieldCheck.Invalid` texts never carry a `tr()` marker; the SEPA load path revalidates; a one-field form no longer
+  repeats its field error as a sentence, and the collective sentence clears itself when every field is valid again;
+  `setValue` on a non-text control fails loudly, `reset()` empties an upload; `showFormError` before `buttons()`/`finish()`
+  fails loudly; `autocomplete` plus `suppressManagers` is rejected; each cross rule runs once per submit; the lock beside a
+  secret field is a hidden Font Awesome icon (no emoji); both dunning-level modals have their primary action in the footer;
+  the temporary-password action is a `destructive` button and keeps its "3..1000 characters" hint; spacing 6/2 became 8/4;
+  the pre-login card widths are named constants; DTOs are built inside the `guarded` block; the dead cross rule of the
+  receivable form is gone and the section 286 BGB rule "no fee on level 1" is enforced by the validator (not only by the
+  locked field -- through the UI alone it stays unreachable, and that is documented); translation wording fixes (ru "корректный",
+  RTMP-URL; en/es/fr/nl/it label and message use one word; French non-breaking spaces before colons in the new sentences); six
+  orphaned msgids and the labels this audit replaced were removed.
+  **Known gaps (audit).** `ConferenceScreen` still sets six attributes through a raw `getElement()?.setAttribute` (the
+  `ClientLateHookRatchet` should grow to cover it). Bootstrap's `.is-invalid` background icon (`#dc3545`) is not calibrated for
+  the dark theme. Enter does not submit (the forms are not `<form>` elements and never were). The pointer gate defers a blur
+  check while any button is pressed. The rest of the French catalog still uses ordinary spaces before `:`/`?`.
+
 - **UI/UX guideline, wave W3 "Pseudo tables" (V1.4.27)** -- the report and list screens that were built from
   `hPanel` rows with fixed pixel widths moved onto real tables. A pure client wave: no RPC, DTO, table or migration
   was touched; role checks, exports, filters, pagination and the double-click guards are unchanged, and the

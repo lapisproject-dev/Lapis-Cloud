@@ -1,10 +1,9 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.text.password
-import io.kvision.form.text.text
+import io.kvision.html.Autocomplete
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.link
@@ -15,7 +14,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.perc
 import io.kvision.utils.px
-import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.rpc.IAuthService
 
 /**
@@ -32,7 +30,7 @@ import network.lapis.cloud.shared.rpc.IAuthService
 fun renderLoginScreen(container: SimplePanel) {
     container.vPanel(spacing = 10) {
         addCssClass("mx-auto")
-        maxWidth = 380.px
+        maxWidth = AUTH_CARD_MAX_WIDTH_PX.px
         width = 100.perc
         marginTop = 64.px
 
@@ -42,50 +40,45 @@ fun renderLoginScreen(container: SimplePanel) {
         h1(tr("Anmelden"))
         p(tr("Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."))
 
-        val errorBox =
-            div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
-
-        val emailInput = text(type = InputType.EMAIL, label = tr("E-Mail"))
-        val passwordInput = password(label = tr("Passwort"))
-
-        lateinit var loginButton: io.kvision.html.Button
-        loginButton =
-            button(tr("Anmelden"), style = ButtonStyle.PRIMARY) {
-                onClick {
-                    val email = emailInput.value.orEmpty().trim()
-                    val pw = passwordInput.value.orEmpty()
-                    errorBox.hide()
-                    if (!Validation.isNonBlank(email) || !Validation.isNonBlank(pw)) {
-                        errorBox.content = tr("Bitte E-Mail und Passwort eingeben.")
-                        errorBox.show()
-                        return@onClick
-                    }
-                    loginButton.disabled = true
-                    AppScope.launch {
-                        val loginError = AuthHttp.login(email, pw)
-                        if (loginError != null) {
-                            errorBox.content = loginError
-                            errorBox.show()
-                            loginButton.disabled = false
-                            return@launch
-                        }
-                        val session = guarded { rpcService<IAuthService>().getSessionInfo() }
-                        loginButton.disabled = false
-                        if (session != null) {
-                            AppState.setSession(session)
-                            notifySuccess(gettext("Willkommen, %1.", session.displayName))
-                            navigateTo(Routes.DASHBOARD)
-                        } else {
-                            errorBox.content =
-                                tr("Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden.")
-                            errorBox.show()
-                        }
-                    }
+        val form = lapisForm()
+        // Zwei Felder, beide Pflicht: weder Stern noch Legende -- `aria-required` steht trotzdem an beiden.
+        val emailField =
+            form.textField(
+                label = tr("E-Mail"),
+                type = InputType.EMAIL,
+                required = true,
+                autocomplete = Autocomplete.USERNAME,
+            )
+        // Regel NUR "nicht leer" (required): `Validation.passwordHint` wird hier nie aufgerufen -- ein altes, damals gültiges
+        // Passwort darf die Oberfläche nicht für falsch erklären.
+        val passwordField =
+            form.passwordField(
+                label = tr("Passwort"),
+                required = true,
+                autocomplete = Autocomplete.CURRENT_PASSWORD,
+            )
+        val loginButton = Button(tr("Anmelden"), style = ButtonStyle.PRIMARY)
+        form.buttons(primary = loginButton)
+        loginButton.onClick {
+            form.submit(loginButton) {
+                val email = emailField.value.trim()
+                val pw = passwordField.value
+                val loginError = AuthHttp.login(email, pw)
+                if (loginError != null) {
+                    // Der Servertext wörtlich: er ist bereits gegen Kontoaufzählung gehärtet (siehe KDoc oben).
+                    form.showFormError(loginError)
+                    return@submit
+                }
+                val session = guarded { rpcService<IAuthService>().getSessionInfo() }
+                if (session != null) {
+                    AppState.setSession(session)
+                    notifySuccess(gettext("Willkommen, %1.", session.displayName))
+                    navigateTo(Routes.DASHBOARD)
+                } else {
+                    form.showFormError(tr("Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."))
                 }
             }
+        }
 
         div {
             marginTop = 8.px
@@ -147,15 +140,21 @@ private fun renderForgotPasswordToggle(parent: SimplePanel) {
                 "Erhalten Sie eine Bestätigung, tragen Sie anschließend den Token und Ihr neues Passwort ein.",
         ),
     )
-    val resetEmail = panel.text(type = InputType.EMAIL, label = tr("E-Mail"))
-    val requestButton = panel.button(tr("Zurücksetzen anfordern"), style = ButtonStyle.OUTLINEPRIMARY)
+    val requestForm = panel.lapisForm()
+    val resetEmail =
+        requestForm.textField(
+            label = tr("E-Mail"),
+            type = InputType.EMAIL,
+            required = true,
+            autocomplete = Autocomplete.USERNAME,
+        )
+    val requestButton = Button(tr("Zurücksetzen anfordern"), style = ButtonStyle.OUTLINEPRIMARY)
+    requestForm.buttons(primary = requestButton)
     requestButton.onClick {
-        val email = resetEmail.value.orEmpty().trim()
-        if (!Validation.isNonBlank(email)) return@onClick
-        AppScope.launch {
-            val error = AuthHttp.requestPasswordReset(email)
+        requestForm.submit(requestButton) {
+            val error = AuthHttp.requestPasswordReset(resetEmail.value.trim())
             if (error != null) {
-                notifyError(error)
+                requestForm.showFormError(error)
             } else {
                 notifyInfo(tr("Falls diese E-Mail registriert ist, wurde ein Link versendet."))
             }
@@ -163,17 +162,28 @@ private fun renderForgotPasswordToggle(parent: SimplePanel) {
     }
 
     panel.div { marginTop = 8.px }
-    val resetToken = panel.text(label = tr("Token (aus der E-Mail bzw. vom Betreiber)"))
-    val newPassword = panel.password(label = tr("Neues Passwort"))
-    val confirmButton = panel.button(tr("Neues Passwort setzen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val confirmForm = panel.lapisForm()
+    val resetToken =
+        confirmForm.textField(
+            label = tr("Token (aus der E-Mail bzw. vom Betreiber)"),
+            required = true,
+            autocomplete = Autocomplete.ONE_TIME_CODE,
+        )
+    val newPassword =
+        confirmForm.passwordField(
+            label = tr("Neues Passwort"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
+            rule = { FormRules.newPassword(value = it, email = "") },
+        )
+    val confirmButton = Button(tr("Neues Passwort setzen"), style = ButtonStyle.OUTLINEPRIMARY)
+    confirmForm.buttons(primary = confirmButton)
     confirmButton.onClick {
-        val token = resetToken.value.orEmpty().trim()
-        val pw = newPassword.value.orEmpty()
-        if (!Validation.isNonBlank(token) || !Validation.isNonBlank(pw)) return@onClick
-        AppScope.launch {
-            val error = AuthHttp.confirmPasswordReset(token, pw)
+        confirmForm.submit(confirmButton) {
+            val error = AuthHttp.confirmPasswordReset(resetToken.value.trim(), newPassword.value)
             if (error != null) {
-                notifyError(error)
+                confirmForm.showFormError(error)
             } else {
                 notifySuccess(tr("Passwort wurde geändert -- bitte melden Sie sich neu an."))
                 panel.hide()

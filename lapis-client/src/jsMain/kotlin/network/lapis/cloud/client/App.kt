@@ -36,6 +36,7 @@ import kotlinx.browser.localStorage
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -71,8 +72,13 @@ external val messagesPl: dynamic
 @JsNonModule
 external val messagesRu: dynamic
 
-/** Application-wide coroutine scope tied to the browser's event loop. */
-val AppScope: CoroutineScope = CoroutineScope(window.asCoroutineDispatcher())
+/**
+ * Application-wide coroutine scope tied to the browser's event loop. **[SupervisorJob]** (V1.4.28 audit): without it one
+ * exception escaping ANY `AppScope.launch` cancelled the scope for every later launch until the next page reload -- every
+ * button that starts work through [AppScope] would have gone dead for the rest of the session. A failing child now only
+ * ends itself; its exception still reaches the default handler (console), it is not swallowed.
+ */
+val AppScope: CoroutineScope = CoroutineScope(SupervisorJob() + window.asCoroutineDispatcher())
 
 /**
  * The Lapis family's faceted-stone brand mark, copied verbatim (same `<polygon>`/`<polyline>`

@@ -2,12 +2,10 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
-import io.kvision.form.text.password
-import io.kvision.form.text.text
+import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
@@ -38,7 +36,7 @@ fun renderFriendRegistrationScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 10) {
             addCssClass("mx-auto")
-            maxWidth = 480.px
+            maxWidth = NARROW_FORM_MAX_WIDTH_PX.px
             width = 100.perc
             marginTop = 32.px
         }
@@ -73,73 +71,70 @@ private fun renderFriendRegistrationForm(
         content = terms.text
     }
 
-    val displayNameInput = root.text(label = tr("Anzeigename (nicht überprüft)"))
-    val emailInput = root.text(type = InputType.EMAIL, label = tr("E-Mail"))
-    val passwordInput =
-        root.password(label = gettext("Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
-    val confirmPasswordInput = root.password(label = tr("Passwort bestätigen"))
-    val agreeCheck = root.checkBox(label = tr("Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere sie."))
-
-    val errorBox =
-        root.div().apply {
-            addCssClass("text-danger")
-            hide()
+    val form = root.lapisForm()
+    // Vier Felder, alle Pflicht: keine Sterne, Legende "Alle Felder sind Pflichtfelder." (Fall b).
+    val displayNameField = form.textField(label = tr("Anzeigename (nicht überprüft)"), required = true)
+    val emailField =
+        form.textField(
+            label = tr("E-Mail"),
+            type = InputType.EMAIL,
+            required = true,
+            autocomplete = Autocomplete.USERNAME,
+            rule = FormRules::email,
+        )
+    // Die Passwortregel steht als Hinweis UNTER dem Feld (sichtbar, bevor getippt wird), nicht im Label.
+    val passwordField =
+        form.passwordField(
+            label = tr("Passwort"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
+            rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
+        )
+    val confirmPasswordField =
+        form.passwordField(
+            label = tr("Passwort bestätigen"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+        )
+    form.crossFieldRule(field = confirmPasswordField) {
+        FormRules.passwordsMatch(password = passwordField.value, confirmation = confirmPasswordField.value)
+    }
+    // Die Zustimmung bleibt eine Checkbox (KVisions CheckBox rendert Label und Fehlerzustand anders): `aria-required` am
+    // Input, die Prüfung als Querregel mit Meldung in der Sammelfläche und Fokus auf die Checkbox.
+    val agreeCheck = form.panel.checkBox(label = tr("Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere sie."))
+    agreeCheck.markAriaRequired()
+    form.crossFieldRule(focusOn = agreeCheck.input) {
+        if (agreeCheck.value) {
+            FieldCheck.Ok
+        } else {
+            FieldCheck.Invalid(
+                gettext("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."),
+            )
         }
+    }
 
-    lateinit var submitButton: Button
-    submitButton =
-        root.button(tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY) {
-            onClick {
-                errorBox.hide()
-                val displayName = displayNameInput.value.orEmpty().trim()
-                val email = emailInput.value.orEmpty().trim()
-                val password = passwordInput.value.orEmpty()
-                val confirmPassword = confirmPasswordInput.value.orEmpty()
-
-                if (!Validation.isNonBlank(displayName) || !Validation.looksLikeEmail(email)) {
-                    errorBox.content = tr("Bitte Name und eine gültige E-Mail-Adresse angeben.")
-                    errorBox.show()
-                    return@onClick
+    val submitButton = Button(tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = submitButton)
+    submitButton.onClick {
+        form.submit(submitButton) {
+            val result =
+                guarded {
+                    rpcService<IRegistrationService>().registerFriend(
+                        buildFriendRegistrationInput(
+                            displayName = displayNameField.value,
+                            email = emailField.value,
+                            password = passwordField.value,
+                            terms = terms,
+                        ),
+                    )
                 }
-                val passwordHint = Validation.passwordHint(password, email)
-                if (passwordHint != null) {
-                    errorBox.content = passwordHint
-                    errorBox.show()
-                    return@onClick
-                }
-                if (!Validation.passwordsMatch(password, confirmPassword)) {
-                    errorBox.content = tr("Die Passwörter stimmen nicht überein.")
-                    errorBox.show()
-                    return@onClick
-                }
-                if (!agreeCheck.value) {
-                    errorBox.content = tr("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben.")
-                    errorBox.show()
-                    return@onClick
-                }
-
-                submitButton.disabled = true
-                AppScope.launch {
-                    val result =
-                        guarded {
-                            rpcService<IRegistrationService>().registerFriend(
-                                FriendRegistrationInput(
-                                    displayName = displayName,
-                                    email = email,
-                                    password = password,
-                                    termsVersion = terms.version,
-                                    termsSha256 = terms.sha256,
-                                ),
-                            )
-                        }
-                    submitButton.disabled = false
-                    if (result != null) {
-                        root.removeAll()
-                        renderFriendRegistrationConfirmation(root)
-                    }
-                }
+            if (result != null) {
+                root.removeAll()
+                renderFriendRegistrationConfirmation(root)
             }
         }
+    }
 
     root.div {
         marginTop = 8.px
@@ -149,6 +144,21 @@ private fun renderFriendRegistrationForm(
         link(tr("Bereits ein Konto? Zur Anmeldung."), url = "#${Routes.LOGIN}")
     }
 }
+
+/** Wie [buildRegistrationInput]: Name und E-Mail getrimmt, das Passwort nie. */
+internal fun buildFriendRegistrationInput(
+    displayName: String,
+    email: String,
+    password: String,
+    terms: FriendTermsDto,
+): FriendRegistrationInput =
+    FriendRegistrationInput(
+        displayName = displayName.trim(),
+        email = email.trim(),
+        password = password,
+        termsVersion = terms.version,
+        termsSha256 = terms.sha256,
+    )
 
 private fun renderFriendRegistrationConfirmation(root: SimplePanel) {
     // V1.4.7: root.removeAll() (caller) cleared the lockup added in

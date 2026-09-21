@@ -93,6 +93,9 @@ internal const val DATA_SCREEN_MAX_WIDTH_PX = 1440
  *   new breakpoint; `theme.css` and [CARD_LIST_MEDIA_QUERY] use the matching `767.98px`).
  */
 internal const val NARROW_FORM_MAX_WIDTH_PX = 480
+
+/** The card width of the pre-login screens (login, password reset): narrower than [NARROW_FORM_MAX_WIDTH_PX] (V1.4.28 audit: a named constant instead of a literal in two screens). */
+internal const val AUTH_CARD_MAX_WIDTH_PX = 380
 internal const val READING_MAX_WIDTH_PX = 720
 internal const val DASHBOARD_MAX_WIDTH_PX = 640
 internal const val CARD_LIST_BREAKPOINT_PX = 768

@@ -1,18 +1,17 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.text.password
+import io.kvision.html.Autocomplete
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
-import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.perc
 import io.kvision.utils.px
-import kotlinx.coroutines.launch
 
 /**
  * V1.2.3 Echter SMTP-Versand, Option B "Client-Deep-Links" -- the destination of the
@@ -29,7 +28,7 @@ fun renderPasswordResetScreen(
     val root =
         container.vPanel(spacing = 10) {
             addCssClass("mx-auto")
-            maxWidth = 380.px
+            maxWidth = AUTH_CARD_MAX_WIDTH_PX.px
             width = 100.perc
             marginTop = 64.px
         }
@@ -45,35 +44,26 @@ fun renderPasswordResetScreen(
     }
 
     root.p(tr("Bitte vergeben Sie Ihr neues Passwort."))
-    val errorBox =
-        root.div {
-            addCssClass("text-danger")
-            hide()
-        }
-    val newPassword = root.password(label = tr("Neues Passwort"))
-    lateinit var confirmButton: io.kvision.html.Button
-    confirmButton =
-        root.button(tr("Neues Passwort setzen"), style = ButtonStyle.PRIMARY) {
-            onClick {
-                val pw = newPassword.value.orEmpty()
-                errorBox.hide()
-                if (!Validation.isNonBlank(pw)) {
-                    errorBox.content = tr("Bitte ein neues Passwort eingeben.")
-                    errorBox.show()
-                    return@onClick
-                }
-                confirmButton.disabled = true
-                AppScope.launch {
-                    val error = AuthHttp.confirmPasswordReset(token, pw)
-                    confirmButton.disabled = false
-                    if (error != null) {
-                        errorBox.content = error
-                        errorBox.show()
-                    } else {
-                        notifySuccess(tr("Passwort wurde geändert -- bitte melden Sie sich neu an."))
-                        navigateTo(Routes.LOGIN)
-                    }
-                }
+    val form = root.lapisForm()
+    val newPassword =
+        form.passwordField(
+            label = tr("Neues Passwort"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
+            rule = { FormRules.newPassword(value = it, email = "") },
+        )
+    val confirmButton = Button(tr("Neues Passwort setzen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = confirmButton)
+    confirmButton.onClick {
+        form.submit(confirmButton) {
+            val error = AuthHttp.confirmPasswordReset(token, newPassword.value)
+            if (error != null) {
+                form.showFormError(error)
+            } else {
+                notifySuccess(tr("Passwort wurde geändert -- bitte melden Sie sich neu an."))
+                navigateTo(Routes.LOGIN)
             }
         }
+    }
 }

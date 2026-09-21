@@ -2806,19 +2806,6 @@ msgstr "Potwierdź, że przeczytałeś/-aś warunki korzystania."
 msgid "Bitte Betreff und Text angeben."
 msgstr "Podaj temat i treść."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:284
-msgid ""
-"Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
-msgstr "Podaj nazwę i prawidłowy adres URL RTMP (rtmp:// lub rtmps://)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:221
-msgid ""
-"Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen "
-"Stream-Schlüssel angeben."
-msgstr ""
-"Podaj nazwę, prawidłowy adres URL RTMP (rtmp:// lub rtmps://) oraz klucz "
-"transmisji."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:170
 msgid "Bitte Code und Name angeben."
 msgstr "Podaj kod i nazwę."
@@ -2839,10 +2826,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:223
 msgid "Bitte den Namen des Kontoinhabers angeben."
 msgstr "Podaj imię i nazwisko posiadacza rachunku."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:57
-msgid "Bitte E-Mail und Passwort eingeben."
-msgstr "Podaj adres e-mail i hasło."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:220
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:113
@@ -2878,10 +2861,6 @@ msgstr "Wybierz członka."
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:503
 msgid "Bitte ein Mitglied und einen positiven Spendenbetrag angeben."
 msgstr "Podaj członka i dodatnią kwotę darowizny."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PasswordResetDeepLinkScreen.kt:58
-msgid "Bitte ein neues Passwort eingeben."
-msgstr "Wprowadź nowe hasło."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:565
 msgid "Bitte ein positives Höchstgebot (LTR) angeben."
@@ -3716,10 +3695,6 @@ msgstr ""
 msgid ""
 "Die Rücklastschriftgebühr muss, falls angegeben, ein positiver Betrag sein."
 msgstr "Jeśli podano, opłata za zwrot musi być kwotą dodatnią."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:239
-msgid "Die Vorabankündigungsfrist muss zwischen 1 und 30 Tagen liegen."
-msgstr "Termin zawiadomienia musi wynosić od 1 do 30 dni."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:793
 msgid ""
@@ -7289,11 +7264,6 @@ msgstr "Konto pasywów"
 msgid "Passwort"
 msgstr "Hasło"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:74
-#: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:69
-msgid "Passwort (mind. %1 Zeichen)"
-msgstr "Hasło (min. %1 znaków)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:116
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:127
 msgid "Passwort ändern"
@@ -9181,10 +9151,6 @@ msgstr "Od (RRRR-MM-DDTHH:MM:SS, opcjonalnie)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:168
 msgid "Von Sequenznummer (optional)"
 msgstr "Od numeru sekwencyjnego (opcjonalnie)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt:199
-msgid "Vorabankündigungsfrist in Tagen (1-30)"
-msgstr "Termin zawiadomienia w dniach (1-30)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:309
 msgid "Vorher"
@@ -11992,10 +11958,6 @@ msgstr "Okres oczekiwania musi wynosić od %1 do %2 dni."
 msgid "Die Antwortfrist muss zwischen %1 und %2 Tagen liegen."
 msgstr "Termin odpowiedzi musi wynosić od %1 do %2 dni."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningLevelValidation.kt:47
-msgid "Die Gebühr muss zwischen 0,00 € und 25,00 € liegen."
-msgstr "Opłata musi mieścić się w przedziale od 0,00 € do 25,00 €."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:52
 msgid "Forderungs-Mahnstufen"
 msgstr "Stopnie wezwań do zapłaty dla należności"
@@ -12087,30 +12049,6 @@ msgstr "Stopień wezwania zdezaktywowany."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:249
 msgid "Mahnstufe \"%1\" bearbeiten"
 msgstr "Edytuj stopień wezwania „%1”"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:264
-msgid "Stufennummer (ab 1)"
-msgstr "Numer stopnia (od 1)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:265
-msgid "Name (max. 100 Zeichen)"
-msgstr "Nazwa (maks. 100 znaków)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:266
-msgid "Wartefrist in Tagen (1-365)"
-msgstr "Okres oczekiwania w dniach (1-365)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:267
-msgid "Antwortfrist in Tagen (1-365)"
-msgstr "Termin odpowiedzi w dniach (1-365)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:268
-msgid "Gebühr in EUR (optional, max. 25,00 €)"
-msgstr "Opłata w EUR (opcjonalnie, maks. 25,00 €)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:287
-msgid "Die Gebühr muss, falls angegeben, ein gültiger Betrag sein."
-msgstr "Jeśli opłata jest podana, musi być prawidłową kwotą."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:310
 msgid "Mahnstufe angelegt."
@@ -12576,3 +12514,267 @@ msgstr "Uwaga do zmiany"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
 msgid "Downloads"
 msgstr "Pobrania"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
+msgid "* Pflichtfeld"
+msgstr "* Pole wymagane"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
+msgid "Dieses Feld muss ausgefüllt werden."
+msgstr "To pole musi zostać wypełnione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
+msgid "Bitte korrigieren Sie diese Felder: %1."
+msgstr "Popraw te pola: %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt
+msgid "Bitte eine gültige E-Mail-Adresse eingeben."
+msgstr "Wprowadź prawidłowy adres e-mail."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt
+msgid "Die E-Mail-Adresse ist zu lang (höchstens %1 Zeichen)."
+msgstr "Adres e-mail jest za długi (maksymalnie %1 znaków)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt
+msgid "Bitte eine ganze Zahl zwischen %1 und %2 eingeben."
+msgstr "Wprowadź liczbę całkowitą od %1 do %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
+msgid "Passwort anzeigen"
+msgstr "Pokaż hasło"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
+msgid "Passwort verbergen"
+msgstr "Ukryj hasło"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt
+msgid "Bitte eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."
+msgstr "Wprowadź prawidłowy adres URL RTMP (rtmp:// lub rtmps://)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Bitte eine Begründung mit %1 bis %2 Zeichen angeben."
+msgstr "Wprowadź uzasadnienie o długości od %1 do %2 znaków."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Eigenes Passwort: über „Passwort ändern“ im eigenen Konto."
+msgstr "Własne hasło: użyj opcji „Zmień hasło” we własnym koncie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Kein Login-Konto — zuerst „Konto anlegen“ im Bearbeiten-Dialog."
+msgstr "Brak konta logowania — najpierw użyj opcji „Utwórz konto” w oknie edycji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Verstorben — zuerst den Status korrigieren."
+msgstr "Zmarły/zmarła — najpierw popraw status."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Nur Administratoren können einen Zugang zurücksetzen."
+msgstr "Tylko administratorzy mogą zresetować dostęp."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Es gibt aktuell keine aktive Sitzung zu beenden."
+msgstr "Obecnie nie ma aktywnej sesji do zakończenia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Eine aktive Sitzung wird sofort beendet."
+msgstr "Jedna aktywna sesja zostanie natychmiast zakończona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "%1 aktive Sitzungen werden sofort beendet."
+msgstr "%1 aktywnych sesji zostanie natychmiast zakończonych."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "SMTP ist auf dieser Installation nicht konfiguriert (LAPIS_SMTP_*) — es kann keine E-Mail versendet werden. Nutzen Sie das temporäre Passwort oben."
+msgstr "SMTP nie jest skonfigurowany w tej instalacji (LAPIS_SMTP_*) — nie można wysłać wiadomości e-mail. Użyj hasła tymczasowego powyżej."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Für diesen Status ist der Login gesperrt — ein Reset-Link wäre wirkungslos."
+msgstr "Logowanie jest zablokowane dla tego statusu — link resetujący byłby bezskuteczny."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Zugang zurücksetzen — %1"
+msgstr "Zresetuj dostęp — %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Temporäres Passwort"
+msgstr "Hasło tymczasowe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "%1 bis %2 Zeichen."
+msgstr "Od %1 do %2 znaków."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Sitzungszahl wird geladen …"
+msgstr "Ładowanie liczby sesji …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Passwort setzen und alle Sitzungen beenden"
+msgstr "Ustaw hasło i zakończ wszystkie sesje"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Alternativ kann eine E-Mail mit einem Reset-Link verschickt werden. Das Mitglied vergibt sein Passwort dann selbst; bis dahin ändert sich nichts am Konto."
+msgstr "Alternatywnie można wysłać wiadomość e-mail z linkiem resetującym. Członek sam ustawia wtedy swoje hasło; do tego czasu konto się nie zmienia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Reset-E-Mail senden"
+msgstr "Wyślij e-mail resetujący"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Reset-E-Mail wurde versendet."
+msgstr "E-mail resetujący został wysłany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "SMTP ist nicht konfiguriert — es konnte keine E-Mail versendet werden."
+msgstr "SMTP nie jest skonfigurowany — nie udało się wysłać wiadomości e-mail."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Versandlimit erreicht — bitte später erneut versuchen."
+msgstr "Osiągnięto limit wysyłki — spróbuj ponownie później."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Wird nicht erneut angezeigt."
+msgstr "Nie zostanie ponownie wyświetlone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Das Mitglied wurde per E-Mail informiert."
+msgstr "Członek został poinformowany e-mailem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Kein SMTP konfiguriert — das Mitglied wurde nicht benachrichtigt."
+msgstr "Brak skonfigurowanego SMTP — członek nie został powiadomiony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "Benachrichtigung übersprungen (Versandlimit)."
+msgstr "Powiadomienie pominięte (limit wysyłki)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt
+msgid "%1 Sitzung(en) beendet."
+msgstr "Zakończono sesje: %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen-Konfiguration"
+msgstr "Konfiguracja wezwań do zapłaty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen aktivieren …"
+msgstr "Włącz wezwania do zapłaty …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen deaktivieren"
+msgstr "Wyłącz wezwania do zapłaty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen aktiviert."
+msgstr "Wezwania do zapłaty włączone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen deaktiviert."
+msgstr "Wezwania do zapłaty wyłączone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Zuletzt bestätigt am %1 (Hinweistext-Version %2)."
+msgstr "Ostatnio potwierdzono dnia %1 (wersja tekstu informacyjnego %2)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Das Mahnwesen ist aktiviert, aber keine Mahnstufe ist konfiguriert -- es wird nichts gemahnt."
+msgstr "Wezwania do zapłaty są włączone, ale nie skonfigurowano żadnego stopnia wezwania -- nic nie będzie windykowane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Postversand (Umgebung): %1"
+msgstr "Wysyłka pocztowa (środowisko): %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Postversand (Organisation): %1"
+msgstr "Wysyłka pocztowa (organizacja): %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "aktiviert"
+msgstr "włączone"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "deaktiviert"
+msgstr "wyłączone"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Włącz wezwania do zapłaty -- informacja prawna (wersja %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie das Mahnwesen aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Przed włączeniem wezwań do zapłaty przeczytaj w całości poniższą informację prawną. Ta platforma nie udziela zautomatyzowanych porad prawnych -- ocena prawna należy do Twojej organizacji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnwesen deaktivieren bestätigen"
+msgstr "Potwierdź wyłączenie wezwań do zapłaty"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Der automatische Mahnlauf und alle manuellen Mahnaktionen sind bis zur erneuten Aktivierung nicht mehr möglich. Bereits ausgestellte Mahnungen bleiben in der Historie erhalten."
+msgstr "Automatyczne uruchamianie wezwań i wszystkie ręczne czynności windykacyjne nie będą możliwe do czasu ponownego włączenia funkcji. Wystawione już wezwania pozostają w historii."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Mahnstufe \"%1 · %2\" wirklich deaktivieren? Bereits ausgestellte Mahnungen bleiben erhalten, die Stufe steht aber für künftige Eskalationen nicht mehr zur Verfügung."
+msgstr "Czy na pewno wyłączyć stopień wezwania \"%1 · %2\"? Wystawione już wezwania zostają zachowane, ale stopień nie będzie już dostępny dla przyszłej eskalacji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Stufennummer"
+msgstr "Numer stopnia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Zulässig: %1 bis %2."
+msgstr "Dozwolone: od %1 do %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Wartefrist in Tagen"
+msgstr "Okres oczekiwania w dniach"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Antwortfrist in Tagen"
+msgstr "Termin odpowiedzi w dniach"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Gebühr in EUR (optional)"
+msgstr "Opłata w EUR (opcjonalnie)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Höchstens %1."
+msgstr "Najwyżej %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "§ 286 BGB: Eine erste Zahlungserinnerung begründet den Verzug in aller Regel erst -- eine Gebühr ist auf dieser Stufe unzulässig."
+msgstr "§ 286 BGB (niemiecki kodeks cywilny): pierwsze przypomnienie o płatności z reguły dopiero powoduje opóźnienie -- na tym stopniu opłata jest niedopuszczalna."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Die Stufennummer muss zwischen 1 und %1 liegen."
+msgstr "Numer stopnia musi mieścić się w przedziale od 1 do %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Eine Mahngebühr auf der ersten Mahnstufe ist unzulässig -- eine erste Zahlungserinnerung begründet den Verzug (§ 286 BGB) in aller Regel erst."
+msgstr "Opłata za wezwanie na pierwszym stopniu wezwania jest niedopuszczalna -- pierwsze przypomnienie o płatności z reguły dopiero powoduje opóźnienie (§ 286 BGB)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt
+msgid "Der Name darf nicht leer sein."
+msgstr "Nazwa nie może być pusta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt
+msgid "Mindestens %1."
+msgstr "Co najmniej %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt
+msgid "Die Gebühr muss zwischen %1 und %2 liegen."
+msgstr "Opłata musi mieścić się w przedziale od %1 do %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt
+msgid "Wiederherstellung erfolgreich."
+msgstr "Przywracanie zakończone powodzeniem."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt
+msgid "Die Verbindung wurde unterbrochen, eine Antwort des Servers fehlt: %1. Die Wiederherstellung wurde möglicherweise teilweise ausgeführt -- prüfen Sie den Datenbestand, bevor Sie es erneut versuchen."
+msgstr "Połączenie zostało przerwane i brakuje odpowiedzi serwera: %1. Przywracanie mogło zostać wykonane częściowo -- sprawdź dane, zanim spróbujesz ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt
+msgid "Zur öffentlichen Startseite"
+msgstr "Do publicznej strony głównej"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SepaSettingsScreen.kt
+msgid "Vorabankündigungsfrist in Tagen"
+msgstr "Termin zawiadomienia w dniach"

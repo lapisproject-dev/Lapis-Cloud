@@ -1,7 +1,9 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
+import dev.kilua.rpc.types.toDouble
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -107,5 +109,52 @@ class DunningLevelValidationTest {
     fun name_oneHundredCharsIsAccepted_oneHundredAndOneIsAlsoAcceptedByThePureValidator() {
         assertNull(err(name = "a".repeat(100)))
         assertNull(err(name = "a".repeat(101)))
+    }
+
+    // ── fee FIELD rule: what the field blesses is exactly what is stored (same parser as the receivable dunning form) ──
+
+    private fun feeValue(raw: String): Double? = (parseDunningFeeInput(raw) as? AmountInput.Valid)?.value?.toDouble()
+
+    private fun feeError(raw: String): String? = (dunningFeeCheck(raw) as? FieldCheck.Invalid)?.message
+
+    @Test
+    fun feeField_moreThanTwoDecimals_isRejected_notSilentlyRoundedTo13() {
+        assertNotNull(feeError("12.999"), "12,999 must be rejected, not rounded to 13,00 behind the user's back")
+        assertNotNull(feeError("12,999"))
+    }
+
+    @Test
+    fun feeField_exponentNotation_isRejected() {
+        assertNotNull(feeError("1e1"))
+    }
+
+    @Test
+    fun feeField_germanDecimalComma_isAccepted_andParsedExactly() {
+        assertNull(feeError("2,50"))
+        assertEquals(2.5, feeValue("2,50"))
+        assertEquals(2.5, feeValue("2.5"))
+    }
+
+    @Test
+    fun feeField_zeroAndTwentyFive_areAccepted_aboveTwentyFive_isRejected() {
+        assertNull(feeError("0"))
+        assertNull(feeError("0,00"))
+        assertEquals(0.0, feeValue("0"))
+        assertNull(feeError("25"))
+        assertNull(feeError("25,00"))
+        assertNotNull(feeError("25,01"))
+    }
+
+    @Test
+    fun feeField_blank_isOk_andNotAnAmount() {
+        assertNull(feeError(""))
+        assertNull(feeError("   "))
+        assertNull(feeValue(""))
+    }
+
+    @Test
+    fun feeField_negativeAndGarbage_areRejected() {
+        assertNotNull(feeError("-1"))
+        assertNotNull(feeError("abc"))
     }
 }

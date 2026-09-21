@@ -1,11 +1,10 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
-import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
-import io.kvision.form.text.text
+import io.kvision.form.text.Text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -331,11 +330,11 @@ private fun confirmEditDunningLevel(
     onChanged: () -> Unit,
 ) {
     val modal = Modal(caption = gettext("Mahnstufe \"%1\" bearbeiten", level.name))
-    renderDunningLevelForm(modal, existing = level) {
+    // Die Primäraktion steht in der Modal-Fußleiste (Abbrechen links, Speichern rechts, R27), nicht im Formularkörper.
+    renderDunningLevelForm(modal, existing = level, modal = modal) {
         modal.hide()
         onChanged()
     }
-    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 }
 
@@ -349,23 +348,51 @@ private fun confirmEditDunningLevel(
  * DunningService.kt:884) rather than rejecting it, so this form truncates before validating instead
  * of blocking submission, to stay an exact mirror rather than a stricter gate.
  */
-private fun renderDunningLevelForm(
+internal fun renderDunningLevelForm(
     root: SimplePanel,
     existing: DunningLevelDto?,
+    modal: Modal? = null,
     onSaved: () -> Unit,
 ) {
-    val formPanel = root.vPanel(spacing = 6)
-    val levelNumberInput = formPanel.text(value = existing?.levelNumber?.toString(), label = tr("Stufennummer (1-1000)"))
-    val nameInput = formPanel.text(value = existing?.name, label = tr("Name"))
-    val graceDaysInput = formPanel.text(value = existing?.graceDays?.toString(), label = tr("Wartefrist in Tagen (1-365)"))
-    val responseDaysInput = formPanel.text(value = existing?.responseDays?.toString(), label = tr("Antwortfrist in Tagen (1-365)"))
-    val feeInput =
-        formPanel.text(
-            value = existing?.feeAmount?.toString(),
-            label = tr("Gebühr in EUR (optional, max. 25,00 €)"),
+    // Formular-Grammatik (V1.4.28): Stufennummer, Name und beide Fristen Pflicht, die Gebühr optional => Fall (a).
+    val form = root.lapisForm()
+    val levelNumberField =
+        form.textField(
+            label = tr("Stufennummer"),
+            value = existing?.levelNumber?.toString(),
+            required = true,
+            hint = gettext("Zulässig: %1 bis %2.", 1, MAX_DUNNING_LEVEL_NUMBER),
+            rule = { FormRules.intInRange(value = it, min = 1, max = MAX_DUNNING_LEVEL_NUMBER) },
         )
+    // Der Name wird NICHT abgelehnt, wenn er zu lang ist -- der Server kürzt still (siehe KDoc oben), der Client spiegelt das.
+    val nameField = form.textField(label = tr("Name"), value = existing?.name, required = true)
+    val graceDaysField =
+        form.textField(
+            label = tr("Wartefrist in Tagen"),
+            value = existing?.graceDays?.toString(),
+            required = true,
+            hint = gettext("Zulässig: %1 bis %2.", MIN_DUNNING_DAYS, MAX_DUNNING_DAYS),
+            rule = { FormRules.intInRange(value = it, min = MIN_DUNNING_DAYS, max = MAX_DUNNING_DAYS) },
+        )
+    val responseDaysField =
+        form.textField(
+            label = tr("Antwortfrist in Tagen"),
+            value = existing?.responseDays?.toString(),
+            required = true,
+            hint = gettext("Zulässig: %1 bis %2.", MIN_DUNNING_DAYS, MAX_DUNNING_DAYS),
+            rule = { FormRules.intInRange(value = it, min = MIN_DUNNING_DAYS, max = MAX_DUNNING_DAYS) },
+        )
+    val feeField =
+        form.textField(
+            label = tr("Gebühr in EUR (optional)"),
+            value = existing?.feeAmount?.toString(),
+            hint = gettext("Höchstens %1.", feeBound(MAX_DUNNING_FEE_AMOUNT)),
+            rule = { dunningFeeCheck(it) },
+        )
+    val levelNumberInput = levelNumberField.control as Text
+    val feeInput = feeField.control as Text
     val feeHint =
-        formPanel.div().apply {
+        form.panel.div().apply {
             addCssClasses("text-muted small")
             content =
                 tr(
@@ -379,21 +406,27 @@ private fun renderDunningLevelForm(
     // shown when editing -- a freshly created level is always active.
     val activeCheck =
         if (existing != null) {
-            formPanel.checkBox(value = existing.active, label = tr("Aktiv"))
+            form.panel.checkBox(value = existing.active, label = tr("Aktiv"))
         } else {
             null
         }
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val submitButton = formPanel.button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val submitButton = Button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    if (modal != null) {
+        // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
+        form.finish()
+        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        modal.addButton(submitButton)
+    } else {
+        form.buttons(primary = submitButton)
+    }
 
     fun updateFeeLock() {
         val isLevelOne = levelNumberInput.value?.trim()?.toIntOrNull() == 1
         if (isLevelOne) {
-            feeInput.value = null
+            // Über das LapisField: ein schon gezeigter Feldfehler darf nicht an einem leeren, deaktivierten Feld
+            // stehen bleiben (das Feld ist deaktiviert, der Nutzer könnte ihn nicht mehr wegtippen).
+            feeField.setValue(null)
+            feeField.clearError()
             feeInput.disabled = true
             feeHint.show()
         } else {
@@ -404,72 +437,105 @@ private fun renderDunningLevelForm(
     levelNumberInput.subscribe { updateFeeLock() }
     updateFeeLock()
 
+    // Derselbe Parser wie die Feldregel [dunningFeeCheck] (und wie das Forderungs-Mahnstufen-Formular): was das Feld absegnet,
+    // wird 1:1 gespeichert -- keine stille Rundung ("12,999" -> 13,00), kein "1e1". BEWUSST nicht an `feeInput.disabled`
+    // gekoppelt: auf Stufe 1 leert [updateFeeLock] das Feld ohnehin; sähe der Validator hier stets `null`, wäre seine
+    // § 286-Regel unerreichbar und die Sperre allein ein disabled-Attribut.
+    fun parseFee(): Decimal? = (parseDunningFeeInput(feeField.value) as? AmountInput.Valid)?.value
+
+    // Mirrors the server's own `name.trim().take(MAX_LEVEL_NAME_LENGTH)` (DunningService.kt:884) exactly -- the server
+    // silently truncates an overlong name rather than rejecting it, so the client must not reject it either (see
+    // [validateDunningLevelInput] KDoc).
+    fun trimmedName(): String = nameField.value.trim().take(MAX_DUNNING_LEVEL_NAME_LENGTH)
+
+    // [validateDunningLevelInput] bleibt die Autorität für das Zusammenspiel der Felder -- vor allem die § 286-BGB-Regel "keine
+    // Gebühr auf Stufe 1", die der Validator ERZWINGT (die Sperre des Feldes in [updateFeeLock] ist nur die Bedienhilfe
+    // davor; ist der Wert dennoch da, z. B. programmatisch gesetzt, lehnt der Validator ab). Er läuft nur, wenn jedes einzelne
+    // Feld für sich gültig ist -- sonst stünde dieselbe Beanstandung doppelt da: am Feld UND in der Sammelfläche.
+    form.crossFieldRule {
+        if (form.fields.all { it.isValid() }) {
+            val validationError =
+                validateDunningLevelInput(
+                    levelNumber = levelNumberField.value.trim().toIntOrNull(),
+                    name = trimmedName(),
+                    graceDays = graceDaysField.value.trim().toIntOrNull(),
+                    responseDays = responseDaysField.value.trim().toIntOrNull(),
+                    feeAmount = parseFee(),
+                )
+            if (validationError != null) FieldCheck.Invalid(validationError) else FieldCheck.Ok
+        } else {
+            FieldCheck.Ok
+        }
+    }
+
     submitButton.onClick {
-        errorBox.hide()
-        val levelNumber = levelNumberInput.value?.trim()?.toIntOrNull()
-        // Mirrors the server's own `name.trim().take(MAX_LEVEL_NAME_LENGTH)` (DunningService.kt:884)
-        // exactly -- the server silently truncates an overlong name rather than rejecting it, so the
-        // client must not reject it either (see [validateDunningLevelInput] KDoc).
-        val name =
-            nameInput.value
-                .orEmpty()
-                .trim()
-                .take(MAX_DUNNING_LEVEL_NAME_LENGTH)
-        val graceDays = graceDaysInput.value?.trim()?.toIntOrNull()
-        val responseDays = responseDaysInput.value?.trim()?.toIntOrNull()
-        val feeText = feeInput.value.orEmpty().trim()
-        val feeAmount: Decimal? =
-            when {
-                feeInput.disabled || feeText.isBlank() -> null
-                else -> feeText.toDoubleOrNull()?.let { Validation.roundToTwoDecimalPlaces(it).toDecimal() }
-            }
-        if (feeText.isNotBlank() && !feeInput.disabled && feeAmount == null) {
-            errorBox.content = tr("Die Gebühr muss, falls angegeben, ein gültiger Betrag sein.")
-            errorBox.show()
-            return@onClick
-        }
-
-        val validationError = validateDunningLevelInput(levelNumber, name, graceDays, responseDays, feeAmount)
-        if (validationError != null) {
-            errorBox.content = validationError
-            errorBox.show()
-            return@onClick
-        }
-
-        val input =
-            DunningLevelInput(
-                levelNumber = levelNumber!!,
-                name = name,
-                graceDays = graceDays!!,
-                responseDays = responseDays!!,
-                feeAmount = feeAmount,
-                active = activeCheck?.value ?: true,
-            )
-        submitButton.disabled = true
-        AppScope.launch {
+        form.submit(submitButton) {
             val result =
                 dunningGuarded(tr(DUNNING_LEVEL_CONFLICT_MESSAGE)) {
+                    // Der Bau des Objekts steht IM Guard: ein Fehler dabei wird gemeldet statt in den AppScope zu entweichen.
+                    val input =
+                        buildDunningLevelInput(
+                            levelNumber = levelNumberField.value,
+                            name = nameField.value,
+                            graceDays = graceDaysField.value,
+                            responseDays = responseDaysField.value,
+                            fee = parseFee(),
+                            active = activeCheck?.value ?: true,
+                        )
                     if (existing == null) {
                         rpcService<IDunningService>().createDunningLevel(input)
                     } else {
                         rpcService<IDunningService>().updateDunningLevel(existing.id, input)
                     }
                 }
-            submitButton.disabled = false
             if (result != null) {
                 notifySuccess(if (existing == null) tr("Mahnstufe angelegt.") else tr("Mahnstufe gespeichert."))
                 if (existing == null) {
-                    levelNumberInput.value = null
-                    nameInput.value = null
-                    graceDaysInput.value = null
-                    responseDaysInput.value = null
-                    feeInput.value = null
+                    levelNumberField.reset()
+                    nameField.reset()
+                    graceDaysField.reset()
+                    responseDaysField.reset()
+                    feeField.reset()
                 }
                 onSaved()
             }
         }
     }
 }
+
+/**
+ * Baut die Anfrage aus den ROHEN Feldwerten (getrimmt; der Name auf die Servergrenze gekürzt, siehe [renderDunningLevelForm]).
+ * Vier `Int`-Felder und ein Name sind sonst beliebig vertauschbar -- deshalb eine eigene, einzeln testbare Funktion.
+ */
+internal fun buildDunningLevelInput(
+    levelNumber: String,
+    name: String,
+    graceDays: String,
+    responseDays: String,
+    fee: Decimal?,
+    active: Boolean,
+): DunningLevelInput =
+    DunningLevelInput(
+        levelNumber = levelNumber.trim().toInt(),
+        name = name.trim().take(MAX_DUNNING_LEVEL_NAME_LENGTH),
+        graceDays = graceDays.trim().toInt(),
+        responseDays = responseDays.trim().toInt(),
+        feeAmount = fee,
+        active = active,
+    )
+
+/**
+ * Betrags-Parser der Gebühr: [parseAmountInput] (Dezimalkomma ODER -punkt, höchstens zwei Nachkommastellen, kein Exponent --
+ * dieselbe Grammatik wie im Forderungs-Mahnstufen-Formular), aber mit `0` als gültigem Betrag (der Server erlaubt 0,00 bis
+ * 25,00 EUR, das Feld ist optional, während Buchungsbeträge strikt größer 0 sein müssen) und ohne die Milliarden-Grenze des
+ * Buchungsbetrags (die eigene Obergrenze prüft [dunningFeeCheck]).
+ */
+internal fun parseDunningFeeInput(raw: String?): AmountInput = parseAmountInput(raw, allowZero = true, enforceMaxAmount = false)
+
+/** Feldregel der Gebühr: ein gültiger Betrag zwischen 0,00 und 25,00 EUR (der Server bleibt Autorität). */
+internal fun dunningFeeCheck(text: String): FieldCheck = FormRules.optionalFee(text, MAX_DUNNING_FEE_AMOUNT)
+
+private const val MAX_DUNNING_FEE_AMOUNT = 25.0
 
 private const val MAX_DUNNING_LEVEL_NUMBER = 1000
 private const val MAX_DUNNING_LEVEL_NAME_LENGTH = 100
@@ -502,7 +568,7 @@ internal fun validateDunningLevelInput(
     if (feeAmount != null) {
         val feeDouble = feeAmount.toDouble()
         if (feeDouble < 0.0 || feeDouble > 25.0) {
-            return tr("Die Gebühr muss zwischen 0,00 € und 25,00 € liegen.")
+            return feeRangeMessage(MAX_DUNNING_FEE_AMOUNT)
         }
     }
     if (feeAmount != null && levelNumber == 1) {

@@ -92,8 +92,12 @@ private fun renderSnippetBlock(
 ) {
     root.h2(tr("Einbindungs-Code"))
     val snippet = buildEmbedSnippet(publicBaseUrl)
-    val snippetField = root.textArea(value = snippet, rows = 12) { addCssClasses("font-monospace small") }
-    snippetField.getElement()?.setAttribute("readonly", "readonly")
+    // `readonly` über KVisions typisierte Eigenschaft (sie steht in der Attribut-Map und überlebt Re-Render UND Sprachwechsel);
+    // das frühere rohe `getElement()?.setAttribute` ging beim Sprachwechsel verloren (Root wird neu aufgebaut).
+    root.textArea(value = snippet, rows = 12) {
+        addCssClasses("font-monospace small")
+        readonly = true
+    }
     root.p(
         tr("Ersetzen Sie \"ihre-veranstaltung\" durch den Slug Ihrer Veranstaltung — sonst rendert das Anmelde-Widget nicht."),
     ) { addCssClasses("text-muted small") }

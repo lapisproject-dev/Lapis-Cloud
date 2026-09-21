@@ -2,12 +2,10 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
-import io.kvision.form.text.password
-import io.kvision.form.text.text
+import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
@@ -39,7 +37,7 @@ fun renderRegistrationScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 10) {
             addCssClass("mx-auto")
-            maxWidth = 480.px
+            maxWidth = NARROW_FORM_MAX_WIDTH_PX.px
             width = 100.perc
             marginTop = 32.px
         }
@@ -68,79 +66,96 @@ private fun renderRegistrationForm(
         content = agreement.text
     }
 
-    val displayNameInput = root.text(label = tr("Name"))
-    val emailInput = root.text(type = InputType.EMAIL, label = tr("E-Mail"))
-    val passwordInput =
-        root.password(label = gettext("Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
-    val confirmPasswordInput = root.password(label = tr("Passwort bestätigen"))
-    val agreeCheck = root.checkBox(label = tr("Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."))
-
-    val errorBox =
-        root.div().apply {
-            addCssClass("text-danger")
-            hide()
+    val form = root.lapisForm()
+    // Vier Felder, alle Pflicht: keine Sterne, Legende "Alle Felder sind Pflichtfelder." (Fall b).
+    val displayNameField = form.textField(label = tr("Name"), required = true)
+    val emailField =
+        form.textField(
+            label = tr("E-Mail"),
+            type = InputType.EMAIL,
+            required = true,
+            autocomplete = Autocomplete.USERNAME,
+            rule = FormRules::email,
+        )
+    // Die Passwortregel steht als Hinweis UNTER dem Feld (sichtbar, bevor getippt wird), nicht im Label.
+    val passwordField =
+        form.passwordField(
+            label = tr("Passwort"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
+            rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
+        )
+    val confirmPasswordField =
+        form.passwordField(
+            label = tr("Passwort bestätigen"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+        )
+    form.crossFieldRule(field = confirmPasswordField) {
+        FormRules.passwordsMatch(password = passwordField.value, confirmation = confirmPasswordField.value)
+    }
+    // Die Zustimmung bleibt eine Checkbox (KVisions CheckBox rendert Label und Fehlerzustand anders): `aria-required` am
+    // Input, die Prüfung als Querregel mit Meldung in der Sammelfläche und Fokus auf die Checkbox.
+    val agreeCheck = form.panel.checkBox(label = tr("Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."))
+    agreeCheck.markAriaRequired()
+    form.crossFieldRule(focusOn = agreeCheck.input) {
+        if (agreeCheck.value) {
+            FieldCheck.Ok
+        } else {
+            FieldCheck.Invalid(
+                gettext("Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."),
+            )
         }
+    }
 
-    lateinit var submitButton: Button
-    submitButton =
-        root.button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY) {
-            onClick {
-                errorBox.hide()
-                val displayName = displayNameInput.value.orEmpty().trim()
-                val email = emailInput.value.orEmpty().trim()
-                val password = passwordInput.value.orEmpty()
-                val confirmPassword = confirmPasswordInput.value.orEmpty()
-
-                if (!Validation.isNonBlank(displayName) || !Validation.looksLikeEmail(email)) {
-                    errorBox.content = tr("Bitte Name und eine gültige E-Mail-Adresse angeben.")
-                    errorBox.show()
-                    return@onClick
+    val submitButton = Button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = submitButton)
+    submitButton.onClick {
+        form.submit(submitButton) {
+            val result =
+                guarded {
+                    rpcService<IRegistrationService>().registerApplication(
+                        buildRegistrationInput(
+                            displayName = displayNameField.value,
+                            email = emailField.value,
+                            password = passwordField.value,
+                            agreement = agreement,
+                        ),
+                    )
                 }
-                val passwordHint = Validation.passwordHint(password, email)
-                if (passwordHint != null) {
-                    errorBox.content = passwordHint
-                    errorBox.show()
-                    return@onClick
-                }
-                if (!Validation.passwordsMatch(password, confirmPassword)) {
-                    errorBox.content = tr("Die Passwörter stimmen nicht überein.")
-                    errorBox.show()
-                    return@onClick
-                }
-                if (!agreeCheck.value) {
-                    errorBox.content = tr("Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben.")
-                    errorBox.show()
-                    return@onClick
-                }
-
-                submitButton.disabled = true
-                AppScope.launch {
-                    val result =
-                        guarded {
-                            rpcService<IRegistrationService>().registerApplication(
-                                RegistrationInput(
-                                    displayName = displayName,
-                                    email = email,
-                                    password = password,
-                                    agreementVersion = agreement.version,
-                                    agreementSha256 = agreement.sha256,
-                                ),
-                            )
-                        }
-                    submitButton.disabled = false
-                    if (result != null) {
-                        root.removeAll()
-                        renderRegistrationPending(root)
-                    }
-                }
+            if (result != null) {
+                root.removeAll()
+                renderRegistrationPending(root)
             }
         }
+    }
 
     root.div {
         marginTop = 8.px
         link(tr("Bereits Mitglied? Zur Anmeldung."), url = "#${Routes.LOGIN}")
     }
 }
+
+/**
+ * Baut die Anfrage aus den ROHEN Feldwerten: Name und E-Mail werden getrimmt, das Passwort NIE -- ein Passwort darf führende
+ * oder abschließende Leerzeichen tragen, und ein getrimmtes wäre ein anderes als das gewählte (der Nutzer könnte sich danach
+ * nicht mehr anmelden). Eigene Funktion, damit ein Test das gebaute Objekt Feld für Feld prüfen kann (die zwei `String`-Felder
+ * Name und E-Mail sind sonst vertauschbar, ohne dass der Compiler es merkt).
+ */
+internal fun buildRegistrationInput(
+    displayName: String,
+    email: String,
+    password: String,
+    agreement: MembershipAgreementDto,
+): RegistrationInput =
+    RegistrationInput(
+        displayName = displayName.trim(),
+        email = email.trim(),
+        password = password,
+        agreementVersion = agreement.version,
+        agreementSha256 = agreement.sha256,
+    )
 
 private fun renderRegistrationPending(root: SimplePanel) {
     // V1.4.7: root.removeAll() (caller) cleared the lockup added in renderRegistrationScreen too --

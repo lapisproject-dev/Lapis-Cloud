@@ -1,8 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.select
-import io.kvision.form.text.password
-import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -33,7 +31,7 @@ import network.lapis.cloud.shared.rpc.IConferenceStreamingService
  *   password field, and STAYS that way.** [renderDestinationEditModal]'s key field is `password`,
  *   ALWAYS starts empty with the literal placeholder text "unverändert lassen" (never prefilled --
  *   [ConferenceStreamDestinationDto.streamKeyMask] is always the constant `"********"`, never real
- *   key material, see that field's own KDoc), and carries a small lock glyph (🔒) next to it -- the
+ *   key material, see that field's own KDoc), and carries a small lock icon (Font Awesome `fa-lock`, `aria-hidden`; the guideline forbids emoji) next to it -- the
  *   one non-technical visual cue that this field behaves differently from every other text field on
  *   the page. On save, [renderDestinationEditModal] shows a real, VISIBLE re-masking confirmation
  *   ("Gespeichert -- Schlüssel wird nicht erneut angezeigt.") rather than silently closing the modal,
@@ -181,62 +179,76 @@ private fun renderDestinationCreateForm(
     root: SimplePanel,
     onCreated: () -> Unit,
 ) {
-    val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    val labelInput = panel.text(label = tr("Bezeichnung (z. B. \"PdV YouTube-Kanal\")"))
+    val card = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
+    // Formular-Grammatik (V1.4.28): vier Felder, alle Pflicht => Legende "Alle Felder sind Pflichtfelder." (Fall b).
+    val form = card.lapisForm()
+    val labelField = form.textField(label = tr("Bezeichnung (z. B. \"PdV YouTube-Kanal\")"), required = true)
     val platformOptions = ConferenceStreamPlatform.entries.map { it.name to conferenceStreamPlatformLabel(it) }
     val platformSelect =
-        panel.select(options = platformOptions, value = ConferenceStreamPlatform.GENERIC_RTMP.name, label = tr("Plattform"))
-    val urlInput = panel.text(label = tr("RTMP-Basis-URL"))
-    val hintLine = panel.div { addCssClasses("text-muted small") }
+        form.panel.select(options = platformOptions, value = ConferenceStreamPlatform.GENERIC_RTMP.name, label = tr("Plattform"))
+    form.register(platformSelect, label = tr("Plattform"), required = true)
+    val urlField =
+        form.textField(
+            label = tr("RTMP-Basis-URL"),
+            required = true,
+            rule = { rtmpUrlCheck(it) },
+        )
+    val hintLine = form.panel.div { addCssClasses("text-muted small") }
 
-    // D1: the lock glyph is the one non-technical cue this field behaves differently from every
-    // other text field on the page (Kare).
-    val keyRow = panel.hPanel(spacing = 6) { addCssClasses("align-items-end") }
-    keyRow.span("🔒") { addCssClasses("text-muted mb-2") }
-    val keyInput = keyRow.password(label = tr("Stream-Schlüssel")) { addCssClasses("flex-grow-1") }
-
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val createButton = panel.button(tr("Stream-Ziel anlegen"), style = ButtonStyle.PRIMARY)
+    // D1: the lock glyph is the one non-technical cue this field behaves differently from every other text field on the
+    // page (Kare). Der Schlüssel ist ein Geheimnis: keine Passwortmanager-Angebote, kein Aufdecken (er soll den Bildschirm
+    // nicht mehr als nötig sehen).
+    val keyField =
+        form.passwordField(
+            label = tr("Stream-Schlüssel"),
+            required = true,
+            suppressManagers = true,
+            actions = { it.lockIcon() },
+        )
+    val createButton = Button(tr("Stream-Ziel anlegen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton)
 
     fun applyPlatformDefaults() {
         val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
-        conferenceStreamPresetUrl(platform)?.let { preset -> if (urlInput.value.isNullOrBlank()) urlInput.value = preset }
+        conferenceStreamPresetUrl(platform)?.let { preset ->
+            if (urlField.value.isBlank()) {
+                // Über das LapisField, nicht am Control vorbei: sonst bliebe ein schon gezeigter Feldfehler (und
+                // aria-invalid) an der nun gültigen URL stehen.
+                urlField.setValue(preset)
+                urlField.validate(force = false)
+            }
+        }
         hintLine.content = conferenceStreamPlatformHint(platform).orEmpty()
     }
     platformSelect.subscribe { applyPlatformDefaults() }
     applyPlatformDefaults()
 
     createButton.onClick {
-        errorBox.hide()
-        val label = labelInput.value.orEmpty().trim()
-        val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
-        val url = urlInput.value.orEmpty().trim()
-        val key = keyInput.value.orEmpty()
-        if (!Validation.isNonBlank(label) || !conferenceStreamUrlLooksValid(url) || key.isBlank()) {
-            errorBox.content =
-                tr("Bitte Bezeichnung, eine gültige RTMP-URL (rtmp:// oder rtmps://) und einen Stream-Schlüssel angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        createButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IConferenceStreamingService>().createDestination(label, platform, url, key) }
-            createButton.disabled = false
+        form.submit(createButton) {
+            val label = labelField.value.trim()
+            val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
+            val result =
+                guarded {
+                    rpcService<IConferenceStreamingService>().createDestination(label, platform, urlField.value.trim(), keyField.value)
+                }
             if (result != null) {
                 notifySuccess(gettext("Stream-Ziel \"%1\" wurde angelegt.", label))
-                labelInput.value = null
-                urlInput.value = null
-                keyInput.value = null
+                labelField.reset()
+                urlField.reset()
+                keyField.reset()
                 onCreated()
             }
         }
     }
 }
+
+/** Feldregel der RTMP-URL (lose gespiegelt, der Server bleibt Autorität). */
+private fun rtmpUrlCheck(url: String): FieldCheck =
+    if (conferenceStreamUrlLooksValid(url)) {
+        FieldCheck.Ok
+    } else {
+        FieldCheck.Invalid(gettext("Bitte eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben."))
+    }
 
 /**
  * D1 -- the key field starts EMPTY with placeholder "unverändert lassen" (never prefilled with
@@ -250,65 +262,63 @@ private fun renderDestinationEditModal(
     onChanged: () -> Unit,
 ) {
     val modal = Modal(caption = tr("Stream-Ziel bearbeiten"))
-    val labelInput = modal.text(label = tr("Bezeichnung"), value = destination.label)
-    val urlInput = modal.text(label = tr("RTMP-Basis-URL"), value = destination.rtmpUrl)
-
-    val keyRow = modal.hPanel(spacing = 6) { addCssClasses("align-items-end") }
-    keyRow.span("🔒") { addCssClasses("text-muted mb-2") }
-    val keyInput =
-        keyRow.password(label = tr("Neuer Stream-Schlüssel (leer lassen = unverändert lassen)")) { addCssClasses("flex-grow-1") }
-    modal.div(gettext("Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt.", destination.streamKeyMask)) {
+    // Formular-Grammatik (V1.4.28): Bezeichnung und URL Pflicht, der neue Schlüssel optional => Fall (a).
+    val form = modal.lapisForm()
+    val labelField = form.textField(label = tr("Bezeichnung"), value = destination.label, required = true)
+    val urlField =
+        form.textField(
+            label = tr("RTMP-Basis-URL"),
+            value = destination.rtmpUrl,
+            required = true,
+            rule = { rtmpUrlCheck(it) },
+        )
+    val keyField =
+        form.passwordField(
+            label = tr("Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"),
+            suppressManagers = true,
+            actions = { it.lockIcon() },
+        )
+    form.panel.div(gettext("Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt.", destination.streamKeyMask)) {
         addCssClasses("text-muted small")
     }
-
-    val errorBox =
-        modal.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
     val savedBox =
-        modal.div().apply {
+        form.panel.div().apply {
             addCssClasses("text-success fw-bold")
             hide()
         }
+    form.finish()
 
+    // Fußleiste: die Verwerfer stehen IMMER links der Primäraktion (R27). Vor dem ersten erfolgreichen Speichern ist das
+    // "Abbrechen"; danach wird es durch "Fertig" ersetzt -- die Re-Maskierungs-Quittung (D1) bleibt erhalten.
     val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
-    val saveButton =
-        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
-            onClick {
-                errorBox.hide()
-                val label = labelInput.value.orEmpty().trim()
-                val url = urlInput.value.orEmpty().trim()
-                val newKey = keyInput.value?.takeIf { it.isNotEmpty() }
-                if (!Validation.isNonBlank(label) || !conferenceStreamUrlLooksValid(url)) {
-                    errorBox.content = tr("Bitte Bezeichnung und eine gültige RTMP-URL (rtmp:// oder rtmps://) angeben.")
-                    errorBox.show()
-                    return@onClick
+    val doneButton = Button(tr("Fertig"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    doneButton.hide()
+    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    saveButton.onClick {
+        form.submit(saveButton) {
+            val newKey = keyField.value.takeIf { it.isNotEmpty() }
+            val result =
+                guarded {
+                    rpcService<IConferenceStreamingService>()
+                        .updateDestination(destination.id, labelField.value.trim(), urlField.value.trim(), newKey)
                 }
-                disabled = true
-                AppScope.launch {
-                    val result =
-                        guarded {
-                            rpcService<IConferenceStreamingService>().updateDestination(destination.id, label, url, newKey)
-                        }
-                    disabled = false
-                    if (result != null) {
-                        // D1: re-masks visibly INSTEAD OF silently -- the key field itself clears and
-                        // this confirmation line appears, proving to the admin the secret left their
-                        // control, before the modal is dismissed (by the admin's own "Fertig" click).
-                        keyInput.value = null
-                        savedBox.content = tr("Gespeichert -- Schlüssel wird nicht erneut angezeigt.")
-                        savedBox.show()
-                        onChanged()
-                    }
-                }
+            if (result != null) {
+                // D1: re-masks visibly INSTEAD OF silently -- the key field itself clears and this confirmation line appears,
+                // proving to the admin the secret left their control, before the modal is dismissed (by the admin's own
+                // "Fertig" click).
+                keyField.reset()
+                savedBox.content = tr("Gespeichert -- Schlüssel wird nicht erneut angezeigt.")
+                savedBox.show()
+                cancelButton.hide()
+                doneButton.show()
+                onChanged()
             }
         }
-    val doneButton = Button(tr("Fertig"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    }
 
     modal.addButton(cancelButton)
-    modal.addButton(saveButton)
     modal.addButton(doneButton)
+    modal.addButton(saveButton)
     modal.show()
 }
 

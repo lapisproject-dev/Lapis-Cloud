@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import io.kvision.form.check.checkBox
-import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -264,76 +263,99 @@ private fun openEditReceivableLevel(
     onChanged: () -> Unit,
 ) {
     val modal = Modal(caption = gettext("Mahnstufe \"%1\" bearbeiten", level.name))
-    renderReceivableLevelForm(modal, existing = level) {
+    // Die Primäraktion steht in der Modal-Fußleiste (Abbrechen links, Speichern rechts, R27), nicht im Formularkörper.
+    renderReceivableLevelForm(modal, existing = level, modal = modal) {
         modal.hide()
         onChanged()
     }
-    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 }
 
-private fun renderReceivableLevelForm(
+internal fun renderReceivableLevelForm(
     root: SimplePanel,
     existing: ReceivableDunningLevelDto?,
+    modal: Modal? = null,
     onSaved: () -> Unit,
 ) {
-    val formPanel = root.vPanel(spacing = 6)
-    val levelNumberInput = formPanel.text(value = existing?.levelNumber?.toString(), label = tr("Stufennummer (ab 1)"))
-    val nameInput = formPanel.text(value = existing?.name, label = tr("Name (max. 100 Zeichen)"))
-    val graceDaysInput = formPanel.text(value = existing?.graceDays?.toString(), label = tr("Wartefrist in Tagen (1-365)"))
-    val responseDaysInput = formPanel.text(value = existing?.responseDays?.toString(), label = tr("Antwortfrist in Tagen (1-365)"))
-    val feeInput = formPanel.text(value = existing?.feeAmount?.toString(), label = tr("Gebühr in EUR (optional, max. 25,00 €)"))
+    // Formular-Grammatik (V1.4.28): Stufennummer, Name und beide Fristen Pflicht, die Gebühr optional => Fall (a).
+    val form = root.lapisForm()
+    val levelNumberField =
+        form.textField(
+            label = tr("Stufennummer"),
+            value = existing?.levelNumber?.toString(),
+            required = true,
+            hint = gettext("Mindestens %1.", 1),
+            rule = { receivableLevelNumberCheck(it) },
+        )
+    val nameField =
+        form.textField(
+            label = tr("Name"),
+            value = existing?.name,
+            required = true,
+            hint = gettext("Höchstens %1 Zeichen.", MAX_RECEIVABLE_LEVEL_NAME_LENGTH),
+            rule = { receivableNameCheck(it) },
+        )
+    val graceDaysField =
+        form.textField(
+            label = tr("Wartefrist in Tagen"),
+            value = existing?.graceDays?.toString(),
+            required = true,
+            hint = gettext("Zulässig: %1 bis %2.", MIN_RECEIVABLE_DUNNING_DAYS, MAX_RECEIVABLE_DUNNING_DAYS),
+            rule = { FormRules.intInRange(value = it, min = MIN_RECEIVABLE_DUNNING_DAYS, max = MAX_RECEIVABLE_DUNNING_DAYS) },
+        )
+    val responseDaysField =
+        form.textField(
+            label = tr("Antwortfrist in Tagen"),
+            value = existing?.responseDays?.toString(),
+            required = true,
+            hint = gettext("Zulässig: %1 bis %2.", MIN_RECEIVABLE_DUNNING_DAYS, MAX_RECEIVABLE_DUNNING_DAYS),
+            rule = { FormRules.intInRange(value = it, min = MIN_RECEIVABLE_DUNNING_DAYS, max = MAX_RECEIVABLE_DUNNING_DAYS) },
+        )
+    val feeField =
+        form.textField(
+            label = tr("Gebühr in EUR (optional)"),
+            value = existing?.feeAmount?.toString(),
+            hint = gettext("Höchstens %1.", feeBound(MAX_RECEIVABLE_FEE_AMOUNT)),
+            rule = { receivableFeeCheck(it) },
+        )
     // Nur beim Bearbeiten: Reaktivierung einer deaktivierten Stufe (eine neu angelegte Stufe ist immer aktiv).
-    val activeCheck = if (existing != null) formPanel.checkBox(value = existing.active, label = tr("Aktiv")) else null
-    val errorBox =
-        formPanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val submitButton = formPanel.button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val activeCheck = if (existing != null) form.panel.checkBox(value = existing.active, label = tr("Aktiv")) else null
+    val submitButton = Button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    if (modal != null) {
+        // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
+        form.finish()
+        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        modal.addButton(submitButton)
+    } else {
+        form.buttons(primary = submitButton)
+    }
+
+    // N2: derselbe Betrags-Parser wie im Offene-Posten-Formular. Der frühere `replace(',', '.').toDoubleOrNull()` +
+    // `roundToTwoDecimalPlaces` akzeptierte "1e2" und rundete "12,999" STILL auf 13,00 -- eine Gebühr, die der Nutzer so nie
+    // eingegeben hat. `AmountInput.Empty` = keine Gebühr (das Feld ist optional).
+    // Derselbe Parser wie die Feldregel [receivableFeeCheck], also auch mit `0` als gültiger Gebühr (der Server erlaubt 0,00 bis
+    // 25,00; ein bloßes [parseAmountInput] lehnte 0 ab und machte eine Stufe mit Gebühr 0 unbearbeitbar).
+    fun parsedFee(): Decimal? = (parseDunningFeeInput(feeField.value) as? AmountInput.Valid)?.value
+
+    // Keine Querregel: jede Grenze von `validateReceivableDunningLevelInput` steht schon als Feldregel an ihrem Feld (die Zusatzprüfung
+    // dort war nie erreichbar, sobald alle Felder für sich gültig sind).
 
     submitButton.onClick {
-        errorBox.hide()
-        val levelNumber = levelNumberInput.value?.trim()?.toIntOrNull()
-        val name = nameInput.value.orEmpty().trim()
-        val graceDays = graceDaysInput.value?.trim()?.toIntOrNull()
-        val responseDays = responseDaysInput.value?.trim()?.toIntOrNull()
-        // N2: derselbe Betrags-Parser wie im Offene-Posten-Formular. Der frühere
-        // `replace(',', '.').toDoubleOrNull()` + `roundToTwoDecimalPlaces` akzeptierte "1e2" und
-        // rundete "12,999" STILL auf 13,00 -- eine Gebühr, die der Nutzer so nie eingegeben hat.
-        // `AmountInput.Empty` = keine Gebühr (das Feld ist optional).
-        val feeAmount: Decimal? =
-            when (val parsed = parseAmountInput(feeInput.value)) {
-                is AmountInput.Empty -> null
-                is AmountInput.Invalid -> {
-                    errorBox.content = parsed.reason
-                    errorBox.show()
-                    return@onClick
-                }
-                is AmountInput.Valid -> parsed.value
-            }
-        val validationError = validateReceivableDunningLevelInput(levelNumber, name, graceDays, responseDays, feeAmount)
-        if (validationError != null || levelNumber == null || graceDays == null || responseDays == null) {
-            errorBox.content = validationError ?: tr("Bitte die Eingaben prüfen.")
-            errorBox.show()
-            return@onClick
-        }
-        val input =
-            ReceivableDunningLevelInput(
-                levelNumber = levelNumber,
-                name = name,
-                graceDays = graceDays,
-                responseDays = responseDays,
-                feeAmount = feeAmount,
-                active = activeCheck?.value ?: true,
-            )
-        runGuardedAction(submitButton) {
-            val service = rpcService<IReceivableDunningService>()
+        form.submit(submitButton) {
             val result =
                 guarded {
-                    if (existing ==
-                        null
-                    ) {
+                    // Der Bau des Objekts steht IM Guard: ein Fehler dabei wird gemeldet statt in den AppScope zu entweichen.
+                    val input =
+                        buildReceivableDunningLevelInput(
+                            levelNumber = levelNumberField.value,
+                            name = nameField.value,
+                            graceDays = graceDaysField.value,
+                            responseDays = responseDaysField.value,
+                            fee = parsedFee(),
+                            active = activeCheck?.value ?: true,
+                        )
+                    val service = rpcService<IReceivableDunningService>()
+                    if (existing == null) {
                         service.createReceivableDunningLevel(input)
                     } else {
                         service.updateReceivableDunningLevel(existing.id, input)
@@ -342,14 +364,54 @@ private fun renderReceivableLevelForm(
             if (result != null) {
                 notifySuccess(if (existing == null) tr("Mahnstufe angelegt.") else tr("Mahnstufe gespeichert."))
                 if (existing == null) {
-                    levelNumberInput.value = null
-                    nameInput.value = null
-                    graceDaysInput.value = null
-                    responseDaysInput.value = null
-                    feeInput.value = null
+                    levelNumberField.reset()
+                    nameField.reset()
+                    graceDaysField.reset()
+                    responseDaysField.reset()
+                    feeField.reset()
                 }
                 onSaved()
             }
         }
     }
 }
+
+/** Wie [buildDunningLevelInput], für die Forderungs-Mahnstufe (der Name wird hier nicht gekürzt, sondern ab 100 Zeichen abgelehnt). */
+internal fun buildReceivableDunningLevelInput(
+    levelNumber: String,
+    name: String,
+    graceDays: String,
+    responseDays: String,
+    fee: Decimal?,
+    active: Boolean,
+): ReceivableDunningLevelInput =
+    ReceivableDunningLevelInput(
+        levelNumber = levelNumber.trim().toInt(),
+        name = name.trim(),
+        graceDays = graceDays.trim().toInt(),
+        responseDays = responseDays.trim().toInt(),
+        feeAmount = fee,
+        active = active,
+    )
+
+private fun receivableLevelNumberCheck(text: String): FieldCheck {
+    val number = text.trim().toIntOrNull()
+    return if (number == null || number < 1) {
+        FieldCheck.Invalid(gettext("Die Stufennummer muss mindestens 1 sein."))
+    } else {
+        FieldCheck.Ok
+    }
+}
+
+private fun receivableNameCheck(text: String): FieldCheck =
+    if (text.trim().length > MAX_RECEIVABLE_LEVEL_NAME_LENGTH) {
+        FieldCheck.Invalid(gettext("Der Name muss zwischen 1 und %1 Zeichen lang sein.", MAX_RECEIVABLE_LEVEL_NAME_LENGTH))
+    } else {
+        FieldCheck.Ok
+    }
+
+/**
+ * Feldregel der Gebühr: derselbe Betrags-Parser wie im Offene-Posten-Formular, aber mit `0` als gültiger Gebühr (der Server
+ * erlaubt 0,00 bis 25,00, `ReceivableDunningService.validateLevelInput`) und der eigenen Obergrenze in der Meldung.
+ */
+internal fun receivableFeeCheck(text: String): FieldCheck = FormRules.optionalFee(text, MAX_RECEIVABLE_FEE_AMOUNT)

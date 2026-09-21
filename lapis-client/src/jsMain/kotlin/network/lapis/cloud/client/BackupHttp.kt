@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
 import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -33,15 +34,29 @@ object BackupHttp {
         allowNonEmptyTarget: Boolean,
     ): RestoreOutcome {
         val url = "$RESTORE_URL?allowNonEmptyTarget=$allowNonEmptyTarget"
-        val response =
-            window
-                .fetch(
-                    url,
-                    RequestInit(method = "POST", body = file, credentials = RequestCredentials.INCLUDE),
-                ).await()
-        val bodyText = response.text().await()
-        return parseRestoreOutcome(response.status.toInt(), bodyText)
+        // Ein abgebrochenes Netz ist ein ERGEBNIS, keine Ausnahme: eine entweichende Exception ließe den Auslöser still
+        // wieder frei und ohne Meldung -- bei einer destruktiven Aktion, die das Ziel schon teilweise beschrieben haben
+        // kann. [CancellationException] bleibt davon unberührt (Abbruch der Coroutine ist kein Netzfehler).
+        return try {
+            val response =
+                window
+                    .fetch(
+                        url,
+                        RequestInit(method = "POST", body = file, credentials = RequestCredentials.INCLUDE),
+                    ).await()
+            val bodyText = response.text().await()
+            parseRestoreOutcome(response.status.toInt(), bodyText)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (
+            @Suppress("TooGenericExceptionCaught") failure: Throwable,
+        ) {
+            RestoreOutcome.Other(status = NETWORK_FAILURE_STATUS, message = failure.message ?: failure.toString())
+        }
     }
+
+    /** [RestoreOutcome.Other.status] für "keine Antwort" (Netz abgebrochen, Server nicht erreichbar): es gibt keinen HTTP-Status. */
+    const val NETWORK_FAILURE_STATUS = 0
 }
 
 /**

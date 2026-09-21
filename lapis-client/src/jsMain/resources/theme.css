@@ -46,6 +46,9 @@
   --lapis-total-surface:   #DBE0E8;
   /* Warn-Rot (`text-danger`) auf --lapis-total-surface: Bootstraps #DC3545 waere dort 3,4:1; Wert (165,40,52) = 5,4:1. */
   --lapis-total-danger-rgb: 165, 40, 52;
+  /* V1.4.28 (W4a): Fehlerfarbe der Formular-Grammatik -- gegen --lapis-surface (#FFFFFF) gerechnet: 7,1:1. Eigenes Token
+     statt --lapis-total-danger-rgb, weil dessen Bezugsflaeche --lapis-total-surface ist. */
+  --lapis-invalid:         #A52834;
 
   /* Tinte -- identisch mit der Menüfläche */
   --lapis-text:            #14181E;
@@ -107,6 +110,7 @@
     --lapis-surface-sunken:  #232933;
     --lapis-total-surface:   #232933;  /* Zebra ist im Dunkelmodus HELLER (5 % Weiss), die Summenzeile bleibt gesenkt */
     --lapis-total-danger-rgb: 234, 134, 143;  /* #EA868F auf #232933: 5,8:1 (Bootstrap-Rot waere 3,2:1) */
+    --lapis-invalid:         #EA868F;  /* auf --lapis-surface #1B2028: 6,5:1; auf sunken #232933: 5,8:1 */
 
     --lapis-text:            #E8E6E0;
     --lapis-muted:           #9AA1AC;
@@ -151,6 +155,7 @@
   --lapis-surface-sunken:  #232933;
   --lapis-total-surface:   #232933;
   --lapis-total-danger-rgb: 234, 134, 143;
+  --lapis-invalid:         #EA868F;
 
   --lapis-text:            #E8E6E0;
   --lapis-muted:           #9AA1AC;
@@ -1252,6 +1257,53 @@ body {
     white-space: nowrap;
     scroll-snap-align: start;
   }
+}
+
+/* V1.4.28 (W4a): Formular-Grammatik. Nur --lapis-*-Token, kein Hex, kein !important, keine Transition.
+   Spezifitaet: Bootstrap wird NACH theme.css injiziert (App.kt), bei gleicher Spezifitaet gewinnt Bootstrap --
+   deshalb ueberall eine Stufe hoeher als Bootstraps eigene Regel. Bewusst keine --bs-form-invalid-*-Ueberschreibung in
+   :root: die verlaere gegen Bootstraps spaeteres :root. */
+.lapis-form .invalid-feedback {
+  color: var(--lapis-invalid);
+}
+
+.lapis-form .form-control.is-invalid {
+  border-color: var(--lapis-invalid);
+}
+
+/* Der goldene Fokusring bleibt das EINZIGE Fokussignal. */
+.lapis-form .form-control.is-invalid:focus {
+  box-shadow: none;
+}
+
+/* Sichtbarkeit per Klasse, nicht per :empty (ein leerer Textknoten laesst :empty in Chrome nicht matchen). (0,2,0) schlaegt
+   Bootstraps .invalid-feedback { display: none } (0,1,0) reihenfolgeunabhaengig.
+   ACHTUNG: das ist eine display-Umschaltung, also VERSCHIEBT ein erscheinender Fehler alles darunter -- auch den Absenden-
+   Knopf. Der Slot ist strukturell dauerhaft montiert (fuer Screenreader), nicht layout-neutral. Den ersten Klick rettet der
+   Mausriegel in FormGrammar.kt (blur-Pruefung ruht zwischen mousedown und mouseup auf einem Knopf), nicht dieses CSS. */
+.lapis-field-error.lapis-field-error--shown {
+  display: block;
+}
+
+/* Der Stern ist nicht rot: ein leeres Pflichtfeld in einem frischen Formular ist kein Fehler. */
+.lapis-required-mark {
+  color: inherit;
+}
+
+.lapis-form-alert {
+  color: var(--lapis-invalid);
+  font-weight: 600;
+}
+
+.lapis-form-alert.lapis-form-alert--shown {
+  margin-bottom: 8px;
+}
+
+/* Destruktive Aktion: eine Haarlinie, weil ein 16-px-Loch in einer Ansicht mit 14-px-Abstaenden kein Signal ist. */
+.lapis-form-danger-zone {
+  border-top: 1px solid var(--lapis-border);
+  margin-top: 16px;
+  padding-top: 12px;
 }
 
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser

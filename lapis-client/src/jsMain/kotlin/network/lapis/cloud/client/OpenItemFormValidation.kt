@@ -55,8 +55,16 @@ internal const val MAX_OPEN_ITEM_AMOUNT = 1_000_000_000.00
  * mehrdeutig und wird abgelehnt statt geraten), strikt größer 0, höchstens zwei Nachkommastellen
  * (sonst lehnt der Server erst nach dem Round-Trip mit einem kryptischen Fehler ab) und höchstens
  * [MAX_OPEN_ITEM_AMOUNT].
+ *
+ * [allowZero] und [enforceMaxAmount] gibt es für FELDER MIT EIGENER GRENZE (Mahngebühr 0,00 bis 25,00 EUR): dort ist `0` ein
+ * gültiger Betrag, und die Obergrenze des Buchungsbetrags (eine Milliarde) darf nicht als Fehlermeldung erscheinen, wenn die
+ * echte Grenze 25 ist -- der Aufrufer prüft seine eigene Obergrenze selbst. Die Voreinstellung ist unverändert.
  */
-fun parseAmountInput(raw: String?): AmountInput {
+fun parseAmountInput(
+    raw: String?,
+    allowZero: Boolean = false,
+    enforceMaxAmount: Boolean = true,
+): AmountInput {
     val trimmed = raw?.trim().orEmpty()
     if (trimmed.isEmpty()) return AmountInput.Empty
     if (!AMOUNT_SHAPE.matches(trimmed)) {
@@ -68,10 +76,10 @@ fun parseAmountInput(raw: String?): AmountInput {
         return AmountInput.Invalid(gettext("Höchstens %1 Nachkommastellen erlaubt.", MAX_OPEN_ITEM_AMOUNT_SCALE))
     }
     val value = normalized.toDoubleOrNull()
-    if (value == null || !value.isFinite() || value <= 0.0) {
+    if (value == null || !value.isFinite() || value < 0.0 || (value == 0.0 && !allowZero)) {
         return AmountInput.Invalid(tr("Der Betrag muss größer als 0 sein."))
     }
-    if (value > MAX_OPEN_ITEM_AMOUNT) {
+    if (enforceMaxAmount && value > MAX_OPEN_ITEM_AMOUNT) {
         return AmountInput.Invalid(gettext("Der Betrag ist zu groß (höchstens %1).", formatMoney(MAX_OPEN_ITEM_AMOUNT.toDecimal())))
     }
     return AmountInput.Valid(value.toDecimal())

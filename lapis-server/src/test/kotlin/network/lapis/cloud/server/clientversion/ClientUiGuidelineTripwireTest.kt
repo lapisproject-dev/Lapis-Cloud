@@ -158,11 +158,6 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                         "val moreToggleButton = controlsRow.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
                     ),
-                // W2 member area
-                "MemberPasswordResetDialog.kt" to
-                    listOf(
-                        "val regenerateButton = passwordRow.button(\"\", icon = \"fas fa-rotate\", style = ButtonStyle.OUTLINESECONDARY)",
-                    ),
             ),
         // Welle V1.4.27 (W3): the pseudo-table columns (`width = N.px` on a row/header cell). The report and list
         // screens of W3 pay their lines off as they are migrated. What stays afterwards is NOT "form screens" (audit
@@ -376,6 +371,74 @@ internal fun iconOnlyButtonFindings(text: String): List<String> {
         }.map { fingerprintAt(code = code, offset = it.range.first) }
         .toList()
 }
+
+// ── R24: the form grammar (Welle V1.4.28, W4a) ────────────────────────────────────────────────────────
+
+/**
+ * `text(`, `password(` or `textArea(` as a call: not preceded by a letter/digit/underscore (so `gettext(`,
+ * `richText(`, `resolvedAttributeText(` and `textField(` are not calls of the KVision widgets), but preceded by
+ * anything else -- including a `.` (`panel.text(`) or nothing (`val x = text(`). Only a call that carries a
+ * `label =` counts: that is a labelled FORM field; an unlabelled `textArea` (a read-only snippet display) is not.
+ */
+private val FIELD_CALL = Regex("""(?<![A-Za-z0-9_])(?:text|password|textArea)\(""")
+
+internal fun labelledFieldFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    return FIELD_CALL
+        .findAll(code)
+        .filter { match -> callWithTrailingLambda(text = code, openParen = match.range.last).contains("label =") }
+        .map { fingerprintAt(code = code, offset = it.range.first) }
+        .toList()
+}
+
+/**
+ * The screens migrated to the form grammar (`lapisForm`, `FormGrammar.kt`) in W4a. They are held STRICTLY: zero labelled
+ * `text`/`password`/`textArea` calls and (positive checks) a `lapisForm(` call plus at least as many `buttons(`/`finish(`
+ * closers as forms -- nobody may quietly rebuild one of them by hand. **This is ALL the tripwire checks**: it does not verify
+ * `aria-required`, the required marks, the button order or the error display -- those are covered by the DOM tests
+ * (`FormGrammarDomTest`, `LoginFormGrammarDomTest`, `SecretFieldDomTest`) and by the design review, not by this scan. A ledger of fingerprints (the shape of R2..R55) would need ~350 lines for the not yet migrated screens and
+ * would turn red on every renamed variable in any W4b/W4c file, so R24 is a strict set plus a global downward ratchet
+ * ([R24_REMAINING_MAX]); the ratchet is lowered by the wave that migrates the next screens.
+ */
+private val R24_MIGRATED: Set<String> =
+    setOf(
+        "LoginScreen.kt",
+        "RegistrationScreen.kt",
+        "FriendRegistrationScreen.kt",
+        "PasswordResetDeepLinkScreen.kt",
+        "MemberPasswordResetDialog.kt",
+        "SepaSettingsScreen.kt",
+        "DunningSettingsScreen.kt",
+        "ReceivableDunningSettingsScreen.kt",
+        "ConferenceStreamDestinationsScreen.kt",
+        "BackupScreen.kt",
+        "ApiKeysScreen.kt",
+    )
+
+/** Screens W4a examined that have NO labelled text field at all: strict too, but there is no form to build. */
+private val R24_STRICT_WITHOUT_FORM: Set<String> = setOf("PaymentGatewaySettingsScreen.kt", "EmbedIntegrationScreen.kt")
+
+/**
+ * Justified exceptions inside a migrated file, by fingerprint (the pattern of [R39_JUSTIFIED]): the two webhook URL
+ * fields of `ApiKeysScreen` belong to W4c (the webhook management form), not to the W4a issue form.
+ */
+private val R24_JUSTIFIED: Map<String, Set<String>> =
+    mapOf(
+        "ApiKeysScreen.kt" to
+            setOf(
+                "val urlInput = row.text(label = tr(\"Webhook-URL (https://…)\"))",
+                "val urlInput = editRow.text(label = tr(\"Neue Webhook-URL\")) { hide() }",
+            ),
+    )
+
+/** The downward ratchet: labelled fields outside the strict set (297 in 54 files when W4a landed). Only ever lowered. */
+private const val R24_REMAINING_MAX = 297
+
+private fun r24Findings(file: File): List<String> =
+    labelledFieldFindings(file.readText()).filterNot {
+        it in
+            R24_JUSTIFIED[file.name].orEmpty()
+    }
 
 private fun scanFile(
     rule: String,
@@ -668,6 +731,58 @@ class ClientUiGuidelineTripwireTest :
             reportTableSortFindings("fun Container.reportTable(caption: String, headers: List<TableHeader>): Table {").size shouldBe 0
         }
 
+        test("R24: the migrated screens hold no labelled text/password/textArea call and build their forms with lapisForm") {
+            val byName = clientKotlinFiles().associateBy { it.name }
+            (R24_MIGRATED + R24_STRICT_WITHOUT_FORM).forEach { name ->
+                val file = byName.getValue(name)
+                r24Findings(file) shouldBe emptyList()
+            }
+            R24_MIGRATED.forEach { name ->
+                byName.getValue(name).readText().contains("lapisForm(") shouldBe true
+            }
+        }
+
+        test(
+            "R24: every lapisForm( of a migrated screen is closed by buttons( or finish( (the form is completed, required marks are decided)",
+        ) {
+            val byName = clientKotlinFiles().associateBy { it.name }
+            R24_MIGRATED.forEach { name ->
+                val code = codeOnly(byName.getValue(name).readText())
+                val forms = Regex("""\blapisForm\(""").findAll(code).count()
+                val closers = Regex("""\.(?:buttons|finish)\(""").findAll(code).count()
+                (closers >= forms) shouldBe true
+            }
+        }
+
+        test("R24 justified exemptions are still needed (a stale exemption must go)") {
+            R24_JUSTIFIED.forEach { (fileName, fingerprints) ->
+                val raw = clientKotlinFiles().first { it.name == fileName }.readText().let { labelledFieldFindings(it) }
+                (fingerprints - raw.toSet()) shouldBe emptySet()
+            }
+        }
+
+        test("R24 ratchet: the labelled fields outside the strict set only ever go down, and the scanner is not vacuous") {
+            val strict = R24_MIGRATED + R24_STRICT_WITHOUT_FORM
+            val outside = clientKotlinFiles().filter { it.name !in strict }.sumOf { labelledFieldFindings(it.readText()).size }
+            // Not vacuous: the not yet migrated W4b/W4c screens are full of them.
+            (outside >= 200) shouldBe true
+            (outside <= R24_REMAINING_MAX) shouldBe true
+        }
+
+        test("R24 flags a labelled text/password/textArea call, ignores gettext/richText/textField, unlabelled calls and comments") {
+            labelledFieldFindings("val a = panel.text(label = tr(\"E-Mail\"))") shouldBe
+                listOf("val a = panel.text(label = tr(\"E-Mail\"))")
+            labelledFieldFindings("val a = text(type = InputType.EMAIL, label = tr(\"E-Mail\"))").size shouldBe 1
+            labelledFieldFindings("root.password(label = tr(\"Passwort\")) { addCssClasses(\"x\") }").size shouldBe 1
+            labelledFieldFindings("body.textArea(rows = 2, label = tr(\"Begründung\"))").size shouldBe 1
+            labelledFieldFindings("form.passwordField(label = tr(\"Passwort\"))").size shouldBe 0
+            labelledFieldFindings("form.textField(label = tr(\"E-Mail\"))").size shouldBe 0
+            labelledFieldFindings("notifyError(gettext(\"Fehler\", label = x))").size shouldBe 0
+            labelledFieldFindings("val t = richText(label = x)").size shouldBe 0
+            labelledFieldFindings("root.textArea(value = snippet, rows = 12) { readonly = true }").size shouldBe 0
+            labelledFieldFindings("// panel.text(label = tr(\"E-Mail\"))").size shouldBe 0
+        }
+
         test("R39 justified exemption is still needed (a stale exemption must go)") {
             R39_JUSTIFIED.forEach { (fileName, fingerprints) ->
                 val raw = clientKotlinFiles().first { it.name == fileName }.readText().let { iconOnlyButtonFindings(it) }
@@ -717,6 +832,7 @@ class ClientUiGuidelineTripwireTest :
                     "--lapis-media-overlay-text",
                     "--lapis-guest-fill",
                     "--lapis-guest-glyph",
+                    "--lapis-invalid",
                 )
             listOf(tokens.light, tokens.systemDark, tokens.explicitDark).forEach { block ->
                 (expected - block.keys) shouldBe emptySet()

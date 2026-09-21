@@ -77,21 +77,23 @@ fun renderApiKeysScreen(container: SimplePanel) {
         }
     }
 
-    val issueRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end mt-2") }
-    val labelInput = issueRow.text(label = tr("Bezeichnung"))
-    val issueButton = issueRow.button(tr("Neuen Schlüssel ausstellen"), style = ButtonStyle.PRIMARY)
+    // Formular-Grammatik (V1.4.28): ein Pflichtfeld, eine Aktion (Fall c) -- die Leer-Prüfung ist jetzt ein Feldfehler statt
+    // eines Toasts. Die beiden Webhook-URL-Felder weiter unten bleiben W4c (im Tripwire R24 als Ausnahme benannt).
+    val issueForm = root.lapisForm()
+    issueForm.panel.addCssClass("mt-2")
+    val labelField =
+        issueForm.textField(
+            label = tr("Bezeichnung"),
+            required = true,
+            requiredMessage = gettext("Bitte eine Bezeichnung angeben."),
+        )
+    val issueButton = Button(tr("Neuen Schlüssel ausstellen"), style = ButtonStyle.PRIMARY)
+    issueForm.buttons(primary = issueButton)
     issueButton.onClick {
-        val label = labelInput.value?.trim().orEmpty()
-        if (label.isBlank()) {
-            notifyError(tr("Bitte eine Bezeichnung angeben."))
-            return@onClick
-        }
-        issueButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IApiKeyService>().issueApiKey(label = label) }
-            issueButton.disabled = false
+        issueForm.submit(issueButton) {
+            val result = guarded { rpcService<IApiKeyService>().issueApiKey(label = labelField.value.trim()) }
             if (result != null) {
-                labelInput.value = null
+                labelField.reset()
                 showApiKeyRevealCard(revealCardSlot, result)
                 loadKeysAndWebhooks()
             }

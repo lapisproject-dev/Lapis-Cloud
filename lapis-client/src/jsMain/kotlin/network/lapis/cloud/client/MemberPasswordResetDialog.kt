@@ -1,7 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.text.password
-import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -11,7 +9,6 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -136,6 +133,17 @@ fun generateDictatablePasswordOrNull(): String? {
     return formatDictatablePassword(indices)
 }
 
+/** Grenzen der Begründung -- spiegeln die Servergrenze (3..1000), der Server bleibt Autorität. */
+private const val REASON_MIN_LENGTH: Int = 3
+private const val REASON_MAX_LENGTH: Int = 1000
+
+private fun reasonCheck(value: String): FieldCheck =
+    if (value.trim().length in REASON_MIN_LENGTH..REASON_MAX_LENGTH) {
+        FieldCheck.Ok
+    } else {
+        FieldCheck.Invalid(gettext("Bitte eine Begründung mit %1 bis %2 Zeichen angeben.", REASON_MIN_LENGTH, REASON_MAX_LENGTH))
+    }
+
 /**
  * Öffnet den Dialog. **Nicht** aus [openMemberEditorDialog] erreichbar -- kein Modal-im-Modal.
  * [row] muss [canResetPasswordOf] erfüllen, das prüft der aufrufende Knopf bereits (siehe
@@ -152,23 +160,54 @@ fun openMemberPasswordResetDialog(
     val body = modal.div()
 
     // ── Zone 1: Temporäres Passwort (rot, oben) ──
-    val passwordRow = body.hPanel(spacing = 6)
-    val passwordInput = passwordRow.password(label = tr("Temporäres Passwort"))
-    passwordInput.value = generateDictatablePasswordOrNull()
-    val regenerateButton = passwordRow.button("", icon = "fas fa-rotate", style = ButtonStyle.OUTLINESECONDARY)
-    regenerateButton.title = tr("Neu erzeugen")
-    regenerateButton.onClick { passwordInput.value = generateDictatablePasswordOrNull() }
-    val reasonInput = body.textArea(rows = 2, label = tr("Begründung (3-1000 Zeichen)"))
-    val consequenceBox = body.div { addCssClasses("alert alert-danger") }
+    // Formular-Grammatik (V1.4.28): Passwort optional (leer = der Server erzeugt), Begründung Pflicht => Fall (a), Stern nur
+    // an der Begründung. Das Passwort ist ein Geheimnis, das für einen ANDEREN Menschen erzeugt wurde: keine Passwortmanager-
+    // Angebote (`suppressManagers`), aber lesbar machbar (`reveal`) -- die Person muss es diktieren können.
+    val form = body.lapisForm()
+    // Der Knopf entsteht INNERHALB des Aufrufs, der das Feld erst liefert -- daher der nachträglich gesetzte Verweis.
+    lateinit var passwordFieldRef: LapisField
+    val passwordField =
+        form.passwordField(
+            label = tr("Temporäres Passwort"),
+            value = generateDictatablePasswordOrNull(),
+            suppressManagers = true,
+            reveal = true,
+            rule = { FormRules.newPassword(value = it, email = row.email) },
+            actions = { actionsRow ->
+                actionsRow.button(
+                    "",
+                    icon = "fas fa-rotate",
+                    style = ButtonStyle.OUTLINESECONDARY,
+                ) {
+                    val regenerateLabel = tr("Neu erzeugen")
+                    title = regenerateLabel
+                    setAttribute("aria-label", resolvedAttributeText(regenerateLabel))
+                    onClick {
+                        // Über das LapisField, nicht am Control vorbei: KVisions `value`-Setter löst kein DOM-`input` aus, ein
+                        // schon angezeigter Feldfehler (rote Umrandung, `aria-invalid`) bliebe sonst am neuen, gültigen Wert stehen.
+                        passwordFieldRef.setValue(generateDictatablePasswordOrNull())
+                        passwordFieldRef.validate(force = false)
+                    }
+                }
+            },
+        )
+    passwordFieldRef = passwordField
+    val reasonField =
+        form.textAreaField(
+            label = tr("Begründung"),
+            rows = 2,
+            required = true,
+            hint = gettext("%1 bis %2 Zeichen.", REASON_MIN_LENGTH, REASON_MAX_LENGTH),
+            rule = { reasonCheck(it) },
+        )
+    val consequenceBox = form.panel.div { addCssClasses("alert alert-danger") }
     consequenceBox.content = tr("Sitzungszahl wird geladen …")
-    val tempPasswordError =
-        body.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val setPasswordButton = body.button(tr("Passwort setzen und alle Sitzungen beenden"), style = ButtonStyle.DANGER)
+    val setPasswordButton = Button(tr("Passwort setzen und alle Sitzungen beenden"), style = ButtonStyle.DANGER)
     // Deaktiviert bis der Preflight geladen ist -- kein Klick auf ungeklärte Fakten.
     setPasswordButton.disabled = true
+    // Setzt ein Passwort direkt und beendet alle Sitzungen: eine destruktive Aktion (Richtlinie 2.5) -- in der abgesetzten Zone
+    // unter der Knopfzeile, das Formular hat KEIN `PRIMARY`.
+    form.buttons(primary = null, destructive = setPasswordButton)
 
     // ── Zone 2: Reset-E-Mail (neutral, unten, durch einen dezenten Rahmen getrennt) ──
     body.div { addCssClasses("mt-3 pt-3 border-top") }
@@ -208,31 +247,13 @@ fun openMemberPasswordResetDialog(
     }
 
     setPasswordButton.onClick {
-        tempPasswordError.hide()
-        val reason = reasonInput.value.orEmpty().trim()
-        if (reason.length < 3 || reason.length > 1000) {
-            tempPasswordError.content = tr("Bitte eine Begründung (3-1000 Zeichen) angeben.")
-            tempPasswordError.show()
-            return@onClick
-        }
-        val chosenPassword = passwordInput.value.orEmpty()
-        // Ein LEERES Feld ist eine bewusste Wahl -- "Server soll erzeugen" (siehe der `ifBlank {
-        // null }` unten) -- und KEIN zu kurzes Passwort. Review-Fund (MAJOR): `passwordHint` gegen
-        // `""` liefert immer "Mindestens 12 Zeichen." (Validation.PASSWORD_MIN_LENGTH), was den
-        // Server-generiert-Pfad unerreichbar machte -- sowohl für einen Betreiber, der das Feld
-        // absichtlich leert, als auch für jeden Browser/Kontext ohne `window.crypto`
-        // (generateDictatablePasswordOrNull liefert dort `null`, das Feld bleibt leer). Die Prüfung
-        // greift deshalb nur, wenn tatsächlich ein Klartext-Passwort gewählt wurde.
-        if (chosenPassword.isNotBlank()) {
-            val passwordHint = Validation.passwordHint(chosenPassword, row.email)
-            if (passwordHint != null) {
-                tempPasswordError.content = passwordHint
-                tempPasswordError.show()
-                return@onClick
-            }
-        }
-        setPasswordButton.disabled = true
-        AppScope.launch {
+        // Ein LEERES Passwortfeld ist eine bewusste Wahl -- "Server soll erzeugen" (siehe der `ifBlank { null }` unten) --
+        // und KEIN zu kurzes Passwort. Review-Fund (MAJOR, V1.4.9): `passwordHint` gegen `""` liefert immer "Mindestens 12
+        // Zeichen." und machte den Server-generiert-Pfad unerreichbar (auch in Kontexten ohne `window.crypto`). Das Feld ist
+        // deshalb optional: die Regel greift nur, wenn tatsächlich ein Klartext-Passwort gewählt wurde.
+        form.submit(setPasswordButton) {
+            val reason = reasonField.value.trim()
+            val chosenPassword = passwordField.value
             val result =
                 memberAdminGuarded {
                     rpcService<IMemberService>().setTemporaryPasswordForMember(
@@ -244,7 +265,6 @@ fun openMemberPasswordResetDialog(
                         reason = reason,
                     )
                 }
-            setPasswordButton.disabled = false
             if (result != null) {
                 onChanged()
                 renderTemporaryPasswordReceipt(
