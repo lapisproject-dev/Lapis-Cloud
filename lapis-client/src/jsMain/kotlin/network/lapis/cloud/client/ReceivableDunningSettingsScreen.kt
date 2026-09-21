@@ -7,7 +7,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -48,7 +47,7 @@ fun renderReceivableDunningSettingsScreen(container: SimplePanel) {
             maxWidth = 700.px
             marginTop = 24.px
         }
-    root.h1(tr("Forderungs-Mahnstufen"))
+    root.pageHeader(tr("Forderungs-Mahnstufen"))
     root.p(
         tr(
             "Konfiguration des Mahnwesens für offene Forderungen (Debitoren) -- getrennt vom Mahnwesen für Mitgliedsbeiträge.",

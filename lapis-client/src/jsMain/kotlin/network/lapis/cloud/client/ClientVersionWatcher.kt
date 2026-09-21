@@ -276,7 +276,12 @@ internal object ClientVersionWatcher {
                         button(text = tr("Neu laden"), style = ButtonStyle.PRIMARY, className = "lapis-update-reload") {
                             onClick { onReloadClicked() }
                         }
-                    button(text = "", icon = "fas fa-xmark", style = ButtonStyle.LINK, className = "lapis-update-pill-close") {
+                    button(
+                        text = "",
+                        icon = "fas fa-xmark",
+                        style = ButtonStyle.LINK,
+                        className = "lapis-update-pill-close lapis-icon-only",
+                    ) {
                         setAttribute("title", gettext("Ausblenden"))
                         setAttribute("aria-label", gettext("Ausblenden"))
                         onClick { onDismissClicked() }

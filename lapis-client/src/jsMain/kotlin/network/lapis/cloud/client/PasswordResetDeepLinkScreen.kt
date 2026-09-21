@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.h1
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -35,7 +34,7 @@ fun renderPasswordResetScreen(
     // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
     // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
     root.brandLockup()
-    root.h1(tr("Neues Passwort setzen"))
+    root.pageHeader(tr("Neues Passwort setzen"))
 
     if (token.isNullOrBlank()) {
         root.p(tr("Dieser Link enthält keinen gültigen Token. Bitte fordern Sie einen neuen Link an."))

@@ -6,12 +6,14 @@ import io.kvision.BootstrapModule
 import io.kvision.CoreModule
 import io.kvision.FontAwesomeModule
 import io.kvision.core.AlignItems
+import io.kvision.core.onClick
 import io.kvision.dropdown.ddLink
 import io.kvision.dropdown.dropDown
 import io.kvision.dropdown.separator
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Link
 import io.kvision.html.button
+import io.kvision.html.div
 import io.kvision.html.span
 import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
@@ -40,6 +42,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.rpc.IAuthService
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.get
 import org.w3c.dom.set
@@ -172,6 +175,20 @@ class App : Application() {
         // hat -- siehe ThemeToggle.kt KDoc.
         applyStoredTheme()
         root("lapis-client") {
+            // Welle V1.4.31 (W5): first stop of the tab order, visible only while focused. A button, NOT an
+            // `<a href="#lapis-content">`: the app routes by hash (`Routing.init(useHash = true)`), so a
+            // fragment link would be read as a route change. The target is the landmark `.lapis-content` below.
+            button(tr("Zum Inhalt springen"), style = ButtonStyle.PRIMARY, className = "lapis-skip-link").onClick {
+                (document.getElementById("lapis-content") as? HTMLElement)?.focus()
+            }
+            // Live region for the route announcement (`pageHeader` writes only its TEXT). Mounted ONCE, empty and
+            // permanent: a live region that is created together with its text is not announced (§2.12).
+            div(className = "visually-hidden") {
+                id = LIVE_REGION_ID
+                setAttribute("role", "status")
+                setAttribute("aria-live", "polite")
+                setAttribute("aria-atomic", "true")
+            }
             // Vertical-Sidebar-Umbau (2026-09-08): `expand = ALWAYS` means the navbar itself never
             // collapses into Bootstrap's own hamburger toggler -- there is nothing left in it that
             // WOULD need one (language switcher + account menu are two small dropdowns, not a long
@@ -322,7 +339,15 @@ class App : Application() {
             }
             document.addEventListener("show.bs.offcanvas", cancelInitialAutoShow)
 
-            val pageContainer = shell.vPanel(className = "lapis-content")
+            // `role="main"` + `id`/`tabindex`: the landmark the skip link and screen-reader users jump to (R6).
+            val pageContainer =
+                shell.vPanel(className = "lapis-content") {
+                    id = "lapis-content"
+                    setAttribute("role", "main")
+                    setAttribute("tabindex", "-1")
+                    // The landmark is named by the page `h1` (`PAGE_TITLE_ID`, one per screen) -- a screen without a header leaves the reference dangling, which is harmless.
+                    setAttribute("aria-labelledby", PAGE_TITLE_ID)
+                }
 
             // Rebuilds both the navbar (language switcher + account menu, toggle button included)
             // and the sidebar (route list) together -- a single entry point so every trigger that
@@ -594,9 +619,13 @@ private fun addLanguageSwitcher(
             if (code == current.first) {
                 link.addCssClass("active")
             }
+            // Audit fix B2: while a video conference is live the switch asks first (it would end the call) -- see LanguageChange.kt.
             link.onClick {
-                setLanguage(code)
-                onLanguageChange()
+                requestLanguageChange(code) {
+                    setLanguage(code)
+                    PageTitle.apply() // `document.title` is outside the KVision tree: the root restart does not translate it
+                    onLanguageChange()
+                }
             }
         }
     }

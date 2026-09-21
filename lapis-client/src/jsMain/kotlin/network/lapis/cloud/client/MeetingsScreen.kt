@@ -7,7 +7,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -107,9 +106,9 @@ fun renderMeetingsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Sitzungen"))
+    root.pageHeader(tr("Sitzungen"))
 
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val committeeFilterSelect = filterRow.select(options = listOf("" to tr("Alle Gremien")), value = "", label = tr("Gremium"))
     val statusFilterOptions =
@@ -118,11 +117,11 @@ fun renderMeetingsScreen(container: SimplePanel) {
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val meetingListPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Details"))
+    root.h2(tr("Details")) { addCssClass("h5") }
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Sitzung oben auswählen, um Details zu sehen."))
 
-    root.h2(tr("Neue Sitzung anlegen"))
+    root.h2(tr("Neue Sitzung anlegen")) { addCssClass("h5") }
     val creationPanel = root.vPanel(spacing = 6)
     creationPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
@@ -323,7 +322,7 @@ private fun renderMeetingMeta(
     onChanged: () -> Unit,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.h2(meeting.title) { addCssClasses("h4 flex-grow-1") }
+    headerRow.h2(meeting.title) { addCssClasses("h5 flex-grow-1") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
 
     panel.div(
@@ -493,63 +492,59 @@ internal fun renderEinladungSection(
     // postalMailEnabled is true) -- the free-PDF download button above is never gated by this flag,
     // since it never touches Letterxpress.
     val postalActionPanel = form.panel.vPanel(spacing = 4)
-    AppScope.launch {
-        if (isPostalMailEnabled()) {
-            val postalButton = postalActionPanel.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
-            postalButton.onClick {
-                if (!form.validateAndReport()) return@onClick
-                val recipients = selectedRecipients()
-                val title = titleField.value.trim()
-                val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
-                val location = locationField.value.trim()
-                val bodyText = bodyTextField.value.trim()
-                if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS_UI) {
-                    form.showFormError(
-                        gettext(
-                            "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr " +
-                                "Empfänger bitte das PDF herunterladen und selbst verteilen.",
-                            MAX_POSTAL_INVITATION_RECIPIENTS_UI,
-                            recipients.size,
-                        ),
-                    )
-                    return@onClick
-                }
+    postalActionPanel.renderPostalMailGate { host ->
+        val postalButton = host.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+        postalButton.onClick {
+            if (!form.validateAndReport()) return@onClick
+            val recipients = selectedRecipients()
+            val title = titleField.value.trim()
+            val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
+            val location = locationField.value.trim()
+            val bodyText = bodyTextField.value.trim()
+            if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS_UI) {
+                form.showFormError(
+                    gettext(
+                        "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr " +
+                            "Empfänger bitte das PDF herunterladen und selbst verteilen.",
+                        MAX_POSTAL_INVITATION_RECIPIENTS_UI,
+                        recipients.size,
+                    ),
+                )
+                return@onClick
+            }
 
-                postalEinladungDispatchConfirmDialog(recipients.map { it.displayName }) {
-                    outcomePanel.removeAll()
-                    form.runBusy(postalButton) {
-                        val results =
-                            guarded {
-                                rpcService<IPostalMailService>().dispatchEinladungByPost(
-                                    PostalInvitationDispatchInput(
-                                        title = title,
-                                        eventDateTime = eventDateTime,
-                                        location = location,
-                                        bodyText = bodyText,
-                                        recipientMemberIds = recipients.map { it.id },
-                                    ),
-                                )
-                            }
-                        if (results != null) {
-                            val sentCount = results.count { it.status == PostalDeliveryStatus.SENT }
-                            if (sentCount == results.size) {
-                                notifySuccess(gettext("%1 von %2 Briefen erfolgreich übergeben.", sentCount, results.size))
-                            } else {
-                                notifyError(
-                                    gettext(
-                                        "%1 von %2 Briefen fehlgeschlagen -- Details unten.",
-                                        results.size - sentCount,
-                                        results.size,
-                                    ),
-                                )
-                            }
-                            results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
+            postalEinladungDispatchConfirmDialog(recipients.map { it.displayName }) {
+                outcomePanel.removeAll()
+                form.runBusy(postalButton) {
+                    val results =
+                        guarded {
+                            rpcService<IPostalMailService>().dispatchEinladungByPost(
+                                PostalInvitationDispatchInput(
+                                    title = title,
+                                    eventDateTime = eventDateTime,
+                                    location = location,
+                                    bodyText = bodyText,
+                                    recipientMemberIds = recipients.map { it.id },
+                                ),
+                            )
                         }
+                    if (results != null) {
+                        val sentCount = results.count { it.status == PostalDeliveryStatus.SENT }
+                        if (sentCount == results.size) {
+                            notifySuccess(gettext("%1 von %2 Briefen erfolgreich übergeben.", sentCount, results.size))
+                        } else {
+                            notifyError(
+                                gettext(
+                                    "%1 von %2 Briefen fehlgeschlagen -- Details unten.",
+                                    results.size - sentCount,
+                                    results.size,
+                                ),
+                            )
+                        }
+                        results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
                     }
                 }
             }
-        } else {
-            postalActionPanel.postalMailDisabledNotice()
         }
     }
 }
@@ -696,7 +691,7 @@ internal fun renderAttendanceRecordingForm(
     }
     val existingByMember = existingAttendance.associateBy { it.memberId }
     val statusOptions = AttendanceStatus.entries.map { it.name to attendanceStatusLabel(it) }
-    val representedOptions = listOf("" to "-- keine --") + eligibleMembers.map { it.id to it.displayName }
+    val representedOptions = listOf("" to gettext("-- keine --")) + eligibleMembers.map { it.id to it.displayName }
 
     eligibleMembers.forEach { member ->
         val existing = existingByMember[member.id]
@@ -798,7 +793,7 @@ fun renderResolutionRow(
             resolution.votesYes,
             resolution.votesNo,
             resolution.votesAbstain,
-            if (resolution.quorumMet) "erreicht" else "nicht erreicht",
+            if (resolution.quorumMet) gettext("erreicht") else gettext("nicht erreicht"),
             resolution.decidedAt,
             resolution.recordedByDisplayName,
         ),
@@ -999,9 +994,9 @@ private fun renderQuorumRow(
  */
 fun meetingStatusLabel(status: MeetingStatus): String =
     when (status) {
-        MeetingStatus.PLANNED -> "Geplant"
-        MeetingStatus.HELD -> "Durchgeführt"
-        MeetingStatus.CANCELLED -> "Abgesagt"
+        MeetingStatus.PLANNED -> gettext("Geplant")
+        MeetingStatus.HELD -> gettext("Durchgeführt")
+        MeetingStatus.CANCELLED -> gettext("Abgesagt")
     }
 
 fun meetingStatusColor(status: MeetingStatus): String =
@@ -1013,17 +1008,17 @@ fun meetingStatusColor(status: MeetingStatus): String =
 
 fun meetingFormatLabel(format: MeetingFormat): String =
     when (format) {
-        MeetingFormat.IN_PERSON -> "Präsenz"
-        MeetingFormat.ONLINE -> "Online"
-        MeetingFormat.HYBRID -> "Hybrid"
+        MeetingFormat.IN_PERSON -> gettext("Präsenz")
+        MeetingFormat.ONLINE -> gettext("Online")
+        MeetingFormat.HYBRID -> gettext("Hybrid")
     }
 
 fun attendanceStatusLabel(status: AttendanceStatus): String =
     when (status) {
-        AttendanceStatus.PRESENT -> "Anwesend"
-        AttendanceStatus.EXCUSED -> "Entschuldigt"
-        AttendanceStatus.UNEXCUSED -> "Unentschuldigt"
-        AttendanceStatus.REPRESENTED -> "Vertreten"
+        AttendanceStatus.PRESENT -> gettext("Anwesend")
+        AttendanceStatus.EXCUSED -> gettext("Entschuldigt")
+        AttendanceStatus.UNEXCUSED -> gettext("Unentschuldigt")
+        AttendanceStatus.REPRESENTED -> gettext("Vertreten")
     }
 
 fun attendanceStatusColor(status: AttendanceStatus): String =
@@ -1036,9 +1031,9 @@ fun attendanceStatusColor(status: AttendanceStatus): String =
 
 fun resolutionStatusLabel(status: ResolutionStatus): String =
     when (status) {
-        ResolutionStatus.ADOPTED -> "Angenommen"
-        ResolutionStatus.REJECTED -> "Abgelehnt"
-        ResolutionStatus.POSTPONED -> "Zurückgestellt"
+        ResolutionStatus.ADOPTED -> gettext("Angenommen")
+        ResolutionStatus.REJECTED -> gettext("Abgelehnt")
+        ResolutionStatus.POSTPONED -> gettext("Zurückgestellt")
     }
 
 fun resolutionStatusColor(status: ResolutionStatus): String =
@@ -1050,10 +1045,10 @@ fun resolutionStatusColor(status: ResolutionStatus): String =
 
 fun resolutionModeLabel(mode: ResolutionMode): String =
     when (mode) {
-        ResolutionMode.COMMITTEE_QUORUM -> "Gremienbeschluss"
-        ResolutionMode.MERITOCRATIC -> "Meritokratische Vote"
-        ResolutionMode.DEMOCRATIC -> "Demokratische Wahl"
-        ResolutionMode.SYSTEMIC_CONSENSUS -> "Systemisches Konsensieren"
+        ResolutionMode.COMMITTEE_QUORUM -> gettext("Gremienbeschluss")
+        ResolutionMode.MERITOCRATIC -> gettext("Meritokratische Vote")
+        ResolutionMode.DEMOCRATIC -> gettext("Demokratische Wahl")
+        ResolutionMode.SYSTEMIC_CONSENSUS -> gettext("Systemisches Konsensieren")
     }
 
 fun resolutionModeColor(mode: ResolutionMode): String =

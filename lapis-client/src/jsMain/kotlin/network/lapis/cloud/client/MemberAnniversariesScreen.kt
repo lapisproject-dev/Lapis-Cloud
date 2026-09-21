@@ -4,7 +4,6 @@ import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.icon
 import io.kvision.html.p
 import io.kvision.html.span
@@ -56,7 +55,7 @@ import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
  */
 fun renderMemberAnniversariesScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.h1(tr("Geburtstage & Jubiläen"))
+    root.pageHeader(tr("Geburtstage & Jubiläen"))
     root.div(
         tr(
             "Bevorstehende Geburtstage und Mitgliedschafts-/Förderer-Jubiläen -- eine gemeinsame, " +

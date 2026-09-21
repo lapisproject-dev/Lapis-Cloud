@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import dev.kilua.rpc.types.toDouble
 import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -66,14 +65,14 @@ internal fun openItemSettlementDialog(
     val amountField =
         form.textField(
             label = tr("Betrag in EUR"),
-            value = item.openAmount.toString(),
+            value = displayDigits(item.openAmount),
             required = true,
             requiredMessage = tr("Bitte einen Betrag angeben."),
             rule = { text ->
                 when (val parsed = parseAmountInput(text)) {
                     is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
                     is AmountInput.Valid ->
-                        if (parsed.value.toDouble() > item.openAmount.toDouble()) {
+                        if (exceedsDisplayedAmount(entered = parsed.value, limit = item.openAmount)) {
                             FieldCheck.Invalid(
                                 gettext("Der Betrag darf den offenen Betrag (%1) nicht übersteigen.", formatMoney(item.openAmount)),
                             )
@@ -387,7 +386,7 @@ private fun renderNettingBody(
     val amountField =
         form.textField(
             label = tr("Betrag in EUR"),
-            value = candidates.first().maxNettableAmount.toString(),
+            value = displayDigits(candidates.first().maxNettableAmount),
             required = true,
             requiredMessage = tr("Bitte einen Betrag angeben."),
             rule = { text ->
@@ -395,7 +394,7 @@ private fun renderNettingBody(
                     is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
                     is AmountInput.Valid -> {
                         val max = candidateOf(candidateField.value)?.maxNettableAmount
-                        if (max != null && parsed.value.toDouble() > max.toDouble()) {
+                        if (max != null && exceedsDisplayedAmount(entered = parsed.value, limit = max)) {
                             FieldCheck.Invalid(
                                 gettext("Der Betrag darf den verrechenbaren Betrag (%1) nicht übersteigen.", formatMoney(max)),
                             )
@@ -429,7 +428,7 @@ private fun renderNettingBody(
     fun currentToken(): NettingPreviewToken? {
         val candidate = selectedCandidate() ?: return null
         val amount = parseAmountInput(amountField.value) as? AmountInput.Valid ?: return null
-        if (amount.value.toDouble() > candidate.maxNettableAmount.toDouble()) return null
+        if (exceedsDisplayedAmount(entered = amount.value, limit = candidate.maxNettableAmount)) return null
         return nettingPreviewToken(candidate, amount.value)
     }
 
@@ -504,7 +503,7 @@ private fun renderNettingBody(
     }
 
     candidateField.subscribe {
-        selectedCandidate()?.let { amountField.setValue(it.maxNettableAmount.toString()) }
+        selectedCandidate()?.let { amountField.setValue(displayDigits(it.maxNettableAmount)) }
         // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
         amountField.validate(force = false)
         schedulePreview()

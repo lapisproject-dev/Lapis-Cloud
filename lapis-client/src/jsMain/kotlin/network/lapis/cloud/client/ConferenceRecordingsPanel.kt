@@ -89,7 +89,7 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
     panel.removeAll()
     // Stays hidden until availability is confirmed `enabled` below -- D14, see file KDoc.
     panel.hide()
-    panel.h2(tr("Aufzeichnungen"))
+    panel.h2(tr("Aufzeichnungen")) { addCssClass("h5") }
     val listPanel = panel.vPanel(spacing = 8)
     val pagerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
 

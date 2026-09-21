@@ -8,7 +8,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -55,7 +54,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
     if (DunningAuthzUi.showDunningWarningBands(role)) {
         renderDunningWarningBands(root, role)
     }
-    root.h1(tr("Mahnwesen"))
+    root.pageHeader(tr("Mahnwesen"))
 
     root.h2(tr("Offene Mahnvorgänge")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }

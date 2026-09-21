@@ -5,7 +5,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -51,13 +50,13 @@ fun renderSocialModerationScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Moderation"))
+    root.pageHeader(tr("Moderation"))
 
-    root.h2(tr("Meldungen"))
+    root.h2(tr("Meldungen")) { addCssClass("h5") }
     renderReportQueueSection(root)
 
     if (AppState.hasRole(AccountRole.ADMIN)) {
-        root.h2(tr("Beitrags-Löschanträge"))
+        root.h2(tr("Beitrags-Löschanträge")) { addCssClass("h5") }
         root.div(
             tr("Post-bezogene Löschanträge nach Art. 17 DSGVO -- Entscheidung und endgültige Ausführung sind ADMIN-only."),
         ) { addCssClasses("text-muted small") }

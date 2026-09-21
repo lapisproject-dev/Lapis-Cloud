@@ -9,7 +9,6 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -45,7 +44,7 @@ fun renderVolunteerAllowanceScreen(
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Ehrenamts- und Übungsleiterpauschalen"))
+    root.pageHeader(tr("Ehrenamts- und Übungsleiterpauschalen"))
 
     val configBanner = root.vPanel(spacing = 4)
     val editorPanel = root.vPanel(spacing = 10)

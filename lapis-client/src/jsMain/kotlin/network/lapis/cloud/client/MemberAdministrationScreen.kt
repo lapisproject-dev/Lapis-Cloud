@@ -8,7 +8,6 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -54,7 +53,7 @@ import network.lapis.cloud.shared.rpc.IRegistrationService
  */
 fun renderMemberAdministrationScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.h1(tr("Mitgliederverwaltung"))
+    root.pageHeader(tr("Mitgliederverwaltung"))
 
     val callerRole = AppState.session?.role
     val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
@@ -64,7 +63,7 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
 }
 
 private fun renderPendingApplications(root: SimplePanel) {
-    root.h2(tr("Offene Anträge"))
+    root.h2(tr("Offene Anträge")) { addCssClass("h5") }
     // Welle V1.4.25: `dataSection` + `dataTable` replace the hand-built table -- the same density,
     // loading/error/empty grammar and narrow-viewport card list as the roster below, so the two tables of
     // this screen no longer follow two different conventions. The role column keeps the semantic
@@ -206,7 +205,7 @@ private val STATUS_CHIPS: List<MemberStatus?> =
  * independently, this is not the only gate.
  */
 private fun renderMemberRoster(root: SimplePanel) {
-    root.h2(tr("Mitgliederverzeichnis"))
+    root.h2(tr("Mitgliederverzeichnis")) { addCssClass("h5") }
 
     var state = RosterState()
     // Set by a sort click, consumed by the render of THAT click's load: hands the keyboard focus back to
@@ -1277,7 +1276,7 @@ fun pagerLabel(
 }
 
 internal fun renderDirectMemberCreation(root: SimplePanel) {
-    root.h2(tr("Mitglied direkt anlegen"))
+    root.h2(tr("Mitglied direkt anlegen")) { addCssClass("h5") }
     root.p(
         tr(
             "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder " +

@@ -10,7 +10,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -100,7 +99,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
 
     val root = container.dataScreenRoot(spacing = 14)
-    root.h1(tr("LTR-Konto"))
+    root.pageHeader(tr("LTR-Konto"))
 
     // ---- (1) Balance card ------------------------------------------------------------------
     val balanceCard = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
@@ -121,7 +120,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     refreshBalance()
 
     // ---- (2) Own entries + referenceType filter (D10 empty state) --------------------------
-    root.h2(tr("Meine Buchungen"))
+    root.h2(tr("Meine Buchungen")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val referenceFilterOptions =
         listOf("" to tr("Alle")) +
@@ -212,7 +211,7 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     // unveraendert und wird oben in der Buchungsliste korrekt angezeigt (PEER_TRANSFER_IN).
     val callerStatus = AppState.session?.status
     val showsTransferForm = callerStatus == null || callerStatus !in MemberStatusSets.NON_MEMBER
-    if (showsTransferForm) root.h2(tr("LTR senden"))
+    if (showsTransferForm) root.h2(tr("LTR senden")) { addCssClass("h5") }
     val transferSectionPanel = if (showsTransferForm) root.vPanel(spacing = 6) else null
     val treasuryPanel =
         if (canTreasury) {
@@ -267,21 +266,45 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
  * unaffected.
  */
 fun SimplePanel.renderMyLtrBalanceInline(onLoaded: (Decimal?) -> Unit = {}): SimplePanel {
-    val panel = this.hPanel(spacing = 8) { addCssClasses("align-items-center border rounded p-2 mb-2") }
-    panel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-    AppScope.launch {
-        val balance = guarded { rpcService<ILtrLedgerService>().getMyBalance() }
-        panel.removeAll()
-        panel.div(tr("Ihr LTR-Guthaben:")) { addCssClasses("text-muted small") }
-        if (balance != null) {
-            panel.ltrSpan(balance.freeBalanceLtr)
-        } else {
-            panel.div("--") { addCssClasses("text-muted small") }
+    // Audit fix: the strip is a live region (`role="status"`, mounted once, never removed -- only its children change), so the loaded balance
+    // or the error is announced; `aria-busy` marks the load. A `generation` counter drops the answer of a superseded load (a quick retry
+    // while the first request is still in flight could otherwise paint the OLDER answer over the newer one).
+    val host =
+        this.vPanel(spacing = 0) {
+            addCssClasses("mb-2")
+            setAttribute("role", "status")
+            setAttribute("aria-live", "polite")
         }
-        panel.link(tr("Zum LTR-Konto ->"), url = "#${Routes.LTR_LEDGER}") { addCssClasses("ms-auto small") }
-        onLoaded(balance?.freeBalanceLtr)
+    var generation = 0
+
+    // W5 (R34): a failed load shows the shared error state with a retry (before: a bare "--" that could not be told from an
+    // empty balance). The callback contract is unchanged: `null` on a failed load, the free balance otherwise.
+    fun load() {
+        generation++
+        val mine = generation
+        host.setAttribute("aria-busy", "true")
+        host.removeAll()
+        val strip = host.hPanel(spacing = 8) { addCssClasses("align-items-center border rounded p-2") }
+        strip.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        AppScope.launch {
+            val balance = guarded { rpcService<ILtrLedgerService>().getMyBalance() }
+            if (mine != generation) return@launch // a newer load has taken over
+            host.setAttribute("aria-busy", "false")
+            host.removeAll()
+            if (balance == null) {
+                host.dataErrorState(onRetry = ::load)
+                onLoaded(null)
+                return@launch
+            }
+            val loaded = host.hPanel(spacing = 8) { addCssClasses("align-items-center border rounded p-2") }
+            loaded.div(tr("Ihr LTR-Guthaben:")) { addCssClasses("text-muted small") }
+            loaded.ltrSpan(balance.freeBalanceLtr)
+            loaded.link(tr("Zum LTR-Konto ->"), url = "#${Routes.LTR_LEDGER}") { addCssClasses("ms-auto small") }
+            onLoaded(balance.freeBalanceLtr)
+        }
     }
-    return panel
+    load()
+    return host
 }
 
 // ================================================================================================

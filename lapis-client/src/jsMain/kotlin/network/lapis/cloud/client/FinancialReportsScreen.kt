@@ -7,7 +7,6 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -62,7 +61,7 @@ import kotlin.time.Clock
 fun renderFinancialReportsScreen(container: SimplePanel) {
     val root =
         container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Finanzberichte"))
+    root.pageHeader(tr("Finanzberichte"))
 
     // Welle V1.4.27 (W3): ONE segmented control with an active state (R20/R48) instead of five outline buttons
     // that never said which report was showing. The fourth/fifth entries keep their history: V1.4.5.2
@@ -128,7 +127,7 @@ private val KEY_FIGURE_HEADERS =
  * fixed. BOARD never sees the download control at all -- see [DatevAuthzUi.canDownload].
  */
 private fun renderDatevExportView(panel: SimplePanel) {
-    panel.h2(tr("DATEV-Buchungsstapel-Export"))
+    panel.h2(tr("DATEV-Buchungsstapel-Export")) { addCssClass("h5") }
     val role = AppState.session?.role
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT)"), toLabel = tr("Bis (JJJJ-MM-TT)"))
     filterControls.fromInput.value = "${currentYear()}-01-01"
@@ -226,7 +225,7 @@ private fun renderDatevExportPreviewBody(
 // ============================================================================================
 
 private fun renderIncomeStatementView(panel: SimplePanel) {
-    panel.h2(tr("Gewinn- und Verlustrechnung (GuV)"))
+    panel.h2(tr("Gewinn- und Verlustrechnung (GuV)")) { addCssClass("h5") }
     val filterControls = panel.dateRangeFilter()
     // `to` is a required LocalDate server-side (unlike the Journal/Hauptbuch/Kassenbuch filters'
     // optional `to`) -- pre-filled to today so the first render shows a meaningful report instead
@@ -292,7 +291,7 @@ internal fun renderIncomeStatementBody(
 // ============================================================================================
 
 private fun renderBalanceSheetView(panel: SimplePanel) {
-    panel.h2(tr("Bilanz"))
+    panel.h2(tr("Bilanz")) { addCssClass("h5") }
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val asOfInput = filterRow.text(value = todayIso(), label = tr("Stichtag (JJJJ-MM-TT)"))
     val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
@@ -350,7 +349,7 @@ internal fun renderBalanceSheetBody(
 // ============================================================================================
 
 private fun renderAnnualFinancialStatementView(panel: SimplePanel) {
-    panel.h2(tr("Jahresabschluss"))
+    panel.h2(tr("Jahresabschluss")) { addCssClass("h5") }
     val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val filterControls = filterRow.fiscalYearFilter(currentYear = currentYear())
     val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)

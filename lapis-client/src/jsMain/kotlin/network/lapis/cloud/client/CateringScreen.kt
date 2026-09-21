@@ -6,7 +6,6 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -43,48 +42,57 @@ fun renderCateringScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Catering"))
+    root.pageHeader(tr("Catering"))
 
-    root.h2(tr("Veranstaltung"))
+    root.h2(tr("Veranstaltung")) { addCssClass("h5") }
     val eventSelectRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val eventSelect = eventSelectRow.select(options = emptyList(), label = tr("Veranstaltung"))
 
-    root.h2(tr("Übersicht"))
-    val listPanel = root.vPanel(spacing = 6)
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
+    // W5 (R34): the event list and the order list each have a real error state with retry; the order list is one `dataSection`.
+    val eventsErrorHost = root.vPanel(spacing = 4)
+    lateinit var ordersSection: DataSection
 
-    root.h2(tr("Neue Bestellposition anlegen"))
+    // Audit fix M1: without a chosen event there is nothing to list -- see MyVolunteerShiftsScreen (no events / failed event list).
+    fun refreshList() {
+        if (eventSelect.value != null) ordersSection.reload()
+    }
+    ordersSection =
+        root.dataSection<List<CateringOrderDto>>(
+            emptyText = tr("Noch keine Bestellpositionen für diese Veranstaltung."),
+            isEmpty = { it.isEmpty() },
+            load = {
+                // never reached without an event ([refreshList] guards it); a missing event is a failed load, not "no orders"
+                val eventId = eventSelect.value
+                if (eventId == null) null else guarded { rpcService<ICateringService>().listCateringOrders(eventId) }
+            },
+            render = { panel, orders ->
+                val listPanel = panel.vPanel(spacing = 6)
+                orders.forEach { order -> renderCateringOrderRow(listPanel, order, ::refreshList) }
+            },
+        )
+
+    root.h2(tr("Neue Bestellposition anlegen")) { addCssClass("h5") }
     val creationFormHolder = root.vPanel(spacing = 6)
 
-    fun refreshList() {
-        val eventId = eventSelect.value
-        listPanel.removeAll()
-        if (eventId == null) return
-        AppScope.launch {
-            val orders =
-                guarded {
-                    rpcService<ICateringService>().listCateringOrders(eventId)
-                } ?: return@launch
-            if (orders.isEmpty()) {
-                listPanel.p(tr("Noch keine Bestellpositionen für diese Veranstaltung."))
-                return@launch
-            }
-            orders.forEach { order ->
-                renderCateringOrderRow(listPanel, order, ::refreshList)
-            }
-        }
-    }
-
     fun loadEvents() {
+        eventsErrorHost.removeAll()
         AppScope.launch {
             val page =
                 guarded {
                     rpcService<IEventService>().listEvents(EventQuery(includePast = true, limit = 200))
-                } ?: return@launch
+                }
+            if (page == null) {
+                eventsErrorHost.dataErrorState(onRetry = ::loadEvents)
+                return@launch
+            }
             val options = page.rows.map { it.id to it.title }
             eventSelect.options = options
-            if (options.isNotEmpty()) {
-                eventSelect.value = options.first().first
+            if (options.isEmpty()) {
+                eventsErrorHost.p(tr("Es sind derzeit keine Veranstaltungen geplant.")) { addCssClasses("text-muted") }
+                return@launch
             }
+            eventSelect.value = options.first().first
             refreshList()
             creationFormHolder.removeAll()
             renderCateringOrderCreationForm(creationFormHolder, eventSelect, ::refreshList)

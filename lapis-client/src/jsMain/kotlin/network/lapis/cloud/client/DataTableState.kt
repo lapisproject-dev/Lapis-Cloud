@@ -158,12 +158,16 @@ class DataColumn<R>(
     val cell: (Container, R) -> Unit,
 )
 
-/** Factory for the common case "plain text cell" -- deliberately no sixth field on [DataColumn]. */
+/**
+ * Factory for the common case "plain text cell" -- deliberately no sixth field on [DataColumn]. [cssClasses] (e.g. `text-muted small`,
+ * `fw-bold`) is the de-emphasis / emphasis of the value inside the cell; it stays a parameter of THIS factory.
+ */
 fun <R> textColumn(
     title: String,
     numeric: Boolean = false,
     primary: Boolean = false,
     sortKey: String? = null,
+    cssClasses: String? = null,
     text: (R) -> String,
 ): DataColumn<R> =
     DataColumn(
@@ -174,7 +178,7 @@ fun <R> textColumn(
         cell = { container, row ->
             val value = text(row)
             // A blank value adds nothing, so the card list can drop the empty term/definition pair.
-            if (value.isNotBlank()) container.span(value)
+            if (value.isNotBlank()) container.span(value) { cssClasses?.let { addCssClasses(it) } }
         },
     )
 

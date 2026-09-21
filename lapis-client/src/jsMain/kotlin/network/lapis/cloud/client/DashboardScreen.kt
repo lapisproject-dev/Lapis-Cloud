@@ -5,7 +5,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -15,6 +14,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -43,7 +43,8 @@ fun renderDashboardScreen(container: SimplePanel) {
             maxWidth = 640.px
             marginTop = 24.px
         }
-    root.h1(gettext("Willkommen, %1", session.displayName))
+    // W5: constant title as in the sidebar (R35); the greeting is a data value and therefore the subtitle.
+    root.pageHeader(tr("Dashboard"), subtitle = gettext("Willkommen, %1", session.displayName))
     // Zeigt sowohl MemberStatus (Kontotyp -- z.B. "Freund" statt der reinen Berechtigungsstufe) als
     // auch AccountRole (Berechtigungsstufe): ein Freund-Konto hat technisch korrekt AccountRole.MEMBER
     // (dieselbe Basis-Stufe wie jedes einfache Konto), aber "Rolle: MEMBER" allein liest sich fuer ein
@@ -59,7 +60,7 @@ fun renderDashboardScreen(container: SimplePanel) {
         ),
     )
 
-    root.h2(tr("Bereiche"))
+    root.h2(tr("Bereiche")) { addCssClass("h5") }
     val nav = root.vPanel(spacing = 6)
     navTile(nav, tr("Beitragsübersicht"), Routes.CONTRIBUTIONS)
     navTile(nav, tr("Dokumentenablage"), Routes.DOCUMENTS)
@@ -86,7 +87,7 @@ fun renderDashboardScreen(container: SimplePanel) {
         navTile(nav, tr("Mitgliederverwaltung"), Routes.MEMBERS)
     }
 
-    root.h2(tr("Konto"))
+    root.h2(tr("Konto")) { addCssClass("h5") }
     renderMemberCard(root, session.status)
     renderChangePassword(root)
     renderAccountActions(root)
@@ -114,6 +115,9 @@ private fun navTile(
     }
 }
 
+/** Milliseconds the card trigger stays disabled after a confirmed issue (see the click handler). */
+internal const val MEMBER_CARD_REISSUE_COOLDOWN_MS = 2500L
+
 /**
  * Welle "Digitaler Mitgliedsausweis (PDF)" -- Selbstbedienung fuer den eigenen Ausweis.
  *
@@ -137,7 +141,8 @@ private fun navTile(
  * eine serverseitig abgelehnte Aktion ist dieselbe Hausregelverletzung wie in
  * `MemberAdministrationScreen`.
  */
-private fun renderMemberCard(
+
+internal fun renderMemberCard(
     root: SimplePanel,
     status: MemberStatus,
 ) {
@@ -153,6 +158,9 @@ private fun renderMemberCard(
     ) { addCssClasses("text-muted small") }
     val downloadButton = panel.button(tr("Mitgliedsausweis herunterladen"), style = ButtonStyle.OUTLINESECONDARY)
     downloadButton.onClick {
+        // Audit fix M9: issuing a card INVALIDATES the previous one -- the trigger stays disabled for a moment after a confirmed issue, so a
+        // second click cannot stack a second issuing dialog on the first one's download (a second card would kill the one just downloaded).
+        if (downloadButton.disabled) return@onClick
         confirmDialog(
             title = tr("Neuen Mitgliedsausweis ausstellen"),
             message =
@@ -162,7 +170,10 @@ private fun renderMemberCard(
                 ),
             confirmLabel = tr("Ausstellen und herunterladen"),
         ) {
-            MemberCardHttp.submitCardPdfDownload(memberId)
+            runGuardedAction(downloadButton) {
+                MemberCardHttp.submitCardPdfDownload(memberId)
+                delay(MEMBER_CARD_REISSUE_COOLDOWN_MS)
+            }
         }
     }
 }
@@ -212,7 +223,7 @@ private fun renderChangePassword(root: SimplePanel) {
     }
 }
 
-private fun renderAccountActions(root: SimplePanel) {
+internal fun renderAccountActions(root: SimplePanel) {
     val actionRow = root.hPanel(spacing = 8)
 
     val logoutButton = actionRow.button(tr("Abmelden"), style = ButtonStyle.SECONDARY)
@@ -226,6 +237,9 @@ private fun renderAccountActions(root: SimplePanel) {
 
     val exitButton = actionRow.button(tr("Austritt (Mitgliedschaft beenden)"), style = ButtonStyle.OUTLINEDANGER)
     exitButton.onClick {
+        // Audit fix M9: leaving is irreversible -- while the request runs the trigger is disabled ([runGuardedAction]), so no second
+        // dialog can be opened (and confirmed) for a second `leaveMembership()`; the dialog itself is already single-shot ([ConfirmOnce]).
+        if (exitButton.disabled) return@onClick
         confirmDialog(
             title = tr("Austritt bestätigen"),
             message =
@@ -235,7 +249,7 @@ private fun renderAccountActions(root: SimplePanel) {
                 ),
             confirmLabel = tr("Austritt bestätigen"),
         ) {
-            AppScope.launch {
+            runGuardedAction(exitButton) {
                 val result = guarded { rpcService<IRegistrationService>().leaveMembership() }
                 if (result != null) {
                     AppState.setSession(null)

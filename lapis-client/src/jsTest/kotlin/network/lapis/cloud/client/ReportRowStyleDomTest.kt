@@ -46,6 +46,76 @@ class ReportRowStyleDomTest {
         selector: String,
     ) = assertNotNull(root.querySelector(selector) as? HTMLElement, "nothing matches $selector")
 
+    /**
+     * Audit fix B1: the warn-red re-interpretation of `text-danger` inside table cells must reach the TEXT utility only, not the
+     * inherited `--bs-danger-rgb` -- else `.text-bg-danger` badges in cells get a pale surface in the dark theme (white text on
+     * #EA868F = 2.53:1). Measured on the real cascade, both themes, plain / zebra / sum rows.
+     */
+    @Test
+    fun dangerBadgeInATableCellKeepsWhiteOnBootstrapRed_bothThemes() {
+        assertTrue(stylesLoaded)
+        listOf("light", "dark").forEach { theme ->
+            inTheme(theme) {
+                withMountedRoot("report-style-badge-$theme") { root, element ->
+                    val report = root.reportTable(caption = "GuV", headers = headers)
+                    report.reportRows(incomeStatementRows(incomeStatement), headers)
+                    val trs = rows(element())
+                    val cells =
+                        listOf(
+                            trs.first { it.className.isBlank() },
+                            trs.first { it.classList.contains("lapis-total-row") },
+                        ).map { assertNotNull(it.querySelector("td, th") as HTMLElement) }
+                    cells.forEach { cell ->
+                        listOf("badge text-bg-danger", "badge bg-danger text-white").forEach { classes ->
+                            val badge = appendDanger(cell, "span", classes)
+                            val surface = colourOf(style(badge).backgroundColor)
+                            assertTrue(
+                                surface.sameAs(colourOf("rgb(220, 53, 69)")),
+                                "$theme: a '$classes' badge in a table cell is not Bootstrap red but ${style(badge).backgroundColor}",
+                            )
+                            assertTrue(
+                                contrast(colourOf(style(badge).color), surface) >= 4.5,
+                                "$theme: badge text ${style(badge).color} on ${style(badge).backgroundColor} is below AA",
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** `text-danger` in a cell stays AA on the plain AND the zebra row in both themes (and on the td itself, not only on a child). */
+    @Test
+    fun dangerTextInACellIsAaOnPlainAndZebraRows_bothThemes() {
+        assertTrue(stylesLoaded)
+        listOf("light", "dark").forEach { theme ->
+            inTheme(theme) {
+                withMountedRoot("report-style-danger-$theme") { root, element ->
+                    val report = root.reportTable(caption = "GuV", headers = headers)
+                    report.reportRows(incomeStatementRows(incomeStatement), headers)
+                    val trs = rows(element()).filter { it.className.isBlank() }
+                    val all = rows(element())
+                    val zebra = trs.first { all.indexOf(it) % 2 == 0 }
+                    val even = trs.first { all.indexOf(it) % 2 == 1 }
+                    listOf(zebra, even).forEach { row ->
+                        val cell = assertNotNull(row.querySelector("td") as? HTMLElement)
+                        val background = visibleBackground(cell)
+                        val child = appendDanger(cell, "span", "text-danger")
+                        assertTrue(
+                            contrast(colourOf(style(child).color), background) >= 4.5,
+                            "$theme: text-danger child ${style(child).color}",
+                        )
+                        cell.classList.add("text-danger")
+                        assertTrue(
+                            contrast(colourOf(style(cell).color), background) >= 4.5,
+                            "$theme: text-danger cell ${style(cell).color}",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     fun captionStandsAboveTheTable() {
         assertTrue(stylesLoaded)
@@ -141,6 +211,19 @@ class ReportRowStyleDomTest {
         }
     }
 
+    /** A `<span class=[classes]>` appended to [cell] (a stand-in for `text-danger` amounts and status badges in table cells). */
+    private fun appendDanger(
+        cell: HTMLElement,
+        tag: String,
+        classes: String,
+    ): HTMLElement {
+        val element = document.createElement(tag) as HTMLElement
+        element.className = classes
+        element.textContent = "x"
+        cell.appendChild(element)
+        return element
+    }
+
     private fun rows(root: HTMLElement): List<HTMLElement> {
         val all = root.querySelectorAll("tbody > tr")
         return (0 until all.length).map { all.item(it) as HTMLElement }
@@ -174,9 +257,11 @@ class ReportRowStyleDomTest {
 
             // WCAG 1.4.3: the label and a warn-red amount stay readable on the sum row's own surface ...
             assertTrue(contrast(colourOf(style(sumCell).getPropertyValue("color")), sumBackground) >= 4.5, "$theme: text on the sum row")
-            val danger = style(sum).getPropertyValue("--bs-danger-rgb").trim()
-            assertTrue(danger.isNotEmpty(), "$theme: the warn colour of the sum row is not defined")
-            assertTrue(contrast(colourOf("rgb($danger)"), sumBackground) >= 4.5, "$theme: warn-red amount on the sum row ($danger)")
+            val danger = appendDanger(sumCell, "span", "text-danger")
+            assertTrue(
+                contrast(colourOf(style(danger).color), sumBackground) >= 4.5,
+                "$theme: warn-red amount on the sum row (${style(danger).color})",
+            )
             // ... and WCAG 1.4.11: the top rule is a non-text contrast of 3:1 against BOTH neighbours (the row above and its own surface)
             val rule = colourOf(style(sumCell).borderTopColor)
             assertEquals("2px", style(sumCell).borderTopWidth, "$theme: the sum row's strong top line is missing")

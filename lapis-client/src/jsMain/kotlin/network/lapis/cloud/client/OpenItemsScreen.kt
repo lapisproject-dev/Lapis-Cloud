@@ -10,7 +10,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.html.span
@@ -119,7 +118,7 @@ fun renderOpenItemsScreen(
     selectedItemId: String? = null,
 ) {
     val root = container.dataScreenRoot()
-    root.h1(tr("Offene Posten"))
+    root.pageHeader(tr("Offene Posten"))
 
     val role = AppState.session?.role
     val canWrite = OpenItemAuthzUi.canWrite(role)

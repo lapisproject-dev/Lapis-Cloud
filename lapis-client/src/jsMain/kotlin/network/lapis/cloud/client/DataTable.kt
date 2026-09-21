@@ -110,6 +110,28 @@ fun <R> Container.dataTable(
         viewport = BrowserNarrowViewport,
     )
 
+/**
+ * [dataTable] for a plain read-only table (no sort, no actions) with an injectable [viewport]: the seam the screen-level table tests
+ * use to render the table AND the card list without resizing the browser (`PseudoTableGoldenDomTest`).
+ */
+internal fun <R> Container.plainDataTable(
+    columns: List<DataColumn<R>>,
+    rows: List<R>,
+    viewport: NarrowViewportSource = BrowserNarrowViewport,
+    label: String? = null,
+): SimplePanel =
+    dataTableWith(
+        columns = columns,
+        rows = rows,
+        sort = null,
+        onSort = null,
+        sortOptions = SortOptions(),
+        actions = null,
+        focusSortKey = null,
+        viewport = viewport,
+        label = label,
+    )
+
 /** [dataTable] with an injectable [viewport] -- the seam the widget tests use. */
 internal fun <R> Container.dataTableWith(
     columns: List<DataColumn<R>>,
@@ -120,6 +142,7 @@ internal fun <R> Container.dataTableWith(
     actions: ((Container, R) -> Unit)?,
     focusSortKey: String?,
     viewport: NarrowViewportSource,
+    label: String? = null,
 ): SimplePanel {
     require(columns.isNotEmpty()) { "a data table needs at least one column" }
     // Validates the primary flags eagerly, in both modes (a second primary is a programming error).
@@ -137,7 +160,7 @@ internal fun <R> Container.dataTableWith(
             host.headerCells = emptyList()
             host.cardMode = cardMode
             if (cardMode) {
-                host.renderCardList(columns, rows, layout, actions)
+                host.renderCardList(columns, rows, layout, actions, label)
             } else {
                 host.renderTableMode(
                     columns = columns,
@@ -147,6 +170,7 @@ internal fun <R> Container.dataTableWith(
                     sortOptions = sortOptions,
                     actions = actions,
                     focus = FocusRequest(key = { pendingFocus }, consumed = { pendingFocus = null }),
+                    label = label,
                 )
             }
         }
@@ -221,8 +245,12 @@ private fun <R> DataTablePanel.renderTableMode(
     sortOptions: SortOptions,
     actions: ((Container, R) -> Unit)?,
     focus: FocusRequest,
+    label: String?,
 ) {
     val table = standardTable(headers = emptyList())
+    // An accessible name for the table (audit fix): the screen's own heading is not associated with it. `label` is a resolved
+    // `gettext(...)` text -- never a `tr(...)` marker string in an attribute.
+    if (label != null) table.setAttribute("aria-label", label)
     val created = mutableListOf<HeaderCell>()
 
     fun addHeader(cell: HeaderCell) {
@@ -312,9 +340,11 @@ private fun <R> SimplePanel.renderCardList(
     rows: List<R>,
     layout: CardLayout,
     actions: ((Container, R) -> Unit)?,
+    label: String?,
 ) {
     val list = div { addCssClass("lapis-card-list") }
     list.setAttribute("role", "list")
+    if (label != null) list.setAttribute("aria-label", label)
     rows.forEach { data ->
         val card = list.div { addCssClass("lapis-data-card") }
         card.setAttribute("role", "listitem")

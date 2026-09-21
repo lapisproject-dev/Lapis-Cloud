@@ -6,7 +6,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -42,7 +41,7 @@ fun renderFriendRegistrationScreen(container: SimplePanel) {
     // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
     // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
     root.brandLockup()
-    root.h1(tr("Freund-Konto anlegen"))
+    root.pageHeader(tr("Freund-Konto anlegen"))
     root.p(
         tr(
             "Ein Freund-Konto ist keine Mitgliedschaft -- es dient ausschließlich der Teilnahme an " +
@@ -62,7 +61,7 @@ private fun renderFriendRegistrationForm(
     root: SimplePanel,
     terms: FriendTermsDto,
 ) {
-    root.h2(gettext("Nutzungsbedingungen fuer Freund-Konten (Version %1)", terms.version))
+    root.h2(gettext("Nutzungsbedingungen fuer Freund-Konten (Version %1)", terms.version)) { addCssClass("h5") }
     root.div {
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 240.px
@@ -158,7 +157,7 @@ private fun renderFriendRegistrationConfirmation(root: SimplePanel) {
     // renderFriendRegistrationScreen too -- re-add it here, this is the SAME card, a follow-up
     // state, not a new screen (S13).
     root.brandLockup()
-    root.h1(tr("Freund-Konto angelegt"))
+    root.pageHeader(tr("Freund-Konto angelegt"))
     root.p(
         tr(
             "Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort " +

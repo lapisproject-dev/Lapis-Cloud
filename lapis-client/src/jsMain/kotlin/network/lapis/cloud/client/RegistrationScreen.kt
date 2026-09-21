@@ -6,7 +6,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -43,7 +42,7 @@ fun renderRegistrationScreen(container: SimplePanel) {
     // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
     // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
     root.brandLockup()
-    root.h1(tr("Mitglied werden"))
+    root.pageHeader(tr("Mitglied werden"))
     val loadingNotice = root.p(tr("Beitrittsvertrag wird geladen ..."))
 
     AppScope.launch {
@@ -57,7 +56,7 @@ private fun renderRegistrationForm(
     root: SimplePanel,
     agreement: MembershipAgreementDto,
 ) {
-    root.h2(gettext("Beitrittsvertrag (Version %1)", agreement.version))
+    root.h2(gettext("Beitrittsvertrag (Version %1)", agreement.version)) { addCssClass("h5") }
     root.div {
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 240.px
@@ -154,7 +153,7 @@ private fun renderRegistrationPending(root: SimplePanel) {
     // V1.4.7: root.removeAll() (caller) cleared the lockup added in renderRegistrationScreen too --
     // re-add it here, this is the SAME card, a follow-up state, not a new screen (S13).
     root.brandLockup()
-    root.h1(tr("Antrag eingereicht"))
+    root.pageHeader(tr("Antrag eingereicht"))
     root.p(
         tr(
             "Ihr Mitgliedschaftsantrag wurde eingereicht und wird vom Vorstand geprüft. " +

@@ -47,8 +47,21 @@ class BackupRestoreDomTest {
 
     /** The confirm modal, once Bootstrap really shows it (a click before that would hide a modal that is not yet shown). */
     private suspend fun shownConfirmModal(): HTMLElement {
-        awaitUntil("the confirm modal is shown") { document.querySelectorAll(".modal.show").length > 0 }
-        return lastModal()
+        // The SHOWN modal that carries THIS dialog's confirm button -- not just "some modal is shown": a stale, still shown modal of another
+        // test class would satisfy the weaker wait and `lastModal()` could then return a modal that has not been built yet (a flake under load).
+        fun mine(): HTMLElement? =
+            (0 until document.querySelectorAll(".modal.show").length)
+                .map { document.querySelectorAll(".modal.show").item(it) as HTMLElement }
+                .firstOrNull { modal ->
+                    modal.querySelectorAll("button").let { b ->
+                        (0 until b.length).any {
+                            (b.item(it)?.textContent?.trim()) ==
+                                "Endgültig wiederherstellen"
+                        }
+                    }
+                }
+        awaitUntil("the confirm modal is shown") { mine() != null }
+        return mine()!!
     }
 
     private fun lastModal(): HTMLElement {
@@ -64,6 +77,12 @@ class BackupRestoreDomTest {
             withFetchStub { calls ->
                 withMountedRoot("backup-no-file") { root, element ->
                     renderBackupScreen(root)
+                    awaitUntil("the restore button is rendered") {
+                        element().all("button").any {
+                            it.textContent?.trim() ==
+                                "Wiederherstellen"
+                        }
+                    }
                     element().button("Wiederherstellen").click()
                     assertEquals("Bitte eine Datei auswählen.", element().first(".lapis-field-error--shown").textContent?.trim())
                     assertEquals(0, document.querySelectorAll(".modal").length, "no confirmation dialog without a file")
@@ -86,6 +105,12 @@ class BackupRestoreDomTest {
                     renderBackupScreen(root)
                     val fileInput = element().first("input[type=file]") as HTMLInputElement
                     chooseFile(fileInput)
+                    awaitUntil("the restore button is rendered") {
+                        element().all("button").any {
+                            it.textContent?.trim() ==
+                                "Wiederherstellen"
+                        }
+                    }
                     val restore = element().button("Wiederherstellen")
                     restore.click()
                     shownConfirmModal().button("Endgültig wiederherstellen").click()
@@ -142,6 +167,12 @@ class BackupRestoreDomTest {
                     renderBackupScreen(root)
                     val fileInput = element().first("input[type=file]") as HTMLInputElement
                     chooseFile(fileInput)
+                    awaitUntil("the restore button is rendered") {
+                        element().all("button").any {
+                            it.textContent?.trim() ==
+                                "Wiederherstellen"
+                        }
+                    }
                     element().button("Wiederherstellen").click()
                     shownConfirmModal().button("Endgültig wiederherstellen").click()
                     awaitUntil("restore request") { calls.any { it.url.contains("/api/backup/restore") } }

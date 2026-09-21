@@ -53,3 +53,19 @@ internal fun <T> withTranslations(
         I18n.manager = previous
     }
 }
+
+/** [withTranslations] for a suspending [block] (a DOM test that awaits a stubbed RPC while the catalog must stay installed). */
+internal suspend fun <T> withTranslationsAsync(
+    entries: Map<String, String>,
+    block: suspend () -> T,
+): T {
+    val previous = I18n.manager
+    val catalog = js("({})")
+    entries.forEach { (key, value) -> catalog[key] = value }
+    I18n.manager = I18nCatalogManager(mapOf(I18n.language to catalog))
+    try {
+        return block()
+    } finally {
+        I18n.manager = previous
+    }
+}

@@ -160,57 +160,11 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                         "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
                     ),
             ),
-        // Welle V1.4.27 (W3): the pseudo-table columns (`width = N.px` on a row/header cell). The report and list
-        // screens of W3 pay their lines off as they are migrated. What stays afterwards is NOT "form screens" (audit
-        // finding B1): AuctionScreen, CrowdfundingScreen and PoliticianScreen are HAND-BUILT PSEUDO-TABLES (header row plus
-        // one `hPanel` row per entry with fixed column widths) that W3 did not reach -- they belong to a remainder wave
-        // ("Restwelle"; the guideline names W5 for the social/economy screens) and become `dataTable`/`reportTable`
-        // there. Only SocialNetworkScreen's line is a genuine form field (the boost amount input), not a table.
-        R55 to
-            mapOf(
-                // Pseudo-table (bids list) -> remainder wave (W5).
-                "AuctionScreen.kt" to
-                    listOf(
-                        "headerRow.div(tr(\"Ihr Höchstgebot\")) { width = 140.px }",
-                        "headerRow.div(tr(\"Führend\")) { width = 90.px }",
-                        "headerRow.div(tr(\"Status\")) { width = 160.px }",
-                        "headerRow.div(tr(\"Abgegeben\")) { width = 160.px }",
-                        "val bidCell = row.div { width = 140.px }",
-                        "row.div(if (bid.isCurrentLeader) tr(\"Ja\") else tr(\"Nein\")) { width = 90.px }",
-                        "val statusCell = row.div { width = 160.px }",
-                        "width = 160.px",
-                    ),
-                // Pseudo-table (distribution history) -> remainder wave (W5).
-                "CrowdfundingScreen.kt" to
-                    listOf(
-                        "headerRow.div(tr(\"Zeitraum\")) { width = 200.px }",
-                        "headerRow.div(tr(\"Korb\")) { width = 70.px }",
-                        "headerRow.div(tr(\"Betrag\")) { width = 120.px }",
-                        "headerRow.div(tr(\"Berechnet\")) { width = 220.px }",
-                        "width = 200.px",
-                        "row.div(d.basketTotalAtDistribution.toString()) { width = 70.px }",
-                        "val amountCell = row.div { width = 120.px }",
-                        "width = 220.px",
-                    ),
-                // Pseudo-tables (ranking, monthly weight snapshots) -> remainder wave (W5).
-                "PoliticianScreen.kt" to
-                    listOf(
-                        "row.div(\"\${index + 1}.\") { width = 24.px }",
-                        "headerRow.div(tr(\"Monat\")) { width = 100.px }",
-                        "headerRow.div(tr(\"Mitglieder-Gewicht\")) { width = 160.px }",
-                        "headerRow.div(tr(\"Gast-Gewicht\")) { width = 110.px }",
-                        "headerRow.div(tr(\"Gesamt\")) { width = 90.px }",
-                        "row.div(snapshot.periodMonth.toString()) { width = 100.px }",
-                        "val memberCell = row.div { width = 160.px }",
-                        "width = 110.px",
-                        "width = 90.px",
-                    ),
-                // NOT a table: one genuine form field (fixed-width amount input) -> form wave (W4).
-                "SocialNetworkScreen.kt" to
-                    listOf(
-                        "val amountInput = row.text(label = tr(\"Boost-Betrag (LTR)\")) { width = 140.px }",
-                    ),
-            ),
+        // Welle V1.4.27 (W3) / V1.4.31 (W5): the pseudo-table columns (`width = N.px` on a row/header cell). W5 paid off the last
+        // four ledger entries: AuctionScreen, CrowdfundingScreen and PoliticianScreen became `dataTable`s
+        // (PseudoTableGoldenDomTest), and SocialNetworkScreen's boost amount input (a form field, not a table) lost its fixed width.
+        // The ledger is EMPTY: any `width = N.px` in the client is a new finding.
+        R55 to emptyMap(),
     )
 
 // ── scanning primitives ───────────────────────────────────────────────────────────────────────────────
@@ -444,6 +398,11 @@ internal fun unguardedWriteLaunchFindings(text: String): List<String> {
 }
 
 /**
+ * SCOPE, stated honestly (audit V1.4.31): the scan covers only the files in [R24_MIGRATED] (32 of the 170 client files). In the whole client
+ * about 190 of 403 writing `AppScope.launch` blocks are unguarded (`ConferenceScreen` 21, `AuctionScreen`/`ContributionsScreen`/`PoliticianScreen` 8 each);
+ * the number 39 below is NOT "the unguarded writes of the client". The three irreversible paths of the audit (membership exit, member card,
+ * document delete) are in unmigrated files and are guarded and tested separately (`WritePathsSingleShotDomTest`).
+ *
  * The baseline: unguarded writing launches in the migrated files, by file (V1.4.29 audit). NOT a list of justified exemptions -- a list
  * of things nobody has judged yet (many are a one-click toggle whose second call is harmless, or sit behind a confirmation dialog
  * that is one-shot now). The number may only go down; a migrated file that gains a writing launch fails the count.
@@ -1309,6 +1268,54 @@ class ClientUiGuidelineTripwireTest :
                     .flatMap { selectorsOf(it) }
             (".btn:not(.btn-link)" in coarse) shouldBe true
             (".btn" in coarse) shouldBe false
+        }
+
+        test("W5: controls outside .lapis-form get the coarse-pointer 44 px target, and the form grammar's own rules are not touched") {
+            val coarse =
+                parseCssRules(THEME_CSS.readText())
+                    .filter { "@media (pointer: coarse)" in it.atRules }
+                    .flatMap { selectorsOf(it) }
+            // Audit fix: no `:not(.lapis-form *)` any more (complex :not() is not reliable before Safari 16.4) -- the generic rules apply everywhere and
+            // the more specific `.lapis-form` rules below them win with the same values.
+            coarse.none { it.contains(":not(.lapis-form") } shouldBe true
+            (".form-control" in coarse) shouldBe true
+            (".form-select" in coarse) shouldBe true
+            (".form-check" in coarse) shouldBe true
+            (".lapis-form .form-check .form-check-input" in coarse) shouldBe true
+        }
+
+        test("audit M8: the remaining Bootstrap controls reach 44 px under pointer: coarse, and the skip link is not blown up at rest") {
+            val rules = parseCssRules(THEME_CSS.readText()).filter { "@media (pointer: coarse)" in it.atRules }
+            val touch = rules.filter { "min-height: 44px" in it.body }.flatMap { selectorsOf(it) }
+            listOf(".btn-close", ".dropdown-item", ".navbar .nav-link", ".btn-link.lapis-icon-only").forEach { (it in touch) shouldBe true }
+            // `.btn:not(.btn-link)` reaches the skip link (a `.btn`): at rest it must stay 1 x 1 px, so a later rule resets it
+            val reset = rules.filter { "min-height: 0" in it.body && "min-width: 0" in it.body }.flatMap { selectorsOf(it) }
+            (".lapis-skip-link:not(:focus)" in reset) shouldBe true
+        }
+
+        test(
+            "audit B1: text-danger in table cells reads the calibrated red as a TEXT rule -- the inherited --bs-danger-rgb is NOT overridden",
+        ) {
+            val css = THEME_CSS.readText()
+            val rules = parseCssRules(css)
+            // The variable override leaked into `.text-bg-danger` (badge surface = RGBA(var(--bs-danger-rgb))): dark-mode badges became pale (2.53:1).
+            rules.filter { "--bs-danger-rgb" in it.body }.flatMap { selectorsOf(it) } shouldBe emptyList()
+            val textRule = rules.filter { "--lapis-total-danger-rgb" in it.body && "color:" in it.body }.flatMap { selectorsOf(it) }
+            listOf(
+                ".table > tbody > tr > td.text-danger",
+                ".table > tbody > tr > th.text-danger",
+                ".table > tbody > tr > td .text-danger",
+                ".table > tbody > tr > th .text-danger",
+            ).forEach { (it in textRule) shouldBe true }
+            css.contains("--bs-danger-rgb: var(--lapis-total-danger-rgb)") shouldBe false
+        }
+
+        test("W5: the invalid icon no longer ignores --lapis-invalid, in every field with .is-invalid (not only inside .lapis-form)") {
+            val rules = parseCssRules(THEME_CSS.readText())
+            val noIcon = rules.filter { "background-image: none" in it.body }.flatMap { selectorsOf(it) }
+            (("html .form-control.is-invalid") in noIcon) shouldBe true
+            // The select keeps its chevron: no `background-image: none` there.
+            (("html .form-select.is-invalid:not([multiple]):not([size])") in noIcon) shouldBe false
         }
 
         test("the new colour tokens exist in all three blocks") {

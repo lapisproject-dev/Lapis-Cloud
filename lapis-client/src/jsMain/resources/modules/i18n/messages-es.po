@@ -970,7 +970,7 @@ msgstr "%1 respuestas · %2 impulsos"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:111
 msgid "%1 bis %2"
-msgstr ""
+msgstr "%1 a %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:225
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:226
@@ -1101,7 +1101,7 @@ msgstr "%1 ha sido admitido."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:209
 msgid "%1–%2"
-msgstr ""
+msgstr "%1–%2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1252
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2672
@@ -1157,14 +1157,6 @@ msgstr "◆ Transmisión en directo %1 → %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3976
 msgid "● Aufzeichnung läuft"
 msgstr "● Grabación en curso"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:203
-msgid "✓ Kette intakt"
-msgstr "✓ Cadena íntegra"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:229
-msgid "✗ Kette gebrochen bei Sequenznummer %1"
-msgstr "✗ Cadena rota en el número de secuencia %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:750
 msgid "1 Buchungszeile"
@@ -1310,7 +1302,7 @@ msgstr "Contabilizar"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:374
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:379
 msgid "Absagen"
-msgstr "Cancelar"
+msgstr "Suspender"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:559
 msgid "Absender"
@@ -1335,7 +1327,7 @@ msgstr "Administración"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:77
 msgid "Administrator"
-msgstr ""
+msgstr "Administrador"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:92
 msgid "Akteur-Mitglieds-ID (optional)"
@@ -2147,7 +2139,7 @@ msgstr "Cuenta bancaria"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:529
 msgid "Bankkonto (LedgerAccount-ID)"
-msgstr ""
+msgstr "Cuenta bancaria (ID de cuenta contable)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:635
 msgid "Beantragen"
@@ -2264,7 +2256,7 @@ msgstr "Vocalía"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:79
 msgid "Beitrag"
-msgstr ""
+msgstr "Cuota"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:716
 msgid "Beitrag (Soziales Netzwerk)"
@@ -2354,7 +2346,7 @@ msgstr "Cuenta de ingresos por cuotas"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:532
 msgid "Beitragserlöskonto (LedgerAccount-ID)"
-msgstr ""
+msgstr "Cuenta de ingresos por cuotas (ID de cuenta contable)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:228
 msgid "Beitragsrechnung %1–%2"
@@ -2708,7 +2700,7 @@ msgid ""
 "Bitcoin nutzt drei kostenlose, schlüssellose Quellen (Coinbase/Kraken/"
 "Bitstamp). Mindest-Quorum: %1. Kein Refresh-Intervall -- jede Anfrage ruft "
 "live ab."
-msgstr ""
+msgstr "Bitcoin utiliza tres fuentes gratuitas y sin clave (Coinbase/Kraken/Bitstamp). Quórum mínimo: %1. Sin intervalo de actualización: cada consulta obtiene los datos en directo."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3574
 msgid "Bitte 1 bis %1 Ziele auswählen."
@@ -2723,7 +2715,7 @@ msgid ""
 "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und "
 "mindestens %1s (Refresh-Intervall für %2), Mindest-Quorum mindestens %3, "
 "Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
-msgstr ""
+msgstr "Rellene todos los campos correctamente: peg positivo, TTL de caché positivo y de al menos %1 s (intervalo de actualización para %2), quórum mínimo de al menos %3, umbral de valores atípicos 1-10000 pb, diferencial máx. >= umbral de valores atípicos."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:550
 msgid ""
@@ -3740,10 +3732,6 @@ msgstr "Esta transferencia es DEFINITIVA y no se puede revocar."
 msgid "Diese Wiederherstellung ist NICHT rückgängig zu machen."
 msgstr "Esta restauración NO se puede deshacer."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:708
-msgid "Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:"
-msgstr "Esta moción tiene %1 pendiente(s) que debe(n) decidirse primero:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:785
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:825
 msgid "Dieser Beitrag ist nicht (mehr) verfügbar."
@@ -4510,7 +4498,7 @@ msgid ""
 "Fiat ist an den Euro gebunden (1 Anker-Einheit = 1 EUR) und nutzt die EZB-"
 "Referenzkurse als einzige Quelle (Mindest-Quorum: %1). Preise werden "
 "höchstens alle %2s neu abgerufen (empfohlene Cache-TTL: %3s)."
-msgstr ""
+msgstr "Fiat está vinculado al euro (1 unidad de ancla = 1 EUR) y utiliza los tipos de referencia del BCE como única fuente (quórum mínimo: %1). Los precios se consultan de nuevo como máximo cada %2 s (TTL de caché recomendado: %3 s)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:131
 msgid "Filter: Referenztyp"
@@ -4727,7 +4715,7 @@ msgstr "Cuenta de comisiones"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:530
 msgid "Gebührenkonto (LedgerAccount-ID)"
-msgstr ""
+msgstr "Cuenta de comisiones (ID de cuenta contable)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:389
 msgid "Geburtsdatum"
@@ -4816,7 +4804,7 @@ msgstr "Ejercicio %1 · %2 a %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:625
 msgid "Geschätzt: ca. %1 (kann beim Bestätigen leicht abweichen)."
-msgstr ""
+msgstr "Estimado: aprox. %1 (puede variar ligeramente al confirmar)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:734
 msgid "Geschätzte Anzahl betroffener Personen (optional)"
@@ -4906,7 +4894,7 @@ msgid ""
 "LAPIS_ORACLE_METALPRICEAPI_KEY, LAPIS_ORACLE_ALPHAVANTAGE_KEY); mit allen "
 "dreien bleibt der Anker auch beim Ausfall einer Quelle verfügbar. Preise "
 "werden höchstens alle %2s neu abgerufen (empfohlene Cache-TTL: %3s)."
-msgstr ""
+msgstr "El oro (XAU) necesita al menos %1 de tres claves de API de fuentes de precios configuradas en el servidor (LAPIS_ORACLE_GOLDAPI_KEY, LAPIS_ORACLE_METALPRICEAPI_KEY, LAPIS_ORACLE_ALPHAVANTAGE_KEY); con las tres, el ancla sigue disponible aunque falle una fuente. Los precios se consultan de nuevo como máximo cada %2 s (TTL de caché recomendado: %3 s)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:318
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:65
@@ -6274,7 +6262,7 @@ msgstr "Cuórum mínimo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:271
 msgid "Mindest-Quorum (Quellen)"
-msgstr ""
+msgstr "Quórum mínimo (fuentes)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/Validation.kt:38
 msgid "Mindestens %1 Zeichen."
@@ -6715,7 +6703,7 @@ msgstr "No encontrado."
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:530
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:533
 msgid "nicht konfiguriert"
-msgstr ""
+msgstr "no configurado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:277
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:297
@@ -7048,7 +7036,7 @@ msgstr "Crear carpeta"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:84
 msgid "Organisationseinstellungen"
-msgstr ""
+msgstr "Configuración de la organización"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:442
 msgid "Ort"
@@ -7596,13 +7584,13 @@ msgstr "Importe del daño"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:76
 msgid "Schatzmeister"
-msgstr ""
+msgstr "Tesorero"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:629
 msgid ""
 "Schätzung nicht verfügbar (Orakel angehalten oder Kurs konnte nicht "
 "abgerufen werden)."
-msgstr ""
+msgstr "Estimación no disponible (oráculo en pausa o no se pudo obtener el tipo)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:721
 msgid "Schenkung"
@@ -7725,7 +7713,7 @@ msgstr "La domiciliación SEPA no está activada para esta organización."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:88
 msgid "SEPA-Lastschriftlauf"
-msgstr ""
+msgstr "Remesa de adeudo directo SEPA"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandateSection.kt:62
 msgid "SEPA-Lastschriftmandat"
@@ -7733,7 +7721,7 @@ msgstr "Mandato de domiciliación SEPA"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:87
 msgid "SEPA-Mandat"
-msgstr ""
+msgstr "Mandato SEPA"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:367
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaMandatesScreen.kt:38
@@ -8026,15 +8014,7 @@ msgid ""
 "echte Unterbrechung -- YouTube kann die Übertragung beenden, sodass ein "
 "neuer Link nötig wird. Voraussetzung: dieser Raum ist einer Sitzung "
 "zugeordnet."
-msgstr ""
-"En cuanto se abra una votación secreta desde esta sesión, el servidor "
-"interrumpirá automáticamente la transmisión y la reanudará por sí solo al "
-"finalizar la votación. Mientras una votación secreta esté en curso o a punto "
-"de comenzar, nadie -- ni siquiera quien creó la sala -- puede cambiar o "
-"eliminar esta vinculación; solo la Junta/Administración pueden modificarla "
-"fuera de esos periodos. La plataforma de destino verá una interrupción real "
-"-- YouTube puede finalizar la transmisión, requiriendo un nuevo enlace. "
-"Requisito previo: esta sala debe estar vinculada a una sesión."
+msgstr "En cuanto se abra una votación secreta desde esta sesión, el servidor interrumpirá automáticamente la transmisión y la reanudará por sí solo al finalizar la votación. Mientras una votación secreta esté en curso o a punto de comenzar, nadie -- ni siquiera quien creó la sala -- puede cambiar o eliminar esta vinculación; solo la junta directiva/la administración pueden modificarla fuera de esos periodos. La plataforma de destino verá una interrupción real -- YouTube puede finalizar la transmisión, requiriendo un nuevo enlace. Requisito previo: esta sala debe estar vinculada a una sesión."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:668
 msgid "Sofort kaufen"
@@ -8463,7 +8443,7 @@ msgstr "Participantes"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2301
 msgid "Teilnehmende (%1)"
-msgstr ""
+msgstr "Participantes (%1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:917
 msgid "Teilnehmende: %1"
@@ -8846,7 +8826,7 @@ msgid ""
 "(konfigurierbar: Bitcoin, Gold oder Fiat/Euro) und bucht eingegangene "
 "Spenden als LTR-Mint. Sichtbar für TREASURER/BOARD/ADMIN, "
 "Konfigurationsänderungen nur für ADMIN."
-msgstr ""
+msgstr "Gestiona la vinculación de anclaje del Libertaler (LTR) a un activo real (configurable: Bitcoin, oro o fiat/euro) y contabiliza las donaciones recibidas como emisión de LTR. Visible para TREASURER/BOARD/ADMIN; los cambios de configuración, solo para ADMIN."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:216
@@ -8882,15 +8862,15 @@ msgstr "Cuenta de resultados de las cuatro esferas"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2335
 msgid "Vollbild"
-msgstr ""
+msgstr "Pantalla completa"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2335
 msgid "Vollbild beenden"
-msgstr ""
+msgstr "Salir de pantalla completa"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3045
 msgid "Vollbildmodus wurde vom Browser abgelehnt."
-msgstr ""
+msgstr "El navegador rechazó el modo de pantalla completa."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:125
 msgid "Vollständigen Datenexport herunterladen (JSON)"
@@ -9970,7 +9950,7 @@ msgstr "Cumpleaños y aniversarios"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Bevorstehende Geburtstage und Mitgliedschafts-/Förderer-Jubiläen -- eine gemeinsame, chronologische Liste für den Vorstand."
-msgstr "Próximos cumpleaños y aniversarios de membresía/donante -- una lista cronológica única para la junta directiva."
+msgstr "Próximos cumpleaños y aniversarios de membresía/colaborador -- una lista cronológica única para la junta directiva."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "%1 Tage"
@@ -10006,7 +9986,7 @@ msgstr "cumple %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "%1 Jahre Förderer"
-msgstr "%1 años como donante"
+msgstr "%1 años como colaborador"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "%1 Jahre Mitgliedschaft"
@@ -13646,3 +13626,1675 @@ msgstr "-- Seleccionar posición --"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:1
 msgid "Betroffene Zeile: %1"
 msgstr "Línea afectada: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:1
+msgid "Zum Inhalt springen"
+msgstr "Saltar al contenido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrungen & Auszeichnungen"
+msgstr "Distinciones y premios"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:1
+msgid "Veranstaltungs-Check-in"
+msgstr "Registro de asistencia al evento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:1
+msgid "Rang"
+msgstr "Puesto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:1
+msgid "Keine USt-Einordnung"
+msgstr "Sin clasificación de IVA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:1
+msgid "nicht steuerbar"
+msgstr "no sujeto a impuesto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:1
+msgid "0 %"
+msgstr "0 %"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:1
+msgid "7 %"
+msgstr "7 %"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:1
+msgid "19 %"
+msgstr "19 %"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:1
+msgid "Kontonummer enthält unzulässige Zeichen"
+msgstr "El número de cuenta contiene caracteres no válidos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:1
+msgid "Menü"
+msgstr "Menú"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:1
+msgid "Mein Konto"
+msgstr "Mi cuenta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:1
+msgid "Die Wertobergrenze wird auf %1 gesetzt -- neue Angebote dürfen diesen Wert nicht überschreiten."
+msgstr "El límite de valor se fija en %1: las nuevas ofertas no pueden superar este valor."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Kette intakt"
+msgstr "Cadena intacta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Kette gebrochen bei Sequenznummer %1"
+msgstr "Cadena rota en el número de secuencia %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Anbieter"
+msgstr "Proveedor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Beitrag (ID)"
+msgstr "Cuota (ID)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Journalbuchung (ID)"
+msgstr "Asiento contable (ID)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:1
+msgid "Arbeitsgruppe"
+msgstr "Grupo de trabajo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:1
+msgid "Kommission"
+msgstr "Comisión"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:1
+msgid "Mitgliederversammlung"
+msgstr "Asamblea general"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Zurückgenommen"
+msgstr "Retirado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Zahlungseingang"
+msgstr "Cobro recibido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Kontoauszugs-Import"
+msgstr "Importación de extractos bancarios"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Buchhaltungs-Export-Verbindung"
+msgstr "Conexión de exportación contable"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Buchhaltungs-Export-Lauf"
+msgstr "Ejecución de exportación contable"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Buchhaltungs-Export-Zuordnung"
+msgstr "Asignación de exportación contable"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Beitragsvergünstigung"
+msgstr "Reducción de cuota"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Ehrenamtspauschale"
+msgstr "Compensación de voluntariado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Ehrenamtspauschalen-Erklärung"
+msgstr "Declaración de compensación de voluntariado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Offener Posten"
+msgstr "Partida abierta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:1
+msgid "Mahnung (Debitor)"
+msgstr "Reclamación (deudor)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:1
+msgid "Dieser Block wurde von jemandem entfernt."
+msgstr "Alguien eliminó este bloque."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Aufzeichnung löschen"
+msgstr "Eliminar grabación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die fehlgeschlagene Aufzeichnung von \"%1\" wirklich löschen? Der Eintrag verschwindet endgültig aus dieser Liste, und die Rohaufnahmen werden dabei unwiderruflich von der Festplatte entfernt. Es gibt keine archivierte Videodatei, auf die stattdessen zurückgegriffen werden könnte -- auch die Administration kann diese Aufzeichnung danach nicht mehr wiederherstellen."
+msgstr "¿Eliminar realmente la grabación fallida de \"%1\"? La entrada desaparece definitivamente de esta lista y las grabaciones originales se borran del disco de forma irreversible. No hay ningún archivo de vídeo archivado al que recurrir: ni siquiera la administración podrá restaurar esta grabación después."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wirklich löschen? Der Eintrag verschwindet endgültig aus dieser Liste, und die Rohaufnahmen werden dabei unwiderruflich von der Festplatte entfernt; die archivierte Videodatei bleibt in der Dokumentenablage als gelöscht markiert erhalten und kann nur noch von der Administration wiederhergestellt werden."
+msgstr "¿Eliminar realmente la grabación de \"%1\"? La entrada desaparece definitivamente de esta lista y las grabaciones originales se borran del disco de forma irreversible; el archivo de vídeo archivado permanece en el archivo de documentos marcado como eliminado y solo la administración puede restaurarlo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Aufzeichnung gelöscht."
+msgstr "Grabación eliminada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Geräte:"
+msgstr "Dispositivos:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Mikrofon"
+msgstr "Micrófono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Kamera"
+msgstr "Cámara"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Lautsprecher"
+msgstr "Altavoz"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Einladung in die Zwischenablage kopiert."
+msgstr "Invitación copiada al portapapeles."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Aufzeichnung ist bereit."
+msgstr "La grabación está lista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Aufzeichnung fehlgeschlagen."
+msgstr "La grabación ha fallado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Chat, %1 ungelesene Nachrichten"
+msgstr "Chat, %1 mensajes sin leer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Teilnehmende, %1"
+msgstr "Participantes, %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Mehr"
+msgstr "Más"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Mikrofon ausschalten"
+msgstr "Apagar el micrófono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Mikrofon einschalten"
+msgstr "Encender el micrófono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Kamera ausschalten"
+msgstr "Apagar la cámara"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Kamera einschalten"
+msgstr "Encender la cámara"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Die Besprechung wurde beendet oder die Verbindung getrennt."
+msgstr "La reunión ha terminado o se ha perdido la conexión."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 %2"
+msgstr "%1 %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Das Mikrofon"
+msgstr "el micrófono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Die Kamera"
+msgstr "la cámara"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "Der Lautsprecher"
+msgstr "el altavoz"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht gewechselt werden -- der Browser hat den Zugriff verweigert."
+msgstr "No se pudo cambiar %1: el navegador denegó el acceso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht gewechselt werden -- das Gerät wurde nicht gefunden."
+msgstr "No se pudo cambiar %1: no se encontró el dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht gewechselt werden -- das Gerät wird bereits von einer anderen Anwendung verwendet."
+msgstr "No se pudo cambiar %1: otra aplicación ya está usando el dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht gewechselt werden."
+msgstr "No se pudo cambiar %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht aktiviert werden -- der Browser hat den Zugriff verweigert."
+msgstr "No se pudo activar %1: el navegador denegó el acceso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht aktiviert werden -- das Gerät wurde nicht gefunden."
+msgstr "No se pudo activar %1: no se encontró el dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht aktiviert werden -- das Gerät wird bereits von einer anderen Anwendung verwendet."
+msgstr "No se pudo activar %1: otra aplicación ya está usando el dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 konnte nicht aktiviert werden."
+msgstr "No se pudo activar %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
+msgid "%1 ist nicht mehr verfügbar -- es wurde ein anderes Gerät ausgewählt."
+msgstr "Ya no está disponible %1: se ha seleccionado otro dispositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:1
+msgid "Digitaler Mitgliedsausweis"
+msgstr "Carné de socio digital"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:1
+msgid "Der Ausweis ist im Scheckkartenformat und traegt einen QR-Code, ueber den die Mitgliedschaft geprueft werden kann."
+msgstr "El carné tiene formato de tarjeta de crédito y lleva un código QR con el que se puede comprobar la pertenencia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:1
+msgid "Mitgliedsausweis herunterladen"
+msgstr "Descargar carné de socio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:1
+msgid "Beim Herunterladen wird ein neuer Ausweis ausgestellt. Ein frueher heruntergeladener oder ausgedruckter Ausweis verliert damit seine Gueltigkeit."
+msgstr "Al descargarlo se emite un carné nuevo. Un carné descargado o impreso anteriormente pierde así su validez."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:1
+msgid "Dokumente in diesem Ordner durchsuchen"
+msgstr "Buscar documentos en esta carpeta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:1
+msgid "Kein Dokument mit \"%1\" in diesem Ordner."
+msgstr "Ningún documento con \"%1\" en esta carpeta."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:1
+msgid "Filter zurücksetzen"
+msgstr "Restablecer filtro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:1
+msgid "%1 von %2 Dokumenten"
+msgstr "%1 de %2 documentos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Spenden"
+msgstr "Donaciones"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Status konnte nicht geladen werden. Bitte laden Sie die Seite neu."
+msgstr "No se pudo cargar el estado. Vuelva a cargar la página."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Online-Spenden sind für diese Organisation aktuell nicht möglich."
+msgstr "Las donaciones en línea no están disponibles actualmente para esta organización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Betrag (EUR)"
+msgstr "Importe (EUR)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Höchstbetrag pro Online-Spende: %1"
+msgstr "Importe máximo por donación en línea: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Verwendungszweck (optional)"
+msgstr "Concepto (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Diese Organisation ist eine politische Partei -- §25 Parteiengesetz verlangt eine Einordnung jeder Spende. Bitte die zutreffende Kategorie wählen."
+msgstr "Esta organización es un partido político: el artículo 25 de la Ley alemana de partidos exige clasificar cada donación. Seleccione la categoría que corresponda."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Spenderkategorie (§25 PartG)"
+msgstr "Categoría de donante (§25 PartG)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Spende starten"
+msgstr "Iniciar donación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Bitte einen gültigen, positiven Betrag angeben."
+msgstr "Introduzca un importe válido y positivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Der Höchstbetrag pro Online-Spende beträgt %1."
+msgstr "El importe máximo por donación en línea es %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Bitte eine Spenderkategorie auswählen."
+msgstr "Seleccione una categoría de donante."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Der Zahlungsdienstleister hat keine Weiterleitungsadresse geliefert."
+msgstr "El proveedor de pagos no ha devuelto ninguna dirección de redirección."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DonationCheckoutScreen.kt:1
+msgid "Bitte wählen ..."
+msgstr "Seleccione ..."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Öffentliche Ranglisten"
+msgstr "Clasificaciones públicas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Sie können freiwillig zustimmen, dass Ihr Anzeigename zusammen mit Ihrem freien LTR-Guthaben bzw. Ihrer Spendensumme dieses Jahres auf der öffentlichen Transparenzseite erscheint. Beide Einwilligungen sind unabhängig voneinander und jederzeit mit einem Klick widerrufbar."
+msgstr "Puede consentir voluntariamente que su nombre visible aparezca en la página pública de transparencia junto con su saldo libre de LTR o el total de sus donaciones de este año. Ambos consentimientos son independientes entre sí y pueden retirarse en cualquier momento con un clic."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Sichtbar"
+msgstr "Visible"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Der Hinweistext wurde seither aktualisiert -- bitte erneut zustimmen, damit Ihr Name wieder erscheint."
+msgstr "El texto informativo se ha actualizado desde entonces: vuelva a dar su consentimiento para que su nombre vuelva a aparecer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Ihr Name erscheint nur, wenn mindestens fünf Mitglieder in diese Rangliste eingewilligt haben."
+msgstr "Su nombre solo aparece si al menos cinco miembros han dado su consentimiento para esta clasificación."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Einwilligungstext konnte nicht geladen werden -- bitte erneut versuchen."
+msgstr "No se pudo cargar el texto de consentimiento: inténtelo de nuevo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Einwilligung gespeichert."
+msgstr "Consentimiento guardado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Einwilligung widerrufen."
+msgstr "Consentimiento retirado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "LTR-Guthaben"
+msgstr "Saldo de LTR"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid ": %1"
+msgstr ": %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningLabels.kt:1
+msgid "Bezahlt"
+msgstr "Pagado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningLabels.kt:1
+msgid "Lastschrift geplant"
+msgstr "Adeudo directo programado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningLabels.kt:1
+msgid "Lastschrift eingereicht"
+msgstr "Adeudo directo presentado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningLabels.kt:1
+msgid "Rücklastschrift"
+msgstr "Adeudo directo devuelto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DunningLabels.kt:1
+msgid "Im Mahnverfahren"
+msgstr "En procedimiento de reclamación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
+msgid "Veranstaltung auswählen, um Tickets am Einlass zu prüfen."
+msgstr "Seleccione un evento para comprobar las entradas en el acceso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
+msgid "Keine bevorstehenden Veranstaltungen."
+msgstr "No hay eventos próximos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInSelectionScreen.kt:1
+msgid "Check-in öffnen"
+msgstr "Abrir registro de entrada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Bitte einen Titel angeben."
+msgstr "Indique un título."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Titel ist zu lang (maximal %1 Zeichen)."
+msgstr "El título es demasiado largo (máximo %1 caracteres)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Beschreibung ist zu lang (maximal %1 Zeichen)."
+msgstr "La descripción es demasiado larga (máximo %1 caracteres)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Mindestens ein Veranstaltungsort (Adresse oder Online-Link) ist erforderlich."
+msgstr "Se requiere al menos un lugar del evento (dirección o enlace en línea)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Bitte einen gültigen Beginn angeben."
+msgstr "Indique un inicio válido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Bitte ein gültiges Ende angeben."
+msgstr "Indique un final válido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Ende darf nicht vor dem Beginn liegen."
+msgstr "El fin no puede ser anterior al inicio."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Beginn darf nicht in der Vergangenheit liegen."
+msgstr "El inicio no puede estar en el pasado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Bitte einen gültigen Anmeldeschluss angeben oder das Feld leer lassen."
+msgstr "Indique un plazo de inscripción válido o deje el campo vacío."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Anmeldeschluss darf nicht nach dem Veranstaltungsbeginn liegen."
+msgstr "El plazo de inscripción no puede ser posterior al inicio del evento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Kapazität muss eine positive ganze Zahl sein, wenn angegeben."
+msgstr "Si se indica, la capacidad debe ser un número entero positivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventFormValidation.kt:1
+msgid "Bitte eine gültige, nicht-negative Teilnahmegebühr mit höchstens zwei Nachkommastellen angeben."
+msgstr "Indique una cuota de participación válida, no negativa y con un máximo de dos decimales."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventLabels.kt:1
+msgid "Veröffentlicht"
+msgstr "Publicado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventLabels.kt:1
+msgid "Abgesagt"
+msgstr "Cancelado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Räume"
+msgstr "Salas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Inaktive Räume anzeigen"
+msgstr "Mostrar salas inactivas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Noch keine Räume angelegt."
+msgstr "Aún no se ha creado ninguna sala."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Neuen Raum anlegen"
+msgstr "Crear una nueva sala"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Kapazität: %1"
+msgstr "Capacidad: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Raum deaktivieren"
+msgstr "Desactivar sala"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "\"%1\" wirklich deaktivieren? Der Raum steht dann für neue Zuordnungen nicht mehr zur Verfügung."
+msgstr "¿Desactivar realmente \"%1\"? La sala dejará de estar disponible para nuevas asignaciones."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Raum wurde deaktiviert."
+msgstr "La sala se ha desactivado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Raum wurde aktiviert."
+msgstr "La sala se ha activado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Kapazität (optional)"
+msgstr "Capacidad (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Ausstattung (kommagetrennt, optional)"
+msgstr "Equipamiento (separado por comas, opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Die Kapazität muss eine positive ganze Zahl sein."
+msgstr "La capacidad debe ser un número entero positivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Raum \"%1\" wurde aktualisiert."
+msgstr "La sala \"%1\" se ha actualizado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Raum anlegen"
+msgstr "Crear sala"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Raum \"%1\" wurde angelegt."
+msgstr "La sala \"%1\" se ha creado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:1
+msgid "Schicht wurde storniert."
+msgstr "El turno se ha cancelado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltungen"
+msgstr "Eventos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Check-in"
+msgstr "Registro de entrada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Vergangene anzeigen"
+msgstr "Mostrar pasados"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Keine Veranstaltungen gefunden."
+msgstr "No se encontraron eventos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Neue Veranstaltung anlegen"
+msgstr "Crear un nuevo evento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Raum: %1"
+msgstr "Sala: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Belegung: %1 belegt, %2 auf Warteliste"
+msgstr "Ocupación: %1 ocupadas, %2 en lista de espera"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich (auch für nicht angemeldete Besucher:innen) sichtbar und anmeldbar."
+msgstr "Este evento se publicará y después será visible públicamente e inscribible (también para visitantes sin sesión iniciada)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar."
+msgstr "Este evento se publicará y después será visible para los miembros e inscribible."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung veröffentlichen"
+msgstr "Publicar evento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung wurde veröffentlicht."
+msgstr "El evento se ha publicado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Warteliste nachrücken"
+msgstr "Promover desde la lista de espera"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Warteliste wurde geprüft."
+msgstr "Se ha revisado la lista de espera."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung absagen"
+msgstr "Cancelar evento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Diese Aktion kann nicht rückgängig gemacht werden."
+msgstr "Esta acción no se puede deshacer."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Alle %1 angemeldeten Personen erhalten eine E-Mail mit diesem Grund."
+msgstr "Las %1 personas inscritas recibirán un correo electrónico con este motivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Absagen und benachrichtigen"
+msgstr "Cancelar y notificar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung wurde abgesagt."
+msgstr "El evento se ha cancelado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Ort (Adresse, optional)"
+msgstr "Lugar (dirección, opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Online-Link (optional)"
+msgstr "Enlace en línea (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Anmeldeschluss (optional)"
+msgstr "Plazo de inscripción (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Teilnahmegebühr in EUR (0 für kostenlos)"
+msgstr "Cuota de participación en EUR (0 si es gratuito)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Raum (optional)"
+msgstr "Sala (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Kein Raum"
+msgstr "Sin sala"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "%1 (inaktiv)"
+msgstr "%1 (inactiva)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung anlegen"
+msgstr "Crear evento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung \"%1\" wurde angelegt."
+msgstr "El evento \"%1\" se ha creado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Adresse: /veranstaltung/%1"
+msgstr "Dirección: /veranstaltung/%1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
+msgid "Veranstaltung \"%1\" wurde aktualisiert."
+msgstr "El evento \"%1\" se ha actualizado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:1
+msgid "von %1"
+msgstr "de %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Durchgeführt"
+msgstr "Celebrada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Präsenz"
+msgstr "Presencial"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Online"
+msgstr "En línea"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Hybrid"
+msgstr "Híbrida"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Anwesend"
+msgstr "Presente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Entschuldigt"
+msgstr "Justificado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Unentschuldigt"
+msgstr "Sin justificar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Vertreten"
+msgstr "Representado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Angenommen"
+msgstr "Aprobado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Zurückgestellt"
+msgstr "Aplazado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Gremienbeschluss"
+msgstr "Resolución del órgano"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Meritokratische Vote"
+msgstr "Votación meritocrática"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Demokratische Wahl"
+msgstr "Elección democrática"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "Systemisches Konsensieren"
+msgstr "Consenso sistémico"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:1
+msgid "Diese E-Mail-Adresse wird bereits von einem anderen Mitglied verwendet."
+msgstr "Otro miembro ya utiliza esta dirección de correo electrónico."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:1
+msgid "Diese E-Mail-Adresse ist zu lang (höchstens %1 Zeichen)."
+msgstr "Esta dirección de correo electrónico es demasiado larga (máximo %1 caracteres)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:1
+msgid "Dieses Mitglied hat kein Login-Konto."
+msgstr "Este miembro no tiene cuenta de acceso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:1
+msgid "Dieses Mitglied hat bereits ein Login-Konto -- bitte Ansicht aktualisieren."
+msgstr "Este miembro ya tiene una cuenta de acceso: actualice la vista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:1
+msgid "Der letzte verbleibende Administrator kann nicht entfernt werden."
+msgstr "No se puede eliminar al último administrador restante."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familienmitgliedschaften"
+msgstr "Membresías familiares"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Haushalts-/Familienverbünde für die Beitragsabrechnung -- ein Zahler, beliebig viele beitragsfreie Angehörige."
+msgstr "Unidades familiares o de hogar para la facturación de cuotas: un pagador y tantos familiares exentos de cuota como se quiera."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie anlegen"
+msgstr "Crear familia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Öffnen"
+msgstr "Abrir"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Bald volljährig"
+msgstr "Próximos a la mayoría de edad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Keine bevorstehenden Volljährigkeiten im gewählten Zeitraum."
+msgstr "No hay mayorías de edad próximas en el período seleccionado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Aus Familie lösen"
+msgstr "Separar de la familia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "%1 aus %2 lösen? Es ist danach kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin einen Tarif zuweist."
+msgstr "¿Separar a %1 de %2? Después no tendrá ninguna tarifa de cuota asignada: la obligación de pagar cuotas solo surge cuando un tesorero o administrador asigne una tarifa."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Lösen"
+msgstr "Separar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Aus der Familie gelöst. Es ist noch kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister einen Tarif zuweist."
+msgstr "Separado de la familia. Todavía no tiene ninguna tarifa de cuota asignada: la obligación de pagar cuotas solo surge cuando el tesorero asigne una tarifa."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie"
+msgstr "Familia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Zahler"
+msgstr "Pagador"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familienname"
+msgstr "Apellido familiar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Bitte einen Familiennamen und einen Zahler angeben."
+msgstr "Indique un apellido familiar y un pagador."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie angelegt."
+msgstr "Familia creada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Umbenennen"
+msgstr "Cambiar nombre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie umbenannt."
+msgstr "Familia renombrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Als Zahler festlegen"
+msgstr "Establecer como pagador"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Zahler geändert."
+msgstr "Pagador modificado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Mitglied entfernen"
+msgstr "Eliminar miembro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "%1 aus dieser Familie entfernen?"
+msgstr "¿Eliminar a %1 de esta familia?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Mitglied entfernt."
+msgstr "Miembro eliminado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Mitglied hinzugefügt."
+msgstr "Miembro añadido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie löschen"
+msgstr "Eliminar familia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie %1 samt aller Verknüpfungen unwiderruflich löschen?"
+msgstr "¿Eliminar de forma irreversible la familia %1 con todos sus vínculos?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie gelöscht."
+msgstr "Familia eliminada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "%1 suchen"
+msgstr "Buscar %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Angehörige/r"
+msgstr "Familiar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie %1 · Zahler"
+msgstr "Familia %1 · pagador"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Familie %1 · beitragsfrei"
+msgstr "Familia %1 · exento de cuota"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Kein Zahler -- bitte zuweisen"
+msgstr "Sin pagador: asigne uno"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "Keine Familien angelegt."
+msgstr "No se ha creado ninguna familia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "%1 · %2 · bereits volljährig seit %3"
+msgstr "%1 · %2 · mayor de edad desde %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "%1 · %2 · wird volljährig am %3"
+msgstr "%1 · %2 · alcanza la mayoría de edad el %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
+msgid "%1 von %2 Angehörigen haben kein Geburtsdatum hinterlegt -- für sie kann die Volljährigkeit nicht berechnet werden."
+msgstr "%1 de %2 familiares no tienen fecha de nacimiento registrada: no se puede calcular su mayoría de edad."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Alle Ehrungen anzeigen"
+msgstr "Mostrar todas las distinciones"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrenmitgliedschaften, Verdienst- und Treueauszeichnungen -- eine Übersicht für den Vorstand."
+msgstr "Membresías honoríficas, distinciones al mérito y a la fidelidad: una vista general para la junta directiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrung erfassen"
+msgstr "Registrar distinción"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrung"
+msgstr "Distinción"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Verliehen durch"
+msgstr "Otorgada por"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Eintrag korrigieren (löschen)"
+msgstr "Corregir entrada (eliminar)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Diese Ehrung (%1) unwiderruflich löschen? Dies ist eine Datenkorrektur, keine Aberkennung -- für eine echte Aberkennung ist ein eigener Vorstandsbeschluss vorgesehen, keine Löschung dieses Eintrags."
+msgstr "¿Eliminar de forma irreversible esta distinción (%1)? Es una corrección de datos, no una revocación: para una revocación real está prevista una resolución propia de la junta directiva, no la eliminación de esta entrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Eintrag gelöscht."
+msgstr "Entrada eliminada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrung bearbeiten -- %1"
+msgstr "Editar distinción -- %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Verliehen am (JJJJ-MM-TT)"
+msgstr "Otorgada el (AAAA-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Verliehen durch (optional)"
+msgstr "Otorgada por (opcional)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Erfassen"
+msgstr "Registrar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (JJJJ-MM-TT) angeben."
+msgstr "Indique un miembro, un título, una categoría y una fecha válida (AAAA-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrung erfasst."
+msgstr "Distinción registrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrung gespeichert."
+msgstr "Distinción guardada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Ehrenmitgliedschaft"
+msgstr "Membresía honoraria"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Verdienstauszeichnung"
+msgstr "Distinción al mérito"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Treueauszeichnung"
+msgstr "Distinción a la fidelidad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Sonstige"
+msgstr "Otras"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Keine Ehrungen erfasst."
+msgstr "No hay distinciones registradas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
+msgid "Für %1 sind noch keine Ehrungen erfasst."
+msgstr "Todavía no hay distinciones registradas para %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Geprüft"
+msgstr "Revisado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Vorläufig abgelehnt"
+msgstr "Rechazado provisionalmente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Terminiert"
+msgstr "Programado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Läuft"
+msgstr "En curso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Geschlossen"
+msgstr "Cerrada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Voranmeldung — Vorschau"
+msgstr "Declaración provisional del IVA -- vista previa"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Satz"
+msgstr "Tipo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Brutto"
+msgstr "Bruto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Netto"
+msgstr "Neto"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Voranmeldung — Vorschau (Nachweishilfe)"
+msgstr "Declaración provisional del IVA -- vista previa (ayuda de justificación)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Keine Übermittlung an ELSTER. Diese Ansicht ist eine Nachweishilfe aus in Lapis Cloud erfassten Buchungen für Vorstand und Steuerberatung -- keine Voranmeldung im Sinne des § 18 UStG."
+msgstr "Sin transmisión a ELSTER. Esta vista es una ayuda de justificación elaborada a partir de los asientos registrados en Lapis Cloud para la junta directiva y el asesor fiscal: no es una declaración provisional en el sentido del § 18 UStG."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Berechnen"
+msgstr "Calcular"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (JJJJ-MM-TT)."
+msgstr "Indique una fecha \"desde\" y \"hasta\" válidas (AAAA-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Modul:"
+msgstr "Módulo de IVA:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "(Kleinunternehmer -- Berechnung bleibt ausgesetzt)"
+msgstr "(pequeño empresario: el cálculo permanece suspendido)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Kleinunternehmer nach § 19 UStG"
+msgstr "Pequeño empresario según el § 19 UStG"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Kleinunternehmer-Status gesetzt."
+msgstr "Estatus de pequeño empresario establecido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Kleinunternehmer-Status entfernt."
+msgstr "Estatus de pequeño empresario eliminado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Modul deaktivieren"
+msgstr "Desactivar módulo de IVA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Modul deaktiviert."
+msgstr "Módulo de IVA desactivado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Modul aktivieren …"
+msgstr "Activar módulo de IVA …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Modul aktiviert."
+msgstr "Módulo de IVA activado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "USt-Modul aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Activar módulo de IVA -- aviso legal (versión %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie das USt-Modul aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die steuerliche Einordnung liegt bei Ihrer Organisation bzw. deren Steuerberatung."
+msgstr "Lea íntegramente el siguiente aviso legal antes de activar el módulo de IVA. Esta plataforma no ofrece asesoramiento jurídico automatizado: la clasificación fiscal corresponde a su organización o a su asesoría fiscal."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Gelesen -- USt-Modul aktivieren"
+msgstr "Leído -- activar módulo de IVA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Steuerbare Umsätze aus in Lapis Cloud erfassten POSTED-Buchungen im Zeitraum. Beträge sind BRUTTO inkl. USt."
+msgstr "Operaciones sujetas a impuesto a partir de los asientos POSTED registrados en Lapis Cloud en el período. Los importes son BRUTOS, IVA incluido."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Umsatzsteuer (Ausgangsseite)"
+msgstr "IVA repercutido (lado de ventas)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Vorsteuer (Eingangsseite)"
+msgstr "IVA soportado (lado de compras)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "%1 Buchungen ohne USt-Einordnung (Σ brutto %2)."
+msgstr "%1 asientos sin clasificación de IVA (Σ bruto %2)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Eine Befreiung von der Voranmeldungspflicht ist nur auf Antrag und im Ermessen des Finanzamts möglich."
+msgstr "La exención de la obligación de presentar declaraciones provisionales solo es posible previa solicitud y a discreción de la Hacienda."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Keine Buchungen in dieser Kategorie."
+msgstr "No hay asientos en esta categoría."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Das Umsatzsteuer-Modul ist für diese Organisation nicht aktiviert. Es wird keine Umsatzsteuer berechnet oder ausgewiesen."
+msgstr "El módulo de IVA no está activado para esta organización. No se calcula ni se muestra IVA."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Diese Organisation ist als Kleinunternehmer nach § 19 UStG eingetragen. Es wird keine Umsatzsteuer berechnet oder ausgewiesen -- auch nicht für Buchungen, die einen Steuersatz tragen."
+msgstr "Esta organización está registrada como pequeño empresario según el § 19 UStG. No se calcula ni se muestra IVA, tampoco para los asientos que llevan un tipo impositivo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Für diesen Zeitraum wird keine Umsatzsteuer berechnet oder ausgewiesen."
+msgstr "No se calcula ni se muestra IVA para este período."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Zahllast"
+msgstr "IVA a ingresar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Erstattungsanspruch"
+msgstr "Derecho a devolución"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Keine Zahllast"
+msgstr "Sin IVA a ingresar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Voranmeldungszeitraum (informativ): monatlich (Vorjahres-Zahllast über 9.000 €)."
+msgstr "Período de declaración provisional (informativo): mensual (IVA a ingresar del año anterior superior a 9.000 €)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Voranmeldungszeitraum (informativ): vierteljährlich."
+msgstr "Período de declaración provisional (informativo): trimestral."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:1
+msgid "Lapis Cloud deckt das Vorjahr nicht vollständig ab -- Voranmeldungszeitraum nicht ableitbar."
+msgstr "Lapis Cloud no cubre por completo el año anterior: no se puede deducir el período de declaración provisional."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Zahlungs-Konfiguration"
+msgstr "Configuración de pagos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Kontenzuordnung"
+msgstr "Asignación de cuentas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Online-Zahlung aktivieren …"
+msgstr "Activar pago en línea …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Online-Zahlung deaktivieren"
+msgstr "Desactivar pago en línea"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "%1 ist serverseitig noch nicht vollständig konfiguriert -- siehe Diagnose-Abschnitt unten."
+msgstr "%1 aún no está totalmente configurado en el servidor: consulte la sección de diagnóstico más abajo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Online-Zahlung aktiviert."
+msgstr "Pago en línea activado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Online-Zahlung deaktiviert."
+msgstr "Pago en línea desactivado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Anbieter: %1"
+msgstr "Proveedor: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Online-Zahlung aktivieren -- rechtlicher Hinweis (Version %1)"
+msgstr "Activar pago en línea -- aviso legal (versión %1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Bitte lesen Sie den folgenden rechtlichen Hinweistext vollständig, bevor Sie die Online-Zahlung aktivieren. Diese Plattform führt keine automatisierte Rechtsberatung durch -- die rechtliche Einordnung liegt bei Ihrer Organisation."
+msgstr "Lea íntegramente el siguiente aviso legal antes de activar el pago en línea. Esta plataforma no ofrece asesoramiento jurídico automatizado: la calificación jurídica corresponde a su organización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Online-Zahlung deaktivieren bestätigen"
+msgstr "Confirmar la desactivación del pago en línea"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Neue Checkout-Sitzungen können bis zur erneuten Aktivierung nicht mehr erstellt werden. Bereits erstellte Sitzungen laufen ab, ohne gebucht zu werden."
+msgstr "No se podrán crear nuevas sesiones de pago hasta que se vuelva a activar. Las sesiones ya creadas caducan sin contabilizarse."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Zahlungsdienstleister-Diagnose"
+msgstr "Diagnóstico del proveedor de pagos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Stripe"
+msgstr "Stripe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Geheimer Schlüssel gesetzt"
+msgstr "Clave secreta establecida"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Webhook-Signing-Secret gesetzt"
+msgstr "Secreto de firma del webhook establecido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Im Stripe-Dashboard einzutragende Webhook-URL (Event checkout.session.completed): %1"
+msgstr "URL del webhook que debe introducirse en el panel de Stripe (evento checkout.session.completed): %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "PayPal"
+msgstr "PayPal"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Client-ID gesetzt"
+msgstr "ID de cliente establecido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Client-Secret gesetzt"
+msgstr "Secreto de cliente establecido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Webhook-ID gesetzt"
+msgstr "ID del webhook establecido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Im PayPal-Entwickler-Dashboard einzutragende Webhook-URL: %1"
+msgstr "URL del webhook que debe introducirse en el panel de desarrolladores de PayPal: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Bankkonto zugeordnet"
+msgstr "Cuenta bancaria asignada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Beitragserlöskonto zugeordnet"
+msgstr "Cuenta de ingresos por cuotas asignada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Spendenerlöskonto zugeordnet"
+msgstr "Cuenta de ingresos por donaciones asignada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewaySettingsScreen.kt:1
+msgid "Gebührenkonto zugeordnet"
+msgstr "Cuenta de comisiones asignada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
+msgid "Erfasst"
+msgstr "Registrado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
+msgid "Erstattet"
+msgstr "Reembolsado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
+msgid "Angefochten"
+msgstr "Impugnado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
+msgid "Mitgliedsbeitrag"
+msgstr "Cuota de socio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:1
+msgid "Manuell"
+msgstr "Manual"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Keine Checkout-Session angegeben."
+msgstr "No se indicó ninguna sesión de pago."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Die Zahlung wurde abgebrochen. Sie können es jederzeit erneut versuchen."
+msgstr "El pago se ha cancelado. Puede volver a intentarlo en cualquier momento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Zur Startseite"
+msgstr "A la página de inicio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Checkout-Session nicht gefunden."
+msgstr "No se encontró la sesión de pago."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Zahlung erfolgreich abgeschlossen. Vielen Dank!"
+msgstr "Pago completado correctamente. ¡Gracias!"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Vielen Dank für Ihre Spende! Die Zahlung wurde erfolgreich abgeschlossen."
+msgstr "¡Gracias por su donación! El pago se ha completado correctamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Die Zahlung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut."
+msgstr "No se pudo completar el pago. Inténtelo de nuevo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Die Spende konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut."
+msgstr "No se pudo completar la donación. Inténtelo de nuevo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Zahlung wird verarbeitet -- dies kann einen Moment dauern. Diese Seite aktualisiert sich automatisch."
+msgstr "El pago se está procesando; puede tardar un momento. Esta página se actualiza automáticamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie Ihre Beitragsübersicht in einigen Minuten erneut."
+msgstr "No se pudo confirmar el estado a tiempo. Vuelva a consultar su resumen de cuotas en unos minutos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentReturnScreen.kt:1
+msgid "Der Status konnte nicht rechtzeitig bestätigt werden. Bitte prüfen Sie in einigen Minuten erneut, ob Ihre Spende verbucht wurde."
+msgstr "No se pudo confirmar el estado a tiempo. Compruebe de nuevo en unos minutos si su donación se ha contabilizado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:1
+msgid "Zahlungseingänge"
+msgstr "Cobros recibidos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:1
+msgid "Nur nicht gebuchte Zahlungen"
+msgstr "Solo pagos no contabilizados"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PaymentTransactionsScreen.kt:1
+msgid "Eingegangen"
+msgstr "Recibido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Kursverlauf"
+msgstr "Evolución del tipo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "7 Tage"
+msgstr "7 días"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "30 Tage"
+msgstr "30 días"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "90 Tage"
+msgstr "90 días"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Alles"
+msgstr "Todo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Noch keine Kursdaten erfasst."
+msgstr "Aún no hay datos de cotización registrados."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Die Preishistorie wird stündlich im Hintergrund aufgezeichnet. Solange die Aufzeichnung nicht läuft, bleibt dieser Bereich leer."
+msgstr "El historial de precios se registra cada hora en segundo plano. Mientras la grabación no esté activa, esta zona permanecerá vacía."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Aufzeichnung aktivieren: Umgebungsvariable LAPIS_ORACLE_SNAPSHOT_ENABLED=true setzen und den Server neu starten (Intervall über LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS, Standard 3600 s)."
+msgstr "Para activar el registro: defina la variable de entorno LAPIS_ORACLE_SNAPSHOT_ENABLED=true y reinicie el servidor (intervalo mediante LAPIS_ORACLE_SNAPSHOT_INTERVAL_SECONDS, 3600 s por defecto)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "%1 Unterbrechung(en) in der Reihe (Poller war zeitweise aus)."
+msgstr "%1 interrupción(es) en la serie (el sondeo estuvo apagado temporalmente)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "Nur die neuesten 5.000 Messpunkte werden angezeigt; ältere Daten fehlen in dieser Ansicht."
+msgstr "Solo se muestran los 5.000 puntos de medición más recientes; los datos más antiguos no aparecen en esta vista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1
+msgid "%1 Datenpunkte, %2 bis %3."
+msgstr "%1 puntos de datos, del %2 al %3."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PspCheckoutSection.kt:1
+msgid "Online-Zahlung ist für diese Organisation nicht aktiviert."
+msgstr "El pago en línea no está activado para esta organización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PspCheckoutSection.kt:1
+msgid "Zahlungs-Konfiguration öffnen"
+msgstr "Abrir configuración de pagos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PspCheckoutSection.kt:1
+msgid "Online bezahlen"
+msgstr "Pagar en línea"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
+msgid "Ehrenamtspauschalen"
+msgstr "Compensaciones de voluntariado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
+msgid "Raumverwaltung"
+msgstr "Gestión de salas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
+msgid "Ehrenamtspauschalen-Freigaben"
+msgstr "Aprobaciones de compensaciones de voluntariado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:1
+msgid "Ehrenamtspauschalen-Freigaben (%1)"
+msgstr "Aprobaciones de compensaciones de voluntariado (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ThemeToggle.kt:1
+msgid "Dunklen/hellen Modus umschalten"
+msgstr "Cambiar entre modo oscuro y claro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Keine Zahlungen für diese Filter gefunden."
+msgstr "No se encontraron pagos para estos filtros."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "%1 steuerfrei / %2 steuer- und ggf. sozialversicherungspflichtig"
+msgstr "%1 exentos de impuestos / %2 sujetos a impuestos y, en su caso, a seguridad social"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Eigene Zahlung — Entscheidung durch ein anderes Vorstandsmitglied."
+msgstr "Pago propio: la decisión corresponde a otro miembro de la junta directiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Jahresstatus wird geladen …"
+msgstr "Cargando el estado anual …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "%1 verbraucht + %2 diese Zahlung -> %3 %4 (Jahresdeckel %5)"
+msgstr "%1 consumidos + %2 este pago -> %3 %4 (límite anual %5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Selbstauskunft fehlt noch."
+msgstr "Todavía falta la declaración propia."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Rechtshinweis zur Kenntnis genommen"
+msgstr "Aviso legal leído"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Der Rechtshinweis konnte nicht geladen werden."
+msgstr "No se pudo cargar el aviso legal."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Erneut laden"
+msgstr "Volver a cargar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Bitte den Rechtshinweis zur Kenntnis nehmen, bevor Sie genehmigen."
+msgstr "Lea el aviso legal antes de aprobar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Zahlung genehmigt und gebucht."
+msgstr "Pago aprobado y contabilizado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Zahlung abgelehnt."
+msgstr "Pago rechazado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Unterschrieben am (JJJJ-MM-TT)"
+msgstr "Firmado el (AAAA-MM-DD)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Papiererklärung erfassen"
+msgstr "Registrar declaración en papel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Bitte ein gültiges Unterschriftsdatum angeben (JJJJ-MM-TT)."
+msgstr "Indique una fecha de firma válida (AAAA-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Papiererklärung erfasst."
+msgstr "Declaración en papel registrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Papiererklärung zurücknehmen"
+msgstr "Retirar declaración en papel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Papiererklärung zurücknehmen bestätigen"
+msgstr "Confirmar la retirada de la declaración en papel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Die erfasste Papiererklärung wird unwiderruflich entfernt (kein Soft-Delete) -- die betroffene Person kann danach selbst eine In-App-Erklärung für dasselbe Jahr abgeben."
+msgstr "La declaración en papel registrada se elimina de forma irreversible (sin borrado lógico); la persona afectada puede después presentar ella misma una declaración en la aplicación para el mismo año."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Zurücknehmen"
+msgstr "Retirar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
+msgid "Papiererklärung zurückgenommen."
+msgstr "Declaración en papel retirada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Übungsleiterpauschale"
+msgstr "Compensación de monitores"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "verbleibend in dieser Organisation"
+msgstr "restante en esta organización"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Andere Organisationen sind Lapis Cloud nicht bekannt."
+msgstr "Lapis Cloud no conoce otras organizaciones."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Die Selbstauskunft kann nur die empfangende Person selbst hier bestätigen, oder Vorstand/Administration in Papierform erfassen."
+msgstr "La declaración propia solo puede confirmarla aquí la propia persona receptora, o bien la junta directiva o la administración pueden registrarla en papel."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Selbstauskunft liegt vor -- die Buchung wird vom Vorstand erneut angestoßen."
+msgstr "La declaración propia ya está disponible: la junta directiva volverá a lanzar la contabilización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "In Lapis bestätigt am %1"
+msgstr "Confirmado en Lapis el %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Papierform, unterschrieben am %1, erfasst von %2"
+msgstr "En papel, firmada el %1, registrada por %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Das Aufwandskonto für Ehrenamtspauschalen ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "La cuenta de gastos para las compensaciones de voluntariado aún no está asignada: informe a un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Das Aufwandskonto für Ehrenamtspauschalen hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "La cuenta de gastos para las compensaciones de voluntariado tiene un tipo de cuenta incorrecto: informe a un ADMIN."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Die Selbstauskunft der empfangenden Person fehlt noch -- bitte zuerst erfassen, dann erneut versuchen."
+msgstr "Todavía falta la declaración propia de la persona receptora: regístrela primero y vuelva a intentarlo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Der Freibetragsverbrauch hat sich seit der Entscheidung verändert -- bitte die Entscheidung neu prüfen."
+msgstr "El uso de la exención ha cambiado desde la decisión: revise de nuevo la decisión."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceLabels.kt:1
+msgid "Die Zahlung hat sich seit der Genehmigung verändert und kann so nicht gebucht werden."
+msgstr "El pago ha cambiado desde su aprobación y no puede contabilizarse así."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Ehrenamts- und Übungsleiterpauschalen"
+msgstr "Compensaciones de voluntariado y de monitores"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Meine Zahlungen"
+msgstr "Mis pagos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Noch keine eingereichten Zahlungen."
+msgstr "Aún no hay pagos presentados."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Übungsleiterpauschale bis %1 pro Jahr · Ehrenamtspauschale bis %2 pro Jahr"
+msgstr "Compensación de monitores hasta %1 al año · compensación de voluntariado hasta %2 al año"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Diese Beträge sind ein Gesetzesdatum und werden nicht automatisch an Gesetzesänderungen angepasst -- bitte gegen den aktuellen Gesetzestext prüfen."
+msgstr "Estos importes son datos legales y no se ajustan automáticamente a los cambios legislativos: compruébelos con el texto legal vigente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Eine Zahlung ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
+msgstr "Es posible realizar un pago, pero la contabilización falla hasta que un administrador complete la asignación de cuentas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Neue Zahlung beantragen"
+msgstr "Solicitar un nuevo pago"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Verwerfen"
+msgstr "Descartar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Zahlung eingereicht."
+msgstr "Pago presentado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Entwurf verworfen."
+msgstr "Borrador descartado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Tätigkeitsbeschreibung"
+msgstr "Descripción de la actividad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Bitte alle Felder gültig ausfüllen (Betrag > 0, Beschreibung mindestens 3 Zeichen, Datum JJJJ-MM-TT)."
+msgstr "Rellene todos los campos correctamente (importe > 0, descripción de al menos 3 caracteres, fecha AAAA-MM-DD)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Gestellt von %1"
+msgstr "Presentado por %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Für %1 gestellt"
+msgstr "Presentado para %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Zurückgezogen."
+msgstr "Retirado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Bitte bestätigen Sie, dass Sie den gesetzlichen Freibetrag für diese Kategorie in diesem Kalenderjahr nicht bereits anderswo ausgeschöpft haben."
+msgstr "Confirme que no ha agotado ya en otro lugar la exención legal de esta categoría en este año natural."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Selbstauskunft bestätigen"
+msgstr "Confirmar declaración propia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
+msgid "Selbstauskunft erfasst."
+msgstr "Declaración propia registrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/WebhookLabels.kt:1
+msgid "API-Schlüssel widerrufen"
+msgstr "Revocar clave de API"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:1
+msgid "Wenden Sie sich an Ihre Entwicklerin oder Ihren Entwickler -- dieses Ergebnis deutet auf eine nachträgliche Veränderung der Aufzeichnungen hin."
+msgstr "Póngase en contacto con su desarrollador o desarrolladora: este resultado indica una modificación posterior de los registros."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:1
+msgid "Der Status eines Antrags ist nur für die aktuelle Sitzung sichtbar. Für den Stand eines früheren Antrags wenden Sie sich bitte an eine Administratorin oder einen Administrator."
+msgstr "El estado de una solicitud solo es visible durante la sesión actual. Para conocer el estado de una solicitud anterior, póngase en contacto con un administrador o administradora."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PspCheckoutSection.kt:1
+msgid "Der Online-Zahlungsvorgang konnte nicht gestartet werden -- mögliche Gründe: die Online-Zahlung ist nicht aktiviert, der aktuelle Rechtshinweis wurde nicht erneut bestätigt, der Zahlungsdienstleister ist nicht vollständig konfiguriert, oder der Beitrag ist bereits ausgeglichen."
+msgstr "No se pudo iniciar el pago en línea; posibles motivos: el pago en línea no está activado, no se ha vuelto a confirmar el aviso legal vigente, el proveedor de pagos no está totalmente configurado o la cuota ya está saldada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:1
+msgid "Sprache wechseln"
+msgstr "Cambiar idioma"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:1
+msgid "Die Sprache zu wechseln beendet die laufende Besprechung."
+msgstr "Cambiar el idioma finaliza la reunión en curso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:1
+msgid "Die Verbindung wird getrennt. Sie können der Besprechung danach erneut beitreten."
+msgstr "Se cerrará la conexión. Después podrá volver a unirse a la reunión."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:1
+msgid "Sprache wechseln und Besprechung beenden"
+msgstr "Cambiar idioma y finalizar la reunión"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MyVolunteerShiftsScreen.kt:1
+msgid "Es sind derzeit keine Veranstaltungen geplant."
+msgstr "Actualmente no hay eventos planificados."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "Erledigt"
+msgstr "Hecho"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "unbekannt"
+msgstr "desconocido"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "Bestätigt von %1 am %2"
+msgstr "Confirmado por %1 el %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "Ich habe das Register aktualisiert"
+msgstr "He actualizado el registro"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "Sitz im Gremium: EXECUTIVE_BOARD (siehe Gremien)"
+msgstr "Puesto en el órgano: EXECUTIVE_BOARD (véase Órganos)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "Dieses Vorstandsregister wird automatisch aus Wahlen und aus Gremienmitgliedschaften im Gremium „EXECUTIVE_BOARD\" gespeist -- Änderungen dort erscheinen hier ebenso wie Änderungen, die Sie direkt auf dieser Seite vornehmen."
+msgstr "Este registro de la junta directiva se alimenta automáticamente de las elecciones y de las pertenencias al órgano «EXECUTIVE_BOARD»: los cambios realizados allí aparecen aquí igual que los que usted haga directamente en esta página."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "Für reguläre Vorstandswahlen nutzen Sie die Wahlfunktion unter „Anträge\". Diese Eintragung ist für Fälle gedacht, in denen ein Sitz außerhalb einer Wahl besetzt oder korrigiert werden muss (z. B. Kooptierung, Lückenkorrektur)."
+msgstr "Para las elecciones regulares de la junta directiva, utilice la función de elección en «Mociones». Este registro está pensado para los casos en que un puesto deba cubrirse o corregirse al margen de una elección (p. ej., cooptación, corrección de una vacante)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:1
+msgid "„Erledigt\" bedeutet: eine Person mit Vorstands-/Admin-Rolle hat bestätigt, das echte Transparenzregister (transparenzregister.de) selbst aktualisiert zu haben. Dieses System kann die tatsächliche Meldung nicht prüfen und meldet nichts automatisch."
+msgstr "«Hecho» significa: una persona con rol de junta directiva o de administración ha confirmado que ha actualizado por sí misma el registro de transparencia real (transparenzregister.de). Este sistema no puede comprobar la notificación efectiva y no notifica nada automáticamente."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "erreicht"
+msgstr "alcanzado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1
+msgid "nicht erreicht"
+msgstr "no alcanzado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Dieser Antrag hat 1 offenen Änderungsantrag, der zuerst entschieden werden muss:"
+msgstr "Esta moción tiene 1 enmienda abierta que debe decidirse primero:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1
+msgid "Dieser Antrag hat %1 offene Änderungsanträge, die zuerst entschieden werden müssen:"
+msgstr "Esta moción tiene %1 enmiendas abiertas que deben decidirse primero:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:1
+msgid "Gewichtsverlauf"
+msgstr "Historial de peso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
+msgid "Keine aktiven Räume. Blenden Sie inaktive Räume ein, um alle Räume zu sehen."
+msgstr "No hay salas activas. Muestre las salas inactivas para ver todas las salas."

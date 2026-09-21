@@ -6,8 +6,8 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
+import io.kvision.html.icon
 import io.kvision.html.p
 import io.kvision.html.span
 import io.kvision.i18n.gettext
@@ -68,7 +68,7 @@ import network.lapis.cloud.shared.rpc.IAuditLogService
 fun renderAuditLogScreen(container: SimplePanel) {
     val root =
         container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Prüfprotokoll"))
+    root.pageHeader(tr("Prüfprotokoll"))
     root.div(
         tr(
             "GoBD-revisionssicheres Protokoll aller Buchungen, Beschlüsse, Vorstandsmitgliedschaften und " +
@@ -78,11 +78,11 @@ fun renderAuditLogScreen(container: SimplePanel) {
     ) { addCssClasses("text-muted small") }
 
     // ---- D1: chain-integrity verification ---------------------------------------------------
-    root.h2(tr("Ketten-Integrität prüfen"))
+    root.h2(tr("Ketten-Integrität prüfen")) { addCssClass("h5") }
     renderChainVerificationPanel(root)
 
     // ---- List: filters + keyset-paginated entries --------------------------------------------
-    root.h2(tr("Einträge"))
+    root.h2(tr("Einträge")) { addCssClass("h5") }
     val filterRow1 = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val entityTypeOptions = listOf("" to tr("Alle Entitätstypen")) + AuditEntityType.entries.map { it.name to auditEntityTypeLabel(it) }
     val entityTypeSelect = filterRow1.select(options = entityTypeOptions, value = "", label = tr("Entitätstyp"))
@@ -98,7 +98,7 @@ fun renderAuditLogScreen(container: SimplePanel) {
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
-    root.h2(tr("Details"))
+    root.h2(tr("Details")) { addCssClass("h5") }
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Eintrag oben auswählen, um Details zu sehen."))
 
@@ -234,11 +234,27 @@ private fun renderChainVerificationResult(
     panel.removeAll()
     if (result.valid) {
         val box = panel.vPanel(spacing = 2) { addCssClasses("alert alert-success") }
-        box.div(tr("✓ Kette intakt")) { addCssClass("fw-bold") }
+        // W5: the state is a Font Awesome icon (decorative, `aria-hidden`) NEXT TO the text -- a glyph inside a msgid would
+        // travel through the catalogs and be read out by a screen reader.
+        box.div {
+            addCssClass("fw-bold")
+            icon("fas fa-check") {
+                addCssClass("me-1")
+                setAttribute("aria-hidden", "true")
+            }
+            span(tr("Kette intakt"))
+        }
         box.div(chainVerificationPassDetailText(result))
     } else {
         val box = panel.vPanel(spacing = 2) { addCssClasses("alert alert-danger") }
-        box.div(chainVerificationFailHeadline(result)) { addCssClass("fw-bold") }
+        box.div {
+            addCssClass("fw-bold")
+            icon("fas fa-xmark") {
+                addCssClass("me-1")
+                setAttribute("aria-hidden", "true")
+            }
+            span(chainVerificationFailHeadline(result))
+        }
         box.div(result.reason.orEmpty())
         box.div(tr(CHAIN_VERIFICATION_BROKEN_GUIDANCE))
     }
@@ -260,7 +276,7 @@ fun chainVerificationPassDetailText(result: AuditChainVerificationResultDto): St
 
 /** D1's exact fail-state headline. */
 fun chainVerificationFailHeadline(result: AuditChainVerificationResultDto): String =
-    gettext("✗ Kette gebrochen bei Sequenznummer %1", result.brokenAtSequenceNumber)
+    gettext("Kette gebrochen bei Sequenznummer %1", result.brokenAtSequenceNumber)
 
 /** D1's exact fixed third line for the fail state. */
 const val CHAIN_VERIFICATION_BROKEN_GUIDANCE =

@@ -6,7 +6,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -66,8 +65,8 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Vorstand & Transparenzregister"))
-    root.div(BOARD_MEMBERSHIP_HEADER_NOTE) { addCssClasses("text-muted small") }
+    root.pageHeader(tr("Vorstand & Transparenzregister"))
+    root.div(tr(BOARD_MEMBERSHIP_HEADER_NOTE)) { addCssClasses("text-muted small") }
 
     var currentBoard: List<BoardMembershipDto> = emptyList()
 
@@ -87,7 +86,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     }
 
     // ---- Current roster -----------------------------------------------------------------------
-    root.h2(tr("Aktueller Vorstand"))
+    root.h2(tr("Aktueller Vorstand")) { addCssClass("h5") }
     val rosterPanel = root.vPanel(spacing = 6)
 
     fun refreshRoster() {
@@ -108,12 +107,12 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     refreshRoster()
 
     // ---- Manual appointment (administrative/supplementary path, see D9 KDoc above) -----------
-    root.h2(tr("Manuelle Eintragung"))
-    root.div(MANUAL_APPOINTMENT_CAPTION) { addCssClasses("text-muted small") }
+    root.h2(tr("Manuelle Eintragung")) { addCssClass("h5") }
+    root.div(tr(MANUAL_APPOINTMENT_CAPTION)) { addCssClasses("text-muted small") }
     renderAppointmentForm(root, currentBoardProvider = { currentBoard }, onAppointed = ::refreshAll)
 
     // ---- Transparenzregister report ------------------------------------------------------------
-    root.h2(tr("Transparenzregister-Bericht"))
+    root.h2(tr("Transparenzregister-Bericht")) { addCssClass("h5") }
     val reportPanel = root.vPanel(spacing = 6)
 
     fun refreshReport() {
@@ -127,9 +126,9 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     refreshReport()
 
     // ---- Reminders ------------------------------------------------------------------------------
-    root.h2(tr("Erinnerungen"))
+    root.h2(tr("Erinnerungen")) { addCssClass("h5") }
     // D8(b): unconditional, non-dismissible, above the list itself (X2).
-    root.div(TRANSPARENZREGISTER_REMINDER_HONESTY_BANNER) { addCssClasses("alert alert-warning") }
+    root.div(tr(TRANSPARENZREGISTER_REMINDER_HONESTY_BANNER)) { addCssClasses("alert alert-warning") }
 
     val reminderFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeResolvedCheck = reminderFilterRow.checkBox(label = tr("Erledigte anzeigen"))
@@ -172,7 +171,7 @@ private fun renderBoardRow(
 
     // D9: every roster row links back to the Governance Committees screen's EXECUTIVE_BOARD
     // committee -- this screen is not the only place a board seat changes.
-    row.link(BOARD_COMMITTEE_CROSS_LINK_CAPTION, url = "#${Routes.COMMITTEES}") { addCssClasses("text-muted small") }
+    row.link(tr(BOARD_COMMITTEE_CROSS_LINK_CAPTION), url = "#${Routes.COMMITTEES}") { addCssClasses("text-muted small") }
 
     val endButton = row.button(tr("Mitgliedschaft beenden"), style = ButtonStyle.OUTLINEDANGER)
     endButton.onClick {
@@ -415,7 +414,7 @@ private fun renderReminderRow(
         row.div(resolvedCaption(reminder)) { addCssClasses("text-muted small") }
     } else {
         // D8(b): the button labels the exact claim being made, not a generic "Erledigt"/"Bestätigen".
-        val resolveButton = row.button(RESOLVE_REMINDER_BUTTON_LABEL, style = ButtonStyle.PRIMARY)
+        val resolveButton = row.button(tr(RESOLVE_REMINDER_BUTTON_LABEL), style = ButtonStyle.PRIMARY)
         resolveButton.onClick {
             resolveButton.disabled = true
             AppScope.launch {
@@ -434,7 +433,7 @@ private fun renderReminderRow(
  * D8(b)'s banner describes, or has already received it. Deliberately a plain resolved/open flag,
  * not reusing [boardChangeTypeColor]'s scale -- these are two different questions ("what changed"
  * vs. "has the register been updated for it"). */
-fun reminderResolutionLabel(resolved: Boolean): String = if (resolved) "Erledigt" else "Offen"
+fun reminderResolutionLabel(resolved: Boolean): String = if (resolved) gettext("Erledigt") else gettext("Offen")
 
 fun reminderResolutionColor(resolved: Boolean): String = if (resolved) "success" else "warning"
 
@@ -443,8 +442,8 @@ fun reminderResolutionColor(resolved: Boolean): String = if (resolved) "success"
  * member today), same "never fabricate a name, show the raw id honestly" posture
  * `DsgvoRightsScreen.kt`'s audit-actor display already establishes. */
 fun resolvedCaption(reminder: TransparenzregisterReminderDto): String {
-    val who = reminder.resolvedByDisplayName ?: reminder.resolvedById ?: "unbekannt"
-    return "Bestätigt von $who am ${reminder.resolvedAt}"
+    val who = reminder.resolvedByDisplayName ?: reminder.resolvedById ?: gettext("unbekannt")
+    return gettext("Bestätigt von %1 am %2", who, reminder.resolvedAt)
 }
 
 /** Today's date as `JJJJ-MM-TT` -- mirrors `CommitteesScreen.todayIso`'s own `kotlin.time.Clock`
@@ -457,7 +456,8 @@ private fun todayIso(): String =
         .toString()
 
 // ================================================================================================
-// Pure copy constants -- covered by BoardMembershipScreenTest.kt
+// Copy constants -- the German source text is the msgid; every use site wraps it in `tr(...)` (audit fix M4), so they are translated.
+// Covered by BoardMembershipScreenTest.kt
 // ================================================================================================
 
 /** D9: screen-header note directly under the h1, explaining the roster's dual-source nature before

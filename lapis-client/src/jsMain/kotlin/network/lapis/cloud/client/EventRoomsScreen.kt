@@ -5,9 +5,7 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
-import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -43,35 +41,35 @@ fun renderEventRoomsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Räume"))
+    root.pageHeader(tr("Räume"))
 
     // ---- List (Räume-Übersicht) -----------------------------------------------------------
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeInactiveCheck = filterRow.checkBox(value = true, label = tr("Inaktive Räume anzeigen"))
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
-    val listPanel = root.vPanel(spacing = 6)
+    // W5 (R34): loading / error with retry / empty are distinct states of one `dataSection`.
+    lateinit var roomsSection: DataSection
 
-    fun refreshList() {
-        listPanel.removeAll()
-        AppScope.launch {
-            val rooms =
-                guarded {
-                    rpcService<IEventRoomService>().listRooms(includeInactive = includeInactiveCheck.value)
-                } ?: return@launch
-            if (rooms.isEmpty()) {
-                listPanel.p(tr("Noch keine Räume angelegt."))
-                return@launch
-            }
-            rooms.forEach { room ->
-                renderEventRoomRow(listPanel, room, ::refreshList)
-            }
-        }
-    }
+    fun refreshList() = roomsSection.reload()
+    roomsSection =
+        root.dataSection<List<EventRoomDto>>(
+            emptyText = tr("Noch keine Räume angelegt."),
+            // Audit fix: with "Inaktive Räume anzeigen" OFF an empty list only means "no ACTIVE room" -- inactive ones may exist. That is the
+            // filtered-empty state, not "Noch keine Räume angelegt." (a claim that there are no rooms at all).
+            filterTerm = { if (includeInactiveCheck.value) null else "aktiv" },
+            noMatchText = { _ -> gettext("Keine aktiven Räume. Blenden Sie inaktive Räume ein, um alle Räume zu sehen.") },
+            isEmpty = { it.isEmpty() },
+            load = { guarded { rpcService<IEventRoomService>().listRooms(includeInactive = includeInactiveCheck.value) } },
+            render = { panel, rooms ->
+                val listPanel = panel.vPanel(spacing = 6)
+                rooms.forEach { room -> renderEventRoomRow(listPanel, room, ::refreshList) }
+            },
+        )
     refreshButton.onClick { refreshList() }
     refreshList()
 
-    root.h2(tr("Neuen Raum anlegen"))
+    root.h2(tr("Neuen Raum anlegen")) { addCssClass("h5") }
     renderEventRoomCreationForm(root, ::refreshList)
 }
 

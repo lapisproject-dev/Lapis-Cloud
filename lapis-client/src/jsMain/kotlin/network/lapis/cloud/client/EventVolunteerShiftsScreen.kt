@@ -6,7 +6,6 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -46,16 +45,16 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Helfer-Schichten"))
+    root.pageHeader(tr("Helfer-Schichten"))
 
-    root.h2(tr("Veranstaltung"))
+    root.h2(tr("Veranstaltung")) { addCssClass("h5") }
     val eventSelectRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val eventSelect = eventSelectRow.select(options = emptyList(), label = tr("Veranstaltung"))
 
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     val listPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Neue Schicht anlegen"))
+    root.h2(tr("Neue Schicht anlegen")) { addCssClass("h5") }
     val creationFormHolder = root.vPanel(spacing = 6)
 
     fun refreshList() {

@@ -67,14 +67,14 @@ import kotlin.time.Duration.Companion.seconds
 fun renderAccountingExportView(panel: SimplePanel) {
     val role = AppState.session?.role
     if (!AccountingExportAuthzUi.canManage(role)) {
-        panel.h2(tr("Buchhaltungs-Export"))
+        panel.h2(tr("Buchhaltungs-Export")) { addCssClass("h5") }
         panel.p(tr("Diese Ansicht ist Schatzmeister/Admin vorbehalten.")) { addCssClasses("text-muted") }
         return
     }
 
     var provider = AccountingExportProvider.LEXOFFICE
     val providerRow = panel.hPanel(spacing = 8) { addCssClass("mb-2") }
-    val heading = panel.h2(provider.displayName)
+    val heading = panel.h2(provider.displayName) { addCssClass("h5") }
     val connectionPanel = panel.vPanel(spacing = 6)
     panel.div { addCssClass("mt-3") }
     val exportPanel = panel.vPanel(spacing = 10)
@@ -138,7 +138,7 @@ internal fun renderConnectionSection(
     connection: AccountingExportConnectionDto,
     onChanged: () -> Unit,
 ) {
-    panel.h3(tr("Verbindung"))
+    panel.h3(tr("Verbindung")) { addCssClass("h6") }
     if (connection.connected) {
         panel.div(
             gettext(
@@ -262,7 +262,7 @@ internal fun renderZeroVatSection(
         ) { addCssClasses("text-muted small") }
         return
     }
-    panel.h3(tr("Hinweis zur Umsatzsteuer"))
+    panel.h3(tr("Hinweis zur Umsatzsteuer")) { addCssClass("h6") }
     val textBox = panel.div { addCssClasses("border rounded p-2 small") }
     textBox.content = tr("Wird geladen …")
     // W4c: das Kästchen ist eine Pflicht-Checkbox statt eines grauen Knopfes ohne Erklärung (`ackButton.disabled = ackCheck.value != true`,
@@ -314,7 +314,7 @@ private fun renderExportSection(
     connection: AccountingExportConnectionDto,
 ) {
     val role = AppState.session?.role
-    panel.h3(tr("Export"))
+    panel.h3(tr("Export")) { addCssClass("h6") }
     renderUnknownItemsSection(panel.vPanel(spacing = 4), provider)
     // W4c: der Zeitraum ist ein [LapisForm] -- die Fehler stehen an den Feldern (vorher ein Sammelsatz über dem Knopf).
     val form = panel.lapisForm()
@@ -492,7 +492,7 @@ private fun renderUnknownItemsSection(
             val items = guarded { rpcService<IAccountingExportService>().listUnknownItems(provider, 0, 200) } ?: return@launch
             panel.removeAll()
             if (items.isEmpty()) return@launch
-            panel.h3(tr("Ungeklärte Belege (alle Läufe)"))
+            panel.h3(tr("Ungeklärte Belege (alle Läufe)")) { addCssClass("h6") }
             panel.p(
                 gettext(
                     "Diese Belege haben einen ungeklärten %1-Sendestatus aus einem früheren Lauf. Bitte in " +
@@ -528,7 +528,7 @@ private fun renderRunSection(
     initialRun: AccountingExportRunDto,
 ) {
     panel.removeAll()
-    panel.h3(tr("Letzter Lauf"))
+    panel.h3(tr("Letzter Lauf")) { addCssClass("h6") }
     val summaryBox = panel.div()
     val itemsPanel = panel.vPanel(spacing = 4)
     val actionsRow = panel.hPanel(spacing = 8)

@@ -9,7 +9,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -152,7 +151,7 @@ fun renderPriceOracleScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Price-Oracle"))
+    root.pageHeader(tr("Price-Oracle"))
     root.div(
         tr(
             "Verwaltet die Anker-Bindung des Libertaler (LTR) an ein reales Asset (konfigurierbar: Bitcoin, Gold " +
@@ -162,7 +161,7 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     ) { addCssClasses("text-muted small") }
 
     // ---- Konfiguration ------------------------------------------------------------------------
-    root.h2(tr("Konfiguration"))
+    root.h2(tr("Konfiguration")) { addCssClass("h5") }
     val configPanel = root.vPanel(spacing = 6)
     configPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
@@ -189,7 +188,7 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     loadConfig()
 
     // ---- Diagnose: aktueller Kurs (D10 empty-state N/A -- always renders halted OR live shape) --
-    root.h2(tr("Diagnose: aktueller Kurs"))
+    root.h2(tr("Diagnose: aktueller Kurs")) { addCssClass("h5") }
     root.div(tr("Rein diagnostisch -- prüft die Orakel-Gesundheit, ohne LTR zu minten.")) { addCssClasses("text-muted small") }
     val previewRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val previewButton = previewRow.button(tr("Kurs abrufen"), style = ButtonStyle.OUTLINESECONDARY)
@@ -212,11 +211,11 @@ fun renderPriceOracleScreen(container: SimplePanel) {
     }
 
     // ---- Kursverlauf ---------------------------------------------------------------------------
-    root.h2(tr("Kursverlauf"))
+    root.h2(tr("Kursverlauf")) { addCssClass("h5") }
     applyInitialHistoryAnchor = renderPriceHistoryChart(root, canManage)
 
     // ---- Spende zu LTR konvertieren ------------------------------------------------------------
-    root.h2(tr("Spende zu LTR konvertieren"))
+    root.h2(tr("Spende zu LTR konvertieren")) { addCssClass("h5") }
     val convertPanel = root.vPanel(spacing = 6)
     convertPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     AppScope.launch {

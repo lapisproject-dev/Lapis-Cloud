@@ -6,7 +6,6 @@ import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -67,7 +66,7 @@ fun renderDsgvoComplianceScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("DSGVO-Compliance"))
+    root.pageHeader(tr("DSGVO-Compliance"))
     root.div(
         tr(
             "Verarbeitungsverzeichnis (AVV), technisch-organisatorische Maßnahmen (TOM), " +
@@ -111,7 +110,7 @@ fun renderDsgvoComplianceScreen(container: SimplePanel) {
 
 private fun renderAvvTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.ADMIN)
-    panel.h2(tr("Verarbeitungsverzeichnis (AVV)"))
+    panel.h2(tr("Verarbeitungsverzeichnis (AVV)")) { addCssClass("h5") }
     panel.div(
         tr(
             "Drittdienst-Verarbeiter (z. B. Letterxpress) und der Stand des jeweiligen " +
@@ -293,7 +292,7 @@ private fun renderAgreementForm(
 
 private fun renderTomTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.ADMIN)
-    panel.h2(tr("Technisch-organisatorische Maßnahmen (TOM)"))
+    panel.h2(tr("Technisch-organisatorische Maßnahmen (TOM)")) { addCssClass("h5") }
     panel.div(
         tr(
             "Dokumentation der acht Standard-TOM-Kategorien. \"Version\" ist ein einfacher Zähler, der " +
@@ -442,7 +441,7 @@ private fun renderTomForm(
 
 private fun renderDsfaTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
-    panel.h2(tr("Datenschutz-Folgenabschätzung (DSFA)"))
+    panel.h2(tr("Datenschutz-Folgenabschätzung (DSFA)")) { addCssClass("h5") }
 
     // D8(a): unconditional, non-dismissible, above everything else on this tab (X2).
     panel.div(dsfaBannerText()) { addCssClasses("alert alert-warning") }
@@ -615,7 +614,7 @@ private fun renderDpiaForm(
 
 private fun renderBreachTab(panel: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
-    panel.h2(tr("Datenpannen"))
+    panel.h2(tr("Datenpannen")) { addCssClass("h5") }
 
     // D8(a): unconditional, non-dismissible, above everything else on this tab (X2).
     panel.div(breachBannerText()) { addCssClasses("alert alert-warning") }

@@ -5,9 +5,8 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
-import io.kvision.html.span
+import io.kvision.html.icon
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -65,7 +64,7 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Stream-Ziele"))
+    root.pageHeader(tr("Stream-Ziele"))
     root.div(
         tr(
             "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), " +
@@ -92,7 +91,7 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
         }
     }
 
-    root.h2(tr("Neues Stream-Ziel anlegen"))
+    root.h2(tr("Neues Stream-Ziel anlegen")) { addCssClass("h5") }
     renderDestinationCreateForm(root, ::refreshList)
 
     refreshList()
@@ -109,7 +108,11 @@ private fun renderDestinationRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.span(conferenceStreamPlatformGlyph(destination.platform)) { addCssClasses("text-muted") }
+    // W5: a generic Font Awesome icon per platform TYPE (decorative, `aria-hidden`; the platform name is the badge below).
+    headerRow.icon(conferenceStreamPlatformIconClass(destination.platform)) {
+        addCssClass("text-muted")
+        setAttribute("aria-hidden", "true")
+    }
     headerRow.div(destination.label) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(conferenceStreamPlatformLabel(destination.platform), "secondary")
     headerRow.activeStatusBadge(destination.enabled)
@@ -345,14 +348,15 @@ internal fun conferenceStreamPlatformLabel(platform: ConferenceStreamPlatform): 
     }
 
 /** D9 (Zhuo/Rams) -- generic PLATFORM-TYPE iconography, deliberately NOT a trademarked platform
- * logo (brand risk, per the design review's own note). A single, distinguishable glyph per type. */
-internal fun conferenceStreamPlatformGlyph(platform: ConferenceStreamPlatform): String =
+ * logo (brand risk, per the design review's own note). A single, distinguishable Font Awesome icon per type
+ * (W5: was a text glyph/emoji per type). */
+internal fun conferenceStreamPlatformIconClass(platform: ConferenceStreamPlatform): String =
     when (platform) {
-        ConferenceStreamPlatform.YOUTUBE -> "▶"
-        ConferenceStreamPlatform.TWITCH -> "🎮"
-        ConferenceStreamPlatform.PEERTUBE -> "🐙"
-        ConferenceStreamPlatform.OWNCAST -> "📡"
-        ConferenceStreamPlatform.GENERIC_RTMP -> "◆"
+        ConferenceStreamPlatform.YOUTUBE -> "fas fa-play"
+        ConferenceStreamPlatform.TWITCH -> "fas fa-gamepad"
+        ConferenceStreamPlatform.PEERTUBE -> "fas fa-share-nodes"
+        ConferenceStreamPlatform.OWNCAST -> "fas fa-tower-broadcast"
+        ConferenceStreamPlatform.GENERIC_RTMP -> "fas fa-gem"
     }
 
 /** Pure UX/validation metadata only -- the SERVER has zero platform-specific code paths (every

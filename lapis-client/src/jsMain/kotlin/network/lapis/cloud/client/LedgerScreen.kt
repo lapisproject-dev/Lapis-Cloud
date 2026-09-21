@@ -14,7 +14,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -113,10 +112,10 @@ fun renderLedgerScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot()
-    root.h1(tr("Kontenplan & Journal"))
+    root.pageHeader(tr("Kontenplan & Journal"))
 
     // ---- Accounts (Kontenplan) -------------------------------------------------------------
-    root.h2(tr("Konten (SKR42 Kontenplan)"))
+    root.h2(tr("Konten (SKR42 Kontenplan)")) { addCssClass("h5") }
     // Design-Team-Welle 2026-09-18, Punkt 3: bis dahin gab es hier NUR die
     // "Inaktive Konten anzeigen"-Checkbox -- ein SKR42-Kontenplan hat aber von Anfang an dutzende
     // Zeilen, und wer ein bestimmtes Konto sucht, hat bisher gescrollt oder Strg+F benutzt. Muster
@@ -140,7 +139,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     val accountsStatusRegion = root.dataStatusRegion()
     val accountListPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Kontodetails"))
+    root.h2(tr("Kontodetails")) { addCssClass("h5") }
     val accountDetailPanel = root.vPanel(spacing = 10)
     accountDetailPanel.p(tr("Konto oben auswählen, um Hauptbuch/Kassenbuch zu sehen."))
 
@@ -283,7 +282,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     refreshAccounts()
 
     if (canManage) {
-        root.h2(tr("Neues Konto anlegen"))
+        root.h2(tr("Neues Konto anlegen")) { addCssClass("h5") }
         renderAccountCreationForm(root) { refreshAccounts() }
     }
 
@@ -292,11 +291,11 @@ fun renderLedgerScreen(container: SimplePanel) {
     // (TREASURER/ADMIN) -- see renderPaymentAccountMappingSection KDoc "Role gate" (Review Round 1,
     // 2026-08-19, MINOR-5): OrganizationSettingsService.updateOrganizationSettings itself requires
     // AccountRole.ADMIN only, so a TREASURER must not see an editable form that always fails.
-    root.h2(tr("Kontenzuordnung Zahlungsverkehr"))
+    root.h2(tr("Kontenzuordnung Zahlungsverkehr")) { addCssClass("h5") }
     renderPaymentAccountMappingSection(root, AppState.hasRole(AccountRole.ADMIN))
 
     // ---- Journal (Grundbuch) --------------------------------------------------------------
-    root.h2(tr("Journal (Grundbuch)"))
+    root.h2(tr("Journal (Grundbuch)")) { addCssClass("h5") }
     val journalFilterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val journalSearchInput = journalFilterRow.text(label = tr("Buchung suchen (Beschreibung)"))
     val journalStatusSegmentHost = journalFilterRow.simplePanel()
@@ -308,7 +307,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     val journalStatusRegion = root.dataStatusRegion()
     val journalListPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Journaldetails"))
+    root.h2(tr("Journaldetails")) { addCssClass("h5") }
     val journalDetailPanel = root.vPanel(spacing = 10)
     journalDetailPanel.p(tr("Buchung oben auswählen, um Details zu sehen."))
 
@@ -462,7 +461,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     refreshJournal()
 
     if (canManage) {
-        root.h2(tr("Neue Buchung"))
+        root.h2(tr("Neue Buchung")) { addCssClass("h5") }
         val newEntryPanel = root.vPanel(spacing = 6)
         newEntryPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         AppScope.launch {
@@ -1409,31 +1408,27 @@ private fun renderDonorInfo(
         // D5/D7: postal dispatch trigger next to the PDF link, same TREASURER/BOARD/ADMIN tier as
         // the route itself -- fetched once here rather than threaded down from the caller, since
         // this block only exists for a POSTED entry with a donor attribution in the first place.
-        AppScope.launch {
-            if (isPostalMailEnabled()) {
-                val postalButton = actionRow.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
-                postalButton.onClick {
-                    postalDispatchConfirmDialog(
-                        caption = tr("Spendenbescheinigung per Post versenden"),
-                        recipientDisplayName = entry.donorMemberDisplayName ?: entry.donorMemberId.orEmpty(),
-                        documentLabel = gettext("Spendenbescheinigung %1", entry.entryDate),
-                    ) {
-                        outcomePanel.removeAll()
-                        runGuardedAction(postalButton) {
-                            val result = guarded { rpcService<IPostalMailService>().dispatchSpendenbescheinigungByPost(entry.id) }
-                            if (result != null) {
-                                if (result.status == PostalDeliveryStatus.SENT) {
-                                    notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
-                                } else {
-                                    notifyError(tr("Postversand fehlgeschlagen."))
-                                }
-                                outcomePanel.renderPostalDispatchOutcome(result)
+        actionRow.renderPostalMailGate { host ->
+            val postalButton = host.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+            postalButton.onClick {
+                postalDispatchConfirmDialog(
+                    caption = tr("Spendenbescheinigung per Post versenden"),
+                    recipientDisplayName = entry.donorMemberDisplayName ?: entry.donorMemberId.orEmpty(),
+                    documentLabel = gettext("Spendenbescheinigung %1", entry.entryDate),
+                ) {
+                    outcomePanel.removeAll()
+                    runGuardedAction(postalButton) {
+                        val result = guarded { rpcService<IPostalMailService>().dispatchSpendenbescheinigungByPost(entry.id) }
+                        if (result != null) {
+                            if (result.status == PostalDeliveryStatus.SENT) {
+                                notifySuccess(gettext("Brief an %1 wurde an Letterxpress übergeben.", result.recipientDisplayName))
+                            } else {
+                                notifyError(tr("Postversand fehlgeschlagen."))
                             }
+                            outcomePanel.renderPostalDispatchOutcome(result)
                         }
                     }
                 }
-            } else {
-                actionRow.postalMailDisabledNotice()
             }
         }
     }

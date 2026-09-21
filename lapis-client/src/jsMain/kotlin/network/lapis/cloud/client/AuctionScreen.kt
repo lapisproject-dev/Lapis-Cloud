@@ -11,7 +11,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -138,11 +137,11 @@ fun renderAuctionScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Auktion"))
+    root.pageHeader(tr("Auktion"))
 
     // ---- Neues Angebot erstellen (D3: renderMyLtrBalanceInline first, before any input field --
     // identical position to CrowdfundingScreen.kt's own submit form) ---------------------------
-    root.h2(tr("Neues Angebot erstellen"))
+    root.h2(tr("Neues Angebot erstellen")) { addCssClass("h5") }
     val createPanel = root.vPanel(spacing = 6)
     createPanel.renderMyLtrBalanceInline()
     createPanel.div(gettext("Beim Einstellen wird eine feste Gebühr von %1 fällig.", formatLtr(0.01.toDecimal()))) {
@@ -150,7 +149,7 @@ fun renderAuctionScreen(container: SimplePanel) {
     }
 
     // ---- Auktionen (browse) ---------------------------------------------------------------
-    root.h2(tr("Auktionen"))
+    root.h2(tr("Auktionen")) { addCssClass("h5") }
     val staleRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val staleLabel = staleRow.div(tr("Wird geladen …")) { addCssClasses("text-muted small flex-grow-1") }
     val auctionsRefreshButton = staleRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
@@ -163,11 +162,11 @@ fun renderAuctionScreen(container: SimplePanel) {
     val auctionsPanel = root.vPanel(spacing = 10)
 
     // ---- Meine Gebote ------------------------------------------------------------------------
-    root.h2(tr("Meine Gebote"))
+    root.h2(tr("Meine Gebote")) { addCssClass("h5") }
     val myBidsPanel = root.vPanel(spacing = 6)
 
     // ---- Meine Auktionen (als Verkäufer) --------------------------------------------------
-    root.h2(tr("Meine Auktionen (als Verkäufer)"))
+    root.h2(tr("Meine Auktionen (als Verkäufer)")) { addCssClass("h5") }
     val myAuctionsPanel = root.vPanel(spacing = 10)
 
     // ---- Verwaltung (ADMIN only, D3 staged disclosure) ----------------------------------------
@@ -679,30 +678,29 @@ private fun buyNowConfirmDialog(
 // Meine Gebote
 // ================================================================================================
 
-private fun renderMyBidsTable(
+internal fun renderMyBidsTable(
     panel: SimplePanel,
     bids: List<AuctionBidDto>,
+    viewport: NarrowViewportSource = BrowserNarrowViewport,
 ) {
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Auktion")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Ihr Höchstgebot")) { width = 140.px }
-    headerRow.div(tr("Führend")) { width = 90.px }
-    headerRow.div(tr("Status")) { width = 160.px }
-    headerRow.div(tr("Abgegeben")) { width = 160.px }
-
-    bids.forEach { bid ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(bid.auctionTitle) { addCssClasses("flex-grow-1") }
-        val bidCell = row.div { width = 140.px }
-        bidCell.ltrSpan(bid.maxBidLtr)
-        row.div(if (bid.isCurrentLeader) tr("Ja") else tr("Nein")) { width = 90.px }
-        val statusCell = row.div { width = 160.px }
-        statusCell.statusBadge(auctionStatusLabel(bid.auctionStatus), auctionStatusColor(bid.auctionStatus))
-        row.div(bid.createdAt.toString()) {
-            width = 160.px
-            addCssClasses("text-muted small")
-        }
-    }
+    // W5: was a hand-built pseudo-table (header row + one `hPanel` row per bid with fixed column widths); now a real table
+    // (`dataTable`, card list on a narrow screen). Same rows in the same order, same cell texts (PseudoTableGoldenDomTest).
+    panel.plainDataTable(
+        columns =
+            listOf(
+                textColumn<AuctionBidDto>(title = tr("Auktion"), primary = true) { it.auctionTitle },
+                DataColumn(title = tr("Ihr Höchstgebot"), numeric = true, cell = { cell, bid -> cell.ltrSpan(bid.maxBidLtr) }),
+                textColumn<AuctionBidDto>(title = tr("Führend")) { if (it.isCurrentLeader) tr("Ja") else tr("Nein") },
+                DataColumn(
+                    title = tr("Status"),
+                    cell = { cell, bid -> cell.statusBadge(auctionStatusLabel(bid.auctionStatus), auctionStatusColor(bid.auctionStatus)) },
+                ),
+                textColumn<AuctionBidDto>(title = tr("Abgegeben"), cssClasses = "text-muted small") { it.createdAt.toString() },
+            ),
+        rows = bids,
+        viewport = viewport,
+        label = gettext("Meine Gebote"),
+    )
 }
 
 // ================================================================================================

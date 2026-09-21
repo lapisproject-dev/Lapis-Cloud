@@ -7,7 +7,6 @@ import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -67,7 +66,7 @@ fun renderCrmContactsScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Kontakte & Interessenten"))
+    root.pageHeader(tr("Kontakte & Interessenten"))
     root.div(
         tr(
             "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) " +
@@ -128,7 +127,7 @@ fun renderCrmContactsScreen(container: SimplePanel) {
     loadMoreButton.onClick { loadContactPage(reset = false) }
     refreshList()
 
-    root.h2(tr("Neuen Kontakt anlegen"))
+    root.h2(tr("Neuen Kontakt anlegen")) { addCssClass("h5") }
     renderCrmContactCreationForm(root, ::refreshList)
 }
 

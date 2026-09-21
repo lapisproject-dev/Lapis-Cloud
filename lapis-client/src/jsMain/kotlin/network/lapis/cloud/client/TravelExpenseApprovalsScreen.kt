@@ -7,7 +7,6 @@ import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -38,7 +37,7 @@ import network.lapis.cloud.shared.rpc.ITravelExpenseService
 fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
     val root = container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Reisekosten-Freigaben"))
+    root.pageHeader(tr("Reisekosten-Freigaben"))
 
     root.h2(tr("Sätze")) { addCssClass("h6") }
     val ratesPanel = root.vPanel(spacing = 6)

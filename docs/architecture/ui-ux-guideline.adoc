@@ -957,6 +957,161 @@ W4d, still on the old grammar (text fields / choice fields): `TravelExpenseScree
 `ApiKeysScreen` (a named exception). Unchanged open: CRM 20/9, DSGVO (two screens) 25/15, events (three screens) 23/6, auction 7/1,
 crowdfunding 4/1, conference (three files) 4/11, social network 8/3, catering 6/1, honours and families 9/4, audit log 6/1.
 
+== Wave W5 "States, page header, language" (V1.4.31)
+
+A client-only wave: no server production code, no `lapis-shared` change, no migration (`git diff master --stat -- lapis-server/src/main
+lapis-shared` is empty; `db/migration` still ends at V44). Seven commits on the feature branch, in this order (i18n moved BEHIND the
+formatting work so that no translation is written for a sentence the migration would still have changed -- and in the end the form
+migration was not done, see "Not done in this wave").
+
+=== What the wave did
+
+[cols="1,3", options="header"]
+|===
+| Building block / change | What it is
+
+| `PageHeader.kt` -- `Container.pageHeader(title, subtitle, banners, primaryAction)`
+| The only source of the page `h1` (`.h4`, `id="lapis-page-title"`, `tabindex="-1"`, hooks registered BEFORE `add()` through
+  `addWithLifecycle`). Banner slot ABOVE the title (R37), at most one primary action on the right of the title row (R36), an optional
+  subtitle for DATA values (text, never `rich`). Returns a `PageHeader` handle (deviation from the plan's `VPanel`) so that a value that
+  is loaded later (event title, member name, honor filter) can be set with `setSubtitle`. `document.title` becomes "<title> -- <brand>"
+  with `Branding.title` (white label) and the marker-free text from `resolvedAttributeText`.
+
+| Focus, landmark, announcement
+| `Routing.show()` reports every route to `PageFocus.onRouteShown()`: the FIRST one (page load, deep link, boot redirect) requests nothing -- so the skip link stays the first stop of the tab order -- every later one requests the focus ONCE; the header's insert hook consumes it, unless a modal is open or a text field holds the focus (audit fix M7). A re-render (language
+  switch, `refreshShell`) never requests it, so it cannot take the focus away from the control the person was using
+  (`PageHeaderDomTest`). `.lapis-content` is `role="main"` with `id`/`tabindex` and `aria-labelledby` pointing at the page `h1`. A polite live region is mounted ONCE in `App.kt`
+  (empty); the header only writes its TEXT. The skip link is a `button` (not `<a href="#...">`, the app routes by hash), first in the tab
+  order, visible only on focus.
+
+| `h2` -> `.h5`, `h3` -> `.h6` (R7)
+| 111 plain `h2(...)` and 5 `h3(...)` lines were sized mechanically; the five `.h4`-sized `h2`s (`DsgvoRightsScreen`, `MeetingsScreen`,
+  `MotionsScreen`) were stepped down as well, otherwise they would equal the `h1` (audit recount; the first text said 108 and seven). **Visible:
+  the section titles shrink from 2 rem to 1.25 rem** -- what the tripwire enforces is "sized `.h5` or `.h6`" (31 of the 196 `h2` carry `.h6`), not "every `h2` is `.h5`". The tripwire `ClientPageHeaderTripwireTest` holds `h1(` outside `PageHeader.kt` at 0, every `h2`/`h3` sized, at most one header
+  per file (four named multi-state screens) and `document.title` written only by the header and the conference marker.
+
+| Load states (R34/R41)
+| `PostalMailScreen`, `EventRoomsScreen`, `CateringScreen`, `MyVolunteerShiftsScreen` and the LTR balance strip
+  (`renderMyLtrBalanceInline`, used by three screens) now show loading / error with "Erneut versuchen" / empty as separate states
+  (`DataStatesDomTest`: the retry asks exactly ONCE more). The event pickers of catering and volunteer shifts got their own error state.
+  The balance strip keeps its callback contract (`null` on failure).
+
+| Pseudo-tables (R13/R55)
+| The bid list (`AuctionScreen`), the distribution history (`CrowdfundingScreen`), the weight history and the ranking
+  (`PoliticianScreen`) are `dataTable`s. The EXPECTED cell values of `PseudoTableGoldenDomTest` were recalculated by hand from the OLD source (the old rows are `div`s, the helpers of
+  the test ask for `thead`/`tbody`, and test and migration landed in one commit -- so this is NOT a characterization test that was green
+  against the old code); the ranking's repeated cell label is the column header now. Audit round: header, accessible-name (`aria-label`) and
+  de-emphasis assertions were added, and the muted/bold classes of the old rows came back (`textColumn(cssClasses = ...)`). `SocialNetworkScreen`'s boost
+  amount field lost its fixed `width` (`maxWidth`). The R55 ledger is EMPTY.
+
+| Tokens and touch (C5)
+| `text-danger` in every table cell reads the calibrated warn red (a TEXT rule -- see the audit round: the first version overrode the inherited
+  `--bs-danger-rgb` and broke `.text-bg-danger` badges in the dark theme); the `.is-invalid` background icon (fixed `#dc3545`) is gone in EVERY field
+  (border, message and `aria-invalid` carry the signal; a `select` keeps its chevron); controls OUTSIDE `.lapis-form` get the 44 px coarse-pointer
+  target with plain selectors (no `:not(.lapis-form *)`). `ConferenceScreen`'s six raw `getElement()?.setAttribute` are KVision `setAttribute` (five
+  `aria-pressed`) and the `readonly` property; `ClientLateHookRatchetTest` holds the `getElement()?.setAttribute` CHAIN at zero and keeps a ledger of the
+  other raw-DOM spellings (`?.let`, `?.apply`, `vnode.elm`, a stored element) -- 11 audited sites, not "zero".
+
+| Language (R51/R53)
+| 373 sentences that were in no catalog plus three more behind named constants (the first text said 393) are in `messages.pot` and all seven catalogs; the 24 empty
+  `msgstr` per catalog are filled; the 33 raw German `when`-branch labels (committee types, meeting/resolution/motion/vote statuses) go
+  through `gettext`. Glyphs left the msgids: the audit-log chain state is a Font Awesome icon (`aria-hidden`) next to "Kette intakt" /
+  "Kette gebrochen bei Sequenznummer %1" (the two glyph msgids are gone from all catalogs), the stream platforms use generic icons instead
+  of emoji. New: `AllClientMessagesCatalogTest` (the WHOLE client, no file exclusion, named constants resolved), `I18nGlossaryConsistencyTest`
+  and `docs/architecture/i18n-glossary.adoc` (the table is read by the test).
+|===
+
+=== Corrections to the wave's brief (recorded, not silently applied)
+
+* **44 px touch targets existed already** for `.btn`, the sidebar and the sort buttons (`@media (pointer: coarse)`), and for everything in
+  `.lapis-form`; W5 adds only the controls outside a form. R22 (the 40 px row) holds for `pointer: fine`, the 44 px target for
+  `pointer: coarse` -- no contradiction.
+* **`prefers-reduced-motion` was done** (one block covers all three transitions, tripwire R54); nothing changed, verified only.
+* **Contrast numbers**, corrected in the audit round: warn-red text on the plain row light 7.11:1, dark 6.10:1 (Bootstrap's table surface in
+  dark is `#212529`; the first text quoted 6.47:1 for another surface). The zebra row is MEASURED in the real browser (`ReportRowStyleDomTest`,
+  both themes, >= 4.5:1); the hover row (Bootstrap's 7.5 % overlay) is calculated only (about 6.0:1 light, 4.9:1 dark) and NOT automated.
+  Bootstrap's own red would be 3.8:1 (light zebra) and 2.8:1 (dark zebra). The session figure "5.6:1 on #262B33" used the wrong surface.
+* **Rules "five screens have several `h1`" was wrong.** Measured: `MemberFinancialHistoryScreen` had three `h1` in ONE render path; Login,
+  Registration, FriendRegistration and SocialNetwork have two in SEPARATE states (fine). `AccountingExportScreen` has no `h1` on purpose: it is
+  a sub-view of `FinancialReportsScreen`, which owns the page header (the plan asked for a header there -- that would have made two).
+* The six raw `setAttribute` calls could not go through `resolvedAttributeText` (`aria-pressed` and `readonly` are no `tr()` text); the right
+  tools are `Widget.setAttribute` and the property.
+* **`formatMoney` was NOT given a general rounding** -- that would contradict the documented decision D5 (never re-round a server value). It
+  removes only floating-point NOISE: the digits are replaced only when the value lies within a tolerance of a whole cent (1e-9 absolute, growing with the
+  magnitude at 1e-14 relative -- the first version's absolute 1e-6 turned the real value `1.5e-7` into "0") AND the text has more than two
+  fractional digits (`1234.5600000000001` -> `1234.56`, `0.005`, `12.345`, `1.5e-7` stay; exponent notation is expanded, never shown). No golden value changed.
+
+=== Not done in this wave (named, with numbers)
+
+* **W4d form migration (the eight files of the plan: `DashboardScreen`, `DocumentsScreen`, `PoliticianScreen`,
+  `NonprofitComplianceReportsScreen`, `TravelExpenseScreen`, `TravelExpenseApprovalsScreen`, `VolunteerAllowanceScreen`,
+  `VolunteerAllowanceApprovalsScreen`) was NOT started.** R24 stays 166 (31 files), R24B 80, R29 39. Each of those needs request-body tests
+  against the old code before it is touched; that work was not begun rather than done half.
+* **Load states for the rest.** After the five migrations the scan counts 147 read calls in 44 files without any state block (154 in 48
+  before; the plan's own count of 182 in 55 used a broader verb list). `ConferenceScreen` (18), `MotionsScreen` (14) and `MeetingsScreen` (7)
+  are deliberately left (live path, cursor state). R34 is a ratchet now (`ClientDataStateTripwireTest`), lowered by every migration.
+* **R42** (a `removeAll()` without a state text) stays a check by eye -- 73 files hold `removeAll()` (the first text said 75), a count would be invented.
+* **R35** (title = sidebar entry) has no automatic test; the titles are the sidebar labels except where noted here: "Dashboard" (was the
+  greeting), "Ehrungen & Auszeichnungen" and "Beitragshistorie" (a member's history), "Helferschichten" (sidebar: "Helferschichten"; the
+  event-side screen is "Helfer-Schichten"). The remaining titles were not compared line by line.
+* **Skip link and live region are not verified with a screen reader**; the manual browser check at 375 / 767 / 768 / 1440 px, light and dark,
+  and the 4.53:1 hover row in the dark theme are NOT done.
+* **The homonym "Stornieren"** (reverse a posting / cancel an event registration) still has one msgid; see the glossary. Five decorative
+  glyph msgids stay (`<-`-arrows, "↳", "●", "◆" prefixes in the social network and conference recording labels) -- named, not touched.
+* `document.title` used to keep the language it was set in until the next navigation; since the audit round the language switcher calls `PageTitle.apply()`.
+  The live region is not rewritten on a language switch (it announces route changes, and a switch is not one).
+
+=== State after W5 (measured by scripts, not estimated)
+
+[cols="2,1,1", options="header"]
+|===
+| Measure | Before | After
+
+| Screens with the shared page header | 0 | 66 of 67 (the 67th, `AccountingExportScreen`, is a sub-view)
+| Raw `h1(` outside `PageHeader.kt` | 71 in 66 files | 0
+| `h2`/`h3` without `.h5`/`.h6` | 121 | 0
+| R55 ledger (fixed-width pseudo-table cells) | 4 files | 0 files
+| `R24_REMAINING_MAX` / `R24B_REMAINING_MAX` / `R29_UNGUARDED_WRITE_LAUNCH_MAX` | 166 / 80 / 39 | 166 / 80 / 39 (unchanged; R29 counts only the 32 migrated files -- about 190 unguarded writing launches remain in the whole client, of 403)
+| Read calls without a state block (R34 scan) | 154 in 48 files | 147 in 44 files
+| Sentences without a catalog entry | 373 (+3 via constants) | 0
+| Empty `msgstr` per catalog | 24 | 0
+| Raw German `when` labels | 33 | 0
+| Raw `getElement()?.setAttribute` chain | 6 | 0 (plus a ledger of 11 audited windowed raw-DOM writes)
+|===
+
+== Audit round of W5 (branch `fix/v1.4.31-audit`)
+
+An independent audit found two blocking defects, eleven major ones and minor ones in the W5 commit. They were fixed on a separate branch
+of the same wave; nothing here is a new version. The list (finding -> fix -> test):
+
+[cols="1,3,2", options="header"]
+|===
+| Finding | Fix | Test
+
+| B1 -- `text-danger` override reached `.text-bg-danger` badges (dark theme: white on `#EA868F`, 2.53:1)
+| TEXT rule on `td .text-danger` / `td.text-danger`; the inherited `--bs-danger-rgb` is no longer overridden. Corrected contrast numbers (above).
+| `ReportRowStyleDomTest` (badge and text, both themes, real cascade), `ClientUiGuidelineTripwireTest`
+
+| B2 -- a language switch during a live conference ran the destroy hook (`disconnect()`)
+| `requestLanguageChange` asks first while `ConferenceCallPresence.live`; cancel keeps everything. The teardown was not made re-attachable.
+| `LanguageChangeDomTest` (mounted `conferenceScreenRoot`)
+
+| M1 -- "no shifts/orders" without an event | own "no events" sentence, list only for a chosen event, failed event list = error box | `AuditFixesM1M2M3DomTest`
+| M2 -- failed settings load = "deaktiviert" | `Boolean?`, unknown = error box + retry (`renderPostalMailGate`) | `AuditFixesM1M2M3DomTest`
+| M3 -- cleaned display vs. raw prefill/compare | one cleaned view (`displayDigits`, half-cent tolerance), relative noise tolerance, no exponent notation | `MoneyTest`, `AuditFixesM1M2M3DomTest`
+| M4 -- six raw German sentences and fallbacks | `tr`/`gettext`, amendment plural as two sentences; two new detectors with baselines | `BoardMembershipTranslationDomTest`, `AllClientMessagesCatalogTest`
+| M5 -- translation quality | see the CHANGELOG list | `I18nGlossaryConsistencyTest`
+| M6 -- glossary covered 25 of 424 new msgids | six new terms, robust parser, collision test with reasons | `I18nGlossaryConsistencyTest`
+| M7 -- skip link not the first Tab stop | first route takes no focus; no focus theft from modals/fields | `PageHeaderDomTest`
+| M8 -- 44 px gaps | `.btn-close`, `.dropdown-item`, navbar links, icon-only link button; skip link stays small at rest | `ClientUiGuidelineTripwireTest` (CSS text; the `pointer: coarse` media query cannot be emulated in Karma)
+| M9 -- unguarded irreversible writes | trigger disabled while the request runs (exit, card issue, document delete) | `WritePathsSingleShotDomTest`
+| M10 -- golden-test claim | reworded; header/name/card assertions added | `PseudoTableGoldenDomTest`
+| M11 -- ratchet too narrow | windowed detector + ledger (9 sites in the conference, 2 in the background section); the PIN fields moved to `Widget.setAttribute` (the conference banners did not: no test path for the live call) | `ClientLateHookRatchetTest`
+|===
+
+Deliberately not changed: 28 orphaned msgids without a source location (pre-existing), `formatLtr` (raw format), the `FormRules` limits (constant
+comparisons, no floating-point noise), the rest of `applyPanelVisibility` beyond the guard.
+
 == Rule precedence: attributes and `gettext`
 
 The guideline (section 2.14) says `tr()` only as widget content and, for attributes (`title`, `aria-label`,
@@ -969,6 +1124,15 @@ through `resolvedAttributeText` (marker stripped AND translated).
 
 == Known gaps
 
+* W5 audit round: `#:` source references of about 400 W5 msgids point at wrong lines (hand-maintained; only the msgid counts). The 44 px rule covers
+  `.btn-close`, `.dropdown-item`, `.navbar .nav-link` and `.lapis-icon-only`; other third-party controls are not measured. The `banners` slot (R37)
+  is used by two screens (the postal-mail band moved into it in the audit round) -- `TravelExpenseScreen`'s rates/configuration bands still stand in the body (they are data-driven panels). Glyph msgids not migrated:
+  '● Aufzeichnung läuft', '◆ Live-Stream %1 → %2', '‹ Zurück' / 'Weiter ›', '← Zurück zur Timeline', '↳ Änderungsantrag: %1', 'Zum LTR-Konto ->'.
+  The R34 ratchet is per FILE. `.text-bg-danger` is fixed; `.text-bg-warning` was not measured. The form-group rule R29 counts the 32 migrated files only.
+* W5: the items under "Not done in this wave" of section W5 (the W4d form migration, the remaining load states with their numbers, the
+  manual browser and screen-reader check, the homonym "Stornieren"). Closed by W5 and therefore removed from this list: the six raw
+  `setAttribute` calls of `ConferenceScreen`, the `.is-invalid` background icon, the contrast of negative amounts in zebra rows, the "--" of the
+  LTR balance strip, the pseudo-tables of auction/crowdfunding/politician.
 * W4c audit: **the manual browser check at 375 / 767 / 768 / 1440 px, light and dark, was not done** -- the layout claims of this wave rest
   on the DOM tests and the measured contrast numbers. Not covered by any test: the row action of `SepaMandatesScreen`, the accounting-export
   run flow, the SEPA creditor settings, `cancelFinTsSetup`, the dunning-case actions. No plural forms in the catalogs; the event screens share
@@ -1010,10 +1174,6 @@ through `resolvedAttributeText` (marker stripped AND translated).
 * W4a: `autocomplete="off"` on a password field is browser dependent; the password-manager attributes are a request, not
   a guarantee.
 * W4a: R28 (exactly one `PRIMARY` per form) stays a check by eye -- it is not testable per form from text.
-* W4a: `ConferenceScreen` still sets six attributes through a raw `getElement()?.setAttribute` (lost on a language switch).
-  The `ClientLateHookRatchet` idea (count them, never grow) should be extended to raw `setAttribute`; not done in this wave.
-* W4a: Bootstrap's `.is-invalid` draws a `#dc3545` background icon at the input's right edge; its contrast in the dark theme
-  is not calibrated to `--lapis-invalid`. The border and the message text are.
 * W4a: pressing Enter in a field does not submit -- the forms are not `<form>` elements and never were (before W4a either).
   A keyboard user tabs to the button.
 * W4a: the pointer gate defers a blur check while ANY button is pressed anywhere in the document (a coarse rule chosen
@@ -1025,11 +1185,6 @@ through `resolvedAttributeText` (marker stripped AND translated).
 * Five files deliberately stay on the R14/R15 baseline after W3 and are named in the ledger: `AccountingExportScreen`
   (3 tables), `BankStatementImportScreen` (both W4), `DunningSettingsScreen`, `ReceivableDunningSettingsScreen`,
   `WebhookDeliveryLogPanel`.
-* Negative amounts in ORDINARY zebra rows are Bootstrap's `text-danger` (#DC3545): 3.8:1 on the light zebra and 2.7:1
-  on the dark one -- below AA. Sum and balance rows have their own, readable warn colour; the global colour is a
-  theme question that W3 did not open.
-* `renderMyLtrBalanceInline` (the balance strip on `CrowdfundingScreen`/`AuctionScreen`/`SocialNetworkScreen`) shows
-  "--" on a failed load instead of an error box with a retry.
 * Badge labels, the period lines above a report and the `title`/`aria-label` of icon buttons do not follow a language
   switch until the report is reloaded (see the W3 decisions).
 * Neither cursor list gained the load cap plus hint text R21 asks for -- pagination was to stay unchanged in W2.

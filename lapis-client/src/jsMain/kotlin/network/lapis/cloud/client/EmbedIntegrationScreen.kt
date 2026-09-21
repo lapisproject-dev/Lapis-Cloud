@@ -5,7 +5,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.li
 import io.kvision.html.p
@@ -38,7 +37,7 @@ fun renderEmbedIntegrationScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Website-Integration"))
+    root.pageHeader(tr("Website-Integration"))
     root.div(
         tr(
             "Widgets zum Einbetten auf der eigenen Vereins-/Parteiwebsite (Mitglieder-Login, Mitglied werden).",
@@ -67,7 +66,7 @@ private fun renderStatusBlock(
     panel: SimplePanel,
     status: EmbedAdminStatus,
 ) {
-    panel.h2(tr("Zustand"))
+    panel.h2(tr("Zustand")) { addCssClass("h5") }
     panel.p(if (status.enabled) tr("Aktiviert: Ja") else tr("Aktiviert: Nein"))
     if (status.enabled) {
         panel.p(gettext("%1 freigeschaltete Origin(s):", status.allowedOrigins.size))
@@ -90,7 +89,7 @@ private fun renderSnippetBlock(
     root: SimplePanel,
     publicBaseUrl: String,
 ) {
-    root.h2(tr("Einbindungs-Code"))
+    root.h2(tr("Einbindungs-Code")) { addCssClass("h5") }
     val snippet = buildEmbedSnippet(publicBaseUrl)
     // `readonly` über KVisions typisierte Eigenschaft (sie steht in der Attribut-Map und überlebt Re-Render UND Sprachwechsel);
     // das frühere rohe `getElement()?.setAttribute` ging beim Sprachwechsel verloren (Root wird neu aufgebaut).
@@ -119,7 +118,7 @@ private fun renderSnippetBlock(
 }
 
 private fun renderChecklistBlock(root: SimplePanel) {
-    root.h2(tr("Prüf-Checkliste"))
+    root.h2(tr("Prüf-Checkliste")) { addCssClass("h5") }
     val list = root.ul()
     list.li(tr("Skript geladen?"))
     list.li(tr("Origin freigeschaltet?"))

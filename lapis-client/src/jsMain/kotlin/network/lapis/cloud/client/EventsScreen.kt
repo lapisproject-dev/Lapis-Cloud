@@ -15,7 +15,6 @@ import io.kvision.html.Div
 import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -65,7 +64,7 @@ fun renderEventsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Veranstaltungen"))
+    root.pageHeader(tr("Veranstaltungen"))
 
     val secondaryLinksRow = root.hPanel(spacing = 8)
     secondaryLinksRow.button(tr("Räume"), style = ButtonStyle.OUTLINESECONDARY) {
@@ -81,7 +80,7 @@ fun renderEventsScreen(container: SimplePanel) {
         onClick { navigateTo(Routes.EVENT_CHECKIN) }
     }
 
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val statusFilterOptions =
         listOf("" to tr("Alle")) + EventStatus.entries.map { it.name to eventStatusLabel(it) }
@@ -122,7 +121,7 @@ fun renderEventsScreen(container: SimplePanel) {
     includePastCheck.subscribe { refreshList() }
     loadRoomsThenList()
 
-    root.h2(tr("Neue Veranstaltung anlegen"))
+    root.h2(tr("Neue Veranstaltung anlegen")) { addCssClass("h5") }
     val creationFormHolder = root.vPanel(spacing = 6)
     renderEventCreationForm(creationFormHolder, emptyList(), ::refreshList)
     // The creation form's room dropdown is rebuilt once rooms are actually loaded -- built once

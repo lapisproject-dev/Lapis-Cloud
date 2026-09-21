@@ -7,9 +7,9 @@ import io.kvision.form.text.text
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.html.span
@@ -77,12 +77,21 @@ fun renderEventCheckInScreen(
             marginTop = 24.px
         }
 
-    val offlineBanner =
-        root.div(tr("Keine Verbindung -- bitte auf Papier abhaken und später nachtragen.")) {
-            addCssClasses("alert alert-warning")
-            hide()
-        }
-    val headerTitle = root.h1("")
+    // W5: the offline band sits in the banner slot ABOVE the title (R37); the event's title is a data value and
+    // therefore the subtitle of the constant page title.
+    lateinit var offlineBanner: Div
+    val pageHead =
+        root.pageHeader(
+            tr("Veranstaltungs-Check-in"),
+            subtitle = "",
+            banners = {
+                offlineBanner =
+                    div(tr("Keine Verbindung -- bitte auf Papier abhaken und später nachtragen.")) {
+                        addCssClasses("alert alert-warning")
+                        hide()
+                    }
+            },
+        )
     val headerMeta = root.div("") { addCssClasses("text-muted") }
     val counterLine = root.div("") { addCssClasses("fw-bold") }
 
@@ -171,7 +180,7 @@ fun renderEventCheckInScreen(
                         ?.associateBy { it.id }
                         ?: registrationsById
             }
-            headerTitle.content = fresh.eventTitle
+            pageHead.setSubtitle(fresh.eventTitle)
             headerMeta.content = listOfNotNull("${fresh.startsAt}", fresh.locationText).joinToString(" · ")
             renderRoster(searchField.value.orEmpty())
         }

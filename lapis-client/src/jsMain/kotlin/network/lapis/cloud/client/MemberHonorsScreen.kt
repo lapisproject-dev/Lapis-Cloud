@@ -7,7 +7,6 @@ import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.icon
 import io.kvision.html.link
 import io.kvision.html.p
@@ -60,7 +59,7 @@ import kotlin.time.Clock
  * [IMemberHonorService.deleteHonor] -- serverseitig durchgesetzt, hier nur gespiegelt.
  *
  * The DOM-free helper functions below ([memberHonorsRoute]/[memberHonorCategoryLabel]/
- * [memberHonorCategoryIcon]/[memberHonorsHeading]/[memberHonorsEmptyStateText]) are the only pure
+ * [memberHonorCategoryIcon]/[memberHonorsEmptyStateText]) are the only pure
  * surface of this screen -- see `MemberHonorsScreenTest`.
  */
 fun renderMemberHonorsScreen(
@@ -70,7 +69,8 @@ fun renderMemberHonorsScreen(
     val root = container.dataScreenRoot()
 
     val headingPanel = root.vPanel(spacing = 2)
-    val headingText = headingPanel.h1(memberHonorsHeading(null))
+    // W5: constant title; the member the list is narrowed to is a data value and goes into the subtitle.
+    val pageHead = headingPanel.pageHeader(tr("Ehrungen & Auszeichnungen"), subtitle = "")
     if (requestedMemberId != null) {
         headingPanel.link(tr("Alle Ehrungen anzeigen"), url = "#${memberHonorsRoute(null)}") {
             addCssClasses("small")
@@ -195,7 +195,7 @@ fun renderMemberHonorsScreen(
             page.entries.firstOrNull()?.let { first ->
                 if (requestedMemberId != null && resolvedMemberDisplayName == null) {
                     resolvedMemberDisplayName = first.memberDisplayName
-                    headingText.content = memberHonorsHeading(resolvedMemberDisplayName)
+                    pageHead.setSubtitle(resolvedMemberDisplayName)
                 }
             }
             loaded += page.entries
@@ -434,9 +434,6 @@ private fun memberHonorCategoryColor(category: MemberHonorCategory): String =
         LOYALTY_AWARD -> "info"
         OTHER -> "secondary"
     }
-
-internal fun memberHonorsHeading(memberDisplayName: String?): String =
-    if (memberDisplayName == null) tr("Ehrungen & Auszeichnungen") else gettext("Ehrungen · %1", memberDisplayName)
 
 /**
  * Leertext der Ehrungsliste. Bei aktivem Kategorie-Segment sagt er „keine in dieser Kategorie" statt „noch

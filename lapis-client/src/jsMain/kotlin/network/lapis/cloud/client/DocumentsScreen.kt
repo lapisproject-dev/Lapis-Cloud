@@ -9,7 +9,6 @@ import io.kvision.form.upload.upload
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.html.link
@@ -44,17 +43,17 @@ import network.lapis.cloud.shared.rpc.IDocumentService
  */
 fun renderDocumentsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Dokumentenablage"))
+    root.pageHeader(tr("Dokumentenablage"))
     val canManage = DocumentsAuthzUi.canManage(AppState.session?.role)
 
-    root.h2(tr("Ordner"))
+    root.h2(tr("Ordner")) { addCssClass("h5") }
     val folderPanel = root.vPanel(spacing = 4)
     val folderCreationPanel = if (canManage) root.vPanel(spacing = 6) else null
 
-    root.h2(tr("Dokumente"))
+    root.h2(tr("Dokumente")) { addCssClass("h5") }
     val documentPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Versionen"))
+    root.h2(tr("Versionen")) { addCssClass("h5") }
     val versionPanel = root.vPanel(spacing = 6)
 
     fun loadVersions(document: DocumentDto) {
@@ -403,12 +402,14 @@ private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
     )
 
 /** Delete action of a document row -- role gate (`canManage`) and confirmation dialog unchanged. */
-private fun Container.renderDocumentDeleteAction(
+internal fun Container.renderDocumentDeleteAction(
     document: DocumentDto,
     onDeleted: () -> Unit,
 ) {
     val deleteButton = tableActionButton("fas fa-trash", tr("Löschen"), ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
+        // Audit fix M9: the trigger is disabled while the delete runs, so a second click cannot open a second dialog for a second request.
+        if (deleteButton.disabled) return@onClick
         confirmDialog(
             title = tr("Dokument löschen"),
             message =
@@ -419,7 +420,7 @@ private fun Container.renderDocumentDeleteAction(
                 ),
             confirmLabel = tr("Löschen"),
         ) {
-            AppScope.launch {
+            runGuardedAction(deleteButton) {
                 val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
                 if (result != null) {
                     notifySuccess(tr("Gelöscht."))

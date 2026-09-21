@@ -8,7 +8,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -62,7 +61,7 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
     if (AppState.hasRole(AccountRole.ADMIN)) {
         renderAdminDisclaimerWarningBand(root)
     }
-    root.h1(tr("SEPA-Lastschrift"))
+    root.pageHeader(tr("SEPA-Lastschrift"))
 
     root.h2(tr("Läufe")) { addCssClass("h5") }
     val statusRegion = root.dataStatusRegion()

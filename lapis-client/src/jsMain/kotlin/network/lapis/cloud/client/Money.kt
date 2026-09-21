@@ -25,7 +25,84 @@ import io.kvision.html.span
  *   field on one screen; rejected here because five screens show dozens of report totals, and an
  *   unlabelled number compounds "what unit is this" ambiguity.
  */
-fun formatMoney(amount: Decimal): String = "$amount €"
+fun formatMoney(amount: Decimal): String = "${displayDigits(amount)} €"
+
+/**
+ * W5 (V1.4.31): the ONE exception to "`Decimal.toString()`'s own digits are never touched" -- pure floating-point NOISE. A
+ * `Decimal` is backed by a double, so a sum can arrive as `1234.5600000000001` or `99.99999999999999`; that is not a figure the
+ * server computed, it is the representation error of one. The digits are replaced ONLY when the value lies within [noiseTolerance] of
+ * a whole cent AND the rendered text has more than two fractional digits. A genuine sub-cent value (`0.005`, `12.345`, `1234567.891`,
+ * `1.5e-7`) is far outside that tolerance and stays exactly as it is -- so the display still can never diverge from what the
+ * server computed. (Audit fix M3: the tolerance used to be an absolute 1e-6, which turned the genuine `1.5e-7` into "0". It is
+ * [NOISE_TOLERANCE_ABSOLUTE] (1e-9) for everyday amounts and grows with the magnitude, [NOISE_TOLERANCE_RELATIVE] (1e-14) of the
+ * value, because the representation error of a double does: 1e-14 of 1e9 is still 1e-5, far below a cent. Values below the absolute
+ * tolerance around ZERO, e.g. the `5.55e-17` left over by `0.1 + 0.2 - 0.3`, are noise by construction and render "0".)
+ *
+ * Exponent notation (`1.5e-7`, `1e21`) never reaches the screen: [plainDecimal] expands it to positional digits, so "1.5e-7 EUR"
+ * cannot happen and the fraction-digit count below is a real count. A cleaned value renders without a trailing `.0` ("100", not
+ * "100.0"), exactly like an exact `100` does.
+ */
+internal fun displayDigits(amount: Decimal): String {
+    val text = plainDecimal(amount.toString())
+    val fractionDigits = text.substringAfter('.', "").length
+    if (fractionDigits <= 2) return text
+    val value = amount.toDouble()
+    val nearestCent = kotlin.math.round(value * 100.0) / 100.0
+    if (kotlin.math.abs(value - nearestCent) >= noiseTolerance(value)) return text
+    return plainDecimal(nearestCent.toString()).removeSuffix(".0").let { if (it == "-0") "0" else it }
+}
+
+/** Absolute part of the noise tolerance of [displayDigits] around a whole cent (see there). */
+internal const val NOISE_TOLERANCE_ABSOLUTE = 1e-9
+
+/** Relative part (of the value's magnitude) of the noise tolerance of [displayDigits] (see there). */
+internal const val NOISE_TOLERANCE_RELATIVE = 1e-14
+
+internal fun noiseTolerance(value: Double): Double = maxOf(NOISE_TOLERANCE_ABSOLUTE, NOISE_TOLERANCE_RELATIVE * kotlin.math.abs(value))
+
+/**
+ * [text] (a `Double`/`Decimal` rendering) in positional notation: `1.5e-7` -> `0.00000015`, `1E21` -> `1000000000000000000000`.
+ * Text without an exponent is returned as it is. Pure string arithmetic -- no floating-point involved, so no digit changes.
+ */
+internal fun plainDecimal(text: String): String {
+    val marker = text.indexOfFirst { it == 'e' || it == 'E' }
+    if (marker < 0) return text
+    val exponent = text.substring(marker + 1).removePrefix("+").toIntOrNull() ?: return text
+    val mantissa = text.substring(0, marker)
+    val negative = mantissa.startsWith("-")
+    val unsigned = mantissa.removePrefix("-")
+    val whole = unsigned.substringBefore('.')
+    val fraction = unsigned.substringAfter('.', "")
+    val digits = whole + fraction
+    val pointAt = whole.length + exponent
+    val body =
+        when {
+            pointAt <= 0 -> "0." + "0".repeat(-pointAt) + digits
+            pointAt >= digits.length -> digits + "0".repeat(pointAt - digits.length)
+            else -> digits.substring(0, pointAt) + "." + digits.substring(pointAt)
+        }
+    // trailing zeros only after a decimal point ("1E3" -> "1000" must keep its zeros)
+    val trimmed = if (body.contains('.')) body.trimEnd('0').removeSuffix(".") else body
+    val plain = trimmed.ifEmpty { "0" }
+    return (if (negative && plain != "0") "-" else "") + plain
+}
+
+/**
+ * The amount as a person reads it on screen ([displayDigits]) as a number -- the ONE value that prefills a field, and against
+ * which an entered amount is checked. Prefill, the visible "Offen: 100 EUR" and the check must all come from this same cleaned
+ * view: with the raw `99.99999999999999` behind a screen that says "100", entering exactly that "100" was rejected as "more than
+ * the open amount" (audit fix M3).
+ */
+internal fun displayAmountValue(amount: Decimal): Double = displayDigits(amount).toDouble()
+
+/** Half a cent: an entered amount (at most two fractional digits) may exceed the cleaned [limit] by less than this. */
+internal const val CENT_TOLERANCE = 0.005
+
+/** `true` iff [entered] is more than a cent tolerance above the on-screen ([displayDigits]) view of [limit]. */
+internal fun exceedsDisplayedAmount(
+    entered: Decimal,
+    limit: Decimal,
+): Boolean = entered.toDouble() > displayAmountValue(limit) + CENT_TOLERANCE
 
 /**
  * D6: no sign transform, no parentheses, no string inspection -- `Decimal.toString()`'s own

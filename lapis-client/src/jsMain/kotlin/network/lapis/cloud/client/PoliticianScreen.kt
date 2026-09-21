@@ -7,7 +7,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -134,10 +133,10 @@ fun renderPoliticianScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Politiker"))
+    root.pageHeader(tr("Politiker"))
 
     // ---- Top-Politiker (dashboard widget, top of screen) ---------------------------------------
-    root.h2(tr("Top-Politiker"))
+    root.h2(tr("Top-Politiker")) { addCssClass("h5") }
     val topPanel = root.vPanel(spacing = 4)
     topPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
@@ -147,7 +146,7 @@ fun renderPoliticianScreen(container: SimplePanel) {
     disabledBanner.hide()
 
     // ---- Politiker-Profile list -----------------------------------------------------------------
-    root.h2(tr("Politiker-Profile"))
+    root.h2(tr("Politiker-Profile")) { addCssClass("h5") }
     val listControlsRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeFormerSelect =
         listControlsRow.select(
@@ -272,24 +271,37 @@ private suspend fun loadPoliticiansOrShowBanner(
 // Top-Politiker widget
 // ================================================================================================
 
-private fun renderTopPoliticiansList(
+internal fun renderTopPoliticiansList(
     panel: SimplePanel,
     top: List<PoliticianProfileDto>,
+    viewport: NarrowViewportSource = BrowserNarrowViewport,
 ) {
-    top.forEachIndexed { index, politician ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center border-bottom py-1 flex-wrap") }
-        row.div("${index + 1}.") { width = 24.px }
-        row.div(politician.displayName) { addCssClasses("flex-grow-1 fw-bold") }
-        val memberCell = row.vPanel(spacing = 0)
-        memberCell.div(tr("Mitglieder")) { addCssClasses("text-muted small") }
-        memberCell.ltrSpan(politician.memberTrustWeight)
-        val guestCell = row.vPanel(spacing = 0)
-        guestCell.div(tr("Gäste")) { addCssClasses("text-muted small") }
-        guestCell.div(politician.guestTrustWeight.toString())
-        val combinedCell = row.vPanel(spacing = 0)
-        combinedCell.div(tr("Gesamt")) { addCssClasses("text-muted small") }
-        combinedCell.div(politician.combinedTrustWeight.toString()) { addCssClass("fw-bold") }
-    }
+    // W5: the ranking is a real table (rank, name, the three weights) instead of a row of fixed-width cells with a label
+    // repeated in every row; the labels are the column headers now.
+    panel.plainDataTable(
+        columns =
+            listOf(
+                textColumn<IndexedValue<PoliticianProfileDto>>(title = tr("Rang"), numeric = true) { "${it.index + 1}." },
+                textColumn<IndexedValue<PoliticianProfileDto>>(
+                    title = tr("Politiker"),
+                    primary = true,
+                    cssClasses = "fw-bold",
+                ) { it.value.displayName },
+                DataColumn(title = tr("Mitglieder"), numeric = true, cell = { cell, p -> cell.ltrSpan(p.value.memberTrustWeight) }),
+                textColumn<IndexedValue<PoliticianProfileDto>>(
+                    title = tr("Gäste"),
+                    numeric = true,
+                ) { it.value.guestTrustWeight.toString() },
+                textColumn<IndexedValue<PoliticianProfileDto>>(
+                    title = tr("Gesamt"),
+                    numeric = true,
+                    cssClasses = "fw-bold",
+                ) { it.value.combinedTrustWeight.toString() },
+            ),
+        rows = top.withIndex().toList(),
+        viewport = viewport,
+        label = gettext("Top-Politiker"),
+    )
 }
 
 // ================================================================================================
@@ -560,34 +572,33 @@ private fun renderWeightHistorySection(
     }
 }
 
-private fun renderWeightHistoryTable(
+internal fun renderWeightHistoryTable(
     panel: SimplePanel,
     history: List<PoliticianWeightSnapshotDto>,
+    viewport: NarrowViewportSource = BrowserNarrowViewport,
 ) {
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Monat")) { width = 100.px }
-    headerRow.div(tr("Mitglieder-Gewicht")) { width = 160.px }
-    headerRow.div(tr("Gast-Gewicht")) { width = 110.px }
-    headerRow.div(tr("Gesamt")) { width = 90.px }
-    headerRow.div(tr("Berechnet")) { addCssClasses("flex-grow-1") }
-
-    history.forEach { snapshot ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(snapshot.periodMonth.toString()) { width = 100.px }
-        val memberCell = row.div { width = 160.px }
-        memberCell.ltrSpan(snapshot.memberTrustWeight)
-        row.div(snapshot.guestTrustWeight.toString()) {
-            width = 110.px
-            addCssClasses("small")
-        }
-        row.div(snapshot.combinedTrustWeight.toString()) {
-            width = 90.px
-            addCssClasses("fw-bold small")
-        }
-        row.div("${snapshot.computedAt}") {
-            addCssClasses("text-muted small flex-grow-1")
-        }
-    }
+    // W5: a real table instead of the hand-built pseudo-table (see PseudoTableGoldenDomTest for the unchanged cells).
+    panel.plainDataTable(
+        columns =
+            listOf(
+                textColumn<PoliticianWeightSnapshotDto>(title = tr("Monat"), primary = true) { it.periodMonth.toString() },
+                DataColumn(title = tr("Mitglieder-Gewicht"), numeric = true, cell = { cell, s -> cell.ltrSpan(s.memberTrustWeight) }),
+                textColumn<PoliticianWeightSnapshotDto>(
+                    title = tr("Gast-Gewicht"),
+                    numeric = true,
+                    cssClasses = "small",
+                ) { it.guestTrustWeight.toString() },
+                textColumn<PoliticianWeightSnapshotDto>(
+                    title = tr("Gesamt"),
+                    numeric = true,
+                    cssClasses = "fw-bold small",
+                ) { it.combinedTrustWeight.toString() },
+                textColumn<PoliticianWeightSnapshotDto>(title = tr("Berechnet"), cssClasses = "text-muted small") { "${it.computedAt}" },
+            ),
+        rows = history,
+        viewport = viewport,
+        label = gettext("Gewichtsverlauf"),
+    )
 }
 
 // ================================================================================================

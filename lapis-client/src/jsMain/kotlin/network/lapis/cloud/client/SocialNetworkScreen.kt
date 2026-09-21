@@ -10,7 +10,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -91,10 +90,10 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Soziales Netzwerk"))
+    root.pageHeader(tr("Soziales Netzwerk"))
 
     // ---- Neuen Beitrag verfassen (D3-analogue: renderMyLtrBalanceInline vor jedem Eingabefeld) --
-    root.h2(tr("Neuen Beitrag verfassen"))
+    root.h2(tr("Neuen Beitrag verfassen")) { addCssClass("h5") }
     val composerPanel = root.vPanel(spacing = 6)
     // Welle V1.1.4: ein frisch selbst-registriertes FRIEND-Konto hat 0,00 LTR -- createPost wirft
     // dann eine technisch korrekte, aber fachlich unerklaerte ConflictException ("initialWeightLtr
@@ -120,7 +119,7 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     zeroBalanceHintHolder = composerPanel.div()
 
     // ---- Timeline (Container jetzt angelegt, befuellt durch loadTimeline()) --------------------
-    root.h2(tr("Timeline"))
+    root.h2(tr("Timeline")) { addCssClass("h5") }
     val refreshRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val refreshButton = refreshRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val timelinePanel = root.vPanel(spacing = 10)
@@ -146,7 +145,7 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     // ---- Welle V1.1.5 (E-C, DSA Art. 17): Eigenansicht "Meine entfernten Beiträge" -------------
     val myMemberId = AppState.session?.memberId
     if (myMemberId != null) {
-        root.h2(tr("Meine entfernten Beiträge"))
+        root.h2(tr("Meine entfernten Beiträge")) { addCssClass("h5") }
         val ownRemovedPanel = root.vPanel(spacing = 10)
 
         fun loadOwnRemoved() {
@@ -424,7 +423,7 @@ private fun renderBoostControl(
     post: SocialPostDto,
     onChanged: () -> Unit,
 ) {
-    val amountInput = row.text(label = tr("Boost-Betrag (LTR)")) { width = 140.px }
+    val amountInput = row.text(label = tr("Boost-Betrag (LTR)")) { maxWidth = 140.px }
     val errorBox =
         row.div().apply {
             addCssClass("text-danger")
@@ -757,7 +756,7 @@ fun renderSocialThreadScreen(
             marginTop = 24.px
         }
     root.link(tr("← Zurück zur Timeline"), url = "#${Routes.SOCIAL_NETWORK}") { addCssClasses("small") }
-    root.h1(tr("Thread"))
+    root.pageHeader(tr("Thread"))
     val truncatedNotice = root.div()
     truncatedNotice.hide()
     val nodesPanel = root.vPanel(spacing = 10)

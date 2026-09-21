@@ -2,6 +2,8 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.core.Overflow
+import io.kvision.core.Widget
+import io.kvision.form.text.Password
 import io.kvision.form.text.text
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
@@ -9,7 +11,6 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.icon
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -26,8 +27,6 @@ import network.lapis.cloud.shared.domain.FinTsSetupInput
 import network.lapis.cloud.shared.domain.FinTsSetupResultDto
 import network.lapis.cloud.shared.domain.FinTsStatus
 import network.lapis.cloud.shared.rpc.IBankAccountService
-import org.w3c.dom.HTMLElement
-import org.w3c.dom.HTMLInputElement
 
 /**
  * Welle V1.4.14 Wave 2 "FinTS/HBCI-Live-Kontoabruf" -- Wave 1 shipped [IBankAccountService]
@@ -61,7 +60,7 @@ fun renderBankAccountsScreen(container: SimplePanel) {
     // Warnband über dem Titel (Richtlinie 2.8: es betrifft den ganzen Screen) -- unverändert gegenüber
     // V1.4.14, nur die Reihenfolge stimmt jetzt mit der Richtlinie überein.
     val warningBand = root.div().apply { hide() }
-    root.h1(tr("Bankkonten"))
+    root.pageHeader(tr("Bankkonten"))
 
     val actionsRow = root.hPanel(spacing = 8)
 
@@ -434,15 +433,27 @@ internal fun showFinTsSetupModal(
 
     val blzField = credentialsForm.textField(label = tr("Bankleitzahl (BLZ)"), required = true)
     val urlField = credentialsForm.textField(label = tr("FinTS/HBCI-URL"), value = account.finTsUrl, required = true)
-    // D-PIN: keine Passwortmanager-Angebote für Benutzerkennung/PIN -- der dokumentierte Insert-Hook [hardenSecretInput] bleibt
-    // unverändert (`autocomplete="new-password"` hält auch Chrome vom Ausfüllen des Lapis-Passworts ab; `autocomplete="off"` von
-    // `suppressManagers` ignoriert Chrome bei Passwortfeldern).
+    // D-PIN: keine Passwortmanager-Angebote für Benutzerkennung/PIN -- `autocomplete="new-password"` hält auch Chrome vom Ausfüllen
+    // des Lapis-Passworts ab (`autocomplete="off"` von `suppressManagers` ignoriert Chrome bei Passwortfeldern). Audit-Fix: über
+    // die Widget-API des Feldes statt eines Insert-Hooks mit rohem DOM-`setAttribute` -- die Attribute überstehen ein Neurendern.
     val userIdRow = credentialsForm.panel.hPanel()
-    val userIdField = credentialsForm.passwordField(label = tr("Benutzerkennung"), required = true, host = userIdRow)
-    hardenSecretInput(userIdRow)
+    val userIdField =
+        credentialsForm.passwordField(
+            label = tr("Benutzerkennung"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            host = userIdRow,
+            init = ::hardenSecretInput,
+        )
     val pinRow = credentialsForm.panel.hPanel()
-    val pinField = credentialsForm.passwordField(label = tr("PIN"), required = true, host = pinRow)
-    hardenSecretInput(pinRow)
+    val pinField =
+        credentialsForm.passwordField(
+            label = tr("PIN"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            host = pinRow,
+            init = ::hardenSecretInput,
+        )
     credentialsForm.finish()
 
     val activateButton = Button(tr("Aktivieren"), style = ButtonStyle.PRIMARY)
@@ -521,13 +532,10 @@ internal fun showFinTsSetupModal(
     modal.show()
 }
 
-/** D-PIN: no browser password-manager offer for a banking PIN/userid -- see screen KDoc. */
-private fun hardenSecretInput(row: SimplePanel) {
-    row.addAfterInsertHook { vnode ->
-        val rowElement = vnode.elm as? HTMLElement
-        val inputElement = rowElement?.querySelector("input") as? HTMLInputElement
-        inputElement?.setAttribute("autocomplete", "new-password")
-        inputElement?.setAttribute("autocapitalize", "off")
-        inputElement?.setAttribute("spellcheck", "false")
+/** D-PIN: no browser password-manager offer for a banking PIN/userid -- see screen KDoc. The rest of it (`autocomplete`) is the field's parameter. */
+private fun hardenSecretInput(control: Password) {
+    (control.input as? Widget)?.let { input ->
+        input.setAttribute("autocapitalize", "off")
+        input.setAttribute("spellcheck", "false")
     }
 }

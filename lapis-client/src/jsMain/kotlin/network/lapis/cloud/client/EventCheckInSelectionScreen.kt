@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.p
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -32,7 +31,7 @@ fun renderEventCheckInSelectionScreen(container: SimplePanel) {
             maxWidth = 700.px
             marginTop = 24.px
         }
-    root.h1(tr("Veranstaltungs-Check-in"))
+    root.pageHeader(tr("Veranstaltungs-Check-in"))
     root.div(
         tr("Veranstaltung auswählen, um Tickets am Einlass zu prüfen."),
     ) { addCssClasses("text-muted small") }

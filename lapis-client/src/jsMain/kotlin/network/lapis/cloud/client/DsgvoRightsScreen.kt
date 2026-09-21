@@ -8,7 +8,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -72,7 +71,7 @@ fun renderDsgvoRightsScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Meine Daten"))
+    root.pageHeader(tr("Meine Daten"))
     root.div(
         tr(
             "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf Vergessenwerden\", " +
@@ -85,13 +84,13 @@ fun renderDsgvoRightsScreen(container: SimplePanel) {
 
     // D10: additive, not exclusive -- appended below the self-service section, never a second tab.
     if (AppState.hasRole(AccountRole.ADMIN)) {
-        root.h2(tr("Anträge verwalten"))
+        root.h2(tr("Anträge verwalten")) { addCssClass("h5") }
         root.div(
             tr("Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag endgültig ausführen."),
         ) { addCssClasses("text-muted small") }
         renderAdminQueueSection(root)
 
-        root.h2(tr("DSGVO-Prüfprotokoll"))
+        root.h2(tr("DSGVO-Prüfprotokoll")) { addCssClass("h5") }
         root.div(
             tr("Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen auf dieser Liste."),
         ) { addCssClasses("text-muted small") }
@@ -108,7 +107,7 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     // `AppState.session` is always non-null by the time this screen renders -- see Routing.kt.
     val myMemberId = AppState.session?.memberId ?: return
 
-    root.h2(tr("Auskunft")) { addCssClass("h4") }
+    root.h2(tr("Auskunft")) { addCssClass("h5") }
     root.div(
         tr(
             "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person gespeichert sind, sowie " +
@@ -130,7 +129,7 @@ private fun renderSelfServiceSection(root: SimplePanel) {
 
     // V1.3.0 "Öffentliche Transparenz-Startseite" -- additive, stacked BETWEEN "Auskunft" and
     // "Löschung beantragen" (D10 idiom: never a second tab).
-    root.h2(tr("Öffentliche Ranglisten")) { addCssClass("h4") }
+    root.h2(tr("Öffentliche Ranglisten")) { addCssClass("h5") }
     root.div(
         tr(
             "Sie können freiwillig zustimmen, dass Ihr Anzeigename zusammen mit Ihrem freien LTR-Guthaben " +
@@ -140,7 +139,7 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     ) { addCssClasses("text-muted small") }
     renderPublicRankingConsentSection(root)
 
-    root.h2(tr("Löschung beantragen")) { addCssClass("h4") }
+    root.h2(tr("Löschung beantragen")) { addCssClass("h5") }
     val formHolder = root.vPanel(spacing = 6)
     val statusPanel = root.vPanel(spacing = 6)
     renderErasureRequestForm(formHolder, myMemberId) { request -> renderOwnErasureStatusCard(statusPanel, request) }

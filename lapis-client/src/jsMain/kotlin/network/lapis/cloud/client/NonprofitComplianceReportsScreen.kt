@@ -9,7 +9,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -79,7 +78,7 @@ import kotlin.time.Clock
  */
 fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Gemeinnützigkeits-Berichte"))
+    root.pageHeader(tr("Gemeinnützigkeits-Berichte"))
 
     // Welle V1.4.27 (W3): a segmented control with an active state instead of three outline buttons that never
     // said which report was showing. "USt-Voranmeldung -- Vorschau" is Welle V1.4.13 "USt-Voranmeldung
@@ -155,7 +154,7 @@ private val VAT_RATE_HEADERS =
 // ============================================================================================
 
 private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
-    panel.h2(tr("Vier-Sphären-Ergebnisrechnung"))
+    panel.h2(tr("Vier-Sphären-Ergebnisrechnung")) { addCssClass("h5") }
     panel.div(
         tr(
             "Re-Aggregation derselben Einnahmen/Ausgaben-Buchungen wie die GuV nach den vier " +
@@ -247,7 +246,7 @@ internal fun renderFourSphereIncomeStatementBody(
 // ============================================================================================
 
 private fun renderUseOfFundsView(panel: SimplePanel) {
-    panel.h2(tr("Mittelverwendungsrechnung (§55/§62 AO)"))
+    panel.h2(tr("Mittelverwendungsrechnung (§55/§62 AO)")) { addCssClass("h5") }
 
     // D4: persistent, non-dismissible, above even the filter controls -- see file KDoc. Rendered
     // immediately with `timelyUseYears = null` (a loading placeholder, never a hardcoded "2")
@@ -381,7 +380,7 @@ internal fun renderSphereAmountTable(
 // ============================================================================================
 
 private fun renderVatReturnPreviewView(panel: SimplePanel) {
-    panel.h2(tr("USt-Voranmeldung — Vorschau (Nachweishilfe)"))
+    panel.h2(tr("USt-Voranmeldung — Vorschau (Nachweishilfe)")) { addCssClass("h5") }
     panel.div(
         tr(
             "Keine Übermittlung an ELSTER. Diese Ansicht ist eine Nachweishilfe aus in Lapis Cloud " +

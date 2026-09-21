@@ -93,7 +93,7 @@ class AuditLogScreenTest {
                 brokenAtSequenceNumber = 3L,
                 reason = "tampered",
             )
-        assertEquals("✗ Kette gebrochen bei Sequenznummer 3", chainVerificationFailHeadline(result))
+        assertEquals("Kette gebrochen bei Sequenznummer 3", chainVerificationFailHeadline(result))
     }
 
     // ---- D2: structured snapshot decode -----------------------------------------------------

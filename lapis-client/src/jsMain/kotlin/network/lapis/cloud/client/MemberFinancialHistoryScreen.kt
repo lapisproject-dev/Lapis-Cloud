@@ -5,7 +5,6 @@ import dev.kilua.rpc.types.toDouble
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -56,6 +55,16 @@ fun renderMemberFinancialHistoryScreen(
 
     val root = container.dataScreenRoot()
 
+    // W5: the page header stands from the first paint, BEFORE the load resolves (the loading and error states of the
+    // section below must not leave the page without its `h1`). The title is a constant; the member's name is a data
+    // value and reaches the subtitle once it is loaded (text, never markup).
+    val pageHead =
+        if (isSelf) {
+            root.pageHeader(tr("Ihre Beitragshistorie"))
+        } else {
+            root.pageHeader(tr("Beitragshistorie"), subtitle = "")
+        }
+
     // Welle V1.4.26 (W2): der Abruf liegt in einem `dataSection` -- vorher endete ein gescheiterter
     // `getMemberFinancialHistory`-Aufruf in `?: return@launch` und hinterliess eine vollstaendig leere
     // Seite (der Toast von `guarded` war die einzige Spur). `isEmpty = { false }`: ein Mitglied ohne
@@ -66,7 +75,7 @@ fun renderMemberFinancialHistoryScreen(
             isEmpty = { false },
             load = { guarded { rpcService<IMemberFinancialHistoryService>().getMemberFinancialHistory(effectiveId) } },
             render = { panel, dto ->
-                renderFinancialHistoryHead(panel, dto, isSelf)
+                renderFinancialHistoryHead(panel, dto, pageHead)
                 renderExemptionBadge(panel, effectiveId, isSelf)
                 renderFinancialHistoryTiles(panel, dto, isSelf)
                 renderFinancialHistoryYears(panel, dto)
@@ -107,20 +116,17 @@ private fun renderExemptionBadge(
 private fun renderFinancialHistoryHead(
     root: SimplePanel,
     dto: MemberFinancialHistoryDto,
-    isSelf: Boolean,
+    pageHead: PageHeader,
 ) {
     val headPanel = root.vPanel(spacing = 2)
-    if (isSelf) {
-        headPanel.h1(tr("Ihre Beitragshistorie"))
-    } else {
-        if (dto.anonymized) {
-            val nameRow = headPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            nameRow.h1(dto.memberDisplayName)
-            nameRow.typeBadge(tr("DSGVO-gelöscht"), "secondary")
-        } else {
-            headPanel.h1(dto.memberDisplayName)
-        }
-        headPanel.h2(tr("Beitragshistorie"))
+    // Another member's history: the name is the subtitle of the page header (built before the load, see the caller), the erasure marker
+    // stands NEXT TO it again (audit fix: it had dropped below the name into the section). The own history has no name slot: the
+    // header says "Ihre Beitragshistorie" already.
+    if (pageHead.hasSubtitleSlot) {
+        pageHead.setSubtitle(dto.memberDisplayName)
+        if (dto.anonymized) pageHead.subtitleAside { typeBadge(tr("DSGVO-gelöscht"), "secondary") }
+    } else if (dto.anonymized) {
+        headPanel.typeBadge(tr("DSGVO-gelöscht"), "secondary")
     }
     headPanel.div(gettext("Mitglied seit %1", dto.joinedAt))
     dto.friendSince?.let { friendSince -> headPanel.div(gettext("Förderer seit %1", friendSince)) }
@@ -173,7 +179,7 @@ private fun renderFinancialHistoryYear(
     root: SimplePanel,
     year: FinancialHistoryYearDto,
 ) {
-    root.h2(financialHistoryYearHeading(year))
+    root.h2(financialHistoryYearHeading(year)) { addCssClass("h5") }
     // A year block can carry `entries.isEmpty()` on purpose -- a negatively netting year (a storno
     // booked in a LATER year) is kept via the server's `donationsTotal.signum() != 0` filter
     // (MemberFinancialHistoryService.kt) so its non-zero Spenden total still shows in the heading

@@ -10,7 +10,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -51,7 +50,7 @@ fun renderDunningSettingsScreen(container: SimplePanel) {
             maxWidth = 700.px
             marginTop = 24.px
         }
-    root.h1(tr("Mahnwesen-Konfiguration"))
+    root.pageHeader(tr("Mahnwesen-Konfiguration"))
 
     renderDunningAdminSection(root)
     renderDunningLevelsSection(root)

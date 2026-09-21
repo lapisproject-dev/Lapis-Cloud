@@ -7,7 +7,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -52,7 +51,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Fragen zur Satzung"))
+    root.pageHeader(tr("Fragen zur Satzung"))
 
     if (AppState.session?.aiAssistantEnabled != true) {
         root.p(tr(StatuteQaUi.DISABLED_TEXT))
@@ -113,7 +112,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
     fun renderScope() {
         scopePanel.removeAll()
         val current = state ?: return
-        scopePanel.h2(tr("Durchsuchte Dokumente"))
+        scopePanel.h2(tr("Durchsuchte Dokumente")) { addCssClass("h5") }
         if (current.indexedScope.isEmpty() && current.unindexedScope.isEmpty()) {
             scopePanel.p(tr("Noch keine Dokumente für die KI-Auskunft freigegeben."))
             return

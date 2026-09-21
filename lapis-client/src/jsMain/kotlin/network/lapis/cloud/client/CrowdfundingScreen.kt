@@ -8,7 +8,6 @@ import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -107,16 +106,16 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Crowdfunding"))
+    root.pageHeader(tr("Crowdfunding"))
 
     // ---- Submit new project (D3: renderMyLtrBalanceInline directly above the form, before any
     // input field -- identical position to AuctionScreen.kt's own createListing form) -----------
-    root.h2(tr("Neues Projekt einreichen"))
+    root.h2(tr("Neues Projekt einreichen")) { addCssClass("h5") }
     val submitPanel = root.vPanel(spacing = 6)
     submitPanel.renderMyLtrBalanceInline()
 
     // ---- Project list + status filter (containers created now, populated by loadProjects()) ---
-    root.h2(tr("Projekte"))
+    root.h2(tr("Projekte")) { addCssClass("h5") }
     val statusFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val statusFilterOptions =
         listOf("" to tr("Alle (persistierter Status)")) +
@@ -130,7 +129,7 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
     val treasuryPanel = if (canTreasury) root.vPanel(spacing = 10) { addCssClasses("border rounded p-3 mt-2") } else null
 
     // ---- Verteilungshistorie container (any authenticated member, read-only) -------------------
-    root.h2(tr("Verteilungshistorie"))
+    root.h2(tr("Verteilungshistorie")) { addCssClass("h5") }
     val distributionsPanel = root.vPanel(spacing = 8)
 
     // ---- Loaders (declared after every panel they populate exists, before they're wired up) ---
@@ -547,32 +546,31 @@ private fun renderDistributionComputeForm(
     }
 }
 
-private fun renderDistributionsTable(
+internal fun renderDistributionsTable(
     panel: SimplePanel,
     distributions: List<CrowdfundingDistributionDto>,
+    viewport: NarrowViewportSource = BrowserNarrowViewport,
 ) {
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Projekt")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Zeitraum")) { width = 200.px }
-    headerRow.div(tr("Korb")) { width = 70.px }
-    headerRow.div(tr("Betrag")) { width = 120.px }
-    headerRow.div(tr("Berechnet")) { width = 220.px }
-
-    distributions.forEach { d ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(d.projectTitle) { addCssClasses("flex-grow-1") }
-        row.div(gettext("%1 – %2", d.periodStart, d.periodEnd)) {
-            width = 200.px
-            addCssClasses("small")
-        }
-        row.div(d.basketTotalAtDistribution.toString()) { width = 70.px }
-        val amountCell = row.div { width = 120.px }
-        amountCell.moneySpan(d.amountEur)
-        row.div(gettext("%1 von %2", d.computedAt, d.triggeredByDisplayName)) {
-            width = 220.px
-            addCssClasses("text-muted small")
-        }
-    }
+    // W5: a real table instead of the hand-built pseudo-table (see PseudoTableGoldenDomTest for the unchanged cells).
+    panel.plainDataTable(
+        columns =
+            listOf(
+                textColumn<CrowdfundingDistributionDto>(title = tr("Projekt"), primary = true) { it.projectTitle },
+                textColumn<CrowdfundingDistributionDto>(
+                    title = tr("Zeitraum"),
+                    cssClasses = "small",
+                ) { gettext("%1 – %2", it.periodStart, it.periodEnd) },
+                textColumn<CrowdfundingDistributionDto>(title = tr("Korb"), numeric = true) { it.basketTotalAtDistribution.toString() },
+                DataColumn(title = tr("Betrag"), numeric = true, cell = { cell, d -> cell.moneySpan(d.amountEur) }),
+                textColumn<CrowdfundingDistributionDto>(
+                    title = tr("Berechnet"),
+                    cssClasses = "text-muted small",
+                ) { gettext("%1 von %2", it.computedAt, it.triggeredByDisplayName) },
+            ),
+        rows = distributions,
+        viewport = viewport,
+        label = gettext("Verteilungshistorie"),
+    )
 }
 
 // ================================================================================================

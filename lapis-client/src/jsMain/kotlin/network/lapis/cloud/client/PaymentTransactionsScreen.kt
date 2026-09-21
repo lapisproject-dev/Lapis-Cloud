@@ -5,7 +5,6 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -35,7 +34,7 @@ private const val PAYMENT_TRANSACTIONS_PAGE_SIZE = 50
  */
 fun renderPaymentTransactionsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.h1(tr("Zahlungseingänge"))
+    root.pageHeader(tr("Zahlungseingänge"))
 
     val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val searchInput = filterRow.text(label = tr("Suche nach Mitglied oder Hinweis"))

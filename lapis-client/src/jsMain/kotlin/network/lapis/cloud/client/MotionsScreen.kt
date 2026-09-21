@@ -6,7 +6,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -111,9 +110,9 @@ fun renderMotionsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Anträge"))
+    root.pageHeader(tr("Anträge"))
 
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val committeeFilterSelect = filterRow.select(options = listOf("" to tr("Alle Gremien")), value = "", label = tr("Gremium"))
     val statusFilterOptions =
@@ -122,11 +121,11 @@ fun renderMotionsScreen(container: SimplePanel) {
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val motionListPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Details"))
+    root.h2(tr("Details")) { addCssClass("h5") }
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Antrag oben auswählen, um Details zu sehen."))
 
-    root.h2(tr("Neuen Antrag einreichen"))
+    root.h2(tr("Neuen Antrag einreichen")) { addCssClass("h5") }
     val submissionPanel = root.vPanel(spacing = 6)
     submissionPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
 
@@ -429,7 +428,7 @@ private fun renderMotionMeta(
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val title = if (motion.amendsMotionId != null) gettext("Änderungsantrag: %1", motion.title) else motion.title
-    headerRow.h2(title) { addCssClasses("h4 flex-grow-1") }
+    headerRow.h2(title) { addCssClasses("h5 flex-grow-1") }
     if (motion.amendsMotionId != null) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
     headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
 
@@ -680,7 +679,7 @@ internal fun renderScheduleForm(
  * `openVote` are both withheld with a plain explanation, to avoid the two parallel resolution paths
  * racing to finalize the same Motion twice.
  */
-private fun renderResolutionSection(
+internal fun renderResolutionSection(
     panel: SimplePanel,
     motion: MotionDto,
     pendingAmendments: List<MotionDto>,
@@ -695,10 +694,14 @@ private fun renderResolutionSection(
     if (pendingAmendments.isNotEmpty()) {
         val count = pendingAmendments.size
         val warningBox = panel.vPanel(spacing = 4) { addCssClasses("alert alert-warning") }
-        val noun = if (count == 1) "1 offenen Änderungsantrag" else "$count offene Änderungsanträge"
-        warningBox.div(gettext("Dieser Antrag hat %1, der/die zuerst entschieden werden muss/müssen:", noun)) {
-            addCssClass("fw-bold")
-        }
+        // Audit fix M4: two whole sentences instead of a hand-built German plural noun passed as an argument (a plural cannot be translated).
+        val warning =
+            if (count == 1) {
+                gettext("Dieser Antrag hat 1 offenen Änderungsantrag, der zuerst entschieden werden muss:")
+            } else {
+                gettext("Dieser Antrag hat %1 offene Änderungsanträge, die zuerst entschieden werden müssen:", count)
+            }
+        warningBox.div(warning) { addCssClass("fw-bold") }
         pendingAmendments.forEach { amendment ->
             val row = warningBox.hPanel(spacing = 8) { addCssClasses("align-items-center") }
             row.div(amendment.title) { addCssClasses("flex-grow-1") }
@@ -883,7 +886,7 @@ private fun renderVoteSection(
                 panel.div(
                     gettext(
                         "Teilnehmende: %1",
-                        ballots.joinToString(", ") { it.memberDisplayName }.ifBlank { "keine" },
+                        ballots.joinToString(", ") { it.memberDisplayName }.ifBlank { gettext("keine") },
                     ),
                 ) {
                     addCssClasses("text-muted small")
@@ -1056,14 +1059,14 @@ private val NON_TERMINAL_MOTION_STATUSES =
  */
 fun motionStatusLabel(status: MotionStatus): String =
     when (status) {
-        MotionStatus.SUBMITTED -> "Eingereicht"
-        MotionStatus.REVIEWED -> "Geprüft"
-        MotionStatus.REJECTED_PRELIMINARY -> "Vorläufig abgelehnt"
-        MotionStatus.SCHEDULED -> "Terminiert"
-        MotionStatus.RESOLVED -> "Angenommen"
-        MotionStatus.REJECTED -> "Abgelehnt"
-        MotionStatus.POSTPONED -> "Zurückgestellt"
-        MotionStatus.WITHDRAWN -> "Zurückgezogen"
+        MotionStatus.SUBMITTED -> gettext("Eingereicht")
+        MotionStatus.REVIEWED -> gettext("Geprüft")
+        MotionStatus.REJECTED_PRELIMINARY -> gettext("Vorläufig abgelehnt")
+        MotionStatus.SCHEDULED -> gettext("Terminiert")
+        MotionStatus.RESOLVED -> gettext("Angenommen")
+        MotionStatus.REJECTED -> gettext("Abgelehnt")
+        MotionStatus.POSTPONED -> gettext("Zurückgestellt")
+        MotionStatus.WITHDRAWN -> gettext("Zurückgezogen")
     }
 
 fun motionStatusColor(status: MotionStatus): String =
@@ -1080,9 +1083,9 @@ fun motionStatusColor(status: MotionStatus): String =
 
 fun voteStatusLabel(status: VoteStatus): String =
     when (status) {
-        VoteStatus.OPEN -> "Läuft"
-        VoteStatus.CLOSED -> "Geschlossen"
-        VoteStatus.ABORTED -> "Abgebrochen"
+        VoteStatus.OPEN -> gettext("Läuft")
+        VoteStatus.CLOSED -> gettext("Geschlossen")
+        VoteStatus.ABORTED -> gettext("Abgebrochen")
     }
 
 fun voteStatusColor(status: VoteStatus): String =

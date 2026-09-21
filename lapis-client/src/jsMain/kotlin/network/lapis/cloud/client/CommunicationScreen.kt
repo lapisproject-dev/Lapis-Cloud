@@ -6,7 +6,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -49,7 +48,7 @@ fun renderCommunicationScreen(container: SimplePanel) {
             maxWidth = 640.px
             marginTop = 24.px
         }
-    root.h1(tr("Kommunikation"))
+    root.pageHeader(tr("Kommunikation"))
 
     val refreshMailingLists = renderMailingLists(root)
     renderInbox(root)
@@ -69,7 +68,7 @@ fun renderCommunicationScreen(container: SimplePanel) {
  * trigger" wiring `LedgerScreen.kt`'s `refreshJournalFn` establishes for the equivalent dependency.
  */
 private fun renderMailingLists(root: SimplePanel): () -> Unit {
-    root.h2(tr("Mailinglisten"))
+    root.h2(tr("Mailinglisten")) { addCssClass("h5") }
     val panel = root.vPanel(spacing = 4)
 
     fun refresh() {
@@ -105,7 +104,7 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
 }
 
 private fun renderInbox(root: SimplePanel) {
-    root.h2(tr("Postfach"))
+    root.h2(tr("Postfach")) { addCssClass("h5") }
     val panel = root.vPanel(spacing = 4)
     AppScope.launch {
         val unread = guarded { rpcService<IDirectMessageService>().unreadCount() } ?: return@launch
@@ -123,7 +122,7 @@ private fun renderMailingListAdminSection(
     root: SimplePanel,
     refreshSelfService: () -> Unit,
 ) {
-    root.h2(tr("Mailinglisten verwalten"))
+    root.h2(tr("Mailinglisten verwalten")) { addCssClass("h5") }
     root.div(
         tr("Mailinglisten anlegen, Mitglieder gezielt eintragen und Nachrichten an eine Liste verschicken."),
     ) { addCssClasses("text-muted small") }

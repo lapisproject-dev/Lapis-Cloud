@@ -8,6 +8,86 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W5 "States, page header, language" (V1.4.31)** -- a client-only wave (no server production code, no
+  `lapis-shared` change, no migration: `git diff master --stat -- lapis-server/src/main lapis-shared` is empty, `db/migration` ends at V44).
+  **One page header for every screen:** `pageHeader(title, subtitle, banners, primaryAction)` replaces 71 raw `h1` calls in 66 files (the
+  67th screen, `AccountingExportScreen`, is a sub-view of `FinancialReportsScreen` and builds none). The `h1` is `.h4` with `id`/`tabindex`, a
+  banner slot above the title, one primary action on the right, a subtitle for DATA values (member name, event title, greeting: text, never
+  markup); `document.title` is "<title> -- <white-label brand>" without the `###KvI18nS###` marker; a polite live region (mounted once in the
+  shell) announces the route; the focus moves to the `h1` after a ROUTE change only, never after a language switch; `.lapis-content` is
+  `role="main"`; a skip link (a button, the app routes by hash) is first in the tab order. `MemberFinancialHistoryScreen` had three `h1` in one
+  render path, now one; `DashboardScreen`'s title is "Dashboard" (as in the sidebar) with the greeting as subtitle. **Visible change:** every
+  `h2` section title is `.h5` (2 rem -> 1.25 rem), `h3` is `.h6`; the tripwire `ClientPageHeaderTripwireTest` holds it.
+  **Load states:** `PostalMailScreen`, `EventRoomsScreen`, `CateringScreen`, `MyVolunteerShiftsScreen` and the LTR balance strip (three screens)
+  show loading / error with "Erneut versuchen" / empty separately (a failed load used to leave a blank area or "--"); the retry asks exactly
+  once more (`DataStatesDomTest`). New ratchet `ClientDataStateTripwireTest`: 147 read calls in 44 files without any state block remain (154 in 48
+  before); `ConferenceScreen`, `MotionsScreen`, `MeetingsScreen` were deliberately not touched. **Pseudo-tables become tables:** bid list,
+  distribution history, weight history and ranking are `dataTable`s (the expected cell texts of `PseudoTableGoldenDomTest` were recalculated
+  from the old source by hand -- the test and the migration landed in one commit, so it is NOT a characterization test pinned against
+  the old code); the R55 ledger is empty. **Tokens and touch:** `text-danger` in every table cell uses the calibrated red (see the audit
+  round below for the corrected numbers and the badge regression this first had), the `.is-invalid` background icon is gone, controls
+  outside `.lapis-form` reach the 44 px coarse-pointer target; `ConferenceScreen`'s six raw `getElement()?.setAttribute` are KVision
+  `setAttribute` / a property; `ClientLateHookRatchetTest` holds the `getElement()?.setAttribute` chain at zero and keeps a ledger of the
+  other raw-DOM spellings (audit round). `formatMoney` removes only floating-point noise (`1234.5600000000001` -> `1234.56`; sub-cent values
+  are untouched, D5 stands). **Language:** the 373 sentences that were in no
+  catalog (+3 behind named constants) are translated into all seven languages, the 24 empty `msgstr` per catalog are filled, the 33 raw German
+  enum labels (committee types, meeting/resolution/motion/vote statuses) go through `gettext`, two glyph msgids were replaced by
+  `aria-hidden` icons, the stream-platform emoji by generic icons. New `AllClientMessagesCatalogTest` (the whole client, no file exclusion),
+  `I18nGlossaryConsistencyTest` and `docs/architecture/i18n-glossary.adoc`; the glossary test found and got fixed inconsistent renderings of
+  "Förderer" (donor vs. supporter). **Not done, named:** the form migration of the eight W4d files (R24 stays 166, R24B 80, R29 stays 39 -- **in the 32 migrated files**;
+  the whole client still has about 190 unguarded writing `AppScope.launch` of 403, the audit counted), the manual
+  browser check at 375/767/768/1440 px and a screen-reader check of the focus and live region, R35 (title = sidebar entry) as an automatic
+  test, and the homonym "Stornieren". Full account and corrections to the brief: `docs/architecture/ui-ux-guideline.adoc`, section W5.
+
+- **V1.4.31 audit round (branch `fix/v1.4.31-audit`, same wave, not a new version)** -- an independent audit of the wave found two blocking
+  defects, eleven major ones and a list of minor ones; all fixed here, or named below as deliberately not fixed.
+  **Blocking.** (B1) The W5 rule that gave `text-danger` in table cells the calibrated red overrode the INHERITED `--bs-danger-rgb`, so it
+  also reached `.text-bg-danger` badges in cells (15 status badges in 9 tables): in the dark theme their surface became `#EA868F` and
+  the white text on it 2.53:1 (before: 4.53:1). The rule now targets the TEXT utility only (`td .text-danger`, `td.text-danger`, ...);
+  badges keep Bootstrap's red. Numbers, corrected: text on the row surface light 7.11:1, dark 6.10:1 (Bootstrap's table surface is
+  `#212529`, not the 6.47 quoted before); the zebra row is measured in the real browser (`ReportRowStyleDomTest`, both themes, >= 4.5:1),
+  the hover row (Bootstrap's 7.5 % overlay) is calculated only (about 6.0:1 light, 4.9:1 dark) and NOT automated. Badge text is asserted
+  in both themes. (B2) Switching the language during a live video conference disconnected it silently: `I18n.language` restarts the
+  root, and the conference screen's destroy hook is the real teardown (`disconnect()`). The language switcher now asks first while
+  `ConferenceCallPresence.live` ("Die Sprache zu wechseln beendet die laufende Besprechung.", cancel keeps the call, `LanguageChangeDomTest`);
+  the teardown was NOT made re-attachable (a live media session cannot survive a full re-render).
+  **Major.** (M1) `MyVolunteerShiftsScreen`/`CateringScreen` said "no shifts open / no orders" when there was no event or the event list had failed;
+  no event is now its own sentence ("Es sind derzeit keine Veranstaltungen geplant."), the list only loads for a chosen event, a failed
+  event list stays the error box. (M2) `isPostalMailEnabled()` reports a failed settings load as `null` (unknown) instead of `false`:
+  the "deaktiviert" band and the removed dispatch buttons were a network hiccup shown as a fact. Unknown is an error box with a retry
+  (`renderPostalMailGate` for the three dispatch triggers, the banner, the org-wide contribution list). (M3) `displayDigits` snaps floating-point noise
+  with a RELATIVE tolerance (1e-9 of `max(1, |value|)`), never prints exponent notation (`1.5e-7` -> `0.00000015`, no longer "0"), and a
+  cleaned amount renders without `.0`; the open-item and netting dialogs prefill and compare against the SAME cleaned value with a
+  half-cent tolerance (an open amount of `99.99999999999999` showed "100 EUR" but rejected an entry of 100). `5.55e-17` (noise around zero) renders "0". The
+  `FormRules` limits compare against constants and were not affected. (M4) Six board-membership sentences, "Erledigt"/"Offen"/"Bestätigt von
+  ...", the quorum words, the amendment plural (now two whole sentences) and the "keine" fallbacks went through no catalog; they do now (plus the cross-link
+  caption the audit missed). `AllClientMessagesCatalogTest` says what it checks (the calls, not "every visible text") and has two new
+  detectors with baselines: German literals in ternary/elvis/`ifBlank`/option-pair positions (baseline empty) and a ledger of German constants used without `tr()`
+  (seven names, each with its reason). (M5) Translation quality: en Lautsprecher/Sprecher, Entfernen/Lösen (en, it), Absagen vs. Abbrechen (en es fr it), fr/it
+  access-control terms, it Rückgelastschrift ("stornato" was wrong), nl Rücklastschrift, ru genus of the device sentences (pl, ru now genus-neutral),
+  es/it device subjects in the middle of a sentence, fr "conseil d'administration" everywhere (and "consentement retiré"), ru Sichtbar/DSFA/VAT terms, en paragraph
+  shorthands (`§ 19 UStG (German VAT Act)` like the other languages), and the 28 informal Polish sentences of W5 in the formal address. (M6) The glossary
+  table has Vorstand, Protokoll, Satzung, Tagesordnung, Wahl and Mandat (15 terms), a row with other than nine cells fails, "Antrag" lost its
+  ambiguous stems (two exempt msgids for the APPLICATION sense, with reasons), and a new collision test forbids two different msgids of one screen
+  file with the same rendering (23 accepted pairs, each with its reason). (M7) The first route shown takes no focus, so the skip link IS the first Tab stop;
+  only a route change moves it, and never while a modal is open or a field is focused. (M8) 44 px targets for `.btn-close`, `.dropdown-item`,
+  the navbar links and the icon-only link button; the skip link is not blown up at rest; `:not(.lapis-form *)` is gone. (M9) Membership exit, member-card issue
+  and document delete disable their trigger while the request runs (two quick clicks -> one request, `WritePathsSingleShotDomTest`). R29 honestly: 39 in the 32 migrated
+  files, about 190 unguarded writing launches in the whole client. (M10) `PseudoTableGoldenDomTest` no longer claims to be pinned green against the old code;
+  header, accessible-name and card-mode assertions added. (M11) The ratchet sees `?.let`/`?.apply`/`vnode.elm`/stored-element spellings (a ledger of 11 audited sites), counts matches
+  not lines; the `getElement()?.setAttribute` chain is zero, the claim is no longer "hard zero" of everything. The FinTS PIN fields moved to `Widget.setAttribute` (the three conference `role="alert"` banners were NOT converted: the live call path cannot be mounted in a test); `applyPanelVisibility` writes `aria-pressed` only on change.
+  **Minor, done:** dead `memberHonorsHeading` removed; the "DSGVO-gelöscht" badge stands next to the member name again, `document.title` names the member and follows a language switch;
+  `setSubtitle` without a slot fails loudly; `.lapis-page-action` has a rule; `.lapis-content` shows a focus ring for keyboard users; `aria-labelledby` on the landmark; filtered-empty in
+  `EventRoomsScreen`; the LTR strip is a live region with a generation guard; `aria-busy` on loading regions; ranking/weights/bids/distribution cells kept their muted/bold classes and the
+  four tables an accessible name; `.is-invalid` icon removal outside `.lapis-form` too; the invite-copy modal selects the `<textarea>`; content-path tests for the five migrated screens.
+  **Deliberately not changed:** the 28 orphaned msgids without a source location (pre-existing), `formatLtr` (raw format, deliberate), the `FormRules` limits (constants, no noise), the
+  performance of `applyPanelVisibility` beyond the one guard line.
+  **Known gaps after this round:** the `#:` source references of about 400 W5 msgids point at wrong lines (hand-maintained, only the msgid counts); the media-family
+  widgets (`.btn-close` inside third-party components) beyond the four named ones; `.text-bg-danger` was fixed, not the underlying contrast of `.text-bg-warning` (untouched, not measured);
+  `banners` (R37) is used by two screens (the postal-mail band moved in during this round) -- the travel-expense rates bands still stand in the body; glyph msgids not migrated:
+  '● Aufzeichnung läuft', '◆ Live-Stream %1 → %2', '‹ Zurück'/'Weiter ›', '← Zurück zur Timeline', '↳ Änderungsantrag: %1', 'Zum LTR-Konto ->'; the R34 ratchet is per FILE (a file with one
+  state block counts as migrated even if it also reads elsewhere); no manual browser or screen-reader check was done for any of this.
+
 - **UI/UX guideline, wave W4c "Form grammar, part 3" (V1.4.30)** -- the finance forms and dialogs, cut by whole files (all
   twelve, none held back): the ledger (`LedgerScreen`: chart of accounts, the account form, the payment-account mapping, the
   journal entry with its posting lines), open items (`OpenItemsScreen`, `OpenItemDialogs`: create, settle, edit reference/note,

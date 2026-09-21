@@ -10,7 +10,6 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -74,20 +73,25 @@ fun renderBankStatementImportScreen(
             marginTop = 24.px
         }
 
-    // Zone 1 -- Kopfzeile.
-    val headerRow = root.hPanel(spacing = 12) { addCssClasses("align-items-center justify-content-between") }
-    headerRow.h1(tr("Kontoauszüge"))
+    // Zone 1 -- Kopfzeile: Seitenkopf (W5) mit dem Upload-Knopf als einziger Primaeraktion; ohne Schreibrecht steht der
+    // Hinweis als Untertitel.
+    var uploadToggle: Button? = null
+    root.pageHeader(
+        tr("Kontoauszüge"),
+        subtitle = if (canWrite) null else tr("Sie sehen diese Seite mit Leserechten."),
+        primaryAction =
+            if (canWrite) {
+                { uploadToggle = button(tr("Auszug hochladen"), style = ButtonStyle.PRIMARY) }
+            } else {
+                null
+            },
+    )
     val uploadPanel =
         root.vPanel(spacing = 6) {
             addCssClasses("border rounded p-3")
             hide()
         }
-    if (canWrite) {
-        val uploadToggle = headerRow.button(tr("Auszug hochladen"), style = ButtonStyle.PRIMARY)
-        uploadToggle.onClick { if (uploadPanel.visible) uploadPanel.hide() else uploadPanel.show() }
-    } else {
-        headerRow.div(tr("Sie sehen diese Seite mit Leserechten.")) { addCssClasses("text-muted small") }
-    }
+    uploadToggle?.onClick { if (uploadPanel.visible) uploadPanel.hide() else uploadPanel.show() }
 
     // Zone 2 -- Import-Auswahl.
     val resultBannerHost = root.vPanel(spacing = 4)

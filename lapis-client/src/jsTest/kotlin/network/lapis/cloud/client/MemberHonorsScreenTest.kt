@@ -36,17 +36,6 @@ class MemberHonorsScreenTest {
     }
 
     @Test
-    fun memberHonorsHeading_withoutName_isTheGenericTitle() {
-        assertEquals(true, memberHonorsHeading(null).isNotBlank())
-    }
-
-    @Test
-    fun memberHonorsHeading_withName_mentionsTheName() {
-        val heading = memberHonorsHeading("Erika Musterfrau")
-        assertEquals(true, heading.contains("Erika Musterfrau"))
-    }
-
-    @Test
     fun memberHonorsEmptyStateText_withoutName_isGeneric() {
         assertEquals(true, memberHonorsEmptyStateText(null).isNotBlank())
     }

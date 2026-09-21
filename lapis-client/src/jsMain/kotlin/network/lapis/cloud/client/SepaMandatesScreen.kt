@@ -5,7 +5,6 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -29,7 +28,7 @@ import network.lapis.cloud.shared.rpc.ISepaService
  */
 fun renderSepaMandatesScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.h1(tr("SEPA-Mandate"))
+    root.pageHeader(tr("SEPA-Mandate"))
 
     val canGrantOnBehalf = SepaAuthzUi.canGrantOnBehalf(AppState.session?.role)
 

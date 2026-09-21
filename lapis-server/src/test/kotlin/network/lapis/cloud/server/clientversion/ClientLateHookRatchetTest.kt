@@ -55,7 +55,6 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
             ),
         "ConferenceBackgroundSection.kt" to
             (2 to "RawAttributes hook and tile keyboard hook: the group is hidden while the tiles are built, so no element exists yet"),
-        "BankAccountsScreen.kt" to (1 to "hardenSecretInput: the modal is built completely before modal.show()"),
         "ConferenceRecordingsPanel.kt" to
             (1 to "raw <video> in a late insert hook; more widgets follow in the same card, exactly one video results"),
         "ConferenceWhiteboardController.kt" to
@@ -63,11 +62,59 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
         "ConferenceScreen.kt" to
             (
                 10 to
-                    "role=alert banners (hidden first), roster/chat badges (raw child, next add patches), stage/grid zones " +
+                    "role=alert banners (hidden first; the live call path cannot be mounted in a test, so they were not converted), " +
+                    "roster/chat badges (raw child, next add patches), stage/grid zones " +
                     "(first fire is the replacement, before any tile exists), chatRow (hidden panel), setStaticA11yLabel/" +
                     "setDynamicA11yTitle (getElement() ?: hook idiom)"
             ),
     )
+
+/**
+ * A raw DOM `setAttribute` goes around KVision's patch cycle: the attribute is lost when the root is rebuilt (language switch) and,
+ * for text, carries the `###KvI18nS###` marker. KVision's `Widget.setAttribute(name, value)` (survives a re-render) or a property is
+ * the way.
+ *
+ * Two detectors (audit V1.4.31 -- the first alone only saw ONE spelling of the trap and the "hard zero" claim was wrong):
+ *  1. [RAW_SET_ATTRIBUTE], the direct chain `getElement()?.setAttribute(`: a hard zero, nothing is audited.
+ *  2. The WINDOWED scan: a `setAttribute(` within [RAW_DOM_WINDOW] lines after a raw element source (`getElement()` or `vnode.elm`) --
+ *     the spellings `?.let { el -> el.setAttribute }`, `?.apply { setAttribute }`, `vnode.elm ... setAttribute`, `!!.`, a stored
+ *     element variable. It cannot tell a raw DOM element from a `Widget` (both call `setAttribute`), so what it finds is a LEDGER
+ *     ([AUDITED_RAW_DOM_SET_ATTRIBUTE], file -> number of matches + why each is fine); a new one breaks the test until someone has
+ *     looked at it. A recall limit is stated, not hidden: an element kept in a field and written to further than the window away is
+ *     not seen. Counted per MATCH, not per line (two writes on one line are two findings).
+ */
+private val RAW_SET_ATTRIBUTE = Regex("""getElement\(\)\??\.setAttribute\(""")
+private val RAW_DOM_SOURCE = Regex("""getElement\(\)|\.elm\b""")
+private val ANY_SET_ATTRIBUTE = Regex("""\bsetAttribute\(""")
+private const val RAW_DOM_WINDOW = 5
+private const val RAW_SETATTRIBUTE_MAX = 0
+
+/** file -> (matches, why each is fine). The FinTS PIN fields were moved to `Widget.setAttribute` (tested); the conference banners were not (no test path). */
+private val AUDITED_RAW_DOM_SET_ATTRIBUTE: Map<String, Pair<Int, String>> =
+    mapOf(
+        "ConferenceBackgroundSection.kt" to
+            (2 to "RawAttributes: the tile attributes are re-applied by an insert hook on every (re-)insert; the group is built hidden"),
+        "ConferenceScreen.kt" to
+            (
+                9 to
+                    "the three `role=\"alert\"` banner hooks (the live call path is not testable in Karma, so not converted to " +
+                    "Widget.setAttribute) and setStaticA11yLabel / setDynamicA11yTitle: `getElement() ?: hook` idiom, written again on " +
+                    "every call -- the label changes with the connection state, a Widget attribute would re-render the control bar"
+            ),
+    )
+
+/** The 1-based-free indexes of the lines that hold a `setAttribute(` within the window after a raw element source, per file. */
+private fun rawDomWriteMatches(lines: List<String>): Int {
+    val hits = mutableSetOf<Int>()
+    lines.forEachIndexed { index, line ->
+        if (isCommentLine(line) || !RAW_DOM_SOURCE.containsMatchIn(line)) return@forEachIndexed
+        for (offset in 0..RAW_DOM_WINDOW) {
+            val at = index + offset
+            if (at < lines.size && !isCommentLine(lines[at]) && ANY_SET_ATTRIBUTE.containsMatchIn(lines[at])) hits += at
+        }
+    }
+    return hits.sumOf { ANY_SET_ATTRIBUTE.findAll(lines[it]).count() }
+}
 
 class ClientLateHookRatchetTest :
     FunSpec({
@@ -76,7 +123,7 @@ class ClientLateHookRatchetTest :
                 .walkTopDown()
                 .filter { it.isFile && it.extension == "kt" }
                 .associate { file ->
-                    file.name to file.readLines().count { !isCommentLine(it) && DIRECT_HOOK_CALL.containsMatchIn(it) }
+                    file.name to file.readLines().filterNot { isCommentLine(it) }.sumOf { DIRECT_HOOK_CALL.findAll(it).count() }
                 }.filterValues { it > 0 }
 
         test("the scan sees the client sources (not vacuous)") {
@@ -97,6 +144,60 @@ class ClientLateHookRatchetTest :
                     }
                 }
             problems.shouldBeEmpty()
+        }
+
+        test("no raw getElement()?.setAttribute chain is left in the client, and the detector sees one") {
+            val findings =
+                CLIENT_SOURCES
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" }
+                    .flatMap { file ->
+                        file
+                            .readLines()
+                            .filter { !isCommentLine(it) && RAW_SET_ATTRIBUTE.containsMatchIn(it) }
+                            .map { "${file.name}: ${it.trim()}" }
+                    }.toList()
+            findings.size shouldBe RAW_SETATTRIBUTE_MAX
+            RAW_SET_ATTRIBUTE.containsMatchIn("    rosterToggleButton.getElement()?.setAttribute(\"aria-pressed\", \"true\")") shouldBe true
+            RAW_SET_ATTRIBUTE.containsMatchIn("    button.setAttribute(\"aria-pressed\", \"true\")") shouldBe false
+        }
+
+        test("every windowed raw-DOM setAttribute (?.let / ?.apply / vnode.elm / stored element) is audited") {
+            val actual =
+                CLIENT_SOURCES
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" }
+                    .associate { it.name to rawDomWriteMatches(it.readLines()) }
+                    .filterValues { it > 0 }
+            val problems =
+                (actual.keys + AUDITED_RAW_DOM_SET_ATTRIBUTE.keys).sorted().mapNotNull { file ->
+                    val found = actual[file] ?: 0
+                    val allowed = AUDITED_RAW_DOM_SET_ATTRIBUTE[file]?.first ?: 0
+                    if (found != allowed) {
+                        "$file: $found raw-DOM setAttribute match(es), audited $allowed -- use Widget.setAttribute(name, value), " +
+                            "or audit the call and update the table with the reason"
+                    } else {
+                        null
+                    }
+                }
+            problems.shouldBeEmpty()
+            actual.values.sum() shouldBeGreaterThan 0
+        }
+
+        test("the windowed detector recognises the spellings the chain regex misses, and ignores comments and far-away writes") {
+            rawDomWriteMatches(listOf("  getElement()?.let { el ->", "    el.setAttribute(\"a\", \"b\")", "  }")) shouldBe 1
+            rawDomWriteMatches(listOf("  (vnode.elm as? HTMLElement)?.apply {", "    setAttribute(\"a\", \"b\")", "  }")) shouldBe 1
+            rawDomWriteMatches(
+                listOf("  val el = w.getElement()!!", "  el.setAttribute(\"a\", \"b\"); el.setAttribute(\"c\", \"d\")"),
+            ) shouldBe
+                2
+            rawDomWriteMatches(listOf("  (vnode.elm as? HTMLElement)?.setAttribute(\"role\", \"alert\")")) shouldBe 1
+            rawDomWriteMatches(listOf("  // getElement()?.let { el.setAttribute(\"a\", \"b\") }")) shouldBe 0
+            rawDomWriteMatches(listOf("  w.setAttribute(\"a\", \"b\")")) shouldBe 0
+            rawDomWriteMatches(
+                listOf("  val el = w.getElement()") + List(RAW_DOM_WINDOW + 1) { "  x()" } + listOf("  el.setAttribute(\"a\", \"b\")"),
+            ) shouldBe
+                0
         }
 
         test("the detector recognises a direct call and ignores labels and comments") {

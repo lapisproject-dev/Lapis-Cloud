@@ -1,0 +1,201 @@
+= i18n Glossary -- Fixed Terms of the Client (V1.4.31, W5)
+:toc:
+
+== Purpose
+
+The client is translated into seven languages (`en es fr it nl pl ru`), the German text is the msgid. Legal, accounting and
+governance terms must read the same in every place they occur: a member who sees "Antrag" as "motion" on one screen and as
+"application" on the next reads two different concepts. This glossary fixes the accepted rendering of each core term per language.
+
+It is not only prose. `I18nGlossaryConsistencyTest` (`lapis-server`) reads the table below and checks the real catalogs:
+for every German msgid that contains a core term as a whole word (or one of its listed inflected forms), each of the seven
+`msgstr` must contain at least one *accepted stem* of that language. A collision turns the build red.
+
+== How the table is read
+
+* *German forms* -- the msgid forms that trigger the check, comma separated. A form only matches as a whole word: `Beitrag`
+  matches "Beitrag boosten" and "Kein Beitrag", but neither `Beitragssatz` (a compound) nor `Beiträge` (not listed).
+* One column per language with the *accepted stems*, comma separated, compared case-insensitively as substrings of the
+  translation. A stem is deliberately short (`contribut`, `składk`) so that inflected forms match.
+* A term with two meanings lists the stems of BOTH meanings in the same cell; the notes column names them. Adding a stem for a
+  new meaning is a decision that belongs in the pull request, not in the test.
+
+[cols="1,1,1,1,1,1,1,1,2", options="header"]
+|===
+| German forms | en | es | fr | it | nl | pl | ru | Notes
+
+| Antrag, Anträge, Anträgen
+| motion, request
+| moci, solicitud
+| motion, demande
+| mozion, richiest
+| voorstel, aanvra
+| wniosek, wnios
+| заявк, заявок
+| Two senses, each with ONE rendering per language: the Governance motion (en motion, es moción, fr motion, it mozione, nl voorstel) and a workflow request such as a deletion request or a contribution reduction (en request, es solicitud, fr demande, it richiesta, nl aanvraag). pl and ru use one word for both. A third sense, the APPLICATION (membership application "Antrag" as a status, "auf Antrag" of the tax law), is not in the table: those two msgids are exempt in the test, with their reason.
+
+| Beschluss, Beschlüsse, Beschlüssen
+| resolution, decision
+| resoluci, acuerdo, decisi
+| décision, résolution, delibér
+| deliber, decision, risoluzion
+| besluit
+| uchwał, decyzj
+| решени, постановлен
+| Decision of a body.
+
+| Sitzung, Sitzungen
+| meeting, session
+| sesi, reuni
+| séance, réunion, session
+| sedut, riunion, session
+| vergadering, zitting, sessie
+| posiedze, spotkani, sesj
+| заседани, собрани, сесси, сеанс
+| HOMONYM: a meeting of a body ("Sitzung") and a login session ("Sitzung abgelaufen"). Both renderings are accepted; a screen must use the one that fits the meaning.
+
+| Gremium, Gremien
+| committee, bod, panel
+| órgano, comité
+| organe, comité
+| organo, organi, comitato
+| orgaan, organen, commissie
+| gremi, organ, komisj
+| орган, комитет
+| Body of the organization (board, working group, commission).
+
+| Mahnwesen
+| dunning
+| reclam, cobro
+| relance, rappel
+| sollecit
+| aanmaning
+| windykac, monit, wezwa
+| напоминани
+| Payment reminders (section 286 BGB); never "Mahnung" as a warning.
+
+| Beitrag
+| contribution, fee, post
+| cuota, contribuci, aportaci, publicaci, entrada
+| cotisation, contribution, publication, message, post
+| contribut, quota, post, pubblicazion, messaggio
+| bijdrage, contributie, post, bericht
+| składk, składek, post, wpis
+| взнос, вклад, публикац, пост, запись
+| HOMONYM: membership contribution and a post of the social network ("Beitrag boosten"). Both are accepted.
+
+| Spende, Spenden
+| donation
+| donaci, donativ
+| don
+| donazion
+| donatie, gift
+| darowizn
+| пожертвован
+| Donation (section 25 PartG donor duties depend on this term).
+
+| Mitglied, Mitglieder
+| member
+| miembr, socio
+| membre
+| membr, socio, soci, iscritt
+| lid, leden
+| członek, członk, członków
+| участник, член
+| Member of the organization.
+
+| Förderer
+| supporter, sponsor, patron, friend
+| colaborador, patrocinador, promotor, amigo
+| bienfaiteur, soutien, sponsor, ami
+| sostenitore, sponsor, amico
+| ondersteuner, sponsor, vriend
+| wspierając, sponsor, przyjaciel
+| спонсор, сторонник, друг
+| Account type FRIEND (supporter without membership). NOT "donor": a donor is a "Spender".
+
+| Vorstand, Vorstands, Vorstände
+| board
+| junta directiva
+| conseil d'administration
+| consiglio direttivo
+| bestuur
+| zarząd
+| правлени
+| The board of the organization (fr: never "comité directeur" -- the catalog had drifted to both).
+
+| Protokoll, Protokolle
+| minutes, log, audit trail, record
+| acta, registro
+| procès-verbal, journal, registre
+| verbale, registro
+| notulen, logboek
+| protokół, rejestr
+| протокол, журнал
+| HOMONYM: the minutes of a meeting and a log / audit trail. Both are accepted; a screen must use the one that fits the meaning.
+
+| Satzung
+| statute
+| estatuto
+| statuts
+| statuto
+| statuten
+| statut
+| устав
+| The constitution / statutes of the organization.
+
+| Tagesordnung, Tagesordnungspunkt
+| agenda
+| orden del día
+| ordre du jour
+| ordine del giorno
+| agenda
+| porządek, porządku
+| повестк
+| The agenda of a meeting and its items.
+
+| Wahl, Wahlen
+| election
+| elecci
+| élection
+| elezion
+| verkiezing
+| wybor
+| выбор
+| An election (Governance).
+
+| Mandat, Mandate, Mandats
+| mandate
+| mandato
+| mandat
+| mandat
+| machtiging, mandaat, mandaten
+| mandat
+| мандат
+| HOMONYM: a SEPA direct-debit mandate (nl "machtiging") and a board mandate. Both stems are accepted for nl.
+|===
+
+== Terms with an entry in the catalogs but without an automatic check
+
+The check above needs a term that is a distinct whole word. These terms are fixed by convention and reviewed by eye:
+
+[cols="1,3", options="header"]
+|===
+| German | Rendering
+
+| Soll / Haben
+| Debit / Credit (en), Debe / Haber (es), Débit / Crédit (fr), Dare / Avere (it), Debet / Credit (nl), Winien / Ma (pl), Дебет / Кредит (ru). "Soll" and "Haben" are also ordinary verbs, so a whole-word check would fire on prose.
+
+| Storno / Stornieren
+| Reverse (en), Anular (es), Contrepasser (fr), Storna (it), Terugdraaien (nl), Storno (pl), Сторнировать (ru) -- the ACCOUNTING meaning (reverse a posting).
+
+| Ausgleich
+| Settlement of an open item.
+|===
+
+== Known gaps
+
+* The homonym "Stornieren": in the accounting screens it means to reverse a posting; in the event screens it stands for cancelling a
+  registration or a shift. The catalog carries ONE msgid for both. Resolving it needs a new msgid for the event meaning
+  ("Veranstaltung absagen" and the like already have their own); the remaining event occurrences are not split in W5.
+* Only whole words are checked. Compounds ("Beitragssatz", "Spendenquittung") and plural forms that are not listed are not covered.

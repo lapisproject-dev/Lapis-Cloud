@@ -8,7 +8,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.html.span
@@ -68,10 +67,10 @@ fun renderCostCentersScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Kostenstellen"))
+    root.pageHeader(tr("Kostenstellen"))
 
     // ---- List (Kostenstellen-Übersicht) ----------------------------------------------------
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     // Design-Team-Welle 2026-09-18: Live-Suche analog `LedgerScreen.kt`s Kontenplan-Suche -- rein
     // clientseitige Filterung ohne RPC-Roundtrip pro Tastendruck, Suchfeld ausserhalb des
     // Listen-Panels (sonst risse jeder Tastendruck das eigene Eingabefeld samt Fokus ab, siehe
@@ -182,12 +181,12 @@ fun renderCostCentersScreen(container: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        root.h2(tr("Neue Kostenstelle anlegen"))
+        root.h2(tr("Neue Kostenstelle anlegen")) { addCssClass("h5") }
         renderCostCenterCreationForm(root) { refreshList() }
     }
 
     // ---- Report -----------------------------------------------------------------------------
-    root.h2(tr("Kostenstellenbericht"))
+    root.h2(tr("Kostenstellenbericht")) { addCssClass("h5") }
     renderCostCenterReportView(root)
 }
 

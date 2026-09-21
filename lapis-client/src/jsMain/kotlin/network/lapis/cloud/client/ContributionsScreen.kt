@@ -8,7 +8,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -85,7 +84,7 @@ fun renderContributionsScreen(container: SimplePanel) {
             maxWidth = 760.px
             marginTop = 24.px
         }
-    root.h1(tr("Beitragsübersicht"))
+    root.pageHeader(tr("Beitragsübersicht"))
 
     // V1.2.2 SEPA-Client-UI wave -- see SepaMandateSection.kt file KDoc "K1". Owns its own panel,
     // renders nothing at all for a plain MEMBER when SEPA is disabled for this organization.
@@ -129,7 +128,7 @@ private fun renderOwnSummary(
     memberId: String,
     onReliefChanged: () -> Unit,
 ) {
-    panel.h2(tr("Meine Beiträge"))
+    panel.h2(tr("Meine Beiträge")) { addCssClass("h5") }
     // Welle V1.4.25: one `dataSection` owns the load (summary + relief requests bundled into one result,
     // so a failure of the summary shows ONE error state with a retry instead of a silently empty panel).
     // A failed relief-requests fetch is deliberately not fatal here (`orEmpty()`, as before): the
@@ -312,7 +311,7 @@ private fun renderOwnReliefRequests(
     memberId: String,
     onReliefChanged: () -> Unit,
 ) {
-    panel.h2(tr("Beitragsvergünstigung beantragen"))
+    panel.h2(tr("Beitragsvergünstigung beantragen")) { addCssClass("h5") }
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
 
     val kindOptions =
@@ -513,7 +512,7 @@ fun SimplePanel.reliefStepTracker(request: ContributionReliefRequestDto) {
 }
 
 private fun renderTierAdministration(root: SimplePanel) {
-    root.h2(tr("Beitragssätze und Beitragsgenerierung"))
+    root.h2(tr("Beitragssätze und Beitragsgenerierung")) { addCssClass("h5") }
     val tiersPanel = root.vPanel(spacing = 4)
     val formPanel = root.vPanel(spacing = 6)
 
@@ -560,7 +559,7 @@ private fun renderTierAdministration(root: SimplePanel) {
 }
 
 private fun renderOrgWideContributions(root: SimplePanel) {
-    root.h2(tr("Alle Beiträge"))
+    root.h2(tr("Alle Beiträge")) { addCssClass("h5") }
     val canMarkPaid = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
     val canWaive = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
@@ -573,9 +572,15 @@ private fun renderOrgWideContributions(root: SimplePanel) {
             emptyText = tr("Keine offenen Beiträge."),
             isEmpty = { it.contributions.isEmpty() },
             load = {
+                // Audit fix M2: an UNKNOWN postal state (settings load failed) is a failed load -- the error box with retry, never
+                // "Versand deaktiviert" for every row.
                 val postalMailEnabled = isPostalMailEnabled()
-                guarded { rpcService<IContributionService>().listContributions(status = ContributionStatus.OPEN) }
-                    ?.let { OrgContributionsData(postalMailEnabled = postalMailEnabled, contributions = it) }
+                if (postalMailEnabled == null) {
+                    null
+                } else {
+                    guarded { rpcService<IContributionService>().listContributions(status = ContributionStatus.OPEN) }
+                        ?.let { OrgContributionsData(postalMailEnabled = postalMailEnabled, contributions = it) }
+                }
             },
             render = { content, data ->
                 content.dataTable(

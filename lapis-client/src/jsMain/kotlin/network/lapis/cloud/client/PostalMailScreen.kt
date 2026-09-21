@@ -3,14 +3,13 @@ package network.lapis.cloud.client
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
-import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
@@ -54,7 +53,9 @@ fun renderPostalMailScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Postversand"))
+    // Audit fix (R37): the "Postversand deaktiviert" band stands in the banner slot ABOVE the title, as the guideline wants it.
+    lateinit var bannerPanel: VPanel
+    root.pageHeader(tr("Postversand"), banners = { bannerPanel = vPanel(spacing = 4) })
     root.div(
         tr(
             "Protokoll aller bisherigen postalischen Versandvorgänge -- rein informativ, keine Aktionen auf " +
@@ -63,30 +64,40 @@ fun renderPostalMailScreen(container: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
 
-    val bannerPanel = root.vPanel(spacing = 4)
-    AppScope.launch {
-        if (!isPostalMailEnabled()) {
-            bannerPanel.div(
-                tr(
-                    "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- " +
-                        "alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, " +
-                        "bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in " +
-                        "dieser Version noch keine eigene Oberfläche.",
-                ),
-            ) { addCssClasses("alert alert-warning") }
+    // Audit fix M2: three states, not two -- an unknown state (the settings RPC failed) is an error box with a retry, NEVER "deaktiviert".
+    fun loadBanner() {
+        bannerPanel.removeAll()
+        AppScope.launch {
+            when (isPostalMailEnabled()) {
+                false ->
+                    bannerPanel.div(
+                        tr(
+                            "Postversand ist derzeit deaktiviert (`OrganizationSettings.postalMailEnabled = false`) -- " +
+                                "alle Versandaktionen (Beitragsrechnung, Spendenbescheinigung, Einladung) schlagen fehl, " +
+                                "bis eine Administratorin oder ein Administrator dies aktiviert. Diese Einstellung hat in " +
+                                "dieser Version noch keine eigene Oberfläche.",
+                        ),
+                    ) { addCssClasses("alert alert-warning") }
+                null -> bannerPanel.dataErrorState(onRetry = ::loadBanner)
+                true -> Unit
+            }
         }
     }
+    loadBanner()
 
-    root.h2(tr("Verlauf"))
-    val logPanel = root.vPanel(spacing = 6)
-    AppScope.launch {
-        val log = guarded { rpcService<IPostalMailService>().listPostalDeliveryLog() } ?: return@launch
-        if (log.isEmpty()) {
-            logPanel.p(tr("Noch keine postalischen Versandvorgänge protokolliert."))
-        } else {
-            log.forEach { entry -> renderPostalDeliveryLogRow(logPanel, entry) }
-        }
-    }
+    root.h2(tr("Verlauf")) { addCssClass("h5") }
+    // W5 (R34): the load lives in a `dataSection` -- loading, error with retry, and "nothing logged yet" are distinct states
+    // (before, a failed load left the area blank and only `guarded`'s toast said why).
+    root
+        .dataSection<List<PostalDeliveryLogDto>>(
+            emptyText = tr("Noch keine postalischen Versandvorgänge protokolliert."),
+            isEmpty = { it.isEmpty() },
+            load = { guarded { rpcService<IPostalMailService>().listPostalDeliveryLog() } },
+            render = { panel, log ->
+                val logPanel = panel.vPanel(spacing = 6)
+                log.forEach { entry -> renderPostalDeliveryLogRow(logPanel, entry) }
+            },
+        ).reload()
 }
 
 /**
@@ -145,9 +156,36 @@ fun postalDeliveryStatusColor(status: PostalDeliveryStatus): String =
  * already does. `PostalMailService.requirePostalMailEnabled` remains the sole authority; this is a
  * courtesy pre-check that avoids a confusing `ConflictException` toast being a caller's only signal,
  * not a security boundary.
+ *
+ * Audit fix M2: `true` / `false` / `null` (= UNKNOWN: the settings load failed, `guarded` has already shown its toast). A failure is
+ * never reported as "disabled": that would show the yellow "deaktiviert" band and take the dispatch buttons away on a mere
+ * network hiccup. Every call site must handle all three cases -- [renderPostalMailGate] does it for the dispatch triggers.
  */
-suspend fun isPostalMailEnabled(): Boolean =
-    guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() }?.postalMailEnabled ?: false
+suspend fun isPostalMailEnabled(): Boolean? =
+    guarded {
+        rpcService<IOrganizationSettingsService>().getOrganizationSettings()
+    }?.postalMailEnabled
+
+/**
+ * Fills a host below [this] with the state of a postal dispatch trigger: [onEnabled] renders the real button, `false` shows
+ * [postalMailDisabledNotice], and an UNKNOWN state ([isPostalMailEnabled] is `null`) shows an error box with a retry -- the
+ * trigger is neither silently removed nor pretended to be disabled.
+ */
+fun SimplePanel.renderPostalMailGate(onEnabled: (SimplePanel) -> Unit) {
+    val host = vPanel(spacing = 2)
+
+    fun load() {
+        host.removeAll()
+        AppScope.launch {
+            when (isPostalMailEnabled()) {
+                true -> onEnabled(host)
+                false -> host.postalMailDisabledNotice()
+                null -> host.dataErrorState(onRetry = ::load)
+            }
+        }
+    }
+    load()
+}
 
 /** D7: replaces a dispatch trigger button at every call site when [isPostalMailEnabled] is false. */
 fun SimplePanel.postalMailDisabledNotice() {

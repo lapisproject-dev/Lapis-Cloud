@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.tr
@@ -32,7 +31,7 @@ fun renderVerifyEmailScreen(
     // V1.4.7 "Root-Verlinkung" -- Marken-Lockup über der Karte, siehe LoginScreen.kt für dasselbe
     // Muster. root.h1 bleibt unverändert der screenspezifische Titel.
     root.brandLockup()
-    root.h1(tr("E-Mail-Adresse bestätigen"))
+    root.pageHeader(tr("E-Mail-Adresse bestätigen"))
 
     if (token.isNullOrBlank()) {
         root.p(tr("Dieser Link enthält keinen gültigen Token. Bitte fordern Sie einen neuen Link an."))

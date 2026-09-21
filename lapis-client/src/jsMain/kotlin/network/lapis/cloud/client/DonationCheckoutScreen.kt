@@ -8,7 +8,6 @@ import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -38,7 +37,7 @@ fun renderDonationCheckoutScreen(container: SimplePanel) {
             maxWidth = 560.px
             marginTop = 24.px
         }
-    root.h1(tr("Spenden"))
+    root.pageHeader(tr("Spenden"))
 
     val statusHost = root.vPanel(spacing = 8)
     val formHost = root.vPanel(spacing = 8)

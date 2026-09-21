@@ -7,7 +7,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -62,15 +61,15 @@ fun renderCommitteesScreen(container: SimplePanel) {
             maxWidth = 720.px
             marginTop = 24.px
         }
-    root.h1(tr("Gremien"))
+    root.pageHeader(tr("Gremien"))
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
-    root.h2(tr("Übersicht"))
+    root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Gremien anzeigen"))
     val committeePanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Mitglieder"))
+    root.h2(tr("Mitglieder")) { addCssClass("h5") }
     val rosterPanel = root.vPanel(spacing = 6)
     rosterPanel.p(tr("Gremium oben auswählen, um die Besetzung zu sehen."))
 
@@ -99,7 +98,7 @@ fun renderCommitteesScreen(container: SimplePanel) {
     refreshCommittees()
 
     if (canManage) {
-        root.h2(tr("Neues Gremium anlegen"))
+        root.h2(tr("Neues Gremium anlegen")) { addCssClass("h5") }
         renderCommitteeCreation(root, ::refreshCommittees)
     }
 }
@@ -426,11 +425,11 @@ private fun todayIso(): String =
  */
 fun committeeTypeLabel(type: CommitteeType): String =
     when (type) {
-        CommitteeType.EXECUTIVE_BOARD -> "Vorstand"
-        CommitteeType.WORKING_GROUP -> "Arbeitsgruppe"
-        CommitteeType.COMMISSION -> "Kommission"
-        CommitteeType.GENERAL_ASSEMBLY -> "Mitgliederversammlung"
-        CommitteeType.OTHER -> "Sonstiges"
+        CommitteeType.EXECUTIVE_BOARD -> gettext("Vorstand")
+        CommitteeType.WORKING_GROUP -> gettext("Arbeitsgruppe")
+        CommitteeType.COMMISSION -> gettext("Kommission")
+        CommitteeType.GENERAL_ASSEMBLY -> gettext("Mitgliederversammlung")
+        CommitteeType.OTHER -> gettext("Sonstiges")
     }
 
 fun committeeTypeColor(type: CommitteeType): String =

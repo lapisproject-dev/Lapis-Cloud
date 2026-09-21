@@ -5,7 +5,6 @@ import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
@@ -46,7 +45,7 @@ fun renderBackupScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.h1(tr("Backup & Wiederherstellung"))
+    root.pageHeader(tr("Backup & Wiederherstellung"))
     root.div(
         tr(
             "Vollständiger Export und Wiederherstellung aller Organisationsdaten (Datenbank + Dokumente) -- " +
@@ -55,7 +54,7 @@ fun renderBackupScreen(container: SimplePanel) {
     ) { addCssClasses("text-muted small") }
 
     // ---- Export -------------------------------------------------------------------------------
-    root.h2(tr("Export"))
+    root.h2(tr("Export")) { addCssClass("h5") }
     root.div(
         tr(
             "Lädt ein vollständiges ZIP-Backup aller Organisationsdaten herunter. Rein lesend und nicht " +
@@ -66,7 +65,7 @@ fun renderBackupScreen(container: SimplePanel) {
 
     // ---- Operations log (declared before the restore panel so its `loadOperations`/refresh
     // closure can be passed down as a callback) ------------------------------------------------
-    root.h2(tr("Verlauf"))
+    root.h2(tr("Verlauf")) { addCssClass("h5") }
     root.div(
         tr(
             "Protokoll aller bisherigen Export-/Wiederherstellungsversuche -- rein informativ, keine " +
@@ -88,7 +87,7 @@ fun renderBackupScreen(container: SimplePanel) {
     }
 
     // ---- Restore --------------------------------------------------------------------------------
-    root.h2(tr("Wiederherstellung"))
+    root.h2(tr("Wiederherstellung")) { addCssClass("h5") }
     renderRestorePanel(root, onCompleted = ::loadOperations)
 
     loadOperations()

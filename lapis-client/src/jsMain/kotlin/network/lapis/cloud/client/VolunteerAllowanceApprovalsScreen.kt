@@ -10,7 +10,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -45,7 +44,7 @@ import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 fun renderVolunteerAllowanceApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
     val root = container.dataScreenRoot(spacing = 14)
-    root.h1(tr("Ehrenamtspauschalen-Freigaben"))
+    root.pageHeader(tr("Ehrenamtspauschalen-Freigaben"))
 
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val statusOptions =

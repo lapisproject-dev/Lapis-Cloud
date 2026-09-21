@@ -7,7 +7,6 @@ import io.kvision.form.upload.upload
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.html.link
@@ -50,7 +49,7 @@ fun renderTravelExpenseScreen(
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.h1(tr("Reisekosten"))
+    root.pageHeader(tr("Reisekosten"))
 
     val ratesBanner = root.vPanel(spacing = 4)
     val editorPanel = root.vPanel(spacing = 10)

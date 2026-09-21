@@ -362,6 +362,48 @@ body {
   min-width: 0;
 }
 
+/* V1.4.31 (W5): page header. `.lapis-content` is the `role="main"` landmark the skip link jumps to; it takes focus
+   programmatically only. The `h1` (`.h4`) is a focus target after a ROUTE change (tabindex -1). Both: no ring for pointer users
+   (`:focus:not(:focus-visible)`), the ring for keyboard/programmatic focus stays (R47) -- so a keyboard user who activated the
+   skip link SEES where the focus went (audit fix; the landmark used to lose its ring unconditionally). */
+.lapis-content:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.lapis-page-title:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.lapis-page-header {
+  margin-bottom: 0.25rem;
+}
+
+/* R36: the ONE primary action of a page sits at the right end of the title row and keeps its size next to a long title. */
+.lapis-page-action {
+  flex: none;
+}
+
+/* Skip link: first stop of the tab order, visible only while focused (clip, not display:none -- a display:none
+   control could never receive the focus). */
+.lapis-skip-link:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lapis-skip-link:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2000;
+}
+
 .lapis-sidebar-toggle {
   color: var(--lapis-nav-text) !important;
   border: none !important;
@@ -1135,6 +1177,69 @@ body {
   .table-sm > :not(caption) > * > * {
     padding-block: 2px;
   }
+
+  /* V1.4.31 (W5): Bedienelemente AUSSERHALB von `.lapis-form` (Screens, die noch nicht auf die Formular-Grammatik migriert sind:
+     Filterzeilen, Tabellenzeilen-Auswahlfelder, alleinstehende Kaestchen) erreichen dieselbe 44-px-Zielgroesse wie die migrierten.
+     Audit-Fix: die Regeln stehen OHNE `:not(.lapis-form *)` (Safari < 16.4 kennt komplexe Selektoren in :not() nicht zuverlaessig).
+     Innerhalb von `.lapis-form` gewinnen die spezifischeren Regeln weiter unten (0,2,0 bis 0,3,0 gegen 0,1,0..0,2,0) -- und sie
+     setzen dieselben Werte, es gibt also keinen Konflikt mit dem 1,5-rem-Kaestchen dort. */
+  .form-control,
+  .form-select {
+    min-height: 44px;
+  }
+
+  .form-check {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    min-height: 44px;
+    padding-left: 0;
+  }
+
+  .form-check .form-check-input {
+    flex: none;
+    float: none;
+    height: 1.5rem;
+    margin: 0;
+    width: 1.5rem;
+  }
+
+  .form-check .form-check-label {
+    align-items: center;
+    display: flex;
+    min-height: 44px;
+    margin-bottom: 0;
+  }
+
+  /* Audit-Fix M8: die uebrigen Bootstrap-Bedienelemente, die bei grobem Zeiger unter 44 px blieben. Reine Ziel-Groesse, kein neues
+     Aussehen: Schliessen-Kreuz (Modal, Toast), Eintraege der Konto-/Sprachmenues, Navbar-Links (Theme-Umschalter) und der rein
+     ikonische Link-Knopf (das ✕ der Versionsleiste) -- letzterer ist von `.btn:not(.btn-link)` oben ausgenommen, weil ein
+     Link-Knopf im Fliesstext nicht aufgeblaeht werden darf; ein Knopf OHNE Text (`:empty`-frei ist nicht pruefbar, daher die
+     Klasse `lapis-icon-only`) hat keinen Fliesstext. */
+  .btn-close {
+    box-sizing: border-box;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .dropdown-item,
+  .navbar .nav-link {
+    align-items: center;
+    display: flex;
+    min-height: 44px;
+  }
+
+  .btn-link.lapis-icon-only {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Der Sprung-Link ist nur bei Fokus sichtbar und steht sonst 1 x 1 px im Dokument; `.btn:not(.btn-link)` oben darf ihm im
+     Ruhezustand keine 44 x 44 px geben (das waere ein unsichtbarer Klickfleck ueber der Navbar). */
+  .lapis-skip-link:not(:focus) {
+    min-height: 0;
+    min-width: 0;
+  }
 }
 
 /* V1.4.27 (W3): Berichtsgrammatik. Ein Dokument ist keine Liste (siehe ui-ux-guideline.adoc): eine echte
@@ -1185,10 +1290,19 @@ body {
   padding-left: 1.5rem;
 }
 
-/* Summen- und Saldozeile: eigene Flaeche, warnfarbene Betraege bleiben lesbar (`text-danger` liest --bs-danger-rgb). */
-.table > tbody > tr.lapis-total-row,
-.table > tbody > tr.lapis-balance-row {
-  --bs-danger-rgb: var(--lapis-total-danger-rgb);
+/* V1.4.31 (W5, Audit-Fix B1): Bootstraps Rot (#DC3545) erreicht als TEXT auf der Zebra-/Summenzeile nur 2,8:1 bis 3,8:1. `text-danger`
+   in JEDER Tabellenzelle (auch in Summen- und Saldozeilen) bekommt deshalb das kalibrierte Warn-Rot. Nachgerechnet (Text gegen die
+   tatsaechliche Zeilenflaeche): Grund hell 7,11:1, dunkel (Bootstrap-Tabellenflaeche #212529) 6,10:1; die Zebrazeile misst
+   ReportRowStyleDomTest im echten Chrome (>= 4,5:1, beide Themes), Hover (Bootstrap legt 7,5 % Kontrastfarbe darueber) ist NICHT
+   automatisiert: nachgerechnet hell ca. 6,0:1, dunkel ca. 4,9:1. Kein neues Token, :root bleibt unberuehrt.
+   WICHTIG: nur die TEXT-Utility wird umgedeutet, NICHT die vererbte Property `--bs-danger-rgb` -- sonst erreicht die Umdeutung auch
+   `.text-bg-danger` (Badge-Flaeche = RGBA(var(--bs-danger-rgb))): im Dunkelmodus wurde die Badge-Flaeche #EA868F, der weisse Text darauf
+   2,53:1. Badges (`text-bg-danger`, `bg-danger`) behalten Bootstraps Rot (weiss darauf 4,53:1, in beiden Themes). */
+.table > tbody > tr > td.text-danger,
+.table > tbody > tr > th.text-danger,
+.table > tbody > tr > td .text-danger,
+.table > tbody > tr > th .text-danger {
+  color: rgba(var(--lapis-total-danger-rgb), var(--bs-text-opacity, 1)) !important;
 }
 
 /* Summenzeile: gesenkte Flaeche + starke Oberlinie -- in JEDEM Bericht gleich. */
@@ -1276,9 +1390,32 @@ body {
   border-color: var(--lapis-invalid);
 }
 
+/* V1.4.31 (W5): Bootstraps Fehler-Hintergrundicon ist fest #DC3545 und ignoriert --lapis-invalid (im Dunkelmodus ein zweites,
+   dunkleres Rot neben dem Rand). Rahmen in --lapis-invalid, Meldung darunter und `aria-invalid` tragen das Signal -- das Icon
+   entfaellt (Farbe ist ohnehin nie der einzige Kanal). Beim Auswahlfeld bleibt der Pfeil, nur das zweite Icon faellt weg.
+   Audit-Fix: gilt fuer JEDES Feld mit `.is-invalid`, nicht nur in `.lapis-form` (Filterfelder ausserhalb, z. B. der SEPA-Laeufe, haben
+   sonst weiter das feste #DC3545-Icon). Die Selektoren tragen ein vorangestelltes `html` (eine Typstufe mehr als Bootstraps
+   `.form-control.is-invalid`), weil Bootstrap NACH theme.css injiziert wird und bei gleicher Spezifitaet gewinnen wuerde. */
+html .form-control.is-invalid {
+  background-image: none;
+  padding-right: 0.75rem;
+}
+
+html .form-select.is-invalid:not([multiple]):not([size]) {
+  background-image: var(--bs-form-select-bg-img);
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  padding-right: 2.25rem;
+}
+
+html .form-control.is-invalid,
+html .form-select.is-invalid {
+  border-color: var(--lapis-invalid);
+}
+
 /* Der goldene Fokusring bleibt das EINZIGE Fokussignal. */
-.lapis-form .form-control.is-invalid:focus,
-.lapis-form .form-select.is-invalid:focus {
+html .form-control.is-invalid:focus,
+html .form-select.is-invalid:focus {
   box-shadow: none;
 }
 

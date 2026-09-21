@@ -587,6 +587,8 @@ fun initRouting(pageContainer: SimplePanel) {
         render: (SimplePanel) -> Unit,
     ) {
         NavHighlight.setActiveRoute(route)
+        // Welle V1.4.31: a ROUTE CHANGE lets the next page header take the focus -- not the first route shown (M7, see `PageFocus`).
+        PageFocus.onRouteShown()
         pageContainer.removeAll()
         try {
             render(pageContainer)

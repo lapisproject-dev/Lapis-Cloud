@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.core.Overflow
+import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
@@ -12,7 +13,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -395,7 +395,7 @@ fun renderConferenceScreen(
             window.removeEventListener("beforeunload", beforeUnloadListener)
             AppScope.launch { runCatching { activeSession?.disconnect() } }
         }
-    root.h1(tr("Videokonferenz"))
+    root.pageHeader(tr("Videokonferenz"))
     val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
     val callPanel = root.vPanel(spacing = 10) { addCssClass("lapis-conference-call-panel") }
@@ -524,10 +524,10 @@ private fun renderLobby(
 
     // Wave 4 "Politur", D1: single-button "start now" flow -- no title-entry form for the common,
     // spontaneous case. See file KDoc "Wave 4 -- D1".
-    lobbyPanel.h2(tr("Neue Besprechung"))
+    lobbyPanel.h2(tr("Neue Besprechung")) { addCssClass("h5") }
     val startButton = lobbyPanel.button(tr("Besprechung jetzt starten"), style = ButtonStyle.PRIMARY)
 
-    lobbyPanel.h2(tr("Aktive Besprechungen"))
+    lobbyPanel.h2(tr("Aktive Besprechungen")) { addCssClass("h5") }
     val refreshRow = lobbyPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val refreshButton = refreshRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val roomsPanel = lobbyPanel.vPanel(spacing = 8)
@@ -689,7 +689,7 @@ private fun renderGuestLobby(
     lobbyPanel.removeAll()
     lobbyPanel.show()
 
-    lobbyPanel.h2(tr("Als Gast beitreten"))
+    lobbyPanel.h2(tr("Als Gast beitreten")) { addCssClass("h5") }
     lobbyPanel.div(
         tr(
             "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
@@ -868,10 +868,11 @@ private fun showInviteTextFallback(
         addCssClasses("text-muted small mb-2")
     }
     val field = modal.textArea(value = inviteText, rows = 5) { addCssClasses("font-monospace") }
-    field.getElement()?.setAttribute("readonly", "readonly")
+    field.readonly = true
     modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
-    field.getElement()?.let { el -> (el.asDynamic()).select() }
+    // Audit fix: `select()` belongs to the <textarea> itself; `field.getElement()` is the form-group wrapper <div>, which has no `select` (TypeError).
+    (field.input as? Widget)?.getElement()?.let { el -> el.asDynamic().select() }
 }
 
 /**
@@ -1716,7 +1717,7 @@ private fun enterCall(
 
     fun renderTitleViewMode() {
         titleRow.removeAll()
-        titleRow.h2(roomTitle)
+        titleRow.h2(roomTitle) { addCssClass("h5") }
         if (canModerate) {
             val editButton = titleRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
             editButton.addCssClass("btn-sm")
@@ -2782,8 +2783,8 @@ private fun enterCall(
         // bekommen zusätzlich zu `title`/`aria-label` ein `aria-pressed`, das den Panel-Zustand
         // spiegelt; reine Handlungsknöpfe (mic/camera/screenShare/leave/backToMain) bekommen
         // KEINES -- sie lösen eine Aktion aus, sie halten keinen An/Aus-Zustand.
-        rosterToggleButton.getElement()?.setAttribute("aria-pressed", panelState.rosterVisible().toString())
-        chatToggleButton.getElement()?.setAttribute("aria-pressed", panelState.chatVisible().toString())
+        rosterToggleButton.setAttributeIfChanged("aria-pressed", panelState.rosterVisible().toString())
+        chatToggleButton.setAttributeIfChanged("aria-pressed", panelState.chatVisible().toString())
 
         val railLayout = conferenceRailLayout(panelState)
         if (railLayout.rosterCapped) {
@@ -2825,13 +2826,13 @@ private fun enterCall(
             whiteboardToggleButton?.show()
             notesToggleButton?.show()
         }
-        whiteboardToggleButton?.getElement()?.setAttribute("aria-pressed", whiteboardOpen.toString())
-        notesToggleButton?.getElement()?.setAttribute("aria-pressed", notesOpen.toString())
+        whiteboardToggleButton?.setAttributeIfChanged("aria-pressed", whiteboardOpen.toString())
+        notesToggleButton?.setAttributeIfChanged("aria-pressed", notesOpen.toString())
 
         // V1.2.10 -- "Mehr"-Blatt.
         if (panelState.moreOpen) moreSheet.show() else moreSheet.hide()
         if (panelState.moreOpen) moreToggleButton.addCssClass("active") else moreToggleButton.removeCssClass("active")
-        moreToggleButton.getElement()?.setAttribute("aria-pressed", panelState.moreOpen.toString())
+        moreToggleButton.setAttribute("aria-pressed", panelState.moreOpen.toString())
         // Im Vollbild ist das Mehr-Blatt SONST inhaltsleer (alles darin ist bereits
         // `.lapis-conference-config-row`-ausgeblendet, siehe theme.css) -- Knopf entfernen statt ein
         // leeres Blatt anbietbar zu lassen (Jobs' Schlusswort, Design-Review V1.2.10).
@@ -4179,6 +4180,18 @@ private fun enterCall(
 }
 
 /**
+ * `Widget.setAttribute` re-renders the widget on EVERY call, also when the value is unchanged. `applyPanelVisibility` runs on
+ * every panel-state change and in the 1-second controls auto-hide loop, so an unguarded `aria-pressed` write cost a needless
+ * root patch per tick (audit fix). Only a real change is written.
+ */
+private fun Widget.setAttributeIfChanged(
+    name: String,
+    value: String,
+) {
+    if (getAttribute(name) != value) setAttribute(name, value)
+}
+
+/**
  * Bug found via live browser testing of V1.2.10 (real Chrome, mobile-width emulation): `tr()`
  * unconditionally wraps its result in an internal `"###KvI18nS###"` marker (confirmed by
  * decompiling KVision 9.6.0's compiled JS -- the marker is stripped and resolved against the
@@ -4193,6 +4206,7 @@ private fun enterCall(
  * for any already-resolved string (`removePrefix` on a non-matching prefix is a no-op), so this is
  * safe to apply unconditionally rather than only when the leak is suspected.
  */
+
 private fun resolvedA11yText(text: String): String = text.removePrefix("###KvI18nS###")
 
 /** V1.2.10 -- sets `title`/`aria-label`/`data-label` on a button whose accessible text NEVER

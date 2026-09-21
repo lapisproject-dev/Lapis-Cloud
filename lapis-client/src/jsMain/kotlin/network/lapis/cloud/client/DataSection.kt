@@ -166,6 +166,8 @@ internal fun <T> DataSectionViews.show(
     render: (SimplePanel, T) -> Unit,
 ) {
     body.removeAll()
+    // Audit fix: `aria-busy` marks the region while it loads (assistive technology waits for the finished content).
+    host.setAttribute("aria-busy", if (state is DataViewState.Loading) "true" else "false")
     if (state is DataViewState.Loading) status.showLoading() else status.clearStatus()
     when (state) {
         DataViewState.Loading -> Unit

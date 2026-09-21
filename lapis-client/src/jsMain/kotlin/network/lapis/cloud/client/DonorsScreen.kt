@@ -7,7 +7,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.html.span
@@ -78,7 +77,7 @@ fun renderDonorsScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot()
-    root.h1(tr("Spender"))
+    root.pageHeader(tr("Spender"))
     root.div(
         tr(
             "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für " +
@@ -88,7 +87,7 @@ fun renderDonorsScreen(container: SimplePanel) {
     ) { addCssClasses("text-muted small") }
 
     // ---- External donor list (Spenderstamm) -------------------------------------------------
-    root.h2(tr("Externe Spender"))
+    root.h2(tr("Externe Spender")) { addCssClass("h5") }
     // Design-Team-Welle 2026-09-18: Live-Suche analog `LedgerScreen.kt`s Kontenplan-Suche -- rein
     // clientseitige Filterung ueber `displayName`, kein RPC-Roundtrip pro Tastendruck.
     val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
@@ -99,7 +98,7 @@ fun renderDonorsScreen(container: SimplePanel) {
     val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Spenderdetails"))
+    root.h2(tr("Spenderdetails")) { addCssClass("h5") }
     val donorDetailPanel = root.vPanel(spacing = 10)
     donorDetailPanel.p(tr("Spender oben auswählen, um Details zu sehen."))
 
@@ -220,12 +219,12 @@ fun renderDonorsScreen(container: SimplePanel) {
     refreshList()
 
     if (canManage) {
-        root.h2(tr("Neuen Spender anlegen"))
+        root.h2(tr("Neuen Spender anlegen")) { addCssClass("h5") }
         renderDonorCreationForm(root) { refreshList() }
     }
 
     // ---- Spendenrecht-Pflichten-Report (§25 PartG) -------------------------------------------
-    root.h2(tr("Spendenrecht-Pflichten-Report (§25 PartG)"))
+    root.h2(tr("Spendenrecht-Pflichten-Report (§25 PartG)")) { addCssClass("h5") }
     renderDonationDutyReportView(root)
 }
 
