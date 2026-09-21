@@ -63,6 +63,106 @@ class Mt940ParserTest :
             result.lines.map { it.amount } shouldBe listOf(BigDecimal("10.00"), BigDecimal("5.00"))
         }
 
+        test("SWIFT separator line '-' after each message (real-world dialect, CR/DR, BLZ/Konto :25:) is accepted") {
+            val text =
+                mt940(
+                    ":20:STARTUMSE",
+                    ":25:12345678/0000000001",
+                    ":28C:0/1",
+                    ":60F:C260601EUR10000,00",
+                    ":61:2606020602CR566,00N075NONREF",
+                    ":86:166?00Gutschrift?20Rechnung 4711 Musterfirma?21 Testweg?32Beispiel Handels GmbH",
+                    ":61:2606030603DR100,50N075NONREF",
+                    ":86:105?00Lastschrift?20Miete Juni?32Fiktiv Vermieter KG",
+                    ":62F:C260603EUR10465,50",
+                    "-",
+                    ":20:STARTUMSE",
+                    ":25:12345678/0000000001",
+                    ":28C:0/2",
+                    ":60F:C260603EUR10465,50",
+                    ":61:2606040604CR200,00N075NONREF",
+                    ":86:166?00Gutschrift?20Spende?32Erika Beispiel",
+                    ":61:2606050605DR50,25N075NONREF",
+                    ":86:105?00Lastschrift?20Strom?32Stadtwerke Fiktiv",
+                    ":61:2606050605DR15,00N075NONREF",
+                    ":86:105?00Gebuehr?20Kontofuehrung",
+                    ":62F:C260605EUR10600,25",
+                    "-",
+                    "",
+                )
+            val result = Mt940Parser.parse(text)
+            result.lines shouldHaveSize 5
+            result.lines.map { it.amount } shouldBe
+                listOf(BigDecimal("566.00"), BigDecimal("-100.50"), BigDecimal("200.00"), BigDecimal("-50.25"), BigDecimal("-15.00"))
+            result.openingBalance shouldBe BigDecimal("10000.00")
+            result.closingBalance shouldBe BigDecimal("10465.50")
+            result.accountIban shouldBe "12345678/0000000001"
+            result.lines.forEach { line -> (line.purpose ?: "").contains("-") shouldBe false }
+        }
+
+        test("separator '-' at end of file without trailing newline, and with plain LF line endings") {
+            val lf =
+                listOf(
+                    ":20:STMT001",
+                    ":60F:C260301EUR0,00",
+                    ":61:2603010301C10,00NMSCREF1",
+                    ":86:?20Erste Buchung",
+                    ":62F:C260315EUR10,00",
+                    "-",
+                ).joinToString("\n")
+            Mt940Parser.parse(lf).lines shouldHaveSize 1
+            Mt940Parser.parse(lf + "\n").lines shouldHaveSize 1
+            Mt940Parser.parse(lf + "\r\n").lines shouldHaveSize 1
+        }
+
+        test("separator '-' after :28C:, :61: and :86: never leaks into tag values") {
+            val text =
+                mt940(
+                    ":20:STMT001",
+                    ":28C:1/1",
+                    "-",
+                    ":60F:C260301EUR0,00",
+                    ":61:2603010301C10,00NMSCREF1",
+                    "-",
+                    ":86:?20Zweck?32Name",
+                    "-",
+                    ":62F:C260315EUR10,00",
+                    "-",
+                )
+            val result = Mt940Parser.parse(text)
+            result.lines shouldHaveSize 1
+            result.lines[0].endToEndReference shouldBe "REF1"
+            result.lines[0].purpose shouldBe "Zweck"
+            result.lines[0].counterpartyName shouldBe "Name"
+        }
+
+        test("separator '-' with surrounding whitespace is recognized") {
+            val text =
+                mt940(
+                    ":20:STMT001",
+                    ":60F:C260301EUR0,00",
+                    ":61:2603010301C10,00NMSCREF1",
+                    ":86:?20Zweck",
+                    ":62F:C260315EUR10,00",
+                    " - ",
+                )
+            Mt940Parser.parse(text).lines shouldHaveSize 1
+        }
+
+        test("separator '-' does not weaken the balance check: wrong closing balance is MT940_BALANCE_MISMATCH, not unreadable") {
+            val text =
+                mt940(
+                    ":20:STMT001",
+                    ":60F:C260301EUR0,00",
+                    ":61:2603010301C10,00NMSCREF1",
+                    ":86:?20Zweck",
+                    ":62F:C260315EUR99,00",
+                    "-",
+                )
+            shouldThrow<BankStatementParseException> { Mt940Parser.parse(text) }.code shouldBe
+                BankStatementRejectionCode.MT940_BALANCE_MISMATCH
+        }
+
         test("a broken balance check (opening + sum != closing) rejects the whole import with code MT940_BALANCE_MISMATCH") {
             val text =
                 mt940(

@@ -26,6 +26,10 @@ private val BALANCE_REGEX = Regex("""^([DC])(\d{6})([A-Z]{3})([\d,]+)$""")
  * line), `:86:` (that line's detail subfields), `:62F:`/`:62M:` (closing balance). `:28C:` is
  * tokenized but not otherwise interpreted.
  *
+ * **SWIFT separator line**: a line consisting solely of `-` (after trimming) terminates the open
+ * tag and ends the message; it is never part of a tag value. A `:86:` purpose that is genuinely a
+ * lone `-` arrives as `?20-`, never as its own line, so the residual ambiguity is negligible.
+ *
  * **No nested-quantifier regex** -- every per-line/per-tag pattern below is a small, fixed-width,
  * non-backtracking match; the genuinely variable-length parts (`:61:`'s amount/reference fields,
  * `:86:`'s subfield text) are scanned character-by-character, never via a greedy/nested regex
@@ -138,6 +142,14 @@ internal object Mt940Parser {
         }
         for (rawLine in text.lineSequence()) {
             val line = rawLine.trimEnd('\r')
+            if (line.trim() == "-") {
+                // SWIFT message terminator (end of block 4): closes the open tag so the `-` never leaks
+                // into the previous tag's value (e.g. `:62F:` -> "Saldo nicht lesbar"); anything
+                // between it and the next tag start is discarded.
+                flush()
+                currentId = null
+                continue
+            }
             val match = TAG_START_REGEX.find(line)
             if (match != null) {
                 flush()

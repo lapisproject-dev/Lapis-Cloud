@@ -761,6 +761,19 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+**MT940-Import: SWIFT-Trennzeile `-` verwarf ganze Kontoauszüge (Saldo nicht lesbar)**
+
+- **Ursache**: Echte MT940-Dateien schließen jede Nachricht mit einer alleinstehenden Zeile `-`
+  ab. `Mt940Parser.tokenizeTags` hängte sie als Fortsetzungszeile an den offenen Tag (z. B. `:62F:`),
+  sodass `parseBalance` mit „Saldo nicht lesbar" den gesamten Import ablehnte.
+- **Fix**: Die Zeile `-` (nach `trim()`) beendet den offenen Tag und wird verworfen; sie gelangt
+  weder in Salden noch in Verwendungszweck oder Referenz. Kein neuer Regex.
+- **Unverändert**: Der Salden-Abgleich bleibt strikt (`MT940_BALANCE_MISMATCH`); `:25:` im Format
+  BLZ/Konto liefert weiterhin `LEGACY_ACCOUNT_IBAN_FORMAT`.
+- **Tests**: neue Fälle in `Mt940ParserTest` (Mehrfachnachrichten, Dateiende, LF/CRLF, `-` nach
+  `:28C:`/`:61:`/`:86:`, Whitespace, Salden-Mismatch) und ein End-to-End-Fall in
+  `BankStatementImportServiceTest`.
+
 - **V1.4.29 audit round: the door banner, a subscription without a choice, confirmation dialogs that could fire twice, and the
   tests that were missing** -- an independent audit of wave W4b found one blocking and nine major defects and a list of
   smaller ones; all were fixed in the same wave (no release tag, no version bump, no deploy).

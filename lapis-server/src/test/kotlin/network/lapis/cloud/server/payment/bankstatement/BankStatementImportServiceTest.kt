@@ -674,6 +674,42 @@ class BankStatementImportServiceTest :
             }
         }
 
+        test("MT940 with SWIFT '-' separator lines and a BLZ/Konto :25: imports and warns LEGACY_ACCOUNT_IBAN_FORMAT") {
+            setOrgBankIban("DE02120300000000202051")
+            val uploader = uploaderId()
+            val text =
+                listOf(
+                    ":20:STARTUMSE",
+                    ":25:12345678/0000000001",
+                    ":28C:0/1",
+                    ":60F:C260601EUR100,00",
+                    ":61:2606020602CR20,00N075SEPSEP-1",
+                    ":86:166?00Gutschrift?20Separator Test?32Beispiel GmbH",
+                    ":62F:C260602EUR120,00",
+                    "-",
+                    ":20:STARTUMSE",
+                    ":25:12345678/0000000001",
+                    ":28C:0/2",
+                    ":60F:C260602EUR120,00",
+                    ":61:2606030603DR5,00N075SEPSEP-2",
+                    ":86:105?00Lastschrift?20Separator Test 2?32Fiktiv KG",
+                    ":62F:C260603EUR115,00",
+                    "-",
+                ).joinToString("\r\n")
+            val service = BankStatementImportService(secretBox = null)
+
+            val result =
+                service.import(
+                    bytes = text.toByteArray(),
+                    fileName = "separator.sta",
+                    uploadedBy = uploader,
+                    uploaderRole = AccountRole.TREASURER,
+                )
+            createdImportIds += Uuid.parse(result.importId)
+
+            result.warningCodes shouldContain BankStatementImportWarningCode.LEGACY_ACCOUNT_IBAN_FORMAT
+        }
+
         test(
             "no organization bank IBAN configured -- warningCodes carries NO_BANK_ACCOUNT_CONFIGURED, " +
                 "never the raw German warning string, and no account-ownership check runs",
