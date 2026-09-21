@@ -111,4 +111,31 @@ class CostCentersScreenTest {
         val filtered = filterCostCenters(sorted, "S")
         assertEquals(listOf("SOMMERFEST-2027", "SPENDEN-WK", "VORSTAND"), filtered.map { it.code })
     }
+
+    private fun cc(
+        code: String,
+        description: String?,
+    ) = CostCenterDto(id = "id-$code", code = code, name = "Name $code", description = description, active = true)
+
+    @Test
+    fun sortCostCenters_byCodeIgnoresCaseAndReverses() {
+        val list = listOf(cc("web", null), cc("FEST", "x"), cc("Akademie", "y"))
+        assertEquals(
+            listOf("Akademie", "FEST", "web"),
+            sortCostCenters(list, SortState(COST_CENTER_SORT_CODE, SortDirection.ASC)).map { it.code },
+        )
+        assertEquals(
+            listOf("web", "FEST", "Akademie"),
+            sortCostCenters(list, SortState(COST_CENTER_SORT_CODE, SortDirection.DESC)).map { it.code },
+        )
+    }
+
+    @Test
+    fun sortCostCenters_byDescriptionTreatsAMissingDescriptionAsEmptyAndKeepsTheCodeAsTieBreaker() {
+        val list = listOf(cc("B", "beta"), cc("A", null), cc("C", null), cc("D", "Alpha"))
+        assertEquals(
+            listOf("A", "C", "D", "B"),
+            sortCostCenters(list, SortState(COST_CENTER_SORT_DESCRIPTION, SortDirection.ASC)).map { it.code },
+        )
+    }
 }

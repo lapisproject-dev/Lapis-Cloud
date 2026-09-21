@@ -15,8 +15,8 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
@@ -27,15 +27,17 @@ import network.lapis.cloud.shared.rpc.ITravelExpenseService
 /**
  * Welle V1.4.11, Vorstands-Warteschlange -- 1:1 nach `ContributionReliefQueueScreen`s Vorbild.
  * Route-Gate ist BOARD/ADMIN, **nicht** TREASURER -- siehe `Routes.TRAVEL_EXPENSE_APPROVALS` KDoc.
+ *
+ * **Kartenliste, keine Tabelle (Welle V1.4.27, W3 -- Richtlinie P3, ein Objekt hat nie beide Grammatiken):**
+ * Kriterium: braucht eine Zeile ein Freitextfeld oder trägt sie eine Entscheidung mit Begründung, ist sie eine
+ * Karte. Jede Karte dieser Warteschlange trägt ein Pflicht-Textfeld "Entscheidungsnotiz" und zwei
+ * Entscheidungsknöpfe -- das ist ein Formular pro Antrag, keine Zeile eines Rasters. Deshalb stehen die Karten in
+ * `.lapis-card-list` / `.lapis-data-card` (dieselben Klassen, die auch die Kartenliste von `dataTable` unter
+ * 768 px nutzt) und nicht in einer `dataTable`. Die Entscheidungspanels selbst sind Formulare (W4).
  */
 fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot(spacing = 14)
     root.h1(tr("Reisekosten-Freigaben"))
 
     root.h2(tr("Sätze")) { addCssClass("h6") }
@@ -54,7 +56,7 @@ fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
     val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
-    val listPanel = root.vPanel(spacing = 8)
+    val listPanel = root.simplePanel { addCssClass("lapis-card-list") }
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
     var cursor: TravelExpensePageCursor? = null
@@ -73,7 +75,12 @@ fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
                         afterSubmittedAt = cursor?.submittedAt,
                         afterId = cursor?.id,
                     )
-                } ?: return@launch
+                }
+            if (page == null) {
+                // Welle V1.4.27 (W3): a failed first page is an error state with a retry, not an empty list.
+                if (reset) listPanel.dataErrorState(onRetry = { loadPage(reset = true) })
+                return@launch
+            }
             if (page.isEmpty()) {
                 if (reset) listPanel.p(tr("Keine Anträge für diese Filter gefunden."))
                 loadMoreButton.hide()
@@ -166,7 +173,7 @@ private fun renderApprovalCard(
     currentMemberId: String?,
     onChanged: () -> Unit,
 ) {
-    val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    val card = panel.vPanel(spacing = 6) { addCssClass("lapis-data-card") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(travelExpenseStatusLabel(report.status), travelExpenseStatusColor(report.status))
     headerRow.div(report.subjectDisplayName) { addCssClasses("flex-grow-1 fw-bold") }

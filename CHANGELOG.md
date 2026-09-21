@@ -8,6 +8,126 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W3 "Pseudo tables" (V1.4.27)** -- the report and list screens that were built from
+  `hPanel` rows with fixed pixel widths moved onto real tables. A pure client wave: no RPC, DTO, table or migration
+  was touched; role checks, exports, filters, pagination and the double-click guards are unchanged, and the
+  server-side additions are tests and translations only. The riskiest wave of the roll-out, because the numbers
+  must be identical before and after -- see "How the figures are protected" below.
+  **Two grammars, one criterion.** A *list* (a row stands on its own: members, cost centres, documents) goes through
+  `dataTable` -- sortable, card list below 768 px. A *document* (a row is only right next to its neighbours: running
+  balance, number sequence, a total underneath) goes through the new `reportTable`: a real `<table>` in the
+  responsive frame with a visible caption, section, sum and balance rows, and **never** sort buttons or a card
+  list. A card list renders only the rows, so a total or a balance row would silently vanish on a phone; a report
+  scrolls sideways there instead. The financial reports (GuV, Bilanz, Jahresabschluss and the key figures), the
+  four-sphere statement, the use-of-funds statement with its reserve movements and per-sphere amounts, the USt
+  preview lines, Hauptbuch, Kassenbuch, the posting confirmation, the cost-centre report, the audit log's posting
+  lines and the two section-25-PartG duty grids are report tables now. The GuV is ONE table (Einnahmen and Ausgaben
+  are section rows, the result a sum row inside it) instead of two tables and a freestanding row whose columns did
+  not line up; the Bilanz likewise. The four sphere rows and the use-of-funds year rows expand into a collapsed
+  detail row (`aria-expanded`/`aria-controls`, and each button says which sphere or year it opens -- four different
+  accessible names). The `FREIE_RUECKLAGE` caveat is a note row directly after its row (a `div` between `tr`s is
+  invalid markup). The cost-centre overview, the audit log, the LTR entries and the documents (list and versions)
+  became `dataTable`s; the three approval queues stay cards on purpose and now say why (a row that needs a
+  free-text field or carries a decision with a reason is a card -- guideline P3).
+  **Visible changes:** the report switchers on "Finanzberichte" and "Gemeinnützigkeits-Berichte" are a segmented
+  control with an active state instead of outline buttons that never said which report was showing (on a phone the
+  five-segment bar scrolls sideways). Report screens use the full data-screen width (up to 1440 px) instead of
+  800/900 px. The document version list shows version, file, size, uploader, date, note and downloads as columns
+  (it was one sentence per version). The audit log list is a table with a details icon button; the detail view is a
+  label/value list instead of `width = 220.px` rows. Every failed load of a LIST, REPORT or DETAIL PANEL on these
+  screens is now an error box in the page with "Erneut versuchen" (a `dataSection`, or the `dataErrorState` block
+  with its own generation guard) -- these loads used to leave "Wird geladen ..." standing forever, a silently empty
+  panel or, on the document folders, claim "Noch keine Ordner vorhanden." after a failed request. The wave's own
+  review missed five sites and the audit round of the same wave closed them (see "Audit round" below): the audit-log
+  detail, the journal-entry detail, the donor detail, the ADMIN USt gate and the LTR balance card. Not covered, on
+  purpose: `renderMyLtrBalanceInline` (the one-line balance strip that `CrowdfundingScreen`/`AuctionScreen`/
+  `SocialNetworkScreen` embed) -- a failed load there does not stick, it shows "Ihr LTR-Guthaben: --" next to the
+  link to the LTR account. The released-knowledge-base state of
+  a document no longer lives inside a cell lambda (`dataTable` re-runs those on every re-render).
+  **How the figures are protected:** the derivation of every report row lives once, in the pure `ReportRows.kt`,
+  transcribed from the old renderers. `ReportGoldenTest` pins every cell string (blank cells and the kind of each
+  row included); no FIGURE changed after its first commit -- the later edits are the review fix below, which pins
+  static labels as `tr(...)` marker strings, and audit fix B, which removes the leaked i18n marker from the text of
+  the "Summe ..." labels (a label, not a number: every amount is untouched). `ReportCellOracleDomTest` proves them
+  against a real, mounted DOM -- in commit 1 against the OLD `hPanel` renderers (before any screen was touched, so
+  the expected values cannot come from the new code; the old renderers stand in `ca3a6ba`, the parent of the W3
+  commit `717631c`), from then on strictly against the new tables, so in the current state it proves "golden
+  strings -> table DOM", not "old renderer -> golden".
+  **Review fixes:** the static row labels of the reports (section rows, "Ergebnis", "Gesamt", opening/closing
+  balance, notes, ...) stay `tr(...)` markers in the row model instead of being resolved once with `gettext` --
+  a report already on screen follows a language switch in its caption, its column headers, its row labels and its
+  sum labels (`ReportLanguageSwitchDomTest`). What does NOT follow a switch until the report is reloaded: the
+  labels of badges (sphere, reserve type, donor category and duty -- they come from `gettext` label functions),
+  the period lines above a report ("Zeitraum: ...", "Stichtag: ..."), and the `title`/`aria-label` of the icon
+  buttons such as the detail toggle (attributes go around KVision's patch cycle). The sum row of the four-sphere and use-of-funds reports carries an empty
+  "Details" cell, so its top rule and background run to the last column (`ReportTotalRowCellsDomTest`). The
+  label/value list has its own structure and grid tests (`DetailListDomTest`). Unused `totalRow()`/`balanceRow()`
+  builders and the dead legacy scraping helpers of the oracle test were removed. New client tests for the table
+  structure, the sum row beating Bootstrap's zebra (real Bootstrap and `theme.css` loaded into Karma), the expand/
+  collapse accessibility, the segmented control and the error states of twelve screens; `PseudoTableI18nCatalogTest`;
+  15 new msgids translated in the template and all seven catalogs.
+  Tripwire: new rule **R55** (no `width = N.px`, ledgered per file), the `table(` count went from 9 to 8, and the
+  R14 ledger entry of `CostCentersScreen` is paid off. 185 fixed-width findings were on the ledger when the wave
+  started. What remains is NOT "form screens": `AuctionScreen`, `CrowdfundingScreen` and `PoliticianScreen` are
+  hand-built pseudo-tables that W3 did not reach (they belong to a remainder wave, W5 in the guideline), and only
+  `SocialNetworkScreen` is one genuine form field (the boost amount input, W4).
+  **Known gaps and deliberate decisions:**
+  (1) *Fixed in the audit round (B):* the "Summe ..." total label of every statement section used to show the raw
+  i18n marker ("Summe ###KvI18nS###Einnahmen") -- a defect that existed before this wave and that the first version
+  of the golden test pinned on purpose. It reads "Summe Einnahmen" now (see "Audit round"). (2) The audit log list is deliberately not
+  sortable: it is keyset-paginated and the server has no sort parameter, so re-ordering the loaded pages would
+  contradict the next page. (3) A report scrolls sideways below 768 px; the "balanced" sanity line under the Bilanz
+  is still a flex row. (4) While a detail row is interleaved, Bootstrap's zebra alternates over all rows, so the four
+  sphere rows share one stripe. (5) The document version text changed shape (columns instead of one sentence) --
+  a visible text change, but not a monetary figure. (6) Untouched and still on the ledger: forms and the
+  W4/W5 screens (`AccountingExportScreen`, `BankStatementImportScreen` -- their "W3" ledger comments were wrong and
+  now read W4).
+  **Audit round (same wave, three independent audits):** (A) *Translations, professional errors.* Italian "Soll" was
+  "Avere" (= Haben; the Hauptbuch header read "Avere | Avere"), now "Dare"; Italian "Bilanz" collided with
+  "Jahresabschluss" ("Bilancio"), now "Stato patrimoniale"; English "Passiva" was "Liabilities" like the sub-section
+  "Verbindlichkeiten" directly beneath it in the Bilanz, now "Liabilities & equity"; Spanish "Verbindlichkeiten" was
+  "Pasivos" next to "Pasivo", now "Deudas". Minor: ru "Hochgeladen von/am", "Seq.", "Zuführung/Auflösung",
+  "Buchungszeilen"; pl "Seq.", "Jahresabschluss", "Kontenklasse" (Klasa kont); fr "Jahresabschluss",
+  "Schlussstand"; it "Anzahl" (Quantità); nl "Verbindlichkeiten" (Schulden); en "Schlussstand" (Closing amount).
+  `PseudoTableI18nCatalogTest` now fails when two accounting core terms that are different concepts (Soll/Haben,
+  Aktiva/Passiva, Passiva/Verbindlichkeiten, Bilanz/Jahresabschluss) share a translation in any catalog.
+  (B) *The marker leak in "Summe ...".* The label is a composed `tr` string (`trFormat(tr("Summe %1"), title)`,
+  decoded by `I18nCatalogManager`): no marker, and template AND title follow a language switch
+  (`TrFormatTest`, `ReportLanguageSwitchDomTest`, golden strings updated to the clean form). The one deliberate
+  change of a cell string after commit 1; no amount changed.
+  (C) *Contrast.* In the light theme the sum row (`--lapis-surface-sunken` #F6F7F9) was LIGHTER than a zebra row
+  (#EBECEF, because Bootstrap paints the zebra as a 5 % inset shadow over the cell colour). Sum and balance rows have
+  their own surface token `--lapis-total-surface` (light #DBE0E8, dark #232933) in all three theme blocks, and
+  `--bs-table-bg-type` is set to the same opaque value so the shadow cannot tint it. The top rule uses `--lapis-muted`
+  instead of `--lapis-border-strong` (1.46:1 and 1.71:1 before, now 4.6:1 or better against both neighbours,
+  WCAG 1.4.11). Warn-red amounts on those rows read `--lapis-total-danger-rgb` (Bootstrap's #DC3545 would be 3.4:1
+  on the new surface; the value is 5.4:1 light, 5.8:1 dark). Found on the way: with collapsed borders the 1-px rule of
+  a balance row LOSES against the 1-px bottom line of the row above (checked in a browser) -- report tables use
+  `border-collapse: separate`. `ReportRowStyleDomTest` now compares the VISIBLE background (background colour plus
+  the inset shadow layer) of a sum row with a zebra row and a plain row, in both themes, and checks text, warn-red and
+  rule contrast numerically. Negative amounts in ordinary zebra rows are still Bootstrap's #DC3545 (3.8:1 on the
+  light zebra, 2.7:1 on the dark one) -- a global colour question, not touched.
+  (D) *Semantics.* The section heading rows lost `scope="rowgroup"` (a report has ONE `<tbody>`, so "Aktiva" claimed
+  the "Passiva" rows as well); the label of a sum or balance row is a `<th scope="row">`; a test pins `scope="col"`
+  on the column headers. A caption that only repeats the heading or account header directly above (GuV and Bilanz
+  standalone, four-sphere, use of funds, cost-centre report, Hauptbuch, Kassenbuch) is hidden visually but stays the
+  table's accessible name (`captionVisible = false`, `.lapis-report-caption-hidden`); the journal detail lost its
+  "Buchungszeilen" heading in favour of the caption. Deliberately not fixed (D7): the `title`/`aria-label` of the
+  expand toggle is resolved once, in the language of the moment it is built -- attributes go around KVision's patch
+  cycle (documented in the KDoc and the guideline; every icon button has this limit).
+  (E) *One grammar for the same object.* The posting lines of a journal entry are a `reportTable` now (`dataTable`
+  turned them into a card list below 768 px while the confirmation dialog and the audit log show the same lines as a
+  report table); golden and DOM-oracle tests added. The guideline states that a list (`dataTable`) and a document
+  (`reportTable`) may share one screen (`CostCentersScreen`), and a tripwire test fails when a `reportTable(` call
+  carries sort wiring.
+  (F) *Loading states.* The five sites listed above are `dataSection`s now, each with a mounted-screen test for the
+  error box and its retry.
+  (G) *Ledger and wording.* The R55 comment no longer calls the remaining files "form screens"; each is annotated with
+  its wave. The "old renderers" reference names `ca3a6ba`; "the template and all seven catalogs".
+  (H) *Tests and details.* A fixture with 1234567.891 and a single fiscal year is pinned against the old
+  `"$amount €"` path and proven against the DOM; the GuV result row has its own, heavier modifier
+  (`lapis-total-row-strong`); a fiscal year without reserve movements or sphere amounts shows one "—" row instead
+  of a table that is only a header.
 - **UI/UX guideline, wave W2 "Hot tables" (V1.4.26)** -- the eleven most used real-table screens moved onto the
   W1 building blocks. A pure client wave: no RPC, DTO, table or migration was touched; role checks, per-row
   actions, filters, pagination and the double-click guards are unchanged, and the server-side additions are tests

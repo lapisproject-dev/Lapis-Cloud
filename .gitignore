@@ -172,3 +172,7 @@ import-data/
 *.import-report.csv
 
 .DS_Store
+
+# JVM crash dumps (a crashed Gradle/Kotlin daemon leaves these in the working directory)
+hs_err_pid*.log
+replay_pid*.log

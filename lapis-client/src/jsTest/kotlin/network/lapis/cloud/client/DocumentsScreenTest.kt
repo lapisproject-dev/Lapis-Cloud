@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
+import network.lapis.cloud.shared.domain.DocumentVersionDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -80,5 +81,54 @@ class DocumentsScreenTest {
     @Test
     fun shouldShowDocumentSearch_atThreshold_isTrue() {
         assertTrue(shouldShowDocumentSearch(5))
+    }
+
+    @Test
+    fun sortDocuments_byTitleIgnoresCase_andNullKeepsTheServersOrder() {
+        val docs = listOf(document("beta"), document("Alpha"), document("charlie"))
+        assertEquals(listOf("beta", "Alpha", "charlie"), sortDocuments(docs, null).map { it.title })
+        assertEquals(
+            listOf("Alpha", "beta", "charlie"),
+            sortDocuments(docs, SortState(DOCUMENT_SORT_TITLE, SortDirection.ASC)).map { it.title },
+        )
+        assertEquals(
+            listOf("charlie", "beta", "Alpha"),
+            sortDocuments(docs, SortState(DOCUMENT_SORT_TITLE, SortDirection.DESC)).map { it.title },
+        )
+    }
+
+    private fun version(
+        number: Int,
+        day: Int,
+    ) = DocumentVersionDto(
+        id = "v$number",
+        documentId = "doc",
+        versionNumber = number,
+        fileName = "f$number.pdf",
+        mimeType = "application/pdf",
+        fileSizeBytes = 1024,
+        checksumSha256 = "x",
+        uploadedBy = "acct-1",
+        uploadedByDisplayName = "Anna Muster",
+        uploadedAt = LocalDateTime(2026, 2, day, 9, 0),
+        changeNote = null,
+        downloadCount = 0,
+    )
+
+    @Test
+    fun sortDocumentVersions_byNumberIsNumericNotLexicographic() {
+        val versions = listOf(version(2, 5), version(10, 1), version(1, 9))
+        assertEquals(
+            listOf(1, 2, 10),
+            sortDocumentVersions(versions, SortState(VERSION_SORT_NUMBER, SortDirection.ASC)).map { it.versionNumber },
+        )
+        assertEquals(
+            listOf(10, 2, 1),
+            sortDocumentVersions(versions, SortState(VERSION_SORT_NUMBER, SortDirection.DESC)).map { it.versionNumber },
+        )
+        assertEquals(
+            listOf(10, 2, 1),
+            sortDocumentVersions(versions, SortState(VERSION_SORT_UPLOADED, SortDirection.ASC)).map { it.versionNumber },
+        )
     }
 }

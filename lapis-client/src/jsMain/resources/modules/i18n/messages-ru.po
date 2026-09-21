@@ -3254,7 +3254,7 @@ msgstr "Добавить строку проводки"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:799
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:969
 msgid "Buchungszeilen"
-msgstr "Строки проводки"
+msgstr "Строки проводок"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:450
 msgid "Buchungszeilen:"
@@ -9566,7 +9566,7 @@ msgstr "Сначала примите решение по всем заявка�
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:341
 msgid "Zuführung/Auflösung"
-msgstr "Отчисление/расформирование"
+msgstr "Отчисление/восстановление"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:194
 msgid "Zugangskontrolle"
@@ -12503,3 +12503,63 @@ msgstr "Загрузите больше записей и повторите п�
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
 msgid "Keine Ehrung in der Kategorie \"%1\"."
 msgstr "Нет наград в категории \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataScreenLayout.kt
+msgid "Details %1 ein-/ausblenden"
+msgstr "Показать/скрыть подробности: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Berichtsart"
+msgstr "Тип отчёта"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Kennzahl"
+msgstr "Показатель"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Aktion"
+msgstr "Действие"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Seq."
+msgstr "№ п/п"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Akteur"
+msgstr "Исполнитель"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Entität"
+msgstr "Сущность"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version"
+msgstr "Версия"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "v%1"
+msgstr "v%1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Datei"
+msgstr "Файл"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Größe"
+msgstr "Размер"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen von"
+msgstr "Кем загружено"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen am"
+msgstr "Дата загрузки"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Änderungshinweis"
+msgstr "Примечание к изменению"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Downloads"
+msgstr "Загрузки"

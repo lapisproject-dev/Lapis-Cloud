@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.Text
@@ -13,18 +14,19 @@ import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AiIndexStatus
 import network.lapis.cloud.shared.domain.AiKnowledgeEntryDto
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
+import network.lapis.cloud.shared.domain.DocumentVersionDto
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IDocumentService
 
@@ -41,12 +43,7 @@ import network.lapis.cloud.shared.rpc.IDocumentService
  * must mirror the server's role set exactly: see that object's own KDoc.
  */
 fun renderDocumentsScreen(container: SimplePanel) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 800.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot(spacing = 14)
     root.h1(tr("Dokumentenablage"))
     val canManage = DocumentsAuthzUi.canManage(AppState.session?.role)
 
@@ -63,36 +60,48 @@ fun renderDocumentsScreen(container: SimplePanel) {
     fun loadVersions(document: DocumentDto) {
         versionPanel.removeAll()
         AppScope.launch {
-            val versions = guarded { rpcService<IDocumentService>().listVersions(document.id) } ?: return@launch
+            val versions = guarded { rpcService<IDocumentService>().listVersions(document.id) }
+            if (versions == null) {
+                // Welle V1.4.27 (W3): a failed load is an error state with a retry, not an empty panel.
+                versionPanel.dataErrorState(onRetry = { loadVersions(document) })
+                return@launch
+            }
             versionPanel.p(gettext("Versionen von \"%1\":", document.title))
             if (versions.isEmpty()) {
                 versionPanel.p(tr("Noch keine Version hochgeladen."))
             } else {
-                versions.forEach { version ->
-                    val row = versionPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-                    row.icon(fileTypeIcon(version.mimeType))
-                    val changeNoteSuffix = version.changeNote?.let { gettext(" -- %1", it) } ?: ""
-                    row.div(
-                        gettext(
-                            "v%1: %2 (%3, hochgeladen von %4 am %5)",
-                            version.versionNumber,
-                            version.fileName,
-                            formatFileSize(version.fileSizeBytes),
-                            version.uploadedByDisplayName,
-                            version.uploadedAt,
-                        ) + changeNoteSuffix,
-                    ) { addCssClass("flex-grow-1") }
-                    // Eigenes Zeilenelement statt Teil des gemeinsamen gettext-Strings, damit
-                    // `text-muted small` als eigene CSS-Klasse greift (Design-Vorgabe, siehe
-                    // formatDownloadCount-KDoc in FileDisplay.kt).
-                    row.div(formatDownloadCount(version.downloadCount)) { addCssClasses("text-muted small") }
-                    row.link(
-                        tr("Herunterladen"),
-                        url = DocumentHttp.downloadUrl(document.id, version.id),
-                        icon = "fas fa-download",
-                        target = "_blank",
+                // A `dataTable` (guideline 2.4): the version list is fully loaded, so it sorts on the client. Only
+                // this host is re-rendered by a sort click -- the upload form below must survive it.
+                val tableHost = versionPanel.vPanel(spacing = 0)
+                var versionSort: SortState? = null
+                var pendingSortFocus: String? = null
+
+                fun renderVersionTable() {
+                    tableHost.removeAll()
+                    val focusKey = pendingSortFocus
+                    pendingSortFocus = null
+                    tableHost.dataTable(
+                        columns = versionColumns(),
+                        rows = sortDocumentVersions(versions, versionSort),
+                        sort = versionSort,
+                        onSort = { next ->
+                            versionSort = next
+                            pendingSortFocus = next?.key
+                            renderVersionTable()
+                        },
+                        sortOptions = VERSION_SORT_OPTIONS,
+                        actions = { actions, version ->
+                            actions.link(
+                                tr("Herunterladen"),
+                                url = DocumentHttp.downloadUrl(document.id, version.id),
+                                icon = "fas fa-download",
+                                target = "_blank",
+                            )
+                        },
+                        focusSortKey = focusKey,
                     )
                 }
+                renderVersionTable()
             }
             if (canManage) renderVersionUpload(versionPanel, document.id) { loadVersions(document) }
         }
@@ -113,16 +122,29 @@ fun renderDocumentsScreen(container: SimplePanel) {
         val creationPanel = documentPanel.vPanel(spacing = 6)
 
         AppScope.launch {
-            val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) } ?: return@launch
+            val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) }
+            if (documents == null) {
+                // Welle V1.4.27 (W3): a failed load is an error state with a retry, not an empty panel.
+                listPanel.dataErrorState(onRetry = { loadDocuments(folderId) })
+                return@launch
+            }
 
             // V1.6.1 "Wissensbasis" column -- only where the AI layer is operational (else the service is
             // not even registered) and only for BOARD/ADMIN. A failed load just hides the column.
-            val knowledgeEntries: Map<String, AiKnowledgeEntryDto> =
+            // The state lives HERE, outside the cell lambdas: `dataTable` cells run again on every re-render (sort,
+            // mode switch), so a `var entry` inside the lambda would lose the state of a released document.
+            val knowledgeEntries: MutableMap<String, AiKnowledgeEntryDto> =
                 if (DocumentsAuthzUi.showsKnowledgeBaseColumn(AppState.session?.role, AppState.session?.aiAssistantEnabled == true)) {
-                    guarded { rpcService<IAiAssistantService>().listKnowledgeEntries() }?.associateBy { it.documentId }.orEmpty()
+                    guarded { rpcService<IAiAssistantService>().listKnowledgeEntries() }
+                        ?.associateBy { it.documentId }
+                        .orEmpty()
+                        .toMutableMap()
                 } else {
-                    emptyMap()
+                    mutableMapOf()
                 }
+            val showsKnowledgeColumn = knowledgeEntries.isNotEmpty()
+            var documentSort: SortState? = null
+            var pendingDocumentSortFocus: String? = null
 
             // Schwellenwert bewusst auf der tatsaechlich geladenen Liste, nicht auf
             // `folder.documentCount` (der zaehlt server-seitig VOR der Access-Level-Filterung).
@@ -174,19 +196,30 @@ fun renderDocumentsScreen(container: SimplePanel) {
                             addCssClasses("text-muted small")
                         }
                     }
-                    filtered.forEach { document ->
-                        renderDocumentRow(
-                            panel = listPanel,
-                            document = document,
-                            canManage = canManage,
-                            knowledgeEntry = knowledgeEntries[document.id],
-                            onOpen = {
+                    val focusKey = pendingDocumentSortFocus
+                    pendingDocumentSortFocus = null
+                    listPanel.dataTable(
+                        columns =
+                            documentColumns(showsKnowledgeColumn, knowledgeEntries) { document ->
                                 openDocumentId = document.id
                                 loadVersions(document)
                             },
-                            onDeleted = { loadDocuments(folderId) },
-                        )
-                    }
+                        rows = sortDocuments(filtered, documentSort),
+                        sort = documentSort,
+                        onSort = { next ->
+                            documentSort = next
+                            pendingDocumentSortFocus = next?.key
+                            renderList(lastRenderedQuery.orEmpty())
+                        },
+                        sortOptions = DOCUMENT_SORT_OPTIONS,
+                        actions =
+                            if (canManage) {
+                                { actions, document -> actions.renderDocumentDeleteAction(document) { loadDocuments(folderId) } }
+                            } else {
+                                null
+                            },
+                        focusSortKey = focusKey,
+                    )
                 }
             }
 
@@ -221,7 +254,12 @@ fun renderDocumentsScreen(container: SimplePanel) {
     fun refreshFolders() {
         folderPanel.removeAll()
         AppScope.launch {
-            val folders = guarded { rpcService<IDocumentService>().listFolders() } ?: emptyList()
+            val folders = guarded { rpcService<IDocumentService>().listFolders() }
+            if (folders == null) {
+                // A failed load is NOT "Noch keine Ordner vorhanden." -- that would be a false statement about the data.
+                folderPanel.dataErrorState(onRetry = { refreshFolders() })
+                return@launch
+            }
             if (folders.isEmpty()) {
                 folderPanel.p(tr("Noch keine Ordner vorhanden."))
             } else {
@@ -266,49 +304,126 @@ internal fun filterDocuments(
  */
 internal fun shouldShowDocumentSearch(documentCount: Int): Boolean = documentCount >= 5
 
+/** Sort keys (Welle V1.4.27 / W3): the documents by title, the versions by number or upload time. */
+internal const val DOCUMENT_SORT_TITLE = "title"
+internal const val VERSION_SORT_NUMBER = "version"
+internal const val VERSION_SORT_UPLOADED = "uploadedAt"
+
+private val DOCUMENT_SORT_OPTIONS = SortOptions(allowUnsorted = true)
+
+/** The newest version first on the first click of the version number or the upload time; a third click unsorts. */
+private val VERSION_SORT_OPTIONS =
+    SortOptions(allowUnsorted = true, firstDirection = { SortDirection.DESC })
+
+/** Clientseitige Sortierung der geladenen Dokumentenliste nach Titel (pur); `null` = Reihenfolge des Servers. */
+internal fun sortDocuments(
+    documents: List<DocumentDto>,
+    sort: SortState?,
+): List<DocumentDto> {
+    if (sort == null) return documents
+    val comparator = compareBy<DocumentDto, String>(String.CASE_INSENSITIVE_ORDER) { it.title }
+    return documents.sortedWith(if (sort.direction == SortDirection.ASC) comparator else comparator.reversed())
+}
+
+/** Clientseitige Sortierung der geladenen Versionsliste (pur); `null` = Reihenfolge des Servers. */
+internal fun sortDocumentVersions(
+    versions: List<DocumentVersionDto>,
+    sort: SortState?,
+): List<DocumentVersionDto> {
+    if (sort == null) return versions
+    val comparator: Comparator<DocumentVersionDto> =
+        when (sort.key) {
+            VERSION_SORT_UPLOADED -> compareBy { it.uploadedAt }
+            else -> compareBy { it.versionNumber }
+        }
+    return versions.sortedWith(if (sort.direction == SortDirection.ASC) comparator else comparator.reversed())
+}
+
 /**
- * Rendert eine einzelne Dokumentzeile -- extrahiert aus `loadDocuments`, damit sie sowohl im
- * Ruhezustand als auch nach jedem Filter-Re-Render identisch aufgerufen werden kann, ohne
- * Code-Duplikation.
+ * Columns of the document list / card list. The title is a link that opens the versions below (a purely local
+ * click handler, `dataNavigo = false`, see `LoginScreen.kt`) and the card title. The "Wissensbasis" column
+ * exists only where the AI layer is on and the caller may decide (BOARD/ADMIN, see [DocumentsAuthzUi]).
  */
-private fun renderDocumentRow(
-    panel: SimplePanel,
+private fun documentColumns(
+    showsKnowledgeColumn: Boolean,
+    knowledgeEntries: MutableMap<String, AiKnowledgeEntryDto>,
+    onOpen: (DocumentDto) -> Unit,
+): List<DataColumn<DocumentDto>> =
+    listOfNotNull(
+        DataColumn(
+            title = tr("Titel"),
+            primary = true,
+            sortKey = DOCUMENT_SORT_TITLE,
+            cell = { container, document ->
+                container.icon("fas fa-file")
+                container.link(document.title, url = "javascript:void(0)", dataNavigo = false).onClick { onOpen(document) }
+            },
+        ),
+        if (showsKnowledgeColumn) {
+            DataColumn(
+                title = tr("Wissensbasis"),
+                cell = { container, document ->
+                    if (knowledgeEntries.containsKey(document.id)) renderKnowledgeControls(container, document.id, knowledgeEntries)
+                },
+            )
+        } else {
+            null
+        },
+    )
+
+private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
+    listOf(
+        textColumn(title = tr("Version"), primary = true, sortKey = VERSION_SORT_NUMBER) { version: DocumentVersionDto ->
+            gettext("v%1", version.versionNumber)
+        },
+        DataColumn(
+            title = tr("Datei"),
+            cell = { container, version ->
+                container.icon(fileTypeIcon(version.mimeType))
+                container.span(version.fileName)
+            },
+        ),
+        textColumn(title = tr("Größe"), numeric = true) { version: DocumentVersionDto -> formatFileSize(version.fileSizeBytes) },
+        textColumn(title = tr("Hochgeladen von")) { version: DocumentVersionDto -> version.uploadedByDisplayName },
+        textColumn(title = tr("Hochgeladen am"), sortKey = VERSION_SORT_UPLOADED) { version: DocumentVersionDto ->
+            version.uploadedAt.toString()
+        },
+        textColumn(title = tr("Änderungshinweis")) { version: DocumentVersionDto -> version.changeNote.orEmpty() },
+        // Own text element, `text-muted small` as its own CSS class (design rule, see `formatDownloadCount` in FileDisplay.kt).
+        DataColumn(
+            title = tr("Downloads"),
+            numeric = true,
+            cell = {
+                container,
+                version,
+                ->
+                container.span(formatDownloadCount(version.downloadCount)) { addCssClasses("text-muted small") }
+            },
+        ),
+    )
+
+/** Delete action of a document row -- role gate (`canManage`) and confirmation dialog unchanged. */
+private fun Container.renderDocumentDeleteAction(
     document: DocumentDto,
-    canManage: Boolean,
-    knowledgeEntry: AiKnowledgeEntryDto?,
-    onOpen: () -> Unit,
     onDeleted: () -> Unit,
 ) {
-    val row = panel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center") }
-    // dataNavigo = false: rein lokaler Klick-Handler (laedt Versionen unten,
-    // keine Route) -- siehe LoginScreen.kt-Kommentar zum globalen
-    // Link.useDataNavigoForLinks-Default (V1.2.4-Audit, dataNavigo-Sweep).
-    row.icon("fas fa-file")
-    val titleLink =
-        row.link(document.title, url = "javascript:void(0)", dataNavigo = false) {
-            addCssClass("flex-grow-1")
-        }
-    titleLink.onClick { onOpen() }
-    if (knowledgeEntry != null) renderKnowledgeControls(row = row, initial = knowledgeEntry)
-    if (canManage) {
-        val deleteButton = row.button(tr("Löschen"), icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
-        deleteButton.onClick {
-            confirmDialog(
-                title = tr("Dokument löschen"),
-                message =
-                    gettext(
-                        "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
-                            "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
-                        document.title,
-                    ),
-                confirmLabel = tr("Löschen"),
-            ) {
-                AppScope.launch {
-                    val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
-                    if (result != null) {
-                        notifySuccess(tr("Gelöscht."))
-                        onDeleted()
-                    }
+    val deleteButton = tableActionButton("fas fa-trash", tr("Löschen"), ButtonStyle.OUTLINEDANGER)
+    deleteButton.onClick {
+        confirmDialog(
+            title = tr("Dokument löschen"),
+            message =
+                gettext(
+                    "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
+                        "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
+                    document.title,
+                ),
+            confirmLabel = tr("Löschen"),
+        ) {
+            AppScope.launch {
+                val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
+                if (result != null) {
+                    notifySuccess(tr("Gelöscht."))
+                    onDeleted()
                 }
             }
         }
@@ -444,28 +559,30 @@ private fun renderVersionUpload(
  * "Neu indexieren".
  */
 private fun renderKnowledgeControls(
-    row: SimplePanel,
-    initial: AiKnowledgeEntryDto,
+    row: Container,
+    documentId: String,
+    state: MutableMap<String, AiKnowledgeEntryDto>,
 ) {
-    var entry = initial
-    val box = row.checkBox(value = entry.released, label = tr("Wissensbasis"))
-    box.disabled = !entry.releasable
-    val mark = row.div(tr(StatuteQaUi.statusMark(entry.status))) { addCssClasses("text-muted small") }
+    // The current entry lives in [state], outside the (re-run) cell lambda: it survives a sort or a mode switch.
+    fun current(): AiKnowledgeEntryDto = state.getValue(documentId)
+    val box = row.checkBox(value = current().released, label = tr("Wissensbasis"))
+    box.disabled = !current().releasable
+    val mark = row.div(tr(StatuteQaUi.statusMark(current().status))) { addCssClasses("text-muted small") }
     val reindex = row.button(tr("Neu indexieren"), icon = "fas fa-rotate", style = ButtonStyle.OUTLINESECONDARY)
 
     fun refresh() {
-        box.value = entry.released
-        mark.content = tr(StatuteQaUi.statusMark(entry.status))
-        reindex.visible = entry.released && (entry.status == AiIndexStatus.PENDING || entry.status == AiIndexStatus.FAILED)
+        box.value = current().released
+        mark.content = tr(StatuteQaUi.statusMark(current().status))
+        reindex.visible = current().released && (current().status == AiIndexStatus.PENDING || current().status == AiIndexStatus.FAILED)
     }
     refresh()
 
     box.subscribe { checked ->
-        if (checked == entry.released) return@subscribe
+        if (checked == current().released) return@subscribe
         AppScope.launch {
-            val updated = guarded { rpcService<IAiAssistantService>().setKnowledgeBaseRelease(entry.documentId, checked) }
+            val updated = guarded { rpcService<IAiAssistantService>().setKnowledgeBaseRelease(documentId, checked) }
             if (updated != null) {
-                entry = updated
+                state[documentId] = updated
                 notifySuccess(tr("Wissensbasis aktualisiert."))
             }
             refresh()
@@ -474,10 +591,10 @@ private fun renderKnowledgeControls(
     reindex.onClick {
         reindex.disabled = true
         AppScope.launch {
-            val updated = guarded { rpcService<IAiAssistantService>().reindexKnowledgeDocument(entry.documentId) }
+            val updated = guarded { rpcService<IAiAssistantService>().reindexKnowledgeDocument(documentId) }
             reindex.disabled = false
             if (updated != null) {
-                entry = updated
+                state[documentId] = updated
                 notifySuccess(tr("Wissensbasis aktualisiert."))
             }
             refresh()

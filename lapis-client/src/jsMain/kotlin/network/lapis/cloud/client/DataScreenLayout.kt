@@ -3,8 +3,15 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
+import io.kvision.html.div
+import io.kvision.html.span
+import io.kvision.html.tag
 import io.kvision.i18n.I18n
+import io.kvision.i18n.gettext
 import io.kvision.panel.HPanel
 import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
@@ -17,6 +24,7 @@ import io.kvision.table.Scope
 import io.kvision.table.Table
 import io.kvision.table.TableType
 import io.kvision.table.cell
+import io.kvision.table.row
 import io.kvision.table.table
 import io.kvision.utils.px
 
@@ -164,7 +172,7 @@ fun Button.tableActionTooltip(tooltip: String) {
 }
 
 /** Marker, den KVisions `tr()` um jeden Text legt; nur der eigene Patch-Zyklus löst ihn auf. */
-private const val KV_I18N_MARKER = "###KvI18nS###"
+internal const val KV_I18N_MARKER = "###KvI18nS###"
 
 /**
  * Für jeden Text, der per rohem `setAttribute(...)` in den DOM geht: löst den `tr()`-Marker UND die
@@ -278,3 +286,247 @@ fun Row.numCell(
         addCssClass(NUMERIC_CELL_CLASS)
         init?.invoke(this)
     }
+
+// ============================================================================================
+// Report grammar (Welle V1.4.27, W3 "Pseudo-Tabellen ablösen")
+// ============================================================================================
+
+/** CSS classes of the report grammar (`theme.css`, "Berichtsgrammatik"). */
+internal const val REPORT_TABLE_CLASS = "lapis-report-table"
+internal const val SECTION_ROW_CLASS = "lapis-section-row"
+internal const val SUBSECTION_ROW_CLASS = "lapis-section-row-sub"
+internal const val TOTAL_ROW_CLASS = "lapis-total-row"
+internal const val TOTAL_ROW_STRONG_CLASS = "lapis-total-row-strong"
+internal const val BALANCE_ROW_CLASS = "lapis-balance-row"
+internal const val NOTE_ROW_CLASS = "lapis-note-row"
+internal const val REPORT_CAPTION_HIDDEN_CLASS = "lapis-report-caption-hidden"
+
+/**
+ * A **document** table -- the second of the guideline's two table grammars (the first is [dataTable]).
+ * Criterion: a row is only right in the context of its neighbours (running balance, number sequence, a
+ * total underneath). So: a real `<table>` in the responsive frame ([standardTable]) with a visible
+ * `<caption>` -- and NEVER sort buttons, NEVER the card list. A card list renders only `rows`, so a total or
+ * balance row would silently vanish on a phone; a report scrolls sideways below 768 px instead (deliberate,
+ * see `ui-ux-guideline.adoc`).
+ *
+ * Goes through [standardTable] (no `table(` literal of its own: `ClientUiGuidelineTripwireTest` counts the
+ * calls). Bootstrap's reboot sets `caption-side: bottom`; its own utility `caption-top` puts the title where a
+ * heading belongs, without new CSS.
+ */
+fun Container.reportTable(
+    caption: String,
+    headers: List<TableHeader>,
+    captionVisible: Boolean = true,
+): Table {
+    val report = standardTable(headers)
+    report.caption = caption
+    report.addCssClasses("$REPORT_TABLE_CLASS caption-top")
+    // Audit V1.4.27 (MINOR-2): a caption that only repeats the heading or the header row right above the table is
+    // visual noise, but it is still the table's ACCESSIBLE NAME -- so it is hidden visually, not removed
+    // (`captionVisible = false`, the `theme.css` rule `.lapis-report-caption-hidden` = Bootstrap's `visually-hidden`
+    // recipe for the `<caption>`; KVision's `Table` has no API for classes on the caption itself).
+    if (!captionVisible) report.addCssClass(REPORT_CAPTION_HIDDEN_CLASS)
+    return report
+}
+
+/** Paints [rows] -- the one place where the report grammar turns [ReportRow]s into table rows. */
+fun Table.reportRows(
+    rows: List<ReportRow>,
+    headers: List<TableHeader>,
+) {
+    rows.forEach { data -> reportRow(data, headers) }
+}
+
+/**
+ * One [ReportRow]. [extra] runs for figure rows ([ReportRowKind.DATA]/[ReportRowKind.BALANCE]/[ReportRowKind.TOTAL])
+ * after the cells and is where a screen adds its own action cell (the detail toggle of a sphere row).
+ */
+fun Table.reportRow(
+    data: ReportRow,
+    headers: List<TableHeader>,
+    extra: (Row.() -> Unit)? = null,
+): Row =
+    when (data.kind) {
+        ReportRowKind.SECTION -> sectionRow(data.cells.first().text, headers.size)
+        ReportRowKind.SUBSECTION -> sectionRow(data.cells.first().text, headers.size, sub = true)
+        ReportRowKind.NOTE -> noteRow(data.cells.first().text, headers.size)
+        ReportRowKind.DATA, ReportRowKind.BALANCE, ReportRowKind.TOTAL ->
+            row(className = reportRowClass(data)) {
+                // D4: the label of a sum/balance row is the row HEADER of that row (`<th scope="row">`), so assistive
+                // technology can read "Summe Einnahmen, Betrag, 1513 EUR"; the first text cell is the label (the
+                // opening/closing balance of a ledger has blank cells in front of it).
+                val labelIndex =
+                    if (data.kind == ReportRowKind.TOTAL || data.kind == ReportRowKind.BALANCE) {
+                        data.cells.indexOfFirst { it is ReportCell.Text }
+                    } else {
+                        -1
+                    }
+                data.cells.forEachIndexed { index, reportCell ->
+                    if (index == labelIndex) {
+                        paintRowHeaderCell(reportCell as ReportCell.Text)
+                    } else {
+                        paintReportCell(
+                            reportCell,
+                            numericColumn =
+                                headers.getOrNull(index)?.numeric == true,
+                        )
+                    }
+                }
+                extra?.invoke(this)
+            }
+    }
+
+private fun reportRowClass(data: ReportRow): String? =
+    when (data.kind) {
+        ReportRowKind.TOTAL -> if (data.strong) "$TOTAL_ROW_CLASS $TOTAL_ROW_STRONG_CLASS" else TOTAL_ROW_CLASS
+        ReportRowKind.BALANCE -> BALANCE_ROW_CLASS
+        else -> null
+    }
+
+private fun Row.paintRowHeaderCell(label: ReportCell.Text) {
+    val header =
+        HeaderCell(scope = Scope.ROW) {
+            span(label.text) {
+                if (label.muted) addCssClass("text-muted")
+                if (label.italic) addCssClass("fst-italic")
+            }
+        }
+    add(header)
+}
+
+private fun Row.paintReportCell(
+    reportCell: ReportCell,
+    numericColumn: Boolean,
+) {
+    val numeric = numericColumn || reportCell is ReportCell.Money || reportCell is ReportCell.Ltr
+    cell {
+        if (numeric) addCssClass(NUMERIC_CELL_CLASS)
+        when (reportCell) {
+            ReportCell.Blank -> Unit
+            is ReportCell.Text ->
+                span(reportCell.text) {
+                    if (reportCell.muted) addCssClass("text-muted")
+                    if (reportCell.italic) addCssClass("fst-italic")
+                }
+            is ReportCell.Money -> {
+                val amount = moneySpan(reportCell.amount, warnIfNegative = reportCell.warnIfNegative)
+                if (reportCell.emphasize) amount.addCssClasses("text-danger fw-bold")
+            }
+            is ReportCell.Ltr -> ltrSpan(reportCell.amount, warnIfNegative = reportCell.warnIfNegative)
+            is ReportCell.Badge -> paintBadge(reportCell)
+            is ReportCell.Badges -> {
+                val group = tableActionGroup()
+                reportCell.items.forEach { badge -> group.paintBadge(badge) }
+            }
+        }
+    }
+}
+
+private fun Container.paintBadge(badge: ReportCell.Badge) {
+    if (badge.filled) statusBadge(badge.text, badge.color) else typeBadge(badge.text, badge.color)
+}
+
+/**
+ * A section heading inside the body of a report: `<th colspan="N">` and NO `scope`. A report has ONE `<tbody>`, so a
+ * `scope="rowgroup"` would let "Aktiva" claim the "Passiva" rows below it as well (Audit V1.4.27 D3: the scope of a
+ * `rowgroup` header reaches to the end of its `<tbody>`); a plain spanning header row names the block visually
+ * and asserts nothing it cannot keep. (One `<tbody>` per section would make `rowgroup` right -- KVision's `Table`
+ * has no per-section body, so this stays a heading row.) [sub] adds the indent class of a sub-section (both
+ * classes: the base styling stays).
+ */
+fun Table.sectionRow(
+    label: String,
+    columnCount: Int,
+    sub: Boolean = false,
+): Row =
+    row(className = if (sub) "$SECTION_ROW_CLASS $SUBSECTION_ROW_CLASS" else SECTION_ROW_CLASS) {
+        val heading = HeaderCell(content = label)
+        heading.setAttribute("colspan", columnCount.toString())
+        add(heading)
+    }
+
+/** A note between figure rows (a `div` between `tr`s is invalid markup and would be moved out by the browser). */
+fun Table.noteRow(
+    text: String,
+    columnCount: Int,
+): Row =
+    row(className = NOTE_ROW_CLASS) {
+        cell(content = text) { setAttribute("colspan", columnCount.toString()) }
+    }
+
+/**
+ * An expandable detail row: `<tr id="[rowId]"><td colspan="N">`, initially collapsed. [content] fills the cell
+ * (nested tables are fine). [rowId] must be stable and unique on the screen (`lapis-detail-<dtoId>`), otherwise
+ * `aria-controls` of the toggle points at a foreign or vanished row. Pair it with [expandToggleButton] and
+ * flip it with [setExpanded].
+ *
+ * Collapsed = Bootstrap's `d-none`, NOT KVision's `hide()`: a hidden KVision widget is removed from the DOM,
+ * and `aria-controls` must name an element that exists.
+ */
+fun Table.detailRow(
+    rowId: String,
+    columnCount: Int,
+    content: (Container) -> Unit,
+): Row =
+    row {
+        id = rowId
+        val detailCell = cell { setAttribute("colspan", columnCount.toString()) }
+        content(detailCell)
+        setExpanded(false)
+    }
+
+/** Shows/collapses a [detailRow] (`d-none`, the row stays in the document -- see [detailRow]). */
+fun Row.setExpanded(expanded: Boolean) {
+    if (expanded) removeCssClass("d-none") else addCssClass("d-none")
+}
+
+/**
+ * The toggle of a [detailRow]: an icon button whose name says WHICH object it opens (`Details %1 ein-/ausblenden`,
+ * [objectLabel] is an already resolved label), `aria-expanded` follows the state, `aria-controls` names the row.
+ *
+ * **Known limit (Audit V1.4.27 D7, deliberately not fixed):** the `title` and the `aria-label` are resolved ONCE, in
+ * the language of the moment the toggle is built. `aria-label` goes through `setAttribute` and so around KVision's
+ * patch cycle (see [tableActionTooltip]) -- a language switch re-renders `tr(...)` markers but cannot reach an
+ * attribute that was set from an already resolved string; the tooltip and the accessible name of an OPEN report
+ * therefore stay in the old language until the report is reloaded (the visible cell texts, captions and headers
+ * do follow). The same holds for the `aria-label` of every [tableActionButton] on every screen (its `title` follows
+ * only where the caller passed a `tr(...)` string).
+ */
+fun Container.expandToggleButton(
+    objectLabel: String,
+    detailRowId: String,
+    onToggle: (Boolean) -> Unit,
+): Button {
+    val toggle = tableActionButton("fas fa-chevron-down", gettext("Details %1 ein-/ausblenden", objectLabel))
+    toggle.setAttribute("aria-expanded", "false")
+    toggle.setAttribute("aria-controls", detailRowId)
+    var expanded = false
+    toggle.onClick {
+        expanded = !expanded
+        toggle.setAttribute("aria-expanded", expanded.toString())
+        toggle.icon = if (expanded) "fas fa-chevron-up" else "fas fa-chevron-down"
+        onToggle(expanded)
+    }
+    return toggle
+}
+
+/**
+ * Wrapper for a [segmentedControl] with more than three options: below 768 px the group scrolls sideways
+ * instead of wrapping into a ragged block (`theme.css`).
+ */
+fun Container.segmentedScroll(init: Div.() -> Unit): Div =
+    div(className = "lapis-segmented-scroll") {
+        init()
+    }
+
+/** Label/value list (`<dl>`, CSS grid) -- replaces `width = 220.px` label cells. Fill it with [detailEntry]. */
+fun Container.detailList(): Tag = tag(TAG.DL, className = "lapis-detail-list")
+
+/** One `<dt>`/`<dd>` pair of a [detailList]; [value] builds the content of the `<dd>`. */
+fun Tag.detailEntry(
+    label: String,
+    value: Container.() -> Unit,
+) {
+    tag(TAG.DT, content = label)
+    tag(TAG.DD) { value() }
+}

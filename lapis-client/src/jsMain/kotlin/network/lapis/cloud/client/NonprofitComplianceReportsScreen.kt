@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.core.Container
 import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
 import io.kvision.html.Button
@@ -17,6 +18,9 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.Row
+import io.kvision.table.Table
+import io.kvision.table.cell
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -26,9 +30,7 @@ import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.ReserveMovementDto
-import network.lapis.cloud.shared.domain.ReserveType
 import network.lapis.cloud.shared.domain.SphereAmountDto
-import network.lapis.cloud.shared.domain.SphereResultDto
 import network.lapis.cloud.shared.domain.UseOfFundsStatementDto
 import network.lapis.cloud.shared.domain.UseOfFundsYearDto
 import network.lapis.cloud.shared.domain.VatComplianceAcknowledgmentInput
@@ -70,42 +72,83 @@ import kotlin.time.Clock
  * guessing/hardcoding the figure) -- and is never hidden again once loaded, per Steve Jobs' final
  * review ("no 'don't show this again' checkbox... that tension doesn't go away").
  *
- * The Vier-Sphären-Ergebnisrechnung table reuses [renderStatementLineTable] from
+ * The Vier-Sphären-Ergebnisrechnung table reuses [renderStatementSectionTable] from
  * `FinancialReportsScreen.kt` verbatim for each sphere's expanded income/expense detail (D7:
  * "literally the same StatementLineDto shape") -- see that file's own KDoc for why the function
  * was made non-private for this screen's sake.
  */
 fun renderNonprofitComplianceReportsScreen(container: SimplePanel) {
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot(spacing = 14)
     root.h1(tr("Gemeinnützigkeits-Berichte"))
 
-    val toggleRow = root.hPanel(spacing = 8)
-    val fourSphereButton = toggleRow.button(tr("Vier-Sphären-Ergebnisrechnung"), style = ButtonStyle.OUTLINEPRIMARY)
-    val useOfFundsButton = toggleRow.button(tr("Mittelverwendungsrechnung"), style = ButtonStyle.OUTLINEPRIMARY)
-    // Welle V1.4.13 "USt-Voranmeldung (Nachweishilfe)".
-    val vatReturnButton = toggleRow.button(tr("USt-Voranmeldung — Vorschau"), style = ButtonStyle.OUTLINEPRIMARY)
-    val contentPanel = root.vPanel(spacing = 10)
-
-    fourSphereButton.onClick {
-        contentPanel.removeAll()
-        renderFourSphereIncomeStatementView(contentPanel)
+    // Welle V1.4.27 (W3): a segmented control with an active state instead of three outline buttons that never
+    // said which report was showing. "USt-Voranmeldung -- Vorschau" is Welle V1.4.13 "USt-Voranmeldung
+    // (Nachweishilfe)".
+    val options =
+        listOf(
+            NonprofitReportView.FOUR_SPHERE to tr("Vier-Sphären-Ergebnisrechnung"),
+            NonprofitReportView.USE_OF_FUNDS to tr("Mittelverwendungsrechnung"),
+            NonprofitReportView.VAT_RETURN to tr("USt-Voranmeldung — Vorschau"),
+        )
+    lateinit var contentPanel: SimplePanel
+    root.segmentedScroll {
+        segmentedControl(options = options, selected = NonprofitReportView.FOUR_SPHERE, ariaLabel = tr("Berichtsart")) { view ->
+            contentPanel.removeAll()
+            when (view) {
+                NonprofitReportView.FOUR_SPHERE -> renderFourSphereIncomeStatementView(contentPanel)
+                NonprofitReportView.USE_OF_FUNDS -> renderUseOfFundsView(contentPanel)
+                NonprofitReportView.VAT_RETURN -> renderVatReturnPreviewView(contentPanel)
+            }
+        }
     }
-    useOfFundsButton.onClick {
-        contentPanel.removeAll()
-        renderUseOfFundsView(contentPanel)
-    }
-    vatReturnButton.onClick {
-        contentPanel.removeAll()
-        renderVatReturnPreviewView(contentPanel)
-    }
+    contentPanel = root.vPanel(spacing = 10)
 
     renderFourSphereIncomeStatementView(contentPanel)
 }
+
+private enum class NonprofitReportView { FOUR_SPHERE, USE_OF_FUNDS, VAT_RETURN }
+
+private val FOUR_SPHERE_HEADERS =
+    listOf(
+        TableHeader(title = tr("Sphäre")),
+        TableHeader(title = tr("Einnahmen"), numeric = true),
+        TableHeader(title = tr("Ausgaben"), numeric = true),
+        TableHeader(title = tr("Ergebnis"), numeric = true),
+        TableHeader(title = tr("Details")),
+    )
+
+private val USE_OF_FUNDS_HEADERS =
+    listOf(
+        TableHeader(title = tr("Geschäftsjahr")),
+        TableHeader(title = tr("Mittelzufluss"), numeric = true),
+        TableHeader(title = tr("Mittelverwendung"), numeric = true),
+        TableHeader(title = tr("Rücklagenzuführung"), numeric = true),
+        TableHeader(title = tr("Mittelvortrag"), numeric = true),
+        TableHeader(title = tr("davon überfällig"), numeric = true),
+        TableHeader(title = tr("Details")),
+    )
+
+private val RESERVE_MOVEMENT_HEADERS =
+    listOf(
+        TableHeader(title = tr("Rücklagenart")),
+        TableHeader(title = tr("Zuführung/Auflösung"), numeric = true),
+        TableHeader(title = tr("Schlussstand"), numeric = true),
+    )
+
+private val SPHERE_AMOUNT_HEADERS =
+    listOf(
+        TableHeader(title = tr("Sphäre")),
+        TableHeader(title = tr("Betrag"), numeric = true),
+    )
+
+private val VAT_RATE_HEADERS =
+    listOf(
+        TableHeader(title = tr("Satz")),
+        TableHeader(title = tr("Brutto"), numeric = true),
+        TableHeader(title = tr("Netto"), numeric = true),
+        TableHeader(title = tr("USt"), numeric = true),
+        TableHeader(title = tr("Anzahl"), numeric = true),
+    )
 
 // ============================================================================================
 // Vier-Sphären-Ergebnisrechnung
@@ -131,25 +174,27 @@ private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 8)
+    // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." on a failed load; the date validation
+    // stays in front of the reload so an invalid date keeps its own message.
+    val section =
+        panel.dataSection<FourSphereIncomeStatementDto>(
+            isEmpty = { false },
+            load = {
+                filterControls.parseTo()?.let { to ->
+                    guarded { rpcService<IAccountingService>().getFourSphereIncomeStatement(filterControls.parseFrom(), to) }
+                }
+            },
+            render = { body, statement -> renderFourSphereIncomeStatementBody(body, statement, captionVisible = false) },
+        )
 
     fun load() {
         errorBox.hide()
-        val to = filterControls.parseTo()
-        if (to == null) {
+        if (filterControls.parseTo() == null) {
             errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
-        val from = filterControls.parseFrom()
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val statement =
-                guarded { rpcService<IAccountingService>().getFourSphereIncomeStatement(from, to) } ?: return@launch
-            resultPanel.removeAll()
-            renderFourSphereIncomeStatementBody(resultPanel, statement)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
@@ -159,64 +204,42 @@ private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
  * D7: one table, sphere as leftmost column, [FourSphereIncomeStatementDto.spheres] rendered in
  * the exact order the server returned it (that DTO's own KDoc: "always exactly four ... in that
  * enum's declaration order") -- never re-sorted here.
+ *
+ * Each row expands in place (no separate detail screen): all four spheres are always present, so the fixed
+ * four-row layout stays intact while the underlying [network.lapis.cloud.shared.domain.StatementLineDto]
+ * line items are offered on demand -- in a collapsed `<tr>` under the sphere row (`colspan`, two inner tables
+ * Einnahmen/Ausgaben). The toggle names its sphere, so the four buttons have four different accessible names.
  */
-private fun renderFourSphereIncomeStatementBody(
+internal fun renderFourSphereIncomeStatementBody(
     panel: SimplePanel,
     statement: FourSphereIncomeStatementDto,
+    captionVisible: Boolean = true,
 ) {
     panel.div(periodRangeCaption(statement.from, statement.to)) { addCssClasses("text-muted small") }
 
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Sphäre")) { width = 260.px }
-    headerRow.div(tr("Einnahmen")) { width = 120.px }
-    headerRow.div(tr("Ausgaben")) { width = 120.px }
-    headerRow.div(tr("Ergebnis")) { width = 120.px }
-    headerRow.div("") { addCssClasses("flex-grow-1") }
-
-    statement.spheres.forEach { sphere -> renderSphereRow(panel, sphere) }
-
-    val footerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    footerRow.div(tr("Gesamt")) { width = 260.px }
-    footerRow.moneySpan(statement.totalIncome).width = 120.px
-    footerRow.moneySpan(statement.totalExpense).width = 120.px
-    footerRow.moneySpan(statement.result, warnIfNegative = true).width = 120.px
-    footerRow.div("") { addCssClasses("flex-grow-1") }
-}
-
-/**
- * D7: each row expands in place (no separate detail screen) -- all four spheres are always
- * present, so an accordion keeps the fixed four-row layout intact while still offering the
- * underlying [network.lapis.cloud.shared.domain.StatementLineDto] line items on demand.
- */
-private fun renderSphereRow(
-    panel: SimplePanel,
-    sphere: SphereResultDto,
-) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border-bottom py-1") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val sphereCell = headerRow.div { width = 260.px }
-    sphereCell.typeBadge(sphereLabel(sphere.sphere), sphereColor(sphere.sphere))
-    headerRow.moneySpan(sphere.totalIncome).width = 120.px
-    headerRow.moneySpan(sphere.totalExpense).width = 120.px
-    headerRow.moneySpan(sphere.result, warnIfNegative = true).width = 120.px
-    val toggleButton =
-        headerRow.button(tr("Details ein-/ausblenden"), style = ButtonStyle.OUTLINESECONDARY) {
-            addCssClasses("flex-grow-1")
+    // The standalone view's `h2` carries the same words -> caption only for assistive technology (audit MINOR-2).
+    val report =
+        panel.reportTable(
+            caption = tr("Vier-Sphären-Ergebnisrechnung"),
+            headers = FOUR_SPHERE_HEADERS,
+            captionVisible = captionVisible,
+        )
+    val rows = fourSphereRows(statement)
+    statement.spheres.zip(rows).forEach { (sphere, data) ->
+        val rowId = "lapis-sphere-${sphere.sphere.name}"
+        lateinit var detail: Row
+        report.reportRow(data, FOUR_SPHERE_HEADERS) {
+            cell { expandToggleButton(sphereLabel(sphere.sphere), rowId) { expanded -> detail.setExpanded(expanded) } }
         }
-
-    val detailPanel = row.vPanel(spacing = 4) { hide() }
-    var expanded = false
-    toggleButton.onClick {
-        expanded = !expanded
-        if (expanded) {
-            detailPanel.removeAll()
-            renderStatementLineTable(detailPanel, tr("Einnahmen"), sphere.incomeLines, sphere.totalIncome)
-            renderStatementLineTable(detailPanel, tr("Ausgaben"), sphere.expenseLines, sphere.totalExpense)
-            detailPanel.show()
-        } else {
-            detailPanel.hide()
-        }
+        detail =
+            report.detailRow(rowId, FOUR_SPHERE_HEADERS.size) { detailCell ->
+                renderStatementSectionTable(detailCell, tr("Einnahmen"), sphere.incomeLines, sphere.totalIncome)
+                renderStatementSectionTable(detailCell, tr("Ausgaben"), sphere.expenseLines, sphere.totalExpense)
+            }
     }
+    // The sum row gets an empty action cell: every `td` paints the total-row background/top rule (`theme.css`),
+    // so a missing last cell would cut the line off in front of the "Details" column.
+    report.reportRow(rows.last(), FOUR_SPHERE_HEADERS, extra = { cell {} })
 }
 
 // ============================================================================================
@@ -243,63 +266,63 @@ private fun renderUseOfFundsView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 10)
+
+    fun validRange(): Pair<Int, Int>? {
+        val fromFiscalYear = fromYearControls.parseYear()
+        val toFiscalYear = toYearControls.parseYear()
+        return if (fromFiscalYear == null || toFiscalYear == null || fromFiscalYear > toFiscalYear) null else fromFiscalYear to toFiscalYear
+    }
+    val section =
+        panel.dataSection<UseOfFundsStatementDto>(
+            isEmpty = { false },
+            // The banner takes the server's own figure the moment a load resolves, also when the year list is empty.
+            onSettled = { statement -> statement?.let { bannerBox.content = mittelverwendungsBannerText(it.timelyUseYears) } },
+            load = {
+                validRange()?.let { (fromFiscalYear, toFiscalYear) ->
+                    guarded { rpcService<IAccountingService>().getUseOfFundsStatement(fromFiscalYear, toFiscalYear) }
+                }
+            },
+            render = { body, statement -> renderUseOfFundsBody(body, statement, captionVisible = false) },
+        )
 
     fun load() {
         errorBox.hide()
-        val fromFiscalYear = fromYearControls.parseYear()
-        val toFiscalYear = toYearControls.parseYear()
-        if (fromFiscalYear == null || toFiscalYear == null || fromFiscalYear > toFiscalYear) {
+        if (validRange() == null) {
             errorBox.content = tr("Bitte ein gültiges \"Von\"- und \"Bis\"-Geschäftsjahr angeben (Von ≤ Bis).")
             errorBox.show()
             return
         }
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val statement =
-                guarded { rpcService<IAccountingService>().getUseOfFundsStatement(fromFiscalYear, toFiscalYear) } ?: return@launch
-            bannerBox.content = mittelverwendungsBannerText(statement.timelyUseYears)
-            resultPanel.removeAll()
-            renderUseOfFundsBody(resultPanel, statement)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
 }
 
-private fun renderUseOfFundsBody(
+internal fun renderUseOfFundsBody(
     panel: SimplePanel,
     statement: UseOfFundsStatementDto,
+    captionVisible: Boolean = true,
 ) {
     panel.div(useOfFundsPeriodCaption(statement.fromFiscalYear, statement.toFiscalYear)) {
         addCssClasses("text-muted small")
     }
 
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Geschäftsjahr")) { width = 100.px }
-    headerRow.div(tr("Mittelzufluss")) { width = 110.px }
-    headerRow.div(tr("Mittelverwendung")) { width = 130.px }
-    headerRow.div(tr("Rücklagenzuführung")) { width = 140.px }
-    headerRow.div(tr("Mittelvortrag")) { width = 110.px }
-    headerRow.div(tr("davon überfällig")) { width = 110.px }
-    headerRow.div("") { addCssClasses("flex-grow-1") }
-
-    if (statement.years.isEmpty()) {
-        panel.p(tr("Keine Buchungen im gewählten Zeitraum.")) { addCssClasses("text-muted small") }
-    }
+    // Same words as the standalone view's `h2` -> caption only for assistive technology (audit MINOR-2).
+    val report =
+        panel.reportTable(
+            caption = tr("Mittelverwendungsrechnung (§55/§62 AO)"),
+            headers = USE_OF_FUNDS_HEADERS,
+            captionVisible = captionVisible,
+        )
+    val rows = useOfFundsRows(statement)
+    rows.filter { it.kind == ReportRowKind.NOTE }.forEach { report.reportRow(it, USE_OF_FUNDS_HEADERS) }
     // Never re-sorted -- [UseOfFundsStatementDto.years] KDoc: "one UseOfFundsYearDto per fiscal
     // year in [fromFiscalYear, toFiscalYear]", already in that order.
-    statement.years.forEach { year -> renderUseOfFundsYearRow(panel, year) }
-
-    val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    totalRow.div(tr("Gesamt")) { width = 100.px }
-    totalRow.moneySpan(statement.totalFundsReceived).width = 110.px
-    totalRow.moneySpan(statement.totalFundsUsed).width = 130.px
-    totalRow.moneySpan(statement.totalFundsAllocatedToReserves, warnIfNegative = true).width = 140.px
-    totalRow.moneySpan(statement.closingTimelyUseObligation).width = 110.px
-    totalRow.moneySpan(statement.closingOverdue).width = 110.px
-    totalRow.div("") { addCssClasses("flex-grow-1") }
+    statement.years.zip(rows.filter { it.kind == ReportRowKind.DATA }).forEach { (year, data) ->
+        renderUseOfFundsYearRow(report, year, data)
+    }
+    // Empty action cell, see the Vier-Sphaeren sum row: keeps the total-row rule unbroken up to the last column.
+    report.reportRow(rows.first { it.kind == ReportRowKind.TOTAL }, USE_OF_FUNDS_HEADERS, extra = { cell {} })
 
     panel.div(
         gettext(
@@ -313,85 +336,44 @@ private fun renderUseOfFundsBody(
     ) { addCssClasses("text-muted small") }
 }
 
-/** D4's `FREIE_RUECKLAGE` inline caveat, plus an expand-in-place detail panel with the
- * reserve-movements and (informational, D-plan item 3) per-sphere disaggregation. */
+/** One fiscal-year row plus its collapsed detail row: the reserve movements and (informational, D-plan item 3)
+ * the per-sphere disaggregation. The overdue amount is emphasised by the row model ([ReportCell.Money.emphasize]). */
 private fun renderUseOfFundsYearRow(
-    panel: SimplePanel,
+    report: Table,
     year: UseOfFundsYearDto,
+    data: ReportRow,
 ) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border-bottom py-1") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(year.fiscalYear.toString()) { width = 100.px }
-    headerRow.moneySpan(year.fundsReceived).width = 110.px
-    headerRow.moneySpan(year.fundsUsed).width = 130.px
-    headerRow.moneySpan(year.fundsAllocatedToReserves, warnIfNegative = true).width = 140.px
-    headerRow.moneySpan(year.timelyUseObligationRemaining).width = 110.px
-    val overdueSpan = headerRow.moneySpan(year.overdueAmount)
-    overdueSpan.width = 110.px
-    if (hasOverdueAmount(year.overdueAmount)) overdueSpan.addCssClasses("text-danger fw-bold")
-    val toggleButton =
-        headerRow.button(tr("Details ein-/ausblenden"), style = ButtonStyle.OUTLINESECONDARY) {
-            addCssClasses("flex-grow-1")
-        }
-
-    val detailPanel = row.vPanel(spacing = 8) { hide() }
-    var expanded = false
-    toggleButton.onClick {
-        expanded = !expanded
-        if (expanded) {
-            detailPanel.removeAll()
-            renderReserveMovementsTable(detailPanel, year.reserveMovements)
-            renderSphereAmountTable(detailPanel, tr("Mittelzufluss nach Sphäre (informativ)"), year.receivedBySphere)
-            renderSphereAmountTable(detailPanel, tr("Mittelverwendung nach Sphäre (informativ)"), year.usedBySphere)
-            detailPanel.show()
-        } else {
-            detailPanel.hide()
-        }
+    val rowId = "lapis-year-${year.fiscalYear}"
+    lateinit var detail: Row
+    report.reportRow(data, USE_OF_FUNDS_HEADERS) {
+        cell { expandToggleButton(year.fiscalYear.toString(), rowId) { expanded -> detail.setExpanded(expanded) } }
     }
+    detail =
+        report.detailRow(rowId, USE_OF_FUNDS_HEADERS.size) { detailCell ->
+            renderReserveMovementsTable(detailCell, year.reserveMovements)
+            renderSphereAmountTable(detailCell, tr("Mittelzufluss nach Sphäre (informativ)"), year.receivedBySphere)
+            renderSphereAmountTable(detailCell, tr("Mittelverwendung nach Sphäre (informativ)"), year.usedBySphere)
+        }
 }
 
-/** D4: the `FREIE_RUECKLAGE` row gets its own inline "(gesetzliche Obergrenze hier nicht
- * geprüft)" caveat -- Norman's "constraints visible at point of use", not just once in the
- * top banner. */
-private fun renderReserveMovementsTable(
-    panel: SimplePanel,
+/** D4: the `FREIE_RUECKLAGE` row gets its own inline "(gesetzliche Obergrenze hier nicht geprüft)" caveat --
+ * Norman's "constraints visible at point of use", not just once in the top banner -- as a note row right
+ * after the affected row. */
+internal fun renderReserveMovementsTable(
+    panel: Container,
     movements: List<ReserveMovementDto>,
 ) {
-    panel.p(tr("Rücklagenbewegungen (§62 AO)")) { addCssClasses("fw-bold small") }
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div(tr("Rücklagenart")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Zuführung/Auflösung")) { width = 140.px }
-    headerRow.div(tr("Schlussstand")) { width = 120.px }
-
-    movements.forEach { movement ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        val labelCell = row.div { addCssClasses("flex-grow-1") }
-        labelCell.typeBadge(reserveTypeLabel(movement.reserveType), reserveTypeColor(movement.reserveType))
-        row.moneySpan(movement.allocated, warnIfNegative = true).width = 140.px
-        row.moneySpan(movement.closingBalance).width = 120.px
-
-        if (movement.reserveType == ReserveType.FREIE_RUECKLAGE) {
-            panel.div(tr("(gesetzliche Obergrenze hier nicht geprüft)")) { addCssClasses("text-muted small ps-2") }
-        }
-    }
+    val report = panel.reportTable(caption = tr("Rücklagenbewegungen (§62 AO)"), headers = RESERVE_MOVEMENT_HEADERS)
+    report.reportRows(reserveMovementRows(movements), RESERVE_MOVEMENT_HEADERS)
 }
 
-private fun renderSphereAmountTable(
-    panel: SimplePanel,
+internal fun renderSphereAmountTable(
+    panel: Container,
     title: String,
     amounts: List<SphereAmountDto>,
 ) {
-    panel.p(title) { addCssClasses("fw-bold small") }
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom pb-1 small") }
-    headerRow.div(tr("Sphäre")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Betrag")) { width = 120.px }
-
-    amounts.forEach { entry ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        val labelCell = row.div { addCssClasses("flex-grow-1") }
-        labelCell.typeBadge(sphereLabel(entry.sphere), sphereColor(entry.sphere))
-        row.moneySpan(entry.amount).width = 120.px
-    }
+    val report = panel.reportTable(caption = title, headers = SPHERE_AMOUNT_HEADERS)
+    report.reportRows(sphereAmountRows(amounts), SPHERE_AMOUNT_HEADERS)
 }
 
 // ============================================================================================
@@ -422,28 +404,32 @@ private fun renderVatReturnPreviewView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 8)
+    // getVatReturnPreview requires BOTH bounds (unlike listJournal/getFourSphereIncomeStatement's
+    // optional `from` -- "seit Gründung" has no defensible meaning for a UStVA-shaped period,
+    // which is always a specific Voranmeldungszeitraum, never an open-ended one).
+    val section =
+        panel.dataSection<VatReturnPreviewDto>(
+            isEmpty = { false },
+            load = {
+                val to = filterControls.parseTo()
+                val from = filterControls.parseFrom()
+                if (to == null || from == null) {
+                    null
+                } else {
+                    guarded { rpcService<IAccountingService>().getVatReturnPreview(from = from, to = to) }
+                }
+            },
+            render = { body, preview -> renderVatReturnPreviewBody(body, preview) },
+        )
 
     fun load() {
         errorBox.hide()
-        // getVatReturnPreview requires BOTH bounds (unlike listJournal/getFourSphereIncomeStatement's
-        // optional `from` -- "seit Gründung" has no defensible meaning for a UStVA-shaped period,
-        // which is always a specific Voranmeldungszeitraum, never an open-ended one).
-        val to = filterControls.parseTo()
-        val from = filterControls.parseFrom()
-        if (to == null || from == null) {
+        if (filterControls.parseTo() == null || filterControls.parseFrom() == null) {
             errorBox.content = tr("Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val preview =
-                guarded { rpcService<IAccountingService>().getVatReturnPreview(from = from, to = to) } ?: return@launch
-            resultPanel.removeAll()
-            renderVatReturnPreviewBody(resultPanel, preview)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
@@ -455,20 +441,18 @@ private fun renderVatReturnPreviewView(panel: SimplePanel) {
  * (nicht auf einem eigenen Screen), weil es hier -- und nur hier -- einen konkreten Kontext gibt,
  * in dem die Aktivierung sofort etwas verändert.
  */
-private fun renderVatAdminGateSection(root: SimplePanel) {
+internal fun renderVatAdminGateSection(root: SimplePanel) {
     val gatePanel = root.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    gatePanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-
-    fun loadSettings() {
-        gatePanel.removeAll()
-        gatePanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val settings = guarded { rpcService<IVatService>().getVatSettings() } ?: return@launch
-            gatePanel.removeAll()
-            renderVatGateSummary(gatePanel, settings, onChanged = ::loadSettings)
-        }
-    }
-    loadSettings()
+    // Audit V1.4.27 (F): `dataSection` instead of "Wird geladen ..." forever (`?: return@launch`) when the load fails --
+    // the gate shows the error state with "Erneut versuchen" (and reloads itself after every change).
+    lateinit var section: DataSection
+    section =
+        gatePanel.dataSection<VatSettingsDto>(
+            isEmpty = { false },
+            load = { guarded { rpcService<IVatService>().getVatSettings() } },
+            render = { body, settings -> renderVatGateSummary(body, settings, onChanged = { section.reload() }) },
+        )
+    section.reload()
 }
 
 private fun renderVatGateSummary(
@@ -656,41 +640,19 @@ private fun renderVatReturnPreviewBody(
     }
 }
 
-private fun renderVatRateLinesTable(
-    panel: SimplePanel,
+internal fun renderVatRateLinesTable(
+    panel: Container,
     title: String,
     lines: List<VatRateLineDto>,
     total: Decimal,
 ) {
-    panel.p(title) { addCssClasses("fw-bold small mt-2") }
     if (lines.isEmpty()) {
+        panel.p(title) { addCssClasses("fw-bold small mt-2") }
         panel.p(tr("Keine Buchungen in dieser Kategorie.")) { addCssClasses("text-muted small") }
         return
     }
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div(tr("Satz")) { width = 100.px }
-    headerRow.div(tr("Brutto")) { width = 120.px }
-    headerRow.div(tr("Netto")) { width = 120.px }
-    headerRow.div(tr("USt")) { width = 120.px }
-    headerRow.div(tr("Anzahl")) { width = 80.px }
-    headerRow.div("") { addCssClasses("flex-grow-1") }
-
-    lines.forEach { line ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center small") }
-        row.div(vatRateLabel(line.rate)) { width = 100.px }
-        row.moneySpan(line.grossTotal).width = 120.px
-        row.moneySpan(line.netTotal).width = 120.px
-        row.moneySpan(line.vatTotal).width = 120.px
-        row.div(line.postingCount.toString()) { width = 80.px }
-        row.div("") { addCssClasses("flex-grow-1") }
-    }
-    val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1 small") }
-    totalRow.div(tr("Gesamt")) { width = 100.px }
-    totalRow.div("") { width = 120.px }
-    totalRow.div("") { width = 120.px }
-    totalRow.moneySpan(total).width = 120.px
-    totalRow.div("") { width = 80.px }
-    totalRow.div("") { addCssClasses("flex-grow-1") }
+    val report = panel.reportTable(caption = title, headers = VAT_RATE_HEADERS)
+    report.reportRows(vatRateLineRows(lines, total), VAT_RATE_HEADERS)
 }
 
 // Not `private` -- covered by NonprofitComplianceReportsScreenTest.kt, same posture as

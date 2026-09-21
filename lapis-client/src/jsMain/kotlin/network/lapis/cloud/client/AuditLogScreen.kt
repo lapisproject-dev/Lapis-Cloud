@@ -3,17 +3,18 @@ package network.lapis.cloud.client
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
@@ -93,6 +94,7 @@ fun renderAuditLogScreen(container: SimplePanel) {
     val toInput = filterRow2.text(label = tr("Bis (JJJJ-MM-TTTHH:MM:SS, optional)"))
     val filterButton = filterRow2.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
+    val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
@@ -101,6 +103,12 @@ fun renderAuditLogScreen(container: SimplePanel) {
     detailPanel.p(tr("Eintrag oben auswählen, um Details zu sehen."))
 
     var lastLoadedSequenceNumber: Long? = null
+    // Welle V1.4.27 (W3): the list is a `dataTable` over ALL entries loaded so far ("Mehr laden" appends a page and
+    // re-renders the table). NOT sortable, on purpose: the list is keyset-paginated (`beforeSequenceNumber`) and the
+    // server has no sort parameter, so re-ordering the loaded subset would contradict the order of the next page
+    // (guideline 2.4 "a cursor or offset list gets none").
+    var loadedEntries: List<AuditLogEntryDto> = emptyList()
+    var generation = 0
 
     fun buildQuery(beforeSequenceNumber: Long?): AuditLogListQuery =
         AuditLogListQuery(
@@ -117,22 +125,51 @@ fun renderAuditLogScreen(container: SimplePanel) {
         renderAuditLogDetail(detailPanel, id)
     }
 
-    fun loadPage(reset: Boolean) {
-        if (reset) {
-            listPanel.removeAll()
-            lastLoadedSequenceNumber = null
+    fun renderEntries() {
+        listPanel.removeAll()
+        if (loadedEntries.isEmpty()) {
+            listPanel.p(tr("Keine Einträge für diese Filter gefunden."))
+            return
         }
+        listPanel.dataTable(
+            columns = auditLogColumns(),
+            rows = loadedEntries,
+            actions = { actions, entry ->
+                actions.tableActionButton("fas fa-eye", tr("Details anzeigen")).onClick { selectEntry(entry.id) }
+            },
+        )
+    }
+
+    fun loadPage(reset: Boolean) {
+        generation++
+        val mine = generation
+        if (reset) {
+            loadedEntries = emptyList()
+            lastLoadedSequenceNumber = null
+            listPanel.removeAll()
+            loadMoreButton.hide()
+        }
+        statusRegion.showLoading()
         AppScope.launch {
             val entries =
                 guarded {
                     rpcService<IAuditLogService>().listAuditLog(buildQuery(if (reset) null else lastLoadedSequenceNumber))
-                } ?: return@launch
+                }
+            if (mine != generation) return@launch // a newer load has taken over
+            statusRegion.clearStatus()
+            if (entries == null) {
+                // A failed FIRST page is an error state with a retry (Lehre 7); a failed "Mehr laden" keeps the
+                // pages already on screen and leaves the toast of `guarded` as the message.
+                if (reset) listPanel.dataErrorState(onRetry = { loadPage(reset = true) })
+                return@launch
+            }
             if (entries.isEmpty()) {
-                if (reset) listPanel.p(tr("Keine Einträge für diese Filter gefunden."))
+                if (reset) renderEntries()
                 loadMoreButton.hide()
                 return@launch
             }
-            entries.forEach { entry -> renderAuditLogRow(listPanel, entry, ::selectEntry) }
+            loadedEntries = loadedEntries + entries
+            renderEntries()
             lastLoadedSequenceNumber = entries.last().sequenceNumber
             if (entries.size < AUDIT_LOG_PAGE_SIZE) loadMoreButton.hide() else loadMoreButton.show()
         }
@@ -234,24 +271,31 @@ const val CHAIN_VERIFICATION_BROKEN_GUIDANCE =
 // List row
 // ================================================================================================
 
-private fun renderAuditLogRow(
-    panel: SimplePanel,
-    entry: AuditLogEntryDto,
-    onSelect: (String) -> Unit,
-) {
-    val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
-    headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
-    headerRow.div(gettext("Seq. %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 text-muted small") }
-
-    row.div(gettext("%1 · %2 · Entität %3", entry.occurredAt, actorDisplayText(entry), entry.entityId)) {
-        addCssClasses("text-muted small")
-    }
-
-    val showButton = row.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
-    showButton.onClick { onSelect(entry.id) }
-}
+/**
+ * Columns of the audit list / card list. The timestamp is the identity of an entry and thus the card title; the
+ * sequence number is numeric. (Before W3 every entry was a bordered card of its own with the same facts strung
+ * together in one text line.)
+ */
+private fun auditLogColumns(): List<DataColumn<AuditLogEntryDto>> =
+    listOf(
+        textColumn(title = tr("Zeitpunkt"), primary = true) { entry: AuditLogEntryDto -> entry.occurredAt.toString() },
+        DataColumn(
+            title = tr("Entitätstyp"),
+            cell = {
+                container,
+                entry,
+                ->
+                container.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
+            },
+        ),
+        DataColumn(
+            title = tr("Aktion"),
+            cell = { container, entry -> container.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action)) },
+        ),
+        textColumn(title = tr("Seq."), numeric = true) { entry: AuditLogEntryDto -> entry.sequenceNumber.toString() },
+        textColumn(title = tr("Akteur")) { entry: AuditLogEntryDto -> actorDisplayText(entry) },
+        textColumn(title = tr("Entität")) { entry: AuditLogEntryDto -> entry.entityId },
+    )
 
 /** `actorMemberId`/`actorRole` are both `null` only for the reserved, currently-unused future
  * SYSTEM/job actor -- see [AuditLogEntryDto] KDoc; every V0.5.3 write path names a real member
@@ -265,30 +309,38 @@ private fun actorDisplayText(entry: AuditLogEntryDto): String {
 // Detail view
 // ================================================================================================
 
-private fun renderAuditLogDetail(
+internal fun renderAuditLogDetail(
     panel: SimplePanel,
     id: String,
 ) {
     panel.removeAll()
-    panel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-    AppScope.launch {
-        val entry = guarded { rpcService<IAuditLogService>().getAuditLogEntry(id) } ?: return@launch
-        panel.removeAll()
+    // Audit V1.4.27 (F): `dataSection` instead of "Wird geladen ..." forever (`?: return@launch`) when the load fails --
+    // a failed detail is an error state in the page with "Erneut versuchen" (a new selection builds a new section).
+    panel
+        .dataSection<AuditLogEntryDto>(
+            isEmpty = { false },
+            load = { guarded { rpcService<IAuditLogService>().getAuditLogEntry(id) } },
+            render = { body, entry -> renderAuditLogDetailBody(body, entry) },
+        ).reload()
+}
 
-        val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
-        headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
-        headerRow.div(gettext("Sequenznummer %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 fw-bold") }
+private fun renderAuditLogDetailBody(
+    panel: SimplePanel,
+    entry: AuditLogEntryDto,
+) {
+    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    headerRow.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
+    headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
+    headerRow.div(gettext("Sequenznummer %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 fw-bold") }
 
-        panel.div(gettext("Zeitpunkt: %1", entry.occurredAt)) { addCssClasses("text-muted small") }
-        panel.div(gettext("Akteur: %1", actorDisplayText(entry))) { addCssClasses("text-muted small") }
-        panel.div(gettext("Entität: %1", entry.entityId)) { addCssClasses("text-muted small") }
-        auditEntityRoute(entry.entityType, entry.entityId)?.let { route ->
-            panel.button(tr("In „Offene Posten“ öffnen"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo(route) }
-        }
-
-        renderSnapshotSection(panel, entry)
+    panel.div(gettext("Zeitpunkt: %1", entry.occurredAt)) { addCssClasses("text-muted small") }
+    panel.div(gettext("Akteur: %1", actorDisplayText(entry))) { addCssClasses("text-muted small") }
+    panel.div(gettext("Entität: %1", entry.entityId)) { addCssClasses("text-muted small") }
+    auditEntityRoute(entry.entityType, entry.entityId)?.let { route ->
+        panel.button(tr("In „Offene Posten“ öffnen"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo(route) }
     }
+
+    renderSnapshotSection(panel, entry)
 }
 
 /**
@@ -484,126 +536,102 @@ private fun renderSnapshotBody(
     }
 }
 
-private fun SimplePanel.labelValueRow(
+private fun Tag.labelValueRow(
     label: String,
     value: String,
-) {
-    val row = hPanel(spacing = 8) { addCssClasses("small") }
-    row.div("$label:") {
-        addCssClasses("text-muted")
-        width = 220.px
-    }
-    row.div(value) { addCssClasses("flex-grow-1") }
-}
+) = detailEntry("$label:") { span(value) }
 
 /** [statusBadge] grammar (filled) -- for a snapshot field that is a lifecycle status. */
-private fun SimplePanel.labelStatusBadgeRow(
+private fun Tag.labelStatusBadgeRow(
     label: String,
     badgeText: String,
     badgeColor: String,
-) {
-    val row = hPanel(spacing = 8) { addCssClasses("small align-items-center") }
-    row.div("$label:") {
-        addCssClasses("text-muted")
-        width = 220.px
-    }
-    row.statusBadge(badgeText, badgeColor)
-}
+) = detailEntry("$label:") { statusBadge(badgeText, badgeColor) }
 
 /** [typeBadge] grammar (outline) -- for a snapshot field that is a fixed classification. */
-private fun SimplePanel.labelTypeBadgeRow(
+private fun Tag.labelTypeBadgeRow(
     label: String,
     badgeText: String,
     badgeColor: String,
-) {
-    val row = hPanel(spacing = 8) { addCssClasses("small align-items-center") }
-    row.div("$label:") {
-        addCssClasses("text-muted")
-        width = 220.px
-    }
-    row.typeBadge(badgeText, badgeColor)
-}
+) = detailEntry("$label:") { typeBadge(badgeText, badgeColor) }
 
-private fun renderJournalEntrySnapshotBody(
+internal fun renderJournalEntrySnapshotBody(
     panel: SimplePanel,
     snapshot: JournalEntrySnapshot,
 ) {
-    panel.labelValueRow(gettext("Datum"), snapshot.entryDate.toString())
-    panel.labelValueRow(gettext("Beschreibung"), snapshot.description)
-    snapshot.voucherReference?.let { panel.labelValueRow(gettext("Beleg"), it) }
-    panel.labelStatusBadgeRow(gettext("Status"), journalEntryStatusLabel(snapshot.status), journalEntryStatusColor(snapshot.status))
-    snapshot.postedAt?.let { panel.labelValueRow(gettext("Gebucht am"), it.toString()) }
-    panel.labelValueRow(gettext("Erfasst von (Mitglieds-ID)"), snapshot.createdBy)
-    snapshot.donorMemberId?.let { panel.labelValueRow(gettext("Spendendes Mitglied (ID)"), it) }
-    snapshot.externalDonorId?.let { panel.labelValueRow(gettext("Externer Spender (ID)"), it) }
-    snapshot.donorCategory?.let { panel.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
+    val details = panel.detailList()
+    details.labelValueRow(gettext("Datum"), snapshot.entryDate.toString())
+    details.labelValueRow(gettext("Beschreibung"), snapshot.description)
+    snapshot.voucherReference?.let { details.labelValueRow(gettext("Beleg"), it) }
+    details.labelStatusBadgeRow(gettext("Status"), journalEntryStatusLabel(snapshot.status), journalEntryStatusColor(snapshot.status))
+    snapshot.postedAt?.let { details.labelValueRow(gettext("Gebucht am"), it.toString()) }
+    details.labelValueRow(gettext("Erfasst von (Mitglieds-ID)"), snapshot.createdBy)
+    snapshot.donorMemberId?.let { details.labelValueRow(gettext("Spendendes Mitglied (ID)"), it) }
+    snapshot.externalDonorId?.let { details.labelValueRow(gettext("Externer Spender (ID)"), it) }
+    snapshot.donorCategory?.let { details.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
 
     if (snapshot.postings.isNotEmpty()) {
-        panel.div(tr("Buchungszeilen:")) { addCssClasses("text-muted small mt-1") }
-        val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-        headerRow.div(tr("Konto (ID)")) { addCssClasses("flex-grow-1") }
-        headerRow.div(tr("Soll/Haben")) { width = 90.px }
-        headerRow.div(tr("Betrag")) { width = 100.px }
-        headerRow.div(tr("Sphäre")) { width = 190.px }
-        snapshot.postings.forEach { posting ->
-            val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 small align-items-center") }
-            row.div(posting.ledgerAccountId) {
-                addCssClasses("flex-grow-1 text-truncate")
-                width = 200.px
-            }
-            row.div(postingSideLabel(posting.side)) { width = 90.px }
-            row.div(formatMoney(posting.amount)) { width = 100.px }
-            val sphereCell = row.div { width = 190.px }
-            sphereCell.typeBadge(sphereLabel(posting.sphere), sphereColor(posting.sphere))
-        }
+        val report = panel.reportTable(caption = tr("Buchungszeilen:"), headers = SNAPSHOT_POSTING_HEADERS)
+        report.reportRows(journalPostingSnapshotRows(snapshot.postings), SNAPSHOT_POSTING_HEADERS)
     }
 }
+
+private val SNAPSHOT_POSTING_HEADERS =
+    listOf(
+        TableHeader(title = tr("Konto (ID)")),
+        TableHeader(title = tr("Soll/Haben")),
+        TableHeader(title = tr("Betrag"), numeric = true),
+        TableHeader(title = tr("Sphäre")),
+    )
 
 private fun renderResolutionSnapshotBody(
     panel: SimplePanel,
     snapshot: ResolutionSnapshot,
 ) {
-    panel.labelValueRow(gettext("Sitzung (ID)"), snapshot.meetingId)
-    panel.labelValueRow(gettext("Nummer"), snapshot.number)
-    panel.labelValueRow(gettext("Titel"), snapshot.title)
-    panel.labelValueRow(gettext("Text"), snapshot.text)
-    panel.labelValueRow(
+    val details = panel.detailList()
+    details.labelValueRow(gettext("Sitzung (ID)"), snapshot.meetingId)
+    details.labelValueRow(gettext("Nummer"), snapshot.number)
+    details.labelValueRow(gettext("Titel"), snapshot.title)
+    details.labelValueRow(gettext("Text"), snapshot.text)
+    details.labelValueRow(
         gettext("Abstimmung"),
         gettext("Ja: %1 · Nein: %2 · Enthaltung: %3", snapshot.votesYes, snapshot.votesNo, snapshot.votesAbstain),
     )
-    panel.labelValueRow(gettext("Quorum erreicht"), if (snapshot.quorumMet) tr("Ja") else tr("Nein"))
-    panel.labelStatusBadgeRow(gettext("Status"), resolutionStatusLabel(snapshot.status), resolutionStatusColor(snapshot.status))
-    panel.labelTypeBadgeRow(
+    details.labelValueRow(gettext("Quorum erreicht"), if (snapshot.quorumMet) tr("Ja") else tr("Nein"))
+    details.labelStatusBadgeRow(gettext("Status"), resolutionStatusLabel(snapshot.status), resolutionStatusColor(snapshot.status))
+    details.labelTypeBadgeRow(
         gettext("Verfahren"),
         resolutionModeLabel(snapshot.resolutionMode),
         resolutionModeColor(snapshot.resolutionMode),
     )
-    panel.labelValueRow(gettext("Entschieden am"), snapshot.decidedAt.toString())
-    panel.labelValueRow(gettext("Protokolliert von (ID)"), snapshot.recordedBy)
+    details.labelValueRow(gettext("Entschieden am"), snapshot.decidedAt.toString())
+    details.labelValueRow(gettext("Protokolliert von (ID)"), snapshot.recordedBy)
 }
 
 private fun renderBoardMembershipSnapshotBody(
     panel: SimplePanel,
     snapshot: BoardMembershipSnapshot,
 ) {
-    panel.labelValueRow(gettext("Mitglied (ID)"), snapshot.memberId)
-    panel.labelTypeBadgeRow(gettext("Rolle"), committeeRoleLabel(snapshot.committeeRole), committeeRoleColor(snapshot.committeeRole))
-    panel.labelValueRow(gettext("Beginn"), snapshot.startedAt.toString())
-    panel.labelValueRow(gettext("Ende"), snapshot.endedAt?.toString() ?: tr("laufend"))
+    val details = panel.detailList()
+    details.labelValueRow(gettext("Mitglied (ID)"), snapshot.memberId)
+    details.labelTypeBadgeRow(gettext("Rolle"), committeeRoleLabel(snapshot.committeeRole), committeeRoleColor(snapshot.committeeRole))
+    details.labelValueRow(gettext("Beginn"), snapshot.startedAt.toString())
+    details.labelValueRow(gettext("Ende"), snapshot.endedAt?.toString() ?: tr("laufend"))
 }
 
 private fun renderPartyDonationVerdictSnapshotBody(
     panel: SimplePanel,
     snapshot: PartyDonationVerdictSnapshot,
 ) {
-    panel.labelTypeBadgeRow(
+    val details = panel.detailList()
+    details.labelTypeBadgeRow(
         gettext("Spenderkategorie"),
         donorCategoryLabel(snapshot.donorCategory),
         donorCategoryColor(snapshot.donorCategory),
     )
-    panel.labelValueRow(gettext("Spendenbetrag"), formatMoney(snapshot.donationAmount))
-    panel.labelValueRow(gettext("Bisherige Jahressumme (vor dieser Spende)"), formatMoney(snapshot.priorPostedTotalThisYear))
-    panel.labelValueRow(gettext("Prüfergebnis"), snapshot.verdict)
+    details.labelValueRow(gettext("Spendenbetrag"), formatMoney(snapshot.donationAmount))
+    details.labelValueRow(gettext("Bisherige Jahressumme (vor dieser Spende)"), formatMoney(snapshot.priorPostedTotalThisYear))
+    details.labelValueRow(gettext("Prüfergebnis"), snapshot.verdict)
     if (snapshot.duties.isNotEmpty()) {
         panel.div(tr("Pflichten:")) { addCssClasses("text-muted small mt-1") }
         val row = panel.hPanel(spacing = 4) { addCssClasses("flex-wrap") }
@@ -618,9 +646,10 @@ private fun renderOrganizationSettingsPaymentMappingSnapshotBody(
     panel: SimplePanel,
     snapshot: OrganizationSettingsPaymentMappingSnapshot,
 ) {
-    panel.labelValueRow(gettext("Bankkonto (LedgerAccount-ID)"), snapshot.paymentBankAccountId ?: tr("nicht konfiguriert"))
-    panel.labelValueRow(gettext("Gebührenkonto (LedgerAccount-ID)"), snapshot.paymentFeeAccountId ?: tr("nicht konfiguriert"))
-    panel.labelValueRow(
+    val details = panel.detailList()
+    details.labelValueRow(gettext("Bankkonto (LedgerAccount-ID)"), snapshot.paymentBankAccountId ?: tr("nicht konfiguriert"))
+    details.labelValueRow(gettext("Gebührenkonto (LedgerAccount-ID)"), snapshot.paymentFeeAccountId ?: tr("nicht konfiguriert"))
+    details.labelValueRow(
         gettext("Beitragserlöskonto (LedgerAccount-ID)"),
         snapshot.contributionIncomeAccountId ?: tr("nicht konfiguriert"),
     )
@@ -631,18 +660,19 @@ private fun renderPaymentTransactionSnapshotBody(
     panel: SimplePanel,
     snapshot: PaymentTransactionSnapshot,
 ) {
-    panel.labelTypeBadgeRow(gettext("Anbieter"), paymentProviderLabel(snapshot.provider), paymentProviderColor(snapshot.provider))
-    panel.labelStatusBadgeRow(
+    val details = panel.detailList()
+    details.labelTypeBadgeRow(gettext("Anbieter"), paymentProviderLabel(snapshot.provider), paymentProviderColor(snapshot.provider))
+    details.labelStatusBadgeRow(
         gettext("Status"),
         paymentTransactionStatusLabel(snapshot.status),
         paymentTransactionStatusColor(snapshot.status),
     )
-    panel.labelValueRow(gettext("Betrag"), formatMoney(snapshot.amount))
-    panel.labelTypeBadgeRow(gettext("Art"), paymentIntentLabel(snapshot.intent), paymentIntentColor(snapshot.intent))
-    snapshot.contributionId?.let { panel.labelValueRow(gettext("Beitrag (ID)"), it) }
-    snapshot.memberId?.let { panel.labelValueRow(gettext("Mitglied (ID)"), it) }
-    snapshot.donorCategory?.let { panel.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
-    snapshot.journalEntryId?.let { panel.labelValueRow(gettext("Journalbuchung (ID)"), it) }
+    details.labelValueRow(gettext("Betrag"), formatMoney(snapshot.amount))
+    details.labelTypeBadgeRow(gettext("Art"), paymentIntentLabel(snapshot.intent), paymentIntentColor(snapshot.intent))
+    snapshot.contributionId?.let { details.labelValueRow(gettext("Beitrag (ID)"), it) }
+    snapshot.memberId?.let { details.labelValueRow(gettext("Mitglied (ID)"), it) }
+    snapshot.donorCategory?.let { details.labelTypeBadgeRow(gettext("Spenderkategorie"), donorCategoryLabel(it), donorCategoryColor(it)) }
+    snapshot.journalEntryId?.let { details.labelValueRow(gettext("Journalbuchung (ID)"), it) }
 }
 
 /** D2: never silently drop the data -- a future `entityType` this client predates, or malformed

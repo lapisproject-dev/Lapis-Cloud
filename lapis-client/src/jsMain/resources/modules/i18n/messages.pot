@@ -11478,3 +11478,63 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
 msgid "Keine Ehrung in der Kategorie \"%1\"."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataScreenLayout.kt
+msgid "Details %1 ein-/ausblenden"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Berichtsart"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Kennzahl"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Aktion"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Seq."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Akteur"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Entität"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "v%1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Datei"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Größe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen von"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen am"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Änderungshinweis"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Downloads"
+msgstr ""

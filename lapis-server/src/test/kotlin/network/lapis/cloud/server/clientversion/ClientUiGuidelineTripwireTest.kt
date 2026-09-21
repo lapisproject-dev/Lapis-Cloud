@@ -46,6 +46,7 @@ private const val R9 = "R9 no colour literal (hex, rgb/rgba/hsl/hsla, 0xRRGGBB)"
 private const val R14 = "R14 table without STRIPED+HOVER+SMALL"
 private const val R15 = "R15 table without RESPONSIVE"
 private const val R39 = "R39 icon-only button without title+aria-label"
+private const val R55 = "R55 fixed px width (pseudo-table column)"
 
 /**
  * The one `button("", icon = ...)` that is justified without `title`/`aria-label` in its own call: the
@@ -84,22 +85,17 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
             ),
         R14 to
             mapOf(
-                // W3 accounting export
+                // W4 accounting export
                 "AccountingExportScreen.kt" to
                     listOf(
                         "itemsPanel.table(",
                         "panel.table(",
                         "panel.table(",
                     ),
-                // W3 banking
+                // W4 banking
                 "BankStatementImportScreen.kt" to
                     listOf(
                         "lineTable = lineTableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
-                    ),
-                // W3 cost centres (the screen also carries the pseudo-table report part)
-                "CostCentersScreen.kt" to
-                    listOf(
-                        "listPanel.table(",
                     ),
                 // W4 dunning settings
                 "DunningSettingsScreen.kt" to
@@ -119,14 +115,14 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
             ),
         R15 to
             mapOf(
-                // W3 accounting export
+                // W4 accounting export
                 "AccountingExportScreen.kt" to
                     listOf(
                         "itemsPanel.table(",
                         "panel.table(",
                         "panel.table(",
                     ),
-                // W3 banking
+                // W4 banking
                 "BankStatementImportScreen.kt" to
                     listOf(
                         "lineTable = lineTableHost.table(headerNames = headers, types = setOf(TableType.STRIPED, TableType.HOVER))",
@@ -166,6 +162,57 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                 "MemberPasswordResetDialog.kt" to
                     listOf(
                         "val regenerateButton = passwordRow.button(\"\", icon = \"fas fa-rotate\", style = ButtonStyle.OUTLINESECONDARY)",
+                    ),
+            ),
+        // Welle V1.4.27 (W3): the pseudo-table columns (`width = N.px` on a row/header cell). The report and list
+        // screens of W3 pay their lines off as they are migrated. What stays afterwards is NOT "form screens" (audit
+        // finding B1): AuctionScreen, CrowdfundingScreen and PoliticianScreen are HAND-BUILT PSEUDO-TABLES (header row plus
+        // one `hPanel` row per entry with fixed column widths) that W3 did not reach -- they belong to a remainder wave
+        // ("Restwelle"; the guideline names W5 for the social/economy screens) and become `dataTable`/`reportTable`
+        // there. Only SocialNetworkScreen's line is a genuine form field (the boost amount input), not a table.
+        R55 to
+            mapOf(
+                // Pseudo-table (bids list) -> remainder wave (W5).
+                "AuctionScreen.kt" to
+                    listOf(
+                        "headerRow.div(tr(\"Ihr Höchstgebot\")) { width = 140.px }",
+                        "headerRow.div(tr(\"Führend\")) { width = 90.px }",
+                        "headerRow.div(tr(\"Status\")) { width = 160.px }",
+                        "headerRow.div(tr(\"Abgegeben\")) { width = 160.px }",
+                        "val bidCell = row.div { width = 140.px }",
+                        "row.div(if (bid.isCurrentLeader) tr(\"Ja\") else tr(\"Nein\")) { width = 90.px }",
+                        "val statusCell = row.div { width = 160.px }",
+                        "width = 160.px",
+                    ),
+                // Pseudo-table (distribution history) -> remainder wave (W5).
+                "CrowdfundingScreen.kt" to
+                    listOf(
+                        "headerRow.div(tr(\"Zeitraum\")) { width = 200.px }",
+                        "headerRow.div(tr(\"Korb\")) { width = 70.px }",
+                        "headerRow.div(tr(\"Betrag\")) { width = 120.px }",
+                        "headerRow.div(tr(\"Berechnet\")) { width = 220.px }",
+                        "width = 200.px",
+                        "row.div(d.basketTotalAtDistribution.toString()) { width = 70.px }",
+                        "val amountCell = row.div { width = 120.px }",
+                        "width = 220.px",
+                    ),
+                // Pseudo-tables (ranking, monthly weight snapshots) -> remainder wave (W5).
+                "PoliticianScreen.kt" to
+                    listOf(
+                        "row.div(\"\${index + 1}.\") { width = 24.px }",
+                        "headerRow.div(tr(\"Monat\")) { width = 100.px }",
+                        "headerRow.div(tr(\"Mitglieder-Gewicht\")) { width = 160.px }",
+                        "headerRow.div(tr(\"Gast-Gewicht\")) { width = 110.px }",
+                        "headerRow.div(tr(\"Gesamt\")) { width = 90.px }",
+                        "row.div(snapshot.periodMonth.toString()) { width = 100.px }",
+                        "val memberCell = row.div { width = 160.px }",
+                        "width = 110.px",
+                        "width = 90.px",
+                    ),
+                // NOT a table: one genuine form field (fixed-width amount input) -> form wave (W4).
+                "SocialNetworkScreen.kt" to
+                    listOf(
+                        "val amountInput = row.text(label = tr(\"Boost-Betrag (LTR)\")) { width = 140.px }",
                     ),
             ),
     )
@@ -238,6 +285,7 @@ private fun callWithTrailingLambda(
  * at the start of a line (`panel\n    .table(`), the call chain the first version of this regex missed.
  */
 private val TABLE_CALL = Regex("""(?<![A-Za-z0-9_])table\(""")
+private val ANY_FIXED_WIDTH = Regex("""(?<![A-Za-z])width\s*=\s*(\d+)\.px""")
 private val FIXED_WIDTH = Regex("""(?<![A-Za-z])width\s*=\s*(\d{3,})\.px""")
 private val COLOUR_LITERAL = Regex("""#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla)\(|\b0x[0-9a-fA-F]{6,8}\b""")
 
@@ -251,6 +299,40 @@ internal fun fixedWideWidthFindings(text: String): List<String> {
         .filter {
             it.groupValues[1].toInt() >= 600
         }.map { fingerprintAt(code = code, offset = it.range.first) }
+        .toList()
+}
+
+/**
+ * R55: any `width = N.px` -- a fixed column width on a row or header cell is the mark of a pseudo-table
+ * (`hPanel` rows built by hand), which the report/table grammar replaces. `maxWidth`/`minWidth` are excluded by
+ * the lookbehind, exactly like R2.
+ */
+internal fun fixedWidthFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    return ANY_FIXED_WIDTH.findAll(code).map { fingerprintAt(code = code, offset = it.range.first) }.toList()
+}
+
+/** `reportTable(` as a call (not `xreportTable(`); the declaration `fun Container.reportTable(` is skipped by its own text. */
+private val REPORT_TABLE_CALL = Regex("""(?<![A-Za-z0-9_])reportTable\(""")
+
+/** Anything that would give a report table sort controls: an `onSort` handler, sort state/options, a sort key. */
+private val SORT_WIRING = Regex("""\b(?:onSort|sortOptions|sortKey|focusSortKey)\b|\bsort\s*=""")
+
+/**
+ * C7c (audit V1.4.27): a `reportTable(...)` call never carries sort wiring. A report is a DOCUMENT (guideline: the
+ * grammar has NO sort buttons and no card list); sortable rows belong to `dataTable`. Honest limit: this is a text
+ * check of the call's own argument list and trailing lambda -- it does not follow a table that is later passed to
+ * other code, and a sort control added by a separate statement after the call is not seen. The runtime side is
+ * `ReportTableDomTest.reportTable_hasNoSortButtonsAndNoCardList`.
+ */
+internal fun reportTableSortFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    return REPORT_TABLE_CALL
+        .findAll(code)
+        // The declaration `fun Container.reportTable(caption, headers, ...)` is not a call site.
+        .filter { !code.substring(maxOf(0, it.range.first - 20), it.range.first).contains("fun Container.") }
+        .filter { SORT_WIRING.containsMatchIn(callWithTrailingLambda(text = code, openParen = it.range.last)) }
+        .map { fingerprintAt(code = code, offset = it.range.first) }
         .toList()
 }
 
@@ -306,6 +388,7 @@ private fun scanFile(
         R14 -> tablesWithoutDensityTypesFindings(text)
         R15 -> tablesWithoutResponsiveFindings(text)
         R39 -> iconOnlyButtonFindings(text).filterNot { it in R39_JUSTIFIED[file.name].orEmpty() }
+        R55 -> fixedWidthFindings(text)
         else -> error("unknown rule $rule")
     }
 }
@@ -557,14 +640,32 @@ class ClientUiGuidelineTripwireTest :
             (clientKotlinFiles().size > 50) shouldBe true
         }
 
-        listOf(R2, R9, R14, R15, R39).forEach { rule ->
+        listOf(R2, R9, R14, R15, R39, R55).forEach { rule ->
             test("$rule: findings per file equal the debt ledger exactly (NEW = new violation, PAID OFF = delete the ledger line)") {
                 ledgerDiff(actual = actualFindings(rule), ledger = BASELINE.getValue(rule)) shouldBe emptyList()
             }
         }
 
-        test("R14/R15 see every table( call of the client, also the ones broken before the dot (9 including the standardTable helper)") {
-            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 9
+        test("R14/R15 see every table( call of the client, also the ones broken before the dot (8 including the standardTable helper)") {
+            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 8
+        }
+
+        test("C7c: no reportTable( call of the client carries sort wiring (a report is never sortable)") {
+            clientKotlinFiles().flatMap { reportTableSortFindings(it.readText()).map { finding -> "${it.name}: $finding" } } shouldBe
+                emptyList()
+            // not vacuous: the client really has report tables, and the scanner finds them
+            (clientKotlinFiles().sumOf { REPORT_TABLE_CALL.findAll(codeOnly(it.readText())).count() } > 10) shouldBe true
+        }
+
+        test("C7c flags a reportTable call with onSort/sort/sortOptions/sortKey, accepts a plain one and a dataTable") {
+            reportTableSortFindings("panel.reportTable(caption = c, headers = h, onSort = { })").size shouldBe 1
+            reportTableSortFindings("panel.reportTable(caption = c, headers = h, sort = state)").size shouldBe 1
+            reportTableSortFindings("panel.reportTable(caption = c, headers = h) { sortOptions = o }").size shouldBe 1
+            reportTableSortFindings("panel.reportTable(caption = c, headers = h)").size shouldBe 0
+            reportTableSortFindings("panel.reportTable(caption = c, headers = h, captionVisible = false)").size shouldBe 0
+            reportTableSortFindings("panel.dataTable(columns = c, rows = r, onSort = { })").size shouldBe 0
+            reportTableSortFindings("// panel.reportTable(caption = c, headers = h, onSort = { })").size shouldBe 0
+            reportTableSortFindings("fun Container.reportTable(caption: String, headers: List<TableHeader>): Table {").size shouldBe 0
         }
 
         test("R39 justified exemption is still needed (a stale exemption must go)") {
@@ -630,6 +731,16 @@ class ClientUiGuidelineTripwireTest :
             fixedWideWidthFindings("maxWidth = 1440.px").size shouldBe 0
             fixedWideWidthFindings("width = 320.px").size shouldBe 0
             fixedWideWidthFindings("// width = 960.px").size shouldBe 0
+        }
+
+        test("R55 flags any fixed px width, ignores maxWidth/minWidth, comments and other units") {
+            fixedWidthFindings("headerRow.div(tr(\"Betrag\")) { width = 130.px }") shouldBe
+                listOf("headerRow.div(tr(\"Betrag\")) { width = 130.px }")
+            fixedWidthFindings("width = 60.px").size shouldBe 1
+            fixedWidthFindings("maxWidth = 900.px").size shouldBe 0
+            fixedWidthFindings("minWidth = 640.px").size shouldBe 0
+            fixedWidthFindings("width = 100.perc").size shouldBe 0
+            fixedWidthFindings("// width = 130.px").size shouldBe 0
         }
 
         test("R9 flags hex, rgb/rgba/hsl/hsla and 0xRRGGBB literals, ignores comments, route anchors and short hex masks") {

@@ -40,6 +40,12 @@
   --lapis-bg:              #FFFFFF;
   --lapis-surface:         #FFFFFF;
   --lapis-surface-sunken:  #F6F7F9;  /* Zebra-Zeilen, Tabellenkopf, inaktive Bereiche */
+  /* V1.4.27 (Audit C): Flaeche der Summen-/Saldozeile eines Berichts -- bewusst ein EIGENES Token und nicht
+     --lapis-surface-sunken: Bootstraps Zebra legt 5 % Schwarz ueber sunken (=> #EBECEF), die Summenzeile in reinem
+     sunken war dadurch HELLER als die Zebrazeile. Kontrast Text (#14181E) 13,4:1, `text-muted` >= 4,5:1. */
+  --lapis-total-surface:   #DBE0E8;
+  /* Warn-Rot (`text-danger`) auf --lapis-total-surface: Bootstraps #DC3545 waere dort 3,4:1; Wert (165,40,52) = 5,4:1. */
+  --lapis-total-danger-rgb: 165, 40, 52;
 
   /* Tinte -- identisch mit der Menüfläche */
   --lapis-text:            #14181E;
@@ -99,6 +105,8 @@
     --lapis-bg:              #14181E;
     --lapis-surface:         #1B2028;
     --lapis-surface-sunken:  #232933;
+    --lapis-total-surface:   #232933;  /* Zebra ist im Dunkelmodus HELLER (5 % Weiss), die Summenzeile bleibt gesenkt */
+    --lapis-total-danger-rgb: 234, 134, 143;  /* #EA868F auf #232933: 5,8:1 (Bootstrap-Rot waere 3,2:1) */
 
     --lapis-text:            #E8E6E0;
     --lapis-muted:           #9AA1AC;
@@ -141,6 +149,8 @@
   --lapis-bg:              #14181E;
   --lapis-surface:         #1B2028;
   --lapis-surface-sunken:  #232933;
+  --lapis-total-surface:   #232933;
+  --lapis-total-danger-rgb: 234, 134, 143;
 
   --lapis-text:            #E8E6E0;
   --lapis-muted:           #9AA1AC;
@@ -1119,6 +1129,128 @@ body {
 
   .table-sm > :not(caption) > * > * {
     padding-block: 2px;
+  }
+}
+
+/* V1.4.27 (W3): Berichtsgrammatik. Ein Dokument ist keine Liste (siehe ui-ux-guideline.adoc): eine echte
+   <table> mit <caption>, Abschnitts-, Summen- und Saldozeilen. Nur --lapis-*-Token, kein Hex, kein
+   !important, keine Transition.
+   Spezifitaet: Bootstraps Zebra `.table-striped > tbody > tr:nth-of-type(odd) > *` hat (0,2,2) und die
+   Zebra-Regel dieser Datei ebenso; die Selektoren unten haben (0,2,3) und gewinnen deshalb OHNE !important.
+   `--bs-table-bg-type` wird mitgesetzt, weil Bootstrap die Zebrafarbe darueber per box-shadow (5 % Schwarz bzw.
+   Weiss ueber die Zeilenfarbe) zeichnet: ein deckender Wert gleicher Farbe macht daraus "keine Zebra-Faerbung".
+   Audit C: die Summen-/Saldozeile hat eine EIGENE Flaeche (--lapis-total-surface), die im Hellmodus dunkler ist
+   als Zebra UND Grundflaeche; die Oberlinie ist --lapis-muted (>= 3:1 gegen beide Flaechen, WCAG 1.4.11) statt
+   --lapis-border-strong (1,3-1,7:1). */
+.lapis-report-table {
+  /* Getrennte Raender: im kollabierten Modell gewinnt bei gleicher Breite die Unterkante der Zeile DARUEBER, die
+     1-px-Linie der Saldozeile war dadurch unsichtbar (nur die 2-px-Linie der Summenzeile setzte sich durch). */
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.lapis-report-table > caption {
+  color: var(--lapis-text);
+  font-weight: 600;
+  padding-top: 0;
+}
+
+/* Titel, der nur eine Ueberschrift/Kopfzeile darueber wiederholt: nur visuell verborgen (Bootstraps
+   `visually-hidden`-Rezept) -- die <caption> bleibt der zugaengliche Name der Tabelle. */
+.lapis-report-caption-hidden > caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Abschnittszeile: <th colspan> ohne Zuordnungsanspruch (kein scope -- es gibt nur EIN <tbody>). */
+.table > tbody > tr.lapis-section-row > th {
+  --bs-table-bg-type: var(--lapis-surface-sunken);
+  background-color: var(--lapis-surface-sunken);
+  font-weight: 600;
+}
+
+.table > tbody > tr.lapis-section-row-sub > th {
+  padding-left: 1.5rem;
+}
+
+/* Summen- und Saldozeile: eigene Flaeche, warnfarbene Betraege bleiben lesbar (`text-danger` liest --bs-danger-rgb). */
+.table > tbody > tr.lapis-total-row,
+.table > tbody > tr.lapis-balance-row {
+  --bs-danger-rgb: var(--lapis-total-danger-rgb);
+}
+
+/* Summenzeile: gesenkte Flaeche + starke Oberlinie -- in JEDEM Bericht gleich. */
+.table > tbody > tr.lapis-total-row > td,
+.table > tbody > tr.lapis-total-row > th {
+  --bs-table-bg-type: var(--lapis-total-surface);
+  background-color: var(--lapis-total-surface);
+  border-top: 2px solid var(--lapis-muted);
+  font-weight: 600;
+}
+
+/* Schlusszeile eines ganzen Berichts (GuV-Ergebnis): schwerer als die Abschnittssummen darueber. */
+.table > tbody > tr.lapis-total-row-strong > td,
+.table > tbody > tr.lapis-total-row-strong > th {
+  border-top: 3px solid var(--lapis-text);
+  font-weight: 700;
+  font-size: 1.05em;
+}
+
+/* Eroeffnungs-/Schlusssaldo, "Nicht zugeordnet": wie die Summenzeile, duennere Linie, nicht fett. */
+.table > tbody > tr.lapis-balance-row > td,
+.table > tbody > tr.lapis-balance-row > th {
+  --bs-table-bg-type: var(--lapis-total-surface);
+  background-color: var(--lapis-total-surface);
+  border-top: 1px solid var(--lapis-muted);
+  font-weight: 400;
+}
+
+.table > tbody > tr.lapis-note-row > td {
+  color: var(--lapis-muted);
+  font-size: 0.875em;
+}
+
+/* Label/Wert-Liste (Pruefprotokoll-Detail) -- ersetzt die 220-px-Labelzellen. */
+.lapis-detail-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.lapis-detail-list > dt {
+  color: var(--lapis-muted);
+  font-weight: 400;
+}
+
+.lapis-detail-list > dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Segmented Control mit mehr als drei Optionen: unter 768 px waagerecht scrollen statt umbrechen. */
+@media (max-width: 767.98px) {
+  .lapis-segmented-scroll {
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+
+  .lapis-segmented-scroll .btn-group {
+    flex-wrap: nowrap;
+  }
+
+  .lapis-segmented-scroll .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    scroll-snap-align: start;
   }
 }
 

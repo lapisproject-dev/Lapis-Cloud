@@ -13,8 +13,8 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.ContributionReliefKind
@@ -43,15 +43,17 @@ import network.lapis.cloud.shared.rpc.IContributionService
  * [ContributionReliefStatus.EXECUTED]-Antrag hat laut DB-CHECK (`chk_crr_execution_error_state`)
  * niemals einen gesetzten `executionError`, ein `when`/`if` über `EXECUTED` würde also niemals
  * feuern.
+ *
+ * **Kartenliste, keine Tabelle (Welle V1.4.27, W3 -- Richtlinie P3, ein Objekt hat nie beide Grammatiken):**
+ * Kriterium: braucht eine Zeile ein Freitextfeld oder trägt sie eine Entscheidung mit Begründung, ist sie eine
+ * Karte. Jede Karte dieser Warteschlange trägt ein Pflicht-Textfeld "Entscheidungsnotiz" und zwei
+ * Entscheidungsknöpfe -- das ist ein Formular pro Antrag, keine Zeile eines Rasters. Deshalb stehen die Karten in
+ * `.lapis-card-list` / `.lapis-data-card` (dieselben Klassen, die auch die Kartenliste von `dataTable` unter
+ * 768 px nutzt) und nicht in einer `dataTable`. Die Entscheidungspanels selbst sind Formulare (W4).
  */
 fun renderContributionReliefQueueScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot(spacing = 14)
     root.h1(tr("Beitragsvergünstigungen"))
 
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
@@ -62,7 +64,7 @@ fun renderContributionReliefQueueScreen(container: SimplePanel) {
     val reviewDueOnlyCheck = filterRow.checkBox(label = tr("Nur zur Wiedervorlage fällig"))
     val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
-    val listPanel = root.vPanel(spacing = 8)
+    val listPanel = root.simplePanel { addCssClass("lapis-card-list") }
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
 
     // DoS-Prüfliste "Kein N+1" (Plan Abschnitt 2.3/4): EIN `listMembershipTiers()`-Aufruf für den
@@ -89,7 +91,12 @@ fun renderContributionReliefQueueScreen(container: SimplePanel) {
                         afterRequestedAt = cursor?.requestedAt,
                         afterId = cursor?.id,
                     )
-                } ?: return@launch
+                }
+            if (page == null) {
+                // Welle V1.4.27 (W3): a failed first page is an error state with a retry, not an empty list.
+                if (reset) listPanel.dataErrorState(onRetry = { loadPage(reset = true) })
+                return@launch
+            }
             if (page.isEmpty()) {
                 if (reset) listPanel.p(tr("Keine Anträge für diese Filter gefunden."))
                 loadMoreButton.hide()
@@ -119,7 +126,7 @@ private fun renderReliefRequestCard(
     currentMemberId: String?,
     onChanged: () -> Unit,
 ) {
-    val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    val card = panel.vPanel(spacing = 6) { addCssClass("lapis-data-card") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.typeBadge(reliefKindLabel(request.kind), reliefKindColor(request.kind))
     headerRow.div(request.subjectDisplayName) { addCssClasses("flex-grow-1 fw-bold") }

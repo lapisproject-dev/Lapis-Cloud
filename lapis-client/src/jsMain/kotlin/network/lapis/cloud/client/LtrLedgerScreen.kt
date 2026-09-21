@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -13,16 +14,17 @@ import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArbitrationTransferInput
+import network.lapis.cloud.shared.domain.LtrLedgerBalanceDto
 import network.lapis.cloud.shared.domain.LtrLedgerEntryDto
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
@@ -97,28 +99,25 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
     val canTreasury = AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
     val currentMemberId = AppState.session?.memberId
 
-    val root =
-        container.vPanel(spacing = 14) {
-            addCssClasses("mx-auto w-100 px-3")
-            maxWidth = 900.px
-            marginTop = 24.px
-        }
+    val root = container.dataScreenRoot(spacing = 14)
     root.h1(tr("LTR-Konto"))
 
     // ---- (1) Balance card ------------------------------------------------------------------
     val balanceCard = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
-    balanceCard.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    // Audit V1.4.27 (F): `dataSection` instead of "Wird geladen ..." followed by an EMPTY card (`?: return@launch`)
+    // when the balance cannot be loaded -- the card shows the error state with "Erneut versuchen".
+    val balanceSection =
+        balanceCard.dataSection<LtrLedgerBalanceDto>(
+            isEmpty = { false },
+            load = { guarded { rpcService<ILtrLedgerService>().getMyBalance() } },
+            render = { body, balance ->
+                val row = body.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+                row.div(tr("Ihr LTR-Guthaben")) { addCssClasses("fw-bold flex-grow-1") }
+                row.ltrSpan(balance.freeBalanceLtr)
+            },
+        )
 
-    fun refreshBalance() {
-        balanceCard.removeAll()
-        AppScope.launch {
-            val balance = guarded { rpcService<ILtrLedgerService>().getMyBalance() } ?: return@launch
-            balanceCard.removeAll()
-            val row = balanceCard.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            row.div(tr("Ihr LTR-Guthaben")) { addCssClasses("fw-bold flex-grow-1") }
-            row.ltrSpan(balance.freeBalanceLtr)
-        }
-    }
+    fun refreshBalance() = balanceSection.reload()
     refreshBalance()
 
     // ---- (2) Own entries + referenceType filter (D10 empty state) --------------------------
@@ -130,12 +129,25 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
             LtrLedgerReferenceType.entries.map { it.name to ltrLedgerReferenceTypeLabel(it) }
     val referenceFilterSelect = filterRow.select(options = referenceFilterOptions, value = "", label = tr("Filter: Referenztyp"))
     val entriesRefreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val entriesStatusRegion = root.dataStatusRegion()
     val entriesPanel = root.vPanel(spacing = 6)
 
     var myEntriesCache: List<LtrLedgerEntryDto> = emptyList()
+    var entriesGeneration = 0
+    var entriesLoading = false
+    // The error box with "Erneut versuchen" stays until a reload succeeds: a change of the filter must neither wipe
+    // it nor paint the previous list over it (guideline P7).
+    var entriesFailed = false
+    // Welle V1.4.27 (W3): the list is fully loaded (`listMyEntries` has no paging), so it sorts on the client.
+    // The initial order is the server's, a third click on a header returns to it.
+    var entriesSort: SortState? = null
+    var pendingEntriesSortFocus: String? = null
 
     fun applyEntryFilter() {
+        if (entriesLoading || entriesFailed) return
         entriesPanel.removeAll()
+        val sortFocusKey = pendingEntriesSortFocus
+        pendingEntriesSortFocus = null
         val filterValue = referenceFilterSelect.value.orEmpty()
         val filtered =
             when (filterValue) {
@@ -148,15 +160,38 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
         } else if (filtered.isEmpty()) {
             entriesPanel.p(tr("Keine Buchungen für diesen Filter."))
         } else {
-            renderLtrEntriesTable(entriesPanel, filtered)
+            entriesPanel.dataTable(
+                columns = ltrEntryColumns(),
+                rows = sortLtrEntries(filtered, entriesSort),
+                sort = entriesSort,
+                onSort = { next ->
+                    entriesSort = next
+                    pendingEntriesSortFocus = next?.key
+                    applyEntryFilter()
+                },
+                sortOptions = LTR_ENTRY_SORT_OPTIONS,
+                focusSortKey = sortFocusKey,
+            )
         }
     }
 
     fun refreshMyEntries() {
+        entriesGeneration++
+        val mine = entriesGeneration
         entriesPanel.removeAll()
-        entriesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+        entriesStatusRegion.showLoading()
+        entriesLoading = true
+        entriesFailed = false
         AppScope.launch {
-            val entries = guarded { rpcService<ILtrLedgerService>().listMyEntries() } ?: return@launch
+            val entries = guarded { rpcService<ILtrLedgerService>().listMyEntries() }
+            if (mine != entriesGeneration) return@launch // a newer load has taken over
+            entriesStatusRegion.clearStatus()
+            entriesLoading = false
+            if (entries == null) {
+                entriesFailed = true
+                entriesPanel.dataErrorState(onRetry = { refreshMyEntries() })
+                return@launch
+            }
             myEntriesCache = entries
             applyEntryFilter()
         }
@@ -253,44 +288,84 @@ fun SimplePanel.renderMyLtrBalanceInline(onLoaded: (Decimal?) -> Unit = {}): Sim
 // Entries table
 // ================================================================================================
 
-private fun renderLtrEntriesTable(
-    panel: SimplePanel,
-    entries: List<LtrLedgerEntryDto>,
-) {
-    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Datum")) { width = 140.px }
-    headerRow.div(tr("Typ")) { width = 200.px }
-    headerRow.div(tr("Betrag")) { width = 120.px }
-    headerRow.div(tr("Referenz")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Notiz / erstellt von")) { width = 200.px }
+/** Sort keys of the LTR entry list (Welle V1.4.27 / W3). */
+internal const val LTR_ENTRY_SORT_DATE = "createdAt"
+internal const val LTR_ENTRY_SORT_TYPE = "entryType"
+internal const val LTR_ENTRY_SORT_AMOUNT = "amountLtr"
 
-    entries.forEach { entry ->
-        val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(entry.createdAt.toString()) { width = 140.px }
-        val typeCell = row.div { width = 200.px }
-        typeCell.typeBadge(ltrLedgerEntryTypeLabel(entry.entryType), ltrLedgerEntryTypeColor(entry.entryType))
-        val amountCell = row.div { width = 120.px }
-        amountCell.ltrSpan(entry.amountLtr, warnIfNegative = true)
-        val referenceCell = row.div { addCssClasses("flex-grow-1 text-muted small") }
-        val referenceType = entry.referenceType
-        val referenceId = entry.referenceId
-        if (referenceType == LtrLedgerReferenceType.SOCIAL_POST && referenceId != null) {
-            // Review-Fund G4 (closed Welle V1.1.2): "Transaktionsbeschreibung mit Inhaltsbezug" aus
-            // dem Meritokratie-Konzept -- der Inhaltsbezug wird ZUR LESEZEIT über referenceId
-            // aufgelöst (nie ein Inhaltsausschnitt in der unveränderlichen Ledger-note eingefroren,
-            // siehe SocialNetworkService.kt's eigene E5/K5-Kommentare), folgt damit automatisch
-            // einem späteren DSGVO-Tombstone (Welle V1.1.5). Funktioniert auch für einen eigenen
-            // HIDDEN_BY_AUTHOR-Post -- der bleibt über getPost direkt erreichbar (siehe
-            // SocialNetworkScreen.kt's eigene renderHideOwnPostControl KDoc).
-            referenceCell.link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${Routes.SOCIAL_NETWORK}/post/$referenceId")
-        } else {
-            referenceCell.content = referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--"
+/** First click on the date shows the newest entries first, every other column starts ascending; a third click unsorts. */
+private val LTR_ENTRY_SORT_OPTIONS =
+    SortOptions(
+        allowUnsorted = true,
+        firstDirection = { key -> if (key == LTR_ENTRY_SORT_DATE) SortDirection.DESC else SortDirection.ASC },
+    )
+
+/**
+ * Client-side sort of the fully loaded list (pure, see `LtrLedgerScreenTest`); `null` keeps the server's order.
+ * The amount sorts by its numeric value ([Decimal.toDouble]) -- a sort key only, the figure shown is untouched.
+ * The creation time is the tie-breaker so equal values keep a stable order.
+ */
+internal fun sortLtrEntries(
+    entries: List<LtrLedgerEntryDto>,
+    sort: SortState?,
+): List<LtrLedgerEntryDto> {
+    if (sort == null) return entries
+    val byKey: Comparator<LtrLedgerEntryDto> =
+        when (sort.key) {
+            LTR_ENTRY_SORT_TYPE -> compareBy(String.CASE_INSENSITIVE_ORDER) { ltrLedgerEntryTypeLabel(it.entryType) }
+            LTR_ENTRY_SORT_AMOUNT -> compareBy { it.amountLtr.toDouble() }
+            else -> compareBy { it.createdAt }
         }
-        val noteParts = listOfNotNull(entry.note, entry.createdByDisplayName?.let { gettext("von %1", it) })
-        row.div(if (noteParts.isEmpty()) "--" else noteParts.joinToString(" · ")) {
-            width = 200.px
-            addCssClasses("text-muted small")
-        }
+    val comparator = byKey.thenBy { it.createdAt }
+    return entries.sortedWith(if (sort.direction == SortDirection.ASC) comparator else comparator.reversed())
+}
+
+/**
+ * Columns of the LTR entry list / card list (Welle V1.4.27, W3: before, five `width = N.px` cells of a hand-built
+ * row). The date is the identity of an entry and thus the card title. An entry without note and creator shows "--".
+ */
+private fun ltrEntryColumns(): List<DataColumn<LtrLedgerEntryDto>> =
+    listOf(
+        textColumn(title = tr("Datum"), primary = true, sortKey = LTR_ENTRY_SORT_DATE) { entry: LtrLedgerEntryDto ->
+            entry.createdAt.toString()
+        },
+        DataColumn(
+            title = tr("Typ"),
+            sortKey = LTR_ENTRY_SORT_TYPE,
+            cell = { container, entry ->
+                container.typeBadge(ltrLedgerEntryTypeLabel(entry.entryType), ltrLedgerEntryTypeColor(entry.entryType))
+            },
+        ),
+        DataColumn(
+            title = tr("Betrag"),
+            numeric = true,
+            sortKey = LTR_ENTRY_SORT_AMOUNT,
+            cell = { container, entry -> container.ltrSpan(entry.amountLtr, warnIfNegative = true) },
+        ),
+        DataColumn(
+            title = tr("Referenz"),
+            cell = { container, entry -> container.renderLtrReference(entry) },
+        ),
+        textColumn(title = tr("Notiz / erstellt von")) { entry: LtrLedgerEntryDto ->
+            val noteParts = listOfNotNull(entry.note, entry.createdByDisplayName?.let { gettext("von %1", it) })
+            if (noteParts.isEmpty()) "--" else noteParts.joinToString(" · ")
+        },
+    )
+
+private fun Container.renderLtrReference(entry: LtrLedgerEntryDto) {
+    val referenceType = entry.referenceType
+    val referenceId = entry.referenceId
+    if (referenceType == LtrLedgerReferenceType.SOCIAL_POST && referenceId != null) {
+        // Review-Fund G4 (closed Welle V1.1.2): "Transaktionsbeschreibung mit Inhaltsbezug" aus
+        // dem Meritokratie-Konzept -- der Inhaltsbezug wird ZUR LESEZEIT über referenceId
+        // aufgelöst (nie ein Inhaltsausschnitt in der unveränderlichen Ledger-note eingefroren,
+        // siehe SocialNetworkService.kt's eigene E5/K5-Kommentare), folgt damit automatisch
+        // einem späteren DSGVO-Tombstone (Welle V1.1.5). Funktioniert auch für einen eigenen
+        // HIDDEN_BY_AUTHOR-Post -- der bleibt über getPost direkt erreichbar (siehe
+        // SocialNetworkScreen.kt's eigene renderHideOwnPostControl KDoc).
+        link(ltrLedgerReferenceTypeLabel(referenceType), url = "#${Routes.SOCIAL_NETWORK}/post/$referenceId")
+    } else {
+        span(referenceType?.let { ltrLedgerReferenceTypeLabel(it) } ?: "--") { addCssClasses("text-muted small") }
     }
 }
 
@@ -473,7 +548,8 @@ private fun renderMemberLookupSection(
             if (entries.isEmpty()) {
                 resultPanel.p(tr("Noch keine Buchungen."))
             } else {
-                renderLtrEntriesTable(resultPanel, entries)
+                // The member lookup is a treasury view: a plain, unsorted `dataTable` in server order.
+                resultPanel.dataTable(columns = ltrEntryColumns(), rows = entries)
             }
         }
     }

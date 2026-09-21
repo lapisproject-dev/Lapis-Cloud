@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.check.checkBox
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
@@ -8,16 +9,13 @@ import io.kvision.html.div
 import io.kvision.html.h1
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.ResponsiveType
-import io.kvision.table.Table
-import io.kvision.table.TableType
 import io.kvision.table.cell
-import io.kvision.table.row
 import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
@@ -57,11 +55,12 @@ import kotlin.time.Clock
  * eine echte Bootstrap-Tabelle ([dataScreenRoot], `TableType.STRIPED`/`HOVER`,
  * `ResponsiveType.RESPONSIVE`, Icon-Aktionsspalte -- Muster von [renderLedgerScreen]'s
  * Kontenplan-Tabelle uebernommen), inklusive einer neuen Live-Suche ueber Code und Name
- * ([filterCostCenters], analog [filterLedgerAccounts]). Das Berichtsraster selbst behaelt seine
- * `hPanel`-Zeilenstruktur (kein Bootstrap-`Table`, weil D14s Nicht-zugeordnet-/Gesamt-Sonderzeilen
- * mit ihren abweichenden Stilen einer echten `<table>` keinen Mehrwert brächten), bekommt aber
- * einen `table-responsive`-Scroll-Wrapper, damit es auf 375 px nicht mehr aus dem jetzt frei
- * schrumpfenden Root herauslaeuft (vorher schuetzte die feste 800-px-Root-Breite davor).
+ * ([filterCostCenters], analog [filterLedgerAccounts]).
+ *
+ * **Welle V1.4.27 (W3):** die Uebersicht ist jetzt ein [dataTable] (Liste: sortierbar, Kartenliste unter
+ * 768 px), der Bericht darunter ein [reportTable] (Dokument: Nicht-zugeordnet-Zeile und Gesamtzeile gehoeren
+ * zu den Nachbarzeilen, deshalb weder Sortierung noch Kartenliste). Beides sind echte Tabellen -- die
+ * hPanel-Pseudo-Tabelle mit ihrem handgebauten `table-responsive`-Wrapper ist entfallen.
  */
 fun renderCostCentersScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
@@ -79,6 +78,7 @@ fun renderCostCentersScreen(container: SimplePanel) {
     val costCenterSearchInput = filterRow.text(label = tr("Kostenstelle suchen (Code oder Name)"))
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Kostenstellen anzeigen"))
     val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
 
     // Zuletzt geladene, ungefilterte Kostenstellenliste -- die Live-Suche filtert auf dieser Kopie,
@@ -90,8 +90,22 @@ fun renderCostCentersScreen(container: SimplePanel) {
     // `renderCostCenterList` -- eine echte Zyklus-Beziehung.
     var refreshList: () -> Unit = {}
 
+    var generation = 0
+    var loading = false
+    // Fehlerzustand des Abrufs: solange er steht, darf die Suche ihn weder wegzeichnen noch die Liste des
+    // vorigen Filters darüber malen (Richtlinie P7).
+    var failed = false
+    // Welle V1.4.27 (W3): der eine aktive Sortierzustand. Die Liste ist VOLLSTÄNDIG geladen, sortiert also
+    // clientseitig über eine reine Funktion ([sortCostCenters]) -- `listCostCenters` kennt keinen Sortierparameter.
+    var costCenterSort = SortState(key = COST_CENTER_SORT_CODE, direction = SortDirection.ASC)
+    var pendingSortFocus: String? = null
+
     fun renderCostCenterList(query: String) {
+        if (loading) return
+        if (failed) return
         listPanel.removeAll()
+        val sortFocusKey = pendingSortFocus
+        pendingSortFocus = null
         if (loadedCostCenters.isEmpty()) {
             listPanel.p(tr("Noch keine Kostenstellen angelegt."))
             return
@@ -106,24 +120,45 @@ fun renderCostCentersScreen(container: SimplePanel) {
                 addCssClasses("text-muted small")
             }
         }
-        val table =
-            listPanel.table(
-                headerNames = listOf(tr("Kostenstelle"), tr("Beschreibung"), tr("Status"), tr("Aktionen")),
-                types = setOf(TableType.STRIPED, TableType.HOVER),
-                responsiveType = ResponsiveType.RESPONSIVE,
-            )
-        filtered.forEach { costCenter ->
-            renderCostCenterRow(table, costCenter, canManage) { refreshList() }
-        }
+        // Welle V1.4.27 (W3): `dataTable` statt der von Hand gebauten `table(...)` -- kompakte Dichte, Kartenliste
+        // unter 768 px, Sortierköpfe. Dieselbe Grammatik wie der Bericht darunter (siehe `renderCostCenterReportBody`:
+        // dort ein Dokument, hier eine Liste).
+        listPanel.dataTable(
+            columns = costCenterColumns(),
+            rows = sortCostCenters(filtered, costCenterSort),
+            sort = costCenterSort,
+            onSort = { clicked ->
+                val next = clicked ?: costCenterSort
+                costCenterSort = next
+                pendingSortFocus = next.key
+                renderCostCenterList(costCenterSearchInput.value.orEmpty())
+            },
+            actions = { actions, costCenter -> actions.renderCostCenterActions(costCenter, canManage) { refreshList() } },
+            focusSortKey = sortFocusKey,
+        )
     }
 
     refreshList = {
+        generation++
+        val mine = generation
         listPanel.removeAll()
+        statusRegion.showLoading()
+        loading = true
+        failed = false
         AppScope.launch {
             val costCenters =
                 guarded {
                     rpcService<IAccountingService>().listCostCenters(activeOnly = !includeInactiveCheck.value)
-                } ?: return@launch
+                }
+            if (mine != generation) return@launch // ein neuerer Ladevorgang hat übernommen
+            statusRegion.clearStatus()
+            loading = false
+            if (costCenters == null) {
+                failed = true
+                loadedCostCenters = emptyList()
+                listPanel.dataErrorState(onRetry = { refreshList() })
+                return@launch
+            }
             loadedCostCenters = costCenters
             renderCostCenterList(costCenterSearchInput.value.orEmpty())
         }
@@ -158,58 +193,89 @@ fun renderCostCentersScreen(container: SimplePanel) {
 // List row + creation form
 // ============================================================================================
 
+/** Sortierschluessel der Kostenstellenliste (Welle V1.4.27 / W3). */
+internal const val COST_CENTER_SORT_CODE = "code"
+internal const val COST_CENTER_SORT_DESCRIPTION = "description"
+
 /**
- * Design-Team-Welle 2026-09-18 (Nachmittag): vorher ein `vPanel("border rounded p-2")`-Kartenrow,
- * jetzt eine echte Tabellenzeile -- Muster von `LedgerScreen.renderAccountRow` uebernommen. Die
- * Aktionsspalte wird immer gerendert (auch leer, wenn weder Icon-Knopf noch etwas anderes greift),
- * damit alle Zeilen dieselbe Spaltenzahl behalten.
+ * Clientseitige Sortierung der vollstaendig geladenen Kostenstellenliste (pur, siehe `CostCentersScreenTest`).
+ * Code und Beschreibung ohne Beruecksichtigung der Gross-/Kleinschreibung; Sekundaerschluessel ist immer der
+ * Code, damit die Ordnung bei gleichen Werten stabil bleibt. Eine fehlende Beschreibung sortiert als leerer Text.
  */
-private fun renderCostCenterRow(
-    table: Table,
+internal fun sortCostCenters(
+    costCenters: List<CostCenterDto>,
+    sort: SortState,
+): List<CostCenterDto> {
+    val byKey: Comparator<CostCenterDto> =
+        when (sort.key) {
+            COST_CENTER_SORT_DESCRIPTION -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.description.orEmpty() }
+            else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.code }
+        }
+    val comparator = byKey.thenBy(String.CASE_INSENSITIVE_ORDER) { it.code }
+    return costCenters.sortedWith(if (sort.direction == SortDirection.ASC) comparator else comparator.reversed())
+}
+
+/**
+ * Spalten der Kostenstellenliste / Kartenliste. Kostenstelle (Code · Name) ist die Identitaet der Zeile und damit
+ * der Kartentitel. Eine leere Beschreibung rendert nichts, damit die Kartenliste das leere Begriff/Wert-Paar
+ * weglaesst.
+ */
+private fun costCenterColumns(): List<DataColumn<CostCenterDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Kostenstelle"),
+            primary = true,
+            sortKey = COST_CENTER_SORT_CODE,
+            cell = { container, costCenter -> container.span(costCenterLabel(costCenter)) { addCssClass("fw-bold") } },
+        ),
+        DataColumn(
+            title = tr("Beschreibung"),
+            sortKey = COST_CENTER_SORT_DESCRIPTION,
+            cell = { container, costCenter ->
+                costCenter.description?.takeIf { it.isNotBlank() }?.let { description ->
+                    container.div(description) {
+                        addCssClasses("text-muted small text-truncate")
+                        // `text-truncate` (overflow:hidden + white-space:nowrap) hat ohne begrenzte Breite
+                        // keine sichtbare Wirkung. `maxWidth` statt `width`, damit kurze Beschreibungen nicht
+                        // unnoetig Platz belegen (Konvention siehe `DataScreenLayout.kt` KDoc).
+                        maxWidth = 320.px
+                        title = description
+                    }
+                }
+            },
+        ),
+        DataColumn(
+            title = tr("Status"),
+            cell = { container, costCenter -> container.activeStatusBadge(costCenter.active) },
+        ),
+    )
+
+/** Zeilenaktionen -- Rollen-Gate (`canManage`), Statusbedingung und Bestaetigungsdialog unveraendert. */
+private fun Container.renderCostCenterActions(
     costCenter: CostCenterDto,
     canManage: Boolean,
     onChanged: () -> Unit,
 ) {
-    table.row {
-        cell(costCenterLabel(costCenter)) { addCssClass("fw-bold") }
-        val descriptionCell = cell()
-        costCenter.description?.takeIf { it.isNotBlank() }?.let { description ->
-            descriptionCell.div(description) {
-                addCssClasses("text-muted small text-truncate")
-                // `text-truncate` (overflow:hidden + white-space:nowrap) hat ohne begrenzte Breite
-                // keine sichtbare Wirkung -- die Tabellenzelle waechst sonst einfach mit dem Inhalt.
-                // `maxWidth` statt `width`, damit kurze Beschreibungen nicht unnoetig Platz belegen
-                // (Konvention siehe `DataScreenLayout.kt` KDoc).
-                maxWidth = 320.px
-                title = description
-            }
-        }
-        cell { activeStatusBadge(costCenter.active) }
-
-        val actionsCell = cell()
-        val actionRow = actionsCell.tableActionGroup()
-        if (canManage && costCenter.active) {
-            val deactivateButton =
-                actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
-            deactivateButton.onClick {
-                confirmDialog(
-                    title = tr("Kostenstelle deaktivieren"),
-                    message =
-                        gettext(
-                            "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die " +
-                                "Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung.",
-                            costCenter.code,
-                            costCenter.name,
-                        ),
-                    confirmLabel = tr("Deaktivieren"),
-                ) {
-                    AppScope.launch {
-                        val result = guarded { rpcService<IAccountingService>().deactivateCostCenter(costCenter.id) }
-                        if (result != null) {
-                            notifyInfo(tr("Kostenstelle wurde deaktiviert."))
-                            onChanged()
-                        }
-                    }
+    if (!canManage || !costCenter.active) return
+    val actionRow = tableActionGroup()
+    val deactivateButton = actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+    deactivateButton.onClick {
+        confirmDialog(
+            title = tr("Kostenstelle deaktivieren"),
+            message =
+                gettext(
+                    "\"%1 · %2\" wirklich deaktivieren? Bestehende Buchungen bleiben erhalten, die " +
+                        "Kostenstelle steht aber für neue Buchungen nicht mehr zur Verfügung.",
+                    costCenter.code,
+                    costCenter.name,
+                ),
+            confirmLabel = tr("Deaktivieren"),
+        ) {
+            AppScope.launch {
+                val result = guarded { rpcService<IAccountingService>().deactivateCostCenter(costCenter.id) }
+                if (result != null) {
+                    notifyInfo(tr("Kostenstelle wurde deaktiviert."))
+                    onChanged()
                 }
             }
         }
@@ -289,85 +355,64 @@ private fun renderCostCenterReportView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 8)
+    // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." on a failed load; the date validation
+    // stays in front of the reload so an invalid date keeps its own message.
+    val section =
+        panel.dataSection<CostCenterReportDto>(
+            isEmpty = { false },
+            load = {
+                filterControls.parseTo()?.let { to ->
+                    guarded { rpcService<IAccountingService>().getCostCenterReport(filterControls.parseFrom(), to) }
+                }
+            },
+            render = { body, report -> renderCostCenterReportBody(body, report, captionVisible = false) },
+        )
 
     fun load() {
         errorBox.hide()
-        val to = filterControls.parseTo()
-        if (to == null) {
+        if (filterControls.parseTo() == null) {
             errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
-        val from = filterControls.parseFrom()
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val report =
-                guarded { rpcService<IAccountingService>().getCostCenterReport(from, to) } ?: return@launch
-            resultPanel.removeAll()
-            renderCostCenterReportBody(resultPanel, report)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
 }
 
+private val COST_CENTER_REPORT_HEADERS =
+    listOf(
+        TableHeader(title = tr("Kostenstelle")),
+        TableHeader(title = tr("Einnahmen"), numeric = true),
+        TableHeader(title = tr("Ausgaben"), numeric = true),
+        TableHeader(title = tr("Ergebnis"), numeric = true),
+    )
+
 /**
  * D14: the "Nicht zugeordnet" bucket is rendered as the last row after every code-sorted named
- * cost center (already sorted server-side, see [CostCenterReportDto.costCenters] KDoc), styled
- * muted+italic with a thin top border so it does not read as just another named cost center, then
- * a heavier bold-bordered grand-total row below that. [CostCenterReportDto.totalIncome]/
- * [totalExpense]/[result] are the server's own already-reconciled figures (named cost centers +
- * unassigned bucket) -- rendered verbatim, never re-summed from [CostCenterResultDto] rows here.
+ * cost center (already sorted server-side, see [CostCenterReportDto.costCenters] KDoc), as a balance row (muted+italic,
+ * thin top line) so it does not read as just another named cost center, then the server's grand total as a sum row.
+ * [CostCenterReportDto.totalIncome]/[totalExpense]/[result] are the server's own already-reconciled figures (named
+ * cost centers + unassigned bucket) -- rendered verbatim, never re-summed from [CostCenterResultDto] rows here.
+ *
+ * Welle V1.4.27 (W3): a [reportTable] -- the hand-built `table-responsive` wrapper with `minWidth` is gone, the
+ * table's own responsive frame scrolls it on a phone (a report is a document, it scrolls sideways).
  */
-private fun renderCostCenterReportBody(
-    panel: SimplePanel,
+internal fun renderCostCenterReportBody(
+    panel: Container,
     report: CostCenterReportDto,
+    captionVisible: Boolean = true,
 ) {
     panel.div(periodRangeCaption(report.from, report.to)) { addCssClasses("text-muted small") }
-
-    // Design-Team-Welle 2026-09-18 (Nachmittag): `table-responsive`-Wrapper, damit das Raster auf
-    // 375 px nicht mehr aus dem jetzt frei schrumpfenden `dataScreenRoot()` herauslaeuft -- vorher
-    // schuetzte die feste 800-px-Root-Breite davor (siehe `DataScreenLayout.kt` KDoc). `minWidth`
-    // deckt die schmalste Spaltenkombination (flex-grow-1-Spalte + 3 × 120 px + Abstaende) ab, bevor
-    // eine Zeile innerhalb des scrollbaren Rahmens umbricht.
-    val scrollWrapper = panel.div { addCssClass("table-responsive") }
-    val reportGrid = scrollWrapper.vPanel(spacing = 0) { minWidth = 640.px }
-
-    if (report.costCenters.isEmpty()) {
-        reportGrid.p(tr("Keine Kostenstelle mit Buchungen im gewählten Zeitraum.")) { addCssClasses("text-muted small") }
-    } else {
-        val headerRow = reportGrid.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-        headerRow.div(tr("Kostenstelle")) { addCssClasses("flex-grow-1") }
-        headerRow.div(tr("Einnahmen")) { width = 120.px }
-        headerRow.div(tr("Ausgaben")) { width = 120.px }
-        headerRow.div(tr("Ergebnis")) { width = 120.px }
-
-        report.costCenters.forEach { costCenter ->
-            val row = reportGrid.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-            row.div(costCenterResultLabel(costCenter)) { addCssClasses("flex-grow-1") }
-            row.div(formatMoney(costCenter.totalIncome)) { width = 120.px }
-            row.div(formatMoney(costCenter.totalExpense)) { width = 120.px }
-            row.moneySpan(costCenter.result, warnIfNegative = true).width = 120.px
-        }
-    }
-
-    // D14: "Nicht zugeordnet" -- muted/italic, thin top border, visually distinct from a named row.
-    val unassignedRow =
-        reportGrid.hPanel(spacing = 8) {
-            addCssClasses("border-top py-1 align-items-center fst-italic text-muted")
-        }
-    unassignedRow.div(tr("— Nicht zugeordnet —")) { addCssClasses("flex-grow-1") }
-    unassignedRow.div(formatMoney(report.unassignedIncome)) { width = 120.px }
-    unassignedRow.div(formatMoney(report.unassignedExpense)) { width = 120.px }
-    unassignedRow.moneySpan(report.unassignedResult, warnIfNegative = true).width = 120.px
-
-    val totalRow = reportGrid.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1 align-items-center") }
-    totalRow.div(tr("Gesamt")) { addCssClasses("flex-grow-1") }
-    totalRow.div(formatMoney(report.totalIncome)) { width = 120.px }
-    totalRow.div(formatMoney(report.totalExpense)) { width = 120.px }
-    totalRow.moneySpan(report.result, warnIfNegative = true).width = 120.px
+    // The screen's `h2 "Kostenstellenbericht"` stands right above the filters: the caption is the accessible name only.
+    val table =
+        panel.reportTable(
+            caption = tr("Kostenstellenbericht"),
+            headers = COST_CENTER_REPORT_HEADERS,
+            captionVisible = captionVisible,
+        )
+    table.reportRows(costCenterReportRows(report), COST_CENTER_REPORT_HEADERS)
 }
 
 // ============================================================================================

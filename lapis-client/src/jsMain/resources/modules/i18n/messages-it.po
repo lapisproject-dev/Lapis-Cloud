@@ -2710,7 +2710,7 @@ msgstr "Offri"
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:279
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:70
 msgid "Bilanz"
-msgstr "Bilancio"
+msgstr "Stato patrimoniale"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:369
 msgid "Bilanz ausgeglichen"
@@ -8367,7 +8367,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:629
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:921
 msgid "Soll"
-msgstr "Avere"
+msgstr "Dare"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:453
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1244
@@ -11752,7 +11752,7 @@ msgstr "Creditore e debitore con la stessa controparte"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:211
 msgid "Anzahl"
-msgstr "Numero"
+msgstr "Quantità"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:239
 msgid "Forderungs- und Verbindlichkeitenkonto sind nicht zugeordnet -- neue Posten werden angelegt, aber nicht gebucht."
@@ -12570,3 +12570,63 @@ msgstr "Carica altre voci e cerca di nuovo."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
 msgid "Keine Ehrung in der Kategorie \"%1\"."
 msgstr "Nessuna onorificenza nella categoria \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataScreenLayout.kt
+msgid "Details %1 ein-/ausblenden"
+msgstr "Mostra/nascondi i dettagli di %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Berichtsart"
+msgstr "Tipo di report"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Kennzahl"
+msgstr "Indicatore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Aktion"
+msgstr "Azione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Seq."
+msgstr "N. seq."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Akteur"
+msgstr "Attore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Entität"
+msgstr "Entità"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version"
+msgstr "Versione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "v%1"
+msgstr "v%1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Datei"
+msgstr "File"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Größe"
+msgstr "Dimensione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen von"
+msgstr "Caricato da"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen am"
+msgstr "Caricato il"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Änderungshinweis"
+msgstr "Nota di modifica"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Downloads"
+msgstr "Download"

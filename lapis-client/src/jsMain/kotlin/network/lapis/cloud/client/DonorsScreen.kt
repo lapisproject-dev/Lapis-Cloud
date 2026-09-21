@@ -16,7 +16,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -117,18 +116,7 @@ fun renderDonorsScreen(container: SimplePanel) {
         }
         selectedDonorId = donor.id
         donorDetailPanel.removeAll()
-        donorDetailPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val fresh = guarded { rpcService<IAccountingService>().getExternalDonor(donor.id) }
-            // Re-check gegen `selectedDonorId`: ein spaeter eintreffendes, veraltetes Ergebnis (z. B.
-            // wenn zwischenzeitlich ein anderer Spender angeklickt oder das Panel wieder geschlossen
-            // wurde) darf das inzwischen aktuellere Detail-Panel nicht ueberschreiben.
-            if (selectedDonorId != donor.id) return@launch
-            donorDetailPanel.removeAll()
-            if (fresh == null) return@launch
-            donorDetailPanel.h2(fresh.displayName) { addCssClass("h6") }
-            donorDetailPanel.div(donorAddressLine(fresh)) { addCssClasses("text-muted small") }
-        }
+        renderDonorDetail(donorDetailPanel, donor.id)
     }
 
     // Zuletzt geladene, ungefilterte Spenderliste -- die Live-Suche filtert auf dieser Kopie, statt
@@ -405,24 +393,27 @@ private fun renderDonationDutyReportView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 10)
+    // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." on a failed load; the year validation
+    // stays in front of the reload so an invalid year keeps its own message.
+    val section =
+        panel.dataSection<DonationDutyReportDto>(
+            isEmpty = { false },
+            load = {
+                yearControls.parseYear()?.let { calendarYear ->
+                    guarded { rpcService<IAccountingService>().getDonationDutyReport(calendarYear) }
+                }
+            },
+            render = { body, report -> renderDonationDutyReportBody(body, report) },
+        )
 
     fun load() {
         errorBox.hide()
-        val calendarYear = yearControls.parseYear()
-        if (calendarYear == null) {
+        if (yearControls.parseYear() == null) {
             errorBox.content = tr("Bitte ein gültiges Kalenderjahr angeben (JJJJ).")
             errorBox.show()
             return
         }
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val report =
-                guarded { rpcService<IAccountingService>().getDonationDutyReport(calendarYear) } ?: return@launch
-            resultPanel.removeAll()
-            renderDonationDutyReportBody(resultPanel, report)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
@@ -454,54 +445,39 @@ private fun renderDonationDutyReportBody(
     renderAnonymousForwardingTable(panel, report.anonymousForwarding)
 }
 
-private fun renderDonorDutiesTable(
-    panel: SimplePanel,
+private val DONOR_DUTY_HEADERS =
+    listOf(
+        TableHeader(title = tr("Spender")),
+        TableHeader(title = tr("Typ")),
+        TableHeader(title = tr("Kategorie")),
+        TableHeader(title = tr("Jahressumme"), numeric = true),
+        TableHeader(title = tr("Pflichten")),
+    )
+
+private val ANONYMOUS_FORWARDING_HEADERS =
+    listOf(
+        TableHeader(title = tr("Datum")),
+        TableHeader(title = tr("Betrag"), numeric = true),
+        TableHeader(title = tr("Pflicht")),
+    )
+
+/**
+ * The §25-PartG report grids are documents (Welle V1.4.27, W3): a [reportTable] each -- the hand-built
+ * `table-responsive` wrappers with `minWidth` are gone, the table's own frame scrolls it on a phone.
+ */
+internal fun renderDonorDutiesTable(
+    panel: Container,
     duties: List<DonorDutyDto>,
 ) {
-    panel.p(tr("Melde-/Offenlegungspflichten pro Spender")) { addCssClasses("fw-bold small") }
     if (duties.isEmpty()) {
+        panel.p(tr("Melde-/Offenlegungspflichten pro Spender")) { addCssClasses("fw-bold small") }
         panel.p(tr("Keine offenen Melde-/Offenlegungspflichten im gewählten Kalenderjahr.")) {
             addCssClasses("text-muted small")
         }
         return
     }
-
-    // Design-Team-Welle 2026-09-18 (Nachmittag): `table-responsive`-Wrapper analog
-    // `CostCentersScreen.renderCostCenterReportBody` -- schuetzt das Raster auf 375 px, seit das
-    // Root nicht mehr die feste 900-px-Breite hat. `minWidth` = flex-grow-1-Spalte + 100 + 220 +
-    // 120 + 260 px Spaltenbreiten + Abstaende.
-    val scrollWrapper = panel.div { addCssClass("table-responsive") }
-    val reportGrid = scrollWrapper.vPanel(spacing = 0) { minWidth = 820.px }
-
-    val headerRow = reportGrid.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div(tr("Spender")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Typ")) { width = 100.px }
-    headerRow.div(tr("Kategorie")) { width = 220.px }
-    headerRow.div(tr("Jahressumme")) { width = 120.px }
-    headerRow.div(tr("Pflichten")) { width = 260.px }
-
-    duties.forEach { duty ->
-        val row = reportGrid.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(duty.donorDisplayName) { addCssClasses("flex-grow-1") }
-        val typeCell = row.div { width = 100.px }
-        typeCell.typeBadge(donorTypeLabel(duty.donorType), donorTypeColor(duty.donorType))
-        val categoryCell = row.div { width = 220.px }
-        categoryCell.typeBadge(donorCategoryLabel(duty.donorCategory), donorCategoryColor(duty.donorCategory))
-        row.div(formatMoney(duty.annualTotal)) { width = 120.px }
-        val dutiesCell = row.hPanel(spacing = 4) { width = 260.px }
-        if (duty.promptReportRequired) {
-            dutiesCell.statusBadge(
-                donationDutyLabel(DonationDuty.PROMPT_BUNDESTAG_REPORT_REQUIRED),
-                donationDutyColor(DonationDuty.PROMPT_BUNDESTAG_REPORT_REQUIRED),
-            )
-        }
-        if (duty.annualDisclosureRequired) {
-            dutiesCell.statusBadge(
-                donationDutyLabel(DonationDuty.ANNUAL_DISCLOSURE_REQUIRED),
-                donationDutyColor(DonationDuty.ANNUAL_DISCLOSURE_REQUIRED),
-            )
-        }
-    }
+    val report = panel.reportTable(caption = tr("Melde-/Offenlegungspflichten pro Spender"), headers = DONOR_DUTY_HEADERS)
+    report.reportRows(donorDutyRows(duties), DONOR_DUTY_HEADERS)
 }
 
 /**
@@ -509,39 +485,19 @@ private fun renderDonorDutiesTable(
  * appear here (see [AnonymousDonationDutyDto] KDoc and this screen's file-level KDoc); the caption
  * below states that plainly rather than letting the table's presence imply otherwise.
  */
-private fun renderAnonymousForwardingTable(
-    panel: SimplePanel,
+internal fun renderAnonymousForwardingTable(
+    panel: Container,
     forwarding: List<AnonymousDonationDutyDto>,
 ) {
-    panel.p(tr("Weiterleitungspflichtige anonyme Spenden")) { addCssClasses("fw-bold small") }
     if (forwarding.isEmpty()) {
+        panel.p(tr("Weiterleitungspflichtige anonyme Spenden")) { addCssClasses("fw-bold small") }
         panel.p(tr("Keine anonymen Spenden über dem Schwellenwert im gewählten Kalenderjahr.")) {
             addCssClasses("text-muted small")
         }
         return
     }
-
-    // Design-Team-Welle 2026-09-18 (Nachmittag): `table-responsive`-Wrapper, siehe
-    // [renderDonorDutiesTable] KDoc-Kommentar. `minWidth` = 110 + 120 px Spalten + flex-grow-1 +
-    // Abstaende -- die kleinste Spaltensumme der drei Berichtsraster in diesem Screen.
-    val scrollWrapper = panel.div { addCssClass("table-responsive") }
-    val reportGrid = scrollWrapper.vPanel(spacing = 0) { minWidth = 480.px }
-
-    val headerRow = reportGrid.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1 small") }
-    headerRow.div(tr("Datum")) { width = 110.px }
-    headerRow.div(tr("Betrag")) { width = 120.px }
-    headerRow.div(tr("Pflicht")) { addCssClasses("flex-grow-1") }
-
-    forwarding.forEach { entry ->
-        val row = reportGrid.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(entry.entryDate.toString()) { width = 110.px }
-        row.div(formatMoney(entry.amount)) { width = 120.px }
-        val dutyCell = row.div { addCssClasses("flex-grow-1") }
-        dutyCell.statusBadge(
-            donationDutyLabel(DonationDuty.ANONYMOUS_FORWARDING_REQUIRED),
-            donationDutyColor(DonationDuty.ANONYMOUS_FORWARDING_REQUIRED),
-        )
-    }
+    val report = panel.reportTable(caption = tr("Weiterleitungspflichtige anonyme Spenden"), headers = ANONYMOUS_FORWARDING_HEADERS)
+    report.reportRows(anonymousForwardingRows(forwarding), ANONYMOUS_FORWARDING_HEADERS)
 }
 
 // ============================================================================================
@@ -630,3 +586,26 @@ private fun currentYear(): Int =
         .now()
         .toLocalDateTime(TimeZone.currentSystemDefault())
         .date.year
+
+/**
+ * The detail of one external donor, re-fetched via `getExternalDonor(id)` (see the file KDoc: a genuinely fresh read).
+ *
+ * Audit V1.4.27 (F): `dataSection` instead of "Wird geladen ..." followed by an EMPTY panel (`fresh == null -> return`)
+ * when the load fails -- the panel shows the error state with "Erneut versuchen". Every selection builds a NEW section in
+ * the freshly cleared [panel], so a late answer of an earlier selection lands in a widget that is already gone and can
+ * never overwrite the current detail (what the old `selectedDonorId` re-check guarded).
+ */
+internal fun renderDonorDetail(
+    panel: SimplePanel,
+    donorId: String,
+) {
+    panel
+        .dataSection<ExternalDonorDto>(
+            isEmpty = { false },
+            load = { guarded { rpcService<IAccountingService>().getExternalDonor(donorId) } },
+            render = { body, fresh ->
+                body.h2(fresh.displayName) { addCssClass("h6") }
+                body.div(donorAddressLine(fresh)) { addCssClasses("text-muted small") }
+            },
+        ).reload()
+}

@@ -9007,7 +9007,7 @@ msgstr "Finalidad del tratamiento"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:202
 msgid "Verbindlichkeiten"
-msgstr "Pasivos"
+msgstr "Deudas"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2694
 msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
@@ -12562,3 +12562,63 @@ msgstr "Cargue más entradas y vuelva a buscar."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
 msgid "Keine Ehrung in der Kategorie \"%1\"."
 msgstr "Ninguna distinción en la categoría \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataScreenLayout.kt
+msgid "Details %1 ein-/ausblenden"
+msgstr "Mostrar/ocultar detalles de %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Berichtsart"
+msgstr "Tipo de informe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Kennzahl"
+msgstr "Indicador"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Aktion"
+msgstr "Acción"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Seq."
+msgstr "N.º sec."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Akteur"
+msgstr "Actor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Entität"
+msgstr "Entidad"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version"
+msgstr "Versión"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "v%1"
+msgstr "v%1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Datei"
+msgstr "Archivo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Größe"
+msgstr "Tamaño"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen von"
+msgstr "Subido por"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen am"
+msgstr "Subido el"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Änderungshinweis"
+msgstr "Nota de cambio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Downloads"
+msgstr "Descargas"

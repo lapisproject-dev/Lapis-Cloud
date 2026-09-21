@@ -5506,7 +5506,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:230
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:71
 msgid "Jahresabschluss"
-msgstr "Bilans roczny"
+msgstr "Sprawozdanie finansowe"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:284
 msgid "Jahresergebnis (dieses Geschäftsjahr)"
@@ -5854,7 +5854,7 @@ msgstr "Konta (plan kont SKR42)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:330
 msgid "Kontenklasse"
-msgstr "Klasa konta"
+msgstr "Klasa kont"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:484
 msgid "Kontenklasse (erste Ziffer der Kontonummer, 0-9)"
@@ -12516,3 +12516,63 @@ msgstr "Wczytaj kolejne pozycje i wyszukaj ponownie."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt
 msgid "Keine Ehrung in der Kategorie \"%1\"."
 msgstr "Brak wyróżnień w kategorii \"%1\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DataScreenLayout.kt
+msgid "Details %1 ein-/ausblenden"
+msgstr "Pokaż/ukryj szczegóły: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Berichtsart"
+msgstr "Rodzaj raportu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt
+msgid "Kennzahl"
+msgstr "Wskaźnik"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Aktion"
+msgstr "Akcja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Seq."
+msgstr "Lp."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Akteur"
+msgstr "Wykonawca"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt
+msgid "Entität"
+msgstr "Encja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Version"
+msgstr "Wersja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "v%1"
+msgstr "v%1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Datei"
+msgstr "Plik"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Größe"
+msgstr "Rozmiar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen von"
+msgstr "Przesłano przez"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Hochgeladen am"
+msgstr "Przesłano dnia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Änderungshinweis"
+msgstr "Uwaga do zmiany"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+msgid "Downloads"
+msgstr "Pobrania"

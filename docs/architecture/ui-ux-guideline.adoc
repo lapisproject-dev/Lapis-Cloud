@@ -115,10 +115,12 @@ The 44 px target size is never undercut.
 | R14 | every `table(...)` call carries `STRIPED`, `HOVER` and `SMALL` (also a call broken before the dot: `panel` newline `.table(`)
 | R15 | every `table(...)` call carries `ResponsiveType.RESPONSIVE`
 | R39 | an icon-only `button("", icon = ...)` (also `button(text = "", icon = ...)`) carries `title` and `aria-label` in the same block; the one factory line in `DataScreenLayout.kt` that labels its button in the next statement is exempted by name, not the file
+| R55 | no `width = N.px` in client Kotlin (a fixed column width on a row or header cell is the mark of a pseudo-table; `maxWidth`/`minWidth` are not matched). Ledgered per file: after W3 `AuctionScreen`, `CrowdfundingScreen` and `PoliticianScreen` remain as hand-built pseudo-tables (a remainder wave, W5 in this document) and `SocialNetworkScreen` as one genuine form field (W4) -- they are not "form screens"
+| C7c | no `reportTable(` call carries sort wiring (`onSort`, `sort =`, `sortOptions`, `sortKey`, `focusSortKey`); a text check of the call's own arguments, so a sort control added by a later statement is not seen -- the runtime side is `ReportTableDomTest`
 | R54 | every selector with a `transition` is in the single `prefers-reduced-motion` block, nothing else is, and no transition is longer than 200 ms
 |===
 
-Rules R2, R9, R14, R15 and R39 have a debt ledger with **one fingerprint per finding**: rule, file name, and the
+Rules R2, R9, R14, R15, R39 and R55 have a debt ledger with **one fingerprint per finding**: rule, file name, and the
 trimmed source line of the offending spot (no line number; a line that starts with `.` is prefixed with the previous
 code line). Compared as a multiset per file, so the test fails on a new finding, on a paid-off finding (delete its
 ledger line) and -- unlike a plain count -- when one violation is fixed and another added in the same file. Editing a
@@ -126,7 +128,7 @@ ledgered line changes its fingerprint on purpose: re-list or pay the debt. Two f
 file are indistinguishable (their number is still pinned). Files not in the ledger are held strictly -- that includes
 the three migrated screens and the new building blocks. Every rule has a self-test with a bad and a good example.
 
-`UiFoundationI18nCatalogTest` (W1) and `HotTableI18nCatalogTest` (W2) guard the new strings: present in the template and all seven catalogs, translated,
+`UiFoundationI18nCatalogTest` (W1), `HotTableI18nCatalogTest` (W2) and `PseudoTableI18nCatalogTest` (W3) guard the new strings: present in the template and all seven catalogs, translated,
 with the `%N` placeholders intact. Each scans its own helper files completely and the migrated screens only through an
 explicit list of the sentences that wave added -- the rest of those files is NOT covered (see Known gaps), because
 they carry pre-existing debt that would fail the test for somebody else's reason.
@@ -177,6 +179,105 @@ gone; the R14 ledger shrank from 21 to 6 files, R15 from 10 to 4, and four R39 f
   by accident than a button reading "Löschen" (P6/R30).
 |===
 
+== Wave W3 "Pseudo tables" (V1.4.27)
+
+Nine screens migrated for the first time and two revisited: `FinancialReportsScreen` (GuV, Bilanz,
+Jahresabschluss), `NonprofitComplianceReportsScreen` (four spheres, use of funds, USt preview), `CostCentersScreen`
+(overview AND report), `AuditLogScreen`, `LtrLedgerScreen`, `DocumentsScreen` (list and versions), the three approval
+queues, plus the report parts of `LedgerScreen` (Hauptbuch, Kassenbuch, posting confirmation) and `DonorsScreen`
+(the two section-25-PartG grids). The R55 ledger started with 185 fixed-width findings in 11 files.
+
+=== Two table grammars, one criterion
+
+[cols="1,3"]
+|===
+| Grammar | Use it when
+
+| `dataTable` (list)
+| A row stands on its own: a member, a cost centre, a document, an audit entry. Sortable when the list is loaded
+  completely, card list below 768 px.
+
+| `reportTable` (document)
+| A row is only right in the context of its neighbours: a running balance, a number sequence, a total underneath.
+  A real `<table>` in the responsive frame with a `<caption>`; section (a spanning `th`, no `scope`), sum and balance
+  rows (their label is a `th scope="row"`); **no** sort buttons and **no** card list -- a card list renders only
+  `rows`, so a sum row would silently vanish on a phone. Below 768 px it scrolls sideways.
+
+| Both on one screen
+| Allowed, and not a second grammar for one object: `CostCentersScreen` shows the cost centres as a LIST (`dataTable`,
+  each row stands alone: edit, deactivate) and, below, a cost-centre REPORT (`reportTable`, rows only make sense with
+  the total underneath). The criterion is per object and per purpose, not per screen. What is NOT allowed is the same
+  object in both grammars -- the posting lines of a journal entry are a `reportTable` in the journal detail, in the
+  posting confirmation and in the audit log's snapshot.
+
+| Cards (`.lapis-card-list` / `.lapis-data-card`)
+| A row needs a free-text field or carries a decision with a reason (the three approval queues). Never a second
+  grammar for the same object (P3).
+|===
+
+=== Decisions this wave had to make
+
+[cols="1,3"]
+|===
+| Question | Decision
+
+| Where do the figures come from?
+| `ReportRows.kt`, once per report, pure and widget-free. The renderer only paints `ReportRow`s. `ReportGoldenTest`
+  pins every cell string (blank cells and the row kind included); `ReportCellOracleDomTest` proves them against the
+  DOM -- first the old `hPanel` renderers, then strictly the new tables. A golden value is never generated from the
+  new code.
+
+| Sum row versus Bootstrap's zebra
+| The zebra is `--bs-table-bg-type` plus an inset shadow (5 % of the emphasis colour over the cell colour), and its
+  selector has specificity (0,2,2). The report classes use `.table > tbody > tr.lapis-total-row > td` (0,2,3), set
+  `--bs-table-bg-type` to the same opaque value as the background and win without `!important`. The surface is its
+  own token, `--lapis-total-surface` (light #DBE0E8, dark #232933), NOT `--lapis-surface-sunken`: in the light theme
+  the zebra is sunken plus 5 % black (#EBECEF), so a sum row in plain sunken (#F6F7F9) was LIGHTER than a zebra row.
+  The top rule is `--lapis-muted` (at least 3:1 against both neighbours, WCAG 1.4.11), and warn-red amounts on
+  these rows read `--lapis-total-danger-rgb` (at least 4.5:1). Report tables use `border-collapse: separate`: with
+  collapsed borders the 1-px rule of a balance row loses against the 1-px bottom line of the row above and never
+  shows. `ReportRowStyleDomTest` loads the real Bootstrap and `theme.css` into Karma and compares the VISIBLE
+  background (colour plus shadow layer) of a sum row with a zebra row and a plain row, in both themes, and checks
+  the contrast numbers.
+
+| Where does the caption stand?
+| Bootstrap's reboot sets `caption-side: bottom`; its own utility `caption-top` on the table fixes it without new CSS.
+
+| Section headings and row headers
+| A section heading is a spanning `th colspan` WITHOUT a `scope`: the report has ONE `<tbody>` (KVision's `Table` has
+  no per-section body), and a `scope="rowgroup"` would let "Aktiva" claim the "Passiva" rows below it too. The label
+  of a sum or balance row is a `th scope="row"` (the first text cell, also behind the blank cells of a ledger row);
+  the column headers are `th scope="col"`.
+
+| A caption that repeats the heading above
+| The caption is the table's accessible name, so it stays; a caption that only repeats the heading or the account
+  header right above the table is hidden visually (`reportTable(captionVisible = false)`, the `theme.css` rule
+  `.lapis-report-caption-hidden` is Bootstrap's `visually-hidden` recipe). Inside a Jahresabschluss the embedded GuV
+  and Bilanz keep their visible captions -- there they are the only heading.
+
+| Do the toggle labels follow a language switch?
+| No, by a known limit: the `aria-label` of every icon button (`expandToggleButton`, every `tableActionButton`) and the
+  `title` of the expand toggle are resolved once, when the button is built (a `title` set from a `tr(...)` string does
+  follow a switch). Attributes go around KVision's patch cycle, so a switch re-renders the
+  `tr(...)` texts of an open report (captions, headers, row labels, sum labels) but not these two attributes; they
+  catch up when the report is loaded again. The same is true for badge labels and the period lines ("Zeitraum: ...").
+
+| How is a detail row collapsed?
+| With `d-none`, not KVision's `hide()`: a hidden KVision widget leaves the DOM, and `aria-controls` must name an
+  element that exists.
+
+| Should the audit log sort?
+| No. It is keyset-paginated (`beforeSequenceNumber`) and the server has no sort parameter -- re-ordering the loaded
+  pages would contradict the next page. The list is a `dataTable` over all pages loaded so far, without `onSort`.
+
+| The "Summe %1" label
+| `trFormat(tr("Summe %1"), title)`: a composed `tr` string that keeps the marker prefix (the widget re-resolves it on
+  every render) and whose title argument `I18nCatalogManager` resolves per language. It used to be
+  `gettext("Summe %1", title)`, which resolved once and left the title's marker in the text ("Summe
+  ###KvI18nS###Einnahmen") -- a defect of the old renderers that the first version of the wave preserved on purpose
+  and the audit round fixed. `TrFormatTest` and `ReportLanguageSwitchDomTest` pin it.
+|===
+
 == Rule precedence: attributes and `gettext`
 
 The guideline (section 2.14) says `tr()` only as widget content and, for attributes (`title`, `aria-label`,
@@ -189,10 +290,17 @@ through `resolvedAttributeText` (marker stripped AND translated).
 
 == Known gaps
 
-* 14 of 67 screens are migrated (3 in W1, 11 in W2); the ledger shows the rest.
-* Six files deliberately stay on the baseline after W2 and are named in the ledger: `AccountingExportScreen`
-  (3 tables), `BankStatementImportScreen`, `CostCentersScreen`, `DunningSettingsScreen`,
-  `ReceivableDunningSettingsScreen`, `WebhookDeliveryLogPanel`.
+* 23 of 67 screens are migrated (3 in W1, 11 in W2, 9 in W3); the ledger shows the rest.
+* Five files deliberately stay on the R14/R15 baseline after W3 and are named in the ledger: `AccountingExportScreen`
+  (3 tables), `BankStatementImportScreen` (both W4), `DunningSettingsScreen`, `ReceivableDunningSettingsScreen`,
+  `WebhookDeliveryLogPanel`.
+* Negative amounts in ORDINARY zebra rows are Bootstrap's `text-danger` (#DC3545): 3.8:1 on the light zebra and 2.7:1
+  on the dark one -- below AA. Sum and balance rows have their own, readable warn colour; the global colour is a
+  theme question that W3 did not open.
+* `renderMyLtrBalanceInline` (the balance strip on `CrowdfundingScreen`/`AuctionScreen`/`SocialNetworkScreen`) shows
+  "--" on a failed load instead of an error box with a retry.
+* Badge labels, the period lines above a report and the `title`/`aria-label` of icon buttons do not follow a language
+  switch until the report is reloaded (see the W3 decisions).
 * Neither cursor list gained the load cap plus hint text R21 asks for -- pagination was to stay unchanged in W2.
 * Download links inside table rows (dunning notice PDF, pain.008) are still labelled text and drive up the row
   height (R38); `tableActionButton` produces a `button`, a download needs a real `a[href]`.

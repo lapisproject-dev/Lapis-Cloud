@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.core.Container
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -15,7 +16,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -64,49 +64,53 @@ fun renderFinancialReportsScreen(container: SimplePanel) {
         container.dataScreenRoot(spacing = 14)
     root.h1(tr("Finanzberichte"))
 
-    val toggleRow = root.hPanel(spacing = 8)
-    val guvButton = toggleRow.button(tr("GuV"), style = ButtonStyle.OUTLINEPRIMARY)
-    val bilanzButton = toggleRow.button(tr("Bilanz"), style = ButtonStyle.OUTLINEPRIMARY)
-    val jahresabschlussButton = toggleRow.button(tr("Jahresabschluss"), style = ButtonStyle.OUTLINEPRIMARY)
-    // Welle V1.4.5.2 "DATEV-Format-Export" -- fourth toggle, same row, no new navigation point or
-    // `Routes` constant: `Routes.FINANCIAL_REPORTS` is already `ACCOUNTING_READ_ROLES`-gated, which
-    // is exactly `DatevAuthzUi.PREVIEW_ROLES` (TREASURER/BOARD/ADMIN) -- see that object's KDoc for
-    // why the narrower file-download tier is still enforced INSIDE the view, not at the route level.
-    val datevButton = toggleRow.button(tr("DATEV-Export"), style = ButtonStyle.OUTLINEPRIMARY)
-    // Welle V1.4.5.3 "lexoffice-Live-Anbindung" -- fifth toggle, same row, same reasoning as
-    // datevButton above (Routes.FINANCIAL_REPORTS is already ACCOUNTING_READ_ROLES-gated; the
-    // narrower TREASURER/ADMIN-only tier is enforced inside renderAccountingExportView itself, see
-    // AccountingExportAuthzUi KDoc). Welle V1.4.5.4 "sevDesk-Live-Anbindung": UMBENANNT von
-    // "Lexware Office" auf "Buchhaltungs-Export" -- der Knopf oeffnet jetzt eine
-    // anbieterparametrisierte Ansicht mit lexoffice UND sevDesk (Wahl innerhalb der Ansicht selbst,
-    // siehe AccountingExportScreen), bleibt aber der EINE fuenfte Knopf: kein sechster Knopf, keine
-    // Uebergangsphase mit "fuenf plus einem".
-    val accountingExportButton = toggleRow.button(tr("Buchhaltungs-Export"), style = ButtonStyle.OUTLINEPRIMARY)
-    val contentPanel = root.vPanel(spacing = 10)
-
-    guvButton.onClick {
-        contentPanel.removeAll()
-        renderIncomeStatementView(contentPanel)
+    // Welle V1.4.27 (W3): ONE segmented control with an active state (R20/R48) instead of five outline buttons
+    // that never said which report was showing. The fourth/fifth entries keep their history: V1.4.5.2
+    // "DATEV-Format-Export" and V1.4.5.3/.4 "Buchhaltungs-Export" (lexoffice AND sevDesk behind ONE entry, the
+    // provider is chosen inside the view -- no sixth entry). `Routes.FINANCIAL_REPORTS` is already
+    // `ACCOUNTING_READ_ROLES`-gated, i.e. exactly `DatevAuthzUi.PREVIEW_ROLES`; the narrower file-download and
+    // TREASURER/ADMIN tiers are enforced INSIDE the views (see `DatevAuthzUi`/`AccountingExportAuthzUi`).
+    val options =
+        listOf(
+            FinancialReportView.GUV to tr("GuV"),
+            FinancialReportView.BILANZ to tr("Bilanz"),
+            FinancialReportView.JAHRESABSCHLUSS to tr("Jahresabschluss"),
+            FinancialReportView.DATEV to tr("DATEV-Export"),
+            FinancialReportView.ACCOUNTING_EXPORT to tr("Buchhaltungs-Export"),
+        )
+    lateinit var contentPanel: SimplePanel
+    root.segmentedScroll {
+        segmentedControl(options = options, selected = FinancialReportView.GUV, ariaLabel = tr("Berichtsart")) { view ->
+            contentPanel.removeAll()
+            when (view) {
+                FinancialReportView.GUV -> renderIncomeStatementView(contentPanel)
+                FinancialReportView.BILANZ -> renderBalanceSheetView(contentPanel)
+                FinancialReportView.JAHRESABSCHLUSS -> renderAnnualFinancialStatementView(contentPanel)
+                FinancialReportView.DATEV -> renderDatevExportView(contentPanel)
+                FinancialReportView.ACCOUNTING_EXPORT -> renderAccountingExportView(contentPanel)
+            }
+        }
     }
-    bilanzButton.onClick {
-        contentPanel.removeAll()
-        renderBalanceSheetView(contentPanel)
-    }
-    jahresabschlussButton.onClick {
-        contentPanel.removeAll()
-        renderAnnualFinancialStatementView(contentPanel)
-    }
-    datevButton.onClick {
-        contentPanel.removeAll()
-        renderDatevExportView(contentPanel)
-    }
-    accountingExportButton.onClick {
-        contentPanel.removeAll()
-        renderAccountingExportView(contentPanel)
-    }
+    contentPanel = root.vPanel(spacing = 10)
 
     renderIncomeStatementView(contentPanel)
 }
+
+private enum class FinancialReportView { GUV, BILANZ, JAHRESABSCHLUSS, DATEV, ACCOUNTING_EXPORT }
+
+/** Column headers of every statement-line table (GuV, Bilanz, Vier-Sphaeren details). */
+private val STATEMENT_HEADERS =
+    listOf(
+        TableHeader(title = tr("Konto")),
+        TableHeader(title = tr("Kontenklasse")),
+        TableHeader(title = tr("Betrag"), numeric = true),
+    )
+
+private val KEY_FIGURE_HEADERS =
+    listOf(
+        TableHeader(title = tr("Kennzahl")),
+        TableHeader(title = tr("Betrag"), numeric = true),
+    )
 
 // ============================================================================================
 // DATEV-Export (Welle V1.4.5.2)
@@ -234,43 +238,51 @@ private fun renderIncomeStatementView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 8)
+    // Welle V1.4.27 (W3): `dataSection` instead of "Wird geladen ..." forever on a failed load -- the failure is
+    // now a visible error state with a retry (Lehre 7). The date validation stays BEFORE the reload in the click
+    // handler: an invalid date must show its own message, not the generic "could not be loaded" alert.
+    val section =
+        panel.dataSection<IncomeStatementDto>(
+            isEmpty = { false },
+            load = {
+                filterControls.parseTo()?.let { to ->
+                    guarded { rpcService<IAccountingService>().getIncomeStatement(filterControls.parseFrom(), to) }
+                }
+            },
+            render = { body, statement -> renderIncomeStatementBody(body, statement, captionVisible = false) },
+        )
 
     fun load() {
         errorBox.hide()
-        val to = filterControls.parseTo()
-        if (to == null) {
+        if (filterControls.parseTo() == null) {
             errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
-        val from = filterControls.parseFrom()
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val statement =
-                guarded { rpcService<IAccountingService>().getIncomeStatement(from, to) } ?: return@launch
-            resultPanel.removeAll()
-            renderIncomeStatementBody(resultPanel, statement)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
 }
 
-private fun renderIncomeStatementBody(
+internal fun renderIncomeStatementBody(
     panel: SimplePanel,
     statement: IncomeStatementDto,
+    captionVisible: Boolean = true,
 ) {
     panel.div(periodRangeCaption(statement.from, statement.to)) { addCssClasses("text-muted small") }
-    renderStatementLineTable(panel, tr("Einnahmen"), statement.incomeLines, statement.totalIncome)
-    renderStatementLineTable(panel, tr("Ausgaben"), statement.expenseLines, statement.totalExpense)
-
-    val negative = isNegative(statement.result)
-    val resultRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-2 align-items-center") }
-    resultRow.div(tr("Ergebnis")) { addCssClasses("flex-grow-1") }
-    resultRow.moneySpan(statement.result, warnIfNegative = true).width = 130.px
-    resultQualifierLabel(negative)?.let { qualifier ->
+    // ONE table: Einnahmen and Ausgaben are section rows, the result a sum row IN the table (before: a freestanding
+    // row under two tables whose columns did not line up with it).
+    // [captionVisible] is `false` in the standalone view (its `h2` above the filters carries the same words, audit
+    // MINOR-2) and `true` inside the Jahresabschluss, where the caption is the only name of the embedded table.
+    val report =
+        panel.reportTable(
+            caption = tr("Gewinn- und Verlustrechnung (GuV)"),
+            headers = STATEMENT_HEADERS,
+            captionVisible = captionVisible,
+        )
+    report.reportRows(incomeStatementRows(statement), STATEMENT_HEADERS)
+    resultQualifierLabel(isNegative(statement.result))?.let { qualifier ->
         panel.div(qualifier) { addCssClasses("text-danger small") }
     }
 }
@@ -289,23 +301,23 @@ private fun renderBalanceSheetView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 8)
+
+    fun parseAsOf(): LocalDate? = runCatching { LocalDate.parse(asOfInput.value.orEmpty().trim()) }.getOrNull()
+    val section =
+        panel.dataSection<BalanceSheetDto>(
+            isEmpty = { false },
+            load = { parseAsOf()?.let { asOf -> guarded { rpcService<IAccountingService>().getBalanceSheet(asOf) } } },
+            render = { body, sheet -> renderBalanceSheetBody(body, sheet, captionVisible = false) },
+        )
 
     fun load() {
         errorBox.hide()
-        val asOf = runCatching { LocalDate.parse(asOfInput.value.orEmpty().trim()) }.getOrNull()
-        if (asOf == null) {
+        if (parseAsOf() == null) {
             errorBox.content = tr("Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT).")
             errorBox.show()
             return
         }
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val sheet = guarded { rpcService<IAccountingService>().getBalanceSheet(asOf) } ?: return@launch
-            resultPanel.removeAll()
-            renderBalanceSheetBody(resultPanel, sheet)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
@@ -317,35 +329,16 @@ private fun renderBalanceSheetView(panel: SimplePanel) {
  * badge anyway, per the plan, purely as an at-a-glance treasurer signal, not because this screen
  * doubts the figure.
  */
-private fun renderBalanceSheetBody(
+internal fun renderBalanceSheetBody(
     panel: SimplePanel,
     sheet: BalanceSheetDto,
+    captionVisible: Boolean = true,
 ) {
     panel.div(gettext("Stichtag: %1", sheet.asOf)) { addCssClasses("text-muted small") }
 
-    panel.p(tr("Aktiva")) { addCssClass("fw-bold") }
-    renderStatementLineTable(panel, tr("Aktiva"), sheet.assetLines, sheet.totalAssets, showSectionLabel = false)
-
-    panel.p(tr("Passiva")) { addCssClass("fw-bold") }
-    renderStatementLineTable(
-        panel,
-        tr("Verbindlichkeiten"),
-        sheet.liabilityLines,
-        sheet.totalLiabilities,
-    )
-    renderStatementLineTable(
-        panel,
-        tr("Eigenkapital (gebucht)"),
-        sheet.equityLines,
-        sheet.bookedEquity,
-    )
-    val accumulatedRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    accumulatedRow.div(tr("Kumuliertes Ergebnis (Σ Einnahmen − Ausgaben seit Gründung)")) { addCssClasses("flex-grow-1 fst-italic") }
-    accumulatedRow.moneySpan(sheet.accumulatedResult, warnIfNegative = true).width = 130.px
-
-    val totalPassivaRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1 align-items-center") }
-    totalPassivaRow.div(tr("Summe Passiva + Eigenkapital")) { addCssClasses("flex-grow-1") }
-    totalPassivaRow.moneySpan(sheet.totalEquityAndLiabilities).width = 130.px
+    // ONE table: Aktiva, then Passiva with its two sub-sections, the accumulated result and both totals.
+    val report = panel.reportTable(caption = tr("Bilanz"), headers = STATEMENT_HEADERS, captionVisible = captionVisible)
+    report.reportRows(balanceSheetRows(sheet), STATEMENT_HEADERS)
 
     val balanceRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center mt-2") }
     balanceRow.div(tr("Summe Aktiva = Summe Passiva + Eigenkapital?")) { addCssClasses("flex-grow-1") }
@@ -366,24 +359,25 @@ private fun renderAnnualFinancialStatementView(panel: SimplePanel) {
             addCssClass("text-danger")
             hide()
         }
-    val resultPanel = panel.vPanel(spacing = 10)
+    val section =
+        panel.dataSection<AnnualFinancialStatementDto>(
+            isEmpty = { false },
+            load = {
+                filterControls.parseYear()?.let { fiscalYear ->
+                    guarded { rpcService<IAccountingService>().getAnnualFinancialStatement(fiscalYear) }
+                }
+            },
+            render = { body, statement -> renderAnnualFinancialStatementBody(body, statement) },
+        )
 
     fun load() {
         errorBox.hide()
-        val fiscalYear = filterControls.parseYear()
-        if (fiscalYear == null) {
+        if (filterControls.parseYear() == null) {
             errorBox.content = tr("Bitte ein gültiges Geschäftsjahr angeben (z. B. 2026).")
             errorBox.show()
             return
         }
-        resultPanel.removeAll()
-        resultPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val statement =
-                guarded { rpcService<IAccountingService>().getAnnualFinancialStatement(fiscalYear) } ?: return@launch
-            resultPanel.removeAll()
-            renderAnnualFinancialStatementBody(resultPanel, statement)
-        }
+        section.reload()
     }
     loadButton.onClick { load() }
     load()
@@ -395,7 +389,7 @@ private fun renderAnnualFinancialStatementView(panel: SimplePanel) {
  * coincide in the very first fiscal year and legitimately diverge from the second year on"), this
  * screen must never merge them into one figure.
  */
-private fun renderAnnualFinancialStatementBody(
+internal fun renderAnnualFinancialStatementBody(
     panel: SimplePanel,
     statement: AnnualFinancialStatementDto,
 ) {
@@ -403,20 +397,12 @@ private fun renderAnnualFinancialStatementBody(
         gettext("Geschäftsjahr %1 · %2 bis %3", statement.fiscalYear, statement.periodStart, statement.periodEnd),
     ) { addCssClasses("text-muted small") }
 
-    panel.p(tr("Gewinn- und Verlustrechnung")) { addCssClass("fw-bold") }
+    // The embedded GuV/Bilanz are the very same bodies as the standalone views -- their table captions name them.
     renderIncomeStatementBody(panel, statement.incomeStatement)
-
-    panel.p(tr("Bilanz")) { addCssClass("fw-bold") }
     renderBalanceSheetBody(panel, statement.balanceSheet)
 
-    panel.p(tr("Kennzahlen")) { addCssClass("fw-bold") }
-    val periodResultRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    periodResultRow.div(tr("Jahresergebnis (dieses Geschäftsjahr)")) { addCssClasses("flex-grow-1") }
-    periodResultRow.moneySpan(statement.periodResult, warnIfNegative = true).width = 130.px
-
-    val accumulatedResultRow = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    accumulatedResultRow.div(tr("Kumuliertes Ergebnis (seit Gründung)")) { addCssClasses("flex-grow-1") }
-    accumulatedResultRow.moneySpan(statement.accumulatedResult, warnIfNegative = true).width = 130.px
+    val keyFigures = panel.reportTable(caption = tr("Kennzahlen"), headers = KEY_FIGURE_HEADERS)
+    keyFigures.reportRows(annualKeyFigureRows(statement), KEY_FIGURE_HEADERS)
 
     panel.div(
         tr(
@@ -427,49 +413,24 @@ private fun renderAnnualFinancialStatementBody(
 }
 
 // ============================================================================================
-// Shared line-table rendering (StatementLineDto) -- used by GuV/Bilanz and their Jahresabschluss
-// embedding
+// Shared statement-section table (StatementLineDto) -- the Vier-Sphaeren details reuse it
 // ============================================================================================
 
 /**
- * [showSectionLabel] suppresses the "Summe {title}" footer wording only for the Bilanz's Aktiva
- * section, whose own `panel.p("Aktiva")` heading is rendered by the caller one line above and
- * would otherwise be immediately followed by a redundant "Summe Aktiva" section title -- the
- * footer row itself (with the actual total) is always rendered regardless.
- *
- * Deliberately not `private` -- `NonprofitComplianceReportsScreen.kt`'s Vier-Sphären-
- * Ergebnisrechnung expands each sphere row into exactly this same `StatementLineDto`
- * income/expense rendering (design decision D7: "literally the same StatementLineDto shape"),
- * so it is reused here rather than duplicated.
+ * One statement section (income OR expense lines of one sphere) as its own [reportTable]: the caption is the
+ * [title], the total row "Summe {title}". Deliberately not `private` -- `NonprofitComplianceReportsScreen.kt`'s
+ * Vier-Sphaeren-Ergebnisrechnung expands each sphere row into exactly this rendering (design decision D7:
+ * "literally the same StatementLineDto shape"), so it is reused rather than duplicated. [title] is a `tr(...)`
+ * string and goes into the total label untouched ([trFormat], see the note in `ReportRows.kt`).
  */
-fun renderStatementLineTable(
-    panel: SimplePanel,
+internal fun renderStatementSectionTable(
+    panel: Container,
     title: String,
     lines: List<StatementLineDto>,
     total: Decimal,
-    showSectionLabel: Boolean = true,
 ) {
-    if (showSectionLabel) {
-        panel.p(title) { addCssClass("fw-bold") }
-    }
-    if (lines.isEmpty()) {
-        panel.p(tr("Keine Buchungen in diesem Abschnitt.")) { addCssClasses("text-muted small") }
-    } else {
-        val headerRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-        headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
-        headerRow.div(tr("Kontenklasse")) { width = 110.px }
-        headerRow.div(tr("Betrag")) { width = 130.px }
-        lines.sortedBy { it.accountNumber }.forEach { line ->
-            val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-            row.div(gettext("%1 · %2", line.accountNumber, line.name)) { addCssClasses("flex-grow-1") }
-            row.div(line.accountClass.toString()) { width = 110.px }
-            row.div(formatMoney(line.balance)) { width = 130.px }
-        }
-    }
-    val totalRow = panel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    totalRow.div(gettext("Summe %1", title)) { addCssClasses("flex-grow-1") }
-    totalRow.div("") { width = 110.px }
-    totalRow.div(formatMoney(total)) { width = 130.px }
+    val report = panel.reportTable(caption = title, headers = STATEMENT_HEADERS)
+    report.reportRows(statementSectionRows(title, lines, total, showSectionLabel = false), STATEMENT_HEADERS)
 }
 
 // ============================================================================================

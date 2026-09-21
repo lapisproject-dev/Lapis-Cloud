@@ -36,8 +36,26 @@ class I18nCatalogManager(
         key: String,
         vararg args: Any?,
     ): String {
+        // A composed key (see [trFormat]): KVision hands the WHOLE marker-stripped string to `gettext` with no
+        // arguments, so the arguments travel inside the key.
+        if (args.isEmpty() && key.contains(I18N_ARG_SEPARATOR)) return composed(key)
         val translated = lookup(key)
         return substitute(translated, args)
+    }
+
+    /**
+     * `template SEP arg1 SEP arg2 ...` -> the translated template with every argument resolved in the CURRENT
+     * language first (an argument that is itself a `tr(...)` marker string is looked up; a plain one is taken as it
+     * is). This is what lets a label like "Summe %1" follow a language switch on a screen that is already rendered.
+     */
+    private fun composed(key: String): String {
+        val parts = key.split(I18N_ARG_SEPARATOR)
+        val resolved =
+            Array<Any?>(parts.size - 1) { index ->
+                val argument = parts[index + 1]
+                if (argument.startsWith(KV_I18N_MARKER)) gettext(argument.removePrefix(KV_I18N_MARKER)) else argument
+            }
+        return substitute(lookup(parts.first()), resolved)
     }
 
     /**
@@ -73,3 +91,21 @@ class I18nCatalogManager(
         return result
     }
 }
+
+/** Separates the template from its arguments inside a composed `tr` string (see [trFormat]); never rendered. */
+internal const val I18N_ARG_SEPARATOR = "\u0001"
+
+/**
+ * A `tr(...)` string with arguments that STAYS live-translatable: `trFormat(tr("Summe %1"), tr("Einnahmen"))`.
+ * KVision's own `tr(key)` takes no arguments, and `gettext("Summe %1", tr("Einnahmen"))` resolves once, at the
+ * moment of the call -- the nested marker is never resolved (the label showed `Summe ###KvI18nS###Einnahmen`) and the
+ * label would not follow a language switch. Here the result keeps the [template]'s marker prefix, so the widget
+ * that shows it re-resolves it on every render, and [I18nCatalogManager.gettext] resolves the arguments per language.
+ *
+ * [template] must be a `tr(...)` string (so the extraction tooling sees the msgid); each argument is a `tr(...)`
+ * string or plain text.
+ */
+internal fun trFormat(
+    template: String,
+    vararg args: String,
+): String = template + args.joinToString("") { I18N_ARG_SEPARATOR + it }

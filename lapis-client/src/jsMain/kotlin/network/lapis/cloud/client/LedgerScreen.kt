@@ -25,7 +25,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -35,9 +34,11 @@ import network.lapis.cloud.shared.domain.CostCenterDto
 import network.lapis.cloud.shared.domain.DonorCategory
 import network.lapis.cloud.shared.domain.ExternalDonorDto
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
+import network.lapis.cloud.shared.domain.GeneralLedgerDto
 import network.lapis.cloud.shared.domain.JournalEntryDto
 import network.lapis.cloud.shared.domain.JournalEntryInput
 import network.lapis.cloud.shared.domain.JournalEntryStatus
+import network.lapis.cloud.shared.domain.KassenbuchDto
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.LedgerAccountInput
 import network.lapis.cloud.shared.domain.LedgerAccountType
@@ -1098,128 +1099,102 @@ private fun renderAccountDrillDown(
     renderHauptbuchView(contentPanel, account)
 }
 
-private fun renderHauptbuchView(
+internal fun renderHauptbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
 ) {
     val filterControls = panel.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
-    val linesPanel = panel.vPanel(spacing = 2)
-
-    fun load() {
-        linesPanel.removeAll()
-        linesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val ledger =
+    // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." when the load fails.
+    val section =
+        panel.dataSection<GeneralLedgerDto>(
+            isEmpty = { false },
+            load = {
                 guarded {
                     rpcService<IAccountingService>().getGeneralLedgerAccount(
                         account.id,
                         filterControls.parseFrom(),
                         filterControls.parseTo(),
                     )
-                } ?: return@launch
-            linesPanel.removeAll()
-
-            val headerRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-            headerRow.div(tr("Datum")) { width = 100.px }
-            headerRow.div(tr("Beschreibung")) { addCssClasses("flex-grow-1") }
-            headerRow.div(tr("Soll")) { width = 110.px }
-            headerRow.div(tr("Haben")) { width = 110.px }
-            headerRow.div(tr("Saldo")) { width = 110.px }
-
-            val openingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-            openingRow.div("") { width = 100.px }
-            openingRow.div(tr("Eröffnungssaldo")) { addCssClasses("flex-grow-1 fst-italic text-muted") }
-            openingRow.div("") { width = 110.px }
-            openingRow.div("") { width = 110.px }
-            openingRow.div(formatMoney(ledger.openingBalance)) { width = 110.px }
-
-            if (ledger.lines.isEmpty()) {
-                linesPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
-            }
-            ledger.lines.forEach { line ->
-                val row = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-                row.div(line.entryDate.toString()) { width = 100.px }
-                row.div(line.description) { addCssClasses("flex-grow-1") }
-                row.div(if (line.side == PostingSide.DEBIT) formatMoney(line.amount) else "") { width = 110.px }
-                row.div(if (line.side == PostingSide.CREDIT) formatMoney(line.amount) else "") { width = 110.px }
-                row.div(formatMoney(line.runningBalance)) { width = 110.px }
-            }
-
-            val closingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-            closingRow.div("") { width = 100.px }
-            closingRow.div(tr("Schlusssaldo")) { addCssClasses("flex-grow-1") }
-            closingRow.div("") { width = 110.px }
-            closingRow.div("") { width = 110.px }
-            closingRow.div(formatMoney(ledger.closingBalance)) { width = 110.px }
-        }
-    }
-    loadButton.onClick { load() }
-    load()
+                }
+            },
+            render = { body, ledger -> renderHauptbuchLines(body, ledger) },
+        )
+    loadButton.onClick { section.reload() }
+    section.reload()
 }
 
-private fun renderKassenbuchView(
+private val HAUPTBUCH_HEADERS =
+    listOf(
+        TableHeader(title = tr("Datum")),
+        TableHeader(title = tr("Beschreibung")),
+        TableHeader(title = tr("Soll"), numeric = true),
+        TableHeader(title = tr("Haben"), numeric = true),
+        TableHeader(title = tr("Saldo"), numeric = true),
+    )
+
+/**
+ * The Hauptbuch as a DOCUMENT (Welle V1.4.27, W3): a [reportTable] with the running balance -- a row means
+ * nothing without its neighbours, so no sort, no card list. Opening and closing balance are balance rows.
+ */
+internal fun renderHauptbuchLines(
+    linesPanel: Container,
+    ledger: GeneralLedgerDto,
+) {
+    // The account header ("1200 · Bank" + badges) stands right above: the caption stays the table's accessible name
+    // but is not shown a second time (audit MINOR-2).
+    val report =
+        linesPanel.reportTable(
+            caption = gettext("%1 · %2", ledger.accountNumber, ledger.name),
+            headers = HAUPTBUCH_HEADERS,
+            captionVisible = false,
+        )
+    report.reportRows(generalLedgerRows(ledger), HAUPTBUCH_HEADERS)
+}
+
+internal fun renderKassenbuchView(
     panel: SimplePanel,
     account: LedgerAccountDto,
 ) {
     val filterControls = panel.dateRangeFilter(toLabel = tr("Bis (JJJJ-MM-TT, optional)"))
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
-    val linesPanel = panel.vPanel(spacing = 2)
-
-    fun load() {
-        linesPanel.removeAll()
-        linesPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-        AppScope.launch {
-            val kassenbuch =
+    val section =
+        panel.dataSection<KassenbuchDto>(
+            isEmpty = { false },
+            load = {
                 guarded {
                     rpcService<IAccountingService>().getKassenbuch(account.id, filterControls.parseFrom(), filterControls.parseTo())
-                } ?: return@launch
-            linesPanel.removeAll()
+                }
+            },
+            render = { body, kassenbuch -> renderKassenbuchLines(body, kassenbuch) },
+        )
+    loadButton.onClick { section.reload() }
+    section.reload()
+}
 
-            val headerRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-            headerRow.div(tr("Nr.")) { width = 50.px }
-            headerRow.div(tr("Datum")) { width = 100.px }
-            headerRow.div(tr("Beschreibung")) { addCssClasses("flex-grow-1") }
-            headerRow.div(tr("Beleg")) { width = 110.px }
-            headerRow.div(tr("Einnahme")) { width = 110.px }
-            headerRow.div(tr("Ausgabe")) { width = 110.px }
-            headerRow.div(tr("Saldo")) { width = 110.px }
+private val KASSENBUCH_HEADERS =
+    listOf(
+        TableHeader(title = tr("Nr.")),
+        TableHeader(title = tr("Datum")),
+        TableHeader(title = tr("Beschreibung")),
+        TableHeader(title = tr("Beleg")),
+        TableHeader(title = tr("Einnahme"), numeric = true),
+        TableHeader(title = tr("Ausgabe"), numeric = true),
+        TableHeader(title = tr("Saldo"), numeric = true),
+    )
 
-            val openingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-            openingRow.div("") { width = 50.px }
-            openingRow.div("") { width = 100.px }
-            openingRow.div(tr("Eröffnungssaldo")) { addCssClasses("flex-grow-1 fst-italic text-muted") }
-            openingRow.div("") { width = 110.px }
-            openingRow.div("") { width = 110.px }
-            openingRow.div("") { width = 110.px }
-            openingRow.div(formatMoney(kassenbuch.openingBalance)) { width = 110.px }
-
-            if (kassenbuch.lines.isEmpty()) {
-                linesPanel.p(tr("Keine Buchungen im gewählten Zeitraum."))
-            }
-            kassenbuch.lines.forEach { line ->
-                val row = linesPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-                row.div(line.kassenbuchNumber.toString()) { width = 50.px }
-                row.div(line.entryDate.toString()) { width = 100.px }
-                row.div(line.description) { addCssClasses("flex-grow-1") }
-                row.div(line.voucherReference ?: "--") { width = 110.px }
-                row.div(if (line.amountIn.toDouble() != 0.0) formatMoney(line.amountIn) else "") { width = 110.px }
-                row.div(if (line.amountOut.toDouble() != 0.0) formatMoney(line.amountOut) else "") { width = 110.px }
-                row.div(formatMoney(line.runningBalance)) { width = 110.px }
-            }
-
-            val closingRow = linesPanel.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-            closingRow.div("") { width = 50.px }
-            closingRow.div("") { width = 100.px }
-            closingRow.div(tr("Schlusssaldo")) { addCssClasses("flex-grow-1") }
-            closingRow.div("") { width = 110.px }
-            closingRow.div("") { width = 110.px }
-            closingRow.div("") { width = 110.px }
-            closingRow.div(formatMoney(kassenbuch.closingBalance)) { width = 110.px }
-        }
-    }
-    loadButton.onClick { load() }
-    load()
+/** The Kassenbuch as a document: **Nr.** is the GoBD sequence, so the table is rendered in server order, never sorted. */
+internal fun renderKassenbuchLines(
+    linesPanel: Container,
+    kassenbuch: KassenbuchDto,
+) {
+    val report =
+        linesPanel.reportTable(
+            caption = gettext("%1 · %2", kassenbuch.accountNumber, kassenbuch.name),
+            headers = KASSENBUCH_HEADERS,
+            captionVisible = false,
+        )
+    report.reportRows(kassenbuchRows(kassenbuch), KASSENBUCH_HEADERS)
 }
 
 // ============================================================================================
@@ -1333,7 +1308,7 @@ private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
  * D1: the lifecycle caption states the irreversibility difference in plain text beneath the header
  * (the [statusBadge] pill itself stays terse, per that design decision).
  */
-private fun renderJournalEntryDetail(
+internal fun renderJournalEntryDetail(
     panel: SimplePanel,
     entryId: String,
     canManage: Boolean,
@@ -1341,73 +1316,83 @@ private fun renderJournalEntryDetail(
     onDuplicate: (JournalEntryDto) -> Unit,
 ) {
     panel.removeAll()
-    panel.p(tr("Wird geladen …"))
-    AppScope.launch {
-        val entry = guarded { rpcService<IAccountingService>().getJournalEntry(entryId) } ?: return@launch
-        panel.removeAll()
+    // Audit V1.4.27 (F): `dataSection` instead of "Wird geladen ..." forever (`?: return@launch`) when the load fails --
+    // a failed detail is an error state in the page with "Erneut versuchen".
+    panel
+        .dataSection<JournalEntryDto>(
+            isEmpty = { false },
+            load = { guarded { rpcService<IAccountingService>().getJournalEntry(entryId) } },
+            render = { body, entry -> renderJournalEntryDetailBody(body, entry, canManage, onChanged, onDuplicate) },
+        ).reload()
+}
 
-        val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.div(entry.description) { addCssClasses("flex-grow-1 fw-bold") }
-        headerRow.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
+private fun renderJournalEntryDetailBody(
+    panel: SimplePanel,
+    entry: JournalEntryDto,
+    canManage: Boolean,
+    onChanged: () -> Unit,
+    onDuplicate: (JournalEntryDto) -> Unit,
+) {
+    val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    headerRow.div(entry.description) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
 
-        val caption =
-            if (entry.status == JournalEntryStatus.DRAFT) {
-                gettext(
-                    "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte.",
-                    entry.createdByDisplayName,
-                    entry.createdAt,
-                )
-            } else {
-                gettext("Gebucht am %1 von %2 -- unveränderlich.", entry.postedAt, entry.createdByDisplayName)
-            }
-        panel.div(caption) { addCssClasses("text-muted small") }
-        panel.div(gettext("Datum: %1", entry.entryDate)) { addCssClasses("text-muted small") }
-        entry.voucherReference?.let { panel.div(gettext("Beleg: %1", it)) { addCssClasses("text-muted small") } }
-
-        renderDonorInfo(panel, entry)
-
-        panel.h2(tr("Buchungszeilen")) { addCssClass("h6") }
-        renderPostingsTable(panel, entry.postings)
-
-        if (entry.status == JournalEntryStatus.DRAFT && canManage) {
-            // D3: the no-edit-draft gap -- `saveDraftEntry`/`postDraftEntry` offer no update/delete
-            // path, so a wrong draft can only be superseded, never corrected in place.
-            val callout = panel.vPanel(spacing = 4) { addCssClasses("alert alert-light border") }
-            callout.div(
-                tr(
-                    "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf " +
-                        "fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu " +
-                        "erstellen, und lassen Sie diesen Entwurf ungebucht liegen.",
-                ),
+    val caption =
+        if (entry.status == JournalEntryStatus.DRAFT) {
+            gettext(
+                "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte.",
+                entry.createdByDisplayName,
+                entry.createdAt,
             )
+        } else {
+            gettext("Gebucht am %1 von %2 -- unveränderlich.", entry.postedAt, entry.createdByDisplayName)
+        }
+    panel.div(caption) { addCssClasses("text-muted small") }
+    panel.div(gettext("Datum: %1", entry.entryDate)) { addCssClasses("text-muted small") }
+    entry.voucherReference?.let { panel.div(gettext("Beleg: %1", it)) { addCssClasses("text-muted small") } }
 
-            val actionRow = panel.hPanel(spacing = 8)
-            val postButton = actionRow.button(tr("Buchen"), style = ButtonStyle.PRIMARY)
-            postButton.onClick {
-                postingConfirmDialog(entry.entryDate, entry.description, entry.voucherReference, postingDtosToDisplay(entry.postings)) {
-                    // The confirm modal itself hides on the first click of "Endgültig buchen", which
-                    // removes its backdrop and leaves this now-stale detail view's "Buchen" button
-                    // fully clickable again while the RPC call below is still in flight -- disable it
-                    // for the duration so an impatient double-click cannot fire `postDraftEntry` twice
-                    // concurrently. `postDraftEntry` itself is idempotent (status-checked server-side,
-                    // see its KDoc), so this is defense-in-depth against a confusing double toast, not
-                    // a data-integrity fix -- unlike [renderNewEntryForm]'s `postDirectButton`, where
-                    // the same guard prevents an actual duplicate POSTED entry (see that button's own
-                    // KDoc for why `postJournalEntry` has no such server-side idempotency check at all).
-                    postButton.disabled = true
-                    AppScope.launch {
-                        val result = guarded { rpcService<IAccountingService>().postDraftEntry(entry.id) }
-                        postButton.disabled = false
-                        if (result != null) {
-                            notifySuccess(tr("Buchung wurde gebucht."))
-                            onChanged()
-                        }
+    renderDonorInfo(panel, entry)
+
+    renderPostingsTable(panel, entry.postings)
+
+    if (entry.status == JournalEntryStatus.DRAFT && canManage) {
+        // D3: the no-edit-draft gap -- `saveDraftEntry`/`postDraftEntry` offer no update/delete
+        // path, so a wrong draft can only be superseded, never corrected in place.
+        val callout = panel.vPanel(spacing = 4) { addCssClasses("alert alert-light border") }
+        callout.div(
+            tr(
+                "Entwürfe können nicht nachträglich geändert oder gelöscht werden. Ist dieser Entwurf " +
+                    "fehlerhaft, nutzen Sie „Als neuen Entwurf duplizieren\" unten, um eine korrigierte Kopie zu " +
+                    "erstellen, und lassen Sie diesen Entwurf ungebucht liegen.",
+            ),
+        )
+
+        val actionRow = panel.hPanel(spacing = 8)
+        val postButton = actionRow.button(tr("Buchen"), style = ButtonStyle.PRIMARY)
+        postButton.onClick {
+            postingConfirmDialog(entry.entryDate, entry.description, entry.voucherReference, postingDtosToDisplay(entry.postings)) {
+                // The confirm modal itself hides on the first click of "Endgültig buchen", which
+                // removes its backdrop and leaves this now-stale detail view's "Buchen" button
+                // fully clickable again while the RPC call below is still in flight -- disable it
+                // for the duration so an impatient double-click cannot fire `postDraftEntry` twice
+                // concurrently. `postDraftEntry` itself is idempotent (status-checked server-side,
+                // see its KDoc), so this is defense-in-depth against a confusing double toast, not
+                // a data-integrity fix -- unlike [renderNewEntryForm]'s `postDirectButton`, where
+                // the same guard prevents an actual duplicate POSTED entry (see that button's own
+                // KDoc for why `postJournalEntry` has no such server-side idempotency check at all).
+                postButton.disabled = true
+                AppScope.launch {
+                    val result = guarded { rpcService<IAccountingService>().postDraftEntry(entry.id) }
+                    postButton.disabled = false
+                    if (result != null) {
+                        notifySuccess(tr("Buchung wurde gebucht."))
+                        onChanged()
                     }
                 }
             }
-            val duplicateButton = actionRow.button(tr("Als neuen Entwurf duplizieren"), style = ButtonStyle.OUTLINESECONDARY)
-            duplicateButton.onClick { onDuplicate(entry) }
         }
+        val duplicateButton = actionRow.button(tr("Als neuen Entwurf duplizieren"), style = ButtonStyle.OUTLINESECONDARY)
+        duplicateButton.onClick { onDuplicate(entry) }
     }
 }
 
@@ -1474,50 +1459,35 @@ private fun renderDonorInfo(
  * D8: two-column Soll/Haben layout -- the amount lands in exactly one of the two columns per its
  * [PostingDto.side], never a single "Betrag" column plus a side badge.
  *
- * UI theme redesign wave (2026-08-20): real Bootstrap table (table-striped/table-hover), replacing
- * the previous hand-rolled "border-bottom py-1" hPanel-per-row layout -- see root CLAUDE.md
- * "UI/UX-Design-Team" review. D8's two-column Soll/Haben layout itself is unchanged.
+ * Audit V1.4.27 (E): a [reportTable], not a `dataTable`. The posting lines of an entry are a DOCUMENT (the
+ * Soll/Haben pairing only makes sense across the rows, the order is the order of the entry) and
+ * `renderPostingConfirmTable` / the audit log's snapshot show the very same lines as a report table -- one grammar
+ * for the same object; a `dataTable` here turned unconditionally into a card list below 768 px. The caption
+ * ("Buchungszeilen") names the table, so the detail view has no heading of its own above it.
  */
-private fun renderPostingsTable(
-    panel: SimplePanel,
+internal fun renderPostingsTable(
+    panel: Container,
     postings: List<PostingDto>,
 ) {
     if (postings.isEmpty()) {
         panel.p(tr("Keine Buchungszeilen.")) { addCssClasses("text-muted") }
         return
     }
-    // Welle V1.4.26 (W2): `dataTable` -- Soll und Haben sind jetzt rechtsbündig mit Tabellenziffern,
-    // damit die beiden Spalten wie in einem Buchhaltungsprogramm untereinander stehen. Keine
-    // Sortierköpfe: die Reihenfolge der Buchungszeilen ist die Reihenfolge der Buchung selbst.
-    panel.dataTable(columns = postingColumns(), rows = postings)
+    val report = panel.reportTable(caption = tr("Buchungszeilen"), headers = JOURNAL_POSTING_HEADERS)
+    report.reportRows(journalPostingRows(postings), JOURNAL_POSTING_HEADERS)
 }
 
-private fun postingColumns(): List<DataColumn<PostingDto>> =
+private val JOURNAL_POSTING_HEADERS =
     listOf(
-        textColumn(title = tr("Konto"), primary = true) { posting: PostingDto ->
-            gettext("%1 · %2", posting.ledgerAccountNumber, posting.ledgerAccountName)
-        },
-        DataColumn(
-            title = tr("Soll"),
-            numeric = true,
-            cell = { container, posting -> if (posting.side == PostingSide.DEBIT) container.moneySpan(posting.amount) },
-        ),
-        DataColumn(
-            title = tr("Haben"),
-            numeric = true,
-            cell = { container, posting -> if (posting.side == PostingSide.CREDIT) container.moneySpan(posting.amount) },
-        ),
-        DataColumn(
-            title = tr("Sphäre"),
-            cell = { container, posting -> container.typeBadge(sphereLabel(posting.sphere), sphereColor(posting.sphere)) },
-        ),
-        textColumn(title = tr("Kostenstelle")) { posting: PostingDto ->
-            posting.costCenterCode?.let { gettext("%1 · %2", it, posting.costCenterName) } ?: "--"
-        },
+        TableHeader(title = tr("Konto")),
+        TableHeader(title = tr("Soll"), numeric = true),
+        TableHeader(title = tr("Haben"), numeric = true),
+        TableHeader(title = tr("Sphäre")),
+        TableHeader(title = tr("Kostenstelle")),
         // Welle V1.4.13 "USt-Voranmeldung" -- Text, nie eine Farbe (siehe vatRateLabel KDoc).
         // Bewusst ohne Betrag zusaetzlich -- der Betrag oben ist BRUTTO inkl. USt, siehe
         // NonprofitComplianceReportsScreen.kt fuer den ausdruecklichen Brutto-Hinweis.
-        textColumn(title = tr("USt")) { posting: PostingDto -> vatRateLabel(posting.vatRate) },
+        TableHeader(title = tr("USt")),
     )
 
 // ============================================================================================
@@ -1929,7 +1899,7 @@ private fun renderPostingLinesRow(
 // D2: bespoke posting-confirmation modal -- shared by both post call sites
 // ============================================================================================
 
-private data class PostingLineDisplay(
+internal data class PostingLineDisplay(
     val accountLabel: String,
     val side: PostingSide,
     val amount: Decimal,
@@ -1991,10 +1961,39 @@ private fun postingInputsToDisplay(
  * the button -- that's the product"), so summing here is required, not a violation of this wave's
  * "never re-derive a persisted monetary figure" rule -- see file KDoc.
  */
-private fun sumPostingLines(
+internal fun sumPostingLines(
     lines: List<PostingLineDisplay>,
     side: PostingSide,
 ): Decimal = lines.filter { it.side == side }.sumOf { it.amount.toDouble() }.toDecimal()
+
+/**
+ * The Soll/Haben table of the posting confirmation as a [reportTable]: the treasurer sees the actual postings,
+ * balanced, before the entry becomes immutable. The Σ row takes the caller's sums ([sumPostingLines]).
+ */
+internal fun renderPostingConfirmTable(
+    container: Container,
+    lines: List<PostingLineDisplay>,
+    showVatColumn: Boolean,
+) {
+    val headers =
+        buildList {
+            add(TableHeader(title = tr("Konto")))
+            add(TableHeader(title = tr("Soll"), numeric = true))
+            add(TableHeader(title = tr("Haben"), numeric = true))
+            add(TableHeader(title = tr("Sphäre")))
+            add(TableHeader(title = tr("Kostenstelle")))
+            if (showVatColumn) add(TableHeader(title = tr("USt")))
+        }
+    val report = container.reportTable(caption = tr("Buchungszeilen"), headers = headers)
+    val rows =
+        postingConfirmRows(
+            lines = lines,
+            showVatColumn = showVatColumn,
+            debitSum = sumPostingLines(lines, PostingSide.DEBIT),
+            creditSum = sumPostingLines(lines, PostingSide.CREDIT),
+        )
+    report.reportRows(rows, headers)
+}
 
 /**
  * D2: one bespoke modal, two call sites ([renderJournalEntryDetail]'s "Buchen" on an existing draft,
@@ -2034,48 +2033,7 @@ private fun postingConfirmDialog(
         modal.div(tr("Beträge oben sind BRUTTO (inkl. USt).")) { addCssClasses("text-muted small") }
     }
 
-    val headerRow = modal.hPanel(spacing = 8) { addCssClasses("fw-bold border-bottom pb-1") }
-    headerRow.div(tr("Konto")) { addCssClasses("flex-grow-1") }
-    headerRow.div(tr("Soll")) { width = 100.px }
-    headerRow.div(tr("Haben")) { width = 100.px }
-    headerRow.div(tr("Sphäre")) { width = 170.px }
-    headerRow.div(tr("Kostenstelle")) { width = 130.px }
-    if (showVatColumn) headerRow.div(tr("USt")) { width = 110.px }
-
-    lines.forEach { line ->
-        val row = modal.hPanel(spacing = 8) { addCssClasses("border-bottom py-1") }
-        row.div(line.accountLabel) { addCssClasses("flex-grow-1") }
-        row.div(if (line.side == PostingSide.DEBIT) formatMoney(line.amount) else "") { width = 100.px }
-        row.div(if (line.side == PostingSide.CREDIT) formatMoney(line.amount) else "") { width = 100.px }
-        row.div(line.sphereLabel) {
-            width = 170.px
-            addCssClasses("text-muted small")
-        }
-        row.div(line.costCenterLabel ?: "--") {
-            width = 130.px
-            addCssClasses("text-muted small")
-        }
-        if (showVatColumn) {
-            val vatText =
-                if (line.vatAmount != null) {
-                    gettext("%1 (%2)", line.vatRateLabel, formatMoney(line.vatAmount))
-                } else {
-                    line.vatRateLabel.orEmpty()
-                }
-            row.div(vatText) {
-                width = 110.px
-                addCssClasses("text-muted small")
-            }
-        }
-    }
-
-    val footerRow = modal.hPanel(spacing = 8) { addCssClasses("fw-bold border-top pt-1") }
-    footerRow.div("Σ") { addCssClasses("flex-grow-1") }
-    footerRow.div(formatMoney(sumPostingLines(lines, PostingSide.DEBIT))) { width = 100.px }
-    footerRow.div(formatMoney(sumPostingLines(lines, PostingSide.CREDIT))) { width = 100.px }
-    footerRow.div("") { width = 170.px }
-    footerRow.div("") { width = 130.px }
-    if (showVatColumn) footerRow.div("") { width = 110.px }
+    renderPostingConfirmTable(modal, lines, showVatColumn)
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
