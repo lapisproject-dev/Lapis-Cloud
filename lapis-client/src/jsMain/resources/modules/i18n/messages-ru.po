@@ -2695,10 +2695,6 @@ msgstr "Bitcoin использует три бесплатных источни�
 msgid "Bitte 1 bis %1 Ziele auswählen."
 msgstr "Выберите от 1 до %1 целей."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:135
-msgid "Bitte alle Felder ausfüllen."
-msgstr "Заполните все поля."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:365
 msgid ""
 "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und "
@@ -3477,10 +3473,6 @@ msgid ""
 msgstr ""
 "Сообщение «%1» будет отправлено всем активным подписчикам рассылки «%2». "
 "Этот шаг нельзя отменить."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:140
-msgid "Die neuen Passwörter stimmen nicht überein."
-msgstr "Новые пароли не совпадают."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:383
 msgid ""

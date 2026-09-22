@@ -501,6 +501,8 @@ private val R24_MIGRATED: Set<String> =
         "BankStatementImportScreen.kt",
         "CostCentersScreen.kt",
         "AccountingExportScreen.kt",
+        // W4d: DashboardScreen's change-password form (three labelled password fields removed).
+        "DashboardScreen.kt",
     )
 
 /** Screens examined that have NO labelled text field to migrate: strict too, but there is no form to build. */
@@ -576,9 +578,10 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
 /**
  * The downward ratchet: labelled fields outside the strict set (297 in 54 files when W4a landed, 228 after W4b, 225 in 41 files after
  * the V1.4.29 audit moved `FormGrammar.kt` -- the factories -- into the strict set, 166 after W4c (V1.4.30: 59 labelled fields of the
- * twelve finance screens moved in; ten of them are justified filters). Only ever lowered.
+ * twelve finance screens moved in; ten of them are justified filters), 163 after W4d (DashboardScreen's three change-password fields
+ * moved in). Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 166
+private const val R24_REMAINING_MAX = 163
 
 private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
 

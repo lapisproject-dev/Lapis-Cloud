@@ -2548,10 +2548,6 @@ msgstr ""
 msgid "Bitte 1 bis %1 Ziele auswählen."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:135
-msgid "Bitte alle Felder ausfüllen."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:365
 msgid "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und mindestens %1s (Refresh-Intervall für %2), Mindest-Quorum mindestens %3, Ausreißer-Schwelle 1-10000 bps, Max. Spread >= Ausreißer-Schwelle."
 msgstr ""
@@ -3174,10 +3170,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:379
 msgid "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:140
-msgid "Die neuen Passwörter stimmen nicht überein."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:383

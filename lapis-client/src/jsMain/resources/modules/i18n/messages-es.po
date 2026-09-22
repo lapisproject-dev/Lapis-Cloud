@@ -2706,10 +2706,6 @@ msgstr "Bitcoin utiliza tres fuentes gratuitas y sin clave (Coinbase/Kraken/Bits
 msgid "Bitte 1 bis %1 Ziele auswählen."
 msgstr "Seleccione entre 1 y %1 destinos."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:135
-msgid "Bitte alle Felder ausfüllen."
-msgstr "Rellene todos los campos."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:365
 msgid ""
 "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und "
@@ -3499,10 +3495,6 @@ msgid ""
 msgstr ""
 "El mensaje \"%1\" se enviará a todas las personas suscritas activas de la "
 "lista de correo \"%2\". Este paso no se puede deshacer."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:140
-msgid "Die neuen Passwörter stimmen nicht überein."
-msgstr "Las nuevas contraseñas no coinciden."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:383
 msgid ""

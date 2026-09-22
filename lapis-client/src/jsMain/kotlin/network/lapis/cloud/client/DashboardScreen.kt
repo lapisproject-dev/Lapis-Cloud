@@ -1,6 +1,6 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.text.password
+import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -178,46 +178,41 @@ internal fun renderMemberCard(
     }
 }
 
-private fun renderChangePassword(root: SimplePanel) {
+/**
+ * W6c ("W4d form migration"): `lapisForm` replacement of the previous hand-built three-field block
+ * with a manual `errorBox`. Inline in the account block, not a modal -- there was never a second
+ * entry point that a modal would need to reconcile with. `email` is the self-email check of
+ * [FormRules.newPassword]: [network.lapis.cloud.shared.domain.SessionInfoDto] carries no email field
+ * (only [Validation]'s length rule runs today), a weaker check than [RegistrationScreen]'s -- named
+ * here, not silently worked around.
+ */
+internal fun renderChangePassword(root: SimplePanel) {
     val panel = root.vPanel(spacing = 6)
     panel.p(tr("Passwort ändern"))
-    val currentPasswordInput = panel.password(label = tr("Aktuelles Passwort"))
-    val newPasswordInput =
-        panel.password(label = gettext("Neues Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH))
-    val confirmPasswordInput = panel.password(label = tr("Neues Passwort bestätigen"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-
-    val changeButton: Button = panel.button(tr("Passwort ändern"), style = ButtonStyle.OUTLINESECONDARY)
-    changeButton.onClick {
-        errorBox.hide()
-        val currentPassword = currentPasswordInput.value.orEmpty()
-        val newPassword = newPasswordInput.value.orEmpty()
-        val confirmPassword = confirmPasswordInput.value.orEmpty()
-
-        if (!Validation.isNonBlank(currentPassword) || !Validation.isNonBlank(newPassword)) {
-            errorBox.content = tr("Bitte alle Felder ausfüllen.")
-            errorBox.show()
-            return@onClick
-        }
-        if (!Validation.passwordsMatch(newPassword, confirmPassword)) {
-            errorBox.content = tr("Die neuen Passwörter stimmen nicht überein.")
-            errorBox.show()
-            return@onClick
-        }
-
-        changeButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IAuthService>().changePassword(currentPassword, newPassword) }
-            changeButton.disabled = false
+    val email = "" // SessionInfoDto carries no email field -- see KDoc above.
+    val form = panel.lapisForm()
+    val current = form.passwordField(label = tr("Aktuelles Passwort"), required = true, autocomplete = Autocomplete.CURRENT_PASSWORD)
+    val next =
+        form.passwordField(
+            label = gettext("Neues Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            reveal = true,
+            rule = { FormRules.newPassword(value = it, email = email) },
+        )
+    val confirm =
+        form.passwordField(label = tr("Neues Passwort bestätigen"), required = true, autocomplete = Autocomplete.NEW_PASSWORD)
+    form.crossFieldRule(field = confirm) { FormRules.passwordsMatch(password = next.value, confirmation = confirm.value) }
+    val save = Button(tr("Passwort ändern"), style = ButtonStyle.PRIMARY)
+    val cancel = Button(tr("Abbrechen"))
+    form.buttons(primary = save, cancel = cancel)
+    cancel.onClick { listOf(current, next, confirm).forEach { it.reset() } }
+    save.onClick {
+        form.submit(save) {
+            val result = guarded { rpcService<IAuthService>().changePassword(current.value, next.value) }
             if (result != null) {
                 notifySuccess(tr("Passwort geändert."))
-                currentPasswordInput.value = null
-                newPasswordInput.value = null
-                confirmPasswordInput.value = null
+                listOf(current, next, confirm).forEach { it.reset() }
             }
         }
     }

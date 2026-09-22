@@ -2696,10 +2696,6 @@ msgstr "Bitcoin gebruikt drie gratis bronnen zonder sleutel (Coinbase/Kraken/Bit
 msgid "Bitte 1 bis %1 Ziele auswählen."
 msgstr "Selecteer 1 tot %1 doelen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:135
-msgid "Bitte alle Felder ausfüllen."
-msgstr "Vul alle velden in."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:365
 msgid ""
 "Bitte alle Felder gültig ausfüllen: Peg positiv, Cache-TTL positiv und "
@@ -3485,10 +3481,6 @@ msgid ""
 msgstr ""
 "Het bericht \"%1\" wordt verzonden naar alle actieve abonnees van de "
 "mailinglijst \"%2\". Deze stap kan niet ongedaan worden gemaakt."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:140
-msgid "Die neuen Passwörter stimmen nicht überein."
-msgstr "De nieuwe wachtwoorden komen niet overeen."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:383
 msgid ""
