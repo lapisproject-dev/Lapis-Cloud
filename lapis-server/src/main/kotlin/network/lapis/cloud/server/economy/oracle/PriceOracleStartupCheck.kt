@@ -62,7 +62,7 @@ object PriceOracleStartupCheck {
      * Alpha-Vantage-inclusive one -- exactly 2 sources buys AVAILABILITY redundancy (one source may be
      * down and gold still works) but NOT outlier/manipulation resilience. Configuring all THREE gold
      * sources is the genuine security baseline, not merely the outage-avoidance one -- see
-     * `deploy/production/README.adoc`'s gold-anchor section, updated alongside this KDoc to say the
+     * `deploy/example/README.adoc`'s gold-anchor section, updated alongside this KDoc to say the
      * same thing where an operator will actually read it before deploying.
      */
     private fun warnIfGoldRiskyAlphaVantagePairing(orchestrator: PriceOracleOrchestrator) {

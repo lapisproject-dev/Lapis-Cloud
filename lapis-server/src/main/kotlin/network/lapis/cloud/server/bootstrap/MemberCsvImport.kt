@@ -55,8 +55,9 @@ private val logger = KotlinLogging.logger {}
  * .DunningPoller] and [AdminBootstrap.bootstrapFirstAdmin] already establish for their own
  * one-shot/hard-to-undo operations).
  *
- * **Operator run order is NOT negotiable** (see `deploy/production/README.adoc` "Einmaliger
- * Mitglieder-CSV-Import (nur PdV)" for the full operator runbook):
+ * **Operator run order is NOT negotiable** (see the private `lapisproject-dev/Lapis-Cloud-Ops`
+ * repo's README, "Einmaliger Mitglieder-CSV-Import (nur PdV)", for the full operator runbook --
+ * this is a real, one-time, org-specific migration note, not part of the public self-hosting docs):
  * 1. `flywayRepair` on PROD_HOST AND the ELB instance (this wave edits `V1__baseline.sql` in place again).
  * 2. Deploy the new server version (`docker compose up -d --build lapis-server`). [DatabaseConfig
  *    .connect] migrates internally on server start, which is what actually applies `V10`.
@@ -833,8 +834,8 @@ internal fun runImport(
  * in Excel), RFC-4180-quoted where a value contains the delimiter/quote/newline. Columns:
  * `Datensatz;Personennummer;Name;Status (CSV);Ergebnis;Grund;Detail;Lauf`, `Ergebnis` being
  * `IMPORTIERT`/`UEBERSPRUNGEN`, `Lauf` being [committed]'s `ECHTLAUF`/`TROCKENLAUF` on EVERY row --
- * the two reports the runbook produces (Trockenlauf, then Echtlauf, see the `deploy/production
- * /README.adoc` runbook) only differ by filename, so this column is what tells them apart once a
+ * the two reports the runbook produces (Trockenlauf, then Echtlauf, see the Lapis-Cloud-Ops
+ * README's runbook, referenced above) only differ by filename, so this column is what tells them apart once a
  * report has been copied/renamed/opened out of context, without relying on the filename alone.
  * `IMPORTIERT` is only ever emitted for a Trockenlauf report as "would be imported if this were an
  * Echtlauf" -- the DB write itself was rolled back (see [runImport] `commit = false`), never

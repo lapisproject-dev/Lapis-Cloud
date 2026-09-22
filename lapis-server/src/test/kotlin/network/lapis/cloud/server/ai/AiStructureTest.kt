@@ -244,13 +244,20 @@ private fun List<String>.shouldNotBeEmptyList() {
     isNotEmpty() shouldBe true
 }
 
-/** The deploy compose files must never forward `LAPIS_AI_*` -- an operator must add them on purpose (AVV first). */
+/**
+ * The deploy compose files must never forward `LAPIS_AI_*` -- an operator must add them on purpose (AVV first).
+ *
+ * 2026-09-22: `deploy/production/`, `deploy/production-elb/` and `deploy/production-staging/` (the real,
+ * instance-specific compose files) moved out of this repo entirely into the private
+ * `lapisproject-dev/Lapis-Cloud-Ops` companion repo (see the NOTE block in `deploy/example/README.adoc`) --
+ * this test can only check what this repo actually tracks. The equivalent check for the real instances'
+ * compose files must be run by hand (or scripted) against that private repo; it is not covered by this
+ * repo's CI.
+ */
 class AiEnvNotForwardedInComposeTest :
     FunSpec({
         listOf(
-            "deploy/production/docker-compose.yml",
-            "deploy/production-elb/docker-compose.yml",
-            "deploy/production-staging/docker-compose.yml",
+            "deploy/example/docker-compose.yml",
             "deploy/local/docker-compose.yml",
         ).forEach { relativePath ->
             test("$relativePath does not forward LAPIS_AI_ vars into the container") {

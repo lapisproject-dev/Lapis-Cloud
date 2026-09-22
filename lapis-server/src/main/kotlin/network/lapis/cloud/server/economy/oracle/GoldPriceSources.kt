@@ -36,7 +36,7 @@ import kotlin.time.Clock
  * poller-triggered fan-outs, so the **per-instance** budget arithmetic below is unchanged either
  * way -- but it means a deployment that configures `LAPIS_ORACLE_*` gold keys purely as a
  * secondary history source (`GOLD_XAU` never actually active) now also spends this budget, and
- * that throttle is process-local -- see `PriceOracleSnapshotPoller` KDoc / `deploy/production/
+ * that throttle is process-local -- see `PriceOracleSnapshotPoller` KDoc / `deploy/example/
  * README.adoc`'s "Price-Oracle Snapshot Poller" section for why `LAPIS_ORACLE_SNAPSHOT_ENABLED`
  * must be set on at most one instance.
  * - 12h => <=2 fan-outs/day => **<=62 requests/month/source** (31-day month).
@@ -263,7 +263,7 @@ class MetalPriceApiGoldPriceSource(
  * A gold deployment configuring only two keys should prefer the two natively-EUR sources
  * (`LAPIS_ORACLE_GOLDAPI_KEY` + `LAPIS_ORACLE_METALPRICEAPI_KEY`), because a two-key set that
  * includes this source carries the extra ECB dependency with no third source to absorb its loss --
- * see `deploy/production/README.adoc`. Request cost of the conversion leg: one extra keyless ECB
+ * see `deploy/example/README.adoc`. Request cost of the conversion leg: one extra keyless ECB
  * fetch per gold fan-out, at most 2/day (see file KDoc "Free-tier request budget").
  */
 class AlphaVantageGoldPriceSource(

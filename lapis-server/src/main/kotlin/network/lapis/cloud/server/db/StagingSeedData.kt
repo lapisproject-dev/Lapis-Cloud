@@ -65,13 +65,13 @@ private fun LocalDateTime.plusHours(hours: Int): LocalDateTime = toJavaLocalDate
  *    non-[DevSeedData.DEMO_PASSWORD] `LAPIS_STAGING_SEED_PASSWORD` must be supplied, or [seedIfEmpty]
  *    refuses to start the process at all (`error(...)`, fail-fast — see that object's KDoc).
  * 2. The `member`-table-not-empty guard inside [seedWithLockedTransaction] below — the single
- *    strongest real-world protection: neither `deploy/production/` (PdV) nor `deploy/production-elb/`
- *    (ELB) ever has an empty `member` table once live, so even a misconfigured env there would
- *    still no-op.
- * 3. `deploy/production/docker-compose.yml` and `deploy/production-elb/docker-compose.yml` do not
- *    forward `LAPIS_STAGING_MODE`/`LAPIS_STAGING_SEED_PASSWORD` into the container at all — those
- *    two real deployments' env vars never reach this code path in the first place, regardless of
- *    what is in their `.env` files.
+ *    strongest real-world protection: no real production instance ever has an empty `member`
+ *    table once live, so even a misconfigured env there would still no-op.
+ * 3. A real production instance's `docker-compose.yml` does not forward
+ *    `LAPIS_STAGING_MODE`/`LAPIS_STAGING_SEED_PASSWORD` into the container at all — those real
+ *    deployments' env vars never reach this code path in the first place, regardless of what is in
+ *    their `.env` files (see `deploy/example/README.adoc` "Running more than one instance on the
+ *    same host").
  * 4. Everything inserted here uses the `@staging.invalid` (RFC 2606, never resolvable/deliverable)
  *    email domain, a fixed UUID namespace (`0000000a-...`) disjoint from both [DevSeedData]'s
  *    (`00000000-...`) and the migration sentinels (`...-f1`/`...-f2`/`...-f3`), and an org name
@@ -102,7 +102,7 @@ object StagingSeedData {
 
     /**
      * ~18 fictitious members -- a deliberately trimmed subset of the ~40 the design sketch
-     * envisioned (see `deploy/production-staging/README.adoc` "Staging seed mechanism"), enough to
+     * envisioned (see `deploy/example/README.adoc` "Staging seed mechanism"), enough to
      * cover every [MemberStatus] literal at least once and every [AccountRole] at least once while
      * keeping this object reviewable. Ids are sequential within the `0000000a-...-10...`
      * namespace, disjoint from every other fixed-id namespace in this codebase.

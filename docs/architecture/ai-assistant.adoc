@@ -8,7 +8,7 @@ Lapis Cloud can optionally answer a member's question about the statutes ("Frage
 **The feature is off by default** and is a foundation as much as a pilot: the provider abstraction,
 the knowledge base, the audit trail and the boundary rules below are what later AI features build on.
 Operator instructions (variables, data-protection duties) live in
-`deploy/production/README.adoc`, the section "AI assistance".
+`deploy/example/README.adoc`, the section "AI assistance".
 
 == What a member sees
 

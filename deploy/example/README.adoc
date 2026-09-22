@@ -1,34 +1,42 @@
-= Production Deployment (Docker)
+= Self-Hosting Example (Docker)
 :toc:
 :toc-placement: preamble
 :icons: font
 
-Containerized production deployment for Lapis Cloud: `lapis-server` (built from the repo-root
-`Dockerfile`, with the `lapis-client` production bundle baked in) plus PostgreSQL, both managed by
-`docker-compose.yml` in this directory. Replaces the earlier bare-JVM-under-systemd +
-native-PostgreSQL setup used for the first test deployment (VPS 4000, `PROD_HOST`) --
-see that server's own infrastructure notes for the prior state and the migration this superseded.
+A complete, working example for deploying Lapis Cloud with Docker: `lapis-server` (built from the
+repo-root `Dockerfile`, with the `lapis-client` production bundle baked in) plus PostgreSQL, both
+managed by `docker-compose.yml` in this directory. Copy this whole directory as the starting point
+for your own deployment -- fill in `.env` (see `.env.example`), everything else works as-is.
+
+This is a generic, redacted template: every value that would identify a specific real deployment
+(hostname, IP, organization name) is a placeholder (`PROD_HOST` etc., see the NOTE block below) or
+an env var. It also replaces an earlier bare-JVM-under-systemd + native-PostgreSQL setup (see
+"Migrating from a prior bare-JVM + native-PostgreSQL deployment" below) for anyone cutting over an
+existing non-Docker install.
 
 [NOTE]
 ====
-This repo is public, so the real hostnames/IPs of any live deployment are kept out of it.
-Wherever these docs and templates say `PROD_HOST` / `ELB_HOST` / `STAGING_HOST`, substitute that
-deployment's own real hostname (e.g. what `turn.PROD_HOST` says is really `turn.<your-domain>`);
+This repo is public, so it never carries any real deployment's actual hostname/IP/org identity --
+this whole directory is a generic template. Wherever these docs and templates say `PROD_HOST`,
+substitute your own real hostname (e.g. what `turn.PROD_HOST` says is really `turn.<your-domain>`);
 `${LAPIS_PUBLIC_IP}` is the literal env var from `.env` (see `.env.example`) that carries the real
-public IPv4 at runtime. This placeholder scheme keeps a grep/clone of this repo from handing out a
-live deployment's topology outright -- it is not a substitute for keeping `.env` itself out of
-version control (already covered by `.gitignore`), and it does not hide anything a plain DNS
-lookup of a *known* public hostname would already reveal; treat it as reducing incidental leakage
-in the repo text, not as concealing an otherwise-secret address. `PROD_HOST` / `ELB_HOST` /
-`STAGING_HOST` are prose placeholders only -- they are NOT `envsubst`/environment-variable
-placeholders like `${LAPIS_PUBLIC_IP}`, so a template or doc that still says one of them literally
-(e.g. `wss://video.PROD_HOST`) has not yet been substituted with this deployment's real value for
-prose purposes. coturn's `realm` (`turnserver.conf.template`) is the one exception worth calling
-out explicitly: earlier rounds of this redaction had it as a prose placeholder hand-edited directly
-into that TRACKED template (`realm=PROD_HOST`), which meant an operator who committed their local
-edits after a deploy would push the real realm straight into this public repo -- round 6 moved it
-to a genuine `envsubst` variable, `${LAPIS_TURN_REALM}`, sourced from the gitignored `.env` like
-every other secret in that file (see "Video conferencing" below).
+public IPv4 at runtime. `PROD_HOST` is a prose placeholder only -- it is NOT an
+`envsubst`/environment-variable placeholder like `${LAPIS_PUBLIC_IP}`, so a template or doc that
+still says it literally (e.g. `wss://video.PROD_HOST`) has not yet been substituted with your real
+value for prose purposes. coturn's `realm` (`turnserver.conf.template`) is a genuine `envsubst`
+variable, `${LAPIS_TURN_REALM}`, sourced from the gitignored `.env` like every other secret in that
+file (see "Video conferencing" below) -- never a prose placeholder hand-edited into the tracked
+template, which would risk committing the real value the next time you `git add -A`.
+
+**Real deployment data lives in a separate, private repo.** This project's own maintainer runs
+three real instances from this template and keeps their filled-in `.env`/rendered
+configs/certs/branding in a private companion repo, never in this one -- see
+`lapisproject-dev/Lapis-Cloud-Ops` (private; ask the maintainer for access if you need it) for that
+pattern in full, including the server-layout/sync workflow. This is optional: nothing about
+deploying from this template requires a second repo, it's simply how the project's own real
+instances happen to be organized. A `deploy/production*/` directory populated this way on a live
+host is `.gitignore`d in this repo (see `.gitignore`) precisely so it can coexist with a checkout
+of this repo without risk of being committed here by accident.
 
 **Scope, explicitly**: this redaction only touches the current tip of the default branch. It does
 NOT rewrite git history -- every commit prior to the redaction still has the real values in its
@@ -135,7 +143,7 @@ still wrong.
 
 [source,bash]
 ----
-cd deploy/production
+cd deploy/example
 cp .env.example .env   # fill in LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose up -d --build
 docker compose logs -f lapis-server
@@ -233,9 +241,9 @@ PostgreSQL instance as disposable.
 
 This is the routine used to deploy a new `master` commit to an already-running instance -- unlike
 "Migrating from a prior bare-JVM + native-PostgreSQL deployment" above (a one-time cutover), this
-runs on **every release**. It applies unchanged to `../production-staging/` and
-`../production-elb/`: substitute the directory and the Postgres/database names (`lapiscloud`,
-`lapiscloud_staging`, or ELB's own) in the commands below.
+runs on **every release**. It applies unchanged to any additional co-located instance (see "Running
+more than one instance on the same host" below): substitute that instance's own directory and
+Postgres database name in the commands below.
 
 **Order matters: back up before syncing, sync before rebuilding.** A backup taken after the new
 code is already live would capture the schema the new code expects, not the one that was actually
@@ -243,7 +251,7 @@ running when something went wrong -- it defends against nothing. The order below
 snapshot of the pre-deploy state at every step until the new version is verified working.
 
 CAUTION: **Before the next deploy of the "Redact real infra topology from public repo" wave** on
-PROD_HOST, ELB, or STAGING: that wave edited 16 already-applied Flyway migration files in place
+any instance: that wave edited 16 already-applied Flyway migration files in place
 (comment-only changes, real hostnames replaced with placeholders), which changes their checksums.
 `DatabaseConfig.kt`'s `migrate()` runs with the default `validateOnMigrate = true` and will refuse
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
@@ -262,11 +270,12 @@ gzip -t ~/backups/lapiscloud-pre-deploy-*.dump.gz   # verify the archive isn't t
 ----
 
 . **Sync the new code**, from a local clone with the target commit checked out, using an explicit
-  file list rather than a blanket directory copy -- `deploy/local/` and the other instances'
-  `deploy/production-*/` directories must never be touched by this sync, and neither must this
-  directory's own secrets. `$REMOTE_ROOT` is wherever this repo is checked out on the host (its
-  name is a per-host choice, not a repo convention -- e.g. `/opt/lapis-cloud-docker` on the PdV
-  host, something else on another host):
+  file list rather than a blanket directory copy. `git ls-files` only lists files this repo
+  actually tracks, so this is inherently safe against touching a real instance's own
+  `deploy/production*/` directory (real `.env`, rendered configs, certs) -- those live in a
+  separate private repo (see "Real deployment data lives in a separate, private repo" below), never
+  part of this repo's tracked file list. `$REMOTE_ROOT` is wherever this repo is checked out on
+  the host (its name is a per-host choice, not a repo convention -- e.g. `/opt/lapis-cloud-docker`):
 +
 [source,bash]
 ----
@@ -275,12 +284,13 @@ rsync -a --dry-run -i --files-from=/tmp/lapis-cloud-files.txt . user@host:"$REMO
 ----
 +
 Inspect the dry run before the real sync: past releases have found only the expected source-file
-changes and the (harmless) `deploy/local/`/other-instance permission-denied lines described below --
-if something else appears, stop and find out why before syncing for real. **Do not pass
-`--delete`** unless a prior `git diff <old-sha> <new-sha> --diff-filter=D --name-only` confirmed the
-release actually removes files, and even then keep `.env`, the rendered `livekit.yaml`/
-`turnserver.conf`, and `deploy/production*/branding/` excluded -- an unscoped `--delete` has
-deleted a live `.env` before (2026-08-15 incident, see the infra notes). Real sync:
+changes and harmless permission-denied lines on directories the deploying user doesn't own -- if
+something else appears, stop and find out why before syncing for real. **Do not pass `--delete`**
+unless a prior `git diff <old-sha> <new-sha> --diff-filter=D --name-only` confirmed the release
+actually removes files -- an unscoped `--delete` has deleted a live `.env` before, back when `.env`
+still lived inside this repo's own directory tree (2026-08-15 incident, see the infra notes); it
+cannot recur now that real deployment data isn't part of this checkout at all, but the general
+caution about `--delete` deleting something you didn't mean to remains good practice. Real sync:
 +
 [source,bash]
 ----
@@ -295,7 +305,7 @@ ownership quirk of that directory (root-owned certs) and not a sign the sync fai
 +
 [source,bash]
 ----
-md5sum "$REMOTE_ROOT/deploy/production/.env"   # compare against the value from before the sync
+md5sum "$REMOTE_ROOT/deploy/example/.env"   # compare against the value from before the sync
 ----
 
 . **Rebuild and restart only `lapis-server`**, from inside this directory on the host -- `postgres`
@@ -304,7 +314,7 @@ md5sum "$REMOTE_ROOT/deploy/production/.env"   # compare against the value from 
 +
 [source,bash]
 ----
-cd "$REMOTE_ROOT/deploy/production"
+cd "$REMOTE_ROOT/deploy/example"
 docker compose up -d --build lapis-server
 ----
 
@@ -445,7 +455,7 @@ sudo apt-get install -y acl   # once per host, if not already present
 
 sudo tee /etc/systemd/system/lapis-egress-acl-fix.service > /dev/null << 'EOF'
 [Unit]
-Description=Re-apply lapiscloud ACL grant on the shared LiveKit egress-output volume (self-heal for POSIX ACL mask-capping on newly created directories -- see Lapis-Cloud repo deploy/production/README.adoc, "Video conferencing" section, "Shared lapis-egress-output volume" paragraph)
+Description=Re-apply lapiscloud ACL grant on the shared LiveKit egress-output volume (self-heal for POSIX ACL mask-capping on newly created directories -- see Lapis-Cloud repo deploy/example/README.adoc, "Video conferencing" section, "Shared lapis-egress-output volume" paragraph)
 
 [Service]
 Type=oneshot
@@ -482,7 +492,7 @@ Verify with `docker exec -u lapiscloud lapis-cloud-server sh -c 'touch /app/egre
 
 === TURNS over TLS (port 443) -- restrictive networks / browser privacy settings
 
-**Why**: an ELB board member reported 2026-09-10 that "in some browsers audio and video do not
+**Why**: an operator reported 2026-09-10 that "in some browsers audio and video do not
 start at all" -- despite the camera/microphone permission prompt having already been granted. Two
 causes reproduce this: a browser's own restrictive WebRTC privacy policy (Brave's Shields /
 fingerprinting protection blocks the direct ICE path and can also block plain TURN on
@@ -493,14 +503,14 @@ The client already helps on its own, without TURNS: `LiveKitRoomSession.connect`
 automatically, exactly once, with `RTCConfiguration.iceTransportPolicy = "relay"` whenever the
 first connection attempt fails in a way a relay could plausibly fix -- see that method's own KDoc.
 This alone resolves the symptom for any participant who can reach the existing plain `turn:`
-endpoint (3478/PROD_HOST, 3479/ELB) but was blocked only on the *direct* ICE path. It does NOT help a
+endpoint (3478/PROD_HOST, 3479/SECOND_HOST) but was blocked only on the *direct* ICE path. It does NOT help a
 participant whose network blocks port 3478/3479 outright -- that is exactly the gap TURNS on 443
 closes.
 
 [NOTE]
 ====
 **Live on both instances since 2026-09-12.** `LAPIS_TURNS_URLS` is set in both `.env` files
-(`turns:turn.PROD_HOST:443?transport=tcp` / `turns:turn.ELB_HOST:443?transport=tcp`).
+(`turns:turn.PROD_HOST:443?transport=tcp` / `turns:turn.SECOND_HOST:443?transport=tcp`).
 If `LAPIS_TURNS_URLS` is ever unset again, this deployment falls back to exactly the pre-rollout
 behavior: `ConferenceConfig` simply carries no `turns:` entry in any minted TURN credential -- see
 that class's own KDoc, same "O4" optional-env posture as every other feature-flag-shaped variable
@@ -529,17 +539,17 @@ sitting in front of the real public `:443`:
   real public `:443`. Its config is a `listener 0.0.0.0:443 { protocol tls; table https_hosts;
   fallback 127.0.0.1:8443 }` plus a `table https_hosts` with one regex-anchored entry per `turn.*`
   name, each pointing at that instance's coturn TLS port (`127.0.0.1:5350` PROD_HOST / `127.0.0.1:5351`
-  ELB). Every other SNI (the four app vhosts) falls through to the `fallback`, i.e. Caddy on
+  SECOND_HOST). Every other SNI (the four app vhosts) falls through to the `fallback`, i.e. Caddy on
   `127.0.0.1:8443`. Plain TCP passthrough only -- sniproxy reads the ClientHello's SNI and forwards
   the raw bytes verbatim, so Caddy and coturn each keep terminating their own TLS exactly as
   before; sniproxy itself never sees plaintext.
-* Two DNS A records were added (`turn.PROD_HOST` / `turn.ELB_HOST`,
+* Two DNS A records were added (`turn.PROD_HOST` / `turn.SECOND_HOST`,
   both -> this host's IP) -- the two names must differ even though the IP is identical, because SNI
   is the only signal sniproxy has to tell the two instances' TURNS traffic apart on the shared 443
   port.
 * Each `turn.*` name gets its own real Let's Encrypt certificate, obtained (and auto-renewed) by
   **Caddy itself**, via two minimal, cert-only Caddyfile vhosts (`turn.PROD_HOST:8443
-  { respond "Not a website -- TURNS relay endpoint only." 404 }` and its ELB counterpart) -- these
+  { respond "Not a website -- TURNS relay endpoint only." 404 }` and the second instance's counterpart) -- these
   are never actually reached through sniproxy in normal operation (sniproxy diverts their SNI
   straight to coturn), their only purpose is to make Caddy's ACME client manage the certificate.
   `/usr/local/sbin/sync-turn-certs.sh` (installed on the host, NOT part of this repo) copies the
@@ -684,8 +694,8 @@ legitimate intermediate state.
 **`LAPIS_SMTP_FROM_NAME` is the only sender identity a recipient ever sees** (V1.2.3 Design-Review):
 `network.lapis.cloud.server.mail.MailTemplates` no longer hardcodes a product name, so an unset
 `LAPIS_SMTP_FROM_NAME` is now a fail-fast startup error rather than a mail that quietly says "Lapis
-Cloud" to people who have never heard that name (PdV and ELB are two separate, white-labeled
-pilots -- see `network.lapis.cloud.server.mail.MailBranding` KDoc).
+Cloud" to people who have never heard that name (this codebase is designed to run multiple,
+separately white-labeled instances -- see `network.lapis.cloud.server.mail.MailBranding` KDoc).
 
 **Deploy ordering for existing deployments with SMTP already configured (breaking change)**: set
 `LAPIS_SMTP_FROM_NAME` in the deployment's `.env` file *before* deploying this version -- e.g.
@@ -747,7 +757,7 @@ starting.
 **`LAPIS_BRAND_LOGO_PATH`** is an absolute filesystem path **inside the container**, never a URL --
 there is deliberately no `LAPIS_BRAND_LOGO_PATH` equivalent that fetches from an operator-supplied
 URL (would reopen an SSRF surface for a purely cosmetic feature). Drop the actual logo file into
-`deploy/production/branding/` on the host (bind-mounted read-only to `/app/branding` in
+`deploy/example/branding/` on the host (bind-mounted read-only to `/app/branding` in
 `docker-compose.yml`) and point this variable at the in-container path, e.g.
 `LAPIS_BRAND_LOGO_PATH=/app/branding/logo.svg`. Requirements, all checked at startup
 (`network.lapis.cloud.server.branding.BrandingStartupCheck`), each one degrading to "no logo shown"
@@ -908,149 +918,99 @@ independent safeguards before a real letter can ever be issued (poller flag, DB 
 acknowledgment, an active level, and -- for postal dispatch -- the third flag above). See
 `network.lapis.cloud.server.payment.dunning.DunningConfig`/`DunningPoller` KDoc.
 
-== Einmaliger Mitglieder-CSV-Import (nur PdV)
+== Running more than one instance on the same host
 
-`network.lapis.cloud.server.bootstrap.MemberCsvImport` (`./gradlew :lapis-server:importMembersFromCsv`)
-is a one-time, operator-run CLI that bulk-imports the PdV's legacy CRM member export into `member`
--- see its own KDoc for the full mechanism (parsing rules, idempotency, the PII report). **PdV
-only** -- the ELB instance has no comparable legacy membership list and is never imported, though
-the schema change this wave's migration makes (the `DONOR`/`DECEASED` `member.status` literals,
-the new `external_reference` column) still applies to both instances.
+You can co-locate several fully independent instances (their own Postgres, their own
+`lapis-server`/LiveKit/coturn/redis/egress containers, their own named volumes) on one physical
+host -- for example a production instance plus a staging/test instance, or separate instances for
+separate organizations. Copy this whole directory, set it up exactly like this one (`cp
+.env.example .env`, fill in real values, `./render-secrets.sh`, `docker compose up -d --build`),
+then add its own Caddy vhost blocks (see "Reverse proxy" above) for its own subdomain(s).
 
-The run order below is **not negotiable** -- deviating from it can write rows the still-running
-old server process cannot read back (see step 2's own note).
-
-CAUTION: Every command below needs `LAPIS_DB_PASSWORD`. Putting a secret directly on a command line
-(`LAPIS_DB_PASSWORD='...' ./gradlew ...`) writes it in plain text into the operator's own
-`~/.bash_history`/`~/.zsh_history` on the production host -- exactly what `MemberCsvImport`'s own
-KDoc ("Environment variables") cites as the reason every input comes from `System.getenv` rather
-than a Gradle property in the first place ("out of shell history / `ps` output"). Instead, create a
-throwaway credentials file once and `source` it -- `source`d assignments never touch shell history,
-only the interactive command line does:
-
-[source,bash]
-----
-umask 077  # belt-and-suspenders; the explicit chmod below is what actually matters
-cat > /root/lapis-import.env <<'EOF'
-LAPIS_DB_URL=jdbc:postgresql://localhost:<tunnelled-port>/lapiscloud
-LAPIS_DB_USER=lapiscloud
-LAPIS_DB_PASSWORD=...
-EOF
-chmod 600 /root/lapis-import.env
-----
-
-Delete `/root/lapis-import.env` once the Echtlauf (step 4) has completed -- it is a standing copy of
-a production DB credential and, like the CSV/report files in step 5, has no retention concept of its
-own.
-
-. `flywayRepair` on **both** PROD_HOST and the ELB instance (this wave edits `V1__baseline.sql` in place
-  again -- see the CHANGELOG "Operator-Hinweis" for this wave):
-+
-[source,bash]
-----
-set -a; . /root/lapis-import.env; set +a
-./gradlew :lapis-server:flywayRepair
-----
-
-. Deploy the new server version (`docker compose up -d --build lapis-server`). `DatabaseConfig
-  .connect()` migrates internally on server start -- this is what actually applies `V10`. Running
-  the import tool *before* this step would let it apply `V10` and write `DONOR`/`DECEASED` rows
-  while the OLD server process is still running against the same database; that process's
-  `MemberStatus` enum does not know those literals, and Exposed's `enumerationByName` throws on
-  read. Deploy first, always.
-
-. Trockenlauf (writes nothing -- no `LAPIS_MEMBER_IMPORT_COMMIT`):
-+
-[source,bash]
-----
-set -a; . /root/lapis-import.env; set +a
-LAPIS_MEMBER_IMPORT_CSV_PATH=/srv/import-data/pdv-crm-export.csv \
-LAPIS_MEMBER_IMPORT_REPORT_PATH=/srv/import-data/dry-run.import-report.csv \
-  ./gradlew :lapis-server:importMembersFromCsv
-----
-+
-**Abnahmekriterium**: the printed aggregates must match the expected counts exactly (581 total
-records, 408 importable -- 210 ACTIVE / 102 WITHDRAWN / 75 DONOR / 21 DECEASED -- 3
-STATUS_NOT_IMPORTABLE, 162 MISSING_EMAIL, 2 DUPLICATE_EMAIL_IN_FILE, 6 MISSING_JOINED_AT) and every
-defensive skip reason (UNKNOWN_STATUS, UNPARSEABLE_JOINED_AT, UNPARSEABLE_DATE_OF_BIRTH,
-DISPLAY_NAME_BLANK, FIELD_TOO_LONG) must be zero. Any deviation: stop, find the root cause -- do
-not proceed on an "it's close enough" basis.
-
-. Echtlauf, with `LAPIS_MEMBER_IMPORT_COMMIT=true` and a DIFFERENT report path than the dry run:
-+
-[source,bash]
-----
-set -a; . /root/lapis-import.env; set +a
-LAPIS_MEMBER_IMPORT_CSV_PATH=/srv/import-data/pdv-crm-export.csv \
-LAPIS_MEMBER_IMPORT_REPORT_PATH=/srv/import-data/commit.import-report.csv \
-LAPIS_MEMBER_IMPORT_COMMIT=true \
-  ./gradlew :lapis-server:importMembersFromCsv
-----
-
-. Retrieve the report, store it somewhere safe (it is the sole audit trail of a one-time,
-  non-repeatable operation), then delete the CSV and BOTH reports from the server -- they are PII
-  holdings with no retention concept of their own (`deploy/production/import-data/` and
-  `*.import-report.csv` are `.gitignore`d for exactly this reason -- never commit them). Also
-  delete `/root/lapis-import.env` now -- see its own note in the CAUTION block above.
-
-**Known gaps** (bewusst, siehe CHANGELOG-Eintrag dieser Welle): keine `account`-Zeilen/Logins für
-importierte Mitglieder; `Kündigungsdatum`/`Austrittsdatum` gehen ersatzlos verloren;
-`membership_tier_id` bleibt `NULL` -- für die importierten ACTIVE-Mitglieder entstehen dadurch
-**keine** Beiträge und greift **kein** Mahnwesen, bis ein Tarif von Hand zugeordnet wird.
-
-== A second, co-located instance on the same host (ELB pilot)
-
-`../production-elb/` is a full second copy of this directory -- its own Postgres, its own
-`lapis-server`/LiveKit/coturn/redis/egress containers, its own named volumes -- for the ELB pilot,
-running alongside this PdV instance on the same physical host (PROD_HOST). Set it up exactly like this
-directory (`cp .env.example .env`, fill in real values, `./render-secrets.sh`,
-`docker compose up -d --build`), then add its own Caddy vhost blocks (see "Reverse proxy" above)
-for `ELB_HOST` -> `127.0.0.1:8081` and `video.ELB_HOST` ->
-`127.0.0.1:7885`.
-
-**Every host-visible port had to move** to avoid colliding with this instance's own -- see
-`../production-elb/docker-compose.yml`'s own header comment for the full table (`lapis-server`
-`8081`, Postgres `5433`, LiveKit signaling `7885`, LiveKit ICE `7891`/`7892`, coturn `3479` +
-relay range `51020-51039`, redis `6380`). **Not just a host-side remap for every port**, though --
-found live 2026-08-25 ("could not establish pc connection" on ELB, every ICE candidate pointed at
-PdV's own ports): LiveKit and coturn each bake their own configured port number literally into the
-WebRTC/TURN protocol payload they hand back to the browser (an ICE candidate, or an allocated TURN
-relay address), unlike the plain HTTP signaling port (Caddy-proxied, the raw port number never
+**Every host-visible port has to move** to avoid colliding with the first instance's own -- copy
+this directory's `docker-compose.yml` and shift each `HOST:CONTAINER` port mapping to a free host
+port (`lapis-server`, Postgres, LiveKit signaling, LiveKit ICE, coturn + its relay range, redis).
+**Not just a host-side remap for every port**, though -- found live in production ("could not
+establish pc connection" on the second instance, every ICE candidate pointed at the first
+instance's own ports): LiveKit and coturn each bake their own configured port number literally into
+the WebRTC/TURN protocol payload they hand back to the browser (an ICE candidate, or an allocated
+TURN relay address), unlike the plain HTTP signaling port (Caddy-proxied, the raw port number never
 reaches the browser). For LiveKit's `rtc.tcp_port`/`udp_port` and coturn's relay `min-port`/
 `max-port` range specifically, the container-INTERNAL config and the docker-compose HOST-side
-publish must be IDENTICAL numbers -- `../production-elb/livekit.yaml.template`'s/
-`turnserver.conf.template`'s own comments have the specifics. Every other service's internal port
-is unaffected and stays a simple host-side remap, same isolated-network-namespace reasoning as
-before.
+publish must be IDENTICAL numbers -- `livekit.yaml.template`'s/`turnserver.conf.template`'s own
+comments have the specifics. Every other service's internal port is unaffected and stays a simple
+host-side remap, same isolated-network-namespace reasoning as before.
 
-**`egress` in `../production-elb/` DOES use `network_mode: host`, same as this directory's own
-copy** -- found live 2026-08-25 that LiveKit egress's embedded template-server port (7980 by
-default) is a real, documented `egress.yaml` field (`template_port`, verified against the pinned
-v1.13.0 source), not the hardcoded, non-configurable value an earlier version of this file assumed.
-ELB's own `egress.yaml.template` sets `template_port: 7981`; PdV's stays at the 7980 default -- no
-collision between the two host-networked instances. Wave 3 external streaming in `GRID`/`SPEAKER`
-layout works identically to PdV now, not just Wave 1 (live calls) and Wave 2 "Aufzeichnung". A
-third co-located instance would need its own distinct `template_port` (and its own shifted
-LiveKit/coturn ports, same treatment as ELB's above) -- straightforward now that the mechanism is
-known, not a structural dead end.
+**`egress` can use `network_mode: host` for every co-located instance** -- found live in production
+that LiveKit egress's embedded template-server port (7980 by default) is a real, documented
+`egress.yaml` field (`template_port`, verified against the pinned v1.13.0 source), not a hardcoded,
+non-configurable value. Give each additional instance's `egress.yaml.template` its own distinct
+`template_port` (the first instance stays at the 7980 default) -- no collision between
+host-networked instances. Wave 3 external streaming in `GRID`/`SPEAKER` layout works identically
+across instances once each has its own `template_port`, not just Wave 1 (live calls) and Wave 2
+recording.
 
-**The `deploy/production/branding/`/`deploy/production-elb/branding/` self-heal ACL timer (see
-"Video conferencing" above, "Shared lapis-egress-output volume") needs its own copy per instance**
--- `lapis-egress-output` is a per-Compose-project named volume (`lapis-cloud_lapis-egress-output`
-vs. `lapis-cloud-elb_lapis-egress-output`), so the same POSIX ACL mask-capping bug will recur
-independently on ELB's own volume the first time its own `egress` creates a recording directory.
-Either add a second `systemctl enable --now` timer pointed at the second volume's mountpoint, or
-generalize the existing unit to loop over both -- this file does not prescribe which, only flags
-that skipping it silently leaves ELB's own recordings permanently `FAILED`.
+**The `branding/` self-heal ACL timer (see "Video conferencing" above, "Shared
+lapis-egress-output volume") needs its own copy per instance** -- `lapis-egress-output` is a
+per-Compose-project named volume (its full name includes the Compose project name, which differs
+per instance), so the same POSIX ACL mask-capping bug recurs independently on each additional
+instance's own volume the first time its own `egress` creates a recording directory. Either add a
+second `systemctl enable --now` timer pointed at the second volume's mountpoint, or generalize the
+existing unit to loop over all of them -- this file does not prescribe which, only flags that
+skipping it silently leaves the additional instance's recordings permanently `FAILED`.
 
-== A third, co-located instance (staging)
+A dedicated STAGING/TEST instance can seed itself with entirely fictitious data (`Testverein
+Musterstadt e.V.`-style, `@*.invalid` emails) instead of running against real membership data --
+see `StagingSeedConfig`/`StagingSeedData` in the source. Its `docker-compose.yml` is the only one
+that should forward `LAPIS_STAGING_MODE`/`LAPIS_STAGING_SEED_PASSWORD` into the container; every
+other (real) instance's `docker-compose.yml` should deliberately NOT forward those two variables,
+so they can never reach a real deployment's process even if accidentally set in that instance's own
+`.env` file.
 
-`../production-staging/` is a third instance on the same host, structured identically to ELB above
-but running a dedicated STAGING/TEST deployment seeded with entirely fictitious data (`Testverein
-Musterstadt e.V.`, `@staging.invalid` emails) instead of any real membership data -- see its own
-`README.adoc` for the full setup, port table, and the `StagingSeedConfig`/`StagingSeedData` seed
-mechanism. The one structural difference from this directory and `../production-elb/`: its own
-`docker-compose.yml` forwards `LAPIS_STAGING_MODE`/`LAPIS_STAGING_SEED_PASSWORD` into the
-container -- this directory's and ELB's own `docker-compose.yml` deliberately do not, so those two
-variables can never reach a real deployment's process even if accidentally set in either instance's
-own `.env` file.
+== Staging seed mechanism
+
+Implemented in `StagingSeedConfig`/`StagingSeedData`
+(`lapis-server/src/main/kotlin/network/lapis/cloud/server/db/`), wired into `Application.kt`'s
+`main()` **only** -- never into `module()` (which every test's `testApplication { application {
+module() } }` re-invokes thousands of times; putting the seed check there would make it a real,
+non-free DB read on every single test in this codebase, not just a structural mistake).
+
+`DevSeedData` (the existing H2-only demo-data seeder) is completely unchanged by this mechanism --
+not one line of it was touched. `StagingSeedData` is a new, separate object; the only thing it
+reads from `DevSeedData` is `demoLedgerAccounts` (a plain data list, reused rather than duplicated)
+and `DEMO_PASSWORD` (only to refuse ever reusing it, see lock 1 below).
+
+Four independent locks, all of which must fail before a staging instance's `member` table could
+ever be populated against a real deployment:
+
+1. **`StagingSeedConfig.decide`** -- `LAPIS_STAGING_MODE` must be the exact, case-sensitive string
+   `"true"` (mirrors `AuthTestMode.evaluate`'s own exact-literal comparison). If it is anything
+   else (unset, empty, `"True"`, `"1"`, ...), seeding is silently skipped -- this instance then
+   behaves like any other empty Lapis Cloud deployment. If the mode IS `"true"` but
+   `LAPIS_STAGING_SEED_PASSWORD` is missing, blank, fails `PasswordPolicy` (12-128 characters), or
+   equals the source-published `DevSeedData.DEMO_PASSWORD`, the process refuses to start at all
+   (`error(...)`, fail-fast, message visible in `docker compose logs lapis-server`) -- there is no
+   silent fallback to "skip seeding and start anyway".
+2. **The `member`-table-not-empty guard** inside `StagingSeedData.seedWith` -- checked FIRST,
+   before any insert (including the `organization_settings` update). The single strongest
+   real-world protection: a real deployment's `member` table is never empty once live, so even a
+   badly misconfigured `.env` there would still be a no-op here.
+3. **A real deployment's `docker-compose.yml` should never forward
+   `LAPIS_STAGING_MODE`/`LAPIS_STAGING_SEED_PASSWORD` into its container at all** -- see "Running
+   more than one instance on the same host" above. Those env vars should then never reach this
+   code path in the first place, regardless of what is in that deployment's `.env` file.
+4. **Everything inserted uses the `@staging.invalid` email domain, a fixed UUID namespace
+   (`0000000a-...`) disjoint from both `DevSeedData`'s (`00000000-...`) and the migration
+   sentinels, and an obviously-placeholder org name** -- nothing seeded here can be mistaken for
+   real membership data even if all three locks above were somehow defeated at once.
+
+**Re-seeding**: delete the Postgres volume (`docker compose down -v`, or `docker volume rm
+<compose-project>_lapis-staging-postgres-data`) and restart -- the next boot's empty `member` table
+triggers a fresh seed. There is no in-place "reset" RPC; this is the same volume-delete workflow
+local dev already uses to re-seed `DevSeedData`.
+
+**Password rotation**: `LAPIS_STAGING_SEED_PASSWORD` is the login password for every seeded
+login-capable account (ADMIN/BOARD/TREASURER/MEMBER accounts, see `StagingSeedData.seedMembers`).
+There is no separate rotation mechanism beyond deleting the Postgres volume and re-seeding with a
+new `.env` value -- acceptable for a throwaway test instance, called out here so it is not assumed
+to be rotatable in place.

@@ -60,6 +60,12 @@ this repository. This README describes only the technical scope.
   `[0.22.0]`).
 * https://kuml.dev[kUML] — the modeling language used for every diagram in this repository
   (see below).
+* `lapisproject-dev/Lapis-Cloud-Ops` (private) — the real, filled-in deployment config (`.env`,
+  rendered LiveKit/coturn configs, certs, branding) for the instances this project's maintainer
+  actually operates. This repo's own `deploy/example/` is the generic, public template anyone can
+  self-host from; the Ops repo is the maintainer's own real-world instantiation of it, kept
+  private because it identifies real organizations and infrastructure. See the NOTE block in
+  `deploy/example/README.adoc` for the split.
 
 == Technology Stack
 
@@ -195,7 +201,7 @@ and fixed. See `CHANGELOG.md` `[0.11.0]` for full wave-by-wave detail.
 switcher (German source plus English, French, Spanish, Italian, Dutch, Polish, Russian) via a custom
 `I18nCatalogManager`, written because KVision's own `kvision-i18n` module crashed the app on load
 against this project's Kotlin/JS toolchain; a two-stage Docker production deployment (root
-`Dockerfile` + `deploy/production/docker-compose.yml`) replacing the earlier bare-JVM/systemd/
+`Dockerfile` + `deploy/example/docker-compose.yml`) replacing the earlier bare-JVM/systemd/
 native-PostgreSQL setup, migrated end to end on the project's test VPS with the prior installation
 fully uninstalled; Videokonferenzen Wave 1 wired into that Docker stack and live-verified against a
 real external network; and a redesigned, role-gated dropdown navbar with Lapis Cloud branding
@@ -358,9 +364,10 @@ gets file icons, sizes, a download counter, folder counts and search (Flyway `V4
 now has BOARD-level document rights for folders, uploads and deletions (releasing a document into the
 AI knowledge base stays BOARD/ADMIN); three additional Vorstand titles (Flyway `V42`); a stored
 Price-Oracle history with an hourly snapshot poller and a price chart (Flyway `V41`; the poller is off by
-default and must be enabled on at most one instance, see `deploy/production/README.adoc`, "Price-Oracle
-Snapshot Poller"); a BOARD/ADMIN screen for creating and managing events; and a dedicated staging
-deployment (`deploy/production-staging/`, fictitious seed data only). **V1.6.1 optional AI assistance**
+default and must be enabled on at most one instance, see `deploy/example/README.adoc`, "Price-Oracle
+Snapshot Poller"); a BOARD/ADMIN screen for creating and managing events; and support for a dedicated
+staging deployment with fictitious seed data only (see `deploy/example/README.adoc`, "Staging seed
+mechanism"). **V1.6.1 optional AI assistance**
 (statute Q&A, Flyway `V44`) ships **off by default** and is not enabled on any shipped deployment, see
 "AI assistance" below. For the companion app, the server has a generic WebView bridge
 (`/api/mobile/v1/webview-session`) that is header-authenticated (the token is never in a URL) and
@@ -390,7 +397,7 @@ legal counsel — not something this project can decide once for everyone. See `
 * **Real email delivery exists (V1.2.3) but is optional and off by default.** Password-reset
   tokens are real (hash-only-persisted, single-use, short-TTL); `SmtpPasswordResetMailer` sends a
   real message via Jakarta Mail/Eclipse Angus whenever `LAPIS_SMTP_*` is configured
-  (`deploy/production/README.adoc` "E-Mail-Versand (SMTP, optional)"), and falls back to the same
+  (`deploy/example/README.adoc` "E-Mail-Versand (SMTP, optional)"), and falls back to the same
   honestly-disclosed `NoOpMailTransport` log-only stub `MailingService.sendMailingMessage` has had
   since V0.4/V0.1.5 when it is not. `MailingService.sendMailingMessage`'s own bulk-mailing simulation
   is unaffected — this wave only wires up the two single-recipient transactional mailers.
@@ -621,7 +628,7 @@ opt-in signal and deliberately do NOT count as a PayPal opt-in signal, so a Stri
 that sets one of them is never mistaken for an incomplete PayPal configuration (see
 `PaypalConfigState.Incomplete` KDoc). `LAPIS_PAYPAL_API_BASE_URL` is optional (defaults to the live
 PayPal API; set it to PayPal's sandbox base URL for testing). See
-`deploy/production/.env.example`/`deploy/production-elb/.env.example` for the full block.
+`deploy/example/.env.example` for the full block.
 
 There is **no RPC that writes these secrets** — `getPspConfigStatus()` (ADMIN-only) reports only
 whether each is present as a boolean, never a prefix/suffix/length/value.
@@ -1069,7 +1076,7 @@ configured; anything else means "off" (the server still starts, the offending va
 logged). When off, no provider client is constructed and the RPC service is not registered. The
 deploy compose files deliberately do **not** forward any `LAPIS_AI_*` variable -- an operator must add
 them to the service's `environment:` block on purpose, and needs a processing agreement with the
-provider first (`deploy/production/README.adoc`, section "AI assistance").
+provider first (`deploy/example/README.adoc`, section "AI assistance").
 
 === Environment variables -- OPTIONAL, off by default
 

@@ -51,7 +51,7 @@ private val logger = KotlinLogging.logger {}
  * PROCESS-LOCAL, not DB-coordinated -- they protect a single JVM's fan-out rate, never the
  * aggregate rate across multiple instances sharing the same organization API key. `LAPIS_ORACLE_
  * SNAPSHOT_ENABLED` must therefore be set on **at most one** running instance, exactly like
- * `LAPIS_SEPA_POLLER_ENABLED` -- see `deploy/production/README.adoc`'s "Price-Oracle Snapshot
+ * `LAPIS_SEPA_POLLER_ENABLED` -- see `deploy/example/README.adoc`'s "Price-Oracle Snapshot
  * Poller" section.
  */
 class PriceOracleSnapshotPoller(

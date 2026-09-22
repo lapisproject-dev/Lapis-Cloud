@@ -11,7 +11,7 @@ import network.lapis.cloud.shared.rpc.WeakPasswordException
  * gates without touching the real, process-wide environment (which is immutable within one JVM
  * anyway).
  *
- * See `deploy/production-staging/README.adoc` "Staging seed mechanism" for the four independent
+ * See `deploy/example/README.adoc` "Staging seed mechanism" for the four independent
  * locks that, together, are why this can safely run against a real Postgres deployment (unlike
  * [DevSeedData], which is H2-only) — this object is only the first of those four.
  */

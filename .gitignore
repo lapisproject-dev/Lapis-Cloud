@@ -125,45 +125,13 @@ gradle-app.setting
 .env.local
 *.env
 
-# Rendered from *.template by deploy/production/render-secrets.sh -- contain real
-# LiveKit/coturn secrets, never commit (the .template versions ARE committed).
-deploy/production/livekit.yaml
-deploy/production/turnserver.conf
-deploy/production/egress.yaml
-
-# TURNS over TLS (V1.0 Videokonferenzen, 2026-09-12) -- populated by the host-level
-# sync-turn-certs.sh script from Caddy's own certificate store, contains a real private key. See
-# deploy/production/README.adoc "TURNS over TLS (port 443)". .gitkeep keeps the directory itself
-# present so the bind mount has somewhere to attach to on a fresh checkout (same pattern as the
-# branding/ directories above).
-deploy/production/coturn-certs/*
-!deploy/production/coturn-certs/.gitkeep
-deploy/production-elb/coturn-certs/*
-!deploy/production-elb/coturn-certs/.gitkeep
-
-# White-Label-Branding (V1.2.5) -- operator-supplied logo file, deployment-local, never repo
-# content (see docker-compose.yml's "./branding:/app/branding:ro" bind mount). .gitkeep keeps the
-# directory itself present so the bind mount has somewhere to attach to on a fresh checkout.
-deploy/production/branding/*
-!deploy/production/branding/.gitkeep
-
-# ELB second-instance deployment (V1.2.6) -- same reasoning as deploy/production/ above, mirrored
-# for the second pilot's own directory.
-deploy/production-elb/livekit.yaml
-deploy/production-elb/turnserver.conf
-deploy/production-elb/egress.yaml
-deploy/production-elb/branding/*
-!deploy/production-elb/branding/.gitkeep
-
-# Staging-instance deployment (Welle "Staging-Instanz") -- same reasoning as deploy/production/
-# above, mirrored for the third, co-located staging/test instance's own directory.
-deploy/production-staging/livekit.yaml
-deploy/production-staging/turnserver.conf
-deploy/production-staging/egress.yaml
-deploy/production-staging/branding/*
-!deploy/production-staging/branding/.gitkeep
-deploy/production-staging/coturn-certs/*
-!deploy/production-staging/coturn-certs/.gitkeep
+# Real, instance-specific deployment data (2026-09-22: moved out of this public repo entirely into
+# the private lapisproject-dev/Lapis-Cloud-Ops repo -- see its README for the server-layout/sync
+# model). deploy/example/ is the only tracked, generic self-hosting template; deploy/production*/
+# on a live host is populated separately from the private repo and must never be added here.
+deploy/production/
+deploy/production-elb/
+deploy/production-staging/
 
 # V1.2.11 PdV-CSV-Mitglieder-Import -- die CRM-Exportdatei enthaelt echte personenbezogene
 # Daten von 581 realen Personen, ebenso der erzeugte Ausschluss-Bericht. Beides ist

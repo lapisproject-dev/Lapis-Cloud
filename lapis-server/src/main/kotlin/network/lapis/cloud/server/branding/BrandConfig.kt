@@ -20,7 +20,7 @@ import java.io.File
  * URL at request time (or even once at startup) would reopen exactly the SSRF surface this
  * codebase's other `*Config` classes (`OracleSourceConfig`, `LetterxpressPostalMailProvider`) work
  * hard to avoid, for a purely cosmetic feature that does not need it. The operator places the file
- * on disk (bind-mounted into the container, see `deploy/production/docker-compose.yml`) and points
+ * on disk (bind-mounted into the container, see `deploy/example/docker-compose.yml`) and points
  * this variable at it.
  */
 class BrandConfig private constructor(

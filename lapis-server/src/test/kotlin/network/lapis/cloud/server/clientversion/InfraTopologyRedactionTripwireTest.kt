@@ -9,7 +9,7 @@ import java.io.File
  * "Redact real infra topology from public repo" (rounds 1-5, `CHANGELOG.md` "[Unreleased]"): this repo is
  * public, so real deployment hostnames/IPs/provider names were replaced throughout `deploy/` and
  * `CHANGELOG.md` with the prose placeholders `PROD_HOST` / `ELB_HOST` / `STAGING_HOST` and the already-real
- * `${LAPIS_PUBLIC_IP}` env var (see the NOTE block near the top of `deploy/production/README.adoc` for the
+ * `${LAPIS_PUBLIC_IP}` env var (see the NOTE block near the top of `deploy/example/README.adoc` for the
  * full legend). Four of the first five redaction rounds this wave took each reintroduced exactly one leak of
  * the same class the round before it had just closed -- a heuristic pattern that keeps resurfacing in ONE
  * line at a time, exactly what a plain code review reading full files top-to-bottom is prone to miss and a
@@ -74,7 +74,7 @@ import java.io.File
  *
  * The org domain (`parteidervernunft.de`) is neither hashed nor secret-sourced: it already appears in
  * cleartext elsewhere in this very file, in [ALLOWED_DEPLOY_MENTIONS] (PdV is already publicly named as the
- * deployment's operator in `deploy/production/README.adoc`), so writing it into a pattern here adds no new
+ * deployment's operator in `deploy/example/README.adoc`), so writing it into a pattern here adds no new
  * exposure. What the check still needs to catch is the domain showing up *outside* those specifically
  * accepted lines, which would indicate a still-live FQDN leak the redaction was supposed to remove. Checked
  * only within `deploy/`, same scoping reason as the IPv4 check above.
@@ -107,7 +107,7 @@ private const val ORG_DOMAIN = "parteidervernunft.de"
 /**
  * Lines in `deploy/` accepted as-is by the "Redact real infra topology" changelog entry: the bare org
  * domain in `.env.example` comments (PdV is already named as the deployment's operator/auftraggeber in
- * `deploy/production/README.adoc`, so the domain alone adds no topology information beyond what the README
+ * `deploy/example/README.adoc`, so the domain alone adds no topology information beyond what the README
  * already states).
  */
 private val ALLOWED_DEPLOY_MENTIONS =

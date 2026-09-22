@@ -83,7 +83,7 @@ class ConferenceConfig private constructor(
      * and video do not start at all"): a browser with a restrictive WebRTC privacy policy (Brave's
      * Shields / fingerprinting protection) or a corporate network that only permits outbound 443 can
      * block BOTH the direct ICE path AND plain TURN on 3478/UDP+TCP. `turns:` on 443 looks like
-     * ordinary HTTPS on the wire and survives such networks. See `deploy/production/README.adoc`,
+     * ordinary HTTPS on the wire and survives such networks. See `deploy/example/README.adoc`,
      * "TURNS over TLS (port 443)".
      *
      * **Deliberately separate from [turnUrls]** rather than folded into the same env var: the
@@ -205,7 +205,7 @@ class ConferenceConfig private constructor(
          * being non-empty counts toward the pair). Unset by default; never fail-fast merely for being
          * absent. The infrastructure this needs to actually work in production (Caddy SNI-based TCP
          * multiplexing on port 443, a DNS record, a real TLS certificate) does **not** exist yet as of
-         * this wave -- see `deploy/production/README.adoc`, "TURNS over TLS (port 443)", for the
+         * this wave -- see `deploy/example/README.adoc`, "TURNS over TLS (port 443)", for the
          * planned rollout. Until that rollout happens, leave `LAPIS_TURNS_URLS` unset; the deployment
          * behaves exactly as it did before this property existed.
          */

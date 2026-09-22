@@ -44,7 +44,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Bug fix (live user report, 2026-08-27): a raw-file directory freshly created by `egress` can be
  * unwritable by the composing `ffmpeg` process for up to ~30s after creation, on any deployment
- * using the POSIX-ACL self-heal timer documented in `deploy/production/README.adoc` ("Shared
+ * using the POSIX-ACL self-heal timer documented in `deploy/example/README.adoc` ("Shared
  * lapis-egress-output volume") -- that timer only re-applies the ACL every 30s, host-side, and the
  * in-container composer has no privilege to fix its own permission (it is deliberately non-root,
  * cannot chgrp/setfacl a directory it does not own). At the previous ceiling of 2, two attempts

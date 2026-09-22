@@ -112,7 +112,7 @@ class SmtpConfigTest :
 
         test("all seven LAPIS_SMTP_* set to empty string -> NotConfigured, not Incomplete") {
             // The exact shape docker-compose.yml's `${LAPIS_SMTP_HOST:-}`-style passthrough produces
-            // for every deployment that leaves SMTP unconfigured (see deploy/production/docker-
+            // for every deployment that leaves SMTP unconfigured (see deploy/example/docker-
             // compose.yml "Echter E-Mail-Versand"): all seven LAPIS_SMTP_* variables are SET in the
             // container's environment, each to the empty string -- never simply absent the way
             // `envOf()` on its own only ever produces. `value()`'s `.takeUnless { it.isBlank() }`
