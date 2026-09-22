@@ -45,10 +45,10 @@ CREATE INDEX IF NOT EXISTS idx_webhook_delivery_endpoint ON webhook_delivery(end
 -- V6/V7/V8/V11/V14 (siehe deren Kommentare): H2 hat kein ALTER ... ADD VALUE-Aequivalent fuer den
 -- CHECK, daher muss die VOLLE Literalliste wiederholt werden -- exakt V14's Liste plus
 -- 'WEBHOOK_ENDPOINT' am Ende. Diese NAMED Table-Level-Variante ist die, die auf einer bereits
--- migrierten echten Instanz (PROD_HOST/ELB) tatsaechlich existiert und dort gepflegt werden muss --
+-- migrierten echten Instanz (pdv2/ELB) tatsaechlich existiert und dort gepflegt werden muss --
 -- siehe ZUSAETZLICH V1__baseline.sql's eigenen inline-CHECK, der auf jeder FRISCHEN/Test-Datenbank
 -- die tatsaechlich wirksame Constraint ist und ebenfalls (in place) um 'WEBHOOK_ENDPOINT' erweitert
--- wurde -- Flyway repair auf PROD_HOST/ELB noetig, gleiches Vorgehen wie bei den V1.2.12/V1.2.8/V1.3.1-
+-- wurde -- Flyway repair auf pdv2/ELB noetig, gleiches Vorgehen wie bei den V1.2.12/V1.2.8/V1.3.1-
 -- Praezedenzfaellen (siehe deren Kommentare in V1__baseline.sql).
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS audit_log_entry_entity_type_check;
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS chk_audit_log_entry_entity_type;

@@ -6,15 +6,15 @@
 -- Aufteilungsregel: the TWO in-place V1__baseline.sql edits this migration mirrors are
 -- (1) organization_settings.dunning_enabled, (2) audit_log_entry.entity_type-CHECK widening for
 -- DUNNING_NOTICE. Both are repeated here, idempotently, so a fresh DB (every test run) and the
--- already-migrated PROD_HOST/ELB instances reach the same end state. The THREE new tables live ONLY
+-- already-migrated pdv2/ELB instances reach the same end state. The THREE new tables live ONLY
 -- here, never in V1__baseline.sql (V4-V8 precedent).
 --
--- WHY V9 AND NOT AN EXTENSION OF V8: V8 is merged and rolled out on PROD_HOST (>= V1.2.6); its checksum
+-- WHY V9 AND NOT AN EXTENSION OF V8: V8 is merged and rolled out on pdv2 (>= V1.2.6); its checksum
 -- is consumed. An in-place edit would fail flyway migrate there hard (validateOnMigrate = true,
 -- DatabaseConfig.kt).
 --
 -- OPERATOR NOTE: this migration edits V1__baseline.sql in place (again) -- run `flyway repair`
--- BEFORE the next deploy on BOTH PROD_HOST AND the ELB instance (two co-located production instances
+-- BEFORE the next deploy on BOTH pdv2 AND the ELB instance (two co-located production instances
 -- since V1.2.6).
 
 -- ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ ALTER TABLE organization_settings ADD COLUMN IF NOT EXISTS dunning_enabled BOOLE
 -- ---------------------------------------------------------------------------
 -- audit_log_entry.entity_type CHECK widening for DUNNING_NOTICE. Dual-DROP pattern as V4/V6/V7/V8.
 -- Longest new literal DUNNING_NOTICE (14) < CONFERENCE_STREAM_DESTINATION (29) -- no column-width
--- change. VERIFY WITH `\d audit_log_entry` ON PROD_HOST/ELB BEFORE DEPLOY.
+-- change. VERIFY WITH `\d audit_log_entry` ON pdv2/ELB BEFORE DEPLOY.
 -- ---------------------------------------------------------------------------
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS audit_log_entry_entity_type_check;
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS chk_audit_log_entry_entity_type;

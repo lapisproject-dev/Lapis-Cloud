@@ -109,8 +109,8 @@ CREATE INDEX IF NOT EXISTS idx_social_post_erasure_keyset ON social_post_erasure
 -- audit_log_entry.entity_type CHECK-Verbreiterung fuer SOCIAL_POST -- dual-DROP-Muster wie
 -- V4 (ltr_ledger_entry) und jede spaetere V1__baseline.sql-in-place-Aenderung dieses Repos.
 -- Auf einer FRISCHEN DB traegt der Constraint bereits (durch die in-place-Edition von V1) das
--- Literal, der Auto-generierte Name auf einer BEREITS migrierten PROD_HOST-Instanz ist der Rate-Fall,
--- den beide DROPs abdecken -- VERIFY WITH `\d audit_log_entry` ON PROD_HOST BEFORE DEPLOY.
+-- Literal, der Auto-generierte Name auf einer BEREITS migrierten pdv2-Instanz ist der Rate-Fall,
+-- den beide DROPs abdecken -- VERIFY WITH `\d audit_log_entry` ON pdv2 BEFORE DEPLOY.
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS audit_log_entry_entity_type_check;
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS chk_audit_log_entry_entity_type;
 ALTER TABLE audit_log_entry ADD CONSTRAINT chk_audit_log_entry_entity_type

@@ -1,7 +1,7 @@
 -- V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
 -- 27-conference.kuml.kts / 29-conference-streaming.kuml.kts file headers ("Wave 9 addition") for the
 -- full fachlich model. This is the FIRST genuine incremental migration in this codebase (every prior
--- change was folded directly into V1__baseline.sql) -- required because the PROD_HOST production instance
+-- change was folded directly into V1__baseline.sql) -- required because the pdv2 production instance
 -- already ran V1__baseline.sql (live since 2026-08-14) and Flyway's checksum validation would
 -- otherwise reject an in-place edit of an already-applied migration on next deploy.
 --
@@ -14,12 +14,12 @@
 -- below must be a safe no-op when the target already exists. `IF NOT EXISTS`/`IF EXISTS` guards make
 -- that true on both PostgreSQL (production) and H2-in-PostgreSQL-mode (tests, see DatabaseConfig.kt).
 --
--- **The `chk_conference_stream_status` DROP targets TWO possible names on purpose.** The PROD_HOST
+-- **The `chk_conference_stream_status` DROP targets TWO possible names on purpose.** The pdv2
 -- production database was created by the ORIGINAL (pre-Wave-9) V1__baseline.sql, whose `status` CHECK
 -- was UNNAMED -- PostgreSQL auto-generates a name for a single-column table-level CHECK constraint as
 -- `<table>_<column>_check`, i.e. `conference_stream_status_check` (this naming rule is NOT verified
--- against the live PROD_HOST database as of this migration's authorship -- verify with `\d conference_stream`
--- on PROD_HOST BEFORE this migration is deployed there, and adjust the constraint name below if it differs).
+-- against the live pdv2 database as of this migration's authorship -- verify with `\d conference_stream`
+-- on pdv2 BEFORE this migration is deployed there, and adjust the constraint name below if it differs).
 -- A FRESH database created by the now-edited V1__baseline.sql instead already carries the EXPLICITLY
 -- named `chk_conference_stream_status` constraint. Both DROP statements are `IF EXISTS` -- exactly one
 -- of the two ever matches anything on a given database, the other is a harmless no-op.

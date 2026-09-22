@@ -7,25 +7,25 @@
 --
 -- Aufteilungsregel: both changes here are modifications to EXISTING tables (audit_log_entry,
 -- member) -- they are repeated idempotently here AND in-place in V1__baseline.sql, so a fresh DB
--- (every test run) and the already-migrated PROD_HOST/ELB instances reach the same end state. No
+-- (every test run) and the already-migrated pdv2/ELB instances reach the same end state. No
 -- genuinely new table is introduced by this wave.
 --
 -- WHY V11 AND NOT AN EXTENSION OF V10: V10__member_donor_deceased_and_external_reference.sql is
--- rolled out on PROD_HOST -- the operator ran MemberCsvImport against it (407 rows actually written),
+-- rolled out on pdv2 -- the operator ran MemberCsvImport against it (407 rows actually written),
 -- so its checksum is consumed. An in-place edit of V10 would fail `flyway migrate` there hard
 -- (validateOnMigrate = true, DatabaseConfig.kt).
 --
 -- OPERATOR NOTE: this migration edits V1__baseline.sql in place (again) -- run `flyway repair`
--- BEFORE the next deploy on BOTH PROD_HOST AND the ELB instance (two co-located production instances
+-- BEFORE the next deploy on BOTH pdv2 AND the ELB instance (two co-located production instances
 -- since V1.2.6).
 
 -- ---------------------------------------------------------------------------
 -- audit_log_entry.entity_type CHECK widening: MEMBER joins the existing thirteen literals.
 --
--- Dual-DROP like V4/V6/V7/V8/V9: PROD_HOST carries the explicitly named
+-- Dual-DROP like V4/V6/V7/V8/V9: pdv2 carries the explicitly named
 -- chk_audit_log_entry_entity_type (since V9), a genuinely old instance might still carry the
 -- Postgres-auto-generated audit_log_entry_entity_type_check. Exactly one of the two DROPs matches
--- per environment. VERIFY WITH `\d audit_log_entry` ON PROD_HOST/ELB BEFORE DEPLOY.
+-- per environment. VERIFY WITH `\d audit_log_entry` ON pdv2/ELB BEFORE DEPLOY.
 --
 -- 'MEMBER' (6 chars) < CONFERENCE_STREAM_DESTINATION (29, the longest existing literal) -- no
 -- column-width change needed (entity_type stays VARCHAR(29)).

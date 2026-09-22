@@ -8,16 +8,16 @@
 -- mirrors are (1) contribution.status widening, (2) contribution.due_date/payment_method columns,
 -- (3) membership_tier.payment_term_days, (4) organization_settings' six new columns + three new
 -- FKs. All FOUR are repeated here, idempotently, so a fresh DB (every test run) and the already-
--- migrated PROD_HOST instance reach the same end state. The genuinely NEW tables below
+-- migrated pdv2 instance reach the same end state. The genuinely NEW tables below
 -- (payment_transaction, sepa_compliance_acknowledgment, payment_gateway_compliance_acknowledgment)
 -- live ONLY here, never in V1__baseline.sql (V4-V6 precedent).
 
 -- ---------------------------------------------------------------------------
 -- contribution: status widening. THREE synchronised changes, see Plan Teil 0 Befund B-6b: column
 -- width, CHECK constraint (ANONYM inline in the regenerated V1__baseline.sql -- on an already-
--- migrated PROD_HOST instance it carries PostgreSQL's auto-generated name `contribution_status_check`),
+-- migrated pdv2 instance it carries PostgreSQL's auto-generated name `contribution_status_check`),
 -- and ContributionTable.status's enumerationByName width (see db/generated/ContributionTable.kt).
--- VERIFY WITH `\d contribution` ON PROD_HOST BEFORE DEPLOY.
+-- VERIFY WITH `\d contribution` ON pdv2 BEFORE DEPLOY.
 -- ---------------------------------------------------------------------------
 ALTER TABLE contribution ALTER COLUMN status TYPE VARCHAR(15);
 
@@ -184,7 +184,7 @@ CREATE INDEX IF NOT EXISTS idx_payment_gateway_compliance_ack_acknowledged_at ON
 -- still pre-release iteration on the SAME wave, not a separate later wave finding something to fix.
 -- On a FRESH DB the constraint already carries the literal (through the in-place edit of V1's own
 -- CHECK above), the auto-generated name on an already-migrated instance is the rare case both
--- DROPs cover -- VERIFY WITH `\d audit_log_entry` ON PROD_HOST BEFORE DEPLOY. ORGANIZATION_SETTINGS is
+-- DROPs cover -- VERIFY WITH `\d audit_log_entry` ON pdv2 BEFORE DEPLOY. ORGANIZATION_SETTINGS is
 -- 21 chars, fits within the existing VARCHAR(29) width (CONFERENCE_STREAM_DESTINATION, 29 chars,
 -- is still the longest literal) -- no column-width change needed.
 -- ---------------------------------------------------------------------------

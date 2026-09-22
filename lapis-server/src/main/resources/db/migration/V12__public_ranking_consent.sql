@@ -7,7 +7,7 @@
 --
 -- GENUINELY NEW TABLE -- same V4 precedent (social_post): this migration does NOT touch
 -- V1__baseline.sql. A fresh DB (every test run, via Flyway running V1..V12 in order) and an
--- already-migrated PROD_HOST/ELB instance (via V12 alone) both reach the identical end state, so this
+-- already-migrated pdv2/ELB instance (via V12 alone) both reach the identical end state, so this
 -- wave needs NO "run flyway repair before next deploy" operator warning, unlike V11.
 --
 -- No partial UNIQUE index for "exactly one current row per (member_id, ranking_kind)" -- H2 in
