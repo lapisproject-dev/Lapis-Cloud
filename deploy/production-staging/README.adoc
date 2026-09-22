@@ -144,6 +144,13 @@ docker compose logs -f lapis-server
 Login with any seeded account's email (e.g. `anna.musterfrau@staging.invalid` for the seeded ADMIN)
 and `LAPIS_STAGING_SEED_PASSWORD`.
 
+== Updating an existing deployment
+
+Same routine as xref:../production/README.adoc[../production/README.adoc], section "Updating an
+existing deployment" -- substitute this directory and `lapiscloud_staging` for the database name.
+The seeded test data (see "Staging seed mechanism" below) is disposable, but back up before syncing
+anyway: a restorable snapshot costs one command and confirms the backup path itself still works.
+
 == Reverse proxy + Basic-Auth
 
 This host binds Caddy on `:8443`, not `:443` -- `sniproxy` owns the real public `:443` (see

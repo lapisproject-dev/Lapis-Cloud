@@ -196,6 +196,100 @@ PostgreSQL instance as disposable.
   removed from the host. This is a separate, deliberately later step -- do not remove the source of
   truth before the migration target has been verified against real traffic.
 
+== Updating an existing deployment
+
+This is the routine used to deploy a new `master` commit to an already-running instance -- unlike
+"Migrating from a prior bare-JVM + native-PostgreSQL deployment" above (a one-time cutover), this
+runs on **every release**. It applies unchanged to `../production-staging/` and
+`../production-elb/`: substitute the directory and the Postgres/database names (`lapiscloud`,
+`lapiscloud_staging`, or ELB's own) in the commands below.
+
+**Order matters: back up before syncing, sync before rebuilding.** A backup taken after the new
+code is already live would capture the schema the new code expects, not the one that was actually
+running when something went wrong -- it defends against nothing. The order below keeps a restorable
+snapshot of the pre-deploy state at every step until the new version is verified working.
+
+. **Back up the database.** Read the Postgres credentials from the running container's own
+  environment rather than sourcing `.env` in the shell -- unquoted special characters in a
+  `LAPIS_DB_PASSWORD` value can otherwise break a plain `source ./.env`:
++
+[source,bash]
+----
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+    | gzip > ~/backups/lapiscloud-pre-deploy-$(date +%Y%m%d-%H%M%S).dump.gz
+gzip -t ~/backups/lapiscloud-pre-deploy-*.dump.gz   # verify the archive isn't truncated
+----
+
+. **Sync the new code**, from a local clone with the target commit checked out, using an explicit
+  file list rather than a blanket directory copy -- `deploy/local/` and the other instances'
+  `deploy/production-*/` directories must never be touched by this sync, and neither must this
+  directory's own secrets. `$REMOTE_ROOT` is wherever this repo is checked out on the host (its
+  name is a per-host choice, not a repo convention -- e.g. `/opt/lapis-cloud-docker` on the PdV
+  host, something else on another host):
++
+[source,bash]
+----
+git ls-files > /tmp/lapis-cloud-files.txt
+rsync -a --dry-run -i --files-from=/tmp/lapis-cloud-files.txt . user@host:"$REMOTE_ROOT/"
+----
++
+Inspect the dry run before the real sync: past releases have found only the expected source-file
+changes and the (harmless) `deploy/local/`/other-instance permission-denied lines described below --
+if something else appears, stop and find out why before syncing for real. **Do not pass
+`--delete`** unless a prior `git diff <old-sha> <new-sha> --diff-filter=D --name-only` confirmed the
+release actually removes files, and even then keep `.env`, the rendered `livekit.yaml`/
+`turnserver.conf`, and `deploy/production*/branding/` excluded -- an unscoped `--delete` has
+deleted a live `.env` before (2026-08-15 incident, see the infra notes). Real sync:
++
+[source,bash]
+----
+rsync -a --files-from=/tmp/lapis-cloud-files.txt . user@host:"$REMOTE_ROOT/"
+----
++
+A `failed to set times` / `Permission denied` pair on `coturn-certs/.gitkeep` is a known, harmless
+ownership quirk of that directory (root-owned certs) and not a sign the sync failed elsewhere.
+
+. **Confirm `.env` is unchanged** (the sync above must never touch it -- this is a second,
+  independent check, not a substitute for the exclude list itself):
++
+[source,bash]
+----
+md5sum "$REMOTE_ROOT/deploy/production/.env"   # compare against the value from before the sync
+----
+
+. **Rebuild and restart only `lapis-server`**, from inside this directory on the host -- `postgres`
+  and the other long-running services (LiveKit, coturn, redis, egress) are untouched by a routine
+  app release:
++
+[source,bash]
+----
+cd "$REMOTE_ROOT/deploy/production"
+docker compose up -d --build lapis-server
+----
+
+. **Verify.** Flyway must report the same migration count as before (a routine release rarely adds
+  one; if it does, the count goes up by exactly the expected amount, not an unrelated number), and
+  the app must actually come up:
++
+[source,bash]
+----
+docker compose logs --tail 300 lapis-server | grep -Ei 'error|exception|responding|validated'
+curl -s -o /dev/null -w '%{http_code}\n' https://<the instance's public URL>/
+----
++
+`Successfully validated N migrations` and `Responding at http://0.0.0.0:8080` in the log, plus a
+`200` (or `401` on an instance behind HTTP basic auth, e.g. staging) from `curl`, confirm the new
+version is live. A stack trace, a non-2xx/401 status, or a Flyway migration-count mismatch means
+stop and investigate -- do not treat "the container started" alone as success.
+
+. **If something goes wrong after this point**, the pre-deploy dump from step 1 is the way back:
+stop `lapis-server`, restore the dump into `postgres` (see "Migrating from a prior bare-JVM +
+native-PostgreSQL deployment" above for the `pg_restore --single-transaction` invocation and its
+row-count spot-check), `git checkout` the prior commit locally and re-sync, then bring
+`lapis-server` back up. This has not been needed in practice as of this writing -- every release so
+far has verified clean at step 5 -- but the dump exists precisely so this path is available without
+improvising it under pressure.
+
 == Video conferencing
 
 Covers Videokonferenzen Wave 1 (live audio/video/screen-share/chat), Wave 2 "Aufzeichnung", and
