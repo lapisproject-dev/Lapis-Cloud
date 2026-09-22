@@ -14160,7 +14160,7 @@ msgid "Belegung: %1 belegt, %2 auf Warteliste"
 msgstr "Obłożenie: %1 zajętych, %2 na liście oczekujących"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1
-msgid "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich (auch für nicht angemeldete Besucher:innen) sichtbar und anmeldbar."
+msgid "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich (auch für nicht angemeldete Besucher) sichtbar und anmeldbar."
 msgstr "To wydarzenie zostanie opublikowane i będzie następnie publicznie widoczne oraz otwarte na zapisy (także dla niezalogowanych odwiedzających)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:1

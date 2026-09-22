@@ -211,7 +211,7 @@ private fun renderEventListRow(
                     if (event.visibility == EventVisibility.PUBLIC) {
                         tr(
                             "Diese Veranstaltung wird veröffentlicht und ist danach öffentlich " +
-                                "(auch für nicht angemeldete Besucher:innen) sichtbar und anmeldbar.",
+                                "(auch für nicht angemeldete Besucher) sichtbar und anmeldbar.",
                         )
                     } else {
                         tr("Diese Veranstaltung wird veröffentlicht und ist danach für Mitglieder sichtbar und anmeldbar.")
