@@ -3007,6 +3007,11 @@ lapis-server` runs this wave's code against any of them.
 - **Dritte Zahler-Identität auf `payment_checkout_session`** (`event_registration_id`, neben
   Mitglied/`external_donor`) — die bisherige zweiwertige XOR-Bedingung wird zu einer
   dreiwertigen „genau eine Identität"-Bedingung; `PaymentIntent` gewinnt das Literal `EVENT_FEE`.
+- **Neuer ausgehender Webhook `event.registration.paid`** (dritter Fat Event neben
+  `contribution.paid`/`donation.received`, siehe V1.3.2) — feuert bei erfolgreicher
+  Anmeldegebühren-Zahlung, Payload trägt die vollen `PaymentEventDetails` (Nachtrag 2026-09-22: bei
+  der Einführung hier versehentlich ohne eigenen CHANGELOG-Eintrag geblieben, siehe
+  `docs/api/public-api-v1.adoc` „Event catalogue").
 - **Serverseitig unter Zeilensperre kapazitätsgeprüfte Selbstanmeldung** (`IEventService
   .registerSelf`) — der Betrag stammt ausschließlich aus `event.fee_amount`, niemals vom Client.
   Bei freiem Platz sofortige Bestätigung (kostenlos) bzw. Stripe-Checkout mit 30-Minuten-Hold

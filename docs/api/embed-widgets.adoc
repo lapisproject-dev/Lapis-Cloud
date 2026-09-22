@@ -224,22 +224,22 @@ interpolated into the script text itself.
 
 [kuml, embed-login-flow, svg]
 ----
-sequenceDiagram(name = "Embed-Widget Login-Flow (V1.4.1a)") {
-    val partnerPage = participant(name = "Partner-Seite (fremde Origin)")
+sequenceDiagram(name = "Embed widget login flow (V1.4.1a)") {
+    val partnerPage = participant(name = "Partner page (foreign origin)")
     val widget = participant(name = "lapis-widgets.js")
-    val popup = participant(name = "Popup-Fenster (/embed/v1/login)")
-    val server = participant(name = "Lapis Cloud Server")
+    val popup = participant(name = "Popup window (/embed/v1/login)")
+    val server = participant(name = "Lapis Cloud server")
 
-    message(from = partnerPage, to = widget, text = "Klick auf \"Anmelden\"")
+    message(from = partnerPage, to = widget, text = "Click on \"Sign in\"")
     message(from = widget, to = popup, text = "window.open(/embed/v1/login?state=<nonce>&origin=<HERE>)")
     message(from = popup, to = server, text = "GET /embed/v1/login?state&origin")
-    message(from = server, to = popup, text = "200 Formular (Origin erlaubt) oder 403 (nicht erlaubt); signedIn immer false -- Cookie kommt bei dieser cross-site Top-Level-Navigation nie an")
+    message(from = server, to = popup, text = "200 form (origin allowed) or 403 (not allowed); signedIn always false -- the cookie never arrives on this cross-site top-level navigation")
     message(from = popup, to = server, text = "fetch /api/embed/v1/session (same-origin, credentials: same-origin)")
-    message(from = server, to = popup, text = "200 {signedIn, displayName} -- ehrlich, weil dieser Aufruf same-site ist")
-    message(from = popup, to = server, text = "[falls signedIn:false] POST /api/auth/login (same-origin, credentials: include)")
+    message(from = server, to = popup, text = "200 {signedIn, displayName} -- honest, because this call is same-site")
+    message(from = popup, to = server, text = "[if signedIn:false] POST /api/auth/login (same-origin, credentials: include)")
     message(from = server, to = popup, text = "200 + Set-Cookie: lapis_session (HttpOnly, Secure, SameSite=Strict)")
     message(from = popup, to = widget, text = "window.opener.postMessage({source:'lapis-embed', state, ok:true, displayName}, targetOrigin)")
-    message(from = widget, to = partnerPage, text = "Zustand \"signed-in\" -- kein Cookie/Token verlässt die Lapis-Origin")
+    message(from = widget, to = partnerPage, text = "State \"signed-in\" -- no cookie/token ever leaves the Lapis origin")
     message(from = popup, to = popup, text = "window.close() nach 800ms")
 }
 ----
@@ -531,21 +531,21 @@ boundary in either direction.
 
 [kuml, embed-event-registration-flow, svg]
 ----
-sequenceDiagram(name = "Embed-Widget Anmeldungs-Flow (V1.4.3.3)") {
-    val partnerPage = participant(name = "Partner-Seite (fremde Origin)")
+sequenceDiagram(name = "Embed widget event registration flow (V1.4.3.3)") {
+    val partnerPage = participant(name = "Partner page (foreign origin)")
     val widget = participant(name = "lapis-widgets.js")
-    val server = participant(name = "Lapis Cloud Server")
+    val server = participant(name = "Lapis Cloud server")
     val submission = participant(name = "EventRegistrationSubmission")
     val stripe = participant(name = "Stripe")
 
-    message(from = partnerPage, to = widget, text = "Formular ausgefüllt, \"Anmelden\" geklickt")
+    message(from = partnerPage, to = widget, text = "Form filled in, \"Register\" clicked")
     message(from = widget, to = server, text = "POST /api/embed/v1/event/{slug}/registration (credentials: omit)")
-    message(from = server, to = server, text = "CORS-Gate -> Content-Type-Check -> Rate-Limits -> Honeypot -> Validierung -> Slug/Sichtbarkeit")
+    message(from = server, to = server, text = "CORS gate -> Content-Type check -> rate limits -> honeypot -> validation -> slug/visibility")
     message(from = server, to = submission, text = "submit(eventId, Guest(name, email))")
     message(from = submission, to = server, text = "Confirmed | Waitlisted | PaymentRequired | ...")
     message(from = server, to = widget, text = "200 {outcome: CONFIRMED|WAITLISTED|PAYMENT_REQUIRED, redirectUrl?}")
-    message(from = widget, to = partnerPage, text = "Formular durch Bestätigungstext ersetzt")
-    message(from = widget, to = stripe, text = "[falls PAYMENT_REQUIRED] window.location.assign(redirectUrl) -- volle Top-Level-Navigation")
+    message(from = widget, to = partnerPage, text = "Form replaced with confirmation text")
+    message(from = widget, to = stripe, text = "[if PAYMENT_REQUIRED] window.location.assign(redirectUrl) -- full top-level navigation")
 }
 ----
 
