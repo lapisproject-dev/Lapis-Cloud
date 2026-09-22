@@ -410,7 +410,7 @@ internal fun showFinTsSetupModal(
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 250.px
         overflow = Overflow.AUTO
-        content = disclaimer.text
+        content = sanitizeUntrustedI18nText(disclaimer.text)
     }
     // W4c: die Zugangsdaten sind ein [LapisForm]. Das Bestätigungskästchen ist eine Pflicht-Checkbox: der frühere graue "Aktivieren"-Knopf
     // ohne Erklärung (`disabled = checked != true`) sagte nicht, was fehlt -- jetzt steht die Meldung am Kästchen (K2-Beschluss W4b).
@@ -474,7 +474,7 @@ internal fun showFinTsSetupModal(
         activateButton.hide()
         tanPanel.show()
         submitTanButton.show()
-        tanPromptLabel.content = outcome.bankPrompt
+        untrustedContent(tanPromptLabel, outcome.bankPrompt)
         tanExpiryLabel.content = gettext("Gültig bis %1 Uhr.", outcome.expiresAt.toString())
         tanField.reset()
     }

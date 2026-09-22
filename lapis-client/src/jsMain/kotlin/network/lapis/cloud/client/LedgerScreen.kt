@@ -578,7 +578,8 @@ internal fun renderPaymentAccountMappingSection(
                 ),
             ) { addCssClasses("text-muted small") }
 
-            val accountOptions = listOf("" to tr("(nicht konfiguriert)")) + accounts.map { it.id to "${it.accountNumber} · ${it.name}" }
+            val accountOptions =
+                listOf("" to tr("(nicht konfiguriert)")) + untrustedOptions(accounts.map { it.id to "${it.accountNumber} · ${it.name}" })
 
             // W4c: alle Zuordnungen sind ein Formular. Jedes Feld ist freiwillig -- die leere Auswahl IST eine gültige Antwort
             // (sie setzt die Zuordnung zurück auf `null`), deshalb kein Stern und keine Legende.
@@ -643,10 +644,20 @@ internal fun renderPaymentAccountMappingSection(
             ) { addCssClasses("text-muted small") }
             val receivablesOptions =
                 listOf("" to tr("(nicht konfiguriert)")) +
-                    accounts.filter { it.type == LedgerAccountType.ASSET }.map { it.id to "${it.accountNumber} · ${it.name}" }
+                    untrustedOptions(
+                        accounts.filter { it.type == LedgerAccountType.ASSET }.map {
+                            it.id to
+                                "${it.accountNumber} · ${it.name}"
+                        },
+                    )
             val payablesOptions =
                 listOf("" to tr("(nicht konfiguriert)")) +
-                    accounts.filter { it.type == LedgerAccountType.LIABILITY }.map { it.id to "${it.accountNumber} · ${it.name}" }
+                    untrustedOptions(
+                        accounts.filter { it.type == LedgerAccountType.LIABILITY }.map {
+                            it.id to
+                                "${it.accountNumber} · ${it.name}"
+                        },
+                    )
             val receivablesField =
                 form.selectField(
                     label = tr("Forderungskonto (Debitoren)"),
@@ -1279,7 +1290,7 @@ private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
             title = tr("Buchung"),
             primary = true,
             sortKey = JOURNAL_SORT_DESCRIPTION,
-            cell = { container, entry -> container.span(entry.description) { addCssClass("fw-bold") } },
+            cell = { container, entry -> container.untrustedSpan(entry.description, className = "fw-bold") },
         ),
         textColumn(title = tr("Datum"), numeric = true, sortKey = JOURNAL_SORT_DATE) { entry: JournalEntryDto ->
             entry.entryDate.toString()
@@ -1326,7 +1337,7 @@ private fun renderJournalEntryDetailBody(
     onDuplicate: (JournalEntryDto) -> Unit,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(entry.description) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(entry.description)
     headerRow.statusBadge(journalEntryStatusLabel(entry.status), journalEntryStatusColor(entry.status))
 
     val caption =
@@ -1780,7 +1791,7 @@ internal fun renderNewEntryForm(
     val memberField =
         form.selectField(
             label = tr("Mitglied"),
-            options = members.map { it.id to it.displayName },
+            options = untrustedOptions(members.map { it.id to it.displayName }),
             hint = donorRequiredHint,
             host = memberPanel,
         )
@@ -1802,7 +1813,7 @@ internal fun renderNewEntryForm(
     val externalField =
         form.selectField(
             label = tr("Externer Spender"),
-            options = externalDonors.map { it.id to it.displayName },
+            options = untrustedOptions(externalDonors.map { it.id to it.displayName }),
             hint = donorRequiredHint,
             host = externalPanel,
         )

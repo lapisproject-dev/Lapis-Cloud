@@ -351,7 +351,7 @@ internal fun renderNewBatchSection(
         )
     AppScope.launch {
         val tiers = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: return@launch
-        (tierField.control as Select).options = listOf("" to tr("Alle Beitragssätze")) + tiers.map { it.id to it.name }
+        (tierField.control as Select).options = listOf("" to tr("Alle Beitragssätze")) + untrustedOptions(tiers.map { it.id to it.name })
         tierField.setValue("")
     }
     val previewButton = Button(tr("Vorschau berechnen"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -433,7 +433,9 @@ private fun renderBatchPreview(
                         formatIbanLast4(item.debtorIbanLast4)
                     },
                     textColumn(title = tr("Erhöht?")) { item: SepaDebitBatchPreviewItemDto ->
-                        if (item.amountIncreased) tr("Ja") else tr("Nein")
+                        // Security audit W6b, round 7 (major finding 2): trusted(...) keeps both branches
+                        // live-translatable instead of losing their marker to textColumn's sanitizer.
+                        if (item.amountIncreased) trusted(tr("Ja")) else trusted(tr("Nein"))
                     },
                 ),
             rows = preview.items,
@@ -443,7 +445,7 @@ private fun renderBatchPreview(
         panel.div(tr("Ausgeschlossen:")) { addCssClasses("text-muted small mt-1") }
         preview.excluded.forEach { exclusion ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center small") }
-            row.div(exclusion.memberDisplayName) { addCssClasses("flex-grow-1") }
+            row.untrustedDiv(exclusion.memberDisplayName, className = "flex-grow-1")
             row.typeBadge(sepaExclusionReasonLabel(exclusion.reason), sepaExclusionReasonColor(exclusion.reason))
         }
     }
@@ -827,7 +829,8 @@ private fun sepaReturnColumns(): List<DataColumn<SepaReturnDto>> =
             },
         ),
         textColumn(title = tr("Mandat widerrufen")) { sepaReturn: SepaReturnDto ->
-            if (sepaReturn.mandateRevoked) tr("Ja") else tr("Nein")
+            // Security audit W6b, round 7 (major finding 2): trusted(...) keeps both branches live-translatable.
+            if (sepaReturn.mandateRevoked) trusted(tr("Ja")) else trusted(tr("Nein"))
         },
     )
 

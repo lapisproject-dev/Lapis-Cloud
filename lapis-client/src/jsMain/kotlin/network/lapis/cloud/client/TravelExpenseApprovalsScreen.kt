@@ -8,7 +8,6 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
-import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -175,21 +174,21 @@ private fun renderApprovalCard(
     val card = panel.vPanel(spacing = 6) { addCssClass("lapis-data-card") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(travelExpenseStatusLabel(report.status), travelExpenseStatusColor(report.status))
-    headerRow.div(report.subjectDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(report.subjectDisplayName)
     if (report.requestedBy != report.subjectMemberId) {
         headerRow.typeBadge(gettext("Im Namen von %1 gestellt", report.requestedByDisplayName), "secondary")
     }
     headerRow.div(formatMoney(report.totalAmount)) { addCssClasses("fw-bold") }
 
     card.div(gettext("%1 bis %2", report.travelFrom, report.travelTo)) { addCssClasses("text-muted small") }
-    card.div(report.purpose)
+    card.untrustedDiv(report.purpose)
     report.lines.forEach { line ->
         val lineRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
         lineRow.typeBadge(travelExpenseLineKindLabel(line.kind), travelExpenseLineKindColor(line.kind))
-        lineRow.div(line.description) { addCssClasses("flex-grow-1 small") }
+        lineRow.untrustedDiv(line.description, className = "flex-grow-1 small")
         lineRow.div(formatMoney(line.amount)) { addCssClasses("small") }
         line.receipts.forEach { receipt ->
-            lineRow.link(receipt.originalFilename, url = TravelExpenseHttp.receiptDownloadUrl(receipt.id), target = "_blank") {
+            lineRow.untrustedLink(receipt.originalFilename, url = TravelExpenseHttp.receiptDownloadUrl(receipt.id), target = "_blank") {
                 addCssClasses("small")
             }
         }

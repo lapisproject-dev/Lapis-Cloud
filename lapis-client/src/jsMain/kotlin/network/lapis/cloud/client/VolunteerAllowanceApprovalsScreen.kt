@@ -105,14 +105,14 @@ private fun renderVolunteerAllowanceApprovalCard(
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.typeBadge(volunteerAllowanceCategoryLabel(payment.category), volunteerAllowanceCategoryColor(payment.category))
     headerRow.statusBadge(volunteerAllowanceStatusLabel(payment.status), volunteerAllowanceStatusColor(payment.status))
-    headerRow.div(payment.subjectDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(payment.subjectDisplayName)
     if (payment.requestedBy != payment.subjectMemberId) {
         headerRow.typeBadge(gettext("Im Namen von %1 gestellt", payment.requestedByDisplayName), "secondary")
     }
     headerRow.div(formatMoney(payment.amount)) { addCssClasses("fw-bold") }
 
     card.div(payment.paymentDate.toString()) { addCssClasses("text-muted small") }
-    card.div(payment.activityDescription)
+    card.untrustedDiv(payment.activityDescription)
 
     if (payment.decisionNote != null) {
         card.div(gettext("Begründung: %1", payment.decisionNote)) { addCssClasses("text-muted small") }
@@ -242,7 +242,7 @@ private fun renderVolunteerAllowanceDecisionSection(
                         return@launch
                     }
                     disclaimerPanel.removeAll()
-                    disclaimerPanel.div(disclaimer.text)
+                    disclaimerPanel.untrustedDiv(disclaimer.text)
                     disclaimerVersion = disclaimer.version
                     disclaimerSha256 = disclaimer.sha256
                     checkBox.disabled = false

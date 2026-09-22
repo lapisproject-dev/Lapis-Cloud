@@ -61,7 +61,7 @@ private fun renderRegistrationForm(
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 240.px
         overflow = Overflow.AUTO
-        content = agreement.text
+        content = sanitizeUntrustedI18nText(agreement.text)
     }
 
     val form = root.lapisForm()

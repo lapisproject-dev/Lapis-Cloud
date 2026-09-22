@@ -9,7 +9,6 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
-import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -244,7 +243,7 @@ private fun donorColumns(): List<DataColumn<ExternalDonorDto>> =
         DataColumn(
             title = tr("Spender"),
             primary = true,
-            cell = { container, donor -> container.span(donor.displayName) { addCssClass("fw-bold") } },
+            cell = { container, donor -> container.untrustedSpan(donor.displayName, className = "fw-bold") },
         ),
         DataColumn(
             title = tr("Kategorie"),
@@ -604,7 +603,7 @@ internal fun renderDonorDetail(
             isEmpty = { false },
             load = { guarded { rpcService<IAccountingService>().getExternalDonor(donorId) } },
             render = { body, fresh ->
-                body.h2(fresh.displayName) { addCssClass("h6") }
+                body.untrustedHeading(fresh.displayName, 2, className = "h6")
                 body.div(donorAddressLine(fresh)) { addCssClasses("text-muted small") }
             },
         ).reload()

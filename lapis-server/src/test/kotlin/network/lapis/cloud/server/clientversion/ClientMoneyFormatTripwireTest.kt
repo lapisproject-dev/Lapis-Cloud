@@ -118,11 +118,11 @@ private fun rawDecimalGettextCalls(file: File): List<String> =
         args.filter { it != "amount" && RAW_DECIMAL_ARGUMENT.matches(it) }
     }
 
-/** Sites in `MotionsScreen.kt` that still bake " LTR" into a string (measured at W6a). Only ever lowered. */
-private const val MOTIONS_SCREEN_LEDGER = 3
+/** Sites in `MotionsScreen.kt` that still bake " LTR" into a string (measured at W6a, closed in W6b). Only ever lowered. */
+private const val MOTIONS_SCREEN_LEDGER = 0
 
-/** Raw `Decimal` gettext arguments still in `MotionsScreen.kt` (measured at W6a by the whole-call detector, LTR-auction stakes). Only ever lowered. */
-private const val MOTIONS_SCREEN_RAW_ARG_LEDGER = 3
+/** Raw `Decimal` gettext arguments still in `MotionsScreen.kt` (measured at W6a by the whole-call detector, LTR-auction stakes; closed in W6b). Only ever lowered. */
+private const val MOTIONS_SCREEN_RAW_ARG_LEDGER = 0
 
 private fun codeLines(file: File): List<String> = file.readLines().filterNot { isCommentLine(it) }
 
@@ -176,9 +176,9 @@ class ClientMoneyFormatTripwireTest :
 
         test("M4: no second euro / LTR suffix literal outside Money.kt, and the detector sees one") {
             val findings = others.flatMap { f -> codeLines(f).filter { SUFFIX_LITERAL.containsMatchIn(it) }.map { f.name to it.trim() } }
-            // Ledger of the known gap (W6a): the LTR-auction vote stakes of MotionsScreen carry a baked-in " LTR" inside their msgids
-            // (`"%1 LTR"`, `"Ihr Gebot: %1, %2 LTR"`) and one string template. Fixing them means changing those msgids in all eight
-            // catalogs -- a wave of its own. The number may only go DOWN.
+            // Ledger of the former known gap (W6a): the LTR-auction vote stakes of MotionsScreen carried a baked-in " LTR" inside their
+            // msgids (`"%1 LTR"`, `"Ihr Gebot: %1, %2 LTR"`) and one string template. Fixing them meant changing those msgids in all
+            // eight catalogs; W6b did exactly that, so the ledger is now 0. The number may only go DOWN, never back up.
             findings.filter { it.first != "MotionsScreen.kt" } shouldBe emptyList()
             (findings.count { it.first == "MotionsScreen.kt" } <= MOTIONS_SCREEN_LEDGER) shouldBe true
             SUFFIX_LITERAL.containsMatchIn("""val s = "${'$'}amount €"""") shouldBe true
@@ -203,7 +203,7 @@ class ClientMoneyFormatTripwireTest :
         test("M6: no gettext message receives a Decimal field raw (also across lines), and the detector sees one") {
             others.filter { it.name != "MotionsScreen.kt" }.flatMap { f -> rawDecimalGettextCalls(f).map { "${f.name}: $it" } } shouldBe
                 emptyList()
-            // MotionsScreen.kt: ledgered like M4 -- measured, may only go DOWN.
+            // MotionsScreen.kt: ledgered like M4 -- measured at W6a, closed in W6b, may only go DOWN.
             val motions = others.filter { it.name == "MotionsScreen.kt" }.sumOf { rawDecimalGettextCalls(it).size }
             (motions <= MOTIONS_SCREEN_RAW_ARG_LEDGER) shouldBe true
             RAW_DECIMAL_ARGUMENT.matches("summary.totalOpen") shouldBe true

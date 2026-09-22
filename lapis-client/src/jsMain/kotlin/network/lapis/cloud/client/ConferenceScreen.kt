@@ -623,7 +623,9 @@ private fun renderRoomCard(
 ) {
     val card = panel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center flex-wrap") }
     val infoCell = card.vPanel(spacing = 2) { addCssClasses("flex-grow-1") }
-    infoCell.div(room.title) { addCssClasses("fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): a room title is member-editable free text
+    // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    infoCell.div(sanitizeUntrustedI18nText(room.title)) { addCssClasses("fw-bold") }
     infoCell.div(gettext("Erstellt von %1 · %2 Teilnehmende", room.createdByDisplayName, room.liveParticipantCount)) {
         addCssClasses("text-muted small")
     }
@@ -821,8 +823,9 @@ private fun conferenceGuestConsentModal(
     ) { addCssClasses("text-muted small mb-2") }
 
     val layerOne = modal.div { setAttribute("role", "note") }
-    layerOne.div(d.headline) { addCssClasses("fw-bold mb-2") }
-    d.keyPoints.forEach { point -> layerOne.div(point) { addCssClasses("mb-2") } }
+    layerOne.untrustedDiv(d.headline, className = "fw-bold mb-2")
+    // Same untrusted DTO `d` as `d.headline` above -- goes through the untrustedDiv helper too, not a bare `div(point)`.
+    d.keyPoints.forEach { point -> layerOne.untrustedDiv(point, className = "mb-2") }
 
     val scrollBox =
         modal.div {
@@ -831,7 +834,7 @@ private fun conferenceGuestConsentModal(
             overflow = Overflow.AUTO
             setAttribute("tabindex", "0")
         }
-    scrollBox.content = d.text
+    untrustedContent(scrollBox, d.text)
 
     modal.div(gettext("Hinweistext-Version %1", d.version)) { addCssClasses("text-muted small mb-2") }
 
@@ -1801,8 +1804,11 @@ private fun enterCall(
             targets.forEach { target ->
                 val row = streamTargetsPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap") }
                 row.statusBadge(conferenceStreamTargetStatusLabel(target.status), conferenceStreamTargetStatusColor(target.status))
-                row.div(target.label) { addCssClasses("small") }
-                target.failureReason?.let { reason -> row.div(reason) { addCssClasses("text-danger small") } }
+                // Security audit W6b follow-up round 3 (major finding A): stream target label/failure reason are
+                // admin-/provider-controlled free text rendered as raw widget content -- sanitize before KVision
+                // can resolve a forged marker on render.
+                row.div(sanitizeUntrustedI18nText(target.label)) { addCssClasses("small") }
+                target.failureReason?.let { reason -> row.div(sanitizeUntrustedI18nText(reason)) { addCssClasses("text-danger small") } }
             }
         }
     }
@@ -2006,9 +2012,11 @@ private fun enterCall(
                 return@launch
             }
             val participantOptions =
-                tiles.values.map { entry ->
-                    entry.identity to (if (entry.isLocal) gettext("%1 (Sie)", entry.displayName) else entry.displayName)
-                }
+                untrustedOptions(
+                    tiles.values.map { entry ->
+                        entry.identity to (if (entry.isLocal) gettext("%1 (Sie)", entry.displayName) else entry.displayName)
+                    },
+                )
             startStreamDialog(
                 targets,
                 streamMaxDestinations,
@@ -3054,7 +3062,7 @@ private fun enterCall(
             if (canModerate && currentBreakoutRooms.isNotEmpty()) {
                 val currentAssignmentId = currentBreakoutRooms.firstOrNull { entry.identity in it.assignedMemberIds }?.id
                 val breakoutSelect =
-                    row.select(options = currentBreakoutRooms.map { it.id to it.label }, value = currentAssignmentId)
+                    row.select(options = untrustedOptions(currentBreakoutRooms.map { it.id to it.label }), value = currentAssignmentId)
                 breakoutSelect.addCssClass("btn-sm")
                 breakoutSelect.subscribe { selectedId ->
                     if (selectedId == null || selectedId == currentAssignmentId) return@subscribe

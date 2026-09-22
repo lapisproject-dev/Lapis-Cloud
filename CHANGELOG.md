@@ -6,8 +6,103 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **W6b security-härtung, round 6 (review fixes, no new version)** -- two findings against round 5's assignment-shape
+  migration. (1, major regression) round 5 had migrated `EventsScreen.kt`'s `errorBox.content = result.message` onto
+  `untrustedContent(...)`, but `result.message` is always built via `tr(...)`/`gettext(...)` in
+  `EventFormValidation.kt` and already carries the `KV_I18N_MARKER` prefix that KVision resolves through
+  `I18n.trans`/`gettext` on render -- `untrustedContent`'s `sanitizeUntrustedI18nText` step strips that legitimate
+  marker as part of neutralizing a *forged* one, so every non-German locale would silently render the raw German
+  msgid instead of the translated validation message. Reverted to a plain `errorBox.content = result.message`
+  assignment with an inline comment; `ClientUntrustedWidgetTextTripwireTest`'s `KNOWN_UNSANITIZED_WIDGET_TEXT_ASSIGNMENTS`
+  ledger goes back from 0 to **1**, with `EventsScreen.kt` (`result.message`) now a documented exception (analogous
+  to `ApiKeysScreen.kt`'s `result.rawKey` in the construction-time ledger) rather than a migrated call site. (2,
+  minor, test coverage) `untrustedContent` itself had no DOM test -- only the ledger test's regex exercised it as a
+  string, never what it actually does at runtime. `UntrustedTextHelpersDomTest` gained `untrustedContent_*` tests
+  mirroring the five construction-time helpers: a forged-marker payload (stripped), ordinary text (untouched), and
+  a `null` text (clears the widget's content).
+
 ### Added
 
+- **W6b security-härtung, round 5 (money-forgery hardening follow-up, no new version)** -- closes a second shape the
+  round-4 ledger test could not see: an already-constructed widget's `content` overwritten by plain ASSIGNMENT
+  (`widget.content = dtoField.field`), which hits the exact same `Widget`/`Template.content` render-time resolution
+  path as the round-3/4 construction-time shape but has no call-with-parens for the round-4 regex to anchor on.
+  Found via `BankAccountsScreen.kt`'s FinTS TAN dialog (`tanPromptLabel.content = outcome.bankPrompt`, a raw bank
+  server message rendered unsanitized -- a compromised/malicious counterparty bank could forge a fabricated LTR/EUR
+  amount into the TAN prompt). `network.lapis.cloud.client.untrustedContent(widget, text)` is the new
+  assignment-shape counterpart to `untrustedDiv`/etc., and `ClientUntrustedWidgetTextTripwireTest` gained a second,
+  independent detector + ledger (`RAW_DOTTED_WIDGET_TEXT_ASSIGNMENT` / `KNOWN_UNSANITIZED_WIDGET_TEXT_ASSIGNMENTS`,
+  now **0**) for exactly this shape. Five call sites migrated: `BankAccountsScreen.kt` (`outcome.bankPrompt`),
+  `AccountingExportScreen.kt` (`disclaimer.text`, `requestedProvider.displayName`), `ConferenceScreen.kt`
+  (`d.text`, plus the adjacent `d.keyPoints` loop onto `untrustedDiv`), `EventsScreen.kt` (`result.message`).
+  Manually fixed alongside (same render path, a syntactically distinct bare `content = ` builder-lambda property
+  assignment, not yet covered by an automated detector -- see the "Known gaps" note in
+  `docs/architecture/ui-ux-guideline.adoc`): seven legal disclaimer/terms/membership-agreement full-text bodies
+  (`AuctionScreen.kt`, `PaymentGatewaySettingsScreen.kt`, `SepaSettingsScreen.kt`, `DunningSettingsScreen.kt`,
+  `BankAccountsScreen.kt`, `FriendRegistrationScreen.kt`, `RegistrationScreen.kt`).
+
+  Three further minor findings from the same review closed: (1) `I18nCatalogManager.substitute` replaced `%1`,
+  `%2`, ... one at a time over the RUNNING result string, so a value substituted for an earlier placeholder that
+  happened to contain e.g. `"%4"` could be re-matched by a later placeholder's replace call, spoofing which
+  argument's value lands under which label (never a forged amount -- the value itself was always genuine and
+  trusted -- but display-spoofing of position); now a single linear-pass regex substitution over the ORIGINAL
+  text, which can never re-scan a just-substituted value. (2) `trFormat`'s `vararg args: String` was widened to
+  `vararg args: Any` in an earlier round of this wave to admit `TrArg`, moving the "String or TrArg" guard from a
+  compile error to a runtime `error(...)` with no test asserting it actually fires -- a regression test now covers
+  it. (3) `MONEY_SENTINEL`'s KDoc claimed "server text cannot forge it", which this whole wave's own findings
+  disprove -- corrected to explain the actual safety boundary (only `gettext` resolves it, only `moneyToken`
+  constructs one; untrusted text must always be sanitized, never trusted by content). Also added: DOM tests for
+  `untrustedHeading`'s previously untested levels 3-6 and its `level` range guard (h1 reserved to
+  `PageHeader.kt`'s `pageHeader()`).
+
+- **W6b security-härtung (rounds 1-4, no new version)** -- KVision's `Widget` resolves ANY content string that
+  starts with `KV_I18N_MARKER` through `I18n.trans`/`gettext` on render, independent of `trFormat`: an option
+  label, motion title, donor name, or any other server-/member-controlled field handed straight to widget content
+  with a forged marker + `MONEY_SENTINEL` payload renders as a fabricated, freely chosen amount -- not just when
+  passed as a `trFormat` argument. Rounds 1-3 (not previously documented in this file) closed this in three steps:
+  `sanitizeUntrustedI18nText` (a fixed-point strip of the marker/sentinel/`I18N_ARG_SEPARATOR`, since a single
+  `replace` pass can splice a deleted marker's neighbours back into a new one) became the sanitization boundary for
+  every untrusted plain-`String` argument to `trFormat`; a type-based trust guard (`trusted()`/`TrArg`) replaced
+  string-prefix trust so a `trFormat` argument can no longer forge trust by mimicking the marker itself; and the
+  rule was extended to plain widget content at the client's most exposed render path (`renderVoteSection`'s
+  `vote.title`/`option.label`), landing at **32 call sites** across the client (30 in screens, 2 in
+  `I18nCatalogManager.kt`) plus the sanitizer's own declaration. `VoteSectionRenderingDomTest` was hardened to
+  assert against the actual forged rendering (`9.999,00`) instead of a dead `"99,99"` check that could never have
+  caught the bug it claimed to guard.
+
+  Round 4 measured the remaining exposure with a new ledger test (`ClientUntrustedWidgetTextTripwireTest`,
+  `lapis-server`, a source-regex heuristic in the style of `ClientMoneyFormatTripwireTest`) and found **58** raw,
+  unsanitized `receiver.div/span/p/h1..h6(dto.field)` call sites still outside the sanitized set -- 21 of them the
+  same card/list header shape (`fw-bold flex-grow-1`) repeated verbatim across screens. Rather than wrapping each
+  in `sanitizeUntrustedI18nText(...)` by hand a 58th time, round 4 closes the engstelle with a small central helper
+  set (`network.lapis.cloud.client.UntrustedText`: `untrustedDiv`/`untrustedSpan`/`untrustedP`/`untrustedHeading`/
+  `untrustedCardTitle`, each sanitizing unconditionally) and migrates all 58 call sites onto it, bringing the
+  ledger to **1**. The single remaining, deliberately unsanitized entry is `ApiKeysScreen.kt`'s freshly issued
+  `result.rawKey`: it is the actual secret shown to the operator exactly once, and stripping control-marker bytes
+  from it (even ones a real key is vanishingly unlikely to contain) would risk a silently corrupted key being
+  copied -- documented as a ledger exception with an inline comment at the call site, not fixed. The detector was
+  also hardened to recognize the five new helpers as already-safe and to keep firing on the `DataColumn`
+  lambda-cell shape (`cell = { container, row -> container.span(row.field) { ... } }`) that round 3's 58 findings
+  included; a documented, known gap remains for a local `val` holding an untrusted field before it reaches a
+  widget call, which the source-regex detector cannot see (see the "Untrusted widget text" section of
+  `docs/architecture/ui-ux-guideline.adoc`).
+
+  **R24 stays at 166, R24B at 80, R29 at 39 -- unchanged.** The W4d form-field migration of the eight remaining
+  screens (`docs/architecture/ui-ux-guideline.adoc`, "Not done in this wave" of W6b below) is **NOT** part of this
+  entry and was not started; it is tracked as its own wave, W6c, with its target numbers (R24 166→140, R24B 80→71,
+  R29 ≤39) fixed in the guideline so they are not vertagt a fourth time.
+- **UI/UX guideline, wave W6b "MotionsScreen off the baked-in LTR suffix"** -- closes the W6a gap: `MotionsScreen.kt`'s
+  four LTR amounts (the per-option basket total, "Ihr Gebot: ...", "Preis: ... (Vickrey-Zweitpreis)", the settled-ballot
+  row) now render through `ltrToken`/`formatLtr` like every other LTR amount in the client, instead of a hand-typed,
+  frozen, ASCII-space " LTR" suffix baked into three msgids and one string template. `MOTIONS_SCREEN_LEDGER` and
+  `MOTIONS_SCREEN_RAW_ARG_LEDGER` (`ClientMoneyFormatTripwireTest`) go from 3 to 0. Two msgids ("Ihr Gebot: %1, %2 LTR",
+  "Preis: %1 LTR (Vickrey-Zweitpreis)") are renamed and re-translated in all eight catalogs, one ("%1 LTR") is removed
+  (no caller left, the amount is now rendered directly, `moneyToken`-style), and two are added ("%1: %2, %3", "%1: %2,
+  %3 · belastet: %4"). **The W4d form migration (see docs/architecture/ui-ux-guideline.adoc, "Not done in this wave" of
+  W6b) is NOT part of this entry** -- it needs the request-body tests against the old code first, per the standing rule,
+  and was not started.
 - **UI/UX guideline, wave W6a "Localized and exact amounts"** -- a client-only wave (no server production code, no `lapis-shared` change, no migration).
   **Amounts are readable and follow the UI language:** `formatMoney`/`formatLtr` group the integer part, pad to two places and use the language's
   separators and currency position (`de` `1.234,50 €`, `en` `€1,234.50`, `nl` `€ 1.234,50`, `fr`/`pl`/`ru` `1 234,50 €` with U+00A0; LTR is always a suffix); the minus is

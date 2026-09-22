@@ -314,14 +314,16 @@ private fun renderPoliticianCard(
 ) {
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(politician.displayName) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): display name/mandate text are member-editable
+    // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(politician.displayName)) { addCssClasses("flex-grow-1 fw-bold") }
     if (currentMemberId != null && politician.memberId == currentMemberId) {
         headerRow.div(tr("(Sie)")) { addCssClasses("text-muted small") }
     }
     headerRow.statusBadge(politicianProfileStatusLabel(politician.status), politicianProfileStatusColor(politician.status))
 
     politician.mandateText?.takeIf { it.isNotBlank() }?.let { mandate ->
-        card.div(mandate) { addCssClasses("small") }
+        card.div(sanitizeUntrustedI18nText(mandate)) { addCssClasses("small") }
     }
 
     card.div(gettext("Politiker-Status seit %1 (erteilt von %2)", politician.grantedAt, politician.grantedByDisplayName)) {
@@ -613,7 +615,7 @@ private fun renderGrantForm(
         return
     }
     val panel = root.vPanel(spacing = 6)
-    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    val memberSelect = panel.select(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
     val mandateInput = panel.textArea(label = tr("Mandatstext (optional)"), rows = 2)
     val errorBox =
         panel.div().apply {

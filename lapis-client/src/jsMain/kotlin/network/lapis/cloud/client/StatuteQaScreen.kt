@@ -167,7 +167,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
         }
         log.forEach { entry ->
             val entryPanel: Div = logPanel.div { addCssClasses("border-bottom pb-3") }
-            entryPanel.div(entry.question) { addCssClass("fw-bold") }
+            entryPanel.untrustedDiv(entry.question, className = "fw-bold")
             val body = entryPanel.vPanel(spacing = 6)
             renderAnswer(body, entry.answer)
         }

@@ -144,7 +144,9 @@ private fun renderApiKeyCard(
 
     val header = cardBody.hPanel(spacing = 12) { addCssClasses("align-items-center") }
     val info = header.vPanel(spacing = 2) { addCssClasses("flex-grow-1") }
-    info.div(key.label) { addCssClasses("fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): an API key label is member-editable free text
+    // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    info.div(sanitizeUntrustedI18nText(key.label)) { addCssClasses("fw-bold") }
     info.div("${key.keyPrefix}…") { addCssClasses("small font-monospace text-muted") }
     val statusLine =
         when {
@@ -260,7 +262,7 @@ private fun renderWebhookBlock(
     }
 
     val urlLine = footer.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    urlLine.div(endpoint.url) { addCssClasses("small text-break font-monospace flex-grow-1") }
+    urlLine.untrustedDiv(endpoint.url, className = "small text-break font-monospace flex-grow-1")
     if (endpoint.active) {
         urlLine.statusBadge(tr("Aktiv"), "success")
     } else {
@@ -427,6 +429,10 @@ private fun showApiKeyRevealCard(
                 "Kopieren Sie ihn jetzt an einen sicheren Ort.",
         ),
     ) { addCssClasses("text-muted small") }
+    // Security audit W6b round 4: deliberately NOT sanitized. `result.rawKey` is the actual secret value shown to
+    // the operator exactly once -- silently stripping bytes from it (even control-marker bytes that a real API key
+    // is vanishingly unlikely to contain) would risk the operator copying a corrupted key. Documented ledger
+    // exception, see ClientUntrustedWidgetTextTripwireTest.
     card.div(result.rawKey) {
         addCssClasses("font-monospace fs-6 p-2 bg-body-secondary rounded")
         overflow = Overflow.AUTO

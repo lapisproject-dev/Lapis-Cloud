@@ -300,7 +300,7 @@ private fun dunningCaseColumns(): List<DataColumn<DunningCaseDto>> =
             title = tr("Mitglied"),
             primary = true,
             cell = { container, case ->
-                container.span(case.memberDisplayName)
+                container.untrustedSpan(case.memberDisplayName)
                 // Welle V1.4.4.5 -- kein Filter, keine Aktions-Sperre: wer einen Verstorbenen mahnt,
                 // mahnt wissentlich (Zustellung an den Nachlass, siehe DunningCaseDto.memberStatus KDoc).
                 if (case.memberStatus == MemberStatus.DECEASED) {
@@ -393,7 +393,7 @@ private fun renderDunningCaseDetail(
     val panel = surface.vPanel(spacing = 8)
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(case.memberDisplayName) { addCssClasses("fw-bold flex-grow-1") }
+    headerRow.untrustedCardTitle(case.memberDisplayName)
     // Welle V1.4.4.5 -- siehe renderDunningCaseRow's identischer Kommentar.
     if (case.memberStatus == MemberStatus.DECEASED) headerRow.typeBadge(tr("Verstorben"), "dark")
     headerRow.statusBadge(contributionStatusLabel(case.contributionStatus), contributionStatusColor(case.contributionStatus))

@@ -941,8 +941,13 @@ internal fun tokenParityViolations(css: String): List<String> {
 
 // ── the marker leak (V1.4.30 audit, M2): `tr(...)` as an ARGUMENT of `gettext` ─────────────────────────────
 // `gettext("... %1", tr("Kein Konto"))` substitutes KVision's marker prefix (`###KvI18nS###`) into a text that is already resolved --
-// it is VISIBLE on screen. The manager now resolves a marker argument (see `I18nCatalogManager.gettext`), so this is a net, not the fence:
-// the source is held to the rule too. Same for a message that a `FieldCheck`/`AmountInput` carries: it must be RESOLVED text (`gettext`).
+// it is VISIBLE on screen. Security audit W6b follow-up (major finding 1, round 2) REMOVED the manager's marker-argument
+// resolution as a blocker: trust-by-content ("the argument starts with the marker") is exactly the forgery this app's `trFormat`
+// KDoc warns against, so `I18nCatalogManager.gettext` now unconditionally SANITIZES every `String` argument (strips the marker,
+// never resolves it) instead. This source-level rule is therefore both the fence AND the net: there is no manager-side safety
+// net left to fall back on, so a `tr(...)` result passed here shows the unresolved German `msgid` (marker stripped, never
+// translated) on screen -- the rule below must stay enforced. Same for a message that a `FieldCheck`/`AmountInput` carries: it
+// must be RESOLVED text (`gettext`).
 
 /** The text of the call whose `(` is at [openParen], through its balanced `)`; string literals are skipped, so a `)` inside a text does not count. */
 private fun balancedCall(

@@ -1003,10 +1003,6 @@ msgstr ""
 msgid "%1 für %2 gemintet."
 msgstr "%1 wybito dla %2."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:936
-msgid "%1 LTR"
-msgstr "%1 LTR"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:161
 msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
 msgstr "%1 utworzono nowych składek (już istniejące zostały pominięte)."
@@ -1114,8 +1110,12 @@ msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 zanonimizowano, %3 usunięto, %4 zachowano"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:958
-msgid "%1: %2, %3 LTR%4"
-msgstr "%1: %2, %3 LTR%4"
+msgid "%1: %2, %3"
+msgstr "%1: %2, %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:958
+msgid "%1: %2, %3 · belastet: %4"
+msgstr "%1: %2, %3 · obciążono: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:985
 msgid "%1: %2%3%4"
@@ -5095,8 +5095,8 @@ msgstr ""
 "zostałeś/-aś zaproszony/-a."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:911
-msgid "Ihr Gebot: %1, %2 LTR"
-msgstr "Twoja oferta: %1, %2 LTR"
+msgid "Ihr Gebot: %1, %2"
+msgstr "Twoja oferta: %1, %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:688
 msgid "Ihr Höchstgebot"
@@ -7249,8 +7249,8 @@ msgid "Postversand-Übersicht"
 msgstr "Przegląd wysyłki pocztowej"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:947
-msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
-msgstr "Cena: %1 LTR (druga cena Vickreya)"
+msgid "Preis: %1 (Vickrey-Zweitpreis)"
+msgstr "Cena: %1 (druga cena Vickreya)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:187
 msgid "Preisstand: %1:%2:%3 Uhr"

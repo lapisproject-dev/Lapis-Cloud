@@ -165,7 +165,7 @@ private fun renderBoardRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(membership.memberDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(membership.memberDisplayName)
     headerRow.typeBadge(committeeRoleLabel(membership.committeeRole), committeeRoleColor(membership.committeeRole))
     headerRow.div(gettext("seit %1", membership.startedAt)) { addCssClasses("text-muted small") }
 
@@ -273,7 +273,7 @@ internal fun renderAppointmentForm(
 
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-        memberSelect.options = members.map { it.id to it.displayName }
+        memberSelect.options = untrustedOptions(members.map { it.id to it.displayName })
         memberField.setValue(members.firstOrNull()?.id)
         memberField.validate(force = false)
     }
@@ -405,7 +405,7 @@ private fun renderReminderRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(boardChangeTypeLabel(reminder.changeType), boardChangeTypeColor(reminder.changeType))
     headerRow.typeBadge(committeeRoleLabel(reminder.committeeRole), committeeRoleColor(reminder.committeeRole))
-    headerRow.div(reminder.memberDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(reminder.memberDisplayName)
     headerRow.statusBadge(reminderResolutionLabel(reminder.resolved), reminderResolutionColor(reminder.resolved))
 
     row.div(gettext("Ausgelöst am: %1", reminder.triggeredAt)) { addCssClasses("text-muted small") }

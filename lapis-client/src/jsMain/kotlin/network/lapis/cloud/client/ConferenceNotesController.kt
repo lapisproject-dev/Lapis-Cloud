@@ -394,7 +394,7 @@ class ConferenceNotesController(
         row.conflictBox.div(
             gettext("Jemand hat diesen Block bereits aktualisiert (zuletzt von %1).", current.lastEditedByDisplayName),
         ) { addCssClasses("small fw-bold") }
-        row.conflictBox.div(current.content) { addCssClasses("small text-muted") }
+        row.conflictBox.untrustedDiv(current.content, className = "small text-muted")
         val actions = row.conflictBox.hPanel(spacing = 6) { addCssClasses("mt-1") }
         val discard = actions.button(tr("Verwerfen und aktuelle Version übernehmen"), style = ButtonStyle.OUTLINEWARNING)
         discard.addCssClass("btn-sm")

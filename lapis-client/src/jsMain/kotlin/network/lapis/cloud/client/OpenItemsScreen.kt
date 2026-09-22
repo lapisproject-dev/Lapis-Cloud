@@ -716,7 +716,7 @@ private fun appendOpenItemRow(
     table.row {
         if (selected) addCssClass("table-active")
         val nameCell = cell()
-        nameCell.span(item.counterpartyName)
+        nameCell.untrustedSpan(item.counterpartyName)
         nameCell.typeBadge(openItemDirectionLabel(item.direction), openItemDirectionColor(item.direction)).addCssClass("ms-2")
         cell(item.reference.orEmpty())
         val dueCell = numCell()
@@ -771,7 +771,7 @@ private fun renderOpenItemDetail(
     val panel = surface.vPanel(spacing = 8)
 
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(item.counterpartyName) { addCssClasses("fw-bold flex-grow-1") }
+    headerRow.untrustedCardTitle(item.counterpartyName)
     headerRow.typeBadge(openItemDirectionLabel(item.direction), openItemDirectionColor(item.direction))
     headerRow.statusBadge(openItemStatusLabel(item.status), openItemStatusColor(item.status))
 
@@ -1350,7 +1350,8 @@ internal fun renderOpenItemCreateForm(
     if (crmField != null) {
         AppScope.launch {
             val page = guarded { rpcService<ICrmService>().listContacts(limit = CRM_CONTACT_LIMIT) } ?: return@launch
-            (crmField.control as Select).options = listOf("" to tr("(kein CRM-Kontakt)")) + page.items.map { it.id to it.displayName }
+            (crmField.control as Select).options =
+                listOf("" to tr("(kein CRM-Kontakt)")) + untrustedOptions(page.items.map { it.id to it.displayName })
         }
     }
 
@@ -1369,7 +1370,8 @@ internal fun renderOpenItemCreateForm(
         // Keep a still-valid selection (an accounts reload must not wipe a choice already made); a
         // direction change switches the expected type, so the old id is then no longer a candidate.
         val previous = contraField.value
-        contraSelect.options = listOf("" to tr("(bitte wählen)")) + candidates.map { it.id to "${it.accountNumber} · ${it.name}" }
+        contraSelect.options =
+            listOf("" to tr("(bitte wählen)")) + untrustedOptions(candidates.map { it.id to "${it.accountNumber} · ${it.name}" })
         contraField.setValue(if (previous.isNotBlank() && candidates.any { it.id == previous }) previous else "")
         // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
         contraField.validate(force = false)

@@ -112,11 +112,13 @@ private fun renderCommitteeRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(committee.name) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): committee name/description are member-editable
+    // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(committee.name)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(committeeTypeLabel(committee.type), committeeTypeColor(committee.type))
     headerRow.statusBadge(if (committee.active) tr("Aktiv") else tr("Inaktiv"), if (committee.active) "success" else "secondary")
 
-    if (committee.description.isNotBlank()) row.p(committee.description) { addCssClass("mb-0") }
+    if (committee.description.isNotBlank()) row.p(sanitizeUntrustedI18nText(committee.description)) { addCssClass("mb-0") }
     row.div(gettext("Quorum: %1%", committee.quorumPercent)) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8)
@@ -283,7 +285,7 @@ private fun renderRosterRow(
     onChanged: () -> Unit,
 ) {
     val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-    row.div(membership.memberDisplayName) { addCssClasses("flex-grow-1") }
+    row.untrustedDiv(membership.memberDisplayName, className = "flex-grow-1")
     row.typeBadge(committeeRoleLabel(membership.role), committeeRoleColor(membership.role))
     val period =
         if (membership.until != null) {
@@ -378,7 +380,7 @@ internal fun renderAddCommitteeMemberForm(
 
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-        memberSelect.options = members.map { it.id to it.displayName }
+        memberSelect.options = untrustedOptions(members.map { it.id to it.displayName })
         memberField.setValue(members.firstOrNull()?.id)
         memberField.validate(force = false)
     }

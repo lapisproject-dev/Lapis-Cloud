@@ -164,7 +164,7 @@ fun renderMotionsScreen(container: SimplePanel) {
 
     AppScope.launch {
         committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
-        committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + committees.map { it.id to it.name }
+        committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + untrustedOptions(committees.map { it.id to it.name })
         committeeFilterSelect.value = ""
         refreshMotions()
 
@@ -291,7 +291,7 @@ internal fun renderMotionSubmissionForm(
 ) {
     // Formular-Grammatik (V1.4.29, W4b): Titel und Antragstext sind Pflicht, Begründung und der zu ändernde Antrag optional => Fall (a).
     val form = panel.lapisForm()
-    val committeeOptions = submittableCommittees.map { it.id to it.name }
+    val committeeOptions = untrustedOptions(submittableCommittees.map { it.id to it.name })
     val committeeField =
         form.selectField(label = tr("Zielgremium"), options = committeeOptions, value = submittableCommittees.firstOrNull()?.id)
     val amendsOptions =
@@ -440,8 +440,8 @@ private fun renderMotionMeta(
             motion.submittedAt,
         ),
     ) { addCssClasses("text-muted small") }
-    if (motion.rationale.isNotBlank()) panel.p(motion.rationale) { addCssClass("mb-0") }
-    panel.p(motion.effectiveText) { addCssClass("mb-0") }
+    if (motion.rationale.isNotBlank()) panel.untrustedP(motion.rationale, className = "mb-0")
+    panel.untrustedP(motion.effectiveText, className = "mb-0")
     motion.reviewedByDisplayName?.let { reviewer ->
         panel.div(
             gettext(
@@ -526,7 +526,10 @@ private fun renderAmendmentsSection(
     }
     amendments.forEach { amendment ->
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-        row.div(amendment.title) { addCssClasses("flex-grow-1") }
+        // Security audit W6b follow-up round 3 (major finding A): an amendment title is server-/member-controlled
+        // free text -- widget content, unlike a `gettext(..., %1)` argument, is not sanitized on this path, so a
+        // title carrying a forged marker + money sentinel would render as a fabricated amount.
+        row.div(sanitizeUntrustedI18nText(amendment.title)) { addCssClasses("flex-grow-1") }
         row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
         val showButton = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
         showButton.onClick { onSelectMotion(amendment.id) }
@@ -704,7 +707,9 @@ internal fun renderResolutionSection(
         warningBox.div(warning) { addCssClass("fw-bold") }
         pendingAmendments.forEach { amendment ->
             val row = warningBox.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            row.div(amendment.title) { addCssClasses("flex-grow-1") }
+            // Security audit W6b follow-up round 3 (major finding A): see the sibling sanitization in
+            // `renderAmendmentsSection` above -- same untrusted `amendment.title`, same widget-content path.
+            row.div(sanitizeUntrustedI18nText(amendment.title)) { addCssClasses("flex-grow-1") }
             row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
             val link = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
             link.onClick { onSelectMotion(amendment.id) }
@@ -857,7 +862,7 @@ private fun renderOutcomeSummary(
  * KDoc D3 summary for the full rejected-alternative rationale). Full reveal (basket totals, the
  * complete ballot table, winner/second-price/tie) only once CLOSED.
  */
-private fun renderVoteSection(
+internal fun renderVoteSection(
     panel: SimplePanel,
     vote: VoteDto,
     canManage: Boolean,
@@ -867,7 +872,10 @@ private fun renderVoteSection(
 ) {
     panel.h2(tr("Vote")) { addCssClass("h5") }
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(vote.title) { addCssClasses("flex-grow-1") }
+    // Security audit W6b follow-up (major finding 4): vote.title is server-/member-controlled free text, rendered
+    // directly as widget content. KVision resolves ANY content starting with KV_I18N_MARKER through I18n.trans, so
+    // this must be sanitized here even though it never goes through trFormat/gettext.
+    headerRow.div(sanitizeUntrustedI18nText(vote.title)) { addCssClasses("flex-grow-1") }
     headerRow.statusBadge(voteStatusLabel(vote.status), voteStatusColor(vote.status))
 
     AppScope.launch {
@@ -878,7 +886,7 @@ private fun renderVoteSection(
             val myBallot = ballots.find { it.memberId == currentMemberId }
             if (myBallot != null) {
                 val optionLabel = vote.options.find { it.id == myBallot.optionId }?.label ?: myBallot.optionId
-                panel.div(gettext("Ihr Gebot: %1, %2 LTR", optionLabel, myBallot.stakeLtr)) {
+                panel.div(trFormat(tr("Ihr Gebot: %1, %2"), optionLabel, trusted(ltrToken(myBallot.stakeLtr)))) {
                     addCssClasses("text-muted small")
                 }
             }
@@ -901,9 +909,10 @@ private fun renderVoteSection(
         } else {
             vote.options.forEach { option ->
                 val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-                row.div(option.label) { addCssClasses("flex-grow-1") }
+                // Security audit W6b follow-up (major finding 4): see the sanitizeUntrustedI18nText note on vote.title above.
+                row.div(sanitizeUntrustedI18nText(option.label)) { addCssClasses("flex-grow-1") }
                 if (option.id == vote.winnerOptionId) row.statusBadge(tr("Gewinner"), "success")
-                row.div(gettext("%1 LTR", option.basketTotalLtr)) { addCssClasses("text-muted small") }
+                row.ltrSpan(option.basketTotalLtr)
             }
             if (vote.winnerOptionId == null) {
                 panel.p(
@@ -914,7 +923,9 @@ private fun renderVoteSection(
                 )
             } else {
                 vote.secondPriceLtr?.let { price ->
-                    panel.div(gettext("Preis: %1 LTR (Vickrey-Zweitpreis)", price)) { addCssClasses("text-muted small") }
+                    panel.div(
+                        trFormat(tr("Preis: %1 (Vickrey-Zweitpreis)"), trusted(ltrToken(price))),
+                    ) { addCssClasses("text-muted small") }
                 }
             }
             panel.h2(tr("Alle Gebote")) { addCssClass("h6") }
@@ -923,15 +934,24 @@ private fun renderVoteSection(
             } else {
                 ballots.forEach { ballot ->
                     val optionLabel = vote.options.find { it.id == ballot.optionId }?.label ?: ballot.optionId
-                    val settledSuffix = ballot.settledLtr?.let { " · belastet: $it LTR" } ?: ""
+                    val settledLtr = ballot.settledLtr
                     panel.div(
-                        gettext(
-                            "%1: %2, %3 LTR%4",
-                            ballot.memberDisplayName,
-                            optionLabel,
-                            ballot.stakeLtr,
-                            settledSuffix,
-                        ),
+                        if (settledLtr != null) {
+                            trFormat(
+                                tr("%1: %2, %3 · belastet: %4"),
+                                ballot.memberDisplayName,
+                                optionLabel,
+                                trusted(ltrToken(ballot.stakeLtr)),
+                                trusted(ltrToken(settledLtr)),
+                            )
+                        } else {
+                            trFormat(
+                                tr("%1: %2, %3"),
+                                ballot.memberDisplayName,
+                                optionLabel,
+                                trusted(ltrToken(ballot.stakeLtr)),
+                            )
+                        },
                     ) {
                         addCssClasses("text-muted small")
                     }
@@ -950,7 +970,7 @@ internal fun renderBallotForm(
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     formPanel.p(tr("Gebot abgeben")) { addCssClass("fw-bold") }
     val form = formPanel.lapisForm()
-    val optionOptions = vote.options.sortedBy { it.position }.map { it.id to it.label }
+    val optionOptions = untrustedOptions(vote.options.sortedBy { it.position }.map { it.id to it.label })
     val optionField =
         form.selectField(
             label = tr("Option"),

@@ -273,7 +273,7 @@ private fun renderOwnPaymentCard(
     }
     headerRow.div(formatMoney(payment.amount)) { addCssClasses("fw-bold flex-grow-1") }
     card.div(payment.paymentDate.toString()) { addCssClasses("text-muted small") }
-    card.div(payment.activityDescription)
+    card.untrustedDiv(payment.activityDescription)
     if (payment.decisionNote != null) {
         card.div(gettext("Begründung: %1", payment.decisionNote)) { addCssClasses("text-muted small") }
     }

@@ -150,7 +150,9 @@ private fun renderEventListRow(
     fun renderDisplay() {
         displayHolder.removeAll()
         val headerRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.div(event.title) { addCssClasses("flex-grow-1 fw-bold") }
+        // Security audit W6b follow-up round 3 (major finding A): an event title is organizer-editable free
+        // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+        headerRow.div(sanitizeUntrustedI18nText(event.title)) { addCssClasses("flex-grow-1 fw-bold") }
         headerRow.eventStatusBadge(event.status)
         headerRow.eventVisibilityBadge(event.visibility)
 
@@ -379,7 +381,7 @@ private fun eventRoomOptions(
     val activeRooms = allRooms.filter { it.status == EventRoomStatus.ACTIVE }
     val currentlyAssignedInactiveRoom = allRooms.firstOrNull { it.id == currentRoomId && it.status != EventRoomStatus.ACTIVE }
     return listOf("" to tr("Kein Raum")) +
-        activeRooms.map { it.id to it.name } +
+        untrustedOptions(activeRooms.map { it.id to it.name }) +
         listOfNotNull(currentlyAssignedInactiveRoom?.let { it.id to gettext("%1 (inaktiv)", it.name) })
 }
 
@@ -416,6 +418,14 @@ private fun readEventForm(
     return when (val result = validateEventForm(raw, existingStartsAt)) {
         is EventFormResult.Ok -> result.input
         is EventFormResult.Error -> {
+            // Round 6 review (major, regression from round 5): `result.message` is always built via
+            // `tr(...)`/`gettext(...)` in EventFormValidation.kt -- it already carries the KV_I18N_MARKER prefix
+            // that KVision's Widget resolves through I18n.trans/gettext on render. Routing it through
+            // `untrustedContent` would run it through `sanitizeUntrustedI18nText`, which strips that exact marker
+            // (see I18nCatalogManager.kt) and silently breaks translation resolution -- the raw German msgid would
+            // render for every non-German locale instead of the translated message. This is a documented exception
+            // (see docs/architecture/ui-ux-guideline.adoc, "Known gaps"): validation messages are Claude-authored
+            // `tr()`/`gettext()` calls, not untrusted DTO/server content, so a plain assignment is correct here.
             errorBox.content = result.message
             errorBox.show()
             null

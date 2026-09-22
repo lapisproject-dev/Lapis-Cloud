@@ -199,7 +199,7 @@ private fun renderDatevExportPreviewBody(
         preview.blockers.forEach { blocker ->
             val blockerBox = panel.div { addCssClasses("text-danger small mb-1") }
             blockerBox.div(datevExportBlockerLabel(blocker.kind)) { addCssClass("fw-bold") }
-            blockerBox.div(blocker.detail)
+            blockerBox.untrustedDiv(blocker.detail)
         }
     }
 

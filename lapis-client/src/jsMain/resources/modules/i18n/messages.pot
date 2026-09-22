@@ -961,10 +961,6 @@ msgstr ""
 msgid "%1 für %2 gemintet."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:936
-msgid "%1 LTR"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:161
 msgid "%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen)."
 msgstr ""
@@ -1061,7 +1057,11 @@ msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:958
-msgid "%1: %2, %3 LTR%4"
+msgid "%1: %2, %3"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:958
+msgid "%1: %2, %3 · belastet: %4"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:985
@@ -4526,7 +4526,7 @@ msgid "Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem g
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:911
-msgid "Ihr Gebot: %1, %2 LTR"
+msgid "Ihr Gebot: %1, %2"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:688
@@ -6559,7 +6559,7 @@ msgid "Postversand-Übersicht"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:947
-msgid "Preis: %1 LTR (Vickrey-Zweitpreis)"
+msgid "Preis: %1 (Vickrey-Zweitpreis)"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:187

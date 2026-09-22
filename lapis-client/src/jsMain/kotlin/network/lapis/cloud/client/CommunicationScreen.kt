@@ -222,9 +222,11 @@ internal fun renderMailingListDetail(
 ) {
     panel.removeAll()
     val detail = panel.vPanel(spacing = 10) { addCssClasses("border rounded p-3") }
-    detail.div(list.name) { addCssClass("fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): mailing list name/description are admin-editable
+    // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    detail.div(sanitizeUntrustedI18nText(list.name)) { addCssClass("fw-bold") }
     list.description?.takeIf { it.isNotBlank() }?.let { description ->
-        detail.div(description) { addCssClasses("text-muted small") }
+        detail.div(sanitizeUntrustedI18nText(description)) { addCssClasses("text-muted small") }
     }
 
     // ---- Abonnenten ----------------------------------------------------------------------------
@@ -265,7 +267,7 @@ internal fun renderMailingListDetail(
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
         // Keine Vorauswahl: ein einzelner Klick auf "Hinzufügen" darf nie ein Mitglied eintragen, das niemand gewählt hat
         // (personenbezogene Schreiboperation). Der leere Platzhalter bleibt gewählt; required lässt ihn nicht durch.
-        memberSelect.options = listOf("" to gettext("— bitte wählen —")) + members.map { it.id to it.displayName }
+        memberSelect.options = listOf("" to gettext("— bitte wählen —")) + untrustedOptions(members.map { it.id to it.displayName })
         memberField.setValue("")
         memberField.validate(force = false)
     }
@@ -327,7 +329,7 @@ private fun renderSubscriberRow(
     subscriber: MailingListSubscriptionDto,
 ) {
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    row.div(subscriber.memberDisplayName) { addCssClass("flex-grow-1") }
+    row.untrustedDiv(subscriber.memberDisplayName, className = "flex-grow-1")
     val statusText =
         if (subscriber.unsubscribedAt != null) {
             gettext("Abbestellt am %1", subscriber.unsubscribedAt)
@@ -353,7 +355,9 @@ private fun renderMailingMessageRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(message.subject) { addCssClass("flex-grow-1") }
+    // Security audit W6b follow-up round 3 (major finding A): a message subject is sender-controlled free text
+    // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(message.subject)) { addCssClass("flex-grow-1") }
     headerRow.statusBadge(mailingMessageStatusLabel(message.status), mailingMessageStatusColor(message.status))
     message.sentAt?.let { sentAt -> row.div(gettext("Gesendet am %1", sentAt)) { addCssClasses("text-muted small") } }
 

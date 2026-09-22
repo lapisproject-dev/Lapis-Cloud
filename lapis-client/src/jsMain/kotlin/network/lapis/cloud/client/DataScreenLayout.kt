@@ -178,6 +178,18 @@ fun Button.tableActionTooltip(tooltip: String) {
 internal const val KV_I18N_MARKER = "###KvI18nS###"
 
 /**
+ * Der Plural-Gegenstueck-Marker zu [KV_I18N_MARKER]: KVisions `ntr(singularKey, pluralKey, value)`
+ * kodiert alle drei Teile mit diesem Trenner (`"###KvI18nP###" + singularKey + "###KvI18nP###" + pluralKey +
+ * "###KvI18nP###" + value`, siehe `io.kvision.i18n.Widget.trans`/`ntr` im kompilierten Bundle). Diese Codebase
+ * benutzt `ntr()`/`ngettext()` selbst nirgends (siehe [I18nCatalogManager]-KDoc), aber KVisions eigener
+ * `Widget.trans`-Render-Pfad loest den Marker trotzdem bedingungslos auf jedem Widget-Content auf, unabhaengig
+ * davon, ob diese App ihn je selbst erzeugt -- ein Angreifer kann ihn als reinen ASCII-Text in ein beliebiges
+ * DTO-Feld tippen. [sanitizeUntrustedI18nText] muss ihn deshalb genauso entfernen wie [KV_I18N_MARKER]
+ * (Security-Audit W6b, Runde 7).
+ */
+internal const val KV_I18N_MARKER_PLURAL = "###KvI18nP###"
+
+/**
  * Für jeden Text, der per rohem `setAttribute(...)` in den DOM geht: löst den `tr()`-Marker UND die
  * Übersetzung auf (`I18n.trans`). Nur den Marker zu entfernen (`removePrefix`) hinterließ den
  * UNübersetzten deutschen Schlüssel -- der sichtbare Spaltenkopf war übersetzt, Tooltip/`aria-label`

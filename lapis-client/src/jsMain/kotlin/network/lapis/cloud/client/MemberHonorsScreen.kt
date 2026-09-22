@@ -338,10 +338,10 @@ private fun openMemberHonorEditorDialog(
 
     val memberOptions =
         run {
-            val base = members().map { it.id to it.displayName }
+            val base = untrustedOptions(members().map { it.id to it.displayName })
             val currentId = existing?.memberId
             if (currentId != null && base.none { it.first == currentId }) {
-                base + (currentId to existing.memberDisplayName)
+                base + (currentId to sanitizeUntrustedI18nText(existing.memberDisplayName))
             } else {
                 base
             }

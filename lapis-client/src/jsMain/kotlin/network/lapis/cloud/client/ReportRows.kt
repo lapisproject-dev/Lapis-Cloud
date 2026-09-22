@@ -47,7 +47,9 @@ import network.lapis.cloud.shared.domain.VatRateLineDto
  * - `warnIfNegative` exactly where the old renderer had it.
  *
  * **The "Summe ..." label (audit fix B):** [statementSectionRows] builds its total label with
- * `trFormat(tr("Summe %1"), title)`. Before, it was `gettext("Summe %1", title)` with a `tr(...)`-marked title, exactly
+ * `trFormat(tr("Summe %1"), trusted(title))`. `title` is always a `tr(...)` result itself (see this file's callers),
+ * so it is wrapped with `trusted` (security audit W6b follow-up). Before, it was `gettext("Summe %1", title)` with a
+ * `tr(...)`-marked title, exactly
  * like the old `renderStatementLineTable`: `I18n.trans` resolves a marker only as a PREFIX, so the visible label was
  * "Summe ###KvI18nS###Einnahmen" (a defect that existed before W3 and was first pinned by the golden test, then fixed
  * in the audit round of the same wave). Now the label is a composed `tr` string: it keeps the marker prefix, so the
@@ -181,7 +183,7 @@ fun statementSectionRows(
                 )
             }
         }
-        add(row(ReportRowKind.TOTAL, text(trFormat(tr("Summe %1"), title)), BLANK, money(total)))
+        add(row(ReportRowKind.TOTAL, text(trFormat(tr("Summe %1"), trusted(title))), BLANK, money(total)))
     }
 
 fun incomeStatementRows(dto: IncomeStatementDto): List<ReportRow> =

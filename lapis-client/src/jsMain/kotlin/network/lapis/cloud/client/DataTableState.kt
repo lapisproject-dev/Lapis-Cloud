@@ -161,6 +161,27 @@ class DataColumn<R>(
 /**
  * Factory for the common case "plain text cell" -- deliberately no sixth field on [DataColumn]. [cssClasses] (e.g. `text-muted small`,
  * `fw-bold`) is the de-emphasis / emphasis of the value inside the cell; it stays a parameter of THIS factory.
+ *
+ * [text] is the cell renderer of EVERY data table in this app -- server-/member-controlled fields (display names,
+ * free-text titles, comments) reach it just as often as static, developer-written labels. KVision's `Widget` resolves
+ * ANY widget content that starts with [KV_I18N_MARKER] through `gettext` on render, independent of [trFormat]/
+ * [I18nCatalogManager.gettext] -- so an untrusted value carrying a forged marker + [MONEY_SENTINEL] payload would
+ * render as a fabricated, freely chosen amount (security audit W6b follow-up round 3, major finding A). The value is
+ * therefore always passed through [sanitizeUntrustedI18nText] before it becomes widget content -- unconditionally,
+ * like every other untrusted-text call site, never decided by which caller happens to pass it.
+ *
+ * Security audit W6b, round 7 (major finding 2, i18n regression): the unconditional sanitization above strips
+ * [KV_I18N_MARKER]/[KV_I18N_MARKER_PLURAL] to a fixed point -- correct for genuinely untrusted DTO text, but WRONG
+ * for a caller that deliberately returns a `tr(...)` result (a static, developer-written label such as `tr("Ja")`/
+ * `tr("Nein")`/`tr("Selbst")`): stripping its marker breaks translation resolution for every non-German locale, the
+ * exact regression `EventsScreen.kt`'s `result.message` exception in `ClientUntrustedWidgetTextTripwireTest`
+ * documents for the assignment shape. [text] therefore returns [Any], exactly like [trFormat]'s arguments: a plain
+ * `String` is always treated as untrusted and unconditionally sanitized (no exception, regardless of content --
+ * trust is never decided by whether the string happens to start with the marker, for the same reason [trFormat]'s
+ * KDoc gives), while a [TrArg] -- produced ONLY by wrapping the direct result of this app's own `tr(...)`/
+ * [moneyToken]/[ltrToken]/... helpers with [trusted] -- is used as-is. Existing call sites that return a plain
+ * `String` need no change; only the small number that deliberately mix in a `tr(...)` branch (e.g.
+ * `if (x) tr("Ja") else tr("Nein")`) must wrap those branches with [trusted].
  */
 fun <R> textColumn(
     title: String,
@@ -168,7 +189,7 @@ fun <R> textColumn(
     primary: Boolean = false,
     sortKey: String? = null,
     cssClasses: String? = null,
-    text: (R) -> String,
+    text: (R) -> Any,
 ): DataColumn<R> =
     DataColumn(
         title = title,
@@ -176,7 +197,8 @@ fun <R> textColumn(
         primary = primary,
         sortKey = sortKey,
         cell = { container, row ->
-            val value = text(row)
+            val raw = text(row)
+            val value = if (raw is TrArg) raw.raw else sanitizeUntrustedI18nText(raw as String)
             // A blank value adds nothing, so the card list can drop the empty term/definition pair.
             if (value.isNotBlank()) container.span(value) { cssClasses?.let { addCssClasses(it) } }
         },

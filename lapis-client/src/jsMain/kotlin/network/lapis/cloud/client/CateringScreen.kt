@@ -86,7 +86,7 @@ fun renderCateringScreen(container: SimplePanel) {
                 eventsErrorHost.dataErrorState(onRetry = ::loadEvents)
                 return@launch
             }
-            val options = page.rows.map { it.id to it.title }
+            val options = untrustedOptions(page.rows.map { it.id to it.title })
             eventSelect.options = options
             if (options.isEmpty()) {
                 eventsErrorHost.p(tr("Es sind derzeit keine Veranstaltungen geplant.")) { addCssClasses("text-muted") }
@@ -120,7 +120,7 @@ private fun renderCateringOrderRow(
     fun renderDisplay() {
         displayHolder.removeAll()
         val headerRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.div(order.description) { addCssClasses("flex-grow-1 fw-bold") }
+        headerRow.untrustedCardTitle(order.description)
         headerRow.cateringOrderStatusBadge(order.status)
 
         displayHolder.div(gettext("Menge: %1", order.quantity.toString())) { addCssClasses("text-muted small") }

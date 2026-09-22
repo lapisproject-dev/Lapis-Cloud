@@ -264,7 +264,9 @@ private fun renderProjectCard(
 ) {
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(project.title) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): project title/description are submitter-controlled
+    // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(project.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(
         gettext("Status: %1", crowdfundingProjectStatusLabel(project.status)),
         crowdfundingProjectStatusColor(project.status),
@@ -276,7 +278,7 @@ private fun renderProjectCard(
         )
     }
 
-    card.div(project.description) { addCssClasses("small") }
+    card.div(sanitizeUntrustedI18nText(project.description)) { addCssClasses("small") }
     card.div(gettext("Eingereicht von %1 am %2", project.submitterDisplayName, project.submittedAt)) { addCssClasses("text-muted small") }
 
     // status (persisted board decision) vs. effectiveStatus/isAutoApproved (14-day

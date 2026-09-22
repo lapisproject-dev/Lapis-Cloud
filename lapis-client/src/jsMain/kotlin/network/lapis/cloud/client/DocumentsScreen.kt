@@ -355,7 +355,7 @@ private fun documentColumns(
             sortKey = DOCUMENT_SORT_TITLE,
             cell = { container, document ->
                 container.icon("fas fa-file")
-                container.link(document.title, url = "javascript:void(0)", dataNavigo = false).onClick { onOpen(document) }
+                container.untrustedLink(document.title, url = "javascript:void(0)", dataNavigo = false).onClick { onOpen(document) }
             },
         ),
         if (showsKnowledgeColumn) {
@@ -379,7 +379,7 @@ private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
             title = tr("Datei"),
             cell = { container, version ->
                 container.icon(fileTypeIcon(version.mimeType))
-                container.span(version.fileName)
+                container.untrustedSpan(version.fileName)
             },
         ),
         textColumn(title = tr("Größe"), numeric = true) { version: DocumentVersionDto -> formatFileSize(version.fileSizeBytes) },

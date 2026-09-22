@@ -149,7 +149,7 @@ private fun renderCrmContactRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(contact.displayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(contact.displayName)
     headerRow.typeBadge(crmContactTypeLabel(contact.contactType), crmContactTypeColor(contact.contactType))
     headerRow.div(crmLastInteractionRelativeText(contact.lastInteractionAt)) { addCssClasses("text-muted small") }
     if (contact.archivedAt != null) headerRow.typeBadge(tr("Archiviert"), "secondary")
@@ -406,7 +406,7 @@ private fun renderCrmInteractionRow(
     headerRow.typeBadge(crmInteractionKindLabel(interaction.kind), "info")
     headerRow.div(interaction.occurredAt.toString()) { addCssClasses("text-muted small") }
     headerRow.div(gettext("erfasst von %1", interaction.recordedByDisplayName)) { addCssClasses("text-muted small flex-grow-1 text-end") }
-    row.div(interaction.summary)
+    row.untrustedDiv(interaction.summary)
 }
 
 // ============================================================================================

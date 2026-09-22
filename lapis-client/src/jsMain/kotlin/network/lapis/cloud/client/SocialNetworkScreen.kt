@@ -199,7 +199,7 @@ private fun renderRemovalNotice(
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3 border-danger") }
     card.div(SocialModerationUi.removalNoticeHeadline(isOwnPost = notice.isOwnPost)) { addCssClasses("fw-bold text-danger") }
     card.div(gettext("Entfernt am %1", notice.removedAt)) { addCssClasses("text-muted small") }
-    card.div(notice.reason) { addCssClasses("small") }
+    card.untrustedDiv(notice.reason, className = "small")
 }
 
 // ================================================================================================
@@ -348,7 +348,7 @@ private fun renderSocialPostCard(
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
 
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(post.authorDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(post.authorDisplayName)
     headerRow.statusBadge(socialPostVisibilityLabel(post.visibility), socialPostVisibilityColor(post.visibility))
 
     renderPostContentText(card, post)
@@ -409,7 +409,10 @@ private fun renderPostContentText(
     panel: SimplePanel,
     post: SocialPostDto,
 ) {
-    panel.div(post.content) { addCssClasses(if (post.contentErasedAt != null) "small fst-italic text-muted" else "small") }
+    panel.untrustedDiv(
+        post.content,
+        className = if (post.contentErasedAt != null) "small fst-italic text-muted" else "small",
+    )
 }
 
 /**
@@ -854,7 +857,7 @@ private fun renderThreadNode(
     }
 
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(node.authorDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(node.authorDisplayName)
     headerRow.statusBadge(socialPostVisibilityLabel(node.visibility), socialPostVisibilityColor(node.visibility))
 
     renderPostContentText(card, node)

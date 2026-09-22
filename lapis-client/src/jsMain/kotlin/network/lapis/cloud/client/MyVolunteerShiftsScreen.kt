@@ -87,7 +87,7 @@ fun renderMyVolunteerShiftsScreen(container: SimplePanel) {
                 eventsErrorHost.dataErrorState(onRetry = ::loadEvents)
                 return@launch
             }
-            val options = page.rows.map { it.id to it.title }
+            val options = untrustedOptions(page.rows.map { it.id to it.title })
             eventSelect.options = options
             if (options.isEmpty()) {
                 eventsErrorHost.p(tr("Es sind derzeit keine Veranstaltungen geplant.")) { addCssClasses("text-muted") }
@@ -110,7 +110,7 @@ private fun renderMyVolunteerShiftRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(shift.description) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(shift.description)
 
     row.div(gettext("%1 – %2", shift.startsAt.toString(), shift.endsAt.toString())) { addCssClasses("text-muted small") }
     row.div(gettext("Besetzung: %1 von %2", shift.confirmedCount.toString(), shift.neededCount.toString())) {

@@ -82,7 +82,7 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
                 guarded {
                     rpcService<IEventService>().listEvents(EventQuery(includePast = true, limit = 200))
                 } ?: return@launch
-            val options = page.rows.map { it.id to it.title }
+            val options = untrustedOptions(page.rows.map { it.id to it.title })
             eventSelect.options = options
             if (options.isNotEmpty()) {
                 eventSelect.value = options.first().first
@@ -115,7 +115,7 @@ private fun renderEventVolunteerShiftRow(
     fun renderDisplay() {
         displayHolder.removeAll()
         val headerRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.div(shift.description) { addCssClasses("flex-grow-1 fw-bold") }
+        headerRow.untrustedCardTitle(shift.description)
         headerRow.eventVolunteerShiftStatusBadge(shift.status)
 
         displayHolder.div(gettext("%1 – %2", shift.startsAt.toString(), shift.endsAt.toString())) { addCssClasses("text-muted small") }
@@ -178,7 +178,7 @@ private fun renderEventVolunteerShiftRow(
                 } else {
                     roster.signups.forEach { signup ->
                         val signupRow = rosterHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-                        signupRow.div(signup.memberDisplayName) { addCssClasses("flex-grow-1") }
+                        signupRow.untrustedDiv(signup.memberDisplayName, className = "flex-grow-1")
                         signupRow.eventVolunteerSignupStatusBadge(signup.status)
                     }
                 }

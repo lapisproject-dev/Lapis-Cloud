@@ -1198,10 +1198,152 @@ gets `white-space: nowrap`, which also applies to the IBAN and date columns of `
 * The manual browser and screen-reader check at 375 / 767 / 768 / 1440 px, light and dark, was NOT done.
 * Sub-cent values deliberately break the decimal alignment of a column (`12,345` next to `12,30`); rounding them would hide a real figure.
 * `MotionsScreen` still bakes " LTR" into three strings (`"%1 LTR"`, `"Ihr Gebot: %1, %2 LTR"`, one string template); fixing them changes msgids in all eight catalogs.
-  Tripwire M4 holds the count as a ledger (`MOTIONS_SCREEN_LEDGER`, only ever lowered).
+  Tripwire M4 holds the count as a ledger (`MOTIONS_SCREEN_LEDGER`, only ever lowered). **Closed in W6b, see there.**
+
+== Wave W6b "MotionsScreen off the baked-in LTR suffix" (feature/w6b-w4d-form-migration)
+
+A small, self-contained client-only wave that closes exactly the gap W6a left open (see "Not done in this wave" above)
+and is the first named part of what the branch also carries the W4d form-grammar migration under (see the "W4d form
+migration" entry below, which this branch does NOT close -- see "Not done in this wave" of this section).
+
+=== What the wave did
+
+`MotionsScreen.kt`'s three sites that baked a hand-typed " LTR" (ASCII space, not U+00A0, frozen at the language of the
+moment) into a msgid or a string template now go through `ltrToken`/`formatLtr` like every other LTR amount in the
+client:
+
+* The per-option basket total (`"%1 LTR"`) needed no msgid at all -- `option.basketTotalLtr` is the SOLE content of its
+  `div`, so it now renders `ltrToken(option.basketTotalLtr)` directly (the `span(moneyToken(amount))` pattern of
+  `Money.kt`, not `gettext`/`trFormat` -- there is no surrounding sentence to translate). The msgid is removed from
+  `messages.pot` and all seven catalogs (it has no other caller).
+* "Ihr Gebot: %1, %2 LTR" -> msgid "Ihr Gebot: %1, %2", `trFormat(tr(...), optionLabel, ltrToken(myBallot.stakeLtr))`.
+* "Preis: %1 LTR (Vickrey-Zweitpreis)" -> msgid "Preis: %1 (Vickrey-Zweitpreis)", same `trFormat`/`ltrToken` pattern.
+  (This site was not one of the three the tripwire's `SUFFIX_LITERAL` regex could see -- the LTR is followed by a
+  space and "(...)", not a closing quote -- but it is the same defect and is fixed alongside the other three.)
+* The settled-ballot row used one msgid with an appended, conditionally-empty string-template suffix
+  (`"%1: %2, %3 LTR%4"` + `" · belastet: $it LTR"`). Nesting a `trFormat`-composed string inside another `trFormat`'s
+  arguments is architecturally supported (`I18nCatalogManager.composed` resolves a `KV_I18N_MARKER`-prefixed argument
+  recursively), but two flat, unconditional msgids are simpler to read and to translate, so the row now branches on
+  `ballot.settledLtr != null` between msgid "%1: %2, %3" (unsettled) and a new "%1: %2, %3 · belastet: %4" (settled),
+  each a plain `trFormat` call with no nesting.
+
+All four amounts render through the shared, localized, live-language-switch-following `ltrToken` now -- like every
+other LTR amount in the client since W6a -- instead of a frozen, ASCII-space, hand-typed suffix.
+
+`MOTIONS_SCREEN_LEDGER` and `MOTIONS_SCREEN_RAW_ARG_LEDGER` (`ClientMoneyFormatTripwireTest`) both go from 3 to 0; the
+`others.filter { it.name != "MotionsScreen.kt" }` exclusions in the M4/M6 tests are left in place (harmless at 0, and
+removing them is a separate, purely cosmetic test clean-up).
+
+=== Not done in this wave
+
+* **The W4d form migration was NOT started by this wave.** The branch name promised both; this wave closes only the
+  W6a "MotionsScreen" gap. W4d (the eight files of the plan: `DashboardScreen`, `DocumentsScreen`, `PoliticianScreen`,
+  `NonprofitComplianceReportsScreen`, `TravelExpenseScreen`, `TravelExpenseApprovalsScreen`, `VolunteerAllowanceScreen`,
+  `VolunteerAllowanceApprovalsScreen`) still needs request-body tests against the OLD code before any of the eight is
+  touched (per the standing rule in the W5 section above); that groundwork was not begun in this wave. R24 stays 166
+  (31 files), R24B 80, R29 39 -- unchanged by this wave.
+* The manual browser and screen-reader check at 375 / 767 / 768 / 1440 px, light and dark, is still NOT done (carried
+  over from W6a, W5 and W4c).
+* **Security rounds 1-4 (money-forgery hardening) happened on this same branch, renamed
+  `feature/w6b-money-forgery-hardening` once the design team split the branch's two promises apart: this section
+  (W6b, the security work) merges to `master`; the W4d form migration becomes its own wave, W6c.** See "Untrusted
+  widget text (security rounds 1-4)" directly below for what the security rounds did. W6c's target numbers, fixed
+  here so they are not vertagt a fourth time: **R24 166 → 140, R24B 80 → 71, R29 ≤ 39** (R29 can otherwise RISE when
+  the eight files join `R24_MIGRATED` and their existing `AppScope.launch` write calls start counting -- every
+  write launch in the eight files must move to `runGuardedAction`/`guarded` in the same wave, not just the form
+  fields).
+
+=== Untrusted widget text (security rounds 1-4)
+
+KVision's `Widget` class resolves ANY content string that starts with `KV_I18N_MARKER` through `I18n.trans`/
+`gettext` on render (`io.kvision.core.Widget`), independent of `trFormat`. A vote option label, motion title, donor
+name, or any other server-/member-controlled field handed straight to `div(...)`/`span(...)`/`p(...)`/`h1(...)`..
+`h6(...)` as plain widget content -- not just as a `trFormat` argument -- can therefore render as a fabricated,
+freely chosen amount if it carries a forged `KV_I18N_MARKER` + `MONEY_SENTINEL` payload.
+
+Rounds 1-3 built the sanitization boundary (`sanitizeUntrustedI18nText`, a fixed-point strip of the marker/
+sentinel/`I18N_ARG_SEPARATOR` -- a single `replace` pass can splice a deleted marker's neighbours back into a new
+one, so it iterates to a fixed point instead) and the type-based `trFormat` trust guard (`trusted()`/`TrArg`,
+replacing string-prefix trust). By the end of round 3 the rule was enforced at 32 call sites (30 in screens, 2 in
+`I18nCatalogManager.kt`) plus the sanitizer's own declaration.
+
+Round 4 added a ledger test, `ClientUntrustedWidgetTextTripwireTest` (`lapis-server`, a source-regex heuristic in
+the style of `ClientMoneyFormatTripwireTest`), and measured the remaining exposure at **58** raw, unsanitized
+`receiver.div/span/p/h1..h6(dto.field)` sites -- 21 of them the identical `fw-bold flex-grow-1` card/list header
+shape repeated verbatim across screens. Instead of wrapping each in `sanitizeUntrustedI18nText(...)` by hand a
+58th time, round 4 built the missing central choke point: `network.lapis.cloud.client.UntrustedText` (`untrustedDiv`/
+`untrustedSpan`/`untrustedP`/`untrustedHeading`/`untrustedCardTitle`, each sanitizing its `text` argument
+unconditionally) and migrated all 58 findings onto it, bringing the ledger to **1**.
+
+The one remaining entry is deliberate, not a miss: `ApiKeysScreen.kt`'s freshly issued `result.rawKey` is the
+actual secret shown to the operator exactly once. Sanitizing it would risk silently stripping bytes from a real
+key (even control-marker bytes a real key is vanishingly unlikely to contain) and the operator copying a
+corrupted value -- documented with an inline comment at the call site and a matching ledger-test assertion, not
+fixed by sanitizing.
+
+**Known gap, not closed by round 4:** the detector is a source regex; it only catches a DIRECT
+`receiver.call(dotted.field.access)` argument. A local `val` holding an untrusted DTO field before it reaches a
+widget call (`val label = donor.displayName; row.div(label)`) is invisible to it. No such pattern is currently
+known to exist in the client, but a future one would not be caught by this ledger test -- code review remains the
+second line of defense for that shape. **Also not verified in round 4 (out of scope, server-side):** whether the
+server accepts `KV_I18N_MARKER`/`MONEY_SENTINEL` in incoming field values at all. A server-side input validation
+pass rejecting or stripping these control sequences on write would be a second line of defense independent of the
+client sanitizer, but was deliberately not undertaken in this wave (it is server code, and this wave's scope is
+the client).
+
+**Standing rule going forward:** when a new forgery-vector class is found (a widget-content path, an attribute,
+a title, a tooltip -- anything KVision or the DOM resolves untrusted text through), the response is: first
+*measure* how many call sites exist and how many share a common shape a single helper could cover; then close the
+shared shape *centrally* with a helper that sanitizes unconditionally; only what is left after that goes into a
+ledger, one entry per remaining call site, each with an inline justification comment. Wrapping every call site
+by hand, one `sanitizeUntrustedI18nText(...)` at a time, is the fallback for the sites a helper cannot cover --
+not the default first move.
+
+Round 5 ("money-forgery hardening" follow-up) closed a second shape the round-4 detector could not see: an
+already-constructed widget's `content` overwritten by plain ASSIGNMENT, `widget.content = dtoField.field`
+(e.g. a TAN dialog's prompt text refreshed from a suspend response) -- same render-time resolution path as the
+construction-time shape, but no call-with-parens for the round-4 regex to anchor on. `untrustedContent(widget,
+text)` is the assignment-shape counterpart to `untrustedDiv`/etc., and `RAW_DOTTED_WIDGET_TEXT_ASSIGNMENT` /
+`KNOWN_UNSANITIZED_WIDGET_TEXT_ASSIGNMENTS` is a second, independent detector + ledger in
+`ClientUntrustedWidgetTextTripwireTest` for exactly that shape (currently **1**, see the round-6 correction below).
+Four call sites were migrated onto the helper in round 5 and stay there: `BankAccountsScreen.kt`
+(`outcome.bankPrompt` -- the actual finding that started this round), `AccountingExportScreen.kt`
+(`disclaimer.text`, `requestedProvider.displayName`), `ConferenceScreen.kt` (`d.text`).
+
+Round 5 also migrated a fifth call site, `EventsScreen.kt` (`result.message`), onto the same helper -- round 6
+review found this was a mistake and reverted it (major finding, ledger back up to 1). `result.message` is always
+constructed via `tr(...)`/`gettext(...)` in `EventFormValidation.kt`, so it already carries the `KV_I18N_MARKER`
+prefix `untrustedContent` (via `sanitizeUntrustedI18nText`) strips as part of neutralizing a *forged* marker --
+routing genuinely trusted i18n output through the same sanitizer strips its legitimate marker too and silently
+breaks translation resolution (the raw German msgid renders for every non-German locale instead of the
+translated message). `EventsScreen.kt`'s call site now assigns `result.message` directly again, with an inline
+comment explaining why, and is a documented exception in the ledger test -- analogous to `ApiKeysScreen.kt`'s
+`result.rawKey` exception in the construction-time ledger above.
+
+While auditing that shape, round 5 also found and fixed (by hand, `sanitizeUntrustedI18nText(...)` inline -- see
+below for why not centrally) a closely related but syntactically distinct THIRD shape: a bare `content = ...`
+property assignment inside a builder lambda's own receiver scope (no `widgetVar.` prefix at all, since the
+receiver is implicit `this`), used for legal disclaimer/terms/agreement full-text bodies:
+`AuctionScreen.kt`/`PaymentGatewaySettingsScreen.kt`/`SepaSettingsScreen.kt`/`DunningSettingsScreen.kt`/
+`BankAccountsScreen.kt` (`disclaimer.text`), `FriendRegistrationScreen.kt` (`terms.text`), `RegistrationScreen.kt`
+(`agreement.text`).
 
 == Known gaps
 
+* W6b security round 5: the bare in-builder-lambda `content = dtoField.field` assignment shape (no receiver
+  prefix -- see above) has no automated detector. Extending `RAW_DOTTED_WIDGET_TEXT_ASSIGNMENT` to also match a
+  bare `content = ` at statement start would also match `HeaderCell(content = header.title, ...)`-style NAMED
+  CONSTRUCTOR/FUNCTION PARAMETERS of generic, reusable content-taking helpers (`DataScreenLayout.kt`'s `numCell`/
+  `sectionRow`/`noteRow`/`detailEntry`, `HeaderCell(content = ...)`), most of whose call sites legitimately pass a
+  trusted `tr(...)` marker string -- sanitizing indiscriminately there would strip the marker from trusted content
+  and silently break translation resolution at those sites. Closing this gap safely needs a per-call-site trust
+  audit of every caller of those generic helpers (analogous to the `TrArg`/`trusted()` type-based split `trFormat`
+  already uses), not a blanket regex -- left as a follow-up, not attempted in round 5.
+* W6b security rounds 1-4: the untrusted-widget-text detector (`ClientUntrustedWidgetTextTripwireTest`) is a
+  source regex and only catches a DIRECT `receiver.call(dotted.field.access)` argument -- a local `val` holding
+  an untrusted DTO field before it reaches a widget call is invisible to it (see "Untrusted widget text" above).
+  Server-side rejection/stripping of `KV_I18N_MARKER`/`MONEY_SENTINEL` on write was not investigated or built --
+  out of scope for a client-only wave.
 * W5 audit round: `#:` source references of about 400 W5 msgids point at wrong lines (hand-maintained; only the msgid counts). The 44 px rule covers
   `.btn-close`, `.dropdown-item`, `.navbar .nav-link` and `.lapis-icon-only`; other third-party controls are not measured. The `banners` slot (R37)
   is used by two screens (the postal-mail band moved into it in the audit round) -- `TravelExpenseScreen`'s rates/configuration bands still stand in the body (they are data-driven panels). Glyph msgids not migrated:

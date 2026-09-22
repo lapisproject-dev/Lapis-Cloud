@@ -879,7 +879,7 @@ private fun renderConvertForm(
         ),
     ) { addCssClasses("text-muted small") }
 
-    val memberSelect = panel.select(options = members.map { it.id to it.displayName }, label = tr("Mitglied"))
+    val memberSelect = panel.select(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
     val amountInput = panel.text(label = tr("Spendenbetrag"))
     val currencySelect =
         panel.select(options = listOf("EUR" to "EUR", "USD" to "USD"), value = "EUR", label = tr("Anzeige-Info: Währung"))

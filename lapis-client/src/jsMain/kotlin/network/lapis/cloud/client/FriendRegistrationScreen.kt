@@ -66,7 +66,7 @@ private fun renderFriendRegistrationForm(
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 240.px
         overflow = Overflow.AUTO
-        content = terms.text
+        content = sanitizeUntrustedI18nText(terms.text)
     }
 
     val form = root.lapisForm()

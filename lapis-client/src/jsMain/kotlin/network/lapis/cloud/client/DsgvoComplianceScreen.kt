@@ -149,7 +149,7 @@ private fun renderAgreementRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(agreement.processorName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(agreement.processorName)
     headerRow.statusBadge(avvStatusLabel(agreement.avvStatus), avvStatusColor(agreement.avvStatus))
     headerRow.activeStatusBadge(agreement.active)
 
@@ -158,7 +158,7 @@ private fun renderAgreementRow(
         row.div(avvReviewOverdueCaption()) { addCssClasses("text-muted small") }
     }
 
-    row.div(agreement.processingPurpose) { addCssClasses("small") }
+    row.untrustedDiv(agreement.processingPurpose, className = "small")
     row.div(gettext("Datenkategorien: %1", agreement.dataCategories)) { addCssClasses("text-muted small") }
     agreement.reviewDueDate?.let { row.div(gettext("Prüftermin: %1", it)) { addCssClasses("text-muted small") } }
 
@@ -338,10 +338,12 @@ private fun renderTomRow(
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.typeBadge(tomCategoryLabel(tom.category), tomCategoryColor(tom.category))
-    headerRow.div(tom.title) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): TOM title/description are admin-editable free
+    // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(tom.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.div(gettext("Version %1", tom.version)) { addCssClasses("text-muted small") }
 
-    row.div(tom.description) { addCssClasses("small") }
+    row.div(sanitizeUntrustedI18nText(tom.description)) { addCssClasses("small") }
 
     if (canManage) {
         val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -482,12 +484,14 @@ private fun renderDpiaRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(assessment.title) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): DPIA title/description are admin-editable free
+    // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(assessment.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(dsfaStatusLabel(assessment.status), dsfaStatusColor(assessment.status))
     assessment.riskBand?.let { headerRow.statusBadge(dpiaRiskBandLabel(it), dpiaRiskBandColor(it)) }
     headerRow.div(gettext("Version %1", assessment.version)) { addCssClasses("text-muted small") }
 
-    row.div(assessment.processingDescription) { addCssClasses("small") }
+    row.div(sanitizeUntrustedI18nText(assessment.processingDescription)) { addCssClasses("small") }
     row.div(gettext("DSFA erforderlich: %1", triStateBooleanLabel(assessment.dpiaRequired))) { addCssClasses("text-muted small") }
 
     if (canManage) {
@@ -664,7 +668,9 @@ private fun renderBreachRow(
     headerRow.statusBadge(breachDeadlineStatusLabel(incident.deadlineStatus), breachDeadlineStatusColor(incident.deadlineStatus))
     headerRow.div(gettext("Frist: %1", incident.authorityNotificationDeadline)) { addCssClasses("flex-grow-1 text-muted small") }
 
-    row.div(incident.description) { addCssClasses("small") }
+    // Security audit W6b follow-up round 3 (major finding A): an incident description is admin-editable free
+    // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    row.div(sanitizeUntrustedI18nText(incident.description)) { addCssClasses("small") }
     row.div(
         gettext(
             "Entdeckt am: %1 · Betroffene Datenkategorien: %2",

@@ -9,7 +9,6 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.icon
-import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
@@ -333,7 +332,7 @@ private fun renderLineCard(
     val card = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.typeBadge(travelExpenseLineKindLabel(line.kind), travelExpenseLineKindColor(line.kind))
-    headerRow.div(line.description) { addCssClasses("flex-grow-1") }
+    headerRow.untrustedDiv(line.description, className = "flex-grow-1")
     headerRow.div(formatMoney(line.amount)) { addCssClasses("fw-bold") }
     val removeButton = headerRow.button(tr("Zeile entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.onClick {
@@ -366,7 +365,11 @@ private fun renderLineCard(
             line.receipts.forEach { receipt ->
                 val receiptRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
                 receiptRow.icon(receiptIcon(receipt.mimeType))
-                receiptRow.link(receipt.originalFilename, url = TravelExpenseHttp.receiptDownloadUrl(receipt.id), target = "_blank")
+                receiptRow.untrustedLink(
+                    receipt.originalFilename,
+                    url = TravelExpenseHttp.receiptDownloadUrl(receipt.id),
+                    target = "_blank",
+                )
                 receiptRow.div(receiptSizeLabel(receipt.sizeBytes)) { addCssClasses("text-muted small") }
                 val deleteReceiptButton = receiptRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 deleteReceiptButton.onClick {
@@ -427,7 +430,7 @@ private fun renderOwnReportCard(
         }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(travelExpenseStatusLabel(report.status), travelExpenseStatusColor(report.status))
-    headerRow.div(report.purpose) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(report.purpose)
     headerRow.div(formatMoney(report.totalAmount))
     card.div(gettext("%1 bis %2", report.travelFrom, report.travelTo)) { addCssClasses("text-muted small") }
     if (report.decisionNote != null) {

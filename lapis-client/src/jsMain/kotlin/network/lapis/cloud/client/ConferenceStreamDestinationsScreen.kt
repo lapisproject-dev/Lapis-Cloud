@@ -113,11 +113,11 @@ private fun renderDestinationRow(
         addCssClass("text-muted")
         setAttribute("aria-hidden", "true")
     }
-    headerRow.div(destination.label) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(destination.label)
     headerRow.typeBadge(conferenceStreamPlatformLabel(destination.platform), "secondary")
     headerRow.activeStatusBadge(destination.enabled)
 
-    row.div(destination.rtmpUrl) { addCssClasses("text-muted small") }
+    row.untrustedDiv(destination.rtmpUrl, className = "text-muted small")
     row.div(
         gettext(
             "Schlüssel gesetzt am %1 von %2",

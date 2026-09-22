@@ -835,7 +835,7 @@ internal fun openMemberEditorDialog(
             val tierSelect = tierField.control as Select
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
-                tierSelect.options = listOf("" to tr("— beitragsfrei / kein Tarif —")) + tiers.map { it.id to it.name }
+                tierSelect.options = listOf("" to tr("— beitragsfrei / kein Tarif —")) + untrustedOptions(tiers.map { it.id to it.name })
                 // Über das Feld (Select-fähiges `setValue`), dann `validate(force = false)`: ein Fehler kann hier noch nicht stehen.
                 tierField.setValue(row.membershipTierId ?: "")
                 tierField.validate(force = false)
@@ -875,7 +875,7 @@ internal fun openMemberEditorDialog(
             val tierSelect = tierField.control as Select
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
-                tierSelect.options = tiers.map { it.id to it.name }
+                tierSelect.options = untrustedOptions(tiers.map { it.id to it.name })
                 tierField.setValue(row.membershipTierId ?: tiers.firstOrNull()?.id)
                 tierField.validate(force = false)
             }

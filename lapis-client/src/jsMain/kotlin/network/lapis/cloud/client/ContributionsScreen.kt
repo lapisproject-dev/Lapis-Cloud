@@ -539,7 +539,7 @@ private fun renderTierAdministration(root: SimplePanel) {
             tiersPanel.div(gettext("%1: %2 (%3, %4)", tier.name, formatMoney(tier.contributionAmount), tier.billingInterval, activeLabel))
         }
 
-        val tierOptions = tiers.map { it.id to it.name }
+        val tierOptions = untrustedOptions(tiers.map { it.id to it.name })
         val tierSelect = formPanel.select(options = tierOptions, value = tierOptions.firstOrNull()?.first, label = tr("Beitragssatz"))
         val periodStartInput = formPanel.text(label = tr("Periodenbeginn (JJJJ-MM-TT)"))
         val periodEndInput = formPanel.text(label = tr("Periodenende (JJJJ-MM-TT)"))

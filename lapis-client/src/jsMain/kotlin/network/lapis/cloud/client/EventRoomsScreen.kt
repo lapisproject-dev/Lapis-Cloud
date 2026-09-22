@@ -89,7 +89,7 @@ private fun renderEventRoomRow(
     fun renderDisplay() {
         displayHolder.removeAll()
         val headerRow = displayHolder.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        headerRow.div(room.name) { addCssClasses("flex-grow-1 fw-bold") }
+        headerRow.untrustedCardTitle(room.name)
         headerRow.eventRoomStatusBadge(room.status)
 
         if (room.capacity != null) {

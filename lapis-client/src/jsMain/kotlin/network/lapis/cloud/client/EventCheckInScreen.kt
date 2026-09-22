@@ -301,7 +301,9 @@ private fun renderRosterRow(
             addCssClasses("align-items-center justify-content-between")
         }
     val nameArea = headerLine.hPanel(spacing = 8) { addCssClasses("align-items-center flex-grow-1") }
-    nameArea.span(row.displayName) { addCssClasses("fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): a member display name is untrusted free text
+    // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    nameArea.span(sanitizeUntrustedI18nText(row.displayName)) { addCssClasses("fw-bold") }
     val (badgeColor, badgeText) = statusBadgeSpec(row)
     nameArea.statusBadge(badgeText, badgeColor)
     // A dedicated toggle BUTTON, not a click handler on the row itself -- `HPanel`/`Div` do not

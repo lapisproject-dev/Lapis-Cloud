@@ -128,7 +128,7 @@ private fun renderReliefRequestCard(
     val card = panel.vPanel(spacing = 6) { addCssClass("lapis-data-card") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.typeBadge(reliefKindLabel(request.kind), reliefKindColor(request.kind))
-    headerRow.div(request.subjectDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(request.subjectDisplayName)
     if (request.requestedBy != request.subjectMemberId) {
         headerRow.typeBadge(gettext("Im Namen von %1 gestellt", request.requestedByDisplayName), "secondary")
     }

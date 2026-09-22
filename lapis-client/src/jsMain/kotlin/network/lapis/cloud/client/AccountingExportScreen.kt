@@ -74,7 +74,7 @@ fun renderAccountingExportView(panel: SimplePanel) {
 
     var provider = AccountingExportProvider.LEXOFFICE
     val providerRow = panel.hPanel(spacing = 8) { addCssClass("mb-2") }
-    val heading = panel.h2(provider.displayName) { addCssClass("h5") }
+    val heading = panel.untrustedHeading(provider.displayName, 2, className = "h5")
     val connectionPanel = panel.vPanel(spacing = 6)
     panel.div { addCssClass("mt-3") }
     val exportPanel = panel.vPanel(spacing = 10)
@@ -89,7 +89,7 @@ fun renderAccountingExportView(panel: SimplePanel) {
     fun reloadConnection() {
         val requestedProvider = provider
         val generation = ++loadGeneration
-        heading.content = requestedProvider.displayName
+        untrustedContent(heading, requestedProvider.displayName)
         connectionPanel.removeAll()
         exportPanel.removeAll()
         AppScope.launch {
@@ -286,7 +286,7 @@ internal fun renderZeroVatSection(
                 textBox.dataErrorState(onRetry = { loadDisclaimer() })
                 return@launch
             }
-            textBox.content = disclaimer.text
+            untrustedContent(textBox, disclaimer.text)
             disclaimerSha256 = disclaimer.sha256
             ackButton.disabled = false
         }
@@ -425,7 +425,7 @@ private fun renderPreviewBody(
         preview.blockers.forEach { blocker ->
             val box = panel.div { addCssClasses("text-danger small mb-1") }
             box.div(accountingExportBlockerLabel(blocker.kind)) { addCssClass("fw-bold") }
-            box.div(blocker.detail)
+            box.untrustedDiv(blocker.detail)
         }
     }
 

@@ -459,7 +459,9 @@ private fun renderAuctionCard(
 ) {
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(auction.title) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): auction title/description are seller-controlled
+    // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(auction.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(auctionStatusLabel(auction.status), auctionStatusColor(auction.status))
     if (auction.status != auction.effectiveStatus) {
         headerRow.statusBadge(
@@ -468,7 +470,7 @@ private fun renderAuctionCard(
         )
     }
 
-    card.div(auction.description) { addCssClasses("small") }
+    card.div(sanitizeUntrustedI18nText(auction.description)) { addCssClasses("small") }
     card.div(gettext("Verkäufer: %1 · Endet: %2 · Gebote: %3", auction.sellerDisplayName, auction.endsAt, auction.bidCount)) {
         addCssClasses("text-muted small")
     }
@@ -690,7 +692,11 @@ internal fun renderMyBidsTable(
             listOf(
                 textColumn<AuctionBidDto>(title = tr("Auktion"), primary = true) { it.auctionTitle },
                 DataColumn(title = tr("Ihr Höchstgebot"), numeric = true, cell = { cell, bid -> cell.ltrSpan(bid.maxBidLtr) }),
-                textColumn<AuctionBidDto>(title = tr("Führend")) { if (it.isCurrentLeader) tr("Ja") else tr("Nein") },
+                // Security audit W6b, round 7 (major finding 2): trusted(...) keeps both branches live-translatable
+                // instead of losing their marker to textColumn's unconditional untrusted-text sanitizer.
+                textColumn<AuctionBidDto>(title = tr("Führend")) {
+                    if (it.isCurrentLeader) trusted(tr("Ja")) else trusted(tr("Nein"))
+                },
                 DataColumn(
                     title = tr("Status"),
                     cell = { cell, bid -> cell.statusBadge(auctionStatusLabel(bid.auctionStatus), auctionStatusColor(bid.auctionStatus)) },
@@ -879,7 +885,7 @@ private fun auctionEnableDisclaimerModal(
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 300.px
         overflow = Overflow.AUTO
-        content = disclaimer.text
+        content = sanitizeUntrustedI18nText(disclaimer.text)
     }
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(

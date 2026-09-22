@@ -48,7 +48,7 @@ class MoneyTokenDomTest {
     @Test
     fun trFormat_withAMoneyToken_resolvesInsideTheTemplate() {
         withMountedRoot("money-token-trformat") { root, element ->
-            root.div(trFormat(tr("Offen: %1"), moneyToken(1234.5.toDecimal())))
+            root.div(trFormat(tr("Offen: %1"), trusted(moneyToken(1234.5.toDecimal()))))
             assertEquals("Offen: 1.234,50$NBSP€", element().querySelector("div div, div")?.textContent?.trim())
             assertFalse(leaks(element().textContent.orEmpty()))
         }

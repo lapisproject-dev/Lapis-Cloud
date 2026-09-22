@@ -272,7 +272,21 @@ fun Container.ltrSpan(
     }
 }
 
-/** Control character, never typeable and never rendered: marks a `###KvI18nS###` string as an AMOUNT, not a msgid (server text cannot forge it). */
+/**
+ * Control character, never typeable through a keyboard and never rendered as visible glyphs: marks a
+ * `###KvI18nS###` string as an AMOUNT, not a msgid.
+ *
+ * Security audit W6b follow-up (round 2) corrected an earlier version of this KDoc that claimed "server text cannot
+ * forge it" -- that is FALSE and was exactly the mistaken assumption the whole W6b wave had to correct. A control
+ * character is trivially representable in a `String` field (a DTO, a display name, free text from a form) even
+ * though no keyboard shortcut types it directly -- nothing on the server or in transport strips non-printable
+ * bytes by default. [MONEY_SENTINEL]'s safety comes ENTIRELY from where it is checked: only
+ * [I18nCatalogManager.gettext] resolves a string starting with it into a formatted amount, and only [moneyToken] /
+ * this module's own helpers ever construct one -- callers must never trust a sentinel's mere PRESENCE in
+ * server-/user-controlled text as proof of legitimacy. Untrusted text is unconditionally stripped of this
+ * character (and [KV_I18N_MARKER] / [I18N_ARG_SEPARATOR]) before ever reaching a widget or [trFormat] argument --
+ * see [sanitizeUntrustedI18nText] -- precisely because it CAN be forged.
+ */
 internal const val MONEY_SENTINEL = "\u0002"
 internal const val MONEY_KIND_EUR = 'E'
 internal const val MONEY_KIND_LTR = 'L'

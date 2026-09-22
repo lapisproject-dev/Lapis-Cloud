@@ -194,9 +194,9 @@ private fun renderPublicRankingConsentToggle(
         toggle.disabled = false
         if (disclaimer == null) return@launch
         currentDisclaimer = disclaimer
-        disclosurePanel.div(disclaimer.headline) { addCssClasses("small fw-bold") }
+        disclosurePanel.untrustedDiv(disclaimer.headline, className = "small fw-bold")
         disclaimer.keyPoints.forEach { point -> disclosurePanel.div(point) { addCssClasses("text-muted small") } }
-        disclosurePanel.div(disclaimer.text) {
+        disclosurePanel.untrustedDiv(disclaimer.text) {
             addCssClasses("text-muted small border rounded p-2 overflow-auto")
             height = 140.px
         }
@@ -361,7 +361,7 @@ private fun renderAdminRequestRow(
 ) {
     val row = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    headerRow.div(request.subjectDisplayName) { addCssClasses("flex-grow-1 fw-bold") }
+    headerRow.untrustedCardTitle(request.subjectDisplayName)
     headerRow.typeBadge(erasureModeLabel(request.mode), erasureModeColor(request.mode))
 
     row.erasureStepTracker(request)

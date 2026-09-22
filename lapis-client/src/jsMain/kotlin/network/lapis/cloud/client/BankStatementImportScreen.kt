@@ -621,7 +621,7 @@ internal fun renderAssignmentWorkbench(
     val memberField =
         form.selectField(
             label = tr("Mitglied"),
-            options = members.map { it.id to it.displayName },
+            options = untrustedOptions(members.map { it.id to it.displayName }),
             hint = donorRequiredHint,
             host = memberDonorPanel,
         )
@@ -643,7 +643,7 @@ internal fun renderAssignmentWorkbench(
     val externalField =
         form.selectField(
             label = tr("Externer Spender"),
-            options = externalDonors.map { it.id to it.displayName },
+            options = untrustedOptions(externalDonors.map { it.id to it.displayName }),
             hint = donorRequiredHint,
             host = externalDonorPanel,
         )

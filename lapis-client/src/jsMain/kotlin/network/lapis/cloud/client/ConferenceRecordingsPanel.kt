@@ -181,7 +181,7 @@ private fun renderConferenceRecordingRow(
 
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(conferenceRecordingStatusLabel(recording.status), conferenceRecordingStatusColor(recording.status))
-    headerRow.div(recording.roomTitle) { addCssClasses("fw-bold flex-grow-1") }
+    headerRow.untrustedCardTitle(recording.roomTitle)
     headerRow.div(conferenceRecordingDurationLabel(recording.durationSeconds)) { addCssClasses("text-muted small") }
 
     if (conferenceRecordingCanDelete(

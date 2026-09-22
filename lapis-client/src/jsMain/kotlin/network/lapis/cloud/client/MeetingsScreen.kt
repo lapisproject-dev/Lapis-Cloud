@@ -158,7 +158,7 @@ fun renderMeetingsScreen(container: SimplePanel) {
 
     AppScope.launch {
         committees = guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = false) } ?: emptyList()
-        committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + committees.map { it.id to it.name }
+        committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + untrustedOptions(committees.map { it.id to it.name })
         committeeFilterSelect.value = ""
         refreshMeetings()
 
@@ -201,7 +201,9 @@ private fun renderMeetingRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(meeting.title) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit W6b follow-up round 3 (major finding A): meeting title is member-editable free text
+    // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+    headerRow.div(sanitizeUntrustedI18nText(meeting.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
     row.div(gettext("%1 · %2 · %3", meeting.committeeName, meetingFormatLabel(meeting.format), meeting.scheduledAt)) {
         addCssClasses("text-muted small")
@@ -223,7 +225,7 @@ internal fun renderMeetingCreationForm(
 ) {
     // Formular-Grammatik (V1.4.29, W4b): Titel und Termin sind Pflicht, Ort und die beiden Rollen optional => Fall (a).
     val form = panel.lapisForm()
-    val committeeOptions = committees.map { it.id to it.name }
+    val committeeOptions = untrustedOptions(committees.map { it.id to it.name })
     val committeeField =
         form.selectField(label = tr("Gremium"), options = committeeOptions, value = committees.firstOrNull()?.id, required = true)
     val titleField = form.textField(label = tr("Titel"), required = true)
@@ -238,7 +240,7 @@ internal fun renderMeetingCreationForm(
     val formatOptions = MeetingFormat.entries.map { it.name to meetingFormatLabel(it) }
     val formatField =
         form.selectField(label = tr("Format"), options = formatOptions, value = MeetingFormat.IN_PERSON.name, required = true)
-    val memberOptions = listOf("" to tr("-- keine --")) + memberCandidates.map { it.id to it.displayName }
+    val memberOptions = listOf("" to tr("-- keine --")) + untrustedOptions(memberCandidates.map { it.id to it.displayName })
     val chairField = form.selectField(label = tr("Sitzungsleitung"), options = memberOptions, value = "")
     val minuteTakerField = form.selectField(label = tr("Protokollführung"), options = memberOptions, value = "")
 
@@ -322,7 +324,9 @@ private fun renderMeetingMeta(
     onChanged: () -> Unit,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.h2(meeting.title) { addCssClasses("h5 flex-grow-1") }
+    // Security audit W6b follow-up round 3 (major finding A): see the sanitization in `renderMeetingRow` above --
+    // same untrusted `meeting.title`, same widget-content path.
+    headerRow.h2(sanitizeUntrustedI18nText(meeting.title)) { addCssClasses("h5 flex-grow-1") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
 
     panel.div(
@@ -617,7 +621,7 @@ internal fun renderAddAgendaItemForm(
         )
     val titleField = form.textField(label = tr("Titel"), required = true)
     val descriptionField = form.textField(label = tr("Beschreibung"))
-    val presenterOptions = listOf("" to tr("-- kein --")) + eligibleMembers.map { it.id to it.displayName }
+    val presenterOptions = listOf("" to tr("-- kein --")) + untrustedOptions(eligibleMembers.map { it.id to it.displayName })
     val presenterField = form.selectField(label = tr("Vortragend"), options = presenterOptions, value = "")
 
     val addButton = Button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -658,7 +662,7 @@ private fun renderAttendanceSection(
     } else {
         detail.attendance.forEach { attendance ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
-            row.div(attendance.memberDisplayName) { addCssClasses("flex-grow-1") }
+            row.untrustedDiv(attendance.memberDisplayName, className = "flex-grow-1")
             row.statusBadge(attendanceStatusLabel(attendance.status), attendanceStatusColor(attendance.status))
             attendance.representedByDisplayName?.let { representative ->
                 row.div(gettext("vertreten durch %1", representative)) { addCssClasses("text-muted small") }
@@ -691,7 +695,7 @@ internal fun renderAttendanceRecordingForm(
     }
     val existingByMember = existingAttendance.associateBy { it.memberId }
     val statusOptions = AttendanceStatus.entries.map { it.name to attendanceStatusLabel(it) }
-    val representedOptions = listOf("" to gettext("-- keine --")) + eligibleMembers.map { it.id to it.displayName }
+    val representedOptions = listOf("" to gettext("-- keine --")) + untrustedOptions(eligibleMembers.map { it.id to it.displayName })
 
     eligibleMembers.forEach { member ->
         val existing = existingByMember[member.id]
@@ -700,7 +704,9 @@ internal fun renderAttendanceRecordingForm(
         // Sterne, keine Legende. Die Zeile "Status" steht neben dem Namen, deshalb `host = topRow`.
         val form = row.lapisForm()
         val topRow = form.panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        topRow.div(member.displayName) { addCssClasses("flex-grow-1") }
+        // Security audit W6b follow-up round 3 (major finding A): a member display name is untrusted free text
+        // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
+        topRow.div(sanitizeUntrustedI18nText(member.displayName)) { addCssClasses("flex-grow-1") }
         val statusField =
             form.selectField(
                 label = tr("Status"),
@@ -786,7 +792,7 @@ fun renderResolutionRow(
     headerRow.div(gettext("%1: %2", resolution.number, resolution.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(resolutionStatusLabel(resolution.status), resolutionStatusColor(resolution.status))
     headerRow.typeBadge(resolutionModeLabel(resolution.resolutionMode), resolutionModeColor(resolution.resolutionMode))
-    row.p(resolution.text) { addCssClass("mb-0") }
+    row.untrustedP(resolution.text, className = "mb-0")
     row.div(
         gettext(
             "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6",

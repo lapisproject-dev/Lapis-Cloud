@@ -222,7 +222,7 @@ private fun paymentGatewayEnableDisclaimerModal(
         addCssClasses("border rounded p-2 mb-2")
         maxHeight = 300.px
         overflow = Overflow.AUTO
-        content = disclaimer.text
+        content = sanitizeUntrustedI18nText(disclaimer.text)
     }
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(

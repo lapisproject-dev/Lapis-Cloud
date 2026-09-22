@@ -306,7 +306,7 @@ private fun familyColumns(): List<DataColumn<MemberFamilySummaryDto>> =
             title = tr("Familie"),
             primary = true,
             cell = { container, family ->
-                container.span(family.name) { addCssClass("fw-semibold") }
+                container.untrustedSpan(family.name, className = "fw-semibold")
                 if (!family.hasPayer) container.typeBadge(payerlessWarningText(), "warning")
             },
         ),
@@ -326,7 +326,9 @@ private fun familyLinkColumns(): List<DataColumn<MemberFamilyLinkDto>> =
             title = tr("Rolle"),
             cell = { container, link -> container.typeBadge(familyRoleLabel(link.role), familyRoleBadgeColor(link.role)) },
         ),
-        textColumn(title = tr("Tarif")) { link: MemberFamilyLinkDto -> link.membershipTierName ?: tr("beitragsfrei") },
+        // Security audit W6b, round 7 (major finding 2): trusted(...) on the fallback keeps it live-translatable;
+        // the DTO field itself stays a plain String and is sanitized as always.
+        textColumn(title = tr("Tarif")) { link: MemberFamilyLinkDto -> link.membershipTierName ?: trusted(tr("beitragsfrei")) },
     )
 
 private fun openCreateFamilyDialog(onSaved: () -> Unit) {

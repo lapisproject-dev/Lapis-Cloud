@@ -177,7 +177,7 @@ fun renderSepaMandatesScreen(container: SimplePanel) {
         val formHost = root.vPanel(spacing = 4)
         AppScope.launch {
             val members = guarded { rpcService<IMemberService>().listMembers() } ?: return@launch
-            val memberOptions = members.map { it.id to it.displayName }
+            val memberOptions = untrustedOptions(members.map { it.id to it.displayName })
             renderSepaMandateForm(
                 container = formHost,
                 onBehalf = true,
@@ -239,7 +239,10 @@ private fun sepaMandateColumns(): List<DataColumn<SepaMandateDto>> =
         ),
         textColumn(title = tr("Erteilt am"), numeric = true) { mandate: SepaMandateDto -> mandate.grantedAt.toString() },
         textColumn(title = tr("Erfasst von")) { mandate: SepaMandateDto ->
-            if (mandate.createdBySelf) tr("Selbst") else mandate.createdByDisplayName
+            // Security audit W6b, round 7 (major finding 2): trusted(tr(...)) so this branch keeps its live
+            // translation instead of losing its marker to textColumn's unconditional untrusted-text sanitizer --
+            // the other branch, an untrusted DTO field, is sanitized as always.
+            if (mandate.createdBySelf) trusted(tr("Selbst")) else mandate.createdByDisplayName
         },
     )
 
