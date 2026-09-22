@@ -51,7 +51,7 @@ class SmtpStartupCheckTest :
                 SmtpConfig.load(
                     env = { key ->
                         mapOf(
-                            SmtpConfig.ENV_HOST to "mxe9fb.netcup.net",
+                            SmtpConfig.ENV_HOST to "mail.example.invalid",
                             SmtpConfig.ENV_USERNAME to "no_reply@example.org",
                             SmtpConfig.ENV_PASSWORD to "s3cr3t",
                             SmtpConfig.ENV_FROM_ADDRESS to "no_reply@example.org",

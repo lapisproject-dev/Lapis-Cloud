@@ -418,7 +418,7 @@ body {
 /* Mobile-Overflow-Fund 2026-09-09 (Live-Verifikation nach dem Vertical-Sidebar-Umbau): unter
    ~576px reicht die Breite nicht mehr für Branding-Logo + Text, Sidebar-Toggle, Sprachumschalter
    ("Globus DE") und Konto-/Login-Link ("Person Anmelden") nebeneinander -- live gemessen auf
-   pzb.parteidervernunft.de bei 375px: `document.body.scrollWidth` (413px) > `clientWidth` (375px),
+   PROD_HOST bei 375px: `document.body.scrollWidth` (413px) > `clientWidth` (375px),
    "Anmelden" lief über den rechten Rand hinaus. Ursache: `App.kt` setzt bewusst
    `expand = NavbarExpand.ALWAYS` (kein zweiter, verwirrender Hamburger-Toggle neben dem
    Sidebar-Toggle) -- diese Regel behebt den dadurch fehlenden Umbruch, OHNE `expand` anzutasten.

@@ -11,11 +11,11 @@ import java.util.UUID
 
 /**
  * The critical migration test Welle V1.2.1's own plan calls out by name (vault plan "Lapis Cloud
- * V1.2 -- Zahlungsverkehr" § 9.13 "Rückwärtskompatibilität für pdv2"): boots a FRESH H2-in-
+ * V1.2 -- Zahlungsverkehr" § 9.13 "Rückwärtskompatibilität für PROD_HOST"): boots a FRESH H2-in-
  * PostgreSQL-mode database, hand-builds the PRE-`V7` `membership_tier`/`contribution`/
  * `organization_settings` schema shape (unnamed `contribution_status_check`, no `due_date`/
  * `payment_method`/`payment_term_days`/payment-related `organization_settings` columns -- exactly
- * the shape `pdv2` is still running per this wave's `V1__baseline.sql` in-place-edit comments),
+ * the shape `PROD_HOST` is still running per this wave's `V1__baseline.sql` in-place-edit comments),
  * inserts pre-existing rows the way a real deployment would have them, applies `V7__payments.sql`
  * verbatim from the classpath, and asserts every one of that migration's documented guarantees.
  * Mirrors [MemberStatusMigrationTest]'s shape exactly.

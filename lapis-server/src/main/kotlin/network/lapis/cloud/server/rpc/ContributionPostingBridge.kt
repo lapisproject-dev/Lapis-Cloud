@@ -61,7 +61,7 @@ private val logger = KotlinLogging.logger {}
  * NICHT gebucht: `null` wird zurückgegeben, eine WARN-Zeile geschrieben, und -- entscheidend --
  * KEIN Audit-Log-Eintrag erzeugt (siehe [AuditLogRecorder] "on success" oben). Der Aufrufer (der
  * Contribution-Statuswechsel) gelingt trotzdem. Dieses Verhalten ist für jede Bestandsinstanz
- * (insbesondere `pdv2`) exakt identisch mit dem Vor-V1.2.1-Zustand, solange kein ADMIN die drei
+ * (insbesondere `PROD_HOST`) exakt identisch mit dem Vor-V1.2.1-Zustand, solange kein ADMIN die drei
  * Konten zuordnet -- kein Zwangs-Rollout einer Buchungslogik auf laufende Instanzen (Plan § 9.13).
  *
  * Dieselbe Degradierung gilt, wenn ein zugeordnetes Konto zwar konfiguriert, aber inzwischen

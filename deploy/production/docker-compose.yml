@@ -1,5 +1,5 @@
 # Lapis Cloud -- PRODUCTION deployment. Replaces the earlier bare-JVM + systemd + native-PostgreSQL
-# setup (see the pdv2 server's own infrastructure notes for that prior state) with a self-contained
+# setup (see the PROD_HOST server's own infrastructure notes for that prior state) with a self-contained
 # containerized stack: lapis-server (built from the repo-root Dockerfile, client bundle baked in)
 # + PostgreSQL. Apache on the host stays exactly as it was -- it still reverse-proxies
 # `https://<domain>/` to `127.0.0.1:8080`, which this compose file publishes the same way the old
@@ -80,7 +80,7 @@ services:
       # no failure (same "O4" optional-env posture as LAPIS_EMBED_ALLOW_INSECURE). NOT composed
       # from LAPIS_PUBLIC_IP like LAPIS_TURN_URLS above -- a `turns:` URL needs a DNS hostname
       # matching the TLS certificate, not a bare IP. Example once the infra rollout has happened:
-      # turns:turn.pzb.parteidervernunft.de:443?transport=tcp
+      # turns:turn.PROD_HOST:443?transport=tcp
       # See README.adoc "TURNS over TLS (port 443)".
       LAPIS_TURNS_URLS: ${LAPIS_TURNS_URLS:-}
       LAPIS_TURN_SHARED_SECRET: ${LAPIS_TURN_SECRET:?LAPIS_TURN_SECRET must be set in .env}
@@ -228,7 +228,7 @@ services:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     ports:
       # Signaling/HTTP/Twirp admin API -- loopback only. Apache reverse-proxies this publicly as
-      # wss://video.parteidervernunft.de; lapis-server itself reaches this over the
+      # wss://video.PROD_HOST; lapis-server itself reaches this over the
       # compose-internal network by service name (LAPIS_LIVEKIT_API_URL above), never through this
       # published port.
       - "127.0.0.1:7880:7880"
@@ -314,19 +314,19 @@ services:
     # THIS host -- see the network_mode comment below for the actual primary cause found the same day.
     shm_size: '1gb'
     # PRIMARY FIX for "Start signal not received" (code 412), found 2026-08-15: `livekit.yaml`s
-    # `rtc.node_ip: 159.195.38.47` (this host's own public IP, required so REAL external browsers get
+    # `rtc.node_ip: ${LAPIS_PUBLIC_IP}` (this host's own public IP, required so REAL external browsers get
     # a reachable ICE candidate) is advertised to EVERY WebRTC participant unconditionally -- including
     # Chrome running INSIDE this container for Room-Composite (GRID/SPEAKER) egress, which joins the
     # room as a real participant to render the composite. On this host (like many VPS/cloud providers),
     # a container CANNOT reach the host's own public IP from the inside ("hairpin NAT" is not
-    # supported) -- verified live: `curl` to `159.195.38.47:7881` from a regular bridge-networked
+    # supported) -- verified live: `curl` to `${LAPIS_PUBLIC_IP}:7881` from a regular bridge-networked
     # container times out; from a `--network host` container it connects immediately. Chrome's own
     # WebRTC connection to the room therefore never gets media, the room disconnects, and the
     # template's own `EgressHelper.endRecording()` fires (`chrome: END_RECORDING` in the logs) without
     # `startRecording()` ever having run -- egress waits out ITS OWN startup timeout believing the
     # recording never started ("Start signal not received"), even though Chrome's page loaded and ran
     # fine the whole time. `network_mode: host` puts this container directly on the host's real network
-    # namespace, so `159.195.38.47` is no longer a NAT hop away -- confirmed fix, not a workaround.
+    # namespace, so `${LAPIS_PUBLIC_IP}` is no longer a NAT hop away -- confirmed fix, not a workaround.
     # Requires `redis.address`/`ws_url` in `egress.yaml` to use `127.0.0.1` instead of the
     # compose-internal DNS names below (those don't resolve without a `networks:` attachment), and
     # `redis`'s own loopback-only port publish above. `ConferenceStreamLayout.SINGLE_PARTICIPANT`

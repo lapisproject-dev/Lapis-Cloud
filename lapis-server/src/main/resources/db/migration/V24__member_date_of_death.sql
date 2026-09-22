@@ -6,7 +6,7 @@
 -- Tabelle erweitert hat. V10 musste den INLINE, UNBENANNTEN chk_member_status im CREATE TABLE
 -- aufweiten: den erreicht kein ALTER, er existiert nur in einer frischen Datenbank. Hier gibt es
 -- keinen solchen Fall -- eine nullable Spalte plus ein BENANNTER CHECK erreichen frische und
--- bereits migrierte Datenbanken identisch ueber genau diese Datei. Damit entfaellt fuer pdv2/ELB
+-- bereits migrierte Datenbanken identisch ueber genau diese Datei. Damit entfaellt fuer PROD_HOST/ELB
 -- das sonst noetige `flyway repair`.
 --
 -- Fachlich: § 38 BGB -- die Mitgliedschaft erlischt AUTOMATISCH mit dem Tod. Diese Spalte ist rein

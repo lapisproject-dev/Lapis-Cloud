@@ -74,8 +74,8 @@ CREATE INDEX IF NOT EXISTS idx_social_post_timeline ON social_post (state, visib
 -- applies every unrecorded migration in one pass against a schema-history-empty database), so both
 -- DROPs below are needed: the explicit-name one matches on a fresh DB, the guessed
 -- Postgres-auto-generated `<table>_<column>_check` name is the best-effort target for the
--- already-migrated pdv2 deployment, whose CHECK constraint predates this wave's explicit naming
--- (VERIFY WITH `\d ltr_ledger_entry` ON pdv2 BEFORE DEPLOY -- same caveat V2's own header states
+-- already-migrated PROD_HOST deployment, whose CHECK constraint predates this wave's explicit naming
+-- (VERIFY WITH `\d ltr_ledger_entry` ON PROD_HOST BEFORE DEPLOY -- same caveat V2's own header states
 -- for its analogous conference_stream_status_check guess).
 ALTER TABLE ltr_ledger_entry DROP CONSTRAINT IF EXISTS ltr_ledger_entry_entry_type_check;
 ALTER TABLE ltr_ledger_entry DROP CONSTRAINT IF EXISTS chk_ltr_ledger_entry_entry_type;

@@ -357,7 +357,7 @@ class App : Application() {
                 refreshNavbar(navbar, sidebar, onLanguageChange = ::refreshShell)
                 val session = AppState.session
                 if (session != null) {
-                    // Live-Fund 2026-09-09 (pzb.parteidervernunft.de, ADMIN, Nachfolge-Bug von
+                    // Live-Fund 2026-09-09 (PROD_HOST, ADMIN, Nachfolge-Bug von
                     // V1.4.8): dieser `onNavigate`-Callback lief bislang UNBEDINGT auf jeden
                     // Sidebar-Link-Klick -- korrekt fuer Mobile (Drawer nach der Navigation
                     // schliessen), aber auf Desktop hebt `sidebar.hide()` denselben KVision-

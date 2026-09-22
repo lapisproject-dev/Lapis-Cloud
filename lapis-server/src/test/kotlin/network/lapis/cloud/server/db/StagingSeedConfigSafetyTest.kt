@@ -85,7 +85,7 @@ class StagingSeedConfigSafetyTest :
                     "LAPIS_DB_URL" to "jdbc:postgresql://127.0.0.1:5432/lapiscloud",
                     "LAPIS_DB_USER" to "lapiscloud",
                     "LAPIS_PUBLIC_BASE_URL" to "https://parteidervernunft.de",
-                    "LAPIS_LIVEKIT_URL" to "wss://video.parteidervernunft.de",
+                    "LAPIS_LIVEKIT_URL" to "wss://video.PROD_HOST",
                     "LAPIS_TURN_SECRET" to "some-secret",
                 )
             StagingSeedConfig.decide(env) shouldBe StagingSeedDecision.Disabled

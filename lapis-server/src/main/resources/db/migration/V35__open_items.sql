@@ -243,7 +243,7 @@ ALTER TABLE audit_log_entry ADD CONSTRAINT chk_audit_log_entry_entity_type
     ));
 
 -- ---------------------------------------------------------------------------------------------
--- Operator-Note fuer ein bereits migriertes Instance (pdv2/ELB), analog V9__dunning.sql /
+-- Operator-Note fuer ein bereits migriertes Instance (PROD_HOST/ELB), analog V9__dunning.sql /
 -- V29__travel_expense.sql: dieses `ALTER TABLE audit_log_entry ADD CONSTRAINT
 -- chk_audit_log_entry_entity_type` in V35 aendert NUR die inline/unbenannte Ausgangsform aus
 -- V1__baseline.sql. Eine bereits laufende Produktionsinstanz hat den NAMED

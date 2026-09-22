@@ -160,18 +160,18 @@ address therefore needs the explicit `:8443` suffix, and Caddy's automatic HTTP-
 
 [source,caddyfile]
 ----
-staging.parteidervernunft.de:8443 {
+STAGING_HOST:8443 {
     basic_auth {
         staging $2a$14$<bcrypt-hash-hier-einsetzen>
     }
     reverse_proxy 127.0.0.1:8082
     log {
-        output file /var/log/caddy/staging-parteidervernunft-de-access.log
+        output file /var/log/caddy/staging-host-access.log
     }
 }
-http://staging.parteidervernunft.de { redir https://{host}{uri} permanent }
+http://STAGING_HOST { redir https://{host}{uri} permanent }
 
-video-staging.parteidervernunft.de:8443 {
+video.STAGING_HOST:8443 {
     # WebSocket upgrade exception -- see "Video conferencing" below for why.
     @nichtupgrade not header Connection *Upgrade*
     basic_auth @nichtupgrade {
@@ -179,10 +179,10 @@ video-staging.parteidervernunft.de:8443 {
     }
     reverse_proxy 127.0.0.1:7886
     log {
-        output file /var/log/caddy/video-staging-parteidervernunft-de-access.log
+        output file /var/log/caddy/video-staging-host-access.log
     }
 }
-http://video-staging.parteidervernunft.de { redir https://{host}{uri} permanent }
+http://video.STAGING_HOST { redir https://{host}{uri} permanent }
 ----
 
 Generate the bcrypt hash (never store the plaintext password in the Caddyfile or this repo):
@@ -251,7 +251,7 @@ README documents) -- only set this up if the staging instance should also exerci
 TLS path. `turnserver.conf.template`'s TLS block (`tls-listening-port`/`cert`/`pkey`) is therefore
 commented out by default: `coturn-certs/` in this directory ships empty (only a `.gitkeep`), so an
 uncommented block would point coturn at certificate files that do not exist on a fresh install. To
-enable it: a third DNS A record (`turn-staging.parteidervernunft.de` -> this host's IP), a third
+enable it: a third DNS A record (`turn.STAGING_HOST` -> this host's IP), a third
 `sniproxy` table entry pointing at `127.0.0.1:5352`, a third target for
 `/usr/local/sbin/sync-turn-certs.sh` (or an equivalent that populates `coturn-certs/` here) -- see
 `../production/README.adoc` "TURNS over TLS (port 443)" for the full mechanism this mirrors --

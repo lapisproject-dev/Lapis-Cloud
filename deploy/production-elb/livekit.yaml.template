@@ -11,7 +11,7 @@
 # tcp_port/udp_port are 7891/7892 here, NOT 7881/7882 like ../production/'s own copy -- found live
 # 2026-08-25 ("could not establish pc connection", every ICE candidate LiveKit offered pointed at
 # PdV's own published ports): LiveKit bakes its OWN configured tcp_port/udp_port literally into
-# every ICE candidate it hands to the browser (`host 159.195.38.47:<tcp_port/udp_port>`) -- it has
+# every ICE candidate it hands to the browser (`host ${LAPIS_PUBLIC_IP}:<tcp_port/udp_port>`) -- it has
 # no concept of Docker's host-side port remapping, unlike the plain HTTP signaling port above
 # (proxied by Caddy, the browser never sees the raw port number). The docker-compose host-side
 # mapping for THESE two ports must therefore be IDENTICAL to what's configured here, never

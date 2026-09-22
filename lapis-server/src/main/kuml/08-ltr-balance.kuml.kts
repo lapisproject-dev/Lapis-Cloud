@@ -85,7 +85,7 @@
 // baseline in-place here is safe because a baseline edit only breaks Flyway's checksum validation
 // for a database that already recorded `V1__baseline.sql` in its `flyway_schema_history` -- exactly
 // what `V4__social_network_core.sql` exists for: it applies the SAME widening idempotently against
-// an already-migrated deployment (pdv2) via a dual-DROP/ADD pair that targets both the pre-existing
+// an already-migrated deployment (PROD_HOST) via a dual-DROP/ADD pair that targets both the pre-existing
 // Postgres-auto-generated unnamed-constraint name and this new explicit name -- see that
 // migration's own trailing header comment for the exact mechanics.
 //

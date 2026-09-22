@@ -1,3 +1,7 @@
+# PROD_HOST / ELB_HOST / STAGING_HOST / ${LAPIS_PUBLIC_IP} below are placeholders for this
+# deployment's real hostnames/IP -- see the NOTE block near the top of ../production/README.adoc
+# (document preamble, just above "Reverse proxy").
+#
 # Lapis Cloud -- THIRD, CO-LOCATED instance on the SAME host as ../production/ (PdV) and
 # ../production-elb/ (ELB): a dedicated STAGING/TEST instance seeded with entirely fictitious data
 # ("Testverein Musterstadt e.V.", @staging.invalid emails -- see StagingSeedData KDoc). Structured

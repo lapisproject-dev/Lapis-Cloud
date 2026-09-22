@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
  * lagen dadurch in EINER horizontalen Zeile, und weil `.lapis-sidebar` selbst
  * `overflow-y: auto` setzt (was `overflow-x` per Spezifikation ebenfalls auf `auto` zwingt),
  * wurde alles ab dem zweiten Link innerhalb der 264px-breiten Spalte unsichtbar weggescrollt --
- * live gemeldet von der pzb.parteidervernunft.de-Produktivinstanz (ADMIN-Account sah nur
+ * live gemeldet von der PROD_HOST-Produktivinstanz (ADMIN-Account sah nur
  * "Dashboard"/"Videokonferenz" nebeneinander, keine der sechs Rollen-Gruppen).
  *
  * Der Fix wickelt ALLE acht Einträge in einen eigenen `nav.lapis-sidebar-nav`-Wrapper

@@ -1,6 +1,14 @@
-# Lapis Cloud -- PRODUCTION coturn config. This is a TEMPLATE, not the real file: the placeholders
-# below are substituted from deploy/production/.env by render-secrets.sh (see README.adoc "Video
-# conferencing"). The rendered turnserver.conf is gitignored -- never commit it.
+# Lapis Cloud -- PRODUCTION coturn config. This is a TEMPLATE, not the real file: the `${...}`
+# placeholders below are substituted from deploy/production/.env by render-secrets.sh (see
+# README.adoc "Video conferencing"). The rendered turnserver.conf is gitignored -- never commit it.
+#
+# `realm` below is substituted from `LAPIS_TURN_REALM` in deploy/production/.env by
+# render-secrets.sh, same as every other `${...}` value in this file -- it used to be a
+# hand-edited-in-place prose placeholder (`realm=PROD_HOST`) directly in this TRACKED template,
+# which meant an operator who committed their edits after a deploy (`git add -A && git commit`)
+# would push the real realm hostname straight into this public repo. Moved to an env var (round 6
+# of "Redact real infra topology from public repo") so the real value lives only in the gitignored
+# `.env`, never in a tracked file.
 #
 # Mirrors deploy/local/turnserver.conf (see that file's own header for why `use-auth-secret`/
 # `static-auth-secret` is used instead of a static long-term username/credential pair -- coturn's
@@ -10,7 +18,7 @@
 listening-port=3478
 min-port=51000
 max-port=51019
-realm=pzb.parteidervernunft.de
+realm=${LAPIS_TURN_REALM}
 use-auth-secret
 static-auth-secret=${LAPIS_TURN_SECRET}
 # PRODUCTION: the VPS's real public IP, not 127.0.0.1 -- same reasoning as livekit.yaml's
@@ -28,7 +36,7 @@ no-cli
 # permission was granted. Reported live by an ELB board member, 2026-09-10. See
 # ../production/README.adoc, "TURNS over TLS (port 443)".
 #
-# Rollout (2026-09-12): a DNS A record (turn.pzb.parteidervernunft.de -> this host's IP), a real
+# Rollout (2026-09-12): a DNS A record (turn.PROD_HOST -> this host's IP), a real
 # Let's Encrypt certificate obtained by Caddy itself (see the Caddyfile's two cert-only vhosts),
 # and `sniproxy` doing SNI-based TCP multiplexing on the host's public 443 -- Caddy no longer binds
 # 443 directly (moved to :8443, see README.adoc), coturn's TLS listener stays on an INTERNAL port,

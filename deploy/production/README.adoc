@@ -6,8 +6,41 @@
 Containerized production deployment for Lapis Cloud: `lapis-server` (built from the repo-root
 `Dockerfile`, with the `lapis-client` production bundle baked in) plus PostgreSQL, both managed by
 `docker-compose.yml` in this directory. Replaces the earlier bare-JVM-under-systemd +
-native-PostgreSQL setup used for the first test deployment (VPS 4000, `pzb.parteidervernunft.de`) --
+native-PostgreSQL setup used for the first test deployment (VPS 4000, `PROD_HOST`) --
 see that server's own infrastructure notes for the prior state and the migration this superseded.
+
+[NOTE]
+====
+This repo is public, so the real hostnames/IPs of any live deployment are kept out of it.
+Wherever these docs and templates say `PROD_HOST` / `ELB_HOST` / `STAGING_HOST`, substitute that
+deployment's own real hostname (e.g. what `turn.PROD_HOST` says is really `turn.<your-domain>`);
+`${LAPIS_PUBLIC_IP}` is the literal env var from `.env` (see `.env.example`) that carries the real
+public IPv4 at runtime. This placeholder scheme keeps a grep/clone of this repo from handing out a
+live deployment's topology outright -- it is not a substitute for keeping `.env` itself out of
+version control (already covered by `.gitignore`), and it does not hide anything a plain DNS
+lookup of a *known* public hostname would already reveal; treat it as reducing incidental leakage
+in the repo text, not as concealing an otherwise-secret address. `PROD_HOST` / `ELB_HOST` /
+`STAGING_HOST` are prose placeholders only -- they are NOT `envsubst`/environment-variable
+placeholders like `${LAPIS_PUBLIC_IP}`, so a template or doc that still says one of them literally
+(e.g. `wss://video.PROD_HOST`) has not yet been substituted with this deployment's real value for
+prose purposes. coturn's `realm` (`turnserver.conf.template`) is the one exception worth calling
+out explicitly: earlier rounds of this redaction had it as a prose placeholder hand-edited directly
+into that TRACKED template (`realm=PROD_HOST`), which meant an operator who committed their local
+edits after a deploy would push the real realm straight into this public repo -- round 6 moved it
+to a genuine `envsubst` variable, `${LAPIS_TURN_REALM}`, sourced from the gitignored `.env` like
+every other secret in that file (see "Video conferencing" below).
+
+**Scope, explicitly**: this redaction only touches the current tip of the default branch. It does
+NOT rewrite git history -- every commit prior to the redaction still has the real values in its
+tree, and `git log -p` / `git show <old-commit>:<path>` on this public repo still returns them, as
+does anyone's existing local clone made before the redaction landed. Scrubbing that would require
+a history rewrite (`git filter-repo` or similar) followed by a force-push and every clone being
+discarded and redone -- a decision for the repo owner to make deliberately, not something folded
+silently into a routine redaction commit. Until/unless that happens, treat the real historical
+values as already public and rotate/replace anything among them that is an actual secret (this
+list only ever covered hostnames/IPs/mail relay, never credentials) rather than relying on this
+redaction for confidentiality.
+====
 
 The host's reverse proxy (Caddy, or a compatible alternative) is unchanged by this move: it still
 terminates TLS and reverse-proxies to `127.0.0.1:8080`, which this compose file publishes exactly
@@ -20,7 +53,7 @@ has no Caddy-specific dependency.
 
 == Reverse proxy (Caddy)
 
-The pzb.parteidervernunft.de production instance runs Caddy (migrated from Apache 2026-08-15,
+The PROD_HOST production instance runs Caddy (migrated from Apache 2026-08-15,
 zero functional regression, ~90s of actual downtime during the cutover itself). Install from
 Caddy's own apt repository (see https://caddyserver.com/docs/install#debian-ubuntu-raspbian), then
 point `/etc/caddy/Caddyfile` at both this app and the video-conferencing signaling subdomain (see
@@ -28,10 +61,10 @@ point `/etc/caddy/Caddyfile` at both this app and the video-conferencing signali
 
 [source,caddyfile]
 ----
-pzb.parteidervernunft.de {
+PROD_HOST {
     reverse_proxy 127.0.0.1:8080
     log {
-        output file /var/log/caddy/pzb-parteidervernunft-de-access.log
+        output file /var/log/caddy/prod-host-access.log
     }
 }
 ----
@@ -62,7 +95,7 @@ user before opening that file for real. Fix: `rm` the stale root-owned log file 
 * A `.env` file in this directory (copy `.env.example`, fill in real secrets -- see that file's own
   comments). Never committed; the repo's `.gitignore` already excludes `.env*`.
 * **If the host has a hand-written nftables ruleset with a restrictive `forward` chain policy**
-  (as pdv2/VPS 4000 does, for example), see "Firewall (nftables) on a hardened host" below --
+  (as PROD_HOST/VPS 4000 does, for example), see "Firewall (nftables) on a hardened host" below --
   Docker will not work correctly without it, and the failure mode is confusing (DNS resolution
   inside containers times out with no obvious firewall-related error).
 
@@ -209,6 +242,14 @@ code is already live would capture the schema the new code expects, not the one 
 running when something went wrong -- it defends against nothing. The order below keeps a restorable
 snapshot of the pre-deploy state at every step until the new version is verified working.
 
+CAUTION: **Before the next deploy of the "Redact real infra topology from public repo" wave** on
+PROD_HOST, ELB, or STAGING: that wave edited 16 already-applied Flyway migration files in place
+(comment-only changes, real hostnames replaced with placeholders), which changes their checksums.
+`DatabaseConfig.kt`'s `migrate()` runs with the default `validateOnMigrate = true` and will refuse
+to run at all on any of these three already-migrated instances until `flywayRepair` has run against
+each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
+the exact command. Run it once per instance before rebuilding that instance below.
+
 . **Back up the database.** Read the Postgres credentials from the running container's own
   environment rather than sourcing `.env` in the shell -- unquoted special characters in a
   `LAPIS_DB_PASSWORD` value can otherwise break a plain `source ./.env`:
@@ -315,10 +356,12 @@ Setup:
 
 . Get the host's real public IPv4 and put it in `.env` as `LAPIS_PUBLIC_IP`. Generate
   `LAPIS_LIVEKIT_API_SECRET`/`LAPIS_TURN_SECRET` with `openssl rand -base64 32` each (never reuse
-  one secret for both, never reuse `deploy/local`'s dev secrets). Point `LAPIS_LIVEKIT_URL` at the
-  public `wss://` origin the signaling subdomain will be reachable at. No SEPARATE secret is needed
-  for `egress` -- it authenticates against LiveKit's own Twirp API using the SAME
-  `LAPIS_LIVEKIT_API_KEY`/`LAPIS_LIVEKIT_API_SECRET` pair.
+  one secret for both, never reuse `deploy/local`'s dev secrets). Set `LAPIS_TURN_REALM` to this
+  deployment's real domain (coturn's `realm`, substituted into `turnserver.conf.template` --
+  never hand-edit that template file directly, it is tracked and this repo is public). Point
+  `LAPIS_LIVEKIT_URL` at the public `wss://` origin the signaling subdomain will be reachable at.
+  No SEPARATE secret is needed for `egress` -- it authenticates against LiveKit's own Twirp API
+  using the SAME `LAPIS_LIVEKIT_API_KEY`/`LAPIS_LIVEKIT_API_SECRET` pair.
 . **Wave 3 "Externes Streaming" specifically** (Wave 1/2 work without this): generate a THIRD,
   separate secret with `openssl rand -base64 32` and put it in `.env` as
   `LAPIS_SECRET_ENCRYPTION_KEY` -- this is the AES-256-GCM key `SecretBox` uses to encrypt stream
@@ -337,10 +380,10 @@ Setup:
 +
 [source,caddyfile]
 ----
-video.parteidervernunft.de {
+video.PROD_HOST {
     reverse_proxy 127.0.0.1:7880
     log {
-        output file /var/log/caddy/video-parteidervernunft-de-access.log
+        output file /var/log/caddy/video-prod-host-access.log
     }
 }
 ----
@@ -450,14 +493,14 @@ The client already helps on its own, without TURNS: `LiveKitRoomSession.connect`
 automatically, exactly once, with `RTCConfiguration.iceTransportPolicy = "relay"` whenever the
 first connection attempt fails in a way a relay could plausibly fix -- see that method's own KDoc.
 This alone resolves the symptom for any participant who can reach the existing plain `turn:`
-endpoint (3478/pdv2, 3479/ELB) but was blocked only on the *direct* ICE path. It does NOT help a
+endpoint (3478/PROD_HOST, 3479/ELB) but was blocked only on the *direct* ICE path. It does NOT help a
 participant whose network blocks port 3478/3479 outright -- that is exactly the gap TURNS on 443
 closes.
 
 [NOTE]
 ====
 **Live on both instances since 2026-09-12.** `LAPIS_TURNS_URLS` is set in both `.env` files
-(`turns:turn.pzb.parteidervernunft.de:443?transport=tcp` / `turns:turn.elb.parteidervernunft.de:443?transport=tcp`).
+(`turns:turn.PROD_HOST:443?transport=tcp` / `turns:turn.ELB_HOST:443?transport=tcp`).
 If `LAPIS_TURNS_URLS` is ever unset again, this deployment falls back to exactly the pre-rollout
 behavior: `ConferenceConfig` simply carries no `turns:` entry in any minted TURN credential -- see
 that class's own KDoc, same "O4" optional-env posture as every other feature-flag-shaped variable
@@ -472,30 +515,30 @@ The originally planned `caddy-l4` layer4 plugin (would have needed a full Caddy 
 sitting in front of the real public `:443`:
 
 * Caddy no longer binds `:443` at all -- every site address in `/etc/caddy/Caddyfile` now carries
-  an explicit `:8443` (e.g. `pzb.parteidervernunft.de:8443 { ... }`). **Caddy's `bind` directive
+  an explicit `:8443` (e.g. `PROD_HOST:8443 { ... }`). **Caddy's `bind` directive
   cannot set a custom port** (host only, confirmed against Caddy's own docs the hard way -- an
   earlier attempt using `bind 127.0.0.1:8443` silently ignored the port and left Caddy on the
   default `:443`, which then collided with sniproxy's own bind attempt). Because an explicit
   non-default port on a site address suppresses Caddy's *automatic* HTTP->HTTPS redirect, six
   matching `http://<name> { redir https://{host}{uri} permanent }` blocks provide that redirect
   explicitly instead -- the `{host}` template variable carries no port, so the `Location` header a
-  browser receives still says `https://pzb.parteidervernunft.de/...`, exactly the port-less URL
+  browser receives still says `https://PROD_HOST/...`, exactly the port-less URL
   that is publicly reachable via sniproxy. Port 80 itself (ACME HTTP-01 challenges and these
   redirects) is untouched throughout.
 * `sniproxy` (`/etc/sniproxy.conf`, a systemd service, `enabled` so it survives reboots) owns the
   real public `:443`. Its config is a `listener 0.0.0.0:443 { protocol tls; table https_hosts;
   fallback 127.0.0.1:8443 }` plus a `table https_hosts` with one regex-anchored entry per `turn.*`
-  name, each pointing at that instance's coturn TLS port (`127.0.0.1:5350` pdv2 / `127.0.0.1:5351`
+  name, each pointing at that instance's coturn TLS port (`127.0.0.1:5350` PROD_HOST / `127.0.0.1:5351`
   ELB). Every other SNI (the four app vhosts) falls through to the `fallback`, i.e. Caddy on
   `127.0.0.1:8443`. Plain TCP passthrough only -- sniproxy reads the ClientHello's SNI and forwards
   the raw bytes verbatim, so Caddy and coturn each keep terminating their own TLS exactly as
   before; sniproxy itself never sees plaintext.
-* Two DNS A records were added (`turn.pzb.parteidervernunft.de` / `turn.elb.parteidervernunft.de`,
+* Two DNS A records were added (`turn.PROD_HOST` / `turn.ELB_HOST`,
   both -> this host's IP) -- the two names must differ even though the IP is identical, because SNI
   is the only signal sniproxy has to tell the two instances' TURNS traffic apart on the shared 443
   port.
 * Each `turn.*` name gets its own real Let's Encrypt certificate, obtained (and auto-renewed) by
-  **Caddy itself**, via two minimal, cert-only Caddyfile vhosts (`turn.pzb.parteidervernunft.de:8443
+  **Caddy itself**, via two minimal, cert-only Caddyfile vhosts (`turn.PROD_HOST:8443
   { respond "Not a website -- TURNS relay endpoint only." 404 }` and its ELB counterpart) -- these
   are never actually reached through sniproxy in normal operation (sniproxy diverts their SNI
   straight to coturn), their only purpose is to make Caddy's ACME client manage the certificate.
@@ -667,7 +710,7 @@ this address and the mail footer invites a reply. When unset, the footer instead
 at `LAPIS_PUBLIC_BASE_URL` -- no mail ever leaves without some way back to the operator.
 
 **Egress firewall**: the server needs outbound access to the configured SMTP host/port (e.g.
-`mxe9fb.netcup.net:465` for a netcup mailbox).
+`mail.example.invalid:465` for a typical hosted-mailbox provider).
 
 **The From address must match the authenticated mailbox** (`LAPIS_SMTP_FROM_ADDRESS` ==
 `LAPIS_SMTP_USERNAME`'s mailbox), or the relay rejects the message with a 5xx error.
@@ -900,7 +943,7 @@ Delete `/root/lapis-import.env` once the Echtlauf (step 4) has completed -- it i
 a production DB credential and, like the CSV/report files in step 5, has no retention concept of its
 own.
 
-. `flywayRepair` on **both** pdv2 and the ELB instance (this wave edits `V1__baseline.sql` in place
+. `flywayRepair` on **both** PROD_HOST and the ELB instance (this wave edits `V1__baseline.sql` in place
   again -- see the CHANGELOG "Operator-Hinweis" for this wave):
 +
 [source,bash]
@@ -959,10 +1002,10 @@ importierte Mitglieder; `Kündigungsdatum`/`Austrittsdatum` gehen ersatzlos verl
 
 `../production-elb/` is a full second copy of this directory -- its own Postgres, its own
 `lapis-server`/LiveKit/coturn/redis/egress containers, its own named volumes -- for the ELB pilot,
-running alongside this PdV instance on the same physical host (pdv2). Set it up exactly like this
+running alongside this PdV instance on the same physical host (PROD_HOST). Set it up exactly like this
 directory (`cp .env.example .env`, fill in real values, `./render-secrets.sh`,
 `docker compose up -d --build`), then add its own Caddy vhost blocks (see "Reverse proxy" above)
-for `elb.parteidervernunft.de` -> `127.0.0.1:8081` and `video-elb.parteidervernunft.de` ->
+for `ELB_HOST` -> `127.0.0.1:8081` and `video.ELB_HOST` ->
 `127.0.0.1:7885`.
 
 **Every host-visible port had to move** to avoid colliding with this instance's own -- see

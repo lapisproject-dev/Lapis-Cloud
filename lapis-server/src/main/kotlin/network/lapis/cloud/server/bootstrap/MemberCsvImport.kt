@@ -57,7 +57,7 @@ private val logger = KotlinLogging.logger {}
  *
  * **Operator run order is NOT negotiable** (see `deploy/production/README.adoc` "Einmaliger
  * Mitglieder-CSV-Import (nur PdV)" for the full operator runbook):
- * 1. `flywayRepair` on pdv2 AND the ELB instance (this wave edits `V1__baseline.sql` in place again).
+ * 1. `flywayRepair` on PROD_HOST AND the ELB instance (this wave edits `V1__baseline.sql` in place again).
  * 2. Deploy the new server version (`docker compose up -d --build lapis-server`). [DatabaseConfig
  *    .connect] migrates internally on server start, which is what actually applies `V10`.
  * 3. Trockenlauf (no `LAPIS_MEMBER_IMPORT_COMMIT`) -- verify the aggregates match the expected

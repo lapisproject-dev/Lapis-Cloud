@@ -1209,7 +1209,7 @@ internal fun Application.module(aiConfig: AiConfig) {
     // trusted hop (Apache, on the same machine) between the internet and this process; if a second
     // reverse proxy is ever added in front of Apache, this needs skipLastProxies(N) instead.
     //
-    // V0.11.0 FRIEND-wave review (2026-08-16): pdv2's reverse proxy has since migrated from Apache
+    // V0.11.0 FRIEND-wave review (2026-08-16): PROD_HOST's reverse proxy has since migrated from Apache
     // to Caddy (see the vault's "Infrastruktur PdV" migration notes). Caddy's own `reverse_proxy`
     // directive has the SAME append-not-replace default behaviour for X-Forwarded-For described
     // above (it adds the immediate client's IP onto whatever header arrived, never strips/replaces

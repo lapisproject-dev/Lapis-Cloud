@@ -172,7 +172,7 @@ CREATE TABLE account (
 -- "Welle V1.2.1". due_date/payment_method: new columns, see same file header. On this FRESH-DB
 -- baseline both can be declared NOT NULL directly (no existing rows to backfill) -- V7__payments.sql
 -- carries the equivalent two-step ADD COLUMN + backfill + SET NOT NULL for an already-migrated
--- instance (pdv2).
+-- instance (PROD_HOST).
 CREATE TABLE contribution (
     id UUID NOT NULL PRIMARY KEY,
     period_start DATE NOT NULL,
@@ -265,14 +265,14 @@ CREATE TABLE committee_membership (
 -- SOCIAL_POST_STAKE/SOCIAL_POST literals directly -- same "fresh installs/tests get the widened
 -- schema straight from the baseline" convention V2__conference_secret_ballot_stream_pause.sql's own
 -- header already established for conference_stream.status. V4__social_network_core.sql applies the
--- same widening idempotently for an already-migrated deployment (pdv2) via a DROP/ADD pair that
+-- same widening idempotently for an already-migrated deployment (PROD_HOST) via a DROP/ADD pair that
 -- targets BOTH the pre-existing Postgres-auto-generated unnamed-constraint name AND this new
 -- explicit name -- see that migration's own header comment.
 --
 -- V1.1.2 (Soziales Netzwerk, "Kommentarbaum, Boosts, rekursive Gesamtgewichtung"): the SAME
 -- entry_type CHECK constraint is edited in place AGAIN, this time to add SOCIAL_POST_BOOST --
 -- identical pattern, identical operator caveat (see V5__social_post_boost.sql's own header and this
--- wave's CHANGELOG.md entry: `flyway repair` is needed again before the next pdv2 deploy, this is
+-- wave's CHANGELOG.md entry: `flyway repair` is needed again before the next PROD_HOST deploy, this is
 -- NOT already covered by the V1.1.1 note above).
 CREATE TABLE ltr_ledger_entry (
     id UUID NOT NULL PRIMARY KEY,
@@ -715,7 +715,7 @@ CREATE TABLE audit_log_entry (
     -- V1.2.12: 'MEMBER' appended in place -- see V11__member_administration.sql, flyway repair needed.
     -- V1.2.8 (GitHub #6): 'PAYMENT_TRANSACTION' appended in place -- see V13__psp_checkout.sql's own
     -- DROP/ADD dance on the NAMED chk_audit_log_entry_entity_type constraint, which only ever existed
-    -- on an already-migrated real instance (pdv2/ELB); this inline, still-unnamed (H2 auto-generated
+    -- on an already-migrated real instance (PROD_HOST/ELB); this inline, still-unnamed (H2 auto-generated
     -- name, e.g. CONSTRAINT_407) constraint is the one that actually governs every FRESH/test
     -- database, so it must carry every literal too, or an INSERT with entity_type = 'PAYMENT_TRANSACTION'
     -- fails the check even after V13 runs (H2 enforces both constraints independently). Flyway repair

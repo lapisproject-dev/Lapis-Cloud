@@ -250,7 +250,7 @@ fun buildSidebar(
     // `auto` zwingt statt `visible` zu belassen), liefen die bislang direkt in `body` eingefügten
     // Top-Level-Einträge (2 flache Links + 6 Gruppen, siehe [GROUP_ROUTES]) in EINER horizontalen
     // Zeile -- alles ab dem zweiten Link wurde innerhalb der 264px-breiten Spalte unsichtbar
-    // weggescrollt (Live-Fund pzb.parteidervernunft.de: ADMIN-Account sah nur "Dashboard"/
+    // weggescrollt (Live-Fund PROD_HOST: ADMIN-Account sah nur "Dashboard"/
     // "Videokonferenz" nebeneinander, keine der sechs Rollen-Gruppen). Wir besitzen unser eigenes
     // Layout vollständig (`.lapis-sidebar-nav`, theme.css), statt gegen Bootstraps `.offcanvas-body`-
     // Interna mit einer dritten `!important`-Schicht anzuschreiben. Siehe `SidebarStructureTest` für

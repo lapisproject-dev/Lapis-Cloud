@@ -6,11 +6,11 @@
 -- Aufteilungsregel: the THREE in-place V1__baseline.sql edits this migration mirrors are
 -- (1) contribution.sepa_mandate_id, (2) organization_settings' three new sepa_*-Spalten,
 -- (3) audit_log_entry.entity_type-CHECK um SEPA_MANDATE/SEPA_DEBIT_BATCH. All three are repeated
--- here, idempotently, so a fresh DB (every test run) and the already-migrated pdv2 instance reach
+-- here, idempotently, so a fresh DB (every test run) and the already-migrated PROD_HOST instance reach
 -- the same end state. The FOUR new tables live ONLY here, never in V1__baseline.sql (V4-V7
 -- precedent).
 --
--- WHY V8 AND NOT AN EXTENSION OF V7: V7 is merged (33ef637) and rolled out on pdv2; its checksum
+-- WHY V8 AND NOT AN EXTENSION OF V7: V7 is merged (33ef637) and rolled out on PROD_HOST; its checksum
 -- is consumed. An in-place edit would fail flyway migrate there hard (validateOnMigrate = true,
 -- DatabaseConfig.kt). This is different from V7's own Security-Round-1 edit, which was still
 -- pre-release.
@@ -257,7 +257,7 @@ ALTER TABLE organization_settings ADD CONSTRAINT chk_organization_settings_sepa_
 -- ---------------------------------------------------------------------------
 -- audit_log_entry.entity_type CHECK widening for SEPA_MANDATE/SEPA_DEBIT_BATCH. Dual-DROP pattern
 -- as V4/V6/V7. Longest new literal SEPA_DEBIT_BATCH (16) < CONFERENCE_STREAM_DESTINATION (29) =
--- VARCHAR(29) -- no column-width change. VERIFY WITH `\d audit_log_entry` ON pdv2 BEFORE DEPLOY.
+-- VARCHAR(29) -- no column-width change. VERIFY WITH `\d audit_log_entry` ON PROD_HOST BEFORE DEPLOY.
 -- ---------------------------------------------------------------------------
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS audit_log_entry_entity_type_check;
 ALTER TABLE audit_log_entry DROP CONSTRAINT IF EXISTS chk_audit_log_entry_entity_type;

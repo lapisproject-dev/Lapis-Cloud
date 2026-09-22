@@ -1,5 +1,9 @@
-# Lapis Cloud -- SECOND PRODUCTION INSTANCE, for the ELB pilot (Ecclesia Libertas Biblica),
-# co-located with the PdV instance (../production/) on the same host (pdv2, 159.195.38.47). This
+# PROD_HOST / ELB_HOST / ${LAPIS_PUBLIC_IP} below are placeholders for this deployment's real
+# hostnames/IP -- see the NOTE block near the top of ../production/README.adoc (document preamble,
+# just above "Reverse proxy").
+#
+# Lapis Cloud -- SECOND PRODUCTION INSTANCE, for the ELB pilot,
+# co-located with the PdV instance (../production/) on the same host (PROD_HOST, ${LAPIS_PUBLIC_IP}). This
 # is a full, independent copy of ../production/docker-compose.yml -- own Postgres, own containers,
 # own named volumes (Compose namespaces those by `name:` below automatically) -- with every
 # HOST-visible port shifted so it can run alongside the PdV stack without collision.
@@ -91,7 +95,7 @@ services:
       # no failure (same "O4" optional-env posture as LAPIS_EMBED_ALLOW_INSECURE). NOT composed
       # from LAPIS_PUBLIC_IP like LAPIS_TURN_URLS above -- a `turns:` URL needs a DNS hostname
       # matching the TLS certificate, not a bare IP. Example once the infra rollout has happened:
-      # turns:turn.elb.parteidervernunft.de:443?transport=tcp
+      # turns:turn.ELB_HOST:443?transport=tcp
       # See ../production/README.adoc "TURNS over TLS (port 443)".
       LAPIS_TURNS_URLS: ${LAPIS_TURNS_URLS:-}
       LAPIS_TURN_SHARED_SECRET: ${LAPIS_TURN_SECRET:?LAPIS_TURN_SECRET must be set in .env}
@@ -138,7 +142,7 @@ services:
       LAPIS_LEGAL_SUPERVISORY_AUTHORITY: ${LAPIS_LEGAL_SUPERVISORY_AUTHORITY:-}
       # SEPA-Lastschriftlauf-Poller (V1.2.2) -- Bugfix (F-2, 2026-08-26): war seit V1.2.2 nirgends
       # durchgereicht, der Poller war damit in Produktion nie einschaltbar. ALLE optional, default
-      # aus -- darf auf höchstens EINER Instanz aktiviert werden (siehe SepaBatchPoller KDoc; pdv2
+      # aus -- darf auf höchstens EINER Instanz aktiviert werden (siehe SepaBatchPoller KDoc; PROD_HOST
       # UND diese ELB-Instanz sind zwei separate Instanzen -- nur eine darf den Poller einschalten).
       LAPIS_SEPA_POLLER_ENABLED: ${LAPIS_SEPA_POLLER_ENABLED:-}
       LAPIS_SEPA_POLL_INTERVAL_SECONDS: ${LAPIS_SEPA_POLL_INTERVAL_SECONDS:-}
@@ -233,7 +237,7 @@ services:
       - "3479:3478/tcp"
       - "51020-51039:51020-51039/udp"
       # TURNS over TLS -- ACTIVE since 2026-09-12, see ../production/README.adoc "TURNS over TLS
-      # (port 443)". 5350 stays CONTAINER-side (same as the pdv2 instance's own copy); the HOST-side
+      # (port 443)". 5350 stays CONTAINER-side (same as the PROD_HOST instance's own copy); the HOST-side
       # publish differs (5351 here), same remap scheme `listening-port` 3478->3479 already uses
       # above, because both instances share one host. 127.0.0.1-only: only sniproxy (the host's SNI
       # multiplexer on the real public 443) ever dials this, never a real external client directly.

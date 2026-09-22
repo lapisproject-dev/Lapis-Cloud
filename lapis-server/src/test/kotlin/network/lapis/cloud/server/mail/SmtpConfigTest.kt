@@ -15,7 +15,7 @@ private fun envOf(vararg pairs: Pair<String, String>): (String) -> String? {
 
 private val MINIMAL_VALID_ENV =
     arrayOf(
-        SmtpConfig.ENV_HOST to "mxe9fb.netcup.net",
+        SmtpConfig.ENV_HOST to "mail.example.invalid",
         SmtpConfig.ENV_USERNAME to "no_reply@example.org",
         SmtpConfig.ENV_PASSWORD to "s3cr3t",
         SmtpConfig.ENV_FROM_ADDRESS to "no_reply@example.org",
@@ -41,7 +41,7 @@ class SmtpConfigTest :
         }
 
         test("only HOST set -> Incomplete, missing lists exactly USERNAME/PASSWORD/FROM_ADDRESS/FROM_NAME") {
-            val state = SmtpConfig.load(envOf(SmtpConfig.ENV_HOST to "mxe9fb.netcup.net"))
+            val state = SmtpConfig.load(envOf(SmtpConfig.ENV_HOST to "mail.example.invalid"))
             val incomplete = state.shouldBeInstanceOf<SmtpConfigState.Incomplete>()
             incomplete.missing shouldContain SmtpConfig.ENV_USERNAME
             incomplete.missing shouldContain SmtpConfig.ENV_PASSWORD
@@ -70,7 +70,7 @@ class SmtpConfigTest :
             val state =
                 SmtpConfig.load(
                     envOf(
-                        SmtpConfig.ENV_HOST to "mxe9fb.netcup.net",
+                        SmtpConfig.ENV_HOST to "mail.example.invalid",
                         SmtpConfig.ENV_USERNAME to "no_reply@example.org",
                         SmtpConfig.ENV_PASSWORD to "s3cr3t",
                         SmtpConfig.ENV_FROM_ADDRESS to "kein-email",
@@ -85,7 +85,7 @@ class SmtpConfigTest :
             val state =
                 SmtpConfig.load(
                     envOf(
-                        SmtpConfig.ENV_HOST to "mxe9fb.netcup.net",
+                        SmtpConfig.ENV_HOST to "mail.example.invalid",
                         SmtpConfig.ENV_USERNAME to "no_reply@example.org",
                         SmtpConfig.ENV_PASSWORD to "s3cr3t",
                         SmtpConfig.ENV_FROM_ADDRESS to "a@b.de\r\nBcc: evil@x.example",
@@ -139,7 +139,7 @@ class SmtpConfigTest :
             val state =
                 SmtpConfig.load(
                     envOf(
-                        SmtpConfig.ENV_HOST to "mxe9fb.netcup.net",
+                        SmtpConfig.ENV_HOST to "mail.example.invalid",
                         SmtpConfig.ENV_USERNAME to "no_reply@example.org",
                         SmtpConfig.ENV_PASSWORD to "s3cr3t",
                         SmtpConfig.ENV_FROM_ADDRESS to "no_reply@example.org",
@@ -207,7 +207,7 @@ class SmtpConfigTest :
             text shouldContain "username=<redacted>"
             text shouldContain "password=<redacted>"
             text.shouldNotContain("s3cr3t")
-            text shouldContain "host=mxe9fb.netcup.net"
+            text shouldContain "host=mail.example.invalid"
             text shouldContain "port=${SmtpConfig.DEFAULT_PORT}"
             text shouldContain "fromDisplayName=Partei der Vernunft"
         }

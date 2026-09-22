@@ -14,7 +14,7 @@ private val PRE_V10_STATUSES = listOf("APPLICATION", "ACTIVE", "GUEST", "WITHDRA
 /**
  * V1.2.11 (PdV-CSV-Import): boots a FRESH H2-in-PostgreSQL-mode database, hand-builds the
  * PRE-V10 `member` schema (the six-literal CHECK, no `external_reference` column -- exactly the
- * shape `V1__baseline.sql` had BEFORE this wave edited it in place, i.e. the shape `pdv2`/ELB are
+ * shape `V1__baseline.sql` had BEFORE this wave edited it in place, i.e. the shape `PROD_HOST`/ELB are
  * still running against per V10's own file-header note), inserts one row per existing literal,
  * applies `V10` verbatim from the classpath resource, and asserts every one of that migration's
  * documented guarantees.

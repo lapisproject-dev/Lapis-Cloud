@@ -22,7 +22,7 @@ private val GERMAN_TO_ENGLISH =
  * The critical migration test the wave's own plan calls out by name: boots a FRESH H2-in-
  * PostgreSQL-mode database, hand-builds the PRE-RENAME `member` schema (unnamed CHECK, German
  * literals, no FRIEND-related columns/tables -- exactly the shape `V1__baseline.sql` had BEFORE
- * this wave edited it in place, i.e. the shape `pdv2` is still running against per
+ * this wave edited it in place, i.e. the shape `PROD_HOST` is still running against per
  * `V3__member_status_english_and_friend.sql`'s own file-header note), inserts one row per German
  * literal, applies `V3` verbatim from the classpath resource, and asserts every one of that
  * migration's documented guarantees.
@@ -88,7 +88,7 @@ class MemberStatusMigrationTest :
  *
  * The CHECK constraint is given the EXPLICIT name `member_status_check` here -- the exact name
  * PostgreSQL auto-generates for an inline, unnamed single-column CHECK (`<table>_<column>_check`),
- * which is the real shape `V3`'s dual-DROP logic targets on `pdv2`. H2 does NOT reproduce
+ * which is the real shape `V3`'s dual-DROP logic targets on `PROD_HOST`. H2 does NOT reproduce
  * PostgreSQL's auto-naming convention for an actually-unnamed CHECK (it generates its own internal
  * name like `CONSTRAINT_xyz`), so leaving this constraint unnamed here would test a naming
  * coincidence that never holds on H2 -- neither of `V3`'s two `DROP CONSTRAINT IF EXISTS`

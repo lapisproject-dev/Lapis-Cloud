@@ -1,7 +1,15 @@
 # Lapis Cloud -- STAGING instance coturn config. This is a TEMPLATE, not the real file: the
-# placeholders below are substituted from deploy/production-staging/.env by render-secrets.sh (see
-# ../production/README.adoc "Video conferencing"). The rendered turnserver.conf is gitignored --
-# never commit it.
+# `${...}` placeholders below are substituted from deploy/production-staging/.env by
+# render-secrets.sh (see ../production/README.adoc "Video conferencing"). The rendered
+# turnserver.conf is gitignored -- never commit it.
+#
+# `realm` below is substituted from `LAPIS_TURN_REALM` in deploy/production-staging/.env by
+# render-secrets.sh, same as every other `${...}` value in this file -- it used to be a
+# hand-edited-in-place prose placeholder (`realm=STAGING_HOST`) directly in this TRACKED template,
+# which meant an operator who committed their edits after a deploy (`git add -A && git commit`)
+# would push the real realm hostname straight into this public repo. Moved to an env var (round 6
+# of "Redact real infra topology from public repo") so the real value lives only in the gitignored
+# `.env`, never in a tracked file.
 #
 # `realm` and `min-port`/`max-port` are staging's own disjoint values -- see
 # ../production-elb/turnserver.conf.template's own comment for why the relay range specifically
@@ -10,7 +18,7 @@
 listening-port=3478
 min-port=51040
 max-port=51059
-realm=staging.parteidervernunft.de
+realm=${LAPIS_TURN_REALM}
 use-auth-secret
 static-auth-secret=${LAPIS_TURN_SECRET}
 external-ip=${LAPIS_PUBLIC_IP}

@@ -152,7 +152,7 @@ internal object PublicLandingHtml {
      * in der Annahme, der Markenname selbst stehe bereits im Chrome. Das stimmt nur für eine
      * Installation OHNE eigenes Logo: [PublicChrome.renderChrome] rendert den Namen dort als reinen
      * Text-Knoten (`span.chrome-wordmark`) nur im `else`-Zweig von `branding.logoAvailable` -- ist
-     * ein Logo konfiguriert (z. B. die pzb.parteidervernunft.de-Produktivinstanz), erscheint dort
+     * ein Logo konfiguriert (z. B. die PROD_HOST-Produktivinstanz), erscheint dort
      * stattdessen ein `<img alt="...">`, und der Organisationsname taucht auf der GESAMTEN Seite an
      * KEINER sichtbaren Text-Stelle mehr auf -- nur im `alt`-Attribut, das Screenreadern vorbehalten
      * ist. Der `<h1>` zeigt jetzt [branding.title], der Marken-Claim rutscht als `<p>` eine Ebene

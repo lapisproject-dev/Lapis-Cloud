@@ -8,6 +8,105 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Redact real infra topology from public repo (rounds 1-5, no new version)** -- the repo is
+  public; `deploy/` and `CHANGELOG.md` previously spelled out the real `PROD_HOST` IP, the VPS
+  4000 host's real internal short name, and several real `*.parteidervernunft.de` FQDNs (Caddy
+  vhosts, TURN realms, signaling subdomain) in comments, migration headers, and 16 Flyway migration
+  files. Replaced with the prose
+  placeholders `PROD_HOST` / `ELB_HOST` / `STAGING_HOST` (substitute your own deployment's real
+  hostname) and the already-real `${LAPIS_PUBLIC_IP}` env var; see the NOTE block near the top of
+  `deploy/production/README.adoc` for the full placeholder legend and the explicit scope statement
+  (current branch tip only, git history is **not** rewritten). Round 3 also closed a `netcup`
+  provider-name leak in `deploy/` (the `netcup` mentions remaining in `MailDispatcher.kt`/
+  `SmtpConfig.kt`/older `CHANGELOG.md` entries are an out-of-scope provider name, not topology, and
+  were deliberately left as-is) and a stray `video-parteidervernunft-de-access.log` Caddy log
+  filename that the FQDN-level redaction had missed. Round 4 fixed two problems the round-3 pass
+  itself introduced: (1) the `render-secrets.sh` guard added to catch an un-edited
+  `realm=PROD_HOST`/`ELB_HOST`/`STAGING_HOST` placeholder in the rendered `turnserver.conf` grepped
+  the **entire** rendered file, so it kept firing even after the operator correctly edited the
+  `realm=` line, because the placeholder word also appears in the template's own header comments --
+  the script was left permanently unusable on all three instances. Fixed to check only the
+  `realm=` line itself (`grep -qE '^realm=(PROD_HOST|ELB_HOST|STAGING_HOST)$'`), consistently in
+  all three `deploy/production*/render-secrets.sh` copies. (2) `InfraTopologyRedactionTripwireTest.kt`,
+  added to guard against future regressions of this whole redaction, itself spelled the real
+  IP/hostname/domain out in cleartext in its KDoc and regex literals -- reintroducing exactly the
+  leak the redaction exists to prevent -- and only scanned `deploy/` and `CHANGELOG.md`, so it could
+  not catch itself. Rewritten to represent each forbidden value only as a `(length, SHA-256 hex
+  digest)` pair, matched by sliding a same-length window across each line and comparing digests --
+  the test file no longer contains any real value in cleartext, in prose or in code -- and to assert
+  a minimum scanned-file count so a broken `SCAN_ROOT`/`deployDir` resolution fails loudly instead of
+  vacuously passing with zero files scanned. Round 5 (security review) found that round 4's own fix
+  reintroduced the same class of problem at one remove: all nine forbidden values had low entropy
+  (4-20 lowercase alphanumeric characters), so an *unsalted* SHA-256 digest plus the exact cleartext
+  length is not a one-way commitment at that size -- it is a complete offline brute-force/dictionary
+  oracle, publicly committed right next to the files it protects (verified live: the real production
+  IP and the real internal short hostname were both recovered from their digests in well under a
+  second, two of the seven `deploy/`-only values fell to a 15-entry wordlist just as fast). Fixed by
+  no longer committing any form of these values to the test file at all: (1) the real production IP
+  is now caught structurally -- any literal IPv4 address in `deploy/` outside an exhaustively
+  verified allowlist of the three legitimate non-routable/example addresses actually used there
+  (`127.0.0.1`, `0.0.0.0`, `1.1.1.1`) is flagged, which needs no secret and is strictly broader than
+  matching one known value; (2) the org domain check is now a plain (non-secret, already public
+  elsewhere in the same file) literal match, also `deploy/`-only; (3) the remaining genuinely secret,
+  low-entropy strings (internal short hostnames, the hosting/mail provider name, and the exact-value
+  check within `CHANGELOG.md` specifically, which is too full of version numbers/formatted amounts/
+  unrelated historical IP examples for a safe structural rule) are read at test runtime from a
+  `LAPIS_REDACTION_TRIPWIRE_SECRETS` env var that is never committed -- unset locally and on fork/PR
+  builds (that part of the test then skips with an explicit message, not a silent pass). `render-secrets.sh`'s
+  round-4 `realm=` guard also moved earlier: it previously ran after `livekit.yaml`/`turnserver.conf` were
+  already rendered, so an un-edited template left a half-rendered deployment (rendered
+  `turnserver.conf` with a literal, non-functional `realm=`, `egress.yaml` never written) behind on
+  abort; it now checks `turnserver.conf.template` itself before any output file is written, in all
+  three `deploy/production*/render-secrets.sh` copies.
+- **Redact real infra topology from public repo (round 6, security re-review, no new version)** --
+  round 5's own KDoc overstated what the `LAPIS_REDACTION_TRIPWIRE_SECRETS` check actually covers:
+  it claimed the secret-sourced checks ran "where the org has provisioned the real values
+  out-of-band (a GitHub Actions repository secret on `kuml-dev`'s own CI, injected as an env var
+  for this job only)". Neither half of that was true -- `.github/workflows/ci.yml` has exactly one
+  test step (`run: ./gradlew clean check`) with no `env:` block and no `secrets.*` reference, so a
+  repository secret of that name would never reach the test process even if it existed, and this
+  repo's org is `lapisproject-dev`, not `kuml-dev` (`git remote -v`). No such secret exists under
+  either org. Net effect: the two genuinely secret checks this tripwire exists for -- the internal
+  short hostname / hosting-mail-provider-name match, and the `CHANGELOG.md` exact-IP/hostname
+  check -- were a silent no-op on every run everywhere, local and CI alike, while the KDoc and this
+  CHANGELOG both asserted an active CI safety net. Fixed by rewriting the test file's KDoc, the
+  `LAPIS_REDACTION_TRIPWIRE_SECRETS` doc comment, and the skip-path log message to state the truth
+  (unset and unchecked everywhere today; set the env var by hand to run this check locally) instead
+  of a CI guarantee that does not exist; wiring it into `ci.yml` against a real
+  `lapisproject-dev/Lapis-Cloud` repository secret is left as tracked follow-up work, not done in
+  this round. Also closed, same round: `turnserver.conf.template`'s `realm=PROD_HOST`/`ELB_HOST`/
+  `STAGING_HOST` line was still a prose placeholder hand-edited directly into that TRACKED template
+  file (round 4/5 only fixed the guard script, not the design) -- an operator who ran
+  `git add -A && git commit` after a deploy would push the real realm hostname straight back into
+  this public repo, the exact leak class this whole redaction exists to close. `realm` is now a
+  genuine `envsubst` variable, `${LAPIS_TURN_REALM}`, sourced from the gitignored `.env` in all
+  three `deploy/production*/` instances; `render-secrets.sh`'s pre-render guard was updated to
+  reject an un-edited `PROD_HOST`/`ELB_HOST`/`STAGING_HOST` placeholder *value* in `.env` instead of
+  grepping the template file, and `.env.example`/README.adoc were updated to document the new
+  variable. Existing deployments must add `LAPIS_TURN_REALM=<real realm>` to their `.env` and
+  re-run `render-secrets.sh` before their next `docker compose up`.
+
+### Operator notes
+
+**All three already-migrated instances (PROD_HOST/PdV, ELB, STAGING) need `flywayRepair` before
+their next deploy of this wave.** The 16 migration files this wave edited in place (`V1`, `V2`,
+`V3`, `V4`, `V6`, `V7`, `V8`, `V9`, `V10`, `V11`, `V12`, `V15`, `V24`, `V35`, …) are text-only
+comment changes (real hostnames -> `PROD_HOST` etc. in header comments and inline notes, e.g.
+`V7__payments.sql`'s `VERIFY WITH \`\d contribution\` ON PROD_HOST BEFORE DEPLOY`), but Flyway's
+checksum covers the **entire file content**, comments included -- same mechanism as every other
+`V1__baseline.sql`-in-place-edit entry in this changelog (see the `PROD_HOST -- V1__baseline.sql's
+checksum changed again` notes further down). `DatabaseConfig.kt`'s `Flyway.configure().load()
+.migrate()` still runs with the default `validateOnMigrate = true`, so on the next `docker compose
+up -d --build lapis-server` against any of the three already-migrated instances, `migrate()` will
+refuse to run at all with a checksum-mismatch error for every one of these 16 versions --
+**correcting an inaccurate claim made when this wave was implemented**, that "Flyway checksums are
+recomputed at runtime via FlywayRepair": `FlywayRepair.kt` is explicitly a one-time, operator-run
+CLI (`./gradlew :lapis-server:flywayRepair`) that must be invoked by hand BEFORE the deploy, it is
+never called from any startup path. Run `./gradlew :lapis-server:flywayRepair` against PROD_HOST,
+ELB, and STAGING -- in that order, once per instance, pointed at each instance's own database via
+`LAPIS_DB_URL`/`LAPIS_DB_USER`/`LAPIS_DB_PASSWORD` -- before `docker compose up -d --build
+lapis-server` runs this wave's code against any of them.
+
 - **W6b security-härtung, round 6 (review fixes, no new version)** -- two findings against round 5's assignment-shape
   migration. (1, major regression) round 5 had migrated `EventsScreen.kt`'s `errorBox.content = result.message` onto
   `untrustedContent(...)`, but `result.message` is always built via `tr(...)`/`gettext(...)` in
@@ -2453,7 +2552,7 @@ All notable changes to this project are documented here. Format follows
 - Die Startseiten-`<h1>` zeigt jetzt den Organisationsnamen (`branding.title`) statt des
   Marken-Claims; der Claim rutscht als `<p>` eine Ebene tiefer (die bestehende `.hero p`-Regel
   deckt ihn bereits ab, kein neues CSS nötig). Fund: bei einer Installation mit konfiguriertem
-  Betreiber-Logo (z. B. pzb.parteidervernunft.de) rendert der Kopfbereich statt eines Text-Knotens
+  Betreiber-Logo (z. B. PROD_HOST) rendert der Kopfbereich statt eines Text-Knotens
   ein `<img alt="...">` — der Organisationsname tauchte dadurch an KEINER sichtbaren Text-Stelle
   der gesamten Startseite mehr auf, nur im `alt`-Attribut. Regressionstest:
   `PublicLandingRoutesTest`.
@@ -2462,7 +2561,7 @@ All notable changes to this project are documented here. Format follows
 
 **Sidebar-Layout-Fix (V1.4.8, 2026-09-09)**
 
-- Live-Fund auf pzb.parteidervernunft.de: ADMIN-Accounts sahen in der Sidebar nur "Dashboard"/
+- Live-Fund auf PROD_HOST: ADMIN-Accounts sahen in der Sidebar nur "Dashboard"/
   "Videokonferenz" nebeneinander, keine der sechs Rollen-Gruppen. Ursache: `buildSidebar()` fügte
   alle Top-Level-Einträge direkt in Bootstraps `.offcanvas-body` ein, das ab 992px
   `display: flex` OHNE eigenes `flex-direction` setzt (Default `row`, Navbar-Muster,
@@ -3518,7 +3617,7 @@ zxing-core/ktlint-plugin waren bereits aktuell.
   auf einer frischen/Test-Datenbank weiterhin die ursprüngliche, unbenannte Inline-CHECK aus V1
   greift (H2 vergibt dafür intern einen Namen wie `CONSTRAINT_407`); `V13__psp_checkout.sql`s
   DROP/ADD auf `chk_audit_log_entry_entity_type` erreicht nur eine bereits real migrierte Instanz.
-  Auf einer bereits migrierten Instanz (pdv2/ELB) ist danach `./gradlew :lapis-server:flywayRepair`
+  Auf einer bereits migrierten Instanz (PROD_HOST/ELB) ist danach `./gradlew :lapis-server:flywayRepair`
   nötig, bevor `V13__psp_checkout.sql` dort ausgeführt wird.
 
 ## [0.16.0] — 2026-09-01
@@ -3754,7 +3853,7 @@ zxing-core/ktlint-plugin waren bereits aktuell.
 
 **Operator-Hinweis**: `V11__member_administration.sql` ändert `V1__baseline.sql` erneut in place
 (`audit_log_entry.entity_type`-CHECK-Erweiterung um `MEMBER`, zwei neue Indizes auf `member` für
-die Roster-Ansicht) — vor dem nächsten Deploy auf **pdv2 UND der ELB-Instanz**
+die Roster-Ansicht) — vor dem nächsten Deploy auf **PROD_HOST UND der ELB-Instanz**
 `./gradlew :lapis-server:flywayRepair` ausführen.
 
 **Einmaliger CSV-Mitglieder-Import, Welle V1.2.11 — operator-ausgeführtes CLI für den PdV-CRM-Export**
@@ -3806,7 +3905,7 @@ sie über `V1__baseline.sql`/`V10` läuft.
 
 **Operator-Hinweis**: `V10__member_donor_deceased_and_external_reference.sql` ändert
 `V1__baseline.sql` erneut in place (`member.status`-CHECK-Erweiterung um `DONOR`/`DECEASED`, neue
-Spalte `member.external_reference`) — vor dem nächsten Deploy auf **pdv2 UND der ELB-Instanz**
+Spalte `member.external_reference`) — vor dem nächsten Deploy auf **PROD_HOST UND der ELB-Instanz**
 `flyway repair` ausführen (`./gradlew :lapis-server:flywayRepair`). Diese Notiz ist **nicht** durch
 die V9-Notiz abgedeckt. Reihenfolge zwingend: `flyway repair` → Deploy der neuen Serverversion →
 erst danach `importMembersFromCsv` (Trockenlauf, dann Echtlauf) — das CLI migriert über
@@ -3971,7 +4070,7 @@ Treuhänder-Override-Ebene (überspringen/zurücksetzen/stornieren) für dieselb
 
 **Operator-Hinweis**: `V9__dunning.sql` ändert `V1__baseline.sql` erneut in place
 (`organization_settings.dunning_enabled`, `audit_log_entry.entity_type`-CHECK-Erweiterung) — vor
-dem nächsten Deploy auf **pdv2 UND der ELB-Instanz** `flyway repair` ausführen.
+dem nächsten Deploy auf **PROD_HOST UND der ELB-Instanz** `flyway repair` ausführen.
 
 **Echter SMTP-Versand, Welle V1.2.3 — Passwort-Reset + FRIEND-E-Mail-Verifizierung, erstmals echte Mail-Zustellung**
 
@@ -4106,7 +4205,7 @@ V0.11.0) durch einen echten, optionalen SMTP-Transport.
   validiere `to` vorab als echte Adresse -- tut es nicht, korrigiert.
 
 **Produktionsbefund nach dem Deploy (2026-08-25, Stand 2026-08-25 aktualisiert):** Live gemeldet:
-keine Mail kommt an. Direkte Verbindungstests von pdv2 aus zeigten keinen Code-/Konfigurations-
+keine Mail kommt an. Direkte Verbindungstests von PROD_HOST aus zeigten keinen Code-/Konfigurations-
 fehler -- ausgehende Verbindungen auf Port 25/465/587 scheitern für JEDES Ziel (eigenes Postfach,
 `smtp.gmail.com`, `smtp.office365.com`, IPv4 wie IPv6), während Port 443 zu einer beliebigen
 Adresse normal funktioniert. Eine `tcpdump`-Mitschnitt-Probe auf `eth0` während eines Verbindungs-
@@ -4183,8 +4282,8 @@ Neue `network.lapis.cloud.server.branding`-Package: operator-konfigurierbares We
 
 **Zweite, eigenständige Lapis-Cloud-Instanz für ELB, Welle V1.2.6 — `deploy/production-elb/`**
 
-`elb.parteidervernunft.de` + `video-elb.parteidervernunft.de`, komplett neuer, unabhängiger Docker-
-Compose-Stack neben der PdV-Instanz auf demselben Host (pdv2) -- kein Application-Code geändert,
+`ELB_HOST` + `video.ELB_HOST`, komplett neuer, unabhängiger Docker-
+Compose-Stack neben der PdV-Instanz auf demselben Host (PROD_HOST) -- kein Application-Code geändert,
 reine Deploy-Konfiguration.
 
 - Eigene Postgres, eigene Container, eigene named Volumes (Compose-Projektname `lapis-cloud-elb`
@@ -4209,7 +4308,7 @@ reine Deploy-Konfiguration.
 - Der geteilte `lapis-egress-output`-ACL-Selfheal-Timer (siehe Aufzeichnungs-Bugfix oben) ist ein
   Per-Compose-Projekt-benanntes Volume -- der bestehende systemd-Timer wurde erweitert, um beide
   Instanzen abzudecken, statt einen zweiten Timer anzulegen.
-- Branding: `LAPIS_BRAND_TITLE=Ecclesia Libertas Biblica`, zugeschnittenes Kreuz-Logo (Original-SVG
+- Branding: `LAPIS_BRAND_TITLE=ELB pilot instance`, zugeschnittenes Kreuz-Logo (Original-SVG
   hatte einen A4-Seiten-`viewBox` statt eines engen Zuschnitts ums eigentliche Motiv -- als eigene
   Deploy-Kopie non-destruktiv korrigiert, Original im Vault unangetastet).
 - Erster Admin-Account per `AdminBootstrap`-CLI (bewusst kein Netzwerk-Endpunkt, siehe dessen KDoc)
@@ -4955,7 +5054,7 @@ V1.2.4 (Zahlungsdienstleister-Anbindung), die dieselbe Buchungsbrücke wiederver
   und würde bei einer Parteispende den §25-PartG-Check auslösen; ein Mitgliedsbeitrag ist keine
   Spende. Verhält sich **degradierend statt scheiternd**: ist die Kontenzuordnung (s. u.) nicht
   konfiguriert, wird nicht gebucht, `markContributionPaid` verhält sich exakt wie vor dieser Welle —
-  kein Zwangs-Rollout einer Buchungslogik auf `pdv2`. Bei erfolgreicher Buchung wird zusätzlich **ein**
+  kein Zwangs-Rollout einer Buchungslogik auf `PROD_HOST`. Bei erfolgreicher Buchung wird zusätzlich **ein**
   `AuditEntityType.JOURNAL_ENTRY`-Audit-Log-Eintrag geschrieben (wiederverwendet den bestehenden
   Typ/Snapshot — kein neues `AuditEntityType`-Literal, keine `audit_log_entry`-CHECK-Verbreiterung
   nötig für diese Welle).
@@ -5391,7 +5490,7 @@ Umsetzung als zu weitgehend für den Zuschnitt dieser Sub-Welle erwiesen haben:
 
 ### Operator notes
 
-1. **`pdv2` — `V1__baseline.sql`s Prüfsumme ändert sich erneut; `flyway repair` VOR dem Deploy.**
+1. **`PROD_HOST` — `V1__baseline.sql`s Prüfsumme ändert sich erneut; `flyway repair` VOR dem Deploy.**
    Diese Welle editiert `V1__baseline.sql` in place an VIER Stellen (siehe „Deviations" oben für die
    inhaltliche Abweichung von der ursprünglichen Vier-Block-Aufteilung des Plans): (1)
    `contribution.status` `VARCHAR(7)`→`VARCHAR(15)` + CHECK-Verbreiterung um die vier neuen Literale,
@@ -5399,31 +5498,31 @@ Umsetzung als zu weitgehend für den Zuschnitt dieser Sub-Welle erwiesen haben:
    `membership_tier.payment_term_days` (neue Spalte), (4) sechs neue `organization_settings`-Spalten
    + drei neue FKs auf `ledger_account`. `V7__payments.sql` trägt die laufzeitwirksame,
    idempotente Wiederholung aller vier Blöcke (dual benanntes `DROP CONSTRAINT IF EXISTS`/`ADD` für
-   jeden CHECK, `ADD COLUMN IF NOT EXISTS` für jede neue Spalte) und ist, was `pdv2`s Schema
+   jeden CHECK, `ADD COLUMN IF NOT EXISTS` für jede neue Spalte) und ist, was `PROD_HOST`s Schema
    tatsächlich verändert. Aber das Editieren von `V1__baseline.sql`s Dateiinhalt ändert dessen
    Prüfsumme, und Flywayss Standard `validateOnMigrate = true` (`DatabaseConfig.kt`) lässt den
    gesamten `migrate()`-Aufruf auf einer bereits migrierten Datenbank scheitern, wenn `V1`s in
    `flyway_schema_history` gespeicherte Prüfsumme nicht mehr zur Datei auf der Platte passt —
    unabhängig davon, dass `V7` selbst eine unberührte, noch nie angewandte Datei ist. Vor dem Deploy
-   dieser Welle auf `pdv2`: `SELECT * FROM flyway_schema_history WHERE version = '1'` gegen `flyway
+   dieser Welle auf `PROD_HOST`: `SELECT * FROM flyway_schema_history WHERE version = '1'` gegen `flyway
    info`s aktuell berechnete Prüfsumme prüfen — bei Abweichung `flyway repair` (schreibt die
    gespeicherte Prüfsumme gegen den aktuellen Dateiinhalt neu) als allerersten Schritt ausführen,
    *vor* `flyway migrate`. Dieselbe Falle wie bei jeder vorherigen Welle, die `V1__baseline.sql` in
    place editiert hat (siehe die Operator-Notizen zu `v0.6.0`/V1.1.1/V1.1.5 weiter unten in dieser
    Datei) — jede In-place-Änderung ist ihre eigene, gesondert zu behebende Prüfsummen-Abweichung,
    sie akkumulieren sich nicht zu einer einzigen Reparatur.
-2. **Zusätzlich `\d contribution` und `\d organization_settings` auf `pdv2` vor dem Deploy prüfen.**
+2. **Zusätzlich `\d contribution` und `\d organization_settings` auf `PROD_HOST` vor dem Deploy prüfen.**
    `contribution.status`s CHECK ist im ursprünglichen `V1__baseline.sql` anonym (inline im `CREATE
-   TABLE`) — auf `pdv2` trägt er PostgreSQLs Autonamen `contribution_status_check`, den `V7`s
+   TABLE`) — auf `PROD_HOST` trägt er PostgreSQLs Autonamen `contribution_status_check`, den `V7`s
    Doppel-`DROP` abdeckt. `organization_settings` hatte vor dieser Welle keine einzige FK — die drei
-   neuen FKs auf `ledger_account` sind auf `pdv2` also garantiert neu, keine Namenskollisionsgefahr.
-3. **Kein Verhaltensunterschied für eine unkonfigurierte `pdv2`-Instanz.** `sepaDebitEnabled`/
+   neuen FKs auf `ledger_account` sind auf `PROD_HOST` also garantiert neu, keine Namenskollisionsgefahr.
+3. **Kein Verhaltensunterschied für eine unkonfigurierte `PROD_HOST`-Instanz.** `sepaDebitEnabled`/
    `paymentGatewayEnabled` sind beide `FALSE` per Default, und die Kontenzuordnung
    (`paymentBankAccountId`/`paymentFeeAccountId`/`contributionIncomeAccountId`) ist nach der
    Migration `NULL` — `ContributionPostingBridge` bucht also erst, nachdem ein ADMIN die drei Konten
    im Kontenplan-Screen zuordnet. Bis dahin verhält sich `markContributionPaid` exakt wie vor dieser
    Welle (Plan § 9.13).
-4. **`pdv2` — Security Round 1 (2026-08-19) fügt ein FÜNFTES `V1__baseline.sql`-In-place-Edit
+4. **`PROD_HOST` — Security Round 1 (2026-08-19) fügt ein FÜNFTES `V1__baseline.sql`-In-place-Edit
    hinzu (`audit_log_entry.entity_type`-CHECK um `ORGANIZATION_SETTINGS` erweitert) und einen
    entsprechenden idempotenten Block in `V7__payments.sql`.** Gleiche Falle wie Operator-Notiz 1
    oben, separat zu beheben — `flyway repair` VOR `flyway migrate`, `V1`s aktuell berechnete
@@ -5437,7 +5536,7 @@ Umsetzung als zu weitgehend für den Zuschnitt dieser Sub-Welle erwiesen haben:
 server`/`lapis-client`. Every Docker build since this module was added therefore failed with
 `Configuring project ':lapis-detekt-rules' without an existing directory is not allowed` — silently
 untriggered until the first Docker rebuild after that point, found live during the `v0.15.0` deploy
-to `pdv2` (2026-08-19). Fixed by adding the same two `COPY` lines (`build.gradle.kts` first for
+to `PROD_HOST` (2026-08-19). Fixed by adding the same two `COPY` lines (`build.gradle.kts` first for
 layer caching, then the full module) already used for the other three modules.
 
 ### Fixed (Review Round 1, 2026-08-19)
@@ -6048,12 +6147,12 @@ not the erasure) — placed as the last locking database operation in the transa
 
 ### Operator notes
 
-1. **`pdv2` — `V1__baseline.sql`s Prüfsumme ändert sich erneut; `flyway repair` VOR dem Deploy.**
+1. **`PROD_HOST` — `V1__baseline.sql`s Prüfsumme ändert sich erneut; `flyway repair` VOR dem Deploy.**
    Diese Welle verbreitert `audit_log_entry`s `entity_type`-`CHECK` um `'SOCIAL_POST'` durch einen
    In-place-Eingriff in `V1__baseline.sql` — dasselbe Muster wie V1.1.1/V1.1.2. `V6` trägt die
    laufzeitwirksame Verbreiterung als idempotentes, dual benanntes `DROP … IF EXISTS`/`ADD`-Paar. Vor
    dem Deploy: `flyway info` prüfen und bei Prüfsummen-Abweichung `flyway repair` als ersten Schritt
-   ausführen; zusätzlich `\d audit_log_entry` auf `pdv2` gegenprüfen, um den tatsächlichen
+   ausführen; zusätzlich `\d audit_log_entry` auf `PROD_HOST` gegenprüfen, um den tatsächlichen
    Constraint-Namen zu bestätigen.
 2. **Die V1.1.4-Kopplung ist erfüllt.** Der Absatz "Rechtliche Kopplung" im `v0.14.0`-Eintrag und der
    entsprechende Absatz im `LTR_ELIGIBLE`-KDoc (`Foundation.kt`) beschreiben ab dieser Version einen
@@ -6067,7 +6166,7 @@ not the erasure) — placed as the last locking database operation in the transa
    leitet den Status unverändert durch, keine Konfigurationsänderung nötig.
 5. **Vorgelagertes Caching**: die 451-Antwort selbst ist `no-store` und kann nie stale werden. Die
    Restlücke ist ausschließlich eine **vor** der Entfernung bereits ausgelieferte, bis zu ~1 h stale
-   200-Antwort — sobald ein CDN vor `pdv2` steht, ist ein Purge-Schritt in den Entfernungs-Workflow
+   200-Antwort — sobald ein CDN vor `PROD_HOST` steht, ist ein Purge-Schritt in den Entfernungs-Workflow
    aufzunehmen (im heutigen Betrieb ohne CDN keine Handlung nötig).
 
 ## [0.14.0] — 2026-08-19
@@ -6288,18 +6387,18 @@ vollständige Begründung.
 
 ### Operator notes
 
-**pdv2 — `V1__baseline.sql`'s checksum changed again; verify `flyway_schema_history` before the next
+**PROD_HOST — `V1__baseline.sql`'s checksum changed again; verify `flyway_schema_history` before the next
 deploy.** This wave widens `ltr_ledger_entry`'s two `CHECK` constraints (`entry_type` gains
 `'SOCIAL_POST_STAKE'`, `reference_type` gains `'SOCIAL_POST'`) by editing them **in place** in
 `V1__baseline.sql`, the same pattern the FRIEND wave (`v0.13.0`) used for its own `V1` edit. `V4`
 carries the actual runtime widening as an idempotent, repeatable-safe `ALTER TABLE ... DROP
 CONSTRAINT IF EXISTS ... / ADD CONSTRAINT` pair (dual-named, covering both Postgres's
 auto-generated constraint name and this repo's own explicit one — see `V4__social_network_core.sql`
-header) and is what actually changes `pdv2`'s schema. But **editing `V1__baseline.sql`'s file
+header) and is what actually changes `PROD_HOST`'s schema. But **editing `V1__baseline.sql`'s file
 content changes its checksum**, and Flyway's default `validateOnMigrate = true`
 (`DatabaseConfig.kt`) fails the whole `migrate()` call on an already-migrated database if `V1`'s
 recorded checksum in `flyway_schema_history` no longer matches the file on disk — independent of
-`V4` being a clean, never-before-applied file. Before deploying this wave to `pdv2`: run
+`V4` being a clean, never-before-applied file. Before deploying this wave to `PROD_HOST`: run
 `SELECT * FROM flyway_schema_history WHERE version = '1'` and compare against `flyway info`'s output
 for the checksum Flyway now computes from the repo's `V1__baseline.sql` — if they differ, run
 `flyway repair` (recomputes and re-stores the stored checksum against the current file content) as
@@ -6309,12 +6408,12 @@ V4's ledger-constraint widening) — the correction below fixes an incorrect cla
 `v0.13.0` entry, which stated no `flyway repair` would be needed there because `V3` itself was a new
 file, without accounting for `V3`'s own accompanying `V1` in-place edit.
 
-**pdv2 — `V1__baseline.sql`'s checksum changes AGAIN with Welle V1.1.2; this is a SEPARATE
+**PROD_HOST — `V1__baseline.sql`'s checksum changes AGAIN with Welle V1.1.2; this is a SEPARATE
 `flyway repair` requirement, not already covered by the V1.1.1 note above.** Welle V1.1.2
 (`V5__social_post_boost.sql`) edits `V1__baseline.sql`'s `ltr_ledger_entry.entry_type` `CHECK`
 constraint a second time, adding `'SOCIAL_POST_BOOST'` to the same literal list V1.1.1 widened for
 `'SOCIAL_POST_STAKE'`. Same mechanism, same consequence: `V1`'s on-disk checksum no longer matches
-whatever `pdv2`'s `flyway_schema_history` recorded the last time `V1` was validated, so
+whatever `PROD_HOST`'s `flyway_schema_history` recorded the last time `V1` was validated, so
 `flyway migrate` fails validation before `V5` (or any later migration) ever runs. `flyway repair`
 must run again immediately before this wave's deploy, even if V1.1.1's own repair already happened
 on an earlier deploy — each in-place `V1__baseline.sql` edit is its own checksum change and needs
@@ -6323,7 +6422,7 @@ its own repair step, they do not accumulate into a single fix.
 **Correction to the `v0.13.0` entry below**: "no `flyway repair` needed, `V3` is a new file, not a
 checksum change to an already-applied one" (under that entry's own Operator notes) is inaccurate —
 that wave's `V1__baseline.sql` edit (English `CHECK` literal set) changes `V1`'s checksum exactly
-like this wave's does. If `pdv2` has already deployed `v0.13.0` successfully, its
+like this wave's does. If `PROD_HOST` has already deployed `v0.13.0` successfully, its
 `flyway_schema_history` was presumably already repaired or reconciled at that time (worth confirming
 before this wave's deploy); if not, both checksum changes need reconciling together.
 
@@ -6457,16 +6556,16 @@ unverified (a version bump — clients must re-fetch it via `getGuestJoinInfo`).
 
 ### Operator notes
 
-**pdv2 — Flyway `V3__member_status_english_and_friend.sql` required before this wave can deploy
+**PROD_HOST — Flyway `V3__member_status_english_and_friend.sql` required before this wave can deploy
 there.** `V1__baseline.sql` was edited in place (English `CHECK` literal set + `FRIEND` +
 `friend_since`/`email_verified_at`/the two new FRIEND tables) **and** a genuinely new, idempotent
 `V3` migration ships alongside it, rewriting any existing German-valued `member.status` rows on an
-already-migrated database. A plain `flyway migrate` on `pdv2`'s next deploy picks it up — no
+already-migrated database. A plain `flyway migrate` on `PROD_HOST`'s next deploy picks it up — no
 `flyway repair` needed, `V3` is a new file, not a checksum change to an already-applied one.
 **This migration rewrites live production rows** (unlike `V2`, which only added columns) — take a
 `pg_dump` of the `member` table before deploying. The `DROP CONSTRAINT IF EXISTS
 member_status_check` step targets PostgreSQL's auto-naming convention for the pre-rename baseline's
-unnamed `CHECK` constraint — run `\d member` on `pdv2` before the deploy to confirm that name is
+unnamed `CHECK` constraint — run `\d member` on `PROD_HOST` before the deploy to confirm that name is
 actually what's there.
 
 ### Fixed
@@ -6505,13 +6604,13 @@ service names, and `redis` gained a `127.0.0.1:6379:6379` loopback-only port pub
 host-networked `egress` can still reach it (verified externally unreachable, no new exposure).
 `ConferenceStreamLayout.SINGLE_PARTICIPANT` (SDK-based, never launches Chrome) was unaffected by any
 of this throughout -- confirmed as a genuinely fast way to isolate "is this a Chrome-specific
-problem" the next time a Room-Composite regression shows up. Verified live on pdv2: `egress` reaches
-`159.195.38.47:7881` directly now, and `127.0.0.1:6379`/`127.0.0.1:7880` for redis/livekit.
+problem" the next time a Room-Composite regression shows up. Verified live on PROD_HOST: `egress` reaches
+`PROD_HOST`'s public IP (${LAPIS_PUBLIC_IP}) on port 7881 directly now, and `127.0.0.1:6379`/`127.0.0.1:7880` for redis/livekit.
 
 **Wave 3 GRID/SPEAKER egress ("Galerie"/"Sprecher" layouts) never actually worked in production**
 
 Every attempt at a `GRID`/`SPEAKER` external RTMP stream aborted with `"Start signal not received"`
-(code 412) -- confirmed live on pdv2, 2026-08-15. Root cause: the shared `egress` service's default
+(code 412) -- confirmed live on PROD_HOST, 2026-08-15. Root cause: the shared `egress` service's default
 64MB `/dev/shm` (Docker's own default, never overridden) is far too small for Chrome's
 renderer/GPU buffers; Chrome loads and runs but the render pipeline never reaches a ready state, so
 egress waits out its own startup timeout and aborts. Fixed by adding `shm_size: '1gb'` to the
@@ -6531,7 +6630,7 @@ so a future session doesn't chase DNS/network reachability again. `ConferenceStr
 (Chrome-free, SDK-based) was unaffected throughout and is now documented as the fastest way to
 isolate a Chrome-specific regression from the rest of the pipeline.
 
-Also fixed live on pdv2: the shared `lapis-egress-output` named volume was owned `lapiscloud:lapiscloud`
+Also fixed live on PROD_HOST: the shared `lapis-egress-output` named volume was owned `lapiscloud:lapiscloud`
 (the `lapis-server` container's UID/GID) with `755` permissions -- the `egress` container's own
 non-root user (a different UID, GID 0) could create nothing inside it, so every recording attempt
 failed with `mkdir /out/<uuid>/: permission denied`. Fixed by `chgrp 0` + `chmod 2775` (setgid) on
@@ -6553,19 +6652,19 @@ same screen, which delayed diagnosis. Fixed: `docker-compose.yml` now hardcodes
 `LAPIS_STREAMING_ENABLED: "true"` and requires `LAPIS_SECRET_ENCRYPTION_KEY` from `.env`;
 `.env.example`/`README.adoc` document the new key (`openssl rand -base64 32`, a AES-256-GCM key
 distinct from the LiveKit/TURN secrets, used by `SecretBox` to encrypt RTMP stream keys at rest).
-Deployed live on pdv2 (2026-08-15): key generated, `.env` updated, `lapis-server` recreated,
+Deployed live on PROD_HOST (2026-08-15): key generated, `.env` updated, `lapis-server` recreated,
 verified via container env + startup logs, both domains still 200.
 
 ### Changed
 
-**pdv2's reverse proxy migrated from Apache to Caddy**
+**PROD_HOST's reverse proxy migrated from Apache to Caddy**
 
 `deploy/production/README.adoc` documents Caddy as the reference reverse proxy: automatic HTTPS
 (no more manual certbot/vhost bookkeeping) and `reverse_proxy` detects and proxies WebSocket
 upgrades on its own, replacing Apache's `mod_proxy_wstunnel` + `RewriteCond %{HTTP:Upgrade}` dance.
-Live-migrated on pdv2 with a ~90s downtime window during the actual cutover, fresh Let's Encrypt
-certificates obtained by Caddy's own ACME client for both `pzb.parteidervernunft.de` and
-`video.parteidervernunft.de`. `X-Forwarded-For` behavior confirmed unchanged (Caddy appends the
+Live-migrated on PROD_HOST with a ~90s downtime window during the actual cutover, fresh Let's Encrypt
+certificates obtained by Caddy's own ACME client for both `PROD_HOST` and
+`video.PROD_HOST`. `X-Forwarded-For` behavior confirmed unchanged (Caddy appends the
 real client IP rather than trusting/replacing it, same as `mod_proxy_http` before it) -- load-bearing
 for `Application.kt`'s `useLastProxy()` posture, verified live with a forged header. Apache itself
 left installed but disabled (not purged) as a rollback path.
@@ -6747,25 +6846,25 @@ branch return value (discarded by all three callers, which re-read the row fresh
 reports the row's unchanged `statusAtAbandon` on a LiveKit failure instead of the post-write status
 its own `when` describes for a success it never actually persisted.
 
-**Operator note for `pdv2` — Flyway `V2` migration required before this wave can deploy there**:
+**Operator note for `PROD_HOST` — Flyway `V2` migration required before this wave can deploy there**:
 per this repository's now-established pattern for a live-migrated instance (see the Wave-7
 "Conference"-entry note below), `V1__baseline.sql` was edited in place (adds
 `conference_room.meeting_id` and `conference_stream.pause_reason` directly into their `CREATE
 TABLE` statements) **and** a genuine, idempotent `V2__conference_secret_ballot_stream_pause.sql`
 now ships alongside it, applying the identical diff via `ADD COLUMN IF NOT EXISTS`/`CREATE INDEX IF
-NOT EXISTS` against an already-`V1`-migrated database. `pdv2` (live since 2026-08-14, already
+NOT EXISTS` against an already-`V1`-migrated database. `PROD_HOST` (live since 2026-08-14, already
 migrated against the edited baseline) needs `V2` applied on its next deploy — a plain `flyway
 migrate` picks it up on its own; no `flyway repair` is needed, since `V2` is a genuinely new file,
 not a checksum change to an already-applied one. The one unverified detail: `V2`'s `DROP CONSTRAINT
 IF EXISTS conference_stream_status_check` targets PostgreSQL's documented auto-naming convention
-for an unnamed single-column `CHECK` — worth a `\d conference_stream` on `pdv2` before that deploy
+for an unnamed single-column `CHECK` — worth a `\d conference_stream` on `PROD_HOST` before that deploy
 to confirm the constraint name actually matches.
 
 **Proper first-admin bootstrap, closing the manual-SQL-INSERT gap**
 
 `AdminBootstrap.bootstrapFirstAdmin()` (env var `LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME`, CLI-only, same
 `bootstrapAdmin` Gradle task as before) creates the very first Member+Account row and grants ADMIN
-on a genuinely fresh deployment, closing the chicken-and-egg gap this project's own pdv2 test
+on a genuinely fresh deployment, closing the chicken-and-egg gap this project's own PROD_HOST test
 instance hit at first boot (no board yet able to approve a registration, no existing account to set
 a password on) -- previously worked around with a one-time manual SQL `UPDATE`. Refuses unless
 `member` is completely empty (never usable to inject a new ADMIN into a deployment that already has
@@ -6773,7 +6872,7 @@ real member data), and serializes concurrent invocation via a `FOR UPDATE` lock 
 `organization_settings` singleton row -- found and fixed during review: an earlier version's plain,
 unlocked empty-check would have let two concurrent invocations (e.g. a retried deploy script) both
 observe an empty table and both succeed, creating two ADMIN rows. Live-verified against the real
-pdv2 production Postgres database (correctly refuses, since that deployment already has data).
+PROD_HOST production Postgres database (correctly refuses, since that deployment already has data).
 
 **Video conferencing Wave 2 "Aufzeichnung" + Wave 3 "Externes Streaming" now live in production**
 
@@ -6801,7 +6900,7 @@ checked and logged as a WARN.
 
 ### Fixed
 
-**Obsolete PZB firewall rule and unused OpenJDK 21 removed from the pdv2 host**
+**Obsolete PZB firewall rule and unused OpenJDK 21 removed from the PROD_HOST host**
 
 The `ip saddr 159.195.38.21 tcp dport 8080 accept` nftables rule (a leftover from the pre-Docker PZB
 reverse-proxy setup, dead since that migration but left in place as harmless) is removed --
@@ -6844,12 +6943,12 @@ Language preference persists in `localStorage` and takes effect immediately (no 
 
 **Video conferencing live on the VPS 4000 test instance**
 
-Deployed and live-verified against `https://pzb.parteidervernunft.de`. Signaling subdomain is
-`video.parteidervernunft.de` (DNS + Apache vhost + Let's Encrypt cert, proxying `wss://` to
+Deployed and live-verified against `https://PROD_HOST`. Signaling subdomain is
+`video.PROD_HOST` (DNS + Apache vhost + Let's Encrypt cert, proxying `wss://` to
 LiveKit's loopback-bound port 7880 with the same WebSocket-upgrade `RewriteCond` pattern the main
 app's own vhost already used). LiveKit's ICE ports (7881/tcp, 7882/udp) and coturn (3478 +
 51000-51019/udp) verified reachable from a genuinely external network. Browser console confirmed a
-full successful connection through the whole chain: `wss://video.parteidervernunft.de` signaling
+full successful connection through the whole chain: `wss://video.PROD_HOST` signaling
 connect, LiveKit server handshake (`edition: 0, version: 1.13.5`), room join as moderator.
 
 **Video conferencing (Videokonferenzen Wave 1) in the production Docker stack**

@@ -6,13 +6,13 @@
 -- creates the widened CHECK, the FRIEND-ready columns/table, and the nullable homeserver_url, and
 -- there are no German-valued rows -- so every statement below is a no-op there (Flyway applies every
 -- unrecorded migration in one pass against a schema-history-empty database, so V3 runs immediately
--- after the already-edited V1 on every test run). On pdv2 (live since 2026-08-14, migrated against
+-- after the already-edited V1 on every test run). On PROD_HOST (live since 2026-08-14, migrated against
 -- the pre-rename baseline) it does the real work: it rewrites live production `member.status` rows.
 --
 -- **Same dual-DROP discipline as V2**: the pre-rename baseline's member.status CHECK was UNNAMED, so
 -- PostgreSQL auto-named it `member_status_check`; a freshly-created database carries the explicitly
 -- named `chk_member_status` instead. Exactly one of the two DROPs ever matches.
--- VERIFY WITH `\d member` ON pdv2 BEFORE DEPLOY.
+-- VERIFY WITH `\d member` ON PROD_HOST BEFORE DEPLOY.
 
 -- 1. Drop the constraint FIRST -- the UPDATEs below would violate the old literal set.
 ALTER TABLE member DROP CONSTRAINT IF EXISTS member_status_check;
