@@ -11,6 +11,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -136,11 +137,10 @@ import org.w3c.dom.HTMLElement
  * Every LTR amount is rendered via [ltrSpan]/[formatLtr] (`Money.kt`, design decision D2) -- never
  * hand-formatted. Donation amounts are denominated in [PriceOracleConfigDto.donationCurrency] (EUR
  * OR USD, an operator-chosen policy field, not always EUR) -- `Money.kt`'s [formatMoney] is
- * deliberately NOT reused for them, since its trailing `" €"` suffix is hardcoded and would mislabel
- * a USD amount; this file's own tiny [formatDonationAmount] (bare `"$amount $currency"`, the exact
- * same "never re-round/re-derive `Decimal.toString()`" transform as [formatMoney]/[formatLtr], just
- * parameterized by currency) is used instead, confined to this file rather than promoted into
- * `Money.kt` since no other screen in this wave handles a non-EUR/non-LTR amount.
+ * deliberately NOT reused for them, since its currency is fixed to EUR and would mislabel
+ * a USD amount; this file's [formatDonationAmount] (W6a: the same localized grouping/padding as
+ * [formatMoney]/[formatLtr] via `formatAmountDigits`, parameterized by currency, always a suffix)
+ * is used instead, so a localized LTR amount never stands next to a raw donation amount.
  */
 fun renderPriceOracleScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.ADMIN)
@@ -285,7 +285,7 @@ private fun renderConfigForm(
         panel.select(options = donationCurrencyOptions, value = config.donationCurrency, label = tr("Spendenwährung"))
 
     val anchorUnitsInput = panel.text(label = tr("Peg: Einheiten des Anker-Assets je LTR"))
-    anchorUnitsInput.value = config.anchorUnitsPerLtr.toString()
+    anchorUnitsInput.value = displayDigits(config.anchorUnitsPerLtr)
     val cacheTtlInput = panel.text(label = tr("Cache-TTL (Sekunden)"))
     cacheTtlInput.value = config.cacheTtlSeconds.toString()
     val minQuorumInput = panel.text(label = tr("Mindest-Quorum (Quellen)"))
@@ -406,7 +406,7 @@ private fun renderConfigForm(
                         "%5, Ausreißer-Schwelle %6bps, Max. Spread %7bps.",
                     anchorAssetLabel(anchorAsset),
                     donationCurrency,
-                    anchorUnitsPerLtr,
+                    formatDonationAmount(anchorUnitsPerLtr, ""),
                     cacheTtl,
                     minQuorum,
                     outlierThreshold,
@@ -1088,9 +1088,8 @@ private fun renderConversionResult(
 // ================================================================================================
 
 /**
- * See file KDoc "Every LTR amount ... Donation amounts ...": bare `"$amount $currency"`, no
- * re-rounding/re-deriving of `Decimal.toString()`, the currency-parameterized sibling of
- * `Money.kt`'s [formatMoney] (hardcoded to EUR) -- an empty [currency] renders just the bare number
+ * See file KDoc "Every LTR amount ... Donation amounts ...": localized like `Money.kt`'s [formatMoney] (W6a), no
+ * re-rounding of the digits, the currency-parameterized sibling of it (hardcoded to EUR) -- an empty [currency] renders just the bare number
  * (used for the unit-less peg / anchor-price-without-a-clear-single-unit displays above).
  *
  * `internal` (not `private`) so [PriceOracleScreenTest] can cover it directly, same reasoning as
@@ -1099,7 +1098,7 @@ private fun renderConversionResult(
 internal fun formatDonationAmount(
     amount: Decimal,
     currency: String,
-): String = if (currency.isBlank()) "$amount" else "$amount $currency"
+): String = formatAmountDigits(displayDigits(amount), currency.trim(), moneyLocale(I18n.language))
 
 /** [typeBadge] grammar (`StatusBadge.kt`): a fixed classification, does not progress -- covers every [AnchorAsset] literal. */
 fun anchorAssetLabel(asset: AnchorAsset): String =

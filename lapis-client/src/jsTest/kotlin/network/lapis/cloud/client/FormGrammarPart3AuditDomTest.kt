@@ -313,12 +313,14 @@ class FormGrammarPart3AuditDomTest {
                     element().buttonNamed("Direkt buchen").click()
                     delay(80)
                     val dialog = lastOpenModal().textContent.orEmpty()
-                    val amountInStrip = Regex("Soll (\\S+ €)").find(strip)?.groupValues?.get(1)
+                    val amountInStrip = Regex("Soll (\\S+\u00A0€)").find(strip)?.groupValues?.get(1)
                     assertNotNull(amountInStrip, "the strip shows the debit sum: $strip")
                     assertEquals(
-                        "100.5 €",
+                        "100,50$NBSP€",
                         amountInStrip,
-                        "the strip uses the app's money format ('100.5 €'), not a second one ('100,50 €')",
+                        // W6a: the app's ONE money format is now the localized one ("100,50 €"); the intent of this test is unchanged:
+                        // strip and confirmation dialog write the amount the same way, not two formats in one booking flow.
+                        "the strip uses the app's money format ('100,50 €'), not a second one",
                     )
                     assertTrue(dialog.contains(amountInStrip), "the confirmation dialog writes the same amount the same way: $dialog")
                 }

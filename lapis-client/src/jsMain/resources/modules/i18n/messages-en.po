@@ -15226,3 +15226,7 @@ msgstr "Weight history"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Keine aktiven Räume. Blenden Sie inaktive Räume ein, um alle Räume zu sehen."
 msgstr "No active rooms. Show inactive rooms to see all rooms."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
+msgid "Die Summe der Buchungszeilen kann nicht exakt berechnet werden."
+msgstr "The sum of the posting lines cannot be calculated exactly."

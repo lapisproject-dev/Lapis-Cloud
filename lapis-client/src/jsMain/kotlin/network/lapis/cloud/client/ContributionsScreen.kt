@@ -164,7 +164,14 @@ private fun renderOwnContributions(
     onReliefChanged: () -> Unit,
 ) {
     val summary = data.summary
-    content.div(gettext("Offen: %1 | Bezahlt: %2 | Gesamt: %3", summary.totalOpen, summary.totalPaid, summary.totalDue))
+    content.div(
+        gettext(
+            "Offen: %1 | Bezahlt: %2 | Gesamt: %3",
+            formatMoney(summary.totalOpen),
+            formatMoney(summary.totalPaid),
+            formatMoney(summary.totalDue),
+        ),
+    )
     // Welle V1.4.4.1 "Beitragshistorie" -- der zweite von zwei Einstiegen in
     // MemberFinancialHistoryScreen.kt (der erste ist der Roster-Button in
     // MemberAdministrationScreen.kt). memberFinancesRoute(null) -> die eigene Historie.
@@ -201,7 +208,12 @@ private fun ownContributionColumns(blockingRequest: ContributionReliefRequestDto
         textColumn(title = tr("Zeitraum"), primary = true) { contribution: ContributionDto ->
             gettext("%1 bis %2", contribution.periodStart, contribution.periodEnd)
         },
-        textColumn(title = tr("Betrag"), numeric = true) { contribution: ContributionDto -> contribution.amountDue.toString() },
+        DataColumn(title = tr("Betrag"), numeric = true, cell = {
+            cell,
+            contribution: ContributionDto,
+            ->
+            cell.moneySpan(contribution.amountDue)
+        }),
         // Jobs' Nebenbefund (Punkt 8): ein Status-Badge statt des rohen Enum-`.toString()` -- nur in
         // dieser (mit dieser Welle neu um eine Aktionen-Spalte ergänzten) Tabelle, siehe Klassen-KDoc.
         DataColumn(
@@ -524,7 +536,7 @@ private fun renderTierAdministration(root: SimplePanel) {
         }
         tiers.forEach { tier ->
             val activeLabel = if (tier.active) gettext("aktiv") else gettext("inaktiv")
-            tiersPanel.div(gettext("%1: %2 (%3, %4)", tier.name, tier.contributionAmount, tier.billingInterval, activeLabel))
+            tiersPanel.div(gettext("%1: %2 (%3, %4)", tier.name, formatMoney(tier.contributionAmount), tier.billingInterval, activeLabel))
         }
 
         val tierOptions = tiers.map { it.id to it.name }
@@ -606,7 +618,12 @@ private fun orgContributionColumns(): List<DataColumn<ContributionDto>> =
         textColumn(title = tr("Zeitraum"), numeric = true) { contribution: ContributionDto ->
             gettext("%1–%2", contribution.periodStart, contribution.periodEnd)
         },
-        textColumn(title = tr("Betrag"), numeric = true) { contribution: ContributionDto -> contribution.amountDue.toString() },
+        DataColumn(title = tr("Betrag"), numeric = true, cell = {
+            cell,
+            contribution: ContributionDto,
+            ->
+            cell.moneySpan(contribution.amountDue)
+        }),
         // Known gap (W2): the raw enum name -- the status label/colour pair used in the own table is not
         // applied here yet.
         textColumn(title = tr("Status")) { contribution: ContributionDto -> contribution.status.toString() },
@@ -706,7 +723,11 @@ private fun renderContributionActions(
             confirmDialog(
                 title = tr("Beitrag erlassen"),
                 message =
-                    gettext("Beitrag von %1 über %2 wirklich erlassen?", contribution.memberDisplayName, contribution.amountDue),
+                    gettext(
+                        "Beitrag von %1 über %2 wirklich erlassen?",
+                        contribution.memberDisplayName,
+                        formatMoney(contribution.amountDue),
+                    ),
                 confirmLabel = tr("Erlassen"),
             ) {
                 AppScope.launch {

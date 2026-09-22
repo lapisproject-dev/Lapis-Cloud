@@ -160,7 +160,7 @@ class AuditFixesMinorDomTest {
                 mountedForm("minor-ltr") { root, element ->
                     var loaded: String? = "unset"
                     root.renderMyLtrBalanceInline { loaded = it?.toString() }
-                    awaitUntil("the balance") { element().textContent.orEmpty().contains("12.5 LTR") }
+                    awaitUntil("the balance") { element().textContent.orEmpty().contains("12,50${NBSP}LTR") }
                     val host = element().querySelector("[role=status]") as HTMLElement
                     assertEquals("polite", host.getAttribute("aria-live"))
                     assertEquals("false", host.getAttribute("aria-busy"))

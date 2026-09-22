@@ -15270,3 +15270,7 @@ msgstr "Historia wagi"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Keine aktiven Räume. Blenden Sie inaktive Räume ein, um alle Räume zu sehen."
 msgstr "Brak aktywnych sal. Proszę pokazać nieaktywne sale, aby zobaczyć wszystkie sale."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
+msgid "Die Summe der Buchungszeilen kann nicht exakt berechnet werden."
+msgstr "Sumy pozycji księgowań nie można obliczyć dokładnie."

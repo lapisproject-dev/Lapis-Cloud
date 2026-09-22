@@ -72,10 +72,10 @@ class LedgerFormPart3Test {
             assertTrue(check is FieldCheck.Invalid, "'$tooBig' must be rejected")
             assertTrue(check.message.contains("zu groß"), "the message says why: ${check.message}")
             assertTrue(
-                check.message.contains("1000000000,00") || check.message.contains("1000000000 "),
+                check.message.contains("1.000.000.000,00"),
                 "names THIS field's bound: ${check.message}",
             )
-            assertFalse(check.message.contains("1000000000000"), "not the journal bound: ${check.message}")
+            assertFalse(check.message.contains("1.000.000.000.000"), "not the journal bound: ${check.message}")
         }
         for (bad in listOf("0", "-1", "3,005", "abc")) {
             assertTrue(FormRules.returnFee(bad) is FieldCheck.Invalid, "'$bad' must be rejected")
@@ -111,7 +111,7 @@ class LedgerFormPart3Test {
     @Test
     fun balanceProblem_namesTheDifference_andCountsInWholeCents() {
         val unbalanced = journalPostingBalanceProblem(listOf(posting(PostingSide.DEBIT, 100.0), posting(PostingSide.CREDIT, 90.0)))!!
-        assertTrue(unbalanced.contains("10 €"), unbalanced)
+        assertTrue(unbalanced.contains("10,00$NBSP€"), unbalanced)
         // 33.33 + 33.33 + 33.34 = 100.00 -- a Double sum is 99.99999999999999 or 100.00000000000001, the cent sum is exact.
         val balanced =
             journalPostingBalanceProblem(
@@ -135,11 +135,11 @@ class LedgerFormPart3Test {
     @Test
     fun balanceText_sumsPerSide_andShowsTheAbsoluteDifference() {
         assertEquals(
-            "Soll 1200 € · Haben 900 € · Differenz 300 €",
+            "Soll 1.200,00$NBSP€ · Haben 900,00$NBSP€ · Differenz 300,00$NBSP€",
             postingBalanceText(listOf("1200", "900"), listOf(PostingSide.DEBIT, PostingSide.CREDIT)),
         )
         assertEquals(
-            "Soll 100 € · Haben 250.5 € · Differenz 150.5 €",
+            "Soll 100,00$NBSP€ · Haben 250,50$NBSP€ · Differenz 150,50$NBSP€",
             postingBalanceText(listOf("100", "250,5"), listOf(PostingSide.DEBIT, PostingSide.CREDIT)),
             "the difference is never negative",
         )
@@ -162,7 +162,7 @@ class LedgerFormPart3Test {
         assertEquals(dashes, postingBalanceText(listOf("2000000000000", "2000000000000"), sides))
         assertEquals(dashes, postingBalanceText(listOf("10", "1000000000000,01"), sides))
         assertEquals(
-            "Soll 1000000000000 € · Haben 1000000000000 € · Differenz 0 €",
+            "Soll 1.000.000.000.000,00$NBSP€ · Haben 1.000.000.000.000,00$NBSP€ · Differenz 0,00$NBSP€",
             postingBalanceText(listOf("1000000000000", "1000000000000"), sides),
             "the bound itself is still summed",
         )
@@ -176,7 +176,7 @@ class LedgerFormPart3Test {
     @Test
     fun balanceText_addsInWholeCents_notInFloatingPoint() {
         assertEquals(
-            "Soll 0.3 € · Haben 0 € · Differenz 0.3 €",
+            "Soll 0,30$NBSP€ · Haben 0,00$NBSP€ · Differenz 0,30$NBSP€",
             postingBalanceText(listOf("0,1", "0,2"), listOf(PostingSide.DEBIT, PostingSide.DEBIT)),
         )
     }

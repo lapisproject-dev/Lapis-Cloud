@@ -35,7 +35,7 @@ It is a pure client wave: no RPC, DTO, table or migration.
 | Below 768 px (`CARD_LIST_BREAKPOINT_PX`, media query `(max-width: 767.98px)`) a `dataTable` renders a card list. The only new breakpoint.
 
 | Numbers
-| Numeric columns are right-aligned with tabular figures (`.lapis-num`) on `th` and `td`. A date that identifies a row (the primary column) stays left.
+| Numeric columns are right-aligned with tabular figures and `white-space: nowrap` (`.lapis-num`) on `th` and `td`. A date that identifies a row (the primary column) stays left. Amounts are localized (grouping, decimal separator, currency position per UI language) and use the display minus U+2212 -- see wave W6a.
 
 | Sorting
 | A native `button` in the `th`, `aria-sort` on exactly one column, tooltip = next action, `aria-label` = current state once sorted. The idle icon is `fa-sort` in `--lapis-muted`, never a dimmed opacity (WCAG 1.4.11).
@@ -887,7 +887,7 @@ items in the second and third table, fixed in the same wave.
 | `focusOn` and `watch` name the `<input>`; tested (focus, and the collective message clears on `change`).
 
 | M3 Two money formats in the booking workflow
-| The strip uses `formatMoney`; a test compares strip and confirmation dialog. The global `formatMoney` is deliberately unchanged.
+| The strip uses `formatMoney`; a test compares strip and confirmation dialog. Since W6a the global `formatMoney` is localized and pads to two places, so both agree by construction.
 
 | M4 The bank-account IBAN had no rule
 | IBAN (mod 97, all whitespace stripped like `IbanValidator.normalize`, no country list -- never stricter than the server) and BIC (the
@@ -1109,7 +1109,7 @@ of the same wave; nothing here is a new version. The list (finding -> fix -> tes
 | M11 -- ratchet too narrow | windowed detector + ledger (9 sites in the conference, 2 in the background section); the PIN fields moved to `Widget.setAttribute` (the conference banners did not: no test path for the live call) | `ClientLateHookRatchetTest`
 |===
 
-Deliberately not changed: 28 orphaned msgids without a source location (pre-existing), `formatLtr` (raw format), the `FormRules` limits (constant
+Deliberately not changed: 28 orphaned msgids without a source location (pre-existing), `formatLtr` (raw format; localized later, in W6a), the `FormRules` limits (constant
 comparisons, no floating-point noise), the rest of `applyPanelVisibility` beyond the guard.
 
 == Rule precedence: attributes and `gettext`
@@ -1121,6 +1121,84 @@ The guideline (section 2.14) says `tr()` only as widget content and, for attribu
 KVision's `###KvI18nS###` marker into the DOM. `ClientTrAttributeLeakTest` sees only the direct case; helpers that
 receive a `tr()` string and set an attribute (`tableActionTooltip`, `segmentedControl`, `sortButtonTexts`) resolve it
 through `resolvedAttributeText` (marker stripped AND translated).
+
+== Wave W6a "Localized and exact amounts"
+
+A client-only wave (no server production code, no `lapis-shared` change, no migration: `git diff master --stat -- lapis-server/src/main lapis-shared db/migration`
+is empty). It pays the W4c debt "`formatMoney` and `sumPostingLines` add `Double` values" and revises decision D5.
+
+=== D5 revised -- and why
+
+D5 (Accounting UI wave) said: `Decimal.toString()`'s digits are never touched -- no thousands separator, no decimal comma, no padding -- so a
+displayed figure can never diverge from what the server computed. That protected the digits and produced a display nobody can audit:
+`1234.5 €` is not readable for a treasurer, and `1234.5600000000001` (double noise) is a loss of trust right before an irreversible booking.
+D5 falls; the protection of the digits is kept differently:
+
+* The transform is pure STRING arithmetic (`groupDecimalDigits`): the integer part is grouped from the right, the fraction is padded to two places
+  when shorter and left completely untouched when longer. A genuine sub-cent value is never rounded (`12.345` shows as `12,345 €`). No `Double` is
+  involved, so no magnitude loses a digit (`1e21` keeps all 22 digits).
+* **No `Intl.NumberFormat`, `toLocaleString` or `toFixed`.** They round to two places by default (`12.345` would silently become `12,35` -- the very failure D5
+  meant to prevent) and depend on the browser's ICU version, which would make the golden tests flaky. Tripwire M1 keeps them out.
+* Sums are exact (`sumExact`, `scaledUnitsOf`, `centsToDecimal`): the cleaned digit strings are added as integers at a common scale (at most 9);
+  the result is turned back into a `Decimal` only if `displayDigits` maps it to exactly the same string, otherwise the call fails loudly.
+  The posting confirmation dialog can no longer show `1234.5600000000001`.
+
+=== Locale table
+
+The eight UI languages; the group separator is U+00A0 (never U+202F); an unknown language, or `de-DE`-style regional tag, falls back to the base tag or German.
+
+[cols="1,2,1"]
+|===
+| Language | Example for 1234.5 | Euro sign
+
+| `de`, `es`, `it` | `1.234,50 €` | after
+| `en` | `€1,234.50` | before, no gap
+| `nl` | `€ 1.234,50` | before
+| `fr`, `pl`, `ru` | `1 234,50 €` (U+00A0 group separator) | after
+|===
+
+The minus is U+2212 and stands first, also in front of a prefix euro sign (`−€1,234.50`). Zero is `0,00 €`, never signed.
+`LTR` (and a donation currency such as `USD`) is always a suffix after U+00A0 in every language: a prefixed "LTR" would be an invented convention,
+the prefix is a euro-sign convention. LTR is localized too (`formatLtr`), so a screen never shows a localized LTR amount next to a raw one.
+
+=== Display versus machine-readable
+
+Everything above is DISPLAY. What prefills a field or is compared against an entered amount (`displayDigits`, `displayAmountValue`,
+`exceedsDisplayedAmount`) stays ASCII, dot-decimal and ungrouped (audit fix M3) -- a formatted amount is never parsed back. Tripwire M2 keeps
+U+2212 out of values. Callers fall in three classes: (A) widget content (`moneySpan`, `ltrSpan`, `ReportCell.Money`/`Ltr`) -- live; (B) `gettext`
+arguments -- plain `formatMoney`, frozen at the language of the moment; (C) machine-readable -- unchanged.
+
+=== Live language switch
+
+`I18n.language`'s setter restarts the root, which re-renders the EXISTING widget tree; it does not re-run the screen build, so a plain string
+keeps its text. Widget-content amounts are therefore a `moneyToken`/`ltrToken`: a `###KvI18nS###` marker string with a control-character sentinel
+(U+0002), a kind letter and the cleaned digits, resolved by `I18nCatalogManager.gettext` on every render -- the mechanism `trFormat` already uses. Rules:
+
+* Never concatenate a token into another string (marker leak, audit V1.4.30); pass it as a `trFormat` argument or as a widget's whole content (tripwire M3).
+* The sentinel is not typeable, and the formatter fails closed: an unknown kind returns the raw digits, never an exception, never `eval`.
+* `ltrSpan` keeps its `◆` glyph inside the token, so the token stays atomic.
+* One formatter: a second `" €"` / `" LTR"` literal outside `Money.kt` is a defect (tripwire M4).
+
+=== Callers changed
+
+`feeBound` (it hard-coded a German comma), `formatDonationAmount` (EUR/USD/none, same transform), `OpenItemDialogs` "Offen: %1" and "Höchstens verrechenbar: %1"
+(now `trFormat` with a token), `moneyFromCents` (its KDoc claimed the global format was deliberately unchanged -- rewritten). `theme.css`: `.lapis-num`
+gets `white-space: nowrap`, which also applies to the IBAN and date columns of `SepaMandatesScreen`; `.table-responsive` absorbs the width (the table scrolls, never the page).
+
+=== W6a audit round (same wave, not a new version)
+
+* `ContributionsScreen` (own and organisation tables): the "Betrag" column rendered `amountDue.toString()`; it is now a `moneySpan` cell. New tripwire M5 forbids a
+  bare `.toString()` on a money-named `Decimal` outside `Money.kt`.
+* Unit-less amounts have their own display kinds, both live-translatable tokens: `MONEY_KIND_PLAIN` (`plainAmountSpan`, grouped and padded to two places -- the combined
+  trust weight) and `MONEY_KIND_COUNT` (`countSpan`, grouped, never padded -- the guest trust weight, which is a whole vote count by definition, so it reads like the raw
+  like/dislike counts next to it). There is deliberately no public plain-string form of these two: `plainAmountSpan`/`countSpan` are the only entry points (the `*In` seams are internal, for tests), so a count cannot be padded to `3,00` by accident. Amounts that go into a `gettext(...)` message use `formatMoney(...)` and freeze at the language of the moment; tripwire M6 rejects a raw `Decimal` there.
+
+=== Not done in this wave
+
+* The manual browser and screen-reader check at 375 / 767 / 768 / 1440 px, light and dark, was NOT done.
+* Sub-cent values deliberately break the decimal alignment of a column (`12,345` next to `12,30`); rounding them would hide a real figure.
+* `MotionsScreen` still bakes " LTR" into three strings (`"%1 LTR"`, `"Ihr Gebot: %1, %2 LTR"`, one string template); fixing them changes msgids in all eight catalogs.
+  Tripwire M4 holds the count as a ledger (`MOTIONS_SCREEN_LEDGER`, only ever lowered).
 
 == Known gaps
 
@@ -1140,8 +1218,6 @@ through `resolvedAttributeText` (marker stripped AND translated).
   unlimited, and a draft with an amount between 10^12 and about 10^13 cannot be booked any more.
 * W4c: **W4d runs on the old grammar** -- the screens named under "Not done in this wave" of section W4c, with their numbers. R24 is
   166 (31 files), R24B 80; R29 stays 39.
-* W4c: `formatMoney` and `sumPostingLines` still add `Double` values (the posting confirmation dialog can show `1234.5600000000001`
-  as its sum); only the balance strip and the balance check count in whole cents. Named, not fixed.
 * W4c: the header row of the posting lines is an `aria-hidden` flex row above the block, not a `<table>` with `headers=`; if it does not
   sit cleanly over the controls at 375/767/768/1440 px in a manual check the alternative is a real table -- a third grammar addition
   that needs a decision of its own. (The manual browser check at those widths, light and dark, has NOT been done by the
@@ -1170,7 +1246,7 @@ through `resolvedAttributeText` (marker stripped AND translated).
   grammar reaches 32 screens and dialogs (11 in W4a, 11 in W4b, 10 in W4c; two more W4c screens hold only filters and guarded
   actions); 166 labelled text fields (R24) and 80 labelled choice fields (R24B) remain in 31 files (W4d and the areas named above).
 * W4a: an error message set from `gettext(...)` follows a language switch only at the next check (it is an imperatively
-  set text); labels, legends and hints (`tr(...)`) follow immediately.
+  set text, and so are the amounts inside it); labels, legends and hints (`tr(...)`) and widget-content amounts (W6a tokens) follow immediately.
 * W4a: `autocomplete="off"` on a password field is browser dependent; the password-manager attributes are a request, not
   a guarantee.
 * W4a: R28 (exactly one `PRIMARY` per form) stays a check by eye -- it is not testable per form from text.
@@ -1191,7 +1267,7 @@ through `resolvedAttributeText` (marker stripped AND translated).
 * Download links inside table rows (dunning notice PDF, pain.008) are still labelled text and drive up the row
   height (R38); `tableActionButton` produces a `button`, a download needs a real `a[href]`.
 * The card list has no sort controls -- the order chosen on a wide screen stays.
-* `ContributionsScreen`: amounts are not formatted with `moneySpan`, the organisation table shows the raw status enum,
+* `ContributionsScreen`: amounts are formatted (W6a: table column via `moneySpan`, header line, tier list and waive dialog via `formatMoney`); the organisation table shows the raw status enum,
   text buttons remain in action cells, the 760 px root remains -- NOT closed by W2 (that wave covered the eleven
   files with a non-compliant raw `table(` call; `ContributionsScreen` was already on `dataTable` since W1).
 * `MemberAdministrationScreen.kt`'s literals without a catalog entry (old R51 debt) were translated in W4b (see there); `UiFoundationI18nCatalogTest` still does not scan the file as a whole, `FormGrammarPart2I18nCatalogTest` does.

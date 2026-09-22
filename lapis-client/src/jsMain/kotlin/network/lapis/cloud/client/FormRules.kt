@@ -202,5 +202,5 @@ object FormRules {
 /** "Die Gebühr muss zwischen 0,00 € und [max] liegen." -- die Grenzen als Platzhalter, nie im `msgid`. */
 internal fun feeRangeMessage(max: Double): String = gettext("Die Gebühr muss zwischen %1 und %2 liegen.", feeBound(0.0), feeBound(max))
 
-/** "25,00 €" -- zwei Nachkommastellen, Dezimalkomma wie im Rest der Oberfläche ([formatMoney] hängt nur ein " €" an). */
-internal fun feeBound(amount: Double): String = "${amount.asDynamic().toFixed(2).unsafeCast<String>().replace('.', ',')} €"
+/** "25,00 €" -- derselbe lokalisierte Formatierer wie überall ([formatMoney], W6a); ein Betrag mit weniger als zwei Stellen wird aufgefüllt. */
+internal fun feeBound(amount: Double): String = formatMoney(amount.toDecimal())

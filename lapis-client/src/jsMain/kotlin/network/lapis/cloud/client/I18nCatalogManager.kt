@@ -36,6 +36,8 @@ class I18nCatalogManager(
         key: String,
         vararg args: Any?,
     ): String {
+        // W6a: an amount token (see [moneyToken]) is formatted for the current language, never looked up. First, so no other branch sees it.
+        if (key.startsWith(MONEY_SENTINEL)) return formatMoneyToken(key)
         // A composed key (see [trFormat]): KVision hands the WHOLE marker-stripped string to `gettext` with no
         // arguments, so the arguments travel inside the key.
         if (args.isEmpty() && key.contains(I18N_ARG_SEPARATOR)) return composed(key)

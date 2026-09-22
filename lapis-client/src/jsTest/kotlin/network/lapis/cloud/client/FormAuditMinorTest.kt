@@ -58,7 +58,7 @@ class FormAuditMinorTest {
             assertTrue(text.contains("25,00"), "the bound of the fee field must be named: $text")
             assertFalse(text.contains("1000000000"), "the booking-amount limit must not surface for a fee: $text")
         }
-        assertEquals("Die Gebühr muss zwischen 0,00 € und 25,00 € liegen.", message(FormRules.optionalFee("25,01", 25.0)))
+        assertEquals("Die Gebühr muss zwischen 0,00$NBSP€ und 25,00$NBSP€ liegen.", message(FormRules.optionalFee("25,01", 25.0)))
     }
 
     @Test

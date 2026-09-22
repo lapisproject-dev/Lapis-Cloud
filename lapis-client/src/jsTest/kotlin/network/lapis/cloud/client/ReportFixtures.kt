@@ -169,7 +169,7 @@ internal val useOfFunds =
 
 /**
  * A large amount with more decimals than a cent (audit H): the old renderers printed `"$amount €"` -- every digit, no
- * separator, no rounding -- and the tables must too. One single fiscal year (`years = listOf(oneYear)`), the shape in
+ * rounding -- and the tables must keep every digit too (W6a groups the integer part, nothing else). One single fiscal year (`years = listOf(oneYear)`), the shape in
  * which the zip of years and rows of the use-of-funds screen has exactly one element.
  */
 internal val bigSingleYearUseOfFunds =

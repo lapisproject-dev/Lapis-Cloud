@@ -415,7 +415,7 @@ class AuditFixesM1M2M3DomTest {
                         onDone = {},
                     )
                     val modal = lastOpenModal()
-                    assertTrue(modal.textContent.orEmpty().contains("Offen: 100 €"), "the headline shows the cleaned amount")
+                    assertTrue(modal.textContent.orEmpty().contains("Offen: 100,00$NBSP€"), "the headline shows the cleaned amount")
                     assertEquals(
                         "100",
                         (modal.controlOf("Betrag in EUR") as HTMLInputElement).value,
@@ -432,7 +432,7 @@ class AuditFixesM1M2M3DomTest {
                     modal.buttonNamed("Ausgleichen …").click()
                     delay(80)
                     assertTrue(
-                        modal.shownErrors().any { it.contains("offenen Betrag (100 €)") },
+                        modal.shownErrors().any { it.contains("offenen Betrag (100,00$NBSP€)") },
                         "a cent more is still rejected: ${modal.shownErrors()}",
                     )
                 }

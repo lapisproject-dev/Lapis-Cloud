@@ -1510,22 +1510,24 @@ private fun amountTextCents(text: String): Long? {
     // Ein Betrag über der Obergrenze ist ungültig (das Feld zeigt den Fehler) und darf nie in eine Summe eingehen -- sonst sättigt
     // `centsOf` bei 1.0E20 auf Long.MAX_VALUE und der Streifen behauptete einen ausgeglichenen Saldo mit einer erfundenen Zahl.
     if (FormRules.postingAmount(text) !is FieldCheck.Ok) return null
-    return (parseAmountInput(text, allowZero = false, enforceMaxAmount = false) as? AmountInput.Valid)?.let { centsOf(it.value.toDouble()) }
+    return (parseAmountInput(text, allowZero = false, enforceMaxAmount = false) as? AmountInput.Valid)?.let { centsOf(it.value) }
 }
 
 /**
  * `Decimal` ist auf JS ein `Double`: `0.1 + 0.2` ergibt `0.30000000000000004`. Summen und Vergleiche laufen deshalb in ganzen Cent
- * (jeder Betrag hat höchstens zwei Nachkommastellen, siehe [FormRules.postingAmount]); erst die Anzeige geht zurück zu Euro.
+ * (jeder Betrag hat höchstens zwei Nachkommastellen, siehe [FormRules.postingAmount]), STRING-basiert über [scaledUnitsOf]; erst die
+ * Anzeige geht zurück zu Euro. Nur für einen ungültigen Betrag mit mehr als zwei Nachkommastellen (den das Formular ohnehin
+ * ablehnt) rundet der Rückfall auf ganze Cent.
  */
-private fun centsOf(amount: Double): Long = kotlin.math.round(amount * 100.0).toLong()
+private fun centsOf(amount: Decimal): Long = scaledUnitsOf(amount, 2) ?: kotlin.math.round(amount.toDouble() * 100.0).toLong()
 
 /**
- * Ganze Cent als Geldtext -- über [formatMoney], dasselbe Format wie der Bestätigungsdialog und die Journaltabelle ("100.5 €", ohne
- * Auffüllung auf zwei Stellen, Dezimalpunkt): IM SELBEN Buchungsablauf gilt EIN Format (Audit V1.4.30, M3). Vorher stand im Saldostreifen
- * "1200,00 €" und im Bestätigungsdialog "1200 €". Das globale [formatMoney] ist bewusst NICHT geändert (bekannte Lücke der ganzen
- * Oberfläche, würde die Golden-Tests der Berichte kippen). Die Summe läuft trotzdem in ganzen Cent; erst die Anzeige geht zu Euro.
+ * Ganze Cent als Geldtext -- über [formatMoney], dasselbe Format wie der Bestätigungsdialog und die Journaltabelle: IM SELBEN
+ * Buchungsablauf gilt EIN Format (Audit V1.4.30, M3). Seit W6a formatiert das globale [formatMoney] lokalisiert und auf zwei Stellen
+ * aufgefüllt ("1.200,00 €"), Saldostreifen und Bestätigungsdialog stimmen also von selbst überein. Die Summe läuft in ganzen Cent
+ * ([centsToDecimal] ist die einzige Brücke zurück).
  */
-internal fun moneyFromCents(cents: Long): String = formatMoney((cents / 100.0).toDecimal())
+internal fun moneyFromCents(cents: Long): String = formatMoney(centsToDecimal(cents))
 
 /**
  * Reine Anzeige unter dem Zeilenblock (V1.4.30, W4c): "informieren, nicht sperren". **Nie eine alte Summe**: sobald irgendein
@@ -1567,7 +1569,7 @@ internal fun journalPostingBalanceProblem(postings: List<PostingInput>): String?
     if (debitLines.isEmpty() || creditLines.isEmpty()) {
         return gettext("Eine Buchung braucht mindestens eine Sollzeile und eine Habenzeile.")
     }
-    val difference = debitLines.sumOf { centsOf(it.amount.toDouble()) } - creditLines.sumOf { centsOf(it.amount.toDouble()) }
+    val difference = debitLines.sumOf { centsOf(it.amount) } - creditLines.sumOf { centsOf(it.amount) }
     if (difference != 0L) {
         return gettext("Soll und Haben stimmen nicht überein (Differenz %1).", moneyFromCents(kotlin.math.abs(difference)))
     }
@@ -2238,7 +2240,7 @@ private fun postingInputsToDisplay(
 internal fun sumPostingLines(
     lines: List<PostingLineDisplay>,
     side: PostingSide,
-): Decimal = lines.filter { it.side == side }.sumOf { it.amount.toDouble() }.toDecimal()
+): Decimal = sumExact(lines.filter { it.side == side }.map { it.amount })
 
 /**
  * The Soll/Haben table of the posting confirmation as a [reportTable]: the treasurer sees the actual postings,
@@ -2259,12 +2261,23 @@ internal fun renderPostingConfirmTable(
             if (showVatColumn) add(TableHeader(title = tr("USt")))
         }
     val report = container.reportTable(caption = tr("Buchungszeilen"), headers = headers)
+    // sumExact fails loud on unrepresentable amounts; show the failure instead of a silent no-op click.
+    val sums =
+        try {
+            sumPostingLines(lines, PostingSide.DEBIT) to sumPostingLines(lines, PostingSide.CREDIT)
+        } catch (e: IllegalArgumentException) {
+            notifyError(tr("Die Summe der Buchungszeilen kann nicht exakt berechnet werden."))
+            null
+        } catch (e: IllegalStateException) {
+            notifyError(tr("Die Summe der Buchungszeilen kann nicht exakt berechnet werden."))
+            null
+        }
     val rows =
         postingConfirmRows(
             lines = lines,
             showVatColumn = showVatColumn,
-            debitSum = sumPostingLines(lines, PostingSide.DEBIT),
-            creditSum = sumPostingLines(lines, PostingSide.CREDIT),
+            debitSum = sums?.first,
+            creditSum = sums?.second,
         )
     report.reportRows(rows, headers)
 }

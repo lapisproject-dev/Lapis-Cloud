@@ -21,23 +21,24 @@ class PriceOracleScreenTest {
     private val semanticColors = setOf("primary", "secondary", "success", "danger", "warning", "info", "dark")
 
     @Test
-    fun formatDonationAmount_appendsTheCurrencyCodeVerbatim() {
-        val amount = 42.5.toDecimal()
-        assertEquals("$amount USD", formatDonationAmount(amount, "USD"))
+    fun formatDonationAmount_appendsTheCurrencyCodeAndLocalizesTheDigits() {
+        val amount = 1042.5.toDecimal()
+        assertEquals("1.042,50${NBSP}USD", formatDonationAmount(amount, "USD"))
+        assertEquals("1.042,50${NBSP}EUR", formatDonationAmount(amount, "EUR"))
     }
 
     @Test
     fun formatDonationAmount_blankCurrencyRendersTheBareNumberOnly() {
         val amount = 42.5.toDecimal()
-        assertEquals("$amount", formatDonationAmount(amount, ""))
+        assertEquals("42,50", formatDonationAmount(amount, ""))
     }
 
     @Test
     fun formatDonationAmount_preservesANegativeSignVerbatim() {
         val amount = (-3.0).toDecimal()
         val formatted = formatDonationAmount(amount, "EUR")
-        assertTrue(formatted.startsWith("-"), "expected the server-controlled leading '-' preserved verbatim, got \"$formatted\"")
-        assertTrue(formatted.endsWith(" EUR"), "expected the ' EUR' suffix, got \"$formatted\"")
+        assertTrue(formatted.startsWith(MINUS), "expected the display minus, got \"$formatted\"")
+        assertTrue(formatted.endsWith("${NBSP}EUR"), "expected the ' EUR' suffix, got \"$formatted\"")
     }
 
     @Test

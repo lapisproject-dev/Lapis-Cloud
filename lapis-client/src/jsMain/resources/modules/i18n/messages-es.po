@@ -15298,3 +15298,7 @@ msgstr "Historial de peso"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:1
 msgid "Keine aktiven Räume. Blenden Sie inaktive Räume ein, um alle Räume zu sehen."
 msgstr "No hay salas activas. Muestre las salas inactivas para ver todas las salas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
+msgid "Die Summe der Buchungszeilen kann nicht exakt berechnet werden."
+msgstr "La suma de las líneas de asiento no se puede calcular con exactitud."

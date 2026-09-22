@@ -11,6 +11,7 @@ import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -348,7 +349,13 @@ private fun renderLineCard(
     }
     when (line.kind) {
         TravelExpenseLineKind.MILEAGE ->
-            card.div(gettext("%1 km × %2/km", line.kilometers, line.rateSnapshot?.let { "${formatMoney(it)}" } ?: "?")) {
+            card.div(
+                gettext(
+                    "%1 km × %2/km",
+                    line.kilometers?.let { formatPlainAmountIn(I18n.language, it) } ?: "?",
+                    line.rateSnapshot?.let { formatMoney(it) } ?: "?",
+                ),
+            ) {
                 addCssClasses("text-muted small")
             }
         TravelExpenseLineKind.PER_DIEM ->

@@ -167,7 +167,7 @@ class FormGrammarPart3DomTest {
                     element().fillLine(0, "a1", "DEBIT", "100,00")
                     element().fillLine(1, "a2", "CREDIT", "90,00")
                     assertEquals(
-                        "Soll 100 € · Haben 90 € · Differenz 10 €",
+                        "Soll 100,00$NBSP€ · Haben 90,00$NBSP€ · Differenz 10,00$NBSP€",
                         element()
                             .first(".lapis-balance-strip")
                             .textContent
@@ -188,7 +188,7 @@ class FormGrammarPart3DomTest {
                             .first(".lapis-form-alert")
                             .textContent
                             .orEmpty()
-                            .contains("Differenz 10 €"),
+                            .contains("Differenz 10,00$NBSP€"),
                         "the alert names the difference",
                     )
 
@@ -264,7 +264,7 @@ class FormGrammarPart3DomTest {
                     element().fillLine(0, "a1", "DEBIT", "0,1")
                     element().fillLine(1, "a2", "DEBIT", "0,2")
                     assertEquals(
-                        "Soll 0.3 € · Haben 0 € · Differenz 0.3 €",
+                        "Soll 0,30$NBSP€ · Haben 0,00$NBSP€ · Differenz 0,30$NBSP€",
                         element()
                             .first(".lapis-balance-strip")
                             .textContent
@@ -284,7 +284,7 @@ class FormGrammarPart3DomTest {
                     )
                     element().allOf("button").filter { it.textContent?.trim() == "Entfernen" }[1].click()
                     assertEquals(
-                        "Soll 0.1 € · Haben 0 € · Differenz 0.1 €",
+                        "Soll 0,10$NBSP€ · Haben 0,00$NBSP€ · Differenz 0,10$NBSP€",
                         element()
                             .first(".lapis-balance-strip")
                             .textContent

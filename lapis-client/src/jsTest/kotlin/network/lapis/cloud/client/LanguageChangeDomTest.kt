@@ -1,5 +1,7 @@
 package network.lapis.cloud.client
 
+import dev.kilua.rpc.types.toDecimal
+import io.kvision.i18n.I18n
 import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -82,6 +84,23 @@ class LanguageChangeDomTest {
                 awaitUntil("the confirm modal is shown again") { document.querySelectorAll(".modal.show").length > 0 }
                 assertNotNull(modalButton("Sprache wechseln und Besprechung beenden")).click()
                 assertEquals(1, applied, "confirming performs the switch exactly once")
+            }
+        }
+
+    @Test
+    fun aVisibleAmount_followsTheRealLanguageSwitch_withoutAScreenRebuild(): Promise<Unit> =
+        test {
+            withMountedRoot("language-change-money") { root, element ->
+                root.moneySpan(1234.5.toDecimal())
+                assertEquals("1.234,50$NBSP€", element().textContent)
+                try {
+                    // the real switch (the shell's `applyLanguage`): the setter restarts the root, the existing widgets re-render
+                    requestLanguageChange(code = "en", currentLanguage = "de", callLive = false) { I18n.language = "en" }
+                    awaitUntil("the amount is shown in English") { element().textContent == "€1,234.50" }
+                } finally {
+                    I18n.language = "de"
+                }
+                awaitUntil("the amount is back in German") { element().textContent == "1.234,50$NBSP€" }
             }
         }
 }

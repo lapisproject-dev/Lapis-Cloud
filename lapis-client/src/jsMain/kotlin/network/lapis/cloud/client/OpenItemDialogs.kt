@@ -58,7 +58,7 @@ internal fun openItemSettlementDialog(
     onDone: () -> Unit,
 ) {
     val modal = Modal(caption = gettext("Posten ausgleichen: %1", item.counterpartyName))
-    modal.div(gettext("Offen: %1", formatMoney(item.openAmount))) { addCssClasses("fw-bold mb-2") }
+    modal.div(trFormat(tr("Offen: %1"), moneyToken(item.openAmount))) { addCssClasses("fw-bold mb-2") }
     // W4c: der Ausgleich ist ein [LapisForm] (die Knöpfe stehen in der Modal-Fußleiste, deshalb `finish()`). Die Fehler stehen am
     // Feld; die Regeln sind dieselben wie vorher (Betrag > 0 und <= offener Betrag, echtes Datum, Zahlungskonto).
     val form = modal.lapisForm()
@@ -473,7 +473,7 @@ private fun renderNettingBody(
             } else {
                 ""
             }
-        maxHint.content = candidate?.let { gettext("Höchstens verrechenbar: %1", formatMoney(it.maxNettableAmount)) } ?: ""
+        maxHint.content = candidate?.let { trFormat(tr("Höchstens verrechenbar: %1"), moneyToken(it.maxNettableAmount)) } ?: ""
         val token = currentToken()
         previewHost.removeAll()
         if (token == null) {

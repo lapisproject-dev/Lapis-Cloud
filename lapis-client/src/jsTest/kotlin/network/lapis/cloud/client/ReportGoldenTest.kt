@@ -19,8 +19,9 @@ import network.lapis.cloud.client.ReportRowKind.BALANCE as BAL
  * test red, a figure changed.
  *
  * The expected cells were not produced from the new derivation code: `ReportCellOracleDomTest` proves the same
- * derivation against the old renderer's DOM (all figure rows), the amounts are spelled `d(x)` + " €" -- the two
- * things `formatMoney` is made of.
+ * derivation against the old renderer's DOM (all figure rows). Since W6a the amounts are spelled with `formatMoneyIn("de", x)`:
+ * only the presentation layer changed (localized grouping and padding); the derivation of every figure is still the one the old
+ * renderer was checked against. The sub-cent literals below are calculated BY HAND, not by the code under test.
  *
  * The "Summe ..." total label of a statement section (audit fix B): before, `gettext("Summe %1", title)` with a
  * `tr(...)` title leaked the raw i18n marker ("Summe ###KvI18nS###Einnahmen") and this test pinned the leak. Now the
@@ -29,7 +30,7 @@ import network.lapis.cloud.client.ReportRowKind.BALANCE as BAL
  * marker, translated and with the title translated too.
  */
 class ReportGoldenTest {
-    private fun m(value: Double) = "${d(value)} €"
+    private fun m(value: Double) = formatMoneyIn("de", d(value))
 
     private val marker = "###KvI18nS###"
 
@@ -52,7 +53,7 @@ class ReportGoldenTest {
                 listOf("0400 · Mitgliedsbeiträge", "4", m(300.0)),
                 listOf("400 · Spenden", "4", m(12.5)),
                 listOf("8400 · Erlöse 19 %", "8", m(1200.5)),
-                listOf(sum("Einnahmen"), "", m(1513.0)),
+                listOf(sum("Einnahmen"), "", "1.513,00$NBSP€"),
             ),
             rows.cellTexts(),
         )
@@ -93,7 +94,7 @@ class ReportGoldenTest {
             listOf(
                 listOf("1000 · Kasse", "1", m(100.5)),
                 listOf("1200 · Bank", "1", m(5000.0)),
-                listOf(sum("Aktiva"), "", m(5100.5)),
+                listOf(sum("Aktiva"), "", "5.100,50$NBSP€"),
             ),
             rows.cellTexts(),
         )
@@ -132,7 +133,7 @@ class ReportGoldenTest {
     fun incomeStatement_lossKeepsTheServersSignAndFlagsIt() {
         val rows = incomeStatementRows(lossStatement)
         assertEquals(listOf(t("Ergebnis"), "", m(-290.5)), rows.cellTexts().last())
-        assertTrue(rows.cellTexts().last()[2].startsWith("-"))
+        assertTrue(rows.cellTexts().last()[2].startsWith(MINUS))
         assertTrue((rows.last().cells[2] as ReportCell.Money).warnIfNegative)
     }
 
@@ -179,7 +180,7 @@ class ReportGoldenTest {
         val rows = fourSphereRows(fourSphereStatement)
         assertEquals(
             listOf(
-                listOf("Ideeller Bereich", m(100.0), m(40.5), m(59.5)),
+                listOf("Ideeller Bereich", "100,00$NBSP€", "40,50$NBSP€", "59,50$NBSP€"),
                 listOf("Vermögensverwaltung", m(200.0), m(81.0), m(119.0)),
                 listOf("Zweckbetrieb", m(300.0), m(121.5), m(178.5)),
                 listOf("Wirtschaftlicher Geschäftsbetrieb", m(400.0), m(162.0), m(-12.5)),
@@ -307,6 +308,16 @@ class ReportGoldenTest {
     }
 
     @Test
+    fun postingConfirm_withoutSums_showsDashesInTheSigmaRow() {
+        val lines = listOf(PostingLineDisplay("1200 · Bank", PostingSide.DEBIT, d(200.0), "Ideeller Bereich", null, null, null))
+        val rows = postingConfirmRows(lines, showVatColumn = false, debitSum = null, creditSum = null)
+        assertEquals(listOf("Σ", "--", "--", "", ""), listOf(rows.last()).cellTexts().single())
+        assertEquals(ReportRowKind.TOTAL, rows.last().kind)
+        val onlyCredit = postingConfirmRows(lines, showVatColumn = false, debitSum = null, creditSum = d(5.0))
+        assertEquals(listOf("Σ", "--", "5,00$NBSP€", "", ""), listOf(onlyCredit.last()).cellTexts().single())
+    }
+
+    @Test
     fun postingConfirm_showsTheCallersSumsAndOptionallyTheVatColumn() {
         val lines =
             listOf(
@@ -317,7 +328,7 @@ class ReportGoldenTest {
             listOf(
                 listOf("1200 · Bank", m(200.0), "", "Ideeller Bereich", "--", "19 % (${m(31.9)})"),
                 listOf("8400 · Erlöse", "", m(200.0), "Zweckbetrieb", "FEST · Sommerfest", "7 %"),
-                listOf("Σ", m(200.0), m(200.0), "", "", ""),
+                listOf("Σ", "200,00$NBSP€", "200,00$NBSP€", "", "", ""),
             ),
             postingConfirmRows(lines, showVatColumn = true, debitSum = d(200.0), creditSum = d(200.0)).cellTexts(),
         )
@@ -325,7 +336,7 @@ class ReportGoldenTest {
             listOf(
                 listOf("1200 · Bank", m(200.0), "", "Ideeller Bereich", "--"),
                 listOf("8400 · Erlöse", "", m(200.0), "Zweckbetrieb", "FEST · Sommerfest"),
-                listOf("Σ", m(200.0), m(200.0), "", ""),
+                listOf("Σ", "200,00$NBSP€", "200,00$NBSP€", "", ""),
             ),
             postingConfirmRows(lines, showVatColumn = false, debitSum = d(200.0), creditSum = d(200.0)).cellTexts(),
         )
@@ -347,10 +358,10 @@ class ReportGoldenTest {
 
     @Test
     fun bigAmountsKeepEveryDigit_noSeparatorNoRoundingNoScientificNotation() {
-        // The old renderers showed `"$amount €"` (`formatMoney`) -- every digit the server sent, nothing added.
-        // 1234567.891 has more decimals than a cent and more digits than a thousand separator would fit.
-        assertEquals("1234567.891 €", m(1234567.891))
-        assertEquals("-1234567.891 €", m(-1234567.891))
+        // The old renderers showed `"$amount €"` -- every digit the server sent. W6a groups the integer part and keeps EVERY fraction digit
+        // (a genuine sub-cent value is never rounded): 1234567.891 -> "1.234.567,891 €" (hand-calculated, U+00A0 before the euro sign).
+        assertEquals("1.234.567,891$NBSP€", m(1234567.891))
+        assertEquals("${MINUS}1.234.567,891$NBSP€", m(-1234567.891))
         val rows = useOfFundsRows(bigSingleYearUseOfFunds)
         assertEquals(
             listOf(

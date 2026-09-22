@@ -1092,6 +1092,8 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+  /* W6a: ein Betrag bricht nie um ("1.234,50" / "EUR" getrennt); die Tabelle scrollt (.table-responsive), nie die Seite. */
+  white-space: nowrap;
 }
 
 /* Sortierkopf: nativer <button> im <th> (Enter/Space und Fokus gratis). Der Fokusring ist der

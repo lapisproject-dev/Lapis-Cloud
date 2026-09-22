@@ -8,6 +8,21 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **UI/UX guideline, wave W6a "Localized and exact amounts"** -- a client-only wave (no server production code, no `lapis-shared` change, no migration).
+  **Amounts are readable and follow the UI language:** `formatMoney`/`formatLtr` group the integer part, pad to two places and use the language's
+  separators and currency position (`de` `1.234,50 €`, `en` `€1,234.50`, `nl` `€ 1.234,50`, `fr`/`pl`/`ru` `1 234,50 €` with U+00A0; LTR is always a suffix); the minus is
+  U+2212. Decision D5 ("only append ' €'") is revised: the transform is pure string arithmetic, a genuine sub-cent value is never rounded (`12,345 €`), and
+  `Intl`/`toLocaleString`/`toFixed` are forbidden (they round by default). **Sums are exact:** `sumPostingLines` and the balance strip add cleaned digit strings
+  as integers, the posting confirmation can no longer show `1234.5600000000001`; a sum that cannot be represented exactly fails loudly. **Live language
+  switch:** an amount that is widget content (`moneySpan`, `ltrSpan`, report cells, "Offen: %1") is a `###KvI18nS###` token with a control-character sentinel that
+  is resolved on every render, so it follows a language switch without a screen rebuild. `feeBound` (hard-coded German comma), `formatDonationAmount`
+  (EUR/USD) use the same transform. `.lapis-num` gets `white-space: nowrap`. Prefill values and entered-amount checks stay ASCII and dot-decimal.
+  Tripwires M1-M4 (`ClientMoneyFormatTripwireTest`); the W4c gap "`formatMoney`/`sumPostingLines` add `Double`s" is closed. Not done: the manual browser and
+  screen-reader check; `MotionsScreen` still bakes " LTR" into three strings (ledger).
+- **W6a audit round (same wave, not a new version):** the contribution tables (`ContributionsScreen`, own and organisation view) showed `amountDue` as a raw
+  `Decimal.toString()`; they now use `moneySpan`. Politician trust weights are live-translatable tokens: the guest weight (a whole count) is grouped but not padded
+  (`countSpan`), the combined weight is grouped and padded (`plainAmountSpan`); both follow a language switch. Tripwire M5 keeps a bare `.toString()` on a money
+  `Decimal` out of the client. New tests for `formatPlainAmount`, `formatCount`, the two tokens and the empty-sum row of the posting confirmation.
 - **UI/UX guideline, wave W5 "States, page header, language" (V1.4.31)** -- a client-only wave (no server production code, no
   `lapis-shared` change, no migration: `git diff master --stat -- lapis-server/src/main lapis-shared` is empty, `db/migration` ends at V44).
   **One page header for every screen:** `pageHeader(title, subtitle, banners, primaryAction)` replaces 71 raw `h1` calls in 66 files (the

@@ -188,7 +188,7 @@ class ReportCellOracleDomTest {
     }
 
     // Audit H: a large amount with more decimals than a cent, and a single fiscal year -- the strings of the tables equal
-    // the strings of the derivation, which the golden test pins against the old `"$amount €"` path.
+    // the strings of the derivation, which the golden test derives against the old `"$amount €"` path (W6a: only the presentation layer, grouping and padding, changed).
     @Test
     fun bigAmounts_useOfFundsWithASingleYear() =
         assertTableOracle("oracle-gross-mittelverwendung", useOfFundsRows(bigSingleYearUseOfFunds)) {

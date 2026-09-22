@@ -288,15 +288,12 @@ internal fun renderTopPoliticiansList(
                     cssClasses = "fw-bold",
                 ) { it.value.displayName },
                 DataColumn(title = tr("Mitglieder"), numeric = true, cell = { cell, p -> cell.ltrSpan(p.value.memberTrustWeight) }),
-                textColumn<IndexedValue<PoliticianProfileDto>>(
-                    title = tr("Gäste"),
-                    numeric = true,
-                ) { it.value.guestTrustWeight.toString() },
-                textColumn<IndexedValue<PoliticianProfileDto>>(
+                DataColumn(title = tr("Gäste"), numeric = true, cell = { cell, p -> cell.countSpan(p.value.guestTrustWeight) }),
+                DataColumn(
                     title = tr("Gesamt"),
                     numeric = true,
-                    cssClasses = "fw-bold",
-                ) { it.value.combinedTrustWeight.toString() },
+                    cell = { cell, p -> cell.plainAmountSpan(p.value.combinedTrustWeight).addCssClass("fw-bold") },
+                ),
             ),
         rows = top.withIndex().toList(),
         viewport = viewport,
@@ -344,10 +341,10 @@ private fun renderPoliticianCard(
     memberCell.ltrSpan(politician.memberTrustWeight)
     val guestCell = weightRow.vPanel(spacing = 2)
     guestCell.div(tr("Gast-Gewicht (reine Stimmenzahl, ungewichtet)")) { addCssClasses("text-muted small") }
-    guestCell.div(politician.guestTrustWeight.toString()) { addCssClass("fw-bold") }
+    guestCell.countSpan(politician.guestTrustWeight).addCssClass("fw-bold")
     val combinedCell = weightRow.vPanel(spacing = 2)
     combinedCell.div(tr("Gesamt (Summe, keine vergleichbare Einheit)")) { addCssClasses("text-muted small") }
-    combinedCell.div(politician.combinedTrustWeight.toString()) { addCssClass("fw-bold") }
+    combinedCell.plainAmountSpan(politician.combinedTrustWeight).addCssClass("fw-bold")
 
     card.div(
         gettext(
@@ -583,16 +580,16 @@ internal fun renderWeightHistoryTable(
             listOf(
                 textColumn<PoliticianWeightSnapshotDto>(title = tr("Monat"), primary = true) { it.periodMonth.toString() },
                 DataColumn(title = tr("Mitglieder-Gewicht"), numeric = true, cell = { cell, s -> cell.ltrSpan(s.memberTrustWeight) }),
-                textColumn<PoliticianWeightSnapshotDto>(
+                DataColumn(
                     title = tr("Gast-Gewicht"),
                     numeric = true,
-                    cssClasses = "small",
-                ) { it.guestTrustWeight.toString() },
-                textColumn<PoliticianWeightSnapshotDto>(
+                    cell = { cell, s -> cell.countSpan(s.guestTrustWeight).addCssClass("small") },
+                ),
+                DataColumn(
                     title = tr("Gesamt"),
                     numeric = true,
-                    cssClasses = "fw-bold small",
-                ) { it.combinedTrustWeight.toString() },
+                    cell = { cell, s -> cell.plainAmountSpan(s.combinedTrustWeight).addCssClasses("fw-bold small") },
+                ),
                 textColumn<PoliticianWeightSnapshotDto>(title = tr("Berechnet"), cssClasses = "text-muted small") { "${it.computedAt}" },
             ),
         rows = history,

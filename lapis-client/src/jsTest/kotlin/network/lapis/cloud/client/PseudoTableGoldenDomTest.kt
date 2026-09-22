@@ -149,8 +149,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Auktion", "Ihr Höchstgebot", "Führend", "Status", "Abgegeben"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("Vereinsbanner", "◆ 12.5 LTR", "Ja", "Offen", "2026-09-01T10:30"),
-                    listOf("Tombola", "◆ 4 LTR", "Nein", "Abgeschlossen (verkauft)", "2026-08-30T09:00"),
+                    listOf("Vereinsbanner", "◆ 12,50${NBSP}LTR", "Ja", "Offen", "2026-09-01T10:30"),
+                    listOf("Tombola", "◆ 4,00${NBSP}LTR", "Nein", "Abgeschlossen (verkauft)", "2026-08-30T09:00"),
                 ),
                 element().bodyRows(),
             )
@@ -164,8 +164,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Projekt", "Zeitraum", "Korb", "Betrag", "Berechnet"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("Vereinsgarten", "2026-08-01 – 2026-08-31", "7", "250.5 €", "2026-09-01T03:15 von Erika Musterfrau"),
-                    listOf("Jugendtreff", "2026-07-01 – 2026-07-31", "3", "80 €", "2026-08-01T04:00 von Max Beispiel"),
+                    listOf("Vereinsgarten", "2026-08-01 – 2026-08-31", "7", "250,50$NBSP€", "2026-09-01T03:15 von Erika Musterfrau"),
+                    listOf("Jugendtreff", "2026-07-01 – 2026-07-31", "3", "80,00$NBSP€", "2026-08-01T04:00 von Max Beispiel"),
                 ),
                 element().bodyRows(),
             )
@@ -179,8 +179,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Monat", "Mitglieder-Gewicht", "Gast-Gewicht", "Gesamt", "Berechnet"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("2026-08-01", "◆ 10.5 LTR", "2.5", "13", "2026-09-01T02:00"),
-                    listOf("2026-07-01", "◆ 8 LTR", "1", "9", "2026-08-01T02:00"),
+                    listOf("2026-08-01", "◆ 10,50${NBSP}LTR", "2,50", "13,00", "2026-09-01T02:00"),
+                    listOf("2026-07-01", "◆ 8,00${NBSP}LTR", "1", "9,00", "2026-08-01T02:00"),
                 ),
                 element().bodyRows(),
             )
@@ -196,8 +196,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Rang", "Politiker", "Mitglieder", "Gäste", "Gesamt"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("1.", "Anna", "◆ 12.5 LTR", "3", "15.5"),
-                    listOf("2.", "Bert", "◆ 9 LTR", "1.5", "10.5"),
+                    listOf("1.", "Anna", "◆ 12,50${NBSP}LTR", "3", "15,50"),
+                    listOf("2.", "Bert", "◆ 9,00${NBSP}LTR", "1,50", "10,50"),
                 ),
                 element().bodyRows(),
             )
@@ -233,7 +233,17 @@ class PseudoTableGoldenDomTest {
             renderMyBidsTable(root, bids, narrow)
             renderTopPoliticiansList(root, ranking, narrow)
             val text = element().textContent.orEmpty()
-            listOf("◆ 12.5 LTR", "Offen", "Ja", "Ihr Höchstgebot", "Führend", "◆ 9 LTR", "15.5", "10.5", "Gesamt").forEach {
+            listOf(
+                "◆ 12,50${NBSP}LTR",
+                "Offen",
+                "Ja",
+                "Ihr Höchstgebot",
+                "Führend",
+                "◆ 9,00${NBSP}LTR",
+                "15,50",
+                "10,50",
+                "Gesamt",
+            ).forEach {
                 assertTrue(text.contains(it), "the card list shows '$it': $text")
             }
             val lists = element().querySelectorAll(".lapis-card-list")

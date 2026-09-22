@@ -485,8 +485,8 @@ fun costCenterReportRows(report: CostCenterReportDto): List<ReportRow> =
 internal fun postingConfirmRows(
     lines: List<PostingLineDisplay>,
     showVatColumn: Boolean,
-    debitSum: Decimal,
-    creditSum: Decimal,
+    debitSum: Decimal?,
+    creditSum: Decimal?,
 ): List<ReportRow> =
     buildList {
         lines.forEach { line ->
@@ -510,7 +510,13 @@ internal fun postingConfirmRows(
             add(ReportRow(ReportRowKind.DATA, cells))
         }
         val total =
-            mutableListOf<ReportCell>(text("Σ"), money(debitSum), money(creditSum), BLANK, BLANK)
+            mutableListOf<ReportCell>(
+                text("Σ"),
+                debitSum?.let { money(it) } ?: text("--"),
+                creditSum?.let { money(it) } ?: text("--"),
+                BLANK,
+                BLANK,
+            )
         if (showVatColumn) total += BLANK
         add(ReportRow(ReportRowKind.TOTAL, total))
     }
