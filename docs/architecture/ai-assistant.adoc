@@ -1,9 +1,8 @@
 = AI assistance: foundation and statute Q&A pilot (V1.6.1)
 
-NOTE: This document's `[kuml]` blocks are not rendered or validated by any Gradle task -- they are
-prose documentation only, kept in sync by hand with
-`lapis-server/src/main/kuml/53-ai-assistant.kuml.kts` (the actual, load-bearing model). Same
-convention `open-items.adoc`/`travel-expenses.adoc` establish.
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), kept in sync by hand with
+`lapis-server/src/main/kuml/53-ai-assistant.kuml.kts` (the actual, load-bearing model).
 
 Lapis Cloud can optionally answer a member's question about the statutes ("Fragen zur Satzung").
 **The feature is off by default** and is a foundation as much as a pilot: the provider abstraction,
@@ -112,34 +111,34 @@ an error message can reach the UI or a log through it.
 
 Five tables, migration `V44__ai_assistant.sql` (purely additive, idempotent).
 
-[kuml, ai-knowledge-erm, svg]
+[source,kuml,name="ai-knowledge-erm"]
 ----
 classDiagram(name = "AI assistance — ERM excerpt") {
-    class(name = "AiKnowledgeRelease") {
-        attribute(name = "documentId", type = "UUID") { note = "unique: one release per document" }
-        attribute(name = "releasedBy", type = "UUID") { note = "nullable, nulled on DSGVO erasure" }
+    classOf(name = "AiKnowledgeRelease") {
+        attribute(name = "documentId", type = "UUID") // unique: one release per document
+        attribute(name = "releasedBy", type = "UUID") // nullable, nulled on DSGVO erasure
     }
-    class(name = "AiKnowledgeIndexState") {
-        attribute(name = "documentId", type = "UUID") { note = "unique" }
-        attribute(name = "status", type = "String") { note = "PENDING|INDEXED|UNSUPPORTED_FORMAT|FAILED" }
+    classOf(name = "AiKnowledgeIndexState") {
+        attribute(name = "documentId", type = "UUID") // unique
+        attribute(name = "status", type = "String") // PENDING|INDEXED|UNSUPPORTED_FORMAT|FAILED
         attribute(name = "chunkCount", type = "Int")
     }
-    class(name = "AiKnowledgeChunk") {
+    classOf(name = "AiKnowledgeChunk") {
         attribute(name = "documentVersionId", type = "UUID")
-        attribute(name = "sectionLabel", type = "String") { note = "nullable, e.g. § 7 Abs. 2" }
-        attribute(name = "pageNumber", type = "Int") { note = "nullable" }
-        attribute(name = "content", type = "String") { note = "TEXT" }
+        attribute(name = "sectionLabel", type = "String") // nullable, e.g. § 7 Abs. 2
+        attribute(name = "pageNumber", type = "Int") // nullable
+        attribute(name = "content", type = "String") // TEXT
     }
-    class(name = "AiMemberOptIn") {
+    classOf(name = "AiMemberOptIn") {
         attribute(name = "memberId", type = "UUID")
-        attribute(name = "feature", type = "String") { note = "unique with memberId; no row means off" }
+        attribute(name = "feature", type = "String") // unique with memberId; no row means off
         attribute(name = "enabled", type = "Boolean")
     }
-    class(name = "AiCallAudit") {
-        attribute(name = "inputHash", type = "String") { note = "SHA-256 of the redacted question" }
-        attribute(name = "outputHash", type = "String") { note = "nullable" }
-        attribute(name = "outcome", type = "String") { note = "ANSWERED|NOTHING_FOUND|NO_VALID_CITATION|PROVIDER_ERROR" }
-        attribute(name = "memberId", type = "UUID") { note = "nullable, nulled on DSGVO erasure" }
+    classOf(name = "AiCallAudit") {
+        attribute(name = "inputHash", type = "String") // SHA-256 of the redacted question
+        attribute(name = "outputHash", type = "String") // nullable
+        attribute(name = "outcome", type = "String") // ANSWERED|NOTHING_FOUND|NO_VALID_CITATION|PROVIDER_ERROR
+        attribute(name = "memberId", type = "UUID") // nullable, nulled on DSGVO erasure
     }
 }
 ----
@@ -193,20 +192,20 @@ untrue for it).
 
 == The Q&A pipeline
 
-[kuml, ai-qa-pipeline, svg]
+[source,kuml,name="ai-qa-pipeline"]
 ----
 classDiagram(name = "Statute Q&A pipeline") {
-    class(name = "StatuteQaPipeline") {
-        operation(name = "answer", returnType = "QaOutcome")
+    classOf(name = "StatuteQaPipeline") {
+        operation(name = "answer") { returns("QaOutcome") }
     }
-    interface(name = "KnowledgeRetriever") {
-        operation(name = "search", returnType = "List<RetrievedChunk>")
+    interfaceOf(name = "KnowledgeRetriever") {
+        operation(name = "search") { returns("List<RetrievedChunk>") }
     }
-    interface(name = "LlmClient") {
-        operation(name = "complete", returnType = "LlmResult")
+    interfaceOf(name = "LlmClient") {
+        operation(name = "complete") { returns("LlmResult") }
     }
-    interface(name = "AiCallAuditSink") {
-        operation(name = "record", returnType = "Unit")
+    interfaceOf(name = "AiCallAuditSink") {
+        operation(name = "record") { returns("Unit") }
     }
 }
 ----

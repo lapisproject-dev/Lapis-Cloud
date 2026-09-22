@@ -1,9 +1,8 @@
 = Volunteer/Instructor Allowance (§3 Nr. 26 / 26a EStG) (V1.4.12)
 
-NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
-prose documentation only, kept in sync by hand with
-`lapis-server/src/main/kuml/46-volunteer-allowance.kuml.kts` (the actual, load-bearing model). Same
-convention `travel-expenses.adoc`/`domain-model.adoc` already establish.
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), kept in sync by hand with
+`lapis-server/src/main/kuml/46-volunteer-allowance.kuml.kts` (the actual, load-bearing model).
 
 A board/functionary requests a tax-privileged payment for a member's volunteer activity, in one of
 two mutually exclusive categories: `INSTRUCTOR` (§3 Nr. 26 EStG Übungsleiterpauschale, an
@@ -25,39 +24,39 @@ of the receiving person) -- plus one new column on `organization_settings`
 `lapis-server/src/main/kuml/46-volunteer-allowance.kuml.kts` for the full kUML model and
 `V30__volunteer_allowance.sql` for the migration.
 
-[kuml, volunteer-allowance, svg]
+[source,kuml,name="volunteer-allowance"]
 ----
 classDiagram(name = "Volunteer/Instructor Allowance — ERM excerpt") {
-    class(name = "VolunteerAllowancePayment") {
+    val volunteerAllowancePayment = classOf(name = "VolunteerAllowancePayment") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "category", type = "String") { note = "INSTRUCTOR|HONORARY, immutable once created" }
-        attribute(name = "status", type = "String") { note = "DRAFT|REQUESTED|APPROVED|REJECTED|EXECUTED|WITHDRAWN" }
+        attribute(name = "category", type = "String") // INSTRUCTOR|HONORARY, immutable once created
+        attribute(name = "status", type = "String") // DRAFT|REQUESTED|APPROVED|REJECTED|EXECUTED|WITHDRAWN
         attribute(name = "amount", type = "BigDecimal")
         attribute(name = "activityDescription", type = "String")
-        attribute(name = "paymentDate", type = "LocalDate") { note = "Zuflussprinzip -- the calendar-year key for the cap" }
+        attribute(name = "paymentDate", type = "LocalDate") // Zuflussprinzip -- the calendar-year key for the cap
         attribute(name = "requestedBy", type = "UUID")
-        attribute(name = "postedJournalEntryId", type = "UUID") { note = "idempotency anchor, uq_vap_posted_journal_entry" }
-        attribute(name = "executionError", type = "String") { note = "non-null iff status == APPROVED" }
-        attribute(name = "priorTotalSnapshot", type = "BigDecimal") { note = "frozen at decision time" }
-        attribute(name = "freeAmountSnapshot", type = "BigDecimal") { note = "frozen at decision time" }
-        attribute(name = "exceedingAmountSnapshot", type = "BigDecimal") { note = "frozen at decision time" }
-        attribute(name = "capDisclaimerVersion", type = "String") { note = "set iff a board acknowledgment was required" }
-        attribute(name = "capAcknowledgedBy", type = "UUID") { note = "set iff a board acknowledgment was required" }
+        attribute(name = "postedJournalEntryId", type = "UUID") // idempotency anchor, uq_vap_posted_journal_entry
+        attribute(name = "executionError", type = "String") // non-null iff status == APPROVED
+        attribute(name = "priorTotalSnapshot", type = "BigDecimal") // frozen at decision time
+        attribute(name = "freeAmountSnapshot", type = "BigDecimal") // frozen at decision time
+        attribute(name = "exceedingAmountSnapshot", type = "BigDecimal") // frozen at decision time
+        attribute(name = "capDisclaimerVersion", type = "String") // set iff a board acknowledgment was required
+        attribute(name = "capAcknowledgedBy", type = "UUID") // set iff a board acknowledgment was required
     }
-    class(name = "VolunteerAllowanceSelfDeclaration") {
+    val volunteerAllowanceSelfDeclaration = classOf(name = "VolunteerAllowanceSelfDeclaration") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "category", type = "String") { note = "INSTRUCTOR|HONORARY" }
+        attribute(name = "category", type = "String") // INSTRUCTOR|HONORARY
         attribute(name = "calendarYear", type = "Int")
-        attribute(name = "source", type = "String") { note = "IN_APP|ON_PAPER" }
-        attribute(name = "signedOn", type = "LocalDate") { note = "ON_PAPER only" }
-        attribute(name = "recordedBy", type = "UUID") { note = "== memberId for IN_APP, != memberId for ON_PAPER" }
+        attribute(name = "source", type = "String") // IN_APP|ON_PAPER
+        attribute(name = "signedOn", type = "LocalDate") // ON_PAPER only
+        attribute(name = "recordedBy", type = "UUID") // == memberId for IN_APP, != memberId for ON_PAPER
     }
-    class(name = "Member") { attribute(name = "id", type = "UUID") }
-    class(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
+    val member = classOf(name = "Member") { attribute(name = "id", type = "UUID") }
+    val journalEntry = classOf(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
 
-    association(source = VolunteerAllowancePayment, target = Member, id = "subject") { target { multiplicity("1") } }
-    association(source = VolunteerAllowancePayment, target = JournalEntry, id = "posted") { target { multiplicity("0..1") } }
-    association(source = VolunteerAllowanceSelfDeclaration, target = Member, id = "declarant") { target { multiplicity("1") } }
+    association(source = volunteerAllowancePayment, target = member, id = "subject") { target { multiplicity("1") } }
+    association(source = volunteerAllowancePayment, target = journalEntry, id = "posted") { target { multiplicity("0..1") } }
+    association(source = volunteerAllowanceSelfDeclaration, target = member, id = "declarant") { target { multiplicity("1") } }
 }
 ----
 

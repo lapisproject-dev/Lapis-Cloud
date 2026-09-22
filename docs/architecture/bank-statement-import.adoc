@@ -105,37 +105,37 @@ row per transaction line), plus one new column on the existing `contribution` ta
 (`payment_reference`). See `lapis-server/src/main/kuml/40-bank-statement.kuml.kts` for the full
 kUML model and `V20__bank_statement_import.sql` for the migration.
 
-[kuml, bank-statement-erm, svg]
+[source,kuml,name="bank-statement-erm"]
 ----
 classDiagram(name = "Bank Statement Import — ERM excerpt") {
-    class(name = "BankStatementImport") {
+    val bankStatementImport = classOf(name = "BankStatementImport") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "format", type = "String") { note = "CSV | MT940" }
+        attribute(name = "format", type = "String") // CSV | MT940
         attribute(name = "dialect", type = "String")
-        attribute(name = "fileDigest", type = "String") { note = "SHA-256, whole-file idempotency" }
+        attribute(name = "fileDigest", type = "String") // SHA-256, whole-file idempotency
         attribute(name = "lineCount", type = "Int")
         attribute(name = "duplicateCount", type = "Int")
         attribute(name = "autoPostedCount", type = "Int")
         attribute(name = "uploadedBy", type = "UUID")
     }
-    class(name = "BankStatementLine") {
+    val bankStatementLine = classOf(name = "BankStatementLine") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "fingerprint", type = "String") { note = "SHA-256, per-line idempotency" }
-        attribute(name = "amount", type = "BigDecimal") { note = "signed; +credit / -debit" }
+        attribute(name = "fingerprint", type = "String") // SHA-256, per-line idempotency
+        attribute(name = "amount", type = "BigDecimal") // signed; +credit / -debit
         attribute(name = "counterpartyIbanLast4", type = "String")
-        attribute(name = "counterpartyIbanCiphertext", type = "String") { note = "SecretBox, AAD = line id" }
-        attribute(name = "status", type = "String") { note = "UNMATCHED|SUGGESTED|AMBIGUOUS|POSTED|IGNORED" }
+        attribute(name = "counterpartyIbanCiphertext", type = "String") // SecretBox, AAD = line id
+        attribute(name = "status", type = "String") // UNMATCHED|SUGGESTED|AMBIGUOUS|POSTED|IGNORED
         attribute(name = "matchExplanation", type = "String")
     }
-    class(name = "Contribution") {
+    val contribution = classOf(name = "Contribution") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "paymentReference", type = "String") { note = "LC-XXXXXX, nullable, unique" }
+        attribute(name = "paymentReference", type = "String") // LC-XXXXXX, nullable, unique
     }
-    class(name = "PaymentTransaction") { attribute(name = "id", type = "UUID") }
+    val paymentTransaction = classOf(name = "PaymentTransaction") { attribute(name = "id", type = "UUID") }
 
-    association(source = BankStatementImport, target = BankStatementLine) { target { multiplicity("0..*") } }
-    association(source = BankStatementLine, target = Contribution, id = "matched") { target { multiplicity("0..1") } }
-    association(source = BankStatementLine, target = PaymentTransaction, id = "posted") { target { multiplicity("0..1") } }
+    association(source = bankStatementImport, target = bankStatementLine) { target { multiplicity("0..*") } }
+    association(source = bankStatementLine, target = contribution, id = "matched") { target { multiplicity("0..1") } }
+    association(source = bankStatementLine, target = paymentTransaction, id = "posted") { target { multiplicity("0..1") } }
 }
 ----
 
@@ -206,28 +206,50 @@ GF(2⁵) check symbol cannot be computed in portable SQL for a migration backfil
 `network.lapis.cloud.server.payment.bankstatement.BankStatementMatcher` applies four rules, first
 match wins:
 
-[kuml, bank-statement-matching, svg]
+[source,kuml,name="bank-statement-matching"]
 ----
 activityDiagram(name = "Bank Statement Matching") {
-    initial()
-    decision(name = "amount <= 0?") {
-        yes { activity(name = "IGNORED (Ausgangsbuchung)"); final() }
-    }
-    activity(name = "R1: reference in purpose text, checksum valid?")
-    decision(name = "contribution found, OUTSTANDING, exact amount?") {
-        yes { activity(name = "POSTED, auto-post"); final() }
-    }
-    activity(name = "R2: counterparty IBAN matches an ACTIVE SEPA mandate?")
-    decision(name = "exactly one member, exactly one matching open contribution?") {
-        yes { activity(name = "SUGGESTED"); final() }
-    }
-    activity(name = "R3: first+last name tokens match, exact amount?")
-    decision(name = "exactly one candidate?") {
-        yes { activity(name = "SUGGESTED"); final() }
-    }
-    activity(name = "R4: no rule matched")
-    activity(name = "UNMATCHED — assignable as a donation only by a human")
-    final()
+    val start = initialNode()
+
+    val amountCheck = decision(name = "amount <= 0?")
+    edge(from = start, to = amountCheck)
+    val ignored = action(name = "IGNORED (Ausgangsbuchung)")
+    edge(from = amountCheck, to = ignored, guard = "yes")
+    edge(from = ignored, to = finalNode())
+
+    val r1 = action(name = "R1: reference in purpose text, checksum valid?")
+    edge(from = amountCheck, to = r1, guard = "no")
+
+    val exactAmountCheck = decision(name = "contribution found, OUTSTANDING, exact amount?")
+    edge(from = r1, to = exactAmountCheck)
+    val autoPosted = action(name = "POSTED, auto-post")
+    edge(from = exactAmountCheck, to = autoPosted, guard = "yes")
+    edge(from = autoPosted, to = finalNode())
+
+    val r2 = action(name = "R2: counterparty IBAN matches an ACTIVE SEPA mandate?")
+    edge(from = exactAmountCheck, to = r2, guard = "no")
+
+    val oneMandateCheck = decision(name = "exactly one member, exactly one matching open contribution?")
+    edge(from = r2, to = oneMandateCheck)
+    val suggestedByMandate = action(name = "SUGGESTED")
+    edge(from = oneMandateCheck, to = suggestedByMandate, guard = "yes")
+    edge(from = suggestedByMandate, to = finalNode())
+
+    val r3 = action(name = "R3: first+last name tokens match, exact amount?")
+    edge(from = oneMandateCheck, to = r3, guard = "no")
+
+    val oneCandidateCheck = decision(name = "exactly one candidate?")
+    edge(from = r3, to = oneCandidateCheck)
+    val suggestedByName = action(name = "SUGGESTED")
+    edge(from = oneCandidateCheck, to = suggestedByName, guard = "yes")
+    edge(from = suggestedByName, to = finalNode())
+
+    val r4 = action(name = "R4: no rule matched")
+    edge(from = oneCandidateCheck, to = r4, guard = "no")
+
+    val unmatched = action(name = "UNMATCHED — assignable as a donation only by a human")
+    edge(from = r4, to = unmatched)
+    edge(from = unmatched, to = finalNode())
 }
 ----
 

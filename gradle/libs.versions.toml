@@ -217,6 +217,12 @@ kuml-codegen-m2m                = { module = "dev.kuml:kuml-codegen-m2m", versio
 kuml-transform-uml-to-erm       = { module = "dev.kuml:kuml-transform-uml-to-erm", version.ref = "kuml" }
 kuml-codegen-m2m-exposed        = { module = "dev.kuml:kuml-codegen-m2m-exposed", version.ref = "kuml" }
 kuml-gen-sql                    = { module = "dev.kuml:kuml-gen-sql", version.ref = "kuml" }
+# AsciiDoc/Antora preprocessor: rewrites `[source,kuml]` listing blocks and `kuml::path[]`
+# block macros in docs/**/*.adoc into rendered diagrams (see :docs-render). This is a text
+# preprocessor, NOT a live Asciidoctor extension — it must run as its own build step before
+# any Asciidoctor/Antora conversion, and it cannot make the diagrams render in an IDE's live
+# AsciiDoc preview (that preview runs vanilla Asciidoctor against the unprocessed source).
+kuml-asciidoc                   = { module = "dev.kuml:kuml-asciidoc", version.ref = "kuml" }
 # kuml-core-script only exposes kotlin-scripting-jvm-host via its runtimeElements variant, not
 # apiElements — invisible on a consumer's *compile* classpath by default, so KumlScriptHost's
 # `kotlin.script.experimental.api.*` return types (ResultWithDiagnostics, ScriptDiagnostic) fail

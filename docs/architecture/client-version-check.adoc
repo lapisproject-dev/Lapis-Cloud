@@ -17,23 +17,23 @@ blocks, and never appears over a running video-conference call.
 
 == Mechanism
 
-[kuml, client-version-check-components, svg]
+[source,kuml,name="client-version-check-components"]
 ----
 classDiagram(name = "Client version hint") {
-    class(name = "ClientBuildId") {
-        operation(name = "compute", returnType = "String?")
-        operation(name = "isWellFormed", returnType = "Boolean")
+    classOf(name = "ClientBuildId") {
+        operation(name = "compute") { returns("String?") }
+        operation(name = "isWellFormed") { returns("Boolean") }
     }
-    class(name = "ClientVersionHtml") {
-        operation(name = "inject", returnType = "String")
+    classOf(name = "ClientVersionHtml") {
+        operation(name = "inject") { returns("String") }
     }
-    class(name = "ClientShell") {
+    classOf(name = "ClientShell") {
         attribute(name = "indexHtml", type = "String?")
         attribute(name = "buildId", type = "String?")
     }
-    class(name = "ClientVersionWatcher") {
-        operation(name = "start", returnType = "Unit")
-        operation(name = "notifyRpcFailure", returnType = "Unit")
+    classOf(name = "ClientVersionWatcher") {
+        operation(name = "start") { returns("Unit") }
+        operation(name = "notifyRpcFailure") { returns("Unit") }
     }
 }
 ----

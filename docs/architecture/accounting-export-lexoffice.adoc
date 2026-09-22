@@ -97,36 +97,36 @@ the simple shape first, then the legacy one.
 Four new tables plus three cross-domain stubs (`Member`, `JournalEntry`, `LedgerAccount`), all in
 `lapis-server/src/main/kuml/43-accounting-export.kuml.kts` (`V25__accounting_export.sql`).
 
-[kuml, accounting-export-erm, svg]
+[source,kuml,name="accounting-export-erm"]
 ----
 classDiagram(name = "Accounting Export — ERM excerpt") {
-    class(name = "AccountingExportConnection") {
+    classOf(name = "AccountingExportConnection") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "provider", type = "String") { note = "LEXOFFICE | SEVDESK" }
-        attribute(name = "tokenCiphertext", type = "String") { note = "SecretBox-sealed, AAD = own id" }
+        attribute(name = "provider", type = "String") // LEXOFFICE | SEVDESK
+        attribute(name = "tokenCiphertext", type = "String") // SecretBox-sealed, AAD = own id
         attribute(name = "tokenLast4", type = "String")
         attribute(name = "connectedCompanyName", type = "String")
-        attribute(name = "zeroVatAcknowledgedAt", type = "LocalDateTime") { note = "Jobs' once-only quittance" }
+        attribute(name = "zeroVatAcknowledgedAt", type = "LocalDateTime") // Jobs' once-only quittance
     }
-    class(name = "AccountingExportRun") {
+    val accountingExportRun = classOf(name = "AccountingExportRun") {
         attribute(name = "id", type = "UUID")
         attribute(name = "provider", type = "String")
-        attribute(name = "status", type = "String") { note = "PLANNED|RUNNING|COMPLETED|COMPLETED_WITH_ERRORS|ABORTED" }
-        attribute(name = "activeKey", type = "String") { note = "shadow column, NULL unless non-terminal — see below" }
+        attribute(name = "status", type = "String") // PLANNED|RUNNING|COMPLETED|COMPLETED_WITH_ERRORS|ABORTED
+        attribute(name = "activeKey", type = "String") // shadow column, NULL unless non-terminal — see below
     }
-    class(name = "AccountingExportItem") {
+    val accountingExportItem = classOf(name = "AccountingExportItem") {
         attribute(name = "id", type = "UUID")
         attribute(name = "journalEntryId", type = "UUID")
-        attribute(name = "voucherNumber", type = "String") { note = "deterministic, LAPIS-YYYYMMDD-<8 hex>" }
-        attribute(name = "status", type = "String") { note = "PENDING|SENDING|SUCCEEDED|FAILED|SKIPPED_ALREADY_EXPORTED|UNKNOWN" }
-        attribute(name = "exportedKey", type = "String") { note = "shadow column, NULL unless SUCCEEDED — see below" }
+        attribute(name = "voucherNumber", type = "String") // deterministic, LAPIS-YYYYMMDD-<8 hex>
+        attribute(name = "status", type = "String") // PENDING|SENDING|SUCCEEDED|FAILED|SKIPPED_ALREADY_EXPORTED|UNKNOWN
+        attribute(name = "exportedKey", type = "String") // shadow column, NULL unless SUCCEEDED — see below
     }
-    class(name = "AccountingExportCategoryMap") {
+    classOf(name = "AccountingExportCategoryMap") {
         attribute(name = "id", type = "UUID")
         attribute(name = "ledgerAccountId", type = "UUID")
         attribute(name = "externalCategoryId", type = "String")
     }
-    association(from = "AccountingExportRun", to = "AccountingExportItem", label = "1 * items")
+    association(source = accountingExportRun, target = accountingExportItem) { target { multiplicity("0..*"); role = "items" } }
 }
 ----
 

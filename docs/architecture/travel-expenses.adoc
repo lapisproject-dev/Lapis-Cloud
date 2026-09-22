@@ -1,9 +1,8 @@
 = Travel Expense Reimbursement (V1.4.11)
 
-NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
-prose documentation only, kept in sync by hand with
-`lapis-server/src/main/kuml/45-travel-expense.kuml.kts` (the actual, load-bearing model). Same
-convention `docs/architecture/domain-model.adoc` already establishes.
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), kept in sync by hand with
+`lapis-server/src/main/kuml/45-travel-expense.kuml.kts` (the actual, load-bearing model).
 
 Any authenticated member can file a self-service travel expense report for a board/functionary
 trip -- "board and functionaries" describes the real usage this wave was built for, not a
@@ -23,43 +22,43 @@ existing `organization_settings` table (`travel_expense_account_id`,
 `lapis-server/src/main/kuml/45-travel-expense.kuml.kts` for the full kUML model and
 `V29__travel_expense.sql` for the migration.
 
-[kuml, travel-expenses, svg]
+[source,kuml,name="travel-expenses"]
 ----
 classDiagram(name = "Travel Expense Reimbursement — ERM excerpt") {
-    class(name = "TravelExpenseReport") {
+    val travelExpenseReport = classOf(name = "TravelExpenseReport") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "status", type = "String") { note = "DRAFT|REQUESTED|APPROVED|REJECTED|EXECUTED|WITHDRAWN" }
+        attribute(name = "status", type = "String") // DRAFT|REQUESTED|APPROVED|REJECTED|EXECUTED|WITHDRAWN
         attribute(name = "purpose", type = "String")
         attribute(name = "travelFrom", type = "LocalDate")
         attribute(name = "travelTo", type = "LocalDate")
-        attribute(name = "totalAmount", type = "BigDecimal") { note = "Σ of every line, server-computed" }
+        attribute(name = "totalAmount", type = "BigDecimal") // Σ of every line, server-computed
         attribute(name = "requestedBy", type = "UUID")
-        attribute(name = "submittedAt", type = "LocalDateTime") { note = "nullable -- keyset cursor column" }
-        attribute(name = "decisionNote", type = "String") { note = "mandatory on approve AND reject" }
-        attribute(name = "postedJournalEntryId", type = "UUID") { note = "idempotency anchor, uq_ter_posted_journal_entry" }
-        attribute(name = "executionError", type = "String") { note = "non-null iff status == APPROVED" }
+        attribute(name = "submittedAt", type = "LocalDateTime") // nullable -- keyset cursor column
+        attribute(name = "decisionNote", type = "String") // mandatory on approve AND reject
+        attribute(name = "postedJournalEntryId", type = "UUID") // idempotency anchor, uq_ter_posted_journal_entry
+        attribute(name = "executionError", type = "String") // non-null iff status == APPROVED
     }
-    class(name = "TravelExpenseLine") {
+    val travelExpenseLine = classOf(name = "TravelExpenseLine") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "kind", type = "String") { note = "MILEAGE|PER_DIEM|RECEIPTED, immutable once created" }
-        attribute(name = "kilometers", type = "BigDecimal") { note = "MILEAGE only" }
-        attribute(name = "days", type = "Int") { note = "PER_DIEM only" }
-        attribute(name = "rateSnapshot", type = "BigDecimal") { note = "frozen at submitReport time" }
-        attribute(name = "amount", type = "BigDecimal") { note = "server-computed for MILEAGE/PER_DIEM" }
+        attribute(name = "kind", type = "String") // MILEAGE|PER_DIEM|RECEIPTED, immutable once created
+        attribute(name = "kilometers", type = "BigDecimal") // MILEAGE only
+        attribute(name = "days", type = "Int") // PER_DIEM only
+        attribute(name = "rateSnapshot", type = "BigDecimal") // frozen at submitReport time
+        attribute(name = "amount", type = "BigDecimal") // server-computed for MILEAGE/PER_DIEM
     }
-    class(name = "TravelExpenseReceipt") {
+    val travelExpenseReceipt = classOf(name = "TravelExpenseReceipt") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "storageKey", type = "String") { note = "server-generated, never client input" }
-        attribute(name = "mimeType", type = "String") { note = "derived from magic bytes, never the declared Content-Type" }
+        attribute(name = "storageKey", type = "String") // server-generated, never client input
+        attribute(name = "mimeType", type = "String") // derived from magic bytes, never the declared Content-Type
         attribute(name = "sha256", type = "String")
     }
-    class(name = "Member") { attribute(name = "id", type = "UUID") }
-    class(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
+    val member = classOf(name = "Member") { attribute(name = "id", type = "UUID") }
+    val journalEntry = classOf(name = "JournalEntry") { attribute(name = "id", type = "UUID") }
 
-    association(source = TravelExpenseReport, target = TravelExpenseLine) { target { multiplicity("1..*") } }
-    association(source = TravelExpenseLine, target = TravelExpenseReceipt) { target { multiplicity("0..*") } }
-    association(source = TravelExpenseReport, target = Member, id = "subject") { target { multiplicity("1") } }
-    association(source = TravelExpenseReport, target = JournalEntry, id = "posted") { target { multiplicity("0..1") } }
+    association(source = travelExpenseReport, target = travelExpenseLine) { target { multiplicity("1..*") } }
+    association(source = travelExpenseLine, target = travelExpenseReceipt) { target { multiplicity("0..*") } }
+    association(source = travelExpenseReport, target = member, id = "subject") { target { multiplicity("1") } }
+    association(source = travelExpenseReport, target = journalEntry, id = "posted") { target { multiplicity("0..1") } }
 }
 ----
 

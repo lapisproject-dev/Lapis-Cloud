@@ -231,28 +231,30 @@ real-database probes.
 
 == Adapter family
 
-[kuml, accounting-export-adapter-family, svg]
+[source,kuml,name="accounting-export-adapter-family"]
 ----
 classDiagram(name = "Accounting Export — provider adapter family") {
-    class(name = "AccountingExportProviderAdapter") {
-        attribute(name = "provider", type = "AccountingExportProvider") { note = "the interface every caller depends on" }
+    // the interface every caller depends on
+    val accountingExportProviderAdapter = interfaceOf(name = "AccountingExportProviderAdapter") {
+        attribute(name = "provider", type = "AccountingExportProvider")
     }
-    class(name = "LexofficeAdapter") { attribute(name = "implements", type = "AccountingExportProviderAdapter") }
-    class(name = "LexofficeApiClient")
-    class(name = "LexofficeVoucherMapper")
-    class(name = "LexofficeRateLimiter")
-    class(name = "SevDeskAdapter") { attribute(name = "implements", type = "AccountingExportProviderAdapter") }
-    class(name = "SevDeskApiClient")
-    class(name = "SevDeskVoucherMapper")
-    class(name = "SevDeskRateLimiter")
-    association(from = "LexofficeAdapter", to = "AccountingExportProviderAdapter", label = "implements")
-    association(from = "SevDeskAdapter", to = "AccountingExportProviderAdapter", label = "implements")
-    association(from = "LexofficeAdapter", to = "LexofficeApiClient", label = "delegates to")
-    association(from = "LexofficeApiClient", to = "LexofficeVoucherMapper", label = "uses")
-    association(from = "LexofficeApiClient", to = "LexofficeRateLimiter", label = "uses")
-    association(from = "SevDeskAdapter", to = "SevDeskApiClient", label = "delegates to")
-    association(from = "SevDeskApiClient", to = "SevDeskVoucherMapper", label = "uses")
-    association(from = "SevDeskApiClient", to = "SevDeskRateLimiter", label = "uses")
+    val lexofficeAdapter = classOf(name = "LexofficeAdapter")
+    val lexofficeApiClient = classOf(name = "LexofficeApiClient")
+    val lexofficeVoucherMapper = classOf(name = "LexofficeVoucherMapper")
+    val lexofficeRateLimiter = classOf(name = "LexofficeRateLimiter")
+    val sevDeskAdapter = classOf(name = "SevDeskAdapter")
+    val sevDeskApiClient = classOf(name = "SevDeskApiClient")
+    val sevDeskVoucherMapper = classOf(name = "SevDeskVoucherMapper")
+    val sevDeskRateLimiter = classOf(name = "SevDeskRateLimiter")
+
+    realization(implementing = lexofficeAdapter, iface = accountingExportProviderAdapter)
+    realization(implementing = sevDeskAdapter, iface = accountingExportProviderAdapter)
+    dependency(client = lexofficeAdapter, supplier = lexofficeApiClient, name = "delegates to")
+    dependency(client = lexofficeApiClient, supplier = lexofficeVoucherMapper, name = "uses")
+    dependency(client = lexofficeApiClient, supplier = lexofficeRateLimiter, name = "uses")
+    dependency(client = sevDeskAdapter, supplier = sevDeskApiClient, name = "delegates to")
+    dependency(client = sevDeskApiClient, supplier = sevDeskVoucherMapper, name = "uses")
+    dependency(client = sevDeskApiClient, supplier = sevDeskRateLimiter, name = "uses")
 }
 ----
 

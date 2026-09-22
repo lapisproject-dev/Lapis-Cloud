@@ -23,7 +23,7 @@ Effects are applied with https://github.com/livekit/track-processors-js[`@liveki
 Apache-2.0, pinned exactly), which pulls in exactly one transitive dependency,
 `@mediapipe/tasks-vision` 0.10.14 (Apache-2.0, itself pinned exactly).
 
-[kuml, video-background-effects-states, svg]
+[source,kuml,name="video-background-effects-states"]
 ----
 import dev.kuml.sysml2.dsl.sysml2Model
 

@@ -1,9 +1,8 @@
 = USt-Voranmeldung (Proof-of-Filing Aid) (V1.4.13)
 
-NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
-prose documentation only, kept in sync by hand with
-`lapis-server/src/main/kuml/10-accounting.kuml.kts` (the actual, load-bearing model). Same
-convention `travel-expenses.adoc`/`volunteer-allowance.adoc` already establish.
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), kept in sync by hand with
+`lapis-server/src/main/kuml/10-accounting.kuml.kts` (the actual, load-bearing model).
 
 This wave lets an organization record a Umsatzsteuer (VAT) rate per booking line and produces a
 read-only preview report (`getVatReturnPreview`) that aggregates POSTED bookings into the shape of
@@ -24,29 +23,29 @@ Two new columns on `posting` (`vat_rate`, `vat_amount`), two new columns on
 `lapis-server/src/main/kuml/11-organization-settings.kuml.kts` for the full kUML model and
 `V31__vat.sql` for the migration.
 
-[kuml, vat-return, svg]
+[source,kuml,name="vat-return"]
 ----
 classDiagram(name = "USt-Voranmeldung — ERM excerpt") {
-    class(name = "Posting") {
+    classOf(name = "Posting") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "amount", type = "BigDecimal") { note = "gross -- unchanged semantics" }
-        attribute(name = "vatRate", type = "String") { note = "UNCLASSIFIED|NOT_SUBJECT|ZERO|REDUCED|STANDARD" }
-        attribute(name = "vatAmount", type = "BigDecimal") { note = "snapshot, frozen when posted" }
+        attribute(name = "amount", type = "BigDecimal") // gross -- unchanged semantics
+        attribute(name = "vatRate", type = "String") // UNCLASSIFIED|NOT_SUBJECT|ZERO|REDUCED|STANDARD
+        attribute(name = "vatAmount", type = "BigDecimal") // snapshot, frozen when posted
     }
-    class(name = "OrganizationSettings") {
-        attribute(name = "vatEnabled", type = "Boolean") { note = "READ-ONLY here -- see IVatService" }
-        attribute(name = "isKleinunternehmer", type = "Boolean") { note = "ordinary ADMIN field" }
+    classOf(name = "OrganizationSettings") {
+        attribute(name = "vatEnabled", type = "Boolean") // READ-ONLY here -- see IVatService
+        attribute(name = "isKleinunternehmer", type = "Boolean") // ordinary ADMIN field
     }
-    class(name = "VatComplianceAcknowledgment") {
+    val vatComplianceAcknowledgment = classOf(name = "VatComplianceAcknowledgment") {
         attribute(name = "id", type = "UUID")
         attribute(name = "acknowledgedByMemberId", type = "UUID")
         attribute(name = "acknowledgedAt", type = "LocalDateTime")
         attribute(name = "disclaimerVersion", type = "String")
         attribute(name = "disclaimerSha256", type = "String")
     }
-    class(name = "Member") { attribute(name = "id", type = "UUID") }
+    val member = classOf(name = "Member") { attribute(name = "id", type = "UUID") }
 
-    association(source = VatComplianceAcknowledgment, target = Member, id = "acknowledgedBy") { target { multiplicity("1") } }
+    association(source = vatComplianceAcknowledgment, target = member, id = "acknowledgedBy") { target { multiplicity("1") } }
 }
 ----
 

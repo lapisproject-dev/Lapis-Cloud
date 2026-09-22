@@ -52,7 +52,7 @@ verified by its own `SchemaDriftTest`.
 
 == Diagram
 
-[kuml, domain-model, svg]
+[source,kuml,name="domain-model"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
 
@@ -340,7 +340,7 @@ writes the entry and its postings, so an unbalanced attempt never leaves a parti
 running balance per `LedgerAccount`, signed by that account's `LedgerAccountType` normal-balance
 side (`ASSET`/`EXPENSE` debit-normal, `LIABILITY`/`EQUITY`/`INCOME` credit-normal).
 
-[kuml, domain-model-accounting, svg]
+[source,kuml,name="domain-model-accounting"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Accounting (V0.3.1)") {
 
@@ -780,7 +780,7 @@ Two small, deliberately minimal schema additions on already-documented domains f
   treasurer). Deliberately not a full donation-management module (no campaigns/pledges/recurring
   donations).
 
-[kuml, domain-model-organization-settings, svg]
+[source,kuml,name="domain-model-organization-settings"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Organization Settings (V0.4.1)") {
 
@@ -837,7 +837,7 @@ exactly that boundary, governed by a single-row, ADMIN-tunable `PriceOracleConfi
 `PriceOracleSchemaDriftTest`) and a permanent per-conversion provenance record,
 `PriceOracleConversion`.
 
-[kuml, domain-model-price-oracle, svg]
+[source,kuml,name="domain-model-price-oracle"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Price Oracle (V0.6.5)") {
 
@@ -999,7 +999,7 @@ A cross-member read (a TREASURER/BOARD/ADMIN viewing someone else's history) is 
 audit-log entry (`AuditLogChainStateTable`'s hash chain exists for buchungsrelevante Veränderungen,
 and a page view changes nothing), and never with an amount in the log line.
 
-[kuml, member-financial-history, svg]
+[source,kuml,name="member-financial-history"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Member Financial History read path (V1.4.4.1)") {
 
@@ -1100,10 +1100,8 @@ classDiagram(name = "Lapis Cloud Domain Model — Member Financial History read 
 }
 ----
 
-NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
-Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
-blocks above (`classOf`/`enumOf`/`attribute(name=, type=)`/`association(source=, target=) { source
-{ multiplicity(spec="..."); role="..." } }`) rather than compiled.
+NOTE: This `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task
+(see `docs-render/`).
 
 == V1.4.4.2 — Member anniversaries (read view)
 
@@ -1168,7 +1166,7 @@ window presets close this gap without inventing one), family memberships,
 deceased-member workflow (each its own later sub-wave with its own scoping decision). Honors
 management shipped as V1.4.4.3, see below.
 
-[kuml, member-anniversaries, svg]
+[source,kuml,name="member-anniversaries"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Member Anniversaries read path (V1.4.4.2)") {
 
@@ -1225,9 +1223,8 @@ classDiagram(name = "Lapis Cloud Domain Model — Member Anniversaries read path
 }
 ----
 
-NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
-Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
-blocks above rather than compiled.
+NOTE: This `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task
+(see `docs-render/`).
 
 == V1.4.4.3 — Member honors (honors management)
 
@@ -1289,7 +1286,7 @@ link to the V1.4.4.2 anniversary automation (an honor is never auto-suggested fr
 anniversary), an "aberkannt" state, a Selbstauskunft path, bulk/CSV import of historical honors,
 and any accounting-side booking. Each is its own later scoping decision.
 
-[kuml, member-honors, svg]
+[source,kuml,name="member-honors"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Member Honors (V1.4.4.3)") {
 
@@ -1331,9 +1328,8 @@ classDiagram(name = "Lapis Cloud Domain Model — Member Honors (V1.4.4.3)") {
 }
 ----
 
-NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
-Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
-blocks above rather than compiled.
+NOTE: This `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task
+(see `docs-render/`).
 
 == V1.4.4.4 — Family memberships
 
@@ -1392,7 +1388,7 @@ already permits it; `Routes.MEMBERS` itself stays `requireRole(BOARD, ADMIN)`, a
 accidental, gap), and restricting DEPENDENT eligibility to `MemberStatusSets.ORGANIZATION_MEMBER`
 (any non-anonymized member may currently become a dependent).
 
-[kuml, member-families, svg]
+[source,kuml,name="member-families"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Family Memberships (V1.4.4.4)") {
 
@@ -1446,9 +1442,8 @@ classDiagram(name = "Lapis Cloud Domain Model — Family Memberships (V1.4.4.4)"
 }
 ----
 
-NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
-Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
-blocks above rather than compiled.
+NOTE: This `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task
+(see `docs-render/`).
 
 == V1.4.4.5 — Deceased-member workflow
 
@@ -1511,7 +1506,7 @@ and any change to `ContributionService.generateContributionsForPeriod` -- its pr
 non-`ACTIVE` status) from ever producing a new contribution line; `ContributionServiceDeceasedFilterTest`
 pins this as a verification test, not a behaviour change.
 
-[kuml, member-deceased, svg]
+[source,kuml,name="member-deceased"]
 ----
 classDiagram(name = "Lapis Cloud Domain Model — Deceased Member Workflow (V1.4.4.5)") {
 
@@ -1555,9 +1550,8 @@ classDiagram(name = "Lapis Cloud Domain Model — Deceased Member Workflow (V1.4
 }
 ----
 
-NOTE: This `[kuml]` block is not rendered or validated by any Gradle task in this repository (no
-Asciidoctor plugin is wired into the build) -- its syntax was hand-verified against the existing
-blocks above rather than compiled.
+NOTE: This `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task
+(see `docs-render/`).
 
 == V1.4.11 — Travel expense reimbursement
 

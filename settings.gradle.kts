@@ -24,3 +24,6 @@ include("lapis-client") // KVision UI, Kotlin/JS
 
 // ── Detekt (custom ruleset) ─────────────────────────────────────────
 include("lapis-detekt-rules") // custom Detekt ruleset (RequireNamedArguments gate)
+
+// ── Docs (kUML AsciiDoc preprocessor) ────────────────────────────────
+include("docs-render") // renderDocs task: kUML diagrams in docs/**/*.adoc → build/docs-rendered/

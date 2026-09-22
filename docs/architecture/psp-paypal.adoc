@@ -94,30 +94,30 @@ handler instead**, triggered by the `CHECKOUT.ORDER.APPROVED` event
 
 === Capture-flow sequence
 
-[kuml, paypal-capture-flow, svg]
+[source,kuml,name="paypal-capture-flow"]
 ----
 sequenceDiagram(name = "PayPal checkout + capture (V1.2.8b)") {
-    val payer = participant(name = "Payer")
-    val server = participant(name = "Lapis Cloud Server")
-    val paypal = participant(name = "PayPal")
+    val payer = lifeline(name = "Payer")
+    val server = lifeline(name = "Lapis Cloud Server")
+    val paypal = lifeline(name = "PayPal")
 
-    message(from = payer, to = server, text = "create checkout (amount, checkoutSessionId)")
-    message(from = server, to = paypal, text = "POST /v2/checkout/orders (intent=CAPTURE, custom_id=checkoutSessionId)")
-    message(from = paypal, to = server, text = "order id + approve link")
-    message(from = server, to = payer, text = "redirect to PayPal approve link")
+    message(from = payer, to = server, label = "create checkout (amount, checkoutSessionId)")
+    message(from = server, to = paypal, label = "POST /v2/checkout/orders (intent=CAPTURE, custom_id=checkoutSessionId)")
+    message(from = paypal, to = server, label = "order id + approve link")
+    message(from = server, to = payer, label = "redirect to PayPal approve link")
 
-    message(from = payer, to = paypal, text = "approve order on PayPal's own page")
-    message(from = paypal, to = server, text = "webhook: CHECKOUT.ORDER.APPROVED")
-    message(from = server, to = paypal, text = "POST /v1/notifications/verify-webhook-signature")
-    message(from = paypal, to = server, text = "verification_status")
-    message(from = server, to = paypal, text = "POST /v2/checkout/orders/{id}/capture")
-    message(from = paypal, to = server, text = "capture result (Captured / AlreadyCaptured / Failed)")
+    message(from = payer, to = paypal, label = "approve order on PayPal's own page")
+    message(from = paypal, to = server, label = "webhook: CHECKOUT.ORDER.APPROVED")
+    message(from = server, to = paypal, label = "POST /v1/notifications/verify-webhook-signature")
+    message(from = paypal, to = server, label = "verification_status")
+    message(from = server, to = paypal, label = "POST /v2/checkout/orders/{id}/capture")
+    message(from = paypal, to = server, label = "capture result (Captured / AlreadyCaptured / Failed)")
 
-    message(from = paypal, to = server, text = "webhook: PAYMENT.CAPTURE.COMPLETED")
-    message(from = server, to = server, text = "PspWebhookIngestion.ingestCheckoutCompleted -> post to ledger")
+    message(from = paypal, to = server, label = "webhook: PAYMENT.CAPTURE.COMPLETED")
+    message(from = server, to = server, label = "PspWebhookIngestion.ingestCheckoutCompleted -> post to ledger")
 
-    message(from = payer, to = server, text = "browser return-flow redirect (informational only)")
-    message(from = server, to = payer, text = "PaymentReturnScreen polls webhook-authoritative status")
+    message(from = payer, to = server, label = "browser return-flow redirect (informational only)")
+    message(from = server, to = payer, label = "PaymentReturnScreen polls webhook-authoritative status")
 }
 ----
 

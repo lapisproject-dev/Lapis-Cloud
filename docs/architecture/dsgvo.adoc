@@ -52,7 +52,7 @@ The two DSGVO subject roots and the audit log's discriminator column, in the sam
 `38-crm.kuml.kts`/`04-dsgvo.kuml.kts` for the full, real schema this is a deliberately narrowed
 excerpt of):
 
-[kuml, dsgvo-subject-roots, svg]
+[source,kuml,name="dsgvo-subject-roots"]
 ----
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.dsl.applyProfile

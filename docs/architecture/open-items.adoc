@@ -1,9 +1,8 @@
 = Kreditoren-/Debitorenbuchhaltung — Open Items (V1.4.15)
 
-NOTE: This document's `[kuml]` block is not rendered or validated by any Gradle task -- it is
-prose documentation only, kept in sync by hand with
-`lapis-server/src/main/kuml/48-open-item.kuml.kts` (the actual, load-bearing model). Same
-convention `travel-expenses.adoc`/`domain-model.adoc` already establish.
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), kept in sync by hand with
+`lapis-server/src/main/kuml/48-open-item.kuml.kts` (the actual, load-bearing model).
 
 Any `TREASURER`/`ADMIN` may create and settle an open item (a single payable or receivable line);
 `BOARD` may read but not write. This document explains the four decisions the design team made
@@ -20,48 +19,48 @@ see below) -- plus three new columns on `organization_settings` (`receivables_ac
 `lapis-server/src/main/kuml/48-open-item.kuml.kts` for the full kUML model and
 `V35__open_items.sql` for the migration.
 
-[kuml, open-items, svg]
+[source,kuml,name="open-items"]
 ----
 classDiagram(name = "Open Items — ERM excerpt") {
-    class(name = "OpenItem") {
+    val openItem = classOf(name = "OpenItem") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "direction", type = "String") { note = "PAYABLE|RECEIVABLE" }
+        attribute(name = "direction", type = "String") // PAYABLE|RECEIVABLE
         attribute(name = "counterpartyName", type = "String")
-        attribute(name = "counterpartyKey", type = "String") { note = "normalized, used for netting-candidate matching" }
-        attribute(name = "amount", type = "BigDecimal") { note = "frozen invoice amount, never changed" }
-        attribute(name = "status", type = "String") { note = "OPEN|PARTIALLY_SETTLED|SETTLED|CANCELLED, materialized but never the source of truth" }
-        attribute(name = "creationJournalEntryId", type = "UUID") { note = "idempotency anchor, uq_oi_creation_journal_entry" }
-        attribute(name = "creationPostingError", type = "String") { note = "degraded-booking reason, retryable" }
+        attribute(name = "counterpartyKey", type = "String") // normalized, used for netting-candidate matching
+        attribute(name = "amount", type = "BigDecimal") // frozen invoice amount, never changed
+        attribute(name = "status", type = "String") // OPEN|PARTIALLY_SETTLED|SETTLED|CANCELLED, materialized but never the source of truth
+        attribute(name = "creationJournalEntryId", type = "UUID") // idempotency anchor, uq_oi_creation_journal_entry
+        attribute(name = "creationPostingError", type = "String") // degraded-booking reason, retryable
     }
-    class(name = "OpenItemSettlement") {
+    val openItemSettlement = classOf(name = "OpenItemSettlement") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "kind", type = "String") { note = "PAYMENT|NETTING" }
+        attribute(name = "kind", type = "String") // PAYMENT|NETTING
         attribute(name = "amount", type = "BigDecimal")
-        attribute(name = "nettingId", type = "UUID") { note = "non-null iff kind == NETTING" }
+        attribute(name = "nettingId", type = "UUID") // non-null iff kind == NETTING
     }
-    class(name = "OpenItemNetting") {
+    val openItemNetting = classOf(name = "OpenItemNetting") {
         attribute(name = "id", type = "UUID")
         attribute(name = "amount", type = "BigDecimal")
         attribute(name = "payableItemId", type = "UUID")
         attribute(name = "receivableItemId", type = "UUID")
-        attribute(name = "journalEntryId", type = "UUID") { note = "idempotency anchor, uq_oin_journal_entry" }
+        attribute(name = "journalEntryId", type = "UUID") // idempotency anchor, uq_oin_journal_entry
     }
-    class(name = "ReceivableDunningLevel") {
+    val receivableDunningLevel = classOf(name = "ReceivableDunningLevel") {
         attribute(name = "id", type = "UUID")
         attribute(name = "levelNumber", type = "Int")
         attribute(name = "graceDays", type = "Int")
-        attribute(name = "feeAmount", type = "BigDecimal") { note = "optional, max 25.00" }
+        attribute(name = "feeAmount", type = "BigDecimal") // optional, max 25.00
     }
-    class(name = "ReceivableDunningNotice") {
+    val receivableDunningNotice = classOf(name = "ReceivableDunningNotice") {
         attribute(name = "id", type = "UUID")
         attribute(name = "levelNumber", type = "Int")
-        attribute(name = "status", type = "String") { note = "ISSUED|SKIPPED|CANCELLED" }
+        attribute(name = "status", type = "String") // ISSUED|SKIPPED|CANCELLED
     }
 
-    association(source = OpenItem, target = OpenItemSettlement) { target { multiplicity("0..*") } }
-    association(source = OpenItemNetting, target = OpenItemSettlement) { target { multiplicity("2") } }
-    association(source = OpenItem, target = ReceivableDunningNotice) { target { multiplicity("0..*") } }
-    association(source = ReceivableDunningLevel, target = ReceivableDunningNotice) { target { multiplicity("0..*") } }
+    association(source = openItem, target = openItemSettlement) { target { multiplicity("0..*") } }
+    association(source = openItemNetting, target = openItemSettlement) { target { multiplicity("2") } }
+    association(source = openItem, target = receivableDunningNotice) { target { multiplicity("0..*") } }
+    association(source = receivableDunningLevel, target = receivableDunningNotice) { target { multiplicity("0..*") } }
 }
 ----
 
