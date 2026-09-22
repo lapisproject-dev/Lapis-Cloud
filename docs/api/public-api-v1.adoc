@@ -1,17 +1,51 @@
-= Public API — V1.3.1/V1.3.2 "API-Fundament, lesend" + "Webhooks (ausgehend)"
+= Lapis Cloud Public API
 :description: Read-only REST API under /api/v1, plus outbound webhooks — authentication, rate limits, pagination, endpoints, event catalogue.
 :toc:
 :toc-placement: preamble
 :icons: font
 
-== Overview
+[[surface-model]]
+== Surface model
 
-`/api/v1` is a read-only REST API for external, machine-to-machine consumption of a Lapis Cloud
-organization's public governance data — independent of the Kilua-RPC layer `lapis-client` uses
-internally. It is served by the same Ktor process as the rest of this application, registered
-before the SPA's own static-file fallback (see `network.lapis.cloud.server.routes.PublicApiRoutes`).
+Lapis Cloud exposes three separate integration surfaces. `GET /api/v1/*` is a read-only,
+machine-to-machine REST API authenticated with a long-lived Bearer API key — there is no write
+endpoint anywhere on it. Outbound webhooks push a signed HTTPS `POST` to one URL per API key
+whenever one of ten fixed events occurs, so an integration does not have to poll — plus a
+manually triggered `webhook.test` diagnostic event that is never queued or retried.
+`/api/embed/v1/*` is a separate, **keyless**, browser-facing surface for embeddable widgets on a
+partner website, gated by an origin allowlist instead of a key — it shares no code path, rate
+limiter, or credential with the other two. It is served by the same Ktor process as the rest of
+this application, registered before the SPA's own static-file fallback (see
+`network.lapis.cloud.server.routes.PublicApiRoutes`).
 
-Every endpoint is `GET`. There is no write endpoint on this surface — see <<scope>>.
+[[quick-start]]
+== Quick start
+
+An API key is issued by a BOARD or ADMIN member under *Verwaltung → API-Schlüssel* in the web UI.
+The raw key is displayed exactly once — store it immediately; it cannot be retrieved again.
+
+[source,bash]
+----
+curl -s -H "Authorization: Bearer lapis_..." \
+  "https://example.org/api/v1/committees?limit=2"
+----
+
+[source,json]
+----
+{
+  "items": [
+    {
+      "id": "8f14e...", "name": "Vorstand", "type": "EXECUTIVE_BOARD", "description": "...",
+      "active": true, "quorumPercent": 50
+    },
+    {
+      "id": "3c9a1...", "name": "AG Digitalisierung", "type": "WORKING_GROUP", "description": "...",
+      "active": true, "quorumPercent": 50
+    }
+  ],
+  "totalCount": 7, "limit": 2, "offset": 0
+}
+----
 
 == Authentication
 
@@ -21,11 +55,11 @@ Every request must carry:
 Authorization: Bearer lapis_<key>
 ----
 
-The key is issued by a BOARD or ADMIN member under *Verwaltung → API-Schlüssel* in the web UI (or
-via the `IApiKeyService` RPC interface). It is a long-lived credential, structurally distinct from
-this server's session cookies/tokens: both travel as `Authorization: Bearer <token>`, but a session
-token and an API key are code-enforced to never resolve as each other, regardless of their content —
-see `network.lapis.cloud.server.security.ApiKeyAuth`/`RequestContext.extractSessionToken`. A session
+The key is issued as described in <<quick-start>> (or via the `IApiKeyService` RPC interface). It
+is a long-lived credential, structurally distinct from this server's session cookies/tokens: both
+travel as `Authorization: Bearer <token>`, but a session token and an API key are code-enforced to
+never resolve as each other, regardless of their content — see
+`network.lapis.cloud.server.security.ApiKeyAuth`/`RequestContext.extractSessionToken`. A session
 cookie alone, without this header, never authenticates this API.
 
 The raw key is shown to the operator **exactly once**, at issuance/re-issuance time. It cannot be
@@ -33,7 +67,8 @@ retrieved again afterwards — only a SHA-256 hash of it is ever stored. If a ke
 one ("Neu ausstellen" in the UI, `reissueApiKey` over RPC) — this revokes the old key and mints a
 replacement with the same label and expiry in one atomic step.
 
-=== Error responses
+[[errors]]
+== Errors
 
 Every error response (auth, rate limit, not found, bad request) is a flat JSON object:
 
@@ -70,15 +105,20 @@ Every error response (auth, rate limit, not found, bad request) is a flat JSON o
 
 | 400
 | `bad_request`
-| A malformed path parameter, or a `?status=` value outside the documented whitelist for that
-  endpoint.
+| A malformed path parameter, a `?status=` value outside the documented whitelist for that
+  endpoint, or a `?committeeId=`/`?meetingId=`/`?targetCommitteeId=` value that is not a valid
+  UUID.
 |===
 
+[NOTE]
+.Rationale
+====
 `unauthorized` deliberately does not distinguish "no header at all" from "a syntactically valid but
 completely unknown key" — both carry identical risk of enabling enumeration, so both collapse into
 the same response. `key_revoked`/`key_expired` are only ever returned once a key's hash has actually
 matched an existing row — the caller already possesses that key at that point, so naming the reason
 does not itself leak anything a determined caller couldn't already infer.
+====
 
 Every response, success or error, carries `Cache-Control: no-store` and `Vary: Authorization`.
 
@@ -89,12 +129,15 @@ Two independent limits apply, in this order:
 
 1. **Pre-authentication, per IP address** — checked before the `Authorization` header is even
    parsed. Bounds anonymous request volume regardless of whether a caller has a key at all.
-2. **Post-authentication, per API key** — checked after a key resolves successfully. Bounds a single
-   integration's volume independently of every other caller's IP or key.
+   **30 requests / 1 minute per IP.**
+2. **Post-authentication, per API key** — checked after a key resolves successfully. Bounds a
+   single integration's volume independently of every other caller's IP or key.
+   **60 requests / 1 minute per API key.**
 
 A `429` from either limit carries a `Retry-After` header with the actual remaining seconds in that
 limiter's current window.
 
+[[pagination]]
 == Pagination
 
 Every list endpoint accepts `?limit=` and `?offset=`. Neither is ever rejected — both are silently
@@ -114,15 +157,13 @@ Every page response has the shape:
 `totalCount` is the total number of matching records (before pagination), not the count of `items`
 in this page.
 
-== Endpoints
+[[endpoints]]
+== Endpoint reference
 
 === `GET /api/v1/members`
 
 **Returns `id` and `displayName` only — permanently, by design, for DSGVO Datenminimierung.** No
-e-mail address, postal address, membership status, role, or any other field is ever exposed here,
-and this is not planned to change: an external caller has no legitimate need for a member's contact
-or status data through this read-only surface, and the shape below is the API's documented contract,
-not an incomplete first cut.
+e-mail address, postal address, membership status, role, or any other field is ever exposed here.
 
 Only members whose status is `ACTIVE` are included.
 
@@ -134,17 +175,40 @@ Only members whose status is `ACTIVE` are included.
 }
 ----
 
+Errors: `400 bad_request` for a malformed `?limit=`/`?offset=` value is never returned (both are
+silently clamped, see <<pagination>>); only the generic auth/rate-limit errors from <<errors>>
+apply.
+
+[NOTE]
+.Rationale
+====
+An external caller has no legitimate need for a member's contact or status data through this
+read-only surface, and the shape above is the API's documented contract, not an incomplete first
+cut.
+====
+
 === `GET /api/v1/members/{id}`
 
-Returns a single member object (same two-field shape as one `items` entry above), or
-`404 not_found` -- for BOTH an unknown id AND a well-formed id belonging to a member whose status is
-NOT `ACTIVE`. These two cases are deliberately indistinguishable: a caller holding a member's UUID
-must not be able to learn, by comparing a `404` against a `200`, whether that member is
-`WITHDRAWN`/`APPLICATION`/`FRIEND`/`DECEASED` -- the SAME hard `ACTIVE`-only filter the list endpoint
-above already applies, applied here too rather than relaxed "because it's just one record".
+Returns a single member object (same two-field shape as one `items` entry above).
 
-A syntactically malformed `{id}` (not a UUID) is `400 bad_request`, not `404` -- a parse failure is a
-caller error, not an existence question.
+[cols="1,1,3", options="header"]
+|===
+| HTTP status | `error` | When
+
+| 404 | `not_found` | Unknown id, OR a well-formed id belonging to a member whose status is NOT `ACTIVE`.
+| 400 | `bad_request` | `{id}` is not a syntactically valid UUID.
+|===
+
+[NOTE]
+.Rationale
+====
+The unknown-id and inactive-member cases are deliberately indistinguishable: a caller holding a
+member's UUID must not be able to learn, by comparing a `404` against a `200`, whether that member
+is `WITHDRAWN`/`APPLICATION`/`FRIEND`/`DECEASED` — the SAME hard `ACTIVE`-only filter the list
+endpoint above already applies, applied here too rather than relaxed "because it's just one
+record". A parse failure is a caller error, not an existence question, hence `400` rather than
+`404` for a malformed id.
+====
 
 === `GET /api/v1/committees`
 
@@ -165,13 +229,32 @@ Query parameters: `?activeOnly=` (`true`/`false`, default `true`).
 
 `type` is one of `EXECUTIVE_BOARD`, `WORKING_GROUP`, `COMMISSION`, `OTHER`, `GENERAL_ASSEMBLY`.
 
+CAUTION: `?activeOnly=` is parsed with Kotlin's `toBooleanStrictOrNull()` and falls back to `true`
+for anything other than the exact strings `"true"`/`"false"` (case-sensitive) — `?activeOnly=yes`
+or `?activeOnly=1` is **silently treated as `true`**, not rejected with `400`. This is the opposite
+behavior of `?status=` on `/meetings`/`/motions` below, which does return `400 bad_request` for an
+unrecognized value. Do not rely on an invalid `activeOnly` value being caught.
+
 === `GET /api/v1/committees/{id}`
 
-Returns a single committee object, or `404 not_found` (unknown or malformed-then-400, see
-`/members/{id}` above for the general 400-vs-404 rule). Unlike `/members/{id}`, this endpoint applies
-**no** status filter at all -- an inactive committee is already reachable through the list endpoint
-above via `?activeOnly=false`, so a single-resource lookup applying no filter here is not a status
-oracle the way it would be for `/members/{id}`/`/motions/{id}`.
+Returns a single committee object.
+
+[cols="1,1,3", options="header"]
+|===
+| HTTP status | `error` | When
+
+| 404 | `not_found` | Unknown id.
+| 400 | `bad_request` | `{id}` is not a syntactically valid UUID.
+|===
+
+[NOTE]
+.Rationale
+====
+Unlike `/members/{id}`, this endpoint applies **no** status filter at all — an inactive committee
+is already reachable through the list endpoint above via `?activeOnly=false`, so a single-resource
+lookup applying no filter here is not a status oracle the way it would be for
+`/members/{id}`/`/motions/{id}`.
+====
 
 === `GET /api/v1/meetings`
 
@@ -193,9 +276,20 @@ Query parameters: `?committeeId=<uuid>`, `?status=` (one of `PLANNED`, `HELD`, `
 
 `format` is one of `IN_PERSON`, `ONLINE`, `HYBRID`.
 
+Errors: `400 bad_request` if `?committeeId=` is not a valid UUID, or `?status=` is not one of the
+three values above.
+
 === `GET /api/v1/meetings/{id}`
 
-Returns a single meeting object (same shape as one `items` entry above), or `404 not_found`.
+Returns a single meeting object (same shape as one `items` entry above).
+
+[cols="1,1,3", options="header"]
+|===
+| HTTP status | `error` | When
+
+| 404 | `not_found` | Unknown id.
+| 400 | `bad_request` | `{id}` is not a syntactically valid UUID.
+|===
 
 === `GET /api/v1/resolutions`
 
@@ -219,10 +313,25 @@ Query parameters: `?committeeId=<uuid>`, `?meetingId=<uuid>`.
 `status` is one of `ADOPTED`, `REJECTED`, `POSTPONED`. `resolutionMode` is one of
 `COMMITTEE_QUORUM`, `MERITOCRATIC`, `DEMOCRATIC`, `SYSTEMIC_CONSENSUS`.
 
+Errors: `400 bad_request` if `?committeeId=` or `?meetingId=` is not a valid UUID.
+
 === `GET /api/v1/resolutions/{id}`
 
-Returns a single resolution object, or `404 not_found` (unknown or malformed-then-400). No status
-filter -- same as the list endpoint above, which shows every resolution unconditionally.
+Returns a single resolution object.
+
+[cols="1,1,3", options="header"]
+|===
+| HTTP status | `error` | When
+
+| 404 | `not_found` | Unknown id.
+| 400 | `bad_request` | `{id}` is not a syntactically valid UUID.
+|===
+
+[NOTE]
+.Rationale
+====
+No status filter — same as the list endpoint above, which shows every resolution unconditionally.
+====
 
 === `GET /api/v1/motions`
 
@@ -231,8 +340,7 @@ Query parameters: `?targetCommitteeId=<uuid>`, `?status=` (see below).
 **`status` is restricted to a fixed whitelist — `SCHEDULED`, `RESOLVED`, `REJECTED`, `POSTPONED`.**
 These are the only statuses this endpoint will ever return, whether or not `?status=` is given: with
 no filter, results are still limited to this set (internal workflow statuses like `SUBMITTED`,
-`REVIEWED`, `REJECTED_PRELIMINARY`, `WITHDRAWN` never appear); passing a `?status=` value outside
-this whitelist is `400 bad_request`, not a silently empty result.
+`REVIEWED`, `REJECTED_PRELIMINARY`, `WITHDRAWN` never appear).
 
 [source,json]
 ----
@@ -249,17 +357,32 @@ this whitelist is `400 bad_request`, not a silently empty result.
 }
 ----
 
+Errors: `400 bad_request` if `?targetCommitteeId=` is not a valid UUID, or `?status=` is outside
+the fixed whitelist above (never a silently empty result).
+
 === `GET /api/v1/motions/{id}`
 
-Returns a single motion object, or `404 not_found` -- for BOTH an unknown id AND a well-formed id
-whose current status is outside the SAME fixed whitelist (`SCHEDULED`, `RESOLVED`, `REJECTED`,
-`POSTPONED`) the list endpoint above enforces. Same reasoning as `/members/{id}`: an internal-only
-status (`SUBMITTED`, `REVIEWED`, `REJECTED_PRELIMINARY`, `WITHDRAWN`) must stay structurally
-unreachable through this endpoint too, not merely absent by default -- comparing a `404` against a
-`200` must never let a caller learn which internal status a motion is actually in.
+Returns a single motion object.
+
+[cols="1,1,3", options="header"]
+|===
+| HTTP status | `error` | When
+
+| 404 | `not_found` | Unknown id, OR a well-formed id whose current status is outside the fixed whitelist (`SCHEDULED`, `RESOLVED`, `REJECTED`, `POSTPONED`).
+| 400 | `bad_request` | `{id}` is not a syntactically valid UUID.
+|===
+
+[NOTE]
+.Rationale
+====
+Same reasoning as `/members/{id}`: an internal-only status (`SUBMITTED`, `REVIEWED`,
+`REJECTED_PRELIMINARY`, `WITHDRAWN`) must stay structurally unreachable through this endpoint too,
+not merely absent by default — comparing a `404` against a `200` must never let a caller learn
+which internal status a motion is actually in.
+====
 
 [[webhooks]]
-== Webhooks (outbound) — V1.3.2
+== Webhooks (outbound)
 
 In addition to the pull-based `/api/v1` surface above, a Lapis Cloud organization can configure ONE
 outbound webhook per API key: an HTTP `POST` this server sends automatically whenever one of a fixed
@@ -304,6 +427,20 @@ bytes>)`. Verify by recomputing that HMAC over the exact bytes you received (nev
 copy) and comparing it, in constant time, against the `v1` value. Reject the request if they don't
 match, or if `t` is further in the past/future than your own freshness tolerance allows.
 
+[source,python]
+----
+import hashlib, hmac, time
+
+def verify(signing_secret: str, header: str, raw_body: bytes, tolerance_seconds: int = 300) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    t, v1 = parts["t"], parts["v1"]
+    if abs(time.time() - int(t)) > tolerance_seconds:
+        return False
+    signed = f"{t}.".encode() + raw_body
+    expected = hmac.new(signing_secret.encode(), signed, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, v1)
+----
+
 The signing secret (`whsec_lapis_…`) is shown to you **exactly once**, at configuration/rotation
 time, the same "shown once, never retrievable again" discipline the API key itself already follows.
 Rotating it (`rotateWebhookSecret`) invalidates the old secret immediately — there is no dual-secret
@@ -325,13 +462,13 @@ Every event's JSON body carries at least `id` (== `Lapis-Webhook-Id`), `eventTyp
 { "id": "<uuid>", "eventType": "resolution.adopted", "entityId": "<uuid>", "occurredAt": "2026-09-02T11:14:51.123456" }
 ----
 
-For a **Thin** event (every event below except the two payment ones), that's the whole body — fetch
-the current state of `entityId` from the corresponding `/api/v1` endpoint above if you need more than
-the bare fact that something happened. For the two **Fat** (self-contained) payment events, the body
-additionally carries `amount` (a decimal STRING, scale 2, e.g. `"42.00"` — never a JSON number),
-`currency`, and `transactionId` — there is no `/api/v1/payments` endpoint to fetch further detail
-from, so the payload is self-sufficient instead. Neither payment event ever carries `memberId`,
-donor/payer identity, or any other personal data.
+For a **Thin** event (every event below except the three payment ones), that's the whole body —
+fetch the current state of `entityId` from the corresponding `/api/v1` endpoint above if you need
+more than the bare fact that something happened. For the three **Fat** (self-contained) payment
+events, the body additionally carries `amount` (a decimal STRING, scale 2, e.g. `"42.00"` — never a
+JSON number), `currency`, and `transactionId` — there is no `/api/v1/payments` endpoint to fetch
+further detail from, so the payload is self-sufficient instead. None of the payment events ever
+carry `memberId`, donor/payer identity, or any other personal data.
 
 [cols="2,2,4", options="header"]
 |===
@@ -375,6 +512,11 @@ donor/payer identity, or any other personal data.
 | A donation is captured via Stripe checkout — **Fat** event, see above
 | _(none — self-contained payload)_
 
+| `event.registration.paid`
+| An event-registration participation fee is confirmed and posted to accounting — **Fat** event, see
+  above
+| _(none — self-contained payload)_
+
 | `webhook.test`
 | `sendWebhookTestEvent` only — synchronous, one attempt, never queued/retried
 | _(none — diagnostic only)_
@@ -385,6 +527,7 @@ any other entity leaving the visible-through-`/api/v1` set) is not announced —
 to detect removals must periodically re-poll the corresponding `/api/v1` list endpoint and diff it
 against its own local copy.
 
+[[retry-policy]]
 === Retry policy
 
 A failed attempt (any non-`2xx` response, a timeout, a connection/TLS/DNS failure, or a `3xx`
@@ -422,6 +565,13 @@ Delivery history (`listWebhookDeliveries`) is retained for 30 days after reachin
 (`DELIVERED`/`ABANDONED`), then deleted automatically. A delivery still `PENDING`/being retried is
 never deleted regardless of age.
 
+=== Timeouts
+
+Every webhook HTTP request uses a 5 second overall request timeout, a 3 second connect timeout, and
+a 5 second socket timeout. A receiver that cannot respond within these bounds is treated as a failed
+delivery attempt (see <<retry-policy>> above) — design your endpoint handler to respond well within
+5 seconds, doing any slow work asynchronously after acknowledging the request.
+
 === Operating assumption
 
 Exactly one server instance is assumed to run the delivery poller. Delivery itself is safe under
@@ -429,8 +579,15 @@ multiple instances (each attempt is claimed atomically), but the deactivation-no
 the retention sweep are not additionally guarded against running twice — see the poller's own KDoc if
 this server is ever operated in a multi-instance configuration.
 
+[[embed-widgets]]
+== Embed widgets
+
+`/api/embed/v1/*` is a separate, keyless, browser-facing surface for embeddable widgets — see
+<<embed-widgets.adoc#,Website Embed Widgets>> for its full reference (authentication model,
+endpoints, rate limits, and the donation/event-registration widgets themselves).
+
 [[scope]]
-== Out of scope (this wave)
+== Out of scope
 
 Deliberately not implemented — see `CHANGELOG.md`: any write endpoint on the `/api/v1` REST surface
 itself, OAuth2/OIDC/JWT/scopes, multi-tenancy, distributed (cross-instance) rate limiting,
@@ -444,5 +601,5 @@ dual-secret grace window during webhook signing-secret rotation.
 NOTE: "CORS" above refers specifically to this `/api/v1` surface, which stays Bearer-key-only and
 carries no CORS headers. Welle V1.4.1a added hand-rolled, allowlist-gated CORS to a completely
 separate, unauthenticated surface (`/api/embed/v1/*`) for browser-embeddable login widgets — see
-<<embed-widgets.adoc#,Website Embed Widgets — V1.4.1a>>. The two surfaces do not share any code
-path, rate limiter, or route prefix.
+<<embed-widgets.adoc#,Website Embed Widgets>>. The two surfaces do not share any code path, rate
+limiter, or route prefix.

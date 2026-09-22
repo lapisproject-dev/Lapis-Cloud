@@ -236,7 +236,8 @@ internal object WebhookEndpointStore {
      * an EXPIRED key has no such cascade at all -- `expiresAt` passing is a pure clock event nothing
      * proactively reacts to. Without the `expiresAt` half of this filter, an endpoint tied to an
      * already-expired API key kept receiving every new event indefinitely (including
-     * `contribution.paid`/`donation.received` Fat-event payloads carrying `amount`/`currency`) even
+     * `contribution.paid`/`donation.received`/`event.registration.paid` Fat-event payloads
+     * carrying `amount`/`currency`) even
      * though the same key can no longer authenticate a single `/api/v1` read.
      */
     fun listActive(): List<EndpointRow> {

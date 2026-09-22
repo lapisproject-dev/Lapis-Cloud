@@ -676,26 +676,29 @@ offers an anonymous donor no provider choice).
 
 == Public REST API (V1.3.1)
 
-A read-only REST API under `/api/v1` — `/members`, `/committees`, `/meetings`, `/meetings/{id}`,
-`/resolutions`, `/motions` — for external, machine-to-machine consumption, independent of the
-Kilua-RPC layer `lapis-client` uses. Authenticated via `Authorization: Bearer lapis_<key>`, a
-credential namespace kept structurally separate from session cookies/tokens. Board/Admin members
-issue and manage keys under *Verwaltung → API-Schlüssel*. Full endpoint/field/rate-limit reference:
+A read-only REST API under `/api/v1` — `/members`, `/members/{id}`, `/committees`,
+`/committees/{id}`, `/meetings`, `/meetings/{id}`, `/resolutions`, `/resolutions/{id}`, `/motions`,
+`/motions/{id}` — for external, machine-to-machine consumption, independent of the Kilua-RPC layer
+`lapis-client` uses. Authenticated via `Authorization: Bearer lapis_<key>`, a credential namespace
+kept structurally separate from session cookies/tokens. Board/Admin members issue and manage keys
+under *Verwaltung → API-Schlüssel*. Full endpoint/field/rate-limit reference:
 `docs/api/public-api-v1.adoc`.
 
 === What doesn't work yet (this wave)
 
-Deliberately out of scope, see `CHANGELOG.md`: any write endpoint, webhooks, OAuth2/OIDC/scopes,
+Deliberately out of scope, see `CHANGELOG.md`: any write endpoint, OAuth2/OIDC/scopes,
 multi-tenancy, distributed rate limiting, OpenAPI/Swagger, ETag/caching, CORS, field
 selection/sorting/full-text search/cursor pagination, bulk endpoints, automatic key rotation/expiry
 mail/cleanup.
 
 == Outbound Webhooks (V1.3.2)
 
-Ten fixed events (`committee.created`/`.updated`, `meeting.created`/`.held`, `resolution.adopted`,
-`motion.scheduled`, `member.created`, `contribution.paid`, `donation.received`, `webhook.test`) fan
-out as signed HTTPS POSTs, one webhook endpoint per existing `Authorization: Bearer lapis_<key>` API
-key from the Public REST API above — there is no separate webhook-only credential namespace.
+Ten fixed events (`committee.created`/`.updated`, `meeting.created`/`.held`,
+`resolution.adopted`, `motion.scheduled`, `member.created`, `contribution.paid`,
+`donation.received`, `event.registration.paid`), plus a manually triggered `webhook.test`
+diagnostic event, fan out as signed HTTPS POSTs, one webhook endpoint per existing
+`Authorization: Bearer lapis_<key>` API key from the Public REST API above — there is no separate
+webhook-only credential namespace.
 Board/Admin members configure the endpoint URL, rotate the signing secret, send a synchronous test
 event, and inspect a 30-day delivery log, all under *Verwaltung → API-Schlüssel*. Full header
 grammar, event catalog, retry schedule and known limitations: `docs/api/public-api-v1.adoc`,

@@ -110,7 +110,8 @@ enum class WebhookFailureReason {
 /**
  * The full, closed catalogue of events this webhook subsystem can ever publish -- see
  * `network.lapis.cloud.server.webhook.WebhookEventPublisher` KDoc for the Thin-vs-Fat payload
- * distinction (`CONTRIBUTION_PAID`/`DONATION_RECEIVED` are the only two Fat events) and
+ * distinction (`CONTRIBUTION_PAID`/`DONATION_RECEIVED`/`EVENT_REGISTRATION_PAID` are the three Fat
+ * events) and
  * `network.lapis.cloud.server.rpc.GovernanceService`/`MemberService`/`RegistrationService`/
  * `ContributionPaymentEvents`/`PspWebhookIngestion` for the concrete call sites. [wireName] is what
  * actually travels on the wire as the JSON payload's `"eventType"` field and the
@@ -139,8 +140,8 @@ enum class WebhookEventType(
     /**
      * Welle V1.4.3.1 "Veranstaltungen". Fires once a participation-fee payment is confirmed AND
      * posted to accounting (`journalEntryId != null`) -- same "only after the ledger actually
-     * recorded it" gate `DONATION_RECEIVED`/`CONTRIBUTION_PAID` already follow. NOT a Fat event
-     * (see class KDoc) -- carries [network.lapis.cloud.server.webhook.WebhookPayloads
+     * recorded it" gate `DONATION_RECEIVED`/`CONTRIBUTION_PAID` already follow. Fat event (see
+     * class KDoc) -- carries [network.lapis.cloud.server.webhook.WebhookPayloads
      * .PaymentEventDetails], same as [DONATION_RECEIVED].
      */
     EVENT_REGISTRATION_PAID("event.registration.paid"),

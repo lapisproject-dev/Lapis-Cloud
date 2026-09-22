@@ -54,11 +54,12 @@ private val logger = KotlinLogging.logger {}
  * `resolution.adopted`, `motion.scheduled` (which additionally requires the new status to be in
  * `network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES`), `member.created` (requires the
  * member's new status to be `ACTIVE`, see `MemberReads.getActiveMember`). A **Fat** event (a
- * self-contained payload, see [WebhookPayloads] class KDoc) is the ONLY documented exception:
- * `contribution.paid`/`donation.received` -- there is no `/api/v1/payments` endpoint (explicitly
- * out of scope, see `docs/api/public-api-v1.adoc`), so the payload itself carries everything a
- * receiver needs (`amount`/`currency`/`transactionId`) rather than pointing at a resource the
- * receiver could never actually fetch.
+ * self-contained payload, see [WebhookPayloads] class KDoc) is the documented exception -- there
+ * are three Fat events: `contribution.paid`/`donation.received`/`event.registration.paid` --
+ * there is no `/api/v1/payments` endpoint (explicitly out of scope, see
+ * `docs/api/public-api-v1.adoc`), so the payload itself carries everything a receiver needs
+ * (`amount`/`currency`/`transactionId`) rather than pointing at a resource the receiver could
+ * never actually fetch.
  *
  * **Fan-out**: [publish] loads every currently-[WebhookEndpointStore.listActive] endpoint and
  * inserts ONE [WebhookDeliveryQueue] row per endpoint, each with its OWN freshly-random `event_id`

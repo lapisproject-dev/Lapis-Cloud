@@ -27,7 +27,7 @@ import kotlin.uuid.Uuid
  * `donorCategory`/name/e-mail/address/IBAN -- no field exists for Kotlin to accidentally populate.
  */
 internal object WebhookPayloads {
-    /** Payment-specific fields for the two Fat events -- see class KDoc. */
+    /** Payment-specific fields for the three Fat events -- see class KDoc. */
     data class PaymentEventDetails(
         val amount: BigDecimal,
         val currency: String,
