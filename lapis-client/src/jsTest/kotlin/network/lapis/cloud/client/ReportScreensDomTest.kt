@@ -45,6 +45,7 @@ class ReportScreensDomTest {
             if (errorBoxes(element()) == count) return
             delay(50)
         }
+        assertTrue(false, "timeout: never reached $count error box(es) (last seen: ${errorBoxes(element())})")
     }
 
     private fun buttonWithText(
@@ -228,15 +229,23 @@ class ReportScreensDomTest {
             }
         }
 
+    // Split into three separate tests (previously one @Test chaining all three checks sequentially): each queue now
+    // gets its own full timeout budget, and a failure in one no longer obscures the others' results.
     @Test
-    fun approvalQueues_failedFirstPageIsAnErrorStateWithRetry(): Promise<Unit> =
+    fun approvalQueues_reliefFirstPageIsAnErrorStateWithRetry(): Promise<Unit> =
+        test { assertFailedLoadIsAnErrorState("report-screens-relief", "Filtern") { renderContributionReliefQueueScreen(it) } }
+
+    @Test
+    fun approvalQueues_travelFirstPageIsAnErrorStateWithRetry(): Promise<Unit> =
         test {
-            assertFailedLoadIsAnErrorState("report-screens-relief", "Filtern") { renderContributionReliefQueueScreen(it) }
             assertFailedLoadIsAnErrorState("report-screens-travel", "Filtern", otherLoadingTexts = true) {
                 renderTravelExpenseApprovalsScreen(it)
             }
-            assertFailedLoadIsAnErrorState("report-screens-volunteer", "Filtern") { renderVolunteerAllowanceApprovalsScreen(it) }
         }
+
+    @Test
+    fun approvalQueues_volunteerFirstPageIsAnErrorStateWithRetry(): Promise<Unit> =
+        test { assertFailedLoadIsAnErrorState("report-screens-volunteer", "Filtern") { renderVolunteerAllowanceApprovalsScreen(it) } }
 
     @Test
     fun approvalQueues_keepTheirCardsInTheCardListGrammar() {
