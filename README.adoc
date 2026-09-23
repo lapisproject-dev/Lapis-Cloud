@@ -177,7 +177,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Twelve further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Thirteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -379,6 +379,32 @@ server-wide AI opt-in default was removed so no member is pre-consented, and a l
 family-member removal was fixed. Fixes: the camera picture froze after clicking "More" in a video
 conference, empty device ids were offered and persisted, 50 screens overflowed narrow viewports, and the
 participants list covered the video on phones. See `CHANGELOG.md` `[0.22.0]` for full detail.
+
+**`v0.23.0`** is dominated by a full UI/UX overhaul of every screen against the project's own written
+guideline (`docs/architecture/ui-ux-guideline.adoc`): six waves put the hot list screens on real
+data tables (V1.4.25 to V1.4.27), moved every form onto one shared form grammar with field-level errors,
+consistent required-field marking and double-click guards (V1.4.28 to V1.4.30, completed for the last
+seven screens in this release), unified empty/loading/error states and page headers (V1.4.31), and made
+money amounts render in the viewer's own locale and compute in whole cents rather than doubles. Video conferences gain
+background blur and virtual backgrounds (V1.4.23), computed locally in the browser with no CDN — model,
+WASM and images are served from the instance itself — and they also work in the Android WebView of the
+companion app (V1.4.24); **iOS WKWebView and third-party in-app browsers stay blocked, and weaker phones
+are untested.** The accounting side gets the client screens for open items, netting and debtor dunning
+that `v0.21.0` had shipped server-only (V1.4.21/V1.4.22), and long-lived browser tabs are told when a
+newer client bundle is live (V1.4.20).
+
+**Keycloak can take over authentication** as an optional, per-deployment replacement for the internal
+login (V1.7.1 to V1.7.3, Flyway `V45` to `V48`): roles and membership status stay in the Lapis Cloud
+database, accounts are matched by email with an ADMIN screen for manual linking, and an emergency ADMIN
+login always remains. It ships **off on every instance**; switching an already-running instance over is
+only supported along the cutover runbook in `deploy/example/README.adoc`. Security: an app-wide
+widget-content forgery path was closed, where any server- or member-controlled string beginning with
+KVision's i18n marker could render as arbitrary text — including a freely invented monetary amount.
+Infrastructure and documentation: the per-instance `deploy/production*/` directories were replaced by a
+single generic `deploy/example/` template with the real deployment data moved to the private
+`Lapis-Cloud-Ops` companion repo, the AsciiDoc documentation now renders its `[kuml]` blocks through the
+real kUML toolchain (which exposed invalid DSL in 10 diagrams), and the public API reference was
+verified statement by statement against the code. See `CHANGELOG.md` `[0.23.0]` for full detail.
 
 === Auction opt-in (V0.6.2)
 

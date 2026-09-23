@@ -6,7 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-09-24
+
 ### Added
+
+- **Real kUML rendering for the AsciiDoc documentation (no new version)** -- the architecture and API
+  documents now render their `[kuml]` blocks through the actual kUML toolchain instead of carrying
+  unrendered source: a new `docs-render` Gradle module (`RenderDocs.kt`) drives the render step, and
+  the pass found and fixed invalid kUML DSL in 10 diagrams that had never been compiled before
+  (among them `accounting-export-lexoffice`, `accounting-export-sevdesk`, `ai-assistant`,
+  `bank-statement-import`, `client-version-check`, `domain-model`, `dsgvo` and `open-items`).
+  Dogfoods kUML as the project's only diagram language, per the documentation convention.
+
+- **Runbook "updating an existing deployment" (no new version)** -- the self-hosting template
+  (`deploy/example/README.adoc`, section "Updating an existing deployment") gained the routine
+  update path that had so far only existed as session knowledge: backup, sync, `flywayRepair`
+  where a baseline checksum changed, rebuild `lapis-server`, verification. Written against the
+  former per-instance directories and carried over into the generic template in the same release
+  (see "Changed"). Operators no longer have to reconstruct the order from the initial install
+  instructions.
 
 - **V1.7.3 -- Keycloak documentation (Wave 3 of 3, docs-only, no code/migration changes)** --
   completes "Keycloak as external user management" with the operator- and developer-facing
@@ -103,6 +121,35 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **`deploy/production*/` replaced by a generic `deploy/example/`; real instance data moved to a
+  private companion repo (no new version)** -- this repo is public, and the per-instance deployment
+  directories still disclosed the real topology through their directory names alone, even after the
+  placeholder redaction. The three real instances' `.env` files, rendered LiveKit/coturn configs,
+  TLS certificates and branding assets now live in the private `lapisproject-dev/Lapis-Cloud-Ops`
+  repo; what remains here is a single generic `deploy/example/` self-hosting template. TLS private
+  keys were deliberately not carried over (they do not belong in git at all), and the git history of
+  this repo is **not** rewritten (a rewrite was considered and rejected because of an existing fork).
+  **Operator note: this is a removal, not a rename.** Pulling this release deletes the tracked
+  `deploy/production*/` files from an existing checkout, and `deploy/example/` is a placeholder
+  template, not a drop-in replacement. Back up your `deploy/production*/` directory before
+  updating, then continue from the private `lapisproject-dev/Lapis-Cloud-Ops` repo (access
+  required); scripts and CI referring to `deploy/production/` must be repointed there.
+
+- **Public API reference corrected and restructured against the actual code (no new version)** --
+  `docs/api/public-api-v1.adoc` and `docs/api/embed-widgets.adoc` were verified statement by statement
+  against the implementation rather than against intent; the webhook sources
+  (`WebhookEndpointStore`, `WebhookEventPublisher`, `WebhookPayloads`, `shared/domain/Webhooks.kt`)
+  were touched only where the documentation had been right and the code's naming misleading.
+  `README.adoc` was corrected in the same pass.
+
+- **Gender-neutral wording in the event-publish confirmation (no new version)** -- the German source
+  string in `EventsScreen.kt` and its entry in all eight catalogs now follow the project language
+  convention (plain standard German, no gender star/colon/underscore).
+
+- **`deploy/production-demo/` added to `.gitignore`** -- makes room for a public demo instance
+  without its instance-specific files ever reaching this repo. The demo instance itself is not part
+  of this release.
+
 - **W4d form-grammar migration, completed (no new version)** -- the seven remaining screens of the original W4d
   plan (`NonprofitComplianceReportsScreen`, `PoliticianScreen`, `DocumentsScreen`, `TravelExpenseScreen`,
   `TravelExpenseApprovalsScreen`, `VolunteerAllowanceScreen`, `VolunteerAllowanceApprovalsScreen`; `DashboardScreen`
@@ -116,6 +163,11 @@ All notable changes to this project are documented here. Format follows
   R29 stays at 39 (see `docs/architecture/ui-ux-guideline.adoc`, "Wave W6c").
 
 ### Fixed
+
+- **`docs-render` was missing from the Docker build image (no new version)** -- the image copied every
+  other Gradle module but not the newly added `docs-render`, so a container build broke on the
+  settings-level module reference right after the documentation rendering was wired up. Two lines in
+  the `Dockerfile`; found by an actual image build, not by `./gradlew check`.
 
 - **Redact real infra topology from public repo (rounds 1-5, no new version)** -- the repo is
   public; `deploy/` and `CHANGELOG.md` previously spelled out the real `PROD_HOST` IP, the VPS
