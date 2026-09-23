@@ -2780,6 +2780,10 @@ msgstr "Selecteer een post."
 msgid "Bitte eine Sitzung und eine gültige Position angeben."
 msgstr "Geef een vergadering en een geldige positie op."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:298
+msgid "Bitte eine Tätigkeitsbeschreibung mit mindestens %1 Zeichen angeben."
+msgstr "Geef een activiteitsbeschrijving van minstens %1 tekens op."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3463
 msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
 msgstr "Geef een getal tussen 1 en %1 op."
@@ -10290,6 +10294,14 @@ msgstr "Bon uploaden"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Beleg-Kosten"
 msgstr "Bonkosten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Beispiel: 0.30. Leer lassen, um den Satz zu löschen."
+msgstr "Voorbeeld: 0.30. Laat leeg om het tarief te wissen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
+msgid "Beispiel: 14.00. Leer lassen, um den Satz zu löschen."
+msgstr "Voorbeeld: 14.00. Laat leeg om het tarief te wissen."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Bitte eine Beschreibung angeben."
