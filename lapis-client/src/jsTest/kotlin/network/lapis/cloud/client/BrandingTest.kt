@@ -5,7 +5,9 @@ import org.w3c.dom.HTMLScriptElement
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private const val BRAND_ELEMENT_ID = "lapis-brand"
 
@@ -100,5 +102,57 @@ class BrandingTest {
 
         setBrandElement("""{"title":"Second","logoUrl":null}""")
         assertEquals("Second", Branding.title)
+    }
+
+    // ── V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI" ─────────────────────────
+
+    @Test
+    fun noElementInDom_keycloakModeFalse() {
+        removeBrandElement()
+        assertFalse(Branding.keycloakMode)
+    }
+
+    @Test
+    fun payloadMissingKeycloakModeKeyEntirely_fallsBackToFalse() {
+        setBrandElement("""{"title":"ELB","logoUrl":null}""")
+        assertFalse(Branding.keycloakMode)
+    }
+
+    @Test
+    fun payloadWithKeycloakModeTrue_readsTrue() {
+        setBrandElement("""{"title":"ELB","logoUrl":null,"keycloakMode":true}""")
+        assertTrue(Branding.keycloakMode)
+    }
+
+    @Test
+    fun payloadWithKeycloakModeFalse_readsFalse() {
+        setBrandElement("""{"title":"ELB","logoUrl":null,"keycloakMode":false}""")
+        assertFalse(Branding.keycloakMode)
+    }
+
+    // ── Review fix (MINOR 3): emergencyAdminLoginEnabled ────────────────────────────────────────
+
+    @Test
+    fun noElementInDom_emergencyAdminLoginEnabledFalse() {
+        removeBrandElement()
+        assertFalse(Branding.emergencyAdminLoginEnabled)
+    }
+
+    @Test
+    fun payloadMissingEmergencyAdminLoginEnabledKeyEntirely_fallsBackToFalse() {
+        setBrandElement("""{"title":"ELB","logoUrl":null,"keycloakMode":true}""")
+        assertFalse(Branding.emergencyAdminLoginEnabled)
+    }
+
+    @Test
+    fun payloadWithEmergencyAdminLoginEnabledTrue_readsTrue() {
+        setBrandElement("""{"title":"ELB","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":true}""")
+        assertTrue(Branding.emergencyAdminLoginEnabled)
+    }
+
+    @Test
+    fun payloadWithEmergencyAdminLoginEnabledFalse_readsFalse() {
+        setBrandElement("""{"title":"ELB","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":false}""")
+        assertFalse(Branding.emergencyAdminLoginEnabled)
     }
 }

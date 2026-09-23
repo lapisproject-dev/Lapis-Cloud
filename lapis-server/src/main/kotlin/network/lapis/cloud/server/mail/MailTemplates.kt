@@ -244,6 +244,48 @@ object MailTemplates {
     }
 
     /**
+     * V1.7.2 security-audit fix -- see [KeycloakLinkNotificationMailer] KDoc. Same shape and tone
+     * as [passwordResetByAdmin]; deliberately contains neither the Keycloak subject nor the name of
+     * the acting administrator (the audit trail holds both, the mail only has to trigger "that was
+     * not me").
+     */
+    fun keycloakLinkChangedByAdmin(
+        change: KeycloakLinkChange,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val (heading, sentence) =
+            when (change) {
+                KeycloakLinkChange.LINKED ->
+                    "Anmeldekonto verknüpft" to
+                        "Ihr Mitgliedskonto bei ${branding.fromDisplayName} wurde am $occurredAt von einer " +
+                        "administrativen Person mit einem Keycloak-Anmeldekonto verknüpft. Wer sich mit " +
+                        "diesem Keycloak-Konto anmeldet, handelt ab sofort in Ihrem Namen."
+                KeycloakLinkChange.UNLINKED ->
+                    "Anmeldekonto-Verknüpfung entfernt" to
+                        "Die Verknüpfung Ihres Mitgliedskontos bei ${branding.fromDisplayName} mit einem " +
+                        "Keycloak-Anmeldekonto wurde am $occurredAt von einer administrativen Person entfernt; " +
+                        "bestehende Sitzungen wurden beendet."
+            }
+        val subject = "$heading – ${branding.fromDisplayName}"
+        val advice =
+            "Wenn Sie das erwartet haben, müssen Sie nichts weiter tun. Wenn Sie das NICHT erwartet " +
+                "haben, melden Sie sich bitte umgehend bei uns."
+        val plainText = "$sentence\n\n$advice\n\n" + footer(branding)
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +heading }
+                    p { +sentence }
+                    p { +advice }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
      * Letzte Zeile in beiden Templates, Plaintext UND HTML identisch (V1.2.3 Design-Review, Punkt
      * 4b: keine Mail ohne Rückweg). Geht im HTML-Zweig durch kotlinx-html's Auto-Escaping ([p]-Block
      * mit `+`-Operator) -- [MailBranding.replyTo]/[MailBranding.publicBaseUrl] sind beide

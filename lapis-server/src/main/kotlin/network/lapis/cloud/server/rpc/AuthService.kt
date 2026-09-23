@@ -5,12 +5,15 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.extractSessionToken
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import org.jetbrains.exposed.v1.core.eq
@@ -22,7 +25,7 @@ import org.jetbrains.exposed.v1.jdbc.update
  * V0.7.1 Authentifizierung -- self-service password management for an already-authenticated
  * member. See [IAuthService] KDoc for why login/logout live outside this RPC interface.
  */
-class AuthService(
+class AuthService internal constructor(
     private val call: ApplicationCall,
     /**
      * V1.6.1: whether the optional AI assistance layer is operational on this server (feeds
@@ -30,12 +33,36 @@ class AuthService(
      * `Application.kt` passes the real value.
      */
     private val aiAssistantEnabled: Boolean = false,
+    /**
+     * V1.7.2 sub-wave 2a -- default-constructs its own [KeycloakConfig.load] like
+     * [network.lapis.cloud.server.rpc.RegistrationService]'s own `keycloakConfig` parameter does,
+     * so existing call sites/tests that don't pass one keep working unchanged. Feeds
+     * [SessionInfoDto.keycloakMode] (via `.enabled`, not `.isOperational` -- see that field's own
+     * KDoc "why `.enabled` is safe": `KeycloakStartupCheck` fails the whole process at startup if
+     * `enabled=true` but the configuration is incomplete, so by the time any request is served here
+     * `enabled=true` already implies `isOperational=true`) and gates [changePassword] below (a
+     * non-ADMIN member whose login is Keycloak-managed has no usable local password to change once
+     * Keycloak mode is on -- same "reject a dead/confusing local-password path up front" reasoning
+     * [RegistrationService]'s own `keycloakConfig.enabled` check already establishes for
+     * self-registration).
+     */
+    private val keycloakConfig: KeycloakConfig = KeycloakConfig.load(),
 ) : IAuthService {
     override suspend fun changePassword(
         currentPassword: String,
         newPassword: String,
     ) {
         val current = resolveCurrentMember(call)
+        // V1.7.2 sub-wave 2a -- see constructor KDoc "keycloakConfig". ADMIN keeps the emergency
+        // local-login path (see the vault spec's decision 3 "Notfall-Login für Admins bleibt
+        // bestehen"), so ADMIN alone may still change a local password in Keycloak mode; every
+        // other role is rejected before any password verification/hashing work.
+        if (keycloakConfig.enabled && current.role != AccountRole.ADMIN) {
+            throw ConflictException(
+                "Local password changes are disabled while Keycloak login is active for this account -- " +
+                    "manage your password through the external Keycloak identity provider instead.",
+            )
+        }
         val (storedHash, email) =
             transaction {
                 (MemberTable innerJoin AccountTable)
@@ -95,6 +122,7 @@ class AuthService(
             homeserverUrl = homeserverUrl,
             status = current.status,
             aiAssistantEnabled = aiAssistantEnabled,
+            keycloakMode = keycloakConfig.enabled,
         )
     }
 }

@@ -94,6 +94,7 @@ import network.lapis.cloud.server.legal.LegalStartupCheck
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.JakartaMailTransport
+import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.MailTransport
@@ -104,6 +105,7 @@ import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
+import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
@@ -195,6 +197,7 @@ import network.lapis.cloud.server.rpc.EventService
 import network.lapis.cloud.server.rpc.EventVolunteerService
 import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
+import network.lapis.cloud.server.rpc.KeycloakLinkService
 import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.MemberAnniversaryService
@@ -261,6 +264,7 @@ import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IEventVolunteerService
 import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
+import network.lapis.cloud.shared.rpc.IKeycloakLinkService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
@@ -354,6 +358,16 @@ internal fun Application.module(aiConfig: AiConfig) {
     val clientDistRoot = File(System.getenv("LAPIS_CLIENT_DIST_ROOT") ?: "../lapis-client/build/dist/js/productionExecutable")
     clientDistRoot.mkdirs()
 
+    // V1.7.1b/V1.7.2 "Keycloak als externe Benutzerverwaltung" -- loaded here, BEFORE
+    // resolvedBranding/clientShell below (V1.7.2 sub-wave 2a: clientShell's lazy block needs
+    // keycloakConfig.isOperational to populate BrandingHtml's pre-login `keycloakMode` payload
+    // field, and Kotlin's local-variable definite-assignment analysis requires this declaration to
+    // textually precede any lambda that captures it, even though the lambda itself only executes
+    // later). Same "never fail-fast unless enabled-but-broken" posture as SmtpConfig/
+    // SmtpStartupCheck elsewhere in this function.
+    val keycloakConfig = KeycloakConfig.load()
+    KeycloakStartupCheck.verifyAndLog(config = keycloakConfig, logger = applicationLogger)
+
     // V1.2.5 White-Label-Branding -- operator-supplied web-UI title/optional logo (see BrandConfig
     // KDoc). Constructed here, right after clientDistRoot above (clientShell below needs it).
     // Deliberately NEVER fail-fast, unlike SmtpConfig/SmtpStartupCheck above -- see
@@ -377,7 +391,14 @@ internal fun Application.module(aiConfig: AiConfig) {
     // "once per process, never per request" property, and it now also covers the (multi-MB)
     // bundle hash.
     val clientShell: ClientShell by lazy {
-        ClientShell.load(clientDistRoot = clientDistRoot, branding = resolvedBranding)
+        ClientShell.load(
+            clientDistRoot = clientDistRoot,
+            branding = resolvedBranding,
+            keycloakEnabled = keycloakConfig.isOperational,
+            // Review fix (MINOR 3): the pre-login emergency-admin disclosure must only render when
+            // this deployment can actually accept a local ADMIN login in Keycloak mode.
+            emergencyAdminLoginEnabled = keycloakConfig.emergencyAdminLoginEnabled,
+        )
     }
 
     // V0.4.2 Letterxpress postal-mail dispatch -- see LetterxpressPostalMailProvider KDoc for the
@@ -406,9 +427,10 @@ internal fun Application.module(aiConfig: AiConfig) {
     val cookieSecure = System.getenv("LAPIS_COOKIE_SECURE")?.equals("false", ignoreCase = true) != true
 
     // V1.7.1b "Keycloak als externe Benutzerverwaltung -- Server-Kern" -- optional, DEFAULT OFF
-    // (see KeycloakConfig KDoc). Same "never fail-fast unless enabled-but-broken" posture as
-    // SmtpConfig/SmtpStartupCheck above. keycloakStartRateLimiter is a SEPARATE, independent
-    // instance from loginRateLimiter -- see registerKeycloakAuthRoutes KDoc "start" handler.
+    // (see KeycloakConfig KDoc). keycloakConfig itself is now loaded earlier, right after
+    // clientDistRoot above (see that block's own comment for why) -- only the metadata/rate-limiter
+    // construction stays here. keycloakStartRateLimiter is a SEPARATE, independent instance from
+    // loginRateLimiter -- see registerKeycloakAuthRoutes KDoc "start" handler.
     // Review finding 1 fix: `recordFailure` is now only called from `/callback` on a genuine
     // rejection (never on every `/start` page load, see that handler's own comment) -- so the
     // budget below can go back to matching a real failed-attempt limiter's risk profile instead of
@@ -416,8 +438,6 @@ internal fun Application.module(aiConfig: AiConfig) {
     // limiter's default (5/15min) anyway, matching `mobileWebviewSessionFailureLimiter`'s reasoning:
     // a shared client IP (party office, carrier NAT/CGNAT) can plausibly produce several distinct
     // members' failed logins within the same 15-minute window.
-    val keycloakConfig = KeycloakConfig.load()
-    KeycloakStartupCheck.verifyAndLog(config = keycloakConfig, logger = applicationLogger)
     val keycloakMetadata = KeycloakOidcMetadata(config = keycloakConfig)
     val keycloakStartRateLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
     // Security-audit fix (MAJOR 2b): a SEPARATE, independent instance from
@@ -574,6 +594,11 @@ internal fun Application.module(aiConfig: AiConfig) {
     // Welle V1.4.9 -- SAME mailDispatcher/mailBranding as passwordResetMailer/friendVerificationMailer above.
     val adminPasswordResetNotificationMailer: AdminPasswordResetNotificationMailer =
         SmtpAdminPasswordResetNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+
+    // V1.7.2 security-audit fix -- member-facing notice on every manual Keycloak link/unlink, see
+    // KeycloakLinkNotificationMailer KDoc. SAME mailDispatcher/mailBranding as above.
+    val keycloakLinkNotificationMailer: KeycloakLinkNotificationMailer =
+        SmtpKeycloakLinkNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
 
     // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
     // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
@@ -1399,7 +1424,9 @@ internal fun Application.module(aiConfig: AiConfig) {
                 reportRateLimiter = socialReportRateLimiter,
             )
         }
-        registerService(IAuthService::class) { call -> AuthService(call = call, aiAssistantEnabled = aiConfig.isOperational) }
+        registerService(IAuthService::class) { call ->
+            AuthService(call = call, aiAssistantEnabled = aiConfig.isOperational, keycloakConfig = keycloakConfig)
+        }
         if (aiConfig.isOperational && aiLlmClient != null) {
             registerService(IAiAssistantService::class) { call ->
                 AiAssistantService(
@@ -1438,6 +1465,13 @@ internal fun Application.module(aiConfig: AiConfig) {
         }
         registerService(IFederationService::class) { call -> FederationService(call) }
         registerService(ITrustAnchorService::class) { call -> TrustAnchorService(call) }
+        // V1.7.2 sub-wave 2a "Keycloak als externe Benutzerverwaltung -- UI (Server-Seite)" --
+        // reuses the SAME KeycloakConfig singleton already loaded above (see IRegistrationService's
+        // own registration a few lines up for the identical "avoid a second, redundant env-var
+        // parse" reasoning).
+        registerService(IKeycloakLinkService::class) { call ->
+            KeycloakLinkService(call = call, keycloakConfig = keycloakConfig, notificationMailer = keycloakLinkNotificationMailer)
+        }
         registerService(IConferenceService::class) { call ->
             ConferenceService(
                 call = call,

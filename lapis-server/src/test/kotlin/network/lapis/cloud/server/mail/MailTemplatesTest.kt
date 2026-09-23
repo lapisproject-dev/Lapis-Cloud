@@ -163,4 +163,30 @@ class MailTemplatesTest :
             mail.subject shouldContain "Partei der Vernunft"
             mail.plainText shouldContain "Fragen? Antworten Sie einfach auf diese E-Mail (kontakt@example.org)."
         }
+
+        // ── V1.7.2 security-audit fix -- keycloakLinkChangedByAdmin ──
+
+        test("keycloakLinkChangedByAdmin -- both variants carry the timestamp, no link, and HTML-escape the branding") {
+            val occurredAt = LocalDateTime(2026, 9, 23, 10, 15)
+            val hostile = "<script>alert(1)</script>"
+            for (change in KeycloakLinkChange.entries) {
+                val mail =
+                    MailTemplates.keycloakLinkChangedByAdmin(
+                        change = change,
+                        occurredAt = occurredAt,
+                        branding = testBranding(fromDisplayName = hostile),
+                    )
+                mail.plainText shouldContain occurredAt.toString()
+                mail.html shouldContain occurredAt.toString()
+                mail.html.shouldNotContain(hostile)
+                mail.html.shouldNotContain("<a ")
+                mail.plainText.shouldNotContain("href")
+            }
+            MailTemplates
+                .keycloakLinkChangedByAdmin(change = KeycloakLinkChange.LINKED, occurredAt = occurredAt, branding = testBranding())
+                .plainText shouldContain "verknüpft"
+            MailTemplates
+                .keycloakLinkChangedByAdmin(change = KeycloakLinkChange.UNLINKED, occurredAt = occurredAt, branding = testBranding())
+                .plainText shouldContain "Sitzungen wurden beendet"
+        }
     })

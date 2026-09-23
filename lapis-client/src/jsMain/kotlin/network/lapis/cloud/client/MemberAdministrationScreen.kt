@@ -59,6 +59,10 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
     val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
     if (isBoardOrAdmin) renderPendingApplications(root)
     renderMemberRoster(root)
+    // V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI": ADMIN-only (mirrors
+    // IKeycloakLinkService's own role gate), and only in Keycloak mode -- see KeycloakLinkScreen.kt
+    // class KDoc "house rule ... never offer an action the server rejects anyway".
+    if (callerRole == AccountRole.ADMIN && AppState.session?.keycloakMode == true) renderKeycloakLinkSection(root)
     if (isBoardOrAdmin) renderDirectMemberCreation(root)
 }
 
@@ -582,7 +586,11 @@ private fun renderRosterActions(
     // bereits zweimal Regressionen produziert (V1.4.4.4-MAJOR, Review Runde 3). Ein eigenes
     // Prädikat berührt sie nicht. Icon `fa-key`, nicht `fa-user-lock`: ein Schloss hieße
     // "gesperrt" -- das ist der Zustand DANACH gerade nicht.
-    if (AppState.hasRole(AccountRole.ADMIN)) {
+    // V1.7.2 sub-wave 2b: not rendered at all in Keycloak mode -- an admin-initiated LOCAL password
+    // reset is meaningless for a member whose login is Keycloak-managed (see `MemberPasswordResetDialog.kt`
+    // KDoc "V1.7.2 sub-wave 2b"). `AppState.hasRole(ADMIN)` alone left this button ENABLED in Keycloak
+    // mode -- it opened a dialog that could still set an unreachable local password.
+    if (AppState.hasRole(AccountRole.ADMIN) && AppState.session?.keycloakMode != true) {
         val accessButton =
             actionsCell.tableActionButton("fas fa-key", tr("Zugang zurücksetzen"), ButtonStyle.OUTLINEWARNING)
         val block = passwordResetBlockReason(callerRole, callerMemberId, row)
@@ -593,6 +601,10 @@ private fun renderRosterActions(
             accessButton.onClick { openMemberPasswordResetDialog(row, onChanged) }
         }
     }
+
+    // V1.7.2 sub-wave 2b -- self-gated (returns immediately outside Keycloak mode / for a non-ADMIN
+    // caller), see KeycloakLinkScreen.kt KDoc "renderKeycloakUnlinkAction".
+    renderKeycloakUnlinkAction(actionsCell, row, onChanged)
 }
 
 /**

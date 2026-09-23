@@ -28,6 +28,14 @@ import network.lapis.cloud.shared.rpc.IMemberService
  * alle Sitzungen) und Weg 2 (neutral, folgenlos bis das Mitglied selbst reagiert: verschickt
  * denselben Reset-Link wie die Selbstbedienung). Die beiden bleiben bewusst UNTERSCHIEDLICH
  * gefährlich UND unterschiedlich gestaltet -- siehe resetMailBlockReason KDoc.
+ *
+ * V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI": the caller of
+ * [openMemberPasswordResetDialog] (`MemberAdministrationScreen.renderRosterActions`) does not even
+ * render the trigger button when `AppState.session?.keycloakMode == true` -- a LOCAL password (set
+ * here, or reset via a mailed link) is unreachable/meaningless once a member's login is
+ * Keycloak-managed, see the vault spec's decision 2 ("Keycloak übernimmt ausschließlich die
+ * Authentifizierung"). This dialog itself is unchanged and does not need to check the flag: it is
+ * simply never opened in that mode.
  */
 
 /** Mirrors `network.lapis.cloud.server.security.TemporaryPasswordGenerator.ALPHABET` -- loser Spiegel, der Server bleibt Autorität. */

@@ -37,14 +37,39 @@ object BrandingHtml {
     @Volatile
     private var payloadMarkerMissingLogged = false
 
-    /** Returns [html] with [ResolvedBranding.title]/[ResolvedBranding.logoAvailable] injected -- see class KDoc. Never throws. */
+    /**
+     * Returns [html] with [ResolvedBranding.title]/[ResolvedBranding.logoAvailable] injected -- see
+     * class KDoc. Never throws.
+     *
+     * [keycloakMode] (V1.7.2 sub-wave 2a "Keycloak als externe Benutzerverwaltung -- UI") is an
+     * ADDITIONAL field on the SAME `id="lapis-brand"` JSON payload described in the class KDoc --
+     * deliberately extending the existing script element rather than adding a sibling one, so it
+     * inherits the same escaping discipline/test coverage and stays available to the client at
+     * first paint, before any RPC round-trip (see `KeycloakConfig`/`AuthService.getSessionInfo`
+     * KDoc "SessionInfoDto.keycloakMode" for the RPC-reachable equivalent used once a session
+     * already exists). Defaults to `false` -- feature off everywhere unless the caller passes the
+     * real `keycloakConfig.enabled` value (see `Application.kt`'s `clientShell` construction).
+     */
     fun inject(
         html: String,
         brand: ResolvedBranding,
+        keycloakMode: Boolean = false,
+        /**
+         * Review fix (MINOR 3): the client showed the emergency-admin disclosure/toggle
+         * unconditionally in Keycloak mode, even when this deployment has
+         * `KeycloakConfig.emergencyAdminLoginEnabled == false` -- there every local login is
+         * rejected server-side (`AuthRoutes` KDoc "the emergency fallback"), so the revealed form was
+         * a dead end that looked like a wrong-password error. Same payload/escaping mechanism as
+         * [keycloakMode] itself. Defaults to `false` -- feature off everywhere unless the caller
+         * passes the real `keycloakConfig.emergencyAdminLoginEnabled` value.
+         */
+        emergencyAdminLoginEnabled: Boolean = false,
     ): String =
         injectPayload(
             html = injectTitle(html = html, title = brand.title),
             brand = brand,
+            keycloakMode = keycloakMode,
+            emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
         )
 
     private fun injectTitle(
@@ -68,6 +93,8 @@ object BrandingHtml {
     private fun injectPayload(
         html: String,
         brand: ResolvedBranding,
+        keycloakMode: Boolean,
+        emergencyAdminLoginEnabled: Boolean,
     ): String {
         val markerIndex = html.indexOf(PAYLOAD_ID_MARKER)
         val tagOpenEnd = if (markerIndex >= 0) html.indexOf('>', markerIndex).let { if (it < 0) -1 else it + 1 } else -1
@@ -84,12 +111,19 @@ object BrandingHtml {
         }
         val before = html.substring(0, tagOpenEnd)
         val after = html.substring(tagClose)
-        return before + renderPayloadJson(brand) + after
+        val payload =
+            renderPayloadJson(brand = brand, keycloakMode = keycloakMode, emergencyAdminLoginEnabled = emergencyAdminLoginEnabled)
+        return before + payload + after
     }
 
-    private fun renderPayloadJson(brand: ResolvedBranding): String {
+    private fun renderPayloadJson(
+        brand: ResolvedBranding,
+        keycloakMode: Boolean,
+        emergencyAdminLoginEnabled: Boolean,
+    ): String {
         val logoUrlLiteral = if (brand.logoAvailable) "\"${escapeJsonString(LOGO_ROUTE_PATH)}\"" else "null"
-        return "{\"title\":\"${escapeJsonString(brand.title)}\",\"logoUrl\":$logoUrlLiteral}"
+        return "{\"title\":\"${escapeJsonString(brand.title)}\",\"logoUrl\":$logoUrlLiteral,\"keycloakMode\":$keycloakMode," +
+            "\"emergencyAdminLoginEnabled\":$emergencyAdminLoginEnabled}"
     }
 
     /** Standard HTML text-node escaping -- see class KDoc "Two separate escaping contexts". */

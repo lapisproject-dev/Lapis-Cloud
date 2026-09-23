@@ -28,6 +28,17 @@ internal data class ClientShell(
         fun load(
             clientDistRoot: File,
             branding: ResolvedBranding,
+            /**
+             * V1.7.2 sub-wave 2a -- forwarded to [BrandingHtml.inject]'s `keycloakMode` payload
+             * field, `false` by default so every pre-existing caller/test stays source-compatible.
+             */
+            keycloakEnabled: Boolean = false,
+            /**
+             * Review fix (MINOR 3) -- forwarded to [BrandingHtml.inject]'s
+             * `emergencyAdminLoginEnabled` payload field, `false` by default so every pre-existing
+             * caller/test stays source-compatible.
+             */
+            emergencyAdminLoginEnabled: Boolean = false,
         ): ClientShell {
             val buildId = ClientBuildId.compute(clientDistRoot = clientDistRoot)
             val indexFile = File(clientDistRoot, "index.html")
@@ -36,7 +47,13 @@ internal data class ClientShell(
                     null
                 } else {
                     ClientVersionHtml.inject(
-                        html = BrandingHtml.inject(html = indexFile.readText(), brand = branding),
+                        html =
+                            BrandingHtml.inject(
+                                html = indexFile.readText(),
+                                brand = branding,
+                                keycloakMode = keycloakEnabled,
+                                emergencyAdminLoginEnabled = emergencyAdminLoginEnabled,
+                            ),
                         buildId = buildId,
                     )
                 }

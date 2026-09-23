@@ -28,6 +28,17 @@ import kotlinx.serialization.Serializable
  * whether the "Fragen zur Satzung" entry belongs in the navigation without an always-on probe
  * endpoint. Defaults to `false` -- feature off is the default everywhere, including every
  * pre-existing construction site.
+ *
+ * [keycloakMode] (V1.7.2 sub-wave 2a "Keycloak als externe Benutzerverwaltung -- UI") mirrors this
+ * deployment's `keycloakConfig.enabled` -- lets an already-authenticated client decide, for
+ * example, whether to offer a local "change password" action at all (a member whose login is
+ * Keycloak-managed has no usable local password to change, see
+ * [network.lapis.cloud.shared.rpc.IAuthService.changePassword] KDoc). Same idiom as
+ * [aiAssistantEnabled]: defaults to `false` so every pre-existing construction site stays
+ * source-compatible. The pre-login equivalent (before any session/RPC call exists) is the
+ * `keycloakMode` field `network.lapis.cloud.server.branding.BrandingHtml.inject` writes into the
+ * `id="lapis-brand"` payload -- deliberately two separate carriers for the SAME underlying
+ * `keycloakConfig.enabled` value, one for each side of the "before vs. after login" boundary.
  */
 @Serializable
 data class SessionInfoDto(
@@ -39,4 +50,5 @@ data class SessionInfoDto(
     val homeserverUrl: String? = null,
     val status: MemberStatus = MemberStatus.ACTIVE,
     val aiAssistantEnabled: Boolean = false,
+    val keycloakMode: Boolean = false,
 )

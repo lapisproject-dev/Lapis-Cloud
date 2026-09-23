@@ -165,6 +165,9 @@ class OidcGuestFederationSchemaDriftTest :
                             "KEYCLOAK_LOGIN_FAILED",
                             "KEYCLOAK_LINK_CREATED",
                             "KEYCLOAK_LINK_MISS",
+                            // V1.7.2 sub-wave 2a -- see OidcLoginEventType KDoc.
+                            "KEYCLOAK_LINK_MANUAL",
+                            "KEYCLOAK_LINK_MANUAL_REMOVED",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.OidcLoginEventType",
                 )

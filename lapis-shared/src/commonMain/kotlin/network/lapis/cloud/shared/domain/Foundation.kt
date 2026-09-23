@@ -263,3 +263,18 @@ data class MemberSummaryDto(
     val id: String,
     val displayName: String,
 )
+
+/**
+ * V1.7.2 sub-wave 2a "Keycloak als externe Benutzerverwaltung -- UI" -- one row of
+ * [network.lapis.cloud.shared.rpc.IKeycloakLinkService.listUnlinkedMembers]'s admin picker: enough
+ * for an ADMIN to identify the right local member ([email] is included, unlike
+ * [MemberSummaryDto], specifically so an admin can match it against the Keycloak identity's own
+ * email in the Keycloak admin console) without exposing the full [MemberDto] shape this
+ * ADMIN-only, narrowly-scoped read has no need for.
+ */
+@Serializable
+data class UnlinkedMemberDto(
+    val memberId: String,
+    val displayName: String,
+    val email: String,
+)

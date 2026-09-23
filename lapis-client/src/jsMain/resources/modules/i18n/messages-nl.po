@@ -7,6 +7,10 @@ msgstr ""
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
 msgstr "%1 bankrekening(en) hebben een nieuwe FinTS-aanmelding nodig voordat de live-opvraging doorgaat."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:128
+msgid "%1 wurde mit Keycloak verknüpft."
+msgstr "%1 is gekoppeld aan Keycloak."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
 msgid "Aktivieren …"
 msgstr "Activeren …"
@@ -14,6 +18,10 @@ msgstr "Activeren …"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:433
 msgid "Alle Felder sind Pflichtfelder."
 msgstr "Alle velden zijn verplicht."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:63
+msgid "Alle Mitglieder sind bereits verknüpft (oder die automatische Verknüpfung hat sie bereits zugeordnet)."
+msgstr "Alle leden zijn al gekoppeld (of de automatische koppeling heeft ze al toegewezen)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:154
 msgid "Als Standard setzen"
@@ -46,6 +54,18 @@ msgstr "Bankcode (BLZ)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:368
 msgid "Benutzerkennung"
 msgstr "Gebruikersnaam"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:159
+msgid "Bitte melden Sie sich über Ihre Organisation an."
+msgstr "Meld u aan via uw organisatie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:163
+msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
+msgstr "De Keycloak-koppeling van %1 wordt verwijderd, alle actieve sessies van dit lid worden beëindigd en het lid wordt per e-mail op de hoogte gesteld. Als het e-mailadres in Keycloak nog steeds overeenkomt, wordt de koppeling bij de volgende aanmelding automatisch hersteld. Om de toegang blijvend te blokkeren, deactiveert u het account in Keycloak of zet u de lidmaatschapsstatus bijv. op „Uitgetreden”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:185
+msgid "Für %1 bestand keine Keycloak-Verknüpfung."
+msgstr "Er bestond geen Keycloak-koppeling voor %1."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:235
 msgid "Erneute Anmeldung erforderlich"
@@ -87,9 +107,33 @@ msgstr "Let op: bij bevestiging wordt een onverwijderbare bewijsregel opgeslagen
 msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
 msgstr "Ik heb de mededeling volledig gelezen en bevestig deze."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:181
+msgid "Interner Notfall-Zugang für Administratoren"
+msgstr "Interne noodtoegang voor beheerders"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:191
 msgid "Kein Live-Abruf"
 msgstr "Geen live-opvraging"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:114
+msgid "Keycloak-Subject"
+msgstr "Keycloak-subject"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:52
+msgid "Keycloak-Verknüpfung"
+msgstr "Keycloak-koppeling"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:101
+msgid "Keycloak-Verknüpfung -- %1"
+msgstr "Keycloak-koppeling -- %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:152
+msgid "Keycloak-Verknüpfung entfernen"
+msgstr "Keycloak-koppeling verwijderen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:167
+msgid "Keycloak-Verknüpfung von %1 entfernt."
+msgstr "Keycloak-koppeling van %1 verwijderd."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:218
 msgid "Live-Abruf aktiv"
@@ -106,6 +150,14 @@ msgstr "Live-opvraging actief · nog geen geslaagde opvraging (foutcode: %1)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:184
 msgid "Live-Abruf nicht verfügbar: LAPIS_SECRET_ENCRYPTION_KEY ist nicht konfiguriert."
 msgstr "Live-opvraging niet beschikbaar: LAPIS_SECRET_ENCRYPTION_KEY is niet geconfigureerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:161
+msgid "Mit %1 anmelden"
+msgstr "Aanmelden met %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:54
+msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
+msgstr "Leden die de automatische Keycloak-koppeling (matching op e-mailadres) niet kon toewijzen -- bijvoorbeeld omdat de Keycloak-identiteit een ander e-mailadres gebruikt. Hier kan een beheerder de koppeling handmatig aanmaken."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:237
 msgid "Neu anmelden …"
@@ -652,6 +704,18 @@ msgstr "Evenement"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3470
 msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
 msgstr "Opnieuw verbinden via een relayserver …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:88
+msgid "Verknüpfen"
+msgstr "Koppelen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:103
+msgid "Verknüpft %1 (%2) mit einer Keycloak-Identität. Das Subject ist die eindeutige Benutzer-ID in Keycloak (nicht die E-Mail-Adresse) -- zu finden im Keycloak-Admin-Konsole unter dem Benutzerprofil (\"ID\")."
+msgstr "Koppelt %1 (%2) aan een Keycloak-identiteit. Het subject is de unieke gebruikers-ID in Keycloak (niet het e-mailadres) -- te vinden in de Keycloak-beheerconsole onder het gebruikersprofiel (\"ID\")."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:162
+msgid "Verknüpfung entfernen"
+msgstr "Koppeling verwijderen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:37
 msgid "Vertrag (Art. 6 Abs. 1 lit. b)"

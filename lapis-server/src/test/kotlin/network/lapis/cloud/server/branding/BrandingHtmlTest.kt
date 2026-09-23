@@ -35,9 +35,25 @@ class BrandingHtmlTest :
             result shouldContain "<title>Lapis Cloud</title>"
         }
 
-        test("default branding -> payload has logoUrl null") {
+        test("default branding -> payload has logoUrl null, keycloakMode false and emergencyAdminLoginEnabled false (the defaults)") {
             val result = BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING)
-            result shouldContain """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null}</script>"""
+            result shouldContain
+                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":false,"emergencyAdminLoginEnabled":false}</script>"""
+        }
+
+        // V1.7.2 sub-wave 2a -- the pre-login carrier for keycloakConfig.enabled, see BrandingHtml.inject KDoc "keycloakMode".
+        test("keycloakMode=true -> payload carries it, title/logoUrl injection stays unaffected") {
+            val result = BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING, keycloakMode = true)
+            result shouldContain
+                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":false}</script>"""
+        }
+
+        // Review fix (MINOR 3) -- the pre-login carrier for keycloakConfig.emergencyAdminLoginEnabled.
+        test("emergencyAdminLoginEnabled=true -> payload carries it independently of keycloakMode") {
+            val result =
+                BrandingHtml.inject(html = FIXTURE_HTML, brand = DEFAULT_BRANDING, keycloakMode = true, emergencyAdminLoginEnabled = true)
+            result shouldContain
+                """id="lapis-brand">{"title":"Lapis Cloud","logoUrl":null,"keycloakMode":true,"emergencyAdminLoginEnabled":true}</script>"""
         }
 
         test("custom title -> injected into both <title> and the JSON payload") {

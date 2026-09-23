@@ -65,6 +65,10 @@ classDiagram(name = "OidcGuestFederation") {
         literal(name = "KEYCLOAK_LOGIN_FAILED")
         literal(name = "KEYCLOAK_LINK_CREATED")
         literal(name = "KEYCLOAK_LINK_MISS")
+        // V1.7.2 sub-wave 2a: an ADMIN-initiated manual link/unlink (KeycloakLinkService) --
+        // see OidcLoginEventType KDoc and migration V48__keycloak_link_manual_event_types.sql.
+        literal(name = "KEYCLOAK_LINK_MANUAL")
+        literal(name = "KEYCLOAK_LINK_MANUAL_REMOVED")
     }
 
     // Singleton row -- this server's own OIDC JWS signing keypair. Separate from

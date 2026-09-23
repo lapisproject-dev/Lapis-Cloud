@@ -556,6 +556,13 @@ private val R24_MIGRATED: Set<String> =
         // `form.submit`/`form.runBusy`/`runGuardedAction` in the same wave so R29 does not rise when the
         // file joins this set.
         "VolunteerAllowanceApprovalsScreen.kt",
+        // V1.7.2 sub-wave 2b review fix (MINOR 5): KeycloakLinkScreen.kt already used the
+        // `lapisForm`/`confirmDialog` grammar correctly when it was first added, but was never added
+        // to this set -- its unlink-write `AppScope.launch` (inside `confirmDialog`) was therefore not
+        // counted by the R29 ratchet at all. Moved onto `runGuardedAction` (same pattern as
+        // `PoliticianScreen.politicianRevokeConfirmDialog`) in the same wave so R29 does not rise when
+        // the file joins this set.
+        "KeycloakLinkScreen.kt",
     )
 
 /** Screens examined that have NO labelled text field to migrate: strict too, but there is no form to build. */

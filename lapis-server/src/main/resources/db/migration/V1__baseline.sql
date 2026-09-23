@@ -1663,13 +1663,16 @@ CREATE UNIQUE INDEX uq_oidc_guest_profile_member_id ON oidc_guest_profile (membe
 -- must carry every literal too, or an INSERT with event_type = 'KEYCLOAK_LOGIN_SUCCESS' fails the
 -- check even after V46__keycloak_login_event_types.sql runs (H2 enforces both constraints
 -- independently). Flyway repair needed on an already-migrated instance, same as that precedent.
+-- V1.7.2 sub-wave 2a: 'KEYCLOAK_LINK_MANUAL'/'KEYCLOAK_LINK_MANUAL_REMOVED' appended by the same
+-- reasoning (see V48__keycloak_link_manual_event_types.sql) -- also widened VARCHAR(27) -> (29).
 CREATE TABLE oidc_guest_login_event (
     id UUID PRIMARY KEY,
     occurred_at TIMESTAMP NOT NULL,
-    event_type VARCHAR(27) NOT NULL CHECK (event_type IN
+    event_type VARCHAR(29) NOT NULL CHECK (event_type IN
         ('RP_LOGIN_SUCCESS', 'RP_LOGIN_FAILED', 'ISSUER_TOKEN_ISSUED', 'ISSUER_TOKEN_ISSUE_FAILED',
          'BACKCHANNEL_LOGOUT_RECEIVED', 'BACKCHANNEL_LOGOUT_SENT',
-         'KEYCLOAK_LOGIN_SUCCESS', 'KEYCLOAK_LOGIN_FAILED', 'KEYCLOAK_LINK_CREATED', 'KEYCLOAK_LINK_MISS')),
+         'KEYCLOAK_LOGIN_SUCCESS', 'KEYCLOAK_LOGIN_FAILED', 'KEYCLOAK_LINK_CREATED', 'KEYCLOAK_LINK_MISS',
+         'KEYCLOAK_LINK_MANUAL', 'KEYCLOAK_LINK_MANUAL_REMOVED')),
     member_id UUID,
     remote_party VARCHAR(2048),
     reason VARCHAR(255)

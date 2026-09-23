@@ -37,4 +37,23 @@ enum class OidcLoginEventType {
     KEYCLOAK_LOGIN_FAILED,
     KEYCLOAK_LINK_CREATED,
     KEYCLOAK_LINK_MISS,
+
+    /**
+     * V1.7.2 sub-wave 2a "Keycloak als externe Benutzerverwaltung -- UI (Server-Seite)" -- an
+     * ADMIN manually links a member via
+     * [network.lapis.cloud.shared.rpc.IKeycloakLinkService.linkMember] (as opposed to
+     * [KEYCLOAK_LINK_CREATED], which is the AUTOMATIC email-match link a Keycloak login itself
+     * creates -- see [network.lapis.cloud.server.keycloak.KeycloakAccountLinker] KDoc). Distinct
+     * from [KEYCLOAK_LINK_CREATED] so an operator can tell the two apart in the audit trail: an
+     * automatic link is routine; a manual one is an admin action worth its own signal.
+     */
+    KEYCLOAK_LINK_MANUAL,
+
+    /**
+     * V1.7.2 sub-wave 2a -- the admin-initiated counterpart to [KEYCLOAK_LINK_MANUAL]:
+     * [network.lapis.cloud.shared.rpc.IKeycloakLinkService.unlinkMember] removed an existing
+     * `keycloak_account_link` row. There is no automatic-unlink equivalent (nothing in this
+     * codebase ever removes a link on its own), so this literal is always admin-initiated.
+     */
+    KEYCLOAK_LINK_MANUAL_REMOVED,
 }

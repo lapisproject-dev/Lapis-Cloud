@@ -14,6 +14,22 @@ import kotlinx.serialization.json.Json
 private data class BrandPayload(
     val title: String? = null,
     val logoUrl: String? = null,
+    /**
+     * V1.7.2 sub-wave 2b -- mirrors `network.lapis.cloud.server.branding.BrandingHtml.inject`'s
+     * `keycloakMode` field of the SAME payload (see that function's KDoc). Defaults to `false` so a
+     * pre-existing/malformed payload (missing key) degrades to "not Keycloak mode" -- the safer
+     * default, since it keeps the classic email/password login reachable rather than hiding it
+     * behind a field this client cannot decode.
+     */
+    val keycloakMode: Boolean = false,
+    /**
+     * Review fix (MINOR 3) -- mirrors
+     * `network.lapis.cloud.server.branding.BrandingHtml.inject`'s `emergencyAdminLoginEnabled`
+     * field of the SAME payload. Defaults to `false` so a pre-existing/malformed payload (missing
+     * key) degrades to "hide the emergency-admin disclosure" -- the safer default, since showing a
+     * dead-end local-login form is worse than not offering it.
+     */
+    val emergencyAdminLoginEnabled: Boolean = false,
 )
 
 private val brandJson =
@@ -51,6 +67,26 @@ object Branding {
 
     val logoUrl: String?
         get() = readPayload()?.logoUrl?.takeUnless { it.isBlank() }
+
+    /**
+     * V1.7.2 sub-wave 2b -- the pre-login counterpart of `SessionInfoDto.keycloakMode` (available
+     * only AFTER a session exists): [renderLoginScreen] reads this BEFORE any RPC round-trip, same
+     * reasoning as `aiAssistantEnabled`'s pre-login sibling (see that field's own KDoc). Missing/
+     * malformed payload -> `false` (see [BrandPayload.keycloakMode] KDoc).
+     */
+    val keycloakMode: Boolean
+        get() = readPayload()?.keycloakMode ?: false
+
+    /**
+     * Review fix (MINOR 3) -- pre-login counterpart of `KeycloakConfig.emergencyAdminLoginEnabled`:
+     * [renderKeycloakLoginPanel]'s emergency-admin disclosure must only render when this deployment
+     * can actually accept a local ADMIN login in Keycloak mode, otherwise the revealed form is a
+     * dead end that looks like a wrong-password error (every local login is rejected server-side,
+     * see `AuthRoutes` KDoc "the emergency fallback"). Missing/malformed payload -> `false` (hide
+     * it), same safer-default reasoning as [keycloakMode].
+     */
+    val emergencyAdminLoginEnabled: Boolean
+        get() = readPayload()?.emergencyAdminLoginEnabled ?: false
 
     private fun readPayload(): BrandPayload? {
         val raw = document.getElementById(ELEMENT_ID)?.textContent?.takeUnless { it.isBlank() } ?: return null

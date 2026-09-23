@@ -18,7 +18,9 @@ import org.jetbrains.exposed.v1.datetime.datetime
 public object OidcGuestLoginEventTable : Table("oidc_guest_login_event") {
     public val id: Column<Uuid> = uuid("id")
     public val occurredAt: Column<LocalDateTime> = datetime("occurred_at")
-    public val eventType: Column<OidcLoginEventType> = enumerationByName<OidcLoginEventType>("event_type", 27)
+    // V1.7.2 sub-wave 2a: widened 27 -> 29 (see V48__keycloak_link_manual_event_types.sql) --
+    // 'KEYCLOAK_LINK_MANUAL_REMOVED' is 29 characters, the longest OidcLoginEventType literal now.
+    public val eventType: Column<OidcLoginEventType> = enumerationByName<OidcLoginEventType>("event_type", 29)
     public val memberId: Column<Uuid?> = uuid("member_id").nullable()
     public val remoteParty: Column<String?> = varchar("remote_party", 2048).nullable()
     public val reason: Column<String?> = varchar("reason", 255).nullable()

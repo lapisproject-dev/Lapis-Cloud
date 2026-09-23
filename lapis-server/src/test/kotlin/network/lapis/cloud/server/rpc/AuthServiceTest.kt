@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -27,10 +28,12 @@ import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import network.lapis.cloud.shared.rpc.WeakPasswordException
@@ -43,6 +46,18 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
 
 private const val INITIAL_PASSWORD = "initial-strong-password-1"
+
+/** V1.7.2 sub-wave 2a -- a fully `isOperational` [KeycloakConfig], same helper shape as [KeycloakConfigTest]'s own `operational()`. */
+private fun keycloakEnabledConfig(): KeycloakConfig {
+    val env =
+        mapOf(
+            KeycloakConfig.ENV_ENABLED to "true",
+            KeycloakConfig.ENV_ISSUER_URL to "https://keycloak.example.org/realms/lapis",
+            KeycloakConfig.ENV_CLIENT_ID to "lapis-cloud",
+            KeycloakConfig.ENV_CLIENT_SECRET to "kc-very-secret-client-secret-123",
+        )
+    return KeycloakConfig.load { env[it] }
+}
 
 /**
  * Exercises [AuthService] end to end against real [SessionStore] sessions (not the trusted-header
@@ -58,7 +73,10 @@ class AuthServiceTest :
 
         afterSpec { cleanUpAuthServiceTestData(createdMemberIds) }
 
-        fun createTestMember(email: String): Uuid {
+        fun createTestMember(
+            email: String,
+            role: AccountRole = AccountRole.MEMBER,
+        ): Uuid {
             val id = Uuid.random()
             transaction {
                 MemberTable.insert {
@@ -72,7 +90,7 @@ class AuthServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[role] = AccountRole.MEMBER
+                    it[AccountTable.role] = role
                     it[passwordHash] = PasswordHasher.hash(INITIAL_PASSWORD)
                 }
             }
@@ -190,7 +208,7 @@ class AuthServiceTest :
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
                 val body = response.bodyAsText()
-                body shouldBe "$member:MEMBER:${issued.expiresAt}:false:-"
+                body shouldBe "$member:MEMBER:${issued.expiresAt}:false:-:keycloakMode=false"
             }
         }
 
@@ -208,7 +226,7 @@ class AuthServiceTest :
 
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:false:-"
+                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:false:-:keycloakMode=false"
             }
         }
 
@@ -239,7 +257,75 @@ class AuthServiceTest :
 
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:true:$issuer"
+                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:true:$issuer:keycloakMode=false"
+            }
+        }
+
+        // V1.7.2 sub-wave 2a -- SessionInfoDto.keycloakMode / changePassword's Keycloak-mode gate.
+
+        test("getSessionInfo: keycloakMode reflects keycloakConfig.enabled (false by default, true when Keycloak mode is on)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing {
+                        registerAuthServiceTestRoutes()
+                        registerAuthServiceKeycloakModeTestRoutes()
+                    }
+                }
+
+                val member = createTestMember("auth-service-keycloak-mode-off@example.org")
+                val issued = SessionStore.createSession(member)
+
+                val offResponse = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
+                offResponse.bodyAsText() shouldContain ":keycloakMode=false"
+
+                val onResponse =
+                    client.get("/test/session-info-keycloak-mode") { header("Authorization", "Bearer ${issued.rawToken}") }
+                onResponse.bodyAsText() shouldContain ":keycloakMode=true"
+            }
+        }
+
+        test("changePassword: Keycloak mode rejects a non-ADMIN caller with ConflictException, password stays unchanged") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceKeycloakModeTestRoutes() }
+                }
+
+                val member = createTestMember("auth-service-keycloak-mode-member@example.org", role = AccountRole.MEMBER)
+                val session = SessionStore.createSession(member)
+                val originalHash = storedPasswordHashOf(member)
+
+                val response =
+                    client.post("/test/change-password-keycloak-mode") {
+                        header("Authorization", "Bearer ${session.rawToken}")
+                        header("X-Current-Password", INITIAL_PASSWORD)
+                        header("X-New-Password", "a-brand-new-strong-password-2")
+                    }
+                response.status shouldBe HttpStatusCode.Conflict
+                storedPasswordHashOf(member) shouldBe originalHash
+            }
+        }
+
+        test("changePassword: Keycloak mode still allows the emergency ADMIN local-password path") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceKeycloakModeTestRoutes() }
+                }
+
+                val admin = createTestMember("auth-service-keycloak-mode-admin@example.org", role = AccountRole.ADMIN)
+                val session = SessionStore.createSession(admin)
+
+                val response =
+                    client.post("/test/change-password-keycloak-mode") {
+                        header("Authorization", "Bearer ${session.rawToken}")
+                        header("X-Current-Password", INITIAL_PASSWORD)
+                        header("X-New-Password", "a-brand-new-strong-password-2")
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                PasswordHasher.verify(rawPassword = "a-brand-new-strong-password-2", storedHash = storedPasswordHashOf(admin)) shouldBe
+                    true
             }
         }
     })
@@ -264,6 +350,10 @@ private fun StatusPagesConfig.installAuthServiceExceptionHandlers() {
     exception<WeakPasswordException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.BadRequest)
     }
+    // V1.7.2 sub-wave 2a -- changePassword's Keycloak-mode rejection.
+    exception<ConflictException> { call, cause ->
+        call.respondText(cause.message, status = HttpStatusCode.Conflict)
+    }
 }
 
 private fun Route.registerAuthServiceTestRoutes() {
@@ -275,6 +365,27 @@ private fun Route.registerAuthServiceTestRoutes() {
     }
     get("/test/session-info") {
         val info = AuthService(call = call).getSessionInfo()
-        call.respondText("${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}")
+        call.respondText(
+            "${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}:" +
+                "keycloakMode=${info.keycloakMode}",
+        )
+    }
+}
+
+/** V1.7.2 sub-wave 2a -- same two RPC methods, but this [AuthService] is constructed with an `isOperational` [keycloakEnabledConfig]. */
+private fun Route.registerAuthServiceKeycloakModeTestRoutes() {
+    post("/test/change-password-keycloak-mode") {
+        val currentPassword = call.request.headers["X-Current-Password"] ?: ""
+        val newPassword = call.request.headers["X-New-Password"] ?: ""
+        AuthService(call = call, keycloakConfig = keycloakEnabledConfig())
+            .changePassword(currentPassword = currentPassword, newPassword = newPassword)
+        call.respondText("OK")
+    }
+    get("/test/session-info-keycloak-mode") {
+        val info = AuthService(call = call, keycloakConfig = keycloakEnabledConfig()).getSessionInfo()
+        call.respondText(
+            "${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}:" +
+                "keycloakMode=${info.keycloakMode}",
+        )
     }
 }
