@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **W4d form-grammar migration, completed (no new version)** -- the seven remaining screens of the original W4d
+  plan (`NonprofitComplianceReportsScreen`, `PoliticianScreen`, `DocumentsScreen`, `TravelExpenseScreen`,
+  `TravelExpenseApprovalsScreen`, `VolunteerAllowanceScreen`, `VolunteerAllowanceApprovalsScreen`; `DashboardScreen`
+  had already moved separately, on `master`, in commit `52bf02ed`) now use the `lapisForm`/`textField`/
+  `textAreaField`/`selectField`/`checkField` grammar instead of raw KVision widgets, matching every other migrated
+  screen: field-level error messages (`aria-describedby`), consistent required-field marking, and every writing
+  `AppScope.launch` guarded against a double click (`form.submit`/`form.runBusy`/`runGuardedAction`). The wave's
+  last file, `VolunteerAllowanceApprovalsScreen`, also migrated its combined decision panel (Entscheidungsnotiz
+  plus a cap-acknowledgment checkbox that is mandatory only when approving, never when rejecting) and its
+  paper-declaration recording form. Final `ClientUiGuidelineTripwireTest` ratchets: R24 166 → 140, R24B 80 → 71,
+  R29 stays at 39 (see `docs/architecture/ui-ux-guideline.adoc`, "Wave W6c").
+
 ### Fixed
 
 - **Redact real infra topology from public repo (rounds 1-5, no new version)** -- the repo is

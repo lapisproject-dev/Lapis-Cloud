@@ -1328,6 +1328,56 @@ receiver is implicit `this`), used for legal disclaimer/terms/agreement full-tex
 `BankAccountsScreen.kt` (`disclaimer.text`), `FriendRegistrationScreen.kt` (`terms.text`), `RegistrationScreen.kt`
 (`agreement.text`).
 
+== Wave W6c "W4d form migration" (feature/w4d-remaining-screens)
+
+Closes the W4d form migration W6b explicitly deferred (see its "Not done in this wave"): the eight screens of the
+original W4d plan move onto the `lapisForm`/`textField`/`textAreaField`/`selectField`/`checkField` grammar. Run as
+six sequential batches on one branch (`DashboardScreen` had already been migrated separately, on `master`, in
+commit `52bf02ed`, before this branch started):
+
+1. `NonprofitComplianceReportsScreen.kt` (R24B_JUSTIFIED immediate-switch checkbox) and `PoliticianScreen.kt` (R24/R24B).
+2. `DocumentsScreen.kt`.
+3. `TravelExpenseScreen.kt`.
+4. `TravelExpenseApprovalsScreen.kt`.
+5. `VolunteerAllowanceScreen.kt`.
+6. `VolunteerAllowanceApprovalsScreen.kt` -- the paper-declaration recording form (single required date field) and
+   the combined decision panel (Entscheidungsnotiz, Pflicht; plus a cap-acknowledgment checkbox that is
+   deliberately NOT `required = true` in the grammar sense -- it is only mandatory when approving, never when
+   rejecting, so the rule is enforced by hand in `approveButton.onClick`, before `form.submit`, instead of via the
+   field's own `required` flag). Every existing write `AppScope.launch` in the file (`decidePayment`,
+   `retryPosting`, `recordPaperDeclaration`, `voidPaperDeclaration`) moved onto
+   `form.submit`/`form.runBusy`/`runGuardedAction` in the same batch.
+
+Each batch's implementing agent updated `ClientUiGuidelineTripwireTest`'s ratchets to the ACTUAL measured count
+after its own file joined the strict set (never a guess), and added a DOM test file driving the migrated form(s)
+the way a person does (`*FormDomTest.kt`, the `formTest`/`mountedForm`/`withFetchStub` idiom `FormTestSupport.kt`
+establishes).
+
+=== Final numbers (verified after batch 6, the wave's last file)
+
+W6b fixed the wave's target numbers as **R24 166 → 140, R24B 80 → 71, R29 ≤ 39**. The wave hit them exactly:
+
+* `R24_REMAINING_MAX` (labelled `text`/`password`/`textArea` fields outside the strict set): **140** (measured, not
+  estimated -- `ClientUiGuidelineTripwireTest`'s own withClue diagnostic was used to confirm the exact count after
+  every ratchet change in this wave).
+* `R24B_REMAINING_MAX` (labelled `select`/`checkBox` fields outside the strict set): **71**.
+* `R29_UNGUARDED_WRITE_LAUNCH_MAX` (unguarded writing `AppScope.launch` blocks in the strict set): **39**, unchanged
+  from before the wave -- every one of the eight files' existing write launches moved onto
+  `form.submit`/`form.runBusy`/`runGuardedAction` in the same batch that migrated the file, so the ratchet never
+  needed to rise and then be lowered again.
+
+All eight screens of the original W4d plan (`DashboardScreen` via `52bf02ed` on `master`, the other seven via this
+branch's six batches) are now in `R24_MIGRATED`, held strictly: zero labelled `text`/`password`/`textArea`/
+`select`/`checkBox` calls outside their justified filter/immediate-switch exemptions.
+
+=== Not done in this wave
+
+* The manual browser and screen-reader check at 375 / 767 / 768 / 1440 px, light and dark, is still NOT done
+  (carried over from every prior wave's own section).
+* The branch was not squash-merged to `master` by the agent that ran the sixth batch -- it stays on
+  `feature/w4d-remaining-screens` for a human/later instance to review and merge, per the standing branch-hygiene
+  rule (feature branches are squash-merged locally, never pushed as-is).
+
 == Known gaps
 
 * W6b security round 5: the bare in-builder-lambda `content = dtoField.field` assignment shape (no receiver

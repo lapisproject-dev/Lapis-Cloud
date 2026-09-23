@@ -1,8 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -410,9 +408,12 @@ private fun renderRatingControls(
         }
     }
 
+    // R29 (W4d): `runGuardedAction(null)` -- the double-click protection is the manual `setButtonsDisabled(true)`
+    // ABOVE it (all three rating buttons, not just the one clicked), same idiom `BankAccountsScreen.kt`/
+    // `BankStatementImportScreen.kt` already use for a multi-widget guard [runGuardedAction] itself cannot express.
     fun castRating(value: PoliticianReactionValue) {
         setButtonsDisabled(true)
-        AppScope.launch {
+        runGuardedAction(null) {
             val result = guarded { rpcService<IPoliticianService>().castRating(politician.memberId, value) }
             setButtonsDisabled(false)
             if (result != null) {
@@ -427,7 +428,7 @@ private fun renderRatingControls(
     dislikeButton.onClick { castRating(PoliticianReactionValue.DISLIKE) }
     retractButton.onClick {
         setButtonsDisabled(true)
-        AppScope.launch {
+        runGuardedAction(null) {
             val result = guarded { rpcService<IPoliticianService>().retractRating(politician.memberId) }
             setButtonsDisabled(false)
             if (result != null) {
@@ -465,14 +466,15 @@ private fun renderBoardCardActions(
         return
     }
 
-    val mandateInput = panel.textArea(value = politician.mandateText, label = tr("Mandatstext"), rows = 2)
-    val mandateSaveButton = panel.button(tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
+    // R24 (W4d): migrated to the form grammar -- a single optional field, saved on its own button.
+    val mandateForm = panel.lapisForm()
+    val mandateField = mandateForm.textAreaField(label = tr("Mandatstext"), rows = 2, value = politician.mandateText)
+    val mandateSaveButton = Button(tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
+    mandateForm.buttons(primary = mandateSaveButton)
     mandateSaveButton.onClick {
-        val text = mandateInput.value?.trim()?.takeIf { it.isNotBlank() }
-        mandateSaveButton.disabled = true
-        AppScope.launch {
+        mandateForm.submit(mandateSaveButton) {
+            val text = mandateField.value.trim().takeIf { it.isNotBlank() }
             val result = guarded { rpcService<IPoliticianService>().updateMandateText(politician.memberId, text) }
-            mandateSaveButton.disabled = false
             if (result != null) {
                 notifySuccess(tr("Mandatstext aktualisiert."))
                 onChanged()
@@ -483,10 +485,9 @@ private fun renderBoardCardActions(
     val revokeButton = panel.button(tr("Politiker-Status widerrufen"), style = ButtonStyle.OUTLINEDANGER)
     revokeButton.onClick {
         politicianRevokeConfirmDialog(politician.displayName) {
-            revokeButton.disabled = true
-            AppScope.launch {
+            // R29 (W4d): the confirm dialog is one-shot, but `runGuardedAction` also disables the button itself.
+            runGuardedAction(revokeButton) {
                 val result = guarded { rpcService<IPoliticianService>().revokePoliticianStatus(politician.memberId) }
-                revokeButton.disabled = false
                 if (result != null) {
                     notifySuccess(gettext("Politiker-Status von %1 widerrufen.", result.displayName))
                     onChanged()
@@ -614,26 +615,23 @@ private fun renderGrantForm(
         root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
         return
     }
-    val panel = root.vPanel(spacing = 6)
-    val memberSelect = panel.select(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
-    val mandateInput = panel.textArea(label = tr("Mandatstext (optional)"), rows = 2)
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val grantButton = panel.button(tr("Erteilen / Aktualisieren"), style = ButtonStyle.PRIMARY)
+    // R24/R24B (W4d): migrated to the form grammar -- Mitglied (required select) + Mandatstext (optional textArea).
+    val form = root.lapisForm()
+    val memberField =
+        form.selectField(
+            label = tr("Mitglied"),
+            options = untrustedOptions(members.map { it.id to it.displayName }),
+            required = true,
+            requiredMessage = tr("Bitte ein Mitglied auswählen."),
+        )
+    val mandateField = form.textAreaField(label = tr("Mandatstext (optional)"), rows = 2)
+    val grantButton = Button(tr("Erteilen / Aktualisieren"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = grantButton)
 
     grantButton.onClick {
-        errorBox.hide()
-        val memberId = memberSelect.value
-        val member = members.find { it.id == memberId }
-        if (member == null) {
-            errorBox.content = tr("Bitte ein Mitglied auswählen.")
-            errorBox.show()
-            return@onClick
-        }
-        val mandateText = mandateInput.value?.trim()?.takeIf { it.isNotBlank() }
+        if (!form.validateAndReport()) return@onClick
+        val member = members.find { it.id == memberField.value } ?: return@onClick
+        val mandateText = mandateField.value.trim().takeIf { it.isNotBlank() }
 
         // Tier 1 "Kostenpflichtig" (D4): plain, neutral-framed confirmDialog -- costs the target
         // member no LTR, but is a material, publicly-visible status change; also states the
@@ -650,13 +648,11 @@ private fun renderGrantForm(
                 ),
             confirmLabel = tr("Erteilen"),
         ) {
-            grantButton.disabled = true
-            AppScope.launch {
+            form.runBusy(grantButton) {
                 val result = guarded { rpcService<IPoliticianService>().grantPoliticianStatus(member.id, mandateText) }
-                grantButton.disabled = false
                 if (result != null) {
                     notifySuccess(gettext("Politiker-Status für %1 erteilt.", result.displayName))
-                    mandateInput.value = null
+                    mandateField.reset()
                     onCompleted()
                 }
             }
@@ -681,28 +677,24 @@ private fun renderSnapshotForm(
                 "erzeugt keine Duplikate.",
         ),
     ) { addCssClasses("text-muted small mb-2") }
-    val panel = root.vPanel(spacing = 6)
-    val monthInput = panel.text(label = tr("Monat (JJJJ-MM-TT, Tag wird ignoriert)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val snapshotButton = panel.button(tr("Snapshot auslösen"), style = ButtonStyle.SECONDARY)
+    // R24 (W4d): migrated to the form grammar -- a native date input type is a named wave of its own
+    // (K1, see ui-ux-guideline.adoc), so this stays a text field with the example in the hint, like
+    // every other date-shaped field in this client (e.g. `BoardMembershipScreen.kt`'s "Seit").
+    val form = root.lapisForm()
+    val monthField =
+        form.textField(
+            label = tr("Monat (JJJJ-MM-TT, Tag wird ignoriert)"),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(value = it) },
+        )
+    val snapshotButton = Button(tr("Snapshot auslösen"), style = ButtonStyle.SECONDARY)
+    form.buttons(primary = snapshotButton)
 
     snapshotButton.onClick {
-        errorBox.hide()
-        val monthText = monthInput.value.orEmpty().trim()
-        val periodMonth = runCatching { LocalDate.parse(monthText) }.getOrNull()
-        if (periodMonth == null) {
-            errorBox.content = tr("Bitte einen Monat im Format JJJJ-MM-TT angeben.")
-            errorBox.show()
-            return@onClick
-        }
-        snapshotButton.disabled = true
-        AppScope.launch {
+        form.submit(snapshotButton) {
+            val periodMonth = LocalDate.parse(monthField.value.trim())
             val result = guarded { rpcService<IPoliticianService>().snapshotWeights(periodMonth) }
-            snapshotButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Snapshot für %1 Profil(e) berechnet.", result.size))
                 onCompleted()
@@ -774,15 +766,14 @@ private fun renderPoliticianRankingToggle(
                             },
                         confirmLabel = if (newValue) tr("Aktivieren") else tr("Deaktivieren"),
                     ) {
-                        toggleButton.disabled = true
-                        AppScope.launch {
+                        // R29 (W4d): the confirm dialog is one-shot, but `runGuardedAction` also disables the button itself.
+                        runGuardedAction(toggleButton) {
                             val result =
                                 guarded {
                                     rpcService<IOrganizationSettingsService>().updateOrganizationSettings(
                                         settings.toInputWithPoliticianRankingEnabled(newValue),
                                     )
                                 }
-                            toggleButton.disabled = false
                             if (result != null) {
                                 notifySuccess(if (newValue) tr("Politiker-Ranking aktiviert.") else tr("Politiker-Ranking deaktiviert."))
                                 load()

@@ -503,6 +503,59 @@ private val R24_MIGRATED: Set<String> =
         "AccountingExportScreen.kt",
         // W4d: DashboardScreen's change-password form (three labelled password fields removed).
         "DashboardScreen.kt",
+        // W4d: Mandatstext (board card), Politiker-Status erteilen (member select + mandate text),
+        // Gewichts-Snapshot auslösen (month text). `includeFormerSelect` (an area/action selector, never
+        // submitted) is justified below; every existing write AppScope.launch in the file (castRating,
+        // retractRating, revokePoliticianStatus, the politicianRankingEnabled toggle) was moved onto
+        // `runGuardedAction` in the same wave so R29 does not rise when the file joins this set.
+        "PoliticianScreen.kt",
+        // W4d batch 2 (DocumentsScreen): Neuer Ordnername, Neuer Dokumenttitel + Sichtbarkeit, Neue Version
+        // hochladen (upload, registered via `register`) + Änderungshinweis. The search filter is justified
+        // below (FILTER_IS_NOT_A_FORM); the Wissensbasis checkbox is an IMMEDIATE SWITCH, justified in
+        // R24B_JUSTIFIED. Every existing write AppScope.launch in the file (createFolder, createDocument,
+        // deleteDocument -- already guarded, setKnowledgeBaseRelease, reindexKnowledgeDocument) was moved
+        // onto `form.submit`/`runGuardedAction` in the same wave so R29 does not rise when the file joins
+        // this set.
+        "DocumentsScreen.kt",
+        // W4d batch 3 (TravelExpenseScreen): Zweck/Von/Bis (header form, used for both "Entwurf anlegen" and
+        // "Entwurf speichern"), Beschreibung + Kilometer/Tage/Betrag (add-a-line form) and Beleg hochladen
+        // (upload, registered via `register`). The rates/configuration banner stays a data-driven panel
+        // (`ui-ux-guideline.adoc` Known gaps), not a form. Every existing write `AppScope.launch` in the file
+        // (submitReport, removeLine, deleteReceipt, withdrawReport, createDraft-as-copy) was moved onto
+        // `runGuardedAction` in the same wave so R29 does not rise when the file joins this set.
+        "TravelExpenseScreen.kt",
+        // W4d batch 4 (TravelExpenseApprovalsScreen): unlike TravelExpenseScreen's read-only rates banner, this
+        // screen's admin rates section (Kilometersatz/Tagespauschale) IS an editable, submitted form -- it moves
+        // into `lapisForm` too. Plus the two decision panels (Entscheidungsnotiz, Pflicht -- 1:1 nach
+        // `ContributionReliefQueueScreen.renderReliefRequestedDecidePanel`/`renderReliefApprovedRetryPanel`s
+        // Vorbild). The status filter (`statusSelect`) is justified below (FILTER_IS_NOT_A_FORM, R24B). Every
+        // existing write `AppScope.launch` in the file (updateTravelExpenseRates, decideReport, retryPosting)
+        // was moved onto `form.submit`/`form.runBusy` in the same wave so R29 does not rise when the file joins
+        // this set.
+        "TravelExpenseApprovalsScreen.kt",
+        // W4d batch 5 (VolunteerAllowanceScreen): Kategorie (required selectField, UNCHANGEABLE on an
+        // existing payment) + Betrag/Tätigkeitsbeschreibung/Zahlungsdatum (required text-like fields),
+        // one form used for both "Entwurf anlegen" and "Entwurf speichern" -- 1:1 nach
+        // `TravelExpenseScreen.renderReportHeaderForm`s Vorbild. No filter/selector to justify: the
+        // Kategorie select is a genuine required form field, not a filter (unlike
+        // `TravelExpenseApprovalsScreen.kt`'s statusSelect). Every existing write `AppScope.launch` in
+        // the file (submitPayment, withdrawPayment on both the draft editor and an own payment card,
+        // declareSelf) was moved onto `runGuardedAction` in the same wave so R29 does not rise when
+        // the file joins this set.
+        "VolunteerAllowanceScreen.kt",
+        // W4d batch 6 (VolunteerAllowanceApprovalsScreen, last file of the wave): the paper-declaration
+        // recording form (Unterschrieben am, single required date field) and the combined decision panel
+        // (Entscheidungsnotiz, Pflicht; plus a cap-acknowledgment checkbox only when the annual cap is
+        // exceeded) -- 1:1 nach `TravelExpenseApprovalsScreen.renderRequestedDecisionPanel`s Vorbild. The
+        // cap-acknowledgment checkbox is a genuine field of the strict set but deliberately NOT
+        // `required = true` in the grammar sense (it is only required when approving, never when
+        // rejecting -- see the file's own KDoc); its "must be checked to approve" rule is enforced
+        // manually before `form.submit`. The status filter (`statusSelect`) is justified below
+        // (FILTER_IS_NOT_A_FORM, R24B). Every existing write `AppScope.launch` in the file (decidePayment,
+        // retryPosting, recordPaperDeclaration, voidPaperDeclaration) was moved onto
+        // `form.submit`/`form.runBusy`/`runGuardedAction` in the same wave so R29 does not rise when the
+        // file joins this set.
+        "VolunteerAllowanceApprovalsScreen.kt",
     )
 
 /** Screens examined that have NO labelled text field to migrate: strict too, but there is no form to build. */
@@ -522,6 +575,9 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // dialogs); every writing call in them is guarded (`runGuardedAction`).
         "SepaMandatesScreen.kt",
         "DunningCasesScreen.kt",
+        // W4d (this batch): no labelled text field at all -- only an IMMEDIATE SWITCH checkbox (justified below,
+        // R24B_JUSTIFIED, same reason as `StatuteQaScreen.kt`).
+        "NonprofitComplianceReportsScreen.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -573,15 +629,27 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
                 "val costCenterSearchInput = filterRow.text(label = tr(\"Kostenstelle suchen (Code oder Name)\"))",
             ),
         "DunningCasesScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Mitglied\"))"),
+        // W4d batch 2 -- FILTER_IS_NOT_A_FORM: narrows the document list of the open folder, never submitted.
+        "DocumentsScreen.kt" to
+            listOf("searchInput = searchRow.text(label = tr(\"Dokumente in diesem Ordner durchsuchen\"))"),
     )
 
 /**
  * The downward ratchet: labelled fields outside the strict set (297 in 54 files when W4a landed, 228 after W4b, 225 in 41 files after
  * the V1.4.29 audit moved `FormGrammar.kt` -- the factories -- into the strict set, 166 after W4c (V1.4.30: 59 labelled fields of the
- * twelve finance screens moved in; ten of them are justified filters), 163 after W4d (DashboardScreen's three change-password fields
- * moved in). Only ever lowered.
+ * twelve finance screens moved in; ten of them are justified filters), 163 after W4d's DashboardScreen batch (three change-password
+ * fields moved in), 160 after W4d's PoliticianScreen batch (its month/mandate text fields moved in; the AREA/ACTION SELECTOR stays a
+ * raw select, justified in R24B, not here), 156 after W4d's DocumentsScreen batch (all four of the file's labelled `text(` calls --
+ * Ordnername, Dokumenttitel, Änderungshinweis, and the search filter -- leave the "outside" bucket once the file joins the strict
+ * set; three move into `textField`/`register`, the search filter is justified below, not removed), 149 after W4d's
+ * TravelExpenseScreen batch (all seven of the file's labelled `text(` calls -- Zweck, Von, Bis, Beschreibung, Kilometer, Tage,
+ * Betrag -- leave the "outside" bucket; none are justified filters, all seven genuinely move into `textField`), 142 after the
+ * TravelExpenseApprovalsScreen and VolunteerAllowanceScreen batches (Kilometersatz/Tagespauschale plus both decision panels'
+ * notes, then Betrag/Tätigkeitsbeschreibung/Zahlungsdatum move in), 140 after W4d's VolunteerAllowanceApprovalsScreen batch --
+ * the wave's last file (the paper-declaration date field and the combined decision panel's note leave the "outside" bucket;
+ * the cap-acknowledgment checkbox is a select/checkBox field, counted under R24B, not here). Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 163
+private const val R24_REMAINING_MAX = 140
 
 private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
 
@@ -657,9 +725,20 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         "MyVolunteerShiftsScreen.kt" to
             listOf("val eventSelect = eventSelectRow.select(options = emptyList(), label = tr(\"Veranstaltung\"))"),
         "PaymentGatewaySettingsScreen.kt" to listOf("actionsRow.select( [label \"Anbieter\"]"),
+        // W4d (this batch): the "Nur aktive Profile" / "Inklusive ehemaliger Profile" toggle picks what the
+        // list below shows -- never submitted, same reason as CommunicationScreen.kt's listSelect above.
+        "PoliticianScreen.kt" to listOf("listControlsRow.select( [label \"Anzeige\"]"),
         // IMMEDIATE SWITCH (saves by itself, no submit)
         "StatuteQaScreen.kt" to
             listOf("consentPanel.checkBox( [label \"Ich stimme zu, dass meine Fragen von einer KI beantwortet werden\"]"),
+        // W4d (this batch): the Kleinunternehmer-Regelung checkbox saves itself on change -- no surrounding
+        // form, no submit button, same reason as StatuteQaScreen.kt's consent checkbox above.
+        "NonprofitComplianceReportsScreen.kt" to
+            listOf("kleinunternehmerRow.checkBox(value = settings.isKleinunternehmer, label = tr(\"Kleinunternehmer nach § 19 UStG\"))"),
+        // W4d batch 2: the "Wissensbasis" checkbox of a document row saves itself on change -- no
+        // surrounding form, no submit button, same reason as StatuteQaScreen.kt's consent checkbox above.
+        "DocumentsScreen.kt" to
+            listOf("val box = row.checkBox(value = current().released, label = tr(\"Wissensbasis\"))"),
         // W4c (V1.4.30) -- FILTER_IS_NOT_A_FORM
         "LedgerScreen.kt" to
             listOf("val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr(\"Inaktive Konten anzeigen\"))"),
@@ -677,14 +756,31 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
                 "val onlyOpenCheck = filterRow.checkBox(value = true, label = tr(\"Nur offene Vorgänge\"))",
                 "filterRow.select( [label \"Seitengröße\"]",
             ),
+        // W4d batch 4 -- FILTER_IS_NOT_A_FORM: narrows the approval queue by status, never submitted.
+        "TravelExpenseApprovalsScreen.kt" to
+            listOf("val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))"),
+        // W4d batch 6 -- FILTER_IS_NOT_A_FORM: narrows the approval queue by status, never submitted (same
+        // reason as TravelExpenseApprovalsScreen.kt's statusSelect above).
+        "VolunteerAllowanceApprovalsScreen.kt" to
+            listOf("val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))"),
     )
 
 /**
  * The downward ratchet for labelled choice fields outside the strict set: 131 in 38 files (measured in the V1.4.29 audit; the figure
  * "45 files" of the wave's own comment was wrong), 80 after W4c (V1.4.30: 51 labelled choice fields of the twelve finance screens moved
- * in; nine of them are justified filters). Only ever lowered.
+ * in; nine of them are justified filters), 77 after the first W4d batch (NonprofitComplianceReportsScreen's Kleinunternehmer checkbox
+ * and PoliticianScreen's member select + area selector moved in; both files' remaining choice fields are justified, not removed),
+ * 75 after the DocumentsScreen batch (its Sichtbarkeit select moves into `selectField`; the Wissensbasis checkbox leaves the
+ * "outside" bucket too, justified below as an immediate switch). Unchanged at 75 after the TravelExpenseScreen batch: the file
+ * joins the strict set with zero labelled `select(`/`checkBox(` calls of its own (its rates/configuration banner is a
+ * data-driven panel, not a form -- see `ui-ux-guideline.adoc` Known gaps), so nothing moves out of this bucket. 74 after the
+ * TravelExpenseApprovalsScreen batch (its statusSelect moves in, justified as a filter), 73 after the VolunteerAllowanceScreen
+ * batch (unchanged: zero labelled `select(`/`checkBox(` calls of its own), 71 after W4d's VolunteerAllowanceApprovalsScreen
+ * batch -- the wave's last file (its statusSelect moves in, justified as a filter same as TravelExpenseApprovalsScreen.kt's;
+ * the cap-acknowledgment checkField moves in too, NOT justified -- it is a genuine field of the decision form). Only ever
+ * lowered.
  */
-private const val R24B_REMAINING_MAX = 80
+private const val R24B_REMAINING_MAX = 71
 
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())

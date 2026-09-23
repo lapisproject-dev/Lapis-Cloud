@@ -2,9 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
-import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
@@ -25,6 +23,7 @@ import network.lapis.cloud.shared.domain.VolunteerAllowancePaymentDto
 import network.lapis.cloud.shared.domain.VolunteerAllowancePaymentInput
 import network.lapis.cloud.shared.domain.VolunteerAllowancePaymentStatus
 import network.lapis.cloud.shared.domain.VolunteerAllowancePaymentStatusSets
+import network.lapis.cloud.shared.domain.VolunteerAllowanceRules
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 
 /**
@@ -32,6 +31,15 @@ import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
  * `TravelExpenseScreen`'s house style. `requireAuth` (jedes authentifizierte Mitglied) -- siehe
  * `Routes.VOLUNTEER_ALLOWANCES` KDoc. Erstellt IMMER für sich selbst (kein "im Namen von"-Picker
  * in dieser Selbstbedienungssicht, gleiche Vereinfachung wie `TravelExpenseScreen`).
+ *
+ * R24/R24B/R29/R34 (W4d batch 5): das Zahlungsformular (Kategorie/Betrag/Tätigkeitsbeschreibung/
+ * Zahlungsdatum, für Entwurf-Anlage UND -Bearbeitung dasselbe Formular) ist ein [LapisForm], 1:1
+ * nach `TravelExpenseScreen.renderReportHeaderForm`s Vorbild -- die Kategorie ist ein
+ * `selectField` (R24B), NICHT ein Filter: sie ist ein Pflichtfeld des Zahlungsantrags. Jeder
+ * schreibende `AppScope.launch` (Einreichen, Verwerfen, Zurückziehen, Selbstauskunft bestätigen)
+ * läuft durch `runGuardedAction`; der Ladevorgang selbst zeigt bei einem gescheiterten ersten
+ * Abruf einen Fehlerzustand mit Wiederholung statt eines leeren Panels (R34, Vorbild
+ * `TravelExpenseScreen.reload`).
  */
 fun renderVolunteerAllowanceScreen(
     container: SimplePanel,
@@ -52,9 +60,21 @@ fun renderVolunteerAllowanceScreen(
     val listPanel = root.vPanel(spacing = 10)
 
     fun reload() {
+        editorPanel.removeAll()
+        listPanel.removeAll()
         AppScope.launch {
-            val config = guarded { rpcService<IVolunteerAllowanceService>().getVolunteerAllowanceConfig() } ?: return@launch
-            val payments = guarded { rpcService<IVolunteerAllowanceService>().listMyPayments() } ?: return@launch
+            // R34: ein fehlgeschlagener Ladevorgang ist ein Fehlerzustand mit Wiederholung, kein leeres Panel.
+            val config = guarded { rpcService<IVolunteerAllowanceService>().getVolunteerAllowanceConfig() }
+            if (config == null) {
+                configBanner.removeAll()
+                editorPanel.dataErrorState(onRetry = { reload() })
+                return@launch
+            }
+            val payments = guarded { rpcService<IVolunteerAllowanceService>().listMyPayments() }
+            if (payments == null) {
+                listPanel.dataErrorState(onRetry = { reload() })
+                return@launch
+            }
 
             configBanner.removeAll()
             renderConfigBanner(configBanner, config)
@@ -118,21 +138,19 @@ private fun renderNewDraftButton(
         val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
         button.hide()
         renderPaymentForm(formPanel, null) { category, amount, description, date ->
-            AppScope.launch {
-                val result =
-                    guarded {
-                        rpcService<IVolunteerAllowanceService>().createDraft(
-                            AppState.session?.memberId.orEmpty(),
-                            VolunteerAllowancePaymentInput(
-                                category = category,
-                                amount = amount,
-                                activityDescription = description,
-                                paymentDate = date,
-                            ),
-                        )
-                    }
-                if (result != null) onChanged()
-            }
+            val result =
+                guarded {
+                    rpcService<IVolunteerAllowanceService>().createDraft(
+                        AppState.session?.memberId.orEmpty(),
+                        VolunteerAllowancePaymentInput(
+                            category = category,
+                            amount = amount,
+                            activityDescription = description,
+                            paymentDate = date,
+                        ),
+                    )
+                }
+            if (result != null) onChanged()
         }
     }
 }
@@ -145,94 +163,143 @@ private fun renderDraftEditor(
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     formPanel.div(tr("Entwurf")) { addCssClasses("fw-bold") }
     renderPaymentForm(formPanel, draft) { category, amount, description, date ->
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<IVolunteerAllowanceService>().updateDraft(
-                        draft.id,
-                        VolunteerAllowancePaymentInput(
-                            category = category,
-                            amount = amount,
-                            activityDescription = description,
-                            paymentDate = date,
-                        ),
-                    )
-                }
-            if (result != null) onChanged()
-        }
+        val result =
+            guarded {
+                rpcService<IVolunteerAllowanceService>().updateDraft(
+                    draft.id,
+                    VolunteerAllowancePaymentInput(
+                        category = category,
+                        amount = amount,
+                        activityDescription = description,
+                        paymentDate = date,
+                    ),
+                )
+            }
+        if (result != null) onChanged()
     }
     val buttonsRow = formPanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
     val submitButton = buttonsRow.button(tr("Einreichen"), style = ButtonStyle.SUCCESS)
     val withdrawButton = buttonsRow.button(tr("Verwerfen"), style = ButtonStyle.OUTLINEDANGER)
     submitButton.onClick {
-        submitButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<IVolunteerAllowanceService>().submitPayment(draft.id) }
-                if (result != null) {
-                    notifySuccess(tr("Zahlung eingereicht."))
-                    onChanged()
-                }
-            } finally {
-                submitButton.disabled = false
+        runGuardedAction(submitButton) {
+            val result = guarded { rpcService<IVolunteerAllowanceService>().submitPayment(draft.id) }
+            if (result != null) {
+                notifySuccess(tr("Zahlung eingereicht."))
+                onChanged()
             }
         }
     }
     withdrawButton.onClick {
-        withdrawButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<IVolunteerAllowanceService>().withdrawPayment(draft.id) }
-                if (result != null) {
-                    notifySuccess(tr("Entwurf verworfen."))
-                    onChanged()
-                }
-            } finally {
-                withdrawButton.disabled = false
+        runGuardedAction(withdrawButton) {
+            val result = guarded { rpcService<IVolunteerAllowanceService>().withdrawPayment(draft.id) }
+            if (result != null) {
+                notifySuccess(tr("Entwurf verworfen."))
+                onChanged()
             }
         }
     }
 }
 
+// R24/R24B (W4d batch 5): migrated to the form grammar -- Kategorie (required selectField,
+// UNVERAENDERLICH auf einer bestehenden Zahlung, siehe VolunteerAllowanceCategory KDoc), Betrag
+// (required text, money), Tätigkeitsbeschreibung (required textArea, min/max Zeichen) und
+// Zahlungsdatum (required text, ISO-Datum) -- 1:1 nach `TravelExpenseScreen
+// .renderReportHeaderForm`s Vorbild, dasselbe Formular für Entwurf-Anlage UND -Bearbeitung.
 private fun renderPaymentForm(
     panel: SimplePanel,
     existing: VolunteerAllowancePaymentDto?,
-    onSave: (category: VolunteerAllowanceCategory, amount: Decimal, description: String, date: LocalDate) -> Unit,
+    onSave: suspend (category: VolunteerAllowanceCategory, amount: Decimal, description: String, date: LocalDate) -> Unit,
 ) {
+    val form = panel.lapisForm()
     val categoryOptions = VolunteerAllowanceCategory.entries.map { it.name to volunteerAllowanceCategoryLabel(it) }
-    val categorySelect =
-        panel.select(
+    val categoryField =
+        form.selectField(
+            label = tr("Kategorie"),
             options = categoryOptions,
             value = (existing?.category ?: VolunteerAllowanceCategory.HONORARY).name,
-            label = tr("Kategorie"),
-        ) {
-            // Kategorie UNVERAENDERLICH auf einer bestehenden Zahlung -- siehe VolunteerAllowanceCategory KDoc.
-            disabled = existing != null
-        }
-    val amountInput = panel.text(value = existing?.amount?.toString(), label = tr("Betrag (EUR)"))
-    val descriptionInput =
-        panel.textArea(value = existing?.activityDescription, label = tr("Tätigkeitsbeschreibung"), rows = 2) {
-            maxlength = 200
-        }
-    val dateInput = panel.text(value = existing?.paymentDate?.toString(), label = tr("Zahlungsdatum (JJJJ-MM-TT)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val saveButton = panel.button(if (existing == null) tr("Entwurf anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+            required = true,
+            init = {
+                // Kategorie UNVERAENDERLICH auf einer bestehenden Zahlung -- siehe VolunteerAllowanceCategory KDoc.
+                it.disabled = existing != null
+            },
+        )
+    val amountField =
+        form.textField(
+            label = tr("Betrag (EUR)"),
+            value = existing?.amount?.toString(),
+            required = true,
+            hint = tr("Beispiel: 1234,56."),
+            rule = { volunteerAllowanceAmountCheck(it) },
+        )
+    val descriptionField =
+        form.textAreaField(
+            label = tr("Tätigkeitsbeschreibung"),
+            rows = 2,
+            value = existing?.activityDescription,
+            required = true,
+            rule = { volunteerAllowanceDescriptionCheck(it) },
+            init = { it.maxlength = VolunteerAllowanceRules.MAX_ACTIVITY_DESCRIPTION_LENGTH },
+        )
+    val dateField =
+        form.textField(
+            label = tr("Zahlungsdatum (JJJJ-MM-TT)"),
+            value = existing?.paymentDate?.toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val saveButton = Button(if (existing == null) tr("Entwurf anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
     saveButton.onClick {
-        errorBox.hide()
-        val category = VolunteerAllowanceCategory.entries.firstOrNull { it.name == categorySelect.value }
-        val amount = amountInput.value?.trim()?.toDoubleOrNull()
-        val description = descriptionInput.value?.trim().orEmpty()
-        val date = runCatching { LocalDate.parse(dateInput.value.orEmpty().trim()) }.getOrNull()
-        if (category == null || amount == null || amount <= 0.0 || description.length < 3 || date == null) {
-            errorBox.content = tr("Bitte alle Felder gültig ausfüllen (Betrag > 0, Beschreibung mindestens 3 Zeichen, Datum JJJJ-MM-TT).")
-            errorBox.show()
-            return@onClick
+        form.submit(saveButton) {
+            val category = checkNotNull(VolunteerAllowanceCategory.entries.firstOrNull { it.name == categoryField.value })
+            val amount = (parseAmountInput(amountField.value, allowZero = false, enforceMaxAmount = false) as AmountInput.Valid).value
+            val description = descriptionField.value.trim()
+            val date = LocalDate.parse(dateField.value.trim())
+            onSave(category, amount, description, date)
         }
-        onSave(category, amount.toDecimal(), description, date)
+    }
+}
+
+/**
+ * Feldregel für den Zahlbetrag: [parseAmountInput] MIT der Obergrenze
+ * [VolunteerAllowanceRules.MAX_PAYMENT_AMOUNT] (dieselbe Grenze zieht der Server, siehe
+ * `VolunteerAllowanceService`). Gleiches Muster wie `travelExpenseLineAmountCheck`.
+ */
+internal fun volunteerAllowanceAmountCheck(value: String): FieldCheck =
+    when (val parsed = parseAmountInput(value, allowZero = false, enforceMaxAmount = false)) {
+        is AmountInput.Empty -> FieldCheck.Ok
+        is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
+        is AmountInput.Valid ->
+            if (parsed.value.toDouble() > VolunteerAllowanceRules.MAX_PAYMENT_AMOUNT) {
+                FieldCheck.Invalid(
+                    gettext(
+                        "Der Betrag ist zu groß (höchstens %1).",
+                        formatMoney(VolunteerAllowanceRules.MAX_PAYMENT_AMOUNT.toDouble().toDecimal()),
+                    ),
+                )
+            } else {
+                FieldCheck.Ok
+            }
+    }
+
+/**
+ * Feldregel für die Tätigkeitsbeschreibung: mindestens [VolunteerAllowanceRules
+ * .MIN_ACTIVITY_DESCRIPTION_LENGTH], höchstens [VolunteerAllowanceRules
+ * .MAX_ACTIVITY_DESCRIPTION_LENGTH] Zeichen nach `trim()` -- spiegelt
+ * `VolunteerAllowanceService.createDraft`s Prüfung; der Server bleibt Autorität.
+ */
+internal fun volunteerAllowanceDescriptionCheck(value: String): FieldCheck {
+    val trimmed = value.trim()
+    return when {
+        trimmed.length < VolunteerAllowanceRules.MIN_ACTIVITY_DESCRIPTION_LENGTH ->
+            FieldCheck.Invalid(
+                gettext(
+                    "Bitte eine Tätigkeitsbeschreibung mit mindestens %1 Zeichen angeben.",
+                    VolunteerAllowanceRules.MIN_ACTIVITY_DESCRIPTION_LENGTH,
+                ),
+            )
+        else -> FormRules.maxLength(trimmed, VolunteerAllowanceRules.MAX_ACTIVITY_DESCRIPTION_LENGTH)
     }
 }
 
@@ -303,16 +370,11 @@ private fun renderOwnPaymentCard(
     if (payment.status in VolunteerAllowancePaymentStatusSets.WITHDRAWABLE) {
         val withdrawButton = card.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
         withdrawButton.onClick {
-            withdrawButton.disabled = true
-            AppScope.launch {
-                try {
-                    val result = guarded { rpcService<IVolunteerAllowanceService>().withdrawPayment(payment.id) }
-                    if (result != null) {
-                        notifySuccess(tr("Zurückgezogen."))
-                        onChanged()
-                    }
-                } finally {
-                    withdrawButton.disabled = false
+            runGuardedAction(withdrawButton) {
+                val result = guarded { rpcService<IVolunteerAllowanceService>().withdrawPayment(payment.id) }
+                if (result != null) {
+                    notifySuccess(tr("Zurückgezogen."))
+                    onChanged()
                 }
             }
         }
@@ -389,19 +451,14 @@ private fun renderSelfDeclarationSection(
         ) { addCssClasses("small") }
         val declareButton = declareRow.button(tr("Selbstauskunft bestätigen"), style = ButtonStyle.OUTLINEPRIMARY)
         declareButton.onClick {
-            declareButton.disabled = true
-            AppScope.launch {
-                try {
-                    val result =
-                        guarded {
-                            rpcService<IVolunteerAllowanceService>().declareSelf(payment.category, payment.paymentDate.year)
-                        }
-                    if (result != null) {
-                        notifySuccess(tr("Selbstauskunft erfasst."))
-                        onChanged()
+            runGuardedAction(declareButton) {
+                val result =
+                    guarded {
+                        rpcService<IVolunteerAllowanceService>().declareSelf(payment.category, payment.paymentDate.year)
                     }
-                } finally {
-                    declareButton.disabled = false
+                if (result != null) {
+                    notifySuccess(tr("Selbstauskunft erfasst."))
+                    onChanged()
                 }
             }
         }

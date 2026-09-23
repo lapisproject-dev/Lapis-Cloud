@@ -2,8 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
 import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -32,6 +31,15 @@ import network.lapis.cloud.shared.rpc.ITravelExpenseService
  * Entscheidungsknöpfe -- das ist ein Formular pro Antrag, keine Zeile eines Rasters. Deshalb stehen die Karten in
  * `.lapis-card-list` / `.lapis-data-card` (dieselben Klassen, die auch die Kartenliste von `dataTable` unter
  * 768 px nutzt) und nicht in einer `dataTable`. Die Entscheidungspanels selbst sind Formulare (W4).
+ *
+ * R24/R29 (W4d batch 4): drei echte Formulare sind [LapisForm]s -- die Sätze-Pflege (Kilometersatz/Tagespauschale,
+ * nur ADMIN), sowie die beiden Entscheidungs-Panels (Entscheidungsnotiz, Pflicht), 1:1 nach
+ * `ContributionReliefQueueScreen.renderReliefRequestedDecidePanel`/`renderReliefApprovedRetryPanel`s Vorbild
+ * (Genehmigen/Wiederholen ist die Primäraktion, Ablehnen steht in der Gefahrenzone unter der Knopfzeile). Der
+ * Status-Filter oben (`statusSelect`) ist ein FILTER, kein Formular (nie abgesendet, keine Pflichtfelder) --
+ * justiert in `R24B_JUSTIFIED`. Jeder schreibende `AppScope.launch` (Sätze speichern, Genehmigen/Ablehnen,
+ * Buchung wiederholen) läuft durch `form.submit`/`form.runBusy`, damit R29 nicht steigt, wenn die Datei der
+ * strengen Menge beitritt.
  */
 fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
@@ -114,49 +122,42 @@ private fun renderRatesAdminSection(panel: SimplePanel) {
                 return@launch
             }
             panel.p(tr("Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst.")) { addCssClasses("text-muted small") }
-            val mileageInput = panel.text(value = rates.mileageRatePerKm?.toString(), label = tr("Kilometersatz (EUR/km)"))
-            val perDiemInput = panel.text(value = rates.perDiemRate?.toString(), label = tr("Tagespauschale (EUR)"))
-            // Review MINOR fix: same inline-error discipline TravelExpenseScreen's addLine form
-            // already applies (kilometers/days/amount) -- an unparseable value must never be
-            // silently sent as `null` (which `updateTravelExpenseRates` interprets as "delete this
-            // rate", disabling the whole line kind for every member) just because a decimal comma
-            // instead of a dot didn't parse.
-            val errorBox =
-                panel.div().apply {
-                    addCssClass("text-danger")
-                    hide()
-                }
-            val saveButton = panel.button(tr("Sätze speichern"), style = ButtonStyle.PRIMARY)
+            // R24 (W4d batch 4): migrated to the form grammar -- beide Felder sind optional (ein leeres Feld
+            // löscht den Satz, siehe [TravelExpenseRateInput.Cleared]), die Feldregel läuft deshalb NUR auf
+            // einen nicht-leeren Wert (`LapisField.evaluate()` prüft die Regel erst nach der Pflicht-/Leer-Prüfung)
+            // -- dieselbe "nie einen Tippfehler als null senden"-Disziplin wie zuvor, jetzt am Feld statt in
+            // einer eigenen Fehlerbox.
+            val form = panel.lapisForm()
+            val mileageField =
+                form.textField(
+                    label = tr("Kilometersatz (EUR/km)"),
+                    value = rates.mileageRatePerKm?.toString(),
+                    hint = tr("Beispiel: 0.30. Leer lassen, um den Satz zu löschen."),
+                    rule = { travelExpenseRateFieldCheck(it, gettext("Bitte einen gültigen Kilometersatz angeben (z. B. 0.30).")) },
+                )
+            val perDiemField =
+                form.textField(
+                    label = tr("Tagespauschale (EUR)"),
+                    value = rates.perDiemRate?.toString(),
+                    hint = tr("Beispiel: 14.00. Leer lassen, um den Satz zu löschen."),
+                    rule = { travelExpenseRateFieldCheck(it, gettext("Bitte eine gültige Tagespauschale angeben (z. B. 14.00).")) },
+                )
+            val saveButton = Button(tr("Sätze speichern"), style = ButtonStyle.PRIMARY)
+            form.buttons(primary = saveButton)
             saveButton.onClick {
-                errorBox.hide()
-                val mileage = parseTravelExpenseRateInput(mileageInput.value)
-                if (mileage is TravelExpenseRateInput.Invalid) {
-                    errorBox.content = tr("Bitte einen gültigen Kilometersatz angeben (z. B. 0.30).")
-                    errorBox.show()
-                    return@onClick
-                }
-                val perDiem = parseTravelExpenseRateInput(perDiemInput.value)
-                if (perDiem is TravelExpenseRateInput.Invalid) {
-                    errorBox.content = tr("Bitte eine gültige Tagespauschale angeben (z. B. 14.00).")
-                    errorBox.show()
-                    return@onClick
-                }
-                saveButton.disabled = true
-                AppScope.launch {
-                    try {
-                        val result =
-                            guarded {
-                                rpcService<ITravelExpenseService>().updateTravelExpenseRates(
-                                    (mileage as? TravelExpenseRateInput.Valid)?.value?.toDecimal(),
-                                    (perDiem as? TravelExpenseRateInput.Valid)?.value?.toDecimal(),
-                                )
-                            }
-                        if (result != null) {
-                            notifySuccess(tr("Sätze gespeichert."))
-                            load()
+                form.submit(saveButton) {
+                    val mileage = parseTravelExpenseRateInput(mileageField.value)
+                    val perDiem = parseTravelExpenseRateInput(perDiemField.value)
+                    val result =
+                        guarded {
+                            rpcService<ITravelExpenseService>().updateTravelExpenseRates(
+                                (mileage as? TravelExpenseRateInput.Valid)?.value?.toDecimal(),
+                                (perDiem as? TravelExpenseRateInput.Valid)?.value?.toDecimal(),
+                            )
                         }
-                    } finally {
-                        saveButton.disabled = false
+                    if (result != null) {
+                        notifySuccess(tr("Sätze gespeichert."))
+                        load()
                     }
                 }
             }
@@ -164,6 +165,17 @@ private fun renderRatesAdminSection(panel: SimplePanel) {
     }
     load()
 }
+
+/** Feldregel für [renderRatesAdminSection]s Sätze-Formular -- pure, siehe [parseTravelExpenseRateInput]. */
+internal fun travelExpenseRateFieldCheck(
+    value: String,
+    invalidMessage: String,
+): FieldCheck =
+    if (parseTravelExpenseRateInput(value) is TravelExpenseRateInput.Invalid) {
+        FieldCheck.Invalid(invalidMessage)
+    } else {
+        FieldCheck.Ok
+    }
 
 private fun renderApprovalCard(
     panel: SimplePanel,
@@ -217,49 +229,62 @@ private fun renderApprovalCard(
     }
 }
 
+// R24 (W4d batch 4): migrated to the form grammar -- 1:1 nach
+// `ContributionReliefQueueScreen.renderReliefRequestedDecidePanel`s Vorbild: "Genehmigen" ist die
+// Primäraktion, "Ablehnen" steht in der Gefahrenzone unter der Knopfzeile (Richtlinie 2.5). Ein einziges
+// Pflichtfeld => Stern + Legende "* Pflichtfeld".
 private fun renderRequestedDecisionPanel(
     card: SimplePanel,
     report: TravelExpenseReportDto,
     onChanged: () -> Unit,
 ) {
     val decidePanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (Pflicht)"), rows = 2) { maxlength = 1000 }
-    val errorBox =
-        decidePanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val buttonsRow = decidePanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val approveButton = buttonsRow.button(tr("Genehmigen und buchen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val form = decidePanel.lapisForm()
+    val noteField = travelExpenseDecisionNoteField(form)
+    val approveButton = Button(tr("Genehmigen und buchen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = approveButton, destructive = rejectButton)
 
-    fun decide(approve: Boolean) {
-        errorBox.hide()
-        val note = noteInput.value?.trim()
-        if (!travelExpenseDecisionNoteIsValid(note)) {
-            errorBox.content = tr("Bitte eine Entscheidungsnotiz eingeben.")
-            errorBox.show()
-            return
-        }
-        approveButton.disabled = true
-        rejectButton.disabled = true
-        AppScope.launch {
+    fun decide(
+        approve: Boolean,
+        pressed: Button,
+        other: Button,
+    ) {
+        form.submit(pressed) {
+            other.disabled = true
             try {
+                val note = noteField.value.trim()
                 val result = guarded { rpcService<ITravelExpenseService>().decideReport(report.id, approve, note) }
                 if (result != null) {
                     notifySuccess(if (approve) tr("Antrag genehmigt und gebucht.") else tr("Antrag abgelehnt."))
                     onChanged()
                 }
             } finally {
-                approveButton.disabled = false
-                rejectButton.disabled = false
+                other.disabled = false
             }
         }
     }
-    approveButton.onClick { decide(true) }
-    rejectButton.onClick { decide(false) }
+    approveButton.onClick { decide(true, approveButton, rejectButton) }
+    rejectButton.onClick { decide(false, rejectButton, approveButton) }
 }
 
+/** Die Pflicht-Notiz einer Entscheidung, 1:1 nach `ContributionReliefQueueScreen.reliefDecisionNoteField`s Vorbild. */
+private fun travelExpenseDecisionNoteField(
+    form: LapisForm,
+    hint: String? = null,
+): LapisField =
+    form.textAreaField(
+        label = tr("Entscheidungsnotiz"),
+        rows = 2,
+        required = true,
+        hint = hint,
+        requiredMessage = gettext("Bitte eine Entscheidungsnotiz eingeben."),
+        init = { it.maxlength = 1000 },
+    )
+
+// R24 (W4d batch 4): migrated to the form grammar -- 1:1 nach
+// `ContributionReliefQueueScreen.renderReliefApprovedRetryPanel`s Vorbild: die Wiederholung braucht keine
+// Notiz und läuft OHNE Prüfung (`form.runBusy`), nur "Ablehnen" prüft das Pflichtfeld.
 private fun renderApprovedRetryPanel(
     card: SimplePanel,
     report: TravelExpenseReportDto,
@@ -267,19 +292,15 @@ private fun renderApprovedRetryPanel(
 ) {
     card.div(travelExpensePostingErrorMessage(report.executionError)) { addCssClasses("alert alert-danger") }
     val decidePanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
-    val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (Pflicht)"), rows = 2) { maxlength = 1000 }
-    val errorBox =
-        decidePanel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val buttonsRow = decidePanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val retryButton = buttonsRow.button(tr("Buchung wiederholen"), style = ButtonStyle.PRIMARY)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val form = decidePanel.lapisForm()
+    val noteField = travelExpenseDecisionNoteField(form, hint = gettext("Nur für \"Ablehnen\" erforderlich."))
+    val retryButton = Button(tr("Buchung wiederholen"), style = ButtonStyle.PRIMARY)
+    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    form.buttons(primary = retryButton, destructive = rejectButton)
 
     retryButton.onClick {
-        retryButton.disabled = true
-        AppScope.launch {
+        rejectButton.disabled = true
+        form.runBusy(retryButton) {
             try {
                 val result = guarded { rpcService<ITravelExpenseService>().retryPosting(report.id) }
                 if (result != null) {
@@ -287,22 +308,15 @@ private fun renderApprovedRetryPanel(
                     onChanged()
                 }
             } finally {
-                retryButton.disabled = false
+                rejectButton.disabled = false
             }
         }
     }
     rejectButton.onClick {
-        errorBox.hide()
-        val note = noteInput.value?.trim()
-        if (!travelExpenseDecisionNoteIsValid(note)) {
-            errorBox.content = tr("Bitte eine Entscheidungsnotiz eingeben.")
-            errorBox.show()
-            return@onClick
-        }
-        retryButton.disabled = true
-        rejectButton.disabled = true
-        AppScope.launch {
+        form.submit(rejectButton) {
+            retryButton.disabled = true
             try {
+                val note = noteField.value.trim()
                 val result = guarded { rpcService<ITravelExpenseService>().decideReport(report.id, false, note) }
                 if (result != null) {
                     notifySuccess(tr("Antrag abgelehnt."))
@@ -310,7 +324,6 @@ private fun renderApprovedRetryPanel(
                 }
             } finally {
                 retryButton.disabled = false
-                rejectButton.disabled = false
             }
         }
     }

@@ -2,8 +2,9 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
-import io.kvision.form.text.text
+import dev.kilua.rpc.types.toDouble
 import io.kvision.form.upload.upload
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -19,6 +20,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
@@ -38,6 +40,12 @@ import network.lapis.cloud.shared.rpc.ITravelExpenseService
  * zurückgegebenen [TravelExpenseReportDto] -- der Client addiert nie selbst
  * ([TravelExpenseLabels]/dieser Datei eigene reine Hilfsfunktionen ausgenommen, die nur für die
  * Anzeige-Aufschlüsselung nach Zeilenart summieren, niemals für den Gesamtbetrag selbst).
+ *
+ * R24/R29 (W4d batch 3): die drei echten Eingabeformulare (Kopfdaten Zweck/Von/Bis, eine Zeile
+ * hinzufügen, ein Beleg hochladen) sind [LapisForm]s; jeder schreibende `AppScope.launch` läuft
+ * durch `form.submit`/`runGuardedAction`. Die Sätze-/Konfigurationsbänder ([renderRatesBanner])
+ * bleiben unverändert im Textkörper -- sie sind datengetriebene Anzeigeflächen, kein Formular (siehe
+ * "Known gaps" in `docs/architecture/ui-ux-guideline.adoc`).
  */
 fun renderTravelExpenseScreen(
     container: SimplePanel,
@@ -57,9 +65,21 @@ fun renderTravelExpenseScreen(
     val listPanel = root.vPanel(spacing = 10)
 
     fun reload() {
+        editorPanel.removeAll()
+        listPanel.removeAll()
         AppScope.launch {
-            val rates = guarded { rpcService<ITravelExpenseService>().getTravelExpenseRates() } ?: return@launch
-            val reports = guarded { rpcService<ITravelExpenseService>().listMyReports() } ?: return@launch
+            // R34: ein fehlgeschlagener Ladevorgang ist ein Fehlerzustand mit Wiederholung, kein leeres Panel.
+            val rates = guarded { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
+            if (rates == null) {
+                ratesBanner.removeAll()
+                editorPanel.dataErrorState(onRetry = { reload() })
+                return@launch
+            }
+            val reports = guarded { rpcService<ITravelExpenseService>().listMyReports() }
+            if (reports == null) {
+                listPanel.dataErrorState(onRetry = { reload() })
+                return@launch
+            }
 
             ratesBanner.removeAll()
             renderRatesBanner(ratesBanner, rates)
@@ -122,50 +142,67 @@ private fun renderNewDraftButton(
         val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
         button.hide()
         renderReportHeaderForm(formPanel, null) { purpose, from, to ->
-            AppScope.launch {
-                val result =
-                    guarded {
-                        rpcService<ITravelExpenseService>().createDraft(
-                            AppState.session?.memberId.orEmpty(),
-                            TravelExpenseReportInput(purpose = purpose, travelFrom = from, travelTo = to),
-                        )
-                    }
-                if (result != null) onChanged()
-            }
+            val result =
+                guarded {
+                    rpcService<ITravelExpenseService>().createDraft(
+                        AppState.session?.memberId.orEmpty(),
+                        TravelExpenseReportInput(purpose = purpose, travelFrom = from, travelTo = to),
+                    )
+                }
+            if (result != null) onChanged()
         }
     }
 }
 
+// R24 (W4d): migrated to the form grammar -- Zweck (required text), Von/Bis (required date text, cross-field rule).
 private fun renderReportHeaderForm(
     panel: SimplePanel,
     existing: TravelExpenseReportDto?,
-    onSave: (purpose: String, travelFrom: LocalDate, travelTo: LocalDate) -> Unit,
+    onSave: suspend (purpose: String, travelFrom: LocalDate, travelTo: LocalDate) -> Unit,
 ) {
-    val purposeInput = panel.text(value = existing?.purpose, label = tr("Zweck der Reise"))
-    val fromInput = panel.text(value = existing?.travelFrom?.toString(), label = tr("Von (JJJJ-MM-TT)"))
-    val toInput = panel.text(value = existing?.travelTo?.toString(), label = tr("Bis (JJJJ-MM-TT)"))
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
+    val form = panel.lapisForm()
+    val purposeField =
+        form.textField(
+            label = tr("Zweck der Reise"),
+            value = existing?.purpose,
+            required = true,
+            rule = { FormRules.maxLength(it, TravelExpenseAmountRules.MAX_PURPOSE_LENGTH) },
+        )
+    val fromField =
+        form.textField(
+            label = tr("Von (JJJJ-MM-TT)"),
+            value = existing?.travelFrom?.toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val toField =
+        form.textField(
+            label = tr("Bis (JJJJ-MM-TT)"),
+            value = existing?.travelTo?.toString(),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(it) },
+        )
+    // Das Bis-Datum darf nicht vor dem Von-Datum liegen -- am Bis-Feld gezeigt, geprüft sobald beide echte Daten sind.
+    form.crossFieldRule(field = toField) {
+        val from = runCatching { LocalDate.parse(fromField.value.trim()) }.getOrNull()
+        val to = runCatching { LocalDate.parse(toField.value.trim()) }.getOrNull()
+        if (from != null && to != null && to < from) {
+            FieldCheck.Invalid(gettext("Das Bis-Datum darf nicht vor dem Von-Datum liegen."))
+        } else {
+            FieldCheck.Ok
         }
-    val saveButton = panel.button(if (existing == null) tr("Entwurf anlegen") else tr("Entwurf speichern"), style = ButtonStyle.PRIMARY)
+    }
+    val saveButton = Button(if (existing == null) tr("Entwurf anlegen") else tr("Entwurf speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
     saveButton.onClick {
-        errorBox.hide()
-        val purpose = purposeInput.value?.trim().orEmpty()
-        val from = runCatching { LocalDate.parse(fromInput.value.orEmpty().trim()) }.getOrNull()
-        val to = runCatching { LocalDate.parse(toInput.value.orEmpty().trim()) }.getOrNull()
-        if (purpose.isBlank() || from == null || to == null) {
-            errorBox.content = tr("Bitte Zweck und ein gültiges Datum (JJJJ-MM-TT) für Von/Bis angeben.")
-            errorBox.show()
-            return@onClick
+        form.submit(saveButton) {
+            val purpose = purposeField.value.trim()
+            val from = LocalDate.parse(fromField.value.trim())
+            val to = LocalDate.parse(toField.value.trim())
+            onSave(purpose, from, to)
         }
-        if (to < from) {
-            errorBox.content = tr("Das Bis-Datum darf nicht vor dem Von-Datum liegen.")
-            errorBox.show()
-            return@onClick
-        }
-        onSave(purpose, from, to)
     }
 }
 
@@ -178,18 +215,16 @@ private fun renderDraftEditor(
     val card = panel.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
     card.div(tr("Entwurf")) { addCssClass("fw-bold") }
     renderReportHeaderForm(card, draft) { purpose, from, to ->
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<ITravelExpenseService>().updateDraft(
-                        draft.id,
-                        TravelExpenseReportInput(purpose = purpose, travelFrom = from, travelTo = to),
-                    )
-                }
-            if (result != null) {
-                notifySuccess(tr("Entwurf gespeichert."))
-                onChanged()
+        val result =
+            guarded {
+                rpcService<ITravelExpenseService>().updateDraft(
+                    draft.id,
+                    TravelExpenseReportInput(purpose = purpose, travelFrom = from, travelTo = to),
+                )
             }
+        if (result != null) {
+            notifySuccess(tr("Entwurf gespeichert."))
+            onChanged()
         }
     }
 
@@ -238,21 +273,18 @@ private fun renderDraftEditor(
     }
     val submitButton = card.button(tr("Zur Freigabe einreichen"), style = ButtonStyle.SUCCESS) { disabled = blockReason != null }
     submitButton.onClick {
-        submitButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<ITravelExpenseService>().submitReport(draft.id) }
-                if (result != null) {
-                    notifySuccess(tr("Antrag zur Freigabe eingereicht."))
-                    onChanged()
-                }
-            } finally {
-                submitButton.disabled = false
+        runGuardedAction(submitButton) {
+            val result = guarded { rpcService<ITravelExpenseService>().submitReport(draft.id) }
+            if (result != null) {
+                notifySuccess(tr("Antrag zur Freigabe eingereicht."))
+                onChanged()
             }
         }
     }
 }
 
+// R24 (W4d): migrated to the form grammar -- Beschreibung (required text) plus exactly one of
+// Kilometer/Tage/Betrag depending on [kind] (same discriminated-flat-row idiom [TravelExpenseLineInput] uses).
 private fun renderAddLineForm(
     panel: SimplePanel,
     reportId: String,
@@ -260,65 +292,77 @@ private fun renderAddLineForm(
     onChanged: () -> Unit,
 ) {
     panel.removeAll()
-    val form = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    val descriptionInput = form.text(label = tr("Beschreibung"))
-    val kilometersInput = if (kind == TravelExpenseLineKind.MILEAGE) form.text(label = tr("Kilometer")) else null
-    val daysInput = if (kind == TravelExpenseLineKind.PER_DIEM) form.text(label = tr("Tage")) else null
-    val amountInput = if (kind == TravelExpenseLineKind.RECEIPTED) form.text(label = tr("Betrag")) else null
-    val errorBox =
-        form.div().apply {
-            addCssClass("text-danger")
-            hide()
+    val wrapper = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
+    val form = wrapper.lapisForm()
+    val descriptionField =
+        form.textField(
+            label = tr("Beschreibung"),
+            required = true,
+            requiredMessage = tr("Bitte eine Beschreibung angeben."),
+            rule = { FormRules.maxLength(it, TravelExpenseAmountRules.MAX_DESCRIPTION_LENGTH) },
+        )
+    val kilometersField =
+        if (kind == TravelExpenseLineKind.MILEAGE) {
+            form.textField(
+                label = tr("Kilometer"),
+                required = true,
+                hint = tr("Beispiel: 1234,56."),
+                rule = { travelExpenseKilometersCheck(it) },
+            )
+        } else {
+            null
         }
-    val addButton = form.button(tr("Zeile hinzufügen"), style = ButtonStyle.PRIMARY)
+    val daysField =
+        if (kind == TravelExpenseLineKind.PER_DIEM) {
+            form.textField(
+                label = tr("Tage"),
+                required = true,
+                rule = { FormRules.intInRange(it, 1, TravelExpenseAmountRules.MAX_DAYS) },
+            )
+        } else {
+            null
+        }
+    val amountField =
+        if (kind == TravelExpenseLineKind.RECEIPTED) {
+            form.textField(
+                label = tr("Betrag"),
+                required = true,
+                hint = tr("Beispiel: 1234,56."),
+                rule = { travelExpenseLineAmountCheck(it) },
+            )
+        } else {
+            null
+        }
+    val addButton = Button(tr("Zeile hinzufügen"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = addButton)
     addButton.onClick {
-        errorBox.hide()
-        val description = descriptionInput.value?.trim().orEmpty()
-        if (description.isBlank()) {
-            errorBox.content = tr("Bitte eine Beschreibung angeben.")
-            errorBox.show()
-            return@onClick
-        }
-        val input =
-            when (kind) {
-                TravelExpenseLineKind.MILEAGE -> {
-                    val km = kilometersInput?.value?.trim()?.toDoubleOrNull()
-                    if (km == null || km <= 0.0) {
-                        errorBox.content = tr("Bitte eine gültige Kilometerzahl angeben.")
-                        errorBox.show()
-                        return@onClick
-                    }
-                    TravelExpenseLineInput(kind = kind, description = description, kilometers = km.toDecimal())
+        form.submit(addButton) {
+            val description = descriptionField.value.trim()
+            val input =
+                when (kind) {
+                    TravelExpenseLineKind.MILEAGE ->
+                        TravelExpenseLineInput(
+                            kind = kind,
+                            description = description,
+                            kilometers = travelExpenseParseDecimal(checkNotNull(kilometersField).value),
+                        )
+                    TravelExpenseLineKind.PER_DIEM ->
+                        TravelExpenseLineInput(
+                            kind = kind,
+                            description = description,
+                            days = checkNotNull(daysField).value.trim().toInt(),
+                        )
+                    TravelExpenseLineKind.RECEIPTED ->
+                        TravelExpenseLineInput(
+                            kind = kind,
+                            description = description,
+                            amount = travelExpenseParseDecimal(checkNotNull(amountField).value),
+                        )
                 }
-                TravelExpenseLineKind.PER_DIEM -> {
-                    val days = daysInput?.value?.trim()?.toIntOrNull()
-                    if (days == null || days <= 0) {
-                        errorBox.content = tr("Bitte eine gültige Anzahl Tage angeben.")
-                        errorBox.show()
-                        return@onClick
-                    }
-                    TravelExpenseLineInput(kind = kind, description = description, days = days)
-                }
-                TravelExpenseLineKind.RECEIPTED -> {
-                    val amount = amountInput?.value?.trim()?.toDoubleOrNull()
-                    if (amount == null || amount <= 0.0) {
-                        errorBox.content = tr("Bitte einen gültigen Betrag angeben.")
-                        errorBox.show()
-                        return@onClick
-                    }
-                    TravelExpenseLineInput(kind = kind, description = description, amount = amount.toDecimal())
-                }
-            }
-        addButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<ITravelExpenseService>().addLine(reportId, input) }
-                if (result != null) {
-                    notifySuccess(tr("Zeile hinzugefügt."))
-                    onChanged()
-                }
-            } finally {
-                addButton.disabled = false
+            val result = guarded { rpcService<ITravelExpenseService>().addLine(reportId, input) }
+            if (result != null) {
+                notifySuccess(tr("Zeile hinzugefügt."))
+                onChanged()
             }
         }
     }
@@ -336,14 +380,9 @@ private fun renderLineCard(
     headerRow.div(formatMoney(line.amount)) { addCssClasses("fw-bold") }
     val removeButton = headerRow.button(tr("Zeile entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.onClick {
-        removeButton.disabled = true
-        AppScope.launch {
-            try {
-                val result = guarded { rpcService<ITravelExpenseService>().removeLine(line.id) }
-                if (result != null) onChanged()
-            } finally {
-                removeButton.disabled = false
-            }
+        runGuardedAction(removeButton) {
+            val result = guarded { rpcService<ITravelExpenseService>().removeLine(line.id) }
+            if (result != null) onChanged()
         }
     }
     when (line.kind) {
@@ -373,41 +412,38 @@ private fun renderLineCard(
                 receiptRow.div(receiptSizeLabel(receipt.sizeBytes)) { addCssClasses("text-muted small") }
                 val deleteReceiptButton = receiptRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 deleteReceiptButton.onClick {
-                    deleteReceiptButton.disabled = true
-                    AppScope.launch {
+                    runGuardedAction(deleteReceiptButton) {
                         val error = TravelExpenseHttp.deleteReceipt(receipt.id)
-                        deleteReceiptButton.disabled = false
                         if (error != null) notifyError(error) else onChanged()
                     }
                 }
             }
+            // R24 (W4d): migrated to the form grammar -- the raw Upload control registered via `register`
+            // (pattern `DocumentsScreen.kt`'s `renderVersionUpload`), same reason not Kilua RPC (see
+            // `TravelExpenseHttp` KDoc): receipt bytes travel over a dedicated HTTP route.
             val uploadRow = card.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-            val fileUpload = uploadRow.upload(label = tr("Beleg hochladen"))
-            val uploadErrorBox =
-                uploadRow.div().apply {
-                    addCssClass("text-danger")
-                    hide()
-                }
-            val uploadButton = uploadRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+            val uploadForm = uploadRow.lapisForm()
+            val fileUpload = uploadForm.panel.upload(label = tr("Beleg hochladen"))
+
+            fun selectedNativeFile() = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) }
+            val fileField =
+                uploadForm.register(
+                    fileUpload,
+                    label = tr("Beleg hochladen"),
+                    required = true,
+                    requiredMessage = tr("Bitte eine Datei auswählen."),
+                )
+            val uploadButton = Button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+            uploadForm.buttons(primary = uploadButton)
             uploadButton.onClick {
-                uploadErrorBox.hide()
-                val selected = fileUpload.value?.firstOrNull()
-                val nativeFile = selected?.let { fileUpload.getNativeFile(it) }
-                if (nativeFile == null) {
-                    uploadErrorBox.content = tr("Bitte eine Datei auswählen.")
-                    uploadErrorBox.show()
-                    return@onClick
-                }
-                uploadButton.disabled = true
-                AppScope.launch {
+                uploadForm.submit(uploadButton) {
+                    val nativeFile = selectedNativeFile() ?: return@submit
                     val error = TravelExpenseHttp.uploadReceipt(line.id, nativeFile)
-                    uploadButton.disabled = false
                     if (error != null) {
-                        uploadErrorBox.content = error
-                        uploadErrorBox.show()
+                        uploadForm.showFormError(error)
                     } else {
                         notifySuccess(tr("Beleg hochgeladen."))
-                        fileUpload.clearInput()
+                        fileField.reset()
                         onChanged()
                     }
                 }
@@ -447,16 +483,11 @@ private fun renderOwnReportCard(
     if (travelExpenseCanWithdraw(report)) {
         val withdrawButton = actionsRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
         withdrawButton.onClick {
-            withdrawButton.disabled = true
-            AppScope.launch {
-                try {
-                    val result = guarded { rpcService<ITravelExpenseService>().withdrawReport(report.id) }
-                    if (result != null) {
-                        notifySuccess(tr("Antrag zurückgezogen."))
-                        onChanged()
-                    }
-                } finally {
-                    withdrawButton.disabled = false
+            runGuardedAction(withdrawButton) {
+                val result = guarded { rpcService<ITravelExpenseService>().withdrawReport(report.id) }
+                if (result != null) {
+                    notifySuccess(tr("Antrag zurückgezogen."))
+                    onChanged()
                 }
             }
         }
@@ -471,42 +502,37 @@ private fun renderOwnReportCard(
     if (travelExpenseCanCopyAsDraft(report, hasOpenDraft)) {
         val copyButton = actionsRow.button(tr("Als Entwurf kopieren"), style = ButtonStyle.OUTLINESECONDARY)
         copyButton.onClick {
-            copyButton.disabled = true
-            AppScope.launch {
-                try {
-                    val newDraft =
-                        guarded {
-                            rpcService<ITravelExpenseService>().createDraft(
-                                report.subjectMemberId,
-                                TravelExpenseReportInput(
-                                    purpose = report.purpose,
-                                    travelFrom = report.travelFrom,
-                                    travelTo = report.travelTo,
-                                ),
-                            )
-                        }
-                    if (newDraft != null) {
-                        report.lines.forEach { line ->
-                            val input =
-                                when (line.kind) {
-                                    TravelExpenseLineKind.MILEAGE ->
-                                        TravelExpenseLineInput(
-                                            kind = line.kind,
-                                            description = line.description,
-                                            kilometers = line.kilometers,
-                                        )
-                                    TravelExpenseLineKind.PER_DIEM ->
-                                        TravelExpenseLineInput(kind = line.kind, description = line.description, days = line.days)
-                                    TravelExpenseLineKind.RECEIPTED ->
-                                        TravelExpenseLineInput(kind = line.kind, description = line.description, amount = line.amount)
-                                }
-                            guarded { rpcService<ITravelExpenseService>().addLine(newDraft.id, input) }
-                        }
-                        notifySuccess(tr("Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."))
-                        onChanged()
+            runGuardedAction(copyButton) {
+                val newDraft =
+                    guarded {
+                        rpcService<ITravelExpenseService>().createDraft(
+                            report.subjectMemberId,
+                            TravelExpenseReportInput(
+                                purpose = report.purpose,
+                                travelFrom = report.travelFrom,
+                                travelTo = report.travelTo,
+                            ),
+                        )
                     }
-                } finally {
-                    copyButton.disabled = false
+                if (newDraft != null) {
+                    report.lines.forEach { line ->
+                        val input =
+                            when (line.kind) {
+                                TravelExpenseLineKind.MILEAGE ->
+                                    TravelExpenseLineInput(
+                                        kind = line.kind,
+                                        description = line.description,
+                                        kilometers = line.kilometers,
+                                    )
+                                TravelExpenseLineKind.PER_DIEM ->
+                                    TravelExpenseLineInput(kind = line.kind, description = line.description, days = line.days)
+                                TravelExpenseLineKind.RECEIPTED ->
+                                    TravelExpenseLineInput(kind = line.kind, description = line.description, amount = line.amount)
+                            }
+                        guarded { rpcService<ITravelExpenseService>().addLine(newDraft.id, input) }
+                    }
+                    notifySuccess(tr("Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."))
+                    onChanged()
                 }
             }
         }
@@ -556,3 +582,41 @@ internal fun travelExpenseCanCopyAsDraft(
     report: TravelExpenseReportDto,
     hasOpenDraft: Boolean,
 ): Boolean = report.status == TravelExpenseReportStatus.REJECTED && !hasOpenDraft
+
+/**
+ * Feldregel für Kilometer/Betrag dieses Formulars: [parseAmountInput] OHNE Obergrenzen-Prüfung ([TravelExpenseAmountRules.MAX_KILOMETERS]
+ * bleibt reine Server-Autorität, siehe `submitReport` KDoc) -- nur Form (Komma/Punkt, keine Tausendertrennzeichen) und Positivität werden
+ * hier gespiegelt, dieselben bereits im Katalog vorhandenen Meldungen wie [openItemAmountCheck]. Kein eigener neuer Meldungstext, damit
+ * diese Welle keine neuen `msgid`s über alle sieben Kataloge nachziehen muss, wo eine bestehende Meldung genügt.
+ */
+internal fun travelExpenseKilometersCheck(value: String): FieldCheck =
+    when (val parsed = parseAmountInput(value, allowZero = false, enforceMaxAmount = false)) {
+        is AmountInput.Empty -> FieldCheck.Ok
+        is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
+        is AmountInput.Valid -> FieldCheck.Ok
+    }
+
+/**
+ * Feldregel für den Belegkosten-Betrag: [parseAmountInput] MIT der Obergrenze [TravelExpenseAmountRules.MAX_LINE_AMOUNT] (die Meldung ist
+ * bereits im Katalog vorhanden, gleiches Muster wie [FormRules.postingAmount]/[FormRules.returnFee]).
+ */
+internal fun travelExpenseLineAmountCheck(value: String): FieldCheck =
+    when (val parsed = parseAmountInput(value, allowZero = false, enforceMaxAmount = false)) {
+        is AmountInput.Empty -> FieldCheck.Ok
+        is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
+        is AmountInput.Valid ->
+            if (parsed.value.toDouble() > TravelExpenseAmountRules.MAX_LINE_AMOUNT) {
+                FieldCheck.Invalid(
+                    gettext(
+                        "Der Betrag ist zu groß (höchstens %1).",
+                        formatMoney(TravelExpenseAmountRules.MAX_LINE_AMOUNT.toDouble().toDecimal()),
+                    ),
+                )
+            } else {
+                FieldCheck.Ok
+            }
+    }
+
+/** Wandelt einen bereits über [travelExpenseKilometersCheck]/[travelExpenseLineAmountCheck] geprüften Feldwert in seinen [Decimal] um. */
+internal fun travelExpenseParseDecimal(value: String): Decimal =
+    (parseAmountInput(value, allowZero = false, enforceMaxAmount = false) as AmountInput.Valid).value

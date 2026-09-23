@@ -2,10 +2,10 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.select
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.form.upload.upload
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -431,28 +431,29 @@ internal fun Container.renderDocumentDeleteAction(
     }
 }
 
+// R24 (W4d): migrated to the form grammar -- a single required field.
 private fun renderFolderCreation(
     panel: SimplePanel,
     onCreated: () -> Unit,
 ) {
-    val nameInput = panel.text(label = tr("Neuer Ordnername"))
-    val createButton = panel.button(tr("Ordner anlegen"), icon = "fas fa-folder-plus", style = ButtonStyle.OUTLINEPRIMARY)
+    val form = panel.lapisForm()
+    val nameField = form.textField(label = tr("Neuer Ordnername"), required = true)
+    val createButton = Button(tr("Ordner anlegen"), icon = "fas fa-folder-plus", style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = createButton)
     createButton.onClick {
-        val name = nameInput.value.orEmpty().trim()
-        if (!Validation.isNonBlank(name)) return@onClick
-        createButton.disabled = true
-        AppScope.launch {
+        form.submit(createButton) {
+            val name = nameField.value.trim()
             val result = guarded { rpcService<IDocumentService>().createFolder(name, null) }
-            createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Ordner \"%1\" angelegt.", name))
-                nameInput.value = null
+                nameField.reset()
                 onCreated()
             }
         }
     }
 }
 
+// R24/R24B (W4d): migrated to the form grammar -- Titel (required text) + Sichtbarkeit (required select).
 private fun renderDocumentCreation(
     panel: SimplePanel,
     folderId: String,
@@ -463,26 +464,27 @@ private fun renderDocumentCreation(
     // the current role is actually allowed to create at -- see [DocumentsAuthzUi.allowedCreateLevels]
     // KDoc for the orphaned-document failure mode this prevents.
     val accessLevelOptions = DocumentsAuthzUi.allowedCreateLevels(role).map { it.name to it.name }
-    val titleInput = panel.text(label = tr("Neuer Dokumenttitel"))
-    val accessSelect =
-        panel.select(options = accessLevelOptions, value = DocumentAccessLevel.PUBLIC_MEMBERS.name, label = tr("Sichtbarkeit"))
+    val form = panel.lapisForm()
+    val titleField = form.textField(label = tr("Neuer Dokumenttitel"), required = true)
+    val accessField =
+        form.selectField(
+            label = tr("Sichtbarkeit"),
+            options = accessLevelOptions,
+            value = DocumentAccessLevel.PUBLIC_MEMBERS.name,
+            required = true,
+        )
     val createButton =
-        panel.button(
+        Button(
             tr("Dokument anlegen (danach Datei hochladen)"),
             icon = "fas fa-file-circle-plus",
             style = ButtonStyle.OUTLINEPRIMARY,
         )
+    form.buttons(primary = createButton)
     createButton.onClick {
-        val title = titleInput.value.orEmpty().trim()
-        val accessLevelValue = accessSelect.value
-        if (!Validation.isNonBlank(title) || accessLevelValue == null) return@onClick
-        createButton.disabled = true
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<IDocumentService>().createDocument(folderId, title, DocumentAccessLevel.valueOf(accessLevelValue))
-                }
-            createButton.disabled = false
+        form.submit(createButton) {
+            val title = titleField.value.trim()
+            val accessLevel = DocumentAccessLevel.valueOf(accessField.value)
+            val result = guarded { rpcService<IDocumentService>().createDocument(folderId, title, accessLevel) }
             if (result != null) {
                 notifySuccess(gettext("Dokument \"%1\" angelegt -- jetzt eine Datei hochladen.", title))
                 onCreated()
@@ -491,57 +493,53 @@ private fun renderDocumentCreation(
     }
 }
 
+// R24 (W4d): migrated to the form grammar -- the raw Upload control registered via `register` (pattern
+// `BankStatementImportScreen.kt`'s "Datei auswählen"), Änderungshinweis as an optional textField. The
+// progress bar (Nutzer-Beschwerde 2026-09-15, "kein Signal während des Uploads, man klickt wild") is
+// unchanged: Bootstrap's own `.progress`/`.progress-bar` classes, only visible during a running upload.
 private fun renderVersionUpload(
     panel: SimplePanel,
     documentId: String,
     onUploaded: () -> Unit,
 ) {
     val uploadRow = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-    val fileUpload = uploadRow.upload(label = tr("Neue Version hochladen"))
-    val changeNoteInput = uploadRow.text(label = tr("Änderungshinweis (optional)"))
-    val errorBox =
-        uploadRow.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
+    val form = uploadRow.lapisForm()
+    val fileUpload = form.panel.upload(label = tr("Neue Version hochladen"))
 
-    // Nutzer-Beschwerde 2026-09-15 ("kein Signal während des Uploads, man klickt wild") -- Bootstraps
-    // eigene `.progress`/`.progress-bar`-Klassen, keine dedizierte KVision-Komponente nötig (diese
-    // Version von KVision hat keine). Standardmäßig versteckt, nur während eines laufenden Uploads
-    // sichtbar (nicht dauerhaft eingeblendet mit 0% -- Norman: ein Fortschrittsbalken, der nichts
-    // tut, ist Lärm).
-    val progressWrapper = uploadRow.div(className = "progress mt-1") { hide() }
+    fun selectedNativeFile() = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) }
+
+    val fileField =
+        form.register(
+            fileUpload,
+            label = tr("Neue Version hochladen"),
+            required = true,
+            requiredMessage = tr("Bitte eine Datei auswählen."),
+        )
+    val changeNoteField = form.textField(label = tr("Änderungshinweis (optional)"))
+
+    val progressWrapper = form.panel.div(className = "progress mt-1") { hide() }
     val progressBar = progressWrapper.div(className = "progress-bar progress-bar-striped progress-bar-animated")
     progressBar.setAttribute("role", "progressbar")
     progressBar.setStyle("width", "0%")
 
-    val uploadButton = uploadRow.button(tr("Hochladen"), icon = "fas fa-upload", style = ButtonStyle.PRIMARY)
+    val uploadButton = Button(tr("Hochladen"), icon = "fas fa-upload", style = ButtonStyle.PRIMARY)
+    form.buttons(primary = uploadButton)
     uploadButton.onClick {
-        errorBox.hide()
-        val selected = fileUpload.value?.firstOrNull()
-        val nativeFile = selected?.let { fileUpload.getNativeFile(it) }
-        if (nativeFile == null) {
-            errorBox.content = tr("Bitte eine Datei auswählen.")
-            errorBox.show()
-            return@onClick
-        }
-        uploadButton.disabled = true
-        progressBar.setStyle("width", "0%")
-        progressWrapper.show()
-        AppScope.launch {
+        form.submit(uploadButton) {
+            val nativeFile = selectedNativeFile() ?: return@submit
+            progressBar.setStyle("width", "0%")
+            progressWrapper.show()
             val error =
-                DocumentHttp.uploadVersion(documentId, nativeFile, changeNoteInput.value) { fraction ->
+                DocumentHttp.uploadVersion(documentId, nativeFile, changeNoteField.value) { fraction ->
                     progressBar.setStyle("width", "${(fraction * 100).toInt()}%")
                 }
-            uploadButton.disabled = false
             progressWrapper.hide()
             if (error != null) {
-                errorBox.content = error
-                errorBox.show()
+                form.showFormError(error)
             } else {
                 notifySuccess(tr("Version hochgeladen."))
-                fileUpload.clearInput()
-                changeNoteInput.value = null
+                fileField.reset()
+                changeNoteField.reset()
                 onUploaded()
             }
         }
@@ -580,7 +578,12 @@ private fun renderKnowledgeControls(
 
     box.subscribe { checked ->
         if (checked == current().released) return@subscribe
-        AppScope.launch {
+        // R29 (W4d): an immediate switch (R24B_JUSTIFIED below), no surrounding form and no button of its
+        // own to hand `runGuardedAction` -- same `runGuardedAction(null)` idiom `PoliticianScreen.kt`'s
+        // `castRating`/`retractRating` already use, `box` disabled manually around the call. `refresh()`
+        // re-enables it (or leaves it disabled, per `current().releasable`).
+        box.disabled = true
+        runGuardedAction(null) {
             val updated = guarded { rpcService<IAiAssistantService>().setKnowledgeBaseRelease(documentId, checked) }
             if (updated != null) {
                 state[documentId] = updated
@@ -590,10 +593,8 @@ private fun renderKnowledgeControls(
         }
     }
     reindex.onClick {
-        reindex.disabled = true
-        AppScope.launch {
+        runGuardedAction(reindex) {
             val updated = guarded { rpcService<IAiAssistantService>().reindexKnowledgeDocument(documentId) }
-            reindex.disabled = false
             if (updated != null) {
                 state[documentId] = updated
                 notifySuccess(tr("Wissensbasis aktualisiert."))

@@ -2,10 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDouble
 import io.kvision.form.check.CheckBox
-import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.text
-import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -40,6 +37,19 @@ import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
  * Entscheidungsknöpfe -- das ist ein Formular pro Antrag, keine Zeile eines Rasters. Deshalb stehen die Karten in
  * `.lapis-card-list` / `.lapis-data-card` (dieselben Klassen, die auch die Kartenliste von `dataTable` unter
  * 768 px nutzt) und nicht in einer `dataTable`. Die Entscheidungspanels selbst sind Formulare (W4).
+ *
+ * R24/R24B/R29 (W4d batch 6, letzte Datei der Welle): drei echte Formulare sind [LapisForm]s -- die
+ * Papiererklärung-Nacherfassung ([renderPaperDeclarationForm]), sowie das kombinierte Entscheidungspanel
+ * (Entscheidungsnotiz, Pflicht; bei überschrittenem Jahresdeckel zusätzlich die Rechtshinweis-Checkbox), 1:1
+ * nach `TravelExpenseApprovalsScreen.renderRequestedDecisionPanel`s Vorbild. Die Rechtshinweis-Checkbox bleibt
+ * ABSICHTLICH `required = false` im Grammatik-Sinn: sie ist nur beim GENEHMIGEN Pflicht, niemals beim ABLEHNEN
+ * (asymmetrisch wie im Vorgänger-Code) -- eine `required = true` würde `form.submit(rejectButton)` ebenfalls
+ * blockieren, wenn der Jahresdeckel überschritten ist. Die Pflicht wird deshalb manuell vor `form.submit`
+ * geprüft (siehe Kommentar an `approveButton.onClick`). Der Status-Filter oben (`statusSelect`) ist ein FILTER,
+ * kein Formular (nie abgesendet, keine Pflichtfelder) -- justiert in `R24B_JUSTIFIED`. Jeder schreibende
+ * `AppScope.launch` (Entscheiden, Buchung wiederholen, Papiererklärung erfassen/zurücknehmen) läuft durch
+ * `form.submit`/`form.runBusy`/`runGuardedAction`, damit R29 nicht steigt, wenn die Datei der strengen Menge
+ * beitritt.
  */
 fun renderVolunteerAllowanceApprovalsScreen(container: SimplePanel) {
     val currentMemberId = AppState.session?.memberId
@@ -205,25 +215,41 @@ private fun renderVolunteerAllowanceDecisionSection(
         val projectedTotal = yearStatus.postedTotalInThisOrganization.toDouble() + payment.amount.toDouble()
         val exceedsCap = projectedTotal > yearStatus.annualCap.toDouble()
 
-        val noteInput = section.textArea(label = tr("Entscheidungsnotiz (Pflicht)"), rows = 2) { maxlength = 1000 }
-        val errorBox =
-            section.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
+        // R24/R29 (W4d batch 6): migrated to the form grammar -- 1:1 nach
+        // `TravelExpenseApprovalsScreen.renderRequestedDecisionPanel`s Vorbild ("Genehmigen" ist die
+        // Primäraktion, "Ablehnen" steht in der Gefahrenzone unter der Knopfzeile, Richtlinie 2.5). Die
+        // Notiz ist IMMER Pflicht (für Genehmigen wie für Ablehnen); die Rechtshinweis-Checkbox bleibt
+        // ABSICHTLICH kein `required = true`-Feld der Grammatik (siehe Datei-KDoc) -- sie wird manuell
+        // in `approveButton.onClick` geprüft, bevor `form.submit` läuft.
+        val form = section.lapisForm()
+        val noteField =
+            form.textAreaField(
+                label = tr("Entscheidungsnotiz"),
+                rows = 2,
+                required = true,
+                hint = if (isRetry) gettext("Nur für \"Ablehnen\" erforderlich.") else null,
+                requiredMessage = gettext("Bitte eine Entscheidungsnotiz eingeben."),
+                init = { it.maxlength = 1000 },
+            )
 
-        var ackCheck: CheckBox? = null
+        var ackCheckBox: CheckBox? = null
+        var ackField: LapisField? = null
         var disclaimerVersion = ""
         var disclaimerSha256 = ""
         if (exceedsCap) {
-            val disclaimerPanel = section.vPanel(spacing = 4) { addCssClasses("border rounded p-2 small") }
+            val disclaimerPanel = form.panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2 small") }
             // Disabled until the disclaimer text has actually loaded -- otherwise the box is
             // ackable while empty, so a fast click sends disclaimerVersion="" /
             // disclaimerSha256="" and decidePayment rejects it with an opaque ConflictException
             // (VolunteerAllowanceCapDisclaimer.matches requires the CURRENT version/sha256).
-            val checkBox = section.checkBox(label = tr("Rechtshinweis zur Kenntnis genommen"))
-            checkBox.disabled = true
-            ackCheck = checkBox
+            ackField =
+                form.checkField(
+                    label = tr("Rechtshinweis zur Kenntnis genommen"),
+                    init = { checkBox ->
+                        ackCheckBox = checkBox
+                        checkBox.disabled = true
+                    },
+                )
 
             // Named + re-invokable rather than a one-shot `AppScope.launch { ... }`: a transient
             // failure (network blip, session refresh, 500) must not leave the checkbox disabled
@@ -245,33 +271,22 @@ private fun renderVolunteerAllowanceDecisionSection(
                     disclaimerPanel.untrustedDiv(disclaimer.text)
                     disclaimerVersion = disclaimer.version
                     disclaimerSha256 = disclaimer.sha256
-                    checkBox.disabled = false
+                    ackCheckBox?.disabled = false
                 }
             }
             loadDisclaimer()
         }
 
-        val buttonsRow = section.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-        val approveButton =
-            buttonsRow.button(if (isRetry) tr("Buchung wiederholen") else tr("Genehmigen und buchen"), style = ButtonStyle.SUCCESS)
-        val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
-
-        fun requireNote(): String? {
-            val note = noteInput.value?.trim()
-            if (note.isNullOrBlank()) {
-                errorBox.content = tr("Bitte eine Entscheidungsnotiz eingeben.")
-                errorBox.show()
-                return null
-            }
-            errorBox.hide()
-            return note
-        }
+        val approveButton = Button(if (isRetry) tr("Buchung wiederholen") else tr("Genehmigen und buchen"), style = ButtonStyle.SUCCESS)
+        val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+        form.buttons(primary = approveButton, destructive = rejectButton)
 
         approveButton.onClick {
             if (isRetry) {
-                approveButton.disabled = true
+                // Die Wiederholung braucht keine Notiz: sie läuft OHNE Prüfung (`runBusy`), nur
+                // "Ablehnen" prüft das Pflichtfeld -- 1:1 nach `renderApprovedRetryPanel`s Vorbild.
                 rejectButton.disabled = true
-                AppScope.launch {
+                form.runBusy(approveButton) {
                     try {
                         val result = guarded { rpcService<IVolunteerAllowanceService>().retryPosting(payment.id) }
                         if (result != null) {
@@ -279,22 +294,23 @@ private fun renderVolunteerAllowanceDecisionSection(
                             onChanged()
                         }
                     } finally {
-                        approveButton.disabled = false
                         rejectButton.disabled = false
                     }
                 }
                 return@onClick
             }
-            val note = requireNote() ?: return@onClick
-            if (exceedsCap && ackCheck?.value != true) {
-                errorBox.content = tr("Bitte den Rechtshinweis zur Kenntnis nehmen, bevor Sie genehmigen.")
-                errorBox.show()
+            // Die Rechtshinweis-Checkbox ist nur beim GENEHMIGEN Pflicht (siehe Datei-KDoc) --
+            // manuell geprüft, BEVOR `form.submit` (und damit `validateAndReport`) läuft, damit
+            // `form.submit(rejectButton)` unten von dieser Prüfung unberührt bleibt.
+            if (exceedsCap && ackCheckBox?.value != true) {
+                ackField?.showError(gettext("Bitte den Rechtshinweis zur Kenntnis nehmen, bevor Sie genehmigen."))
+                ackField?.focus()
                 return@onClick
             }
-            approveButton.disabled = true
-            rejectButton.disabled = true
-            AppScope.launch {
+            form.submit(approveButton) {
+                rejectButton.disabled = true
                 try {
+                    val note = noteField.value.trim()
                     val ack =
                         if (exceedsCap) {
                             VolunteerAllowanceCapAcknowledgmentInput(
@@ -310,17 +326,15 @@ private fun renderVolunteerAllowanceDecisionSection(
                         onChanged()
                     }
                 } finally {
-                    approveButton.disabled = false
                     rejectButton.disabled = false
                 }
             }
         }
         rejectButton.onClick {
-            val note = requireNote() ?: return@onClick
-            approveButton.disabled = true
-            rejectButton.disabled = true
-            AppScope.launch {
+            form.submit(rejectButton) {
+                approveButton.disabled = true
                 try {
+                    val note = noteField.value.trim()
                     val result = guarded { rpcService<IVolunteerAllowanceService>().decidePayment(payment.id, false, note) }
                     if (result != null) {
                         notifySuccess(tr("Zahlung abgelehnt."))
@@ -328,49 +342,50 @@ private fun renderVolunteerAllowanceDecisionSection(
                     }
                 } finally {
                     approveButton.disabled = false
-                    rejectButton.disabled = false
                 }
             }
         }
     }
 }
 
-/** Board/ADMIN-Weg zur Nacherfassung einer Papiererklärung -- niemals die IN_APP-Checkbox hier (Normans Fälschungsszenario). */
+/**
+ * Board/ADMIN-Weg zur Nacherfassung einer Papiererklärung -- niemals die IN_APP-Checkbox hier (Normans Fälschungsszenario).
+ * R24 (W4d batch 6): migriert auf die Formular-Grammatik -- ein einziges Pflichtfeld (Unterschriftsdatum) => Stern +
+ * Legende "* Pflichtfeld".
+ */
 private fun renderPaperDeclarationForm(
     panel: SimplePanel,
     payment: VolunteerAllowancePaymentDto,
     onRecorded: () -> Unit,
 ) {
-    val formRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
-    val signedOnInput = formRow.text(label = tr("Unterschrieben am (JJJJ-MM-TT)"))
-    val recordButton = formRow.button(tr("Papiererklärung erfassen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val form = panel.lapisForm()
+    val signedOnField =
+        form.textField(
+            label = tr("Unterschrieben am (JJJJ-MM-TT)"),
+            required = true,
+            hint = tr("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(it) },
+        )
+    val recordButton = Button(tr("Papiererklärung erfassen"), style = ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = recordButton)
     recordButton.onClick {
-        val signedOn = runCatching { LocalDate.parse(signedOnInput.value.orEmpty().trim()) }.getOrNull()
-        if (signedOn == null) {
-            notifyError(tr("Bitte ein gültiges Unterschriftsdatum angeben (JJJJ-MM-TT)."))
-            return@onClick
-        }
-        recordButton.disabled = true
-        AppScope.launch {
-            try {
-                val result =
-                    guarded {
-                        rpcService<IVolunteerAllowanceService>().recordPaperDeclaration(
-                            VolunteerAllowanceSelfDeclarationInput(
-                                memberId = payment.subjectMemberId,
-                                category = payment.category,
-                                calendarYear = payment.paymentDate.year,
-                                source = VolunteerAllowanceDeclarationSource.ON_PAPER,
-                                signedOn = signedOn,
-                            ),
-                        )
-                    }
-                if (result != null) {
-                    notifySuccess(tr("Papiererklärung erfasst."))
-                    onRecorded()
+        form.submit(recordButton) {
+            val signedOn = LocalDate.parse(signedOnField.value.trim())
+            val result =
+                guarded {
+                    rpcService<IVolunteerAllowanceService>().recordPaperDeclaration(
+                        VolunteerAllowanceSelfDeclarationInput(
+                            memberId = payment.subjectMemberId,
+                            category = payment.category,
+                            calendarYear = payment.paymentDate.year,
+                            source = VolunteerAllowanceDeclarationSource.ON_PAPER,
+                            signedOn = signedOn,
+                        ),
+                    )
                 }
-            } finally {
-                recordButton.disabled = false
+            if (result != null) {
+                notifySuccess(tr("Papiererklärung erfasst."))
+                onRecorded()
             }
         }
     }
@@ -381,6 +396,9 @@ private fun renderPaperDeclarationForm(
  * ON_PAPER-Selbstauskunft. HARD-Delete, siehe `IVolunteerAllowanceService.voidPaperDeclaration`
  * KDoc; deshalb ein Bestätigungsdialog, gleiches "irreversibel" Muster wie
  * `apiKeyRevokeConfirmDialog`/`webhookRemoveConfirmDialog` (`ApiKeysScreen.kt`).
+ *
+ * R29 (W4d batch 6): der schreibende `AppScope.launch` läuft jetzt durch `runGuardedAction`, damit
+ * die Datei ohne neuen unguarded-Fund der strengen R29-Menge beitritt.
  */
 private fun renderVoidPaperDeclarationButton(
     panel: SimplePanel,
@@ -401,16 +419,11 @@ private fun renderVoidPaperDeclarationButton(
             Button(tr("Zurücknehmen"), style = ButtonStyle.DANGER).apply {
                 onClick {
                     modal.hide()
-                    voidButton.disabled = true
-                    AppScope.launch {
-                        try {
-                            val result = guarded { rpcService<IVolunteerAllowanceService>().voidPaperDeclaration(declaration.id) }
-                            if (result != null) {
-                                notifySuccess(tr("Papiererklärung zurückgenommen."))
-                                onVoided()
-                            }
-                        } finally {
-                            voidButton.disabled = false
+                    runGuardedAction(voidButton) {
+                        val result = guarded { rpcService<IVolunteerAllowanceService>().voidPaperDeclaration(declaration.id) }
+                        if (result != null) {
+                            notifySuccess(tr("Papiererklärung zurückgenommen."))
+                            onVoided()
                         }
                     }
                 }
