@@ -7,10 +7,6 @@ msgstr ""
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
 msgstr "%1 konto(-a) bankowe wymagają ponownego logowania FinTS, zanim pobieranie na żywo będzie kontynuowane."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:64
-msgid " -- %1"
-msgstr " -- %1"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
 msgid "Aktivieren …"
 msgstr "Aktywuj …"
@@ -898,10 +894,6 @@ msgstr "%1 · %2"
 msgid "%1 · %2 · %3"
 msgstr "%1 · %2 · %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:251
-msgid "%1 · %2 · Entität %3"
-msgstr "%1 · %2 · encja %3"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:751
 msgid "%1 · %2 · erfasst von %3"
 msgstr "%1 · %2 · zarejestrowane przez %3"
@@ -1364,16 +1356,6 @@ msgstr "Aktywa"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:426
 msgid "Aktive Besprechungen"
 msgstr "Aktywne posiedzenia"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:176
-msgid ""
-"Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus "
-"Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine "
-"privilegierte Leseschnittstelle."
-msgstr ""
-"Aktywni członkowie według nazwiska. E-mail/rola/adres nie są tu widoczne ze "
-"względów ochrony danych -- obecnie nie istnieje do tego uprzywilejowany "
-"interfejs odczytu."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:134
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:745
@@ -2654,10 +2636,6 @@ msgstr "Bilans NIEzrównoważony"
 msgid "Bildschirm teilen"
 msgstr "Udostępnij ekran"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3020
-msgid "Bildschirm-Teilen beenden"
-msgstr "Zakończ udostępnianie ekranu"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:217
 msgid "Bis (Geschäftsjahr)"
 msgstr "Do (rok obrotowy)"
@@ -2835,10 +2813,6 @@ msgstr "Podaj prawidłową datę graniczną (RRRR-MM-DD)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:443
 msgid "Bitte einen Inhalt eingeben."
 msgstr "Podaj treść."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:688
-msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
-msgstr "Podaj miesiąc w formacie RRRR-MM-DD."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:169
 msgid "Bitte einen Namen angeben."
@@ -3102,10 +3076,6 @@ msgstr "Charakterystyka: %1"
 msgid "Chat"
 msgstr "Czat"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2296
-msgid "Chat (%1)"
-msgstr "Czat (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:719
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:745
 msgid "Committee-Quorum entscheiden"
@@ -3365,11 +3335,6 @@ msgstr "Szczegóły"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:434
 msgid "Details anzeigen"
 msgstr "Pokaż szczegóły"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:181
-#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:311
-msgid "Details ein-/ausblenden"
-msgstr "Pokaż/ukryj szczegóły"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:77
 msgid "Deutsche natürliche Person"
@@ -3672,16 +3637,6 @@ msgid ""
 msgstr ""
 "Ten identyfikator pokoju jest nieprawidłowy. Skopiuj go w całości ze swojego "
 "zaproszenia."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:41
-msgid ""
-"Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte "
-"REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und "
-"Rate-Limits."
-msgstr ""
-"Te klucze uwierzytelniają zewnętrzny dostęp do interfejsu REST API tylko do "
-"odczytu (/api/v1) -- listę punktów końcowych i limitów zapytań zawiera "
-"dokumentacja API."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:349
 msgid ""
@@ -4059,11 +4014,6 @@ msgstr "Odbiorca"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:215
 msgid "Empfänger:"
 msgstr "Odbiorca:"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:206
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:343
-msgid "Enddatum (JJJJ-MM-TT)"
-msgstr "Data końcowa (RRRR-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:500
 msgid "Ende"
@@ -4805,10 +4755,6 @@ msgstr "Uruchom migawkę wagi"
 msgid "Gewichtsverlauf anzeigen/ausblenden"
 msgstr "Pokaż/ukryj historię wagi"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:276
-msgid "Gewinn- und Verlustrechnung"
-msgstr "Rachunek zysków i strat"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:95
 msgid "Gewinn- und Verlustrechnung (GuV)"
 msgstr "Rachunek zysków i strat (RZiS)"
@@ -5308,16 +5254,6 @@ msgstr "Szczegóły dziennika"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:325
 msgid "Kalenderjahr %1"
 msgstr "Rok kalendarzowy %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2975
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3007
-msgid "Kamera an"
-msgstr "Kamera włączona"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3007
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:949
-msgid "Kamera aus"
-msgstr "Kamera wyłączona"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:435
 msgid "Kasse"
@@ -6204,16 +6140,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2393
 msgid "Mikro an"
 msgstr "Mikrofon włączony"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2971
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2994
-msgid "Mikrofon an"
-msgstr "Mikrofon włączony"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2994
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:948
-msgid "Mikrofon aus"
-msgstr "Mikrofon wyłączony"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:224
 msgid "Mindest-Quorum"
@@ -7688,10 +7614,6 @@ msgstr "Mandat SEPA"
 msgid "SEPA-Mandate"
 msgstr "Mandaty SEPA"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:249
-msgid "Seq. %1"
-msgstr "Sekw. %1"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:284
 msgid "Sequenznummer %1"
 msgstr "Numer sekwencyjny %1"
@@ -8408,10 +8330,6 @@ msgstr "Środki techniczno-organizacyjne (TOM)"
 msgid "Teilnehmende"
 msgstr "Uczestnicy"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2301
-msgid "Teilnehmende (%1)"
-msgstr "Uczestnicy (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:917
 msgid "Teilnehmende: %1"
 msgstr "Uczestnicy: %1"
@@ -8621,10 +8539,6 @@ msgstr "Naruszenie praw autorskich"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:301
 msgid "Ursprüngliches Gewicht"
 msgstr "Pierwotna waga"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:68
-msgid "v%1: %2 (%3, hochgeladen von %4 am %5)"
-msgstr "w%1: %2 (%3, przesłano przez %4 dnia %5)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:203
 msgid "Verarbeiter"
@@ -9921,24 +9835,8 @@ msgid "%1 Tage"
 msgstr "%1 dni"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "-- Alle --"
-msgstr "-- Wszystkie --"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "Nur Geburtstage"
-msgstr "Tylko urodziny"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "Nur Jubiläen"
-msgstr "Tylko jubileusze"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Anlass"
 msgstr "Okazja"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "Keine Treffer in diesem Zeitraum."
-msgstr "Brak wyników w tym okresie."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Heute"
@@ -10279,10 +10177,6 @@ msgid "Eigener Antrag — Entscheidung durch ein anderes Vorstandsmitglied."
 msgstr "Własny wniosek — decyzję podejmuje inny członek zarządu."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
-msgid "Entscheidungsnotiz (Pflicht)"
-msgstr "Notatka decyzyjna (wymagana)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
 msgid "Genehmigen und ausführen"
 msgstr "Zatwierdź i wykonaj"
 
@@ -10399,29 +10293,13 @@ msgstr "Koszt na podstawie rachunku"
 msgid "Bitte eine Beschreibung angeben."
 msgstr "Podaj opis."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte eine gültige Anzahl Tage angeben."
-msgstr "Podaj poprawną liczbę dni."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte eine gültige Kilometerzahl angeben."
-msgstr "Podaj poprawną liczbę kilometrów."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
 msgstr "Podaj poprawną dietę dzienną (np. 14.00)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte einen gültigen Betrag angeben."
-msgstr "Podaj poprawną kwotę."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
 msgstr "Podaj poprawną stawkę za kilometr (np. 0.30)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte Zweck und ein gültiges Datum (JJJJ-MM-TT) für Von/Bis angeben."
-msgstr "Podaj cel oraz poprawną datę (RRRR-MM-DD) dla Od/Do."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Buchung fehlgeschlagen"
@@ -15024,10 +14902,6 @@ msgid "Papiererklärung erfassen"
 msgstr "Zarejestruj oświadczenie papierowe"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
-msgid "Bitte ein gültiges Unterschriftsdatum angeben (JJJJ-MM-TT)."
-msgstr "Proszę podać prawidłową datę podpisu (RRRR-MM-DD)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
 msgid "Papiererklärung erfasst."
 msgstr "Oświadczenie papierowe zarejestrowano."
 
@@ -15142,10 +15016,6 @@ msgstr "Wersję roboczą odrzucono."
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Tätigkeitsbeschreibung"
 msgstr "Opis działalności"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
-msgid "Bitte alle Felder gültig ausfüllen (Betrag > 0, Beschreibung mindestens 3 Zeichen, Datum JJJJ-MM-TT)."
-msgstr "Wypełnij poprawnie wszystkie pola (kwota > 0, opis co najmniej 3 znaki, data RRRR-MM-DD)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Gestellt von %1"

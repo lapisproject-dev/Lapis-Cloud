@@ -7,10 +7,6 @@ msgstr ""
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
 msgstr "%1 банковский(-е) счёт(а) требуют повторного входа FinTS, прежде чем автоматическая выгрузка продолжится."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:64
-msgid " -- %1"
-msgstr " — %1"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:193
 msgid "Aktivieren …"
 msgstr "Активировать …"
@@ -895,10 +891,6 @@ msgstr "%1 · %2"
 msgid "%1 · %2 · %3"
 msgstr "%1 · %2 · %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:251
-msgid "%1 · %2 · Entität %3"
-msgstr "%1 · %2 · сущность %3"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:751
 msgid "%1 · %2 · erfasst von %3"
 msgstr "%1 · %2 · зафиксировано %3"
@@ -1366,16 +1358,6 @@ msgstr "Активы"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:426
 msgid "Aktive Besprechungen"
 msgstr "Активные встречи"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:176
-msgid ""
-"Aktive Mitglieder nach Name. E-Mail/Rolle/Adresse sind hier aus "
-"Datenschutzgründen nicht einsehbar -- dafür existiert aktuell keine "
-"privilegierte Leseschnittstelle."
-msgstr ""
-"Активные участники по имени. E-mail/роль/адрес здесь не отображаются по "
-"соображениям защиты данных — для этого в настоящее время нет "
-"привилегированного интерфейса чтения."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:134
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:745
@@ -2652,10 +2634,6 @@ msgstr "Баланс НЕ сходится"
 msgid "Bildschirm teilen"
 msgstr "Демонстрация экрана"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3020
-msgid "Bildschirm-Teilen beenden"
-msgstr "Завершить демонстрацию экрана"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:217
 msgid "Bis (Geschäftsjahr)"
 msgstr "По (финансовый год)"
@@ -2835,10 +2813,6 @@ msgstr "Укажите корректную контрольную дату (Г�
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:443
 msgid "Bitte einen Inhalt eingeben."
 msgstr "Введите содержимое."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:688
-msgid "Bitte einen Monat im Format JJJJ-MM-TT angeben."
-msgstr "Укажите месяц в формате ГГГГ-ММ-ДД."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:169
 msgid "Bitte einen Namen angeben."
@@ -3103,10 +3077,6 @@ msgstr "Характеристика: %1"
 msgid "Chat"
 msgstr "Чат"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2296
-msgid "Chat (%1)"
-msgstr "Чат (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:719
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:745
 msgid "Committee-Quorum entscheiden"
@@ -3365,11 +3335,6 @@ msgstr "Подробности"
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:434
 msgid "Details anzeigen"
 msgstr "Показать подробности"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:181
-#: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:311
-msgid "Details ein-/ausblenden"
-msgstr "Показать/скрыть подробности"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:77
 msgid "Deutsche natürliche Person"
@@ -3672,16 +3637,6 @@ msgid ""
 msgstr ""
 "Этот идентификатор комнаты недействителен. Скопируйте его полностью из "
 "вашего приглашения."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:41
-msgid ""
-"Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte "
-"REST-API (/api/v1) -- siehe die API-Dokumentation für Endpunkte und "
-"Rate-Limits."
-msgstr ""
-"Эти ключи используются для аутентификации внешнего доступа к доступному "
-"только для чтения REST API (/api/v1) -- список конечных точек и ограничения "
-"частоты запросов см. в документации API."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:349
 msgid ""
@@ -4057,11 +4012,6 @@ msgstr "Получатель"
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:215
 msgid "Empfänger:"
 msgstr "Получатель:"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:206
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:343
-msgid "Enddatum (JJJJ-MM-TT)"
-msgstr "Дата окончания (ГГГГ-ММ-ДД)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:500
 msgid "Ende"
@@ -4800,10 +4750,6 @@ msgstr "Запустить снимок веса"
 msgid "Gewichtsverlauf anzeigen/ausblenden"
 msgstr "Показать/скрыть историю веса"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:276
-msgid "Gewinn- und Verlustrechnung"
-msgstr "Отчёт о прибылях и убытках"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:95
 msgid "Gewinn- und Verlustrechnung (GuV)"
 msgstr "Отчёт о прибылях и убытках (ОПиУ)"
@@ -5303,16 +5249,6 @@ msgstr "Детали журнала"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:325
 msgid "Kalenderjahr %1"
 msgstr "Календарный год %1"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2975
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3007
-msgid "Kamera an"
-msgstr "Камера включена"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3007
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:949
-msgid "Kamera aus"
-msgstr "Камера выключена"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:435
 msgid "Kasse"
@@ -6201,16 +6137,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2393
 msgid "Mikro an"
 msgstr "Микрофон включён"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2971
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2994
-msgid "Mikrofon an"
-msgstr "Микрофон включён"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2994
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:948
-msgid "Mikrofon aus"
-msgstr "Микрофон выключен"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:224
 msgid "Mindest-Quorum"
@@ -7680,10 +7606,6 @@ msgstr "Мандат SEPA"
 msgid "SEPA-Mandate"
 msgstr "Мандаты SEPA"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:249
-msgid "Seq. %1"
-msgstr "Посл. %1"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:284
 msgid "Sequenznummer %1"
 msgstr "Порядковый номер %1"
@@ -8400,10 +8322,6 @@ msgstr "Технические и организационные меры (TOM)"
 msgid "Teilnehmende"
 msgstr "Участники"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2301
-msgid "Teilnehmende (%1)"
-msgstr "Участники (%1)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:917
 msgid "Teilnehmende: %1"
 msgstr "Участники: %1"
@@ -8612,10 +8530,6 @@ msgstr "Нарушение авторских прав"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:301
 msgid "Ursprüngliches Gewicht"
 msgstr "Исходный вес"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:68
-msgid "v%1: %2 (%3, hochgeladen von %4 am %5)"
-msgstr "v%1: %2 (%3, загружено %4, %5)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:203
 msgid "Verarbeiter"
@@ -9908,24 +9822,8 @@ msgid "%1 Tage"
 msgstr "%1 дн."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "-- Alle --"
-msgstr "-- Все --"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "Nur Geburtstage"
-msgstr "Только дни рождения"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "Nur Jubiläen"
-msgstr "Только юбилеи"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Anlass"
 msgstr "Повод"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
-msgid "Keine Treffer in diesem Zeitraum."
-msgstr "Нет совпадений за этот период."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Heute"
@@ -10266,10 +10164,6 @@ msgid "Eigener Antrag — Entscheidung durch ein anderes Vorstandsmitglied."
 msgstr "Собственная заявка — решение принимает другой член правления."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
-msgid "Entscheidungsnotiz (Pflicht)"
-msgstr "Примечание к решению (обязательно)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt
 msgid "Genehmigen und ausführen"
 msgstr "Одобрить и выполнить"
 
@@ -10386,29 +10280,13 @@ msgstr "Расход по квитанции"
 msgid "Bitte eine Beschreibung angeben."
 msgstr "Укажите описание."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte eine gültige Anzahl Tage angeben."
-msgstr "Укажите корректное количество дней."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte eine gültige Kilometerzahl angeben."
-msgstr "Укажите корректное количество километров."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
 msgstr "Укажите корректные суточные (например, 14.00)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte einen gültigen Betrag angeben."
-msgstr "Укажите корректную сумму."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
 msgstr "Укажите корректную ставку за километр (например, 0.30)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Bitte Zweck und ein gültiges Datum (JJJJ-MM-TT) für Von/Bis angeben."
-msgstr "Укажите цель и корректную дату (ГГГГ-ММ-ДД) для «С»/«По»."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Buchung fehlgeschlagen"
@@ -15011,10 +14889,6 @@ msgid "Papiererklärung erfassen"
 msgstr "Внести бумажное заявление"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
-msgid "Bitte ein gültiges Unterschriftsdatum angeben (JJJJ-MM-TT)."
-msgstr "Укажите допустимую дату подписи (ГГГГ-ММ-ДД)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
 msgid "Papiererklärung erfasst."
 msgstr "Бумажное заявление внесено."
 
@@ -15129,10 +15003,6 @@ msgstr "Черновик отброшен."
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Tätigkeitsbeschreibung"
 msgstr "Описание деятельности"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
-msgid "Bitte alle Felder gültig ausfüllen (Betrag > 0, Beschreibung mindestens 3 Zeichen, Datum JJJJ-MM-TT)."
-msgstr "Заполните все поля корректно (сумма > 0, описание не менее 3 символов, дата ГГГГ-ММ-ДД)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Gestellt von %1"
