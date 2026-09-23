@@ -8,6 +8,59 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.7.3 -- Keycloak documentation (Wave 3 of 3, docs-only, no code/migration changes)** --
+  completes "Keycloak as external user management" with the operator- and developer-facing
+  documentation for Waves 1 (`V1.7.1`, server core) and 2 (`V1.7.2`, UI + manual linking):
+  `docs/architecture/keycloak-login.adoc` (architecture doc -- the OIDC Relying Party flow with a
+  `[kuml]` sequence diagram, the browser-binding-cookie CSRF defense, the full account-linking
+  decision table, the emergency-admin-login safety property, and a security-properties summary of
+  what Wave 1's three and Wave 2's two security-audit rounds verified), and a new
+  `== Keycloak-Login (optional)` section in `deploy/example/README.adoc` (every `LAPIS_KEYCLOAK_*`
+  environment variable with its real default, the Keycloak client-configuration checklist, and a
+  step-ordered migration runbook for cutting an already-running instance over from internal login
+  to Keycloak -- pre-flight email reconciliation, client provisioning, member announcement,
+  emergency-admin verification, deploy/`flywayRepair`, ordered smoke tests, manual-linking
+  cleanup, and the rollback path). No new operator warnings: this wave changes no code, no
+  migration, and no runtime behavior.
+
+- **V1.7.2 -- Keycloak login: UI and manual account linking (Wave 2 of 3)** -- the client-facing half
+  of "Keycloak as external user management". The login screen in Keycloak mode (`LoginScreen.kt`) shows
+  the SSO button as the primary action, keeps the classic email/password form behind a collapsed
+  emergency-`ADMIN` disclosure and drops the dead-end "Passwort vergessen?" link; `SessionInfoDto` and the
+  pre-login branding payload carry the new `keycloakMode` flag that drives it. A new ADMIN-only
+  "Keycloak-Verknüpfung" panel (`KeycloakLinkScreen.kt`, backed by `IKeycloakLinkService`/`KeycloakLinkService`:
+  `listUnlinkedMembers`, `linkMember`, `unlinkMember`) links or unlinks members whose Keycloak email did not
+  match automatically. `AuthService.changePassword` is rejected for non-`ADMIN` accounts in Keycloak mode.
+  Two new event types (`KEYCLOAK_LINK_MANUAL`, `KEYCLOAK_LINK_MANUAL_REMOVED`) are written to
+  `oidc_guest_login_event`, 15 new client strings reached all i18n catalogs. Went through two code-review and
+  two security-audit rounds; the security loop found that an ADMIN could silently link any unlinked member to
+  a Keycloak subject of their choosing, fixed to match the `setTemporaryPasswordForMember` (V1.4.9) precedent:
+  the audit row is written in the same transaction as the link change and records a SHA-256 fingerprint of the
+  subject (never the raw value), the affected member gets a security-notice email on every manual link/unlink
+  (best effort), unlinking revokes all of the target's sessions, and linking a login-blocked member
+  (`WITHDRAWN`/`REJECTED`/`DECEASED`/`DONOR`) is rejected at the RPC level. The unlink confirmation no longer
+  claims durable revocation, because Wave 1's automatic email match re-creates the link on the next login while
+  the email still matches.
+
+  Deliberately **not** fixed in this wave (documented tradeoffs, see `docs/architecture/keycloak-login.adoc`,
+  "Known limitations"): manual linking is still possible for `ADMIN`/`BOARD`/`TREASURER` targets (blockable by
+  demote-link-repromote anyway, and the password-reset precedent already grants an ADMIN equivalent trust); a
+  pre-existing, Keycloak-independent BOARD-level email-change takeover path; no notification when an automatic
+  email-match link is created.
+
+  > [!WARNING]
+  > **`V1__baseline.sql`'s checksum changes again** -- this wave edits the inline
+  > `oidc_guest_login_event.event_type` CHECK constraint in place a second time (two new literals) and widens the
+  > column to `VARCHAR(29)`, because `'KEYCLOAK_LINK_MANUAL_REMOVED'` (29 characters) no longer fits the old
+  > `VARCHAR(27)` (`V48__keycloak_link_manual_event_types.sql` does the same on already-migrated databases).
+  > **Mandatory order on every already-migrated instance (`PROD_HOST`, `ELB_HOST`, `STAGING_HOST`):
+  > `./gradlew :lapis-server:flywayRepair` FIRST, then deploy, so `flyway migrate` can apply `V48`.**
+  > `flywayRepair` needs `LAPIS_DB_URL`, `LAPIS_DB_USER` and `LAPIS_DB_PASSWORD` in its environment and
+  > realigns the checksum against the checkout it runs from, so one run covers the Wave 1 and Wave 2 edits
+  > together -- run it from the commit being deployed. It is required by any deploy that includes V1.7.1/V1.7.2,
+  > even for instances that never enable Keycloak; skipping it makes `migrate()` refuse to run on the checksum
+  > mismatch and `lapis-server` fails to start.
+
 - **V1.7.1 -- Keycloak login core (Wave 1 of 3, server-only, no version bump yet)** -- adds an
   external-IdP login path via Keycloak (OIDC Relying Party) alongside the existing password/OIDC-guest
   logins: `KeycloakConfig` (env-driven, disabled by default), issuer-URL pinning

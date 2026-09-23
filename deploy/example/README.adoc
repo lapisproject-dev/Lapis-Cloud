@@ -837,6 +837,321 @@ database (never the production database). The GIN index is created automatically
 feature is on and `LAPIS_DB_URL` is PostgreSQL; a failure there is only logged, retrieval stays
 correct without it.
 
+[#keycloak-login-optional]
+== Keycloak-Login (optional)
+
+`LAPIS_KEYCLOAK_ENABLED` (default `false`/unset) switches this deployment's member login from
+Lapis Cloud's own password login to an external Keycloak instance acting as OIDC Identity
+Provider. Architecture, the full login-flow sequence, the account-linking decision table, and the
+security-properties summary: xref:../../docs/architecture/keycloak-login.adoc[keycloak-login.adoc].
+This section is the operator-facing setup checklist; see that document for the "why".
+
+**This is a per-deployment, all-or-nothing switch, not per-member.** There is exactly one flag.
+With it on, every member authenticates via Keycloak except the emergency-admin path below; there
+is no per-member choice between internal and Keycloak login.
+
+=== Environment variables
+
+`LAPIS_KEYCLOAK_*` -- **not passed through by the compose files, on purpose** (same deliberate
+opt-in as `LAPIS_AI_*` above). `lapis-server`'s `environment:` list in the shipped
+`docker-compose.yml` names every variable it forwards explicitly and has no `env_file:`, so a
+`LAPIS_KEYCLOAK_*` line in `.env` alone never reaches the container: `KeycloakConfig.load()` sees
+nothing and the instance silently stays in password mode. This is intentional -- the login mode is
+security-critical (it decides who can get in and how), and an ambient `.env` line must not be able to
+flip it by accident.
+
+To enable Keycloak, add the variables to the service's `environment:` block of **your own** compose
+file yourself (copy-paste template; the `${...}` form keeps the values in `.env`, out of the compose
+file). Note that the three boolean switches which default to `true` use `:-true` rather than a plain
+`:-` -- see the WARNING below the snippet for why:
+
+[source,yaml]
+----
+    environment:
+      # ... existing entries ...
+      LAPIS_KEYCLOAK_ENABLED: "${LAPIS_KEYCLOAK_ENABLED:-}"
+      LAPIS_KEYCLOAK_ISSUER_URL: "${LAPIS_KEYCLOAK_ISSUER_URL:-}"
+      LAPIS_KEYCLOAK_CLIENT_ID: "${LAPIS_KEYCLOAK_CLIENT_ID:-}"
+      LAPIS_KEYCLOAK_CLIENT_SECRET: "${LAPIS_KEYCLOAK_CLIENT_SECRET:-}"
+      LAPIS_KEYCLOAK_SCOPES: "${LAPIS_KEYCLOAK_SCOPES:-}"
+      LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL: "${LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL:-true}"
+      LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED: "${LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED:-true}"
+      LAPIS_KEYCLOAK_ALLOW_PRIVATE_ISSUER_HOST: "${LAPIS_KEYCLOAK_ALLOW_PRIVATE_ISSUER_HOST:-}"
+      LAPIS_KEYCLOAK_ALLOW_PLAINTEXT_ISSUER_URL: "${LAPIS_KEYCLOAK_ALLOW_PLAINTEXT_ISSUER_URL:-}"
+      LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT: "${LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT:-true}"
+      LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS: "${LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS:-}"
+      LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS: "${LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS:-}"
+----
+
+WARNING: With a plain `${VAR:-}`, a variable you leave unset (or blank) in `.env` reaches the container
+as an **empty string**, not as "unset". For the three boolean switches that default to `true`
+(`REQUIRE_VERIFIED_EMAIL`, `EMERGENCY_ADMIN_LOGIN_ENABLED`, `RP_INITIATED_LOGOUT`) an empty value would
+mean `false`, because `KeycloakConfig` only applies its own default when the variable is genuinely
+unset -- in particular, an empty `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL` would silently switch off
+verified-email enforcement. The snippet above therefore supplies the intended `true` default itself
+(`:-true`) for exactly these three. Docker Compose applies `:-true` when the variable is **unset or
+blank**, so both an absent and an empty `.env` entry stay safe; only an explicit non-`true` value
+(for example `false`) turns a switch off. Keep the `:-true` if you edit the block; do not "simplify" it
+back to `:-`. (Verified against `docker compose config`: unset and `VAR=` both resolve to `true`,
+`VAR=false` resolves to `false`.)
+
+All `LAPIS_KEYCLOAK_*` variables (`network.lapis.cloud.server.keycloak.KeycloakConfig`):
+
+[cols="2,1,3"]
+|===
+| Variable | Default | Purpose
+
+| `LAPIS_KEYCLOAK_ENABLED`
+| `false`
+| Activates the feature when the value, trimmed and compared case-insensitively, is `true` (so
+  `True` also activates it). With anything else (unset, `false`, any other value), every
+  `/auth/keycloak/*` route responds `404` and nothing else below is even read.
+
+| `LAPIS_KEYCLOAK_ISSUER_URL`
+| *(required when enabled)*
+| The Keycloak realm's issuer URL, e.g. `\https://sso.example.org/realms/myorg`. **Must equal the
+  `issuer` value in Keycloak's own discovery document (`<issuer>/.well-known/openid-configuration`)
+  byte for byte** -- a document whose `issuer` differs is rejected and never cached, so every login
+  fails as "login service not reachable". That value follows Keycloak's own hostname setting, so
+  check the discovery document rather than guessing. The URL must be reachable by **both** the
+  members' browsers and the Lapis server (see `LAPIS_KEYCLOAK_ALLOW_PRIVATE_ISSUER_HOST`). HTTPS
+  always allowed; plain HTTP only for a loopback host and only with
+  `LAPIS_KEYCLOAK_ALLOW_PLAINTEXT_ISSUER_URL=true`. No query string, fragment, or userinfo
+  allowed; max 200 characters; a trailing slash is normalized away.
+
+| `LAPIS_KEYCLOAK_CLIENT_ID`
+| *(required when enabled)*
+| The confidential client's client ID, as registered in Keycloak (see "Keycloak client
+  configuration" below).
+
+| `LAPIS_KEYCLOAK_CLIENT_SECRET`
+| *(required when enabled)*
+| The confidential client's secret. Never logged, not even redacted-length; `KeycloakConfig
+  .toString()` always prints `<redacted>` or `unset`, never a hint of the real value.
+
+| `LAPIS_KEYCLOAK_SCOPES`
+| `openid email profile`
+| Space-separated OIDC scopes sent on `/start`. `openid` is force-added if your own value omits
+  it.
+
+| `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`
+| `true`
+| When `true`, an unverified Keycloak email can never auto-link to a local member (which also
+  means the member's Keycloak user needs **Email verified = On**, see "Keycloak client
+  configuration"). When `false`, ordinary members can still auto-link on an unverified email, but
+  `BOARD`/`TREASURER`/`ADMIN` members are **always** protected regardless of this setting (see
+  "Account-linking decision table" in the architecture doc). Only an *unset* variable gives the
+  default `true`; any set value other than `true` (`1`, `yes`, or an empty `VAR=`) means `false`
+  *as far as the application itself is concerned* -- the compose snippet above supplies `:-true`
+  for this variable, so an absent or blank `.env` entry still reaches the application as `true`.
+
+| `LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED`
+| `true`
+| Keeps the classic email/password login reachable (collapsed disclosure on the login screen) as
+  a fallback if Keycloak becomes unreachable. **Enforced server-side:** in Keycloak mode
+  `POST /api/auth/login` accepts only `ADMIN` accounts; every other role is rejected with the usual
+  generic failure. With this set to `false`, the local login is rejected for **all** accounts,
+  admins included. Same parsing as above (the compose snippet's `:-true` keeps an absent or blank
+  `.env` entry at `true`). See "Verify the emergency-admin path" below before ever setting this to
+  `false`.
+
+| `LAPIS_KEYCLOAK_ALLOW_PRIVATE_ISSUER_HOST`
+| `false`
+| Only relevant when `LAPIS_KEYCLOAK_ISSUER_URL` uses a **literal private IP address**
+  (an IPv4 address in an RFC 1918, link-local or CGNAT range, or an IPv6 ULA address, written directly
+  in the URL instead of a hostname): such a URL is rejected
+  unless this is `true`. A hostname (e.g. `keycloak` or `sso.example.org`) is never classified as
+  private, so the flag does nothing for hostnames. It does **not** make a Keycloak reachable only
+  inside a Docker Compose network usable: the browser is redirected to Keycloak's
+  `authorization_endpoint`, which is forced onto the issuer's own scheme/host/port, so the members'
+  browsers must be able to reach the issuer URL as well. Plain HTTP to a non-loopback host is
+  rejected regardless of this flag.
+
+| `LAPIS_KEYCLOAK_ALLOW_PLAINTEXT_ISSUER_URL`
+| `false`
+| Set `true` only to allow plain `http://` against a loopback Keycloak (local/dev use). Has no
+  effect on a non-loopback host -- plaintext against a remote host is never allowed regardless of
+  this flag.
+
+| `LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT`
+| `true`
+| Publishes an RP-initiated end-session URL via `POST /auth/keycloak/logout-redirect` when
+  Keycloak's discovery document advertises one (`404` when this is `false`). **Not yet wired into
+  the app's own logout button**, so logging out of Lapis Cloud does not end the Keycloak SSO session
+  -- see "Known limitations" in the architecture doc. Same boolean parsing and the same `:-true`
+  compose default as `REQUIRE_VERIFIED_EMAIL`.
+
+| `LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS`
+| `3600`
+| TTL for the cached `.well-known/openid-configuration` document. Range `60..86400`; an
+  out-of-range or unparseable value silently falls back to the default (the variable is only
+  reported by name when the configuration is *also* unusable and startup fails fast, so a typo here
+  is not visible in the log).
+
+| `LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS`
+| `300`
+| TTL for the cached JWKS (signing-key) document. Same range and fallback behavior as the
+  discovery-cache variable above.
+|===
+
+**All-or-nothing for the three required variables** (`ISSUER_URL`/`CLIENT_ID`/`CLIENT_SECRET`):
+with `LAPIS_KEYCLOAK_ENABLED=true` but any of the three missing or invalid, the server refuses to
+start (`IllegalStateException`, fail-fast) and the startup log names exactly which variables were
+rejected -- never their values. This mirrors the SMTP configuration's own fail-fast posture above:
+a half-configured, security-relevant feature is treated as an operator error, never a silent
+partial state.
+
+=== Keycloak client configuration
+
+Set up a dedicated client in the Keycloak admin console for this Lapis Cloud deployment, matching
+`LAPIS_KEYCLOAK_CLIENT_ID`/`LAPIS_KEYCLOAK_CLIENT_SECRET` above:
+
+* **Client authentication: On** (confidential client, not public) -- a client secret is required;
+  this feature never uses a public client / implicit flow.
+* **Standard flow (Authorization Code): On.**
+* **Direct access grants (Resource Owner Password): Off** -- this feature never sends member
+  credentials directly to Keycloak's token endpoint, only the browser-redirect Authorization Code
+  flow.
+* **PKCE Code Challenge Method: `S256`, required.** Lapis Cloud always sends
+  `code_challenge_method=S256`; if the client requires PKCE, set it to `S256`, not `plain`.
+* **Valid redirect URIs**: exactly `<LAPIS_PUBLIC_BASE_URL>/auth/keycloak/callback` (e.g.
+  `\https://cloud.example.org/auth/keycloak/callback`). `LAPIS_PUBLIC_BASE_URL` must already be
+  correct for this deployment before enabling Keycloak, same precondition the SMTP section above
+  already documents for its own link-building.
+* **Valid post-logout redirect URIs** (if using RP-initiated logout): `<LAPIS_PUBLIC_BASE_URL>/`.
+* **Scopes**: at minimum `openid`, `email`, `profile` (matching `LAPIS_KEYCLOAK_SCOPES`'s
+  default) -- `email` and `email_verified` claims on the ID token are required for account
+  linking to work at all.
+* **Email verified = On for every member's Keycloak user.** With the default
+  `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL=true`, automatic linking only works for users whose email is
+  verified. Users created or imported by an admin default to *Off*, and a missing `email_verified`
+  claim counts as `false` -- so every first login of such a user is rejected as `EMAIL_NOT_VERIFIED`.
+  Set it in Keycloak (user detail, or an import/required-action flow) before the cutover.
+* **ID tokens must be signed with RS256** (the realm's default). Lapis Cloud only reads RSA keys from
+  the JWKS document; if the realm's default signature algorithm is changed to something else (e.g.
+  ES256), no key is found and every login fails as `UNKNOWN_KID`.
+
+=== Verify the emergency-admin path before switching
+
+Before enabling `LAPIS_KEYCLOAK_ENABLED`, confirm at least one real `ADMIN` account has a
+known-good internal password (test a login against `/api/auth/login` directly, or via the
+collapsed "Interner Notfall-Zugang für Administratoren" disclosure once the login screen is
+already in Keycloak mode). **After the cutover, password reset is unavailable for everyone, admins
+included** (see "What changes for members once Keycloak is on" below), so this pre-cutover check is
+the only reliable chance to fix an admin password (the admin UI offers no password reset in Keycloak
+mode) short of rolling back. Same "verify a risky operator action actually works before relying on
+it" discipline the "Updating an existing deployment" section above already applies to its own
+post-deploy check: the architecture guarantees the internal-login *code path* survives a Keycloak
+outage (see "Emergency-admin-login safety property" in the architecture doc), but only an
+operator can verify a specific ADMIN account's password is actually usable on the day it might be
+needed.
+
+=== What changes for members once Keycloak is on
+
+These are server-side effects of Keycloak mode, independent of the login screen:
+
+* **Local password login is `ADMIN`-only.** `POST /api/auth/login` rejects every non-`ADMIN`
+  account, and rejects `ADMIN` accounts too when `LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED` is
+  `false`.
+* **Password reset is gone for everyone.** `POST /api/auth/password-reset/request` and `/confirm`
+  return `404` for all callers, admins included.
+* **Non-admins cannot change a local password** (`changePassword` is rejected for any role other than
+  `ADMIN`); they manage their password in Keycloak.
+* **Self-registration stops entirely.** `registerApplication` and `registerFriend` both fail with a
+  conflict error, because a self-registered account could never log in. New members must be created by
+  an administrator and then linked (automatically by email, or via the manual-linking panel).
+
+=== Migration runbook: switching a live instance from internal login to Keycloak
+
+Concrete, step-ordered procedure for cutting an already-running instance over. Unlike "Updating
+an existing deployment" above (routine release), this runs **once**, at the moment of the
+Keycloak cutover.
+
+. **Pre-flight email reconciliation.** Export every member's email from Lapis Cloud (Mitglieder-
+  Export or a direct read-only query against `member.email`) and compare it against the Keycloak
+  realm's user list. Fix typos/mismatches on **either** side before switching --
+  `KeycloakAccountLinker`'s auto-link matches case-insensitively but does not fuzzy-match, so a
+  mismatched email is a hard `NO_MATCHING_MEMBER` rejection at first login, not a silent wrong
+  match. Also check that every Keycloak user has **Email verified = On** (admin-created or imported
+  users default to Off) -- with the default `REQUIRE_VERIFIED_EMAIL=true` an unverified email is
+  rejected as `EMAIL_NOT_VERIFIED` at first login. Reconciling this list up front minimizes how many
+  members hit the manual-linking panel on day one.
+
+. **Provision the Keycloak client** -- the checklist in "Keycloak client configuration" above.
+
+. **Announce to members**, ahead of the cutover. Sample text (German, adapt freely): "Ab dem
+  [Datum] melden Sie sich nicht mehr mit Ihrem bisherigen Lapis-Cloud-Passwort an, sondern über
+  [Keycloak/SSO-Systemname] -- klicken Sie auf der Anmeldeseite auf „Mit [Name] anmelden“." Also
+  tell them what stops working: "Passwort vergessen" and password changes inside Lapis Cloud are
+  gone (use Keycloak), and self-registration is switched off. Keep it short; this is not a full
+  comms plan.
+
+. **Verify the emergency-admin path works** -- see the dedicated section above. Do this *before*
+  step 5, while the instance is still reachable in internal-login mode to test against. Confirm
+  the password of at least one `ADMIN` account really works: **after the cutover there is no
+  password reset for anyone, admins included** (the admin UI offers none), so this is the only
+  reliable chance to fix an admin password short of rolling back.
+
+. **Deploy.** Add the `LAPIS_KEYCLOAK_*` values to the instance's `.env` **and** the
+  `environment:` block from "Environment variables" above to your compose file -- the shipped
+  compose files do not forward these variables, so `.env` alone has no effect. Then follow the
+  routine from "Updating an existing deployment" above (back up, sync, confirm `.env` unchanged),
+  with one addition for an **existing, already-running** instance (true for every production Lapis
+  Cloud instance as of Wave 3): run `flywayRepair` **before** rebuilding. Wave 1 (`V1.7.1`) and Wave
+  2 (`V1.7.2`) each edited `V1__baseline.sql`'s `oidc_guest_login_event` CHECK constraint in place
+  (new `KEYCLOAK_*` event-type literals). One run covers both edits -- it re-baselines the stored
+  checksum against the migration files of the checkout it runs from, so **run it from the commit you
+  are about to deploy**. It is required by **any deploy that includes V1.7.1/V1.7.2, even for
+  instances that never enable Keycloak**; otherwise `migrate()` refuses to run on the checksum
+  mismatch and `lapis-server` does not start. `FlywayRepair` reads the database connection from the
+  environment (`LAPIS_DB_URL`, `LAPIS_DB_USER`, `LAPIS_DB_PASSWORD`, all three required, as a plain
+  PostgreSQL JDBC URL reachable from where you run it) and fails with an error naming the missing
+  variable otherwise:
++
+[source,bash]
+----
+LAPIS_DB_URL='jdbc:postgresql://<db-host>:5432/<db-name>' \
+LAPIS_DB_USER='<db-user>' \
+LAPIS_DB_PASSWORD='<db-password>' \
+./gradlew :lapis-server:flywayRepair
+
+cd "$REMOTE_ROOT/deploy/example"
+docker compose up -d --build lapis-server
+----
++
+Verify as in "Updating an existing deployment", step 5 (migration count, `Responding at ...`, HTTP
+status). On the first deploy that includes the Keycloak work, the reported migration count is
+**4 higher** than before (`V45`-`V48`); that is expected, not a mismatch. Keep the pre-deploy backup
+from step 1 of that section until this is confirmed.
+
+. **Smoke test, in this order:**
++
+--
+.. One real member's SSO login end-to-end (an account already reconciled in step 1).
+.. One deliberately-unmatched-email login (an account whose Keycloak email does not match any
+   local member) -- confirm a clean rejection page, and confirm no new `member` row was created
+   (`KeycloakAccountLinker` never creates members, but this is the moment to prove it against the
+   real deployment, not just trust the architecture doc).
+.. An `ADMIN` emergency login via the internal-login disclosure, with Keycloak temporarily
+   blocked (e.g. a firewall rule or stopping the Keycloak container) -- confirms the safety net
+   from step 4 actually holds under a real outage, not just in theory.
+.. If `LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT=true` and the discovery document advertises an
+   `end_session_endpoint`: confirm `POST /auth/keycloak/logout-redirect` returns a URL (this
+   endpoint is not yet wired into the app's own logout button, see the architecture doc -- this
+   step only confirms the URL itself resolves, not an end-to-end logout).
+--
+
+. **Use the manual-linking admin panel** ("Keycloak-Verknüpfung", ADMIN role, member
+  administration screen) to fix up any members the automatic email match missed or flagged
+  ambiguous -- expected for any email mismatch step 1 didn't catch in time.
+
+. **Rollback path**: unset `LAPIS_KEYCLOAK_ENABLED` (or set it to `false`) in `.env`, then run
+  `docker compose up -d lapis-server` -- **not** `docker compose restart`, which does not re-read
+  `.env`. The same applies to every later `.env` or compose change. Internal login returns instantly -- password hashes are never deleted or
+  touched by enabling Keycloak mode, so no data restore is needed for this specific rollback (a
+  full restore from the pre-deploy backup, per "Updating an existing deployment" above, is only
+  needed if something else in the same deploy also went wrong).
+
 == Impressum & Datenschutz (V1.4.7)
 
 `GET /impressum` and `GET /datenschutz` render templates for the statutory Impressum

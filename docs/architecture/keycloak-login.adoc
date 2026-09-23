@@ -1,0 +1,457 @@
+= Keycloak as External User Management (V1.7.1 -- V1.7.3)
+:description: Architecture of the optional Keycloak OIDC Relying Party login path -- the login flow, the browser-binding CSRF defense, the account-linking decision table, the emergency-admin safety net, and a security-properties summary.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`). It has no separate `.kuml.kts` source file -- unlike
+`travel-expenses.adoc`'s ERM excerpt, this diagram models a runtime message sequence, not a
+persisted schema, so it lives inline only.
+
+== Context
+
+Optional, generic feature for any Lapis Cloud deployment: instead of Lapis Cloud's own
+password-based login, members authenticate against an operator-supplied external **Keycloak**
+instance. Specified in the vault note `03 Bereiche/Lapis Cloud/Keycloak Externe
+Benutzerverwaltung.md` (2026-09-23) and delivered as three waves:
+
+* **Wave 1 (V1.7.1, server core)** -- `KeycloakConfig`, issuer-URL pinning, the
+  `/auth/keycloak/*` routes, and `KeycloakAccountLinker`'s automatic email-match linking.
+* **Wave 2 (V1.7.2, UI + manual linking)** -- the Keycloak-mode login screen
+  (`LoginScreen.kt`), the ADMIN-only "Keycloak-Verknüpfung" panel (`KeycloakLinkScreen.kt`),
+  and `KeycloakLinkService`, the manual-linking RPC.
+* **Wave 3 (this document)** -- documentation only, no code changes.
+
+=== What this feature does and does not do
+
+The five spec decisions, as actually implemented:
+
+. **Generic and optional.** `KeycloakConfig.load()` reads `LAPIS_KEYCLOAK_*` environment
+  variables; with `LAPIS_KEYCLOAK_ENABLED` unset or not `true` (trimmed, case-insensitive), every `/auth/keycloak/*`
+  route responds `404 Not Found` (`KeycloakConfig.isOperational` gates each handler) and the
+  classic login screen/routes are completely unaffected. Nothing here is built for one specific
+  organization.
+. **Keycloak authenticates only.** `KeycloakAccountLinker` never writes a role, membership
+  status, or join-contract state -- it only resolves a verified `(issuer, subject)` to an
+  existing `member.id`, or auto-links by email, or rejects. Roles
+  (`AccountRole.MEMBER`/`BOARD`/`TREASURER`/`ADMIN`), `MemberStatus`, and the join contract stay
+  exactly where they already lived, entirely unmodified by this feature.
+. **The emergency-admin login stays available.** In Keycloak mode the classic
+  `POST /api/auth/login` route is not removed -- `renderEmergencyAdminLoginToggle` in
+  `LoginScreen.kt` keeps the full email/password form reachable behind a collapsed disclosure
+  (see "Emergency-admin-login safety property" below). The server enforces that only `ADMIN`
+  accounts may use it: in Keycloak mode `AuthRoutes.kt` rejects every non-`ADMIN` password login
+  server-side (`keycloakBlocksLogin`), and rejects **all** password logins, `ADMIN` included, when
+  `LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED` (default `true`) is `false`. The UI-level collapse is
+  only presentation; the protection that makes this path a safety net is that it never depends on
+  Keycloak being reachable.
+. **Complete replacement per deployment, no per-member mixed mode.** There is exactly one
+  boolean, `LAPIS_KEYCLOAK_ENABLED`, read once at startup. A deployment runs either fully in
+  internal-login mode or fully in Keycloak mode for all members (except the emergency-admin path
+  from decision 3) -- no per-member column or toggle exists to pick one or the other.
+. **Account linking is auto-by-email, reject-on-miss, manual-fallback.** `KeycloakAccountLinker
+  .linkOrResolve` never creates a member. A verified identity either resolves an existing link,
+  auto-links to exactly one still-unlinked member whose email matches case-insensitively, or the
+  login is rejected (`LinkOutcome.Rejected`) -- an ADMIN must then link manually via
+  `KeycloakLinkService.linkMember` (Wave 2, "Keycloak-Verknüpfung" panel). See "Account-linking
+  decision table" below for the full case list.
+
+== The OIDC Relying Party flow
+
+Lapis Cloud is the **OIDC Relying Party / client**; the operator's Keycloak instance is the
+**Identity Provider**. This is the mirror-image role of the existing federated guest login
+(V0.8, `network.lapis.cloud.server.routes.OidcRoutes`/
+`network.lapis.cloud.server.federation.OidcDiscoveryDocument`), where this
+server is itself an IdP for guests of other Lapis Cloud servers -- the two features are
+independent and do not interact (`KeycloakAccountLinker.linkOrResolve` and
+`network.lapis.cloud.server.federation.OidcGuestMemberStore` are separate code paths against
+separate tables).
+
+Three endpoints (`network.lapis.cloud.server.routes.KeycloakAuthRoutes.kt`), all `404` unless
+`KeycloakConfig.isOperational`:
+
+[cols="2,3"]
+|===
+| Endpoint | Purpose
+
+| `GET /auth/keycloak/start`
+| Login initiation. Fetches the OIDC discovery document, mints `state`/`nonce`/PKCE
+  `code_verifier`, stores a `keycloak_login_attempt` row, sets the browser-binding cookie, and
+  302-redirects to Keycloak's `authorization_endpoint`.
+
+| `GET /auth/keycloak/callback`
+| The redirect target Keycloak sends the browser back to. Consumes the `state` row atomically,
+  verifies the browser-binding cookie, exchanges the authorization `code` for tokens, verifies
+  the ID token, resolves/rejects the account link, and issues a Lapis Cloud session.
+
+| `POST /auth/keycloak/logout-redirect`
+| Returns `404` when `LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT` is off. Otherwise returns Keycloak's
+  `end_session_endpoint` with `client_id` and `post_logout_redirect_uri` (`<public base URL>/`)
+  appended (no `id_token_hint`, since no token is stored), or `endSessionUrl = null` when the
+  discovery document publishes none or the endpoint fails issuer re-validation. **Not yet wired into `POST /api/auth/logout`** -- the frontend redirect to this URL
+  is planned for a later wave (see the "Not yet implemented" note in `KeycloakAuthRoutes.kt`'s
+  own comment on this handler).
+|===
+
+The redirect URI Lapis Cloud registers with Keycloak is always
+`${LAPIS_PUBLIC_BASE_URL}/auth/keycloak/callback` (`keycloakPublicBaseUrl()`, reusing
+`FederationConfig.publicBaseUrl` -- the same base URL the federation feature already uses).
+
+=== PKCE, state and nonce
+
+Standard OIDC Authorization Code Flow with PKCE (`S256`), reusing the exact same `OidcPkce`/
+`OidcJwt` primitives the federation feature (V0.8) already established in the opposite direction
+-- no new cryptographic dependency. On `/start`:
+
+* `state` and `nonce` are fresh random tokens (`SessionTokens.newRawToken()`); only their SHA-256
+  hashes are ever persisted (`stateHash` column). `state` round-trips through the Keycloak
+  redirect as a query parameter; `nonce` is bound into the ID token and re-checked on `/callback`.
+* `code_verifier`/`code_challenge` (`OidcPkce.codeChallengeS256`) follow RFC 7636 exactly as the
+  federation RP flow does.
+* The `keycloak_login_attempt` row is single-use: `/callback` consumes it inside one
+  transaction (`UPDATE ... SET consumed_at = now WHERE state_hash = ? AND consumed_at IS NULL`,
+  `forUpdate()` locked `SELECT` first) so a replayed callback with the same `state` fails even
+  under concurrent requests.
+* Rows expire after 10 minutes (`KEYCLOAK_LOGIN_ATTEMPT_TTL`) and are opportunistically purged on
+  every `/start` call for anything older than one hour (`KEYCLOAK_LOGIN_ATTEMPT_CLEANUP_AGE`) --
+  no scheduler exists in this codebase, so cleanup piggybacks on the hottest write path for this
+  table, mirroring `SessionStore.purgeExpired`'s own idiom.
+
+=== The browser-binding cookie (Wave 1 security fix)
+
+A valid, unconsumed, unexpired `state` row alone does **not** prove the browser presenting the
+`/callback` request is the same one that started the attempt at `/start`. Wave 1's first
+security-audit round found this gap: an attacker could capture their own legitimate
+`/callback?code=...&state=...` URL and hand it to a victim, whose browser would then redeem it
+into a session **as the attacker** -- a login-CSRF/session-fixation attack.
+
+The fix is a second, independent cookie:
+
+[cols="1,3"]
+|===
+| Property | Value
+
+| Name
+| `+__Host-lapis_keycloak_binding+` (`KEYCLOAK_LOGIN_BINDING_COOKIE_NAME`)
+
+| Attributes
+| `HttpOnly`, `Secure`, `Path=/`, `SameSite=Lax`, `Max-Age` = the login-attempt TTL (10 minutes)
+
+| Value
+| A fresh random token, minted on `/start`; only its SHA-256 hash is stored, in the
+  `keycloak_login_attempt.browser_binding_hash` column (V47).
+
+| Checked
+| On `/callback`, after the `state` row has been consumed and before anything else depends on the
+  attempt. The cookie is expired (`Max-Age=0`) once this check has run, whether it matched or not.
+  On the earlier `MISSING_STATE` and `UNKNOWN_OR_EXPIRED_STATE` rejections the check is never
+  reached and the cookie is left to expire on its own (10 minutes).
+|===
+
+The `+__Host-+` prefix additionally stops a sibling-subdomain attacker (or one with XSS there)
+from overwriting the cookie in the victim's browser with a value they control, which would
+otherwise forge a binding match without ever seeing this server's real cookie. `SameSite=Lax`
+(not `Strict`) is deliberate: the callback arrives as a cross-site top-level `GET` redirect from
+Keycloak, which a `Strict` cookie would not be sent on at all, defeating the whole defense.
+
+A `state` row consumed successfully but with a binding-cookie mismatch is rejected as
+`BROWSER_BINDING_MISMATCH` -- a distinct, auditable reason (`KEYCLOAK_LOGIN_FAILED` event), not
+silently folded into a generic error.
+
+=== Sequence
+
+[source,kuml,name="keycloak-login-flow"]
+----
+sequenceDiagram(name = "Keycloak Relying-Party login (V1.7.1)") {
+    val browser = lifeline(name = "Browser")
+    val server = lifeline(name = "Lapis Cloud Server")
+    val keycloak = lifeline(name = "Keycloak")
+
+    message(from = browser, to = server, label = "GET /auth/keycloak/start")
+    message(from = server, to = keycloak, label = "GET {issuer}/.well-known/openid-configuration (cached)")
+    message(from = keycloak, to = server, label = "discovery document (issuer re-checked == pinned issuerUrl)")
+    message(from = server, to = server, label = "mint state/nonce/PKCE verifier, insert keycloak_login_attempt")
+    message(from = server, to = browser, label = "302 + binding cookie")
+
+    message(from = browser, to = keycloak, label = "authorize (client_id, redirect_uri, state, nonce, code_challenge=S256)")
+    message(from = browser, to = keycloak, label = "login/password/2FA at Keycloak")
+    message(from = keycloak, to = browser, label = "302 to redirect_uri?code=...&state=...")
+
+    message(from = browser, to = server, label = "GET /auth/keycloak/callback")
+    message(from = server, to = server, label = "consume state row atomically, verify browser-binding cookie hash")
+    message(from = server, to = keycloak, label = "POST token_endpoint (code, code_verifier, client_secret)")
+    message(from = keycloak, to = server, label = "id_token + access_token")
+    message(from = server, to = keycloak, label = "GET jwks_uri (cached, by kid)")
+    message(from = keycloak, to = server, label = "JWKS")
+    message(from = server, to = server, label = "verify id_token signature, issuer, audience, nonce")
+    message(from = server, to = server, label = "KeycloakAccountLinker.linkOrResolve(issuer, sub, email, email_verified)")
+    message(from = server, to = browser, label = "302 /app + session cookie (or error)")
+}
+----
+
+The token/ID-token are read once, in memory, for claim extraction and verification, then
+discarded -- neither `KeycloakAuthRoutes.kt` nor any table it writes to ever persists a Keycloak
+token. Every `discovery.*_endpoint` value taken from Keycloak's own discovery document (the
+`authorization_endpoint`, `token_endpoint`, and `end_session_endpoint`) is re-validated against
+the operator-pinned `issuerUrl` (`KeycloakIssuerUrlGuard.requireAllowedRequestUrl`) before this
+server ever redirects a browser to it or POSTs to it -- defense in depth against a compromised or
+misconfigured discovery response turning any of these into an open redirect or SSRF vector.
+
+== Account-linking decision table
+
+`KeycloakAccountLinker.linkOrResolve(issuer, subject, email, emailVerified,
+requireVerifiedEmail)` runs inside one transaction and returns exactly one of:
+
+[cols="3,2,4"]
+|===
+| Case | Outcome | Condition
+
+| Existing link for `(issuer, subject)`
+| `Linked` (`wasNewLink=false`)
+| Checked first, unconditionally -- a Keycloak-side email change on an already-linked identity
+  never re-points the link, it keeps resolving to the same local member.
+
+| Existing link, but the linked member's status blocks login
+| `Rejected(MEMBER_LOGIN_BLOCKED)`
+| `MemberStatusSets.LOGIN_BLOCKED` (`MemberStatus` values `WITHDRAWN`, `REJECTED`, `DECEASED`, `DONOR`).
+
+| No link yet, `requireVerifiedEmail=true` and `email_verified=false`
+| `Rejected(EMAIL_NOT_VERIFIED)`
+| Gates *before* the email lookup even runs.
+
+| No link yet, zero members match the email (case-insensitive)
+| `Rejected(NO_MATCHING_MEMBER)`
+| Also recorded as a distinct `KEYCLOAK_LINK_MISS` audit event -- an operator needs to find these
+  without grepping generic `KEYCLOAK_LOGIN_FAILED` rows for a reason string.
+
+| No link yet, 2+ members match the email
+| `Rejected(AMBIGUOUS_EMAIL_MATCH)`
+| `.limit(2)` + count, not `singleOrNull()` -- a case-sensitive-collation email collision is a
+  named rejection, never silently misread as "no match".
+
+| Email matches exactly one member, that member's role is `BOARD`/`TREASURER`/`ADMIN`
+  (`ESCALATED_ROLES`), and `email_verified=false`
+| `Rejected(EMAIL_NOT_VERIFIED)`
+| Enforced **regardless** of the operator's `requireVerifiedEmail` setting -- an operator who
+  turns verified-email enforcement off for ordinary members must not thereby also open a
+  takeover path for an escalated-role account.
+
+| Email matches exactly one member, but that member already has a *different* Keycloak link
+| `Rejected(CONFLICTING_LINK)`
+| Never silently re-links a member to a second identity. Also the outcome of a genuine
+  `uq_keycloak_account_link_member`/`uq_keycloak_account_link_issuer_subject` unique-violation
+  race between two concurrent first-time logins (`mapLinkInsertFailure`, SQLSTATE `23505` only --
+  any other SQL failure propagates as a real exception).
+
+| Email matches exactly one member, status blocks login
+| `Rejected(MEMBER_LOGIN_BLOCKED)`
+| Same status check as the existing-link case, applied before the auto-link insert.
+
+| Email matches exactly one unlinked, unblocked, verified (or verification not required) member
+| `Linked` (`wasNewLink=true`)
+| Inserts the `keycloak_account_link` row; the caller additionally records a one-time
+  `KEYCLOAK_LINK_CREATED` audit event.
+|===
+
+Every rejection is a named, typed outcome, never an exception -- `KeycloakAuthRoutes.kt` logs and
+audits (`OidcLoginAuditRecorder`, `OidcLoginEventType.KEYCLOAK_LOGIN_FAILED` with a
+`reason="LINK_<enum name>"`) the specific reason and shows the browser a generic, non-enumerating
+error page.
+
+=== Manual linking (Wave 2, ADMIN-only)
+
+When the automatic email match misses (`NO_MATCHING_MEMBER`) or is ambiguous
+(`AMBIGUOUS_EMAIL_MATCH`), an ADMIN resolves it by hand via `KeycloakLinkService`
+(`IKeycloakLinkService` RPC) and the "Keycloak-Verknüpfung" panel (`KeycloakLinkScreen.kt`):
+
+* `listUnlinkedMembers()` -- every member not already linked and not `LOGIN_BLOCKED`.
+* `linkMember(memberId, keycloakSubject)` -- inserts the link with `linkedBy` set to the acting
+  admin. Rejects an anonymized member, a `LOGIN_BLOCKED`-status member, a member who already has
+  a link, or a `keycloakSubject` already linked to a *different* member (all as typed RPC
+  exceptions, `ConflictException`/`BadRequestException`/`NotFoundException`).
+* `unlinkMember(memberId)` -- idempotent (returns `false`, no side effects, if nothing was
+  linked); a genuine removal returns `true`.
+
+**Security properties added by Wave 2's audit round** (an ADMIN can otherwise silently redirect
+any unlinked member's login to a Keycloak identity of the admin's choosing -- the same trust
+level the existing `setTemporaryPasswordForMember` precedent already grants an ADMIN, but now
+with the same controls that precedent established):
+
+* The audit event (`KEYCLOAK_LINK_MANUAL`/`KEYCLOAK_LINK_MANUAL_REMOVED`) is written in the
+  **same transaction** as the link/unlink change itself -- a failed audit insert can no longer
+  leave an unaudited link change.
+* The audit `reason` records a SHA-256 fingerprint of the Keycloak subject
+  (`keycloakSubjectFingerprint`, first 16 hex chars), never the raw value --
+  `oidc_guest_login_event` is registered in `PersonalDataRegistry.kt` as containing no personal
+  data referencing people by more than an unconstrained UUID, and must not become a second,
+  un-erasable copy of the raw external identifier.
+* The affected member is sent a security-notice email (`KeycloakLinkNotificationMailer`) on every
+  manual link or unlink -- best effort, see "Known limitations".
+* Removing a link **revokes all of the target member's active sessions**
+  (`SessionStore.revokeAllForMember`) -- except the acting admin's own current session, if the
+  admin unlinks their own record.
+* Linking a `LOGIN_BLOCKED`-status member is rejected at the RPC level (`ConflictException`),
+  not merely hidden from the `listUnlinkedMembers()` result.
+
+**Deliberately not implemented** (documented tradeoff, not an oversight): manual linking is
+still possible for `BOARD`/`TREASURER`/`ADMIN` target accounts -- blocking it would be
+circumventable anyway (demote, link, re-promote), and the existing password-reset trust
+precedent already grants an ADMIN equivalent power over any account.
+
+== Emergency-admin-login safety property
+
+The classic `POST /api/auth/login` route and `AuthService` stay in place in Keycloak mode, but they
+are restricted server-side (this is enforcement, not UI discretion):
+
+* `AuthRoutes.kt` (`keycloakBlocksLogin`) rejects every non-`ADMIN` password login with the same
+  generic failure as a wrong password, and rejects **every** password login, `ADMIN` included, when
+  `LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED` is `false`. That switch therefore disables the local
+  path entirely.
+* `AuthService.changePassword` is rejected for non-`ADMIN` accounts.
+* `POST /api/auth/password-reset/request` and `/confirm` return `404` for everyone, admins included.
+* `RegistrationService.registerApplication` and `registerFriend` throw `ConflictException`, so
+  self-registration stops entirely.
+
+The guarantee that the admin path survives a Keycloak outage follows from the architecture, not from
+fallback logic that could itself fail:
+
+* `/auth/keycloak/*` and `/api/auth/login` are two **independent** route trees. Keycloak mode only
+  makes `Branding.keycloakMode` render the SSO button as the *primary* UI (`LoginScreen.kt`), with
+  the password form collapsed behind `renderEmergencyAdminLoginToggle`'s disclosure.
+* The password route never calls out to Keycloak, never checks `KeycloakOidcMetadata`'s
+  discovery/JWKS cache, and has no dependency on the Keycloak issuer being reachable. If Keycloak is
+  down and no discovery document has been cached since boot, `/auth/keycloak/start` fails with a
+  `502 Bad Gateway` error page; a stale cached document is served instead, so `/start` can also
+  redirect a browser to a Keycloak that is down. Either way `/api/auth/login` is unaffected.
+* `KeycloakStartupCheck.verifyAndLog` logs an unconditional `WARN` at startup whenever an
+  operator has set `LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED=false` -- there is no technical
+  guard against locking every admin out if Keycloak becomes unreachable once that fallback is
+  off, so this is a "make sure a human read this" log line, not a validation error.
+
+An operator switching to Keycloak mode must still **verify** at least one real `ADMIN` account
+has a known-good internal password *before* the cutover -- see the migration runbook below, step
+4. Since password reset is unavailable after the cutover, this is also the last chance to fix an
+admin password without rolling back. The architecture guarantees the *path* survives an outage; it cannot guarantee a specific
+operator remembered to keep a working password on a real account.
+
+== Security-properties summary
+
+What Wave 1's three security-audit rounds and Wave 2's two security-audit rounds verified, as
+the trust statement an operator can rely on:
+
+[cols="2,4"]
+|===
+| Property | Mechanism
+
+| Login CSRF / session fixation
+| Browser-binding cookie (`+__Host-lapis_keycloak_binding+`), see "The browser-binding cookie"
+  above. Closed a real MAJOR finding in Wave 1's first audit round.
+
+| Replay of a consumed/expired `state`
+| Atomic, transactional single-use consumption of `keycloak_login_attempt`
+  (`forUpdate()`-locked select + conditional update).
+
+| Unbounded anonymous DB growth via `/start`
+| A dedicated flood rate limiter (`FederationInboxRateLimiter`, 30 req/min/IP by default,
+  counts every request) plus opportunistic cleanup of stale rows on every `/start` call.
+
+| Repeated failed callbacks (brute force / credential stuffing)
+| `/callback` only *records* failures (genuine rejection reasons only, not every request, to avoid
+  penalizing a shared-NAT office) into a `LoginRateLimiter` (`Application.kt`: 20 failures per
+  15 minutes); the budget is *checked* at `/start`, which answers `429` once it is spent. Keyed by
+  client IP grouped at the IPv6 /64 boundary (`rateLimitKeyFor`) so a rotating IPv6 prefix cannot
+  buy a fresh budget per request. A successful login resets the counter.
+
+| Log/audit injection via the OIDC `error` callback parameter
+| `error` is validated against a restrictive `^[A-Za-z0-9_.-]{1,64}$` pattern
+  (`sanitizeOidcErrorCode`) before it ever reaches a log line or the audit `reason` column;
+  `error_description` is never read or logged at all.
+
+| Escalated-role takeover via unverified email
+| `requireVerifiedEmail=false` still hard-blocks auto-linking to a `BOARD`/`TREASURER`/`ADMIN`
+  member -- unconditionally, not gated by the operator setting. `KeycloakStartupCheck` logs a
+  `WARN` whenever `requireVerifiedEmail` is off, naming the residual risk for ordinary members.
+
+| Open-redirect / SSRF via a tampered discovery document
+| `KeycloakIssuerUrlGuard.requireAllowedRequestUrl` re-validates
+  `authorization_endpoint`/`token_endpoint`/`end_session_endpoint` against the operator-pinned
+  `issuerUrl` on every use, not only once at startup.
+
+| Issuer confusion (a reachable-but-wrong-issuer Keycloak response)
+| `KeycloakOidcMetadata` rejects (never caches) a discovery document whose `issuer` field does
+  not exactly equal the pinned `issuerUrl`.
+
+| JWKS-`kid`-based load amplification
+| At most one forced JWKS refetch per unknown `kid` per 30-second cooldown
+  (`UNKNOWN_KID_REFETCH_COOLDOWN`), tracked globally so a burst of random `kid`s cannot each buy
+  their own refetch.
+
+| Silent admin takeover of an unlinked member (Wave 2)
+| Same-transaction audit write, SHA-256 subject fingerprint (never raw), a best-effort
+  member-facing security-notice email (sent after commit; a send failure is only logged, it is a
+  no-op when SMTP is not configured, and it is skipped when unlinking an anonymized or `DECEASED`
+  member), and full session revocation on unlink -- see "Manual linking" above and "Known
+  limitations".
+
+| Token persistence
+| `id_token`/`access_token` are read once in memory and never written to any table or log --
+  session strategy stays the existing cookie-based 8h Lapis Cloud session, unchanged by this
+  feature (spec decision 2).
+|===
+
+== Known limitations
+
+Real, known limits of the current implementation. None of them is a regression; they are the edges
+of what Waves 1-3 deliver:
+
+* **The emergency ADMIN login is single-factor.** Lapis Cloud has no second factor of its own, so while
+  `LAPIS_KEYCLOAK_EMERGENCY_ADMIN_LOGIN_ENABLED=true`, an ADMIN account can sign in with just its
+  local password and thereby bypass any multi-factor policy enforced in Keycloak. This is the price
+  of the safety net (an administrator must still be able to get in when Keycloak is down); if your
+  security policy requires MFA for administrators, weigh that against setting the switch to `false`
+  -- and read "Verify the emergency-admin path" in the deploy guide before you do.
+* **No back-channel logout.** Disabling a user or changing their password in Keycloak does not end
+  existing Lapis Cloud sessions; they run until they expire (`SessionStore.SESSION_TTL`, 8 hours) or
+  are revoked inside Lapis Cloud.
+* **Logging out of Lapis Cloud does not end the Keycloak SSO session.**
+  `/auth/keycloak/logout-redirect` exists but is not wired into the client's logout flow yet. On a
+  shared computer the next click on the SSO button therefore logs straight back in without asking
+  for a password.
+* **Unlinking is not durable if the email still matches.** After `unlinkMember`, the member's next
+  Keycloak login re-creates the link automatically as long as their Keycloak email still matches the
+  Lapis Cloud member email. To cut access for good, change or remove the Keycloak user.
+* **No notification when an automatic link is created.** Only manual link/unlink sends the
+  security-notice email, and that mail is best effort (see the security-properties table).
+* **A pre-existing BOARD-level email-change takeover path** (independent of Keycloak in origin: a
+  member email can be changed without proof of control of the new address) is deliberately left
+  unfixed in Wave 2. With Keycloak on, changing a member's email to one a Keycloak user controls can
+  be turned into an automatic-link takeover of that member.
+* **Manual linking is still possible for `BOARD`/`TREASURER`/`ADMIN` targets** (see "Manual linking").
+* **Keycloak setup mistakes are silent for members**: an unverified Keycloak email
+  (`EMAIL_NOT_VERIFIED`) or a non-RS256 signing algorithm (`UNKNOWN_KID`) shows the member only the
+  generic error page; the reason appears in the audit log and server log. See the deployment README's
+  client checklist.
+
+== Migration/rollout runbook
+
+See link:../../deploy/example/README.adoc#keycloak-login-optional["Keycloak-Login (optional)"]
+in the deployment README for the step-ordered runbook covering pre-flight email reconciliation,
+Keycloak client provisioning, the deploy sequence (including the `flywayRepair` requirement), the
+smoke-test order, manual-linking cleanup, and the rollback path.
+
+== See also
+
+* `network.lapis.cloud.server.keycloak.KeycloakConfig` KDoc -- the full environment-variable
+  contract and fail-fast-vs-degrade posture.
+* `network.lapis.cloud.server.keycloak.KeycloakIssuerUrlGuard` KDoc -- the issuer-URL rules
+  (HTTPS, loopback-only plaintext, literal private IPs rejected unless opted in).
+* `network.lapis.cloud.server.routes.KeycloakAuthRoutes` KDoc -- the three-endpoint route
+  skeleton in full detail.
+* `network.lapis.cloud.server.keycloak.KeycloakAccountLinker` KDoc -- the linking decision logic.
+* `network.lapis.cloud.server.rpc.KeycloakLinkService` KDoc -- the manual-linking RPC.
+* Vault note `03 Bereiche/Lapis Cloud/Keycloak Externe Benutzerverwaltung.md` -- original spec
+  and planning-phase decisions.
+* `network.lapis.cloud.server.routes.OidcRoutes`/
+  `network.lapis.cloud.server.federation.OidcDiscoveryDocument` -- the existing federated-guest
+  OIDC feature this one is the mirror image of.
