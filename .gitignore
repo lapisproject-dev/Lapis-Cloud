@@ -132,6 +132,7 @@ gradle-app.setting
 deploy/production/
 deploy/production-elb/
 deploy/production-staging/
+deploy/production-demo/
 
 # V1.2.11 PdV-CSV-Mitglieder-Import -- die CRM-Exportdatei enthaelt echte personenbezogene
 # Daten von 581 realen Personen, ebenso der erzeugte Ausschluss-Bericht. Beides ist
