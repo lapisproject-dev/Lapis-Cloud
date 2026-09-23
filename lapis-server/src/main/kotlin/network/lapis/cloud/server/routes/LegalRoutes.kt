@@ -33,6 +33,8 @@ fun Route.registerLegalRoutes(
     legal: LegalConfig,
     /** V1.6.1: renders the KI-assistance privacy paragraph -- only for an installation where the AI layer is operational. */
     aiAssistantEnabled: Boolean = false,
+    /** V1.7.1: renders the Keycloak-login privacy paragraph -- only for an installation with Keycloak login enabled. */
+    keycloakEnabled: Boolean = false,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
 
@@ -48,6 +50,7 @@ fun Route.registerLegalRoutes(
                 branding = branding,
                 lang = lang,
                 aiAssistantEnabled = aiAssistantEnabled,
+                keycloakEnabled = keycloakEnabled,
             )
         }
 

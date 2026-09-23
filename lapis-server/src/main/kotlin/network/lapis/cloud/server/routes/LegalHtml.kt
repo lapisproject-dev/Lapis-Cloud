@@ -70,6 +70,7 @@ internal object LegalHtml {
         branding: ResolvedBranding,
         lang: PublicLanguage,
         aiAssistantEnabled: Boolean = false,
+        keycloakEnabled: Boolean = false,
     ): String =
         skeleton(
             baseUrl = baseUrl,
@@ -77,7 +78,7 @@ internal object LegalHtml {
             lang = lang,
             currentPath = "/datenschutz",
             pageTitle = "Datenschutzerklärung",
-        ) { renderPrivacyBody(legal = legal, aiAssistantEnabled = aiAssistantEnabled) }
+        ) { renderPrivacyBody(legal = legal, aiAssistantEnabled = aiAssistantEnabled, keycloakEnabled = keycloakEnabled) }
 
     private fun skeleton(
         baseUrl: String,
@@ -242,6 +243,7 @@ internal object LegalHtml {
     private fun FlowContent.renderPrivacyBody(
         legal: LegalConfig,
         aiAssistantEnabled: Boolean,
+        keycloakEnabled: Boolean,
     ) {
         h1 { +"Datenschutzerklärung" }
         h2 { +"Verantwortliche Stelle" }
@@ -325,6 +327,16 @@ internal object LegalHtml {
                 )
             }
             li { +"Anmeldesitzungen (Session-Cookie) — Art. 6 Abs. 1 lit. b DSGVO i. V. m. § 25 Abs. 2 TDDDG." }
+            if (keycloakEnabled) {
+                li {
+                    +(
+                        "Anmeldung über Keycloak (externe Benutzerverwaltung), sofern vom Betreiber aktiv " +
+                            "genutzt: die Kontenzuordnung (Verknüpfung zwischen Ihrer Keycloak-Kennung und " +
+                            "Ihrem Mitgliedskonto) wird gespeichert, das eigentliche Passwort verwaltet " +
+                            "ausschließlich das externe Keycloak — Art. 6 Abs. 1 lit. b DSGVO."
+                    )
+                }
+            }
             li {
                 +(
                     "Interessenten-/Sympathisantenverwaltung (CRM), sofern vom Betreiber genutzt — Art. 6 " +

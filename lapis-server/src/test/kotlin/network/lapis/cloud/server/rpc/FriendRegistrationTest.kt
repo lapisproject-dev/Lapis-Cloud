@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -131,6 +132,29 @@ class FriendRegistrationTest :
                 agreementAckCount shouldBe 0L
 
                 recordingMailer.sentTo shouldBe listOf(email)
+            }
+        }
+
+        test(
+            "registerFriend: Keycloak mode enabled -- rejected with ConflictException, no member row created (review finding N3)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installFriendRegistrationExceptionHandlers() }
+                    routing {
+                        registerFriendRegistrationTestRoutes(
+                            keycloakConfig =
+                                KeycloakConfig.load(env = { name -> if (name == KeycloakConfig.ENV_ENABLED) "true" else null }),
+                        )
+                    }
+                }
+                val email = "friend-keycloak-enabled@example.org"
+
+                val response = client.post("/test/register-friend?email=$email")
+                response.status shouldBe HttpStatusCode.Conflict
+                // The whole point of the gate: no local-password member/account row is EVER created
+                // while Keycloak mode is on, not even a half-created one.
+                findMemberIdByEmail(email) shouldBe null
             }
         }
 
@@ -557,6 +581,12 @@ private fun Route.registerFriendRegistrationTestRoutes(
     friendIpRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
     config: FriendRegistrationConfig = FriendRegistrationConfig.load { null },
     mailer: FriendVerificationMailer = FakeFriendVerificationMailer(),
+    // Review finding N6 fix: explicit disabled config by default, not the production default that
+    // reads real `LAPIS_KEYCLOAK_*` env vars -- keeps this test deterministic regardless of the
+    // environment it runs in. Same idiom as `KeycloakEmergencyAdminLoginTest.kt`.
+    // Review finding N3 fix: now overridable so `registerFriend`'s Keycloak-mode `ConflictException`
+    // gate can be exercised end to end (see the new test below).
+    keycloakConfig: KeycloakConfig = KeycloakConfig.load(env = { null }),
 ) {
     fun registrationService(call: ApplicationCall) =
         RegistrationService(
@@ -566,6 +596,7 @@ private fun Route.registerFriendRegistrationTestRoutes(
             friendSignupIpRateLimiter = friendIpRateLimiter,
             friendRegistrationConfig = config,
             friendVerificationMailer = mailer,
+            keycloakConfig = keycloakConfig,
         )
     get("/test/friend-terms") {
         val dto = registrationService(call).getFriendTerms()

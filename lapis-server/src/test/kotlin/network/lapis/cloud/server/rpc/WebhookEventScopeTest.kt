@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.webhook.WebhookConfig
@@ -203,6 +204,8 @@ private fun Route.registerWebhookScopeTestRoutes() {
             friendRegistrationRateLimiter = friendRateLimiter,
             friendSignupIpRateLimiter = friendIpRateLimiter,
             friendVerificationMailer = FakeFriendVerificationMailer(),
+            // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
+            keycloakConfig = KeycloakConfig.load(env = { null }),
         )
 
     post("/test/register") {

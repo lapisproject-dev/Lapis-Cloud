@@ -3,6 +3,7 @@ package network.lapis.cloud.server
 import dev.kilua.rpc.applyRoutes
 import dev.kilua.rpc.getAllServiceManagers
 import dev.kilua.rpc.initRpc
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -85,6 +86,9 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
+import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
+import network.lapis.cloud.server.keycloak.KeycloakStartupCheck
 import network.lapis.cloud.server.legal.LegalConfig
 import network.lapis.cloud.server.legal.LegalStartupCheck
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
@@ -139,6 +143,7 @@ import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerEmbedRoutes
 import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
+import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
@@ -311,6 +316,8 @@ fun main() {
         .start(wait = true)
 }
 
+private val applicationLogger = KotlinLogging.logger {}
+
 fun Application.module() = module(aiConfig = AiConfig.load())
 
 /**
@@ -397,6 +404,27 @@ internal fun Application.module(aiConfig: AiConfig) {
     // "Cookie transport".
     val loginRateLimiter = LoginRateLimiter()
     val cookieSecure = System.getenv("LAPIS_COOKIE_SECURE")?.equals("false", ignoreCase = true) != true
+
+    // V1.7.1b "Keycloak als externe Benutzerverwaltung -- Server-Kern" -- optional, DEFAULT OFF
+    // (see KeycloakConfig KDoc). Same "never fail-fast unless enabled-but-broken" posture as
+    // SmtpConfig/SmtpStartupCheck above. keycloakStartRateLimiter is a SEPARATE, independent
+    // instance from loginRateLimiter -- see registerKeycloakAuthRoutes KDoc "start" handler.
+    // Review finding 1 fix: `recordFailure` is now only called from `/callback` on a genuine
+    // rejection (never on every `/start` page load, see that handler's own comment) -- so the
+    // budget below can go back to matching a real failed-attempt limiter's risk profile instead of
+    // needing headroom for ordinary retraffic. Kept a bit higher than the plain password-login
+    // limiter's default (5/15min) anyway, matching `mobileWebviewSessionFailureLimiter`'s reasoning:
+    // a shared client IP (party office, carrier NAT/CGNAT) can plausibly produce several distinct
+    // members' failed logins within the same 15-minute window.
+    val keycloakConfig = KeycloakConfig.load()
+    KeycloakStartupCheck.verifyAndLog(config = keycloakConfig, logger = applicationLogger)
+    val keycloakMetadata = KeycloakOidcMetadata(config = keycloakConfig)
+    val keycloakStartRateLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
+    // Security-audit fix (MAJOR 2b): a SEPARATE, independent instance from
+    // keycloakStartRateLimiter -- see registerKeycloakAuthRoutes KDoc "startFloodLimiter". Counts
+    // EVERY /start request (not just failures), same FederationInboxRateLimiter idiom the public
+    // federation inbox already uses.
+    val keycloakStartFloodLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.2.3 Echter SMTP-Versand -- EIN Transport für BEIDE Mailer (Passwort-Reset + FRIEND-
     // E-Mail-Verifizierung), siehe SmtpConfig KDoc. Ohne LAPIS_SMTP_*-Env-Vars fällt der
@@ -1402,6 +1430,10 @@ internal fun Application.module(aiConfig: AiConfig) {
                 friendRegistrationRateLimiter = friendRegistrationRateLimiter,
                 friendSignupIpRateLimiter = friendSignupIpRateLimiter,
                 friendVerificationMailer = friendVerificationMailer,
+                // Review finding 3 fix -- reuse the SAME KeycloakConfig singleton already loaded
+                // above (avoids a second, redundant env-var parse; see RegistrationService
+                // constructor KDoc "Keycloak mode").
+                keycloakConfig = keycloakConfig,
             )
         }
         registerService(IFederationService::class) { call -> FederationService(call) }
@@ -1577,6 +1609,14 @@ internal fun Application.module(aiConfig: AiConfig) {
             passwordResetRateLimiter = passwordResetRateLimiter,
             passwordResetMailer = passwordResetMailer,
             friendEmailVerifyRateLimiter = friendEmailVerifyRateLimiter,
+            keycloakConfig = keycloakConfig,
+        )
+        // V1.7.1b "Keycloak als externe Benutzerverwaltung -- Server-Kern".
+        registerKeycloakAuthRoutes(
+            config = keycloakConfig,
+            metadata = keycloakMetadata,
+            startRateLimiter = keycloakStartRateLimiter,
+            startFloodLimiter = keycloakStartFloodLimiter,
         )
         // V1.5.1 Mobile App -- thin REST wrapper around IConferenceService (see
         // MobileConferenceRoutes.kt KDoc) plus the WebView session-bridge endpoint (see
@@ -1653,6 +1693,7 @@ internal fun Application.module(aiConfig: AiConfig) {
             branding = resolvedBranding,
             legal = legalConfig,
             aiAssistantEnabled = aiConfig.isOperational,
+            keycloakEnabled = keycloakConfig.isOperational,
         )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own

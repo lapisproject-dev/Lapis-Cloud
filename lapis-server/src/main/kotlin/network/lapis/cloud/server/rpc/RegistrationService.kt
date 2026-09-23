@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.security.ESCALATED_ROLES
@@ -100,8 +101,25 @@ private val REGISTRATION_BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.AD
  * (a different, unrelated error) rather than silently no-op, so the whole insert sequence must share
  * one catch, exactly mirroring how [ElectionService.castElectionBallot]'s own multi-insert
  * ballot-casting path wraps its whole insert sequence in one try block for the identical reason.
+ *
+ * **Keycloak mode (V1.7.1b review fix).** Both self-registration paths below
+ * ([registerApplication]/[registerFriend]) hash and persist a local password as part of creating
+ * the account. When Keycloak has taken over authentication (`keycloakConfig.enabled`), that
+ * password is worse than useless: `AuthRoutes.kt`'s `keycloakBlocksLogin` refuses local-password
+ * login for any non-admin account, and the `/api/auth/password-reset` endpoints are a flat 404 in
+ * Keycloak mode -- so a self-registered account would be created successfully, report success to the caller, and
+ * then be permanently unable to log in, with no error ever shown to the user or the operator. Both
+ * methods now reject up front instead, with a [ConflictException] explaining that account creation
+ * happens via manual admin linking instead (see [KeycloakAccountLinker][network.lapis.cloud.server.keycloak.KeycloakAccountLinker]
+ * KDoc "Never creates a member" -- the manual-linking admin panel itself is Wave 2, not yet built).
+ *
+ * **`internal constructor`.** [keycloakConfig]'s type (`KeycloakConfig`) is itself `internal` (see
+ * that class's own KDoc), so the primary constructor cannot stay implicitly public
+ * (`EXPOSED_PARAMETER_TYPE`). Same-module callers (`Application.kt`'s `registerService` wiring, and
+ * every test in `lapis-server`'s own test source set) are unaffected -- `internal` is visible
+ * across main/test within one Gradle module.
  */
-class RegistrationService(
+class RegistrationService internal constructor(
     private val call: ApplicationCall,
     private val registrationRateLimiter: LoginRateLimiter,
     /**
@@ -127,6 +145,17 @@ class RegistrationService(
      * enforces the wiring instead of allowing a silent default.
      */
     private val friendVerificationMailer: FriendVerificationMailer,
+    /**
+     * Review finding 3 fix (V1.7.1b): default-constructs its own [KeycloakConfig.load] like
+     * [network.lapis.cloud.server.routes.registerAuthRoutes]'s own `keycloakConfig` parameter does,
+     * so existing call sites/tests that don't pass one keep working unchanged. When Keycloak mode
+     * is enabled, [registerApplication]/[registerFriend] reject up front instead of hashing and
+     * persisting a local password for an account that can never actually log in with it (Keycloak
+     * mode blocks non-admin local-password login, see `AuthRoutes.kt`'s `keycloakBlocksLogin`) and
+     * cannot reset it either (the password-reset endpoints are 404 in Keycloak mode) -- see class
+     * KDoc "Keycloak mode" below for the full reasoning.
+     */
+    private val keycloakConfig: KeycloakConfig = KeycloakConfig.load(),
 ) : IRegistrationService {
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
         MembershipAgreementDto(
@@ -145,6 +174,16 @@ class RegistrationService(
      * (reusing the same [LoginRateLimiter] class, a fresh instance for this endpoint).
      */
     override suspend fun registerApplication(input: RegistrationInput) {
+        // Review finding 3 fix -- see constructor KDoc "Keycloak mode". Checked first, before any
+        // rate-limiting/validation work: a local password created here can never be used to log in
+        // once Keycloak mode is on, so reject cleanly instead of silently producing a permanently
+        // unusable account.
+        if (keycloakConfig.enabled) {
+            throw ConflictException(
+                "Self-registration with a local password is disabled while Keycloak login is active -- " +
+                    "please contact the administration to have your account created and linked manually.",
+            )
+        }
         val normalizedEmail = input.email.trim().lowercase()
         val emailKey = "email:$normalizedEmail"
         val ipKey = "ip:${call.request.origin.remoteHost}"
@@ -422,6 +461,16 @@ class RegistrationService(
      * a way it structurally isn't there).
      */
     override suspend fun registerFriend(input: FriendRegistrationInput) {
+        // Review finding 3 fix -- see constructor KDoc "Keycloak mode" / registerApplication's
+        // identical gate above. A FRIEND account is even more clearly affected than an APPLICATION
+        // one: it is immediately usable-looking (no board approval step) but, in Keycloak mode,
+        // just as unable to ever log in with the password this endpoint would otherwise set.
+        if (keycloakConfig.enabled) {
+            throw ConflictException(
+                "Self-registration with a local password is disabled while Keycloak login is active -- " +
+                    "please contact the administration to have your account created and linked manually.",
+            )
+        }
         // 1. Hard per-IP request-rate cap FIRST -- cheapest possible rejection for the highest-
         // volume abuse shape (see FederationInboxRateLimiter KDoc "counts EVERY request").
         val ipKey = "ip:${call.request.origin.remoteHost}"

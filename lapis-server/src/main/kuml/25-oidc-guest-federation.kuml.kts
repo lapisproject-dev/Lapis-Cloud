@@ -58,6 +58,13 @@ classDiagram(name = "OidcGuestFederation") {
         literal(name = "ISSUER_TOKEN_ISSUE_FAILED")
         literal(name = "BACKCHANNEL_LOGOUT_RECEIVED")
         literal(name = "BACKCHANNEL_LOGOUT_SENT")
+        // V1.7.1b review fix: the Keycloak RP login flow (KeycloakAuthRoutes.kt) reuses this same
+        // audit trail rather than inventing a parallel one -- see OidcLoginEventType KDoc and
+        // migration V46__keycloak_login_event_types.sql.
+        literal(name = "KEYCLOAK_LOGIN_SUCCESS")
+        literal(name = "KEYCLOAK_LOGIN_FAILED")
+        literal(name = "KEYCLOAK_LINK_CREATED")
+        literal(name = "KEYCLOAK_LINK_MISS")
     }
 
     // Singleton row -- this server's own OIDC JWS signing keypair. Separate from

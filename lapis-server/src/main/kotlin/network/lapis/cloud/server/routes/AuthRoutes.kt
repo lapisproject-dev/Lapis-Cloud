@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -125,7 +126,7 @@ data class FriendEmailVerifyRequest(
  * [PasswordResetRequestRequest.email] is registered (same account-enumeration posture as
  * `/api/auth/login`).
  */
-fun Route.registerAuthRoutes(
+internal fun Route.registerAuthRoutes(
     rateLimiter: LoginRateLimiter,
     cookieSecure: Boolean,
     passwordResetRateLimiter: LoginRateLimiter,
@@ -138,6 +139,15 @@ fun Route.registerAuthRoutes(
      * only (the endpoint is unauthenticated and the token itself is the only identity involved).
      */
     friendEmailVerifyRateLimiter: LoginRateLimiter,
+    /**
+     * V1.7.1b "Keycloak als externe Benutzerverwaltung" -- when [KeycloakConfig.enabled], this
+     * instance is fully in Keycloak mode (see [KeycloakConfig.isOperational]/
+     * `KeycloakStartupCheck`, which fail the process at startup rather than ever leave `enabled`
+     * true with an incomplete configuration -- so by the time a request reaches here, `enabled`
+     * already implies operational). Defaults to [KeycloakConfig.load] so every pre-existing call
+     * site (this codebase's own tests included) keeps compiling unchanged with Keycloak off.
+     */
+    keycloakConfig: KeycloakConfig = KeycloakConfig.load(),
 ) {
     post("/api/auth/login") {
         val request =
@@ -172,7 +182,19 @@ fun Route.registerAuthRoutes(
         // the exact same passwordOk==false path as any other wrong password (no extra branch that
         // could leak status via response timing).
         val statusBlocksLogin = accountRow?.get(MemberTable.status) in MemberStatusSets.LOGIN_BLOCKED
-        if (accountRow == null || !passwordOk || statusBlocksLogin) {
+        // V1.7.1b Keycloak mode -- see [keycloakConfig] KDoc + the vault spec decision 3
+        // ("emergency login for admins remains"). Folded into the SAME combined rejection branch
+        // as passwordOk/statusBlocksLogin above (not a separate early return) so the response
+        // shape/timing here stays identical regardless of WHY a caller is rejected -- a separate
+        // branch would reopen the exact login-oracle (which emails belong to admin accounts) the
+        // class KDoc "Account-enumeration hardening" already closes for the password/status
+        // cases. Only an ADMIN account may still use this internal password login while Keycloak
+        // is the instance's login mode, and only while the operator has not explicitly disabled
+        // the emergency fallback (KeycloakConfig.emergencyAdminLoginEnabled).
+        val keycloakBlocksLogin =
+            keycloakConfig.enabled &&
+                (accountRow?.get(AccountTable.role) != AccountRole.ADMIN || !keycloakConfig.emergencyAdminLoginEnabled)
+        if (accountRow == null || !passwordOk || statusBlocksLogin || keycloakBlocksLogin) {
             rateLimiter.recordFailure(emailKey)
             rateLimiter.recordFailure(ipKey)
             call.respondText("Invalid credentials", status = HttpStatusCode.Unauthorized)
@@ -247,6 +269,15 @@ fun Route.registerAuthRoutes(
     }
 
     post("/api/auth/password-reset/request") {
+        // V1.7.1b Keycloak mode -- password reset is meaningless once Keycloak owns non-admin
+        // credentials, and leaving it live for admins-only would itself leak who is an admin (the
+        // very enumeration leak this endpoint's "identical response either way" contract exists
+        // to prevent). 404, not 400/403 -- no feature-existence leak either, same posture
+        // KeycloakAuthRoutes' own /auth/keycloak/start takes when the feature is off.
+        if (keycloakConfig.enabled) {
+            call.respond(HttpStatusCode.NotFound)
+            return@post
+        }
         val request =
             runCatching { Json.decodeFromString(PasswordResetRequestRequest.serializer(), call.receiveText()) }.getOrNull()
         if (request == null || request.email.isBlank()) {
@@ -288,6 +319,11 @@ fun Route.registerAuthRoutes(
     }
 
     post("/api/auth/password-reset/confirm") {
+        // See "/api/auth/password-reset/request" above -- same gate.
+        if (keycloakConfig.enabled) {
+            call.respond(HttpStatusCode.NotFound)
+            return@post
+        }
         val request =
             runCatching { Json.decodeFromString(PasswordResetConfirmRequest.serializer(), call.receiveText()) }.getOrNull()
         if (request == null || request.token.isBlank() || request.newPassword.isBlank()) {

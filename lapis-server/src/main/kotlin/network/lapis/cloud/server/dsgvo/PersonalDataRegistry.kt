@@ -61,6 +61,7 @@ object PersonalDataRegistry {
             OpenItemPersonalData,
             MemberCardPersonalData,
             AiAssistantPersonalData,
+            KeycloakLinkPersonalData,
         )
 
     /**

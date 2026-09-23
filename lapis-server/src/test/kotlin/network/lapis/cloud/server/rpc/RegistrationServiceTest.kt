@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgment
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -132,7 +133,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val response = client.get("/test/agreement")
                 response.status shouldBe HttpStatusCode.OK
@@ -144,7 +145,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-happy@example.org"
 
@@ -175,7 +176,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-bad-agreement@example.org"
 
@@ -192,7 +193,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-weak-password@example.org"
 
@@ -208,7 +209,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 // %0D%0A decodes to an actual CR/LF pair by the time RegistrationService sees
                 // `queryParameters["email"]` -- same attack shape as the CRLF-log-injection finding
@@ -226,7 +227,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 client.post("/test/register?email=not-an-email-at-all").status shouldBe HttpStatusCode.Conflict
             }
@@ -236,7 +237,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-blank-name@example.org"
 
@@ -252,7 +253,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-duplicate@example.org"
 
@@ -277,7 +278,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-timing@example.org"
 
@@ -313,7 +314,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-concurrent-dup@example.org"
 
@@ -336,7 +337,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val statuses =
                     (1..10).map { i ->
@@ -350,11 +351,39 @@ class RegistrationServiceTest :
             }
         }
 
+        test(
+            "registerApplication: Keycloak mode enabled -- rejected with ConflictException, no member row created (review finding N3)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            // Round 3 review finding F5 fix: matches `FriendRegistrationTest.kt`'s
+                            // cleaner one-line equivalent for the same "simulate
+                            // LAPIS_KEYCLOAK_ENABLED=true" pattern instead of this ktlint
+                            // auto-format artifact.
+                            keycloakConfig =
+                                KeycloakConfig.load(env = { name -> if (name == KeycloakConfig.ENV_ENABLED) "true" else null }),
+                        )
+                    }
+                }
+                val email = "reg-keycloak-enabled@example.org"
+
+                val response = client.post("/test/register?email=$email")
+                response.status shouldBe HttpStatusCode.Conflict
+                // The whole point of the gate: no local-password member/account row is EVER created
+                // while Keycloak mode is on, not even a half-created one.
+                findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
         test("listPendingApplications: MEMBER is forbidden, BOARD sees only ANTRAG applicants") {
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val applicant = createTestMember("reg-list-applicant@example.org", MemberStatus.APPLICATION)
                 val activeMember = createTestMember("reg-list-active@example.org", MemberStatus.ACTIVE)
@@ -372,7 +401,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val applicant = createTestMember("reg-approve@example.org", MemberStatus.APPLICATION)
 
@@ -392,7 +421,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val applicant = createTestMember("reg-reject@example.org", MemberStatus.APPLICATION)
 
@@ -417,7 +446,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val applicant = createTestMember("reg-reject-session@example.org", MemberStatus.APPLICATION)
                 val session = SessionStore.createSession(applicant)
@@ -443,7 +472,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val applicant = createTestMember("reg-reject-no-session@example.org", MemberStatus.APPLICATION)
 
@@ -459,7 +488,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val applicant = createTestMember("reg-race@example.org", MemberStatus.APPLICATION)
 
@@ -479,7 +508,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
 
                 val forbiddenByMember =
@@ -510,7 +539,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-direct-admin@example.org"
                 val response = client.post("/test/create-direct?email=$email&role=ADMIN") { header("X-Member-Id", ADMIN_ID) }
@@ -524,7 +553,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val email = "reg-direct-dup@example.org"
                 val first = client.post("/test/create-direct?email=$email&role=MEMBER") { header("X-Member-Id", BOARD_ID) }
@@ -542,7 +571,7 @@ class RegistrationServiceTest :
             testApplication {
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
-                    routing { registerRegistrationTestRoutes(LoginRateLimiter()) }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
                 }
                 val member = createTestMember("reg-leave@example.org", MemberStatus.ACTIVE)
                 val session = SessionStore.createSession(member)
@@ -569,7 +598,7 @@ class RegistrationServiceTest :
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing {
-                        registerRegistrationTestRoutes(LoginRateLimiter())
+                        registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter())
                         registerCommitteeHelperRoutesForRegistrationTests()
                     }
                 }
@@ -612,7 +641,7 @@ class RegistrationServiceTest :
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing {
-                        registerRegistrationTestRoutes(LoginRateLimiter())
+                        registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter())
                         registerCommitteeHelperRoutesForRegistrationTests()
                     }
                 }
@@ -673,7 +702,7 @@ class RegistrationServiceTest :
                 application {
                     install(StatusPages) { installRegistrationExceptionHandlers() }
                     routing {
-                        registerRegistrationTestRoutes(LoginRateLimiter())
+                        registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter())
                         registerCommitteeHelperRoutesForRegistrationTests()
                     }
                 }
@@ -853,7 +882,16 @@ private fun StatusPagesConfig.installRegistrationExceptionHandlers() {
 }
 
 /** Shared throwaway routes for [RegistrationService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
-private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) {
+private fun Route.registerRegistrationTestRoutes(
+    rateLimiter: LoginRateLimiter,
+    // Review finding N6 fix: explicit disabled config by default -- see `FriendRegistrationTest.kt`.
+    // Review finding N3 fix: now overridable so `registerApplication`'s Keycloak-mode
+    // `ConflictException` gate can be exercised end to end (see "registerApplication: Keycloak mode
+    // enabled..." test below in this file; the analogous `registerFriend` test lives in
+    // `FriendRegistrationTest.kt`, round 3 review finding F5 fix -- an earlier version of this
+    // comment incorrectly claimed both tests were in this file).
+    keycloakConfig: KeycloakConfig = KeycloakConfig.load(env = { null }),
+) {
     // V0.11.0: fresh throwaway instances per test-route-set, same convention `rateLimiter` above
     // already establishes -- these two are exercised directly by FriendRegistrationTest, not here.
     val friendRateLimiter = LoginRateLimiter()
@@ -866,6 +904,7 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
             friendRegistrationRateLimiter = friendRateLimiter,
             friendSignupIpRateLimiter = friendIpRateLimiter,
             friendVerificationMailer = FakeFriendVerificationMailer(),
+            keycloakConfig = keycloakConfig,
         )
     get("/test/agreement") {
         val dto = registrationService(call).getMembershipAgreement()

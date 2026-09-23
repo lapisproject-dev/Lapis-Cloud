@@ -6,6 +6,48 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **V1.7.1 -- Keycloak login core (Wave 1 of 3, server-only, no version bump yet)** -- adds an
+  external-IdP login path via Keycloak (OIDC Relying Party) alongside the existing password/OIDC-guest
+  logins: `KeycloakConfig` (env-driven, disabled by default), issuer-URL pinning
+  (`KeycloakIssuerUrlGuard`, re-validated on every discovery-document-derived redirect target, not just
+  at startup), `KeycloakAccountLinker` (matches a verified Keycloak identity to an existing
+  `member` row by email, rejecting ambiguous/unverified/already-linked/no-match cases with a distinct
+  reason each), and the `/auth/keycloak/*` routes (`KeycloakAuthRoutes.kt`) wiring PKCE-based
+  login/callback/logout with rate-limiting and forensic audit logging into the existing
+  `oidc_guest_login_event` table (`OidcLoginEventType.KEYCLOAK_LOGIN_SUCCESS`/`KEYCLOAK_LOGIN_FAILED`/
+  `KEYCLOAK_LINK_CREATED`/`KEYCLOAK_LINK_MISS`). **No UI yet** -- account linking today is
+  administrative/manual, a self-service linking screen is a later wave (2 or 3 of 3). Review round 2
+  additionally hardened: `KEYCLOAK_LINK_MISS` no longer writes the rejected email into the DSGVO-clean
+  `oidc_guest_login_event.reason` column (fixed code constant `NO_MATCHING_MEMBER` instead, matching
+  every other `reason=` site in this codebase; only the Keycloak `subject` -- never the email -- is
+  logged transiently at `logger.info`, for operator debugging via the Keycloak admin console);
+  the account-linker's race-condition fallback now narrows its catch to the actual
+  Postgres unique-violation SQL state (`23505`) instead of any SQL exception; and dedicated tests were
+  added for the registration-conflict gate, the account-linker's ambiguous/conflicting/first-link
+  paths, and the discovery-document issuer-pinning re-validation on both the authorization and
+  end-session endpoints. Review round 3 further hardened: the unique-violation-mapping logic is now
+  a directly unit-tested function (`mapLinkInsertFailure`, exercised with real `ExposedSQLException`
+  fixtures for both the unique-violation and foreign-key-violation SQLSTATEs) instead of only being
+  exercised indirectly through an overlong-`keycloak_subject` test that never actually reached that
+  code path; and a store-level test now proves `GuestIdentityBoundToNonGuestMemberException` is
+  thrown when a Keycloak/OIDC `(issuer, subject)` pair already resolves to a non-GUEST member.
+
+  > [!WARNING]
+  > **`V1__baseline.sql`'s checksum changes again** -- this wave appends
+  > `'KEYCLOAK_LOGIN_SUCCESS'`/`'KEYCLOAK_LOGIN_FAILED'`/`'KEYCLOAK_LINK_CREATED'`/`'KEYCLOAK_LINK_MISS'`
+  > to the inline `oidc_guest_login_event.event_type` CHECK constraint in place (same reasoning as every
+  > prior in-place baseline edit in this file: H2's own auto-generated constraint governs fresh/test
+  > databases and must carry every literal, or an INSERT with the new event types fails validation even
+  > after `V46__keycloak_login_event_types.sql` runs against a real Postgres instance). **Mandatory
+  > order on `PROD_HOST`/`ELB_HOST`/`STAGING_HOST` (all three already have `V1` applied with the old
+  > checksum): `flyway repair` (`./gradlew :lapis-server:flywayRepair`) FIRST, then deploy, then let
+  > `flyway migrate` apply `V46__keycloak_login_event_types.sql`.** Skipping the repair step makes
+  > `flyway migrate` refuse to run (checksum mismatch on `V1`), so `lapis-server` will fail to start on
+  > the next deploy to any of the three instances. Same pattern as every earlier `V1__baseline.sql`
+  > in-place edit documented elsewhere in this file (V1.1.1, V1.1.5, V1.2.2, ...).
+
 ### Changed
 
 - **W4d form-grammar migration, completed (no new version)** -- the seven remaining screens of the original W4d

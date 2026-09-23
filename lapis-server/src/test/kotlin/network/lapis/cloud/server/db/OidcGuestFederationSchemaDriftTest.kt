@@ -160,6 +160,11 @@ class OidcGuestFederationSchemaDriftTest :
                             "ISSUER_TOKEN_ISSUE_FAILED",
                             "BACKCHANNEL_LOGOUT_RECEIVED",
                             "BACKCHANNEL_LOGOUT_SENT",
+                            // V1.7.1b review fix -- see OidcLoginEventType KDoc.
+                            "KEYCLOAK_LOGIN_SUCCESS",
+                            "KEYCLOAK_LOGIN_FAILED",
+                            "KEYCLOAK_LINK_CREATED",
+                            "KEYCLOAK_LINK_MISS",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.OidcLoginEventType",
                 )

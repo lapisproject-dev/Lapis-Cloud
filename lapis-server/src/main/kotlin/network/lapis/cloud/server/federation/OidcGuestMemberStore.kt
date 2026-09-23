@@ -27,6 +27,18 @@ data class OidcGuestClaims(
 )
 
 /**
+ * Thrown by [OidcGuestMemberStore.resolveOrCreateGuestMember] when the `(issuer, subject)` pair
+ * is already bound to a member whose status is no longer `GUEST` -- see the call site's KDoc for
+ * why this must never fall through to "create a new guest". Caught by
+ * [network.lapis.cloud.server.routes.OidcRoutes]'s RP callback handler and turned into a proper
+ * `401` + [network.lapis.cloud.server.audit.OidcLoginAuditRecorder] audit row, same as every other
+ * rejection reason in that handler -- never an unhandled `500`.
+ */
+class GuestIdentityBoundToNonGuestMemberException(
+    message: String,
+) : IllegalStateException(message)
+
+/**
  * V0.8.2 design decision: a guest visiting this server IS represented as a real `Member` row with
  * `status = GUEST`, paired with a real `Account` row (`role = MEMBER`, `oidc_issuer`/`oidc_subject`
  * populated) -- reusing every existing FK-based mechanism and the exact same
@@ -60,12 +72,35 @@ object OidcGuestMemberStore {
     ): Uuid =
         transaction {
             val now = nowLocalDateTime()
-            val existingMemberId =
+            // V1.7.1b defensive fix -- looks up by (issuer, subject) alone (NOT narrowed by
+            // `status = GUEST` in the WHERE clause) so a row that exists but is no longer GUEST is
+            // seen and explicitly rejected below, rather than silently falling through to the
+            // "create a new guest" branch. That fallthrough was itself the bug (review finding 8,
+            // V1.7.1b review): a narrowed WHERE clause makes an (issuer, subject) pair that ever got
+            // reassigned onto a non-GUEST account row (e.g. through a future admin action, or a bug
+            // elsewhere) look like "no existing guest", so the code below would try to INSERT a
+            // second `Account` row with the SAME (oidc_issuer, oidc_subject) pair -- violating that
+            // pair's uniqueness constraint and surfacing as an unhandled 500 instead of a clear
+            // error. Rejecting explicitly here, before any INSERT is attempted, closes that gap.
+            val existingRow =
                 (AccountTable innerJoin MemberTable)
                     .selectAll()
-                    .where { (AccountTable.oidcIssuer eq claims.issuer) and (AccountTable.oidcSubject eq claims.subject) }
-                    .singleOrNull()
-                    ?.get(MemberTable.id)
+                    .where {
+                        (AccountTable.oidcIssuer eq claims.issuer) and
+                            (AccountTable.oidcSubject eq claims.subject)
+                    }.singleOrNull()
+            if (existingRow != null && existingRow[MemberTable.status] != MemberStatus.GUEST) {
+                // Review finding N5 fix (round 2): this is caught by name in
+                // `OidcRoutes.kt`'s RP callback handler and turned into a `401` + audit row --
+                // NOT a bare unhandled `500`. `IllegalStateException`/`error(...)` used to be
+                // thrown here uncaught; a dedicated exception type lets the caller distinguish
+                // this specific, expected-but-rare edge case from a genuine programming error.
+                throw GuestIdentityBoundToNonGuestMemberException(
+                    "OIDC guest identity (issuer=${claims.issuer}) is already bound to a non-GUEST " +
+                        "member -- refusing to resolve or create a guest session for it",
+                )
+            }
+            val existingMemberId = existingRow?.get(MemberTable.id)
 
             val memberId =
                 existingMemberId ?: run {

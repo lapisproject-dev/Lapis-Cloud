@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.module
 import network.lapis.cloud.server.rpc.GovernanceService
@@ -141,6 +142,8 @@ class GovernanceStatusMachineJourneyTest :
                                 friendRegistrationRateLimiter = LoginRateLimiter(),
                                 friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                 friendVerificationMailer = FakeFriendVerificationMailer(),
+                                // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
+                                keycloakConfig = KeycloakConfig.load(env = { null }),
                             ).registerApplication(
                                 RegistrationInput(
                                     displayName = APPLICANT_DISPLAY_NAME,
@@ -160,6 +163,8 @@ class GovernanceStatusMachineJourneyTest :
                                     friendRegistrationRateLimiter = LoginRateLimiter(),
                                     friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                     friendVerificationMailer = FakeFriendVerificationMailer(),
+                                    // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
+                                    keycloakConfig = KeycloakConfig.load(env = { null }),
                                 ).approveApplication(call.parameters["id"]!!)
                             call.respondText(dto.status.name)
                         }
@@ -171,6 +176,8 @@ class GovernanceStatusMachineJourneyTest :
                                     friendRegistrationRateLimiter = LoginRateLimiter(),
                                     friendSignupIpRateLimiter = FederationInboxRateLimiter(),
                                     friendVerificationMailer = FakeFriendVerificationMailer(),
+                                    // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
+                                    keycloakConfig = KeycloakConfig.load(env = { null }),
                                 ).leaveMembership()
                             call.respondText(dto.status.name)
                         }

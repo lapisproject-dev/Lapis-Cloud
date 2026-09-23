@@ -245,8 +245,9 @@ class LegalHtmlTest :
                 "that gap because a missing bullet does not fail PersonalDataCoverageTest's " +
                 "information_schema walk, only THIS test walks the rendered legal text itself.",
         ) {
-            // aiAssistantEnabled = true: the KI paragraph is conditional (V1.6.1), so the guard must
-            // render the variant in which the aiAssistant contributor actually has processing to describe.
+            // aiAssistantEnabled = true / keycloakEnabled = true: both paragraphs are conditional
+            // (V1.6.1 / V1.7.1), so the guard must render the variant in which every optional
+            // contributor actually has processing to describe.
             val html =
                 LegalHtml.privacyPage(
                     legal = completeLegalConfig(),
@@ -254,6 +255,7 @@ class LegalHtmlTest :
                     branding = branding,
                     lang = PublicLanguage.DE,
                     aiAssistantEnabled = true,
+                    keycloakEnabled = true,
                 )
             val purposesSection =
                 html.substringAfter("Zwecke und Rechtsgrundlagen der Verarbeitung").substringBefore("Empfänger")
@@ -301,6 +303,7 @@ class LegalHtmlTest :
                     "bank-account-fints" to "FinTS/HBCI-Live-Kontoabruf",
                     "openItems" to "Kreditoren-/Debitorenbuchhaltung",
                     "aiAssistant" to "KI-gestützte Satzungsauskunft",
+                    "keycloak_login" to "Anmeldung über Keycloak",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

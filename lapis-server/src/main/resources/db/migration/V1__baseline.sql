@@ -1656,12 +1656,20 @@ CREATE UNIQUE INDEX uq_oidc_guest_profile_member_id ON oidc_guest_profile (membe
 
 -- member_id is DELIBERATELY plain UUID, NO FOREIGN KEY -- see 25-oidc-guest-federation.kuml.kts
 -- file header and OidcGuestLoginEventTable KDoc. Pinned by OidcGuestFederationSchemaDriftTest.
+-- V1.7.1b review fix: 'KEYCLOAK_LOGIN_SUCCESS'/'KEYCLOAK_LOGIN_FAILED'/'KEYCLOAK_LINK_CREATED'/
+-- 'KEYCLOAK_LINK_MISS' appended in place -- see V13__psp_checkout.sql's comment above on
+-- audit_log_entry.entity_type for why: this inline, still-unnamed (H2 auto-generated name, e.g.
+-- CONSTRAINT_3B7F) constraint is the one that actually governs every FRESH/test database, so it
+-- must carry every literal too, or an INSERT with event_type = 'KEYCLOAK_LOGIN_SUCCESS' fails the
+-- check even after V46__keycloak_login_event_types.sql runs (H2 enforces both constraints
+-- independently). Flyway repair needed on an already-migrated instance, same as that precedent.
 CREATE TABLE oidc_guest_login_event (
     id UUID PRIMARY KEY,
     occurred_at TIMESTAMP NOT NULL,
     event_type VARCHAR(27) NOT NULL CHECK (event_type IN
         ('RP_LOGIN_SUCCESS', 'RP_LOGIN_FAILED', 'ISSUER_TOKEN_ISSUED', 'ISSUER_TOKEN_ISSUE_FAILED',
-         'BACKCHANNEL_LOGOUT_RECEIVED', 'BACKCHANNEL_LOGOUT_SENT')),
+         'BACKCHANNEL_LOGOUT_RECEIVED', 'BACKCHANNEL_LOGOUT_SENT',
+         'KEYCLOAK_LOGIN_SUCCESS', 'KEYCLOAK_LOGIN_FAILED', 'KEYCLOAK_LINK_CREATED', 'KEYCLOAK_LINK_MISS')),
     member_id UUID,
     remote_party VARCHAR(2048),
     reason VARCHAR(255)

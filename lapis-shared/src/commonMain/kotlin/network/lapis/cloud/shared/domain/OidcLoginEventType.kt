@@ -23,4 +23,18 @@ enum class OidcLoginEventType {
     ISSUER_TOKEN_ISSUE_FAILED,
     BACKCHANNEL_LOGOUT_RECEIVED,
     BACKCHANNEL_LOGOUT_SENT,
+
+    /**
+     * V1.7.1b "Keycloak als externe Benutzerverwaltung" -- reuses this same forensic audit trail
+     * (`oidc_guest_login_event`) rather than inventing a parallel logging mechanism, even though
+     * the Keycloak RP flow ([network.lapis.cloud.server.routes.KeycloakAuthRoutes]) is a
+     * structurally different trust model from the V0.8.2 OIDC guest flow above (see
+     * [network.lapis.cloud.server.keycloak.KeycloakAccountLinker] KDoc). The four literals below
+     * were anticipated in the original V1.7.1b plan and are wired in by `KeycloakAuthRoutes`'s
+     * callback handler.
+     */
+    KEYCLOAK_LOGIN_SUCCESS,
+    KEYCLOAK_LOGIN_FAILED,
+    KEYCLOAK_LINK_CREATED,
+    KEYCLOAK_LINK_MISS,
 }

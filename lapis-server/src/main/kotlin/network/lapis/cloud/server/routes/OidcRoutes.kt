@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.OidcIssuedTokenTable
 import network.lapis.cloud.server.db.generated.OidcRpLoginAttemptTable
 import network.lapis.cloud.server.db.generated.OidcSigningKeyTable
 import network.lapis.cloud.server.federation.FederationConfig
+import network.lapis.cloud.server.federation.GuestIdentityBoundToNonGuestMemberException
 import network.lapis.cloud.server.federation.OIDC_SIGNING_KEY_ID
 import network.lapis.cloud.server.federation.OidcClientRegistrar
 import network.lapis.cloud.server.federation.OidcClientRegistrationOutcome
@@ -813,7 +814,27 @@ fun Route.registerOidcRoutes(
                 }.joinToString(" ")
                 .ifBlank { OidcScopes.ALWAYS_GRANTED.joinToString(" ") }
 
-        val memberId = OidcGuestMemberStore.resolveOrCreateGuestMember(claims = guestClaims, grantedScope = grantedScope)
+        // Review finding N5 fix (round 2): `resolveOrCreateGuestMember` can throw
+        // `GuestIdentityBoundToNonGuestMemberException` for the rare "identity already bound to a
+        // non-GUEST member" edge case -- caught here and turned into the same `401` + audit-row
+        // shape every other rejection in this handler uses, instead of an unhandled `500` with no
+        // audit trail.
+        val memberId =
+            try {
+                OidcGuestMemberStore.resolveOrCreateGuestMember(claims = guestClaims, grantedScope = grantedScope)
+            } catch (e: GuestIdentityBoundToNonGuestMemberException) {
+                OidcLoginAuditRecorder.record(
+                    eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                    remoteParty = homeServerIssuer,
+                    reason = "GUEST_IDENTITY_BOUND_TO_NON_GUEST_MEMBER",
+                )
+                call.respondText(
+                    errorPageHtml("This identity is already linked to a different, non-guest account."),
+                    contentType = io.ktor.http.ContentType.Text.Html,
+                    status = HttpStatusCode.Unauthorized,
+                )
+                return@get
+            }
         val issuedSession = SessionStore.createSession(memberId)
         call.response.cookies.append(
             Cookie(

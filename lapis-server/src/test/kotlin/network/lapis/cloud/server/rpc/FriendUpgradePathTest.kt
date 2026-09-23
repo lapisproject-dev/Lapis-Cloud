@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
@@ -330,6 +331,8 @@ private fun Route.registerFriendUpgradeTestRoutes() {
             friendRegistrationRateLimiter = LoginRateLimiter(),
             friendSignupIpRateLimiter = FederationInboxRateLimiter(),
             friendVerificationMailer = FakeFriendVerificationMailer(),
+            // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
+            keycloakConfig = KeycloakConfig.load(env = { null }),
         )
     post("/test/apply-for-membership") {
         val q = call.request.queryParameters
@@ -351,6 +354,8 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
             friendRegistrationRateLimiter = LoginRateLimiter(),
             friendSignupIpRateLimiter = FederationInboxRateLimiter(),
             friendVerificationMailer = FakeFriendVerificationMailer(),
+            // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
+            keycloakConfig = KeycloakConfig.load(env = { null }),
         )
     post("/test/approve/{id}") {
         val dto = registrationService(call).approveApplication(call.parameters["id"]!!)
