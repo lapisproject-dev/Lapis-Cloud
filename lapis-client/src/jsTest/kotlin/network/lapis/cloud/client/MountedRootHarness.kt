@@ -32,6 +32,10 @@ internal inline fun <T> withMountedRoot(
     try {
         return block(root) { document.getElementById(id) as HTMLElement }
     } finally {
+        // BEFORE `dispose()`: disposing the root tears an open modal out of the document while Bootstrap still holds its
+        // focus trap, which then pulls `document.activeElement` onto a modal button in whichever test class runs next.
+        // See [hardResetModalState] for the full mechanism ("Cluster A").
+        hardResetModalState()
         root.dispose()
         document.getElementById(id)?.remove()
     }

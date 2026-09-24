@@ -45,6 +45,33 @@ internal suspend fun closeOpenModals(timeoutMs: Int = 3000) {
         delay(100)
         waited += 100
     }
+    // The element removal below is the safety net. Blurring has to happen BEFORE it, while the focused modal button is
+    // still in the document -- afterwards `document.activeElement` is already `<body>` and there is nothing left to blur.
+    hardResetModalState()
+}
+
+/**
+ * The synchronous last resort, run by [withMountedRoot] after EVERY mounted test -- not just in the classes that
+ * remembered to call [closeOpenModals]. A modal left open by one test class covers the page for every class that runs
+ * after it in the same Karma browser page: its backdrop wins the pixel hit test, and Bootstrap's focus trap pulls
+ * `document.activeElement` onto one of ITS buttons, so a later `assertEquals(input, document.activeElement)` sees a
+ * button. That is the whole of "Cluster A" (`FormGrammarDomTest`, `FormGrammarAuditDomTest`): both classes pass in
+ * isolation and fail behind `AuditFixesMinorDomTest`/`AuditFixesM1M2M3DomTest`, which open modals and never close them.
+ *
+ * Synchronous on purpose: [closeOpenModals] is `suspend`, and only 9 of the 44 files using [withMountedRoot] call it
+ * from a suspending context -- making the shared teardown `suspend` would break the other 35. This one cannot wait out
+ * a running fade, so it does the two things that actually matter and can be done at once:
+ *   1. Blur first, WHILE the modal is still in the document -- afterwards `document.activeElement` is already `<body>`
+ *      and there is nothing left to blur.
+ *   2. Then remove the modal and backdrop elements, leaving Bootstrap's document-level focus trap pointing at a
+ *      detached element, where `focus()` does nothing.
+ *
+ * [closeOpenModals] stays the better tool where a test can await it: it closes the modal the way a person would and
+ * lets Bootstrap run its own `hidden` handling. This is the safety net under it, not a replacement.
+ */
+internal fun hardResetModalState() {
+    val active = document.activeElement as? HTMLElement
+    if (active != null && active.asDynamic().closest(".modal") != null) active.blur()
     val leftovers = document.querySelectorAll(".modal, .modal-backdrop")
     for (index in 0 until leftovers.length) (leftovers.item(index) as HTMLElement).remove()
     document.body?.classList?.remove("modal-open")
