@@ -837,6 +837,52 @@ database (never the production database). The GIN index is created automatically
 feature is on and `LAPIS_DB_URL` is PostgreSQL; a failure there is only logged, retrieval stays
 correct without it.
 
+== MCP access for AI agents (optional, default off)
+
+`LAPIS_MCP_*` -- **not passed through by the compose files, on purpose.** When on, a member's own AI
+agent (e.g. Claude Desktop) can connect through the Model Context Protocol and read that member's own
+contribution status, LTR balance, statute passages (full-text search, no external AI call), upcoming
+events, and own cast ballots. Enabling it is an operator decision, independent of the AI-assistance
+switch above -- the two layers are deliberately decoupled. Architecture:
+xref:../../docs/architecture/mcp-server.adoc[mcp-server.adoc].
+
+To enable it, add the variables to the `lapis-server` service's `environment:` block yourself:
+
+[source,yaml]
+----
+    environment:
+      # ... existing entries ...
+      LAPIS_MCP_ENABLED: "${LAPIS_MCP_ENABLED:-}"
+      # Tuning -- every one of these has a working default, only set what you actually want to change:
+      # LAPIS_MCP_RATE_PER_TOKEN_MINUTE: "20"
+      # LAPIS_MCP_RATE_PER_MEMBER_HOUR: "300"
+      # LAPIS_MCP_RATE_PER_SERVER_DAY: "20000"
+      # LAPIS_MCP_TOOL_TIMEOUT_MS: "5000"
+----
+
+The feature is on only when `LAPIS_MCP_ENABLED` is exactly `true`; anything else means "off" and the
+`POST /mcp` endpoint is never even registered (a real 404, not a handler-level refusal). A rejected
+tuning variable falls back to its default and is named (never its value) in the startup log --
+the server never fails to start over a bad `LAPIS_MCP_*` value.
+
+**LAPIS_PUBLIC_BASE_URL must be a real, public HTTPS origin** for this feature to be usable by a real
+remote agent -- the RFC 8707 `resource` parameter and the RFC 9728 Protected Resource Metadata
+document are both derived from it, same requirement federation already has (see "Federation" above).
+A local agent using a loopback redirect (`127.0.0.1`/`[::1]`, registered with
+`token_endpoint_auth_method=none`) is the one case that tolerates a non-HTTPS *redirect* target; the
+server's own public base URL still needs to be a real HTTPS origin the agent can reach.
+
+**Per-member control, not just an operator switch**: once the feature is on, each member decides for
+themselves on their own account screen whether to allow agent connections at all, and can revoke any
+individual connection at any time -- turning their own switch off immediately revokes every one of
+their existing MCP tokens, not just future grants.
+
+**Before enabling it in production**, connect a real MCP client (e.g. Claude Desktop's remote-server
+configuration, pointed at `https://<your-domain>/mcp`) against a real, publicly-reachable instance at
+least once and verify the OAuth discovery/consent/tool-call round-trip end to end -- the automated
+test suite only pins the JSON-RPC wire shape against frozen fixtures, it does not exercise a real MCP
+client.
+
 [#keycloak-login-optional]
 == Keycloak-Login (optional)
 

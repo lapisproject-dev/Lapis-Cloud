@@ -267,3 +267,15 @@ class AiOptInMissingException(
 class AiDocumentNotReleasableException(
     override val message: String = "Only PUBLIC_MEMBERS documents may be released to the knowledge base",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- the MCP layer is switched
+ * off (default) on this server. Distinct type, same wire-transparency reason as
+ * [AiFeatureDisabledException] -- deliberately a SEPARATE type, not a reuse of that one: MCP is its
+ * own layer, decoupled from the AI-assistance layer (see `network.lapis.cloud.server.mcp
+ * .McpLayerBoundary` KDoc R5).
+ */
+@RpcServiceException
+class McpFeatureDisabledException(
+    override val message: String = "MCP access is not available on this server",
+) : AbstractServiceException()

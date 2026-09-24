@@ -35,6 +35,8 @@ fun Route.registerLegalRoutes(
     aiAssistantEnabled: Boolean = false,
     /** V1.7.1: renders the Keycloak-login privacy paragraph -- only for an installation with Keycloak login enabled. */
     keycloakEnabled: Boolean = false,
+    /** V1.8.1: renders the MCP-access privacy paragraph -- only for an installation where the MCP layer is operational. */
+    mcpEnabled: Boolean = false,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
 
@@ -51,6 +53,7 @@ fun Route.registerLegalRoutes(
                 lang = lang,
                 aiAssistantEnabled = aiAssistantEnabled,
                 keycloakEnabled = keycloakEnabled,
+                mcpEnabled = mcpEnabled,
             )
         }
 

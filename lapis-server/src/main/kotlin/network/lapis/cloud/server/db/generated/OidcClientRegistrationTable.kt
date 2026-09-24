@@ -17,5 +17,9 @@ public object OidcClientRegistrationTable : Table("oidc_client_registration") {
     public val backchannelLogoutUri: Column<String?> = varchar("backchannel_logout_uri", 2048).nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
 
+    // Welle V1.8.1 MCP-Server -- "client_secret_post" (default, every pre-existing row) or "none"
+    // (a public client, PKCE-only -- see OidcRedirectUriMatcher/McpConfig KDoc).
+    public val tokenEndpointAuthMethod: Column<String> = varchar("token_endpoint_auth_method", 40).default("client_secret_post")
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

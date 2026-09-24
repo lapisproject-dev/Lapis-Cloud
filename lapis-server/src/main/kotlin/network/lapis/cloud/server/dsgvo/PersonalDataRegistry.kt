@@ -62,6 +62,7 @@ object PersonalDataRegistry {
             MemberCardPersonalData,
             AiAssistantPersonalData,
             KeycloakLinkPersonalData,
+            McpPersonalData,
         )
 
     /**

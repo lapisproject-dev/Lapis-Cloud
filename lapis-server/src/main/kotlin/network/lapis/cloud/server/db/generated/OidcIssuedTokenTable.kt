@@ -21,5 +21,12 @@ public object OidcIssuedTokenTable : Table("oidc_issued_token") {
     public val refreshExpiresAt: Column<LocalDateTime> = datetime("refresh_expires_at")
     public val revokedAt: Column<LocalDateTime?> = datetime("revoked_at").nullable()
 
+    // Welle V1.8.1 MCP-Server -- see OidcAuthorizationCodeTable KDoc, same three columns, same
+    // "NULL for every guest-federation row" posture. lastUsedAt is written by McpTokenAuth.touchLastUsed,
+    // at most once per minute per token (write-amplification guard).
+    public val resource: Column<String?> = varchar("resource", 2048).nullable()
+    public val connectionLabel: Column<String?> = varchar("connection_label", 60).nullable()
+    public val lastUsedAt: Column<LocalDateTime?> = datetime("last_used_at").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

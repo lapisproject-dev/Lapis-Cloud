@@ -98,6 +98,11 @@ classDiagram(name = "OidcGuestFederation") {
             stereotype("Column") { "columnName" to "backchannel_logout_uri"; "sqlType" to "VARCHAR(2048)" }
         }
         attribute(name = "createdAt", type = "LocalDateTime") { stereotype("Column") { "columnName" to "created_at" } }
+        // Welle V1.8.1 MCP-Server -- "client_secret_post" (default, every pre-existing row) or
+        // "none" (public client, PKCE-only -- see 54-mcp-server.kuml.kts file header).
+        attribute(name = "tokenEndpointAuthMethod", type = "String") {
+            stereotype("Column") { "columnName" to "token_endpoint_auth_method"; "sqlType" to "VARCHAR(40)" }
+        }
     }
 
     val clientRedirectUri = classOf(name = "OidcClientRedirectUri") {
@@ -133,6 +138,16 @@ classDiagram(name = "OidcGuestFederation") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "consumed_at" }
         }
+        // Welle V1.8.1 MCP-Server -- RFC 8707 resource-Bindung + selbstvergebener Verbindungsname,
+        // NULL für jede Gast-Federation-Zeile (siehe 54-mcp-server.kuml.kts file header).
+        attribute(name = "resource", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "resource"; "sqlType" to "VARCHAR(2048)" }
+        }
+        attribute(name = "connectionLabel", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "connection_label"; "sqlType" to "VARCHAR(60)" }
+        }
     }
 
     // Issuer side: access+refresh token pair issued to one RP for one of our own local members.
@@ -153,6 +168,21 @@ classDiagram(name = "OidcGuestFederation") {
         attribute(name = "revokedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "revoked_at" }
+        }
+        // Welle V1.8.1 MCP-Server -- see authorizationCode's own resource/connectionLabel above,
+        // same posture, plus lastUsedAt (written by McpTokenAuth.touchLastUsed, at most once per
+        // minute per token).
+        attribute(name = "resource", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "resource"; "sqlType" to "VARCHAR(2048)" }
+        }
+        attribute(name = "connectionLabel", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "connection_label"; "sqlType" to "VARCHAR(60)" }
+        }
+        attribute(name = "lastUsedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "last_used_at" }
         }
     }
 

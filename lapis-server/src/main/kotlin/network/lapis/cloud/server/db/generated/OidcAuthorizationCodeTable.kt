@@ -22,5 +22,11 @@ public object OidcAuthorizationCodeTable : Table("oidc_authorization_code") {
     public val expiresAt: Column<LocalDateTime> = datetime("expires_at")
     public val consumedAt: Column<LocalDateTime?> = datetime("consumed_at").nullable()
 
+    // Welle V1.8.1 MCP-Server -- RFC 8707 resource-Bindung + selbstvergebener Verbindungsname, nur
+    // fuer MCP-Grants gesetzt (siehe 54-mcp-server.kuml.kts file header). NULL fuer jede Gast-
+    // Federation-Zeile.
+    public val resource: Column<String?> = varchar("resource", 2048).nullable()
+    public val connectionLabel: Column<String?> = varchar("connection_label", 60).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

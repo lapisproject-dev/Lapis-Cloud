@@ -253,7 +253,7 @@ class OidcRoutesTest :
                 application { module() }
                 val dto = registerDcrClient(client, "Valid RP ${Uuid.random()}")
                 dto.client_id.isBlank() shouldBe false
-                dto.client_secret.isBlank() shouldBe false
+                dto.client_secret!!.isBlank() shouldBe false
                 dto.token_endpoint_auth_method shouldBe "client_secret_post"
             }
         }
@@ -365,7 +365,7 @@ class OidcRoutesTest :
                 requireNotNull(consentResponse.headers[HttpHeaders.Location]) shouldContain "state=$state"
                 val code = codeFromLocation(consentResponse)
 
-                val tokenResponse = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret, code, codeVerifier)
+                val tokenResponse = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret!!, code, codeVerifier)
                 tokenResponse.status shouldBe HttpStatusCode.OK
                 val tokenDto = TEST_JSON.decodeFromString(OidcTokenResponseDto.serializer(), tokenResponse.bodyAsText())
                 tokenDto.access_token.isBlank() shouldBe false
@@ -397,7 +397,7 @@ class OidcRoutesTest :
                             append("grant_type", "refresh_token")
                             append("refresh_token", refreshTokenValue)
                             append("client_id", dcrDto.client_id)
-                            append("client_secret", dcrDto.client_secret)
+                            append("client_secret", dcrDto.client_secret!!)
                         }.formUrlEncode()
                 val refreshResponse1 =
                     client.post("/federation/oidc/token") {
@@ -425,7 +425,7 @@ class OidcRoutesTest :
                             append("grant_type", "refresh_token")
                             append("refresh_token", rotatedRefreshTokenValue)
                             append("client_id", dcrDto.client_id)
-                            append("client_secret", dcrDto.client_secret)
+                            append("client_secret", dcrDto.client_secret!!)
                         }.formUrlEncode()
                 val refreshResponse3AfterReuseCascade =
                     client.post("/federation/oidc/token") {
@@ -460,7 +460,7 @@ class OidcRoutesTest :
                 val code = codeFromLocation(consentResponse)
 
                 val tokenResponse =
-                    exchangeCode(client, dcrDto.client_id, dcrDto.client_secret, code, "totally-the-wrong-verifier-value-padding-pad")
+                    exchangeCode(client, dcrDto.client_id, dcrDto.client_secret!!, code, "totally-the-wrong-verifier-value-padding-pad")
                 tokenResponse.status shouldBe HttpStatusCode.BadRequest
                 tokenResponse.bodyAsText() shouldContain "invalid_grant"
             }
@@ -489,9 +489,9 @@ class OidcRoutesTest :
                     )
                 val code = codeFromLocation(consentResponse)
 
-                val first = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret, code, codeVerifier)
+                val first = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret!!, code, codeVerifier)
                 first.status shouldBe HttpStatusCode.OK
-                val second = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret, code, codeVerifier)
+                val second = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret!!, code, codeVerifier)
                 second.status shouldBe HttpStatusCode.BadRequest
             }
         }
@@ -524,7 +524,7 @@ class OidcRoutesTest :
                     exchangeCode(
                         client,
                         dcrDto.client_id,
-                        dcrDto.client_secret,
+                        dcrDto.client_secret!!,
                         code,
                         codeVerifier,
                         redirectUri = "https://rp.example/callback/other",
@@ -566,7 +566,7 @@ class OidcRoutesTest :
                     }
                 }
 
-                val tokenResponse = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret, rawCode, codeVerifier)
+                val tokenResponse = exchangeCode(client, dcrDto.client_id, dcrDto.client_secret!!, rawCode, codeVerifier)
                 tokenResponse.status shouldBe HttpStatusCode.BadRequest
             }
         }

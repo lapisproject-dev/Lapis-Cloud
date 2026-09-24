@@ -108,6 +108,10 @@ import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.mcp.config.McpConfig
+import network.lapis.cloud.server.mcp.config.McpStartupCheck
+import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
+import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
@@ -148,6 +152,7 @@ import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
+import network.lapis.cloud.server.routes.registerMcpRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
 import network.lapis.cloud.server.routes.registerMemberCardRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
@@ -187,6 +192,7 @@ import network.lapis.cloud.server.rpc.CrmService
 import network.lapis.cloud.server.rpc.CrowdfundingService
 import network.lapis.cloud.server.rpc.DirectMessageService
 import network.lapis.cloud.server.rpc.DisabledAiAssistantService
+import network.lapis.cloud.server.rpc.DisabledMcpAccessService
 import network.lapis.cloud.server.rpc.DocumentService
 import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
@@ -200,6 +206,7 @@ import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.KeycloakLinkService
 import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MailingService
+import network.lapis.cloud.server.rpc.McpAccessService
 import network.lapis.cloud.server.rpc.MemberAnniversaryService
 import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
@@ -267,6 +274,7 @@ import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IKeycloakLinkService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
 import network.lapis.cloud.shared.rpc.IMailingService
+import network.lapis.cloud.shared.rpc.IMcpAccessService
 import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
@@ -322,14 +330,20 @@ fun main() {
 
 private val applicationLogger = KotlinLogging.logger {}
 
-fun Application.module() = module(aiConfig = AiConfig.load())
+fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpConfig.load())
 
 /**
  * The real module body. [aiConfig] is a parameter (production always passes [AiConfig.load]) so
  * tests can start the application with an explicit AI configuration without touching process-wide
- * environment variables -- the kill-switch/registration tests depend on that.
+ * environment variables -- the kill-switch/registration tests depend on that. [mcpConfig] (Welle
+ * V1.8.1) follows the identical pattern, defaulted to [McpConfig.disabled] so every one of the
+ * ~700 pre-existing `module(aiConfig = ...)` test call sites keeps compiling and running with MCP
+ * off, unchanged.
  */
-internal fun Application.module(aiConfig: AiConfig) {
+internal fun Application.module(
+    aiConfig: AiConfig,
+    mcpConfig: McpConfig = McpConfig.disabled(),
+) {
     // Idempotent (see DatabaseConfig/DevSeedData KDoc) — safe to call again here so that
     // ApplicationTest's `testApplication { application { module() } }` also gets a migrated,
     // seeded H2 database without needing its own main()/DB bootstrap.
@@ -1176,6 +1190,32 @@ internal fun Application.module(aiConfig: AiConfig) {
     val aiIndexer = KnowledgeIndexer(storageRoot = documentStorageRoot)
     if (aiConfig.isOperational) PostgresFullTextIndexInitializer.ensureIndexes()
 
+    // Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- optional MCP resource
+    // server, DEFAULT OFF (see McpConfig KDoc). Same "never fail-fast" posture as aiConfig above.
+    // mcpToolDispatcher reuses the SAME aiRetriever singleton constructed above for search_statute
+    // (full-text retrieval only, no LLM call -- see McpLayerBoundary KDoc R5) -- constructing a
+    // second retriever instance here would just duplicate the same stateless object.
+    McpStartupCheck.log(config = mcpConfig)
+    val mcpToolCallRateLimiter =
+        McpToolCallRateLimiter(
+            perTokenPerMinute = mcpConfig.toolCallsPerTokenPerMinute,
+            perMemberPerHour = mcpConfig.toolCallsPerMemberPerHour,
+            perServerPerDay = mcpConfig.toolCallsPerServerPerDay,
+        )
+    val mcpToolDispatcher =
+        McpToolDispatcher(
+            rateLimiter = mcpToolCallRateLimiter,
+            toolTimeoutMs = mcpConfig.toolTimeoutMs,
+            maxResponseBytes = mcpConfig.maxResponseBytes,
+            retriever = aiRetriever,
+        )
+    // Same "module-scoped, never a constructor default" reasoning as every other limiter in this
+    // block -- guards McpAccessService.setMcpAccessAllowed against a toggle-storm DoS. The switch's
+    // OFF direction can never itself be rejected by this limiter (the kill switch always wins), but
+    // every toggle in either direction still counts toward the window, so a fast ON/OFF/ON/OFF...
+    // burst still runs into the ON-side block, capping how often access can be re-granted.
+    val mcpAccessSwitchRateLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
+
     // Welle V1.4.1a "Öffentliche Website-Integration" -- vier neue, module-scoped Rate-Limiter,
     // NIEMALS als Konstruktor-Default (Stolperfalle 8, dieselbe Begründung wie jeder andere
     // Limiter in diesem Block). Alle vier sind internet-offen/unauthentifiziert -> maxTrackedKeys
@@ -1448,6 +1488,16 @@ internal fun Application.module(aiConfig: AiConfig) {
             // unhandled 500 for an unregistered service -- see DisabledAiAssistantService KDoc.
             registerService(IAiAssistantService::class) { DisabledAiAssistantService() }
         }
+        // Welle V1.8.1 -- IMcpAccessService is ALWAYS registered (unlike IAiAssistantService's own
+        // conditional block above, this one has no "aiLlmClient != null" analogue to wait on) --
+        // see DisabledMcpAccessService KDoc.
+        if (mcpConfig.isOperational) {
+            registerService(IMcpAccessService::class) { call ->
+                McpAccessService(call = call, config = mcpConfig, writeRateLimiter = mcpAccessSwitchRateLimiter)
+            }
+        } else {
+            registerService(IMcpAccessService::class) { DisabledMcpAccessService() }
+        }
         registerService(
             IRegistrationService::class,
         ) { call ->
@@ -1693,7 +1743,17 @@ internal fun Application.module(aiConfig: AiConfig) {
             rateLimiter = paypalWebhookRateLimiter,
             mailDispatcher = mailDispatcher,
         )
-        registerOidcRoutes(cookieSecure = cookieSecure, registrationRateLimiter = oidcRegistrationRateLimiter)
+        registerOidcRoutes(
+            cookieSecure = cookieSecure,
+            registrationRateLimiter = oidcRegistrationRateLimiter,
+            mcpEnabled = mcpConfig.isOperational,
+        )
+        // Welle V1.8.1 MCP-Server -- OFF by default: with mcpConfig.isOperational false the route
+        // is never even REGISTERED (not merely gated inside a handler), so POST /mcp answers a
+        // genuine Ktor-generated 404, never a handler-level refusal -- see McpDisabledEndpointTest.
+        if (mcpConfig.isOperational) {
+            registerMcpRoutes(config = mcpConfig, dispatcher = mcpToolDispatcher)
+        }
         registerTrustAnchorRoutes()
         // V1.1.3 Soziales Netzwerk "Öffentlicher SEO-Lesepfad" -- literal routes (/s, /s/{id}, ...),
         // registered before staticFiles for the same "literal beats catch-all" reasoning documented
@@ -1728,6 +1788,7 @@ internal fun Application.module(aiConfig: AiConfig) {
             legal = legalConfig,
             aiAssistantEnabled = aiConfig.isOperational,
             keycloakEnabled = keycloakConfig.isOperational,
+            mcpEnabled = mcpConfig.isOperational,
         )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own

@@ -59,10 +59,10 @@ internal object LegalHtml {
         }
 
     /**
-     * [aiAssistantEnabled] (V1.6.1): the KI-assistance paragraph is rendered **only** when the
-     * optional AI layer is operational on this installation -- otherwise the page would describe a
-     * data flow to an external provider that does not exist here (see the absolute rule in the class
-     * KDoc). Defaults to `false`.
+     * [aiAssistantEnabled] (V1.6.1) / [mcpEnabled] (V1.8.1): each optional-layer paragraph is
+     * rendered **only** when that layer is operational on this installation -- otherwise the page
+     * would describe a data flow that does not exist here (see the absolute rule in the class
+     * KDoc). Both default to `false`.
      */
     fun privacyPage(
         legal: LegalConfig,
@@ -71,6 +71,7 @@ internal object LegalHtml {
         lang: PublicLanguage,
         aiAssistantEnabled: Boolean = false,
         keycloakEnabled: Boolean = false,
+        mcpEnabled: Boolean = false,
     ): String =
         skeleton(
             baseUrl = baseUrl,
@@ -78,7 +79,14 @@ internal object LegalHtml {
             lang = lang,
             currentPath = "/datenschutz",
             pageTitle = "Datenschutzerklärung",
-        ) { renderPrivacyBody(legal = legal, aiAssistantEnabled = aiAssistantEnabled, keycloakEnabled = keycloakEnabled) }
+        ) {
+            renderPrivacyBody(
+                legal = legal,
+                aiAssistantEnabled = aiAssistantEnabled,
+                keycloakEnabled = keycloakEnabled,
+                mcpEnabled = mcpEnabled,
+            )
+        }
 
     private fun skeleton(
         baseUrl: String,
@@ -244,6 +252,7 @@ internal object LegalHtml {
         legal: LegalConfig,
         aiAssistantEnabled: Boolean,
         keycloakEnabled: Boolean,
+        mcpEnabled: Boolean,
     ) {
         h1 { +"Datenschutzerklärung" }
         h2 { +"Verantwortliche Stelle" }
@@ -363,6 +372,20 @@ internal object LegalHtml {
                             "Zeitpunkt, Prüfsummen (Hashes) und Zähler, niemals der Klartext von Frage oder " +
                             "Antwort \u2014 Art. 6 Abs. 1 lit. a DSGVO (Einwilligung, jederzeit im selben Bereich " +
                             "widerrufbar)."
+                    )
+                }
+            }
+            if (mcpEnabled) {
+                li {
+                    +(
+                        "MCP-Zugang für KI-Agenten (nur nach Ihrer ausdrücklichen Zustimmung im Bereich " +
+                            "„KI-Agenten Zugriff“): ein von Ihnen selbst autorisierter KI-Agent kann " +
+                            "lesend auf Ihren eigenen Beitragsstand, Ihren eigenen LTR-Kontostand, Satzungstexte, " +
+                            "bevorstehende Veranstaltungen sowie Ihre eigenen abgegebenen Stimmzettel zugreifen — " +
+                            "niemals auf Daten anderer Mitglieder. Protokolliert werden nur Zeitpunkt, " +
+                            "aufgerufenes Werkzeug und Ergebnis-Status, niemals Frage- oder Antwortinhalte — " +
+                            "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung, jederzeit im selben Bereich widerrufbar; " +
+                            "ein Widerruf beendet zugleich jede bestehende Verbindung)."
                     )
                 }
             }

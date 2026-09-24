@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 54 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 55 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -51,8 +51,10 @@ class DomainModelMergerTest :
             // "Helfer-/Schichtplanung für Veranstaltungen" -- was 51, now 52 with the addition of
             // 51-event-volunteer.kuml.kts. Welle "Digitaler Mitgliedsausweis (PDF)" -- was 52, now
             // 53 with the addition of 52-member-card.kuml.kts. Welle V1.6.1 "KI-Fundament + Pilot
-            // Satzungs-Q&A" -- was 53, now 54 with the addition of 53-ai-assistant.kuml.kts.
-            scriptFiles shouldHaveSize 54
+            // Satzungs-Q&A" -- was 53, now 54 with the addition of 53-ai-assistant.kuml.kts. Welle
+            // V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- was 54, now 55 with
+            // the addition of 54-mcp-server.kuml.kts.
+            scriptFiles shouldHaveSize 55
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -431,7 +433,12 @@ class DomainModelMergerTest :
             // DocumentVersion -- all dedup into already-real entities) -- so it contributes +8
             // «Entity» declarations (3 stubs + 5 real tables) and 3 drops, net +5 distinct table
             // names versus the member-card baseline above (155 -> 160).
-            val distinctTableNames = 160
+            // Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" adds
+            // 54-mcp-server.kuml.kts's TWO real tables (mcp_member_block, mcp_tool_call_audit),
+            // WITH ONE cross-domain Member stub (dedups into the already-real member entity) -- so
+            // it contributes +3 «Entity» declarations (1 stub + 2 real tables) and 1 drop, net +2
+            // distinct table names versus the ai-assistant baseline above (160 -> 162).
+            val distinctTableNames = 162
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -705,6 +712,11 @@ class DomainModelMergerTest :
                     "AiKnowledgeChunkTable.kt",
                     "AiMemberOptInTable.kt",
                     "AiCallAuditTable.kt",
+                    // Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- TWO
+                    // new real tables; its Member cross-domain stub dedups into the already-real
+                    // entity, no new Table file for it.
+                    "McpMemberBlockTable.kt",
+                    "McpToolCallAuditTable.kt",
                 )
         }
 

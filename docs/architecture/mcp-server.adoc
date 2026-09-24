@@ -1,0 +1,297 @@
+= MCP server for member agents: foundation, read-only (V1.8.1)
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), kept in sync by hand with
+`lapis-server/src/main/kuml/54-mcp-server.kuml.kts` and the V1.8.1 additions to
+`lapis-server/src/main/kuml/25-oidc-guest-federation.kuml.kts` (the actual, load-bearing models).
+
+Lapis Cloud can optionally expose a small, read-only Model Context Protocol (MCP) resource server so
+a member's own AI agent (e.g. Claude Desktop) can answer questions about that member's own account --
+contribution status, LTR balance, the statutes, upcoming events, their own cast ballots -- without the
+agent ever seeing another member's data. **The feature is off by default.** This wave is deliberately
+a foundation: five tools, all reads, no writes, no agentic tool use beyond what the calling agent
+itself orchestrates.
+
+Operator instructions (variables, defaults) live in `deploy/example/README.adoc`, the section "MCP
+access for AI agents".
+
+== The actual gap this wave closes
+
+A prior review pass on the existing OIDC guest-federation surface found PKCE (RFC 7636 `S256`)
+already fully implemented, and the `/authorize` flow already correctly scoped to the *locally
+logged-in member*, not merely a guest. The real, load-bearing gap was different: **no resource-server
+validation path existed at all** -- `oidc_issued_token.access_token_hash` was written by
+`/federation/oidc/token` and never read back anywhere. This wave builds that resource-server path
+(`mcp.auth.McpTokenAuth`), RFC 9728 Protected Resource Metadata, RFC 8707 `resource` binding, public
+(PKCE-only) clients for local agents, the MCP JSON-RPC transport, the five tools, the kill switch, and
+the member-facing connection list/revoke surface.
+
+== What a member sees
+
+A per-member switch ("KI-Agenten Zugriff erlauben") next to the AI-assistance opt-in, visible only
+when the server reports the MCP layer as operational -- gated independently of the AI-assistance
+layer's own kill switch (the two are deliberately decoupled, see below). Beneath the switch, a list of
+the member's own live connections: the self-declared connection name, when it was granted, when it
+was last used, and a "Zugriff beenden" button per row. Turning the switch off immediately revokes
+every existing connection, not just future ones.
+
+The consent screen an agent's OAuth flow lands the member on is a SEPARATE screen from the existing
+guest-federation consent page (which stays byte-identical). It carries a fixed heading never
+influenced by the connecting agent, the agent's self-declared name shown only as a quoted,
+explicitly-flagged-as-unverified attribute, a plain-language list of the five data areas covered (no
+raw OAuth scope string), an explicit "what the agent cannot do" paragraph, and a required field for
+the member to name the connection themselves.
+
+== Package layout
+
+Modelled directly on `network.lapis.cloud.server.ai`'s own package-not-module layout and boundary-test
+approach (`McpStructureTest`, mirroring `AiModuleBoundaryTest`) -- a real Gradle module split is a
+later wave, not attempted here.
+
+[cols="1,3"]
+|===
+| Sub-package | Content
+
+| `config`     | `McpConfig` (fail-safe, default off), `McpStartupCheck`
+| `auth`       | `McpPrincipal`, `McpTokenAuth` (the resource-server path), `McpTokenRevoker`, `McpScopes`
+| `optin`      | `McpMemberBlockStore` -- the per-member kill switch (opposite polarity of `AiMemberOptInStore`, see below)
+| `ratelimit`  | three-tier sliding-window limiter (per token / per member / per server)
+| `audit`      | `McpToolCallAuditRecorder` -- metadata only, never arguments or results
+| `tools`      | the five tool definitions, their dispatcher, and the catalog
+| `transport`  | JSON-RPC 2.0 wire types, protocol version constant, capped body reading
+|===
+
+Outside `mcp/`: `routes.McpRoutes` (`POST /mcp`, the well-known Protected Resource Metadata
+document), `routes.McpConsentPage`, `rpc.McpAccessService`/`DisabledMcpAccessService` (the member-facing
+switch/connection-list RPC surface), `dsgvo.McpPersonalData`, and the MCP-specific additions inside
+`routes.OidcRoutes` (the `mcp:member_read` branch of `/authorize`, public-client support at `/token`,
+`OidcRedirectUriMatcher` for loopback redirect flexibility).
+
+=== Boundary rules R1-R5 (tested by `McpStructureTest`)
+
+* **R1** -- `mcp/` never imports `security.SessionStore`/`security.resolveCurrentMember`/
+  `security.CurrentMember`/`security.ApiKeyStore`, and never imports a `server.rpc.*Service`. Identity
+  resolution happens exclusively through `McpTokenAuth`; reads happen exclusively through the shared
+  `rpc.*Reads` facade objects (`ContributionReads`, `LtrReads`, `EventReads`, `GovernanceSelfReads`),
+  never a `*Service` directly.
+* **R2** -- `transport/` and `tools/` never read `call.request.cookies` -- MCP is a pure bearer-token
+  resource server.
+* **R3** -- no Exposed write happens anywhere under `mcp/` outside `optin/McpMemberBlockStore`,
+  `audit/McpToolCallAuditRecorder`, and the two narrowly-scoped writes in `auth/McpTokenAuth`
+  (`last_used_at` only) and `auth/McpTokenRevoker` (`revoked_at` only).
+* **R4** -- the tool catalog has exactly five entries; no tool signature accepts a caller-supplied
+  `memberId` -- identity always comes from the resolved `McpPrincipal`.
+* **R5** -- `mcp/` never imports `ai/qa` or `ai/llm`. The one deliberate exception is
+  `ai.retrieval.KnowledgeRetriever`/`PostgresFullTextKnowledgeRetriever`, reused directly by
+  `search_statute` for full-text retrieval only -- no LLM call happens inside this server for that
+  tool, the calling agent is the "model".
+
+== No third-party MCP SDK
+
+Same reasoning this repository already applied to Koog (see `ai-assistant.adoc`): the official
+`kotlin-sdk` brings a transitive Ktor/serialization/logging stack that would have to be pinned
+against this repository's own gepinnte versions for no functional need beyond five methods
+(`initialize`, `notifications/initialized`, `tools/list`, `tools/call`, `ping`). Instead, a bespoke
+JSON-RPC 2.0 handler on the existing Ktor 3.5.2 stack, protocol version hard-pinned to `2025-06-18`.
+Conformance is an acceptance condition, not merely a unit test: `McpConformanceTest` pins the wire
+shape against frozen fixtures, and connecting a real MCP client (Claude Desktop) against a running,
+publicly-reachable instance is a documented manual verification step for this wave -- **not yet
+performed** (no publicly-reachable HTTPS instance with `LAPIS_MCP_ENABLED=true` was available during
+this implementation session; see "What doesn't work yet" below).
+
+== The MCP grant flow
+
+[source,kuml,name="mcp-grant-sequence"]
+----
+sequenceDiagram(name = "MCP agent connects") {
+    val agent = lifeline(name = "Agent")
+    val issuer = lifeline(name = "Issuer (authorize, token)")
+    val member = lifeline(name = "Member (browser)")
+    val transport = lifeline(name = "MCP transport")
+
+    message(from = agent, to = issuer, label = "GET well-known oauth-protected-resource mcp")
+    message(from = agent, to = issuer, label = "POST register (token_endpoint_auth_method=none)")
+    message(from = agent, to = member, label = "opens authorize (scope=mcp:member_read, resource, code_challenge)")
+    message(from = member, to = issuer, label = "consent: connection_label + allow")
+    message(from = issuer, to = agent, label = "302 with code")
+    message(from = agent, to = issuer, label = "POST token (code_verifier, no client_secret)")
+    message(from = agent, to = transport, label = "POST /mcp tools/call (Bearer access_token)")
+    message(from = transport, to = agent, label = "401 after the member flips the switch off")
+}
+----
+
+`mcp:member_read` MUST be the only scope requested (`/authorize` rejects a mixed request outright)
+and MUST carry a `resource` parameter equal to this server's own MCP endpoint URL (RFC 8707) -- both
+checked before the consent page is even rendered. The issued access token TTL is unchanged (1 hour);
+the refresh token TTL is 14 days (longer than the 30-day guest-federation default's *shorter*
+counterpart for a different reason: an agent connection is meant to persist, but a refresh also
+re-checks the member's block state and organization-membership status on every use, so a longer TTL
+does not weaken the kill switch).
+
+== Public (PKCE-only) clients and loopback redirects
+
+A local agent (a CLI or desktop app) cannot hold a `client_secret` confidentially, and cannot obtain a
+TLS certificate for its own OS-assigned ephemeral loopback port. Two additions, both scoped to
+`token_endpoint_auth_method = "none"` clients only:
+
+* `/federation/oidc/register` accepts `token_endpoint_auth_method: "none"` and returns no
+  `client_secret`; PKCE alone authenticates the grant at `/token`, which is exactly the OAuth 2.1
+  construction this repository's pre-existing, already-correct PKCE implementation was building
+  toward. A confidential (`client_secret_post`) client is completely unchanged.
+* `OidcRedirectUriMatcher` allows the *port* of a registered loopback (`127.0.0.1`/`[::1]`, **never**
+  `localhost` -- a DNS name, not a loopback literal, and therefore not trustworthy for this purpose)
+  redirect URI to differ at `/authorize`-time from what was registered at DCR-time (RFC 8252 §7.3),
+  while scheme/host/path/query/fragment must still match exactly. A confidential client gets no such
+  relaxation.
+
+== Data model
+
+Two new tables (migration `V49__mcp_server.sql`, purely additive, idempotent) plus three additive
+columns each on `oidc_authorization_code`, `oidc_issued_token`, and one column on
+`oidc_client_registration` (all `NULL`/defaulted for every pre-existing guest-federation row).
+
+[source,kuml,name="mcp-server-erm"]
+----
+classDiagram(name = "MCP server — ERM excerpt") {
+    classOf(name = "McpMemberBlock") {
+        attribute(name = "memberId", type = "UUID") // unique; NO ROW MEANS NOT BLOCKED
+        attribute(name = "blocked", type = "Boolean")
+    }
+    classOf(name = "McpToolCallAudit") {
+        attribute(name = "memberId", type = "UUID") // nullable, nulled on DSGVO erasure
+        attribute(name = "tokenId", type = "UUID") // nullable, deliberately NO foreign key
+        attribute(name = "toolName", type = "String")
+        attribute(name = "outcome", type = "String") // OK|TIMEOUT|FORBIDDEN|ERROR|UNKNOWN_TOOL -- rate-limited calls are never audited, see prose below
+        attribute(name = "durationMs", type = "Int")
+    }
+    classOf(name = "OidcIssuedToken") {
+        attribute(name = "scope", type = "String")
+        attribute(name = "resource", type = "String") // nullable; RFC 8707, NULL for guest-federation rows
+        attribute(name = "connectionLabel", type = "String") // nullable; member-chosen, shown in the revoke list
+        attribute(name = "lastUsedAt", type = "LocalDateTime") // nullable
+    }
+}
+----
+
+**`mcp_member_block` -- no row means "not blocked", the OPPOSITE polarity of `ai_member_opt_in`**
+(where no row means "not opted in"). Deliberately not shaped or named like an `Ai*OptIn*` analogue:
+the table records exceptions to an implicit "allowed once the operator turns the feature on" default,
+not consent to turn it on. There is, and will never be, a `LAPIS_MCP_MEMBER_BLOCK_DEFAULT` variable --
+see `AiConfig.ENV_MEMBER_OPT_IN_DEFAULT` KDoc for the removed precedent this deliberately does not
+repeat.
+
+**`mcp_tool_call_audit.token_id` has deliberately no foreign key** -- an audit row must outlive the
+token it was recorded against. Pinned by `McpServerSchemaDriftTest`.
+
+== The five tools -- all reads, all self-scoped
+
+[cols="1,3,2"]
+|===
+| Tool | What it returns | Hard rule
+
+| `get_my_contribution_status` | Own totals (due/paid/open), no per-contribution breakdown | Extracted from `ContributionService.getMemberContributionSummary`; never the member's own display name
+| `get_my_ltr_balance` | Own free LTR balance + up to `limit` recent entries | `requireLtrEligibleMembership` unchanged -- a FRIEND/GUEST/etc. gets the same refusal the RPC surface already gives
+| `search_statute` | Full-text passages + citations over `PUBLIC_MEMBERS` documents | No LLM call; `allowedLevels` hard-wired to `PUBLIC_MEMBERS`, never role-derived
+| `list_upcoming_events` | Published, still-upcoming events | `status = PUBLISHED` hard-wired, never the manager view; no participant lists
+| `get_my_ballots` | Own cast ballots (vote title, own stake, timestamp) | Never `GovernanceService.listVoteBallots` (which returns every voter's stake and name to any caller, see below); no aggregate, no vote outcome
+|===
+
+Common to all five: no tool accepts a caller-supplied member id, no tool's response DTO ever contains
+another member's display name, and none of the five reaches vote-weight calculation, LTR mint/burn,
+auction, crowdfunding distribution, election tallying, politician rating, or price-oracle logic.
+
+**Known finding, deliberately not fixed this wave**: `GovernanceService.listVoteBallots` today returns
+every ballot of a vote -- including each voter's display name and stake -- to any caller who can reach
+it, not just the requester's own row. `get_my_ballots` does not build on it; it queries
+`vote_ballot`/`vote` directly, filtered hard on the caller's own member id, precisely to avoid
+inheriting that exposure. The underlying `listVoteBallots` gap is out of scope here (also noted:
+the pre-existing guest-federation consent screen sets the client's self-declared name into an
+unescaped-context-adjacent `<h1>` and lists raw scope strings -- both pre-existing, both untouched by
+this wave).
+
+== Transport
+
+`POST /mcp`, JSON-RPC 2.0, protocol version hard-pinned to `2025-06-18`. No `Mcp-Session-Id`, no SSE,
+no server-initiated notifications -- every request is stateless. `GET /mcp` is `405`. A JSON array
+body (batching, removed in `2025-06-18`) is `-32600 Invalid Request`. Request bodies are capped at
+16 KiB (`413` beyond that, read via a hard-capped channel read, never `receiveText()` unbounded); tool
+results are capped at 64 KiB. Every response -- including every error response -- carries
+`Cache-Control: no-store` and `Vary: Authorization`. `Origin`, when present, must equal this server's
+own public base URL (DNS-rebinding defence; a non-browser agent typically sends no `Origin` at all).
+
+A rate-limit refusal (`-32000`, `data.retryAfterSeconds`, plus a `Retry-After` header) is a
+transport-level JSON-RPC error. Every other tool-level failure (unknown tool, invalid arguments, the
+caller not being permitted for that specific tool, a timeout, an internal error) is instead returned
+as a normal `tools/call` *result* with `isError: true` and a short text explanation -- the MCP-idiomatic
+shape, letting the calling agent distinguish "the protocol worked, the tool itself declined" from "the
+transport is broken". Every `tools/call` that actually reaches a tool -- success, unknown tool,
+invalid arguments, forbidden, timeout, internal error -- is audited (metadata only). The one
+exception is a rate-limit refusal itself: it is rejected before any tool runs and is deliberately
+**not** audited, to avoid a DB write on every request from a caller already being throttled (see
+`McpToolDispatcher.dispatch` and `McpToolCallAuditRecorder` KDoc).
+
+`withTimeout` around each tool call is a documented, **not yet closed**, limitation: it cancels the
+coroutine, not a blocking JDBC call already in flight underneath it -- a genuinely stuck database call
+would still hold the thread until it itself returns. A real statement-level timeout is a later wave.
+
+== Kill switch and configuration
+
+`McpConfig.load` never throws and never fails the startup, same posture as `AiConfig`. The layer is on
+only when `LAPIS_MCP_ENABLED` is exactly `true`; off by default. When off, the `POST /mcp` route (and
+the Protected Resource Metadata document) is **never even registered** -- a real Ktor 404, not a
+handler-level refusal (`McpDisabledEndpointTest`) -- `/authorize` rejects the `mcp:member_read` scope
+outright, and `IMcpAccessService` is still registered (unconditionally, unlike `IAiAssistantService`)
+but every method throws `McpFeatureDisabledException` through the normal RPC protocol instead of an
+unhandled 500 (`DisabledMcpAccessService`).
+
+Per-member, the switch in `mcp.optin.McpMemberBlockStore` always wins: turning it off both records the
+block and immediately revokes every one of that member's existing MCP tokens
+(`McpTokenRevoker.revokeAllForMember`) -- a member does not have to wait for an agent's access token to
+naturally expire. The block is also re-checked on every refresh-token grant, so a flip takes effect
+even if a token were somehow missed by the bulk revoke.
+
+The deploy compose files deliberately do not forward any `LAPIS_MCP_*` variable, same posture as
+`LAPIS_AI_*`.
+
+== Decoupled from the AI-assistance layer, on purpose
+
+MCP access requires neither `LAPIS_AI_ENABLED` nor a configured LLM provider, and never calls one --
+the calling agent is the "model" here, not this server. The one shared surface is `search_statute`
+reusing the retrieval interface (see R5 above); everything else (the question/answer pipeline, the
+provider clients, PII redaction) is untouched and unreachable from `mcp/`.
+
+== Data protection
+
+`mcp.McpPersonalData` covers the two member-referencing tables: `mcp_member_block` is hard-deleted on
+erasure (a blocking decision for a person no longer in the system has no retention interest of its
+own); `mcp_tool_call_audit` is retained with its member reference nulled (retain-and-redact, same
+posture `ai_call_audit` already gets). Neither export includes a token hash or a `tokenId`. See
+xref:dsgvo.adoc[dsgvo.adoc].
+
+== What doesn't work yet (this wave)
+
+* **Manual conformance verification against a real MCP client (Claude Desktop) was not performed** --
+  it needs a running instance with `LAPIS_MCP_ENABLED=true` and a publicly-reachable HTTPS origin
+  (a local agent and a loopback redirect tolerate `localhost:8080` only partially); this is the single
+  open acceptance condition for calling this wave functionally complete end-to-end with a real client,
+  not just against `McpConformanceTest`'s frozen wire fixtures.
+* No member-facing UI screen for the switch/connection list was built this session (the backend --
+  `rpc.McpAccessService`, the shared `IMcpAccessService` RPC interface and DTOs -- is complete and
+  independently callable; `NavVisibility`/`Sidebar`/a dedicated screen component and the accompanying
+  eight-catalog i18n strings are a follow-up).
+* The MCP consent screen is German-only, like every other server-rendered HTML page in this
+  repository (there is no server-side i18n mechanism for rendered pages) -- the eight-catalog i18n
+  discipline this repository otherwise enforces applies to the SPA's own strings, not this page.
+* `withTimeout` does not interrupt an in-flight blocking JDBC call (see "Transport" above).
+* The rate limiter, like every other limiter in this codebase, is per-JVM-instance state.
+* `GovernanceService.listVoteBallots`'s own over-broad exposure (see "The five tools" above) is a
+  pre-existing finding, not fixed here.
+* **`search_statute` returns an empty `citations` array on an MCP-on/AI-off installation** --
+  `ai_knowledge_chunk` is populated exclusively by `ai.kb.KnowledgeIndexer`, which is only ever
+  reachable through `AiAssistantService`, itself only registered when `AiConfig.isOperational` (see
+  "Decoupled from the AI-assistance layer, on purpose" above). An operator who sets
+  `LAPIS_MCP_ENABLED=true` without any `LAPIS_AI_*` configuration -- an explicitly supported
+  combination -- gets a working tool that structurally can never surface a result, even though the
+  member-facing consent page and the privacy notice both promise full-text search over the statute
+  and published documents. No code path currently warns the operator about this; the corpus must be
+  populated by enabling and running the AI-assistance indexer at least once.

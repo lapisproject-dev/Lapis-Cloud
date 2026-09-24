@@ -51,12 +51,15 @@ import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.federation.OidcJwks
 import network.lapis.cloud.server.federation.OidcJwt
 import network.lapis.cloud.server.federation.OidcPkce
+import network.lapis.cloud.server.federation.OidcRedirectUriMatcher
 import network.lapis.cloud.server.federation.OidcScopes
 import network.lapis.cloud.server.federation.OidcTokenErrorDto
 import network.lapis.cloud.server.federation.OidcTokenResponseDto
 import network.lapis.cloud.server.federation.federationHttpClient
 import network.lapis.cloud.server.federation.readCappedFederationBodyOrNull
 import network.lapis.cloud.server.federation.requireSafeFederationUrl
+import network.lapis.cloud.server.mcp.McpResource
+import network.lapis.cloud.server.mcp.optin.McpMemberBlockStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
@@ -88,6 +91,9 @@ private val AUTHORIZATION_CODE_TTL = 60.seconds
 private val RP_LOGIN_ATTEMPT_TTL = 10.minutes
 private val ACCESS_TOKEN_TTL = 1.hours
 private val REFRESH_TOKEN_TTL = 30.days
+
+/** Welle V1.8.1 MCP-Server -- an agent connection's refresh token TTL, see `issueTokens` KDoc. */
+private val MCP_REFRESH_TOKEN_TTL = 14.days
 
 /**
  * V0.8.2 OIDC-Gastzugang-Federation -- individual-MEMBER identity federation: a member of "home
@@ -139,10 +145,14 @@ private val REFRESH_TOKEN_TTL = 30.days
 fun Route.registerOidcRoutes(
     cookieSecure: Boolean,
     registrationRateLimiter: LoginRateLimiter,
+    // Welle V1.8.1 MCP-Server -- mirrors McpConfig.isOperational, passed explicitly (not read from
+    // a global) same posture as cookieSecure above. Gates the mcp:member_read scope in discovery,
+    // the MCP branch of /authorize, and the block-check gate in issueTokens.
+    mcpEnabled: Boolean = false,
 ) {
     get("/.well-known/openid-configuration") {
         call.respondText(
-            OidcDiscoveryDocument.toJson(OidcDiscoveryDocument.build()),
+            OidcDiscoveryDocument.toJson(OidcDiscoveryDocument.build(mcpEnabled = mcpEnabled)),
             contentType = io.ktor.http.ContentType.Application.Json,
         )
     }
@@ -190,6 +200,27 @@ fun Route.registerOidcRoutes(
             return@get
         }
 
+        // Welle V1.8.1 MCP-Server -- mcp:member_read is required to be the ONLY scope requested
+        // (no mixed-purpose token) and requires the operator to have MCP switched on AND a
+        // matching RFC 8707 resource parameter. See routes.OidcRoutes class KDoc addendum below
+        // and McpTokenAuth KDoc for the resource-server side of this contract.
+        val isMcpRequest = OidcScopes.MCP_MEMBER_READ in requestedScopes
+        val resourceParam = params["resource"]
+        if (isMcpRequest) {
+            if (!mcpEnabled) {
+                call.respond(HttpStatusCode.BadRequest, "MCP access is not enabled on this instance")
+                return@get
+            }
+            if (requestedScopes.size != 1) {
+                call.respond(HttpStatusCode.BadRequest, "mcp:member_read must be requested alone")
+                return@get
+            }
+            if (resourceParam != McpResource.expected()) {
+                call.respond(HttpStatusCode.BadRequest, "resource parameter must be ${McpResource.expected()}")
+                return@get
+            }
+        }
+
         val clientRow =
             transaction {
                 OidcClientRegistrationTable.selectAll().where { OidcClientRegistrationTable.clientId eq clientId }.singleOrNull()
@@ -199,14 +230,17 @@ fun Route.registerOidcRoutes(
             return@get
         }
         val clientRegistrationId = clientRow[OidcClientRegistrationTable.id]
-        val redirectUriRegistered =
+        val isPublicClient = clientRow[OidcClientRegistrationTable.tokenEndpointAuthMethod] == "none"
+        val registeredRedirectUris =
             transaction {
                 OidcClientRedirectUriTable
                     .selectAll()
-                    .where {
-                        (OidcClientRedirectUriTable.clientRegistrationId eq clientRegistrationId) and
-                            (OidcClientRedirectUriTable.redirectUri eq redirectUri)
-                    }.count() > 0
+                    .where { OidcClientRedirectUriTable.clientRegistrationId eq clientRegistrationId }
+                    .map { it[OidcClientRedirectUriTable.redirectUri] }
+            }
+        val redirectUriRegistered =
+            registeredRedirectUris.any {
+                OidcRedirectUriMatcher.matches(registered = it, presented = redirectUri, allowLoopbackPortFlexibility = isPublicClient)
             }
         if (!redirectUriRegistered) {
             call.respond(HttpStatusCode.BadRequest, "redirect_uri is not registered for this client")
@@ -219,6 +253,23 @@ fun Route.registerOidcRoutes(
             // Welle V1.4.6: "/app" prefix -- the member SPA no longer lives at "/", see
             // PublicLandingRoutes KDoc.
             call.respondRedirect("/app#/login?returnTo=$returnTo")
+            return@get
+        }
+
+        if (isMcpRequest) {
+            call.respondText(
+                mcpConsentPageHtml(
+                    clientName = clientRow[OidcClientRegistrationTable.clientName],
+                    clientId = clientId,
+                    redirectUri = redirectUri,
+                    scopeParam = scopeParam,
+                    state = state,
+                    codeChallenge = codeChallenge,
+                    nonce = nonce,
+                    resource = resourceParam.orEmpty(),
+                ),
+                contentType = io.ktor.http.ContentType.Text.Html,
+            )
             return@get
         }
 
@@ -251,10 +302,54 @@ fun Route.registerOidcRoutes(
         val state = form["state"]
         val codeChallenge = form["code_challenge"]
         val nonce = form["nonce"]
+        val resource = form["resource"]?.trim()?.takeUnless { it.isBlank() }
+        val connectionLabelRaw = form["connection_label"]?.filterNot { it.isISOControl() }?.trim()?.take(60)
 
         if (clientId.isNullOrBlank() || redirectUri.isNullOrBlank() || state.isNullOrBlank() || codeChallenge.isNullOrBlank()) {
             call.respond(HttpStatusCode.BadRequest, "Missing consent parameter(s)")
             return@post
+        }
+
+        // Set-containment, NOT exact string equality -- must mirror the GET /authorize handler's
+        // own `OidcScopes.MCP_MEMBER_READ in requestedScopes` above byte-for-byte. A POST straight
+        // to this endpoint with e.g. scope="openid mcp:member_read" is independently reachable (see
+        // "Defense in depth" comment below) and MUST still be routed through every MCP gate --
+        // mcpEnabled, the resource check, the mandatory connection_label, and critically the
+        // member's own kill-switch (McpMemberBlockStore.isBlocked). An exact-equality check here
+        // let a mixed-scope request skip all four and mint an unrevokable, invisible MCP-scoped
+        // grant (see the finding this comment documents).
+        val requestedScopes = scope.split(" ").filter { it.isNotBlank() }.toSet()
+        val isMcpRequest = OidcScopes.MCP_MEMBER_READ in requestedScopes
+        if (isMcpRequest) {
+            // Defense in depth: the GET /authorize handler above already refuses to even RENDER
+            // the consent page when MCP is off, but this POST endpoint is independently reachable
+            // -- an mcp:member_read grant must never be mintable while the feature is disabled,
+            // even if the resulting token could never reach the (unregistered) /mcp transport.
+            if (!mcpEnabled) {
+                call.respond(HttpStatusCode.BadRequest, "MCP access is not enabled on this instance")
+                return@post
+            }
+            // Same "must be requested alone" rule as GET /authorize (line ~209 above) -- a mixed
+            // scope must never be silently accepted as a plain OIDC grant, nor silently narrowed;
+            // it is a client-shaped error.
+            if (requestedScopes.size != 1) {
+                call.respond(HttpStatusCode.BadRequest, "mcp:member_read must be requested alone")
+                return@post
+            }
+            if (resource != McpResource.expected()) {
+                call.respond(HttpStatusCode.BadRequest, "resource parameter must be ${McpResource.expected()}")
+                return@post
+            }
+            if (connectionLabelRaw.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "connection_label is required")
+                return@post
+            }
+            if (McpMemberBlockStore.isBlocked(memberId = current.memberId)) {
+                call.respondRedirect(
+                    buildRedirectUrl(redirectUri = redirectUri, params = mapOf("error" to "access_denied", "state" to state)),
+                )
+                return@post
+            }
         }
 
         val clientRow =
@@ -266,14 +361,17 @@ fun Route.registerOidcRoutes(
             return@post
         }
         val clientRegistrationId = clientRow[OidcClientRegistrationTable.id]
-        val redirectUriRegistered =
+        val isPublicClient = clientRow[OidcClientRegistrationTable.tokenEndpointAuthMethod] == "none"
+        val registeredRedirectUris =
             transaction {
                 OidcClientRedirectUriTable
                     .selectAll()
-                    .where {
-                        (OidcClientRedirectUriTable.clientRegistrationId eq clientRegistrationId) and
-                            (OidcClientRedirectUriTable.redirectUri eq redirectUri)
-                    }.count() > 0
+                    .where { OidcClientRedirectUriTable.clientRegistrationId eq clientRegistrationId }
+                    .map { it[OidcClientRedirectUriTable.redirectUri] }
+            }
+        val redirectUriRegistered =
+            registeredRedirectUris.any {
+                OidcRedirectUriMatcher.matches(registered = it, presented = redirectUri, allowLoopbackPortFlexibility = isPublicClient)
             }
         if (!redirectUriRegistered) {
             call.respond(HttpStatusCode.BadRequest, "redirect_uri is not registered for this client")
@@ -287,6 +385,15 @@ fun Route.registerOidcRoutes(
 
         val rawCode = SessionTokens.newRawToken()
         val now = nowLocalDateTime()
+        // Persist the NORMALIZED scope (deduplicated, single-space-joined, trimmed) rather than the
+        // raw form field -- every downstream consumer (McpTokenAuth, McpTokenRevoker,
+        // McpAccessService, the `scope.trim() ==` checks below in this file) compares against the
+        // scope stored here with exact/set equality against the canonical literal. A raw value like
+        // "mcp:member_read " or "mcp:member_read  mcp:member_read" is set-equal to `requestedScopes`
+        // above (so it already passed every MCP gate) but would NOT exact-match downstream, minting
+        // a token that authenticates nowhere, is invisible in the member's connection list, and is
+        // never reachable by the kill-switch's revocation -- silently unusable and unrevokable.
+        val normalizedScope = requestedScopes.joinToString(" ")
         transaction {
             OidcAuthorizationCodeTable.insert {
                 it[id] = Uuid.random()
@@ -294,12 +401,14 @@ fun Route.registerOidcRoutes(
                 it[OidcAuthorizationCodeTable.clientRegistrationId] = clientRegistrationId
                 it[memberId] = current.memberId
                 it[OidcAuthorizationCodeTable.redirectUri] = redirectUri
-                it[OidcAuthorizationCodeTable.scope] = scope
+                it[OidcAuthorizationCodeTable.scope] = normalizedScope
                 it[OidcAuthorizationCodeTable.codeChallenge] = codeChallenge
                 it[OidcAuthorizationCodeTable.nonce] = nonce
                 it[createdAt] = now
                 it[expiresAt] = plus(start = now, duration = AUTHORIZATION_CODE_TTL)
                 it[consumedAt] = null
+                it[OidcAuthorizationCodeTable.resource] = resource
+                it[OidcAuthorizationCodeTable.connectionLabel] = connectionLabelRaw
             }
         }
         call.respondRedirect(buildRedirectUrl(redirectUri = redirectUri, params = mapOf("code" to rawCode, "state" to state)))
@@ -311,7 +420,7 @@ fun Route.registerOidcRoutes(
         val clientId = form["client_id"]
         val clientSecret = form["client_secret"]
 
-        if (clientId.isNullOrBlank() || clientSecret.isNullOrBlank()) {
+        if (clientId.isNullOrBlank()) {
             call.respondText(
                 OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_client")),
                 contentType = io.ktor.http.ContentType.Application.Json,
@@ -323,12 +432,22 @@ fun Route.registerOidcRoutes(
             transaction {
                 OidcClientRegistrationTable.selectAll().where { OidcClientRegistrationTable.clientId eq clientId }.singleOrNull()
             }
+        // Welle V1.8.1 MCP-Server -- a public client (token_endpoint_auth_method="none", see
+        // OidcRoutes MCP-Zweig KDoc) authenticates via PKCE alone and MUST NOT present a
+        // client_secret at all; a confidential client is unchanged (bounded-time-safe hash
+        // comparison, secret is mandatory).
+        val isPublicClient = clientRow?.get(OidcClientRegistrationTable.tokenEndpointAuthMethod) == "none"
         val clientSecretValid =
-            clientRow != null &&
-                MessageDigest.isEqual(
-                    SessionTokens.hash(clientSecret).toByteArray(Charsets.UTF_8),
-                    clientRow[OidcClientRegistrationTable.clientSecretHash].toByteArray(Charsets.UTF_8),
-                )
+            when {
+                clientRow == null -> false
+                isPublicClient -> clientSecret.isNullOrBlank()
+                clientSecret.isNullOrBlank() -> false
+                else ->
+                    MessageDigest.isEqual(
+                        SessionTokens.hash(clientSecret).toByteArray(Charsets.UTF_8),
+                        clientRow[OidcClientRegistrationTable.clientSecretHash].toByteArray(Charsets.UTF_8),
+                    )
+            }
         if (clientRow == null || !clientSecretValid) {
             OidcLoginAuditRecorder.record(
                 eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
@@ -390,16 +509,48 @@ fun Route.registerOidcRoutes(
             call.respond(HttpStatusCode.BadRequest, "client_name and at least one redirect_uri are required")
             return@post
         }
+        // Welle V1.8.1 MCP-Server -- only "client_secret_post" (default) and "none" (public client,
+        // PKCE-only) are accepted; anything else is rejected outright.
+        val authMethod = body.token_endpoint_auth_method
+        if (authMethod != "client_secret_post" && authMethod != "none") {
+            call.respond(HttpStatusCode.BadRequest, "token_endpoint_auth_method must be client_secret_post or none")
+            return@post
+        }
+        // Welle V1.8.1 MCP-Server -- "none" (public, PKCE-only client) exists FOR MCP agents (see
+        // the HTTPS-only-gate comment below, "the ONE exception"); it must therefore be gated by
+        // the same mcpEnabled flag as every other MCP surface (GET /authorize, POST
+        // /authorize/consent, the scopes/auth-methods advertised in discovery). Without this gate,
+        // an operator who leaves LAPIS_MCP_ENABLED unset (the documented OFF default) still exposes
+        // both a client-secret-free registration path AND the loopback plain-HTTP redirect_uri
+        // relaxation via this open, unauthenticated DCR endpoint.
+        if (authMethod == "none" && !mcpEnabled) {
+            call.respond(HttpStatusCode.BadRequest, "token_endpoint_auth_method 'none' is not enabled on this instance")
+            return@post
+        }
+        val isPublicClient = authMethod == "none"
         // HTTPS-only gate -- see class KDoc: this is the root defense against ever sending an
-        // authorization code to a plain-HTTP (interceptable) redirect target.
-        if (body.redirect_uris.any { !it.startsWith("https://") } ||
-            (body.backchannel_logout_uri != null && !body.backchannel_logout_uri.startsWith("https://"))
-        ) {
-            call.respond(HttpStatusCode.BadRequest, "redirect_uris and backchannel_logout_uri must be HTTPS")
+        // authorization code to a plain-HTTP (interceptable) redirect target. The ONE exception
+        // (Welle V1.8.1): a PUBLIC client may register a loopback (127.0.0.1/[::1], NEVER
+        // "localhost" -- see OidcRedirectUriMatcher.isLoopbackRedirectUri KDoc) plain-HTTP
+        // redirect_uri, RFC 8252 §7.3 -- a local CLI/desktop agent cannot obtain a certificate for
+        // its own OS-assigned ephemeral loopback port. backchannel_logout_uri remains HTTPS-only,
+        // unconditionally, for every client.
+        val redirectUrisOk =
+            body.redirect_uris.all { uri ->
+                uri.startsWith("https://") || (isPublicClient && OidcRedirectUriMatcher.isLoopbackRedirectUri(uri))
+            }
+        if (!redirectUrisOk || (body.backchannel_logout_uri != null && !body.backchannel_logout_uri.startsWith("https://"))) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                "redirect_uris must be HTTPS (loopback HTTP only for public clients) and backchannel_logout_uri must be HTTPS",
+            )
             return@post
         }
 
         val newClientId = Uuid.random().toString()
+        // A public client gets NO real secret -- a freshly generated, never-disclosed random value
+        // is hashed and stored anyway (clientSecretHash stays NOT NULL) so that no presented
+        // secret could ever match it; see OidcRoutes /token MCP-Zweig KDoc.
         val rawClientSecret = SessionTokens.newRawToken()
         val now = nowLocalDateTime()
         transaction {
@@ -411,6 +562,7 @@ fun Route.registerOidcRoutes(
                 it[clientName] = body.client_name
                 it[backchannelLogoutUri] = body.backchannel_logout_uri
                 it[createdAt] = now
+                it[tokenEndpointAuthMethod] = authMethod
             }
             body.redirect_uris.forEach { uri ->
                 OidcClientRedirectUriTable.insert {
@@ -424,13 +576,13 @@ fun Route.registerOidcRoutes(
             HttpStatusCode.Created,
             OidcDynamicClientRegistrationResponse(
                 client_id = newClientId,
-                client_secret = rawClientSecret,
+                client_secret = if (isPublicClient) null else rawClientSecret,
                 client_id_issued_at = now.toInstant(TimeZone.UTC).epochSeconds,
                 client_secret_expires_at = 0,
                 redirect_uris = body.redirect_uris,
                 grant_types = listOf("authorization_code", "refresh_token"),
                 response_types = listOf("code"),
-                token_endpoint_auth_method = "client_secret_post",
+                token_endpoint_auth_method = authMethod,
             ),
         )
     }
@@ -536,7 +688,10 @@ fun Route.registerOidcRoutes(
                                 it[tokenEndpoint] = discovery.token_endpoint
                                 it[jwksUri] = discovery.jwks_uri
                                 it[clientId] = outcome.response.client_id
-                                it[clientSecret] = outcome.response.client_secret
+                                // Non-null is guaranteed by OidcClientRegistrar.register -- a null
+                                // client_secret there is already turned into a Failure outcome, see
+                                // that function's own KDoc.
+                                it[clientSecret] = requireNotNull(outcome.response.client_secret)
                                 it[registeredAt] = now
                             }
                         }
@@ -1085,6 +1240,8 @@ private suspend fun handleAuthorizationCodeGrant(
         memberId = memberId,
         scope = scope,
         nonce = nonce,
+        resource = consumedRow[OidcAuthorizationCodeTable.resource],
+        connectionLabel = consumedRow[OidcAuthorizationCodeTable.connectionLabel],
     )
 }
 
@@ -1190,6 +1347,10 @@ private suspend fun handleRefreshTokenGrant(
         memberId = existing[OidcIssuedTokenTable.memberId],
         scope = existing[OidcIssuedTokenTable.scope],
         nonce = null,
+        // Welle V1.8.1 -- resource/connectionLabel are carried over from the EXISTING token row,
+        // never re-derived from the refresh_token request (the request carries neither).
+        resource = existing[OidcIssuedTokenTable.resource],
+        connectionLabel = existing[OidcIssuedTokenTable.connectionLabel],
     )
 }
 
@@ -1200,7 +1361,20 @@ private suspend fun issueTokens(
     memberId: Uuid,
     scope: String,
     nonce: String?,
+    resource: String?,
+    connectionLabel: String?,
 ) {
+    // Welle V1.8.1 MCP-Server -- the block-check gate also runs on every refresh, not just the
+    // initial grant, so flipping the member's own kill-switch takes effect on the very next
+    // refresh even if McpTokenRevoker's own bulk-revoke somehow missed a token (defense in depth).
+    if (scope.trim() == OidcScopes.MCP_MEMBER_READ && McpMemberBlockStore.isBlocked(memberId = memberId)) {
+        call.respondText(
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
+            contentType = io.ktor.http.ContentType.Application.Json,
+            status = HttpStatusCode.BadRequest,
+        )
+        return
+    }
     val memberRow = transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.singleOrNull() }
     val signingKey = transaction { loadSigningKeyRow() }
     if (memberRow == null || signingKey == null) {
@@ -1261,6 +1435,10 @@ private suspend fun issueTokens(
     val rawAccessToken = SessionTokens.newRawToken()
     val rawRefreshToken = SessionTokens.newRawToken()
     val nowLocal = nowLocalDateTime()
+    // Welle V1.8.1 -- an MCP grant's refresh token lives longer than a guest-federation one (an
+    // agent connection is meant to persist across sessions); the access token TTL is unchanged
+    // for both.
+    val refreshTtl = if (scope.trim() == OidcScopes.MCP_MEMBER_READ) MCP_REFRESH_TOKEN_TTL else REFRESH_TOKEN_TTL
     transaction {
         OidcIssuedTokenTable.insert {
             it[id] = Uuid.random()
@@ -1271,8 +1449,10 @@ private suspend fun issueTokens(
             it[OidcIssuedTokenTable.scope] = scope
             it[issuedAt] = nowLocal
             it[accessExpiresAt] = plus(start = nowLocal, duration = ACCESS_TOKEN_TTL)
-            it[refreshExpiresAt] = plus(start = nowLocal, duration = REFRESH_TOKEN_TTL)
+            it[refreshExpiresAt] = plus(start = nowLocal, duration = refreshTtl)
             it[revokedAt] = null
+            it[OidcIssuedTokenTable.resource] = resource
+            it[OidcIssuedTokenTable.connectionLabel] = connectionLabel
         }
     }
     OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUED, memberId = memberId, remoteParty = clientId)
@@ -1318,7 +1498,8 @@ private fun buildRedirectUrl(
     return "$redirectUri$separator$query"
 }
 
-private fun htmlEscape(value: String): String =
+/** Not `private` (Welle V1.8.1) -- [mcpConsentPageHtml] in `McpConsentPage.kt` needs it too; Kotlin's file-scoped `private` would otherwise hide it from that file even within the same package. */
+internal fun htmlEscape(value: String): String =
     value
         .replace("&", "&amp;")
         .replace("<", "&lt;")

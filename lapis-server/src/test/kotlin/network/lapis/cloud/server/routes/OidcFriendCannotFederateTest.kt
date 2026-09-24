@@ -196,7 +196,7 @@ class OidcFriendCannotFederateTest :
                                     append("code", code)
                                     append("redirect_uri", "https://rp.example/callback")
                                     append("client_id", dcrDto.client_id)
-                                    append("client_secret", dcrDto.client_secret)
+                                    append("client_secret", dcrDto.client_secret!!)
                                     append("code_verifier", codeVerifier)
                                 }.formUrlEncode(),
                         )
@@ -249,7 +249,7 @@ class OidcFriendCannotFederateTest :
                                     append("code", code)
                                     append("redirect_uri", "https://rp.example/callback")
                                     append("client_id", dcrDto.client_id)
-                                    append("client_secret", dcrDto.client_secret)
+                                    append("client_secret", dcrDto.client_secret!!)
                                     append("code_verifier", codeVerifier)
                                 }.formUrlEncode(),
                         )
@@ -295,7 +295,7 @@ class OidcFriendCannotFederateTest :
                                     append("code", code)
                                     append("redirect_uri", "https://rp.example/callback")
                                     append("client_id", dcrDto.client_id)
-                                    append("client_secret", dcrDto.client_secret)
+                                    append("client_secret", dcrDto.client_secret!!)
                                     append("code_verifier", codeVerifier)
                                 }.formUrlEncode(),
                         )
@@ -322,7 +322,7 @@ class OidcFriendCannotFederateTest :
                                     append("grant_type", "refresh_token")
                                     append("refresh_token", refreshTokenValue)
                                     append("client_id", dcrDto.client_id)
-                                    append("client_secret", dcrDto.client_secret)
+                                    append("client_secret", dcrDto.client_secret!!)
                                 }.formUrlEncode(),
                         )
                     }

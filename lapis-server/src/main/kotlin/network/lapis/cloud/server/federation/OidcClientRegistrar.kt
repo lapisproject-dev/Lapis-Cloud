@@ -20,11 +20,20 @@ data class OidcDynamicClientRegistrationRequest(
     val backchannel_logout_uri: String? = null,
 )
 
-/** RFC 7591 Dynamic Client Registration response body -- as returned by either this server's own `/federation/oidc/register` (Issuer side) or a remote home server's `registration_endpoint` (RP side). */
+/**
+ * RFC 7591 Dynamic Client Registration response body -- as returned by either this server's own
+ * `/federation/oidc/register` (Issuer side) or a remote home server's `registration_endpoint` (RP
+ * side). **`client_secret` is `null` for a public client** (Welle V1.8.1,
+ * `token_endpoint_auth_method = "none"`) -- see [OidcClientRegistrar.register] KDoc "RP-side null
+ * handling" for why the RP-parse path treats a `null` here as a hard [OidcClientRegistrationOutcome
+ * .Failure], never a silently-propagated `null`: this server's OWN RP flow
+ * (`routes.OidcRoutes`'s `/rp/login` -> DCR against a guest's claimed home server) always registers
+ * itself as a CONFIDENTIAL client and therefore always expects a real secret back.
+ */
 @Serializable
 data class OidcDynamicClientRegistrationResponse(
     val client_id: String,
-    val client_secret: String,
+    val client_secret: String? = null,
     val client_id_issued_at: Long,
     val client_secret_expires_at: Long = 0,
     val redirect_uris: List<String> = emptyList(),
@@ -98,6 +107,14 @@ object OidcClientRegistrar {
                             bytes.toString(Charsets.UTF_8),
                         )
                     }.getOrNull() ?: return@use OidcClientRegistrationOutcome.Failure("Malformed registration response")
+                // Welle V1.8.1 -- this server always registers itself as a CONFIDENTIAL client on
+                // the RP path (see OidcDynamicClientRegistrationResponse KDoc). A `null`
+                // client_secret here means the remote home server registered us as a public
+                // client, which this RP flow never requested and cannot use -- a hard failure, not
+                // a silently propagated `null` a later token-endpoint call would crash on.
+                if (parsed.client_secret == null) {
+                    return@use OidcClientRegistrationOutcome.Failure("Registration endpoint did not return a client_secret")
+                }
                 OidcClientRegistrationOutcome.Success(parsed)
             }
         }.getOrElse { OidcClientRegistrationOutcome.Failure(it.message ?: "Registration failed") }

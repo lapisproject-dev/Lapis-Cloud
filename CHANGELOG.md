@@ -6,6 +6,31 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **V1.8.1 -- MCP server for member agents (foundation, read-only)** -- an optional, **default-OFF**
+  Model Context Protocol resource server (`LAPIS_MCP_ENABLED`) so a member's own AI agent (e.g.
+  Claude Desktop) can read that member's own contribution status, LTR balance, the statutes
+  (full-text search, no LLM call), upcoming events, and own cast ballots -- five read-only tools,
+  no writes, no cross-member data exposure. Built on a bespoke JSON-RPC 2.0 transport
+  (`POST /mcp`, protocol version `2025-06-18`) rather than the official `kotlin-sdk`, mirroring the
+  earlier Koog decision (no unpinned transitive Ktor/serialization stack for a five-method surface).
+  The pre-existing OIDC PKCE implementation was verified correct and reused unchanged; the actual
+  gap closed this wave was the missing resource-server validation path
+  (`oidc_issued_token.access_token_hash` had no reader anywhere in the codebase before this).
+  Adds RFC 9728 Protected Resource Metadata, RFC 8707 `resource` binding, public
+  (PKCE-only, `token_endpoint_auth_method=none`) OAuth clients with loopback-redirect flexibility
+  for local agents (RFC 8252 §7.3), a per-member kill switch (`mcp_member_block` -- no row means
+  *not* blocked, the deliberate opposite polarity of `ai_member_opt_in`) that immediately revokes
+  every existing connection when flipped off, a member-facing RPC surface
+  (`IMcpAccessService`/`McpAccessService`) for the switch and connection list, a three-tier rate
+  limiter, and a metadata-only tool-call audit trail (`mcp_tool_call_audit`, never arguments or
+  results). Migration `V49__mcp_server.sql`. New DSGVO contributor `McpPersonalData`. New
+  `docs/architecture/mcp-server.adoc`. See that document's "What doesn't work yet" for the two
+  items intentionally left open: the member-facing switch/connection-list **UI screen** (the RPC
+  backend is complete and independently callable) and manual conformance verification against a
+  real MCP client on a publicly-reachable instance.
+
 ## [0.23.0] — 2026-09-24
 
 ### Added

@@ -62,6 +62,23 @@ class LegalHtmlTest :
             enabled shouldContain "Art. 6 Abs. 1 lit. a DSGVO"
         }
 
+        test("V1.8.1: the MCP-access privacy paragraph appears only when the MCP layer is operational") {
+            val legal = completeLegalConfig()
+            LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DE).let {
+                it shouldNotContain "MCP-Zugang für KI-Agenten"
+            }
+            val enabled =
+                LegalHtml.privacyPage(
+                    legal = legal,
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = PublicLanguage.DE,
+                    mcpEnabled = true,
+                )
+            enabled shouldContain "MCP-Zugang für KI-Agenten"
+            enabled shouldContain "Art. 6 Abs. 1 lit. a DSGVO"
+        }
+
         test("H1: complete config -- imprint shows fields, no incomplete notice") {
             val html = imprint(legal = completeLegalConfig())
             html shouldContain "Beispielverein e. V."
@@ -256,6 +273,7 @@ class LegalHtmlTest :
                     lang = PublicLanguage.DE,
                     aiAssistantEnabled = true,
                     keycloakEnabled = true,
+                    mcpEnabled = true,
                 )
             val purposesSection =
                 html.substringAfter("Zwecke und Rechtsgrundlagen der Verarbeitung").substringBefore("Empfänger")
@@ -304,6 +322,7 @@ class LegalHtmlTest :
                     "openItems" to "Kreditoren-/Debitorenbuchhaltung",
                     "aiAssistant" to "KI-gestützte Satzungsauskunft",
                     "keycloak_login" to "Anmeldung über Keycloak",
+                    "mcp" to "MCP-Zugang für KI-Agenten",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy
