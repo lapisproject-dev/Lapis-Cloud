@@ -6,6 +6,32 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-09-26
+
+### Fixed
+
+- **"Cluster A": the five long-standing client-test failures were test-order pollution, not a
+  timing margin** -- Karma runs every test class in ONE browser page, so a modal left open by one
+  class covered the page for every class after it: its backdrop won the pixel hit test, and
+  Bootstrap's focus trap pulled `document.activeElement` onto one of ITS buttons, which is why a
+  later `assertEquals(input, document.activeElement)` kept seeing a button. Measured rather than
+  assumed: `FormGrammarDomTest` passes alone and fails behind
+  `AuditFixesMinorDomTest`/`AuditFixesM1M2M3DomTest`, and the same five failed on `master` itself.
+  The per-class remedy already existed (`closeOpenModals`) and had been forgotten in ten classes,
+  so the fix is central instead: a new synchronous `hardResetModalState()` blurs a focused element
+  inside a modal BEFORE removing the modal nodes -- that order is the whole point, since removing
+  first leaves `document.activeElement` at `<body>` with nothing left to blur, which is why the
+  pre-existing safety net never released the focus despite looking correct. `withMountedRoot()`
+  runs it in its `finally` before `root.dispose()`, and `closeOpenModals()` ends in it too.
+  Synchronous on purpose: `closeOpenModals()` is `suspend` and only 9 of the 44 files using
+  `withMountedRoot` call it from a suspending context.
+
+  Five failures down to one. Still open and deliberately not patched blind:
+  `FormGrammarAuditDomTest.theFirstClickOnAButton_afterLeavingAnInvalidField_isNotLost`, which
+  needs a combination of at least three classes -- a diagnostic run found two modals still in the
+  document, one of them from `FormAuditMinorTest`, but that pair alone passes. `./gradlew clean
+  check` is therefore still red on `master` with exactly this one named, understood test.
+
 ### Added
 
 - **V1.8.2b -- MCP write-paths: operator switch, no payment through MCP, "KI-Entwürfe" screen,

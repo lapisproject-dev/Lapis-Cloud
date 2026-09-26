@@ -177,7 +177,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Thirteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Fourteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -405,6 +405,39 @@ single generic `deploy/example/` template with the real deployment data moved to
 `Lapis-Cloud-Ops` companion repo, the AsciiDoc documentation now renders its `[kuml]` blocks through the
 real kUML toolchain (which exposed invalid DSL in 10 diagrams), and the public API reference was
 verified statement by statement against the code. See `CHANGELOG.md` `[0.23.0]` for full detail.
+
+**`v0.24.0`** opens the server to **MCP-capable AI agents of the member's own choosing** -- an agent
+reads and acts on that one member's own data, never anyone else's. Authentication extends the OIDC
+provider this server has run since V0.8 rather than inventing a second, weaker identity model.
+PKCE did not have to be invented: the provider's existing implementation was verified and reused
+unchanged, and the gap this wave actually closed was the missing resource-server validation path
+(`oidc_issued_token.access_token_hash` had no reader anywhere in the codebase before). A member
+flow now sits beside the existing guest flow (Flyway `V49`/`V50`). Five read-only tools ship first (contribution status,
+LTR balance, statute search, upcoming events, own ballots), then two write tools: registering for
+an event and drafting a post. **Everything is off by default**: the endpoint needs
+`LAPIS_MCP_ENABLED`, and the write tools additionally need `LAPIS_MCP_WRITE_ENABLED`. No agent
+gets access until the member authorizes that specific connection on a dedicated consent screen; on
+top of that an all-or-nothing per-member kill switch (`mcp_member_block` -- no row means *not*
+blocked, the deliberate opposite polarity of `ai_member_opt_in`) always wins and revokes every live
+token the moment it is flipped. Its member-facing screen is still to come; the RPC backend is
+complete.
+
+Two boundaries are worth naming because they were deliberate decisions, not oversights.
+**An agent cannot spend money**: registering for a *paid* event is rejected outright, so no
+checkout session is created through MCP and no payment link is ever handed to the agent's model
+provider -- paid registration stays in the web UI. **An agent cannot publish**: a drafted post
+lands in a separate draft store that is not a post at all, invisible to feeds, LTR weighting,
+moderation and the public pages, and only the member releasing it in the new "KI-Entwürfe" screen
+creates a real post -- which then carries a label visible to every reader, in the app and on the
+public post pages alike. Drafts a member discards are removed on a retention schedule instead of
+being kept forever. No tool path reaches vote weighting, LTR minting or burning, auctions,
+crowdfunding distribution, election tallies, politician rating or timeline ordering.
+
+This release also fixes **"Cluster A"**, five long-standing client-test failures that turned out to
+be test-order pollution rather than a timing margin: one test class left a modal open, and in
+Karma's single browser page it covered every class that ran after it. Four of the five are fixed;
+the remaining one is named in `CHANGELOG.md` and still fails. See `CHANGELOG.md` `[0.24.0]` and
+`docs/architecture/mcp-server.adoc` for full detail.
 
 === Auction opt-in (V0.6.2)
 
