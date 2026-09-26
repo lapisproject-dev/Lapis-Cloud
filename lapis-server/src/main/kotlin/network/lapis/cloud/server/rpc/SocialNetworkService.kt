@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
+import network.lapis.cloud.server.db.generated.McpPostDraftTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
 import network.lapis.cloud.server.db.generated.SocialPostErasureTable
@@ -20,11 +21,16 @@ import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.social.PostDraftStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
+import network.lapis.cloud.shared.domain.McpPostDraftDto
+import network.lapis.cloud.shared.domain.McpPostDraftEditInput
+import network.lapis.cloud.shared.domain.McpPostDraftReleaseInput
+import network.lapis.cloud.shared.domain.McpPostDraftStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
@@ -180,39 +186,146 @@ class SocialNetworkService(
                     throw ConflictException("initialWeightLtr $normalized exceeds free LTR balance $freeBalance")
                 }
 
-                val postId = Uuid.random()
-                SocialPostTable.insert {
-                    it[id] = postId
-                    it[parentId] = null
-                    it[rootId] = postId
-                    it[depth] = 0
-                    it[authorMemberId] = current.memberId
-                    it[content] = input.content
-                    it[visibility] = input.visibility
-                    it[initialWeightLtr] = normalized
-                    it[publishedAt] = now
-                    it[state] = SocialPostState.VISIBLE
-                    it[stateChangedAt] = null
-                    it[stateChangedBy] = null
-                    it[stateReason] = null
-                }
-                LtrLedgerEntryTable.insert {
-                    it[id] = Uuid.random()
-                    it[memberId] = current.memberId
-                    it[entryType] = LtrLedgerEntryType.SOCIAL_POST_STAKE
-                    it[amountLtr] = normalized.negate()
-                    it[referenceType] = LtrLedgerReferenceType.SOCIAL_POST
-                    it[referenceId] = postId
-                    // E5: die Note traegt bewusst KEINEN Inhaltsausschnitt, nur eine ID-Referenz -- der
-                    // Inhaltsbezug wird zur Lesezeit ueber referenceId hergestellt (LtrLedgerScreen.kt
-                    // Deep-Link seit Welle V1.1.2, siehe SocialNetworkScreen.kt/Routing.kt).
-                    it[note] = "Beitragsgewicht fuer Social Post $postId"
-                    it[createdBy] = null
-                    it[createdAt] = now
-                }
-                postId
+                createPostRow(
+                    memberId = current.memberId,
+                    content = input.content,
+                    visibility = input.visibility,
+                    weight = normalized,
+                    now = now,
+                    aiAssisted = false,
+                )
             }
         return loadPostAfterCommit(id = postId, now = now, viewerStatus = current.status)
+    }
+
+    // ── Welle V1.8.2 "MCP-Server: Schreibwerkzeuge" -- an MCP agent's draft, and this member's own
+    // list/edit/release/discard/restore actions on it. See docs/architecture/mcp-server.adoc "Why
+    // there is no DRAFT state in SocialPostState" for why this lives here (releasing a draft
+    // shares createPost's exact LTR/visibility/audit machinery) rather than under mcp/. ────────
+
+    override suspend fun listMyPostDrafts(): List<McpPostDraftDto> {
+        val current = resolveCurrentMember(call)
+        return PostDraftStore.listVisible(memberId = current.memberId)
+    }
+
+    override suspend fun updateMyPostDraft(input: McpPostDraftEditInput): McpPostDraftDto {
+        val current = resolveCurrentMember(call)
+        requireContentWithinLimits(input.content)
+        // Review fix: same guard as createPost/releaseMyPostDraft, missing here before -- without
+        // it, a member whose status has since dropped out of eligibility for MEMBERS_ONLY (e.g. was
+        // ACTIVE when the draft was first created, is now merely FRIEND -- MemberStatusSets
+        // .NON_MEMBER) could still persist that visibility onto their own draft via a direct RPC
+        // call bypassing the client's `SocialComposerVisibility.allowedVisibilities` filter. No
+        // privilege escalation either way -- releaseMyPostDraft re-validates the SAME check against
+        // the CURRENT status right before publishing, so the stored value could never actually reach
+        // a real post -- but rejecting it here, at update time, is where the member finds out.
+        requireVisibilityAllowedFor(status = current.status, visibility = input.visibility)
+        val draftId = input.draftId.toSocialUuid()
+        val updated =
+            PostDraftStore.updateOwned(
+                memberId = current.memberId,
+                draftId = draftId,
+                content = input.content,
+                visibility = input.visibility,
+            )
+        if (!updated) throw NotFoundException("Draft ${input.draftId} not found")
+        return PostDraftStore.getOwned(memberId = current.memberId, draftId = draftId)?.let { PostDraftStore.toDto(it) }
+            ?: throw NotFoundException("Draft ${input.draftId} not found")
+    }
+
+    /**
+     * Turns an `OPEN` draft into a real, LTR-staked, permanently `aiAssisted = true` `social_post`
+     * -- the ONLY path by which an MCP-agent-authored draft ever becomes visible to anyone but the
+     * member themselves. Shares [createPost]'s exact eligibility/visibility/balance/rate-limit
+     * discipline via [createPostRow] -- a draft released here is, from that point on,
+     * indistinguishable in the data model from a post composed by hand, except for the
+     * [network.lapis.cloud.shared.domain.SocialPostDto.aiAssisted] flag itself.
+     */
+    override suspend fun releaseMyPostDraft(input: McpPostDraftReleaseInput): SocialPostDto {
+        val current = resolveCurrentMember(call)
+        requireRateLimit(memberId = current.memberId)
+        val normalized = normalizeWeight(weight = input.initialWeightLtr)
+        val draftId = input.draftId.toSocialUuid()
+        val now = DbClock.nowLocalDateTime()
+        val postId =
+            transaction {
+                val draft =
+                    PostDraftStore.getOwned(memberId = current.memberId, draftId = draftId)
+                        ?: throw NotFoundException("Draft ${input.draftId} not found")
+                if (draft[McpPostDraftTable.status] != McpPostDraftStatus.OPEN) {
+                    throw ConflictException("Draft ${input.draftId} is not OPEN")
+                }
+                val content = draft[McpPostDraftTable.content]
+                val visibility = draft[McpPostDraftTable.visibility]
+                requireContentWithinLimits(content)
+
+                val callerStatus = requireLtrEligibleMembership(memberId = current.memberId)
+                requireVisibilityAllowedFor(status = callerStatus, visibility = visibility)
+
+                ltrBalanceProvider.lockForDebit(current.memberId)
+                val freeBalance = ltrBalanceProvider.freeBalance(current.memberId)
+                if (normalized > freeBalance) {
+                    throw ConflictException("initialWeightLtr $normalized exceeds free LTR balance $freeBalance")
+                }
+
+                val newPostId =
+                    createPostRow(
+                        memberId = current.memberId,
+                        content = content,
+                        visibility = visibility,
+                        weight = normalized,
+                        now = now,
+                        aiAssisted = true,
+                    )
+                val markedReleased = PostDraftStore.markReleasedOwned(memberId = current.memberId, draftId = draftId, postId = newPostId)
+                if (!markedReleased) throw ConflictException("Draft ${input.draftId} is not OPEN")
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.SOCIAL_POST,
+                    entityId = newPostId,
+                    action = AuditAction.CREATE,
+                    after = "MCP-Agenten-Entwurf $draftId freigegeben als Beitrag $newPostId",
+                )
+                newPostId
+            }
+        return loadPostAfterCommit(id = postId, now = now, viewerStatus = current.status)
+    }
+
+    override suspend fun discardMyPostDraft(draftId: String) {
+        val current = resolveCurrentMember(call)
+        val id = draftId.toSocialUuid()
+        if (!PostDraftStore.discardOwned(memberId = current.memberId, draftId = id)) {
+            throw NotFoundException("Draft $draftId not found")
+        }
+    }
+
+    /**
+     * Review fix (V1.8.2 wave 2): [PostDraftStore.restoreOwned] now enforces
+     * [PostDraftStore.MAX_OPEN_DRAFTS_PER_MEMBER] and signals a full cap via
+     * [PostDraftStore.DraftLimitReachedException] rather than the plain `false` that means
+     * "no such discarded draft" -- mapped here to [ConflictException] (this member-facing RPC
+     * surface's own idiom for "the request was well-formed but the current state forbids it", same
+     * as the "Draft ... is not OPEN" case in [releaseMyPostDraft] above) rather than the
+     * [network.lapis.cloud.shared.rpc.NotFoundException] used for an actually-missing/foreign/
+     * non-`DISCARDED` draft.
+     */
+    override suspend fun restoreMyPostDraft(draftId: String): McpPostDraftDto {
+        val current = resolveCurrentMember(call)
+        val id = draftId.toSocialUuid()
+        val restored =
+            try {
+                PostDraftStore.restoreOwned(memberId = current.memberId, draftId = id)
+            } catch (e: PostDraftStore.DraftLimitReachedException) {
+                throw ConflictException(
+                    "Maximum open draft count (${PostDraftStore.MAX_OPEN_DRAFTS_PER_MEMBER}) already reached (${e.openDraftCount} open)",
+                )
+            }
+        if (!restored) {
+            throw NotFoundException("Draft $draftId not found")
+        }
+        return PostDraftStore.getOwned(memberId = current.memberId, draftId = id)?.let { PostDraftStore.toDto(it) }
+            ?: throw NotFoundException("Draft $draftId not found")
     }
 
     /**
@@ -1192,6 +1305,58 @@ class SocialNetworkService(
         if (content.length > MAX_CONTENT_LENGTH) {
             throw ConflictException("content exceeds the maximum length of $MAX_CONTENT_LENGTH characters")
         }
+    }
+
+    /**
+     * Welle V1.8.2 -- extracted verbatim from [createPost]'s own row-construction so
+     * [releaseMyPostDraft] can share it exactly. **Must run inside an already-open write
+     * transaction with every precondition (`requireLtrEligibleMembership`,
+     * `requireVisibilityAllowedFor`, `lockForDebit`+balance check) already satisfied** -- this
+     * function itself performs none of them, it only inserts the row and its LTR ledger debit.
+     * [aiAssisted] is a plain server-computed boolean, passed by the TWO call sites in this class
+     * ONLY -- never sourced from a client-supplied DTO field, see class KDoc "aiAssisted darf in
+     * keinem Eingabe-DTO auftauchen" / `McpLayerBoundary` R6.
+     */
+    private fun createPostRow(
+        memberId: Uuid,
+        content: String,
+        visibility: SocialPostVisibility,
+        weight: BigDecimal,
+        now: LocalDateTime,
+        aiAssisted: Boolean,
+    ): Uuid {
+        val postId = Uuid.random()
+        SocialPostTable.insert {
+            it[id] = postId
+            it[parentId] = null
+            it[rootId] = postId
+            it[depth] = 0
+            it[authorMemberId] = memberId
+            it[SocialPostTable.content] = content
+            it[SocialPostTable.visibility] = visibility
+            it[initialWeightLtr] = weight
+            it[publishedAt] = now
+            it[state] = SocialPostState.VISIBLE
+            it[stateChangedAt] = null
+            it[stateChangedBy] = null
+            it[stateReason] = null
+            it[SocialPostTable.aiAssisted] = aiAssisted
+        }
+        LtrLedgerEntryTable.insert {
+            it[id] = Uuid.random()
+            it[LtrLedgerEntryTable.memberId] = memberId
+            it[entryType] = LtrLedgerEntryType.SOCIAL_POST_STAKE
+            it[amountLtr] = weight.negate()
+            it[referenceType] = LtrLedgerReferenceType.SOCIAL_POST
+            it[referenceId] = postId
+            // E5: die Note traegt bewusst KEINEN Inhaltsausschnitt, nur eine ID-Referenz -- der
+            // Inhaltsbezug wird zur Lesezeit ueber referenceId hergestellt (LtrLedgerScreen.kt
+            // Deep-Link seit Welle V1.1.2, siehe SocialNetworkScreen.kt/Routing.kt).
+            it[note] = "Beitragsgewicht fuer Social Post $postId"
+            it[createdBy] = null
+            it[createdAt] = now
+        }
+        return postId
     }
 
     /**

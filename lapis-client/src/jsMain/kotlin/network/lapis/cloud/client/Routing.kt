@@ -259,6 +259,17 @@ object Routes {
     // V1.1.1 has no BOARD/ADMIN/TREASURER-only surface at all yet.
     const val SOCIAL_NETWORK = "/social-network"
 
+    /**
+     * Welle V1.8.2b -- the member's own "KI-Entwürfe" screen (drafts an MCP agent created via
+     * `create_post_draft`). No `/`-segment collision with any other route -- see `NavRouteMatch`'s
+     * own segment-boundary matching. Resolved unconditionally in the authenticated block (no
+     * `mcpEnabled`-gated route registration the way `registerMcpRoutes` gates `POST /mcp`
+     * server-side) -- a direct navigation always resolves; [NavVisibility.showsAiDrafts] only ever
+     * hides the SIDEBAR entry, never blocks the route itself, same posture as every other nav-gated
+     * (not route-gated) screen in this file.
+     */
+    const val AI_DRAFTS = "/ai-drafts"
+
     // Soziales Netzwerk, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive Gesamtgewichtung" -- deep-
     // linkable Thread-Ansicht, first parameterized route in this client (Navigo `:id` syntax, read
     // in `SocialThreadScreen.kt` via the route handler's `Match.data`, see `initRouting`'s own
@@ -745,6 +756,11 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.SOCIAL_NETWORK) {
         requireAuth(routing) { show(Routes.SOCIAL_NETWORK, ::renderSocialNetworkScreen) }
+    }
+    // Welle V1.8.2b -- see Routes.AI_DRAFTS KDoc: authenticated like every other member screen,
+    // never conditioned on mcpEnabled/mcpWriteEnabled here (those only ever hide the sidebar entry).
+    routing.kvOn(Routes.AI_DRAFTS) {
+        requireAuth(routing) { show(Routes.AI_DRAFTS, ::renderAiDraftsScreen) }
     }
     // Welle V1.1.2: `:id` is read off Navigo's own `Match.data` object -- `kvOn`'s handler is typed
     // `Any` (an external/dynamic Navigo `Match`), so this is the one unavoidable `asDynamic()` cast

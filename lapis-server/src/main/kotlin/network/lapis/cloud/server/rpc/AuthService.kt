@@ -47,6 +47,13 @@ class AuthService internal constructor(
      * self-registration).
      */
     private val keycloakConfig: KeycloakConfig = KeycloakConfig.load(),
+    /**
+     * Welle V1.8.2b -- mirrors `McpConfig.isOperational`/`.isWriteOperational` (feeds
+     * [SessionInfoDto.mcpEnabled]/[SessionInfoDto.mcpWriteEnabled]). Same "defaults to false, every
+     * pre-existing construction site stays source-compatible" idiom as [aiAssistantEnabled].
+     */
+    private val mcpEnabled: Boolean = false,
+    private val mcpWriteEnabled: Boolean = false,
 ) : IAuthService {
     override suspend fun changePassword(
         currentPassword: String,
@@ -123,6 +130,8 @@ class AuthService internal constructor(
             status = current.status,
             aiAssistantEnabled = aiAssistantEnabled,
             keycloakMode = keycloakConfig.enabled,
+            mcpEnabled = mcpEnabled,
+            mcpWriteEnabled = mcpWriteEnabled,
         )
     }
 }

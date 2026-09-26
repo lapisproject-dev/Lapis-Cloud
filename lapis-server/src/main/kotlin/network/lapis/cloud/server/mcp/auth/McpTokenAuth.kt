@@ -6,6 +6,7 @@ import kotlinx.datetime.TimeZone
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcIssuedTokenTable
+import network.lapis.cloud.server.federation.OidcScopes
 import network.lapis.cloud.server.mcp.optin.McpMemberBlockStore
 import network.lapis.cloud.server.security.SessionTokens
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -86,7 +87,12 @@ internal object McpTokenAuth {
                                 (OidcIssuedTokenTable.accessExpiresAt greater now)
                         }.singleOrNull() ?: return@transaction null
 
-                if (row[OidcIssuedTokenTable.scope] != McpScopes.MEMBER_READ) return@transaction null
+                // Welle V1.8.2 -- the stored scope is a space-joined SET (normalized by
+                // OidcRoutes' consent handler), not a single literal any more: it may be
+                // "mcp:member_read" or "mcp:member_read mcp:member_write". Set-based, not
+                // exact-string, comparison -- see OidcScopes.isMcpScopeSet KDoc.
+                val scopeSet = row[OidcIssuedTokenTable.scope].split(" ").filter { it.isNotBlank() }.toSet()
+                if (!OidcScopes.isMcpScopeSet(scopeSet)) return@transaction null
                 if (row[OidcIssuedTokenTable.resource] != expectedResource) return@transaction null
 
                 val memberId = row[OidcIssuedTokenTable.memberId]
@@ -94,7 +100,13 @@ internal object McpTokenAuth {
                 if (memberRow[MemberTable.status] !in MemberStatusSets.ORGANIZATION_MEMBER) return@transaction null
                 if (McpMemberBlockStore.isBlocked(memberId = memberId)) return@transaction null
 
-                McpPrincipal(memberId = memberId, tokenId = row[OidcIssuedTokenTable.id], scope = row[OidcIssuedTokenTable.scope])
+                McpPrincipal(
+                    memberId = memberId,
+                    tokenId = row[OidcIssuedTokenTable.id],
+                    scope = row[OidcIssuedTokenTable.scope],
+                    canWrite = McpScopes.MEMBER_WRITE in scopeSet,
+                    connectionLabel = row[OidcIssuedTokenTable.connectionLabel] ?: "Unbekannter Agent",
+                )
             } ?: return Resolution.Invalid
 
         touchLastUsed(tokenId = resolved.tokenId)

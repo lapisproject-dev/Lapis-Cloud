@@ -63,6 +63,14 @@ internal object ListUpcomingEventsTool {
                             put("endsAt", event.endsAt.toString())
                             put("locationText", event.locationText)
                             put("onlineUrl", event.onlineUrl)
+                            // Welle V1.8.2b -- see EventReads.UpcomingEventSummary.feeAmount KDoc:
+                            // lets an agent filter out fee-bearing events before ever calling
+                            // register_for_event, and closes the oracle that tool's own
+                            // event_requires_payment rejection would otherwise open. setScale(2) is
+                            // safe without a RoundingMode -- `event_table.fee_amount` is DECIMAL(12,2)
+                            // in the database, so the value already has scale <= 2.
+                            put("feeAmount", event.feeAmount.setScale(2).toPlainString())
+                            put("requiresPayment", event.feeAmount.signum() != 0)
                         },
                     )
                 }

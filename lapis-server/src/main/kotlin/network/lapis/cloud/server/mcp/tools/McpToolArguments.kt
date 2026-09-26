@@ -44,3 +44,23 @@ internal fun JsonObject.requiredStringArg(
 }
 
 private fun JsonPrimitive.contentOrNullSafe(): String? = if (this.isString) content else null
+
+/**
+ * Welle V1.8.2 -- reads a required string argument named [key] and parses it against
+ * [valueOf] (an enum's own generated `valueOf`, e.g. `SocialPostVisibility::valueOf`). An
+ * unknown/mistyped literal throws [McpInvalidToolArgumentsException] (-32602), same non-oracle
+ * posture as every other argument parser in this file -- never a raw `IllegalArgumentException`.
+ */
+internal fun <T> JsonObject.requiredEnumArg(
+    key: String,
+    valueOf: (String) -> T,
+): T {
+    val raw = (this[key] as? JsonPrimitive)?.contentOrNullSafe() ?: throw McpInvalidToolArgumentsException("'$key' is required")
+    return runCatching { valueOf(raw) }.getOrElse {
+        // MINOR-4 (Welle V1.8.2b): this message lands verbatim in a JSON-RPC response -- strip
+        // control characters (a caller-controlled value otherwise ends up unescaped in a JSON
+        // string) and cap it, rather than echoing an arbitrarily long/hostile raw value back.
+        val safeRaw = raw.filterNot { c -> c.isISOControl() }.take(64)
+        throw McpInvalidToolArgumentsException("'$key' has an unknown value: $safeRaw")
+    }
+}

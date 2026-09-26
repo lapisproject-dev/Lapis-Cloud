@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.McpMemberBlockTable
+import network.lapis.cloud.server.db.generated.McpPostDraftTable
 import network.lapis.cloud.server.db.generated.McpToolCallAuditTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -27,8 +28,24 @@ class McpServerSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "54-mcp-server.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly the two MCP entities plus the Member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("member", "mcp_member_block", "mcp_tool_call_audit")
+        test("model declares exactly the three MCP entities plus the Member/SocialPost stubs (Welle V1.8.2)") {
+            model.entities.map { it.name }.toSet() shouldBe
+                setOf("member", "social_post", "mcp_member_block", "mcp_tool_call_audit", "mcp_post_draft")
+        }
+
+        test("mcp_post_draft table shape matches the real migrated schema and McpPostDraftTable 1:1 -- token_id has NO FK (deliberate)") {
+            val entity = model.entities.single { it.name == "mcp_post_draft" }
+            val real = transaction { introspectMcpTable("mcp_post_draft") }
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder McpPostDraftTable.columns.map { it.name }
+            real.foreignKeys["member_id"] shouldBe "member"
+            real.foreignKeys["released_post_id"] shouldBe "social_post"
+
+            // Same pinned "no FK on token_id" regression guard as mcp_tool_call_audit.token_id below.
+            real.foreignKeys["token_id"] shouldBe null
+            entity.attributeByName("token_id")?.foreignKey shouldBe null
+            entity.attributeByName("token_id")?.nullable shouldBe true
+            entity.attributeByName("released_post_id")?.nullable shouldBe true
         }
 
         test("mcp_member_block table shape matches the real migrated schema and McpMemberBlockTable 1:1") {

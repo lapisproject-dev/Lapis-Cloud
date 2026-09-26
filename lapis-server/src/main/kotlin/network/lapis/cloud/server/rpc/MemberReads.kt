@@ -40,6 +40,22 @@ internal object MemberReads {
 
     fun countActiveMembers(): Long = MemberTable.selectAll().where { MemberTable.status eq MemberStatus.ACTIVE }.count()
 
+    /** Welle V1.8.2 -- the caller's OWN status, for `mcp.tools.CreatePostDraftTool`'s visibility guard. `null` if the id is unknown. */
+    fun getStatus(memberId: Uuid): MemberStatus? =
+        MemberTable
+            .select(MemberTable.status)
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+            ?.get(MemberTable.status)
+
+    /** Welle V1.8.2 -- displayName+email for `mcp.tools.RegisterForEventTool`'s own `EventParticipant.Member`. `null` if the id is unknown. */
+    fun getDisplayNameAndEmail(memberId: Uuid): Pair<String, String>? =
+        MemberTable
+            .select(MemberTable.displayName, MemberTable.email)
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+            ?.let { it[MemberTable.displayName] to it[MemberTable.email] }
+
     /**
      * Welle V1.3.2 "Webhooks" (ausgehend), plan §8.3 -- `null` means "not found OR not ACTIVE",
      * the caller cannot (and must not try to) distinguish the two: `network.lapis.cloud.server

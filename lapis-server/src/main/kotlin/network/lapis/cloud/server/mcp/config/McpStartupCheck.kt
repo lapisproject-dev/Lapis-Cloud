@@ -28,7 +28,7 @@ internal object McpStartupCheck {
         logger.info {
             "MCP-Server: aktiv, rateLimits=token:${config.toolCallsPerTokenPerMinute}/min " +
                 "member:${config.toolCallsPerMemberPerHour}/h server:${config.toolCallsPerServerPerDay}/d, " +
-                "toolTimeoutMs=${config.toolTimeoutMs}."
+                "toolTimeoutMs=${config.toolTimeoutMs}, writeEnabled=${config.writeEnabled}."
         }
     }
 }

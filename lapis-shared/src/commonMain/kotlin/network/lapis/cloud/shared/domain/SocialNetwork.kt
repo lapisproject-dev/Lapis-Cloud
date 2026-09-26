@@ -230,6 +230,14 @@ data class SocialPostDto(
     /** NEU Welle V1.1.2. Anzahl Boosts auf DIESEN Knoten (nicht auf Nachfahren). */
     val boostCount: Int,
     val publishedAt: LocalDateTime,
+    /**
+     * Welle V1.8.2 -- `true` wenn dieser Beitrag über `SocialNetworkService.releaseMyPostDraft`
+     * aus einem von einem MCP-Agenten angelegten Entwurf freigegeben wurde. Additiv mit
+     * Default `false`, damit bestehende Deserialisierung stabil bleibt. Wird NIE zurückgesetzt,
+     * NIEMALS über ein Eingabe-DTO gesetzt (server-seitig ausschließlich in `createPostRow`
+     * bestimmt) -- siehe `docs/architecture/mcp-server.adoc` "Scopes".
+     */
+    val aiAssisted: Boolean = false,
 )
 
 // ================================================================================================

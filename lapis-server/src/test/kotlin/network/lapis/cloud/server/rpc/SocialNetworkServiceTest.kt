@@ -31,16 +31,21 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
+import network.lapis.cloud.server.db.generated.McpPostDraftTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
 import network.lapis.cloud.server.db.generated.SocialPostErasureTable
 import network.lapis.cloud.server.db.generated.SocialPostReportTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.social.PostDraftStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
+import network.lapis.cloud.shared.domain.McpPostDraftEditInput
+import network.lapis.cloud.shared.domain.McpPostDraftReleaseInput
+import network.lapis.cloud.shared.domain.McpPostDraftStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostErasureStatus
@@ -92,6 +97,11 @@ class SocialNetworkServiceTest :
 
         afterSpec {
             transaction {
+                // MCP post drafts (Welle V1.8.2) -- deleted BEFORE the social_post cleanup below,
+                // since a RELEASED draft's releasedPostId FKs into social_post.
+                if (createdMemberIds.isNotEmpty()) {
+                    McpPostDraftTable.deleteWhere { McpPostDraftTable.memberId inList createdMemberIds }
+                }
                 if (createdPostIds.isNotEmpty()) {
                     // Welle V1.1.2 (Stolperfalle 12): comments now exist, so a single bulk delete
                     // over the whole id set can violate the self-referencing parent_id/root_id FK.
@@ -2946,6 +2956,339 @@ class SocialNetworkServiceTest :
                 transaction { SocialPostErasureTable.deleteWhere { SocialPostErasureTable.postId eq postId } }
             }
         }
+
+        // ── Welle V1.8.2 wave 2 review fix: MCP post-draft RPC methods (previously ZERO coverage) ──
+        // listMyPostDrafts/updateMyPostDraft/releaseMyPostDraft/discardMyPostDraft/restoreMyPostDraft
+        // -- none of the five had a single test anywhere in this suite before this block, most
+        // notably releaseMyPostDraft's LTR debit + aiAssisted=true + all-or-nothing semantics.
+
+        fun seedDraft(
+            memberId: Uuid,
+            content: String = "MCP-Entwurf",
+            visibility: SocialPostVisibility = SocialPostVisibility.PUBLIC,
+        ): Uuid =
+            PostDraftStore
+                .createDraft(
+                    memberId = memberId,
+                    tokenId = Uuid.random(),
+                    agentLabel = "Test Agent",
+                    content = content,
+                    visibility = visibility,
+                ).first
+
+        test("listMyPostDrafts: lists only the caller's own OPEN drafts, never another member's") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-list-own-${Uuid.random()}@example.org")
+                val otherMember = createTestMember("draft-list-other-${Uuid.random()}@example.org")
+                val ownDraftId = seedDraft(memberId = member, content = "Eigener Entwurf")
+                seedDraft(memberId = otherMember, content = "Fremder Entwurf")
+
+                val body = client.get("/test/list-my-post-drafts") { header("X-Member-Id", member.toString()) }.bodyAsText()
+                val ids = body.split(",").map { it.substringBefore(":") }
+                ids shouldBe listOf(ownDraftId.toString())
+                body.contains("Fremder Entwurf") shouldBe false
+            }
+        }
+
+        test("updateMyPostDraft: happy path overwrites content/visibility on an OPEN draft the caller owns") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-update-happy-${Uuid.random()}@example.org")
+                val draftId = seedDraft(memberId = member, content = "Alter Inhalt", visibility = SocialPostVisibility.PUBLIC)
+
+                val response =
+                    client.post(
+                        "/test/update-my-post-draft?draftId=$draftId&content=Neuer%20Inhalt&visibility=MEMBERS_AND_EXTERNAL",
+                    ) { header("X-Member-Id", member.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldBe "$draftId:OPEN:Neuer Inhalt:MEMBERS_AND_EXTERNAL"
+            }
+        }
+
+        test("updateMyPostDraft: a foreign draft id is rejected as NotFound, not silently applied") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val owner = createTestMember("draft-update-foreign-owner-${Uuid.random()}@example.org")
+                val attacker = createTestMember("draft-update-foreign-attacker-${Uuid.random()}@example.org")
+                val draftId = seedDraft(memberId = owner, content = "Original")
+
+                val response =
+                    client.post("/test/update-my-post-draft?draftId=$draftId&content=Uebernommen") {
+                        header("X-Member-Id", attacker.toString())
+                    }
+                response.status shouldBe HttpStatusCode.NotFound
+
+                transaction {
+                    McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq draftId }.single()[McpPostDraftTable.content]
+                } shouldBe "Original"
+            }
+        }
+
+        // Review fix: updateMyPostDraft was missing the same requireVisibilityAllowedFor guard
+        // createPost/releaseMyPostDraft already have -- a NON_MEMBER (here FRIEND) could otherwise
+        // persist MEMBERS_ONLY onto their own draft directly via RPC, bypassing the client-side
+        // `SocialComposerVisibility.allowedVisibilities` filter. Mirrors "createPost: a FRIEND is
+        // rejected from choosing MEMBERS_ONLY" above.
+        test("updateMyPostDraft: a FRIEND is rejected from setting MEMBERS_ONLY on their own draft") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val friend = createTestMember("draft-update-friend-members-only@example.org", status = MemberStatus.FRIEND)
+                val draftId = seedDraft(memberId = friend, content = "Entwurf", visibility = SocialPostVisibility.PUBLIC)
+
+                val response =
+                    client.post(
+                        "/test/update-my-post-draft?draftId=$draftId&content=Neuer%20Inhalt&visibility=MEMBERS_ONLY",
+                    ) { header("X-Member-Id", friend.toString()) }
+                // ConflictException, same as createPost's mirror-image rejection -- see
+                // requireVisibilityAllowedFor KDoc.
+                response.status shouldBe HttpStatusCode.Conflict
+
+                // Regression guard: the rejected visibility must never have been persisted.
+                transaction {
+                    McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq draftId }.single()[McpPostDraftTable.visibility]
+                } shouldBe SocialPostVisibility.PUBLIC
+            }
+        }
+
+        test(
+            "releaseMyPostDraft: happy path debits a SOCIAL_POST_STAKE, creates a VISIBLE aiAssisted=true post, " +
+                "and marks the draft RELEASED with releasedPostId set",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-release-happy-${Uuid.random()}@example.org")
+                mintLtr(member, BigDecimal("10.00"))
+                val draftId = seedDraft(memberId = member, content = "Vom Agenten entworfen")
+
+                val response =
+                    client.post("/test/release-my-post-draft?draftId=$draftId&weight=4.00") {
+                        header("X-Member-Id", member.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                val (postId, state, ownWeight, aiAssisted) = response.bodyAsText().split(":")
+                state shouldBe "VISIBLE"
+                ownWeight shouldBe "4.00"
+                aiAssisted shouldBe "true"
+                createdPostIds += Uuid.parse(postId)
+
+                val balance = client.get("/test/free-balance") { header("X-Member-Id", member.toString()) }.bodyAsText()
+                balance shouldBe "6.00"
+
+                val stakeRow =
+                    transaction {
+                        LtrLedgerEntryTable
+                            .selectAll()
+                            .where {
+                                (LtrLedgerEntryTable.memberId eq member) and
+                                    (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.SOCIAL_POST_STAKE)
+                            }.single()
+                    }
+                stakeRow[LtrLedgerEntryTable.amountLtr].compareTo(BigDecimal("-4.00")) shouldBe 0
+                stakeRow[LtrLedgerEntryTable.referenceId] shouldBe Uuid.parse(postId)
+
+                val draftRow = transaction { McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq draftId }.single() }
+                draftRow[McpPostDraftTable.status] shouldBe McpPostDraftStatus.RELEASED
+                draftRow[McpPostDraftTable.releasedPostId] shouldBe Uuid.parse(postId)
+            }
+        }
+
+        test(
+            "releaseMyPostDraft: insufficient free LTR balance is rejected as Conflict, and NEITHER a " +
+                "social_post row NOR a ledger debit is created (all-or-nothing)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-release-insufficient-${Uuid.random()}@example.org")
+                mintLtr(member, BigDecimal("1.00"))
+                val draftId = seedDraft(memberId = member, content = "Zu teurer Entwurf")
+
+                val response =
+                    client.post("/test/release-my-post-draft?draftId=$draftId&weight=5.00") {
+                        header("X-Member-Id", member.toString())
+                    }
+                response.status shouldBe HttpStatusCode.Conflict
+
+                val draftRow = transaction { McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq draftId }.single() }
+                draftRow[McpPostDraftTable.status] shouldBe McpPostDraftStatus.OPEN
+                draftRow[McpPostDraftTable.releasedPostId] shouldBe null
+                transaction {
+                    SocialPostTable.selectAll().where { SocialPostTable.authorMemberId eq member }.count()
+                } shouldBe 0L
+                transaction {
+                    LtrLedgerEntryTable
+                        .selectAll()
+                        .where {
+                            (LtrLedgerEntryTable.memberId eq member) and
+                                (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.SOCIAL_POST_STAKE)
+                        }.count()
+                } shouldBe 0L
+            }
+        }
+
+        test("releaseMyPostDraft: a draft that is NOT OPEN (already RELEASED) is rejected as Conflict on a second call") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-release-twice-${Uuid.random()}@example.org")
+                mintLtr(member, BigDecimal("10.00"))
+                val draftId = seedDraft(memberId = member, content = "Nur einmal freigebbar")
+
+                val first =
+                    client.post("/test/release-my-post-draft?draftId=$draftId&weight=1.00") {
+                        header("X-Member-Id", member.toString())
+                    }
+                first.status shouldBe HttpStatusCode.OK
+                createdPostIds += Uuid.parse(first.bodyAsText().substringBefore(":"))
+
+                val second =
+                    client.post("/test/release-my-post-draft?draftId=$draftId&weight=1.00") {
+                        header("X-Member-Id", member.toString())
+                    }
+                second.status shouldBe HttpStatusCode.Conflict
+
+                // Still only ONE social_post row for this member, not two.
+                transaction {
+                    SocialPostTable.selectAll().where { SocialPostTable.authorMemberId eq member }.count()
+                } shouldBe 1L
+            }
+        }
+
+        // Welle V1.8.2b review fix -- a plain "OPEN only" listMyPostDrafts made a discarded draft
+        // invisible after the very next page load, even though restoreMyPostDraft keeps it
+        // restorable for several days. See PostDraftStore.listVisible KDoc.
+        test("listMyPostDrafts: a DISCARDED draft is still listed (visible for the restore window), a RELEASED one is not") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-list-discarded-${Uuid.random()}@example.org")
+                mintLtr(member, BigDecimal("10.00"))
+                val openId = seedDraft(memberId = member, content = "Noch offen")
+                val discardedId = seedDraft(memberId = member, content = "Verworfen")
+                val releasedId = seedDraft(memberId = member, content = "Freigegeben")
+
+                client.post("/test/discard-my-post-draft/$discardedId") { header("X-Member-Id", member.toString()) }
+                val releaseResponse =
+                    client.post("/test/release-my-post-draft?draftId=$releasedId&weight=1.00") {
+                        header("X-Member-Id", member.toString())
+                    }
+                createdPostIds += Uuid.parse(releaseResponse.bodyAsText().substringBefore(":"))
+
+                val body = client.get("/test/list-my-post-drafts") { header("X-Member-Id", member.toString()) }.bodyAsText()
+                val ids = body.split(",").map { it.substringBefore(":") }
+                ids.toSet() shouldBe setOf(openId.toString(), discardedId.toString())
+                body.contains("Freigegeben") shouldBe false
+            }
+        }
+
+        // Welle V1.8.2b (Jobs' review call) -- see PostDraftStore.markReleasedOwned KDoc: the
+        // post-scoped erasure tombstone never reaches this second table, so content is cleared
+        // unconditionally at the moment of release, not after any later erasure request.
+        test("releaseMyPostDraft: clears the draft's own content to \"\" at release time") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-release-clears-content-${Uuid.random()}@example.org")
+                mintLtr(member, BigDecimal("10.00"))
+                val draftId = seedDraft(memberId = member, content = "Dieser Text darf nach Freigabe nicht mehr hier stehen")
+
+                val response =
+                    client.post("/test/release-my-post-draft?draftId=$draftId&weight=1.00") {
+                        header("X-Member-Id", member.toString())
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                createdPostIds += Uuid.parse(response.bodyAsText().substringBefore(":"))
+
+                transaction {
+                    McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq draftId }.single()[McpPostDraftTable.content]
+                } shouldBe ""
+            }
+        }
+
+        test("discardMyPostDraft + restoreMyPostDraft: OPEN -> DISCARDED -> OPEN round trip") {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-discard-restore-${Uuid.random()}@example.org")
+                val draftId = seedDraft(memberId = member)
+
+                val discardResponse =
+                    client.post("/test/discard-my-post-draft/$draftId") { header("X-Member-Id", member.toString()) }
+                discardResponse.status shouldBe HttpStatusCode.OK
+                transaction {
+                    McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq draftId }.single()[McpPostDraftTable.status]
+                } shouldBe McpPostDraftStatus.DISCARDED
+
+                val restoreResponse =
+                    client.post("/test/restore-my-post-draft/$draftId") { header("X-Member-Id", member.toString()) }
+                restoreResponse.status shouldBe HttpStatusCode.OK
+                restoreResponse.bodyAsText() shouldBe "$draftId:OPEN"
+            }
+        }
+
+        test(
+            "restoreMyPostDraft: rejected as Conflict once the caller is already at MAX_OPEN_DRAFTS_PER_MEMBER " +
+                "-- regression for PostDraftStore.restoreOwned's missing cap check (review MINOR fix)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installSocialExceptionHandlers() }
+                    routing { registerSocialNetworkTestRoutes(createRateLimiter = generousLimiter()) }
+                }
+                val member = createTestMember("draft-restore-cap-${Uuid.random()}@example.org")
+                val discardedDraftId = seedDraft(memberId = member, content = "Verworfener Entwurf")
+                transaction {
+                    McpPostDraftTable.update({ McpPostDraftTable.id eq discardedDraftId }) {
+                        it[status] = McpPostDraftStatus.DISCARDED
+                    }
+                }
+                // Fill the cap with MAX_OPEN_DRAFTS_PER_MEMBER other OPEN drafts.
+                repeat(PostDraftStore.MAX_OPEN_DRAFTS_PER_MEMBER) { seedDraft(memberId = member, content = "Offener Entwurf $it") }
+
+                val response =
+                    client.post("/test/restore-my-post-draft/$discardedDraftId") { header("X-Member-Id", member.toString()) }
+                response.status shouldBe HttpStatusCode.Conflict
+
+                // The discarded draft must still be DISCARDED, not silently OPEN -- and the open
+                // count must still be exactly the cap, never the cap + 1 the pre-fix bug allowed.
+                transaction {
+                    McpPostDraftTable.selectAll().where { McpPostDraftTable.id eq discardedDraftId }.single()[McpPostDraftTable.status]
+                } shouldBe McpPostDraftStatus.DISCARDED
+                transaction {
+                    McpPostDraftTable
+                        .selectAll()
+                        .where {
+                            (McpPostDraftTable.memberId eq member) and (McpPostDraftTable.status eq McpPostDraftStatus.OPEN)
+                        }.count()
+                } shouldBe PostDraftStore.MAX_OPEN_DRAFTS_PER_MEMBER.toLong()
+            }
+        }
     })
 
 private fun StatusPagesConfig.installSocialExceptionHandlers() {
@@ -3077,6 +3420,45 @@ private fun Route.registerSocialNetworkTestRoutes(
     get("/test/free-balance") {
         val service = LtrLedgerService(call = call)
         call.respondText(service.getMyBalance().freeBalanceLtr.toString())
+    }
+
+    // ── Welle V1.8.2 wave 2 review fix: MCP post-draft RPC test routes (previously untested) ──
+    get("/test/list-my-post-drafts") {
+        val service = service(call)
+        val drafts = service.listMyPostDrafts()
+        call.respondText(drafts.joinToString(",") { "${it.id}:${it.status}:${it.content}:${it.visibility}" })
+    }
+    post("/test/update-my-post-draft") {
+        val service = service(call)
+        val q = call.request.queryParameters
+        val d =
+            service.updateMyPostDraft(
+                McpPostDraftEditInput(
+                    draftId = q["draftId"]!!,
+                    content = q["content"] ?: "Aktualisierter Inhalt",
+                    visibility = SocialPostVisibility.valueOf(q["visibility"] ?: "PUBLIC"),
+                ),
+            )
+        call.respondText("${d.id}:${d.status}:${d.content}:${d.visibility}")
+    }
+    post("/test/release-my-post-draft") {
+        val service = service(call)
+        val q = call.request.queryParameters
+        val p =
+            service.releaseMyPostDraft(
+                McpPostDraftReleaseInput(draftId = q["draftId"]!!, initialWeightLtr = BigDecimal(q["weight"] ?: "1.00")),
+            )
+        call.respondText("${p.id}:${p.state}:${p.ownCurrentWeightLtr}:${p.aiAssisted}")
+    }
+    post("/test/discard-my-post-draft/{id}") {
+        val service = service(call)
+        service.discardMyPostDraft(call.parameters["id"]!!)
+        call.respondText("ok")
+    }
+    post("/test/restore-my-post-draft/{id}") {
+        val service = service(call)
+        val d = service.restoreMyPostDraft(call.parameters["id"]!!)
+        call.respondText("${d.id}:${d.status}")
     }
 
     // ── Welle V1.1.5 test routes ──────────────────────────────────────────────────────────

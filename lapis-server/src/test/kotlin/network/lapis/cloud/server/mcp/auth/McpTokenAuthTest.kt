@@ -23,4 +23,8 @@ class McpTokenAuthTest :
         test("McpScopes.MEMBER_READ stays byte-identical to OidcScopes.MCP_MEMBER_READ") {
             McpScopes.MEMBER_READ shouldBe OidcScopes.MCP_MEMBER_READ
         }
+
+        test("McpScopes.MEMBER_WRITE stays byte-identical to OidcScopes.MCP_MEMBER_WRITE (V1.8.2)") {
+            McpScopes.MEMBER_WRITE shouldBe OidcScopes.MCP_MEMBER_WRITE
+        }
     })

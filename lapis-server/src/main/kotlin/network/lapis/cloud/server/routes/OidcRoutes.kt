@@ -149,10 +149,19 @@ fun Route.registerOidcRoutes(
     // a global) same posture as cookieSecure above. Gates the mcp:member_read scope in discovery,
     // the MCP branch of /authorize, and the block-check gate in issueTokens.
     mcpEnabled: Boolean = false,
+    /**
+     * Welle V1.8.2b -- mirrors `McpConfig.isWriteOperational`. Ignored when [mcpEnabled] is
+     * `false` (there is no write-scope grant to reject if MCP itself is off -- the [mcpEnabled]
+     * check already runs first at every call site below). When MCP is on but writing is off, a
+     * request naming `mcp:member_write` is REJECTED, not silently narrowed to read-only -- same
+     * "client-shaped error, not a silent downgrade" doctrine `OidcScopes.isMcpScopeSet`'s own call
+     * sites already establish for a malformed MCP scope set.
+     */
+    mcpWriteEnabled: Boolean = false,
 ) {
     get("/.well-known/openid-configuration") {
         call.respondText(
-            OidcDiscoveryDocument.toJson(OidcDiscoveryDocument.build(mcpEnabled = mcpEnabled)),
+            OidcDiscoveryDocument.toJson(OidcDiscoveryDocument.build(mcpEnabled = mcpEnabled, mcpWriteEnabled = mcpWriteEnabled)),
             contentType = io.ktor.http.ContentType.Application.Json,
         )
     }
@@ -200,19 +209,25 @@ fun Route.registerOidcRoutes(
             return@get
         }
 
-        // Welle V1.8.1 MCP-Server -- mcp:member_read is required to be the ONLY scope requested
-        // (no mixed-purpose token) and requires the operator to have MCP switched on AND a
-        // matching RFC 8707 resource parameter. See routes.OidcRoutes class KDoc addendum below
-        // and McpTokenAuth KDoc for the resource-server side of this contract.
-        val isMcpRequest = OidcScopes.MCP_MEMBER_READ in requestedScopes
+        // Welle V1.8.1/V1.8.2 MCP-Server -- an MCP request's scope set must consist EXCLUSIVELY of
+        // MCP scopes (mcp:member_read alone, or mcp:member_read + mcp:member_write; never mixed
+        // with a guest-federation scope) and requires the operator to have MCP switched on AND a
+        // matching RFC 8707 resource parameter. See routes.OidcRoutes class KDoc addendum below,
+        // OidcScopes.isMcpScopeSet KDoc, and McpTokenAuth KDoc for the resource-server side.
+        val isMcpRequest = requestedScopes.any { it == OidcScopes.MCP_MEMBER_READ || it == OidcScopes.MCP_MEMBER_WRITE }
         val resourceParam = params["resource"]
         if (isMcpRequest) {
             if (!mcpEnabled) {
                 call.respond(HttpStatusCode.BadRequest, "MCP access is not enabled on this instance")
                 return@get
             }
-            if (requestedScopes.size != 1) {
-                call.respond(HttpStatusCode.BadRequest, "mcp:member_read must be requested alone")
+            if (!OidcScopes.isMcpScopeSet(requestedScopes)) {
+                call.respond(HttpStatusCode.BadRequest, "MCP scope requests may only combine mcp:member_read and mcp:member_write")
+                return@get
+            }
+            // Welle V1.8.2b -- second operator switch, see mcpWriteEnabled KDoc above.
+            if (!mcpWriteEnabled && OidcScopes.MCP_MEMBER_WRITE in requestedScopes) {
+                call.respond(HttpStatusCode.BadRequest, "mcp:member_write is not enabled on this instance")
                 return@get
             }
             if (resourceParam != McpResource.expected()) {
@@ -311,29 +326,36 @@ fun Route.registerOidcRoutes(
         }
 
         // Set-containment, NOT exact string equality -- must mirror the GET /authorize handler's
-        // own `OidcScopes.MCP_MEMBER_READ in requestedScopes` above byte-for-byte. A POST straight
-        // to this endpoint with e.g. scope="openid mcp:member_read" is independently reachable (see
-        // "Defense in depth" comment below) and MUST still be routed through every MCP gate --
-        // mcpEnabled, the resource check, the mandatory connection_label, and critically the
-        // member's own kill-switch (McpMemberBlockStore.isBlocked). An exact-equality check here
-        // let a mixed-scope request skip all four and mint an unrevokable, invisible MCP-scoped
-        // grant (see the finding this comment documents).
+        // own `isMcpRequest` check above byte-for-byte. A POST straight to this endpoint with e.g.
+        // scope="openid mcp:member_read" is independently reachable (see "Defense in depth" comment
+        // below) and MUST still be routed through every MCP gate -- mcpEnabled, the
+        // isMcpScopeSet shape check, the resource check, the mandatory connection_label, and
+        // critically the member's own kill-switch (McpMemberBlockStore.isBlocked). An
+        // exact-equality check here let a mixed-scope request skip all five and mint an
+        // unrevokable, invisible MCP-scoped grant (see the finding this comment documents).
         val requestedScopes = scope.split(" ").filter { it.isNotBlank() }.toSet()
-        val isMcpRequest = OidcScopes.MCP_MEMBER_READ in requestedScopes
+        val isMcpRequest = requestedScopes.any { it == OidcScopes.MCP_MEMBER_READ || it == OidcScopes.MCP_MEMBER_WRITE }
         if (isMcpRequest) {
             // Defense in depth: the GET /authorize handler above already refuses to even RENDER
             // the consent page when MCP is off, but this POST endpoint is independently reachable
-            // -- an mcp:member_read grant must never be mintable while the feature is disabled,
-            // even if the resulting token could never reach the (unregistered) /mcp transport.
+            // -- an MCP-scoped grant must never be mintable while the feature is disabled, even if
+            // the resulting token could never reach the (unregistered) /mcp transport.
             if (!mcpEnabled) {
                 call.respond(HttpStatusCode.BadRequest, "MCP access is not enabled on this instance")
                 return@post
             }
-            // Same "must be requested alone" rule as GET /authorize (line ~209 above) -- a mixed
-            // scope must never be silently accepted as a plain OIDC grant, nor silently narrowed;
-            // it is a client-shaped error.
-            if (requestedScopes.size != 1) {
-                call.respond(HttpStatusCode.BadRequest, "mcp:member_read must be requested alone")
+            // Same shape rule as GET /authorize (line ~209 above) -- a request outside
+            // {mcp:member_read} / {mcp:member_read, mcp:member_write} must never be silently
+            // accepted as a plain OIDC grant, nor silently narrowed; it is a client-shaped error.
+            if (!OidcScopes.isMcpScopeSet(requestedScopes)) {
+                call.respond(HttpStatusCode.BadRequest, "MCP scope requests may only combine mcp:member_read and mcp:member_write")
+                return@post
+            }
+            // Welle V1.8.2b -- mirrors the GET /authorize check above byte-for-byte, same reason
+            // (this POST endpoint is independently reachable, see the "Defense in depth" comment
+            // above).
+            if (!mcpWriteEnabled && OidcScopes.MCP_MEMBER_WRITE in requestedScopes) {
+                call.respond(HttpStatusCode.BadRequest, "mcp:member_write is not enabled on this instance")
                 return@post
             }
             if (resource != McpResource.expected()) {
@@ -1367,7 +1389,8 @@ private suspend fun issueTokens(
     // Welle V1.8.1 MCP-Server -- the block-check gate also runs on every refresh, not just the
     // initial grant, so flipping the member's own kill-switch takes effect on the very next
     // refresh even if McpTokenRevoker's own bulk-revoke somehow missed a token (defense in depth).
-    if (scope.trim() == OidcScopes.MCP_MEMBER_READ && McpMemberBlockStore.isBlocked(memberId = memberId)) {
+    val issuedTokenScopeSet = scope.split(" ").filter { it.isNotBlank() }.toSet()
+    if (OidcScopes.isMcpScopeSet(issuedTokenScopeSet) && McpMemberBlockStore.isBlocked(memberId = memberId)) {
         call.respondText(
             OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
             contentType = io.ktor.http.ContentType.Application.Json,
@@ -1438,7 +1461,7 @@ private suspend fun issueTokens(
     // Welle V1.8.1 -- an MCP grant's refresh token lives longer than a guest-federation one (an
     // agent connection is meant to persist across sessions); the access token TTL is unchanged
     // for both.
-    val refreshTtl = if (scope.trim() == OidcScopes.MCP_MEMBER_READ) MCP_REFRESH_TOKEN_TTL else REFRESH_TOKEN_TTL
+    val refreshTtl = if (OidcScopes.isMcpScopeSet(issuedTokenScopeSet)) MCP_REFRESH_TOKEN_TTL else REFRESH_TOKEN_TTL
     transaction {
         OidcIssuedTokenTable.insert {
             it[id] = Uuid.random()

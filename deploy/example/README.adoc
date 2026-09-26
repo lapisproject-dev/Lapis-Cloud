@@ -842,8 +842,14 @@ correct without it.
 `LAPIS_MCP_*` -- **not passed through by the compose files, on purpose.** When on, a member's own AI
 agent (e.g. Claude Desktop) can connect through the Model Context Protocol and read that member's own
 contribution status, LTR balance, statute passages (full-text search, no external AI call), upcoming
-events, and own cast ballots. Enabling it is an operator decision, independent of the AI-assistance
-switch above -- the two layers are deliberately decoupled. Architecture:
+events, and own cast ballots. Since V1.8.2, a SECOND, additional OAuth scope (`mcp:member_write`,
+never granted alone) additionally allows the agent to register the member for a GEBÜHRENFREIE event
+and create an unpublished post draft -- publishing that draft remains exclusively the member's own
+action in the web UI. **Registering for a fee-bearing event is not possible through an agent at
+all** (Welle V1.8.2b closed that path -- the tool rejects it outright as `event_requires_payment`
+rather than starting a checkout); a member wanting to attend a paid event still uses the web UI.
+Enabling MCP write access is an operator decision, independent of the AI-assistance switch above --
+the two layers are deliberately decoupled. Architecture:
 xref:../../docs/architecture/mcp-server.adoc[mcp-server.adoc].
 
 To enable it, add the variables to the `lapis-server` service's `environment:` block yourself:
@@ -853,11 +859,29 @@ To enable it, add the variables to the `lapis-server` service's `environment:` b
     environment:
       # ... existing entries ...
       LAPIS_MCP_ENABLED: "${LAPIS_MCP_ENABLED:-}"
+      # Welle V1.8.2b -- a SECOND, independent switch: LAPIS_MCP_ENABLED alone only ever exposes
+      # the five READING tools. The two WRITING tools (register_for_event, create_post_draft)
+      # additionally require this to be exactly "true" (default off, same posture as every other
+      # LAPIS_MCP_* variable). While off: the tools never appear in tools/list, mcp:member_write is
+      # never granted (an /authorize request naming it is rejected outright, not silently
+      # downgraded), scopes_supported never advertises it, and a write-capable token minted before
+      # the switch was flipped off loses its effect on its very next call. Existing drafts of a
+      # member's own remain editable/releasable/discardable regardless -- this switch blocks only
+      # NEW writes, it never holds existing content hostage.
+      LAPIS_MCP_WRITE_ENABLED: "${LAPIS_MCP_WRITE_ENABLED:-}"
       # Tuning -- every one of these has a working default, only set what you actually want to change:
       # LAPIS_MCP_RATE_PER_TOKEN_MINUTE: "20"
       # LAPIS_MCP_RATE_PER_MEMBER_HOUR: "300"
       # LAPIS_MCP_RATE_PER_SERVER_DAY: "20000"
       # LAPIS_MCP_TOOL_TIMEOUT_MS: "5000"
+      # V1.8.2 write-tool quotas -- additive on top of the three windows above, same "has a
+      # working default" posture:
+      # LAPIS_MCP_WRITE_RATE_EVENT_TOKEN_HOUR: "5"
+      # LAPIS_MCP_WRITE_RATE_EVENT_MEMBER_DAY: "20"
+      # LAPIS_MCP_WRITE_RATE_EVENT_SERVER_DAY: "2000"
+      # LAPIS_MCP_WRITE_RATE_DRAFT_TOKEN_HOUR: "3"
+      # LAPIS_MCP_WRITE_RATE_DRAFT_MEMBER_DAY: "10"
+      # LAPIS_MCP_WRITE_RATE_DRAFT_SERVER_DAY: "1000"
 ----
 
 The feature is on only when `LAPIS_MCP_ENABLED` is exactly `true`; anything else means "off" and the

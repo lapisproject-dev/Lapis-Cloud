@@ -80,4 +80,25 @@ class NavVisibilityTest {
         assertFalse(NavVisibility.showsStatuteQa(MemberStatus.GUEST, aiAssistantEnabled = true))
         assertFalse(NavVisibility.showsStatuteQa(MemberStatus.FRIEND, aiAssistantEnabled = false))
     }
+
+    // Welle V1.8.2b -- showsAiDrafts is bound to mcpEnabled (never mcpWriteEnabled -- that switch
+    // never hides an existing draft, see NavVisibility.showsAiDrafts KDoc), and to LTR_ELIGIBLE
+    // (ACTIVE + FRIEND), not ORGANIZATION_MEMBER -- releasing a draft debits LTR the same way
+    // Soziales Netzwerk does.
+    @Test
+    fun aiDrafts_needsMcpEnabled_andLtrEligibleStatus() {
+        assertFalse(NavVisibility.showsAiDrafts(MemberStatus.ACTIVE, mcpEnabled = false))
+        assertTrue(NavVisibility.showsAiDrafts(MemberStatus.ACTIVE, mcpEnabled = true))
+        assertTrue(NavVisibility.showsAiDrafts(MemberStatus.FRIEND, mcpEnabled = true))
+        assertFalse(NavVisibility.showsAiDrafts(MemberStatus.GUEST, mcpEnabled = true))
+        assertFalse(NavVisibility.showsAiDrafts(MemberStatus.APPLICATION, mcpEnabled = true))
+    }
+
+    @Test
+    fun aiDrafts_matchesMemberStatusSetsLtrEligible_exactly() {
+        MemberStatus.entries.forEach { status ->
+            val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
+            assertEquals(expected, NavVisibility.showsAiDrafts(status, mcpEnabled = true), "showsAiDrafts mismatch for $status")
+        }
+    }
 }

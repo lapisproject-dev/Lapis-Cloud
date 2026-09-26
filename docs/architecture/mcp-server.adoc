@@ -1,16 +1,17 @@
-= MCP server for member agents: foundation, read-only (V1.8.1)
+= MCP server for member agents (V1.8.2)
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs`
 Gradle task (see `docs-render/`), kept in sync by hand with
 `lapis-server/src/main/kuml/54-mcp-server.kuml.kts` and the V1.8.1 additions to
 `lapis-server/src/main/kuml/25-oidc-guest-federation.kuml.kts` (the actual, load-bearing models).
 
-Lapis Cloud can optionally expose a small, read-only Model Context Protocol (MCP) resource server so
-a member's own AI agent (e.g. Claude Desktop) can answer questions about that member's own account --
+Lapis Cloud can optionally expose a small Model Context Protocol (MCP) resource server so a member's
+own AI agent (e.g. Claude Desktop) can answer questions about that member's own account --
 contribution status, LTR balance, the statutes, upcoming events, their own cast ballots -- without the
-agent ever seeing another member's data. **The feature is off by default.** This wave is deliberately
-a foundation: five tools, all reads, no writes, no agentic tool use beyond what the calling agent
-itself orchestrates.
+agent ever seeing another member's data. **The feature is off by default.** V1.8.1 was a read-only
+foundation: five tools, no writes. **V1.8.2 adds exactly two write tools**
+(`register_for_event`/`create_post_draft`, see "Write tools" below), gated behind a SECOND,
+additional OAuth scope -- an existing V1.8.1 token never gains write access retroactively.
 
 Operator instructions (variables, defaults) live in `deploy/example/README.adoc`, the section "MCP
 access for AI agents".
@@ -57,7 +58,7 @@ later wave, not attempted here.
 | `optin`      | `McpMemberBlockStore` -- the per-member kill switch (opposite polarity of `AiMemberOptInStore`, see below)
 | `ratelimit`  | three-tier sliding-window limiter (per token / per member / per server)
 | `audit`      | `McpToolCallAuditRecorder` -- metadata only, never arguments or results
-| `tools`      | the five tool definitions, their dispatcher, and the catalog
+| `tools`      | the seven tool definitions (five reading, two writing since V1.8.2), their dispatcher, and the catalog
 | `transport`  | JSON-RPC 2.0 wire types, protocol version constant, capped body reading
 |===
 
@@ -79,12 +80,20 @@ switch/connection-list RPC surface), `dsgvo.McpPersonalData`, and the MCP-specif
 * **R3** -- no Exposed write happens anywhere under `mcp/` outside `optin/McpMemberBlockStore`,
   `audit/McpToolCallAuditRecorder`, and the two narrowly-scoped writes in `auth/McpTokenAuth`
   (`last_used_at` only) and `auth/McpTokenRevoker` (`revoked_at` only).
-* **R4** -- the tool catalog has exactly five entries; no tool signature accepts a caller-supplied
-  `memberId` -- identity always comes from the resolved `McpPrincipal`.
+* **R4** -- the tool catalog has exactly seven entries (five reading, two writing); no tool signature
+  accepts a caller-supplied `memberId` -- identity always comes from the resolved `McpPrincipal`.
 * **R5** -- `mcp/` never imports `ai/qa` or `ai/llm`. The one deliberate exception is
   `ai.retrieval.KnowledgeRetriever`/`PostgresFullTextKnowledgeRetriever`, reused directly by
   `search_statute` for full-text retrieval only -- no LLM call happens inside this server for that
   tool, the calling agent is the "model".
+* **R6** (V1.8.2) -- `mcp/` never imports `rpc.SocialNetworkService`, `domain.SocialPostState`, or
+  `db.generated.SocialPostTable`, and no line under `mcp/` calls `createPost(...)`.
+  `create_post_draft`'s write path stops at `social.PostDraftStore` (an `mcp_post_draft` row) --
+  turning a draft into a real, published `social_post` is exclusively the member's OWN action via
+  `rpc.SocialNetworkService.releaseMyPostDraft`, never something `mcp/` code does itself. See "Why
+  there is no DRAFT state in SocialPostState" below. `domain.SocialPostVisibility` is a deliberate,
+  named exception (it is `create_post_draft`'s own input type, a shared-domain enum with no write
+  capability of its own).
 
 == No third-party MCP SDK
 
@@ -120,13 +129,37 @@ sequenceDiagram(name = "MCP agent connects") {
 }
 ----
 
-`mcp:member_read` MUST be the only scope requested (`/authorize` rejects a mixed request outright)
-and MUST carry a `resource` parameter equal to this server's own MCP endpoint URL (RFC 8707) -- both
-checked before the consent page is even rendered. The issued access token TTL is unchanged (1 hour);
+The requested scope set MUST consist EXCLUSIVELY of MCP scopes -- `{mcp:member_read}` or
+`{mcp:member_read, mcp:member_write}`, never mixed with a guest-federation scope, and `mcp:member_write`
+is never accepted alone (see "Scopes" below) -- and MUST carry a `resource` parameter equal to this
+server's own MCP endpoint URL (RFC 8707) -- both checked before the consent page is even rendered
+(`OidcScopes.isMcpScopeSet`). The issued access token TTL is unchanged (1 hour);
 the refresh token TTL is 14 days (longer than the 30-day guest-federation default's *shorter*
 counterpart for a different reason: an agent connection is meant to persist, but a refresh also
 re-checks the member's block state and organization-membership status on every use, so a longer TTL
 does not weaken the kill switch).
+
+== Scopes
+
+[cols="1,3"]
+|===
+| Scope | Grants
+
+| `mcp:member_read` | The five reading tools. Required in every MCP grant -- writing without reading has no meaning for either write tool.
+| `mcp:member_write` | ADDITIONALLY `register_for_event` and `create_post_draft`. Never granted alone. Never implied retroactively by a pre-existing `mcp:member_read`-only token -- `McpTokenAuth.resolve` derives `McpPrincipal.canWrite` from the ACTUAL stored scope string on each token, never a blanket upgrade.
+|===
+
+A token issued before `mcp:member_write` existed, or one whose holder only ever requested
+`mcp:member_read`, stays read-only forever. The consent screen (`routes.McpConsentPage`) renders a
+second, explicit block naming the two write effects only when `mcp:member_write` is being requested,
+and its "what the agent cannot do" paragraph says "nicht veröffentlichen" (a released draft still
+needs the member's own release action in the web UI) rather than the V1.8.1 wording's "nichts
+ändern" -- that older wording would have become a standing lie the moment write tools existed
+server-side at all, even for a read-only grant, so it was corrected unconditionally, not only for
+write-scoped requests.
+
+`tools/list` filters the seven-entry catalog down to the five reading tools for a read-only
+principal -- an agent is never offered a tool it could not successfully call.
 
 == Public (PKCE-only) clients and loopback redirects
 
@@ -146,9 +179,20 @@ TLS certificate for its own OS-assigned ephemeral loopback port. Two additions, 
 
 == Data model
 
-Two new tables (migration `V49__mcp_server.sql`, purely additive, idempotent) plus three additive
-columns each on `oidc_authorization_code`, `oidc_issued_token`, and one column on
-`oidc_client_registration` (all `NULL`/defaulted for every pre-existing guest-federation row).
+V1.8.1's migration `V49__mcp_server.sql` added two tables plus three additive columns each on
+`oidc_authorization_code`, `oidc_issued_token`, and one column on `oidc_client_registration` (all
+`NULL`/defaulted for every pre-existing guest-federation row). V1.8.2's `V50__mcp_write_tools.sql`
+adds a third table, `mcp_post_draft`, plus one additive `social_post.ai_assisted BOOLEAN NOT NULL
+DEFAULT FALSE` column -- both purely additive, idempotent, no earlier migration touched.
+
+`mcp_post_draft` -- an agent's UNPUBLISHED draft, created by `create_post_draft`. **Not** a
+`social_post` row (see "Why there is no DRAFT state in SocialPostState" below). `token_id` has no
+foreign key, same reasoning as `mcp_tool_call_audit.token_id` (a draft must outlive the token that
+created it). `agent_label` is a FROZEN SNAPSHOT of the connection's self-declared label at
+draft-creation time -- not a live lookup, because a later token revocation/deletion must never make
+a draft's own provenance ("which agent produced this") unreadable. `released_post_id` is a nullable
+FK to `social_post`, set once by `releaseMyPostDraft`, never re-derived. `status` is
+`OPEN → RELEASED | DISCARDED`, plus `DISCARDED → OPEN` (the client's "Rückgängig" undo toast).
 
 [source,kuml,name="mcp-server-erm"]
 ----
@@ -209,6 +253,135 @@ the pre-existing guest-federation consent screen sets the client's self-declared
 unescaped-context-adjacent `<h1>` and lists raw scope strings -- both pre-existing, both untouched by
 this wave).
 
+== Write tools
+
+[cols="1,3,2"]
+|===
+| Tool | What it does | Hard rule
+
+| `register_for_event` | Registers the CALLER for a published, GEBÜHRENFREIE event -- `{ eventId }`, no other argument | Idempotent: a second call for the same event returns `alreadyRegistered=true` with the caller's own status/waitlist position, never a second registration. A fee-bearing event is rejected UP FRONT as a typed `event_requires_payment` error, before submission ever runs -- see "No payment through MCP" below. The four remaining failure preconditions (event not open, waitlist full, gateway unavailable, payment failed) all collapse into the SAME generic refusal -- no oracle.
+| `create_post_draft` | Creates an `mcp_post_draft` row -- `{ content, visibility }` | **No `initialWeightLtr` argument** -- a draft carries no LTR stake, see "Scopes"/"No LTR path" below. Capped at 10 open drafts per member (`draft_limit_reached`, a typed, non-opaque `tools/call` error -- the one deliberate exception to this transport's usual "no oracle" refusals, see "Transport" below). Never creates a `social_post` row.
+|===
+
+Both are subject to the same per-tool rate-limit tier as every other tool (see "Rate limits" below),
+ON TOP OF the three pre-existing global windows.
+
+**No LTR path anywhere in this wave.** Neither write tool can create, move, or destroy LTR. A
+released draft's LTR stake is supplied by the MEMBER, at release time, through the ordinary web UI
+release dialog (`McpPostDraftReleaseInput.initialWeightLtr`) -- exactly the same field the normal
+"compose a post" form already requires. This is a direct consequence of `SocialPostInput
+.initialWeightLtr` being a mandatory, financially-binding field with no sensible default an agent
+could supply on the member's behalf.
+
+== No payment through MCP (Welle V1.8.2b)
+
+`register_for_event` never opens a payment flow. A fee-bearing event (`event.fee_amount != 0`,
+`BigDecimal.signum()`, never `!= BigDecimal.ZERO` -- a `0.00` value is not `equals` to a bare `0`)
+is rejected with a typed `event_requires_payment` `tools/call` error, checked BEFORE
+`EventRegistrationSubmission.submit` -- indeed before ANY other read -- ever runs. There is no
+`paymentUrl` anywhere in this tool's output; the `PAYMENT_REQUIRED` outcome
+(`EventRegistrationResult.PaymentRequired`) is unreachable in ordinary operation and, if a race
+ever produced it (the fee raised from zero between this tool's own pre-check and the submission's
+own lock-time re-read), is mapped to the SAME opaque, generic refusal as every other "cannot
+register" outcome -- never a payment URL.
+
+This is deliberately NOT an oracle: `list_upcoming_events` already reports `feeAmount`/
+`requiresPayment` per event (so an agent can filter out paid events before ever calling
+`register_for_event`), and a non-existent/non-`PUBLISHED` event produces the SAME generic
+`Forbidden` refusal a fee-bearing one's rejection is distinct from -- an agent can tell "requires
+payment" apart from "not permitted", nothing finer. A member who wants to attend a paid event
+still registers through the ordinary web UI, where the existing PSP checkout flow is unchanged.
+
+== The draft lifecycle
+
+`OPEN → RELEASED` (via `rpc.SocialNetworkService.releaseMyPostDraft`, the member's own action in the
+web UI -- **clears `content` to `""` at that same moment**, see "Data protection" below) or
+`OPEN → DISCARDED` (via `discardMyPostDraft`, no confirmation required server-side -- the client
+asks), plus `DISCARDED → OPEN` (via `restoreMyPostDraft`, the "Rückgängig" undo action, also
+reachable from the member's own "KI-Entwürfe" screen after a reload -- see below). Every transition
+is conditioned on the CURRENT status in its own `UPDATE ... WHERE` clause, so a double-click can
+never apply a transition twice, and every transition is scoped to the calling member's own
+`memberId`, so a foreign draft id changes nothing rather than raising a distinguishable error (no
+ownership oracle). `RELEASED` and `DISCARDED` are both terminal from the tool's own perspective --
+only `restoreMyPostDraft` can move a `DISCARDED` draft, and nothing moves a `RELEASED` one at all.
+
+`rpc.SocialNetworkService.listMyPostDrafts` (backing the member's "KI-Entwürfe" screen,
+`AiDraftsScreen`/`Routes.AI_DRAFTS`) returns every `OPEN` **and** still-restorable `DISCARDED`
+draft, open first -- a plain "OPEN only" list (V1.8.2's original shape) made a discarded draft
+invisible after the very next page load, even though `restoreMyPostDraft` keeps it restorable for
+`social.PostDraftRetention.DISCARDED_RETENTION_DAYS` (7 days). `McpPostDraftDto.statusChangedAt`
+(added in V1.8.2b) lets that screen compute the "wiederherstellbar bis" deadline; it is `null` for
+a still-`OPEN` draft that never transitioned.
+
+An automatic retention poller (`social.PostDraftRetentionPoller`, always active, independent of
+either `LAPIS_MCP_*` switch) deletes a `DISCARDED` row after 7 days and a `RELEASED` row after 90
+days (its content is already empty by then); `OPEN` rows are never touched, regardless of age.
+
+Revoking an MCP connection (`IMcpAccessService.revokeConnection`) or flipping the member's own
+kill switch off (`setMcpAccessAllowed(false)`) does NOT touch `mcp_post_draft` rows at all -- a
+revoked connection's already-created drafts remain fully visible/editable/releasable/discardable.
+Revocation stops an agent from acting FURTHER, it is not an erasure of work the member may still
+want to review and publish themselves. **Neither does switching `LAPIS_MCP_WRITE_ENABLED` off**
+(see "Two operator switches" below) -- none of the five member-facing draft RPCs is gated by that
+switch, only new `create_post_draft`/`register_for_event` calls are.
+
+== Two operator switches (Welle V1.8.2b)
+
+`LAPIS_MCP_ENABLED` and `LAPIS_MCP_WRITE_ENABLED` are independent, both default OFF:
+
+* `LAPIS_MCP_ENABLED` alone exposes only the five READING tools -- `POST /mcp` itself is not even
+  registered while it is off (see "Kill switch and configuration" below).
+* `LAPIS_MCP_WRITE_ENABLED` additionally requires `LAPIS_MCP_ENABLED` (`McpConfig
+  .isWriteOperational = enabled && writeEnabled`) and gates the two WRITING tools at FOUR
+  independent points: the `tools/list` catalog filter (`routes.McpRoutes`, advertising only), the
+  actual enforcement gate (`McpToolDispatcher.dispatch` -- a write-capable token minted before the
+  switch flipped off loses its effect on its very next call, without needing a revoke),
+  `mcp:member_write` scope issuance (`routes.OidcRoutes`' `/authorize` and `/authorize/consent`,
+  which REJECT a request naming that scope outright while the switch is off, never silently
+  downgrading it to a read-only grant), and `scopes_supported` in the OIDC discovery document
+  (`federation.OidcDiscoveryDocument.build`).
+* **The Geisel-Regel**: none of the five member-facing draft RPCs (list/update/release/discard/
+  restore) is gated by `LAPIS_MCP_WRITE_ENABLED` -- switching writing off blocks NEW drafts, it
+  never holds a member's already-existing draft content hostage. Only `LAPIS_MCP_ENABLED` off (or
+  a caller status outside `MemberStatusSets.LTR_ELIGIBLE`) hides the "KI-Entwürfe" sidebar entry
+  entirely (`client.NavVisibility.showsAiDrafts`) -- the route itself always resolves.
+
+== Why there is no DRAFT state in SocialPostState
+
+The obvious-looking alternative -- add `DRAFT` to `SocialPostState` and let a draft just be a
+`social_post` row nobody can see yet -- was rejected. `SocialPostState` is woven through moderation
+(`removePostForLegalReason`), the public SEO read path (`SocialPublicRoutes`/`SocialPublicHtml`),
+timeline/thread ranking (`SocialReadPipeline`), the DSA meldeweg (V1.1.5 reports/erasures), and
+visibility filtering (`SocialVisibility.isReadable`) -- EVERY one of those call sites would need a
+new, carefully-reasoned answer for "what does a `DRAFT` row mean here", and a bug in any one of them
+would leak an agent-authored, unapproved draft into a place a real member never intended it to be
+seen. A wholly separate table with its own, much smaller, three-state lifecycle (`mcp_post_draft`,
+owned entirely by `social.PostDraftStore`) has no such blast radius: nothing in the timeline, thread,
+moderation, or public-read code paths needs to know it exists, because it structurally cannot
+appear in any of their queries. `HIDDEN_BY_AUTHOR` is explicitly NOT a usable shortcut either -- it
+is the author's own irreversible "notbremse" on an ALREADY-PUBLISHED, LTR-staked post, not a
+pre-publication state.
+
+== Why no MCP elicitation
+
+The MCP protocol defines an `elicitation` capability letting a server ask the CLIENT (the agent) to
+prompt its own user mid-tool-call. It was deliberately not used here for the release step: elicitation
+happens inside the agent, which a malicious or simply buggy client can skip entirely -- the protocol
+gives the client no obligation to actually show anything to the human. Relying on it for something as
+consequential as "does the member actually want this published" would make the safety property
+depend on client behavior this server cannot verify. The release step instead lives entirely in this
+server's own, independently-reachable web UI (`releaseMyPostDraft`), which the member always
+controls directly regardless of what any given MCP client does or does not do.
+
+== Known limitation: the copy-paste bypass
+
+Nothing stops a member from simply copy-pasting an agent's suggested text into the ORDINARY compose
+form and publishing it themselves, without ever touching `create_post_draft` or the `aiAssisted`
+flag at all. This is a deliberately accepted limitation, not a gap to close: the `aiAssisted` flag
+only ever promises "this specific post was released through the MCP draft mechanism", not "no AI
+was involved in writing this text" -- the latter is not a claim this or any system can enforce
+against a determined member, and this wave never claimed otherwise.
+
 == Transport
 
 `POST /mcp`, JSON-RPC 2.0, protocol version hard-pinned to `2025-06-18`. No `Mcp-Session-Id`, no SSE,
@@ -229,6 +402,34 @@ invalid arguments, forbidden, timeout, internal error -- is audited (metadata on
 exception is a rate-limit refusal itself: it is rejected before any tool runs and is deliberately
 **not** audited, to avoid a DB write on every request from a caller already being throttled (see
 `McpToolDispatcher.dispatch` and `McpToolCallAuditRecorder` KDoc).
+
+**V1.8.2**: `create_post_draft`'s draft-limit rejection (`draft_limit_reached`) is a deliberate,
+NAMED exception to the "opaque `isError: true` text" posture above -- it carries the actual
+`openDraftCount` in `data`, so the calling agent (and, through it, the member) can see WHY, unlike
+every other refusal in this transport. Dispatch order for a write tool is: resolve the tool
+definition -> **write-scope check** (`Forbidden`, never consuming rate-limit budget on a call that
+could never succeed) -> **rate limit** (now keyed by tool name, see "Rate limits" below) -> execute.
+The member's own kill switch is checked earlier still, in `McpTokenAuth.resolve` -- a blocked
+member never even reaches the dispatcher.
+
+== Rate limits
+
+The three V1.8.1 global windows (per token/minute, per member/hour, per server/day) stay unchanged
+and apply to every tool, reading or writing. V1.8.2 adds a FOURTH tier, per write tool, additive on
+top of those three:
+
+[cols="1,2,2,2"]
+|===
+| Tool | Per token | Per member | Per server
+
+| `register_for_event` | 5/hour | 20/day | 2 000/day
+| `create_post_draft`  | 3/hour | 10/day | 1 000/day
+|===
+
+All six defaults are configurable (`LAPIS_MCP_WRITE_RATE_EVENT_TOKEN_HOUR`,
+`..._EVENT_MEMBER_DAY`, `..._EVENT_SERVER_DAY`, `..._DRAFT_TOKEN_HOUR`, `..._DRAFT_MEMBER_DAY`,
+`..._DRAFT_SERVER_DAY`), same "never fail startup, invalid value falls back to the default"
+posture as every other `McpConfig` variable.
 
 `withTimeout` around each tool call is a documented, **not yet closed**, limitation: it cancels the
 coroutine, not a blocking JDBC call already in flight underneath it -- a genuinely stuck database call
@@ -262,11 +463,17 @@ provider clients, PII redaction) is untouched and unreachable from `mcp/`.
 
 == Data protection
 
-`mcp.McpPersonalData` covers the two member-referencing tables: `mcp_member_block` is hard-deleted on
-erasure (a blocking decision for a person no longer in the system has no retention interest of its
-own); `mcp_tool_call_audit` is retained with its member reference nulled (retain-and-redact, same
-posture `ai_call_audit` already gets). Neither export includes a token hash or a `tokenId`. See
-xref:dsgvo.adoc[dsgvo.adoc].
+`mcp.McpPersonalData` covers the three member-referencing tables: `mcp_member_block` is hard-deleted
+on erasure (a blocking decision for a person no longer in the system has no retention interest of
+its own); `mcp_tool_call_audit` is retained with its member reference nulled (retain-and-redact, same
+posture `ai_call_audit` already gets); `mcp_post_draft` (V1.8.2) is **hard-deleted regardless of
+status** -- a draft, by definition, was never published (a RELEASED draft's real content lives on in
+its own `social_post` row, covered separately by `SocialNetworkPersonalData`), so an unpublished
+draft for a person leaving the system has no retention interest of its own, same posture
+`mcp_member_block` already takes. No export includes a token hash or a `tokenId`. **Welle V1.8.2b**
+additionally clears `content` to `""` the moment a draft is RELEASED (not gated on any erasure
+request at all -- see "The draft lifecycle" above) and an always-on poller deletes `DISCARDED` rows
+after 7 days / `RELEASED` rows after 90 days. See xref:dsgvo.adoc[dsgvo.adoc].
 
 == What doesn't work yet (this wave)
 
@@ -275,10 +482,11 @@ xref:dsgvo.adoc[dsgvo.adoc].
   (a local agent and a loopback redirect tolerate `localhost:8080` only partially); this is the single
   open acceptance condition for calling this wave functionally complete end-to-end with a real client,
   not just against `McpConformanceTest`'s frozen wire fixtures.
-* No member-facing UI screen for the switch/connection list was built this session (the backend --
-  `rpc.McpAccessService`, the shared `IMcpAccessService` RPC interface and DTOs -- is complete and
-  independently callable; `NavVisibility`/`Sidebar`/a dedicated screen component and the accompanying
-  eight-catalog i18n strings are a follow-up).
+* **No client UI for `IMcpAccessService`** -- the member's own connection list and kill switch have a
+  complete, independently callable RPC backend (V1.8.1) but no screen of their own yet; a member can
+  today only revoke a connection or flip the kill switch through a direct RPC call. A wave of its own.
+* This addendum's prose was not re-verified via the `:docs-render:renderDocs` Gradle task this
+  session; run it before the next documentation release gate.
 * The MCP consent screen is German-only, like every other server-rendered HTML page in this
   repository (there is no server-side i18n mechanism for rendered pages) -- the eight-catalog i18n
   discipline this repository otherwise enforces applies to the SPA's own strings, not this page.

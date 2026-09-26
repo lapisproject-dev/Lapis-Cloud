@@ -13,16 +13,19 @@ import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.McpPostDraftStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SocialCommentInput
@@ -90,7 +93,36 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Soziales Netzwerk"))
+    lateinit var draftBannerHost: SimplePanel
+    root.pageHeader(tr("Soziales Netzwerk"), banners = { draftBannerHost = simplePanel() })
+    // Welle V1.8.2b -- ONE listMyPostDrafts() call (no polling), only OPEN drafts counted; the
+    // banner itself is rendered only once that count is known to be > 0 (S4: this extra read stays
+    // inside the same file's existing "outside a state region" ledger allowance, see
+    // ClientDataStateTripwireTest KDoc -- SocialNetworkScreen.kt has no dataSection of its own yet).
+    // Review fix: gated on `session?.mcpEnabled`, same condition as the Sidebar's own AI-drafts
+    // entry ([NavVisibility.showsAiDrafts] KDoc) -- an instance with MCP never switched on
+    // (`LAPIS_MCP_ENABLED=false`, the default) can never have a single draft for ANY member, so an
+    // unconditional call here cost every visit to this screen -- the busiest one this feature
+    // touches -- a wasted RPC round-trip plus DB query for a result that is always empty.
+    if (AppState.session?.mcpEnabled == true) {
+        AppScope.launch {
+            val drafts = guarded { rpcService<ISocialNetworkService>().listMyPostDrafts() } ?: return@launch
+            val openCount = drafts.count { it.status == McpPostDraftStatus.OPEN }
+            if (openCount > 0) {
+                draftBannerHost.div {
+                    addCssClasses("alert alert-info d-flex align-items-center flex-wrap gap-2 mb-0")
+                    span(
+                        if (openCount == 1) {
+                            tr("Ein KI-Entwurf wartet auf Ihre Freigabe")
+                        } else {
+                            gettext("%1 KI-Entwürfe warten auf Ihre Freigabe", openCount.toString())
+                        },
+                    )
+                    link(tr("Zu den KI-Entwürfen"), url = "#${Routes.AI_DRAFTS}")
+                }
+            }
+        }
+    }
 
     // ---- Neuen Beitrag verfassen (D3-analogue: renderMyLtrBalanceInline vor jedem Eingabefeld) --
     root.h2(tr("Neuen Beitrag verfassen")) { addCssClass("h5") }
@@ -350,6 +382,9 @@ private fun renderSocialPostCard(
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.untrustedCardTitle(post.authorDisplayName)
     headerRow.statusBadge(socialPostVisibilityLabel(post.visibility), socialPostVisibilityColor(post.visibility))
+    // Welle V1.8.2b -- fixed position directly BEHIND the visibility badge, no frame, no red. See
+    // `docs/architecture/mcp-server.adoc` "AI labeling" -- survives the release forever, never reset.
+    if (post.aiAssisted) headerRow.statusBadge(tr("KI-unterstützt"), "secondary")
 
     renderPostContentText(card, post)
     card.div(gettext("Veröffentlicht am %1", post.publishedAt)) { addCssClasses("text-muted small") }
@@ -859,8 +894,16 @@ private fun renderThreadNode(
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.untrustedCardTitle(node.authorDisplayName)
     headerRow.statusBadge(socialPostVisibilityLabel(node.visibility), socialPostVisibilityColor(node.visibility))
+    if (node.aiAssisted) headerRow.statusBadge(tr("KI-unterstützt"), "secondary")
 
     renderPostContentText(card, node)
+    // Welle V1.8.2b -- the full sentence, in the thread DETAIL view only (the badge alone suffices
+    // on the timeline card above) -- directly under the content, before the publish date.
+    if (node.aiAssisted) {
+        card.div(tr("Dieser Beitrag wurde von einem KI-Agenten entworfen und vom Autor freigegeben.")) {
+            addCssClasses("text-muted small")
+        }
+    }
     card.div(gettext("Veröffentlicht am %1", node.publishedAt)) { addCssClasses("text-muted small") }
 
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }

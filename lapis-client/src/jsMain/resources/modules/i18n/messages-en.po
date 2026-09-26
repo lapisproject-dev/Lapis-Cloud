@@ -15170,3 +15170,83 @@ msgstr "No active rooms. Show inactive rooms to see all rooms."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
 msgid "Die Summe der Buchungszeilen kann nicht exakt berechnet werden."
 msgstr "The sum of the posting lines cannot be calculated exactly."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:408
+msgid "KI-Entwürfe"
+msgstr "AI drafts"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:85
+msgid "Noch keine Entwürfe. Ein verbundener KI-Agent kann hier Beitrags-Entwürfe für Sie ablegen."
+msgstr "No drafts yet. A connected AI agent can leave post drafts for you here."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:87
+msgid "Der Betreiber hat die Agenten-Schnittstelle abgeschaltet."
+msgstr "The operator has disabled the agent interface."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:115
+msgid "Entworfen von Agent"
+msgstr "Drafted by agent"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:140
+msgid "Beitragstext"
+msgstr "Post text"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:141
+msgid "Bitte einen Beitragstext angeben."
+msgstr "Please enter a post text."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:70
+msgid "Der Betreiber hat Schreibwerkzeuge für KI-Agenten abgeschaltet. Vorhandene Entwürfe können Sie weiterhin bearbeiten, freigeben oder verwerfen."
+msgstr "The operator has disabled write tools for AI agents. You can still edit, release, or discard existing drafts."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:198
+msgid "Entwurf veröffentlichen"
+msgstr "Publish draft"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:210
+msgid "Jetzt veröffentlichen"
+msgstr "Publish now"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:220
+msgid "Entwurf veröffentlicht."
+msgstr "Draft published."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:266
+msgid "Wiederherstellbar bis %1"
+msgstr "Restorable until %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:272
+msgid "Entwurf wiederhergestellt."
+msgstr "Draft restored."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:374
+msgid "KI-unterstützt"
+msgstr "AI-assisted"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:890
+msgid "Dieser Beitrag wurde von einem KI-Agenten entworfen und vom Autor freigegeben."
+msgstr "This post was drafted by an AI agent and released by its author."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:116
+msgid "Ein KI-Entwurf wartet auf Ihre Freigabe"
+msgstr "One AI draft is waiting for your approval"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:118
+msgid "%1 KI-Entwürfe warten auf Ihre Freigabe"
+msgstr "%1 AI drafts are waiting for your approval"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:121
+msgid "Zu den KI-Entwürfen"
+msgstr "Go to AI drafts"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftLabels.kt:16
+msgid "Verworfen"
+msgstr "Discarded"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:206
+msgid "Sie setzen %1 aus Ihrem freien LTR-Guthaben ein. Der Beitrag wird sofort veröffentlicht."
+msgstr "You are committing %1 from your free LTR balance. The post will be published immediately."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
+msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
+msgstr "You have unsaved changes to the post text. Save them first -- otherwise the original draft will be published, not your change."

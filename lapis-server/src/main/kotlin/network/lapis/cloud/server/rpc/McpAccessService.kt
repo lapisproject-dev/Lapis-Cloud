@@ -50,6 +50,14 @@ internal class McpAccessService(
         return transaction { stateFor(memberId = current.memberId) }
     }
 
+    /**
+     * Welle V1.8.2 note: flipping this switch OFF revokes every MCP token
+     * ([McpTokenRevoker.revokeAllForMember] below) but deliberately leaves `mcp_post_draft` rows
+     * completely untouched -- a revoked connection's already-created drafts remain visible in the
+     * member's own "KI-Entwürfe" screen and stay editable/releasable/discardable exactly as before.
+     * Revocation is about STOPPING an agent from acting further, not about erasing work the member
+     * may still want to review and publish themselves. See `social.PostDraftStore` KDoc.
+     */
     override suspend fun setMcpAccessAllowed(allowed: Boolean): McpAccessStateDto {
         val current = resolveCurrentMember(call)
         requireOrganizationMember(current.status)
@@ -71,6 +79,7 @@ internal class McpAccessService(
         }
     }
 
+    /** Welle V1.8.2 note: same as [setMcpAccessAllowed] above -- revoking a single connection never touches that connection's `mcp_post_draft` rows. */
     override suspend fun revokeConnection(tokenId: String): McpAccessStateDto {
         val current = resolveCurrentMember(call)
         requireOrganizationMember(current.status)
@@ -91,10 +100,19 @@ internal class McpAccessService(
                 .selectAll()
                 .where {
                     (OidcIssuedTokenTable.memberId eq memberId) and
-                        (OidcIssuedTokenTable.scope eq OidcScopes.MCP_MEMBER_READ) and
                         OidcIssuedTokenTable.revokedAt.isNull()
                 }.orderBy(OidcIssuedTokenTable.issuedAt, SortOrder.DESC)
-                .map {
+                // Welle V1.8.2 fix: the stored `scope` column is a space-joined SET since write
+                // tools shipped (may be "mcp:member_read" or "mcp:member_read mcp:member_write") --
+                // an exact `scope eq MCP_MEMBER_READ` filter silently hid every write-capable grant
+                // from this list (invisible to the member, unreachable by `revokeConnection`), see
+                // `McpTokenRevoker` KDoc for the same failure mode on the revocation side. SQL has
+                // no portable "space-split column contains token" operator, so filter in Kotlin --
+                // same set comparison as `McpTokenAuth.resolve`.
+                .filter { row ->
+                    val scopeSet = row[OidcIssuedTokenTable.scope].split(" ").filter { it.isNotBlank() }.toSet()
+                    OidcScopes.isMcpScopeSet(scopeSet)
+                }.map {
                     McpConnectionDto(
                         tokenId = it[OidcIssuedTokenTable.id].toString(),
                         connectionLabel = it[OidcIssuedTokenTable.connectionLabel] ?: "Unbenannte Verbindung",

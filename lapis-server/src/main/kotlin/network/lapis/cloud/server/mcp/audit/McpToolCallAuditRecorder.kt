@@ -20,12 +20,15 @@ internal data class McpToolCallAuditEntry(
 
 /**
  * Writes one row per `tools/call` that actually reached a tool -- including timed-out, forbidden,
- * unknown-tool and internal-error outcomes, but deliberately NOT a rate-limited call (see
- * `McpToolDispatcher.dispatch`'s early-return comment: auditing an already-rejected call would
- * itself be the unbounded DB write the rate limiter exists to prevent -- there is no
- * [McpToolCallOutcome] value for it, since it never reaches this recorder). Opens its own
- * `transaction {}` (this is a fire-and-forget side record of the request, not a value the caller's
- * own transaction depends on) -- same posture as
+ * unknown-tool and internal-error outcomes, but deliberately NOT a rate-limited call, and (Welle
+ * V1.8.2 wave 2 fix) NOT the write-scope check's early `Forbidden` either -- see
+ * `McpToolDispatcher.dispatch`'s early-return comments on both branches: auditing a call that was
+ * rejected before it ever reached a tool would itself be the unbounded DB write these checks exist
+ * to prevent. [McpToolCallOutcome.FORBIDDEN] is still written for the OTHER `Forbidden` source --
+ * a `ForbiddenException` a tool throws once it actually starts executing (after the rate limiter),
+ * e.g. a business-rule rejection inside the tool itself -- that path still reaches this recorder.
+ * Opens its own `transaction {}` (this is a fire-and-forget side record of the request, not a value
+ * the caller's own transaction depends on) -- same posture as
  * `network.lapis.cloud.server.audit.OidcLoginAuditRecorder.record`.
  */
 internal object McpToolCallAuditRecorder {

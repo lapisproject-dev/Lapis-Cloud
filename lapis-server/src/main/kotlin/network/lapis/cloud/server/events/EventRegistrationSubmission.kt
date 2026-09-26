@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.events
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
@@ -476,8 +478,54 @@ internal class EventRegistrationSubmission(
      * transient Stripe/network hiccup would strip that seat from someone who did nothing wrong and
      * hand it to the next waitlist entry -- the existing hold-expiry sweep (`EventStore
      * .expireStaleHolds`) is what should decide its fate, not one failed HTTP call.
+     *
+     * **Security-Review MAJOR fix (Welle V1.8.2 MCP write-paths)**: the ENTIRE body runs inside
+     * `withContext(`[NonCancellable]`)`, delegated to [startStripeCheckoutUnguarded]. Reachable
+     * callers now include `McpToolDispatcher.dispatch`'s own `withTimeout(toolTimeoutMs)` (default
+     * 5s, see `McpConfig.DEFAULT_TOOL_TIMEOUT_MS`) wrapped around `register_for_event` -- and
+     * [client.createCheckout] is a genuine suspension point (a real HTTP round-trip). Without this
+     * guard, a timeout firing mid-call throws a `CancellationException` right there, which unwinds
+     * straight past the `stripeResult as? PspCheckoutResult.Success ?: run { ... }` failure branch
+     * below WITHOUT running it -- so [freeSeatAndSweepWaitlist] never executes. The seat this
+     * function's own caller already placed under the event lock (class KDoc step 3, status
+     * `PENDING_PAYMENT`) is then never freed and no `payment_checkout_session`/"please pay" mail
+     * exists for it either: occupying a scarce seat that literally cannot be paid for or
+     * re-registered against (`active_participant_key` still matches -> `AlreadyRegistered`) until
+     * the next lock acquisition on this SAME event happens to run `EventStore.expireStaleHolds`
+     * after the 30-minute hold lapses. [NonCancellable] does not make this run unbounded: every PSP
+     * HTTP client already installs its own `HttpTimeout` (Stripe/PayPal both ~10s, see
+     * `defaultPspHttpClient`), so this only widens the worst case from "abandoned mid-flight, seat
+     * orphaned" to "finishes within its own pre-existing HTTP timeout, seat correctly freed or
+     * session correctly persisted" -- strictly safer, never slower than that bound. A pending
+     * cancellation is still delivered at the next suspension point once this returns, so the
+     * caller's own timeout/cancellation semantics are otherwise unchanged -- only the compensating
+     * action is now guaranteed to have already run by the time that happens.
      */
     private suspend fun startStripeCheckout(
+        eventId: Uuid,
+        registrationId: Uuid,
+        slug: String,
+        feeAmount: BigDecimal,
+        now: LocalDateTime,
+        freeSeatOnFailure: Boolean,
+        holdExpiresAt: LocalDateTime?,
+        embedOrigin: String?,
+    ): CheckoutOutcome =
+        withContext(NonCancellable) {
+            startStripeCheckoutUnguarded(
+                eventId = eventId,
+                registrationId = registrationId,
+                slug = slug,
+                feeAmount = feeAmount,
+                now = now,
+                freeSeatOnFailure = freeSeatOnFailure,
+                holdExpiresAt = holdExpiresAt,
+                embedOrigin = embedOrigin,
+            )
+        }
+
+    /** The actual Stripe-call body -- see [startStripeCheckout] KDoc for why every call site must go through that [NonCancellable] wrapper, never this function directly. */
+    private suspend fun startStripeCheckoutUnguarded(
         eventId: Uuid,
         registrationId: Uuid,
         slug: String,

@@ -159,11 +159,13 @@ internal fun Route.registerMcpRoutes(
                     successResponse(id = request.id, result = JsonObject(emptyMap())),
                     contentType = ContentType.Application.Json,
                 )
-            "tools/list" ->
+            "tools/list" -> {
+                val result = toolsListResult(principal = principal, writeEnabled = config.isWriteOperational)
                 call.respondText(
-                    successResponse(id = request.id, result = toolsListResult()),
+                    successResponse(id = request.id, result = result),
                     contentType = ContentType.Application.Json,
                 )
+            }
             "tools/call" -> handleToolsCall(request = request, principal = principal, dispatcher = dispatcher)
             else ->
                 call.respondText(
@@ -183,7 +185,10 @@ internal fun Route.registerMcpRoutes(
                 buildJsonObject {
                     put("resource", McpResource.expected())
                     putJsonArray("authorization_servers") { add(JsonPrimitive(FederationConfig.publicBaseUrl)) }
-                    putJsonArray("scopes_supported") { add(JsonPrimitive("mcp:member_read")) }
+                    putJsonArray("scopes_supported") {
+                        add(JsonPrimitive("mcp:member_read"))
+                        add(JsonPrimitive("mcp:member_write"))
+                    }
                     putJsonArray("bearer_methods_supported") { add(JsonPrimitive("header")) }
                 }.toString(),
                 contentType = ContentType.Application.Json,
@@ -252,6 +257,27 @@ private suspend fun RoutingContext.handleToolsCall(
                 successResponse(id = request.id, result = toolCallError(text = outcome.reason)),
                 contentType = ContentType.Application.Json,
             )
+        is McpToolCallResult.ToolError -> {
+            // Welle V1.8.2 -- the one deliberately non-opaque rejection text in this handler, see
+            // McpToolCallResult.ToolError KDoc: an agent needs to know WHY create_post_draft
+            // refused, unlike every generic Forbidden/InternalError case above.
+            val text =
+                when (outcome.code) {
+                    "draft_limit_reached" ->
+                        "Sie haben die maximale Anzahl offener Entwürfe erreicht (${outcome.data["openDraftCount"]?.let {
+                            (it as? JsonPrimitive)
+                                ?.contentOrNull
+                        } ?: "?"})."
+                    "event_requires_payment" ->
+                        "Diese Veranstaltung ist kostenpflichtig -- eine Anmeldung ist über diesen Weg nicht möglich. " +
+                            "Bitte in der Weboberfläche anmelden."
+                    else -> outcome.code
+                }
+            call.respondText(
+                successResponse(id = request.id, result = toolCallError(text = text)),
+                contentType = ContentType.Application.Json,
+            )
+        }
     }
 }
 
@@ -260,10 +286,21 @@ private fun applyMcpHeaders(call: ApplicationCall) {
     call.response.header(HttpHeaders.Vary, HttpHeaders.Authorization)
 }
 
-private fun toolsListResult(): JsonObject =
+/**
+ * Welle V1.8.2 -- a read-only [principal] (`canWrite = false`) sees only the five reading tools:
+ * an agent must never be offered a tool it can never successfully call. **Welle V1.8.2b**:
+ * [writeEnabled] (`McpConfig.isWriteOperational`) joins that same filter -- an operator who has
+ * switched writing off must never advertise the two writing tools either, even to a principal whose
+ * token still carries write scope. This is advertising only, never the enforcement point itself --
+ * see `McpToolDispatcher.dispatch` KDoc for the actual gate.
+ */
+private fun toolsListResult(
+    principal: McpPrincipal,
+    writeEnabled: Boolean,
+): JsonObject =
     buildJsonObject {
         putJsonArray("tools") {
-            McpToolCatalog.TOOLS.forEach { tool ->
+            McpToolCatalog.TOOLS.filter { !it.writing || (principal.canWrite && writeEnabled) }.forEach { tool ->
                 add(
                     buildJsonObject {
                         put("name", tool.name)

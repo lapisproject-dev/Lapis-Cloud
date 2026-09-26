@@ -592,6 +592,7 @@ internal object SocialReadPipeline {
                 totalDescendantCount = counts.total,
                 boostCount = boostCountById[id] ?: 0,
                 publishedAt = row[SocialPostTable.publishedAt],
+                aiAssisted = row[SocialPostTable.aiAssisted],
             )
         }
     }

@@ -487,7 +487,7 @@ class LapisForm internal constructor(
         action: suspend () -> Unit,
     ) {
         if (!validateAndReport()) return
-        runBusy(button, action)
+        runBusy(button, action = action)
     }
 
     /**
@@ -519,13 +519,17 @@ class LapisForm internal constructor(
         return false
     }
 
-    /** `aria-busy` am Knopf + Doppelklick-Schutz ([runGuardedAction]) um [action]; keine Prüfung. */
+    /**
+     * `aria-busy` am Knopf + Doppelklick-Schutz ([runGuardedAction]) um [action]; keine Prüfung.
+     * [restoreDisabled] wird durchgereicht, siehe [runGuardedAction] KDoc.
+     */
     fun runBusy(
         button: Button,
+        restoreDisabled: () -> Boolean = { false },
         action: suspend () -> Unit,
     ) {
         button.setAttribute("aria-busy", "true")
-        runGuardedAction(button) {
+        runGuardedAction(button, restoreDisabled) {
             try {
                 action()
             } finally {
@@ -919,9 +923,17 @@ private fun focusAndReveal(widget: Widget?) {
  *
  * Umgezogen aus `OpenItemsScreen.kt` (V1.4.28): ein Formular-Baustein, der im Screen für offene Posten wohnt, wird von
  * niemandem gefunden. Gleiches Paket, gleiche Signatur -- kein Aufrufer ändert sich.
+ *
+ * **MINOR security fix (V1.8.2 review round 2)**: [restoreDisabled] replaces the previous hardcoded
+ * `false` in the `finally`. A caller whose button's enabled state ALSO depends on something else --
+ * `AiDraftsScreen.kt`'s `renderReleaseControl` disables its release button while an edit is dirty --
+ * used to lose that state unconditionally the instant this `finally` ran, because this was always
+ * the LAST writer of `.disabled` for any action wrapped here. The default `{ false }` is the
+ * previous, unconditional behavior -- every other caller is unaffected.
  */
 internal fun runGuardedAction(
     button: Button?,
+    restoreDisabled: () -> Boolean = { false },
     block: suspend () -> Unit,
 ) {
     // Ein zweiter Aufruf, solange der erste läuft, ist wirkungslos. `disabled` wird am Widget SOFORT gelesen -- am DOM-Knopf käme
@@ -932,7 +944,7 @@ internal fun runGuardedAction(
         try {
             block()
         } finally {
-            button?.disabled = false
+            button?.disabled = restoreDisabled()
         }
     }
 }

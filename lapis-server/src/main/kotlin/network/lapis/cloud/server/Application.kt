@@ -80,6 +80,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -230,6 +231,7 @@ import network.lapis.cloud.server.rpc.VatService
 import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.social.PostDraftRetentionPoller
 import network.lapis.cloud.server.webhook.WebhookConfig
 import network.lapis.cloud.server.webhook.WebhookDeactivationNotifier
 import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
@@ -903,6 +905,13 @@ internal fun Application.module(
     contributionReliefRedactionPoller.start()
     monitor.subscribe(ApplicationStopping) { contributionReliefRedactionPoller.stop() }
 
+    // Welle V1.8.2b (MINOR-3) -- immer aktiv, unabhängig von mcpConfig (siehe
+    // PostDraftRetentionPoller KDoc): bestehende Entwürfe müssen auch dann aufgeräumt werden, wenn
+    // MCP nachträglich abgeschaltet wird.
+    val postDraftRetentionPoller = PostDraftRetentionPoller()
+    postDraftRetentionPoller.start()
+    monitor.subscribe(ApplicationStopping) { postDraftRetentionPoller.stop() }
+
     // Welle V1.4.5.2 "DATEV-Format-Export" -- own instance, same budget shape as
     // dunningPreviewRateLimiter/dunningIssueRateLimiter, because the raw Ktor download route and
     // the RPC preview service are wired independently here (the RPC preview itself carries no rate
@@ -1201,6 +1210,34 @@ internal fun Application.module(
             perTokenPerMinute = mcpConfig.toolCallsPerTokenPerMinute,
             perMemberPerHour = mcpConfig.toolCallsPerMemberPerHour,
             perServerPerDay = mcpConfig.toolCallsPerServerPerDay,
+            // Welle V1.8.2 -- per-write-tool quota, additive on top of the three global windows
+            // above (see McpToolCallRateLimiter KDoc "Welle V1.8.2 amendment").
+            writeQuotas =
+                mapOf(
+                    "register_for_event" to
+                        McpToolCallRateLimiter.WriteQuota(
+                            perTokenPerHour = mcpConfig.eventRegistrationPerTokenPerHour,
+                            perMemberPerDay = mcpConfig.eventRegistrationPerMemberPerDay,
+                            perServerPerDay = mcpConfig.eventRegistrationPerServerPerDay,
+                        ),
+                    "create_post_draft" to
+                        McpToolCallRateLimiter.WriteQuota(
+                            perTokenPerHour = mcpConfig.postDraftPerTokenPerHour,
+                            perMemberPerDay = mcpConfig.postDraftPerMemberPerDay,
+                            perServerPerDay = mcpConfig.postDraftPerServerPerDay,
+                        ),
+                ),
+        )
+    // Welle V1.8.2 -- a SECOND EventRegistrationSubmission instance, same constructor arguments as
+    // the one EventService builds internally for the member-RPC path (pspGateways/baseUrl/
+    // mailDispatcher are already module-scoped singletons above, see EventService's own
+    // registerService(...) call site) -- the class itself is stateless-ish (holds only these three
+    // references), so a second instance is correct and cheap, not a duplicated dependency graph.
+    val mcpEventRegistrationSubmission =
+        EventRegistrationSubmission(
+            checkoutGateways = pspGateways,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            mailDispatcher = mailDispatcher,
         )
     val mcpToolDispatcher =
         McpToolDispatcher(
@@ -1208,6 +1245,8 @@ internal fun Application.module(
             toolTimeoutMs = mcpConfig.toolTimeoutMs,
             maxResponseBytes = mcpConfig.maxResponseBytes,
             retriever = aiRetriever,
+            registrationSubmission = mcpEventRegistrationSubmission,
+            writeEnabled = mcpConfig.isWriteOperational,
         )
     // Same "module-scoped, never a constructor default" reasoning as every other limiter in this
     // block -- guards McpAccessService.setMcpAccessAllowed against a toggle-storm DoS. The switch's
@@ -1465,7 +1504,13 @@ internal fun Application.module(
             )
         }
         registerService(IAuthService::class) { call ->
-            AuthService(call = call, aiAssistantEnabled = aiConfig.isOperational, keycloakConfig = keycloakConfig)
+            AuthService(
+                call = call,
+                aiAssistantEnabled = aiConfig.isOperational,
+                keycloakConfig = keycloakConfig,
+                mcpEnabled = mcpConfig.isOperational,
+                mcpWriteEnabled = mcpConfig.isWriteOperational,
+            )
         }
         if (aiConfig.isOperational && aiLlmClient != null) {
             registerService(IAiAssistantService::class) { call ->
@@ -1747,6 +1792,7 @@ internal fun Application.module(
             cookieSecure = cookieSecure,
             registrationRateLimiter = oidcRegistrationRateLimiter,
             mcpEnabled = mcpConfig.isOperational,
+            mcpWriteEnabled = mcpConfig.isWriteOperational,
         )
         // Welle V1.8.1 MCP-Server -- OFF by default: with mcpConfig.isOperational false the route
         // is never even REGISTERED (not merely gated inside a handler), so POST /mcp answers a

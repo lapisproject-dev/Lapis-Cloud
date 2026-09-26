@@ -191,6 +191,14 @@ The check above needs a term that is a distinct whole word. These terms are fixe
 
 | Ausgleich
 | Settlement of an open item.
+
+| KI-Entwurf / KI-Entwürfe
+| AI draft(s) (en), borrador(es) de IA (es), brouillon(s) IA (fr), bozza/bozze IA (it), AI-concept(en) (nl), szkic(e) AI (pl), черновик(и) ИИ (ru) --
+  Welle V1.8.2b, `mcp.tools.CreatePostDraftTool`'s output before a member releases it (`docs/architecture/mcp-server.adoc` "The draft lifecycle").
+
+| KI-unterstützt
+| AI-assisted (en), asistido por IA (es), assisté par IA (fr), assistito dall'IA (it), AI-ondersteund (nl), wspomagane przez AI (pl), с помощью ИИ (ru) --
+  the permanent post-release badge on a released draft (`SocialPostDto.aiAssisted`), never reset.
 |===
 
 == Known gaps

@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.ktor.client.HttpClient
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -50,12 +51,21 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.net.URLEncoder
 import kotlin.uuid.Uuid
 
 private val CONFORMANCE_JSON = Json { ignoreUnknownKeys = true }
 private const val CONFORMANCE_MCP_RESOURCE = "http://localhost:8080/mcp"
 
-private fun conformanceMcpConfig(): McpConfig = McpConfig.load { if (it == McpConfig.ENV_ENABLED) "true" else null }
+// Welle V1.8.2b (S1) -- ENV_WRITE_ENABLED must be "true" here too, or every pre-existing
+// write-capable test in this file (e.g. "tools/list ... sees all 7 catalog entries" below) goes
+// red the instant McpConfig.writeEnabled defaults to false: writeEnabled=false now ALSO
+// suppresses the two writing tools from tools/list, on top of principal.canWrite.
+private fun conformanceMcpConfig(): McpConfig =
+    McpConfig.load { if (it == McpConfig.ENV_ENABLED || it == McpConfig.ENV_WRITE_ENABLED) "true" else null }
+
+/** Welle V1.8.2b -- MCP on, but writing OFF: the negative counterpart to [conformanceMcpConfig]. */
+private fun conformanceMcpConfigWriteDisabled(): McpConfig = McpConfig.load { if (it == McpConfig.ENV_ENABLED) "true" else null }
 
 /**
  * The acceptance condition `McpLayerBoundary`/`McpProtocol`/`McpScopes`/`docs/architecture/
@@ -142,6 +152,10 @@ class McpConformanceTest :
             rawSession: String,
             clientId: String,
             redirectUri: String,
+            // Welle V1.8.2 wave 2 -- defaults to the pre-existing read-only grant so every
+            // pre-existing call site is unaffected; pass "mcp:member_read mcp:member_write" to
+            // exercise the write-capable path (see the `tools/list` write-scope test below).
+            scope: String = "mcp:member_read",
         ): String {
             val codeVerifier = "mcp-conformance-code-verifier-${Uuid.random()}-padding-padding-1234"
             val codeChallenge = OidcPkce.codeChallengeS256(codeVerifier)
@@ -158,7 +172,7 @@ class McpConformanceTest :
                                 append("decision", "allow")
                                 append("client_id", clientId)
                                 append("redirect_uri", redirectUri)
-                                append("scope", "mcp:member_read")
+                                append("scope", scope)
                                 append("state", state)
                                 append("code_challenge", codeChallenge)
                                 append("nonce", nonce)
@@ -207,6 +221,7 @@ class McpConformanceTest :
             client: HttpClient,
             noRedirectClient: HttpClient,
             redirectUri: String,
+            scope: String = "mcp:member_read",
         ): String {
             val clientId = registerPublicClient(client, redirectUri)
             val (_, rawSession) = createTestMember("mcp-conformance-${Uuid.random()}@example.org")
@@ -216,6 +231,7 @@ class McpConformanceTest :
                 rawSession = rawSession,
                 clientId = clientId,
                 redirectUri = redirectUri,
+                scope = scope,
             )
         }
 
@@ -314,6 +330,148 @@ class McpConformanceTest :
                     obj["description"]!!.jsonPrimitive.content.shouldNotBeBlank()
                     (obj["inputSchema"] as? JsonObject).shouldNotBeNull()
                 }
+            }
+        }
+
+        // Welle V1.8.2 wave 2 review fix: `McpWriteToolsDispatcherTest`'s class KDoc claimed
+        // coverage for "the tools/list catalog filtering by write scope" that did not actually
+        // exist anywhere -- `toolsListResult` (routes.McpRoutes) is `private`, so only an
+        // end-to-end HTTP call like this one can exercise it. This test, together with the
+        // read-only one above (5 entries), is what that KDoc's claim now actually points to.
+        test("tools/list: a write-capable principal (mcp:member_read + mcp:member_write) sees all 7 catalog entries") {
+            testApplication {
+                val noRedirectClient = createClient { followRedirects = false }
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfig()) }
+                val accessToken =
+                    grantFreshToken(
+                        client,
+                        noRedirectClient,
+                        "http://127.0.0.1:19713/cb",
+                        scope = "mcp:member_read mcp:member_write",
+                    )
+
+                val response = mcpCall(client, accessToken, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")
+                val tools = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject["result"]!!.jsonObject["tools"]
+                val toolArray = tools as JsonArray
+                toolArray.size shouldBe 7
+                val names = toolArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }.toSet()
+                names shouldBe
+                    setOf(
+                        "get_my_contribution_status",
+                        "get_my_ltr_balance",
+                        "search_statute",
+                        "list_upcoming_events",
+                        "get_my_ballots",
+                        "register_for_event",
+                        "create_post_draft",
+                    )
+            }
+        }
+
+        // Review fix: `toolsListResult`'s SECOND filter condition (`writeEnabled`, McpConfig
+        // .isWriteOperational) had no test of its own -- only "sees all 7" above (writeEnabled=true)
+        // and McpWriteToolsDispatcherTest's "writeEnabled=false: ... Forbidden for a writing tool"
+        // (the DISPATCH-time enforcement, not this ADVERTISING-time filter). Neither would catch a
+        // future regression that turned `!it.writing || (principal.canWrite && writeEnabled)` back
+        // into `!it.writing || principal.canWrite` -- a write-scoped token would then be offered
+        // the two writing tools again even while an operator has switched writing off. The token
+        // here MUST be granted under a write-ENABLED app instance -- both "GET /authorize" and
+        // "POST /authorize/consent" below reject a request naming mcp:member_write outright once
+        // writing is disabled, so this scope could never be granted directly under
+        // [conformanceMcpConfigWriteDisabled] -- then reused against a SEPARATE, write-DISABLED app
+        // instance for the actual tools/list call: the access token is an opaque bearer value looked
+        // up by hash in `OidcIssuedTokenTable` ([network.lapis.cloud.server.mcp.auth.McpTokenAuth
+        // .resolve]), not tied to the app instance that issued it, so this is the same "grant once,
+        // call from wherever" persistence every other test in this file relies on implicitly by
+        // sharing one H2 database across all of a spec's `testApplication` blocks.
+        test("tools/list: a write-capable principal sees only the 5 reading tools once writing is disabled") {
+            lateinit var accessToken: String
+            testApplication {
+                val noRedirectClient = createClient { followRedirects = false }
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfig()) }
+                accessToken =
+                    grantFreshToken(
+                        client,
+                        noRedirectClient,
+                        "http://127.0.0.1:19716/cb",
+                        scope = "mcp:member_read mcp:member_write",
+                    )
+            }
+
+            testApplication {
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfigWriteDisabled()) }
+                val response = mcpCall(client, accessToken, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")
+                val tools = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject["result"]!!.jsonObject["tools"]
+                val toolArray = tools as JsonArray
+                toolArray.size shouldBe 5
+                val names = toolArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }.toSet()
+                names.contains("register_for_event") shouldBe false
+                names.contains("create_post_draft") shouldBe false
+            }
+        }
+
+        // Welle V1.8.2b -- LAPIS_MCP_WRITE_ENABLED=false: GET /authorize and POST
+        // /authorize/consent both reject a request naming mcp:member_write, never silently
+        // narrowing it to a read-only grant (see routes.OidcRoutes mcpWriteEnabled KDoc).
+        test("GET /authorize with mcp:member_write requested is rejected 400 when writing is disabled") {
+            testApplication {
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfigWriteDisabled()) }
+                val clientId = registerPublicClient(client, "http://127.0.0.1:19714/cb")
+                val (_, rawSession) = createTestMember("mcp-conformance-write-switch-authorize-${Uuid.random()}@example.org")
+                val codeChallenge = OidcPkce.codeChallengeS256("write-switch-verifier-padding-padding-1234")
+                val authorizeUrl =
+                    "/federation/oidc/authorize?response_type=code&client_id=$clientId&redirect_uri=" +
+                        "${URLEncoder.encode("http://127.0.0.1:19714/cb", "UTF-8")}&scope=${
+                            URLEncoder.encode("mcp:member_read mcp:member_write", "UTF-8")
+                        }&state=s1&code_challenge=$codeChallenge&code_challenge_method=S256&nonce=n1&resource=${
+                            URLEncoder.encode(CONFORMANCE_MCP_RESOURCE, "UTF-8")
+                        }"
+                val response = client.get(authorizeUrl) { header(HttpHeaders.Cookie, "lapis_session=$rawSession") }
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("POST /authorize/consent with mcp:member_write requested is rejected 400 when writing is disabled") {
+            testApplication {
+                val noRedirectClient = createClient { followRedirects = false }
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfigWriteDisabled()) }
+                val clientId = registerPublicClient(client, "http://127.0.0.1:19715/cb")
+                val (_, rawSession) = createTestMember("mcp-conformance-write-switch-consent-${Uuid.random()}@example.org")
+                val response =
+                    noRedirectClient.post("/federation/oidc/authorize/consent") {
+                        header(HttpHeaders.Cookie, "lapis_session=$rawSession")
+                        contentType(ContentType.Application.FormUrlEncoded)
+                        setBody(
+                            Parameters
+                                .build {
+                                    append("decision", "allow")
+                                    append("client_id", clientId)
+                                    append("redirect_uri", "http://127.0.0.1:19715/cb")
+                                    append("scope", "mcp:member_read mcp:member_write")
+                                    append("state", "state-${Uuid.random()}")
+                                    append(
+                                        "code_challenge",
+                                        OidcPkce.codeChallengeS256("write-switch-consent-verifier-padding-padding-1234"),
+                                    )
+                                    append("nonce", "nonce-${Uuid.random()}")
+                                    append("resource", CONFORMANCE_MCP_RESOURCE)
+                                    append("connection_label", "Write Switch Test Agent")
+                                }.formUrlEncode(),
+                        )
+                    }
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("OidcDiscoveryDocument via /.well-known/openid-configuration never advertises mcp:member_write when writing is disabled") {
+            testApplication {
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfigWriteDisabled()) }
+                val response = client.get("/.well-known/openid-configuration")
+                val scopes =
+                    (CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject["scopes_supported"] as JsonArray)
+                        .map { it.jsonPrimitive.content }
+                scopes.contains("mcp:member_write") shouldBe false
+                scopes.contains("mcp:member_read") shouldBe true
             }
         }
 

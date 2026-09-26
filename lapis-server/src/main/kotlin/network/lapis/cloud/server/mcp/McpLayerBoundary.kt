@@ -32,9 +32,19 @@ package network.lapis.cloud.server.mcp
  * - **R3** -- no Exposed write happens anywhere under `mcp/` outside `optin/McpMemberBlockStore`,
  *   `audit/McpToolCallAuditRecorder`, and the two narrow, explicitly-scoped writes in
  *   `auth/McpTokenAuth` (`last_used_at` only) and `auth/McpTokenRevoker` (`revoked_at` only).
- * - **R4** -- `tools/McpToolCatalog.TOOLS` has exactly five entries, and no tool signature accepts
- *   a caller-supplied `memberId` -- identity comes exclusively from the resolved `McpPrincipal`.
+ * - **R4** -- `tools/McpToolCatalog.TOOLS` has exactly seven entries (five reading, two writing,
+ *   Welle V1.8.2), and no tool signature accepts a caller-supplied `memberId` -- identity comes
+ *   exclusively from the resolved `McpPrincipal`.
  * - **R5** -- `mcp/` never imports `server.ai.qa`/`server.ai.llm`; the one named exception is
  *   `ai.retrieval.KnowledgeRetriever`/`PostgresFullTextKnowledgeRetriever` for `search_statute`.
+ * - **R6** (Welle V1.8.2) -- no source under `mcp/` imports/references
+ *   `rpc.SocialNetworkService`/`rpc.SocialNetworkService.createPost`/`domain.SocialPostState`/
+ *   `db.generated.SocialPostTable`: `create_post_draft`'s write path stops at `social
+ *   .PostDraftStore` (a `mcp_post_draft` row), never a real `social_post`. Turning a draft into a
+ *   published post is EXCLUSIVELY the member's own action via
+ *   `rpc.SocialNetworkService.releaseMyPostDraft` -- see `docs/architecture/mcp-server.adoc` "Why
+ *   there is no DRAFT state in SocialPostState". `domain.SocialPostVisibility` is a DELIBERATE,
+ *   named exception (it is `create_post_draft`'s own input type, a shared-domain enum with no
+ *   write capability of its own) -- without that exception R6 would be unsatisfiable.
  */
 internal object McpLayerBoundary

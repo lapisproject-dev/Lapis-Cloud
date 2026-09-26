@@ -10,6 +10,9 @@ import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.McpToolCallAuditTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.events.EventRegistrationSubmission
+import network.lapis.cloud.server.mail.MailDispatcher
+import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mcp.auth.McpPrincipal
 import network.lapis.cloud.server.mcp.auth.McpScopes
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
@@ -87,6 +90,15 @@ class McpToolDispatcherLtrForbiddenTest :
                 toolTimeoutMs = 5_000,
                 maxResponseBytes = 65_536,
                 retriever = KnowledgeRetrievers.forCurrentDatabase(),
+                // Welle V1.8.2 -- this spec only ever dispatches get_my_ltr_balance (a reading
+                // tool), so the write path is never actually exercised; a NoOpMailTransport-backed
+                // instance satisfies the constructor without any real PSP/mail wiring.
+                registrationSubmission =
+                    EventRegistrationSubmission(
+                        checkoutGateways = emptyMap(),
+                        baseUrl = "https://mcp-dispatcher-ltr-forbidden-test.invalid",
+                        mailDispatcher = MailDispatcher(transport = NoOpMailTransport()),
+                    ),
             )
 
         test(
@@ -94,7 +106,8 @@ class McpToolDispatcherLtrForbiddenTest :
                 "from the dispatcher, not Success and not InternalError",
         ) {
             val memberId = createTestMember(MemberStatus.APPLICATION)
-            val principal = McpPrincipal(memberId = memberId, tokenId = Uuid.random(), scope = McpScopes.MEMBER_READ)
+            val principal =
+                McpPrincipal(memberId = memberId, tokenId = Uuid.random(), scope = McpScopes.MEMBER_READ, connectionLabel = "Test Agent")
 
             val result = freshDispatcher().dispatch(name = "get_my_ltr_balance", arguments = null, principal = principal)
 
@@ -106,7 +119,8 @@ class McpToolDispatcherLtrForbiddenTest :
                 "-- the dispatcher's normal audit path, not the separate never-audited rate-limit early-return",
         ) {
             val memberId = createTestMember(MemberStatus.APPLICATION)
-            val principal = McpPrincipal(memberId = memberId, tokenId = Uuid.random(), scope = McpScopes.MEMBER_READ)
+            val principal =
+                McpPrincipal(memberId = memberId, tokenId = Uuid.random(), scope = McpScopes.MEMBER_READ, connectionLabel = "Test Agent")
 
             freshDispatcher().dispatch(name = "get_my_ltr_balance", arguments = null, principal = principal)
 
@@ -122,7 +136,8 @@ class McpToolDispatcherLtrForbiddenTest :
 
         test("get_my_ltr_balance: an ACTIVE (LTR-eligible) member's call is NOT Forbidden -- control for the two tests above") {
             val memberId = createTestMember(MemberStatus.ACTIVE)
-            val principal = McpPrincipal(memberId = memberId, tokenId = Uuid.random(), scope = McpScopes.MEMBER_READ)
+            val principal =
+                McpPrincipal(memberId = memberId, tokenId = Uuid.random(), scope = McpScopes.MEMBER_READ, connectionLabel = "Test Agent")
 
             val result = freshDispatcher().dispatch(name = "get_my_ltr_balance", arguments = null, principal = principal)
 

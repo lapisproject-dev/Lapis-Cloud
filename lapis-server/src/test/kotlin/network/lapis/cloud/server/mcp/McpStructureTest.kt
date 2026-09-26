@@ -64,7 +64,7 @@ class McpStructureTest :
             offenders.shouldBeEmpty()
         }
 
-        test("R3: no Exposed write under mcp/ outside the three explicitly-scoped writers") {
+        test("R3: no Exposed write under mcp/ outside the four explicitly-scoped writers") {
             val write =
                 Regex("""\b(\w+Table)\s*\.\s*(insert|update|deleteWhere|batchInsert|upsert|deleteAll|deleteIgnoreWhere|replace)\b""")
             val allowedFiles =
@@ -82,8 +82,9 @@ class McpStructureTest :
             offenders.shouldBeEmpty()
         }
 
-        test("R4: the tool catalog has exactly five entries, and no tool file declares a memberId parameter") {
-            McpToolCatalog.TOOLS.size shouldBe 5
+        test("R4: the tool catalog has exactly seven entries (five reading, two writing), and no tool file declares a memberId parameter") {
+            McpToolCatalog.TOOLS.size shouldBe 7
+            McpToolCatalog.TOOLS.count { it.writing } shouldBe 2
             val memberIdParam = Regex("""fun\s+execute\s*\([^)]*memberId\s*:""")
             val offenders =
                 sources()
@@ -108,5 +109,39 @@ class McpStructureTest :
                         .map { "$path: $it" }
                 }
             offenders.shouldBeEmpty()
+        }
+
+        test(
+            "R6 (Welle V1.8.2): mcp/ never IMPORTS SocialNetworkService/SocialPostState/SocialPostTable, and no non-comment line calls createPost(...) -- SocialPostVisibility is a named exception",
+        ) {
+            // Same "scan import lines" idiom as R1/R5 above -- deliberately NOT a raw-text scan,
+            // which would also flag this rule's own KDoc explanations (in this file and in
+            // McpLayerBoundary.kt) that name the forbidden types to explain why they are forbidden.
+            val forbiddenImports =
+                listOf(
+                    "import network.lapis.cloud.server.rpc.SocialNetworkService",
+                    "import network.lapis.cloud.shared.domain.SocialPostState",
+                    "import network.lapis.cloud.server.db.generated.SocialPostTable",
+                )
+            val importOffenders =
+                sources().flatMap { (path, text) ->
+                    imports(text).filter { line -> forbiddenImports.any { line.startsWith(it) } }.map { "$path: $it" }
+                }
+            importOffenders.shouldBeEmpty()
+
+            // createPost(...) as an actual call, on a non-comment line -- excludes both
+            // "createPostRow" (a different identifier, lives in SocialNetworkService itself, not
+            // under mcp/) and KDoc/`//` prose that merely NAMES the method to explain the boundary.
+            val createPostCall = Regex("""\bcreatePost\s*\(""")
+            val createPostOffenders =
+                sources()
+                    .filter { (_, text) ->
+                        text.lines().any { line ->
+                            !line.trimStart().startsWith("*") &&
+                                !line.trimStart().startsWith("//") &&
+                                createPostCall.containsMatchIn(line)
+                        }
+                    }.map { it.first }
+            createPostOffenders.shouldBeEmpty()
         }
     })

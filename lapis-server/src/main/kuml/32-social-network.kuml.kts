@@ -216,6 +216,14 @@ classDiagram(name = "SocialNetwork") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "content_erasure_note"; "sqlType" to "VARCHAR(2000)" }
         }
+        // Welle V1.8.2 -- `true` iff this post was released from an MCP-agent-created draft via
+        // SocialNetworkService.releaseMyPostDraft. Set once, server-side only, NEVER through an
+        // input DTO -- see network.lapis.cloud.server.mcp.tools.CreatePostDraftTool file header
+        // and 54-mcp-server.kuml.kts for the mcp_post_draft entity this column is downstream of.
+        attribute(name = "aiAssisted", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "ai_assisted" }
+        }
     }
 
     // Welle V1.1.2 -- monetary "Like". Deliberately its own table, not a column on SocialPost: a

@@ -24,6 +24,7 @@ import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.section
 import kotlinx.html.select
+import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import kotlinx.html.submitInput
 import kotlinx.html.textArea
@@ -232,6 +233,17 @@ internal object SocialPublicHtml {
             border-left: 3px solid #C9A227; background: rgba(201, 162, 39, 0.08);
             padding: 0.8rem 1rem; margin: 1rem 0;
         }
+
+        /* Review fix (V1.8.2b follow-up) -- renderPostContent has emitted `<span class=
+           "lapis-ai-badge">` since this wave's own commit, but no rule for that class ever existed
+           anywhere in this stylesheet: the disclosure text was visible (a plain, unstyled inline text
+           node), just never actually looking like a badge, despite the class name promising exactly
+           that. #C9A227 is the same gold accent .chrome-lang/.legal-incomplete above already use --
+           no new hex value invented for this. */
+        .lapis-ai-badge {
+            display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+            border: 1px solid #C9A227; color: #C9A227; font-size: 0.75rem; font-weight: 600;
+        }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */
@@ -324,6 +336,14 @@ internal object SocialPublicHtml {
      * PER-LINE overhead, not the character count, dominates that worst case.
      */
     private const val PER_LINE_RENDER_OVERHEAD_BYTES = 10
+
+    /**
+     * Welle V1.8.2b -- fixed literal markup [renderPostContent] emits for an `aiAssisted` post (the
+     * badge span + the disclosure sentence, both hardcoded German literals with no user input) --
+     * comfortably above the actual rendered byte count of that fixed markup, same conservative
+     * "upper bound, never measured twice" posture as every other constant in this section.
+     */
+    private const val AI_ASSISTED_RENDER_OVERHEAD_BYTES = 300
 
     fun timelinePage(
         view: PublicTimelineView,
@@ -1011,6 +1031,15 @@ internal object SocialPublicHtml {
      * (`<em>`), wenn [PublicPostView.contentErased] gilt -- sonst wie bisher als normale Absätze.
      * Rein kosmetisch, die Datenminimierung ist bereits durch die Überschreibung von `content` in
      * der Datenbank erledigt (der Marker-Text selbst kommt unverändert aus [lines]).
+     *
+     * **Welle V1.8.2b**: when [PublicPostView.aiAssisted], additionally emits a real HTML text node
+     * (`<span class="lapis-ai-badge">`) plus the full disclosure sentence as a `<p>` -- deliberately
+     * a genuine text node, never a CSS `::before`/`::after` pseudo-element (a screen reader/text-only
+     * browser must see the label; `default-src 'none'` CSP stays untouched, no new directive needed
+     * for plain markup). **Deliberately German-only, no per-`lang` translation table** -- unlike the
+     * client SPA (`tr()`/`gettext()`), this public path has no i18n catalog at all (every other
+     * string in this file, e.g. "Diesen Beitrag melden" above, is likewise a hardcoded German
+     * literal; `lang` here only ever localizes URLs via [PublicChrome.languageUrl], never page text).
      */
     private fun FlowContent.renderPostContent(
         post: PublicPostView,
@@ -1020,6 +1049,10 @@ internal object SocialPublicHtml {
             lines.forEach { line -> p { em { +line } } }
         } else {
             lines.forEach { line -> p { +line } }
+        }
+        if (post.aiAssisted) {
+            p { span(classes = "lapis-ai-badge") { +"KI-unterstützt" } }
+            p { +"Dieser Beitrag wurde von einem KI-Agenten entworfen und vom Autor freigegeben." }
         }
     }
 
@@ -1069,7 +1102,11 @@ internal object SocialPublicHtml {
             authorDisplayName.length * MAX_ESCAPED_BYTES_PER_CHAR +
                 publishedAtHuman.length * MAX_ESCAPED_BYTES_PER_CHAR +
                 totalWeightLtr.length
-        return contentBytes + titleBytes + metaBytes + PER_POST_RENDER_OVERHEAD_BYTES + baseUrl.length
+        // Welle V1.8.2b -- constant surcharge for renderPostContent's own aiAssisted markup (badge
+        // span + the fixed German disclosure sentence, both fixed-length literals, no user input
+        // involved) -- keeps the determinism-test byte accounting exact.
+        val aiAssistedBytes = if (aiAssisted) AI_ASSISTED_RENDER_OVERHEAD_BYTES else 0
+        return contentBytes + titleBytes + metaBytes + aiAssistedBytes + PER_POST_RENDER_OVERHEAD_BYTES + baseUrl.length
     }
 }
 
@@ -1102,6 +1139,14 @@ internal data class PublicPostView(
     val publishedAtIso: String,
     /** Absolutes Datum, NIEMALS relativ ("vor 3 Tagen") -- siehe [SocialPublicHtml] KDoc Punkt 4 (ETag-Determinismus). */
     val publishedAtHuman: String,
+    /**
+     * Welle V1.8.2b -- mirrors [network.lapis.cloud.shared.domain.SocialPostDto.aiAssisted].
+     * Additive with a `false` default so every pre-existing test fixture that builds a
+     * [PublicPostView] without naming this field keeps compiling unchanged. Rendered as a real HTML
+     * text node ([SocialPublicHtml.renderPostContent]), never a CSS-only pseudo-element -- see that
+     * function's own KDoc.
+     */
+    val aiAssisted: Boolean = false,
 )
 
 internal data class PublicTimelineView(

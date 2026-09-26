@@ -8,6 +8,79 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.8.2b -- MCP write-paths: operator switch, no payment through MCP, "KI-Entwürfe" screen,
+  AI labeling, retention** -- closes every gap V1.8.2's own "not built this wave" note left open.
+  - **Second operator switch `LAPIS_MCP_WRITE_ENABLED`** (default off), independent of
+    `LAPIS_MCP_ENABLED`: the latter alone exposes only the five reading tools. Enforced at FOUR
+    points -- `tools/list` catalog filtering, `McpToolDispatcher.dispatch` (the actual, unbypassable
+    gate: a write-capable token minted before the switch was flipped off loses its effect on its very
+    next call, without needing a revoke), `mcp:member_write` scope issuance
+    (`/authorize`/`/authorize/consent`, rejected outright, never silently downgraded to read-only),
+    and `scopes_supported` in OIDC discovery. **Never gates the five member-facing draft RPCs**
+    (list/update/release/discard/restore) -- an existing draft stays reachable even with writing
+    switched off; only NEW `register_for_event`/`create_post_draft` calls are blocked.
+  - **No payment through MCP**: `register_for_event` now rejects any fee-bearing event outright as a
+    typed `event_requires_payment` error, BEFORE the registration submission ever runs -- `paymentUrl`
+    is gone for good, no PSP checkout session is ever opened through this tool. `list_upcoming_events`
+    now reports `feeAmount`/`requiresPayment` per event so an agent can filter beforehand, closing the
+    oracle the rejection would otherwise open. The consent screen's write block and
+    `deploy/example/README.adoc` were updated to match (the money-consequence paragraph is gone).
+  - **"KI-Entwürfe" screen** (`AiDraftsScreen`, `/ai-drafts`) -- the member-facing UI V1.8.2 shipped
+    without: a card per `OPEN`/`DISCARDED` draft (content, visibility, agent-origin span, untrusted
+    text throughout), inline edit (form-grammar textarea/select, save only once actually changed),
+    release (LTR field + `confirmDialog`, same two-step grammar as boosting/bidding), discard (no
+    confirmation), and restore with its "wiederherstellbar bis" deadline. `listMyPostDrafts` now
+    returns `DISCARDED` alongside `OPEN` (previously invisible after a reload) and
+    `McpPostDraftDto` gained `statusChangedAt` to compute that deadline. Sidebar entry gated on
+    `mcpEnabled` alone (never `mcpWriteEnabled` -- existing drafts are never held hostage), with an
+    in-screen banner when writing is off and a "N drafts await your approval" banner on the Social
+    Network screen.
+  - **AI labeling everywhere a released draft is shown**: a "KI-unterstützt" badge on the timeline
+    card and thread node, the full disclosure sentence in the thread detail view, and both as real
+    HTML text nodes (never a CSS pseudo-element) on the public SEO read path (`SocialPublicHtml`).
+  - **Retention**: `mcp_post_draft.content` is cleared to `""` the moment a draft is released (not
+    after any delay) -- the post-scoped DSGVO erasure tombstone never reaches this second table, so
+    this closes that gap unconditionally. A new always-on poller (`PostDraftRetentionPoller`,
+    independent of `LAPIS_MCP_*`) deletes `DISCARDED` rows after 7 days and `RELEASED` rows after 90
+    days; `OPEN` rows are never touched. New index `ix_mcp_post_draft_status_changed` (appended to
+    `V50__mcp_write_tools.sql`, still unreleased on this branch -- no new migration needed).
+  - Minor hardening: `requiredEnumArg`'s error message strips control characters and caps at 64
+    chars; `McpToolDispatcher`'s catch-all now logs the tool name (never arguments/content/ids) on an
+    unexpected exception.
+  - **Deliberately deferred**: the plan's advisory-lock idea for `PostDraftStore.createDraft`/
+    `restoreOwned` (to reduce lock contention with `LedgerBackedLtrBalanceProvider.lockForDebit`,
+    both currently taking the same `member` row lock) was left as-is -- correctness is unaffected
+    (the existing member-row lock already serializes the 10-open-drafts cap correctly), and
+    `pg_advisory_xact_lock` has no H2 equivalent this test suite could exercise. Revisit only if
+    real contention is observed; not done this wave.
+  - The `54-mcp-server.kuml.kts` diagram and the AI-drafts sidebar icon (`fa-wand-magic-sparkles`)
+    were NOT re-verified against `:docs-render` this session -- the diagram's existing V1.8.1/
+    V1.8.2 shapes were left untouched rather than risk an unvalidated DSL edit; the icon was not
+    cross-checked against the exact bundled Font Awesome version.
+
+- **V1.8.2 -- MCP server: write tools** -- two new tools for an MCP agent connected with the
+  ADDITIONAL `mcp:member_write` OAuth scope (never granted alone; a pre-existing V1.8.1
+  `mcp:member_read`-only token never gains write access retroactively): `register_for_event`
+  (idempotent -- a second call for the same event returns the caller's own existing
+  status/waitlist position rather than a second registration) and `create_post_draft` (creates an
+  **unpublished** `mcp_post_draft` row, capped at 10 open drafts per member -- never a real
+  `social_post`; no `initialWeightLtr` argument, a draft carries no LTR stake). Publishing a draft
+  is exclusively the member's own action in the web UI (`releaseMyPostDraft`, five new
+  `ISocialNetworkService` methods for listing/editing/releasing/discarding/restoring drafts), which
+  supplies the LTR stake and permanently tags the resulting post `aiAssisted = true`
+  (`social_post.ai_assisted`, additive, never settable through any input DTO). The consent screen
+  gained a second, explicit block naming the two write effects, and its "what the agent cannot do"
+  paragraph was corrected from "nichts ändern" to "nicht veröffentlichen" (that promise no longer
+  held the moment write tools existed server-side at all, even for a read-only grant). Both tools
+  get their own per-tool rate-limit tier (5/hour and 20/day for events, 3/hour and 10/day for
+  drafts, plus a 2 000/day resp. 1 000/day server ceiling), additive on top of the three V1.8.1
+  global windows; a write-scope-forbidden call never consumes that budget. Migration
+  `V50__mcp_write_tools.sql`. `McpPersonalData` now also covers `mcp_post_draft` (hard-deleted on
+  DSGVO erasure regardless of status). **The member-facing "Agenten-Postfach" screen (list/edit/
+  release/discard/restore drafts) and the `aiAssisted` badge in the timeline/thread/public HTML
+  views were NOT built this wave** -- see `docs/architecture/mcp-server.adoc` "What doesn't work
+  yet" for the full list of open items this leaves.
+
 - **V1.8.1 -- MCP server for member agents (foundation, read-only)** -- an optional, **default-OFF**
   Model Context Protocol resource server (`LAPIS_MCP_ENABLED`) so a member's own AI agent (e.g.
   Claude Desktop) can read that member's own contribution status, LTR balance, the statutes

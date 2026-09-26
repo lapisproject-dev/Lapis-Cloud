@@ -3,6 +3,7 @@ package network.lapis.cloud.server.db
 import dev.kuml.erm.model.ErmDataType
 import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDateTime
@@ -95,6 +96,14 @@ class SocialNetworkSchemaDriftTest :
             ("content_erasure_note" in real.columns.keys) shouldBe true
             real.columns.getValue("content_erased_at").nullable shouldBe true
             real.columns.getValue("content_erasure_note").nullable shouldBe true
+        }
+
+        // Welle V1.8.2 -- same "additive, model+real+Table 1:1" pattern as the test above.
+        test("social_post has an ai_assisted column (Welle V1.8.2), NOT NULL") {
+            val real = transaction { introspectSocialPostTable() }
+            ("ai_assisted" in real.columns.keys) shouldBe true
+            real.columns.getValue("ai_assisted").nullable shouldBe false
+            SocialPostTable.columns.map { it.name } shouldContain "ai_assisted"
         }
 
         test("social_post_boost table shape matches the real migrated schema and SocialPostBoostTable 1:1") {

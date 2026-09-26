@@ -53,4 +53,17 @@ object NavVisibility {
         status: MemberStatus,
         aiAssistantEnabled: Boolean,
     ): Boolean = aiAssistantEnabled && status in MemberStatusSets.ORGANIZATION_MEMBER
+
+    /**
+     * "KI-Entwürfe" (Welle V1.8.2b) -- bound to [network.lapis.cloud.shared.domain.SessionInfoDto
+     * .mcpEnabled], deliberately **NOT** `.mcpWriteEnabled`: existing drafts an agent already
+     * created must stay reachable (editable/releasable/discardable) even after the operator
+     * switches WRITE access off -- only `mcpEnabled` off (or a status outside [MemberStatusSets
+     * .LTR_ELIGIBLE], the same eligibility [showsSocialNetwork]/[showsLtrLedger] already require,
+     * since releasing a draft debits LTR) hides this entry entirely.
+     */
+    fun showsAiDrafts(
+        status: MemberStatus,
+        mcpEnabled: Boolean,
+    ): Boolean = mcpEnabled && status in MemberStatusSets.LTR_ELIGIBLE
 }

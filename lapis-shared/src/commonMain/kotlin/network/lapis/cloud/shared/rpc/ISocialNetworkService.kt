@@ -3,6 +3,9 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.McpPostDraftDto
+import network.lapis.cloud.shared.domain.McpPostDraftEditInput
+import network.lapis.cloud.shared.domain.McpPostDraftReleaseInput
 import network.lapis.cloud.shared.domain.SocialCommentInput
 import network.lapis.cloud.shared.domain.SocialPostDto
 import network.lapis.cloud.shared.domain.SocialPostErasureDto
@@ -291,4 +294,45 @@ interface ISocialNetworkService {
      * [getPost]/[getThread] `NotFoundException` geliefert haben.
      */
     suspend fun getRemovalNotice(postId: String): SocialPostRemovalNoticeDto
+
+    // ── Welle V1.8.2 "MCP-Server: Schreibwerkzeuge" -- the member's own view of drafts an MCP
+    // agent created on their behalf via `create_post_draft`, and the actions they can take on
+    // them. NONE of these five methods is reachable by an MCP agent itself -- they are the
+    // ordinary member-facing RPC surface, gated the same way every other authenticated
+    // `ISocialNetworkService` method is (session cookie, never a bearer token). See
+    // `docs/architecture/mcp-server.adoc` "Why there is no DRAFT state in SocialPostState".
+    //
+    // **Welle V1.8.2b -- none of these five is gated by `LAPIS_MCP_WRITE_ENABLED` either** (Jobs'
+    // "no hostage" rule): switching write access off blocks NEW `register_for_event`/
+    // `create_post_draft` calls, never a member's ability to edit, release, or discard drafts an
+    // agent already created for them. Only `LAPIS_MCP_ENABLED` (session auth, not this write
+    // switch) hides the "KI-Entwürfe" screen entirely -- see `client.NavVisibility.showsAiDrafts`.
+    // ──────
+
+    /**
+     * Every `OPEN` and still-restorable `DISCARDED` draft belonging to the caller, open first
+     * (newest first within each group). Never another member's drafts. Welle V1.8.2b: `DISCARDED`
+     * joined `OPEN` here (review fix) -- a plain "OPEN only" list made a discarded draft invisible
+     * after the very next page load, even though [restoreMyPostDraft] keeps it restorable for
+     * several days (see `social.PostDraftStore.listVisible` KDoc).
+     */
+    suspend fun listMyPostDrafts(): List<McpPostDraftDto>
+
+    /** Edits an `OPEN` draft's content/visibility. `NotFoundException` for a foreign, already-released, or already-discarded draft id -- ownership and status are deliberately indistinguishable from "does not exist". */
+    suspend fun updateMyPostDraft(input: McpPostDraftEditInput): McpPostDraftDto
+
+    /**
+     * Turns an `OPEN` draft into a real, published, permanently `aiAssisted`-flagged `social_post`
+     * -- the draft itself carries no LTR stake (see `McpPostDraftReleaseInput.initialWeightLtr`
+     * KDoc), so the member supplies one here, exactly as [createPost] requires. Same
+     * `ConflictException`s as [createPost] for an insufficient balance or a disallowed visibility
+     * choice; `NotFoundException` for a foreign/non-`OPEN` draft id.
+     */
+    suspend fun releaseMyPostDraft(input: McpPostDraftReleaseInput): SocialPostDto
+
+    /** `OPEN -> DISCARDED`, no confirmation required server-side (the client asks). `NotFoundException` for a foreign/non-`OPEN` draft id. */
+    suspend fun discardMyPostDraft(draftId: String)
+
+    /** `DISCARDED -> OPEN` -- the "Rückgängig" undo action right after [discardMyPostDraft]. `NotFoundException` if the draft is not currently `DISCARDED` or does not belong to the caller. */
+    suspend fun restoreMyPostDraft(draftId: String): McpPostDraftDto
 }

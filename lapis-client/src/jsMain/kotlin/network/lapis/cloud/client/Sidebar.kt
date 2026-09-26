@@ -124,7 +124,14 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
             ),
         SidebarGroupId.SELF_GOVERNANCE to listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS),
         SidebarGroupId.ECONOMY to
-            listOf(Routes.LTR_LEDGER, Routes.CROWDFUNDING, Routes.AUCTION, Routes.POLITICIANS, Routes.SOCIAL_NETWORK),
+            listOf(
+                Routes.LTR_LEDGER,
+                Routes.CROWDFUNDING,
+                Routes.AUCTION,
+                Routes.POLITICIANS,
+                Routes.SOCIAL_NETWORK,
+                Routes.AI_DRAFTS,
+            ),
         SidebarGroupId.FINANCE to
             listOf(
                 Routes.LEDGER,
@@ -393,6 +400,12 @@ fun buildSidebar(
             }
             if (NavVisibility.showsSocialNetwork(session.status)) {
                 sidebarLink(Routes.SOCIAL_NETWORK, tr("Soziales Netzwerk"), "fas fa-comments", toggle)
+            }
+            // Welle V1.8.2b -- bound to mcpEnabled, deliberately NOT mcpWriteEnabled (see
+            // NavVisibility.showsAiDrafts KDoc). No zähler-Badge here (Design-Entscheidung) --
+            // the count lives in the SocialNetworkScreen banner instead.
+            if (NavVisibility.showsAiDrafts(session.status, session.mcpEnabled)) {
+                sidebarLink(Routes.AI_DRAFTS, tr("KI-Entwürfe"), "fas fa-wand-magic-sparkles", toggle)
             }
         }
     }

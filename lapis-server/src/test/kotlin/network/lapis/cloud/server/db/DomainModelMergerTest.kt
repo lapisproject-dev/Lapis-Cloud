@@ -438,7 +438,14 @@ class DomainModelMergerTest :
             // WITH ONE cross-domain Member stub (dedups into the already-real member entity) -- so
             // it contributes +3 «Entity» declarations (1 stub + 2 real tables) and 1 drop, net +2
             // distinct table names versus the ai-assistant baseline above (160 -> 162).
-            val distinctTableNames = 162
+            // Welle V1.8.2 "MCP-Server: Schreibwerkzeuge" adds 54-mcp-server.kuml.kts's ONE more
+            // real table (mcp_post_draft), WITH ONE cross-domain SocialPost stub (for
+            // mcp_post_draft.released_post_id -- dedups into 32-social-network.kuml.kts's
+            // already-real social_post entity) -- so it contributes +2 «Entity» declarations (the
+            // stub + the one real table) and 1 drop, net +1 distinct table name versus the V1.8.1
+            // baseline above (162 -> 163). social_post itself also gains one new column
+            // (ai_assisted) -- a new column on an already-real table, no new Table file.
+            val distinctTableNames = 163
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -717,6 +724,10 @@ class DomainModelMergerTest :
                     // entity, no new Table file for it.
                     "McpMemberBlockTable.kt",
                     "McpToolCallAuditTable.kt",
+                    // Welle V1.8.2 "MCP-Server: Schreibwerkzeuge" -- ONE new real table; its
+                    // SocialPost cross-domain stub dedups into the already-real social_post entity,
+                    // no new Table file for it.
+                    "McpPostDraftTable.kt",
                 )
         }
 

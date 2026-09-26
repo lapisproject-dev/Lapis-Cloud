@@ -39,6 +39,14 @@ import kotlinx.serialization.Serializable
  * `keycloakMode` field `network.lapis.cloud.server.branding.BrandingHtml.inject` writes into the
  * `id="lapis-brand"` payload -- deliberately two separate carriers for the SAME underlying
  * `keycloakConfig.enabled` value, one for each side of the "before vs. after login" boundary.
+ *
+ * [mcpEnabled]/[mcpWriteEnabled] (Welle V1.8.2b) mirror `McpConfig.isOperational`/
+ * `.isWriteOperational` -- same "defaults to false, feature off everywhere pre-existing" idiom as
+ * [aiAssistantEnabled]. [mcpEnabled] alone gates whether the client's "KI-Entwürfe" navigation
+ * entry appears at all ([mcpWriteEnabled] `false` never hides it -- existing drafts stay reachable,
+ * see `client.NavVisibility.showsAiDrafts` KDoc); [mcpWriteEnabled] additionally lets
+ * `AiDraftsScreen` show an operator-disabled banner instead of silently offering a "create" action
+ * that no longer exists anywhere for this session to trigger in the first place.
  */
 @Serializable
 data class SessionInfoDto(
@@ -51,4 +59,6 @@ data class SessionInfoDto(
     val status: MemberStatus = MemberStatus.ACTIVE,
     val aiAssistantEnabled: Boolean = false,
     val keycloakMode: Boolean = false,
+    val mcpEnabled: Boolean = false,
+    val mcpWriteEnabled: Boolean = false,
 )

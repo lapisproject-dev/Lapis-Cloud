@@ -287,6 +287,29 @@ information. `ai_knowledge_chunk`/`ai_knowledge_index_state` carry no member FK 
 document content, whose personal-data handling lives in `DocumentPersonalData`). Details and the
 data flow to the provider: xref:ai-assistant.adoc[ai-assistant.adoc].
 
+== MCP write-paths (V1.8.2 / V1.8.2b)
+
+`McpPersonalData` covers `mcp_post_draft` -- an MCP agent's unpublished draft, see
+xref:mcp-server.adoc[mcp-server.adoc] "The draft lifecycle". **Hard DELETE** on member erasure,
+regardless of the draft's own status (`OPEN`/`DISCARDED`/`RELEASED`): a draft is disposable
+agent-produced scratch content, not a record with its own retention interest independent of the
+member.
+
+Two ADDITIONAL, narrower data-minimization mechanisms exist alongside that member-level erasure
+path, both introduced in V1.8.2b:
+
+* **Content cleared at release, not after any delay** -- `PostDraftStore.markReleasedOwned` sets
+  `content = ""` the MOMENT a draft is released, unconditionally. This closes a gap the ordinary
+  post-scoped erasure path (`rpc.SocialContentTombstone`, a single `social_post.content_erased_at`
+  tombstone) does not reach: erasing the PUBLISHED post a draft became would otherwise leave the
+  ORIGINAL, unredacted text sitting in `mcp_post_draft` forever, entirely independent of that
+  post's own erasure state.
+* **Automatic retention poller** (`social.PostDraftRetentionPoller`, always active, independent of
+  `LAPIS_MCP_*`) -- deletes a `DISCARDED` draft row after 7 days and a `RELEASED` one after 90 days
+  (its `content` is already empty by then); an `OPEN` draft is never touched by this poller. Both
+  windows are deliberately SHORTER than every other retention period in this document -- a draft is
+  disposable scratch content, see that class' own KDoc.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the

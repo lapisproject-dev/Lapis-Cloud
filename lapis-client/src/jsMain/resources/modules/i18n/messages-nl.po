@@ -15214,3 +15214,83 @@ msgstr "Geen actieve ruimtes. Toon inactieve ruimtes om alle ruimtes te zien."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
 msgid "Die Summe der Buchungszeilen kann nicht exakt berechnet werden."
 msgstr "De som van de boekingsregels kan niet exact worden berekend."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:408
+msgid "KI-Entwürfe"
+msgstr "AI-concepten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:85
+msgid "Noch keine Entwürfe. Ein verbundener KI-Agent kann hier Beitrags-Entwürfe für Sie ablegen."
+msgstr "Nog geen concepten. Een gekoppelde AI-agent kan hier conceptberichten voor u achterlaten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:87
+msgid "Der Betreiber hat die Agenten-Schnittstelle abgeschaltet."
+msgstr "De beheerder heeft de agentinterface uitgeschakeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:115
+msgid "Entworfen von Agent"
+msgstr "Opgesteld door agent"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:140
+msgid "Beitragstext"
+msgstr "Berichttekst"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:141
+msgid "Bitte einen Beitragstext angeben."
+msgstr "Voer een berichttekst in."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:70
+msgid "Der Betreiber hat Schreibwerkzeuge für KI-Agenten abgeschaltet. Vorhandene Entwürfe können Sie weiterhin bearbeiten, freigeben oder verwerfen."
+msgstr "De beheerder heeft schrijftools voor AI-agenten uitgeschakeld. U kunt bestaande concepten nog steeds bewerken, publiceren of verwerpen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:198
+msgid "Entwurf veröffentlichen"
+msgstr "Concept publiceren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:210
+msgid "Jetzt veröffentlichen"
+msgstr "Nu publiceren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:220
+msgid "Entwurf veröffentlicht."
+msgstr "Concept gepubliceerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:266
+msgid "Wiederherstellbar bis %1"
+msgstr "Herstelbaar tot %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:272
+msgid "Entwurf wiederhergestellt."
+msgstr "Concept hersteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:374
+msgid "KI-unterstützt"
+msgstr "AI-ondersteund"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:890
+msgid "Dieser Beitrag wurde von einem KI-Agenten entworfen und vom Autor freigegeben."
+msgstr "Dit bericht is opgesteld door een AI-agent en vrijgegeven door de auteur."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:116
+msgid "Ein KI-Entwurf wartet auf Ihre Freigabe"
+msgstr "Eén AI-concept wacht op uw goedkeuring"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:118
+msgid "%1 KI-Entwürfe warten auf Ihre Freigabe"
+msgstr "%1 AI-concepten wachten op uw goedkeuring"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:121
+msgid "Zu den KI-Entwürfen"
+msgstr "Naar AI-concepten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftLabels.kt:16
+msgid "Verworfen"
+msgstr "Verworpen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:206
+msgid "Sie setzen %1 aus Ihrem freien LTR-Guthaben ein. Der Beitrag wird sofort veröffentlicht."
+msgstr "U zet %1 in van uw vrije LTR-tegoed. Het bericht wordt direct gepubliceerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
+msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
+msgstr "U heeft niet-opgeslagen wijzigingen in de berichttekst. Sla deze eerst op -- anders wordt het oorspronkelijke concept gepubliceerd, niet uw wijziging."

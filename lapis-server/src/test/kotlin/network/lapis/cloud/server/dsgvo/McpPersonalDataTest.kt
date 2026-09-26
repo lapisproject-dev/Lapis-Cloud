@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.McpMemberBlockTable
+import network.lapis.cloud.server.db.generated.McpPostDraftTable
 import network.lapis.cloud.server.db.generated.McpToolCallAuditTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mcp.audit.McpToolCallAuditEntry
@@ -17,9 +18,11 @@ import network.lapis.cloud.server.mcp.audit.McpToolCallAuditRecorder
 import network.lapis.cloud.server.mcp.audit.McpToolCallOutcome
 import network.lapis.cloud.server.mcp.optin.McpMemberBlockStore
 import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.social.PostDraftStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.SocialPostVisibility
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -41,6 +44,7 @@ class McpPersonalDataTest :
             transaction {
                 McpMemberBlockTable.deleteWhere { McpMemberBlockTable.memberId inList createdMemberIds }
                 McpToolCallAuditTable.deleteWhere { McpToolCallAuditTable.memberId inList createdMemberIds }
+                McpPostDraftTable.deleteWhere { McpPostDraftTable.memberId inList createdMemberIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
                 MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
             }
@@ -81,15 +85,23 @@ class McpPersonalDataTest :
                         durationMs = 12,
                     ),
             )
+            PostDraftStore.createDraft(
+                memberId = id,
+                tokenId = Uuid.random(),
+                agentLabel = "Test Agent",
+                content = "Entwurf für DSGVO-Test",
+                visibility = SocialPostVisibility.PUBLIC,
+            )
             return id
         }
 
-        test("the contributor is registered and covers exactly the two MCP member-FK tables") {
+        test("the contributor is registered and covers exactly the three MCP member-FK tables (Welle V1.8.2 adds mcp_post_draft)") {
             (McpPersonalData in PersonalDataRegistry.contributors) shouldBe true
-            McpPersonalData.coveredTables.map { it.tableName }.toSet() shouldBe setOf("mcp_member_block", "mcp_tool_call_audit")
+            McpPersonalData.coveredTables.map { it.tableName }.toSet() shouldBe
+                setOf("mcp_member_block", "mcp_tool_call_audit", "mcp_post_draft")
         }
 
-        test("export lists the block state and tool-call metadata, never a tokenId") {
+        test("export lists the block state, tool-call metadata and open post drafts, never a tokenId") {
             val id = seed()
             val export = transaction { McpPersonalData.exportMember(id) }
             export["blocked"]!!.jsonPrimitive.boolean shouldBe true
@@ -97,17 +109,23 @@ class McpPersonalDataTest :
             call["toolName"]!!.jsonPrimitive.content shouldBe "get_my_contribution_status"
             call["outcome"]!!.jsonPrimitive.content shouldBe "OK"
             call.containsKey("tokenId") shouldBe false
+            val draft = export["postDrafts"]!!.jsonArray.single().jsonObject
+            draft["content"]!!.jsonPrimitive.content shouldBe "Entwurf für DSGVO-Test"
+            draft["status"]!!.jsonPrimitive.content shouldBe "OPEN"
+            draft.containsKey("tokenId") shouldBe false
         }
 
-        test("erasure hard-deletes the block row and nulls the member reference on the audit row") {
+        test("erasure hard-deletes the block row, nulls the member reference on the audit row, and hard-deletes the draft") {
             val id = seed()
             val outcomes = transaction { McpPersonalData.eraseMember(memberId = id, mode = ErasureMode.ANONYMIZE) }
             val byTable = outcomes.associateBy { it.table }
             byTable.getValue("mcp_member_block").rowsDeleted shouldBe 1
             byTable.getValue("mcp_tool_call_audit").rowsAnonymized shouldBe 1
+            byTable.getValue("mcp_post_draft").rowsDeleted shouldBe 1
             transaction {
                 McpMemberBlockTable.selectAll().where { McpMemberBlockTable.memberId eq id }.count() shouldBe 0L
                 McpToolCallAuditTable.selectAll().where { McpToolCallAuditTable.memberId eq id }.count() shouldBe 0L
+                McpPostDraftTable.selectAll().where { McpPostDraftTable.memberId eq id }.count() shouldBe 0L
             }
         }
 

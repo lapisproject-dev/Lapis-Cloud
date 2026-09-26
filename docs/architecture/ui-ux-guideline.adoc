@@ -214,7 +214,11 @@ queues, plus the report parts of `LedgerScreen` (Hauptbuch, Kassenbuch, posting 
 
 | Cards (`.lapis-card-list` / `.lapis-data-card`)
 | A row needs a free-text field or carries a decision with a reason (the three approval queues). Never a second
-  grammar for the same object (P3).
+  grammar for the same object (P3). Welle V1.8.2b's `AiDraftsScreen` is the same case, deliberate, not a missed
+  migration to `dataTable`: at most `PostDraftStore.MAX_OPEN_DRAFTS_PER_MEMBER` (10) open drafts plus a handful of
+  restorable discarded ones -- no sorting/filtering/pagination need -- and each card must visually anticipate the
+  post it becomes (content, visibility, edit/release/discard actions inline), the same shape `SocialNetworkScreen`
+  already uses for a real post.
 |===
 
 === Decisions this wave had to make

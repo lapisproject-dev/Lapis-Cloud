@@ -783,6 +783,7 @@ private fun SocialPostDto.toPublicView(): PublicPostView =
         ownWeightLtr = ownCurrentWeightLtr.toPlainString(),
         publishedAtIso = publishedAt.toString(),
         publishedAtHuman = publishedAt.toHumanDate(),
+        aiAssisted = aiAssisted,
     )
 
 private fun SocialThreadDto.toPublicThreadView(): PublicThreadView {

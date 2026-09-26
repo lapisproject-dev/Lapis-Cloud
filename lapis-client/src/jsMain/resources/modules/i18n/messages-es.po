@@ -15240,3 +15240,83 @@ msgstr "No hay salas activas. Muestre las salas inactivas para ver todas las sal
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1
 msgid "Die Summe der Buchungszeilen kann nicht exakt berechnet werden."
 msgstr "La suma de las líneas de asiento no se puede calcular con exactitud."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:408
+msgid "KI-Entwürfe"
+msgstr "Borradores de IA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:85
+msgid "Noch keine Entwürfe. Ein verbundener KI-Agent kann hier Beitrags-Entwürfe für Sie ablegen."
+msgstr "Aún no hay borradores. Un agente de IA conectado puede dejarle aquí borradores de publicaciones."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:87
+msgid "Der Betreiber hat die Agenten-Schnittstelle abgeschaltet."
+msgstr "El operador ha desactivado la interfaz de agentes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:115
+msgid "Entworfen von Agent"
+msgstr "Redactado por el agente"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:140
+msgid "Beitragstext"
+msgstr "Texto de la publicación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:141
+msgid "Bitte einen Beitragstext angeben."
+msgstr "Indique un texto de publicación."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:70
+msgid "Der Betreiber hat Schreibwerkzeuge für KI-Agenten abgeschaltet. Vorhandene Entwürfe können Sie weiterhin bearbeiten, freigeben oder verwerfen."
+msgstr "El operador ha desactivado las herramientas de escritura para agentes de IA. Aún puede editar, publicar o descartar los borradores existentes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:198
+msgid "Entwurf veröffentlichen"
+msgstr "Publicar borrador"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:210
+msgid "Jetzt veröffentlichen"
+msgstr "Publicar ahora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:220
+msgid "Entwurf veröffentlicht."
+msgstr "Borrador publicado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:266
+msgid "Wiederherstellbar bis %1"
+msgstr "Recuperable hasta %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:272
+msgid "Entwurf wiederhergestellt."
+msgstr "Borrador restaurado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:374
+msgid "KI-unterstützt"
+msgstr "Asistido por IA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:890
+msgid "Dieser Beitrag wurde von einem KI-Agenten entworfen und vom Autor freigegeben."
+msgstr "Esta publicación fue redactada por un agente de IA y publicada por su autor."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:116
+msgid "Ein KI-Entwurf wartet auf Ihre Freigabe"
+msgstr "Un borrador de IA espera su aprobación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:118
+msgid "%1 KI-Entwürfe warten auf Ihre Freigabe"
+msgstr "%1 borradores de IA esperan su aprobación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:121
+msgid "Zu den KI-Entwürfen"
+msgstr "Ir a los borradores de IA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftLabels.kt:16
+msgid "Verworfen"
+msgstr "Descartado"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:206
+msgid "Sie setzen %1 aus Ihrem freien LTR-Guthaben ein. Der Beitrag wird sofort veröffentlicht."
+msgstr "Está comprometiendo %1 de su saldo LTR libre. La publicación se publicará de inmediato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
+msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
+msgstr "Tiene cambios sin guardar en el texto de la publicación. Guárdelos primero -- de lo contrario se publicará el borrador original, no su cambio."
