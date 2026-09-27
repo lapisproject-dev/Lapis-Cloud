@@ -371,7 +371,7 @@ mechanism"). **V1.6.1 optional AI assistance**
 (statute Q&A, Flyway `V44`) ships **off by default** and is not enabled on any shipped deployment, see
 "AI assistance" below. For the companion app, the server has a generic WebView bridge
 (`/api/mobile/v1/webview-session`) that is header-authenticated (the token is never in a URL) and
-**disabled by default** behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`; no compose file forwards that variable.
+**disabled by default** behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`, forwarded by `deploy/example/docker-compose.yml` since 2026-09-27 (previously it wasn't -- shipped instances from before that date need the same line added to their own compose file, see `deploy/example/docker-compose.yml`).
 The switch and the header-only design close a session-fixation weakness in the bridge routes shipped in
 `v0.21.0`; companion apps built before V1.5.2 (which send `?token=`) no longer work against a server with
 the bridge switched on. Security: a disabled AI route now answers a typed error instead of HTTP 500, the

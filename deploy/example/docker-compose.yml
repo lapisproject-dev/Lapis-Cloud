@@ -197,6 +197,12 @@ services:
       # LAPIS_EMBED_ALLOW_INSECURE bewusst weggelassen, nicht auf "" gesetzt (WebhookConfig "O4").
       LAPIS_EMBED_ENABLED: ${LAPIS_EMBED_ENABLED:-}
       LAPIS_EMBED_ALLOWED_ORIGINS: ${LAPIS_EMBED_ALLOWED_ORIGINS:-}
+      # Companion-App WebView-Bruecke (V1.5.2, Lapis-Cloud-Mobile) -- OPTIONAL, default aus. Same
+      # class of gap as the SEPA-Poller/Webhooks/Embed fixes above: without this line,
+      # LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED=true in .env silently never reaches
+      # MobileWebviewSessionRoutes.kt's getenv() check, and the per-room video-join route (behind
+      # the same switch since v0.22.0) stays disabled no matter what .env says.
+      LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED: ${LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED:-}
     volumes:
       # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage
