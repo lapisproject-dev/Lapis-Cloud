@@ -349,6 +349,35 @@ All notable changes to this project are documented here. Format follows
   explicit-language seam (`formatPriceTimestampLabelIn`) and pinned the language explicitly (with `finally`)
   in the one test that cannot reach that seam; and corrected a guideline paragraph that claimed the `pl`/`ru`
   `.po` catalogs were left unchanged when round 2's own commit had in fact added their trailing dot.
+- **V1.9.3 — i18n-Restschuld: SEPA batch screen always showed the German plural noun, even for exactly
+  one item.** `SepaBatchesScreen.kt` had three `gettext("%1 Positionen ...", count)` call sites that never
+  varied their noun by `count` -- "Lauf anlegen (1 Positionen, 10,00 €)", "1 Positionen konnten nicht
+  gebucht werden.". Round 4 (same branch, `fix(i18n): plural-form catalog support + regenerated source
+  references`) had already made `I18nCatalogManager.ngettext()` correctness-ready (a real plural catalog
+  array, indexed by a CLDR-adjacent `pluralFormIndex()` covering all eight UI languages' one/few/many
+  grammar) but adopted it nowhere. This round is the first real adoption: all three call sites now use
+  `ngettext("%1 Position ...", "%1 Positionen ...", count, count, ...)`. KVision publishes no top-level
+  free function for the plural case (only `I18n.ngettext()` and a `tr(...)`-style deferred `ntr()` that
+  takes no substitution arguments at all, unusable here since "%2" needs the formatted amount too), so
+  `I18nCatalogManager.kt` gained its own small top-level `ngettext(...)` wrapper around `I18n.ngettext(...)`,
+  mirroring KVision's own `gettext()` wrapper. Every one of the eight catalogs (`messages.pot` + all seven
+  `messages-<lang>.po`) gained the matching `msgid`/`msgid_plural` block. A pre-existing DOM test had
+  hard-coded the bug as its own expectation (`FormSubmitBodyPart3FinanceDomTest`,
+  `startsWith("Lauf anlegen (1 Positionen")`) and needed fixing in the same round -- the clearest
+  evidence the bug was real, not theoretical. New JVM-side coverage (`PluralMessagesCatalogTest`) closes
+  the gap left by `AllClientMessagesCatalogTest`'s scanner, which is blind to `ngettext(` call sites and
+  `msgid_plural` catalog blocks in both directions; new Kotlin/JS
+  tests exercise the three real msgid/msgid_plural pairs across all seven catalog languages. Also
+  corrected a stale doc-comment in `scripts/i18n/regenerate-source-refs.mjs` that claimed its matcher
+  would also pick up `ntr(`/`ngettext(` call sites -- empirically false (its negative lookbehind blocks a
+  match starting inside "n**tr(**"/"n**gettext(**"); the matcher itself is unchanged this round, so the
+  three new call sites carry no `#:` source reference, same as any other indirectly-reached msgid.
+  Deliberately **not** widened to further candidates of the same pattern found by grep (`"%1 Einträge
+  geladen"`, `"%1 Jahre Förderer/Mitgliedschaft"`, `"%1 Stimmen abgegeben."`, `"%1 Antworten · %2
+  Boosts"`, `"%1 Tage × %2"`) -- named as open follow-up work in
+  `docs/architecture/ui-ux-guideline.adoc`'s "i18n-Restschuld" section rather than expanding this wave's
+  scope past the three sites the bug report named. See that section for the full round 4 + round 5
+  write-up.
 
 ## [0.24.0] — 2026-09-26
 

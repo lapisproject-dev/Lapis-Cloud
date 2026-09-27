@@ -178,14 +178,18 @@ fun Button.tableActionTooltip(tooltip: String) {
 internal const val KV_I18N_MARKER = "###KvI18nS###"
 
 /**
- * Der Plural-Gegenstueck-Marker zu [KV_I18N_MARKER]: KVisions `ntr(singularKey, pluralKey, value)`
- * kodiert alle drei Teile mit diesem Trenner (`"###KvI18nP###" + singularKey + "###KvI18nP###" + pluralKey +
- * "###KvI18nP###" + value`, siehe `io.kvision.i18n.Widget.trans`/`ntr` im kompilierten Bundle). Diese Codebase
- * benutzt `ntr()`/`ngettext()` selbst nirgends (siehe [I18nCatalogManager]-KDoc), aber KVisions eigener
- * `Widget.trans`-Render-Pfad loest den Marker trotzdem bedingungslos auf jedem Widget-Content auf, unabhaengig
- * davon, ob diese App ihn je selbst erzeugt -- ein Angreifer kann ihn als reinen ASCII-Text in ein beliebiges
- * DTO-Feld tippen. [sanitizeUntrustedI18nText] muss ihn deshalb genauso entfernen wie [KV_I18N_MARKER]
- * (Security-Audit W6b, Runde 7).
+ * Der Plural-Gegenstueck-Marker zu [KV_I18N_MARKER]: KVisions eigenes, DEFERRED `I18nManager.ntr(singularKey,
+ * pluralKey, value)` kodiert alle drei Teile mit diesem Trenner (`"###KvI18nP###" + singularKey +
+ * "###KvI18nP###" + pluralKey + "###KvI18nP###" + value`, siehe `io.kvision.i18n.Widget.trans`/`I18nManager.ntr`
+ * im kompilierten Bundle) -- kein Platz fuer weitere Substitutionsargumente ausser dem Zaehler selbst. Diese
+ * Codebase benutzt DIESES KVision-eigene `ntr()` selbst nirgends (siehe [I18nCatalogManager]-KDoc); seit
+ * i18n-Restschuld Runde 5 gibt es aber drei echte Aufrufstellen (`SepaBatchesScreen.kt`) des app-eigenen,
+ * SOFORT aufloesenden `ngettext(...)`-Top-Level-Wrappers in `I18nCatalogManager.kt` -- der erzeugt NIEMALS
+ * diesen Marker, sondern liefert direkt aufgeloesten Text zurueck. KVisions eigener `Widget.trans`-Render-Pfad
+ * loest den Marker trotzdem bedingungslos auf jedem Widget-Content auf, unabhaengig davon, ob diese App ihn je
+ * selbst erzeugt -- ein Angreifer kann ihn als reinen ASCII-Text in ein beliebiges DTO-Feld tippen.
+ * [sanitizeUntrustedI18nText] muss ihn deshalb genauso entfernen wie [KV_I18N_MARKER] (Security-Audit W6b,
+ * Runde 7).
  */
 internal const val KV_I18N_MARKER_PLURAL = "###KvI18nP###"
 

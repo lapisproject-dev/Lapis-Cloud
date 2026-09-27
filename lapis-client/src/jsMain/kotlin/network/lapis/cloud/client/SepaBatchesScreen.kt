@@ -383,7 +383,13 @@ internal fun renderNewBatchSection(
                 createButtonHost.removeAll()
                 val createButton =
                     createButtonHost.button(
-                        gettext("Lauf anlegen (%1 Positionen, %2)", preview.itemCount, formatMoney(preview.totalAmount)),
+                        ngettext(
+                            "Lauf anlegen (%1 Position, %2)",
+                            "Lauf anlegen (%1 Positionen, %2)",
+                            preview.itemCount,
+                            preview.itemCount,
+                            formatMoney(preview.totalAmount),
+                        ),
                         style = ButtonStyle.PRIMARY,
                     )
                 // Fachlicher Zustand, NICHT der Doppelklickschutz: ein Lauf ohne Positionen wird nicht angelegt. Ein gesperrter Knopf
@@ -583,7 +589,12 @@ internal fun renderSepaBatchDetail(
 
     if (detail.failedItemIds.isNotEmpty()) {
         panel.div(
-            gettext("%1 Positionen konnten nicht gebucht werden -- erneut versuchen mit \"Abrechnen\".", detail.failedItemIds.size),
+            ngettext(
+                "%1 Position konnte nicht gebucht werden -- erneut versuchen mit \"Abrechnen\".",
+                "%1 Positionen konnten nicht gebucht werden -- erneut versuchen mit \"Abrechnen\".",
+                detail.failedItemIds.size,
+                detail.failedItemIds.size,
+            ),
         ) { addCssClasses("text-danger small") }
     }
 
@@ -658,7 +669,14 @@ private fun renderBatchActionButton(
                         if (result.failedItemIds.isEmpty()) {
                             notifySuccess(tr("Lauf abgerechnet."))
                         } else {
-                            notifyError(gettext("%1 Positionen konnten nicht gebucht werden.", result.failedItemIds.size))
+                            notifyError(
+                                ngettext(
+                                    "%1 Position konnte nicht gebucht werden.",
+                                    "%1 Positionen konnten nicht gebucht werden.",
+                                    result.failedItemIds.size,
+                                    result.failedItemIds.size,
+                                ),
+                            )
                         }
                         // MAJOR fix (see [showDetail] KDoc): pass the RESULT itself, never just
                         // `onChanged()` -- `onChanged()` alone would re-fetch via `getBatch()`,

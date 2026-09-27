@@ -225,3 +225,76 @@ internal fun parseCatalog(file: File): Map<String, String> {
     flush()
     return entries
 }
+
+/** A `msgid`/`msgid_plural` block: the plural msgid and the `msgstr[0]`, `msgstr[1]`, ... forms, in index order. */
+internal data class PluralCatalogEntry(
+    val pluralMsgid: String,
+    val forms: List<String>,
+)
+
+private val MSGSTR_INDEX = Regex("""^msgstr\[(\d+)] "(.*)"$""")
+
+/**
+ * Singular msgid -> [PluralCatalogEntry] of every `msgid`/`msgid_plural` block of a `.po`/`.pot` file (i18n-Restschuld,
+ * round 5, see [PluralMessagesCatalogTest]) -- [parseCatalog] above is blind to these blocks (a plain `msgid "..."` line
+ * immediately followed by `msgid_plural "..."` never gets a matching `msgstr "..."` line, so [parseCatalog]'s `flush()`
+ * silently drops it; a `msgstr[N] "..."` line does not match its `msgstr "..."` prefix check either). A block with no
+ * `msgid_plural` line (an ordinary singular-only entry) is not included here, mirroring [parseCatalog]'s exclusion of
+ * plural blocks in the other direction -- the two functions partition a catalog's entries, they never overlap.
+ */
+internal fun parsePluralCatalog(file: File): Map<String, PluralCatalogEntry> {
+    val entries = mutableMapOf<String, PluralCatalogEntry>()
+    var id: StringBuilder? = null
+    var plural: StringBuilder? = null
+    val forms = sortedMapOf<Int, StringBuilder>()
+    var mode = 0 // 0=none, 1=msgid, 2=msgid_plural, 3=msgstr[formIndex]
+    var formIndex = -1
+
+    fun flush() {
+        val currentId = id
+        val currentPlural = plural
+        if (currentId != null && currentPlural != null && forms.isNotEmpty()) {
+            entries[unescapeKotlin(currentId.toString())] =
+                PluralCatalogEntry(
+                    pluralMsgid = unescapeKotlin(currentPlural.toString()),
+                    forms = forms.entries.sortedBy { it.key }.map { unescapeKotlin(it.value.toString()) },
+                )
+        }
+        id = null
+        plural = null
+        forms.clear()
+        formIndex = -1
+    }
+
+    file.forEachLine { rawLine ->
+        val line = rawLine.trim()
+        val msgstrMatch = MSGSTR_INDEX.matchEntire(line)
+        when {
+            line.startsWith("msgid \"") -> {
+                flush()
+                id = StringBuilder(line.removePrefix("msgid \"").removeSuffix("\""))
+                mode = 1
+            }
+            line.startsWith("msgid_plural \"") -> {
+                plural = StringBuilder(line.removePrefix("msgid_plural \"").removeSuffix("\""))
+                mode = 2
+            }
+            msgstrMatch != null -> {
+                formIndex = msgstrMatch.groupValues[1].toInt()
+                forms[formIndex] = StringBuilder(msgstrMatch.groupValues[2])
+                mode = 3
+            }
+            line.startsWith("\"") && line.endsWith("\"") && line.length >= 2 -> {
+                val body = line.substring(1, line.length - 1)
+                when (mode) {
+                    1 -> id?.append(body)
+                    2 -> plural?.append(body)
+                    3 -> forms[formIndex]?.append(body)
+                }
+            }
+            else -> mode = 0
+        }
+    }
+    flush()
+    return entries
+}

@@ -30,10 +30,16 @@ COPY lapis-client ./lapis-client
 COPY lapis-detekt-rules ./lapis-detekt-rules
 COPY docs-render ./docs-render
 
-# Builds the server's installDist layout (bin/+lib/, the same application-plugin output the prior
-# systemd-based deployment used) and the client's minified production webpack bundle in one
-# invocation, so both run through the same dependency-resolution pass.
-RUN ./gradlew --no-daemon :lapis-server:installDist :lapis-client:jsBrowserProductionWebpack
+# Step 1: JVM-only build -- compiles lapis-server and produces installDist. Split from the
+# webpack step so the JVM exits completely before webpack starts, freeing ~1-2 GB RAM.
+# Without the split, Gradle JVM + Node webpack worker together exceed the VPS RAM ceiling
+# (no swap) and trigger the OOM killer (observed 2026-09-27 on netcup VPS 1000 G12, 8 GB RAM).
+RUN ./gradlew --no-daemon :lapis-server:installDist
+
+# Step 2: Kotlin/JS compile + webpack production bundle. Gradle cache from step 1 is preserved
+# in the layer filesystem so npm/yarn packages are not re-downloaded. Node heap capped at 3 GB --
+# conservative enough to share the 8 GB host with the fresh Gradle JVM that orchestrates this step.
+RUN NODE_OPTIONS=--max-old-space-size=3072 ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
 
 FROM eclipse-temurin:25-jre AS runtime
 

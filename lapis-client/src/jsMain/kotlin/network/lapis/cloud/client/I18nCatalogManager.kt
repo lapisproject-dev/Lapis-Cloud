@@ -17,8 +17,9 @@ import kotlin.js.jsTypeOf
  * `module.exports = function(...) {...}` CJS export shape (confirmed by inspecting the resolved
  * `node_modules/gettext.js/dist/gettext.cjs.min.js` directly) -- not a bug in this app's own code,
  * and not worth chasing further upstream given how little of `gettext.js`'s feature surface this
- * app actually needs (no plural forms are used anywhere -- `ntr()`/`ngettext()` never appear in
- * this codebase's i18n sweep).
+ * app actually needs (at the time of this class's introduction, no plural forms were used
+ * anywhere -- `ntr()`/`ngettext()` did not appear in this codebase's i18n sweep at all; see this
+ * class's later i18n-Restschuld KDoc entries below for how that changed).
  *
  * This class implements exactly what's needed instead: a flat msgid->msgstr lookup per language,
  * plus `%1`/`%2`/... placeholder substitution matching `gettext.js`'s own convention (so the
@@ -26,8 +27,30 @@ import kotlin.js.jsTypeOf
  * changes). Catalogs are the `po2json`-format JSON objects `KVConvertPoTask`/`generatePotFile`
  * already produce from this module's `.po` translation files (see `.gettext.json`,
  * `deploy`-adjacent `src/jsMain/resources/modules/i18n/`) -- only the `[""]` metadata entry is
- * skipped; every other key is a `msgid: msgstr` pair, read via plain dynamic property access
- * (`json[key]`), no JS library involved.
+ * skipped; every other key is either a plain `msgid: msgstr` pair, read via plain dynamic
+ * property access (`json[key]`), or -- for a `msgid`/`msgid_plural` pair -- a
+ * `msgid: [msgstr[0], msgstr[1], ...]` array, indexed by [pluralFormIndex] (see [ngettext]).
+ * No JS library involved either way.
+ *
+ * i18n-Restschuld, round 4 (2026-09-27, see `ui-ux-guideline.adoc`'s "State after W5"):
+ * [ngettext] now selects the CLDR-correct plural form for every one of this app's eight UI
+ * languages (`Plural-Forms` header added to all eight catalogs, see [pluralFormIndex]'s own
+ * KDoc) instead of a bare `value == 1` binary that was wrong for Polish and Russian's
+ * one/few/many grammar. This round deliberately added no real call site: the i18n sweep's own
+ * audit fix M4 (`ui-ux-guideline.adoc`, "Audit round of W5") had replaced the one place that
+ * would have needed a grammatical plural with two whole, separately translated sentences ("a
+ * plural cannot be translated [as a word glued onto a template]"), and this round changed only
+ * correctness readiness, not adoption -- `I18nCatalogManagerPluralTest` covered all eight
+ * languages' category boundaries end-to-end, but with synthetic messages only.
+ *
+ * i18n-Restschuld, round 5 (2026-09-27, see `ui-ux-guideline.adoc`'s "i18n-Restschuld" section):
+ * the first real adoption. `SepaBatchesScreen.kt`'s three item-count messages ("Lauf anlegen (%1
+ * Position(en), %2)" and the two "could not be posted" sentences) always showed the German
+ * plural noun even for `count == 1` -- a real, observable bug, not a theoretical gap -- and now
+ * go through the top-level [ngettext] function below. The "house style avoids grammatical
+ * plurals" preference from round 4 above was never an absolute rule; it was a statement that
+ * audit fix M4's own case did not need one. A genuine counted noun, like these three messages, is
+ * exactly the case [I18nManager.ngettext] exists for.
  */
 class I18nCatalogManager(
     private val catalogs: Map<String, dynamic>,
@@ -79,9 +102,21 @@ class I18nCatalogManager(
     }
 
     /**
-     * No plural forms are used anywhere in this app (verified during the i18n sweep -- see class
-     * KDoc) -- a simple English-shaped rule (`value == 1` -> singular) is a safe, unused-in-practice
-     * fallback rather than a real feature, kept only so this class fully implements [I18nManager].
+     * Selects the plural-form catalog entry for `value`, keyed by [singularKey] -- matching
+     * `gettext.js`'s own `po2json` convention (see class KDoc): a `msgid`/`msgid_plural` .po
+     * entry becomes `catalog[msgid] = [msgstr[0], msgstr[1], ...]`, indexed by [pluralFormIndex]
+     * for the CURRENT [I18n.language], never by [value] directly (Polish/Russian have three
+     * forms in a non-obvious order, not "singular vs. plural").
+     *
+     * Falls back to the pre-existing bare `value == 1 ? singularKey : pluralKey` binary --
+     * unconditionally correct for every two-form language this app supports, and for German
+     * itself, which is never catalog-backed (see class KDoc: the source strings passed as
+     * [singularKey]/[pluralKey] ARE the German text already) -- whenever no plural array entry
+     * exists for [singularKey] in the current language's catalog: an untranslated key, a
+     * catalog entry that is a plain string (a translator filled `msgstr` without ever adding
+     * `msgid_plural`), or German. This never throws on an unexpected/malformed catalog shape --
+     * see [sanitizeUntrustedI18nText]'s and [substitute]'s own KDoc for why this class treats
+     * "fail closed to the raw key, never crash the render" as a hard rule throughout.
      */
     override fun ngettext(
         singularKey: String,
@@ -89,6 +124,30 @@ class I18nCatalogManager(
         value: Int,
         vararg args: Any?,
     ): String {
+        // Security audit W6b (see [gettext]'s own comment): every String argument is untrusted
+        // free text and is always sanitized here too, before it can reach either the plural-array
+        // or the bare-binary fallback path below.
+        val sanitizedArgs =
+            Array<Any?>(args.size) { index ->
+                val argument = args[index]
+                if (argument is String) sanitizeUntrustedI18nText(argument) else argument
+            }
+        val languageCatalog = catalogs[I18n.language]
+        val entry = if (languageCatalog != null) languageCatalog[singularKey] else null
+        // `entry`'s static type stays `dynamic` even inside an `is Array<*>` check (dynamic
+        // receivers never smart-cast in Kotlin/JS -- a member call on `entry` itself would still
+        // compile to a raw, unchecked JS property/method lookup). `unsafeCast` first, THEN call
+        // Kotlin stdlib Array functions (`isNotEmpty`, `size`, indexing) on the now-real-typed
+        // [forms] value -- calling them on `entry` directly throws `TypeError: entry.isNotEmpty
+        // is not a function` (a plain JS array has no such method; that's a Kotlin extension
+        // function, resolved only for a statically Array<T>-typed receiver).
+        if (entry is Array<*>) {
+            val forms = entry.unsafeCast<Array<String>>()
+            if (forms.isNotEmpty()) {
+                val index = pluralFormIndex(I18n.language, value).coerceIn(0, forms.size - 1)
+                return substitute(forms[index], sanitizedArgs)
+            }
+        }
         val key = if (value == 1) singularKey else pluralKey
         return gettext(key, *args)
     }
@@ -132,6 +191,33 @@ class I18nCatalogManager(
         }
     }
 }
+
+/**
+ * A top-level, IMMEDIATE-resolution plural helper -- for a call site that, like `gettext(...)`,
+ * needs its substituted result right away (as widget content shown once, or passed to
+ * `notifyError`/`notifySuccess`), not KVision's own [io.kvision.i18n.I18nManager.ntr] (the
+ * `tr(...)`-style DEFERRED/marker-based plural helper `I18n` inherits by default:
+ * `I18N_PLURAL_DELIMITER + singularKey + I18N_PLURAL_DELIMITER + pluralKey + I18N_PLURAL_DELIMITER
+ * + value`, re-resolved later by [io.kvision.i18n.I18nManager.trans] on render). Two reasons this
+ * codebase adds its own wrapper instead of using `I18n.ntr(...)` directly:
+ * - KVision publishes no TOP-LEVEL free function for the plural case at all -- unlike `gettext()`
+ *   (`io.kvision.i18n.gettext`, a real top-level function delegating to `I18n.gettext(...)`),
+ *   there is no `io.kvision.i18n.ngettext` to import; only the [I18n] singleton's own method and
+ *   [I18nManager]'s default `ntr()`/`trans()` pair exist.
+ * - `I18n.ntr(singularKey, pluralKey, value)` -- KVision's own signature -- takes NO substitution
+ *   `args` at all: [I18nManager.trans]'s marker parser only ever reconstructs
+ *   `ngettext(singular, plural, count, count)`, so a template needing a SECOND placeholder (like
+ *   "Lauf anlegen (%1 Position, %2)"'s formatted amount) would silently lose it -- `%2` would
+ *   render literally, unsubstituted, the moment the marker round-trips through `trans()`. This
+ *   function accepts the same `vararg args` [I18nManager.ngettext] does and never encodes a
+ *   marker, so every argument survives.
+ */
+internal fun ngettext(
+    singularKey: String,
+    pluralKey: String,
+    value: Int,
+    vararg args: Any?,
+): String = I18n.ngettext(singularKey, pluralKey, value, *args)
 
 /** Separates the template from its arguments inside a composed `tr` string (see [trFormat]); never rendered. */
 internal const val I18N_ARG_SEPARATOR = "\u0001"

@@ -585,7 +585,9 @@ class FormSubmitBodyPart3FinanceDomTest {
                     element().typeInto("Fällig bis", "2098-12-31")
                     element().buttonNamed("Vorschau berechnen").click()
                     awaitUntil("the create button appears", timeoutMs = 1500) {
-                        element().allOf("button").any { it.textContent.orEmpty().startsWith("Lauf anlegen (1 Positionen") }
+                        // i18n-Restschuld (2026-09-27): itemCount = 1 now takes the SINGULAR form via
+                        // ngettext() -- "1 Position", not "1 Positionen" (see SepaBatchesScreen.kt).
+                        element().allOf("button").any { it.textContent.orEmpty().startsWith("Lauf anlegen (1 Position,") }
                     }
                     element().buttonStartingWith("Lauf anlegen").click()
                     awaitUntil("createDebitBatch", timeoutMs = 1500) { calls.toRoute(create).size == 1 }
