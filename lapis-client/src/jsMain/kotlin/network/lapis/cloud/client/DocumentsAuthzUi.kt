@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.restrictiveness
 
 /**
  * Welle "Treasurer Document Upload" -- review finding fix. Extracted from `DocumentsScreen`'s
@@ -50,6 +51,18 @@ object DocumentsAuthzUi {
                 DocumentAccessLevel.ADMIN_ONLY -> role == AccountRole.ADMIN
             }
         }
+
+    /**
+     * Vorauswahl beim Anlegen: die restriktivste Stufe, die [role] laut [allowedLevels] noch wählen
+     * darf -- ADMIN sieht ADMIN_ONLY vorausgewählt, BOARD/TREASURER BOARD_ONLY, MEMBER/null
+     * PUBLIC_MEMBERS. `allowedLevels` liefert die Stufen in Deklarationsreihenfolge, nicht explizit
+     * sortiert -- deshalb selbst maximieren statt `.last()` anzunehmen. Der `?: PUBLIC_MEMBERS`-
+     * Fallback ist praktisch unerreichbar: `allowedLevels` enthält PUBLIC_MEMBERS für jede Rolle
+     * (siehe deren eigene KDoc), die Liste kann also nie leer sein -- er ist trotzdem die einzig
+     * sinnvolle Stufe, falls sich das je ändern sollte.
+     */
+    fun defaultCreationLevel(role: AccountRole?): DocumentAccessLevel =
+        allowedLevels(role).maxByOrNull { it.restrictiveness } ?: DocumentAccessLevel.PUBLIC_MEMBERS
 
     /**
      * V1.6.1 -- must mirror the server's `CurrentMember.isPrivileged` (BOARD/ADMIN), the gate of

@@ -596,6 +596,14 @@ internal fun Container.renderFolderAccessLevelAction(
  * No parent-folder-derived filtering here (unlike [renderDocumentCreation]'s `>=` predicate): this
  * screen only ever creates TOP-LEVEL folders (`parentFolderId = null`), so there is no parent level
  * to be at least as restrictive as.
+ *
+ * Folgepunkt zu V1.9.1: the preselected value is [DocumentsAuthzUi.defaultCreationLevel] -- the most
+ * restrictive level [role] is allowed to pick -- instead of always PUBLIC_MEMBERS. Rationale is the
+ * same as the KDoc above: a folder name is often already the sensitive part, so the safer default is
+ * the tightest one the creating role can choose, not the loosest. After every successful creation the
+ * select is reset back to this SAME role default (not left on whatever was last chosen) -- otherwise a
+ * BOARD member who once picked PUBLIC_MEMBERS for a genuinely public folder would silently keep
+ * proposing PUBLIC_MEMBERS for every folder created afterward in the same session.
  */
 private fun renderFolderCreation(
     panel: SimplePanel,
@@ -605,11 +613,12 @@ private fun renderFolderCreation(
     val form = panel.lapisForm()
     val nameField = form.textField(label = tr("Neuer Ordnername"), required = true)
     val accessLevelOptions = DocumentsAuthzUi.allowedLevels(role).map { it.name to documentAccessLevelLabel(it) }
+    val defaultLevel = DocumentsAuthzUi.defaultCreationLevel(role)
     val accessField =
         form.selectField(
             label = tr("Sichtbarkeit"),
             options = accessLevelOptions,
-            value = DocumentAccessLevel.PUBLIC_MEMBERS.name,
+            value = defaultLevel.name,
             required = true,
         )
     val createButton = Button(tr("Ordner anlegen"), icon = "fas fa-folder-plus", style = ButtonStyle.OUTLINEPRIMARY)
@@ -622,6 +631,10 @@ private fun renderFolderCreation(
             if (result != null) {
                 notifySuccess(gettext("Ordner \"%1\" angelegt.", name))
                 nameField.reset()
+                // Not accessField.reset(): LapisField.reset() sets Select controls to null, emptying
+                // this required field. setValue() back to the role default is the intended UX here --
+                // see the function KDoc above.
+                accessField.setValue(defaultLevel.name)
                 onCreated()
             }
         }

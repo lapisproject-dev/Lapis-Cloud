@@ -252,6 +252,21 @@ All notable changes to this project are documented here. Format follows
   holder runs. Setting a Postgres-side timeout is a deployment-wide decision affecting every write path
   in the application and is scoped to its own wave, not bolted onto this one.
 
+### Fixed
+
+- **V1.9.2 — folder-creation visibility defaults to the most restrictive level the creating role may
+  pick.** Follow-up to V1.9.1: `renderFolderCreation`'s "Sichtbarkeit" select used to preselect
+  `PUBLIC_MEMBERS` unconditionally, regardless of who was creating the folder — an ADMIN or BOARD
+  member had to actively narrow it down every single time, even though a folder NAME is frequently
+  the sensitive part ("Kündigungen Q3") and is visible to every member from the moment of creation.
+  `DocumentsAuthzUi.defaultCreationLevel(role)` (the restrictive-most level `allowedLevels(role)`
+  offers — `ADMIN_ONLY` for ADMIN, `BOARD_ONLY` for BOARD/TREASURER, `PUBLIC_MEMBERS` for MEMBER/no
+  role) is now the preselected value, and the select is reset back to this same role default after
+  every successful creation (not left on whatever was last chosen, so a one-off `PUBLIC_MEMBERS` pick
+  does not silently keep proposing itself for every folder created afterward in the same session).
+  Purely a client-side default — `createFolder`'s own `canAccessDocumentAtLevel`/`ConflictException`
+  check remains the real authority, unchanged by this wave.
+
 ## [0.24.0] — 2026-09-26
 
 ### Fixed

@@ -72,4 +72,29 @@ class DocumentsAuthzUiTest {
         assertFalse(DocumentsAuthzUi.showsKnowledgeBaseColumn(AccountRole.ADMIN, aiAssistantEnabled = false))
         assertFalse(DocumentsAuthzUi.showsKnowledgeBaseColumn(AccountRole.TREASURER, aiAssistantEnabled = true))
     }
+
+    /** Folgepunkt zu V1.9.1: the folder-creation default is the most restrictive level ADMIN may pick. */
+    @Test
+    fun defaultCreationLevel_admin_isAdminOnly() =
+        assertEquals(DocumentAccessLevel.ADMIN_ONLY, DocumentsAuthzUi.defaultCreationLevel(AccountRole.ADMIN))
+
+    @Test
+    fun defaultCreationLevel_boardAndTreasurer_isBoardOnly() {
+        assertEquals(DocumentAccessLevel.BOARD_ONLY, DocumentsAuthzUi.defaultCreationLevel(AccountRole.BOARD))
+        assertEquals(DocumentAccessLevel.BOARD_ONLY, DocumentsAuthzUi.defaultCreationLevel(AccountRole.TREASURER))
+    }
+
+    @Test
+    fun defaultCreationLevel_memberAndNull_isPublicMembers() {
+        assertEquals(DocumentAccessLevel.PUBLIC_MEMBERS, DocumentsAuthzUi.defaultCreationLevel(AccountRole.MEMBER))
+        assertEquals(DocumentAccessLevel.PUBLIC_MEMBERS, DocumentsAuthzUi.defaultCreationLevel(null))
+    }
+
+    /** Sicherheits-relevante Invariante: der Default liegt IMMER in der erlaubten Optionsliste. */
+    @Test
+    fun defaultCreationLevel_isAlwaysWithinAllowedLevels() {
+        (AccountRole.entries + null).forEach { role ->
+            assertTrue(DocumentsAuthzUi.defaultCreationLevel(role) in DocumentsAuthzUi.allowedLevels(role))
+        }
+    }
 }

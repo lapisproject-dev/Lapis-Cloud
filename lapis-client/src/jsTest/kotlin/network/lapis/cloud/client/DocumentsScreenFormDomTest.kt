@@ -12,6 +12,7 @@ import network.lapis.cloud.shared.domain.FolderAccessLevelChangeDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IDocumentService
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLSelectElement
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -244,6 +245,15 @@ class DocumentsScreenFormDomTest {
             expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
         )
 
+    /** Folgepunkt zu V1.9.1: needed to pin the folder-creation default for TREASURER (also BOARD_ONLY, same as BOARD). */
+    private val treasurerSession =
+        SessionInfoDto(
+            memberId = "treasurer-member-1",
+            displayName = "Treasurer-Testperson",
+            role = AccountRole.TREASURER,
+            expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
+        )
+
     private val boardOnlyFolder =
         DocumentFolderDto(
             id = "folder-2",
@@ -284,6 +294,10 @@ class DocumentsScreenFormDomTest {
         formTest {
             // Fix round (W1): without its own select, every new folder was PUBLIC_MEMBERS by force and
             // its NAME -- often the sensitive part -- was visible to every member until a second step.
+            // Folgepunkt zu V1.9.1: BOARD's own default is now BOARD_ONLY (not PUBLIC_MEMBERS), so this
+            // test deliberately chooses PUBLIC_MEMBERS -- otherwise the chosen value and the default
+            // would coincide and the test would no longer distinguish "the choice is sent" from "the
+            // default is sent" (see [folderCreation_sendsTheDefaultLevel_whenNothingIsChosen] for that).
             AppState.setSession(boardSession)
             val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
             val createFolderRoute = routeOf { rpcService<IDocumentService>().createFolder("x", null) }
@@ -291,19 +305,132 @@ class DocumentsScreenFormDomTest {
                 respond =
                     answering(
                         listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList()),
-                        createFolderRoute to jsonOf(DocumentFolderDto.serializer(), boardOnlyFolder),
+                        createFolderRoute to jsonOf(DocumentFolderDto.serializer(), folder),
                     ),
             ) { calls ->
                 mountedForm("documents-folder-create-level") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
                     element().typeInto("Neuer Ordnername", "Kündigungen Q3")
-                    element().chooseIn("Sichtbarkeit", DocumentAccessLevel.BOARD_ONLY.name)
+                    element().chooseIn("Sichtbarkeit", DocumentAccessLevel.PUBLIC_MEMBERS.name)
                     element().buttonNamed("Ordner anlegen").click()
                     awaitUntil("createFolder", timeoutMs = 800) { calls.toRoute(createFolderRoute).size == 1 }
                     val call = calls.singleCall(createFolderRoute)
                     assertEquals("Kündigungen Q3", call.rpcParam(0) as String)
-                    assertEquals("BOARD_ONLY", call.rpcParam(2) as String, "the chosen level is sent, not a forced default")
+                    assertEquals(
+                        "PUBLIC_MEMBERS",
+                        call.rpcParam(2) as String,
+                        "the chosen level is sent, not the role default (BOARD_ONLY)",
+                    )
+                }
+            }
+        }
+
+    /** Folgepunkt zu V1.9.1: the select is preselected to the role default, not always PUBLIC_MEMBERS. */
+    @Test
+    fun folderCreation_admin_defaultsToAdminOnly(): Promise<Unit> =
+        formTest {
+            AppState.setSession(adminSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            withFetchStub(
+                respond = answering(listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList())),
+            ) {
+                mountedForm("documents-folder-create-default-admin") { root, element ->
+                    renderDocumentsScreen(root)
+                    delay(80)
+                    val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
+                    assertEquals("ADMIN_ONLY", select.value)
+                }
+            }
+        }
+
+    @Test
+    fun folderCreation_board_defaultsToBoardOnly(): Promise<Unit> =
+        formTest {
+            AppState.setSession(boardSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            withFetchStub(
+                respond = answering(listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList())),
+            ) {
+                mountedForm("documents-folder-create-default-board") { root, element ->
+                    renderDocumentsScreen(root)
+                    delay(80)
+                    val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
+                    assertEquals("BOARD_ONLY", select.value)
+                }
+            }
+        }
+
+    @Test
+    fun folderCreation_treasurer_defaultsToBoardOnly(): Promise<Unit> =
+        formTest {
+            AppState.setSession(treasurerSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            withFetchStub(
+                respond = answering(listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList())),
+            ) {
+                mountedForm("documents-folder-create-default-treasurer") { root, element ->
+                    renderDocumentsScreen(root)
+                    delay(80)
+                    val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
+                    assertEquals("BOARD_ONLY", select.value)
+                }
+            }
+        }
+
+    @Test
+    fun folderCreation_sendsTheDefaultLevel_whenNothingIsChosen(): Promise<Unit> =
+        formTest {
+            AppState.setSession(adminSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            val createFolderRoute = routeOf { rpcService<IDocumentService>().createFolder("x", null) }
+            withFetchStub(
+                respond =
+                    answering(
+                        listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList()),
+                        createFolderRoute to jsonOf(DocumentFolderDto.serializer(), folder),
+                    ),
+            ) { calls ->
+                mountedForm("documents-folder-create-default-sent") { root, element ->
+                    renderDocumentsScreen(root)
+                    delay(80)
+                    element().typeInto("Neuer Ordnername", "Kündigungen Q3")
+                    // Deliberately no chooseIn(...) call -- the default itself must be sent.
+                    element().buttonNamed("Ordner anlegen").click()
+                    awaitUntil("createFolder", timeoutMs = 800) { calls.toRoute(createFolderRoute).size == 1 }
+                    val call = calls.singleCall(createFolderRoute)
+                    assertEquals("ADMIN_ONLY", call.rpcParam(2) as String, "the untouched default (ADMIN's own) is sent")
+                }
+            }
+        }
+
+    @Test
+    fun folderCreation_resetsToTheDefaultLevel_afterCreating(): Promise<Unit> =
+        formTest {
+            AppState.setSession(boardSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            val createFolderRoute = routeOf { rpcService<IDocumentService>().createFolder("x", null) }
+            withFetchStub(
+                respond =
+                    answering(
+                        listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList()),
+                        createFolderRoute to jsonOf(DocumentFolderDto.serializer(), folder),
+                    ),
+            ) { calls ->
+                mountedForm("documents-folder-create-reset-after") { root, element ->
+                    renderDocumentsScreen(root)
+                    delay(80)
+                    element().chooseIn("Sichtbarkeit", DocumentAccessLevel.PUBLIC_MEMBERS.name)
+                    element().typeInto("Neuer Ordnername", "Kündigungen Q3")
+                    element().buttonNamed("Ordner anlegen").click()
+                    awaitUntil("createFolder", timeoutMs = 800) { calls.toRoute(createFolderRoute).size == 1 }
+                    delay(80)
+                    val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
+                    assertEquals(
+                        "BOARD_ONLY",
+                        select.value,
+                        "the select springs back to the role default (BOARD_ONLY), not the last-chosen value",
+                    )
                 }
             }
         }
