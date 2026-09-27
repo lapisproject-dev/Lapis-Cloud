@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
 import network.lapis.cloud.shared.domain.DocumentFolderDto
 import network.lapis.cloud.shared.domain.DocumentVersionDto
+import network.lapis.cloud.shared.domain.FolderAccessLevelChangeDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IDocumentService
 import org.w3c.dom.HTMLElement
@@ -39,7 +40,14 @@ class DocumentsScreenFormDomTest {
             expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
         )
 
-    private val folder = DocumentFolderDto(id = "folder-1", name = "Satzungen", parentFolderId = null, documentCount = 0)
+    private val folder =
+        DocumentFolderDto(
+            id = "folder-1",
+            name = "Satzungen",
+            parentFolderId = null,
+            documentCount = 0,
+            accessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
+        )
 
     private fun document(id: String) =
         DocumentDto(
@@ -128,10 +136,10 @@ class DocumentsScreenFormDomTest {
             ) { calls ->
                 mountedForm("documents-document-create-happy") { root, element ->
                     renderDocumentsScreen(root)
-                    awaitUntil("folder button rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Satzungen (0)" }
+                    awaitUntil("folder link rendered", timeoutMs = 800) {
+                        element().allOf("a").any { it.textContent?.trim() == "Satzungen" }
                     }
-                    element().buttonNamed("Satzungen (0)").click()
+                    element().linkNamed("Satzungen").click()
                     awaitUntil("documents loaded", timeoutMs = 800) { calls.toRoute(listDocumentsRoute).size == 1 }
                     delay(80)
                     element().typeInto("Neuer Dokumenttitel", "  Satzung 2026  ")
@@ -162,10 +170,10 @@ class DocumentsScreenFormDomTest {
             ) { calls ->
                 mountedForm("documents-document-create-invalid") { root, element ->
                     renderDocumentsScreen(root)
-                    awaitUntil("folder button rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Satzungen (0)" }
+                    awaitUntil("folder link rendered", timeoutMs = 800) {
+                        element().allOf("a").any { it.textContent?.trim() == "Satzungen" }
                     }
-                    element().buttonNamed("Satzungen (0)").click()
+                    element().linkNamed("Satzungen").click()
                     awaitUntil("documents loaded", timeoutMs = 800) { calls.toRoute(listDocumentsRoute).size == 1 }
                     delay(80)
                     element().buttonNamed("Dokument anlegen (danach Datei hochladen)").click()
@@ -193,10 +201,10 @@ class DocumentsScreenFormDomTest {
             ) { calls ->
                 mountedForm("documents-version-upload-invalid") { root, element ->
                     renderDocumentsScreen(root)
-                    awaitUntil("folder button rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Satzungen (0)" }
+                    awaitUntil("folder link rendered", timeoutMs = 800) {
+                        element().allOf("a").any { it.textContent?.trim() == "Satzungen" }
                     }
-                    element().buttonNamed("Satzungen (0)").click()
+                    element().linkNamed("Satzungen").click()
                     awaitUntil("documents loaded", timeoutMs = 800) { calls.toRoute(listDocumentsRoute).size == 1 }
                     delay(80)
                     element().linkNamed("Satzung").click()
@@ -208,6 +216,183 @@ class DocumentsScreenFormDomTest {
                     element().buttonNamed("Hochladen").click()
                     delay(80)
                     assertTrue(element().shownErrors().isNotEmpty(), "no file selected is reported on the field")
+                }
+            }
+        }
+    // ── Welle V1.9.1, fix round: the "Sichtbarkeit" column and the two modals ────────────────────
+
+    /**
+     * The icon-only row-action button whose accessible name is [name] (see `tableActionTooltip`);
+     * [nth] picks among several. Both the folder table and the document table carry a
+     * "Sichtbarkeit ändern" button, and the folder table is rendered FIRST -- so the document row's
+     * button is `nth = 1` on a screen with an opened folder. Taking the first match blindly opened the
+     * folder modal and sent `setFolderAccessLevel`, which is exactly how this helper first failed.
+     */
+    private fun HTMLElement.actionButtonNamed(
+        name: String,
+        nth: Int = 0,
+    ): HTMLElement {
+        val matching = allOf("button").filter { it.getAttribute("aria-label") == name }
+        return assertNotNull(matching.getOrNull(nth), "no row-action button '$name' #$nth (found ${matching.size})")
+    }
+
+    private val adminSession =
+        SessionInfoDto(
+            memberId = "admin-member-1",
+            displayName = "Admin-Testperson",
+            role = AccountRole.ADMIN,
+            expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
+        )
+
+    private val boardOnlyFolder =
+        DocumentFolderDto(
+            id = "folder-2",
+            name = "Vorstandsprotokolle",
+            parentFolderId = null,
+            documentCount = 3,
+            accessLevel = DocumentAccessLevel.BOARD_ONLY,
+        )
+
+    @Test
+    fun folderList_showsTheVisibilityBadgeOfEachFolder(): Promise<Unit> =
+        formTest {
+            AppState.setSession(boardSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            withFetchStub(
+                respond =
+                    answering(
+                        listFoldersRoute to
+                            jsonOf(ListSerializer(DocumentFolderDto.serializer()), listOf(folder, boardOnlyFolder)),
+                    ),
+            ) {
+                mountedForm("documents-folder-visibility-column") { root, element ->
+                    renderDocumentsScreen(root)
+                    awaitUntil("folder rows rendered", timeoutMs = 800) {
+                        element().allOf("a").any { it.textContent?.trim() == "Vorstandsprotokolle" }
+                    }
+                    val texts = element().allOf("span").mapNotNull { it.textContent?.trim() }
+                    assertTrue("Alle Mitglieder" in texts, "the PUBLIC_MEMBERS folder shows its translated badge; saw $texts")
+                    assertTrue("Nur Vorstand" in texts, "the BOARD_ONLY folder shows its translated badge; saw $texts")
+                    // Not the raw enum constant -- the labelling bug this wave also fixed.
+                    assertTrue(texts.none { it == "PUBLIC_MEMBERS" || it == "BOARD_ONLY" }, "no raw enum constant is shown")
+                }
+            }
+        }
+
+    @Test
+    fun folderCreation_sendsTheChosenAccessLevel(): Promise<Unit> =
+        formTest {
+            // Fix round (W1): without its own select, every new folder was PUBLIC_MEMBERS by force and
+            // its NAME -- often the sensitive part -- was visible to every member until a second step.
+            AppState.setSession(boardSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            val createFolderRoute = routeOf { rpcService<IDocumentService>().createFolder("x", null) }
+            withFetchStub(
+                respond =
+                    answering(
+                        listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), emptyList()),
+                        createFolderRoute to jsonOf(DocumentFolderDto.serializer(), boardOnlyFolder),
+                    ),
+            ) { calls ->
+                mountedForm("documents-folder-create-level") { root, element ->
+                    renderDocumentsScreen(root)
+                    delay(80)
+                    element().typeInto("Neuer Ordnername", "Kündigungen Q3")
+                    element().chooseIn("Sichtbarkeit", DocumentAccessLevel.BOARD_ONLY.name)
+                    element().buttonNamed("Ordner anlegen").click()
+                    awaitUntil("createFolder", timeoutMs = 800) { calls.toRoute(createFolderRoute).size == 1 }
+                    val call = calls.singleCall(createFolderRoute)
+                    assertEquals("Kündigungen Q3", call.rpcParam(0) as String)
+                    assertEquals("BOARD_ONLY", call.rpcParam(2) as String, "the chosen level is sent, not a forced default")
+                }
+            }
+        }
+
+    @Test
+    fun folderVisibilityModal_warnsAboutTheCascadeAndSendsTheChosenLevel(): Promise<Unit> =
+        formTest {
+            AppState.setSession(adminSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            val setFolderLevelRoute =
+                routeOf { rpcService<IDocumentService>().setFolderAccessLevel("folder-1", DocumentAccessLevel.ADMIN_ONLY) }
+            withFetchStub(
+                respond =
+                    answering(
+                        listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), listOf(folder)),
+                        setFolderLevelRoute to
+                            jsonOf(
+                                FolderAccessLevelChangeDto.serializer(),
+                                FolderAccessLevelChangeDto(folder = folder, tightenedDocuments = 2, tightenedFolders = 1),
+                            ),
+                    ),
+            ) { calls ->
+                mountedForm("documents-folder-visibility-modal") { root, element ->
+                    renderDocumentsScreen(root)
+                    awaitUntil("folder row rendered", timeoutMs = 800) {
+                        element().allOf("a").any { it.textContent?.trim() == "Satzungen" }
+                    }
+                    element().actionButtonNamed("Sichtbarkeit ändern").click()
+                    awaitUntil("modal opened", timeoutMs = 800) {
+                        lastOpenModal().allOf("button").any { it.textContent?.trim() == "Speichern" }
+                    }
+                    val modal = lastOpenModal()
+                    val modalText = modal.textContent.orEmpty()
+                    // Both cascade sentences land BEFORE the click, and both name sub-folders as well as
+                    // documents since the tighten materializes into descendant folders too (B5).
+                    assertTrue(
+                        modalText.contains("schränkt alle enthaltenen Unterordner und Dokumente mit ein"),
+                        "the restricting sentence is shown; saw: $modalText",
+                    )
+                    assertTrue(
+                        modalText.contains("erweitert die enthaltenen Unterordner und Dokumente nicht"),
+                        "the expanding sentence is shown; saw: $modalText",
+                    )
+                    modal.chooseIn("Sichtbarkeit", DocumentAccessLevel.ADMIN_ONLY.name)
+                    modal.buttonNamed("Speichern").click()
+                    awaitUntil("setFolderAccessLevel", timeoutMs = 800) { calls.toRoute(setFolderLevelRoute).size == 1 }
+                    val call = calls.singleCall(setFolderLevelRoute)
+                    assertEquals("folder-1", call.rpcParam(0) as String)
+                    assertEquals("ADMIN_ONLY", call.rpcParam(1) as String)
+                }
+            }
+        }
+
+    @Test
+    fun documentVisibilityModal_sendsTheChosenLevel(): Promise<Unit> =
+        formTest {
+            AppState.setSession(adminSession)
+            val listFoldersRoute = routeOf { rpcService<IDocumentService>().listFolders() }
+            val listDocumentsRoute = routeOf { rpcService<IDocumentService>().listDocuments("folder-1") }
+            val setDocumentLevelRoute =
+                routeOf { rpcService<IDocumentService>().setDocumentAccessLevel("doc-1", DocumentAccessLevel.ADMIN_ONLY) }
+            withFetchStub(
+                respond =
+                    answering(
+                        listFoldersRoute to jsonOf(ListSerializer(DocumentFolderDto.serializer()), listOf(folder)),
+                        listDocumentsRoute to jsonOf(ListSerializer(DocumentDto.serializer()), listOf(document("doc-1"))),
+                        setDocumentLevelRoute to jsonOf(DocumentDto.serializer(), document("doc-1")),
+                    ),
+            ) { calls ->
+                mountedForm("documents-document-visibility-modal") { root, element ->
+                    renderDocumentsScreen(root)
+                    awaitUntil("folder link rendered", timeoutMs = 800) {
+                        element().allOf("a").any { it.textContent?.trim() == "Satzungen" }
+                    }
+                    element().linkNamed("Satzungen").click()
+                    awaitUntil("documents loaded", timeoutMs = 800) { calls.toRoute(listDocumentsRoute).size == 1 }
+                    delay(80)
+                    // nth = 1: the folder table's own "Sichtbarkeit ändern" button comes first.
+                    element().actionButtonNamed("Sichtbarkeit ändern", nth = 1).click()
+                    awaitUntil("modal opened", timeoutMs = 800) {
+                        lastOpenModal().allOf("button").any { it.textContent?.trim() == "Speichern" }
+                    }
+                    val modal = lastOpenModal()
+                    modal.chooseIn("Sichtbarkeit", DocumentAccessLevel.ADMIN_ONLY.name)
+                    modal.buttonNamed("Speichern").click()
+                    awaitUntil("setDocumentAccessLevel", timeoutMs = 800) { calls.toRoute(setDocumentLevelRoute).size == 1 }
+                    val call = calls.singleCall(setDocumentLevelRoute)
+                    assertEquals("doc-1", call.rpcParam(0) as String)
+                    assertEquals("ADMIN_ONLY", call.rpcParam(1) as String)
                 }
             }
         }

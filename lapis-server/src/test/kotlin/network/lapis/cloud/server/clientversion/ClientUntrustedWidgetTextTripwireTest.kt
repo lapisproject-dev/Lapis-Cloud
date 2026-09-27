@@ -177,16 +177,22 @@ private const val KNOWN_UNSANITIZED_WIDGET_TEXT_CALLS = 1
 private const val KNOWN_UNSANITIZED_WIDGET_TEXT_ASSIGNMENTS = 1
 
 /**
- * Ledger, W6b round 8 ([RAW_OPTIONS_LABEL_MAP]). Two documented exceptions, both an enum's own `.name` mapped to
- * itself (`it.name to it.name`) -- a compile-time-fixed identifier, never a server-/member-controlled field, so
- * there is nothing to sanitize: `DocumentsScreen.kt` (`DocumentsAuthzUi.allowedCreateLevels(role)`, a
+ * Ledger, W6b round 8 ([RAW_OPTIONS_LABEL_MAP]). Originally two documented exceptions, both an enum's own `.name`
+ * mapped to itself (`it.name to it.name`) -- a compile-time-fixed identifier, never a server-/member-controlled
+ * field, so there was nothing to sanitize: `DocumentsScreen.kt` (`DocumentsAuthzUi.allowedCreateLevels(role)`, a
  * `DocumentAccessLevel` enum) and `MemberAdministrationScreen.kt` (`selectableRolesFor(callerRole)`, an
- * `AccountRole` enum). Every other `it.<field> to it.<field>` pair found in the initial full-codebase sweep (21+
- * call sites, see [network.lapis.cloud.client.untrustedOptions] KDoc) was migrated onto that helper. Recount with
- * `rawUnsanitizedOptionsLabelMaps` after fixing a batch; never raise further without an inline justification
- * comment at the call site, matching the two exceptions above.
+ * `AccountRole` enum).
+ *
+ * Welle V1.9.1 fixed the `DocumentsScreen.kt` one for an UNRELATED reason (a labeling bug, not a security finding):
+ * the access-level dropdown showed the raw enum constant (`"PUBLIC_MEMBERS"`) instead of a translated label -- now
+ * `it.name to documentAccessLevelLabel(it)` ([DocumentAccessLabels.kt]), which no longer matches
+ * [RAW_OPTIONS_LABEL_MAP] at all (the right-hand side is a function call, not `it.<field>`). One documented
+ * exception remains: `MemberAdministrationScreen.kt`. Every other `it.<field> to it.<field>` pair found in the
+ * initial full-codebase sweep (21+ call sites, see [network.lapis.cloud.client.untrustedOptions] KDoc) was migrated
+ * onto that helper. Recount with `rawUnsanitizedOptionsLabelMaps` after fixing a batch; never raise further without
+ * an inline justification comment at the call site, matching the remaining exception above.
  */
-private const val KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS = 2
+private const val KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS = 1
 
 class ClientUntrustedWidgetTextTripwireTest :
     FunSpec({
@@ -328,10 +334,12 @@ class ClientUntrustedWidgetTextTripwireTest :
         test("the count of raw, unsanitized DTO-field options label maps only ever goes down from the W6b round 8 ledger") {
             val findings = files.flatMap { f -> rawUnsanitizedOptionsLabelMaps(f).map { "${f.name}: $it" } }
             (findings.size <= KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS) shouldBe true
-            // Documented exceptions (round 8): both are an enum's own `.name` mapped to itself, not untrusted DTO
-            // content -- see the KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS KDoc above.
-            findings.any { it.startsWith("DocumentsScreen.kt:") && it.contains("it.name to it.name") } shouldBe true
+            // Documented exception (round 8, one remaining since Welle V1.9.1): an enum's own `.name` mapped to
+            // itself, not untrusted DTO content -- see the KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS KDoc above.
             findings.any { it.startsWith("MemberAdministrationScreen.kt:") && it.contains("it.name to it.name") } shouldBe true
+            // Regression guard: DocumentsScreen.kt's exception was fixed (a labeling bug, see the KDoc above) and
+            // must never reappear raw.
+            findings.none { it.startsWith("DocumentsScreen.kt:") && it.contains("it.name to it.name") } shouldBe true
             // Regression guards: the round-8 findings fixed via untrustedOptions(...) must never reappear raw.
             findings.none { it.startsWith("LtrLedgerScreen.kt:") && it.contains("it.id to it.displayName") } shouldBe true
             findings.none { it.startsWith("MotionsScreen.kt:") && it.contains("it.id to it.label") } shouldBe true

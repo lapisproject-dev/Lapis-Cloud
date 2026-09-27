@@ -24,33 +24,33 @@ class DocumentsAuthzUiTest {
     }
 
     /**
-     * Runde-4 review finding fix: before [DocumentsAuthzUi.allowedCreateLevels] existed, the
+     * Runde-4 review finding fix: before [DocumentsAuthzUi.allowedLevels] existed, the
      * dropdown offered `DocumentAccessLevel.entries` unconditionally, so a TREASURER or BOARD
      * member could pick `ADMIN_ONLY` and create a document only an ADMIN could ever see, fill or
      * remove again. Pins that only ADMIN may pick `ADMIN_ONLY`, mirroring the server's
      * `canAccessDocumentAtLevel` role branch exactly.
      */
     @Test
-    fun allowedCreateLevels_boardAndTreasurer_excludeAdminOnly() {
+    fun allowedLevels_boardAndTreasurer_excludeAdminOnly() {
         assertEquals(
             listOf(DocumentAccessLevel.PUBLIC_MEMBERS, DocumentAccessLevel.BOARD_ONLY),
-            DocumentsAuthzUi.allowedCreateLevels(AccountRole.BOARD),
+            DocumentsAuthzUi.allowedLevels(AccountRole.BOARD),
         )
         assertEquals(
             listOf(DocumentAccessLevel.PUBLIC_MEMBERS, DocumentAccessLevel.BOARD_ONLY),
-            DocumentsAuthzUi.allowedCreateLevels(AccountRole.TREASURER),
+            DocumentsAuthzUi.allowedLevels(AccountRole.TREASURER),
         )
     }
 
     @Test
-    fun allowedCreateLevels_admin_includesAllLevels() {
-        assertEquals(DocumentAccessLevel.entries.toList(), DocumentsAuthzUi.allowedCreateLevels(AccountRole.ADMIN))
+    fun allowedLevels_admin_includesAllLevels() {
+        assertEquals(DocumentAccessLevel.entries.toList(), DocumentsAuthzUi.allowedLevels(AccountRole.ADMIN))
     }
 
     @Test
-    fun allowedCreateLevels_memberAndNull_onlyPublicMembers() {
-        assertEquals(listOf(DocumentAccessLevel.PUBLIC_MEMBERS), DocumentsAuthzUi.allowedCreateLevels(AccountRole.MEMBER))
-        assertEquals(listOf(DocumentAccessLevel.PUBLIC_MEMBERS), DocumentsAuthzUi.allowedCreateLevels(null))
+    fun allowedLevels_memberAndNull_onlyPublicMembers() {
+        assertEquals(listOf(DocumentAccessLevel.PUBLIC_MEMBERS), DocumentsAuthzUi.allowedLevels(AccountRole.MEMBER))
+        assertEquals(listOf(DocumentAccessLevel.PUBLIC_MEMBERS), DocumentsAuthzUi.allowedLevels(null))
     }
 
     /**

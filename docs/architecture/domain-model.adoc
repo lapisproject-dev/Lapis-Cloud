@@ -162,6 +162,10 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         attribute(name = "id", type = "UUID")
         attribute(name = "name", type = "String")
         attribute(name = "parentFolderId", type = "UUID")
+        // Welle V1.9.1 -- the folder's own level; the EFFECTIVE level (used by every access check)
+        // is the most restrictive level along the parentFolderId ancestor chain, never less
+        // restrictive than any ancestor's own level.
+        attribute(name = "accessLevel", type = documentAccessLevel, defaultValue = "PUBLIC_MEMBERS")
     }
 
     association(source = documentFolder, target = documentFolder) {

@@ -4,7 +4,9 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
+import network.lapis.cloud.server.documents.FolderAccessLevels
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.moreRestrictive
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -53,10 +55,15 @@ fun archiveGeneratedBytes(
                 .singleOrNull()
                 ?.get(DocumentFolderTable.id)
                 ?: Uuid.random().also { newId ->
+                    // Welle V1.9.1: archive folders are containers -- confidentiality lives at the
+                    // document, not the folder (pre-existing behaviour, unchanged). Set explicitly
+                    // because `DocumentFolderTable.accessLevel` deliberately carries NO Exposed-side
+                    // default any more (fix round, W2) -- see that column's own KDoc.
                     DocumentFolderTable.insert {
                         it[id] = newId
                         it[name] = folderName
                         it[parentFolderId] = null
+                        it[DocumentFolderTable.accessLevel] = DocumentAccessLevel.PUBLIC_MEMBERS
                     }
                 }
 
@@ -64,6 +71,23 @@ fun archiveGeneratedBytes(
         val versionId = Uuid.random()
         val storageKey = "$documentId/$versionId.bin"
 
+        // Welle V1.9.1 (K3): this path inserts directly into DocumentTable, bypassing
+        // DocumentService.createDocument's own folder-effective-level check entirely. Without this
+        // clamp, a caller-supplied [accessLevel] (e.g. RecordingPoller's `row.accessLevel`, which
+        // can be `PUBLIC_MEMBERS`) could land in a folder an admin has since tightened to
+        // `ADMIN_ONLY` -- the resulting document would still be `PUBLIC_MEMBERS`, reachable by
+        // direct download URL and by the AI knowledge base, defeating the very tighten it landed
+        // in. `moreRestrictive` only ever tightens, never loosens -- an already-stricter caller-
+        // supplied level is left untouched.
+        //
+        // Fix round (B2): the folder's ancestor chain is row-locked BEFORE its level is read.
+        // This function runs from a BACKGROUND poller (RecordingPoller), so the collision with an
+        // admin tightening the archive folder at the same moment is not user-driven and cannot be
+        // dismissed as unlikely; without the lock, the clamp could read the old, looser level and
+        // insert a PUBLIC_MEMBERS document into an ADMIN_ONLY folder that nothing ever repairs (the
+        // cascade only runs on a level CHANGE). See `FolderAccessLevels`' locking contract.
+        val effectiveAccessLevel =
+            moreRestrictive(a = accessLevel, b = FolderAccessLevels.lockChainAndSnapshot(folderId).effectiveLevel(folderId))
         DocumentTable.insert {
             it[id] = documentId
             it[DocumentTable.folderId] = folderId
@@ -71,7 +95,7 @@ fun archiveGeneratedBytes(
             it[currentVersionId] = null
             it[createdBy] = uploadedBy
             it[createdAt] = now
-            it[DocumentTable.accessLevel] = accessLevel
+            it[DocumentTable.accessLevel] = effectiveAccessLevel
             it[isDeleted] = false
         }
 
@@ -193,13 +217,20 @@ fun archiveGeneratedFile(
                 .singleOrNull()
                 ?.get(DocumentFolderTable.id)
                 ?: Uuid.random().also { newId ->
+                    // Welle V1.9.1: see archiveGeneratedBytes' identical comment above.
                     DocumentFolderTable.insert {
                         it[id] = newId
                         it[name] = folderName
                         it[parentFolderId] = null
+                        it[DocumentFolderTable.accessLevel] = DocumentAccessLevel.PUBLIC_MEMBERS
                     }
                 }
 
+        // Welle V1.9.1 (K3) + fix round (B2): see archiveGeneratedBytes' identical comment above --
+        // this insert bypasses DocumentService.createDocument's folder-effective-level check just the
+        // same, and takes the same folder-chain row lock before reading the level it clamps against.
+        val effectiveAccessLevel =
+            moreRestrictive(a = accessLevel, b = FolderAccessLevels.lockChainAndSnapshot(folderId).effectiveLevel(folderId))
         DocumentTable.insert {
             it[id] = documentId
             it[DocumentTable.folderId] = folderId
@@ -207,7 +238,7 @@ fun archiveGeneratedFile(
             it[currentVersionId] = null
             it[createdBy] = uploadedBy
             it[createdAt] = now
-            it[DocumentTable.accessLevel] = accessLevel
+            it[DocumentTable.accessLevel] = effectiveAccessLevel
             it[isDeleted] = false
         }
         DocumentVersionTable.insert {

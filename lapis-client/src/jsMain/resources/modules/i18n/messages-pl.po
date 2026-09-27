@@ -15292,3 +15292,43 @@ msgstr "Angażujesz %1 z wolnego salda LTR. Wpis zostanie natychmiast opublikowa
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr "Masz niezapisane zmiany w treści wpisu. Zapisz je najpierw -- w przeciwnym razie opublikowany zostanie oryginalny szkic, a nie Twoja zmiana."
+
+msgid "Alle Mitglieder"
+msgstr "Wszyscy członkowie"
+
+msgid "Nur Vorstand"
+msgstr "Tylko zarząd"
+
+msgid "Nur Administration"
+msgstr "Tylko administracja"
+
+msgid "Sichtbarkeit ändern"
+msgstr "Zmień widoczność"
+
+msgid "Sichtbarkeit des Ordners ändern"
+msgstr "Zmień widoczność folderu"
+
+msgid "Sichtbarkeit des Dokuments ändern"
+msgstr "Zmień widoczność dokumentu"
+
+msgid "Sichtbarkeit geändert."
+msgstr "Widoczność zmieniona."
+
+msgid "Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."
+msgstr "Ograniczenie folderu ogranicza również wszystkie zawarte w nim dokumenty."
+
+msgid "Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."
+msgstr "Rozszerzenie folderu nie rozszerza zawartych w nim dokumentów."
+
+msgid "Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt."
+msgstr "Widoczność zmieniona -- %1 dokumentów zostało również ograniczonych."
+
+msgid "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt."
+msgstr "Zmieniono widoczność -- %1 podfolderów i %2 dokumentów również ograniczono."
+
+msgid "Dokument"
+msgstr "Dokument"
+
+msgid "Dokumentordner"
+msgstr "Folder dokumentów"
+

@@ -14291,3 +14291,46 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentAccessLabels.kt
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
+msgid "Alle Mitglieder"
+msgstr ""
+
+msgid "Nur Vorstand"
+msgstr ""
+
+msgid "Nur Administration"
+msgstr ""
+
+msgid "Sichtbarkeit ändern"
+msgstr ""
+
+msgid "Sichtbarkeit des Ordners ändern"
+msgstr ""
+
+msgid "Sichtbarkeit des Dokuments ändern"
+msgstr ""
+
+msgid "Sichtbarkeit geändert."
+msgstr ""
+
+msgid "Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."
+msgstr ""
+
+msgid "Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."
+msgstr ""
+
+msgid "Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt."
+msgstr ""
+
+msgid "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt."
+msgstr ""
+
+msgid "Dokument"
+msgstr ""
+
+msgid "Dokumentordner"
+msgstr ""
+

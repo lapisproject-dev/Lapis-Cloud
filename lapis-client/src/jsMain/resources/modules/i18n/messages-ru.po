@@ -15279,3 +15279,43 @@ msgstr "Вы используете %1 из свободного баланса 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr "У вас есть несохранённые изменения текста поста. Сначала сохраните их -- иначе будет опубликован исходный черновик, а не ваше изменение."
+
+msgid "Alle Mitglieder"
+msgstr "Все участники"
+
+msgid "Nur Vorstand"
+msgstr "Только правление"
+
+msgid "Nur Administration"
+msgstr "Только администрация"
+
+msgid "Sichtbarkeit ändern"
+msgstr "Изменить видимость"
+
+msgid "Sichtbarkeit des Ordners ändern"
+msgstr "Изменить видимость папки"
+
+msgid "Sichtbarkeit des Dokuments ändern"
+msgstr "Изменить видимость документа"
+
+msgid "Sichtbarkeit geändert."
+msgstr "Видимость изменена."
+
+msgid "Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."
+msgstr "Ограничение папки также ограничивает все содержащиеся в ней документы."
+
+msgid "Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."
+msgstr "Расширение папки не расширяет содержащиеся в ней документы."
+
+msgid "Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt."
+msgstr "Видимость изменена -- %1 документов также было ограничено."
+
+msgid "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt."
+msgstr "Видимость изменена -- %1 подпапок и %2 документов также ограничены."
+
+msgid "Dokument"
+msgstr "Документ"
+
+msgid "Dokumentordner"
+msgstr "Папка документов"
+

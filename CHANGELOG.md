@@ -6,6 +6,252 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Security
+
+- **V1.9.1 — document/folder access levels are now visible and editable, closing a folder-level
+  blind spot.** Before this wave, only individual documents carried a `DocumentAccessLevel`
+  (`PUBLIC_MEMBERS`/`BOARD_ONLY`/`ADMIN_ONLY`); `document_folder` had none of its own, `listFolders`
+  returned every folder to every authenticated caller regardless of what it contained, and the
+  three tiers were invisible in the client UI (folders were an unlabelled button row; documents had
+  no visibility column at all). `document_folder` now carries its own `access_level`
+  (`V51__document_folder_access_level.sql`, all existing folders default to `PUBLIC_MEMBERS` — no
+  access is lost for anyone). The **wirksame (effective) level** of a folder is the most restrictive
+  level along its own ancestor chain (`FolderAccessLevels`), and `listFolders`/`listDocuments` now
+  filter by it — a folder whose EFFECTIVE level the caller cannot read is invisible, and a guessed
+  folder UUID is reported `NotFoundException`, never `Forbidden` (a 403 would confirm its
+  existence).
+- **Invariant, enforced on every write path**: a document is never more visible than the folder it
+  lives in. `createFolder`/`createDocument` reject (`ConflictException`) a level less restrictive
+  than the parent/folder's effective level; the new `setDocumentAccessLevel` rejects a loosening
+  below the folder's level (a human decides, the document side never self-clamps);
+  `setFolderAccessLevel`'s tightening **cascades** into every **descendant folder** whose own level is
+  less restrictive than its new effective level AND every **document** of the whole subtree that is
+  less restrictive than its own folder's new effective level, clamping both up — a loosening changes
+  only the folder's own level and never cascades. That asymmetry is deliberate and applies to folders
+  exactly as it already did to documents: tightening is a safety decision that must reach everything
+  it covers, loosening is a re-exposure decision a human must make per object. Soft-deleted documents
+  are clamped too — leaving a deleted row unclamped would turn a future restore straight back into a
+  leak. The archiving pipeline (`archiveGeneratedBytes`/`archiveGeneratedFile`, used by
+  recording/notes/whiteboard archival) bypasses `createDocument` entirely and previously could not
+  have honored this invariant at all — it now clamps its own caller-supplied level to the folder's
+  effective level too.
+  **Why cascade instead of just rejecting the tighten**: four of this codebase's **five** content
+  gates (the AI retriever's `ChunkQuerySupport.authorizedOp`, `SearchStatuteTool`, the document
+  download route, the conference-recording media route) read only a row's own `access_level` — none of
+  them know about folders. Materializing a folder tighten into every affected row's own `access_level`
+  is what actually closes the leak through those existing gates without touching any of them; a mere
+  rejection on the folder side would leave a previously `PUBLIC_MEMBERS` document in a newly
+  `ADMIN_ONLY` folder fully reachable by direct download URL and by the AI knowledge base — exactly
+  the risk this wave set out to close.
+- **Fifth content gate closed: the conference-recording media route.** This entry previously said
+  "four gates"; there are five. `/api/conference/recordings/{id}/media` checks
+  `conference_recording.access_level` — a *different* column from the `document.access_level` that the
+  folder cascade and the archiving clamp write — so tightening a recordings folder to `ADMIN_ONLY`
+  closed the download route, the RPC listings, the AI retriever and the MCP tool, and left the video
+  stream itself readable by any member who still had the `mediaUrl`.
+  `ConferenceRecordingAccess.mayAccess` now additionally takes the archived document's own level and
+  uses the **more restrictive of the two**; the recording's "its own starter can always see it"
+  carve-out still applies to the recording's own tier, but not once the document tier is the stricter
+  one (that is a decision about the container, which the starter never made). The same predicate is
+  applied to the `mediaUrl` a listing hands out, so the client is never offered a URL that will 403.
+  The SQL listing predicate deliberately does *not* fold the document tier in: the document tier is what
+  protects the bytes, and it is applied at both places that hand them out (`mediaUrl` and the media
+  route). **Justification corrected in the polish round**: this used to argue that the row metadata is
+  "something `getActiveRecording` publishes to everyone in the room anyway", which does not hold —
+  `getActiveRecording` only returns recordings whose status is *active*, and such a recording has no
+  archived document yet, so its document tier is `null` by definition. For the case that actually
+  matters — a READY recording whose folder was tightened afterwards — it is no source at all. The
+  **residual is therefore named and accepted**: whoever passes the *recording's* own tier still sees the
+  row's metadata (existence, room title, duration, track count, timestamps) even when the document tier
+  would hide it. Accepted because that metadata is room-scoped, bounded by the level the moderator
+  explicitly chose for that recording, and because the bytes and the URL are gated twice. Closing it
+  would mean joining `document` into the paged listing query — a candidate for a later wave, never as a
+  Kotlin post-`limit` filter.
+- **Folder levels are materialized, not only computed** (why the cascade reaches descendant folders):
+  `DocumentFolderDto` carries the folder's OWN level, which is what the client's "Sichtbarkeit" badge
+  renders. Before this, own and effective level could diverge permanently — tighten a parent, the child
+  keeps `PUBLIC_MEMBERS` — and the badge then stated the opposite of the truth in the very feature
+  whose purpose is making the level visible, while the document-creation dialog pre-filled from that
+  same wrong level and produced a guaranteed `ConflictException`. Materializing makes every folder's own
+  level **at least as restrictive as what its ancestor chain enforces** — never looser, possibly
+  stricter, since a folder tightened on its own is never clamped back down to what its ancestors merely
+  permit (an earlier revision of this entry said "own level == effective level", which reads as "a child
+  mirrors its parent" and is the wrong claim). The ancestor climb in `FolderAccessLevels` stays as the
+  safety net for a row some other tool created, not as the only thing between a misleading display and
+  a leak. Considered and rejected: shipping an `effectiveAccessLevel` field next to the own level — two
+  levels on one row is a question the operator should not have to answer.
+- **Concurrency: the invariant now takes row locks, not just checks.** It lives in application code,
+  not in a database constraint, and every write path that reads a folder level in order to decide
+  something now takes a `SELECT ... FOR UPDATE` lock on that folder's ancestor chain **first**
+  (`setFolderAccessLevel` locks the whole subtree as well, because it writes into it). Without that,
+  under READ COMMITTED, `createDocument` — or the background `RecordingPoller` calling
+  `archiveGeneratedFile`, where the collision is not even user-driven — could read the old, looser
+  folder level while a tighten committed, and insert a `PUBLIC_MEMBERS` document into an `ADMIN_ONLY`
+  folder. Nothing would ever have repaired that row: the cascade only runs on a level *change*. Every
+  caller locks in **ascending folder-UUID order**, which is what keeps the scheme deadlock-free across
+  differently-shaped lock sets; the global order across tables is `document_folder` rows → `document`
+  rows → `audit_log_chain_state`. What holds is "every write path in this codebase maintains the
+  invariant, under concurrency as well" — it is deliberately *not* claimed as a schema-level
+  guarantee, since no constraint stops a direct `UPDATE` in `psql` (a `CHECK` cannot span two tables;
+  a trigger could and was not added, the ancestor-climb safety net covers that case instead).
+- **Audit ordering fixed, and the global audit lock is no longer held for the whole cascade.**
+  `AuditLogRecorder.record` takes the application's ONE global `audit_log_chain_state` row lock and
+  documents that it must be the LAST lock-taking operation of its transaction. The cascade called it
+  from inside its per-document loop and then took further row locks — a straight violation that could
+  deadlock against a concurrent `setDocumentAccessLevel` holding a document row and waiting for the
+  chain lock, and that held the one lock every audited write in the system funnels through for the
+  cascade's entire duration. Now every `UPDATE` of the cascade runs first and all audit entries are
+  appended afterwards in one closed block. The redundant per-document `SELECT` the loop used to issue
+  is gone as well (the collecting query carries what the payload needs).
+  **No size cap, deliberately**: a tightening is a security measure and must never be refused because
+  a folder happens to contain many documents. Batching the audit appends into separate transactions to
+  shorten the global lock was considered and rejected — it would break `AuditLogRecorder`'s central
+  guarantee that an audit row commits atomically with the mutation it describes, trading a throughput
+  property for a correctness one. The residual cost is honest: a very large tighten serializes other
+  audited writes for the length of its audit block.
+- **The audit log is not a new metadata channel.** This wave writes the first-ever audit entries for
+  documents and folders, and `AuditLogService.listAuditLog` hands the payload — filterable by entity
+  type — to TREASURER/BOARD/ADMIN with no payload filtering at all. The snapshots therefore carry
+  **no `title` and no `name`**: a TREASURER who may not read an `ADMIN_ONLY` document would otherwise
+  have read "Kündigung Mitarbeiter Müller" and the folder name "Personalakten" straight out of the log
+  — precisely the metadata the levels exist to protect. Omitting the fields was chosen over filtering
+  them on read because a read-side filter is fail-open by construction: it needs maintaining per
+  entity type and per field, and the next field that forgets it leaks again. A field never written
+  cannot leak. **Trade-off accepted**: after a deletion the title is no longer reconstructible from the
+  log. The `entityId` plus `folderId` keep the entry attributable, documents are only ever
+  soft-deleted in this codebase (no hard-delete path exists), and while the row exists the title is
+  resolvable through the regular tiered read interface — by exactly the people allowed to see it.
+- **Unterordner-Entscheidung**: the effective level is the ancestor-chain MAXIMUM restrictiveness,
+  not just the folder's own level — a `PUBLIC_MEMBERS` sub-folder under an `ADMIN_ONLY` parent is
+  itself effectively `ADMIN_ONLY` and invisible. Considered and rejected: leaving the sub-folder
+  visible and only hiding its parent — `parentFolderId` is part of the wire DTO, so a client could
+  reconstruct the hidden parent's existence from it regardless.
+- **K4 — a tightening revokes any existing AI knowledge-base release** (`setDocumentAccessLevel`
+  and `setFolderAccessLevel`'s cascade both call `KnowledgeReleaseStore.revoke` for every document
+  whose new level is no longer `PUBLIC_MEMBERS`, outside the write transaction, housekeeping-only,
+  same posture `deleteDocument` already established). The reverse is deliberately **not**
+  automatic: loosening a document back to `PUBLIC_MEMBERS` does not silently re-release it to the
+  AI — that would be a stealth re-exposure with no review step.
+- **Side effect, deliberate**: a `FRIEND`/`GUEST` caller (not an organization member) no longer sees
+  ANY folder name via `listFolders` — before this wave every authenticated caller, `FRIEND`/`GUEST`
+  included, saw every folder NAME regardless of level (just not its documents, a V0.11.0 decision);
+  now `canAccessDocumentAtLevel(PUBLIC_MEMBERS)` requires organization-member status, which a
+  `FRIEND`/`GUEST` never has. A strictly tighter outcome of the same effective-level filter, not a
+  separately reviewed decision.
+- **A fourth, previously unreported gap closed**: `listDocuments(folderId)` used to gate only the
+  returned documents' own levels, never the folder argument itself — a guessed `ADMIN_ONLY` folder
+  UUID returned its `PUBLIC_MEMBERS` documents to anyone. Now gated on the folder's effective level
+  first (`NotFoundException` if unreadable).
+- `documentCount` on `DocumentFolderDto` stays folder-local and level-filtered (unchanged
+  in shape) — since every document is now guaranteed at least as restrictive as its own folder's
+  effective level, a caller who can see the folder at all can no longer infer a hidden document
+  from the number that they could not otherwise learn "exists at some level."
+- `AuditEntityType.DOCUMENT`/`DOCUMENT_FOLDER` (create/update, plus one `DOCUMENT`/`UPDATE` row per
+  cascaded document with `cascadedFromFolderId` set) make every access-level change and cascade
+  independently reviewable in the audit log. `deleteDocument`'s soft-delete is recorded as
+  `AuditAction.VOID`, not a new `DELETE` literal — see `AuditAction` KDoc for why (avoids a second
+  `chk_audit_log_entry_action` CHECK-Verbreiterung for no semantic gain; `VOID`'s existing
+  "Storno/Widerruf, record kept" meaning already fits a soft-delete exactly).
+- **Known limitation, deliberately not closed this wave**: no download-access audit log. A stufen
+  change (open a document, download it, restrict it again) is now visible in the audit log as a
+  level change, but WHO downloaded WHAT while the window was open is not recorded. Adding it is a
+  new personal-data store (DSGVO Verzeichnis-Eintrag, retention/erasure policy, member access-
+  request handling) and is deliberately scoped to its own future wave rather than bolted on here.
+- **Operator note**: `V1__baseline.sql`'s own inline, unnamed `audit_log_entry.entity_type` CHECK
+  was widened in place to include `DOCUMENT`/`DOCUMENT_FOLDER` (same "H2 enforces the inline
+  baseline constraint independently of the named one" gotcha every entity-type-widening wave since
+  V11 has hit), so V1's checksum changes and every already-migrated instance needs a repair. The
+  binding order in this repo is **`./gradlew :lapis-server:flywayRepair` → deploy → `flyway migrate`**
+  — repair FIRST, never after the release: Flyway validates on migrate (`validateOnMigrate = true`,
+  `DatabaseConfig.kt`), so a deployed-but-unrepaired instance refuses to start instead of applying
+  V51. Affects the three real instances (PdV, ELB, Staging). V51 itself is a new file and needs no
+  repair of its own.
+- **Deploy reality — this wave delivers the ability to fix the exposure, not the fix.** Every existing
+  folder is backfilled to `PUBLIC_MEMBERS` by `ADD COLUMN ... NOT NULL DEFAULT` (a deliberate
+  decision: nobody loses access to a folder they can see today). So **after the deploy every folder is
+  still visible to every member**, exactly as before. The board has to go through the folder list and
+  set the levels that should actually be `BOARD_ONLY`/`ADMIN_ONLY`. Nothing in the release does that
+  for them, and no folder name is a reliable enough key to have done it in the migration.
+- Client: the folder list migrated from an unlabelled button row to a `dataTable` (Name/
+  "Sichtbarkeit"-badge/Dokumentzahl — same column order as the document table), giving folders the
+  same 768px card-list fallback every other `dataTable` already has. Both tables gained a
+  "Sichtbarkeit ändern" row action (BOARD/TREASURER/ADMIN) opening a small modal; the folder variant
+  always shows both cascade sentences ("eine Einschränkung schränkt mit ein" / "eine Erweiterung
+  erweitert nicht", now naming sub-folders as well as documents) before the click, not just in the
+  success toast after. **Folder creation gained its own "Sichtbarkeit" select**: without it every new
+  folder was `PUBLIC_MEMBERS` by force, and a folder NAME is frequently the sensitive part
+  ("Kündigungen Q3") — visible to every member from creation until someone remembered a second step.
+  Also fixed in passing: the document-creation "Sichtbarkeit" dropdown showed the raw enum constant
+  (`"PUBLIC_MEMBERS"`) instead of a translated label.
+- Fix-round housekeeping on the same wave: `DocumentFolderTable.access_level` lost its Exposed-side
+  `.default(PUBLIC_MEMBERS)` — a permissive default on an access-control column is a fail-OPEN
+  backstop, and its own KDoc had advertised it as one; every insert site now names the level and is
+  visible as such in review (the SQL-level `DEFAULT` in V51 stays, it is what backfills existing
+  rows). `listFolders` no longer answers 500 when a folder row is committed between its two queries
+  (`getValue` → fail closed and log, hide that one row). `FolderAccessLevels` reads the folder table
+  **once per transaction** and passes the snapshot around instead of re-reading it per question
+  (`setFolderAccessLevel` did so up to three times per call). Corrected a factually wrong KDoc claim
+  about how many archiving insert sites exist (two, not three).
+- **Polish round on the same wave — the deadlock window the ordered locking did not actually cover.**
+  `lockSubtreeAndSnapshot` computed its lock set from a read taken *before* it held any lock, while the
+  cascade then updated folders from the *post*-lock read. A `createFolder` committing in between put a
+  descendant into the cascade that was never in the ordered lock set, and updating it acquired a lock
+  **out of ascending UUID order** — the one property the whole scheme rests on. Concretely: A tightens
+  P and is still working through the ids below P; B locks P, inserts child C, commits; A finishes,
+  sees C; a `createDocument` in C locks `{C, P}` in ascending order, holds C, waits for P; A's `UPDATE`
+  on C waits for C. Postgres would have broken the cycle by aborting one side, so the *tighten* failed
+  with a 500 (the invariant itself stayed intact — full rollback). Skipping the unlocked descendant is
+  **not** the fix: the racing writer may already have inserted a document into it under the old, looser
+  level, and nothing would ever repair that row. `lockSubtreeAndSnapshot` now re-reads after locking and
+  raises an internal retry signal when the subtree grew; `setFolderAccessLevel` rolls back and retries
+  the whole transaction (at most three attempts, then an honest `Conflict` instead of a 500). No
+  acquisition is ever made out of order, so "deadlock-free" stays literally true. One agreeing re-read is
+  enough to freeze the subtree, because every path locks its target's whole ancestor chain — holding P
+  blocks every insert below it. *Considered and rejected*: ordering folder locks root-first (depth, then
+  UUID), which would make a late-discovered descendant safe to lock in place — rejected because depth is
+  only well defined on an acyclic `parent_folder_id`, which nothing enforces and which `FolderAccessLevels`
+  exists to survive.
+- **Polish round, honesty fixes in comments and tests** — the "a comment or a test claims something that
+  is not true" class, which has cost this codebase real time before:
+  - The justification for locking one id per statement was technically wrong. It claimed Postgres locks
+    in scan order regardless of `ORDER BY`; in the usual plan the `LockRows` node sits *above* the
+    `Sort`, so a batched `WHERE id IN (…) ORDER BY id FOR UPDATE` does lock in order. The per-id form
+    stays — the real reason is that the batched form makes the ordering a property of the chosen *plan*
+    (an index path that drops the sort, a parallel or bitmap path, EvalPlanQual re-fetching a row
+    changed under a concurrent update), and none of that is visible in review.
+  - The cascade's `folder_id IN (…)` document query is now chunked (1000 ids per statement). Unchunked,
+    a wide enough subtree would have hit Postgres' 65535 bind-parameter limit and failed the whole
+    tightening — exactly the outcome the deliberate decision *not* to cap a tighten by size exists to
+    prevent.
+  - A locking test named "a parent tighten must contend with a child insert" asserted only the shape of
+    the lock set, never contention; renamed to what it checks. The structural guard that pins "every
+    `UPDATE` before the first audit append" sliced the source from the method start to **end of file**
+    and passed only because nothing below happens to contain `.update({`; it is now bounded at the
+    method's own closing brace and additionally asserts that both markers are present, so it cannot
+    pass vacuously.
+- **Residual metadata channel in the audit payload, named rather than papered over.** After dropping
+  `title`/`name`, an entry still carries the folder id, the parent id, the level transition and the
+  cascade counters — a TREASURER who may not open the folder can still read "folder X was tightened to
+  `ADMIN_ONLY` and contained N documents and M sub-folders". Dropping the counters would **not** close
+  that channel: the cascade writes one audit entry per clamped row with `cascadedFromFolderId`, and the
+  same reader can simply count them. So the counters stay (they are what lets a reviewer reconcile a
+  cascade against its individual entries at a glance) and the residual is documented on
+  `DocumentFolderAccessLevelSnapshot`. Closing it properly means filtering on the read side —
+  `AuditLogService.listAuditLog` does no payload filtering at all today — which is its own wave.
+- **Operator note: tightening to `ADMIN_ONLY` is a one-way street for BOARD/TREASURER.** They can set
+  it, but not undo it: the next `setFolderAccessLevel` on that folder fails its "caller can read this
+  folder's effective level" check with `NotFoundException`, and `listFolders` no longer shows the folder
+  either. That follows directly from "existence must not leak" and is not a bug, but it surprises —
+  only an ADMIN can loosen such a folder again. Also documented in
+  `docs/architecture/document-access.adoc`.
+- **Known limitation, deliberately not closed this wave**: no `lock_timeout` or `statement_timeout` is
+  set anywhere in this codebase (`DatabaseConfig` says so in its own comment). `connectionTimeout`
+  bounds how long a caller waits to *acquire* a pool connection, not how long an already-acquired
+  connection may sit waiting on a `FOR UPDATE`. This wave adds five new `FOR UPDATE` sites and so widens
+  that pre-existing surface: a blocked waiter occupies one of ten pool connections for as long as the
+  holder runs. Setting a Postgres-side timeout is a deployment-wide decision affecting every write path
+  in the application and is scoped to its own wave, not bolted onto this one.
+
 ## [0.24.0] — 2026-09-26
 
 ### Fixed

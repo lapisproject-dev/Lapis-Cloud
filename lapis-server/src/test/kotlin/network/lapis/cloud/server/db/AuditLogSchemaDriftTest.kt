@@ -157,6 +157,8 @@ class AuditLogSchemaDriftTest :
                             "OPEN_ITEM",
                             "OPEN_ITEM_NETTING",
                             "RECEIVABLE_DUNNING_NOTICE",
+                            "DOCUMENT",
+                            "DOCUMENT_FOLDER",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

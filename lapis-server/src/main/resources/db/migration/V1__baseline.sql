@@ -799,7 +799,14 @@ CREATE TABLE audit_log_entry (
     -- even though V32's named constraint had already been widened. Flyway repair needed on an
     -- already-migrated instance (./gradlew :lapis-server:flywayRepair), same as every precedent
     -- above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION', 'BANK_ACCOUNT', 'OPEN_ITEM', 'OPEN_ITEM_NETTING', 'RECEIVABLE_DUNNING_NOTICE')),
+    -- Welle V1.9.1 "Zugriffsrechte für Dokumente und Ordner": 'DOCUMENT'/'DOCUMENT_FOLDER' appended
+    -- in place, by the exact same "H2 enforces both constraints independently" reasoning as every
+    -- precedent above -- confirmed live (FederationGuestJourneyTest): a fresh H2 test database
+    -- rejected a DocumentService.createFolder audit INSERT with entity_type = 'DOCUMENT_FOLDER'
+    -- against this SAME still-unnamed inline constraint even though V51's named constraint had
+    -- already been widened. Flyway repair needed on an already-migrated instance, same as every
+    -- precedent above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION', 'BANK_ACCOUNT', 'OPEN_ITEM', 'OPEN_ITEM_NETTING', 'RECEIVABLE_DUNNING_NOTICE', 'DOCUMENT', 'DOCUMENT_FOLDER')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST', 'VOID'))
 );
 

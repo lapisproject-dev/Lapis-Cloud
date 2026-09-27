@@ -1,0 +1,280 @@
+= Document and Folder Access Levels (V1.9.1)
+:description: The three-tier document/folder access-control model -- effective level, the "never more visible than the folder" invariant, the tighten-cascade and its locking, and the five content gates.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`). It has no separate `.kuml.kts` source file -- it models a
+decision flow, not a persisted schema (the persisted schema itself lives in
+`lapis-server/src/main/kuml/02-document.kuml.kts`).
+
+== Context
+
+Before this wave, only individual `document` rows carried a `DocumentAccessLevel`
+(`PUBLIC_MEMBERS`/`BOARD_ONLY`/`ADMIN_ONLY`). `document_folder` had none of its own:
+`DocumentService.listFolders()` returned every folder's name to every authenticated caller
+regardless of what it contained, and the three tiers were invisible in the client UI -- the folder
+list was an unlabelled button row, and the document list had no visibility column at all. An
+operator could not see, at a glance, which folders/documents were public and which were not, and
+had no UI path to change a level after the fact except deleting and recreating a document.
+
+This wave gives `document_folder` its own `access_level` column
+(`V51__document_folder_access_level.sql`), makes both levels visible in the client (a "Sichtbarkeit"
+badge column in both tables), and makes both editable (`setDocumentAccessLevel`/
+`setFolderAccessLevel`, gated the same way creation already was).
+
+== The three tiers
+
+[cols="1,3"]
+|===
+| Level | Who can read it
+
+| `PUBLIC_MEMBERS`
+| Any member with `status` in the organization-member set (currently `ACTIVE`).
+
+| `BOARD_ONLY`
+| `BOARD`/`TREASURER`/`ADMIN` (`ESCALATED_ROLES` -- TREASURER manages the document area as part of
+  normal duties, same role set that already governs create/upload/delete).
+
+| `ADMIN_ONLY`
+| `ADMIN` only.
+|===
+
+== Effective level: the ancestor-chain maximum
+
+A folder's **effective** level is the most restrictive level along its own ancestor chain -- its
+own level, or any ancestor's, whichever is stricter
+(`network.lapis.cloud.server.documents.FolderAccessLevels`). A `PUBLIC_MEMBERS` sub-folder nested
+under an `ADMIN_ONLY` parent is itself effectively `ADMIN_ONLY` and invisible to anyone who cannot
+read `ADMIN_ONLY` -- otherwise the folder hierarchy itself ("Personalakten -> Kündigungen Q3")
+would leak exactly what the parent folder is meant to hide.
+
+**Considered and rejected**: leaving the sub-folder visible and only hiding the parent, or
+shortening the displayed path. Rejected because `parentFolderId` is part of the wire DTO
+(`DocumentFolderDto`) -- a client could reconstruct the hidden parent's existence from it
+regardless of what the UI chooses to render.
+
+`FolderAccessLevels` is cycle-safe by construction (`document_folder.parent_folder_id` carries no
+foreign key -- a self-referential association, `UmlToErmTransformer` skips those) and **fails
+closed to `ADMIN_ONLY`** the moment a cycle or an implausible ancestor-chain depth (> 64) is
+detected -- "I don't know" must never resolve to "public".
+
+Since the V1.9.1 fix round, a folder tighten additionally **materializes** the effective level into
+every descendant folder's own `access_level` (see "The invariant" below), so in a settled database
+every folder's own level is **at least as restrictive as what its ancestor chain enforces** -- never
+looser, and possibly stricter, because a folder tightened on its own is never clamped back down to
+what its ancestors merely permit. (An earlier revision of this section said "own level == effective
+level", which invites the wrong reading "a child mirrors its parent".) That is what makes
+`effectiveLevel` collapse to the row's own level for a materialized row. The ancestor climb stays as
+the safety net for a row that is not (yet) materialized -- a nesting created by some other tool, a
+hand-inserted row -- rather than as the only thing standing between a misleading display and a leak.
+
+=== Why the own level is materialized, not only computed
+
+`DocumentFolderDto` carries the folder's OWN level, which is what the client's "Sichtbarkeit" badge
+renders. Before the materialization, own and effective level could diverge permanently (tighten a
+parent, the child keeps `PUBLIC_MEMBERS`), and the badge then stated the opposite of the truth in
+the very feature whose purpose is making the level visible -- a `PUBLIC_MEMBERS` badge on a folder
+that was effectively `ADMIN_ONLY`. Considered and rejected: putting an `effectiveAccessLevel` on the
+wire next to the own level. Two levels on one row is a question the operator should not have to
+answer ("which of these two is real?"), and the "stutzen statt ablehnen" doctrine already chosen for
+documents applies unchanged to folders.
+
+== The invariant: a document is never more visible than its folder
+
+Enforced on every write path that can set a document's or folder's own level:
+
+* `createFolder`/`createDocument` reject (`ConflictException`) a level less restrictive than the
+  parent/folder's EFFECTIVE level.
+* `setDocumentAccessLevel` rejects a loosening below the folder's effective level -- the document
+  side never stutzt itself automatically; a human decides.
+* `setFolderAccessLevel`'s **tightening** cascades, in the same write transaction: every
+  **descendant folder** whose own level is less restrictive than its new effective level is clamped up
+  to it, and then every **document** in the subtree less restrictive than its own folder's new
+  effective level is clamped up too -- soft-deleted documents included (there is no reason to leave a
+  deleted row unclamped, and a future restore would otherwise turn it straight back into a leak). A
+  **loosening** changes only the folder's own level and never cascades. That asymmetry is deliberate:
+  tightening is a safety decision that must reach everything it covers, loosening is a re-exposure
+  decision a human must make per object.
+* The archiving pipeline (`network.lapis.cloud.server.routes.DocumentArchiving`, used by recording/
+  notes/whiteboard archival) bypasses `createDocument` entirely -- it clamps its own caller-supplied
+  level to the folder's effective level with the same `moreRestrictive` helper.
+
+=== Concurrency: the invariant needs row locks, not just checks
+
+The invariant lives in application code, not in a database constraint. Every write path above
+therefore takes a `SELECT ... FOR UPDATE` row lock on the folder's ancestor chain **before** it reads
+the folder level it decides from -- `setFolderAccessLevel` locks the whole subtree as well, because it
+writes into it. Without those locks, under READ COMMITTED, `createDocument` (or the background
+`RecordingPoller` calling `archiveGeneratedFile`) can read the old, looser folder level while a
+tighten commits, and insert a `PUBLIC_MEMBERS` document into an `ADMIN_ONLY` folder. Nothing would
+ever repair that row: the cascade only runs on a level *change*.
+
+Every caller locks in **ascending folder-UUID order**, which is what keeps the scheme deadlock-free
+across differently-shaped lock sets (an ancestor chain here, a whole subtree there): any two
+transactions acquire the rows they have in common in the same relative order. The global order across
+tables is `document_folder` rows -> `document` rows -> `audit_log_chain_state` -- the last being
+`AuditLogRecorder`'s own "must be the last lock-taking operation of the transaction" contract, which
+is also why `setFolderAccessLevel` performs every `UPDATE` of its cascade first and appends all audit
+entries afterwards in one closed block.
+
+NOTE: What actually holds is "every write path in this codebase maintains the invariant, and the
+locks above make that true under concurrency as well". It is *not* a schema-level guarantee: no
+constraint prevents a direct `UPDATE document SET access_level = 'PUBLIC_MEMBERS'` in `psql`, and the
+ancestor-climb safety net in `FolderAccessLevels` is what keeps such a row from becoming a leak in
+the folder-aware gates. A `CHECK` constraint cannot express this (it spans two tables); a trigger
+could, and was not added.
+
+==== Why a subtree lock set has to be verified, not just computed
+
+An ancestor chain can be computed from an *unlocked* read, because `parent_folder_id` is immutable
+after insert -- no re-parent operation exists. A **subtree** cannot: it is a predicate ("every
+descendant of X"), and a row lock cannot cover a row that does not exist yet. A `createFolder`
+committing between `setFolderAccessLevel`'s pre-lock read and the moment it actually acquires X's own
+row yields a descendant that the cascade sees but never locked. Updating it anyway acquires a lock
+*out of* ascending UUID order and re-opens a genuine lock-wait cycle (the tighten holds the parent and
+waits for the new child; a `createDocument` in that child holds the child -- in ascending order -- and
+waits for the parent). Skipping it instead is not an option either: the racing writer may already have
+inserted a document into it under the old, looser level, and nothing repairs that row afterwards.
+
+`FolderAccessLevels.lockSubtreeAndSnapshot` therefore re-reads after locking and, if the subtree grew,
+raises an internal signal that makes `setFolderAccessLevel` roll back and retry the whole transaction
+with the enlarged lock set (at most three attempts, then `ConflictException` -- "please retry", rather
+than the 500 an actual deadlock produced). No acquisition is ever made out of order, which is what
+keeps the deadlock-freedom claim above literally true. One agreeing re-read is enough: every path locks
+its target's whole ancestor chain, so holding X's row blocks every insert below X for the remainder of
+the transaction.
+
+**Considered and rejected**: ordering all folder locks root-first (by depth, then UUID) instead of by
+UUID alone, which would make a late-discovered descendant safe to lock in place, since every path to it
+must acquire its ancestors first. Rejected because depth is only well defined on an acyclic
+`parent_folder_id` -- nothing enforces acyclicity, and surviving a cycle is one of the reasons
+`FolderAccessLevels` exists -- so two transactions could disagree about the order and deadlock for real,
+whereas UUID order is total and robust regardless of the data.
+
+CAUTION: No `lock_timeout`/`statement_timeout` is set anywhere in this codebase (`DatabaseConfig`
+notes this itself). `connectionTimeout` bounds waiting to *acquire* a pool connection, not how long an
+already-acquired one may wait on a `FOR UPDATE`. A blocked waiter therefore occupies one of ten pool
+connections for as long as the lock holder runs. Pre-existing; widened by this wave's five new lock
+sites; a deployment-wide decision of its own, not addressed here.
+
+==== Operator note: tightening to `ADMIN_ONLY` is a one-way street for BOARD/TREASURER
+
+A BOARD or TREASURER caller may tighten a folder to `ADMIN_ONLY`, but cannot loosen it again
+afterwards: the next `setFolderAccessLevel` on that folder fails its "caller can read this folder's
+effective level" check with `NotFoundException`, and `listFolders` stops listing the folder as well.
+This follows directly from the "existence must not leak" posture and is not a bug -- but it is
+surprising in practice, so it is worth knowing before the tighten: **only an ADMIN can loosen such a
+folder again.**
+
+=== Why cascade instead of just rejecting the folder tighten
+
+Four of this codebase's five content gates read *only* the row's own `access_level` -- none of them
+know about folders:
+
+[cols="1,2"]
+|===
+| Gate | Reads
+
+| AI retriever (`network.lapis.cloud.server.ai.retrieval.ChunkQuerySupport.authorizedOp`)
+| `document.access_level`, live, per query.
+
+| MCP statute tool (`network.lapis.cloud.server.mcp.tools.SearchStatuteTool`)
+| Hard-restricted to `PUBLIC_MEMBERS` regardless.
+
+| Document download/upload routes (`network.lapis.cloud.server.routes.DocumentRoutes`)
+| `document.access_level`.
+
+| Conference-recording media route
+  (`network.lapis.cloud.server.routes.registerConferenceRecordingRoutes`)
+| `conference_recording.access_level` -- a DIFFERENT column, which is why the V1.9.1 wave first
+  missed this gate entirely and called them "four". Since the fix round it also reads the archived
+  `document.access_level` and uses the more restrictive of the two
+  (`ConferenceRecordingAccess.mayAccess`); before that, tightening the "Aufzeichnungen" folder closed
+  every other gate and left this byte stream open to any member who still held the `mediaUrl`.
+
+| RPC listings (`DocumentService.listDocuments`/`listFolders`)
+| `document.access_level` **and**, since this wave, the folder's effective level.
+|===
+
+The recording's own starter keeps their "I can always see my own recording" carve-out for the
+recording's own tier, but NOT once the document tier is the stricter one: that is a decision about the
+container, which the starter never made.
+
+A mere rejection on the folder side ("no, you may not tighten this folder while it still contains
+a looser document") would leave that looser document fully reachable by direct download URL and by
+the AI knowledge base -- exactly the risk this wave set out to close. Materializing the tighten
+into every affected row's own `access_level` is what actually closes the leak through the first four
+gates above, without touching any of them.
+
+== K4: a tightening revokes an existing AI knowledge-base release
+
+`setDocumentAccessLevel` and `setFolderAccessLevel`'s cascade both call
+`network.lapis.cloud.server.ai.kb.KnowledgeReleaseStore.revoke` (outside the write transaction,
+housekeeping-only, same "never fail the write itself" posture `deleteDocument` already
+established) for every document whose new level is no longer `PUBLIC_MEMBERS`. The reverse is
+deliberately **not** automatic: loosening a document back to `PUBLIC_MEMBERS` does not silently
+re-release it to the AI -- that would be a stealth re-exposure with no review step.
+
+== A fourth, previously unreported gap
+
+`listDocuments(folderId)` used to gate only the *returned documents'* own levels, never the
+`folderId` argument itself -- a caller who guessed an `ADMIN_ONLY` folder's UUID got back its
+`PUBLIC_MEMBERS` documents regardless of whether they could otherwise see that folder at all. Fixed
+alongside the rest of this wave: an unreadable `folderId` now throws `NotFoundException`, matching
+`listFolders`' "existence must not leak" posture.
+
+== `documentCount` stays a safe number
+
+`DocumentFolderDto.documentCount` stays folder-local (not per-subtree) and level-filtered, unchanged
+in shape from before this wave. Every write path in this codebase keeps each document at least as
+restrictive as its own folder's effective level (see "Concurrency" above for what that does and does
+not guarantee), so a caller who can see a folder at all can no longer infer a hidden document from the
+count that they could not otherwise learn "exists at some level" -- the invariant maintained above is
+what keeps this number safe.
+
+== Decision flow: setting a folder's access level
+
+[source,kuml,name="folder-access-level-decision"]
+----
+activityDiagram(name = "setFolderAccessLevel") {
+    val start = initialNode()
+
+    val roleCheck = decision(name = "caller role in ESCALATED_ROLES?")
+    edge(from = start, to = roleCheck)
+    val forbiddenRole = action(name = "403 Forbidden")
+    edge(from = roleCheck, to = forbiddenRole, guard = "no")
+    edge(from = forbiddenRole, to = finalNode())
+
+    val readCheck = decision(name = "caller can read BOTH the old and the new level?")
+    edge(from = roleCheck, to = readCheck, guard = "yes")
+    val forbiddenLevel = action(name = "403 Forbidden / 404 NotFound (folder unreadable)")
+    edge(from = readCheck, to = forbiddenLevel, guard = "no")
+    edge(from = forbiddenLevel, to = finalNode())
+
+    val parentCheck = decision(name = "new level >= parent's effective level?")
+    edge(from = readCheck, to = parentCheck, guard = "yes")
+    val conflict = action(name = "409 Conflict")
+    edge(from = parentCheck, to = conflict, guard = "no (looser than parent)")
+    edge(from = conflict, to = finalNode())
+
+    val updateOwn = action(name = "UPDATE document_folder.access_level (subtree + ancestors row-locked)")
+    edge(from = parentCheck, to = updateOwn, guard = "yes")
+
+    val directionCheck = decision(name = "tightening (new more restrictive than old)?")
+    edge(from = updateOwn, to = directionCheck)
+
+    val cascade = action(name = "recompute subtree effective levels, clamp every looser descendant folder AND document up")
+    edge(from = directionCheck, to = cascade, guard = "yes")
+    val auditFolder = action(name = "append all audit entries (folders, documents, then this folder)")
+    edge(from = cascade, to = auditFolder)
+    val revokeKb = action(name = "revoke AI knowledge-base release of every cascaded document (K4)")
+    edge(from = auditFolder, to = revokeKb)
+    edge(from = revokeKb, to = finalNode())
+
+    val noCascade = action(name = "no cascade -- only this folder's own level changed")
+    edge(from = directionCheck, to = noCascade, guard = "no (loosening)")
+    edge(from = noCascade, to = finalNode())
+}
+----

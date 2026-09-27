@@ -533,6 +533,13 @@ fun decodeAuditSnapshot(
             // member-contribution dunning domain's own notice snapshot is likewise not decoded
             // here).
             AuditEntityType.RECEIVABLE_DUNNING_NOTICE -> null
+            // Welle V1.9.1 "Zugriffsrechte für Dokumente und Ordner" -- DocumentService writes
+            // DocumentAccessLevelSnapshot/DocumentFolderAccessLevelSnapshot (see AuditLog.kt), but
+            // this client-side decode/render pair is deliberately not extended for either this
+            // wave (same "backend-only wave" posture BANK_ACCOUNT/OPEN_ITEM already establish
+            // above) -- falls through to the raw-text display.
+            AuditEntityType.DOCUMENT -> null
+            AuditEntityType.DOCUMENT_FOLDER -> null
         }
     }.getOrNull()
 

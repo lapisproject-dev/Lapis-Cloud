@@ -43,10 +43,14 @@
 // ReferentialActionParsing.kt) — which is exactly the real schema's value for this column. So the
 // plain, tag-less association below already reproduces NO_ACTION with no workaround needed.
 //
-// DocumentAccessLevel is the one enum column in this domain (document.access_level) — modelled
-// with an explicit «Column».sqlType="VARCHAR(20)" override, same mechanism/rationale as
-// member.status / account.role / membership_tier.billing_interval / contribution.status in the
-// prior domains (real V3__documents.sql has a plain VARCHAR(20), no CHECK constraint).
+// DocumentAccessLevel is an enum column in this domain (document.access_level, and since Welle
+// V1.9.1 also document_folder.access_level) — modelled WITHOUT a «Column».sqlType override, so
+// kUML's enum-to-Enum+CHECK fallback path applies (real schema: VARCHAR(14) NOT NULL plus a named
+// CHECK constraint listing the three literals — see V1__baseline.sql/V51__document_folder_access_
+// level.sql). Corrected 2026-09-26 (Welle V1.9.1): this comment previously claimed a
+// «Column».sqlType="VARCHAR(20)" override and "no CHECK constraint", neither of which the actual
+// attribute declaration below or the real migrated schema ever had — see
+// DocumentSchemaDriftTest's "document.access_level is modelled as a real ErmDataType.Enum column".
 //
 // document.folder_id / document.created_by / document_version.uploaded_by are modelled as plain
 // «Column» UUID attributes rather than UML associations — a genuine, newly-discovered gap beyond
@@ -105,6 +109,13 @@ classDiagram(name = "Document") {
         attribute(name = "parentFolderId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "parent_folder_id" }
+        }
+        // Welle V1.9.1 "Zugriffsrechte für Dokumente und Ordner sichtbar und editierbar" (V51) --
+        // the folder's OWN access level, independent of its contents. Same shape as
+        // document.accessLevel below (no sqlType override -- kUML's enum-to-Enum+CHECK fallback).
+        attribute(name = "accessLevel", type = documentAccessLevel) {
+            defaultValue = "PUBLIC_MEMBERS"
+            stereotype("Column") { "columnName" to "access_level"; "enumType" to "network.lapis.cloud.shared.domain.DocumentAccessLevel" }
         }
     }
 

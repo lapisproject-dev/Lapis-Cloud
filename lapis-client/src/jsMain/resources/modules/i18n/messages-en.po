@@ -15250,3 +15250,43 @@ msgstr "You are committing %1 from your free LTR balance. The post will be publi
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr "You have unsaved changes to the post text. Save them first -- otherwise the original draft will be published, not your change."
+
+msgid "Alle Mitglieder"
+msgstr "All members"
+
+msgid "Nur Vorstand"
+msgstr "Board only"
+
+msgid "Nur Administration"
+msgstr "Administration only"
+
+msgid "Sichtbarkeit ändern"
+msgstr "Change visibility"
+
+msgid "Sichtbarkeit des Ordners ändern"
+msgstr "Change folder visibility"
+
+msgid "Sichtbarkeit des Dokuments ändern"
+msgstr "Change document visibility"
+
+msgid "Sichtbarkeit geändert."
+msgstr "Visibility changed."
+
+msgid "Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."
+msgstr "Restricting a folder also restricts every document it contains."
+
+msgid "Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."
+msgstr "Expanding a folder does not expand the documents it contains."
+
+msgid "Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt."
+msgstr "Visibility changed -- %1 documents were also restricted."
+
+msgid "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt."
+msgstr "Visibility changed -- %1 subfolders and %2 documents were also restricted."
+
+msgid "Dokument"
+msgstr "Document"
+
+msgid "Dokumentordner"
+msgstr "Document folder"
+

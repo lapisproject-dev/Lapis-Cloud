@@ -34,11 +34,15 @@ object DocumentsAuthzUi {
      * level), un-uploadable (upload route 403s below its own access-level check) and
      * un-deletable-by-them (`deleteDocument` 403s the same way): a permanently orphaned row only
      * an ADMIN could ever clean up, with the client showing a success toast the whole time. This
-     * function is the single source of truth for which levels a role may pick when creating a
-     * document; `createDocument`'s own `canAccessDocumentAtLevel` check is the real server-side
-     * authority, this is purely a UX nicety on top of it, same posture as [canManage].
+     * function is the single source of truth for which levels a role may pick when creating OR
+     * CHANGING a document's/folder's access level (renamed from `allowedCreateLevels` in Welle
+     * V1.9.1 -- the identical rule now also gates `setDocumentAccessLevel`'s/
+     * `setFolderAccessLevel`'s "Sichtbarkeit ändern" dropdown, one symbol instead of two
+     * near-duplicates); `createDocument`/`setDocumentAccessLevel`/`setFolderAccessLevel`'s own
+     * `canAccessDocumentAtLevel` check is the real server-side authority, this is purely a UX
+     * nicety on top of it, same posture as [canManage].
      */
-    fun allowedCreateLevels(role: AccountRole?): List<DocumentAccessLevel> =
+    fun allowedLevels(role: AccountRole?): List<DocumentAccessLevel> =
         DocumentAccessLevel.entries.filter { level ->
             when (level) {
                 DocumentAccessLevel.PUBLIC_MEMBERS -> true

@@ -293,6 +293,49 @@ class DocumentSchemaDriftTest :
                 )
         }
 
+        test("document_folder.access_level is modelled as a real ErmDataType.Enum column (Welle V1.9.1)") {
+            val accessLevel = model.entities.single { it.name == "document_folder" }.attributeByName("access_level")
+            accessLevel?.type shouldBe
+                ErmDataType.Enum(
+                    name = "DocumentAccessLevel",
+                    values = listOf("PUBLIC_MEMBERS", "BOARD_ONLY", "ADMIN_ONLY"),
+                    externalFqName = "network.lapis.cloud.shared.domain.DocumentAccessLevel",
+                )
+            accessLevel?.nullable shouldBe false
+        }
+
+        test("document_folder.access_level defaults to PUBLIC_MEMBERS on a bare insert (Welle V1.9.1)") {
+            // A bare insert that omits access_level entirely. Since the V1.9.1 fix round (W2) this
+            // pins the SQL-LEVEL `DEFAULT 'PUBLIC_MEMBERS'` of
+            // V51__document_folder_access_level.sql, not an Exposed-side `.default(...)` -- the
+            // latter was removed deliberately (a permissive default on an access-control column is a
+            // fail-OPEN backstop; see DocumentFolderTable's own KDoc). The SQL default must stay,
+            // because it is what backfills every pre-existing folder row on `ADD COLUMN ... NOT
+            // NULL` so nobody loses access to a folder they can see today -- which is exactly what
+            // this test guards.
+            val folderId = Uuid.random()
+            transaction {
+                DocumentFolderTable.insert {
+                    it[id] = folderId
+                    it[name] = "Schema-Drift-Access-Level-Default-Test-Ordner"
+                    it[parentFolderId] = null
+                    // accessLevel deliberately NOT set -- exercising the real default.
+                }
+            }
+            try {
+                val level =
+                    transaction {
+                        DocumentFolderTable
+                            .selectAll()
+                            .where { DocumentFolderTable.id eq folderId }
+                            .single()[DocumentFolderTable.accessLevel]
+                    }
+                level shouldBe DocumentAccessLevel.PUBLIC_MEMBERS
+            } finally {
+                transaction { DocumentFolderTable.deleteWhere { DocumentFolderTable.id eq folderId } }
+            }
+        }
+
         test("document_version.document_id has NO_ACTION referential action, matching the real schema") {
             // Associations cannot carry stereotype() calls from .kuml.kts script code today
             // (AssociationBuilder does not implement UmlElementScope — confirmed during the

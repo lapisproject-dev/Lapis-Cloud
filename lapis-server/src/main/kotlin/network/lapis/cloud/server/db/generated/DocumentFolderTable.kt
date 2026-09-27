@@ -3,6 +3,7 @@
 package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
+import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 
@@ -10,6 +11,22 @@ public object DocumentFolderTable : Table("document_folder") {
     public val id: Column<Uuid> = uuid("id")
     public val name: Column<String> = varchar("name", 200)
     public val parentFolderId: Column<Uuid?> = uuid("parent_folder_id").nullable()
+
+    // Welle V1.9.1 (V51), corrected in the fix round (W2/W7). Deliberately NO Exposed-side
+    // `.default(...)`: a permissive default on an access-control column is a fail-OPEN backstop, and
+    // the earlier KDoc here advertised it as one ("the backstop for any future insert site that
+    // forgets to"), which is the exact opposite of the fail-closed posture
+    // network.lapis.cloud.server.documents.FolderAccessLevels establishes for everything else about
+    // this column. Every insert site therefore names the level explicitly and is visible as such in
+    // review: DocumentService.createFolder plus the TWO find-or-create sites in
+    // network.lapis.cloud.server.routes.DocumentArchiving.kt (archiveGeneratedBytes,
+    // archiveGeneratedFile) -- the earlier comment claimed three sites in that one file, which was
+    // simply wrong.
+    //
+    // The SQL-level `DEFAULT 'PUBLIC_MEMBERS'` in V51__document_folder_access_level.sql MUST stay
+    // regardless: it is what backfills every pre-existing folder row on `ALTER TABLE ... ADD COLUMN
+    // ... NOT NULL` so that nobody loses access to a folder they can see today.
+    public val accessLevel: Column<DocumentAccessLevel> = enumerationByName<DocumentAccessLevel>("access_level", 14)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

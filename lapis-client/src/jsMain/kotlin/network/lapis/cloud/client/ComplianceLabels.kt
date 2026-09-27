@@ -150,6 +150,10 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.OPEN_ITEM -> gettext("Offener Posten")
         AuditEntityType.OPEN_ITEM_NETTING -> gettext("Verrechnung")
         AuditEntityType.RECEIVABLE_DUNNING_NOTICE -> gettext("Mahnung (Debitor)")
+        // Welle V1.9.1 "Zugriffsrechte für Dokumente und Ordner" -- "Dokument"/"Dokumentordner" sind
+        // die Begriffe, die DocumentsScreen.kt bereits durchgängig verwendet.
+        AuditEntityType.DOCUMENT -> gettext("Dokument")
+        AuditEntityType.DOCUMENT_FOLDER -> gettext("Dokumentordner")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -236,6 +240,10 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // "danger" -- an issued dunning notice is a folgenreiche, forderungseinzug-nahe entry,
         // same tier as the pre-existing DUNNING_NOTICE above.
         AuditEntityType.RECEIVABLE_DUNNING_NOTICE -> "danger"
+        // "dark" -- both are access-control administration, same "not routine, but not a
+        // violation" tier API_KEY/WEBHOOK_ENDPOINT/ACCOUNTING_EXPORT_CONNECTION already carry.
+        AuditEntityType.DOCUMENT -> "dark"
+        AuditEntityType.DOCUMENT_FOLDER -> "dark"
     }
 
 // ------------------------------------------------------------------------------------------------

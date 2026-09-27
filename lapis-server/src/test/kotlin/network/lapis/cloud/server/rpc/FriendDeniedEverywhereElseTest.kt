@@ -25,6 +25,7 @@ import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -94,6 +95,11 @@ class FriendDeniedEverywhereElseTest :
                 // The document-visibility test creates a folder+document authored by an ACTIVE
                 // (BOARD-role) member -- document.created_by FKs to member, delete before the
                 // member row itself. document_folder has no created_by column of its own.
+                // Welle V1.9.1: DocumentService.createFolder/createDocument now also write
+                // AuditLogEntryTable rows with actor_member_id = that same author -- delete those
+                // first too, or the MemberTable delete below violates that FK (test-only cleanup,
+                // audit_log_entry stays append-only in production).
+                AuditLogEntryTable.deleteWhere { AuditLogEntryTable.actorMemberId inList createdMemberIds }
                 DocumentTable.deleteWhere { DocumentTable.createdBy inList createdMemberIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
                 MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
@@ -284,14 +290,20 @@ class FriendDeniedEverywhereElseTest :
                 val friend = createFriendMember("denied-doc-friend@example.org")
 
                 val folderId = client.post("/test/create-folder") { header("X-Member-Id", author.toString()) }.bodyAsText()
-                client.post("/test/create-document?folderId=$folderId") { header("X-Member-Id", author.toString()) }.status shouldBe
-                    HttpStatusCode.OK
+                val createResponse = client.post("/test/create-document?folderId=$folderId") { header("X-Member-Id", author.toString()) }
+                createResponse.status shouldBe HttpStatusCode.OK
+                val documentId = createResponse.bodyAsText()
 
+                // `listDocuments(folderId = null)` lists EVERY document the caller may read across the
+                // whole (shared, ~1100-test) database, not just this test's own -- an exact `.size`
+                // assertion would be fragile against however many OTHER PUBLIC_MEMBERS documents other
+                // tests in the same JVM fork happen to create. Checking containment of THIS test's own
+                // document id is what the test actually means to assert (Welle V1.9.1 fix).
                 val asAuthor = client.get("/test/list-documents") { header("X-Member-Id", author.toString()) }.bodyAsText()
-                asAuthor.split(",").filter { it.isNotBlank() }.size shouldBe 1
+                (documentId in asAuthor.split(",")) shouldBe true
 
                 val asFriend = client.get("/test/list-documents") { header("X-Member-Id", friend.toString()) }.bodyAsText()
-                asFriend.split(",").filter { it.isNotBlank() }.size shouldBe 0
+                (documentId in asFriend.split(",")) shouldBe false
             }
         }
     })

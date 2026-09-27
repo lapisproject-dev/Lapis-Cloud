@@ -15294,3 +15294,43 @@ msgstr "U zet %1 in van uw vrije LTR-tegoed. Het bericht wordt direct gepublicee
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr "U heeft niet-opgeslagen wijzigingen in de berichttekst. Sla deze eerst op -- anders wordt het oorspronkelijke concept gepubliceerd, niet uw wijziging."
+
+msgid "Alle Mitglieder"
+msgstr "Alle leden"
+
+msgid "Nur Vorstand"
+msgstr "Alleen bestuur"
+
+msgid "Nur Administration"
+msgstr "Alleen administratie"
+
+msgid "Sichtbarkeit ändern"
+msgstr "Zichtbaarheid wijzigen"
+
+msgid "Sichtbarkeit des Ordners ändern"
+msgstr "Zichtbaarheid van de map wijzigen"
+
+msgid "Sichtbarkeit des Dokuments ändern"
+msgstr "Zichtbaarheid van het document wijzigen"
+
+msgid "Sichtbarkeit geändert."
+msgstr "Zichtbaarheid gewijzigd."
+
+msgid "Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."
+msgstr "Het beperken van een map beperkt ook alle daarin opgenomen documenten."
+
+msgid "Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."
+msgstr "Het verruimen van een map verruimt de daarin opgenomen documenten niet."
+
+msgid "Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt."
+msgstr "Zichtbaarheid gewijzigd -- %1 documenten zijn ook beperkt."
+
+msgid "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt."
+msgstr "Zichtbaarheid gewijzigd -- %1 submappen en %2 documenten werden ook beperkt."
+
+msgid "Dokument"
+msgstr "Document"
+
+msgid "Dokumentordner"
+msgstr "Documentmap"
+

@@ -16,6 +16,7 @@ import io.kvision.html.p
 import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
+import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
@@ -25,7 +26,9 @@ import network.lapis.cloud.shared.domain.AiIndexStatus
 import network.lapis.cloud.shared.domain.AiKnowledgeEntryDto
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
+import network.lapis.cloud.shared.domain.DocumentFolderDto
 import network.lapis.cloud.shared.domain.DocumentVersionDto
+import network.lapis.cloud.shared.domain.restrictiveness
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IDocumentService
 
@@ -106,7 +109,8 @@ fun renderDocumentsScreen(container: SimplePanel) {
         }
     }
 
-    fun loadDocuments(folderId: String) {
+    fun loadDocuments(folder: DocumentFolderDto) {
+        val folderId = folder.id
         documentPanel.removeAll()
         versionPanel.removeAll()
         // Drei Geschwister-Panels statt einem gemeinsamen `documentPanel` fuer Suchzeile, Liste und
@@ -124,7 +128,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
             val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) }
             if (documents == null) {
                 // Welle V1.4.27 (W3): a failed load is an error state with a retry, not an empty panel.
-                listPanel.dataErrorState(onRetry = { loadDocuments(folderId) })
+                listPanel.dataErrorState(onRetry = { loadDocuments(folder) })
                 return@launch
             }
 
@@ -213,7 +217,10 @@ fun renderDocumentsScreen(container: SimplePanel) {
                         sortOptions = DOCUMENT_SORT_OPTIONS,
                         actions =
                             if (canManage) {
-                                { actions, document -> actions.renderDocumentDeleteAction(document) { loadDocuments(folderId) } }
+                                { actions, document ->
+                                    actions.renderDocumentAccessLevelAction(document, folder.accessLevel) { loadDocuments(folder) }
+                                    actions.renderDocumentDeleteAction(document) { loadDocuments(folder) }
+                                }
                             } else {
                                 null
                             },
@@ -245,11 +252,21 @@ fun renderDocumentsScreen(container: SimplePanel) {
             }
 
             if (canManage) {
-                renderDocumentCreation(creationPanel, folderId, AppState.session?.role) { loadDocuments(folderId) }
+                renderDocumentCreation(creationPanel, folder, AppState.session?.role) { loadDocuments(folder) }
             }
         }
     }
 
+    /**
+     * Welle V1.9.1: the folder list migrated from a plain button row to a `dataTable` (Name +
+     * "Sichtbarkeit"-Abzeichen + Dokumentzahl) -- a row with its own property (the access level)
+     * AND its own action ("Sichtbarkeit ändern") is a table row, not a navigation button (see
+     * `docs/architecture/ui-ux-guideline.adoc`'s `dataTable` rule). This also gives folders the
+     * SAME mobile card-list fallback below 768px that `dataTable` already provides everywhere else
+     * -- the button row had no separate mobile layout of its own. Same column order (Name,
+     * Sichtbarkeit, rest) as [documentColumns] -- a user should not have to learn twice where
+     * visibility is shown.
+     */
     fun refreshFolders() {
         folderPanel.removeAll()
         AppScope.launch {
@@ -262,22 +279,23 @@ fun renderDocumentsScreen(container: SimplePanel) {
             if (folders.isEmpty()) {
                 folderPanel.p(tr("Noch keine Ordner vorhanden."))
             } else {
-                folders.forEach { folder ->
-                    val folderButton =
-                        folderPanel.button(
-                            "${folder.name} (${folder.documentCount})",
-                            icon = "fas fa-folder",
-                            style = ButtonStyle.OUTLINESECONDARY,
-                        )
-                    folderButton.onClick { loadDocuments(folder.id) }
-                }
+                folderPanel.dataTable(
+                    columns = folderColumns { folder -> loadDocuments(folder) },
+                    rows = folders,
+                    actions =
+                        if (canManage) {
+                            { actions, folder -> actions.renderFolderAccessLevelAction(folder) { refreshFolders() } }
+                        } else {
+                            null
+                        },
+                )
             }
         }
     }
 
     refreshFolders()
     if (canManage && folderCreationPanel != null) {
-        renderFolderCreation(folderCreationPanel) { refreshFolders() }
+        renderFolderCreation(folderCreationPanel, AppState.session?.role) { refreshFolders() }
     }
 }
 
@@ -340,8 +358,10 @@ internal fun sortDocumentVersions(
 
 /**
  * Columns of the document list / card list. The title is a link that opens the versions below (a purely local
- * click handler, `dataNavigo = false`, see `LoginScreen.kt`) and the card title. The "Wissensbasis" column
- * exists only where the AI layer is on and the caller may decide (BOARD/ADMIN, see [DocumentsAuthzUi]).
+ * click handler, `dataNavigo = false`, see `LoginScreen.kt`) and the card title. The "Sichtbarkeit" column
+ * (Welle V1.9.1) sits between title and "Wissensbasis" -- SAME position [folderColumns] gives it, one place a
+ * user learns to look for visibility. The "Wissensbasis" column exists only where the AI layer is on and the
+ * caller may decide (BOARD/ADMIN, see [DocumentsAuthzUi]).
  */
 private fun documentColumns(
     showsKnowledgeColumn: Boolean,
@@ -358,6 +378,10 @@ private fun documentColumns(
                 container.untrustedLink(document.title, url = "javascript:void(0)", dataNavigo = false).onClick { onOpen(document) }
             },
         ),
+        DataColumn(
+            title = tr("Sichtbarkeit"),
+            cell = { container, document -> container.documentAccessLevelBadge(document.accessLevel) },
+        ),
         if (showsKnowledgeColumn) {
             DataColumn(
                 title = tr("Wissensbasis"),
@@ -368,6 +392,36 @@ private fun documentColumns(
         } else {
             null
         },
+    )
+
+/**
+ * Welle V1.9.1: columns of the folder list, migrated from a plain button row to a `dataTable` (see
+ * [refreshFolders]'s own KDoc for why). The folder name is a link that opens it (same "purely local click
+ * handler" idiom [documentColumns]' title link uses) -- `untrustedLink`, not a plain `tr(...)`/`textColumn`,
+ * because a folder NAME is foreign data (created by any BOARD/TREASURER/ADMIN member), same discipline every
+ * other user-supplied label in this screen already follows.
+ */
+private fun folderColumns(onOpen: (DocumentFolderDto) -> Unit): List<DataColumn<DocumentFolderDto>> =
+    listOf(
+        DataColumn(
+            title = tr("Ordner"),
+            primary = true,
+            cell = { container, folder ->
+                container.icon("fas fa-folder")
+                container.untrustedLink(folder.name, url = "javascript:void(0)", dataNavigo = false).onClick { onOpen(folder) }
+            },
+        ),
+        DataColumn(
+            // Fix round (B5): this badge renders the folder's OWN level, the only one on the wire.
+            // That is truthful because a tighten now materializes into every descendant folder's own
+            // level -- before that, a sub-folder under a tightened parent kept `PUBLIC_MEMBERS` and
+            // this badge said "Alle Mitglieder" about a folder that was effectively ADMIN_ONLY, in
+            // the very feature whose purpose is making the level visible. See
+            // `DocumentFolderDto.accessLevel` KDoc.
+            title = tr("Sichtbarkeit"),
+            cell = { container, folder -> container.documentAccessLevelBadge(folder.accessLevel) },
+        ),
+        textColumn(title = tr("Dokumente"), numeric = true) { folder: DocumentFolderDto -> folder.documentCount.toString() },
     )
 
 private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
@@ -431,19 +485,140 @@ internal fun Container.renderDocumentDeleteAction(
     }
 }
 
-// R24 (W4d): migrated to the form grammar -- a single required field.
+/**
+ * Welle V1.9.1: "Sichtbarkeit ändern" action of a document row. The modal IS the confirmation --
+ * no second `confirmDialog` on top (unlike [renderDocumentDeleteAction]'s soft-delete, changing a
+ * level is reversible and the modal already requires an explicit "Speichern" click). Options are
+ * [DocumentsAuthzUi.allowedLevels] filtered to the folder's own level and up, same UX-nicety
+ * reasoning as [renderDocumentCreation] -- the server (`ConflictException`) remains the authority.
+ */
+internal fun Container.renderDocumentAccessLevelAction(
+    document: DocumentDto,
+    folderAccessLevel: DocumentAccessLevel,
+    onChanged: () -> Unit,
+) {
+    val changeButton = tableActionButton("fas fa-user-lock", tr("Sichtbarkeit ändern"))
+    changeButton.onClick {
+        val modal = Modal(caption = tr("Sichtbarkeit des Dokuments ändern"))
+        val form = modal.lapisForm()
+        val options =
+            DocumentsAuthzUi
+                .allowedLevels(AppState.session?.role)
+                .filter { it.restrictiveness >= folderAccessLevel.restrictiveness }
+                .map { it.name to documentAccessLevelLabel(it) }
+        val levelField =
+            form.selectField(label = tr("Sichtbarkeit"), options = options, value = document.accessLevel.name, required = true)
+        form.finish()
+        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+        saveButton.onClick {
+            form.submit(saveButton) {
+                val newLevel = DocumentAccessLevel.valueOf(levelField.value)
+                // The returned DocumentDto is deliberately unused -- `onChanged()` reloads the whole
+                // list, so binding it would only invite someone to render a second, stale source of
+                // truth next to the reloaded one (fix round, W8: it used to be an unused `val`).
+                guarded { rpcService<IDocumentService>().setDocumentAccessLevel(document.id, newLevel) } ?: return@submit
+                modal.hide()
+                notifySuccess(tr("Sichtbarkeit geändert."))
+                onChanged()
+            }
+        }
+        modal.addButton(saveButton)
+        modal.show()
+    }
+}
+
+/**
+ * Welle V1.9.1: "Sichtbarkeit ändern" action of a folder row. Unlike the document-level dialog
+ * above, this one ALWAYS shows both cascade sentences (never conditionally) -- an admin choosing a
+ * folder's level cannot yet know whether the choice tightens or loosens, and "an einschränkende
+ * Wahl schränkt mit ein, eine erweiternde erweitert nichts" is the one fact that must land BEFORE
+ * the click, not just in the success toast afterward. Since the fix round (B5) the tighten reaches
+ * descendant FOLDERS as well as documents, which is why both sentences name both.
+ *
+ * The options are NOT filtered against a parent folder's level here (unlike the document dialog's
+ * `>=` predicate): this screen only creates top-level folders, so the only way a sub-folder exists
+ * at all is a nesting some other tool created, and in that case the server's `ConflictException`
+ * ("A subfolder cannot be more visible than its parent folder") is the authority. `guarded` surfaces
+ * it to the user as an error toast.
+ */
+internal fun Container.renderFolderAccessLevelAction(
+    folder: DocumentFolderDto,
+    onChanged: () -> Unit,
+) {
+    val changeButton = tableActionButton("fas fa-user-lock", tr("Sichtbarkeit ändern"))
+    changeButton.onClick {
+        val modal = Modal(caption = tr("Sichtbarkeit des Ordners ändern"))
+        modal.div(tr("Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."))
+        modal.div(tr("Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."))
+        val form = modal.lapisForm()
+        val options = DocumentsAuthzUi.allowedLevels(AppState.session?.role).map { it.name to documentAccessLevelLabel(it) }
+        val levelField =
+            form.selectField(label = tr("Sichtbarkeit"), options = options, value = folder.accessLevel.name, required = true)
+        form.finish()
+        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+        saveButton.onClick {
+            form.submit(saveButton) {
+                val newLevel = DocumentAccessLevel.valueOf(levelField.value)
+                val result = guarded { rpcService<IDocumentService>().setFolderAccessLevel(folder.id, newLevel) } ?: return@submit
+                modal.hide()
+                if (result.tightenedFolders > 0) {
+                    notifySuccess(
+                        gettext(
+                            "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt.",
+                            result.tightenedFolders,
+                            result.tightenedDocuments,
+                        ),
+                    )
+                } else if (result.tightenedDocuments > 0) {
+                    notifySuccess(gettext("Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt.", result.tightenedDocuments))
+                } else {
+                    notifySuccess(tr("Sichtbarkeit geändert."))
+                }
+                onChanged()
+            }
+        }
+        modal.addButton(saveButton)
+        modal.show()
+    }
+}
+
+/**
+ * R24 (W4d): migrated to the form grammar. Welle V1.9.1, fix round (W1): a "Sichtbarkeit" select was
+ * added, mirroring [renderDocumentCreation]'s own. Without it every new folder was PUBLIC_MEMBERS by
+ * force -- and a folder NAME is frequently the sensitive part ("Kündigungen Q3"), visible to every
+ * member from the moment of creation until someone remembered to change the level in a second step.
+ * Options come from [DocumentsAuthzUi.allowedLevels], the same single source of truth the document
+ * dialog and both "Sichtbarkeit ändern" modals use; the server's `canAccessDocumentAtLevel` check in
+ * `createFolder` remains the real authority.
+ *
+ * No parent-folder-derived filtering here (unlike [renderDocumentCreation]'s `>=` predicate): this
+ * screen only ever creates TOP-LEVEL folders (`parentFolderId = null`), so there is no parent level
+ * to be at least as restrictive as.
+ */
 private fun renderFolderCreation(
     panel: SimplePanel,
+    role: AccountRole?,
     onCreated: () -> Unit,
 ) {
     val form = panel.lapisForm()
     val nameField = form.textField(label = tr("Neuer Ordnername"), required = true)
+    val accessLevelOptions = DocumentsAuthzUi.allowedLevels(role).map { it.name to documentAccessLevelLabel(it) }
+    val accessField =
+        form.selectField(
+            label = tr("Sichtbarkeit"),
+            options = accessLevelOptions,
+            value = DocumentAccessLevel.PUBLIC_MEMBERS.name,
+            required = true,
+        )
     val createButton = Button(tr("Ordner anlegen"), icon = "fas fa-folder-plus", style = ButtonStyle.OUTLINEPRIMARY)
     form.buttons(primary = createButton)
     createButton.onClick {
         form.submit(createButton) {
             val name = nameField.value.trim()
-            val result = guarded { rpcService<IDocumentService>().createFolder(name, null) }
+            val accessLevel = DocumentAccessLevel.valueOf(accessField.value)
+            val result = guarded { rpcService<IDocumentService>().createFolder(name, null, accessLevel) }
             if (result != null) {
                 notifySuccess(gettext("Ordner \"%1\" angelegt.", name))
                 nameField.reset()
@@ -456,21 +631,42 @@ private fun renderFolderCreation(
 // R24/R24B (W4d): migrated to the form grammar -- Titel (required text) + Sichtbarkeit (required select).
 private fun renderDocumentCreation(
     panel: SimplePanel,
-    folderId: String,
+    folder: DocumentFolderDto,
     role: AccountRole?,
     onCreated: () -> Unit,
 ) {
     // Review finding fix (Welle "Treasurer Document Upload", Runde 4): only offer access levels
-    // the current role is actually allowed to create at -- see [DocumentsAuthzUi.allowedCreateLevels]
-    // KDoc for the orphaned-document failure mode this prevents.
-    val accessLevelOptions = DocumentsAuthzUi.allowedCreateLevels(role).map { it.name to it.name }
+    // the current role is actually allowed to create at -- see [DocumentsAuthzUi.allowedLevels]
+    // KDoc for the orphaned-document failure mode this prevents. Welle V1.9.1: additionally
+    // restricted to levels at least as restrictive as the OPEN folder's own level -- a UX nicety on
+    // top of `createDocument`'s real `ConflictException` authority.
+    //
+    // Fix round (B5): this filter is only CORRECT because a folder tighten now materializes into
+    // every descendant folder's own level, so "own level == effective level" actually holds. The
+    // earlier comment here argued the opposite way round and was logically inverted: the effective
+    // level can only be EQUAL OR STRICTER than the own level, so filtering by the OWN level offers a
+    // superset of what the server accepts, not a subset. Before the materialization that superset was
+    // reachable in practice (tighten a parent, open a sub-folder that kept PUBLIC_MEMBERS) and every
+    // such creation answered `ConflictException`. It is now only reachable for a sub-folder some
+    // other tool created and never materialized -- and the server still rejects it, which is the
+    // posture that is actually load-bearing.
+    val accessLevelOptions =
+        DocumentsAuthzUi
+            .allowedLevels(role)
+            .filter { it.restrictiveness >= folder.accessLevel.restrictiveness }
+            // Welle V1.9.1: fixes a labeling bug -- this dropdown used to show the raw enum
+            // constant ("PUBLIC_MEMBERS") instead of a translated label (see
+            // ClientUntrustedWidgetTextTripwireTest's KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS ledger).
+            .map { it.name to documentAccessLevelLabel(it) }
     val form = panel.lapisForm()
     val titleField = form.textField(label = tr("Neuer Dokumenttitel"), required = true)
     val accessField =
         form.selectField(
+            // Defaults to the folder's own level -- itself always the most permissive option offered
+            // above (PUBLIC_MEMBERS, restrictiveness 0, is never filtered out by the `>=` predicate).
             label = tr("Sichtbarkeit"),
             options = accessLevelOptions,
-            value = DocumentAccessLevel.PUBLIC_MEMBERS.name,
+            value = folder.accessLevel.name,
             required = true,
         )
     val createButton =
@@ -484,7 +680,7 @@ private fun renderDocumentCreation(
         form.submit(createButton) {
             val title = titleField.value.trim()
             val accessLevel = DocumentAccessLevel.valueOf(accessField.value)
-            val result = guarded { rpcService<IDocumentService>().createDocument(folderId, title, accessLevel) }
+            val result = guarded { rpcService<IDocumentService>().createDocument(folder.id, title, accessLevel) }
             if (result != null) {
                 notifySuccess(gettext("Dokument \"%1\" angelegt -- jetzt eine Datei hochladen.", title))
                 onCreated()

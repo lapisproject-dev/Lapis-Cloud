@@ -1475,3 +1475,24 @@ branch's six batches) are now in `R24_MIGRATED`, held strictly: zero labelled `t
   `I18nCatalogManager`, the period column not marked numeric.
 * Browser verification at 375, 767, 768 and 1440 px in both themes is manual; the 40 px row-height target (R22) and
   the dark-mode acceptance (R49) have no automated check in either wave.
+
+=== W7 (V1.9.1): DocumentsScreen's folder list migrated from a button row to `dataTable`
+
+The folder list (`DocumentsScreen.kt`) was a plain button row (`"${folder.name} (${folder.documentCount})"`),
+the one navigational-button holdout in an otherwise `dataTable`-migrated file. Welle V1.9.1 gave
+`document_folder` its own `access_level` (visible via a "Sichtbarkeit" badge column) and an editable
+"Sichtbarkeit ändern" row action -- a row with its own property AND its own action is a table row by
+the criterion above, not a navigation button, so the button row moved onto `dataTable` in the same
+column order as `documentColumns` (Name, Sichtbarkeit, rest) -- one place a user learns to look for
+visibility, not two. This also gives folders the same sub-768px card-list fallback every other
+`dataTable` already has, which the button row had no answer for at all. Both the folder and document
+row actions gained a "Sichtbarkeit ändern" button opening a small `Modal` + `lapisForm` (pattern:
+`bankAccountEditModal`) -- the modal IS the confirmation, no second `confirmDialog` on top, matching
+every other reversible-setting-change dialog in this codebase. Both new `selectField` calls sit
+inside that modal's `lapisForm`, so neither adds to R24B's "outside the strict set" count (the file
+was already fully migrated); no ratchet number changed.
+
+Fixed in passing (not a UI-grammar finding, a labeling bug): the document-creation "Sichtbarkeit"
+dropdown showed the raw enum constant (`"PUBLIC_MEMBERS"`) instead of a translated label -- see
+`ClientUntrustedWidgetTextTripwireTest`'s `KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS` ledger, which drops
+from 2 to 1 as a result (the remaining exception, `MemberAdministrationScreen.kt`, is unrelated).

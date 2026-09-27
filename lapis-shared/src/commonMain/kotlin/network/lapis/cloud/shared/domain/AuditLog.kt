@@ -29,6 +29,13 @@ import kotlinx.serialization.Serializable
  * surviving record that the declaration ever existed, same "hard-deleted row, audit entry is the
  * sole remaining trace" idiom [AuditEntityType.CONFERENCE_RECORDING]'s own KDoc already
  * establishes for `deleteRecording`.
+ *
+ * Welle V1.9.1 "Zugriffsrechte für Dokumente und Ordner sichtbar und editierbar" --
+ * `network.lapis.cloud.server.rpc.DocumentService.deleteDocument`'s soft-delete (`is_deleted =
+ * true`, versions kept) is ALSO recorded as `VOID`, not a new `DELETE` literal: a fresh literal
+ * would force a second `chk_audit_log_entry_action` CHECK-Verbreiterung AND an enum-literal-order
+ * change pinned by `AuditLogSchemaDriftTest`, for no semantic gain -- a document soft-delete is
+ * exactly the "Storno/Widerruf, record kept, no further correction" shape `VOID` already names.
  */
 @Serializable
 enum class AuditAction { CREATE, UPDATE, POST, VOID }
@@ -281,6 +288,28 @@ enum class AuditEntityType {
      * `OPEN_ITEM_NETTING`, additive only.
      */
     RECEIVABLE_DUNNING_NOTICE,
+
+    /**
+     * Welle V1.9.1 "Zugriffsrechte für Dokumente und Ordner sichtbar und editierbar" --
+     * `network.lapis.cloud.server.rpc.DocumentService`'s `createDocument`/`setDocumentAccessLevel`
+     * each write exactly one `DOCUMENT` `CREATE`/`UPDATE` entry, `entityId` = the `document` row's
+     * id. `deleteDocument` writes `VOID` here too -- see [AuditAction] KDoc for why this wave
+     * deliberately reuses `VOID` instead of adding a new `DELETE` literal. See
+     * [DocumentAccessLevelSnapshot] KDoc. 8 characters, well under the `audit_log_entry.entity_type`
+     * `VARCHAR(29)` width limit. Appended LAST, after `RECEIVABLE_DUNNING_NOTICE`, additive only.
+     */
+    DOCUMENT,
+
+    /**
+     * Welle V1.9.1 -- `network.lapis.cloud.server.rpc.DocumentService`'s `createFolder`/
+     * `setFolderAccessLevel` each write exactly one `DOCUMENT_FOLDER` `CREATE`/`UPDATE` entry,
+     * `entityId` = the `document_folder` row's id. A `setFolderAccessLevel` verschärfung ADDITIONALLY
+     * writes one `DOCUMENT`/`UPDATE` entry per cascaded document (`cascadedFromFolderId` set) --
+     * N+1 rows, never a single combined entry, for full revision-safety. See
+     * [DocumentFolderAccessLevelSnapshot] KDoc. 15 characters, well under the VARCHAR(29) width
+     * limit. Appended LAST, after `DOCUMENT`, additive only.
+     */
+    DOCUMENT_FOLDER,
 }
 
 /**

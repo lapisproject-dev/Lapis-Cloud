@@ -15343,3 +15343,43 @@ msgstr "Stai impegnando %1 dal tuo saldo LTR libero. Il post verrà pubblicato i
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:239
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr "Ci sono modifiche non salvate al testo del post. Salvale prima -- altrimenti verrà pubblicata la bozza originale, non la tua modifica."
+
+msgid "Alle Mitglieder"
+msgstr "Tutti i membri"
+
+msgid "Nur Vorstand"
+msgstr "Solo consiglio direttivo"
+
+msgid "Nur Administration"
+msgstr "Solo amministrazione"
+
+msgid "Sichtbarkeit ändern"
+msgstr "Modifica visibilità"
+
+msgid "Sichtbarkeit des Ordners ändern"
+msgstr "Modifica la visibilità della cartella"
+
+msgid "Sichtbarkeit des Dokuments ändern"
+msgstr "Modifica la visibilità del documento"
+
+msgid "Sichtbarkeit geändert."
+msgstr "Visibilità modificata."
+
+msgid "Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."
+msgstr "Limitare una cartella limita anche tutti i documenti in essa contenuti."
+
+msgid "Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."
+msgstr "Ampliare una cartella non amplia i documenti in essa contenuti."
+
+msgid "Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt."
+msgstr "Visibilità modificata -- %1 documenti sono stati limitati anche loro."
+
+msgid "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt."
+msgstr "Visibilità modificata -- %1 sottocartelle e %2 documenti sono stati limitati anch’essi."
+
+msgid "Dokument"
+msgstr "Documento"
+
+msgid "Dokumentordner"
+msgstr "Cartella documenti"
+

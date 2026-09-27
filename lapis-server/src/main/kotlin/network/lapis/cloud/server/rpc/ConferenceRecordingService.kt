@@ -531,13 +531,39 @@ class ConferenceRecordingService(
      * [listRecordings]'s optional room filter -- see that method's own KDoc for why this must be a
      * `WHERE` clause rather than a Kotlin filter.
      *
-     * The translation is faithful, not an approximation, because `mayAccess`'s first half
-     * ([network.lapis.cloud.server.security.canAccessRecordingAtLevel]) depends only on the CALLER
-     * ([CurrentMember.role]/[CurrentMember.status]) and the row's `access_level` -- never on
-     * anything else about the row. The set of levels this caller may read is therefore fully
-     * computable up front, exactly the same `DocumentAccessLevel.entries.filter { ... }` idiom
-     * [DocumentService.listDocuments] already uses for its own SQL filter, and the remaining half
-     * ("the recording's own starter can always see it") is a plain column comparison.
+     * The translation is faithful for the RECORDING's own tier, not an approximation, because
+     * `mayAccess`'s first half ([network.lapis.cloud.server.security.canAccessRecordingAtLevel])
+     * depends only on the CALLER ([CurrentMember.role]/[CurrentMember.status]) and the row's
+     * `access_level` -- never on anything else about the row. The set of levels this caller may read
+     * is therefore fully computable up front, exactly the same `DocumentAccessLevel.entries.filter
+     * { ... }` idiom [DocumentService.listDocuments] already uses for its own SQL filter, and the
+     * remaining half ("the recording's own starter can always see it") is a plain column comparison.
+     *
+     * **Welle V1.9.1, fix round (B1): this predicate deliberately does NOT fold in `mayAccess`'s new
+     * `documentAccessLevel` tier.** The BYTES and the URL are what the document tier protects, and it
+     * is applied at both places that hand them out: [rowToDto]'s `mediaUrl` computation and
+     * [network.lapis.cloud.server.routes.registerConferenceRecordingRoutes]' media route. Folding it
+     * in here would require joining `document` into this paged query.
+     *
+     * **Corrected in the polish round (P4)**: the justification this paragraph used to give -- "the
+     * row metadata is something `getActiveRecording` hands to everyone in the room anyway" -- does not
+     * carry, and must not be reused as if it had been reviewed. [getActiveRecording] only ever returns
+     * rows whose `status` is in `ACTIVE_RECORDING_STATUSES`; such a recording has no archived document
+     * yet, so its document tier is `null` by definition. For the case that actually matters here -- a
+     * READY recording whose archive folder was tightened AFTERWARDS -- `getActiveRecording` is
+     * therefore no source at all.
+     *
+     * **Residual, consciously accepted**: a caller who passes the RECORDING's own tier still learns
+     * the row's metadata (that it exists, its room title, duration, track count, timestamps) even when
+     * the archived document's tier would hide it; only the media URL is withheld. Accepted rather than
+     * closed, for two reasons. First, that metadata is room-scoped and this design already treats it
+     * as the low-sensitivity half of a recording: the recording row carries its own `access_level`,
+     * set as a deliberate decision when the recording started, and the room's own participants are
+     * told a recording is running at all. Second, the leak is bounded by the recording tier, so it is
+     * never wider than the moderator's own explicit choice for that row. What is NOT accepted is the
+     * bytes, and those are gated twice. Should this ever need closing, the fix is the `document` join
+     * plus [ConferenceRecordingAccess.mayAccess] in SQL -- not a Kotlin post-`limit` filter, see
+     * [listRecordings]' KDoc for why that shape is forbidden here.
      */
     private fun accessPredicate(current: CurrentMember): Op<Boolean> {
         val allowedLevels = DocumentAccessLevel.entries.filter { current.canAccessRecordingAtLevel(it) }
@@ -643,12 +669,27 @@ class ConferenceRecordingService(
         // ConferenceRecordingDto KDoc and ConferenceRecordingAccess.mayAccess KDoc "the ONE access
         // predicate", same rule the media route itself re-checks server-side (never trust this
         // client-visible URL alone).
+        //
+        // Welle V1.9.1, fix round (B1): the archived document's OWN access level is folded in, so a
+        // folder tighten that clamped `document.access_level` up also stops this URL from being
+        // offered -- the route would reject it anyway, but handing out a URL that 403s is exactly the
+        // kind of divergence the "one predicate, three call sites" rule exists to prevent. One extra
+        // single-row lookup per READY recording, in the same shape as the `trackCount` count above.
+        val documentAccessLevel: DocumentAccessLevel? =
+            documentId?.let { id ->
+                DocumentTable
+                    .select(DocumentTable.accessLevel)
+                    .where { DocumentTable.id eq id }
+                    .singleOrNull()
+                    ?.get(DocumentTable.accessLevel)
+            }
         val mediaUrl: String? =
             if (status == ConferenceRecordingStatus.READY &&
                 ConferenceRecordingAccess.mayAccess(
                     current = current,
                     accessLevel = row[ConferenceRecordingTable.accessLevel],
                     startedByMemberId = startedByMemberId,
+                    documentAccessLevel = documentAccessLevel,
                 )
             ) {
                 "/api/conference/recordings/$recordingId/media"

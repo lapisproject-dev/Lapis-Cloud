@@ -33,6 +33,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.nio.file.Files
@@ -366,6 +367,116 @@ class ConferenceRecordingRoutesTest :
                     val response =
                         client.get("/api/conference/recordings/$recordingId/media") { header("X-Member-Id", starter.toString()) }
                     response.status shouldBe HttpStatusCode.NotFound
+                }
+            } finally {
+                storageRoot.deleteRecursively()
+            }
+        }
+        // ── Welle V1.9.1, fix round (B1): the fifth content gate ────────────────────────────────
+
+        test("B1: a folder tighten clamped document.access_level to ADMIN_ONLY -> the media route 403s a plain member") {
+            // The recording row itself stays PUBLIC_MEMBERS -- `conference_recording.access_level` is a
+            // DIFFERENT column and neither `setFolderAccessLevel`'s cascade nor `DocumentArchiving`'s
+            // clamp ever touches it. Before the fix this member kept streaming the video while every
+            // other gate (download route, RPC listings, AI retriever, MCP tool) was already closed.
+            val storageRoot = Files.createTempDirectory("conf-rec-routes-storage").toFile()
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) {
+                            exception<ForbiddenException> { call, cause -> call.respond(HttpStatusCode.Forbidden, cause.message) }
+                        }
+                        install(PartialContent)
+                        routing { registerConferenceRecordingRoutes(storageRoot) }
+                    }
+                    val member = createMember("crr-b1-doc-clamp-member@example.org", AccountRole.MEMBER)
+                    val roomId = createRoom(member)
+                    val (recordingId, documentId) =
+                        createReadyRecording(storageRoot, roomId, member, DocumentAccessLevel.PUBLIC_MEMBERS)
+                    // Sanity: before the clamp this member can stream it.
+                    client
+                        .get("/api/conference/recordings/$recordingId/media") { header("X-Member-Id", member.toString()) }
+                        .status shouldBe HttpStatusCode.OK
+
+                    // What a `setFolderAccessLevel` tighten does to the archived document, and only to it.
+                    transaction {
+                        DocumentTable.update({ DocumentTable.id eq documentId }) {
+                            it[accessLevel] = DocumentAccessLevel.ADMIN_ONLY
+                        }
+                    }
+                    transaction {
+                        ConferenceRecordingTable
+                            .selectAll()
+                            .where { ConferenceRecordingTable.id eq recordingId }
+                            .single()[ConferenceRecordingTable.accessLevel]
+                    } shouldBe DocumentAccessLevel.PUBLIC_MEMBERS
+
+                    client
+                        .get("/api/conference/recordings/$recordingId/media") { header("X-Member-Id", member.toString()) }
+                        .status shouldBe HttpStatusCode.Forbidden
+                }
+            } finally {
+                storageRoot.deleteRecursively()
+            }
+        }
+
+        test("B1: the starter carve-out does NOT survive a document-side clamp (the container decision is not theirs)") {
+            val storageRoot = Files.createTempDirectory("conf-rec-routes-storage").toFile()
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) {
+                            exception<ForbiddenException> { call, cause -> call.respond(HttpStatusCode.Forbidden, cause.message) }
+                        }
+                        install(PartialContent)
+                        routing { registerConferenceRecordingRoutes(storageRoot) }
+                    }
+                    val starter = createMember("crr-b1-starter-clamp@example.org", AccountRole.MEMBER)
+                    val roomId = createRoom(starter)
+                    val (recordingId, documentId) =
+                        createReadyRecording(storageRoot, roomId, starter, DocumentAccessLevel.BOARD_ONLY)
+                    // The carve-out still holds while the recording's OWN tier is the binding one.
+                    client
+                        .get("/api/conference/recordings/$recordingId/media") { header("X-Member-Id", starter.toString()) }
+                        .status shouldBe HttpStatusCode.OK
+
+                    transaction {
+                        DocumentTable.update({ DocumentTable.id eq documentId }) {
+                            it[accessLevel] = DocumentAccessLevel.ADMIN_ONLY
+                        }
+                    }
+                    client
+                        .get("/api/conference/recordings/$recordingId/media") { header("X-Member-Id", starter.toString()) }
+                        .status shouldBe HttpStatusCode.Forbidden
+                }
+            } finally {
+                storageRoot.deleteRecursively()
+            }
+        }
+
+        test("B1: an ADMIN still reaches an ADMIN_ONLY-clamped recording -- the clamp restricts, it does not break the gate") {
+            val storageRoot = Files.createTempDirectory("conf-rec-routes-storage").toFile()
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) {
+                            exception<ForbiddenException> { call, cause -> call.respond(HttpStatusCode.Forbidden, cause.message) }
+                        }
+                        install(PartialContent)
+                        routing { registerConferenceRecordingRoutes(storageRoot) }
+                    }
+                    val admin = createMember("crr-b1-admin-clamp@example.org", AccountRole.ADMIN)
+                    val roomId = createRoom(admin)
+                    val (recordingId, documentId) =
+                        createReadyRecording(storageRoot, roomId, admin, DocumentAccessLevel.PUBLIC_MEMBERS)
+                    transaction {
+                        DocumentTable.update({ DocumentTable.id eq documentId }) {
+                            it[accessLevel] = DocumentAccessLevel.ADMIN_ONLY
+                        }
+                    }
+                    client
+                        .get("/api/conference/recordings/$recordingId/media") { header("X-Member-Id", admin.toString()) }
+                        .status shouldBe HttpStatusCode.OK
                 }
             } finally {
                 storageRoot.deleteRecursively()

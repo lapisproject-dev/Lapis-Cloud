@@ -200,6 +200,8 @@ classDiagram(name = "AuditLog") {
         literal(name = "OPEN_ITEM") // Welle V1.4.15 "Kreditoren-/Debitorenbuchhaltung" -- OpenItemService writes; 9 chars, fits within VARCHAR(29)
         literal(name = "OPEN_ITEM_NETTING") // Welle V1.4.15 -- OpenItemService.executeNetting/reverseNetting writes; 17 chars, fits within VARCHAR(29)
         literal(name = "RECEIVABLE_DUNNING_NOTICE") // Welle V1.4.15 -- ReceivableDunningEngine writes; 25 chars, fits within VARCHAR(29)
+        literal(name = "DOCUMENT") // Welle V1.9.1 "Zugriffsrechte fuer Dokumente und Ordner" -- DocumentService.createDocument/setDocumentAccessLevel/deleteDocument (as VOID) writes; 8 chars, fits within VARCHAR(29)
+        literal(name = "DOCUMENT_FOLDER") // Welle V1.9.1 -- DocumentService.createFolder/setFolderAccessLevel writes (plus one DOCUMENT/UPDATE per cascaded document); 15 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

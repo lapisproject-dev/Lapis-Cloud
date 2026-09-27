@@ -21,6 +21,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.DocumentTable
@@ -778,6 +779,12 @@ private fun cleanUpDsgvoTestData(
 ) {
     if (memberIds.isEmpty()) return
     transaction {
+        // Welle V1.9.1: DocumentService now writes AuditLogEntryTable rows (createFolder/
+        // createDocument/setDocumentAccessLevel/setFolderAccessLevel/deleteDocument), so a test
+        // member who touched the document area leaves an actor_member_id-referencing row behind --
+        // delete it first, or the MemberTable delete below violates that FK. Test-only cleanup;
+        // audit_log_entry stays append-only in production.
+        AuditLogEntryTable.deleteWhere { actorMemberId inList memberIds }
         DsgvoAuditLogTable.deleteWhere { subjectMemberId inList memberIds }
         ErasureRequestTable.deleteWhere { subjectMemberId inList memberIds }
         MailingDeliveryLogTable.deleteWhere { memberId inList memberIds }

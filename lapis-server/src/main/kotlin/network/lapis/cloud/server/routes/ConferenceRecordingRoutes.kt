@@ -81,10 +81,19 @@ fun Route.registerConferenceRecordingRoutes(documentStorageRoot: File) {
             return@get
         }
 
+        // Welle V1.9.1, fix round (B1): the ARCHIVED DOCUMENT's own access level is passed in as a
+        // second tier, and the more restrictive of the two wins -- see
+        // [ConferenceRecordingAccess.mayAccess] KDoc. This route is the fifth content gate of the
+        // document access model, and the one the V1.9.1 wave had missed: it reads
+        // `conference_recording.access_level`, a DIFFERENT column from the `document.access_level`
+        // that `setFolderAccessLevel`'s cascade and `DocumentArchiving`'s clamp write, so a folder
+        // tightened to ADMIN_ONLY used to leave this byte stream readable by every member who still
+        // held the mediaUrl.
         if (!ConferenceRecordingAccess.mayAccess(
                 current = current,
                 accessLevel = recordingRow[ConferenceRecordingTable.accessLevel],
                 startedByMemberId = recordingRow[ConferenceRecordingTable.startedByMemberId],
+                documentAccessLevel = documentRow[DocumentTable.accessLevel],
             )
         ) {
             throw ForbiddenException("Not authorized to access this recording")
