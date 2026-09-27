@@ -25,6 +25,20 @@ internal inline fun <T> withMountedRoot(
     id: String,
     block: (Root, () -> HTMLElement) -> T,
 ): T {
+    // ON ENTRY, not just in `finally`: this harness is the OTHER way into a DOM test (the first is
+    // `formTest`, which has cleaned up on entry since it was written -- "Leftovers of other test
+    // classes ... must not be found as 'the last modal'"). Classes that mount through here with a bare
+    // `promise { block() }` had no entry-side cleanup at all, so they depended on EVERY preceding class
+    // in Karma's single browser page having tidied up after itself. That assumption is what kept
+    // breaking: `closeOpenModals` already existed and was simply not called in ten classes.
+    //
+    // A test must not be able to inherit a predecessor's open modal. Both calls are synchronous and
+    // idempotent, so there is no `suspend` problem here (see [hardResetModalState] on why the shared
+    // teardown cannot be suspending), and `disableModalTransitions` additionally makes any modal THIS
+    // test opens closable at once -- Bootstrap ignores `hide()` while the ~300 ms show transition runs,
+    // and a test clicks far faster than a person.
+    disableModalTransitions()
+    hardResetModalState()
     val container = document.createElement("div") as HTMLElement
     container.id = id
     document.body!!.appendChild(container)
