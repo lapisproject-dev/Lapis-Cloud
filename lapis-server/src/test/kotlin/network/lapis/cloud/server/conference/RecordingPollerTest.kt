@@ -3,7 +3,10 @@ package network.lapis.cloud.server.conference
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -150,6 +153,22 @@ private class FakeRecordingComposer(
     ) {
         callCount++
         behavior(spec, outputFile)
+    }
+}
+
+/**
+ * A/V-sync fix (2026-09-27) -- returns a scripted media duration per file name, `null` for anything
+ * unscripted (a failed probe). Uses the interface's default `probe()` (start time `null`), which is
+ * exactly the shape a minimal implementation has.
+ */
+private class FakeRecordingMediaProber(
+    private val durationsByFileName: Map<String, Double> = emptyMap(),
+) : RecordingMediaProber {
+    val probedFileNames = mutableListOf<String>()
+
+    override suspend fun probeDurationSeconds(file: File): Double? {
+        probedFileNames += file.name
+        return durationsByFileName[file.name]
     }
 }
 
@@ -317,12 +336,15 @@ class RecordingPollerTest :
             maxDurationMinutes: Long = 240,
             egressTimeoutMinutes: Long = 30,
             keepRaw: Boolean = false,
+            pollIntervalSeconds: Long = 10,
+            prober: RecordingMediaProber = RecordingMediaProber.None,
             clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
         ): RecordingPoller {
             val config =
                 ConferenceRecordingConfig.load { key ->
                     when (key) {
                         "LAPIS_RECORDING_ENABLED" -> "true"
+                        "LAPIS_RECORDING_POLL_INTERVAL_SECONDS" -> pollIntervalSeconds.toString()
                         "LAPIS_RECORDING_MAX_TRACKS" -> maxTracks.toString()
                         "LAPIS_RECORDING_MAX_DURATION_MINUTES" -> maxDurationMinutes.toString()
                         "LAPIS_RECORDING_EGRESS_TIMEOUT_MINUTES" -> egressTimeoutMinutes.toString()
@@ -338,11 +360,80 @@ class RecordingPollerTest :
                 recordingConfig = config,
                 documentStorageRoot = documentStorageRoot,
                 composer = composer,
+                prober = prober,
                 clock = clock,
             )
         }
 
         // ── RECORDING ────────────────────────────────────────────────────
+
+        test(
+            "RECORDING: requestTick() wakes the running loop long before the poll interval elapses " +
+                "(first seconds no longer wait for the next tick)",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            val adminClient = FakeLiveKitAdminClient()
+            val egressClient = FakeLiveKitEgressClient()
+            // One-hour interval: without requestTick() the second tick would never come during this test.
+            val poller =
+                buildPoller(
+                    adminClient,
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    pollIntervalSeconds = 3_600,
+                )
+            try {
+                poller.start()
+                // Let the loop's FIRST tick (nothing to do yet -- no RECORDING row exists) run and go to sleep.
+                delay(300)
+
+                // Now what startRecording does: insert the row, then poke the poller.
+                val member = createMember("poller-request-tick@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        LiveKitParticipantInfo(
+                            identity = "alice",
+                            tracks = listOf(LiveKitTrackInfo(sid = "TR_wake", source = "CAMERA", muted = false)),
+                        ),
+                    )
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                poller.requestTick()
+
+                withTimeout(5_000) { while (egressClient.started.isEmpty()) delay(10) }
+                egressClient.started.single().second shouldBe "TR_wake"
+                transaction {
+                    ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.recordingId eq recordingId }.count()
+                } shouldBe 1L
+            } finally {
+                poller.stop()
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("requestTick() on a poller that was never started is a harmless no-op") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val poller =
+                    buildPoller(
+                        FakeLiveKitAdminClient(),
+                        FakeLiveKitEgressClient(),
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                    )
+                poller.requestTick()
+                poller.requestTick()
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
 
         test("RECORDING: discovers a new unmuted track, starts egress, and inserts a track row -- muted tracks are skipped") {
             val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
@@ -866,6 +957,99 @@ class RecordingPollerTest :
                 createdDocumentIds += row[ConferenceRecordingTable.documentId]!!
                 (row[ConferenceRecordingTable.fileSizeBytes]!! > 0) shouldBe true
                 rawDir.exists() shouldBe false
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PROCESSING: A/V alignment (real ELB numbers 2026-09-27) -- offsets are the started_at differences ONLY " +
+                "(mic 0.000, cam 0.084, share 5.000); the probe's reported-minus-probed differences (0.385 s / 0.100 s) " +
+                "are logged but never applied",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-avsync@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING)
+                val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+                val micFile = rawDir.resolve("alice__MICROPHONE__TR_m.ogg").apply { writeBytes(byteArrayOf(1)) }
+                val camFile = rawDir.resolve("alice__CAMERA__TR_c.webm").apply { writeBytes(byteArrayOf(1)) }
+                val shareFile = rawDir.resolve("alice__SCREEN_SHARE__TR_s.mp4").apply { writeBytes(byteArrayOf(1)) }
+                // REAL values of ELB recording 80394924-4185-4f82-8cc6-03ee8d9b269c (2026-09-27), see
+                // RecordingTrackAlignmentTest -- the recording that exposed round 1's double shift.
+                val t0 = 1_790_529_971_823_572_890L
+                createTrack(
+                    recordingId,
+                    egressId = "EG_m-$recordingId",
+                    livekitTrackId = "TR_m",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                    trackSource = ConferenceRecordingTrackSource.MICROPHONE,
+                    fileName = micFile.name,
+                    startedAtEpochNanos = t0,
+                    durationMs = 40_312L,
+                )
+                createTrack(
+                    recordingId,
+                    egressId = "EG_c-$recordingId",
+                    livekitTrackId = "TR_c",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                    trackSource = ConferenceRecordingTrackSource.CAMERA,
+                    fileName = camFile.name,
+                    startedAtEpochNanos = 1_790_529_971_907_704_186L,
+                    durationMs = 39_905L,
+                )
+                createTrack(
+                    recordingId,
+                    egressId = "EG_s-$recordingId",
+                    livekitTrackId = "TR_s",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                    trackSource = ConferenceRecordingTrackSource.SCREEN_SHARE,
+                    fileName = shareFile.name,
+                    startedAtEpochNanos = t0 + 5_000_000_000L,
+                    durationMs = 17_000L,
+                )
+                val prober =
+                    FakeRecordingMediaProber(
+                        mapOf(
+                            micFile.name to 39.927313, // ffprobe of the real mic.ogg: 0.385 s shorter than reported
+                            camFile.name to 39.804511, // ffprobe of the real cam.webm: 0.100 s shorter than reported
+                            // shareFile deliberately unscripted -> probe "fails" -> same offset as a successful probe
+                        ),
+                    )
+                var captured: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, outputFile ->
+                        captured = spec
+                        outputFile.writeBytes(byteArrayOf(1))
+                    }
+                val poller =
+                    buildPoller(
+                        FakeLiveKitAdminClient(),
+                        FakeLiveKitEgressClient(),
+                        composer,
+                        hostRawRoot,
+                        documentStorageRoot,
+                        prober = prober,
+                    )
+
+                poller.tick()
+
+                val spec = captured ?: error("composer was not invoked")
+                prober.probedFileNames.toSet() shouldBe setOf(micFile.name, camFile.name, shareFile.name)
+                spec.audioInputs.single().offsetSeconds shouldBe 0.0
+                val cam = spec.videoInputs.single { it.file.name == camFile.name }
+                val share = spec.videoInputs.single { it.file.name == shareFile.name }
+                // Round 1 (93f378ba) composed this recording with mic 0.385 / cam 0.184; round 2 keeps only
+                // the real 0.084 s started_at difference and the probe differences stay out of the offsets.
+                cam.offsetSeconds shouldBe (0.084 plusOrMinus 0.0005)
+                share.offsetSeconds shouldBe (5.0 plusOrMinus 0.0005)
+                share.isScreenShare shouldBe true
+                // Output duration is governed by start offsets + reported durations (mic: 0 + 40.312 is the longest).
+                spec.outputDurationSeconds shouldBe (40.312 plusOrMinus 0.0005)
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()

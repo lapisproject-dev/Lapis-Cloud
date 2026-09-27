@@ -6,6 +6,68 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Videokonferenz-Aufzeichnung: fehlende erste Sekunden und Rest-Versatz zwischen Audio und Video
+  (ELB-Test-Aufzeichnung 2026-09-27).** Zwei getrennte Ursachen, beide serverseitig:
+  1. *Abgeschnittener Anfang* — `startRecording` legte nur die `RECORDING`-Zeile an, der erste
+     `StartTrackEgress` passierte erst im nächsten regulären Tick des `RecordingPoller`, also bis zu
+     `LAPIS_RECORDING_POLL_INTERVAL_SECONDS` (Default 10 s) später, während die Oberfläche bereits
+     „Aufzeichnung läuft“ zeigte. Der Poller hat jetzt `requestTick()` (konflationierter Kanal, weckt
+     die Schleife sofort), das `ConferenceRecordingService.startRecording` unmittelbar nach dem
+     Commit aufruft. Die Egress-eigene Anlaufzeit (Raum beitreten, abonnieren, erstes Keyframe)
+     bleibt bestehen — der Poll-Intervall-Anteil der Lücke entfällt.
+  2. *A/V-Versatz, Runde 1 (zurückgenommen, siehe Runde 2)* — die Komposition wurde um eine
+     „Kopfverlust“-Korrektur ergänzt: `gemeldete Egress-Dauer − per ffprobe gemessene Mediendauer`
+     wurde pro Spur zum Start-Offset addiert, in der Annahme, LiveKit-Egress verwerfe empfangene
+     Pakete vor dem ersten geschriebenen Sample und die Differenz sei dieser fehlende Vorlauf. Der
+     neue `RecordingMediaProber` (`ffprobe`, Pfad aus `LAPIS_FFMPEG_PATH` abgeleitet oder
+     `LAPIS_FFPROBE_PATH`) misst die Datei; alle Werte pro Spur werden auf INFO geloggt.
+  3. *A/V-Versatz, Runde 2* — die erste echte ELB-Aufzeichnung mit Runde 1 hatte weiterhin einen
+     Versatz, und ihre Zahlen widerlegen die Annahme aus Runde 1 (Mikrofon: gemeldet 40,312 s,
+     gemessen 39,927 s; Kamera: gemeldet 39,905 s, gemessen 39,805 s). Quellenprüfung an LiveKit
+     Egress v1.13.0 + `server-sdk-go`: `file_results[0].started_at` ist die Empfangszeit des ersten
+     RTP-Pakets (Synchronizer-`startedAt`, PTS 0), und `file_results[0].duration` wird durch die
+     Wanduhr-Laufzeit der GStreamer-Pipeline beim EOS nach unten begrenzt (`pipelineEndedAt`,
+     `watch.go`/`controller.updateEndTime`) — die gemeldete Dauer wächst also mit der
+     Stop-/Drain-/EOS-Latenz NACH dem letzten Paket, und `gemeldet − gemessen` misst überwiegend
+     dieses Ende, keinen fehlenden Anfang. Runde 1 verschob deshalb das Mikrofon um +0,385 s und die
+     Kamera um +0,100 s, also Audio gegenüber Video um weitere 0,285 s zu spät. Korrektur: der
+     komponierte Offset ist wieder ausschließlich die Differenz der `started_at`-Werte der Spuren
+     (bei der ELB-Aufzeichnung: Mikrofon 0,000 s, Kamera 0,084 s) — genau die Verankerung, die
+     LiveKits eigener Mehrspur-Synchronizer innerhalb eines Egress verwendet. Die `ffprobe`-Messung
+     bleibt als Diagnose (Mediendauer, `start_time` der Rohdatei, `gemeldet − gemessen`) im INFO-Log
+     und verändert die Komposition nicht mehr. Unit-Tests pinnen die echten ELB-Zahlen
+     (`RecordingTrackAlignmentTest`, `RecordingPollerTest`). Offen: ob nach dieser Rücknahme noch
+     ein Rest-Versatz bleibt, muss die nächste echte Aufzeichnung zeigen — Track Egress liefert
+     laut LiveKit keine untereinander synchronisierten Dateien; falls ein Rest bleibt, wäre
+     `TrackCompositeEgress` (eine Audio- plus eine Videospur in EINEM Egress, gemeinsamer
+     Synchronizer mit Sender-Report-Abgleich) der nächste Kandidat.
+  4. *A/V-Versatz, Runde 3* — die Aufzeichnung nach Runde 2 hatte den Anfang komplett, aber laut
+     Nutzer weiterhin ca. 0,5 s Versatz, während die Rohdaten (Start-Offsets 0,000 s / 0,055 s,
+     Paket-PTS-Spannen 39,920 s / 39,806 s) nur rund 60 ms erklären. Verdacht war die Audio-Kette
+     `asetpts=PTS-STARTPTS+offset/TB,aresample=async=1:first_pts=0`: `first_pts=0` könnte den eben
+     gesetzten Offset wieder auf 0 ziehen. **Empirisch widerlegt** (echtes `ffmpeg` 6.1 und 9.0,
+     synthetische Opus/OGG- und VP8/WebM-Eingaben mit messbarem Ereignis, `ashowinfo`/`silencedetect`/
+     `blackdetect` am fertigen MP4): `first_pts=0` füllt die Lücke bis zum Offset mit Stille auf, das
+     Audio landet exakt bei `offset`, beide Ketten liegen im fertigen MP4 innerhalb eines Ausgabe-
+     Frames beieinander. Die Filtergraph-Konstruktion setzt die berechneten Offsets korrekt um; die
+     0,5 s entstehen dort nicht. Dabei gefunden und behoben wurde eine **andere** Schwachstelle der
+     Video-Kette: `setpts=PTS-STARTPTS+offset/TB` verankert auf dem ersten *dekodierten* Frame.
+     Beginnt eine Track-Egress-WebM mit Nicht-Keyframes (der Depayloader schreibt sie, der Decoder
+     muss sie bis zum ersten Keyframe verwerfen), verschiebt `STARTPTS` die ganze Spur um genau
+     diesen unbrauchbaren Vorlauf nach vorn — Video läuft dem Audio um diesen Betrag voraus
+     (gemessen: 0,5 s Vorlauf verschob ein Ereignis von 2,0 s auf 1,5 s). Da `ffmpeg` den
+     Container-Start jeder Eingabe ohnehin selbst auf 0 normiert (verifiziert mit WebM und MP4 mit
+     `start_time` 0,5 s), ist `setpts=PTS+offset/TB` für jede wohlgeformte Datei identisch und für
+     diesen Fall korrekt; die Video-Kette nutzt jetzt diese Form, die Audio-Kette bleibt unverändert.
+     Ob die ELB-Aufzeichnung genau diesen Fall zeigt, ist **nicht** belegt (dazu am Rohfile
+     `ffprobe -select_streams v -show_entries packet=pts_time,flags` prüfen, ob das erste Paket
+     `K__` trägt). Neu: `FfmpegCompositionIntegrationTest` lässt das echte `ffmpeg` (falls
+     vorhanden, sonst übersprungen) gegen die Ausgabe von `FfmpegArgumentBuilder` laufen und misst
+     Audio- und Video-Ereignis im fertigen MP4 — ein reiner String-Vergleich des Filtergraphen kann
+     die beiden `first_pts`-Verhaltensweisen nicht unterscheiden.
+
 ### Security
 
 - **V1.9.1 — document/folder access levels are now visible and editable, closing a folder-level
@@ -333,6 +395,46 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Videokonferenz — ELB-Test 2026-09-27, Befund 2: persisted speaker/microphone/camera choice is now
+  APPLIED at join, not merely displayed.** `refreshDeviceOptions()` wrote the `localStorage` preference
+  into the device dropdown (`select.value = preferred`, inside the programmatic-value guard) but never
+  called `switchDevice` for it, so the dropdown could show "Kopfhörer" while LiveKit still played
+  through the default speakers — and re-selecting the already-selected entry fires no change event, so
+  the "switch" looked dead. New pure `conferenceStoredDeviceToApply(stored, active, available)` decides
+  when a stored id must be applied (usable, still available, different from LiveKit's active device);
+  a failed restore is console-logged, never toasted, and the dropdown falls back to the device LiveKit
+  actually uses. Covered by `ConferenceDeviceSelectionTest`.
+- **Videokonferenz — ELB-Test 2026-09-27, Befund 6: video tiles no longer collapse to a face-only band
+  when a phone joins in portrait.** A tile's height was driven by the intrinsic aspect ratio of the
+  `<video>` inside it; one 9:16 stream made its tile roughly twice as tall, the CSS grid row stretched
+  every tile in that row along with it, and `object-fit: cover` cropped all landscape streams to a
+  horizontal band. Tiles now carry `aspect-ratio: 16 / 9` (floored by the zone `min-height`), and a
+  portrait stream is letterboxed (`object-fit: contain`, re-evaluated on the video's `loadedmetadata`/
+  `resize` events, so rotation follows) instead of cropped — `conferenceVideoObjectFit`, covered by
+  `ConferenceGridLayoutTest`.
+- **Videokonferenz — ELB-Test 2026-09-27, Befund 7: a participant who re-joins while this client is
+  reconnecting is no longer invisible until a page reload.** `livekit-client` buffers participant/track
+  events during `Reconnecting`, but a FULL reconnect (`handleSignalRestarted`) clears that buffer and
+  re-applies the join response in place without re-emitting `ParticipantConnected` for participants
+  it already knows — the UI never hears about them. New `LiveKitRoomSession.resyncRoster()` re-derives
+  the remote roster from `Room.remoteParticipants`/`trackPublications` on every `RoomEvent.Reconnected`
+  (drops tiles the SDK no longer knows, never touches the local tile); `onRemoteTrack` is now
+  idempotent (detaches every element a previous attach created before attaching again, so a resync
+  can never append a second hidden `<audio>` — the same voice twice — or leak the old `<video>`).
+  Covered by `LiveKitRoomSessionResyncRosterTest`. Best-effort hardening: the exact ELB sequence was
+  not reproducible outside a live multi-device call.
+- **Aufzeichnung — ELB-Test 2026-09-27, Befund 3: the real cause of a failed track egress is now in the
+  server log, and a recording with zero stored tracks gets its own failure reason.** On ELB every
+  track egress ran for ~19 s and then failed with `Local upload failed: mkdir /out/<id>/: permission
+  denied` (the egress user, uid 1001, has no ACL grant on that instance's shared output volume — PdV's
+  volume has `user:1001:rwx`, ELB's does not; an operations fix, see deploy/example/README.adoc "Shared
+  lapis-egress-output volume"). The server log showed only the misleading `StopEgress ... HTTP 412`
+  that follows, and the recording ended as "Die Aufzeichnung konnte nicht zusammengesetzt werden" —
+  pointing at ffmpeg. `RecordingPoller` now logs `EgressInfo.error` (log only, the sanitized
+  `failure_reason` vocabulary stays a security boundary) when a track transitions to FAILED/ABORTED,
+  and marks a recording whose tracks ALL went terminal without one COMPLETE with the new reason
+  "Der Aufzeichnungsdienst konnte keine Spur speichern (Server-Konfiguration prüfen)." instead of the
+  compose message.
 - **V1.9.2 — folder-creation visibility defaults to the most restrictive level the creating role may
   pick.** Follow-up to V1.9.1: `renderFolderCreation`'s "Sichtbarkeit" select used to preselect
   `PUBLIC_MEMBERS` unconditionally, regardless of who was creating the folder — an ADMIN or BOARD

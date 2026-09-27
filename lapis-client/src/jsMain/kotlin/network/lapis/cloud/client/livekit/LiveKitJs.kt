@@ -190,6 +190,15 @@ external class LocalParticipant {
 external class RemoteParticipant {
     val identity: String
     val name: String?
+
+    /**
+     * ELB-Test-Fix 2026-09-27 (Befund 7, "Wiederbeitritt bleibt unsichtbar") -- JS `Map<trackSid,
+     * RemoteTrackPublication>` of everything this participant currently publishes. Read ONLY by
+     * [network.lapis.cloud.client.livekit.LiveKitRoomSession.resyncRoster], which walks it with the same
+     * `forEach((value, key) => ...)` shape [Room.remoteParticipants] is already walked with in
+     * `seedRoster`. `dynamic` for the same reason as [Room.remoteParticipants].
+     */
+    val trackPublications: dynamic
 }
 
 external interface Track {
@@ -229,6 +238,11 @@ external interface TrackPublication {
     /** V1.4.23 -- `dynamic`, weil eine Publikation auch Audio tragen kann; die Aufrufstelle prüft
      * `source`/`kind` und castet per `unsafeCast`. */
     val track: dynamic
+
+    /** ELB-Test-Fix 2026-09-27 (Befund 7) -- `true` once this client holds a subscribed, playable
+     * [track] for the publication (`RemoteTrackPublication.isSubscribed` in `livekit-client` 2.21.0).
+     * Read only by [network.lapis.cloud.client.livekit.LiveKitRoomSession.resyncRoster]. */
+    val isSubscribed: Boolean
 }
 
 /** V1.0 Videokonferenzen Wave 4 "Politur", D3 -- see [Room] class KDoc "Deliberately minimal" for why

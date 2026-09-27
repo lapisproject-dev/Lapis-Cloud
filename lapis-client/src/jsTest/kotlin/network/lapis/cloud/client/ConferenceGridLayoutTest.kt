@@ -111,4 +111,28 @@ class ConferenceGridLayoutTest {
         assertEquals(listOf("member-1", "member-2"), layout.priorityIdentities)
         assertEquals(listOf("member-3", "member-4", "member-5"), layout.compactIdentities)
     }
+
+    // ---------------------------------------------------------------------------------------
+    // conferenceVideoObjectFit (ELB-Test-Fix 2026-09-27, Befund 6 -- Mobil-Hochformat im 16:9-Tile)
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun conferenceVideoObjectFit_landscape_covers() {
+        assertEquals("cover", conferenceVideoObjectFit(videoWidth = 1280, videoHeight = 720))
+    }
+
+    @Test
+    fun conferenceVideoObjectFit_square_covers() {
+        assertEquals("cover", conferenceVideoObjectFit(videoWidth = 480, videoHeight = 480))
+    }
+
+    @Test
+    fun conferenceVideoObjectFit_portraitPhone_isLetterboxed() {
+        assertEquals("contain", conferenceVideoObjectFit(videoWidth = 720, videoHeight = 1280))
+    }
+
+    @Test
+    fun conferenceVideoObjectFit_dimensionsUnknownYet_covers() {
+        assertEquals("cover", conferenceVideoObjectFit(videoWidth = 0, videoHeight = 0))
+    }
 }
