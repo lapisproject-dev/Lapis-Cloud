@@ -259,6 +259,43 @@ All notable changes to this project are documented here. Format follows
   `format*`/`*In` functions, five live-translatable widget tokens, three table-column factories
   (`dateColumn`/`dateTimeColumn`/`timestampColumn`), `machineDate`/`machineDateTime` for the prefill/sort-key
   form, and `.lapis-tnum` tabular-nums styling shared with `Money.kt`'s spans.
+- **V1.4.32 W7 (Teilwelle B, no new version)** -- Teilwelle A's own KDoc named three routes by which a raw
+  ISO date/time still reached the DOM despite T1-T4: `field.toString()` outside the field-list grep's blind
+  spot (route 1, `T5A_LEDGER`, still open -- see below), `gettext("... %1", field)` with no `.toString()` in
+  the source at all (route 2, direct or behind a `field?.let { ... it ... }` rename), and `"${field}"`
+  string-template interpolation (route 3). This wave closes routes 2 and 3 completely and adds the T5
+  tripwire (`ClientTemporalFormatTripwireTest`, mirroring M5/M6 of `ClientMoneyFormatTripwireTest`) that
+  enforces it: the field list (151 distinct `LocalDate`/`LocalDateTime` property names) is derived from
+  `lapis-shared` at test-run time, not hand-maintained, so a newly added persisted temporal field is
+  covered automatically. Four detectors (T5a route 1, T5b route 2 direct, T5b-λ route 2 behind a rename,
+  T5c route 3), each with its own positive/negative self-test and a ledger test against the real scan.
+  Commit 2 closed all 6 route-3 sites in 4 files (`ApiKeysScreen.kt`, `EventCheckInSelectionScreen.kt`,
+  `EventCheckInScreen.kt`, `PoliticianScreen.kt`). Commits 3-5 closed every route-2 finding app-wide --
+  86 direct sites plus 14 behind a lambda rename, across 35 files in total (`AuditLogScreen.kt`,
+  `AuctionScreen.kt`, `BackupScreen.kt`, `BankStatementImportScreen.kt` (its λ finding only),
+  `BoardMembershipScreen.kt`, `CommitteesScreen.kt`, `CommunicationScreen.kt`, `ConferenceScreen.kt`,
+  `ContributionReliefLabels.kt`, `ContributionReliefQueueScreen.kt`, `ContributionsScreen.kt`,
+  `CrowdfundingScreen.kt`, `DashboardScreen.kt`, `DsgvoComplianceScreen.kt`, `DsgvoRightsScreen.kt`,
+  `DunningCasesScreen.kt`, `DunningSettingsScreen.kt`, `FinancialReportsScreen.kt`, `LedgerScreen.kt`,
+  `MeetingsScreen.kt`, `MemberAdministrationScreen.kt`, `MemberFinancialHistoryScreen.kt`,
+  `MotionsScreen.kt`, `OpenItemsScreen.kt`, `PaymentGatewaySettingsScreen.kt`, `PoliticianScreen.kt`,
+  `PostalMailScreen.kt`, `PriceOracleScreen.kt`, `SepaBatchesScreen.kt`, `SepaMandateSection.kt`,
+  `SepaSettingsScreen.kt`, `SocialModerationScreen.kt`, `SocialNetworkScreen.kt`,
+  `TravelExpenseApprovalsScreen.kt`, `TravelExpenseScreen.kt`) -- `T5B_LEDGER`/`T5B_LAMBDA_LEDGER` are now
+  both `emptyMap()`. Two bare-local-variable blind spots T5 itself cannot see (a field renamed to a plain
+  `val` before the `gettext` call, the same class of gap as the documented lambda-rename case) were fixed
+  alongside their ledgered siblings for message-internal consistency rather than left half-formatted:
+  `ContributionReliefLabels.kt`'s `deferralPreviousDueDate`/`exemptionUntil` and
+  `MemberFinancialHistoryScreen.kt`'s `exemptFrom`/`financialHistoryEmptyStateText`'s `joinedAt` parameter;
+  `DsgvoRightsScreen.kt`'s analogous `erasureDecidedCaption`/`decidedAt` gap was left open as a documented,
+  out-of-scope case. Golden-DOM tests that pinned raw ISO cells (`PseudoTableGoldenDomTest`'s
+  `weightHistory`/`distributions` rows, `ContributionReliefLabelsTest`, `BoardMembershipTranslationDomTest`,
+  `MemberFinancialHistoryScreenTest`) now assert the formatted form, via `formatDate`/`formatDateTime` calls
+  rather than hardcoded strings so they will not drift if `DateTime.kt`'s own format ever changes.
+  **Not done in this wave**: route 1 (`T5A_LEDGER`, 20 files/31 findings, measured by this wave's own
+  red-proof run -- larger than Teilwelle A's own re-measurement because that method only ever undercounts,
+  never overcounts, as its own KDoc warns) stays open, `ReportRows.kt`'s three sites GoBD-golden-test-pinned
+  as before. See `docs/architecture/ui-ux-guideline.adoc`'s W7 section for the file-by-file ledger.
 
 ### Fixed
 

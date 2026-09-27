@@ -187,7 +187,8 @@ class ContributionReliefLabelsTest {
         // F5: deferralPreviousDueDate is null before EXECUTED -- must not crash, must not show "null".
         val request = sampleRequest(deferralNewDueDate = LocalDate(2026, 6, 15), deferralPreviousDueDate = null)
         val description = reliefEffectDescription(request, tierAmountLabel = null)
-        assertTrue(description.contains("2026-06-15"), "expected the new due date in \"$description\"")
+        // V1.4.32 W7 Teilwelle B (T5b): formatted via DateTime.kt now, no more raw ISO.
+        assertTrue(description.contains(formatDate(LocalDate(2026, 6, 15))), "expected the new due date in \"$description\"")
         assertFalse(description.contains("→"), "must not show the before/after arrow before EXECUTED, got \"$description\"")
     }
 
@@ -200,15 +201,15 @@ class ContributionReliefLabelsTest {
                 deferralPreviousDueDate = LocalDate(2026, 3, 15),
             )
         val description = reliefEffectDescription(request, tierAmountLabel = null)
-        assertTrue(description.contains("2026-03-15"), "expected the previous due date in \"$description\"")
-        assertTrue(description.contains("2026-06-15"), "expected the new due date in \"$description\"")
+        assertTrue(description.contains(formatDate(LocalDate(2026, 3, 15))), "expected the previous due date in \"$description\"")
+        assertTrue(description.contains(formatDate(LocalDate(2026, 6, 15))), "expected the new due date in \"$description\"")
     }
 
     @Test
     fun reliefEffectDescription_exemption_openEnded_saysUnbefristet() {
         val request = sampleRequest(kind = ContributionReliefKind.EXEMPTION, exemptionFrom = LocalDate(2026, 1, 1), exemptionUntil = null)
         val description = reliefEffectDescription(request, tierAmountLabel = null)
-        assertTrue(description.contains("2026-01-01"))
+        assertTrue(description.contains(formatDate(LocalDate(2026, 1, 1))))
         assertTrue(description.contains("unbefristet"))
     }
 
@@ -221,8 +222,8 @@ class ContributionReliefLabelsTest {
                 exemptionUntil = LocalDate(2026, 12, 31),
             )
         val description = reliefEffectDescription(request, tierAmountLabel = null)
-        assertTrue(description.contains("2026-01-01"))
-        assertTrue(description.contains("2026-12-31"))
+        assertTrue(description.contains(formatDate(LocalDate(2026, 1, 1))))
+        assertTrue(description.contains(formatDate(LocalDate(2026, 12, 31))))
     }
 
     @Test

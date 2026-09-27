@@ -192,7 +192,7 @@ private fun renderApprovalCard(
     }
     headerRow.div(formatMoney(report.totalAmount)) { addCssClasses("fw-bold") }
 
-    card.div(gettext("%1 bis %2", report.travelFrom, report.travelTo)) { addCssClasses("text-muted small") }
+    card.div(gettext("%1 bis %2", formatDate(report.travelFrom), formatDate(report.travelTo))) { addCssClasses("text-muted small") }
     card.untrustedDiv(report.purpose)
     report.lines.forEach { line ->
         val lineRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }

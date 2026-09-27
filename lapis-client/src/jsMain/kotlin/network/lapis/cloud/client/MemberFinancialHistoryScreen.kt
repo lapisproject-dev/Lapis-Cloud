@@ -107,8 +107,8 @@ private fun renderExemptionBadge(
         val state = guarded { rpcService<IContributionReliefService>().getExemptionState(effectiveId) } ?: return@launch
         val from = state.exemptFrom ?: return@launch
         val label =
-            state.exemptUntil?.let { until -> gettext("Beitragsbefreit ab %1 bis %2", from, until) }
-                ?: gettext("Beitragsbefreit ab %1", from)
+            state.exemptUntil?.let { until -> gettext("Beitragsbefreit ab %1 bis %2", formatDate(from), formatDate(until)) }
+                ?: gettext("Beitragsbefreit ab %1", formatDate(from))
         root.typeBadge(label, "info")
     }
 }
@@ -128,8 +128,8 @@ private fun renderFinancialHistoryHead(
     } else if (dto.anonymized) {
         headPanel.typeBadge(tr("DSGVO-gelöscht"), "secondary")
     }
-    headPanel.div(gettext("Mitglied seit %1", dto.joinedAt))
-    dto.friendSince?.let { friendSince -> headPanel.div(gettext("Förderer seit %1", friendSince)) }
+    headPanel.div(gettext("Mitglied seit %1", formatDate(dto.joinedAt)))
+    dto.friendSince?.let { friendSince -> headPanel.div(gettext("Förderer seit %1", formatDate(friendSince))) }
 }
 
 private fun renderFinancialHistoryTiles(
@@ -149,7 +149,7 @@ private fun renderFinancialHistoryTiles(
         return tile
     }
 
-    tile(gettext("Gezahlte Beiträge seit %1", dto.joinedAt), dto.contributionsPaid)
+    tile(gettext("Gezahlte Beiträge seit %1", formatDate(dto.joinedAt)), dto.contributionsPaid)
     tile(tr("Erlassen"), dto.contributionsWaived)
     val outstandingTile = tile(tr("Offen"), dto.contributionsOutstanding)
     tile(tr("Gespendet"), dto.donationsTotal)
@@ -248,4 +248,4 @@ internal fun financialHistoryYearHeading(year: FinancialHistoryYearDto): String 
     gettext("%1 · Beiträge %2 · Spenden %3", year.year, formatMoney(year.contributionsPaid), formatMoney(year.donationsTotal))
 
 internal fun financialHistoryEmptyStateText(joinedAt: LocalDate): String =
-    gettext("Noch keine Zahlungen erfasst — Mitglied seit %1.", joinedAt)
+    gettext("Noch keine Zahlungen erfasst — Mitglied seit %1.", formatDate(joinedAt))

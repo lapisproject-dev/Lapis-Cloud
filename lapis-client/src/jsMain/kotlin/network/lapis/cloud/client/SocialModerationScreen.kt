@@ -134,7 +134,9 @@ private fun renderReportRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.typeBadge(socialPostReportCategoryLabel(report.category), "secondary")
     headerRow.statusBadge(socialPostReportStatusLabel(report.status), socialPostReportStatusColor(report.status))
-    headerRow.div(gettext("gemeldet am %1", report.reportedAt)) { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(
+        gettext("gemeldet am %1", formatDateTime(report.reportedAt)),
+    ) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(gettext("Beitrag: %1", report.postExcerpt)) { addCssClasses("small") }
     row.div(gettext("Begründung: %1", report.description)) { addCssClasses("small") }
@@ -278,7 +280,9 @@ private fun renderErasureRow(
     val row = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(socialPostErasureStatusLabel(erasure.status), socialPostErasureStatusColor(erasure.status))
-    headerRow.div(gettext("beantragt am %1", erasure.requestedAt)) { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(
+        gettext("beantragt am %1", formatDateTime(erasure.requestedAt)),
+    ) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(gettext("Begründung: %1", erasure.reason)) { addCssClasses("small") }
     erasure.subjectMemberId?.let { row.div(gettext("Betroffene Person: %1", it)) { addCssClasses("text-muted small") } }

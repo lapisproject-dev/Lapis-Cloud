@@ -1275,7 +1275,7 @@ internal fun journalEmptyText(
 internal fun journalEntryMetaText(entry: JournalEntryDto): String {
     val postingsCount = entry.postings.size
     val postingsNoun = if (postingsCount == 1) gettext("1 Buchungszeile") else gettext("%1 Buchungszeilen", postingsCount)
-    return gettext("%1 · %2 · erfasst von %3", entry.entryDate, postingsNoun, entry.createdByDisplayName)
+    return gettext("%1 · %2 · erfasst von %3", formatDate(entry.entryDate), postingsNoun, entry.createdByDisplayName)
 }
 
 /**
@@ -1345,13 +1345,13 @@ private fun renderJournalEntryDetailBody(
             gettext(
                 "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte.",
                 entry.createdByDisplayName,
-                entry.createdAt,
+                formatDateTime(entry.createdAt),
             )
         } else {
-            gettext("Gebucht am %1 von %2 -- unveränderlich.", entry.postedAt, entry.createdByDisplayName)
+            gettext("Gebucht am %1 von %2 -- unveränderlich.", formatDateTime(entry.postedAt!!), entry.createdByDisplayName)
         }
     panel.div(caption) { addCssClasses("text-muted small") }
-    panel.div(gettext("Datum: %1", entry.entryDate)) { addCssClasses("text-muted small") }
+    panel.div(gettext("Datum: %1", formatDate(entry.entryDate))) { addCssClasses("text-muted small") }
     entry.voucherReference?.let { panel.div(gettext("Beleg: %1", it)) { addCssClasses("text-muted small") } }
 
     renderDonorInfo(panel, entry)
@@ -1425,7 +1425,7 @@ private fun renderDonorInfo(
                 postalDispatchConfirmDialog(
                     caption = tr("Spendenbescheinigung per Post versenden"),
                     recipientDisplayName = entry.donorMemberDisplayName ?: entry.donorMemberId.orEmpty(),
-                    documentLabel = gettext("Spendenbescheinigung %1", entry.entryDate),
+                    documentLabel = gettext("Spendenbescheinigung %1", formatDate(entry.entryDate)),
                 ) {
                     outcomePanel.removeAll()
                     runGuardedAction(postalButton) {

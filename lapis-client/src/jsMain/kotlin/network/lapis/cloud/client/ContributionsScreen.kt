@@ -180,7 +180,7 @@ private fun renderOwnContributions(
 
     val blockingRequest = activeBlockingDeferralRequest(data.reliefRequests)
     if (blockingRequest != null) {
-        content.div(gettext("Stundungsantrag vom %1 in Bearbeitung", blockingRequest.requestedAt)) {
+        content.div(gettext("Stundungsantrag vom %1 in Bearbeitung", formatDateTime(blockingRequest.requestedAt))) {
             addCssClasses("alert alert-info")
         }
     }
@@ -206,7 +206,7 @@ private fun renderOwnContributions(
 private fun ownContributionColumns(blockingRequest: ContributionReliefRequestDto?): List<DataColumn<ContributionDto>> =
     listOf(
         textColumn(title = tr("Zeitraum"), primary = true) { contribution: ContributionDto ->
-            gettext("%1 bis %2", contribution.periodStart, contribution.periodEnd)
+            gettext("%1 bis %2", formatDate(contribution.periodStart), formatDate(contribution.periodEnd))
         },
         DataColumn(title = tr("Betrag"), numeric = true, cell = {
             cell,
@@ -477,7 +477,9 @@ private fun renderOwnReliefRequestCard(
     if (request.reasonText != null) {
         card.div(gettext("Erläuterung: %1", request.reasonText)) { addCssClasses("text-muted small") }
     } else if (request.reasonRedactedAt != null) {
-        card.div(gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", request.reasonRedactedAt)) {
+        card.div(
+            gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", formatDateTime(request.reasonRedactedAt!!)),
+        ) {
             addCssClasses("text-muted small")
         }
     }
@@ -616,7 +618,7 @@ private fun orgContributionColumns(): List<DataColumn<ContributionDto>> =
     listOf(
         textColumn(title = tr("Mitglied"), primary = true) { contribution: ContributionDto -> contribution.memberDisplayName },
         textColumn(title = tr("Zeitraum"), numeric = true) { contribution: ContributionDto ->
-            gettext("%1–%2", contribution.periodStart, contribution.periodEnd)
+            gettext("%1–%2", formatDate(contribution.periodStart), formatDate(contribution.periodEnd))
         },
         DataColumn(title = tr("Betrag"), numeric = true, cell = {
             cell,
@@ -651,7 +653,7 @@ private fun renderContributionActions(
             postalDispatchConfirmDialog(
                 caption = tr("Beitragsrechnung per Post versenden"),
                 recipientDisplayName = contribution.memberDisplayName,
-                documentLabel = gettext("Beitragsrechnung %1–%2", contribution.periodStart, contribution.periodEnd),
+                documentLabel = gettext("Beitragsrechnung %1–%2", formatDate(contribution.periodStart), formatDate(contribution.periodEnd)),
             ) {
                 postalButton.disabled = true
                 outcomePanel.removeAll()

@@ -112,7 +112,7 @@ private fun pendingApplicationLabel(application: MemberDto): String {
             "%1 (%2) -- eingereicht am %3",
             application.displayName,
             application.email,
-            application.joinedAt,
+            formatDate(application.joinedAt),
         )
     // V0.11.0: shows the board that this applicant came from an existing FRIEND account
     // (see MemberDto.friendSince KDoc "load-bearing") -- FriendUpgradePathTest covers the

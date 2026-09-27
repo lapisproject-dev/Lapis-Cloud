@@ -119,7 +119,7 @@ fun renderSepaMandateSection(root: SimplePanel) {
                         gettext(
                             "%1 am %2 von IBAN %3 (Mandatsreferenz %4, Gläubiger-ID %5)",
                             formatMoney(prenotification.amount),
-                            prenotification.requestedCollectionDate,
+                            formatDate(prenotification.requestedCollectionDate),
                             formatIbanLast4(prenotification.debtorIbanLast4),
                             prenotification.mandateReference,
                             prenotification.creditorId,

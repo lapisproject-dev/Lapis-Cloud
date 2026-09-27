@@ -281,7 +281,9 @@ fun renderBankStatementImportScreen(
                 val secondLineParts =
                     listOfNotNull(
                         import.accountIbanMasked,
-                        import.statementFrom?.let { from -> import.statementTo?.let { to -> gettext("%1 – %2", from, to) } },
+                        import.statementFrom?.let { from ->
+                            import.statementTo?.let { to -> gettext("%1 – %2", formatDate(from), formatDate(to)) }
+                        },
                         import.uploadedByDisplayName,
                         import.uploadedAt.toString(),
                     )

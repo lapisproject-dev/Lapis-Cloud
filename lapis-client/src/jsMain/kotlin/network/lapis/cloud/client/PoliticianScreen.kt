@@ -324,11 +324,19 @@ private fun renderPoliticianCard(
         card.div(sanitizeUntrustedI18nText(mandate)) { addCssClasses("small") }
     }
 
-    card.div(gettext("Politiker-Status seit %1 (erteilt von %2)", politician.grantedAt, politician.grantedByDisplayName)) {
+    card.div(
+        gettext("Politiker-Status seit %1 (erteilt von %2)", formatDateTime(politician.grantedAt), politician.grantedByDisplayName),
+    ) {
         addCssClasses("text-muted small")
     }
     if (politician.status == PoliticianProfileStatus.FORMER && politician.revokedAt != null) {
-        card.div(gettext("Widerrufen am %1 von %2", politician.revokedAt, politician.revokedByDisplayName ?: "--")) {
+        card.div(
+            gettext(
+                "Widerrufen am %1 von %2",
+                formatDateTime(politician.revokedAt!!),
+                politician.revokedByDisplayName ?: "--",
+            ),
+        ) {
             addCssClasses("text-muted small")
         }
     }
@@ -593,7 +601,11 @@ internal fun renderWeightHistoryTable(
                     numeric = true,
                     cell = { cell, s -> cell.plainAmountSpan(s.combinedTrustWeight).addCssClasses("fw-bold small") },
                 ),
-                textColumn<PoliticianWeightSnapshotDto>(title = tr("Berechnet"), cssClasses = "text-muted small") { "${it.computedAt}" },
+                dateTimeColumn<PoliticianWeightSnapshotDto>(
+                    title = tr("Berechnet"),
+                    numeric = false,
+                    cssClasses = "text-muted small",
+                ) { it.computedAt },
             ),
         rows = history,
         viewport = viewport,

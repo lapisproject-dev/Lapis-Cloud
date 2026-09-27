@@ -784,7 +784,9 @@ private fun renderOpenItemDetail(
         div(tr("Offen:")) { addCssClasses("text-muted small") }
         moneySpan(item.openAmount)
     }
-    panel.div(gettext("Belegdatum %1 · fällig am %2", item.itemDate, item.dueDate)) { addCssClasses("text-muted small") }
+    panel.div(
+        gettext("Belegdatum %1 · fällig am %2", formatDate(item.itemDate), formatDate(item.dueDate)),
+    ) { addCssClasses("text-muted small") }
     if (item.daysOverdue > 0 && item.status in OpenItemStatusSets.SETTLEABLE) {
         val overdueRow = panel.hPanel(spacing = 6) { addCssClasses("align-items-center") }
         overdueRow.statusBadge(openItemOverdueLabel(), "danger")
@@ -1160,7 +1162,7 @@ private fun renderDunningActions(
     // jetzt neben dem Knopf -- server-berechnet (Fälligkeit + Wartefrist der Stufe), nie hier
     // hergeleitet (S5). Kein Sperrgrund: manuelles Mahnen ist auch vor dem Stichtag erlaubt.
     item.nextDunningLevelDueOn?.let { dueOn ->
-        actionsRow.div(gettext("Nächste Stufe fällig am %1", dueOn)) { addCssClasses("text-muted small") }
+        actionsRow.div(gettext("Nächste Stufe fällig am %1", formatDate(dueOn))) { addCssClasses("text-muted small") }
     }
     // Audit-Fund M5: die Gebühr benennen, statt sie mit "ist für die Stufe eine Gebühr hinterlegt"
     // offenzulassen -- die aktiven Stufen liegen dem Screen vor. Fehlt die Stufe in der Liste (Abruf

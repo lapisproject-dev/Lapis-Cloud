@@ -56,7 +56,7 @@ fun renderDashboardScreen(container: SimplePanel) {
             "Status: %1 · Rolle: %2 · Sitzung gültig bis %3",
             memberStatusLabel(session.status),
             accountRoleLabel(session.role),
-            session.expiresAt,
+            formatDateTime(session.expiresAt),
         ),
     )
 

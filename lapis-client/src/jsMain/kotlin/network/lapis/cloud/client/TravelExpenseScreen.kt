@@ -468,7 +468,7 @@ private fun renderOwnReportCard(
     headerRow.statusBadge(travelExpenseStatusLabel(report.status), travelExpenseStatusColor(report.status))
     headerRow.untrustedCardTitle(report.purpose)
     headerRow.div(formatMoney(report.totalAmount))
-    card.div(gettext("%1 bis %2", report.travelFrom, report.travelTo)) { addCssClasses("text-muted small") }
+    card.div(gettext("%1 bis %2", formatDate(report.travelFrom), formatDate(report.travelTo))) { addCssClasses("text-muted small") }
     if (report.decisionNote != null) {
         card.div(gettext("Begründung: %1", report.decisionNote)) { addCssClasses("text-muted small") }
     }

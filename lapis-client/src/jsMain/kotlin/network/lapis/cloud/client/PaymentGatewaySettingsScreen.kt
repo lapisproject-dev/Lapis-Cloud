@@ -197,7 +197,7 @@ private fun renderPaymentGatewaySettingsSummary(
             gettext(
                 "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3).",
                 settings.lastAcknowledgedByDisplayName,
-                settings.lastAcknowledgedAt,
+                formatDateTime(settings.lastAcknowledgedAt!!),
                 settings.lastDisclaimerVersion,
             ),
         ) { addCssClasses("text-muted small") }

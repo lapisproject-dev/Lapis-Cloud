@@ -333,7 +333,7 @@ internal fun renderBalanceSheetBody(
     sheet: BalanceSheetDto,
     captionVisible: Boolean = true,
 ) {
-    panel.div(gettext("Stichtag: %1", sheet.asOf)) { addCssClasses("text-muted small") }
+    panel.div(gettext("Stichtag: %1", formatDate(sheet.asOf))) { addCssClasses("text-muted small") }
 
     // ONE table: Aktiva, then Passiva with its two sub-sections, the accumulated result and both totals.
     val report = panel.reportTable(caption = tr("Bilanz"), headers = STATEMENT_HEADERS, captionVisible = captionVisible)
@@ -393,7 +393,12 @@ internal fun renderAnnualFinancialStatementBody(
     statement: AnnualFinancialStatementDto,
 ) {
     panel.div(
-        gettext("Geschäftsjahr %1 · %2 bis %3", statement.fiscalYear, statement.periodStart, statement.periodEnd),
+        gettext(
+            "Geschäftsjahr %1 · %2 bis %3",
+            statement.fiscalYear,
+            formatDate(statement.periodStart),
+            formatDate(statement.periodEnd),
+        ),
     ) { addCssClasses("text-muted small") }
 
     // The embedded GuV/Bilanz are the very same bodies as the standalone views -- their table captions name them.

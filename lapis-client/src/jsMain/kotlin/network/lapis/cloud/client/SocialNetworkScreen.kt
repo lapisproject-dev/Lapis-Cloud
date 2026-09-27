@@ -217,7 +217,7 @@ private fun renderOwnRemovedPostCard(
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3 border-danger") }
     card.statusBadge(tr("Rechtlich entfernt"), "danger")
     card.div(gettext("Begründung: %1", post.stateReason.orEmpty())) { addCssClasses("small") }
-    card.div(gettext("Veröffentlicht am %1", post.publishedAt)) { addCssClasses("text-muted small") }
+    card.div(gettext("Veröffentlicht am %1", formatDateTime(post.publishedAt))) { addCssClasses("text-muted small") }
 }
 
 /**
@@ -230,7 +230,7 @@ private fun renderRemovalNotice(
 ) {
     val card = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3 border-danger") }
     card.div(SocialModerationUi.removalNoticeHeadline(isOwnPost = notice.isOwnPost)) { addCssClasses("fw-bold text-danger") }
-    card.div(gettext("Entfernt am %1", notice.removedAt)) { addCssClasses("text-muted small") }
+    card.div(gettext("Entfernt am %1", formatDateTime(notice.removedAt))) { addCssClasses("text-muted small") }
     card.untrustedDiv(notice.reason, className = "small")
 }
 
@@ -387,7 +387,7 @@ private fun renderSocialPostCard(
     if (post.aiAssisted) headerRow.statusBadge(tr("KI-unterstützt"), "secondary")
 
     renderPostContentText(card, post)
-    card.div(gettext("Veröffentlicht am %1", post.publishedAt)) { addCssClasses("text-muted small") }
+    card.div(gettext("Veröffentlicht am %1", formatDateTime(post.publishedAt))) { addCssClasses("text-muted small") }
 
     // Drei Kennzahlen nebeneinander, nie zu einer verschmolzen (Meritokratie-Konzept "Anzeige in
     // der Timeline"): das GESAMTgewicht (Sortierkriterium der Timeline seit Welle V1.1.2, siehe
@@ -904,7 +904,7 @@ private fun renderThreadNode(
             addCssClasses("text-muted small")
         }
     }
-    card.div(gettext("Veröffentlicht am %1", node.publishedAt)) { addCssClasses("text-muted small") }
+    card.div(gettext("Veröffentlicht am %1", formatDateTime(node.publishedAt))) { addCssClasses("text-muted small") }
 
     val weightRow = card.hPanel(spacing = 16) { addCssClasses("align-items-center flex-wrap") }
     val totalWeightCell = weightRow.vPanel(spacing = 2)

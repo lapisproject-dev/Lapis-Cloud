@@ -140,11 +140,13 @@ private fun renderReliefRequestCard(
     if (request.reasonText != null) {
         card.div(gettext("Erläuterung: %1", request.reasonText)) { addCssClasses("text-muted small") }
     } else if (request.reasonRedactedAt != null) {
-        card.div(gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", request.reasonRedactedAt)) {
+        card.div(
+            gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", formatDateTime(request.reasonRedactedAt!!)),
+        ) {
             addCssClasses("text-muted small")
         }
     }
-    request.reviewDueOn?.let { card.div(gettext("Wiedervorlage am %1", it)) { addCssClasses("text-muted small") } }
+    request.reviewDueOn?.let { card.div(gettext("Wiedervorlage am %1", formatDate(it))) { addCssClasses("text-muted small") } }
 
     // Bewusst unabhängig vom Status (Plan Abschnitt 2.3): auch eine bereits EXECUTED/REQUESTED/
     // APPROVED EXEMPTION-Karte bekommt diesen Hinweis -- ohne Zahl (Jobs' Ruling), reiner Verweis.

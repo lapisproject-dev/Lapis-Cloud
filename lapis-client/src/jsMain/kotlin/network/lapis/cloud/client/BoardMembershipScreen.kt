@@ -167,7 +167,7 @@ private fun renderBoardRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.untrustedCardTitle(membership.memberDisplayName)
     headerRow.typeBadge(committeeRoleLabel(membership.committeeRole), committeeRoleColor(membership.committeeRole))
-    headerRow.div(gettext("seit %1", membership.startedAt)) { addCssClasses("text-muted small") }
+    headerRow.div(gettext("seit %1", formatDate(membership.startedAt))) { addCssClasses("text-muted small") }
 
     // D9: every roster row links back to the Governance Committees screen's EXECUTIVE_BOARD
     // committee -- this screen is not the only place a board seat changes.
@@ -408,7 +408,7 @@ private fun renderReminderRow(
     headerRow.untrustedCardTitle(reminder.memberDisplayName)
     headerRow.statusBadge(reminderResolutionLabel(reminder.resolved), reminderResolutionColor(reminder.resolved))
 
-    row.div(gettext("Ausgelöst am: %1", reminder.triggeredAt)) { addCssClasses("text-muted small") }
+    row.div(gettext("Ausgelöst am: %1", formatDateTime(reminder.triggeredAt))) { addCssClasses("text-muted small") }
 
     if (reminder.resolved) {
         row.div(resolvedCaption(reminder)) { addCssClasses("text-muted small") }
@@ -443,7 +443,7 @@ fun reminderResolutionColor(resolved: Boolean): String = if (resolved) "success"
  * `DsgvoRightsScreen.kt`'s audit-actor display already establishes. */
 fun resolvedCaption(reminder: TransparenzregisterReminderDto): String {
     val who = reminder.resolvedByDisplayName ?: reminder.resolvedById ?: gettext("unbekannt")
-    return gettext("Bestätigt von %1 am %2", who, reminder.resolvedAt)
+    return gettext("Bestätigt von %1 am %2", who, formatDateTime(reminder.resolvedAt!!))
 }
 
 /** Today's date as `JJJJ-MM-TT` -- mirrors `CommitteesScreen.todayIso`'s own `kotlin.time.Clock`

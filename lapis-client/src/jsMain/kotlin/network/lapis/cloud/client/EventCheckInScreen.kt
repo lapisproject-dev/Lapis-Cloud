@@ -181,7 +181,7 @@ fun renderEventCheckInScreen(
                         ?: registrationsById
             }
             pageHead.setSubtitle(fresh.eventTitle)
-            headerMeta.content = listOfNotNull("${fresh.startsAt}", fresh.locationText).joinToString(" · ")
+            headerMeta.content = listOfNotNull(formatDateTime(fresh.startsAt), fresh.locationText).joinToString(" · ")
             renderRoster(searchField.value.orEmpty())
         }
     }
@@ -346,7 +346,9 @@ private fun renderRosterRow(
             detailsPanel.div("${gettext("Status")}: ${row.status}")
             detailsPanel.div("${gettext("Ticket ausgestellt")}: ${if (row.hasTicket) gettext("Ja") else gettext("Nein")}")
             if (row.checkedInAt != null) {
-                detailsPanel.div("${gettext("Eingecheckt um")}: ${row.checkedInAt} (${row.checkedInByDisplayName ?: "-"})")
+                detailsPanel.div(
+                    "${gettext("Eingecheckt um")}: ${formatDateTime(row.checkedInAt!!)} (${row.checkedInByDisplayName ?: "-"})",
+                )
             }
             val reissueButton = detailsPanel.button(tr("Ticket neu ausstellen"), style = ButtonStyle.OUTLINEDANGER)
             reissueButton.disabled = row.status != EventRegistrationStatus.CONFIRMED

@@ -279,7 +279,9 @@ private fun renderProjectCard(
     }
 
     card.div(sanitizeUntrustedI18nText(project.description)) { addCssClasses("small") }
-    card.div(gettext("Eingereicht von %1 am %2", project.submitterDisplayName, project.submittedAt)) { addCssClasses("text-muted small") }
+    card.div(
+        gettext("Eingereicht von %1 am %2", project.submitterDisplayName, formatDateTime(project.submittedAt)),
+    ) { addCssClasses("text-muted small") }
 
     // status (persisted board decision) vs. effectiveStatus/isAutoApproved (14-day
     // silence-is-approval) are two DISTINCT signals -- a project can permanently show
@@ -316,7 +318,9 @@ private fun renderProjectCard(
         card.div(gettext("Ablehnungsgrund: %1", project.rejectionReason.orEmpty())) { addCssClasses("text-danger small") }
     }
     project.reviewedByDisplayName?.let { reviewer ->
-        card.div(gettext("Entschieden von %1 am %2", reviewer, project.reviewedAt)) { addCssClasses("text-muted small") }
+        card.div(
+            gettext("Entschieden von %1 am %2", reviewer, formatDateTime(project.reviewedAt!!)),
+        ) { addCssClasses("text-muted small") }
     }
 
     // castReaction/retractReaction require effectiveStatus == APPROVED server-side -- only
@@ -541,7 +545,14 @@ private fun renderDistributionComputeForm(
             val distributions = guarded { rpcService<ICrowdfundingService>().computeMonthlyDistribution(periodStart, periodEnd) }
             computeButton.disabled = false
             if (distributions != null) {
-                notifySuccess(gettext("Verteilung für %1 bis %2 berechnet (%3 Projekt(e)).", periodStart, periodEnd, distributions.size))
+                notifySuccess(
+                    gettext(
+                        "Verteilung für %1 bis %2 berechnet (%3 Projekt(e)).",
+                        formatDate(periodStart),
+                        formatDate(periodEnd),
+                        distributions.size,
+                    ),
+                )
                 onCompleted()
             }
         }
@@ -561,13 +572,13 @@ internal fun renderDistributionsTable(
                 textColumn<CrowdfundingDistributionDto>(
                     title = tr("Zeitraum"),
                     cssClasses = "small",
-                ) { gettext("%1 – %2", it.periodStart, it.periodEnd) },
+                ) { gettext("%1 – %2", formatDate(it.periodStart), formatDate(it.periodEnd)) },
                 textColumn<CrowdfundingDistributionDto>(title = tr("Korb"), numeric = true) { it.basketTotalAtDistribution.toString() },
                 DataColumn(title = tr("Betrag"), numeric = true, cell = { cell, d -> cell.moneySpan(d.amountEur) }),
                 textColumn<CrowdfundingDistributionDto>(
                     title = tr("Berechnet"),
                     cssClasses = "text-muted small",
-                ) { gettext("%1 von %2", it.computedAt, it.triggeredByDisplayName) },
+                ) { gettext("%1 von %2", formatDateTime(it.computedAt), it.triggeredByDisplayName) },
             ),
         rows = distributions,
         viewport = viewport,

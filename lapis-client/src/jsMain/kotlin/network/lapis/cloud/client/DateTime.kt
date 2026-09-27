@@ -10,57 +10,34 @@ import kotlinx.datetime.number
 
 /**
  * W7 "Zeitstempel-Formatierung app-weit" -- the single, shared date/time display convention, the
- * temporal sibling of [Money.kt]'s amount convention. Every screen SHOULD call one of the five `format*`/
+ * temporal sibling of [Money.kt]'s amount convention. Every screen calls one of the five `format*`/
  * `*Span` functions below for every displayed [LocalDate]/[LocalDateTime]; no screen interpolates one
  * into a string itself, and no screen calls `.toString()` on a time field for DISPLAY (see [machineDate]/
  * [machineDateTime] for the legitimate exception: prefill and a sort key).
  *
- * **This is a rollout in progress, not yet a closed invariant** (Review-Befund 2026-09-24, MAJOR, round 3):
- * an earlier revision of this KDoc claimed the "every screen" sentence above as present-tense fact. It
- * was not -- 14 confirmed display-path `.toString()` call sites were measured across the client at round 2's
- * review time and converted, EXCEPT the three inside `ReportRows.kt`'s GoBD financial reports
- * (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`, pinned verbatim by `ReportGoldenTest` --
- * see below). Round 2's own fix pass, though, converted only SOME of the raw `.toString()` sites inside each
- * screen it touched and left the rest of that same screen on raw ISO -- a regression round 2 did not have:
- * `DunningCasesScreen.kt`, `AuditLogScreen.kt`, `SepaBatchesScreen.kt`, `OpenItemsScreen.kt`,
- * `AccountingExportScreen.kt` and `CrmContactsScreen.kt` each showed BOTH a localized and a raw-ISO
- * date/time on the same screen at once. Round 3 closed the remaining raw `.toString()` sites in exactly
- * those six files (15 further call sites).
- *
- * **That did NOT make those screens internally consistent, and an earlier revision of this KDoc wrongly
- * said it did** (Review-Befund 2026-09-24, MAJOR, round 4). Raw ISO reaches the DOM by three different
- * routes, and every count in this wave measured only the first:
- *   1. `<field>.toString()` -- the only form the field-list grep can see. Converted (except `ReportRows.kt`).
+ * **Raw ISO can reach the DOM by three routes; two of the three are now an enforced invariant, not just
+ * a convention** (V1.4.32 W7 Teilwelle B, 2026-09-27):
+ *   1. `<field>.toString()` -- the only form a plain field-list grep sees. Converted app-wide at Teilwelle
+ *      A, EXCEPT the three sites inside `ReportRows.kt`'s GoBD financial reports
+ *      (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`, pinned verbatim by `ReportGoldenTest`)
+ *      and 31 further call sites across 20 files Teilwelle A explicitly deferred as "Teilwelle B". This
+ *      route is STILL a ledgered snapshot, not an enforced invariant -- `ClientTemporalFormatTripwireTest`'s
+ *      `T5a` rule only ever lowers `T5A_LEDGER`'s ceiling, it does not require it to reach zero. See
+ *      `docs/architecture/ui-ux-guideline.adoc`'s W7 section for the current file-by-file table.
  *   2. `gettext("... %1", <LocalDate|LocalDateTime>)` -- no `.toString()` appears in the source at all;
  *      `gettext(key: String, vararg args: Any?)` stringifies every non-String argument in
- *      `I18nCatalogManager.kt` (`args[index - 1]?.toString()`). **53 such call sites in 25 client files,
- *      all still raw.**
- *   3. String interpolation of a temporal field -- at least 6 sites (`ApiKeysScreen.kt`,
- *      `EventCheckInSelectionScreen.kt`, `EventCheckInScreen.kt`, `PoliticianScreen.kt`).
+ *      `I18nCatalogManager.kt` (`args[index - 1]?.toString()`), directly or behind a
+ *      `field?.let { ... it ... }` rename. **Closed app-wide by Teilwelle B** (86 direct sites + 14 behind
+ *      a lambda rename, across 35 files) and now enforced by `T5b`/`T5b-λ` -- `T5B_LEDGER`/
+ *      `T5B_LAMBDA_LEDGER` are both `emptyMap()`, and the build fails the moment either goes non-empty again.
+ *   3. String interpolation of a temporal field (`"${field}"`, no wrapping `format*`/`*Token` call). **Closed
+ *      app-wide by Teilwelle B** (6 sites, `ApiKeysScreen.kt`, `EventCheckInSelectionScreen.kt`,
+ *      `EventCheckInScreen.kt`, `PoliticianScreen.kt`) and enforced by `T5c` (`T5C_LEDGER` is `emptyMap()`).
  *
- * A fourth subset is unfindable by field name at all, because a lambda renames the field before the call
- * (`request.executedAt?.let { gettext("Ausgefuehrt am %1", it) }` -- only `it` remains at the call site).
- *
- * Consequence, reproducible today in `de`: `AuditLogScreen` renders `occurredAt` as "24.09.2026, 14:30:07"
- * in the list (route 1, converted) and as "2026-09-24T14:30:07" in the detail panel (route 2, untouched).
- * The same field, the same screen, two formats. `DunningCasesScreen`, `SepaBatchesScreen`,
- * `OpenItemsScreen`, `DsgvoRightsScreen` and `MemberFinancialHistoryScreen` each do the same.
- * `AccountingExportScreen.kt:261` and `VolunteerAllowanceLabels.kt:87` show the correct pattern for
- * route 2: format first, pass the resulting String into `gettext`.
- *
- * Round 3 also re-measured the client with round 2's own method (the field list of every `LocalDate`/
- * `LocalDateTime` property name in `lapis-shared`, then grepped against the client): round 2's "three sites
- * remain" undercounted -- at round 3's start there were 20 files (outside the six above), `ReportRows.kt`
- * among them, still carrying 33 raw display-path `.toString()` occurrences across 31 call sites in total.
- * That re-measurement used the same `.toString()`-only method and therefore shares its blind spot: it
- * counts route 1 exhaustively and routes 2 and 3 not at all.
- * `ReportRows.kt`'s three stay open for the reason round 2 gave (GoBD golden-test pinning); the other 19
- * files (28 call sites) are Teilwelle B, an unstarted later wave -- see
- * `docs/architecture/ui-ux-guideline.adoc`'s "Not done in this wave" section for the current file-by-file
- * list. Only `ClientTemporalFormatTripwireTest` closing that gap with a T5 rule (mirroring
- * `ClientMoneyFormatTripwireTest`'s M5, itself Teilwelle B's first task) would make the "every screen"
- * sentence above an enforced invariant rather than a convention; until then, re-run the grep above before
- * trusting any fixed count here.
+ * A bare local `val` that renames a field before the call (`val decidedAt = request.decidedAt ?: return
+ * null`, no lambda involved) has the same blind-spot shape as the lambda-rename case above and is NOT
+ * covered by `T5b`/`T5b-λ` -- `DsgvoRightsScreen.kt`'s `erasureDecidedCaption` is one confirmed, deliberately
+ * left-open instance (see the guideline's W7 section, Tesler-named follow-up).
  *
  * **No `Instant`, no zone conversion, no zone suffix.** Every persisted time field in `lapis-shared` is
  * [LocalDate] or [LocalDateTime] -- there is not a single `Instant` field on the wire (verified:

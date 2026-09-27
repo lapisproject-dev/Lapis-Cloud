@@ -349,7 +349,7 @@ private fun renderAuditLogDetailBody(
     headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
     headerRow.div(gettext("Sequenznummer %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 fw-bold") }
 
-    panel.div(gettext("Zeitpunkt: %1", entry.occurredAt)) { addCssClasses("text-muted small") }
+    panel.div(gettext("Zeitpunkt: %1", formatTimestamp(entry.occurredAt))) { addCssClasses("text-muted small") }
     panel.div(gettext("Akteur: %1", actorDisplayText(entry))) { addCssClasses("text-muted small") }
     panel.div(gettext("Entität: %1", entry.entityId)) { addCssClasses("text-muted small") }
     auditEntityRoute(entry.entityType, entry.entityId)?.let { route ->

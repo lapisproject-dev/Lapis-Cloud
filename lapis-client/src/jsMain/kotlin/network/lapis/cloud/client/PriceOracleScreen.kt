@@ -245,7 +245,7 @@ private fun renderConfigSummary(
     row2.labeledValue(tr("Ausreißer-Schwelle")) { it.div(gettext("%1 bps", config.outlierThresholdBps)) }
     row2.labeledValue(tr("Max. Spread")) { it.div(gettext("%1 bps", config.maxSpreadBps)) }
 
-    box.div(gettext("Zuletzt aktualisiert: %1", config.updatedAt)) { addCssClasses("text-muted small") }
+    box.div(gettext("Zuletzt aktualisiert: %1", formatDateTime(config.updatedAt))) { addCssClasses("text-muted small") }
 }
 
 private fun SimplePanel.labeledValue(
@@ -1080,7 +1080,7 @@ private fun renderConversionResult(
     mintedRow.div(tr("Gemintet:")) { addCssClass("text-muted") }
     mintedRow.ltrSpan(result.ltrMinted)
     box.div(gettext("Buchung: %1", result.ltrLedgerEntryId)) { addCssClass("text-muted") }
-    box.div(gettext("Zeitstempel: %1", result.priceTimestamp)) { addCssClass("text-muted") }
+    box.div(gettext("Zeitstempel: %1", formatDateTime(result.priceTimestamp))) { addCssClass("text-muted") }
 }
 
 // ================================================================================================

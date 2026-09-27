@@ -312,7 +312,7 @@ private fun dunningCaseColumns(): List<DataColumn<DunningCaseDto>> =
             },
         ),
         textColumn(title = tr("Zeitraum"), numeric = true) { case: DunningCaseDto ->
-            gettext("%1 – %2", case.periodStart, case.periodEnd)
+            gettext("%1 – %2", formatDate(case.periodStart), formatDate(case.periodEnd))
         },
         DataColumn(
             title = tr("Betrag"),
@@ -397,14 +397,16 @@ private fun renderDunningCaseDetail(
     // Welle V1.4.4.5 -- siehe renderDunningCaseRow's identischer Kommentar.
     if (case.memberStatus == MemberStatus.DECEASED) headerRow.typeBadge(tr("Verstorben"), "dark")
     headerRow.statusBadge(contributionStatusLabel(case.contributionStatus), contributionStatusColor(case.contributionStatus))
-    panel.div(gettext("Zeitraum %1 – %2", case.periodStart, case.periodEnd)) { addCssClasses("text-muted small") }
+    panel.div(
+        gettext("Zeitraum %1 – %2", formatDate(case.periodStart), formatDate(case.periodEnd)),
+    ) { addCssClasses("text-muted small") }
     if (case.memberStatus == MemberStatus.DECEASED) {
         panel.div(tr("Zustellung an den Nachlass — offene Forderung besteht fort.")) { addCssClasses("text-muted small") }
     }
     val amountRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     amountRow.div(tr("Betrag:")) { addCssClasses("text-muted small") }
     amountRow.moneySpan(case.amountDue)
-    panel.div(gettext("Fällig am %1", case.dueDate)) { addCssClasses("text-muted small") }
+    panel.div(gettext("Fällig am %1", formatDate(case.dueDate))) { addCssClasses("text-muted small") }
 
     if (detail.notices.isNotEmpty()) {
         panel.h2(tr("Mahnungen")) { addCssClass("h6") }
@@ -557,7 +559,7 @@ private fun renderDunningCaseActionBar(
         DunningCaseAction.ISSUE_EARLY -> {
             val label =
                 case.nextLevelDueOn?.let {
-                    gettext("Vorzeitig ausstellen (planmäßig ab %1)", it)
+                    gettext("Vorzeitig ausstellen (planmäßig ab %1)", formatDate(it))
                 } ?: tr("Vorzeitig ausstellen")
             val button = actionsRow.button(label, style = ButtonStyle.OUTLINEWARNING)
             button.onClick {
@@ -567,7 +569,7 @@ private fun renderDunningCaseActionBar(
                         case.nextLevelDueOn?.let {
                             gettext(
                                 "Diese Mahnstufe ist planmäßig erst ab %1 fällig. Trotzdem jetzt ausstellen?",
-                                it,
+                                formatDate(it),
                             )
                         } ?: tr("Diese Mahnstufe ist planmäßig noch nicht fällig. Trotzdem jetzt ausstellen?"),
                     confirmLabel = tr("Jetzt ausstellen"),

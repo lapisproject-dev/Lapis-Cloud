@@ -296,7 +296,9 @@ private fun renderOperationRow(
     headerRow.div(operation.actorMemberDisplayName ?: gettext("Mitglied %1", operation.actorMemberId)) {
         addCssClasses("flex-grow-1 text-muted small")
     }
-    headerRow.div(gettext("%1 – %2", operation.startedAt, operation.finishedAt)) { addCssClasses("text-muted small") }
+    headerRow.div(
+        gettext("%1 – %2", formatDateTime(operation.startedAt), formatDateTime(operation.finishedAt)),
+    ) { addCssClasses("text-muted small") }
 
     row.div(
         gettext(

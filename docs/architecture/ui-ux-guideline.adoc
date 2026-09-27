@@ -1557,62 +1557,91 @@ file KDoc and this document were both updated to state the re-measured count ins
 +
 [WARNING]
 ====
-*Three routes to raw ISO -- this table covers only the first.* Round 4's review (2026-09-24) established that
-the measurement method behind every count in this wave, including the table below, sees only
-`<field>.toString()`. Two further routes exist and are entirely uncounted here:
+*Three routes to raw ISO -- Teilwelle B enforces routes 2 and 3, route 1 stays a ledgered snapshot.* Round 4's
+review (2026-09-24) established that the measurement method behind every earlier count in this wave saw only
+`<field>.toString()`. Two further routes existed and were entirely uncounted at that time:
 
 . `gettext("... %1", <LocalDate|LocalDateTime>)` -- no `.toString()` in the source; the conversion happens in
   `I18nCatalogManager.kt` (`args[index - 1]?.toString()`), because `gettext` takes `vararg args: Any?`.
-  *53 call sites in 25 client files.*
-. String interpolation of a temporal field -- at least 6 sites (`ApiKeysScreen.kt` 153/154,
-  `EventCheckInSelectionScreen.kt` 67, `EventCheckInScreen.kt` 184/349, `PoliticianScreen.kt` 596).
+. String interpolation of a temporal field (`"${field}"`, no wrapping `format*`/`*Token` call).
 
-A further subset is unfindable by field name at all, because a lambda renames the field before the call
-(`request.executedAt?.let { gettext("Ausgefuehrt am %1", it) }`).
+A further subset was unfindable by field name at all, because a lambda renames the field before the call
+(`request.executedAt?.let { gettext("Ausgefuehrt am %1", it) }`) -- or, discovered during Teilwelle B, because a
+plain local `val` does the same renaming without a lambda (`val decidedAt = request.decidedAt ?: return null`).
 
-Consequence: six screens render the same field in two formats today -- `AuditLogScreen` (`occurredAt`,
-list vs. detail), `DunningCasesScreen`, `SepaBatchesScreen`, `OpenItemsScreen`, `DsgvoRightsScreen`,
-`MemberFinancialHistoryScreen`. `AccountingExportScreen.kt:261` and `VolunteerAllowanceLabels.kt:87` show
-the correct pattern: format first, pass the String into `gettext`.
-
-*Teilwelle B must therefore begin with the T5 tripwire rule*, not end with it -- a rule that fails the build
-when a `LocalDate`/`LocalDateTime` reaches a `gettext` argument or a string template. Until T5 exists, no
-statement about date/time consistency in this document or in `DateTime.kt` is enforced by anything.
+**Teilwelle B (below) closed both of these**, via the `T5` tripwire's four rules (`T5a`/route 1,
+`T5b`/route 2 direct, `T5b-λ`/route 2 behind a rename, `T5c`/route 3) in `ClientTemporalFormatTripwireTest`.
+`T5b`/`T5b-λ`/`T5c` are enforced INVARIANTS now (`T5B_LEDGER`/`T5B_LAMBDA_LEDGER`/`T5C_LEDGER` are all
+`emptyMap()` -- any new raw site fails the build). Only `T5a` (route 1) remains a ledgered snapshot, same
+status as before -- see `T5A_LEDGER` below.
 ====
 +
-The table below is the route-1 list only. Named here so it stays checkable against a future re-run of the same
-grep, rather than repeating a stale number:
+*Teilwelle B (V1.4.32, `feature/v1.4.32-w7-teilwelle-b`, 2026-09-27)* closed routes 2 and 3 completely. Commit 1's
+own red-proof run (the four T5 detectors, run once against an empty ledger so their real findings printed, before
+any conversion) measured: T5a 31 findings/20 files, T5b 86 findings/34 files, T5b-λ 14 findings/9 files, T5c 6
+findings/4 files. T5b's own re-measurement (86/34) is larger than Teilwelle A's earlier estimate (53/25) -- expected,
+since the field-list-derived grep only ever undercounts, as this section's own earlier revisions warn.
++
+* Commit 2 closed all 6 T5c (route 3) sites: `ApiKeysScreen.kt` 153/154, `EventCheckInSelectionScreen.kt` 67,
+  `EventCheckInScreen.kt` 184/349, `PoliticianScreen.kt` 596.
+* Commits 3-5 closed every T5b/T5b-λ (route 2) finding app-wide, 35 files in total -- see `CHANGELOG.md`'s
+  "V1.4.32 W7 (Teilwelle B)" entry for the full file list. `T5B_LEDGER`/`T5B_LAMBDA_LEDGER` are both `emptyMap()`
+  as of Commit 5.
+* Two bare-local-variable blind spots (the same class of gap as the documented lambda rename, but without a
+  lambda) were fixed alongside their ledgered siblings for message-internal consistency, not left half-formatted:
+  `ContributionReliefLabels.kt`'s `deferralPreviousDueDate`/`exemptionUntil` (bound to `previous`/`until` right
+  next to the `deferralNewDueDate`/`exemptionFrom` T5b DID catch) and `MemberFinancialHistoryScreen.kt`'s
+  `exemptFrom` (bound to `from` next to the `exemptUntil` T5b-λ caught) plus
+  `financialHistoryEmptyStateText`'s `joinedAt` FUNCTION PARAMETER (same field, same screen, formatted
+  everywhere else already).
+* `DsgvoRightsScreen.kt`'s `erasureDecidedCaption`/`decidedAt` has the identical bare-local-val gap
+  (`val decidedAt = request.decidedAt ?: return null`) but was left open -- outside Commit 3's stated scope,
+  documented here rather than silently expanded. Same Tesler-named follow-up bucket as below.
+* Named follow-ups, deliberately deferred (not part of Teilwelle B's scope):
+** *Tesler point*: `ApiKeysScreen.kt`'s two converted captions ("Widerrufen am %1"/"Läuft ab am %1") concatenate a
+   `gettext(...)` call with `" " + formatDateTime(...)` rather than a single parameterized message -- correct
+   output, but not the one-message-one-parameter-set grammar every other converted site in this wave follows.
+   `DsgvoRightsScreen.kt`'s `erasureDecidedCaption`/`decidedAt` (above) belongs to the same bucket.
+** *Zhuo point*: several converted captions end on "... am %1" when the underlying field is `null` and the branch
+   falls back to a text without a trailing date (e.g. a sentence ending "...noch nicht möglich" instead) -- correct
+   today because every such branch was reviewed call site by call site during this wave, but no automated check
+   would catch a future regression where a sentence literally ends "am" with nothing after it.
+
+The table below names `T5A_LEDGER` (route 1) as measured by Teilwelle B's own re-scan -- larger than the number in
+prior revisions of this section, for the same reason T5b's count grew: this wave's grep additionally excludes
+machine-readable/sort-key contexts (`setValue(`/`value = `/`compareBy`/`thenBy`/`sortedBy`/`sortedWith`/`sortBy`)
+that earlier revisions' by-hand review had not systematically filtered.
 +
 [cols="1,1", options="header"]
 |===
-| File | Line(s)
-| `ApiKeysScreen.kt` | 161
-| `BankAccountsScreen.kt` | 249, 297, 298, 478
-| `BankStatementImportScreen.kt` | 286, 453, 500, 528, 529
-| `DocumentsScreen.kt` | 388
-| `EventCheckInScreen.kt` | 144, 406
-| `EventsScreen.kt` | 159
-| `EventVolunteerShiftsScreen.kt` | 121 (two occurrences on one line)
-| `LedgerScreen.kt` | 1296
-| `LtrLedgerScreen.kt` | 353
-| `MemberAdministrationScreen.kt` | 377
-| `MemberFamiliesScreen.kt` | 566, 568
-| `MemberHonorsScreen.kt` | 271
-| `MyVolunteerShiftsScreen.kt` | 115 (two occurrences on one line)
-| `PaymentTransactionsScreen.kt` | 224
-| `PoliticianScreen.kt` | 584
-| `PriceOracleScreen.kt` | 467
-| `ReportRows.kt` | 374, 401, 433 (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`, deliberately
-deferred -- see round 2 above, `ReportGoldenTest` pins the ISO output)
-| `SepaMandatesScreen.kt` | 240
-| `VolunteerAllowanceApprovalsScreen.kt` | 124
-| `VolunteerAllowanceScreen.kt` | 342
+| File | Findings (`T5A_LEDGER`)
+| `ApiKeysScreen.kt` | 1
+| `BankAccountsScreen.kt` | 4
+| `BankStatementImportScreen.kt` | 5
+| `DocumentsScreen.kt` | 1
+| `EventCheckInScreen.kt` | 2
+| `EventVolunteerShiftsScreen.kt` | 1
+| `EventsScreen.kt` | 1
+| `LedgerScreen.kt` | 1
+| `LtrLedgerScreen.kt` | 1
+| `MemberAdministrationScreen.kt` | 1
+| `MemberFamiliesScreen.kt` | 2
+| `MemberHonorsScreen.kt` | 1
+| `MyVolunteerShiftsScreen.kt` | 1
+| `PaymentTransactionsScreen.kt` | 1
+| `PoliticianScreen.kt` | 1
+| `PriceOracleScreen.kt` | 1
+| `ReportRows.kt` | 3 (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`, deliberately deferred --
+`ReportGoldenTest` pins the ISO output; GoBD golden-test pinning, not part of any Teilwelle B commit)
+| `SepaMandatesScreen.kt` | 1
+| `VolunteerAllowanceApprovalsScreen.kt` | 1
+| `VolunteerAllowanceScreen.kt` | 1
 |===
 +
-No ledger constant exists for this remainder because, unlike `Money.kt`'s `MOTIONS_SCREEN_LEDGER`, there is no `T5`
-tripwire yet to ledger against -- adding one (same field list as above, display-context filter, mirroring `M5`) is
-Teilwelle B's first task, not something round 3 claims to have closed. Until that tripwire exists, treat the table
-above as a snapshot, not an enforced ceiling: re-run the grep before trusting it.
+`T5A_LEDGER` is the durably enforced CEILING for this table -- the `T5a` rule fails the build if any file's count
+rises above its ledgered value, exactly like `Money.kt`'s `MOTIONS_SCREEN_LEDGER`. It is not yet a floor of zero:
+closing route 1 (optional, Teilwelle B's Commit 6, not done in this wave except as noted) would lower these numbers
+file by file, `ReportRows.kt` excepted.
 
 == Known gaps
 

@@ -160,7 +160,7 @@ private fun renderAgreementRow(
 
     row.untrustedDiv(agreement.processingPurpose, className = "small")
     row.div(gettext("Datenkategorien: %1", agreement.dataCategories)) { addCssClasses("text-muted small") }
-    agreement.reviewDueDate?.let { row.div(gettext("Prüftermin: %1", it)) { addCssClasses("text-muted small") } }
+    agreement.reviewDueDate?.let { row.div(gettext("Prüftermin: %1", formatDate(it))) { addCssClasses("text-muted small") } }
 
     if (canManage) {
         val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -666,7 +666,9 @@ private fun renderBreachRow(
     headerRow.statusBadge(breachStatusLabel(incident.status), breachStatusColor(incident.status))
     // D7: deadline badge directly in the row header, next to the status badge -- never only in detail.
     headerRow.statusBadge(breachDeadlineStatusLabel(incident.deadlineStatus), breachDeadlineStatusColor(incident.deadlineStatus))
-    headerRow.div(gettext("Frist: %1", incident.authorityNotificationDeadline)) { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(
+        gettext("Frist: %1", formatDateTime(incident.authorityNotificationDeadline)),
+    ) { addCssClasses("flex-grow-1 text-muted small") }
 
     // Security audit W6b follow-up round 3 (major finding A): an incident description is admin-editable free
     // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
@@ -674,13 +676,13 @@ private fun renderBreachRow(
     row.div(
         gettext(
             "Entdeckt am: %1 · Betroffene Datenkategorien: %2",
-            incident.discoveredAt,
+            formatDateTime(incident.discoveredAt),
             incident.affectedDataCategories,
         ),
     ) {
         addCssClasses("text-muted small")
     }
-    val notifiedSuffix = incident.authorityNotifiedAt?.let { gettext(" · gemeldet am %1", it) } ?: ""
+    val notifiedSuffix = incident.authorityNotifiedAt?.let { gettext(" · gemeldet am %1", formatDateTime(it)) } ?: ""
     row.div(
         gettext(
             "Meldung an Aufsichtsbehörde erforderlich: %1",

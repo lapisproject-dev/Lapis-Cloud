@@ -167,8 +167,20 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Projekt", "Zeitraum", "Korb", "Betrag", "Berechnet"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("Vereinsgarten", "2026-08-01 – 2026-08-31", "7", "250,50$NBSP€", "2026-09-01T03:15 von Erika Musterfrau"),
-                    listOf("Jugendtreff", "2026-07-01 – 2026-07-31", "3", "80,00$NBSP€", "2026-08-01T04:00 von Max Beispiel"),
+                    listOf(
+                        "Vereinsgarten",
+                        "01.08.2026 – 31.08.2026",
+                        "7",
+                        "250,50$NBSP€",
+                        "01.09.2026,${NBSP}03:15 von Erika Musterfrau",
+                    ),
+                    listOf(
+                        "Jugendtreff",
+                        "01.07.2026 – 31.07.2026",
+                        "3",
+                        "80,00$NBSP€",
+                        "01.08.2026,${NBSP}04:00 von Max Beispiel",
+                    ),
                 ),
                 element().bodyRows(),
             )
@@ -182,8 +194,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Monat", "Mitglieder-Gewicht", "Gast-Gewicht", "Gesamt", "Berechnet"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("2026-08-01", "◆ 10,50${NBSP}LTR", "2,50", "13,00", "2026-09-01T02:00"),
-                    listOf("2026-07-01", "◆ 8,00${NBSP}LTR", "1", "9,00", "2026-08-01T02:00"),
+                    listOf("2026-08-01", "◆ 10,50${NBSP}LTR", "2,50", "13,00", "01.09.2026,${NBSP}02:00"),
+                    listOf("2026-07-01", "◆ 8,00${NBSP}LTR", "1", "9,00", "01.08.2026,${NBSP}02:00"),
                 ),
                 element().bodyRows(),
             )

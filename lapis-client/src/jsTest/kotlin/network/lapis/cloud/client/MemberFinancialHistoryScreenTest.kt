@@ -68,7 +68,10 @@ class MemberFinancialHistoryScreenTest {
 
     @Test
     fun financialHistoryEmptyStateText_mentionsJoinedAt() {
-        val text = financialHistoryEmptyStateText(LocalDate(2022, 5, 1))
-        assertEquals(true, text.contains("2022-05-01"))
+        // V1.4.32 W7 Teilwelle B (T5b, a bare-parameter-name blind spot T5 itself cannot see -- joinedAt here is a
+        // function parameter, not a qualified `dto.joinedAt`): now formatted via DateTime.kt, no more raw ISO.
+        val joinedAt = LocalDate(2022, 5, 1)
+        val text = financialHistoryEmptyStateText(joinedAt)
+        assertEquals(true, text.contains(formatDate(joinedAt)))
     }
 }

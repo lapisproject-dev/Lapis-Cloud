@@ -265,7 +265,7 @@ private fun renderMotionRow(
             "%1 · eingereicht von %2 am %3",
             motion.targetCommitteeName,
             motion.submitterDisplayName,
-            motion.submittedAt,
+            formatDateTime(motion.submittedAt),
         ),
     ) { addCssClasses("text-muted small") }
 
@@ -437,7 +437,7 @@ private fun renderMotionMeta(
             "Gremium: %1 · eingereicht von %2 am %3",
             motion.targetCommitteeName,
             motion.submitterDisplayName,
-            motion.submittedAt,
+            formatDateTime(motion.submittedAt),
         ),
     ) { addCssClasses("text-muted small") }
     if (motion.rationale.isNotBlank()) panel.untrustedP(motion.rationale, className = "mb-0")
@@ -447,7 +447,7 @@ private fun renderMotionMeta(
             gettext(
                 "Geprüft von %1 am %2%3",
                 reviewer,
-                motion.reviewedAt,
+                formatDateTime(motion.reviewedAt!!),
                 motion.reviewNote?.let { " -- $it" } ?: "",
             ),
         ) {
@@ -645,7 +645,7 @@ internal fun renderScheduleForm(
     onChanged: () -> Unit,
 ) {
     val form = panel.lapisForm()
-    val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, it.scheduledAt) }
+    val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, formatDateTime(it.scheduledAt)) }
     val meetingField = form.selectField(label = tr("Sitzung"), options = meetingOptions, value = meetings.firstOrNull()?.id)
     val positionField =
         form.textField(

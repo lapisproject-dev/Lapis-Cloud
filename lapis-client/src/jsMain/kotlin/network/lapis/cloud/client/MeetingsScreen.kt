@@ -205,7 +205,9 @@ private fun renderMeetingRow(
     // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
     headerRow.div(sanitizeUntrustedI18nText(meeting.title)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.statusBadge(meetingStatusLabel(meeting.status), meetingStatusColor(meeting.status))
-    row.div(gettext("%1 · %2 · %3", meeting.committeeName, meetingFormatLabel(meeting.format), meeting.scheduledAt)) {
+    row.div(
+        gettext("%1 · %2 · %3", meeting.committeeName, meetingFormatLabel(meeting.format), formatDateTime(meeting.scheduledAt)),
+    ) {
         addCssClasses("text-muted small")
     }
     meeting.location?.takeIf { it.isNotBlank() }?.let { location ->
@@ -334,7 +336,7 @@ private fun renderMeetingMeta(
             "Gremium: %1 · %2 · Termin: %3",
             meeting.committeeName,
             meetingFormatLabel(meeting.format),
-            meeting.scheduledAt,
+            formatDateTime(meeting.scheduledAt),
         ),
     ) {
         addCssClasses("text-muted small")
@@ -800,7 +802,7 @@ fun renderResolutionRow(
             resolution.votesNo,
             resolution.votesAbstain,
             if (resolution.quorumMet) gettext("erreicht") else gettext("nicht erreicht"),
-            resolution.decidedAt,
+            formatDateTime(resolution.decidedAt),
             resolution.recordedByDisplayName,
         ),
     ) { addCssClasses("text-muted small") }
@@ -910,7 +912,7 @@ private fun renderProtocolPreview(
             "Gremium: %1 · %2 · Termin: %3%4",
             draft.meeting.committeeName,
             meetingFormatLabel(draft.meeting.format),
-            draft.meeting.scheduledAt,
+            formatDateTime(draft.meeting.scheduledAt),
             locationSuffix,
         ),
     )
@@ -957,7 +959,9 @@ private fun renderProtocolPreview(
     }
 
     renderQuorumRow(printArea, draft.quorum)
-    printArea.div(gettext("Entwurf erstellt am %1", draft.generatedAt)) { addCssClasses("text-muted small mt-2") }
+    printArea.div(
+        gettext("Entwurf erstellt am %1", formatDateTime(draft.generatedAt)),
+    ) { addCssClasses("text-muted small mt-2") }
 
     val printButton = panel.button(tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
     printButton.onClick { window.print() }

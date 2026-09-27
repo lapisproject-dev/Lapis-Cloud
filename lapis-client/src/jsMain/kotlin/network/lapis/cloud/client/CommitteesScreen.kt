@@ -289,9 +289,9 @@ private fun renderRosterRow(
     row.typeBadge(committeeRoleLabel(membership.role), committeeRoleColor(membership.role))
     val period =
         if (membership.until != null) {
-            gettext("%1 – %2", membership.since, membership.until)
+            gettext("%1 – %2", formatDate(membership.since), formatDate(membership.until!!))
         } else {
-            gettext("seit %1", membership.since)
+            gettext("seit %1", formatDate(membership.since))
         }
     row.div(period) { addCssClasses("text-muted small") }
 

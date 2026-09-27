@@ -243,7 +243,7 @@ private fun renderExportManifest(
     panel: SimplePanel,
     manifest: ExportManifestDto,
 ) {
-    panel.div(gettext("Stand: %1", manifest.generatedAt)) { addCssClasses("text-muted small") }
+    panel.div(gettext("Stand: %1", formatDateTime(manifest.generatedAt))) { addCssClasses("text-muted small") }
     if (manifest.sectionCounts.isEmpty()) {
         panel.div(tr("Keine Daten in den registrierten Bereichen gefunden.")) { addCssClasses("text-muted small") }
         return
@@ -616,7 +616,7 @@ fun erasureRequestedByDisplayText(request: ErasureRequestDto): String =
     if (request.requestedBy == request.subjectMemberId) gettext("Mitglied selbst") else request.requestedBy
 
 fun erasureRequestedCaption(request: ErasureRequestDto): String =
-    gettext("Beantragt von %1 am %2", erasureRequestedByDisplayText(request), request.requestedAt)
+    gettext("Beantragt von %1 am %2", erasureRequestedByDisplayText(request), formatDateTime(request.requestedAt))
 
 fun erasureDecidedCaption(request: ErasureRequestDto): String? {
     val decidedBy = request.decidedBy ?: return null
@@ -633,4 +633,5 @@ fun erasureDecidedCaption(request: ErasureRequestDto): String? {
  * deliberate deviation from the design review's literal wording ("Ausgeführt von ${executedAt}",
  * which uses a timestamp as if it were an actor); `executeErasure` is ADMIN-only by role but the DTO
  * does not record which specific ADMIN pressed the button, so this caption says "am", not "von". */
-fun erasureExecutedCaption(request: ErasureRequestDto): String? = request.executedAt?.let { gettext("Ausgeführt am %1", it) }
+fun erasureExecutedCaption(request: ErasureRequestDto): String? =
+    request.executedAt?.let { gettext("Ausgeführt am %1", formatDateTime(it)) }

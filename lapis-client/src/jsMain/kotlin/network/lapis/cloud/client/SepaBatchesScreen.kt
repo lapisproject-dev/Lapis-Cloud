@@ -510,7 +510,7 @@ internal fun renderSepaBatchDetail(
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.statusBadge(sepaBatchStatusLabel(batch.status), sepaBatchStatusColor(batch.status))
     headerRow.typeBadge(sepaSequenceTypeLabel(batch.sequenceType), sepaSequenceTypeColor(batch.sequenceType))
-    headerRow.div(gettext("Einzugsdatum %1", batch.requestedCollectionDate)) { addCssClasses("text-muted small") }
+    headerRow.div(gettext("Einzugsdatum %1", formatDate(batch.requestedCollectionDate))) { addCssClasses("text-muted small") }
 
     // Zustandsleiste: fünf Stationen, aktive fett, erledigte grau, getrennt durch "→".
     val stages =
@@ -535,7 +535,7 @@ internal fun renderSepaBatchDetail(
 
     batch.requiredNoticeDays?.let { panel.div(gettext("Ankündigungsfrist: %1 Tage", it)) { addCssClasses("text-muted small") } }
     batch.fileGenerationAllowedFrom?.let {
-        panel.div(gettext("Datei erzeugbar ab: %1", it)) { addCssClasses("text-muted small") }
+        panel.div(gettext("Datei erzeugbar ab: %1", formatDate(it))) { addCssClasses("text-muted small") }
     }
     batch.submittedNote?.let { panel.div(gettext("Notiz: %1", it)) { addCssClasses("text-muted small") } }
 
@@ -629,8 +629,8 @@ private fun renderBatchActionButton(
                 batch.fileGenerationAllowedFrom?.let {
                     gettext(
                         "Datei erzeugen -- Vorabankündigungsfrist erst ab %1 gewahrt (Einzugsdatum %2)",
-                        it,
-                        batch.requestedCollectionDate,
+                        formatDate(it),
+                        formatDate(batch.requestedCollectionDate),
                     )
                 } ?: tr("Datei erzeugen -- noch nicht möglich")
             row.button(label, style = ButtonStyle.OUTLINESECONDARY).disabled = true
@@ -921,7 +921,7 @@ internal fun renderRecordReturnForm(
         val settled = guarded { rpcService<ISepaService>().listBatches(status = SepaDebitBatchStatus.SETTLED, limit = 100) }.orEmpty()
         val eligible = (submitted + settled).sortedByDescending { it.createdAt }
         (batchField.control as Select).options =
-            eligible.map { it.id to gettext("%1 (%2)", it.requestedCollectionDate, sepaBatchStatusLabel(it.status)) }
+            eligible.map { it.id to gettext("%1 (%2)", formatDate(it.requestedCollectionDate), sepaBatchStatusLabel(it.status)) }
         batchField.setValue(eligible.firstOrNull()?.id)
         // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
         batchField.validate(force = false)

@@ -111,7 +111,11 @@ class BoardMembershipTranslationDomTest {
         withTranslations(translations) {
             assertEquals("T-DONE", reminderResolutionLabel(true))
             assertEquals("T-OPEN", reminderResolutionLabel(false))
-            assertEquals("T-CONFIRMED Bob / 2026-01-02T00:00", resolvedCaption(reminder(true)))
+            // V1.4.32 W7 Teilwelle B (T5b): resolvedAt now goes through formatDateTime -- no more raw ISO.
+            assertEquals(
+                "T-CONFIRMED Bob / ${formatDateTime(LocalDateTime(2026, 1, 2, 0, 0))}",
+                resolvedCaption(reminder(true)),
+            )
         }
     }
 }

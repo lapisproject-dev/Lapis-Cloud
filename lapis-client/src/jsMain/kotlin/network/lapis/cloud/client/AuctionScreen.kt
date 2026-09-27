@@ -469,7 +469,14 @@ private fun renderAuctionCard(
     }
 
     card.div(sanitizeUntrustedI18nText(auction.description)) { addCssClasses("small") }
-    card.div(gettext("Verkäufer: %1 · Endet: %2 · Gebote: %3", auction.sellerDisplayName, auction.endsAt, auction.bidCount)) {
+    card.div(
+        gettext(
+            "Verkäufer: %1 · Endet: %2 · Gebote: %3",
+            auction.sellerDisplayName,
+            formatDateTime(auction.endsAt),
+            auction.bidCount,
+        ),
+    ) {
         addCssClasses("text-muted small")
     }
 
@@ -851,7 +858,7 @@ private fun renderAuctionSettingsSummary(
             gettext(
                 "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3).",
                 settings.lastAcknowledgedByDisplayName,
-                settings.lastAcknowledgedAt,
+                formatDateTime(settings.lastAcknowledgedAt!!),
                 settings.lastDisclaimerVersion,
             ),
         ) { addCssClasses("text-muted small") }

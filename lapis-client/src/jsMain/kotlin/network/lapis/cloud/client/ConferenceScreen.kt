@@ -4498,7 +4498,7 @@ private fun assignMeetingDialog(
     onConfirm: (meetingId: String) -> Unit,
 ) {
     val modal = Modal(caption = tr("Sitzung zuordnen"))
-    val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, it.scheduledAt) }
+    val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, formatDateTime(it.scheduledAt)) }
     val meetingSelect = modal.select(options = meetingOptions, value = meetings.first().id, label = tr("Sitzung"))
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(

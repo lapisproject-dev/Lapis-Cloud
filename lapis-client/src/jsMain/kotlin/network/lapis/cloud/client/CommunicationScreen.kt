@@ -332,9 +332,9 @@ private fun renderSubscriberRow(
     row.untrustedDiv(subscriber.memberDisplayName, className = "flex-grow-1")
     val statusText =
         if (subscriber.unsubscribedAt != null) {
-            gettext("Abbestellt am %1", subscriber.unsubscribedAt)
+            gettext("Abbestellt am %1", formatDateTime(subscriber.unsubscribedAt!!))
         } else {
-            gettext("Abonniert seit %1", subscriber.subscribedAt)
+            gettext("Abonniert seit %1", formatDateTime(subscriber.subscribedAt))
         }
     row.div(statusText) { addCssClasses("text-muted small") }
 }
@@ -359,7 +359,9 @@ private fun renderMailingMessageRow(
     // rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
     headerRow.div(sanitizeUntrustedI18nText(message.subject)) { addCssClass("flex-grow-1") }
     headerRow.statusBadge(mailingMessageStatusLabel(message.status), mailingMessageStatusColor(message.status))
-    message.sentAt?.let { sentAt -> row.div(gettext("Gesendet am %1", sentAt)) { addCssClasses("text-muted small") } }
+    message.sentAt?.let { sentAt ->
+        row.div(gettext("Gesendet am %1", formatDateTime(sentAt))) { addCssClasses("text-muted small") }
+    }
 
     if (message.status == MailingMessageStatus.DRAFT) {
         val sendButton = row.button(tr("Senden"), style = ButtonStyle.OUTLINEDANGER)

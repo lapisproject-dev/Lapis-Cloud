@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.I18n
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DsgvoAuditAction
@@ -120,7 +121,35 @@ class DsgvoRightsScreenTest {
         val r = request(ErasureStatus.REQUESTED, requestedBy = "member-1", subjectMemberId = "member-1")
         val caption = erasureRequestedCaption(r)
         assertTrue(caption.contains("Mitglied selbst"))
-        assertTrue(caption.contains("2026-01-01"))
+        // V1.4.32 W7 Teilwelle B (T5b): requestedAt now goes through formatDateTime -- no more raw ISO.
+        assertTrue(caption.contains(formatDateTime(r.requestedAt)))
+    }
+
+    // V1.4.32 W7 Teilwelle B (T5b/T5b-λ): erasureRequestedCaption/erasureExecutedCaption now format via DateTime.kt
+    // instead of interpolating the raw LocalDateTime -- I18n.language set explicitly and restored in `finally`,
+    // never relying on TestI18nSetup (lesson from round 2/3, see ui-ux-guideline.adoc).
+    @Test
+    fun erasureRequestedCaption_formatsTheDate_inTheActiveLanguage() {
+        val original = I18n.language
+        I18n.language = "de"
+        try {
+            val r = request(ErasureStatus.REQUESTED, requestedBy = "member-1", subjectMemberId = "member-1")
+            assertEquals("Beantragt von Mitglied selbst am 01.01.2026,${NBSP}10:00", erasureRequestedCaption(r))
+        } finally {
+            I18n.language = original
+        }
+    }
+
+    @Test
+    fun erasureExecutedCaption_formatsTheDate_inTheActiveLanguage() {
+        val original = I18n.language
+        I18n.language = "de"
+        try {
+            val r = request(ErasureStatus.COMPLETED, executedAt = LocalDateTime(2026, 1, 3, 12, 0))
+            assertEquals("Ausgeführt am 03.01.2026,${NBSP}12:00", erasureExecutedCaption(r))
+        } finally {
+            I18n.language = original
+        }
     }
 
     @Test

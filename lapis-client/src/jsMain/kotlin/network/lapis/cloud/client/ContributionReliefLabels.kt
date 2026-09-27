@@ -140,18 +140,20 @@ fun reliefEffectDescription(
     when (request.kind) {
         ContributionReliefKind.DEFERRAL -> {
             val previous = request.deferralPreviousDueDate
+            val newDueDate = request.deferralNewDueDate?.let { formatDate(it) }.orEmpty()
             if (previous != null) {
-                gettext("Fälligkeit %1 → %2", previous, request.deferralNewDueDate)
+                gettext("Fälligkeit %1 → %2", formatDate(previous), newDueDate)
             } else {
-                gettext("Neue Fälligkeit: %1", request.deferralNewDueDate)
+                gettext("Neue Fälligkeit: %1", newDueDate)
             }
         }
         ContributionReliefKind.EXEMPTION -> {
+            val from = request.exemptionFrom?.let { formatDate(it) }.orEmpty()
             val until = request.exemptionUntil
             if (until != null) {
-                gettext("Beitragspflicht ausgesetzt %1 bis %2", request.exemptionFrom, until)
+                gettext("Beitragspflicht ausgesetzt %1 bis %2", from, formatDate(until))
             } else {
-                gettext("Beitragspflicht ausgesetzt ab %1 (unbefristet)", request.exemptionFrom)
+                gettext("Beitragspflicht ausgesetzt ab %1 (unbefristet)", from)
             }
         }
         ContributionReliefKind.REDUCTION ->
