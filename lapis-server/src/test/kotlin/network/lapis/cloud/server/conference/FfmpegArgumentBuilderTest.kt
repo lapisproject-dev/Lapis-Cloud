@@ -43,8 +43,8 @@ class FfmpegArgumentBuilderTest :
 
             joined shouldContain "color=black:size=1280x720:rate=30"
             joined shouldContain "-t 42.000"
-            joined shouldContain "setpts=PTS-STARTPTS+0.000/TB"
-            joined shouldContain "setpts=PTS-STARTPTS+5.000/TB"
+            joined shouldContain "setpts=PTS+0.000/TB"
+            joined shouldContain "setpts=PTS+5.000/TB"
             joined shouldContain "enable='gte(t,0.000)'"
             joined shouldContain "enable='gte(t,5.000)'"
             joined shouldContain "[vout]"
@@ -85,14 +85,47 @@ class FfmpegArgumentBuilderTest :
                 )
             val joined = args(spec)
 
-            // Same absolute PTS rebase as the video chain (see FfmpegArgumentBuilder's own bug-fix
-            // comment) -- both must zero their own input's PTS then add the offset, or a non-zero
-            // start PTS in either chain alone becomes an uncorrected constant A/V gap.
+            // Absolute PTS rebase plus the per-track offset (see FfmpegArgumentBuilder's own bug-fix
+            // comment) -- a relative `adelay` would leave any non-zero start PTS of the raw file as
+            // an uncorrected constant A/V gap. The exact chain is pinned here on purpose:
+            // `aresample=async=1:first_pts=0` was suspected (A/V-sync round 3, 2026-09-27) of
+            // forcing the first frame to pts 0 and swallowing the `+offset`; measured against real
+            // ffmpeg 6.1 and 9.0 it PADS silence up to the offset instead and the audio lands exactly
+            // at `offset` -- see FfmpegCompositionIntegrationTest, which proves that with a real
+            // binary. A string assertion alone cannot tell the two behaviours apart, which is why
+            // this test only guards the chain's shape and the integration test guards its timing.
             joined shouldContain "asetpts=PTS-STARTPTS+0.000/TB,aresample=async=1:first_pts=0"
             joined shouldContain "asetpts=PTS-STARTPTS+2.500/TB,aresample=async=1:first_pts=0"
             joined shouldContain "amix=inputs=2"
             joined shouldNotContain "anullsrc"
             joined shouldNotContain "adelay"
+        }
+
+        test("video chain rebases with plain PTS+offset -- never PTS-STARTPTS (A/V-sync round 3 regression guard)") {
+            val spec =
+                RecordingComposeSpec(
+                    videoInputs =
+                        listOf(
+                            RecordingComposeVideoInput(file = File("cam1.webm"), offsetSeconds = 0.055, isScreenShare = false),
+                            RecordingComposeVideoInput(file = File("share.webm"), offsetSeconds = 12.0, isScreenShare = true),
+                        ),
+                    audioInputs = listOf(RecordingComposeAudioInput(file = File("mic1.ogg"), offsetSeconds = 0.0)),
+                    outputDurationSeconds = 40.0,
+                )
+            val builtArgs = FfmpegArgumentBuilder.build(spec = spec, outputPath = "/tmp/out.mp4")
+            val filterGraph = builtArgs[builtArgs.indexOf("-filter_complex") + 1]
+
+            // `STARTPTS` is the pts of the first DECODED frame. A LiveKit Track Egress WebM whose
+            // leading packets are non-keyframes (written by the depayloader, dropped by the decoder)
+            // would then be shifted EARLIER by the whole undecodable head -- video leading audio by
+            // it. ffmpeg re-zeros the container start on its own, so plain `PTS` is the correct
+            // anchor for every well-formed file AND the only correct one for that malformed case.
+            filterGraph shouldContain "[1:v]setpts=PTS+0.055/TB,"
+            filterGraph shouldContain "[2:v]setpts=PTS+12.000/TB,"
+            filterGraph shouldNotContain ":v]setpts=PTS-STARTPTS"
+            // The audio chain keeps STARTPTS deliberately (audio decoders never drop leading frames;
+            // Opus pre-skip yields a -0.0065 s first pts that STARTPTS folds away).
+            filterGraph shouldContain "[3:a]asetpts=PTS-STARTPTS+0.000/TB,aresample=async=1:first_pts=0[a0]"
         }
 
         test(
@@ -173,7 +206,7 @@ class FfmpegArgumentBuilderTest :
                 )
             val joined = args(spec)
 
-            joined shouldContain "setpts=PTS-STARTPTS+0.000/TB"
+            joined shouldContain "setpts=PTS+0.000/TB"
             joined shouldNotContain "-3.000"
         }
     })

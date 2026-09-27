@@ -19,9 +19,13 @@ private val logger = KotlinLogging.logger {}
  * @property startTimeSeconds the file's own first timestamp (`format.start_time`). LiveKit's egress
  *   muxers (`webmmux` with `offset-to-zero=false`, `oggmux`) write ABSOLUTE pipeline running
  *   times, so a value clearly above zero is the one direct sign of media that was received (PTS
- *   starts at the first received packet) but never written -- the composer's `setpts=PTS-STARTPTS`
- *   re-zeros exactly this amount away. Logged so the next real recording shows whether that ever
- *   happens; `mp4mux` re-zeros the file itself and always reports ~0 here.
+ *   starts at the first received packet) but never written -- `ffmpeg` itself re-zeros every
+ *   input's container start before the composer's filter graph runs (default `-copyts` off), so
+ *   exactly this amount would be lost. Logged so the next real recording shows whether that ever
+ *   happens; `mp4mux` re-zeros the file itself and always reports ~0 here. NOT covered by this
+ *   value: a WebM whose first packets are present but undecodable (non-keyframes before the first
+ *   keyframe) -- `start_time` is 0 then; see the video chain in `FfmpegArgumentBuilder` for why
+ *   that case is harmless since A/V-sync round 3.
  */
 data class RecordingMediaProbe(
     val durationSeconds: Double?,

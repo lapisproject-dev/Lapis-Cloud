@@ -43,6 +43,30 @@ All notable changes to this project are documented here. Format follows
      laut LiveKit keine untereinander synchronisierten Dateien; falls ein Rest bleibt, wäre
      `TrackCompositeEgress` (eine Audio- plus eine Videospur in EINEM Egress, gemeinsamer
      Synchronizer mit Sender-Report-Abgleich) der nächste Kandidat.
+  4. *A/V-Versatz, Runde 3* — die Aufzeichnung nach Runde 2 hatte den Anfang komplett, aber laut
+     Nutzer weiterhin ca. 0,5 s Versatz, während die Rohdaten (Start-Offsets 0,000 s / 0,055 s,
+     Paket-PTS-Spannen 39,920 s / 39,806 s) nur rund 60 ms erklären. Verdacht war die Audio-Kette
+     `asetpts=PTS-STARTPTS+offset/TB,aresample=async=1:first_pts=0`: `first_pts=0` könnte den eben
+     gesetzten Offset wieder auf 0 ziehen. **Empirisch widerlegt** (echtes `ffmpeg` 6.1 und 9.0,
+     synthetische Opus/OGG- und VP8/WebM-Eingaben mit messbarem Ereignis, `ashowinfo`/`silencedetect`/
+     `blackdetect` am fertigen MP4): `first_pts=0` füllt die Lücke bis zum Offset mit Stille auf, das
+     Audio landet exakt bei `offset`, beide Ketten liegen im fertigen MP4 innerhalb eines Ausgabe-
+     Frames beieinander. Die Filtergraph-Konstruktion setzt die berechneten Offsets korrekt um; die
+     0,5 s entstehen dort nicht. Dabei gefunden und behoben wurde eine **andere** Schwachstelle der
+     Video-Kette: `setpts=PTS-STARTPTS+offset/TB` verankert auf dem ersten *dekodierten* Frame.
+     Beginnt eine Track-Egress-WebM mit Nicht-Keyframes (der Depayloader schreibt sie, der Decoder
+     muss sie bis zum ersten Keyframe verwerfen), verschiebt `STARTPTS` die ganze Spur um genau
+     diesen unbrauchbaren Vorlauf nach vorn — Video läuft dem Audio um diesen Betrag voraus
+     (gemessen: 0,5 s Vorlauf verschob ein Ereignis von 2,0 s auf 1,5 s). Da `ffmpeg` den
+     Container-Start jeder Eingabe ohnehin selbst auf 0 normiert (verifiziert mit WebM und MP4 mit
+     `start_time` 0,5 s), ist `setpts=PTS+offset/TB` für jede wohlgeformte Datei identisch und für
+     diesen Fall korrekt; die Video-Kette nutzt jetzt diese Form, die Audio-Kette bleibt unverändert.
+     Ob die ELB-Aufzeichnung genau diesen Fall zeigt, ist **nicht** belegt (dazu am Rohfile
+     `ffprobe -select_streams v -show_entries packet=pts_time,flags` prüfen, ob das erste Paket
+     `K__` trägt). Neu: `FfmpegCompositionIntegrationTest` lässt das echte `ffmpeg` (falls
+     vorhanden, sonst übersprungen) gegen die Ausgabe von `FfmpegArgumentBuilder` laufen und misst
+     Audio- und Video-Ereignis im fertigen MP4 — ein reiner String-Vergleich des Filtergraphen kann
+     die beiden `first_pts`-Verhaltensweisen nicht unterscheiden.
 
 ### Security
 

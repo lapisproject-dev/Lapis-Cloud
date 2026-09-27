@@ -16,11 +16,12 @@ import kotlin.math.sqrt
  * `xstack` assumes every input exists for the whole output duration -- wrong here, since
  * recording inputs start and stop at different wall-clock offsets (people join/leave mid-meeting).
  * Instead: a `color=black` `lavfi` source is input 0, and every real video input is composited onto
- * it with its own `setpts=PTS-STARTPTS+{offset}/TB` (shifts that input's timeline to start at its
- * own recording-relative offset) followed by `overlay=...:enable='gte(t,{offset})'` (the overlay is
- * invisible -- passes the base frame through -- until that input's own offset is reached). This is
- * the ONLY way a `N`-cell layout can correctly show "nothing yet" for a participant who joined ten
- * minutes into the meeting, which `xstack` cannot express at all.
+ * it with its own `setpts=PTS+{offset}/TB` (shifts that input's timeline to start at its own
+ * recording-relative offset -- see [buildFilterGraph] for why this is deliberately NOT
+ * `PTS-STARTPTS+...`) followed by `overlay=...:enable='gte(t,{offset})'` (the overlay is invisible
+ * -- passes the base frame through -- until that input's own offset is reached). This is the ONLY
+ * way a `N`-cell layout can correctly show "nothing yet" for a participant who joined ten minutes
+ * into the meeting, which `xstack` cannot express at all.
  *
  * ## Gallery grid vs. presentation layout
  *
@@ -155,8 +156,20 @@ object FfmpegArgumentBuilder {
             val cell = cells[i]
             val offset = formatSeconds(input.offsetSeconds)
             val scaledLabel = "v$i"
+            // A/V-sync round 3 (2026-09-27): `PTS+offset/TB`, deliberately WITHOUT `-STARTPTS`.
+            // ffmpeg already re-zeros every input's container start time before any filter runs
+            // (default `-copyts` off: verified empirically on ffmpeg 6.1 and 9.0 with WebM and MP4
+            // inputs whose `start_time` was 0.5 s -- the first frame reaches the graph at pts 0), so
+            // `STARTPTS` never contributed anything for a well-formed file. What it DID do is harm
+            // the one malformed case LiveKit Track Egress can produce: a WebM whose leading packets
+            // are non-keyframes (the depayloader writes them, the decoder must drop them until the
+            // first keyframe). `STARTPTS` is the pts of the first DECODED frame, so the whole track
+            // was shifted EARLIER by exactly that undecodable head -- video visibly leading audio by
+            // it (measured: a 0.5 s undecodable head moved a 2.0 s event to 1.5 s with `-STARTPTS`,
+            // and left it at 2.0 s without). Plain `PTS` keeps the container timeline, which is the
+            // timeline `offsetSeconds` was computed for. For a normal file both forms are identical.
             parts +=
-                "[$inputIndex:v]setpts=PTS-STARTPTS+$offset/TB," +
+                "[$inputIndex:v]setpts=PTS+$offset/TB," +
                 "scale=${cell.width}:${cell.height}:force_original_aspect_ratio=decrease," +
                 "pad=${cell.width}:${cell.height}:(ow-iw)/2:(oh-ih)/2:color=black[$scaledLabel]"
             val overlayLabel = if (i == spec.videoInputs.lastIndex) "vout" else "ov$i"
@@ -178,14 +191,24 @@ object FfmpegArgumentBuilder {
                 // `adelay=$delayMs|$delayMs`, a RELATIVE shift that prepends silence without zeroing
                 // the input's own initial PTS -- so any non-zero start PTS already present in the raw
                 // track file (MP4 edit list / initial `tfdt`, or a non-zero container start) became a
-                // constant, uncorrected gap against video's chain below, which DOES zero its own
-                // input first (`setpts=PTS-STARTPTS+...`). Switched to the same absolute rebase video
-                // uses, so both chains are anchored identically. `aresample=async=1:first_pts=0` also
-                // resamples the audio against its own PTS timeline -- WebRTC audio packet loss yields
-                // fewer samples than wall-clock time elapsed, which `amix` below would otherwise
+                // constant, uncorrected gap against the video chain above. Switched to an absolute
+                // rebase so both chains are anchored on the same timeline. `aresample=async=1:first_pts=0`
+                // also resamples the audio against its own PTS timeline -- WebRTC audio packet loss
+                // yields fewer samples than wall-clock time elapsed, which `amix` below would otherwise
                 // concatenate contiguously, compressing the audio timeline and widening the gap over
                 // the course of a long meeting; resampling against real PTS keeps it locked to the
                 // wall clock instead of sample count.
+                //
+                // A/V-sync round 3 (2026-09-27) -- `first_pts=0` verified, NOT a bug: the suspicion was
+                // that `first_pts=0` forces the first resampled frame to pts 0 and thereby undoes the
+                // `+offset` just applied by `asetpts`. Measured on ffmpeg 6.1 and 9.0 (`ashowinfo`
+                // before/after, plus `silencedetect` on the composed MP4): `first_pts=0` PADS the gap
+                // between 0 and the first frame's pts with silence (24000 samples for a 0.5 s offset)
+                // and leaves the audio itself exactly at `offset` -- a 0.5 s offset came out as
+                // 0.500 s onset, matching the video chain to within one output frame. Keep as is.
+                // `asetpts=PTS-STARTPTS` stays for audio: audio decoders never drop leading frames
+                // (the video-chain hazard above does not exist here) and Opus/OGG's pre-skip gives a
+                // -0.0065 s first packet pts that `STARTPTS` folds away cleanly.
                 parts += "[$inputIndex:a]asetpts=PTS-STARTPTS+$offset/TB,aresample=async=1:first_pts=0[$label]"
                 audioLabels += "[$label]"
             }
