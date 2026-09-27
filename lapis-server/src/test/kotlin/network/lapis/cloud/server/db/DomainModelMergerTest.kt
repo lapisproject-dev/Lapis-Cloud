@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 55 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 56 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -53,8 +53,10 @@ class DomainModelMergerTest :
             // 53 with the addition of 52-member-card.kuml.kts. Welle V1.6.1 "KI-Fundament + Pilot
             // Satzungs-Q&A" -- was 53, now 54 with the addition of 53-ai-assistant.kuml.kts. Welle
             // V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- was 54, now 55 with
-            // the addition of 54-mcp-server.kuml.kts.
-            scriptFiles shouldHaveSize 55
+            // the addition of 54-mcp-server.kuml.kts. Welle V1.9.4 "private Hintergrundbild-Uploads
+            // für Videokonferenzen" -- was 55, now 56 with the addition of
+            // 55-conference-background.kuml.kts.
+            scriptFiles shouldHaveSize 56
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -445,7 +447,12 @@ class DomainModelMergerTest :
             // stub + the one real table) and 1 drop, net +1 distinct table name versus the V1.8.1
             // baseline above (162 -> 163). social_post itself also gains one new column
             // (ai_assisted) -- a new column on an already-real table, no new Table file.
-            val distinctTableNames = 163
+            // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" adds
+            // 55-conference-background.kuml.kts's ONE real table (conference_background_image),
+            // WITH ONE cross-domain Member stub (dedups into the already-real member entity) -- so
+            // it contributes +2 «Entity» declarations (1 stub + 1 real table) and 1 drop, net +1
+            // distinct table name versus the V1.8.2 baseline above (163 -> 164).
+            val distinctTableNames = 164
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -728,6 +735,10 @@ class DomainModelMergerTest :
                     // SocialPost cross-domain stub dedups into the already-real social_post entity,
                     // no new Table file for it.
                     "McpPostDraftTable.kt",
+                    // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" -- ONE
+                    // new real table; its Member cross-domain stub dedups into the already-real
+                    // member entity, no new Table file for it.
+                    "ConferenceBackgroundImageTable.kt",
                 )
         }
 

@@ -304,6 +304,7 @@ class LegalHtmlTest :
                     "sessions" to "Anmeldesitzungen",
                     "oidc_guest_federation" to "Föderierter Gastzugang",
                     "conference" to "Videokonferenzen",
+                    "conferenceBackgrounds" to "eigener Hintergrundbilder",
                     "social_network" to "sozialen Netzwerk",
                     "payments" to "Zahlungsverkehr",
                     "crm" to "(CRM)",

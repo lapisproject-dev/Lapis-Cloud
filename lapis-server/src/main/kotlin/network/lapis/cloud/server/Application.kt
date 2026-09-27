@@ -28,6 +28,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.sync.Semaphore
 import network.lapis.cloud.server.accounting.export.AccountingExportConfig
 import network.lapis.cloud.server.accounting.export.AccountingExportPoller
 import network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter
@@ -141,6 +142,7 @@ import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
 import network.lapis.cloud.server.routes.registerClientAssetRoutes
 import network.lapis.cloud.server.routes.registerClientVersionRoutes
+import network.lapis.cloud.server.routes.registerConferenceBackgroundRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
 import network.lapis.cloud.server.routes.registerDatevRoutes
@@ -181,6 +183,7 @@ import network.lapis.cloud.server.rpc.BankAccountService
 import network.lapis.cloud.server.rpc.BankStatementService
 import network.lapis.cloud.server.rpc.BoardMembershipService
 import network.lapis.cloud.server.rpc.CateringService
+import network.lapis.cloud.server.rpc.ConferenceBackgroundService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
@@ -252,6 +255,7 @@ import network.lapis.cloud.shared.rpc.IBankAccountService
 import network.lapis.cloud.shared.rpc.IBankStatementService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.ICateringService
+import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -728,6 +732,12 @@ internal fun Application.module(
     val conferenceNotesEditRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val conferenceNotesDeleteRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     val conferenceNotesSaveRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" -- 10 uploads/hour/member
+    // (deliberately narrower window than most limiters here, matching the plan's own choice), plus
+    // a server-wide cap on CONCURRENT image decodes (decompression-bomb / CPU-DoS defense-in-depth,
+    // independent of the rate limiter -- see ConferenceBackgroundImageProcessor KDoc).
+    val conferenceBackgroundUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
+    val conferenceBackgroundDecodeSemaphore = Semaphore(permits = 2)
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
@@ -1369,6 +1379,13 @@ internal fun Application.module(
     // `docs/architecture/video-background-effects.adoc` vermerkt.
     install(Compression) {
         excludeContentType(ContentType.Image.WEBP)
+        // Welle V1.9.4: the conference-background image/thumbnail routes always serve an already
+        // JPEG-compressed body (ConferenceBackgroundImageProcessor re-encodes every upload to
+        // JPEG) -- gzip on top costs CPU per request for no size benefit, same reasoning as the
+        // WEBP exclusion above. This is a small, global change that also affects
+        // TravelExpenseReceiptRoutes' own JPEG/PNG receipt downloads, which is harmless (the same
+        // "already compressed" argument applies there too).
+        excludeContentType(ContentType.Image.JPEG)
     }
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
     // AutoHeadResponse (HEAD for the same GET routes) back the staticFiles() registration below --
@@ -1413,6 +1430,11 @@ internal fun Application.module(
         registerService(
             ITravelExpenseService::class,
         ) { call -> TravelExpenseService(call = call, receiptStorageRoot = documentStorageRoot) }
+        // Welle V1.9.4 -- reuses documentStorageRoot with a "conference-backgrounds/" storage-key
+        // prefix, same convention as travel-expense receipts above.
+        registerService(
+            IConferenceBackgroundService::class,
+        ) { call -> ConferenceBackgroundService(call = call, storageRoot = documentStorageRoot) }
         // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale".
         registerService(IVolunteerAllowanceService::class) { call -> VolunteerAllowanceService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
@@ -1713,6 +1735,12 @@ internal fun Application.module(
         }
         registerDocumentRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen".
+        registerConferenceBackgroundRoutes(
+            storageRoot = documentStorageRoot,
+            rateLimiter = conferenceBackgroundUploadRateLimiter,
+            decodeSemaphore = conferenceBackgroundDecodeSemaphore,
+        )
         // Welle "Digitaler Mitgliedsausweis (PDF)" -- POST (nicht GET), weil jeder Aufruf einen
         // frischen Ausweis-Code praegt und den vorherigen entwertet; siehe
         // registerMemberCardRoutes KDoc.

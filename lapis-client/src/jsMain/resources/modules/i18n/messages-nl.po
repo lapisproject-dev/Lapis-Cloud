@@ -191,7 +191,7 @@ msgstr "TAN bevestigen"
 msgid " · gemeldet am %1"
 msgstr " · gemeld op %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5026
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5104
 msgid " · Moderator"
 msgstr " · Moderator"
 
@@ -199,11 +199,11 @@ msgstr " · Moderator"
 msgid " (%1)"
 msgstr " (%1)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5025
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5103
 msgid " (Sie)"
 msgstr " (U)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:898
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:902
 msgid " bei %1"
 msgstr " bij %1"
 
@@ -419,7 +419,7 @@ msgstr "Het afschrift klopt niet: beginsaldo plus mutaties komt niet overeen met
 msgid "Der IBAN-Abgleich gegen SEPA-Mandate ist auf diesem Server derzeit nicht verfügbar."
 msgstr "De IBAN-vergelijking met SEPA-machtigingen is op deze server momenteel niet beschikbaar."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4939
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5017
 msgid "Die Audio- und Videoverbindung konnte nicht aufgebaut werden -- auch nicht über einen Relay-Server. Häufigste Ursachen: eine strenge Datenschutz-Einstellung des Browsers (z. B. Braves Schutzschilde) oder ein Netzwerk, das Videoverbindungen blockiert. Bitte lockern Sie diese Einstellung für diese Seite oder versuchen Sie es in einem anderen Netzwerk oder Browser."
 msgstr "De audio- en videoverbinding kon niet tot stand worden gebracht, ook niet via een relayserver. Meest voorkomende oorzaken: een strikte privacy-instelling van de browser (bijvoorbeeld Brave's Shields) of een netwerk dat videoverbindingen blokkeert. Versoepel deze instelling voor deze site, of probeer een ander netwerk of een andere browser."
 
@@ -439,7 +439,7 @@ msgstr "Het bestand kon niet worden gelezen."
 msgid "Die Kontokennung des Auszugs ist keine gültige IBAN (Altformat?) -- Kontoprüfung übersprungen."
 msgstr "De rekeningidentificatie van het afschrift is geen geldige IBAN (verouderd formaat?) -- de rekeningcontrole is overgeslagen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4943
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5021
 msgid "Die Verbindung zur Videokonferenz konnte nicht hergestellt werden. Bitte versuchen Sie es erneut."
 msgstr "De verbinding met de videoconferentie kon niet tot stand worden gebracht. Probeer het opnieuw."
 
@@ -748,7 +748,7 @@ msgstr "Onbekende fout (HTTP %1)."
 msgid "Veranstaltung"
 msgstr "Evenement"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3816
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3894
 msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
 msgstr "Opnieuw verbinden via een relayserver …"
 
@@ -883,11 +883,11 @@ msgstr ""
 "\"%1 · %2\" echt deactiveren? Bestaande boekingen blijven bewaard, maar de "
 "kostenplaats is niet meer beschikbaar voor nieuwe boekingen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4400
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4478
 msgid "\"%1\" aus der Besprechung entfernen?"
 msgstr "\"%1\" uit de vergadering verwijderen?"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4377
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4455
 msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
 msgstr ""
 "\"%1\" wordt onmiddellijk gesloten -- alle verbindingen worden verbroken."
@@ -991,7 +991,7 @@ msgstr "%1 -- %2 (Bewijsstuk: %3)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:300
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:285
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:292
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1074
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1078
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:575
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:315
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:121
@@ -1041,8 +1041,8 @@ msgstr "%1 (%2 bytes)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:390
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:554
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:321
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4501
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4620
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4579
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4698
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:557
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:527
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:648
@@ -1067,8 +1067,8 @@ msgstr "%1 (vriendenaccount sinds %2)"
 msgid "%1 (Gast)"
 msgstr "%1 (gast)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2017
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3036
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2032
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3051
 msgid "%1 (Sie)"
 msgstr "%1 (U)"
 
@@ -1100,7 +1100,7 @@ msgstr "%1 tot %2"
 msgid "%1 bps"
 msgstr "%1 bps"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1607
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1622
 msgid "%1 Breakout-Räume erstellt und Teilnehmende verteilt."
 msgstr "%1 breakoutruimtes aangemaakt en deelnemers verdeeld."
 
@@ -1187,7 +1187,7 @@ msgstr ""
 msgid "%1 Tabelle(n), %2 Zeile(n), %3 Datei(en) wiederhergestellt."
 msgstr "%1 tabel(len), %2 rij(en), %3 bestand(en) hersteld."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3298
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3313
 msgid "%1 teilt den Bildschirm"
 msgstr "%1 deelt het scherm"
 
@@ -1227,8 +1227,8 @@ msgstr "%1 is opgenomen."
 msgid "%1–%2"
 msgstr "%1–%2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1560
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3324
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1575
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3339
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:794
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:299
 msgid "%1: %2"
@@ -1278,11 +1278,11 @@ msgstr "↳ Amendement: %1"
 msgid "↳ Fortsetzung"
 msgstr "↳ Vervolg"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5303
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5381
 msgid "◆ Live-Stream %1 → %2"
 msgstr "◆ Livestream %1 → %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5296
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5374
 msgid "● Aufzeichnung läuft"
 msgstr "● Opname loopt"
 
@@ -1312,19 +1312,19 @@ msgstr "Uitgeschreven op %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:211
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:334
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:513
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1739
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4380
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4401
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4442
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4472
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4503
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4540
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4574
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4654
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4699
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4724
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4749
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:841
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1754
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4458
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4479
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4520
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4550
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4581
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4618
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4652
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4732
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4777
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4802
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4827
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:845
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:302
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:621
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:653
@@ -1494,7 +1494,7 @@ msgstr "Stemminginzet"
 msgid "Abwickeln"
 msgstr "Afwikkelen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5113
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5191
 msgid "Administration"
 msgstr "Administratie"
 
@@ -1547,7 +1547,7 @@ msgstr "Actief"
 msgid "Aktiva"
 msgstr "Activa"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:530
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:534
 msgid "Aktive Besprechungen"
 msgstr "Actieve vergaderingen"
 
@@ -1578,7 +1578,7 @@ msgstr "Actiefrekening"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:152
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:272
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:96
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:532
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:536
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:81
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:83
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:125
@@ -1659,7 +1659,7 @@ msgstr "Alle (opgeslagen status)"
 msgid "Alle abwählen"
 msgstr "Alles deselecteren"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4427
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4505
 msgid ""
 "Alle aktuell anwesenden Teilnehmenden sehen sofort, dass aufgezeichnet wird "
 "-- unabhängig davon, wer die Aufzeichnung startet."
@@ -1717,7 +1717,7 @@ msgstr "Alle verwijderingsaanvragen -- goedkeuren/afwijzen, en een goedgekeurde 
 msgid "Alle Status"
 msgstr "Alle statussen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4572
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4650
 msgid ""
 "Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum "
 "zurückgeholt."
@@ -1725,7 +1725,7 @@ msgstr ""
 "Alle deelnemers worden onmiddellijk uit hun breakoutruimtes teruggehaald "
 "naar de hoofdruimte."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1623
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1638
 msgid "Alle Teilnehmenden wurden in den Hauptraum zurückgeholt."
 msgstr "Alle deelnemers zijn teruggehaald naar de hoofdruimte."
 
@@ -1737,9 +1737,9 @@ msgstr ""
 "Alle tekeningen op het whiteboard worden onmiddellijk voor alle deelnemers "
 "verwijderd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1583
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4570
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4576
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1598
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4648
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4654
 msgid "Alle zurückholen"
 msgstr "Allen terughalen"
 
@@ -1771,8 +1771,8 @@ msgstr "Markeren als ingediend"
 msgid "Als Entwurf speichern"
 msgstr "Als concept opslaan"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:694
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:815
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:698
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:819
 msgid "Als Gast beitreten"
 msgstr "Als gast deelnemen"
 
@@ -2043,7 +2043,7 @@ msgstr "Aanwezigheid registreren"
 msgid "Anwesenheit von %1 gespeichert."
 msgstr "Aanwezigheid van %1 opgeslagen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4539
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4617
 msgid "Anzahl der Breakout-Räume"
 msgstr "Aantal breakoutruimtes"
 
@@ -2099,43 +2099,43 @@ msgstr "Kostenrekening"
 msgid "Aufzeichnung"
 msgstr "Opname"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1832
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4462
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4474
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1847
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4540
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4552
 msgid "Aufzeichnung beenden"
 msgstr "Opname beëindigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5140
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5218
 msgid "Aufzeichnung gestartet von %1 um %2:%3"
 msgstr "Opname gestart door %1 om %2:%3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1971
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1986
 msgid "Aufzeichnung gestartet."
 msgstr "Opname gestart."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4444
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4522
 msgid "Aufzeichnung jetzt starten"
 msgstr "Opname nu starten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1850
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2135
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4422
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1865
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2150
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4500
 msgid "Aufzeichnung starten"
 msgstr "Opname starten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1836
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1851
 msgid "Aufzeichnung wird beendet …"
 msgstr "Opname wordt beëindigd …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1985
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2000
 msgid "Aufzeichnung wird beendet."
 msgstr "Opname wordt beëindigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1846
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1861
 msgid "Aufzeichnung wird zusammengeführt …"
 msgstr "Opname wordt samengevoegd …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1297
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1312
 msgid "Aufzeichnung:"
 msgstr "Opname:"
 
@@ -2306,7 +2306,7 @@ msgstr ""
 "effectieve status toont \"Goedgekeurd\"). Dit is de normale, verwachte "
 "toestand."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:870
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:874
 msgid ""
 "Automatisches Kopieren war nicht möglich. Markieren Sie den Text unten und "
 "kopieren Sie ihn manuell."
@@ -2380,7 +2380,7 @@ msgstr "Aangevraagd door %1 op %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:477
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:132
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:128
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1725
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1740
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:131
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:205
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:166
@@ -2397,8 +2397,8 @@ msgstr "Aangevraagd door %1 op %2"
 msgid "Bearbeiten"
 msgstr "Bewerken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5330
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5355
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5408
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5433
 msgid "Beendet"
 msgstr "Beëindigd"
 
@@ -2464,7 +2464,7 @@ msgstr ""
 "opgeslagen whiteboard later NIET inzien -- kies \"Leden\" als het "
 "toegankelijk moet zijn voor alle deelnemers."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4436
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4514
 msgid ""
 "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand "
 "angehören, die Aufzeichnung später NICHT ansehen -- wählen Sie "
@@ -2600,7 +2600,7 @@ msgstr "Bijdragetarieven en bijdragegeneratie"
 msgid "Beitragsübersicht"
 msgstr "Bijdrageoverzicht"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:641
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:645
 msgid "Beitreten"
 msgstr "Deelnemen"
 
@@ -2662,7 +2662,7 @@ msgstr ""
 msgid "Bereiche"
 msgstr "Bereiken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5090
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5168
 msgid "Bereit"
 msgstr "Gereed"
 
@@ -2692,7 +2692,7 @@ msgstr ""
 msgid "Bereits Mitglied? Zur Anmeldung."
 msgstr "Al lid? Naar aanmelden."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1416
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1431
 msgid ""
 "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung "
 "entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen "
@@ -2763,34 +2763,34 @@ msgstr "Beschrijving"
 msgid "Besetzung: %1"
 msgstr "Bezetting: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4174
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4252
 msgid "Besprechung \"%1\" wurde für alle beendet."
 msgstr "Vergadering \"%1\" is voor iedereen beëindigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4375
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4453
 msgid "Besprechung für alle beenden"
 msgstr "Vergadering voor iedereen beëindigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2887
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2902
 msgid "Besprechung ganz verlassen"
 msgstr "Vergadering volledig verlaten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:528
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:595
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:604
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:532
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:599
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:608
 msgid "Besprechung jetzt starten"
 msgstr "Vergadering nu starten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1655
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1675
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1670
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1690
 msgid "Besprechung verlassen"
 msgstr "Vergadering verlaten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4781
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4859
 msgid "Besprechung vom %1.%2.%3, %4:%5"
 msgstr "Vergadering van %1-%2-%3, %4:%5"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:816
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:820
 msgid "Besprechung: %1"
 msgstr "Vergadering: %1"
 
@@ -2875,7 +2875,7 @@ msgstr "Betrokken persoon: %1"
 msgid "Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"
 msgstr "Betrokkenen geïnformeerd op (JJJJ-MM-DDTHH:MM:SS, optioneel)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4698
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4776
 msgid "Betroffene Ziele: %1"
 msgstr "Betrokken doelen: %1"
 
@@ -2924,7 +2924,7 @@ msgstr "Balans in evenwicht"
 msgid "Bilanz NICHT ausgeglichen"
 msgstr "Balans NIET in evenwicht"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2885
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2900
 msgid "Bildschirm teilen"
 msgstr "Scherm delen"
 
@@ -2965,7 +2965,7 @@ msgid ""
 "live ab."
 msgstr "Bitcoin gebruikt drie gratis bronnen zonder sleutel (Coinbase/Kraken/Bitstamp). Minimaal quorum: %1. Geen vernieuwingsinterval: elke aanvraag haalt live gegevens op."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4661
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4739
 msgid "Bitte 1 bis %1 Ziele auswählen."
 msgstr "Selecteer 1 tot %1 doelen."
 
@@ -3053,6 +3053,7 @@ msgstr "Geef een benaming op."
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:131
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:213
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:359
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:217
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:725
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:434
 msgid "Bitte eine Datei auswählen."
@@ -3066,7 +3067,7 @@ msgstr "Geef een looptijd in hele uren op (groter dan 0)."
 msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
 msgstr "Geef een optie en een positieve LTR-inzet op."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4668
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4746
 msgid "Bitte eine Person für \"Einzelne Person\" auswählen."
 msgstr "Selecteer een persoon voor \"Individuele persoon\"."
 
@@ -3082,7 +3083,7 @@ msgstr "Geef een vergadering en een geldige positie op."
 msgid "Bitte eine Tätigkeitsbeschreibung mit mindestens %1 Zeichen angeben."
 msgstr "Geef een activiteitsbeschrijving van minstens %1 tekens op."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4550
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4628
 msgid "Bitte eine Zahl zwischen 1 und %1 angeben."
 msgstr "Geef een getal tussen 1 en %1 op."
 
@@ -3245,7 +3246,7 @@ msgstr ""
 msgid "Bitte vergeben Sie Ihr neues Passwort."
 msgstr "Stel uw nieuwe wachtwoord in."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5415
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5493
 msgid "Bitte wählen Sie mindestens ein Ziel aus."
 msgstr "Selecteer ten minste één doel."
 
@@ -3256,7 +3257,7 @@ msgid ""
 "benötigen."
 msgstr "Neem contact op met een ADMIN-lid als u hiervoor toegang nodig hebt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:501
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:505
 msgid ""
 "Bitte wenden Sie sich an Ihre Administration, falls Sie diese Funktion "
 "benötigen."
@@ -3287,11 +3288,11 @@ msgstr "Boostbedrag (LTR)"
 msgid "Boosten"
 msgstr "Boosten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4533
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4611
 msgid "Breakout-Räume erstellen"
 msgstr "Breakoutruimtes aanmaken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1580
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1595
 msgid "Breakout-Räume:"
 msgstr "Breakoutruimtes:"
 
@@ -3380,9 +3381,9 @@ msgstr "Karakterisering"
 msgid "Charakterisierung: %1"
 msgstr "Karakterisering: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2698
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2735
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4246
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2713
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2750
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4324
 msgid "Chat"
 msgstr "Chat"
 
@@ -3589,7 +3590,7 @@ msgstr ""
 msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
 msgstr "Het hoofdvoorstel moet eerst zelf worden geagendeerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5473
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5551
 msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
 msgstr "De livestream is onderbroken vanwege een geheime stemming."
 
@@ -3631,7 +3632,7 @@ msgid ""
 msgstr ""
 "De directe-koopprijs moet, indien opgegeven, een positief LTR-bedrag zijn."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4719
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4797
 msgid ""
 "Der Stream wird neu verbunden -- die Zielplattform sieht dies unter "
 "Umständen erneut als neue Übertragung."
@@ -3649,7 +3650,7 @@ msgstr ""
 "-- als vergaderleiding/notulist van dit orgaan kunt u de vergadering "
 "beheren, maar geen uitnodigingen verzenden."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:546
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:550
 msgid "Derzeit keine aktive Besprechung."
 msgstr "Momenteel geen actieve vergadering."
 
@@ -3723,7 +3724,7 @@ msgstr ""
 msgid "Die Aufzeichnung ist fehlgeschlagen."
 msgstr "De opname is mislukt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4464
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4542
 msgid ""
 "Die Aufzeichnung wird beendet und danach automatisch zu einer Videodatei "
 "zusammengeführt."
@@ -3737,11 +3738,11 @@ msgstr ""
 msgid "Die Auktion ist derzeit deaktiviert."
 msgstr "De veiling is momenteel gedeactiveerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:784
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:788
 msgid "Die Besprechung „%1\" ist bereits beendet."
 msgstr "De vergadering „%1\" is al beëindigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:786
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:790
 msgid ""
 "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. Bitten "
 "Sie die Moderation, den Gastzugang für diesen Raum freizuschalten."
@@ -3749,7 +3750,7 @@ msgstr ""
 "De vergadering „%1\" staat momenteel geen gasten van andere servers toe. "
 "Vraag de moderator om gasttoegang voor deze ruimte vrij te geven."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4693
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4771
 msgid ""
 "Die Besprechung läuft weiter. Die Zielplattform sieht eine Unterbrechung -- "
 "YouTube kann die Übertragung dabei beenden, sodass ein neuer Link nötig wird."
@@ -3757,7 +3758,7 @@ msgstr ""
 "De vergadering loopt door. Het doelplatform ziet een onderbreking -- YouTube "
 "kan de uitzending daarbij beëindigen, zodat een nieuwe link nodig is."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4748
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4826
 msgid "Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter."
 msgstr "De vergadering zelf loopt voor alle deelnemers ongewijzigd door."
 
@@ -3772,7 +3773,7 @@ msgstr "De BIC is ongeldig."
 msgid "Die IBAN ist ungültig."
 msgstr "De IBAN is ongeldig."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4536
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4614
 msgid ""
 "Die laufende Aufzeichnung/der Live-Stream im Hauptraum erfasst kein Audio/"
 "Video in Breakout-Räumen."
@@ -3872,7 +3873,7 @@ msgid ""
 "Diese Aktion mintet echtes LTR und kann nicht rückgängig gemacht werden."
 msgstr "Deze actie mint echte LTR en kan niet ongedaan worden gemaakt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4424
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4502
 msgid ""
 "Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende "
 "gesprochen haben."
@@ -3926,15 +3927,15 @@ msgstr ""
 "Deze twee waarden zijn in het eerste boekjaar identiek en wijken vanaf het "
 "tweede jaar bewust van elkaar af -- zie toelichting in het gegevensmodel."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5054
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5132
 msgid "Diese Besprechung wird ab jetzt aufgezeichnet."
 msgstr "Deze vergadering wordt vanaf nu opgenomen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5467
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5545
 msgid "Diese Besprechung wird ab jetzt live gestreamt."
 msgstr "Deze vergadering wordt vanaf nu live uitgezonden."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4376
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4454
 msgid "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
 msgstr "Deze vergadering wordt voor alle deelnemers beëindigd. Doorgaan?"
 
@@ -3962,7 +3963,7 @@ msgstr "Deze correctieoverdracht is DEFINITIEF en kan niet worden herroepen."
 msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
 msgstr "Deze verwijdering is DEFINITIEF en kan niet ongedaan worden gemaakt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:819
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:823
 msgid ""
 "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und "
 "Chatdaten in dieser Besprechung verantwortlich -- nicht Ihr eigener "
@@ -3982,7 +3983,7 @@ msgstr ""
 "instellingen) -- §25 PartG geldt alleen voor politieke partijen. Voor deze "
 "organisatie is dit rapport daarom bewust een no-op, geen foutmelding."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:720
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:724
 msgid ""
 "Diese Raum-Kennung ist ungültig. Bitte kopieren Sie sie vollständig aus "
 "Ihrer Einladung."
@@ -4055,7 +4056,7 @@ msgstr ""
 msgid "Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten."
 msgstr "Deze verzending is DEFINITIEF en brengt reële kosten met zich mee."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4467
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4545
 msgid ""
 "Dieser Vorgang lässt sich nicht wiederholen -- schlägt er fehl, bleiben die "
 "Rohaufnahmen erhalten und ein Administrator kann helfen."
@@ -4303,8 +4304,8 @@ msgstr "Toegetreden"
 msgid "Einladung"
 msgstr "Uitnodiging"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1386
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:869
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1401
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:873
 msgid "Einladung kopieren"
 msgstr "Uitnodiging kopiëren"
 
@@ -4362,7 +4363,7 @@ msgstr "Vermeldingen"
 msgid "Eintrittswahrscheinlichkeit"
 msgstr "Waarschijnlijkheid"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5375
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5453
 msgid "Einzelne Person"
 msgstr "Individuele persoon"
 
@@ -4421,9 +4422,10 @@ msgstr "Ontdekt op: %1 · Betrokken gegevenscategorieën: %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:388
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:541
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceBackgroundSection.kt:345
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:297
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3043
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4403
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3058
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4481
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2117
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:437
@@ -4625,7 +4627,7 @@ msgstr "Aangemaakt"
 msgid "Erstellt am"
 msgstr "Aangemaakt op"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:629
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:633
 msgid "Erstellt von %1 · %2 Teilnehmende"
 msgstr "Aangemaakt door %1 · %2 deelnemers"
 
@@ -4783,9 +4785,9 @@ msgstr "mislukt"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:411
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:277
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5091
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5331
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5356
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5169
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5409
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5434
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:18
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentLabels.kt:33
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt:141
@@ -4894,16 +4896,16 @@ msgstr "Leidend: %1"
 msgid "Führend: Sie"
 msgstr "Leidend: u"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1260
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4382
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1275
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4460
 msgid "Für alle beenden"
 msgstr "Voor iedereen beëindigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5373
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5451
 msgid "Galerie"
 msgstr "Galerij"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3169
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3184
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:24
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:861
 msgid "Gast"
@@ -4931,15 +4933,15 @@ msgstr "Gastgewicht (louter stemaantal, ongewogen)"
 msgid "Gäste"
 msgstr "Gasten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1375
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1390
 msgid "Gäste anderer Server zulassen"
 msgstr "Gasten van andere servers toestaan"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1371
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1386
 msgid "Gäste zugelassen"
 msgstr "Gasten toegestaan"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:817
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:821
 msgid "Gastgeberin dieser Besprechung: %1"
 msgstr "Host van deze vergadering: %1"
 
@@ -4947,25 +4949,25 @@ msgstr "Host van deze vergadering: %1"
 msgid "Gastzugang"
 msgstr "Gasttoegang"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1402
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1417
 msgid "Gastzugang aktiviert."
 msgstr "Gasttoegang geactiveerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1375
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1414
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1421
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1390
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1429
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1436
 msgid "Gastzugang beenden"
 msgstr "Gasttoegang beëindigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1402
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1417
 msgid "Gastzugang beendet."
 msgstr "Gasttoegang beëindigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:639
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:643
 msgid "Gastzugang offen"
 msgstr "Gasttoegang open"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1364
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1379
 msgid "Gastzugang:"
 msgstr "Gasttoegang:"
 
@@ -5300,7 +5302,7 @@ msgstr "Grootboek"
 msgid "Herunterladen"
 msgstr "Downloaden"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:843
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:847
 msgid "Hinweis gelesen -- als Gast beitreten"
 msgstr "Kennisgeving gelezen -- als gast deelnemen"
 
@@ -5318,7 +5320,7 @@ msgstr ""
 "vastgelegde donatievaluta -- deze selectie dient alleen ter weergave in het "
 "bevestigingsvenster."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1063
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1067
 msgid ""
 "Hinweis: Eine im Hauptraum laufende Aufzeichnung oder ein Live-Stream "
 "erfasst dieses Gespräch nicht."
@@ -5326,7 +5328,7 @@ msgstr ""
 "Opmerking: een in de hoofdruimte lopende opname of livestream legt dit "
 "gesprek niet vast."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:839
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:843
 msgid "Hinweistext-Version %1"
 msgstr "Kennisgevingstekst versie %1"
 
@@ -5602,15 +5604,15 @@ msgstr "De inhoud is verwijderd."
 msgid "Inklusive ehemaliger Profile"
 msgstr "Inclusief voormalige profielen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5272
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5350
 msgid "ist beendet"
 msgstr "is beëindigd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5268
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5346
 msgid "ist unterbrochen"
 msgstr "is onderbroken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5266
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5344
 msgid "ist wegen geheimer Abstimmung unterbrochen"
 msgstr "is onderbroken vanwege een geheime stemming"
 
@@ -5663,7 +5665,7 @@ msgstr "Jaartotaal"
 msgid "Jemand hat diesen Block bereits aktualisiert (zuletzt von %1)."
 msgstr "Iemand heeft dit blok al bijgewerkt (laatst door %1)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4656
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4734
 msgid "Jetzt live gehen"
 msgstr "Nu live gaan"
 
@@ -5871,7 +5873,7 @@ msgstr "Geen vervallen contributies met een actieve machtiging gevonden."
 msgid "Keine fehlenden Angaben für das Transparenzregister."
 msgstr "Geen ontbrekende gegevens voor het UBO-register."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2007
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2022
 msgid ""
 "Keine freigegebenen Stream-Ziele vorhanden -- bitte eine Administratorin "
 "oder einen Administrator kontaktieren."
@@ -5890,7 +5892,7 @@ msgstr ""
 "Geen geplande vergadering voor dit orgaan beschikbaar -- maak er eerst een "
 "aan onder \"Vergaderingen\"."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1516
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1531
 msgid "Keine geplanten Sitzungen vorhanden."
 msgstr "Geen geplande vergaderingen beschikbaar."
 
@@ -6183,7 +6185,7 @@ msgstr ""
 msgid "Land (optional)"
 msgstr "Land (optioneel)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4650
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4728
 msgid "Latenz"
 msgstr "Latentie"
 
@@ -6229,7 +6231,7 @@ msgid "laufend"
 msgstr "lopend"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:665
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5263
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5341
 msgid "läuft"
 msgstr "loopt"
 
@@ -6237,7 +6239,7 @@ msgstr "loopt"
 msgid "Laufzeit in Stunden (z. B. 24)"
 msgstr "Looptijd in uren (bijv. 24)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4636
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4714
 msgid "Layout"
 msgstr "Lay-out"
 
@@ -6272,8 +6274,8 @@ msgstr "Like: %1 · Dislike: %2 · Verdelingsmand: %3"
 msgid "Liste verwalten"
 msgstr "Lijst beheren"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5326
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5354
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5404
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5432
 #: src/jsMain/kotlin/network/lapis/cloud/client/PriceOracleScreen.kt:1114
 msgid "Live"
 msgstr "Live"
@@ -6282,40 +6284,40 @@ msgstr "Live"
 msgid "Live-Stream"
 msgstr "Livestream"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4744
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4751
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4822
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4829
 msgid "Live-Stream beenden"
 msgstr "Livestream beëindigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2437
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2452
 msgid "Live-Stream beendet."
 msgstr "Livestream beëindigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2435
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2450
 msgid "Live-Stream fehlgeschlagen."
 msgstr "Livestream mislukt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5527
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5605
 msgid "Live-Stream gestartet von %1 um %2:%3 · %4"
 msgstr "Livestream gestart door %1 om %2:%3 · %4"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4613
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4691
 msgid "Live-Stream starten"
 msgstr "Livestream starten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2149
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2164
 msgid "Live-Stream starten …"
 msgstr "Livestream starten …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2119
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2134
 msgid "Live-Stream wird beendet."
 msgstr "Livestream wordt beëindigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2049
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2064
 msgid "Live-Stream wird gestartet."
 msgstr "Livestream wordt gestart."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1301
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1316
 msgid "Live-Stream:"
 msgstr "Livestream:"
 
@@ -6613,7 +6615,7 @@ msgstr ""
 "Metadata van alle inzage-/verwijderingsverzoeken -- uitsluitend informatief, "
 "geen acties op deze lijst."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3041
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3056
 msgid "Mikro an"
 msgstr "Micro aan"
 
@@ -6714,7 +6716,7 @@ msgid "Mitglied wurde hinzugefügt."
 msgstr "Lid is toegevoegd."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:72
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5111
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5189
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:313
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:288
 msgid "Mitglieder"
@@ -6827,11 +6829,11 @@ msgstr ""
 msgid "Moderation"
 msgstr "Moderatie"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3039
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3054
 msgid "Moderator"
 msgstr "Moderator"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1259
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1274
 msgid "Moderator:"
 msgstr "Moderator:"
 
@@ -6862,7 +6864,7 @@ msgstr ""
 msgid "Nachher"
 msgstr "Na"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2706
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2721
 msgid "Nachricht"
 msgstr "Bericht"
 
@@ -6948,7 +6950,7 @@ msgstr ""
 "Nieuwe aanbiedingen kunnen evenmin worden aangemaakt totdat een ADMIN de "
 "veiling opnieuw activeert."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:527
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:531
 msgid "Neue Besprechung"
 msgstr "Nieuwe bespreking"
 
@@ -7115,11 +7117,11 @@ msgstr "niet geconfigureerd"
 msgid "Niedrig"
 msgstr "Laag"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5384
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5462
 msgid "Niedrige Latenz"
 msgstr "Lage latentie"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1559
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1574
 msgid "niemand zugewiesen"
 msgstr "niemand toegewezen"
 
@@ -7285,7 +7287,7 @@ msgstr "Nog niet vastgelegd"
 msgid "Noch nicht genutzt"
 msgstr "Nog niet gebruikt"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3022
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3037
 msgid "Noch niemand verbunden."
 msgstr "Nog niemand verbonden."
 
@@ -7322,8 +7324,8 @@ msgid "Notizblock ist zu lang (max. %1 Zeichen)."
 msgstr "Notitieblok is te lang (max. %1 tekens)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:158
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1196
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2890
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1200
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2905
 msgid "Notizen"
 msgstr "Notities"
 
@@ -7367,7 +7369,7 @@ msgstr "Alleen selecteerbaar bij rekeningtype „Activarekening\"."
 msgid "Nur bei Kontotyp „Eigenkapitalkonto\" wählbar."
 msgstr "Alleen selecteerbaar bij rekeningtype „Eigenvermogensrekening\"."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1371
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1386
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventLabels.kt:32
 msgid "Nur Mitglieder"
 msgstr "Alleen leden"
@@ -7548,7 +7550,7 @@ msgstr "Periodebegin (JJJJ-MM-DD)"
 msgid "Periodenende (JJJJ-MM-TT)"
 msgstr "Periode-einde (JJJJ-MM-DD)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4641
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4719
 msgid "Person (nur bei \"Einzelne Person\")"
 msgstr "Persoon (alleen bij \"Afzonderlijke persoon\")"
 
@@ -7858,12 +7860,12 @@ msgstr "Quorum: %1%"
 msgid "Radierer"
 msgstr "Gum"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:702
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:706
 msgid "Raum-Kennung aus Ihrer Einladung"
 msgstr "Ruimte-ID uit uw uitnodiging"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1581
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4542
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1596
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4620
 msgid "Räume erstellen und verteilen"
 msgstr "Ruimtes aanmaken en verdelen"
 
@@ -8043,7 +8045,7 @@ msgstr "Correctie-overdracht via arbitrageprocedure"
 msgid "Schiedsverfahren-Korrekturübertragung bestätigen"
 msgstr "Correctie-overdracht via arbitrageprocedure bevestigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:875
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:879
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:987
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:498
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:225
@@ -8100,7 +8102,7 @@ msgstr "Zelfbeheer"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:367
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:378
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2707
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2722
 msgid "Senden"
 msgstr "Verzenden"
 
@@ -8210,7 +8212,7 @@ msgstr "Zichtbaarheid"
 msgid "Sichtbarkeits-Gewicht (LTR)"
 msgstr "Zichtbaarheidsgewicht (LTR)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4075
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4153
 msgid "Sie"
 msgstr "U"
 
@@ -8278,7 +8280,7 @@ msgstr ""
 "U kunt de politicusranglijst hieronder in het gedeelte \"Instellingen\" "
 "activeren."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1081
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1085
 msgid "Sie nehmen als Teilnehmer teil."
 msgstr "U neemt deel als deelnemer."
 
@@ -8286,19 +8288,19 @@ msgstr "U neemt deel als deelnemer."
 msgid "Sie sind ausgetreten."
 msgstr "U bent uitgetreden."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1079
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1083
 msgid "Sie sind in einem Breakout-Raum."
 msgstr "U bevindt zich in een breakout-ruimte."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:633
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:637
 msgid "Sie sind Moderator"
 msgstr "U bent moderator"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1080
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1084
 msgid "Sie sind Moderator dieser Besprechung."
 msgstr "U bent moderator van deze bespreking."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:696
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:700
 msgid ""
 "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-"
 "Kennung aus Ihrer Einladung ein, um einer Besprechung auf diesem Server "
@@ -8307,7 +8309,7 @@ msgstr ""
 "U bent aangemeld via uw eigen homeserver. Voer de ruimte-ID uit uw "
 "uitnodiging in om deel te nemen aan een bespreking op deze server."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:899
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:903
 msgid ""
 "Sie sind zur Besprechung „%1\"%2 eingeladen.\n"
 "1. Melden Sie sich über Ihren eigenen Heimserver an.\n"
@@ -8319,7 +8321,7 @@ msgstr ""
 "2. Open %3/app#/conference\n"
 "3. Voer daar deze ruimte-ID in: %4"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5417
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5495
 msgid ""
 "Sie starten jetzt einen Live-Stream zu: %1. Diese Ziele sind sofort "
 "öffentlich sichtbar -- die Übertragung kann NICHT zurückgeholt werden, "
@@ -8352,11 +8354,11 @@ msgid "Sie übertragen %1 von %2 an %3 (%4). Schiedsanordnungs-Referenz: „%5\"
 msgstr ""
 "U draagt %1 over van %2 aan %3 (%4). Referentie arbitragebeschikking: „%5\"."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3746
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3824
 msgid "Sie wurden dem Breakout-Raum \"%1\" zugewiesen."
 msgstr "U bent toegewezen aan de breakout-ruimte \"%1\"."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3788
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3866
 msgid "Sie wurden in den Hauptraum zurückgeholt."
 msgstr "U bent teruggehaald naar de hoofdruimte."
 
@@ -8367,7 +8369,7 @@ msgid ""
 msgstr ""
 "U betaalt %1 uit uw vrije LTR-saldo. Dit bedrag wordt NIET terugbetaald."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4502
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4580
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:649
 msgid "Sitzung"
 msgstr "Vergadering"
@@ -8404,24 +8406,24 @@ msgstr "Vergadering aanmaken"
 msgid "Sitzung oben auswählen, um Details zu sehen."
 msgstr "Selecteer hierboven een vergadering om de details te bekijken."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1505
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1520
 msgid "Sitzung zugeordnet."
 msgstr "Vergadering gekoppeld."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1480
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4500
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1495
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4578
 msgid "Sitzung zuordnen"
 msgstr "Vergadering koppelen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1465
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1480
 msgid "Sitzung:"
 msgstr "Vergadering:"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1472
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1487
 msgid "Sitzung: %1"
 msgstr "Vergadering: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1472
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1487
 msgid "Sitzung: nicht zugeordnet"
 msgstr "Vergadering: niet gekoppeld"
 
@@ -8443,7 +8445,7 @@ msgstr "Snapshot activeren"
 msgid "Snapshot für %1 Profil(e) berechnet."
 msgstr "Snapshot berekend voor %1 profiel(en)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5444
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5522
 msgid ""
 "Sobald aus dieser Sitzung heraus eine geheime Abstimmung geöffnet wird, "
 "unterbricht der Server den Stream automatisch und setzt ihn nach dem Ende "
@@ -8540,7 +8542,7 @@ msgstr "Spam"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:169
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:294
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:515
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1738
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1753
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:305
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:655
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:513
@@ -8668,7 +8670,7 @@ msgstr "Donateurstype"
 msgid "Sphäre"
 msgstr "Sfeer"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5374
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5452
 msgid "Sprecher"
 msgstr "Spreker"
 
@@ -8682,7 +8684,7 @@ msgstr "Stand: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:151
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5383
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5461
 msgid "Standard"
 msgstr "Standaard"
 
@@ -8809,38 +8811,38 @@ msgstr "Geannuleerd: %1"
 msgid "Straße (optional)"
 msgstr "Straat (optioneel)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1885
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2161
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1900
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2176
 msgid "Stream beenden"
 msgstr "Stream beëindigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4745
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4823
 msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
 msgstr "Stream beëindigen? De uitzending naar %1 eindigt onmiddellijk."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2086
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2157
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4717
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4726
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2101
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2172
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4795
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4804
 msgid "Stream fortsetzen"
 msgstr "Stream hervatten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2153
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4691
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4701
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2168
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4769
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4779
 msgid "Stream unterbrechen"
 msgstr "Stream onderbreken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2069
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2084
 msgid "Stream unterbrochen."
 msgstr "Stream onderbroken."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1952
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1967
 msgid "Stream wird beendet …"
 msgstr "Stream wordt beëindigd …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2082
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2091
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2097
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2106
 msgid "Stream wird fortgesetzt …"
 msgstr "Stream wordt hervat …"
 
@@ -8885,8 +8887,8 @@ msgstr "Streamdoelen"
 msgid "Streaming-Ziel"
 msgstr "Streamingdoel"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3041
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3150
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3056
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3165
 msgid "Stumm"
 msgstr "Gedempt"
 
@@ -8948,9 +8950,9 @@ msgstr "Agendapunt toevoegen"
 msgid "Technisch-organisatorische Maßnahmen (TOM)"
 msgstr "Technische en organisatorische maatregelen (TOM)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2692
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2750
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4247
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2707
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2765
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4325
 msgid "Teilnehmende"
 msgstr "Deelnemers"
 
@@ -8958,7 +8960,7 @@ msgstr "Deelnemers"
 msgid "Teilnehmende: %1"
 msgstr "Deelnemers: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4399
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4477
 msgid "Teilnehmer entfernen"
 msgstr "Deelnemer verwijderen"
 
@@ -9003,7 +9005,7 @@ msgstr "Tijdlijn"
 msgid "Titel"
 msgstr "Titel"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1745
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1760
 msgid "Titel darf nicht leer sein und höchstens %1 Zeichen haben."
 msgstr "Titel mag niet leeg zijn en mag maximaal %1 tekens bevatten."
 
@@ -9104,7 +9106,7 @@ msgstr "Smaad/laster"
 msgid "Unbekannter Fehler"
 msgstr "Onbekende fout"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5299
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5377
 msgid "unbekanntes Ziel"
 msgstr "onbekend doel"
 
@@ -9137,7 +9139,7 @@ msgstr "Ongeldig verzoek."
 msgid "Unsichtbar machen"
 msgstr "Verbergen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5328
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5406
 msgid "Unterbrochen"
 msgstr "Onderbroken"
 
@@ -9212,17 +9214,17 @@ msgstr "Verwerkingsdoel"
 msgid "Verbindlichkeiten"
 msgstr "Schulden"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3346
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3361
 msgid "Verbindung unterbrochen -- wird automatisch neu verbunden …"
 msgstr "Verbinding verbroken -- wordt automatisch opnieuw verbonden …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3358
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3373
 msgid "Verbindung wird geprüft …"
 msgstr "Verbinding wordt gecontroleerd …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3342
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5325
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5353
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3357
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5403
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5431
 msgid "Verbindung wird hergestellt …"
 msgstr "Verbinding wordt tot stand gebracht …"
 
@@ -9242,7 +9244,7 @@ msgstr "Verkoper: %1 · Eindigt: %2 · Biedingen: %3"
 msgid "Verkauft an %1 für %2."
 msgstr "Verkocht aan %1 voor %2."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2887
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2902
 msgid "Verlassen"
 msgstr "Verlaten"
 
@@ -9301,8 +9303,8 @@ msgstr "Versies"
 msgid "Versionen von \"%1\":"
 msgstr "Versies van \"%1\":"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1653
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1674
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1668
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1689
 msgid "Verstanden"
 msgstr "Begrepen"
 
@@ -9365,16 +9367,16 @@ msgstr "Beheer (BOARD/ADMIN)"
 msgid "Verwerfen und aktuelle Version übernehmen"
 msgstr "Verwerpen en huidige versie overnemen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:398
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:402
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:353
 msgid "Videokonferenz"
 msgstr "Videoconferentie"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:500
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:504
 msgid "Videokonferenz ist auf diesem Server nicht konfiguriert."
 msgstr "Videoconferentie is niet geconfigureerd op deze server."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:408
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:412
 msgid "Videokonferenzen konnten nicht geladen werden."
 msgstr "Videoconferenties konden niet worden geladen."
 
@@ -9384,15 +9386,15 @@ msgstr "Videoconferenties konden niet worden geladen."
 msgid "Vier-Sphären-Ergebnisrechnung"
 msgstr "Vier-sferenresultatenrekening"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2872
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2887
 msgid "Vollbild"
 msgstr "Volledig scherm"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2872
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2887
 msgid "Vollbild beenden"
 msgstr "Volledig scherm verlaten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4042
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4120
 msgid "Vollbildmodus wurde vom Browser abgelehnt."
 msgstr "De browser heeft de modus voor volledig scherm geweigerd."
 
@@ -9454,7 +9456,7 @@ msgid "Vorsitz"
 msgstr "Voorzitterschap"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:430
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5112
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5190
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:81
 msgid "Vorstand"
 msgstr "Bestuur"
@@ -9514,7 +9516,7 @@ msgstr "Stemming gesloten."
 msgid "Vote schließen"
 msgstr "Stemming sluiten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:713
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:717
 msgid "Weiter"
 msgstr "Volgende"
 
@@ -9522,7 +9524,7 @@ msgstr "Volgende"
 msgid "Weiter bearbeiten"
 msgstr "Verder bewerken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2622
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2637
 msgid "Weitere Teilnehmende (%1)"
 msgstr "Overige deelnemers (%1)"
 
@@ -9559,8 +9561,8 @@ msgstr "Waardebovengrens instellen"
 msgid "Wertobergrenze:"
 msgstr "Waardebovengrens:"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1172
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2889
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1176
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2904
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:186
 msgid "Whiteboard"
 msgstr "Whiteboard"
@@ -9637,15 +9639,15 @@ msgstr "Welkom, %1"
 msgid "Willkommen, %1."
 msgstr "Welkom, %1."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5270
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5348
 msgid "wird angehalten"
 msgstr "wordt onderbroken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5327
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5405
 msgid "Wird angehalten …"
 msgstr "Wordt onderbroken…"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5087
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5165
 msgid "Wird aufgezeichnet"
 msgstr "Wordt opgenomen"
 
@@ -9660,12 +9662,12 @@ msgstr "Wordt uitgevoerd …"
 msgid "Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\"."
 msgstr "Wordt automatisch op dezelfde vergadering gepland als \"%1\"."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5271
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5349
 msgid "wird beendet"
 msgstr "wordt beëindigd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5088
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5329
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5166
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5407
 msgid "Wird beendet …"
 msgstr "Wordt beëindigd …"
 
@@ -9689,9 +9691,9 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:726
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:730
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:135
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1327
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:399
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:541
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1342
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:403
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:545
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:81
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:186
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:374
@@ -9744,15 +9746,15 @@ msgstr ""
 msgid "Wird geladen …"
 msgstr "Wordt geladen …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5262
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5340
 msgid "wird gestartet"
 msgstr "wordt gestart"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:586
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:590
 msgid "Wird gestartet …"
 msgstr "Wordt gestart …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5089
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5167
 msgid "Wird zusammengeführt …"
 msgstr "Wordt samengevoegd …"
 
@@ -9818,7 +9820,7 @@ msgstr "Tijdstempel: %1"
 msgid "Ziel überschreiben (Zielorganisation enthält bereits Daten)"
 msgstr "Doel overschrijven (doelorganisatie bevat al gegevens)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4616
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4694
 msgid "Ziele auswählen (max. %1):"
 msgstr "Doelen selecteren (max. %1):"
 
@@ -9844,7 +9846,7 @@ msgid "Zugangskontrolle"
 msgstr "Toegangscontrole"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:505
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4434
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4512
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:645
 msgid "Zugriffsebene"
 msgstr "Toegangsniveau"
@@ -9884,15 +9886,15 @@ msgid "Zum LTR-Konto ->"
 msgstr "Naar de LTR-rekening ->"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:399
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4505
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4583
 msgid "Zuordnen"
 msgstr "Koppelen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1505
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1520
 msgid "Zuordnung aufgehoben."
 msgstr "Koppeling opgeheven."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1482
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1497
 msgid "Zuordnung aufheben"
 msgstr "Koppeling opheffen"
 
@@ -9904,7 +9906,7 @@ msgstr "Koppeling opheffen"
 msgid "Zur Anmeldung"
 msgstr "Naar aanmelden"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2888
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2903
 msgid "Zurück zum Hauptraum"
 msgstr "Terug naar de hoofdruimte"
 
@@ -15931,3 +15933,66 @@ msgstr "Document"
 
 msgid "Dokumentordner"
 msgstr "Documentmap"
+
+msgid "Eigenes Bild"
+msgstr "Eigen afbeelding"
+
+msgid "Hintergrund: Eigenes Bild"
+msgstr "Achtergrond: Eigen afbeelding"
+
+msgid "Ihr Kamerabild wird nur in diesem Browser bearbeitet und nie an den Server gesendet."
+msgstr "Uw camerabeeld wordt alleen in deze browser verwerkt en nooit naar de server verzonden."
+
+msgid "Eigenes Bild hinzufügen (0 von 3)"
+msgstr "Eigen afbeelding toevoegen (0 van 3)"
+
+msgid "Eigenes Bild hinzufügen (1 von 3)"
+msgstr "Eigen afbeelding toevoegen (1 van 3)"
+
+msgid "Eigenes Bild hinzufügen (2 von 3)"
+msgstr "Eigen afbeelding toevoegen (2 van 3)"
+
+msgid "Eigenes Bild hinzufügen (3 von 3)"
+msgstr "Eigen afbeelding toevoegen (3 van 3)"
+
+msgid "Eigenes Bild auswählen"
+msgstr "Eigen afbeelding selecteren"
+
+msgid "Bitte entfernen Sie zuerst ein eigenes Bild."
+msgstr "Verwijder eerst een van uw eigen afbeeldingen."
+
+msgid "Eigene Bilder werden ohne Standort- und Kameradaten gespeichert und sind für andere Mitglieder und den Vorstand nicht sichtbar."
+msgstr "Eigen afbeeldingen worden opgeslagen zonder locatie- of cameragegevens en zijn niet zichtbaar voor andere leden of het bestuur."
+
+msgid "Eigenes Bild entfernen?"
+msgstr "Eigen afbeelding verwijderen?"
+
+msgid "Dieses eigene Hintergrundbild wird endgültig entfernt."
+msgstr "Deze eigen achtergrondafbeelding wordt permanent verwijderd."
+
+msgid "Eigenes Bild %1 von %2"
+msgstr "Eigen afbeelding %1 van %2"
+
+msgid "Eigenes Bild %1 entfernen"
+msgstr "Eigen afbeelding %1 verwijderen"
+
+msgid "Wird hochgeladen …"
+msgstr "Bezig met uploaden…"
+
+msgid "Die Datei ist zu groß."
+msgstr "Het bestand is te groot."
+
+msgid "Dieses Dateiformat wird nicht unterstützt."
+msgstr "Dit bestandsformaat wordt niet ondersteund."
+
+msgid "Das Bild hat eine ungültige Größe."
+msgstr "De afbeelding heeft een ongeldige grootte."
+
+msgid "Sie haben bereits die maximale Anzahl eigener Bilder erreicht."
+msgstr "U heeft het maximale aantal eigen afbeeldingen al bereikt."
+
+msgid "Zu viele Uploads – bitte später erneut versuchen."
+msgstr "Te veel uploads – probeer het later opnieuw."
+
+msgid "Hochladen fehlgeschlagen."
+msgstr "Uploaden mislukt."

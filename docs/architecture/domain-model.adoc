@@ -1623,3 +1623,29 @@ Five new tables modelled in `lapis-server/src/main/kuml/53-ai-assistant.kuml.kts
 Deliberately no `access_level` copy on the chunk table -- the document's level is joined live at
 retrieval time. Rationale, boundary rules and the runtime full-text index decision:
 xref:ai-assistant.adoc[ai-assistant.adoc].
+
+== V1.9.4 — Private conference background image uploads
+
+One new table, model in `55-conference-background.kuml.kts`, migration
+`V52__conference_background_image.sql` -- see `video-background-effects.adoc`'s
+xref:video-background-effects.adoc#custom-backgrounds[Custom backgrounds] section for the full
+design (upload pipeline, security checklist, limits) this short summary points at.
+
+* **`conference_background_image`** -- one stored, member-owned custom background photo per row:
+  `member_id` (FK, no CASCADE -- the application layer, not the database, is authoritative for
+  deleting the paired files), `storage_key`/`thumb_storage_key` (`VARCHAR(200)`, always
+  server-generated), `width`/`height`/`size_bytes`, `sha256` (`VARCHAR(64)`, an ETag only, not a
+  security boundary), `created_at`. No filename column (the upload is discarded after decoding,
+  never stored under its original name) and no MIME-type column (the server always re-encodes to
+  JPEG regardless of the source format).
+
+**DSGVO**: hard-delete contributor (`ConferenceBackgroundPersonalData`), row and both files removed
+on Art. 17 erasure -- same posture `MemberCardPersonalData` already establishes for
+`member_card_code`, not the retain-and-redact posture most of this codebase's other tables take.
+Export carries id/width/height/sizeBytes/createdAt only, never the storage keys or the bytes.
+
+**Admin backup**: `conference_background_image` is listed in
+`OrganizationSchemaCatalog.EXCLUDED_TABLES` -- private, non-organizational data must not become
+readable through the ADMIN-only whole-organization backup ZIP -- and deliberately NOT in
+`OrganizationExportService.BLOB_TABLES` either (a metadata-only restore without the file bytes would
+leave a row with nothing behind it, still counting against the 3-image-per-member cap).

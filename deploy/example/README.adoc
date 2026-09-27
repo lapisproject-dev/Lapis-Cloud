@@ -181,7 +181,16 @@ pg_dump -U lapiscloud -h 127.0.0.1 -d lapiscloud -F c -f /tmp/lapiscloud.dump
   on a fresh pilot this may be empty) into a location the new named volume can be seeded from.
   Since V1.4.11, uploaded travel-expense receipts also live under this same
   `LAPIS_DOCUMENT_STORAGE_ROOT` volume (under a `travel-expenses/` storage-key prefix, no separate
-  volume or environment variable) -- this one copy step already carries them along:
+  volume or environment variable) -- this one copy step already carries them along. Since V1.9.4,
+  members' own uploaded conference background photos live there too, under a
+  `conference-backgrounds/<memberId>/` storage-key prefix -- again no separate volume, and again
+  carried along by this same copy step. NOTE: unlike every other prefix under this volume,
+  `conference-backgrounds/` is deliberately excluded from the ADMIN-facing whole-organization
+  backup feature (`registerBackupRoutes` / `OrganizationSchemaCatalog.EXCLUDED_TABLES`) -- these are
+  private per-member photos, not organizational data. This filesystem-level copy of the WHOLE
+  volume during a server migration is unaffected by that exclusion (it is not going through the
+  backup feature), but an operator relying on the ADMIN backup ZIP alone for disaster recovery
+  will NOT recover members' custom background photos that way.
 +
 [source,bash]
 ----

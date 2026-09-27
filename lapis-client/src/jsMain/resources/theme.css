@@ -950,6 +950,31 @@ body {
   justify-content: center;
 }
 
+/* V1.9.4 eigene Hintergrundbilder -- der Wrapper braucht `position: relative`, damit der
+   ×-Entfernen-Knopf ABSOLUT relativ zu ihm (nicht relativ zur Kachel) positioniert werden kann;
+   Kachel und Knopf bleiben trotzdem DOM-Geschwister (F4, siehe ConferenceBackgroundSection.kt
+   Datei-KDoc). */
+.lapis-conference-background-tile-wrap {
+  position: relative;
+}
+
+/* Oben LINKS (Raskin: stabile Positionen) -- oben rechts sitzt dauerhaft der Auswahl-Haken
+   (`.lapis-conference-background-check`). Mindestens 24x24 px Trefferfläche. */
+.lapis-conference-background-remove {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  line-height: 1;
+  z-index: 1;
+}
+
 @media (max-width: 767.98px) {
   .lapis-conference-more-sheet {
     left: 0;

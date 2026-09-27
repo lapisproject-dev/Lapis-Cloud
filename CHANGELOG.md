@@ -254,6 +254,40 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen"** -- a full member (`ACTIVE`,
+  `MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE`, deliberately narrower than
+  `CONFERENCE_ELIGIBLE`) can now upload up to 3 private background photos for the video conference,
+  alongside the existing 9 built-in effects. Segmentation and compositing still run entirely in the
+  browser (no camera frame is ever sent to the server); only the upload itself is a byte-carrying
+  round trip, once, at upload time. New table `conference_background_image`
+  (`V52__conference_background_image.sql`, model `55-conference-background.kuml.kts`), byte-carrying
+  routes `POST/GET/DELETE /api/conference-backgrounds*` (mirrors `TravelExpenseReceiptRoutes`' "not
+  Kilua RPC" reasoning), read-only RPC companion `IConferenceBackgroundService.listMine`.
+  `ConferenceBackgroundImageProcessor` re-decodes every upload from sniffed magic bytes only (never
+  the declared `Content-Type`), rejects on header-only dimensions before ever calling a decoder
+  (decompression-bomb guard, verified by a decode-call-counting test), and re-encodes to a
+  metadata-stripped JPEG (no EXIF/GPS/XMP/ICC profile, no byte range of the original file survives --
+  closes the "polyglot file" attack class). Client-side `normalizeBackgroundForUpload` re-encodes to
+  JPEG before upload as a courtesy (smaller upload, immediate feedback); the server never trusts it
+  and re-validates everything. IDOR-safe throughout: BOARD/ADMIN get the identical 404 an unrelated
+  member gets on every route, no privileged bypass anywhere (a deliberate departure from the travel-
+  expense receipt download route's own BOARD/ADMIN bypass -- these are private photos with no
+  organizational interest attached). Listing/viewing/deleting one's own images stays available
+  regardless of the caller's current status, so losing ACTIVE status never traps a member's own
+  photos. DSGVO: hard-delete contributor (`ConferenceBackgroundPersonalData`), export carries only
+  metadata (id/width/height/sizeBytes/createdAt), never storage keys or bytes.
+  `conference_background_image` is listed in `OrganizationSchemaCatalog.EXCLUDED_TABLES` --
+  deliberately excluded from the ADMIN-facing whole-organization backup (private, non-organizational
+  data) and NOT added to `OrganizationExportService.BLOB_TABLES` either. Limits: 4 MiB upload cap,
+  320-4096 px accepted source dimensions, output capped at 1920 px long edge, thumbnail 320x180, 3
+  images per member, 10 uploads per member per rolling hour, a server-wide `Semaphore(2)` bounding
+  concurrent decodes. Client: `ConferenceBackgroundChoice` (`BuiltIn`/`Custom`) generalizes the
+  existing nine-effect whitelist and the state machine to also cover a member's own images; own
+  tiles are wrapped in a `role="none"` container so the tile grid's `role="radiogroup"` still
+  contains only `role="radio"` elements (its × remove button is a sibling, not a descendant, of the
+  radio). See `docs/architecture/video-background-effects.adoc`'s "Custom backgrounds" section for
+  the full design, security checklist and known gaps (Android-app upload not yet exercised on a real
+  device).
 - **V1.4.32 W7 "Zeitstempel-Formatierung app-weit" (Teilwelle A, no new version)** -- one shared date/time
   display convention (`DateTime.kt`), the temporal sibling of the W6a/W6b money convention: five
   `format*`/`*In` functions, five live-translatable widget tokens, three table-column factories

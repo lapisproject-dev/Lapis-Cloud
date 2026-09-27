@@ -159,6 +159,15 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                         "val moreToggleButton = controlsRow.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
                     ),
+                // V1.9.4 own-uploaded-background remove (×) button -- same pattern as the conference control
+                // buttons above: aria-label is set right after construction via RawAttributes, not inline in
+                // the same call/lambda, so this scan cannot see it (no `title` at all, by design -- the tile's
+                // own visible label ("Eigenes Bild") already names it, the × only needs an accessible name via
+                // aria-label, not a redundant tooltip).
+                "ConferenceBackgroundSection.kt" to
+                    listOf(
+                        "wrapper.button(\"\", icon = \"fas fa-xmark\", style = ButtonStyle.OUTLINEDANGER) {",
+                    ),
             ),
         // Welle V1.4.27 (W3) / V1.4.31 (W5): the pseudo-table columns (`width = N.px` on a row/header cell). W5 paid off the last
         // four ledger entries: AuctionScreen, CrowdfundingScreen and PoliticianScreen became `dataTable`s

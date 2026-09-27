@@ -32,6 +32,8 @@ class ConferenceBackgroundI18nCatalogTest :
                 "ConferenceBackgroundEffects.kt",
                 "ConferenceBackgroundController.kt",
                 "ConferenceBackgroundSection.kt",
+                // V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen".
+                "ConferenceBackgroundUploads.kt",
             )
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")

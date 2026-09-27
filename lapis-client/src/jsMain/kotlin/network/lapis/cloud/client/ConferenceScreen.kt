@@ -67,6 +67,8 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -80,6 +82,7 @@ import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.get
 import org.w3c.dom.set
+import org.w3c.files.File
 import kotlin.time.Clock
 
 /**
@@ -1210,16 +1213,27 @@ private fun enterCall(
     // unterstützt wird (siehe `applyPanelVisibility()`). Aufbau/Attribute/Tastatur: siehe
     // `ConferenceBackgroundSection`. `onBackgroundSelect` wird erst NACH dem Controller zugewiesen
     // (Kotlin: keine Vorwärtsreferenz auf eine später deklarierte lokale Variable).
-    var onBackgroundSelect: (ConferenceBackgroundEffect) -> Unit = {}
+    var onBackgroundSelect: (ConferenceBackgroundChoice) -> Unit = {}
+    // V1.9.4 -- gleiches Vorwärtsreferenz-Muster wie `onBackgroundSelect` oben: Upload/Löschen
+    // brauchen `backgroundController` (RPC-Abgleich, Zustandsuebergang), die erst weiter unten
+    // gebaut wird.
+    var onBackgroundUploadFile: (File) -> Unit = {}
+    var onBackgroundDeleteCustom: (String) -> Unit = {}
     // V1.4.23, Audit-Befund M5: EINMAL ermittelt und an Abschnitt UND Controller gereicht -- drei Zustände
     // (verfügbar / Browser-Gerät nicht unterstützt / in der App noch nicht unterstützt), siehe
     // `ConferenceBackgroundAvailability`.
     val backgroundAvailability = conferenceBackgroundAvailabilityInThisBrowser()
+    // V1.9.4 F1 -- nur ein volles Mitglied darf eigene Bilder HOCHLADEN (Anzeigen/Löschen bleiben
+    // für jeden Status möglich, siehe MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE KDoc).
+    val backgroundUploadEligible = AppState.session?.status in MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE
     val backgroundSection =
         ConferenceBackgroundSection(
             parent = moreSheet,
             availability = backgroundAvailability,
-            onSelect = { effect -> onBackgroundSelect(effect) },
+            onSelect = { choice -> onBackgroundSelect(choice) },
+            onUploadFile = { file -> onBackgroundUploadFile(file) },
+            onDeleteCustom = { imageId -> onBackgroundDeleteCustom(imageId) },
+            uploadEligible = backgroundUploadEligible,
         )
 
     // V1.2.10 -- statische a11y-Labels (title/aria-label/data-label) für Buttons, deren Text sich
@@ -3506,9 +3520,112 @@ private fun enterCall(
             supported = backgroundAvailability == ConferenceBackgroundAvailability.AVAILABLE,
         )
     backgroundController.restoreDesiredFromStorage()
-    onBackgroundSelect = { effect ->
+    onBackgroundSelect = { choice ->
         AppScope.launch {
-            runCatching { backgroundController.select(effect, localCameraTrack?.let(::LiveKitBackgroundTrack)) }
+            runCatching { backgroundController.select(choice, localCameraTrack?.let(::LiveKitBackgroundTrack)) }
+        }
+    }
+
+    // V1.9.4 -- lädt die eigenen Bilder EINMAL pro Beitritt (nur wenn der Abschnitt überhaupt
+    // unterstützt wird) und gleicht die gespeicherte Absicht mit der tatsächlichen Liste ab
+    // (Stolperfalle S3: ein inzwischen auf einem anderen Gerät gelöschtes Bild darf beim Beitritt
+    // nicht als LOAD_FAILED aufschlagen).
+    suspend fun loadAndReconcileCustomBackgrounds() {
+        if (backgroundAvailability != ConferenceBackgroundAvailability.AVAILABLE) return
+        val list = runCatching { rpcService<IConferenceBackgroundService>().listMine() }.getOrNull()
+        list?.let { backgroundSection.setCustomImages(it) }
+        runCatching {
+            backgroundController.reconcileCustomImages(
+                ids = list?.map { it.id }?.toSet(),
+                track = localCameraTrack?.let(::LiveKitBackgroundTrack),
+            )
+        }
+    }
+    AppScope.launch { loadAndReconcileCustomBackgrounds() }
+
+    onBackgroundUploadFile = { file ->
+        AppScope.launch {
+            backgroundSection.setUploadInProgress(true)
+            backgroundSection.showStatus(null)
+            // Review-Befund (MAJOR): window.fetch/response.json() verwerfen sich bei JEDEM Netzwerkfehler
+            // (Wi-Fi weg, Proxy-Reset, TLS-Abbruch) oder einer nicht-JSON-2xx-Antwort -- ohne try/finally
+            // liefe die Exception als unbehandelte Coroutine-Exception durch AppScope (blosser
+            // SupervisorJob, kein CoroutineExceptionHandler) und setUploadInProgress(false) am Ende liefe
+            // NIE, der Knopf bliebe fuer den Rest des Anrufs auf "Wird hochgeladen …" haengen.
+            try {
+                val normalized =
+                    runCatching { normalizeBackgroundForUpload(file) }.getOrDefault(NormalizeBackgroundResult.Failed)
+                val blob =
+                    when (normalized) {
+                        is NormalizeBackgroundResult.Ok -> normalized.blob
+                        NormalizeBackgroundResult.TooSmall -> {
+                            // Lokale, comfort-only Vorabpruefung -- derselbe Text wie der server-seitige
+                            // 422-Fall, VOR jedem Netzwerk-Byte (Umsetzungsplan Abschnitt 5.5 "Hochladen").
+                            backgroundSection.showStatus(conferenceBackgroundUploadErrorText(422))
+                            return@launch
+                        }
+                        NormalizeBackgroundResult.TooLarge -> {
+                            // Derselbe Text wie der server-seitige 413-Fall (Review-Befund) -- der
+                            // Roh-Upload-Deckel greift lokal genauso wie server-seitig.
+                            backgroundSection.showStatus(conferenceBackgroundUploadErrorText(413))
+                            return@launch
+                        }
+                        NormalizeBackgroundResult.Failed -> {
+                            backgroundSection.showStatus(tr("Hochladen fehlgeschlagen."))
+                            return@launch
+                        }
+                    }
+                val result =
+                    try {
+                        ConferenceBackgroundHttp.upload(blob)
+                    } catch (e: Throwable) {
+                        backgroundSection.showStatus(tr("Hochladen fehlgeschlagen."))
+                        return@launch
+                    }
+                when (result) {
+                    is CustomBackgroundUploadResult.Ok -> {
+                        val list = runCatching { rpcService<IConferenceBackgroundService>().listMine() }.getOrNull()
+                        list?.let { backgroundSection.setCustomImages(it) }
+                        runCatching {
+                            backgroundController.select(
+                                choice = ConferenceBackgroundChoice.Custom(result.id),
+                                track = localCameraTrack?.let(::LiveKitBackgroundTrack),
+                            )
+                        }
+                    }
+                    is CustomBackgroundUploadResult.Failed -> {
+                        backgroundSection.showStatus(conferenceBackgroundUploadErrorText(result.status))
+                    }
+                }
+            } finally {
+                backgroundSection.setUploadInProgress(false)
+            }
+        }
+    }
+    onBackgroundDeleteCustom = { imageId ->
+        AppScope.launch {
+            // Review-Befund (MAJOR): ConferenceBackgroundHttp.delete wirft bei einem Netzwerkfehler statt
+            // `false` zurueckzugeben -- ohne dieses try/catch liefe der "Löschen fehlgeschlagen."-Zweig nur
+            // bei einem HTTP-Fehler, nie bei einem Netzwerkfehler, und die Exception verschwaende als
+            // unbehandelte Coroutine-Exception ohne jede Rueckmeldung.
+            val deleted =
+                try {
+                    ConferenceBackgroundHttp.delete(imageId)
+                } catch (e: Throwable) {
+                    false
+                }
+            if (deleted) {
+                val list = runCatching { rpcService<IConferenceBackgroundService>().listMine() }.getOrNull()
+                list?.let { backgroundSection.setCustomImages(it) }
+                runCatching {
+                    backgroundController.onCustomImageDeleted(
+                        imageId = imageId,
+                        track = localCameraTrack?.let(::LiveKitBackgroundTrack),
+                    )
+                }
+            } else {
+                backgroundSection.showStatus(tr("Löschen fehlgeschlagen."))
+            }
         }
     }
 

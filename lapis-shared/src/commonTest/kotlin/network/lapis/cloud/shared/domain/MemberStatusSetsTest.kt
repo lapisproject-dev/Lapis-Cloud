@@ -42,6 +42,14 @@ class MemberStatusSetsTest {
         assertFalse(MemberStatus.FRIEND in MemberStatusSets.POLITICIAN_RATER)
     }
 
+    /** Welle V1.9.4 -- deliberately narrower than [MemberStatusSets.CONFERENCE_ELIGIBLE], see that set's own KDoc. */
+    @Test
+    fun customBackgroundUploadEligible_isExactlyOrganizationMember() {
+        assertEquals(setOf(MemberStatus.ACTIVE), MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE)
+        assertFalse(MemberStatus.FRIEND in MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE)
+        assertFalse(MemberStatus.GUEST in MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE)
+    }
+
     /**
      * V1.2.11 (PdV-CSV-Import): widened from two to four elements -- DECEASED (terminal) and DONOR
      * (no account row is ever created for one, see `MemberCsvImport` KDoc) join WITHDRAWN/REJECTED.
