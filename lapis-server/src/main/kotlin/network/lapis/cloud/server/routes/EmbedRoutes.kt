@@ -81,6 +81,16 @@ private val JSON_CONTENT_TYPE = ContentType.Application.Json.withParameter("char
  * BEWUSST die SELBEN Instanzen [registerEventPublicRoutes] bereits für die Formular-Route verwendet
  * (see `Application.kt`'s own call site) -- ein geteiltes Budget, damit der Embed-Pfad die
  * 5/60min-Obergrenze nicht verdoppelt.
+ *
+ * **Welle V1.4.33 "Veranstaltungsliste als Embed-Widget"** adds the fifth widget,
+ * `GET /api/embed/v1/events` (see [registerEmbedEventsFeedRoutes]), on this SAME
+ * `EmbedConfig`/CORS infrastructure -- `EmbedConfig.enabled=false` leaves it un-registered exactly
+ * like the other four. Unlike every other widget in this file, it is read-only and public-by-design
+ * (see [registerEmbedEventsFeedRoutes]'s own KDoc for the one deliberate CORS-posture deviation
+ * this implies), so it needs no money/session parameter -- only its own rate limiters
+ * ([eventsFeedRateLimiter]), reusing the existing [eventPageRateLimiter] for its `OPTIONS`
+ * preflight rather than adding a second new limiter instance (same low-stakes, budget-sharing
+ * reasoning [eventPageRateLimiter] itself already embodies for [registerEmbedEventRoutes]).
  */
 fun Route.registerEmbedRoutes(
     config: EmbedConfig,
@@ -104,6 +114,11 @@ fun Route.registerEmbedRoutes(
     eventRegistrationAttemptRateLimiter: FederationInboxRateLimiter,
     eventRegistrationRateLimiter: FederationInboxRateLimiter,
     eventPageRateLimiter: FederationInboxRateLimiter,
+    // Welle V1.4.33 -- Veranstaltungsliste-Feed-Widget. Read-only/public-by-design, kein
+    // Money-/Schreibpfad wie die Spenden-/Anmeldungs-Parameter oben, deshalb ein einzelner neuer
+    // Limiter statt eines Paars; die OPTIONS-Preflight teilt sich eventPageRateLimiter (siehe
+    // registerEmbedEventsFeedRoutes' eigene KDoc, OQ-2).
+    eventsFeedRateLimiter: FederationInboxRateLimiter,
     brandTitle: String = BrandConfig.DEFAULT_TITLE,
 ) {
     // Registered FIRST, unconditionally -- see this function's own KDoc "A false EmbedConfig.enabled
@@ -159,6 +174,14 @@ fun Route.registerEmbedRoutes(
         attemptRateLimiter = eventRegistrationAttemptRateLimiter,
         registrationRateLimiter = eventRegistrationRateLimiter,
         pageRateLimiter = eventPageRateLimiter,
+    )
+
+    // Welle V1.4.33 "Veranstaltungsliste als Embed-Widget".
+    registerEmbedEventsFeedRoutes(
+        config = config,
+        baseUrl = baseUrl,
+        feedRateLimiter = eventsFeedRateLimiter,
+        preflightRateLimiter = eventPageRateLimiter,
     )
 
     get("/embed/v1/lapis-widgets.js") {

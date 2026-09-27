@@ -8,6 +8,20 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.4.33 "Veranstaltungsliste als Embed-Widget"** — new read-only, keyless endpoint
+  `GET /api/embed/v1/events` on the existing Website-Embed-Widget surface (`EmbedConfig`/CORS
+  infrastructure from V1.4.1a): returns the next up to 50 upcoming `PUBLIC`+`PUBLISHED` events as
+  JSON (slug, title, start/end time, location, registration URL, occupancy `full` flag, fee
+  amount/currency as a string, cover image URL) for a partner website to render itself. Reuses the
+  same query the existing `/veranstaltung.ics` feed already uses
+  (`EventIcsFeed.loadUpcomingPublicPublished`, now with an optional `limit` parameter), so the
+  visibility scope cannot drift between the two surfaces. Unlike the other embed endpoints, a
+  request with no `Origin` header is answered normally rather than rejected (read-only,
+  non-personalized, no session/credential risk) — see `docs/api/embed-widgets.adoc` for the full
+  contract. No database migration, no new environment variable. No bundled
+  `data-lapis-widget="events"` hydration script in this wave (deferred to a follow-up); the JSON
+  endpoint itself is independently useful to a partner site's own rendering code.
+
 - **Veranstaltungs-Titelbild (Event Cover Image).** BOARD/ADMIN können auf der Veranstaltungs-
   Bearbeiten-Seite ein Titelbild (JPEG oder PNG, mindestens 800x600px unabhängig von der
   Ausrichtung, maximal 5 MB) hochladen, ersetzen oder entfernen. Der Server verwirft beim Upload

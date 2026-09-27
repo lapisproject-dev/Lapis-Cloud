@@ -156,7 +156,7 @@ internal fun Route.registerEventPublicRoutes(
                 return@withEventPublicErrorHandling
             }
             val now = DbClock.nowLocalDateTime()
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             if (rows.size >= EventIcsFeed.MAX_EVENTS) {
                 logger.warn { "Public iCal feed truncated at ${EventIcsFeed.MAX_EVENTS} events -- consider raising the cap." }
             }

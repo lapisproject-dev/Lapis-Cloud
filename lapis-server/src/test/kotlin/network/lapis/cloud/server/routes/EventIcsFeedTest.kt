@@ -124,43 +124,70 @@ class EventIcsFeedTest :
         test("PUBLIC+PUBLISHED future event is included") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe true
         }
 
         test("MEMBERS_ONLY+PUBLISHED is excluded") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd, visibility = EventVisibility.MEMBERS_ONLY)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("PUBLIC+DRAFT is excluded") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd, status = EventStatus.DRAFT)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("PUBLIC+CANCELLED is excluded") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd, status = EventStatus.CANCELLED)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("endsAt in the past is excluded") {
             val (id, _) = createEvent(startsAt = farPast, endsAt = farPastEnd)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("endsAt exactly equal to now is excluded (boundary is `greater`, not `greaterEq`)") {
             val now = LocalDateTime(2027, 6, 1, 12, 0)
             val (id, _) = createEvent(startsAt = now.minusHoursCompat(2), endsAt = now)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
+        }
+
+        // ── `limit` parameter (Welle V1.4.33 "Veranstaltungsliste als Embed-Widget") ─────────────
+        // Regression guard for EmbedEventsFeedRoutes' own reuse of this function with a much
+        // smaller cap -- the pre-existing iCal caller (registerEventPublicRoutes) must keep calling
+        // this with no `limit` argument and see EXACTLY the previous MAX_EVENTS(500) behaviour.
+
+        test("an explicit small `limit` returns at most that many rows, even when more would match") {
+            val now = LocalDateTime(2032, 1, 1, 0, 0)
+            val ids =
+                (1..3).map { offset ->
+                    val start = LocalDateTime(2032, 1, 1 + offset, 10, 0)
+                    val end = LocalDateTime(2032, 1, 1 + offset, 12, 0)
+                    createEvent(startsAt = start, endsAt = end).first
+                }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now, limit = 2) }
+            val matchingRows = rows.filter { it[EventTable.id] in ids }
+            (matchingRows.size <= 2) shouldBe true
+        }
+
+        test("omitted `limit` behaves exactly as before -- defaults to MAX_EVENTS(500), unaffected by the new parameter") {
+            val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd)
+            val now = LocalDateTime(2026, 1, 1, 0, 0)
+            val withDefault = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val withExplicitMax = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now, limit = EventIcsFeed.MAX_EVENTS) }
+            withDefault.map { it[EventTable.id] } shouldBe withExplicitMax.map { it[EventTable.id] }
+            (id in withDefault.map { it[EventTable.id] }) shouldBe true
         }
 
         // ── EventIcsFeed.render -- RFC-5545 shape ────────────────────────────────────────────────
@@ -179,7 +206,7 @@ class EventIcsFeedTest :
         // otherwise mix in other tests' events and make substring/first-match assertions flaky.
         fun rowsFor(id: Uuid): List<org.jetbrains.exposed.v1.core.ResultRow> {
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            return transaction { EventIcsFeed.loadUpcomingPublicPublished(now) }.filter { it[EventTable.id] == id }
+            return transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }.filter { it[EventTable.id] == id }
         }
 
         /** Joins RFC-5545 folded continuation lines (`\r\n ` -> nothing) back into single logical lines, so a substring check doesn't need to know where a fold happened to land. */

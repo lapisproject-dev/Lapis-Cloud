@@ -28,12 +28,17 @@ the `/api/v1` read-only REST API or the outbound-webhooks surface — see
 [[authentication]]
 == Authentication
 
-There is no API key or bearer token on this surface. The three origin-gated widget endpoints
-(`/api/embed/v1/session`, `/api/embed/v1/donation/checkout`, and
-`/api/embed/v1/event/{slug}/registration`) are gated by the `Origin` header against
-`LAPIS_EMBED_ALLOWED_ORIGINS` (see <<environment-variables>> and <<cors-and-csp-contract>>) — an
-origin not on the allowlist gets a `403` on these, regardless of whether the request is otherwise
-well-formed. Two kinds of endpoints on this surface are explicitly **not** origin-gated:
+There is no API key or bearer token on this surface. The four origin-gated widget endpoints
+(`/api/embed/v1/session`, `/api/embed/v1/donation/checkout`,
+`/api/embed/v1/event/{slug}/registration`, and `/api/embed/v1/events`) are gated by the `Origin`
+header against `LAPIS_EMBED_ALLOWED_ORIGINS` (see <<environment-variables>> and
+<<cors-and-csp-contract>>) — a *present but disallowed* `Origin` gets a `403` on all four,
+regardless of whether the request is otherwise well-formed. `/api/embed/v1/session` and
+`/api/embed/v1/events` additionally accept a request with **no** `Origin` header at all (a plain
+`curl`/server-to-server fetch) — both are read-only and carry no session/credential risk, unlike
+the two write/money endpoints, which reject a missing `Origin` exactly like a disallowed one (see
+<<event-registration-widget>>/<<anonymous-donation-widget>> for that stricter posture). Two kinds
+of endpoints on this surface are explicitly **not** origin-gated at all:
 
 * The static/return-page routes under `/embed/v1/*` (`lapis-widgets.js`, `login.js`, and the
   `login` return page) carry no CORS check at all — only IP rate-limiting — and are served to any
@@ -61,7 +66,10 @@ and a strict limit checked immediately before the real side effect) plus a separ
 for their `OPTIONS` CORS preflight — see <<anonymous-donation-widget>> and
 <<event-registration-widget>> below for the concrete numbers. `/api/embed/v1/session` is simpler:
 `GET` and its `OPTIONS` preflight share a single rate limit (the same limiter, not a separate
-preflight budget) — see <<cors-and-csp-contract>>.
+preflight budget) — see <<cors-and-csp-contract>>. `/api/embed/v1/events` (60/min, same budget
+class as `/api/embed/v1/session`/`lapis-widgets.js`) shares its `OPTIONS` preflight's rate limit
+with the *event-registration* widget's own preflight budget, not a dedicated limiter — see
+<<events-list-widget>>.
 
 [[no-js-fallback-contract]]
 == No-JS fallback contract
@@ -86,7 +94,12 @@ origin than this server) embed four small widgets:
 * `data-lapis-widget="event"` — a name+email registration form for one specific, PUBLIC event
   (wave V1.4.3.3, see <<event-registration-widget>>).
 
-All four are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
+Wave V1.4.33 adds a fifth, read-only surface — `GET /api/embed/v1/events` (see
+<<events-list-widget>>) — a JSON list of upcoming events for a partner site to render itself. It
+has no `data-lapis-widget="..."` hydration counterpart in this wave (no bundled JS renders it yet),
+so it is not one of the four snippet-based widgets above.
+
+All five are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
 
 [[embedding-snippet]]
 == Embedding snippet
@@ -549,6 +562,94 @@ sequenceDiagram(name = "Embed widget event registration flow (V1.4.3.3)") {
 }
 ----
 
+[[events-list-widget]]
+== Events list widget (wave V1.4.33)
+
+`GET /api/embed/v1/events` — a read-only, JSON list of the next upcoming `PUBLIC`+`PUBLISHED`
+events, for a partner site to render itself (e.g. an events page or a "next up" sidebar widget).
+Unlike every other endpoint on this page, a request with **no** `Origin` header is answered
+normally (`200`) rather than rejected — see <<authentication>> — because this endpoint carries no
+session/credential risk of any kind: it never reads a cookie, never writes anything, and never
+returns anything beyond what `/veranstaltung/{slug}` already serves to an unauthenticated visitor.
+
+Scope is inherited from the same query the `/veranstaltung.ics` feed already uses
+(`visibility=PUBLIC AND status=PUBLISHED AND endsAt > now`, ordered by `startsAt` ascending) — see
+`network.lapis.cloud.server.routes.EventIcsFeed.loadUpcomingPublicPublished`. This endpoint caps
+its own result count at *50* events (its own constant, `EmbedEventsFeedLimits.MAX_EVENTS` —
+deliberately much lower than the iCal feed's own 500-event cap: a partner-site widget realistically
+shows the next 5-20 events, never a full calendar dump, and the lower cap also bounds the
+per-event occupancy check this endpoint performs, see below).
+
+[source]
+----
+GET /api/embed/v1/events
+----
+
+Response (`200`):
+
+[source,json]
+----
+{
+  "events": [
+    {
+      "slug": "mitgliederversammlung-2026",
+      "title": "Mitgliederversammlung 2026",
+      "startsAt": "2026-11-14T18:00:00Z",
+      "endsAt": "2026-11-14T21:00:00Z",
+      "locationText": "Vereinsheim, Musterstraße 1",
+      "registrationUrl": "https://verein.example/veranstaltung/mitgliederversammlung-2026",
+      "full": false,
+      "feeAmount": "0.00",
+      "feeCurrency": "EUR",
+      "coverImageUrl": "https://verein.example/veranstaltung/mitgliederversammlung-2026/bild?v=a1b2c3d4"
+    }
+  ]
+}
+----
+
+* `startsAt`/`endsAt` — ISO-8601, always UTC (`Z` suffix), converted via the SAME
+  `Instant`-round-trip conversion `/veranstaltung.ics`'s own `DTSTART`/`DTEND` use — never a
+  hardcoded `Z` appended to the raw wall-clock value (see that feed's own KDoc for why that would be
+  wrong on a non-UTC server).
+* `registrationUrl` — the public, human-facing event page (`/veranstaltung/{slug}`), the same URL
+  `/veranstaltung.ics`'s own `URL:` property and the RPC-facing `EventDto.publicUrl` use. It is
+  **not** the embed *registration* widget's own JSON endpoint
+  (`POST /api/embed/v1/event/{slug}/registration}`) — that is a `POST`-only JSON API, not something
+  a partner site can link to directly; the event page itself hosts the registration form (or the
+  embed registration widget, if the partner also embeds it).
+* `feeAmount` — a decimal-rendered **string**, never a JSON number (the same house rule the
+  donation checkout's `amount` field already follows — see <<anonymous-donation-widget>>).
+* `full` — `true` iff the event has a capacity AND the currently-occupied seat count (CONFIRMED
+  registrations, plus PENDING_PAYMENT holds that have not yet expired) has reached it — computed
+  per event via `EventStore.countOccupied`, not batched (acceptable at the 50-event cap; a future
+  increase of that cap should come with a batched query, not just a raised constant).
+* `coverImageUrl` — `null` if the event has no cover image set; otherwise the same absolute URL
+  shape <<event-cover-image,the cover-image feature>> already documents.
+
+Errors:
+
+[cols="1,3"]
+|===
+|Response |Meaning
+
+|`403` (no body) |`Origin` header present but not on `LAPIS_EMBED_ALLOWED_ORIGINS`.
+|`429` (no body, `Retry-After` header) |Rate limit exceeded (60/min).
+|`500` (no body) |Unhandled server-side exception — never leaves a bare, header-less response.
+|===
+
+`Cache-Control: no-store` is present on every response — this is a **read-only, non-personalized**
+endpoint, but it shares the same `applyEmbedCors` helper every other endpoint on this surface uses,
+which sets `no-store` unconditionally before any handler-specific logic runs (see
+`network.lapis.cloud.server.embed.EmbedCors` KDoc). Making this specific endpoint cacheable would
+require changing that shared, security-reviewed helper — out of scope for this wave, left for a
+follow-up if partner-site polling volume ever warrants it.
+
+There is no bundled `data-lapis-widget="events"` hydration script in this wave (unlike the other
+four widgets on this page) — a partner site fetches this JSON endpoint directly with its own
+rendering. Adding a shared-bundle `hydrateEvents()` to `lapis-widgets.js` is a candidate for a
+follow-up wave once real partner-site rendering needs are clearer.
+
+[[event-cover-image]]
 == Event cover image (Veranstaltungs-Titelbild)
 
 Unlike every other endpoint on this page, `POST`/`DELETE /api/embed/v1/event/{slug}/cover` are
@@ -592,7 +693,10 @@ V1.4.3.3 adds the event-registration widget above, on the SAME infrastructure ag
 environment variable, and no database migration (every column it writes through
 `EventRegistrationSubmission` already existed). The event-cover-image feature (see above) adds one
 column (`event.cover_image_id`) and an optional `LAPIS_EVENT_COVER_STORAGE_ROOT` environment
-variable, but is likewise NOT itself a partner-API surface.
+variable, but is likewise NOT itself a partner-API surface. Wave V1.4.33 adds the read-only
+events-list widget (<<events-list-widget>>) — again the SAME infrastructure, no new environment
+variable, and no database migration (a pure read/projection endpoint over already-existing
+columns).
 
 See also: <<public-api-v1.adoc#,Lapis Cloud Public API>> for the sibling `/api/v1` read-only
 REST surface (a different audience: machine-to-machine integrations, not a browser widget).

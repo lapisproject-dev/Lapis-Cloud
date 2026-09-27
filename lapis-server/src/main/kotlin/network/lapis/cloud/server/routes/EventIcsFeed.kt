@@ -55,8 +55,17 @@ internal object EventIcsFeed {
      * Nur `visibility=PUBLIC AND status=PUBLISHED`, nur `endsAt > now` (echte Grenze, nicht
      * `>=`) -- ein Event, das GENAU jetzt endet, fällt aus dem Feed, wie
      * `EventStore.list(includePast=false)`'s Default es ebenfalls tut.
+     *
+     * **`limit`** defaults to [MAX_EVENTS] (this feed's own cap) -- Welle V1.4.33
+     * "Veranstaltungsliste als Embed-Widget" (`EmbedEventsFeedRoutes.kt`) passes a much smaller
+     * value (`EmbedEventsFeedLimits.MAX_EVENTS`, 50) for its own DoS/fan-out-guard reasoning (see
+     * that file's own KDoc) -- purely additive, the iCal caller ([registerEventPublicRoutes]) keeps
+     * calling this with no `limit` argument and is unaffected.
      */
-    fun loadUpcomingPublicPublished(now: LocalDateTime): List<ResultRow> =
+    fun loadUpcomingPublicPublished(
+        now: LocalDateTime,
+        limit: Int = MAX_EVENTS,
+    ): List<ResultRow> =
         EventTable
             .selectAll()
             .where {
@@ -64,7 +73,7 @@ internal object EventIcsFeed {
                     (EventTable.status eq EventStatus.PUBLISHED) and
                     (EventTable.endsAt greater now)
             }.orderBy(EventTable.startsAt to SortOrder.ASC, EventTable.id to SortOrder.ASC)
-            .limit(MAX_EVENTS)
+            .limit(limit)
             .toList()
 
     /**

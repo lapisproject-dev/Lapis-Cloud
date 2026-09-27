@@ -151,6 +151,7 @@ class EmbedLoginFlowTest :
                             eventRegistrationAttemptRateLimiter = generousLimiter(),
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
+                            eventsFeedRateLimiter = generousLimiter(),
                         )
                     }
                 }

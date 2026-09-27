@@ -166,6 +166,7 @@ class EmbedRoutesCorsTest :
                             eventRegistrationAttemptRateLimiter = generousLimiter(),
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
+                            eventsFeedRateLimiter = generousLimiter(),
                         )
                         if (withOtherPublicRoutes) {
                             registerAuthRoutes(
@@ -311,6 +312,16 @@ class EmbedRoutesCorsTest :
                         setBody("""{"guestName":"A","guestEmail":"a@example.org"}""")
                     }
                 response.status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test(
+            "config.enabled=false: GET /api/embed/v1/events is 404 -- the fifth widget's route is " +
+                "registered by registerEmbedEventsFeedRoutes, which registerEmbedRoutes only ever calls " +
+                "INSIDE the same enabled gate the other four widgets sit behind (V1.4.33)",
+        ) {
+            testApp(config = EmbedConfig.DISABLED) {
+                client.get("/api/embed/v1/events").status shouldBe HttpStatusCode.NotFound
             }
         }
 

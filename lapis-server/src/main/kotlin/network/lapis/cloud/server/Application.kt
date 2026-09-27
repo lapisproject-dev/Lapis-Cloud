@@ -1294,6 +1294,12 @@ internal fun Application.module(
     val embedSessionRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
     val embedAdminStatusRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // Welle V1.4.33 "Veranstaltungsliste als Embed-Widget" -- read-only, public-by-design (see
+    // registerEmbedEventsFeedRoutes' own KDoc), 60/min consistent with the OTHER read/no-write embed
+    // endpoints above (embedAssetRateLimiter/embedSessionRateLimiter), not the strict 5-30/hour
+    // budgets reserved for money/write paths below.
+    val embedEventsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- der schärfste
     // Limiter dieser Codebase. Der EINZIGE unauthentifizierte Endpunkt, der auf Zuruf eines Fremden
     // einen echten Stripe-API-Aufruf und zwei DB-INSERTs auslöst. embedDonationPageRateLimiter
@@ -1925,6 +1931,7 @@ internal fun Application.module(
             eventRegistrationAttemptRateLimiter = eventRegistrationAttemptRateLimiter,
             eventRegistrationRateLimiter = eventRegistrationRateLimiter,
             eventPageRateLimiter = eventPageRateLimiter,
+            eventsFeedRateLimiter = embedEventsFeedRateLimiter,
             brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }

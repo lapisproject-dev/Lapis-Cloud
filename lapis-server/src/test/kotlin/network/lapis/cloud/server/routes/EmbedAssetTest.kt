@@ -77,6 +77,7 @@ class EmbedAssetTest :
                             eventRegistrationAttemptRateLimiter = generousLimiter(),
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
+                            eventsFeedRateLimiter = generousLimiter(),
                         )
                     }
                 }
@@ -126,6 +127,7 @@ class EmbedAssetTest :
                             eventRegistrationAttemptRateLimiter = generousLimiter(),
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
+                            eventsFeedRateLimiter = generousLimiter(),
                         )
                     }
                 }
