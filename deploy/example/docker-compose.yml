@@ -96,6 +96,11 @@ services:
       LAPIS_RECORDING_ENABLED: "true"
       LAPIS_EGRESS_OUTPUT_CONTAINER_DIR: /out
       LAPIS_EGRESS_OUTPUT_HOST_DIR: /app/egress-out
+      # LAPIS_RECORDING_KEEP_RAW=true in .env silently never reached ConferenceRecordingConfig
+      # without this line, same forwarding gap as LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED below --
+      # keeps the per-track raw Egress output files after composition instead of deleting them,
+      # for post-hoc ffprobe/A-V-offset debugging (see RecordingTrackAlignment).
+      LAPIS_RECORDING_KEEP_RAW: ${LAPIS_RECORDING_KEEP_RAW:-}
       # Wave 3 "Externes Streaming" specifically (recording above works without these two --
       # ConferenceStreamingConfig gates external RTMP egress on its OWN enabled flag, see its
       # KDoc). LAPIS_SECRET_ENCRYPTION_KEY is the AES-256-GCM key SecretBox uses to encrypt
