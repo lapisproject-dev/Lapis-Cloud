@@ -73,6 +73,16 @@
 // assignment is NOT modelled here (no DB constraint exists for it either) -- see that file's own
 // header and `network.lapis.cloud.server.events.EventRoomCollisionGuard`.
 //
+// **Welle "Veranstaltungs-Titelbild" (Event Cover Image) addendum** (`V52__event_cover_image.sql`)
+// adds exactly one column here: `event.coverImageId`, nullable, no FK -- it references a file
+// (`<uuid>.jpg|.png` under `network.lapis.cloud.server.events.EventCoverStorage`'s storage root),
+// not a row in another table, so there is no cross-domain stub to resolve here, unlike `roomId`
+// above. No new column on `event_registration`, no CHECK constraint, no audit-log coverage (see
+// "Why no audit_log_entry coverage" below -- setting/removing a cover image is the same
+// unaudited category as `updateEvent` itself). See `network.lapis.cloud.server.events
+// .EventCoverImageProcessor`/`EventCoverStorage`/`EventCoverPolicy` and `network.lapis.cloud
+// .server.routes.EventCoverRoutes` for the upload/processing/serving pipeline.
+//
 // Cross-field CHECK constraints (identity XOR, active-key/status consistency, the three-way payer-
 // identity CHECK on `payment_checkout_session`) are SQL-only, not modelled here -- same posture every
 // later domain file's header documents (most recently `38-crm.kuml.kts`'s own "Cross-field CHECK
@@ -292,6 +302,15 @@ classDiagram(name = "Events") {
         attribute(name = "roomId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "room_id"; "fkEntity" to "EventRoom" }
+        }
+        // "Veranstaltungs-Titelbild" (Event Cover Image) addendum (see file header). No FK: the
+        // UUID references a file (<uuid>.jpg|.png in the event-cover storage, see
+        // network.lapis.cloud.server.events.EventCoverStorage), not a row in another table -- same
+        // "not every FK-shaped id needs an fkEntity" posture roomId's own stub comment implies is
+        // the exception, not the rule, here made explicit: no `fkEntity` stereotype key at all.
+        attribute(name = "coverImageId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "cover_image_id" }
         }
     }
 

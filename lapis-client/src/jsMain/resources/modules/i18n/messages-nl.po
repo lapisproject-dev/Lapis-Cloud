@@ -15334,3 +15334,47 @@ msgstr "Document"
 msgid "Dokumentordner"
 msgstr "Documentmap"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:515
+msgid "Titelbild"
+msgstr "Omslagafbeelding"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:516
+msgid "Änderungen am Titelbild werden sofort gespeichert."
+msgstr "Wijzigingen aan de omslagafbeelding worden direct opgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:537
+msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
+msgstr "Geen omslagafbeelding – JPEG of PNG, min. 800x600, max. 5 MB"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
+msgid "Bild auswählen…"
+msgstr "Afbeelding kiezen…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:559
+msgid "Bitte zuerst eine Datei auswählen."
+msgstr "Selecteer eerst een bestand."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:565
+msgid "Wird hochgeladen…"
+msgstr "Uploaden…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:574
+msgid "Titelbild gespeichert."
+msgstr "Omslagafbeelding opgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:610
+msgid "Titelbild entfernt."
+msgstr "Omslagafbeelding verwijderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:444
+msgid "Ein Titelbild können Sie nach dem Anlegen hinzufügen."
+msgstr "U kunt na het aanmaken een omslagafbeelding toevoegen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:76
+msgid "Entfernen fehlgeschlagen."
+msgstr "Verwijderen mislukt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:90
+msgid "Antwort konnte nicht gelesen werden."
+msgstr "Kan het antwoord niet lezen."
+

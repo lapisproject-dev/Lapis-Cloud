@@ -181,7 +181,10 @@ pg_dump -U lapiscloud -h 127.0.0.1 -d lapiscloud -F c -f /tmp/lapiscloud.dump
   on a fresh pilot this may be empty) into a location the new named volume can be seeded from.
   Since V1.4.11, uploaded travel-expense receipts also live under this same
   `LAPIS_DOCUMENT_STORAGE_ROOT` volume (under a `travel-expenses/` storage-key prefix, no separate
-  volume or environment variable) -- this one copy step already carries them along:
+  volume or environment variable) -- this one copy step already carries them along. Event cover
+  images live under this same volume too (`event-covers/`, see `LAPIS_EVENT_COVER_STORAGE_ROOT`
+  below), by default -- unless that variable is set, in which case its target directory must be
+  copied/mounted separately:
 +
 [source,bash]
 ----

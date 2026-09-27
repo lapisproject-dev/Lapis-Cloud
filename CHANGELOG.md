@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Veranstaltungs-Titelbild (Event Cover Image).** BOARD/ADMIN können auf der Veranstaltungs-
+  Bearbeiten-Seite ein Titelbild (JPEG oder PNG, mindestens 800x600px unabhängig von der
+  Ausrichtung, maximal 5 MB) hochladen, ersetzen oder entfernen. Der Server verwirft beim Upload
+  ausnahmslos alle Metadaten (EXIF, GPS, XMP, ICC) durch vollständiges Neu-Encodieren, wendet die
+  EXIF-Bildausrichtung vor dem Verwerfen an, begrenzt die lange Kante auf 1600px und schützt gegen
+  Decompression-Bomb-Angriffe durch eine Dimensionsprüfung vor dem eigentlichen Dekodieren. Das
+  Titelbild erscheint auf der öffentlichen Veranstaltungsseite (`/veranstaltung/{slug}`) und als
+  `og:image` für Link-Vorschauen; für nicht-öffentliche Veranstaltungen ist die Bild-URL nur mit
+  einer BOARD/ADMIN-Sitzung abrufbar (identische 404 für unbekannt/privat/kein Bild, kein
+  Existenz-Orakel).
+  - **Bekannte Einschränkungen** (bewusst nicht Teil dieser Welle): kein Zuschnitt/Fokuspunkt (nur
+    proportionale Verkleinerung), kein WebP, keine Drag-&-Drop-Upload-Zone, keine Backup-/Export-
+    Abdeckung — `OrganizationExportService` exportiert `event.cover_image_id` mit, aber NICHT die
+    Bilddatei selbst, sodass ein Restore die Referenz ohne das Bild zurückbringt (404 auf
+    `/veranstaltung/{slug}/bild`). Vorgesehen für eine Folge-Welle.
+
 ### Fixed
 
 - **Videokonferenz-Aufzeichnung: fehlende erste Sekunden und Rest-Versatz zwischen Audio und Video

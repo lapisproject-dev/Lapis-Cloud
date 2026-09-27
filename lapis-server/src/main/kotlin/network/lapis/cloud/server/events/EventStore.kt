@@ -179,6 +179,29 @@ internal object EventStore {
         }
     }
 
+    /**
+     * Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- must run inside a transaction; the
+     * caller holds [lockEventForUpdate]'s row lock on [id] (same discipline every OTHER
+     * capacity/state-changing write in this store requires, see class KDoc). Returns the PREVIOUS
+     * `coverImageId` (possibly `null`) so the caller can delete the now-orphaned file AFTER the
+     * transaction commits -- deleting it before commit would leave a dangling reference if the
+     * transaction later rolled back.
+     *
+     * Deliberately its own function, not folded into [updateEvent] -- `updateEvent` must NEVER
+     * touch this column (see `EventCoverRoutesTest` regression test), so keeping the write path
+     * entirely separate makes that invariant structural rather than merely conventional.
+     */
+    fun setCoverImageId(
+        id: Uuid,
+        coverImageId: Uuid?,
+    ): Uuid? {
+        val previous = getEventOrNull(id)?.get(EventTable.coverImageId)
+        EventTable.update({ EventTable.id eq id }) {
+            it[EventTable.coverImageId] = coverImageId
+        }
+        return previous
+    }
+
     // ── event_registration ─────────────────────────────────────────────────────────────────────
 
     fun getRegistrationOrNull(id: Uuid): ResultRow? =

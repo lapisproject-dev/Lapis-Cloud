@@ -15332,3 +15332,47 @@ msgstr "Dokument"
 msgid "Dokumentordner"
 msgstr "Folder dokumentów"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:515
+msgid "Titelbild"
+msgstr "Obraz okładki"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:516
+msgid "Änderungen am Titelbild werden sofort gespeichert."
+msgstr "Zmiany obrazu okładki są zapisywane natychmiast."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:537
+msgid "Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB"
+msgstr "Brak obrazu okładki – JPEG lub PNG, min. 800x600, maks. 5 MB"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:549
+msgid "Bild auswählen…"
+msgstr "Wybierz obraz…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:559
+msgid "Bitte zuerst eine Datei auswählen."
+msgstr "Najpierw wybierz plik."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:565
+msgid "Wird hochgeladen…"
+msgstr "Przesyłanie…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:574
+msgid "Titelbild gespeichert."
+msgstr "Obraz okładki zapisany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:610
+msgid "Titelbild entfernt."
+msgstr "Obraz okładki usunięty."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:444
+msgid "Ein Titelbild können Sie nach dem Anlegen hinzufügen."
+msgstr "Obraz okładki można dodać po utworzeniu."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:76
+msgid "Entfernen fehlgeschlagen."
+msgstr "Usuwanie nie powiodło się."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:90
+msgid "Antwort konnte nicht gelesen werden."
+msgstr "Nie można odczytać odpowiedzi."
+

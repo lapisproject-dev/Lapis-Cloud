@@ -26,6 +26,7 @@ import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EventCapacityGuard
+import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationResult
@@ -126,13 +127,19 @@ internal fun Route.registerEventPublicRoutes(
                 return@withEventPublicErrorHandling
             }
             val slug = call.parameters["slug"]
-            val view = slug?.let { loadPublicEventView(it) }
+            val view = slug?.let { loadPublicEventView(slug = it, baseUrl = baseUrl) }
             if (view == null) {
                 call.respondEventNotFound(brandTitle)
                 return@withEventPublicErrorHandling
             }
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPublicPageHeaders()
+            // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- this is now the one OTHER page
+            // in the `/veranstaltung/*` family that can load an image (the cover, same-origin, from
+            // `/veranstaltung/{slug}/bild`), alongside the ticket page -- reuses
+            // applyEventTicketPageHeaders' `img-src 'self'` CSP rather than adding a third, near-
+            // identical header function. Harmless (`img-src 'self'` is a no-op) for an event with no
+            // cover image.
+            call.applyEventTicketPageHeaders()
             call.respondText(text = EventPublicHtml.eventPage(brandTitle = brandTitle, view = view), contentType = HTML_CONTENT_TYPE)
         }
     }
@@ -707,7 +714,10 @@ private suspend fun ApplicationCall.respondEventReturnPage(
     }
 }
 
-private fun loadPublicEventView(slug: String): EventPublicHtml.View? =
+private fun loadPublicEventView(
+    slug: String,
+    baseUrl: String,
+): EventPublicHtml.View? =
     transaction {
         val row = EventStore.getEventBySlugOrNull(slug) ?: return@transaction null
         if (row[EventTable.visibility] != EventVisibility.PUBLIC || row[EventTable.status] != EventStatus.PUBLISHED) return@transaction null
@@ -736,6 +746,12 @@ private fun loadPublicEventView(slug: String): EventPublicHtml.View? =
             feeLabel = feeLabel,
             full = full,
             registrationOpen = registrationOpen,
+            coverImageUrl =
+                EventCoverPolicy.coverImageUrl(
+                    baseUrl = baseUrl,
+                    slug = row[EventTable.slug],
+                    coverImageId = row[EventTable.coverImageId],
+                ),
         )
     }
 

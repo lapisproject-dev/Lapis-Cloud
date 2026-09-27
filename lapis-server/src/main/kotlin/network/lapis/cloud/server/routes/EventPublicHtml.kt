@@ -58,13 +58,18 @@ internal object EventPublicHtml {
         val feeLabel: String,
         val full: Boolean,
         val registrationOpen: Boolean,
+        /** Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- additive. Absolute URL, non-null iff the event has a cover image set. See `EventCoverPolicy.coverImageUrl`. */
+        val coverImageUrl: String? = null,
     )
 
     fun eventPage(
         brandTitle: String,
         view: View,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = view.title) {
+        skeleton(brandTitle = brandTitle, heading = view.title, ogImage = view.coverImageUrl) {
+            if (view.coverImageUrl != null) {
+                img(src = view.coverImageUrl, alt = view.title, classes = "event-cover")
+            }
             p { +view.description }
             if (view.locationText != null) p { +"Ort: ${view.locationText}" }
             if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
@@ -259,6 +264,8 @@ internal object EventPublicHtml {
     private fun skeleton(
         brandTitle: String,
         heading: String,
+        /** Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- when non-null, rendered as `og:image` so a shared event link previews with the cover image. `kotlinx.html`'s ordinary attribute API escapes it, same as every other value this file ever writes -- see class KDoc. */
+        ogImage: String? = null,
         content: FlowContent.() -> Unit,
     ): String =
         createHTML(prettyPrint = false).html {
@@ -268,6 +275,12 @@ internal object EventPublicHtml {
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"$heading – $brandTitle" }
                 link(rel = "stylesheet", href = "/s/assets/style.css")
+                if (ogImage != null) {
+                    meta {
+                        attributes["property"] = "og:image"
+                        attributes["content"] = ogImage
+                    }
+                }
             }
             body {
                 div("embed-page") {

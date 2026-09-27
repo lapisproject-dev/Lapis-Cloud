@@ -549,6 +549,40 @@ sequenceDiagram(name = "Embed widget event registration flow (V1.4.3.3)") {
 }
 ----
 
+== Event cover image (Veranstaltungs-Titelbild)
+
+Unlike every other endpoint on this page, `POST`/`DELETE /api/embed/v1/event/{slug}/cover` are
+**NOT** partner-API endpoints, despite living under the `/api/embed/v1/*` path prefix (chosen purely
+for URL-namespace consistency with the rest of this document). They require a session-authenticated
+BOARD/ADMIN caller from the same origin — see `network.lapis.cloud.server.routes
+.registerEventCoverRoutes` KDoc for the full CSRF/DoS/content-type security checklist. No CORS is
+applied to them, no `OPTIONS` handler exists, and no foreign origin can ever call them — the Origin/
+`Sec-Fetch-Site` check on every write is the only thing separating this from a plain same-origin SPA
+call.
+
+The one part of this feature that *is* a genuine public surface is the resulting image URL:
+
+[source]
+----
+GET /veranstaltung/{slug}/bild?v=<8-char prefix>
+----
+
+served at a `/veranstaltung/*` path (owned by `registerEventPublicRoutes`/`EventPublicHtml`, not
+this file's widget infrastructure) — the same URL an unauthenticated visitor's browser loads for the
+public event page's `<img>` tag and `og:image` meta tag. It is reachable without a session only for
+a `PUBLIC`+`PUBLISHED` event; for any other event the identical URL requires a BOARD/ADMIN session,
+and every other case (unknown slug, a private event, a public event with no cover set) returns the
+same bare `404` — no response header or body distinguishes them (no existence oracle). See
+`network.lapis.cloud.server.events.EventCoverImageProcessor` for the upload-time
+validation/downscaling/metadata-stripping pipeline (JPEG/PNG only, 800×600 minimum regardless of
+orientation, 5 MB cap, re-encoded so no EXIF/GPS/ICC metadata and no polyglot payload survives).
+
+**Known, deliberate limitation**: `OrganizationExportService`'s backup/export includes
+`event.cover_image_id` (it walks every table generically) but *not* the cover image file itself —
+only `document_version` blobs are covered by that export. A restore therefore leaves a dangling
+reference: `GET /veranstaltung/{slug}/bild` 404s until the cover is re-uploaded. Flagged in the
+CHANGELOG, not fixed in this wave.
+
 == Scope of this wave
 
 Wave V1.4.1a shipped the login/join widgets and the read-only admin status screen. Wave V1.4.1b
@@ -556,7 +590,9 @@ added the anonymous donation widget, on the SAME `EmbedConfig`/`EmbedCors`/`Embe
 infrastructure — no new environment variable was needed (see <<environment-variables>>). Wave
 V1.4.3.3 adds the event-registration widget above, on the SAME infrastructure again — still no new
 environment variable, and no database migration (every column it writes through
-`EventRegistrationSubmission` already existed).
+`EventRegistrationSubmission` already existed). The event-cover-image feature (see above) adds one
+column (`event.cover_image_id`) and an optional `LAPIS_EVENT_COVER_STORAGE_ROOT` environment
+variable, but is likewise NOT itself a partner-API surface.
 
 See also: <<public-api-v1.adoc#,Lapis Cloud Public API>> for the sibling `/api/v1` read-only
 REST surface (a different audience: machine-to-machine integrations, not a browser widget).

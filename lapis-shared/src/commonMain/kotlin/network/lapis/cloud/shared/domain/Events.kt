@@ -83,6 +83,30 @@ data class EventDto(
     val roomId: String? = null,
     /** Welle V1.4.3.4 "Raumverwaltung" -- denormalized `EventRoom.name` for display, server-computed, never client-supplied. Null iff [roomId] is null. */
     val roomName: String? = null,
+    /**
+     * Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- additive, defaulted so no pre-existing
+     * caller/test breaks. Absolute URL, non-null iff a cover image exists:
+     * `"$baseUrl/veranstaltung/$slug/bild?v=<first 8 chars of coverImageId>"` -- see
+     * `EventCoverPolicy.coverImageUrl`. Publicly fetchable without a session only for a
+     * PUBLIC+PUBLISHED event; for any other event the same URL requires a BOARD/ADMIN session (see
+     * `EventCoverRoutes`' GET route KDoc).
+     */
+    val coverImageUrl: String? = null,
+)
+
+/**
+ * Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- result of uploading or removing an
+ * event's cover image (`network.lapis.cloud.server.routes.EventCoverRoutes`). Deliberately a
+ * narrow, dedicated DTO rather than the full [EventDto]: [EventDto] carries
+ * `dev.kilua.rpc.types.Decimal`/`kotlinx.datetime.LocalDateTime` fields that no plain Ktor route in
+ * this codebase has ever encoded with bare `kotlinx.serialization.Json` (only Kilua RPC's own
+ * serializer module does), and the upload/remove client only ever needs the resulting URL -- the
+ * event list itself is reloaded via the existing RPC `listEvents`/`getEvent` calls, which already
+ * carry the full, current [EventDto].
+ */
+@Serializable
+data class EventCoverResultDto(
+    val coverImageUrl: String?,
 )
 
 @Serializable

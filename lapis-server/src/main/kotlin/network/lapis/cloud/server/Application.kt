@@ -82,6 +82,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
@@ -150,6 +151,7 @@ import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerEmbedRoutes
+import network.lapis.cloud.server.routes.registerEventCoverRoutes
 import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
@@ -356,6 +358,17 @@ internal fun Application.module(
 
     val documentStorageRoot = File(System.getenv("LAPIS_DOCUMENT_STORAGE_ROOT") ?: "build/document-storage")
     documentStorageRoot.mkdirs()
+
+    // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- reuses documentStorageRoot's
+    // durable-volume guarantee with an "event-covers/" subdirectory as the default, same pattern
+    // "travel-expenses/" (`registerTravelExpenseReceiptRoutes`) already establishes: logically a
+    // separate code path (no document access-control model applies, no per-document UUID folder
+    // structure), but physically on the SAME durable volume `deploy/example/docker-compose.yml`
+    // already mounts -- avoids adding a brand-new Docker volume just for this feature. See
+    // `EventCoverStorage` KDoc.
+    val eventCoverStorageRoot =
+        File(System.getenv("LAPIS_EVENT_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("event-covers").path)
+    val eventCoverStorage = EventCoverStorage(eventCoverStorageRoot)
 
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's
@@ -1047,6 +1060,12 @@ internal fun Application.module(
     // Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- soft per-IP budget for
     // GET /veranstaltung.ics, generous enough for normal calendar-client polling intervals.
     val eventIcsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- write side is member-keyed (same
+    // posture eventWriteRateLimiter establishes), read side is per-IP with a bounded key count
+    // (same posture eventPageRateLimiter/eventIcsFeedRateLimiter establish for anonymous public
+    // read paths).
+    val eventCoverWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes)
+    val eventCoverReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen" -- gates ONLY
     // IEventVolunteerService's two self-service methods (signUpSelf/cancelOwnSignup), member-keyed
     // -- same rate-limiting posture eventWriteRateLimiter establishes for
@@ -1874,6 +1893,16 @@ internal fun Application.module(
             ticketPageRateLimiter = eventTicketPageRateLimiter,
             ticketCodeFailureLimiter = eventTicketCodeFailureLimiter,
             icsFeedRateLimiter = eventIcsFeedRateLimiter,
+        )
+        // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- registered as its own, always-on
+        // literal route family (NOT inside registerEmbedRoutes, which early-returns to
+        // "admin status only" when EmbedConfig.enabled is false -- see registerEventCoverRoutes
+        // KDoc).
+        registerEventCoverRoutes(
+            storage = eventCoverStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            writeRateLimiter = eventCoverWriteRateLimiter,
+            readRateLimiter = eventCoverReadRateLimiter,
         )
         // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
         // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei

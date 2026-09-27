@@ -9,6 +9,7 @@ import io.kvision.form.text.Text
 import io.kvision.form.text.TextArea
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
+import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
@@ -16,6 +17,7 @@ import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.image
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -439,6 +441,7 @@ private fun renderEventCreationForm(
     onCreated: () -> Unit,
 ) {
     val panel = root.vPanel(spacing = 6)
+    panel.div(tr("Ein Titelbild können Sie nach dem Anlegen hinzufügen.")) { addCssClasses("text-muted small") }
     val fields = buildEventFormFields(panel, prefill = null, rooms = rooms)
     val errorBox =
         panel.div().apply {
@@ -470,6 +473,7 @@ private fun renderEventEditForm(
     if (event.slug.isNotBlank()) {
         panel.div(gettext("Adresse: /veranstaltung/%1", event.slug)) { addCssClasses("text-muted small") }
     }
+    if (event.slug.isNotBlank()) renderEventCoverCard(panel, event)
     val fields = buildEventFormFields(panel, prefill = event, rooms = rooms)
     val errorBox =
         panel.div().apply {
@@ -493,4 +497,125 @@ private fun renderEventEditForm(
         }
     }
     cancelButton.onClick { onCancel() }
+}
+
+/**
+ * Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- upload/replace/remove card for
+ * [EventsScreen]'s edit form. Deliberately does NOT call `onSaved`/refresh the parent list -- that
+ * would close the edit mode the card lives inside; only the local preview updates, the list picks
+ * up the new [EventDto.coverImageUrl] on its next regular reload. Client-side pre-check (type/size)
+ * mirrors the server's own limits (`EventCoverPolicy`) but the server stays authoritative -- see
+ * `EventCoverRoutes` KDoc.
+ */
+private fun renderEventCoverCard(
+    panel: SimplePanel,
+    event: EventDto,
+) {
+    val card = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2 mb-2") }
+    card.div(tr("Titelbild")) { addCssClasses("fw-bold") }
+    card.div(tr("Änderungen am Titelbild werden sofort gespeichert.")) { addCssClasses("text-muted small") }
+
+    var currentUrl = event.coverImageUrl
+    val preview =
+        card.div {
+            addCssClasses("mb-2 border rounded")
+            setStyle("max-width", "320px")
+            setStyle("aspect-ratio", "4 / 3")
+            setStyle("overflow", "hidden")
+        }
+
+    fun renderPreview() {
+        preview.removeAll()
+        val url = currentUrl
+        if (url != null) {
+            preview.image(url, event.title) {
+                setStyle("width", "100%")
+                setStyle("height", "100%")
+                setStyle("object-fit", "cover")
+            }
+        } else {
+            preview.div(tr("Kein Titelbild – JPEG oder PNG, mind. 800x600, max. 5 MB")) {
+                addCssClasses("text-muted small p-2")
+            }
+        }
+    }
+    renderPreview()
+
+    val statusBox =
+        card.div().apply {
+            addCssClasses("text-muted small")
+            hide()
+        }
+    val fileUpload = card.upload(label = tr("Bild auswählen…"), multiple = false)
+    fileUpload.setAttribute("accept", "image/jpeg,image/png")
+    val buttonRow = card.hPanel(spacing = 8)
+    val uploadButton = buttonRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    val removeButton = buttonRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    removeButton.visible = currentUrl != null
+
+    uploadButton.onClick {
+        val nativeFile = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) }
+        if (nativeFile == null) {
+            statusBox.content = tr("Bitte zuerst eine Datei auswählen.")
+            statusBox.show()
+            return@onClick
+        }
+        uploadButton.disabled = true
+        removeButton.disabled = true
+        statusBox.content = tr("Wird hochgeladen…")
+        statusBox.show()
+        AppScope.launch {
+            when (val result = EventCoverHttp.upload(event.slug, nativeFile)) {
+                is EventCoverHttp.Result.Ok -> {
+                    currentUrl = result.coverImageUrl
+                    renderPreview()
+                    removeButton.visible = currentUrl != null
+                    statusBox.hide()
+                    notifySuccess(tr("Titelbild gespeichert."))
+                }
+                is EventCoverHttp.Result.Error -> {
+                    untrustedContent(statusBox, result.message)
+                    statusBox.show()
+                }
+            }
+            uploadButton.disabled = false
+            removeButton.disabled = false
+        }
+    }
+
+    var removeArmed = false
+    removeButton.onClick {
+        if (!removeArmed) {
+            removeArmed = true
+            removeButton.text = tr("Wirklich entfernen?")
+            AppScope.launch {
+                delay(4000)
+                if (removeArmed) {
+                    removeArmed = false
+                    removeButton.text = tr("Entfernen")
+                }
+            }
+            return@onClick
+        }
+        removeArmed = false
+        removeButton.text = tr("Entfernen")
+        uploadButton.disabled = true
+        removeButton.disabled = true
+        AppScope.launch {
+            when (val result = EventCoverHttp.remove(event.slug)) {
+                is EventCoverHttp.Result.Ok -> {
+                    currentUrl = null
+                    renderPreview()
+                    removeButton.visible = false
+                    notifySuccess(tr("Titelbild entfernt."))
+                }
+                is EventCoverHttp.Result.Error -> {
+                    untrustedContent(statusBox, result.message)
+                    statusBox.show()
+                }
+            }
+            uploadButton.disabled = false
+            removeButton.disabled = false
+        }
+    }
 }

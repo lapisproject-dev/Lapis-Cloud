@@ -244,6 +244,13 @@ internal object SocialPublicHtml {
             display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
             border: 1px solid #C9A227; color: #C9A227; font-size: 0.75rem; font-weight: 600;
         }
+
+        /* Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- shares this stylesheet, see
+           network.lapis.cloud.server.routes.EventPublicHtml class KDoc. No inline `style` attribute
+           on the <img> itself (EventPublicHtml forbids raw HTML/inline styles categorically, same
+           discipline every other block in this file follows) -- a fixed 4:3 aspect ratio, cropped
+           via object-fit, matches the admin-side upload card's own preview box. */
+        .event-cover { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 1rem; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */

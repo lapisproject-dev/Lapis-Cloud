@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCheckIn
+import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationResult
@@ -800,6 +801,7 @@ private fun ResultRow.toEventDto(
         publicUrl = publicUrl,
         roomId = roomId?.toString(),
         roomName = EventRoomStore.roomNameOrNull(roomId),
+        coverImageUrl = EventCoverPolicy.coverImageUrl(baseUrl = baseUrl, slug = slug, coverImageId = this[EventTable.coverImageId]),
     )
 }
 

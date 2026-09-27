@@ -5,8 +5,10 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -217,6 +219,42 @@ class EventPublicRoutesTest :
             return id to slug
         }
 
+        /**
+         * Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- like [createPaidEvent], but PUBLIC
+         * + PUBLISHED (visible on `GET /veranstaltung/{slug}` without any registration flow) and
+         * optionally with a `coverImageId` set. Closes review finding "kein Test für og:image/
+         * event-cover auf der öffentlichen Veranstaltungsseite".
+         */
+        fun createPublicEvent(withCover: Boolean): Pair<Uuid, String> {
+            val organizer = createMember("event-public-routes-cover-organizer-${Uuid.random()}@example.org")
+            val id = Uuid.random()
+            val slug = "public-routes-cover-test-$id"
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = id
+                    it[EventTable.slug] = slug
+                    it[title] = "Public-Routes-Cover-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = farFutureStartsAt
+                    it[endsAt] = farFutureEndsAt
+                    it[capacity] = null
+                    it[feeAmount] = BigDecimal.ZERO
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                    it[createdBy] = organizer
+                    it[cancelledAt] = null
+                    it[coverImageId] = if (withCover) Uuid.random() else null
+                }
+            }
+            createdEventIds += id
+            return id to slug
+        }
+
         /** Mirrors `EventRegistrationSubmission.randomCancelToken` (private there) -- any sufficiently random hex string works for this test's purposes. */
         fun randomToken(): String {
             val buffer = ByteArray(32)
@@ -362,6 +400,45 @@ class EventPublicRoutesTest :
                         setBody("""{"token":"$token"}""")
                     }
                 response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- closes review finding "kein Test
+        // referenziert og:image/event-cover auf `GET /veranstaltung/{slug}`": nothing verified that
+        // the public event page actually renders the `<img class="event-cover">` and
+        // `<meta property="og:image">` tags this wave added, that both are absent without a cover,
+        // or that the response carries `img-src 'self'` in its CSP (a regression to
+        // `applyEventPublicPageHeaders`, which has no `img-src` at all, would silently break the
+        // cover image in every browser while every OTHER test here stayed green).
+        test(
+            "GET /veranstaltung/{slug} WITH a cover image renders <img class=\"event-cover\"> and absolute og:image, and sends img-src 'self'",
+        ) {
+            val (_, slug) = createPublicEvent(withCover = true)
+
+            testApp(checkoutClient = null, pspConfigState = PspConfigState.NotConfigured) {
+                val response = client.get("/veranstaltung/$slug")
+                response.status shouldBe HttpStatusCode.OK
+                val body = response.bodyAsText()
+                Regex("""<img[^>]*class="event-cover"""").containsMatchIn(body) shouldBe true
+                Regex(
+                    """<meta[^>]*property="og:image"[^>]*content="https://example\.org/veranstaltung/$slug/bild\?v=""",
+                ).containsMatchIn(body) shouldBe true
+                response.headers["Content-Security-Policy"]!!.contains("img-src 'self'") shouldBe true
+            }
+        }
+
+        test("GET /veranstaltung/{slug} WITHOUT a cover image renders neither event-cover <img> nor og:image") {
+            val (_, slug) = createPublicEvent(withCover = false)
+
+            testApp(checkoutClient = null, pspConfigState = PspConfigState.NotConfigured) {
+                val response = client.get("/veranstaltung/$slug")
+                response.status shouldBe HttpStatusCode.OK
+                val body = response.bodyAsText()
+                (body.contains("event-cover")) shouldBe false
+                (body.contains("og:image")) shouldBe false
+                // img-src 'self' is a no-op without an <img> on the page, but the header is still
+                // sent -- this route always reuses applyEventTicketPageHeaders (see route KDoc).
+                response.headers["Content-Security-Policy"]!!.contains("img-src 'self'") shouldBe true
             }
         }
 
