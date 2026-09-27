@@ -3099,6 +3099,19 @@ private fun enterCall(
         entry.hasCamera = mediaElement != null
         if (mediaElement != null) {
             mediaElement.style.cssText = "width:100%;height:100%;object-fit:cover;"
+            // ELB-Test-Fix 2026-09-27 (Befund 6): a portrait stream (phone held upright) is letterboxed
+            // inside the 16:9 tile instead of cropped -- `cover` on a 9:16 source in a 16:9 box keeps
+            // only a narrow horizontal band and usually cuts the face off. The browser fires `resize`
+            // on a <video> whenever the stream's intrinsic dimensions become known or change (phone
+            // rotation, simulcast layer switch), `loadedmetadata` on first play -- both re-evaluate.
+            (mediaElement as? org.w3c.dom.HTMLVideoElement)?.let { video ->
+                val applyFit = {
+                    video.style.setProperty("object-fit", conferenceVideoObjectFit(video.videoWidth, video.videoHeight))
+                }
+                video.addEventListener("loadedmetadata", { applyFit() })
+                video.addEventListener("resize", { applyFit() })
+                applyFit()
+            }
             entry.mediaSlot.appendChild(mediaElement)
             entry.element.parentElement?.let { parent -> resumeStalledVideos(parent) }
         } else {
@@ -3123,9 +3136,17 @@ private fun enterCall(
         isLocal: Boolean,
     ): ConferenceTileEntry {
         val tile = document.createElement("div") as HTMLElement
+        // ELB-Test-Fix 2026-09-27 (Befund 6, "Kacheln brechen ein, sobald ein Mobil-Teilnehmer
+        // beitritt"): the tile's height is now FIXED by `aspect-ratio: 16 / 9` (floored by the zone's
+        // `min-height`), never by the intrinsic size of the <video> inside it. Before, a portrait
+        // 9:16 phone stream (`height: 100%` in an auto-height flex tile resolves to the video's own
+        // aspect ratio) made its tile roughly twice as tall as a landscape one, the CSS grid row
+        // stretched EVERY tile in that row to that height, and `object-fit: cover` then cropped all
+        // landscape streams down to a face-only band. See `conferenceVideoObjectFit` for how a
+        // portrait stream is rendered inside the now-landscape tile.
         tile.style.cssText =
             "position:relative;background:var(--lapis-tile-bg);border:1px solid var(--lapis-tile-border);border-radius:6px;" +
-            "overflow:hidden;min-height:150px;display:flex;align-items:center;justify-content:center;"
+            "overflow:hidden;min-height:150px;aspect-ratio:16 / 9;display:flex;align-items:center;justify-content:center;"
 
         val mediaSlot = document.createElement("div") as HTMLElement
         mediaSlot.style.cssText =
@@ -3444,12 +3465,37 @@ private fun enterCall(
                 }
                 // SECURITY: nur `option.rawLabel` fließt in die UI-Beschriftung, NIEMALS in
                 // `localStorage`/Logs/RPCs -- nur `deviceId` wird unten persistiert.
+                // ELB-Test-Fix 2026-09-27 (Befund 2): a persisted preference that LiveKit is NOT yet
+                // using is applied for real, not merely displayed -- see conferenceStoredDeviceToApply
+                // KDoc for the bug this closes. Failure is silent (console only, no toast: the user did
+                // not act, this is a restore) and falls back to showing LiveKit's actual active device,
+                // so the dropdown never claims a device that is not in use.
+                val toApply = conferenceStoredDeviceToApply(stored, active, availableDeviceIds)
+                val shown =
+                    if (toApply == null) {
+                        preferred
+                    } else {
+                        // `runCatching`, NOT `guarded {}`: `switchDevice` signals success with `null`, and
+                        // `guarded {}` also yields `null` for a thrown exception -- the same collision
+                        // `LiveKitRoomSession.setCamera`'s KDoc documents. A throw here is a failure.
+                        val failure =
+                            runCatching { session.switchDevice(kind, toApply) }
+                                .getOrElse { ConferenceDeviceFailure.OTHER }
+                        if (failure == null) {
+                            toApply
+                        } else {
+                            kotlin.js.console.warn(
+                                "Stored ${kind.jsKind} preference could not be applied ($failure); showing the active device",
+                            )
+                            conferenceUsableDeviceId(session.activeDeviceId(kind))
+                        }
+                    }
                 applyingProgrammaticDeviceValue = true
                 select.options =
                     options.mapIndexed { index, option ->
                         option.deviceId to conferenceDeviceOptionLabel(kind, option.rawLabel, index + 1)
                     }
-                select.value = preferred
+                select.value = shown
                 applyingProgrammaticDeviceValue = false
                 if (options.isEmpty()) {
                     select.hide()
@@ -3528,6 +3574,14 @@ private fun enterCall(
     session =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, publication ->
+                // ELB-Test-Fix 2026-09-27 (Befund 7): idempotent -- `track.attach()` without an
+                // argument creates a NEW media element on every call and keeps every earlier one in
+                // the SDK's `attachedElements` list. This handler is now reached both from the live
+                // `TrackSubscribed` event AND from `session.resyncRoster()` after a reconnect, so any
+                // element a previous invocation created for this very track is detached and dropped
+                // first. Without this, a resync would append a SECOND hidden `<audio>` per remote
+                // microphone (the same voice played twice) and leak the old `<video>`.
+                track.detach().forEach { el -> el.parentNode?.removeChild(el) }
                 when (conferenceTileKind(publication.source)) {
                     ConferenceTileKind.SCREEN_SHARE -> showScreenShareStage(identity, displayName, track)
                     ConferenceTileKind.CAMERA, ConferenceTileKind.OTHER -> {
@@ -3660,7 +3714,18 @@ private fun enterCall(
             // Wave 4, D10 -- LiveKit's own reconnect signal, relayed verbatim by LiveKitRoomSession
             // (see that class's own KDoc "Reconnect signal").
             onReconnecting = { transition(ConferenceConnectionEvent.ReconnectingSignal) },
-            onReconnected = { transition(ConferenceConnectionEvent.ReconnectedSignal) },
+            onReconnected = {
+                transition(ConferenceConnectionEvent.ReconnectedSignal)
+                // ELB-Test-Fix 2026-09-27 (Befund 7): after ANY reconnect, rebuild the remote roster
+                // from the SDK's own state -- participants/tracks announced while this client was
+                // reconnecting can be lost to the UI (see LiveKitRoomSession.resyncRoster KDoc). Tiles
+                // of remote participants the SDK no longer knows are dropped; the local tile is never
+                // touched. `runCatching`: a resync must never take the live call down.
+                runCatching {
+                    val present = session.resyncRoster()
+                    tiles.keys.filter { it != joinToken.identity && it !in present }.forEach { removeTile(it) }
+                }
+            },
             // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- the SOLE place a "why did I just
             // disconnect" question is answered. `RoomEvent.Disconnected` fires identically whether
             // the CAUSE was a kick, the meeting ending, a moderator assigning this caller to a
@@ -4824,6 +4889,41 @@ internal fun conferencePreferredDeviceId(
  * granted) and must never reach `localStorage` or LiveKit (`exact: ""` -> `OverconstrainedError`).
  */
 internal fun conferenceUsableDeviceId(id: String?): String? = if (id.isNullOrBlank()) null else id
+
+/**
+ * ELB-Test-Fix 2026-09-27 (Befund 2, "Wechsel des Audio-Ausgabegeräts wirkungslos") -- the device id
+ * `refreshDeviceOptions()` must actively APPLY via `switchDevice` after enumerating, or `null` when
+ * nothing needs applying. Root cause of the report: the persisted `localStorage` preference was only
+ * ever written INTO the dropdown (`select.value = preferred`, inside the programmatic-value guard, so
+ * the `subscribe {}` handler that calls `switchDevice` never ran), never applied to LiveKit. The
+ * dropdown then showed "Kopfhörer" while audio still played through the default speakers -- and
+ * re-selecting the already-selected entry fires no change event, so the "switch" looked dead.
+ *
+ * Returns [stored] only when it is a usable id, is in [available], and differs from what LiveKit
+ * reports as [active] -- a stored id equal to the active one, a stale/unplugged one, or no stored
+ * preference at all yields `null` (nothing to do, the dropdown keeps showing LiveKit's own truth).
+ */
+internal fun conferenceStoredDeviceToApply(
+    stored: String?,
+    active: String?,
+    available: List<String>,
+): String? {
+    val usableStored = conferenceUsableDeviceId(stored) ?: return null
+    if (usableStored !in available.filter { it.isNotBlank() }) return null
+    if (usableStored == conferenceUsableDeviceId(active)) return null
+    return usableStored
+}
+
+/**
+ * ELB-Test-Fix 2026-09-27 (Befund 6) -- `object-fit` for a remote camera <video> inside its fixed
+ * 16:9 tile. Landscape (or still unknown, 0×0) streams fill the tile (`cover`, unchanged behaviour);
+ * a portrait stream taller than it is wide is letterboxed (`contain`) so the whole frame -- and the
+ * face -- stays visible, instead of a cropped horizontal band.
+ */
+internal fun conferenceVideoObjectFit(
+    videoWidth: Int,
+    videoHeight: Int,
+): String = if (videoWidth > 0 && videoHeight > videoWidth) "contain" else "cover"
 
 /** V1.4.19 -- `localStorage` read path: a stored blank/tampered value counts as "nothing stored". */
 internal fun conferenceStoredDeviceId(raw: String?): String? = conferenceUsableDeviceId(raw)

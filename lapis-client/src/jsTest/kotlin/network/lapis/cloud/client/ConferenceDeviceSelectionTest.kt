@@ -429,4 +429,36 @@ class ConferenceDeviceSelectionTest {
             ),
         )
     }
+
+    // --- conferenceStoredDeviceToApply (ELB-Test-Fix 2026-09-27, Befund 2) ----------------------
+
+    @Test
+    fun conferenceStoredDeviceToApply_storedDiffersFromActive_isApplied() {
+        assertEquals(
+            "headphones",
+            conferenceStoredDeviceToApply(stored = "headphones", active = "speakers", available = listOf("speakers", "headphones")),
+        )
+    }
+
+    @Test
+    fun conferenceStoredDeviceToApply_noActiveDeviceYet_isApplied() {
+        // The speaker case at join time: LiveKit reports no active audiooutput until the first switch.
+        assertEquals("headphones", conferenceStoredDeviceToApply(stored = "headphones", active = null, available = listOf("headphones")))
+    }
+
+    @Test
+    fun conferenceStoredDeviceToApply_storedEqualsActive_nothingToDo() {
+        assertNull(conferenceStoredDeviceToApply(stored = "headphones", active = "headphones", available = listOf("headphones")))
+    }
+
+    @Test
+    fun conferenceStoredDeviceToApply_storedUnplugged_nothingToDo() {
+        assertNull(conferenceStoredDeviceToApply(stored = "headphones", active = "speakers", available = listOf("speakers")))
+    }
+
+    @Test
+    fun conferenceStoredDeviceToApply_blankOrMissingStored_nothingToDo() {
+        assertNull(conferenceStoredDeviceToApply(stored = null, active = "speakers", available = listOf("speakers")))
+        assertNull(conferenceStoredDeviceToApply(stored = "  ", active = "speakers", available = listOf("speakers", "  ")))
+    }
 }

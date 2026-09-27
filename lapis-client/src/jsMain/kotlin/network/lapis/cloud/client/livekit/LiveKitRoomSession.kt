@@ -741,6 +741,57 @@ class LiveKitRoomSession(
         }
     }
 
+    /**
+     * ELB-Test-Fix 2026-09-27 (Befund 7, "Wiederbeitritt Mobil -> Browser bleibt unsichtbar bis zum
+     * eigenen Reload") -- re-derives the WHOLE remote roster from the SDK's own authoritative state
+     * instead of trusting that every `ParticipantConnected`/`TrackSubscribed` event since [connect]
+     * reached `ConferenceScreen.kt`. Fires [onParticipantJoined] once per remote participant currently
+     * in [Room.remoteParticipants] and [onRemoteTrack] once per publication that is subscribed AND
+     * carries a track -- exactly the two callbacks the live event stream would have fired, so the
+     * screen's own `ensureTile`/`setTileVideo` handlers need no second code path. Returns the set of
+     * remote identities currently present, so the caller can drop tiles for participants the SDK no
+     * longer knows.
+     *
+     * Why this exists: `livekit-client` 2.21.0 `emitWhenConnected` BUFFERS participant/track events
+     * while the room is `Reconnecting` (or `engine.pendingReconnect`) and replays them after
+     * `RoomEvent.Reconnected` -- but on a FULL reconnect (`handleSignalRestarted`) it first CLEARS that
+     * buffer (`this.bufferedEvents = []`) and re-applies the join response, which updates already-known
+     * participants in place WITHOUT re-emitting `ParticipantConnected` for them. A participant who
+     * joined during exactly that window (a phone user leaving and re-joining from a browser while
+     * this client's own transport briefly resumed) is then known to the SDK but never announced to
+     * the UI. Called by `ConferenceScreen.kt` on every `RoomEvent.Reconnected`. Idempotent from the
+     * screen's point of view because its `onRemoteTrack` handler detaches before re-attaching.
+     * Never throws: a malformed SDK shape only costs this one resync, never the live connection.
+     */
+    fun resyncRoster(): Set<String> {
+        val currentRoom = room ?: return emptySet()
+        val present = mutableSetOf<String>()
+        runCatching {
+            val participantCallback: (dynamic, dynamic) -> Unit = { value, _ ->
+                val participant = value.unsafeCast<RemoteParticipant>()
+                present += participant.identity
+                val displayName = participant.name ?: participant.identity
+                onParticipantJoined(participant.identity, displayName)
+                val publications = participant.trackPublications
+                if (publications != null) {
+                    val publicationCallback: (dynamic, dynamic) -> Unit = { pubValue, _ ->
+                        val publication = pubValue.unsafeCast<TrackPublication>()
+                        val rawTrack = publication.track
+                        if (publication.isSubscribed && rawTrack != null) {
+                            onRemoteTrack(participant.identity, displayName, rawTrack.unsafeCast<Track>(), publication)
+                        }
+                    }
+                    publications.forEach(publicationCallback)
+                }
+            }
+            currentRoom.remoteParticipants.forEach(participantCallback)
+        }.onFailure {
+            // SECURITY: static string only, same discipline as every other log line in this class.
+            kotlin.js.console.warn("LiveKit roster resync failed; connection stays up -- see resyncRoster KDoc")
+        }
+        return present
+    }
+
     /** See class KDoc "Roster-seeding gotcha". */
     private fun seedRoster(room: Room) {
         val forEachCallback: (dynamic, dynamic) -> Unit = { value, _ ->

@@ -299,6 +299,46 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Videokonferenz — ELB-Test 2026-09-27, Befund 2: persisted speaker/microphone/camera choice is now
+  APPLIED at join, not merely displayed.** `refreshDeviceOptions()` wrote the `localStorage` preference
+  into the device dropdown (`select.value = preferred`, inside the programmatic-value guard) but never
+  called `switchDevice` for it, so the dropdown could show "Kopfhörer" while LiveKit still played
+  through the default speakers — and re-selecting the already-selected entry fires no change event, so
+  the "switch" looked dead. New pure `conferenceStoredDeviceToApply(stored, active, available)` decides
+  when a stored id must be applied (usable, still available, different from LiveKit's active device);
+  a failed restore is console-logged, never toasted, and the dropdown falls back to the device LiveKit
+  actually uses. Covered by `ConferenceDeviceSelectionTest`.
+- **Videokonferenz — ELB-Test 2026-09-27, Befund 6: video tiles no longer collapse to a face-only band
+  when a phone joins in portrait.** A tile's height was driven by the intrinsic aspect ratio of the
+  `<video>` inside it; one 9:16 stream made its tile roughly twice as tall, the CSS grid row stretched
+  every tile in that row along with it, and `object-fit: cover` cropped all landscape streams to a
+  horizontal band. Tiles now carry `aspect-ratio: 16 / 9` (floored by the zone `min-height`), and a
+  portrait stream is letterboxed (`object-fit: contain`, re-evaluated on the video's `loadedmetadata`/
+  `resize` events, so rotation follows) instead of cropped — `conferenceVideoObjectFit`, covered by
+  `ConferenceGridLayoutTest`.
+- **Videokonferenz — ELB-Test 2026-09-27, Befund 7: a participant who re-joins while this client is
+  reconnecting is no longer invisible until a page reload.** `livekit-client` buffers participant/track
+  events during `Reconnecting`, but a FULL reconnect (`handleSignalRestarted`) clears that buffer and
+  re-applies the join response in place without re-emitting `ParticipantConnected` for participants
+  it already knows — the UI never hears about them. New `LiveKitRoomSession.resyncRoster()` re-derives
+  the remote roster from `Room.remoteParticipants`/`trackPublications` on every `RoomEvent.Reconnected`
+  (drops tiles the SDK no longer knows, never touches the local tile); `onRemoteTrack` is now
+  idempotent (detaches every element a previous attach created before attaching again, so a resync
+  can never append a second hidden `<audio>` — the same voice twice — or leak the old `<video>`).
+  Covered by `LiveKitRoomSessionResyncRosterTest`. Best-effort hardening: the exact ELB sequence was
+  not reproducible outside a live multi-device call.
+- **Aufzeichnung — ELB-Test 2026-09-27, Befund 3: the real cause of a failed track egress is now in the
+  server log, and a recording with zero stored tracks gets its own failure reason.** On ELB every
+  track egress ran for ~19 s and then failed with `Local upload failed: mkdir /out/<id>/: permission
+  denied` (the egress user, uid 1001, has no ACL grant on that instance's shared output volume — PdV's
+  volume has `user:1001:rwx`, ELB's does not; an operations fix, see deploy/example/README.adoc "Shared
+  lapis-egress-output volume"). The server log showed only the misleading `StopEgress ... HTTP 412`
+  that follows, and the recording ended as "Die Aufzeichnung konnte nicht zusammengesetzt werden" —
+  pointing at ffmpeg. `RecordingPoller` now logs `EgressInfo.error` (log only, the sanitized
+  `failure_reason` vocabulary stays a security boundary) when a track transitions to FAILED/ABORTED,
+  and marks a recording whose tracks ALL went terminal without one COMPLETE with the new reason
+  "Der Aufzeichnungsdienst konnte keine Spur speichern (Server-Konfiguration prüfen)." instead of the
+  compose message.
 - **V1.9.2 — folder-creation visibility defaults to the most restrictive level the creating role may
   pick.** Follow-up to V1.9.1: `renderFolderCreation`'s "Sichtbarkeit" select used to preselect
   `PUBLIC_MEMBERS` unconditionally, regardless of who was creating the folder — an ADMIN or BOARD

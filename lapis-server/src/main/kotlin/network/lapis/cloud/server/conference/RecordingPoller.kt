@@ -66,6 +66,14 @@ private const val FAILURE_COMPOSE_FAILED = "Die Aufzeichnung konnte nicht zusamm
 private const val FAILURE_COMPOSE_TIMEOUT = "Zeitüberschreitung beim Abschluss der Aufzeichnung."
 private const val FAILURE_NO_TRACKS = "Es wurde keine Audio- oder Videospur aufgezeichnet."
 
+/** ELB-Test-Fix 2026-09-27 (Befund 3): every track egress ran but NONE reached `COMPLETE` -- on ELB
+ * because the egress service could not write into the shared output volume (`mkdir /out/<id>:
+ * permission denied`, an ACL/ownership gap on that instance, see deploy/example/README.adoc "Shared
+ * lapis-egress-output volume"). Distinct from [FAILURE_COMPOSE_FAILED], which previously covered this
+ * case too and misdirected the diagnosis towards ffmpeg. Still sanitized: the raw egress error only
+ * ever reaches the server log (see `handleStopping`), never this string. */
+private const val FAILURE_NO_TRACK_STORED = "Der Aufzeichnungsdienst konnte keine Spur speichern (Server-Konfiguration prüfen)."
+
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- the single application-scoped
  * poller that drives `RECORDING -> STOPPING -> PROCESSING -> READY`/`FAILED`, see
@@ -346,8 +354,24 @@ class RecordingPoller(
             for (t in trackRows) {
                 val info = byEgressId[t.egressId] ?: continue
                 val fileResult = info.firstFileResult
+                val mappedStatus = mapEgressStatus(info.status)
+                // ELB-Test-Fix 2026-09-27 (Befund 3): LiveKit's own `EgressInfo.error` is the ONE
+                // place the real cause of a failed track egress is visible (on ELB: "Local upload
+                // failed: mkdir /out/<id>/: permission denied"). It was never logged before, so the
+                // server log showed only the misleading HTTP 412 from the subsequent StopEgress and
+                // the recording ended as "konnte nicht zusammengesetzt werden". Log-only -- the
+                // sanitized `failure_reason` vocabulary stays a security boundary.
+                if (
+                    (mappedStatus == ConferenceRecordingTrackStatus.FAILED || mappedStatus == ConferenceRecordingTrackStatus.ABORTED) &&
+                    t.status != mappedStatus &&
+                    info.error.isNotBlank()
+                ) {
+                    logger.warn {
+                        "RecordingPoller: track egress ${t.egressId} (recording ${row.id}, ${t.trackSource}) ended ${info.status}: ${info.error}"
+                    }
+                }
                 ConferenceRecordingTrackTable.update({ ConferenceRecordingTrackTable.id eq t.id }) {
-                    it[status] = mapEgressStatus(info.status)
+                    it[status] = mappedStatus
                     if (fileResult != null) {
                         it[fileName] = fileResult.filename
                         it[durationMs] = fileResult.duration.toLongOrNull()?.let { nanos -> nanos / 1_000_000 }
@@ -472,6 +496,16 @@ class RecordingPoller(
 
         val t0 = resolved.mapNotNull { it.track.startedAtEpochNanos }.minOrNull() ?: 0L
         val videoResolved = resolved.filter { it.track.trackSource in VIDEO_TRACK_SOURCES }
+        if (completedTracks.isEmpty()) {
+            // ELB-Test-Fix 2026-09-27 (Befund 3): not a composition problem at all -- see
+            // FAILURE_NO_TRACK_STORED. Reached via STOPPING -> PROCESSING when every track row went
+            // terminal without a single COMPLETE among them.
+            logger.warn {
+                "RecordingPoller: no track egress of recording ${row.id} completed -- FAILED (check egress output volume permissions)"
+            }
+            markFailed(recordingId = row.id, reason = FAILURE_NO_TRACK_STORED)
+            return
+        }
         if (videoResolved.isEmpty()) {
             logger.warn { "RecordingPoller: no resolvable video track for recording ${row.id} -- FAILED" }
             markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
