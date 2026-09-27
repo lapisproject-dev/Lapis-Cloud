@@ -117,6 +117,10 @@ class MemberAnniversariesScreenTest {
 
     @Test
     fun formatDayMonth_zeroPadsSingleDigitDayAndMonth() {
-        assertEquals("05.03.", formatDayMonth(LocalDate(2026, 3, 5)))
+        // Uses the `...In(language, ...)` seam deliberately, not the global-I18n.language-reading
+        // formatDayMonth -- this pure, DOM-free test class never sets I18n.language itself, so it must
+        // not silently depend on some OTHER, earlier-run test's TestI18nSetup fixation (currently "de"
+        // via @EagerInitialization) to stay green (Review-Befund 2026-09-24).
+        assertEquals("05.03.", formatDayMonthIn("de", LocalDate(2026, 3, 5)))
     }
 }

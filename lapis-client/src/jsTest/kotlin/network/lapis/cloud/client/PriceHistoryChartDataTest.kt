@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.toDecimal
+import io.kvision.i18n.I18n
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.PriceSnapshotDto
@@ -152,14 +153,49 @@ class PriceHistoryChartDataTest {
         // neu berechnet werden (Browser- vs. Server-Zone-Verwechslung) -- es muss exakt die
         // Wanduhr-Komponenten des server-gelieferten LocalDateTime widerspiegeln, unabhaengig davon,
         // in welcher Zeitzone der Test (bzw. spaeter der Browser) laeuft.
-        val rows = listOf(row(2026, 9, 1, 14, 60_000.0))
-        val data = buildPriceHistoryChartData(rows, AnchorAsset.BITCOIN_BTC) { it.toString() }
-        val point = data.points.single()
-        assertEquals("01.09.2026 14:00", point?.dateLabel)
+        //
+        // Review-Befund 2026-09-24 (round 3): round 2's fix here only reworded the SOLL-side literal
+        // (a string -> `formatDateTimeIn("de", ...)`) -- the IST side (`point?.dateLabel`) is produced by
+        // `buildPriceHistoryChartData` calling `formatPriceTimestampLabel` internally, which still reads the
+        // global `I18n.language`, exactly as before. Round 2's own comment claimed the explicit-language
+        // literal alone "keeps this test from breaking on a future language switch that forgets its own
+        // finally" -- untrue, since the IST side never went through that seam. Pinning `I18n.language`
+        // for the duration of THIS test (restored in `finally`, not relying on `TestI18nSetup.kt`'s
+        // `@EagerInitialization` default) is what actually makes both sides deterministic regardless of
+        // test execution order.
+        val originalLanguage = I18n.language
+        I18n.language = "de"
+        try {
+            val rows = listOf(row(2026, 9, 1, 14, 60_000.0))
+            val data = buildPriceHistoryChartData(rows, AnchorAsset.BITCOIN_BTC) { it.toString() }
+            val point = data.points.single()
+            assertEquals(formatDateTimeIn("de", LocalDateTime(2026, 9, 1, 14, 0)), point?.dateLabel)
+        } finally {
+            I18n.language = originalLanguage
+        }
     }
 
     @Test
-    fun formatPriceTimestampLabel_zeroPadsDayMonthHourMinute() {
-        assertEquals("05.03.2026 09:07", formatPriceTimestampLabel(LocalDateTime(2026, 3, 5, 9, 7)))
+    fun formatPriceTimestampLabel_delegatesToTheAppWideDateTimeConvention() {
+        // Review-Befund 2026-09-24: vorher eine eigene, handgeschriebene Zero-Padding-Implementierung
+        // (`dd.MM.yyyy HH:mm`, ASCII-Leerzeichen) parallel zu ConferenceScreen.kt/
+        // MemberAnniversariesScreen.kt -- jetzt eine duenne Delegation an formatDateTimeIn, deren
+        // Komma+NBSP-Form und Sprachabhaengigkeit hier mitgeprueft wird, nicht nur das Zero-Padding.
+        val at = LocalDateTime(2026, 3, 5, 9, 7)
+        // The explicit-language seam (round 3): deterministic regardless of the global I18n.language,
+        // no pin/finally needed.
+        assertEquals(formatDateTimeIn("de", at), formatPriceTimestampLabelIn("de", at))
+        assertEquals(formatDateTimeIn("en", at), formatPriceTimestampLabelIn("en", at))
+        // The single-argument convenience delegates to the global I18n.language -- round 2's version of
+        // this assertion (`assertEquals(formatDateTimeIn(I18n.language, at), formatPriceTimestampLabel(at))`)
+        // was a tautology (both sides read `I18n.language` at the same instant, so it can never fail); this
+        // pins the language explicitly so the assertion actually exercises the delegation.
+        val originalLanguage = I18n.language
+        I18n.language = "de"
+        try {
+            assertEquals(formatDateTimeIn("de", at), formatPriceTimestampLabel(at))
+        } finally {
+            I18n.language = originalLanguage
+        }
     }
 }

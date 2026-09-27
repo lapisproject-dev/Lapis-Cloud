@@ -720,7 +720,7 @@ private fun appendOpenItemRow(
         nameCell.typeBadge(openItemDirectionLabel(item.direction), openItemDirectionColor(item.direction)).addCssClass("ms-2")
         cell(item.reference.orEmpty())
         val dueCell = numCell()
-        dueCell.span(item.dueDate.toString())
+        dueCell.dateSpan(item.dueDate)
         if (item.daysOverdue > 0 && item.status in OpenItemStatusSets.SETTLEABLE) {
             // Ive: genau ein Badge; die Tageszahl kommt server-berechnet aus `daysOverdue` (S5).
             dueCell.statusBadge(openItemOverdueLabel(), "danger")
@@ -802,7 +802,11 @@ private fun renderOpenItemDetail(
     item.note?.takeIf { it.isNotBlank() }?.let { panel.div(gettext("Notiz: %1", it)) { addCssClasses("text-muted small") } }
     if (item.status == OpenItemStatus.CANCELLED) {
         panel.div(
-            gettext("Storniert am %1 -- Grund: %2", item.cancelledAt?.toString().orEmpty(), item.cancellationReason.orEmpty()),
+            gettext(
+                "Storniert am %1 -- Grund: %2",
+                item.cancelledAt?.let { formatDateTime(it) }.orEmpty(),
+                item.cancellationReason.orEmpty(),
+            ),
         ) { addCssClasses("text-muted small") }
     }
     item.creationPostingError?.let { code ->
@@ -890,7 +894,7 @@ private fun renderSettlementsSection(
         table.row {
             cell(openItemSettlementKindLabel(settlement.kind))
             numCell { moneySpan(settlement.amount) }
-            numCell(settlement.settledOn.toString())
+            numCell { dateSpan(settlement.settledOn) }
             val statusCell = cell()
             val postingError = settlement.postingError
             when {
@@ -1021,8 +1025,8 @@ private fun renderNoticeRow(
         cell(notice.levelName)
         val statusCell = cell()
         statusCell.statusBadge(receivableDunningNoticeStatusLabel(notice.status), receivableDunningNoticeStatusColor(notice.status))
-        numCell(notice.issuedAt.toString())
-        numCell(notice.respondBy.toString())
+        numCell { dateTimeSpan(notice.issuedAt) }
+        numCell { dateSpan(notice.respondBy) }
         numCell { notice.feeAmount?.let { moneySpan(it) } ?: div("–") }
         cell(notice.cancellationReason.orEmpty())
         val actionsCell = cell()

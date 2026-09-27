@@ -1382,6 +1382,238 @@ branch's six batches) are now in `R24_MIGRATED`, held strictly: zero labelled `t
   `feature/w4d-remaining-screens` for a human/later instance to review and merge, per the standing branch-hygiene
   rule (feature branches are squash-merged locally, never pushed as-is).
 
+== Wave W7 "Zeitstempel-Formatierung app-weit" (Teilwelle A, feature/v1.4.32-timestamp-formatting)
+
+The temporal sibling of W6a/W6b: one shared date/time display convention (`DateTime.kt`), replacing the hand-rolled
+`.padStart`-based formatting that had grown independently across several screens. Same structure as `Money.kt`'s
+convention throughout -- five `format*`/`*In` functions, five live-translatable widget-content tokens, three
+temporal table-column factories, and a `machineDate`/`machineDateTime` pair for the prefill/sort-key form.
+
+=== Locale table
+
+Four date-component orderings across the eight UI languages (no month names, no AM/PM, no zone):
+
+[cols="1,2"]
+|===
+| Languages | Date order
+
+| `de`, `pl`, `ru` | `DD.MM.YYYY` (dot), day+month ends with a trailing dot
+| `en` | `YYYY-MM-DD` (ISO)
+| `fr`, `es`, `it` | `DD/MM/YYYY` (slash)
+| `nl` | `DD-MM-YYYY` (dash)
+|===
+
+`HH:MM` (and `HH:MM:SS` for a timestamp) renders identically in all eight -- there is no per-language time variant, so
+`formatTimeComponents` deliberately carries no locale parameter (Review-Befund 2026-09-24 removed an earlier, dead one).
+A date+time joins with `,` + NBSP (never a plain space) -- `formatDateTimeIn`/`formatTimestampIn`.
+
+=== Display versus machine-readable, and the live language switch
+
+Exactly `Money.kt`'s split. DISPLAY goes through one of the five `format*` functions or, as widget content, a token
+(`dateToken`/`dayMonthToken`/`dateTimeToken`/`timestampToken`/`timeToken` -- tripwire T2 forbids concatenating one into
+another string, mirrors M3). What prefills a field or is a sort key stays `machineDate`/`machineDateTime`, the canonical
+ISO form. A table cell whose value is a `LocalDate`/`LocalDateTime` goes through `dateColumn`/`dateTimeColumn`/
+`timestampColumn`, never a bare `textColumn { formatDate(...) }` (the same sanitisation-loss trap `Money.kt`'s own
+`textColumn` KDoc documents).
+
+=== Review-fix pass (2026-09-24, same branch)
+
+A review of this wave's first commit found the wave's own core claim untested and, in four places, not yet true. Closed
+in the same branch before merge:
+
+* **`ClientTemporalFormatTripwireTest` did not exist** even though `DateTime.kt`'s file KDoc already cited a `T6` rule of
+  it. Added with four rules (T1-T4, this file's own "Locale table"/"Display versus machine-readable" sections above
+  describe what they guard): T1 bans `Intl.DateTimeFormat`/`toLocaleDateString`/`toLocaleTimeString` (mirrors M1); T2
+  bans a temporal token concatenated into a string or passed to `gettext` (mirrors M3); T3 bans a hand-rolled
+  `.toString().padStart(...)` reimplementation of a day/month/hour/minute/second/year component outside `DateTime.kt`;
+  T4 is the KDoc's own claim made real -- `DateTime.kt` itself never touches `toInstant`/`TimeZone`/`Clock`.
+* **Three duplicate, independently hand-rolled formatters existed alongside `DateTime.kt` at the time T3 was written**,
+  which T3 closes rather than ledgers: `PriceHistoryChartData.formatPriceTimestampLabel` (now delegates to
+  `formatDateTimeIn`, picking up the comma+NBSP separator and all eight languages instead of a frozen
+  `dd.MM.yyyy HH:mm`), and two `ConferenceScreen.kt` sites plus `ConferenceStreamDestinationsScreen.kt`'s
+  `conferenceStreamDestinationDateLabel` (embedded in a translated `gettext` sentence or deliberately ISO-order, so
+  these keep their own shape but now share `DateTime.kt`'s `pad2`/`pad4` instead of re-deriving the zero-padding).
+  `conferenceStreamDestinationDateLabel` also dropped its `@Suppress("DEPRECATION")`, moving off `.monthNumber`/
+  `.dayOfMonth` onto `.month.number`/`.day`. A fourth, differently-shaped duplicate (`AuctionScreen.kt`'s private
+  `Int.pad2()`) was found and closed the same way while verifying T3 had no gap to ledger.
+* **`timestampColumn` (one of the three column factories) had zero test coverage** -- a test named as if it covered
+  `dateTimeColumn` AND `timestampColumn` only ever called the former. Split into dedicated tests for both factories,
+  plus the missing-value (`"–"`) path for each.
+* **`TABULAR_NUMS_CLASS` (`.lapis-tnum`), applied to all four `Money.kt` spans and all five `DateTime.kt` spans, had
+  zero test coverage anywhere in the repo.** A DOM assertion was added in both `MoneyTokenDomTest`/`DateTimeTokenDomTest`
+  asserting the class on the rendered element, not just the digits' content.
+* **`DateLocale.dayMonthTrailingDot`'s KDoc claimed an unconditional effect** ("`true` = `formatDayMonth` ends with a
+  dot") that `formatDayMonthComponents` only ever honours for the `DMY_DOT` pattern. An `init` block now makes the
+  coupling a construction-time `require`, so a future ninth-language entry cannot repeat the same silent mismatch.
+* **A dead unit-test assertion** (`noZoneSuffixAnywhere`, checking the five `format*In` outputs never contain
+  "UTC"/"MESZ"/"Z"/"+") was removed -- every character these functions can emit is a digit or `.`/`/`/`-`/`:`/`,`/NBSP,
+  so the check could never fail regardless of a regression; T4 above is the version of this invariant that can.
+* **The English `en` catalog's leap-day anniversary message mixed a month-name literal with a numeric day-month
+  argument** ("Feb 29 · this year on 02-29") while every other catalog is fully numeric, matching its own
+  `DATE_LOCALES` entry (`es`/`fr`/`it`: "29/02", `nl`: "29-02", `pl`/`ru`: "29.02." -- see round 2 below for why the
+  trailing dot). Changed to "02-29 · this year on
+  %1" (ISO order, matching `en`'s own `DatePattern.ISO`).
+
+=== Review-fix pass, round 2 (2026-09-24, same branch)
+
+A second review found the first review-fix pass had closed its own KDoc/test gaps but left the wave's CORE claim
+("every screen uses `DateTime.kt` for display") untested and, measurably, not true. Four findings, closed in the
+same branch before merge:
+
+* **`DateTime.kt`'s file KDoc asserted the "every screen" invariant in the present tense, unenforced and, measured
+  by grep, false.** 17 client files carried 30 raw `.toString()` call sites on a `LocalDate`/`LocalDateTime` field;
+  at least 14 of them, across 12 files, were confirmed DISPLAY paths (not a prefill, sort key, or hidden field) --
+  including the two files the KDoc names BY NAME as `formatTimestamp`'s reference use case, `AuditLogScreen.kt` and
+  `WebhookDeliveryLogPanel.kt`, both still on raw ISO output. All 14 confirmed sites were converted in this pass
+  (`AuditLogScreen.kt`, `WebhookDeliveryLogPanel.kt`, `DunningCasesScreen.kt`, `SepaBatchesScreen.kt` x2,
+  `MemberFinancialHistoryScreen.kt`, `AuctionScreen.kt`, `AccountingExportScreen.kt` x2, `OpenItemsScreen.kt`,
+  `DsgvoRightsScreen.kt`, `CrmContactsScreen.kt`, `VolunteerAllowanceLabels.kt`) onto `dateColumn`/`dateTimeColumn`/
+  `timestampColumn`, a `format*` call, or `dateSpan`, as the call site's shape called for -- EXCEPT the three sites
+  inside `ReportRows.kt` (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`), deliberately left as a
+  named, open gap: their ISO date strings are pinned verbatim by `ReportGoldenTest` as the expected GoBD Kassenbuch/
+  Hauptbuch output, and changing a compliance-report's displayed date format is not a call this fix pass makes
+  unreviewed. The file KDoc's claim is now written as a SHOULD with this pass's measurement attached, not an
+  enforced invariant -- closing it for real needs a `T5` tripwire rule (`ClientTemporalFormatTripwireTest`, mirroring
+  `ClientMoneyFormatTripwireTest`'s `M5`) plus a decision on the `ReportRows.kt` sites, both still open (Teilwelle B,
+  see below).
+* **`PriceHistoryChartDataTest`'s fix for the first review-fix pass's `I18n.language` global-state finding (below)
+  re-introduced the identical anti-pattern in the sibling class it did not touch.** Two assertions there read
+  `I18n.language` through `formatDateTimeIn(I18n.language, ...)`/`formatPriceTimestampLabel` although the class under
+  test sets no language itself and is only green because `TestI18nSetup.kt`'s `@EagerInitialization` fixes it at
+  `"de"` -- the same test-order hazard the original finding named. Both assertions now pass an explicit `"de"`
+  through `formatDateTimeIn("de", ...)`, exactly like the one assertion in the same test class that already did.
+* **`DateLocale`'s new construction-time `require` (round 1's fix for the `dayMonthTrailingDot`/`DatePattern` KDoc
+  mismatch) shipped with zero test coverage.** Added a positive case (every `DATE_LOCALES` entry still constructs)
+  and a negative case (`DatePattern.ISO` with `dayMonthTrailingDot = true` throws) to `DateTimeTest`.
+* **The `en` catalog's leap-day fix (round 1) was correct, but the guideline text explaining it overclaimed for
+  `pl`/`ru`.** It cited `pl`/`ru`: "29.02" as proof every other catalog was "fully numeric, matching its own
+  `DATE_LOCALES` entry" -- but `pl`/`ru`'s own entry has `dayMonthTrailingDot = true`, so `formatDayMonthIn("pl", ...)`
+  actually renders "01.03." WITH a trailing dot; the catalog literal "29.02" (no dot) did not match it. Fixed by
+  adding the trailing dot to both catalogs' "29.02" msgid/msgstr pair (`messages-pl.po`/`messages-ru.po`, now
+  "29.02.") to match `DATE_LOCALES`, and corrected the round-1 bullet above to cite the post-fix literal.
+
+=== Review-fix pass, round 3 (2026-09-24, same branch)
+
+A third review found round 2's own fix pass, though substantively correct, had three problems: a NEW regression it
+introduced while closing its predecessor's gap, a test finding it restated instead of closing, and a documentation
+paragraph that misdescribed round 2's own commit. Closed in the same branch before merge:
+
+* **MAJOR -- round 2 converted only SOME of the raw `.toString()` sites inside each screen it touched, leaving the
+  rest of that same screen on raw ISO: a screen-internal format-mixing regression that did not exist before this
+  wave.** `DunningCasesScreen.kt`, `AuditLogScreen.kt`, `SepaBatchesScreen.kt`, `OpenItemsScreen.kt`,
+  `AccountingExportScreen.kt` and `CrmContactsScreen.kt` each showed a localized date/time in one place and a raw
+  ISO one immediately next to it on the same screen (concrete cases: `DunningCasesScreen`'s list showed "Fällig am"
+  localized and "Nächste Stufe"/the Mahnungen sub-table's "Ausgestellt am"/"Antwort bis" raw in the same table;
+  `AuditLogScreen`'s list row showed a localized timestamp but its own detail panel showed raw ISO for the same
+  entry). Round 3 converted the remaining raw sites in exactly those six files (15 further call sites) onto
+  `dateColumn`/`dateTimeColumn`/`dateSpan`/`dateTimeSpan`/`dateToken`/`dateTimeToken`/`formatDateTime`, as each call
+  site's shape called for (a token for widget content that should follow a live language switch, a `format*` string
+  for a value embedded in a `gettext(...)` template, matching this file's own "Display versus machine-readable"
+  section above) -- every screen either fix pass touched is now internally consistent *in its `.toString()` call sites*. It is NOT internally consistent overall: see "Three routes to raw ISO" below, which is why round 4 did not approve this wave.
++
+Round 2's own KDoc claim ("three sites remain") was also re-measured with its own method (the 150-name
+`LocalDate`/`LocalDateTime` field list from `lapis-shared`, grepped against the client) and found to undercount:
+at round 3's start, 20 files beyond the six above still carried 33 raw display-path `.toString()` occurrences across
+31 call sites, not "three" -- see "Not done in this wave" below for the current, named Teilwelle B list. `DateTime.kt`'s
+file KDoc and this document were both updated to state the re-measured count instead of repeating the undercount.
+* **MINOR -- `PriceHistoryChartDataTest`'s round-2 fix for the `I18n.language` global-state finding reworded the
+  SOLL-side literal but left the IST side coupled to the same global state, and added a comment claiming a
+  protection the code did not provide.** Both flagged assertions read `point?.dateLabel`/`formatPriceTimestampLabel(at)`,
+  which both still call `formatPriceTimestampLabel` internally -- itself still `formatDateTimeIn(I18n.language, ...)`
+  -- so a future test that sets `I18n.language` without its own `finally` can still flip these assertions red
+  test-order-dependently. Added `formatPriceTimestampLabelIn(language, timestamp)` to `PriceHistoryChartData.kt`
+  (mirrors `formatDateTimeIn`'s split from `formatDateTime`) purely for deterministic test assertions -- production
+  code keeps calling the single-argument form, since Chart.js data is not a KVision widget/token and freezes at the
+  language of the moment by design (see `PriceHistoryPoint.dateLabel` KDoc). The `buildPriceHistoryChartData` test
+  (whose IST side cannot reach the new seam, being inside the production call path) now pins `I18n.language = "de"`
+  for its own duration, restored in `finally`, instead of relying on `TestI18nSetup.kt`'s `@EagerInitialization`
+  default; the `formatPriceTimestampLabel` delegation test now asserts through the new seam (deterministic) plus one
+  pinned-language assertion for the single-argument delegation itself (round 2's version of that assertion compared
+  `formatDateTimeIn(I18n.language, at)` against `formatPriceTimestampLabel(at)` -- both reading `I18n.language` at
+  the same instant, a tautology that could never fail).
+* **TRIVIAL -- the `pl`/`ru` leap-day paragraph above (round 2) claimed "the `pl`/`ru` `.po` msgids themselves are
+  unchanged", the opposite of what round 2's own commit (`90a68b8`) did.** That commit's message says plainly
+  "Added the trailing dot to both catalogs' '29.02' literal to match" -- `messages-pl.po:9927`/`messages-ru.po:9914`
+  read "29.02. · ..." (WITH the dot) as of that same commit. Corrected the paragraph above to describe what the
+  commit actually did. The round-1 bullet citing the catalog literal (further above) was also updated to the
+  post-fix "29.02." spelling, since it had not been touched despite round 2's own note promising it would be.
+  Additionally, `CHANGELOG.md` had no entry for round 2 at all -- the most user-visible change of this wave (twelve
+  screens now render dates/times localized instead of raw ISO) went unrecorded there, against this vault's own
+  documentation checklist ("CHANGELOG-Vollständigkeit gegen `git log`"). Added an entry for round 2 alongside
+  round 1's and round 3's.
+
+=== Not done in this wave
+
+* The manual browser and screen-reader check at 375 / 767 / 768 / 1440 px, light and dark, is still NOT done (carried
+  over from every prior wave's own section).
+* `MotionsScreen`-style W4d screens are unaffected -- this wave only touches date/time display, not the form grammar.
+* Teilwelle B (a later wave) is where the remaining hand-typed date/time literals across the rest of the client would
+  move onto `DateTime.kt`, analogous to how W6b closed W6a's `MotionsScreen` LTR-suffix gap. Round 2 closed 14
+  confirmed display-path sites; round 3 (above) closed a further 15, across the six screens round 2 had left
+  internally inconsistent. **Not "three sites remain"** -- round 3 re-measured with round 2's own method (the
+  150-name `LocalDate`/`LocalDateTime` field list from `lapis-shared`, grepped against the client) and found 20
+  further files, 31 call sites, 33 raw `.toString()` occurrences (two call sites carry two each) still open at
+  round 3's start.
++
+[WARNING]
+====
+*Three routes to raw ISO -- this table covers only the first.* Round 4's review (2026-09-24) established that
+the measurement method behind every count in this wave, including the table below, sees only
+`<field>.toString()`. Two further routes exist and are entirely uncounted here:
+
+. `gettext("... %1", <LocalDate|LocalDateTime>)` -- no `.toString()` in the source; the conversion happens in
+  `I18nCatalogManager.kt` (`args[index - 1]?.toString()`), because `gettext` takes `vararg args: Any?`.
+  *53 call sites in 25 client files.*
+. String interpolation of a temporal field -- at least 6 sites (`ApiKeysScreen.kt` 153/154,
+  `EventCheckInSelectionScreen.kt` 67, `EventCheckInScreen.kt` 184/349, `PoliticianScreen.kt` 596).
+
+A further subset is unfindable by field name at all, because a lambda renames the field before the call
+(`request.executedAt?.let { gettext("Ausgefuehrt am %1", it) }`).
+
+Consequence: six screens render the same field in two formats today -- `AuditLogScreen` (`occurredAt`,
+list vs. detail), `DunningCasesScreen`, `SepaBatchesScreen`, `OpenItemsScreen`, `DsgvoRightsScreen`,
+`MemberFinancialHistoryScreen`. `AccountingExportScreen.kt:261` and `VolunteerAllowanceLabels.kt:87` show
+the correct pattern: format first, pass the String into `gettext`.
+
+*Teilwelle B must therefore begin with the T5 tripwire rule*, not end with it -- a rule that fails the build
+when a `LocalDate`/`LocalDateTime` reaches a `gettext` argument or a string template. Until T5 exists, no
+statement about date/time consistency in this document or in `DateTime.kt` is enforced by anything.
+====
++
+The table below is the route-1 list only. Named here so it stays checkable against a future re-run of the same
+grep, rather than repeating a stale number:
++
+[cols="1,1", options="header"]
+|===
+| File | Line(s)
+| `ApiKeysScreen.kt` | 161
+| `BankAccountsScreen.kt` | 249, 297, 298, 478
+| `BankStatementImportScreen.kt` | 286, 453, 500, 528, 529
+| `DocumentsScreen.kt` | 388
+| `EventCheckInScreen.kt` | 144, 406
+| `EventsScreen.kt` | 159
+| `EventVolunteerShiftsScreen.kt` | 121 (two occurrences on one line)
+| `LedgerScreen.kt` | 1296
+| `LtrLedgerScreen.kt` | 353
+| `MemberAdministrationScreen.kt` | 377
+| `MemberFamiliesScreen.kt` | 566, 568
+| `MemberHonorsScreen.kt` | 271
+| `MyVolunteerShiftsScreen.kt` | 115 (two occurrences on one line)
+| `PaymentTransactionsScreen.kt` | 224
+| `PoliticianScreen.kt` | 584
+| `PriceOracleScreen.kt` | 467
+| `ReportRows.kt` | 374, 401, 433 (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`, deliberately
+deferred -- see round 2 above, `ReportGoldenTest` pins the ISO output)
+| `SepaMandatesScreen.kt` | 240
+| `VolunteerAllowanceApprovalsScreen.kt` | 124
+| `VolunteerAllowanceScreen.kt` | 342
+|===
++
+No ledger constant exists for this remainder because, unlike `Money.kt`'s `MOTIONS_SCREEN_LEDGER`, there is no `T5`
+tripwire yet to ledger against -- adding one (same field list as above, display-context filter, mirroring `M5`) is
+Teilwelle B's first task, not something round 3 claims to have closed. Until that tripwire exists, treat the table
+above as a snapshot, not an enforced ceiling: re-run the grep before trusting it.
+
 == Known gaps
 
 * W6b security round 5: the bare in-builder-lambda `content = dtoField.field` assignment shape (no receiver

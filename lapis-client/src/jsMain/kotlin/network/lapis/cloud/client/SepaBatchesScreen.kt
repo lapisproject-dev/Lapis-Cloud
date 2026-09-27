@@ -463,9 +463,9 @@ private fun renderBatchPreview(
  */
 private fun sepaBatchColumns(): List<DataColumn<SepaDebitBatchDto>> =
     listOf(
-        textColumn(title = tr("Erstellt am"), primary = true) { batch: SepaDebitBatchDto -> batch.createdAt.toString() },
-        textColumn(title = tr("Fälligkeit"), numeric = true) { batch: SepaDebitBatchDto ->
-            batch.requestedCollectionDate.toString()
+        dateTimeColumn(title = tr("Erstellt am"), numeric = false, primary = true) { batch: SepaDebitBatchDto -> batch.createdAt },
+        dateColumn(title = tr("Fälligkeit"), numeric = true) { batch: SepaDebitBatchDto ->
+            batch.requestedCollectionDate
         },
         DataColumn(
             title = tr("Sequenztyp"),
@@ -816,7 +816,7 @@ internal fun renderSepaReturnsSection(
 private fun sepaReturnColumns(): List<DataColumn<SepaReturnDto>> =
     listOf(
         textColumn(title = tr("Mitglied"), primary = true) { sepaReturn: SepaReturnDto -> sepaReturn.memberDisplayName },
-        textColumn(title = tr("Datum"), numeric = true) { sepaReturn: SepaReturnDto -> sepaReturn.returnedAt.toString() },
+        dateColumn(title = tr("Datum"), numeric = true) { sepaReturn: SepaReturnDto -> sepaReturn.returnedAt },
         DataColumn(
             title = tr("Grund"),
             cell = { container, sepaReturn -> container.sepaReturnReasonBadge(sepaReturn.reasonCode) },

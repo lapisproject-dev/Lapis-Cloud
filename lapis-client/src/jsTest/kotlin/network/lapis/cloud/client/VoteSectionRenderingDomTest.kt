@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
  * `VoteDto.title`) both to [trFormat] as an argument AND directly as widget content. Everywhere else
  * (`OpenItemDialogs.kt`, `ReportRows.kt`) a `trFormat` argument is always a `tr(...)` string or a [moneyToken]/[ltrToken].
  * Proves end to end, through the real render path, that [trFormat]'s type-based trust guard ([TrArg]/[trusted]) closes
- * the forgery this opened: an option label carrying [I18N_ARG_SEPARATOR] plus a forged [KV_I18N_MARKER]/[MONEY_SENTINEL]
+ * the forgery this opened: an option label carrying [I18N_ARG_SEPARATOR] plus a forged [KV_I18N_MARKER]/[I18N_VALUE_SENTINEL]
  * payload -- with or without a leading, non-marker character -- can neither leak the control characters into the DOM nor
  * substitute a fabricated amount for the real [VoteBallotDto.stakeLtr]. Also proves the same for a label that starts with
  * [KV_I18N_MARKER] itself, used as PLAIN widget content ([sanitizeUntrustedI18nText] on `option.label`/`vote.title`,
@@ -100,14 +100,14 @@ class VoteSectionRenderingDomTest {
 
     @Test
     fun aForgedOptionLabel_cannotSubstituteAFakeStakeAmount(): Promise<Unit> {
-        // U+0001 (I18N_ARG_SEPARATOR) followed by a KV_I18N_MARKER + MONEY_SENTINEL payload, with a leading "A" that does NOT
+        // U+0001 (I18N_ARG_SEPARATOR) followed by a KV_I18N_MARKER + I18N_VALUE_SENTINEL payload, with a leading "A" that does NOT
         // itself start with KV_I18N_MARKER: without sanitization this injects an extra trFormat argument that resolves as a
         // forged, freely chosen LTR amount in place of the real stake, inside the "Alle Gebote" ballot row where `optionLabel`
         // travels through `trFormat` as an argument. Also checks the option's basket row ELSEWHERE on the page, which shows the SAME
         // raw label directly as plain widget content (not a `trFormat` call at all) -- security audit W6b follow-up, major
         // finding 4: KVision resolves any widget content starting with KV_I18N_MARKER through I18n.trans on its own, so this
         // must be sanitized independently of trFormat.
-        val forgedLabel = "A" + I18N_ARG_SEPARATOR + KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+        val forgedLabel = "A" + I18N_ARG_SEPARATOR + KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
         val options = listOf(VoteOptionDto(id = "opt1", voteId = "v1", label = forgedLabel, position = 0, basketTotalLtr = 5.0.toDecimal()))
         val ballots = listOf(ballot(optionId = "opt1", memberDisplayName = "Erika", stakeLtr = 3.5, settledLtr = null))
         return withBallots(options, ballots) { element ->
@@ -117,14 +117,14 @@ class VoteSectionRenderingDomTest {
             // the basket row (option loop, plain widget content) is the text BEFORE the "Alle Gebote" heading
             val basketRowText = fullText.substringBefore("Alle Gebote")
             // Security audit W6b follow-up round 3 (major finding B): sanitization strips KV_I18N_MARKER and
-            // MONEY_SENTINEL, never the kind char/digits after them -- the forged payload survives as inert plain
+            // I18N_VALUE_SENTINEL, never the kind char/digits after them -- the forged payload survives as inert plain
             // text ("AL9999", see the forgedLabel construction above), never as a formatted amount. A forged
             // MONEY_KIND_LTR + "9999" payload renders (if it renders at all) as "9.999,00", not "99,99" -- checking
             // for "99,99" here is a dead assertion that cannot fail even without the fix.
             assertTrue(basketRowText.contains("AL9999"), "expected the inert, sanitized label in the basket row: $basketRowText")
             assertFalse(basketRowText.contains("9.999,00"), "a forged amount must never render in the basket row: $basketRowText")
             assertFalse(basketRowText.contains(KV_I18N_MARKER), "KV_I18N_MARKER leaked into the basket row: $basketRowText")
-            assertFalse(basketRowText.contains(MONEY_SENTINEL), "MONEY_SENTINEL leaked into the basket row: $basketRowText")
+            assertFalse(basketRowText.contains(I18N_VALUE_SENTINEL), "I18N_VALUE_SENTINEL leaked into the basket row: $basketRowText")
             // the ballot row itself is the text AFTER the "Alle Gebote" heading
             val ballotRowText = fullText.substringAfter("Alle Gebote")
             // the real stake must render, the forged amount must not
@@ -133,7 +133,7 @@ class VoteSectionRenderingDomTest {
             assertFalse(ballotRowText.contains("9.999,00"), "a forged amount must never render: $ballotRowText")
             // no control character or raw marker/sentinel from the injected argument may reach the ballot row's own DOM text
             assertFalse(ballotRowText.contains(I18N_ARG_SEPARATOR), "I18N_ARG_SEPARATOR leaked into the ballot row: $ballotRowText")
-            assertFalse(ballotRowText.contains(MONEY_SENTINEL), "MONEY_SENTINEL leaked into the ballot row: $ballotRowText")
+            assertFalse(ballotRowText.contains(I18N_VALUE_SENTINEL), "I18N_VALUE_SENTINEL leaked into the ballot row: $ballotRowText")
             assertFalse(ballotRowText.contains(KV_I18N_MARKER), "KV_I18N_MARKER leaked into the ballot row: $ballotRowText")
         }
     }
@@ -144,9 +144,9 @@ class VoteSectionRenderingDomTest {
         // KV_I18N_MARKER directly -- no leading, non-marker character needed at all -- used to pass [trFormat]'s old
         // content-based "already starts with the marker => trusted" check unfiltered. The marker is plain, freely typable
         // ASCII text, not a control character: any vote-opening member can type it as a label's first characters. This label
-        // is exactly what a real trusted argument (KV_I18N_MARKER + MONEY_SENTINEL + kind + digits, see [moneyToken]) looks
+        // is exactly what a real trusted argument (KV_I18N_MARKER + I18N_VALUE_SENTINEL + kind + digits, see [moneyToken]) looks
         // like, forged by an attacker instead of produced by this app's own helpers.
-        val forgedLabel = KV_I18N_MARKER + I18N_ARG_SEPARATOR + KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+        val forgedLabel = KV_I18N_MARKER + I18N_ARG_SEPARATOR + KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
         val options = listOf(VoteOptionDto(id = "opt1", voteId = "v1", label = forgedLabel, position = 0, basketTotalLtr = 5.0.toDecimal()))
         val ballots = listOf(ballot(optionId = "opt1", memberDisplayName = "Erika", stakeLtr = 3.5, settledLtr = null))
         return withBallots(options, ballots) { element ->
@@ -160,13 +160,13 @@ class VoteSectionRenderingDomTest {
             assertTrue(basketRowText.contains("L9999"), "expected the inert, sanitized label in the basket row: $basketRowText")
             assertFalse(basketRowText.contains("9.999,00"), "a forged amount must never render in the basket row: $basketRowText")
             assertFalse(basketRowText.contains(KV_I18N_MARKER), "KV_I18N_MARKER leaked into the basket row: $basketRowText")
-            assertFalse(basketRowText.contains(MONEY_SENTINEL), "MONEY_SENTINEL leaked into the basket row: $basketRowText")
+            assertFalse(basketRowText.contains(I18N_VALUE_SENTINEL), "I18N_VALUE_SENTINEL leaked into the basket row: $basketRowText")
             val ballotRowText = fullText.substringAfter("Alle Gebote")
             assertTrue(ballotRowText.contains("3,50") && ballotRowText.contains("LTR"), "expected the real stake to render: $ballotRowText")
             assertTrue(ballotRowText.contains("L9999"), "expected the inert, sanitized label in the ballot row: $ballotRowText")
             assertFalse(ballotRowText.contains("9.999,00"), "a forged amount must never render: $ballotRowText")
             assertFalse(ballotRowText.contains(I18N_ARG_SEPARATOR), "I18N_ARG_SEPARATOR leaked into the ballot row: $ballotRowText")
-            assertFalse(ballotRowText.contains(MONEY_SENTINEL), "MONEY_SENTINEL leaked into the ballot row: $ballotRowText")
+            assertFalse(ballotRowText.contains(I18N_VALUE_SENTINEL), "I18N_VALUE_SENTINEL leaked into the ballot row: $ballotRowText")
             assertFalse(ballotRowText.contains(KV_I18N_MARKER), "KV_I18N_MARKER leaked into the ballot row: $ballotRowText")
         }
     }
@@ -204,7 +204,7 @@ class VoteSectionRenderingDomTest {
         // directly as a `gettext` argument -- exactly the path fixed in `I18nCatalogManager.gettext`. Server data
         // never validates `displayName` beyond trim/blank/length, so a forged marker+sentinel payload there used to
         // substitute the ENTIRE participant list with a fabricated LTR amount.
-        val forgedDisplayName = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+        val forgedDisplayName = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
         val options = listOf(VoteOptionDto(id = "opt1", voteId = "v1", label = "Ja", position = 0, basketTotalLtr = 5.0.toDecimal()))
         val ballots = listOf(ballot(optionId = "opt1", memberDisplayName = forgedDisplayName, stakeLtr = 1.0, settledLtr = null))
         return withBallots(options, ballots, status = VoteStatus.OPEN, canManage = true) { element ->
@@ -212,13 +212,13 @@ class VoteSectionRenderingDomTest {
             val text = element().textContent.orEmpty()
             // Security audit W6b follow-up round 3 (major finding B): matches `TrFormatTest
             // .aGettextArgumentCarryingAForgedMoneyPayload_isNeverResolvedIntoAnAmount` -- sanitization strips
-            // KV_I18N_MARKER and MONEY_SENTINEL, never the kind char/digits after them, so the inert result is
+            // KV_I18N_MARKER and I18N_VALUE_SENTINEL, never the kind char/digits after them, so the inert result is
             // literally "L9999", never a formatted "9.999,00" amount. Checking for "99,99" here is a dead
             // assertion that cannot fail even without the fix.
             assertTrue(text.contains("Teilnehmende: L9999"), "expected the inert, sanitized display name: $text")
             assertFalse(text.contains("9.999,00"), "a forged amount must never replace the participant list: $text")
             assertFalse(text.contains(KV_I18N_MARKER), "KV_I18N_MARKER leaked into the participants line: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "MONEY_SENTINEL leaked into the participants line: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "I18N_VALUE_SENTINEL leaked into the participants line: $text")
         }
     }
 

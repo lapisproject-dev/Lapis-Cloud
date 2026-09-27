@@ -121,12 +121,12 @@ class MoneyTest {
     @Test
     fun formatMoneyTokenResolvesPerLanguageAndFailsClosed() {
         val payload = moneyToken(1234.5.toDecimal()).removePrefix(KV_I18N_MARKER)
-        assertEquals("€1,234.50", formatMoneyTokenIn("en", payload))
-        assertEquals("1.234,50$NBSP€", formatMoneyTokenIn("de", payload))
-        assertEquals("◆ 12,50${NBSP}LTR", formatMoneyTokenIn("de", ltrToken(12.5.toDecimal()).removePrefix(KV_I18N_MARKER)))
-        assertEquals("garbage", formatMoneyTokenIn("de", MONEY_SENTINEL + "Xgarbage"))
-        assertEquals("", formatMoneyTokenIn("de", MONEY_SENTINEL))
-        assertEquals("abc$NBSP€", formatMoneyTokenIn("de", MONEY_SENTINEL + MONEY_KIND_EUR + "abc"))
+        assertEquals("€1,234.50", formatValueTokenIn("en", payload))
+        assertEquals("1.234,50$NBSP€", formatValueTokenIn("de", payload))
+        assertEquals("◆ 12,50${NBSP}LTR", formatValueTokenIn("de", ltrToken(12.5.toDecimal()).removePrefix(KV_I18N_MARKER)))
+        assertEquals("garbage", formatValueTokenIn("de", I18N_VALUE_SENTINEL + "Xgarbage"))
+        assertEquals("", formatValueTokenIn("de", I18N_VALUE_SENTINEL))
+        assertEquals("abc$NBSP€", formatValueTokenIn("de", I18N_VALUE_SENTINEL + MONEY_KIND_EUR + "abc"))
     }
 
     @Test
@@ -196,8 +196,8 @@ class MoneyTest {
     @Test
     fun plainAndCountTokens_resolveLikeTheirFormatters() {
         val plain = plainAmountToken(1234.5.toDecimal()).removePrefix(KV_I18N_MARKER)
-        assertEquals("1,234.50", formatMoneyTokenIn("en", plain))
+        assertEquals("1,234.50", formatValueTokenIn("en", plain))
         val count = countToken(1234.0.toDecimal()).removePrefix(KV_I18N_MARKER)
-        assertEquals("1.234", formatMoneyTokenIn("de", count))
+        assertEquals("1.234", formatValueTokenIn("de", count))
     }
 }

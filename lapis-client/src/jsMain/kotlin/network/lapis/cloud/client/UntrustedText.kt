@@ -24,7 +24,7 @@ import io.kvision.html.span
  * `KV_I18N_MARKER` through `I18n.trans`/`gettext` on render, independent of [trFormat] -- so a vote option label,
  * motion title, donor name, or any other untrusted field handed straight to `div(...)`/`span(...)`/`p(...)`/
  * `h1(...)`..`h6(...)`/`link(...)` as plain widget content can render as a forged, freely chosen money amount if
- * it carries a forged marker + `MONEY_SENTINEL` payload.
+ * it carries a forged marker + `I18N_VALUE_SENTINEL` payload.
  *
  * Security audit W6b, round 7 (major finding 1): [io.kvision.html.Link] (built via the `link(...)` DSL function)
  * renders its `label` through exactly the same `createLabelWithIcon` -> `Widget.translate` -> `I18n.trans` path as
@@ -38,7 +38,7 @@ import io.kvision.html.span
  * `Link.label`, and every other case this file already covers. Nothing sanitized it and the widget-text tripwire's
  * regex never matched `.select(`/`.options =` shapes, so 21+ call sites that build option pairs straight from a
  * member-/server-controlled DTO field (`it.id to it.displayName`, `it.id to it.name`, `it.id to it.title`, ...)
- * were exposed: a forged marker + `MONEY_SENTINEL` payload in a display name renders as an arbitrary money amount
+ * were exposed: a forged marker + `I18N_VALUE_SENTINEL` payload in a display name renders as an arbitrary money amount
  * in a dropdown -- letting a member choose a peer-transfer recipient, meeting chair, or committee role whose shown
  * label has nothing to do with the underlying `id` actually submitted. [untrustedOptions] sanitizes every label in
  * an options list; the `id`/value half of each pair is left untouched (it is submitted, never rendered as text).

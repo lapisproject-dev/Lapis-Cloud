@@ -14,7 +14,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import kotlinx.browser.window
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.number
 import network.lapis.cloud.shared.domain.AnniversaryCalendar
 import network.lapis.cloud.shared.domain.AnniversaryEmphasis
 import network.lapis.cloud.shared.domain.AnniversaryEntryDto
@@ -272,19 +271,3 @@ internal fun anniversaryCoverageText(dto: MemberAnniversaryOverviewDto): String?
     } else {
         null
     }
-
-/**
- * `dd.MM.` -- day and month only, zero-padded, no year (see [AnniversaryEntryDto] KDoc "Kein
- * Geburtsjahr"). Non-deprecated `.day`/`.month.number` API (NOT `.dayOfMonth`/`.monthNumber`,
- * deprecated in kotlinx-datetime 0.8.0), same idiom `ConferenceScreen.kt`'s
- * `conferenceDefaultRoomTitle` already establishes -- via `.padStart`, not `String.format` (JVM-only,
- * unavailable in this jsMain target).
- */
-internal fun formatDayMonth(date: LocalDate): String {
-    val day = date.day.toString().padStart(2, '0')
-    val month =
-        date.month.number
-            .toString()
-            .padStart(2, '0')
-    return "$day.$month."
-}

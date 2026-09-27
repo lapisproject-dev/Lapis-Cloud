@@ -84,11 +84,11 @@ fun volunteerAllowancePayoutDisclaimer(): String = travelExpensePayoutDisclaimer
 
 fun volunteerAllowanceDeclarationBadge(declaration: VolunteerAllowanceSelfDeclarationDto): String =
     when (declaration.source) {
-        VolunteerAllowanceDeclarationSource.IN_APP -> gettext("In Lapis bestätigt am %1", declaration.declaredAt.date.toString())
+        VolunteerAllowanceDeclarationSource.IN_APP -> gettext("In Lapis bestätigt am %1", formatDate(declaration.declaredAt.date))
         VolunteerAllowanceDeclarationSource.ON_PAPER ->
             gettext(
                 "Papierform, unterschrieben am %1, erfasst von %2",
-                declaration.signedOn?.toString() ?: "-",
+                declaration.signedOn?.let { formatDate(it) } ?: "-",
                 declaration.recordedByDisplayName,
             )
     }

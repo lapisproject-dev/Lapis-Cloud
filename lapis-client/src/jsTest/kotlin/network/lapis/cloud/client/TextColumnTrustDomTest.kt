@@ -34,12 +34,12 @@ class TextColumnTrustDomTest {
     @Test
     fun aPlainUntrustedStringReturn_isSanitizedAsBefore() {
         withMountedRoot("text-column-untrusted-test") { root, element ->
-            val forgedPayload = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+            val forgedPayload = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
             val column = textColumn<Row>(title = tr("Spalte")) { it.untrustedField }
             column.cell(root, Row(untrustedField = forgedPayload))
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
         }
     }
 

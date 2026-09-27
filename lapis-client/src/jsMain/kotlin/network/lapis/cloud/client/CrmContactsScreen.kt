@@ -231,7 +231,7 @@ private fun renderCrmContactDetail(
             }
         }
         infoPanel.div(gettext("E-Mail-Ansprache erlaubt: %1", if (contact.mayReceiveEmail) gettext("Ja") else gettext("Nein")))
-        infoPanel.div(gettext("Wiedervorlage fällig: %1", contact.retentionReviewDueAt.toString()))
+        infoPanel.div(gettext("Wiedervorlage fällig: %1", formatDateTime(contact.retentionReviewDueAt)))
     }
     renderInfo()
 
@@ -404,7 +404,7 @@ private fun renderCrmInteractionRow(
     val row = panel.vPanel(spacing = 2) { addCssClasses("border-bottom pb-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.typeBadge(crmInteractionKindLabel(interaction.kind), "info")
-    headerRow.div(interaction.occurredAt.toString()) { addCssClasses("text-muted small") }
+    headerRow.div(formatDateTime(interaction.occurredAt)) { addCssClasses("text-muted small") }
     headerRow.div(gettext("erfasst von %1", interaction.recordedByDisplayName)) { addCssClasses("text-muted small flex-grow-1 text-end") }
     row.untrustedDiv(interaction.summary)
 }

@@ -526,7 +526,7 @@ private fun renderDsgvoAuditLogRow(
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.statusBadge(dsgvoAuditActionLabel(entry.action), dsgvoAuditActionColor(entry.action))
-    headerRow.div(entry.occurredAt.toString()) { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(formatDateTime(entry.occurredAt)) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(gettext("Akteur: %1 · Betroffenes Mitglied: %2", dsgvoAuditActorDisplayText(entry), entry.subjectMemberId)) {
         addCssClasses("text-muted small")

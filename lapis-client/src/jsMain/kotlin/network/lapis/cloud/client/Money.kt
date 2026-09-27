@@ -253,13 +253,14 @@ fun Container.moneySpan(
     warnIfNegative: Boolean = false,
 ): Span =
     span(moneyToken(amount)) {
+        addCssClass(TABULAR_NUMS_CLASS)
         if (warnIfNegative && amount.toDouble() < 0.0) addCssClass("text-danger")
     }
 
 /**
  * LTR-Wirtschaft UI wave -- D2: unlike [moneySpan] (plain text), [ltrSpan] renders as a bordered pill with a leading `◆` glyph
  * (a second, non-color channel, WCAG 1.4.1), reusing `StatusBadge.kt`'s outline-pill grammar. [warnIfNegative] mirrors
- * [moneySpan]'s: a typed numeric comparison against `0.0`. The glyph is part of the [ltrToken] (see [formatMoneyToken]), so the
+ * [moneySpan]'s: a typed numeric comparison against `0.0`. The glyph is part of the [ltrToken] (see [formatValueToken]), so the
  * token is never concatenated (marker leak, audit V1.4.30).
  */
 fun Container.ltrSpan(
@@ -269,6 +270,7 @@ fun Container.ltrSpan(
     val color = if (warnIfNegative && amount.toDouble() < 0.0) "danger" else "primary"
     return span(ltrToken(amount)) {
         addCssClasses("badge rounded-pill border border-$color text-$color fw-bold")
+        addCssClass(TABULAR_NUMS_CLASS)
     }
 }
 
@@ -280,14 +282,14 @@ fun Container.ltrSpan(
  * forge it" -- that is FALSE and was exactly the mistaken assumption the whole W6b wave had to correct. A control
  * character is trivially representable in a `String` field (a DTO, a display name, free text from a form) even
  * though no keyboard shortcut types it directly -- nothing on the server or in transport strips non-printable
- * bytes by default. [MONEY_SENTINEL]'s safety comes ENTIRELY from where it is checked: only
+ * bytes by default. [I18N_VALUE_SENTINEL]'s safety comes ENTIRELY from where it is checked: only
  * [I18nCatalogManager.gettext] resolves a string starting with it into a formatted amount, and only [moneyToken] /
  * this module's own helpers ever construct one -- callers must never trust a sentinel's mere PRESENCE in
  * server-/user-controlled text as proof of legitimacy. Untrusted text is unconditionally stripped of this
  * character (and [KV_I18N_MARKER] / [I18N_ARG_SEPARATOR]) before ever reaching a widget or [trFormat] argument --
  * see [sanitizeUntrustedI18nText] -- precisely because it CAN be forged.
  */
-internal const val MONEY_SENTINEL = "\u0002"
+internal const val I18N_VALUE_SENTINEL = "\u0002"
 internal const val MONEY_KIND_EUR = 'E'
 internal const val MONEY_KIND_LTR = 'L'
 
@@ -303,39 +305,51 @@ internal const val MONEY_KIND_COUNT = 'N'
  * string (marker leak); pass it as a [trFormat] argument or as a widget's whole content. The payload carries no
  * [I18N_ARG_SEPARATOR], so it also survives being a [trFormat] argument.
  */
-internal fun moneyToken(amount: Decimal): String = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_EUR + displayDigits(amount)
+internal fun moneyToken(amount: Decimal): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_EUR + displayDigits(amount)
 
-internal fun ltrToken(amount: Decimal): String = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + displayDigits(amount)
+internal fun ltrToken(amount: Decimal): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + displayDigits(amount)
 
-internal fun plainAmountToken(amount: Decimal): String = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_PLAIN + displayDigits(amount)
+internal fun plainAmountToken(amount: Decimal): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_PLAIN + displayDigits(amount)
 
-internal fun countToken(amount: Decimal): String = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_COUNT + displayDigits(amount)
+internal fun countToken(amount: Decimal): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_COUNT + displayDigits(amount)
 
 /** Unit-less amount as live-translatable widget content (a [plainAmountToken]); follows a language switch. */
-fun Container.plainAmountSpan(amount: Decimal): Span = span(plainAmountToken(amount))
+fun Container.plainAmountSpan(amount: Decimal): Span = span(plainAmountToken(amount)) { addCssClass(TABULAR_NUMS_CLASS) }
 
 /** Whole count as live-translatable widget content (a [countToken]); follows a language switch. */
-fun Container.countSpan(amount: Decimal): Span = span(countToken(amount))
+fun Container.countSpan(amount: Decimal): Span = span(countToken(amount)) { addCssClass(TABULAR_NUMS_CLASS) }
 
-/** Resolves a [moneyToken] payload (marker already stripped, starts with [MONEY_SENTINEL]) in [language]. Fails closed: an unknown kind returns the raw digits, never an exception. */
-internal fun formatMoneyTokenIn(
+/**
+ * Resolves a [moneyToken]/[dateToken]-family payload (marker already stripped, starts with
+ * [I18N_VALUE_SENTINEL]) in [language]. Fails closed: an unknown kind, or a temporal kind whose digits
+ * are not a parsable ISO date/date-time (a forged payload -- see [formatTemporalTokenDigits]), returns
+ * the raw digits, never an exception.
+ *
+ * W7: extended with the five date/time kinds ([DATE_KIND_DATE] etc., `DateTime.kt`) alongside the four
+ * money kinds -- one resolution point for every value token in this app, exactly as [I18nCatalogManager.gettext]
+ * expects (it checks only the sentinel prefix, not which kind follows).
+ */
+internal fun formatValueTokenIn(
     language: String,
     payload: String,
 ): String {
-    val rest = payload.removePrefix(MONEY_SENTINEL)
+    val rest = payload.removePrefix(I18N_VALUE_SENTINEL)
+    val kind = rest.firstOrNull()
     val digits = rest.drop(1)
     val locale = moneyLocale(language)
-    return when (rest.firstOrNull()) {
+    return when (kind) {
         MONEY_KIND_EUR -> formatAmountDigits(digits, "€", locale)
         MONEY_KIND_LTR -> "◆ " + formatAmountDigits(digits, "LTR", locale)
         MONEY_KIND_PLAIN -> formatAmountDigits(digits, "", locale)
         MONEY_KIND_COUNT -> formatCountDigits(digits, locale)
+        DATE_KIND_DATE, DATE_KIND_DAY_MONTH, DATE_KIND_DATE_TIME, DATE_KIND_TIMESTAMP, DATE_KIND_TIME ->
+            formatTemporalTokenDigits(kind, digits, language) ?: digits
         else -> digits
     }
 }
 
-/** [formatMoneyTokenIn] in the CURRENT language. */
-internal fun formatMoneyToken(payload: String): String = formatMoneyTokenIn(I18n.language, payload)
+/** [formatValueTokenIn] in the CURRENT language. */
+internal fun formatValueToken(payload: String): String = formatValueTokenIn(I18n.language, payload)
 
 // ---- cent-exact sums (S7) ------------------------------------------------------------------------------------------------------
 

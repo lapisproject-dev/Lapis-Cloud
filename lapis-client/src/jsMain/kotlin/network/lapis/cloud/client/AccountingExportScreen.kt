@@ -258,7 +258,7 @@ internal fun renderZeroVatSection(
 ) {
     if (connection.zeroVatAcknowledged) {
         panel.div(
-            gettext("Hinweis zur Umsatzsteuer quittiert am %1.", connection.zeroVatAcknowledgedAt?.toString().orEmpty()),
+            gettext("Hinweis zur Umsatzsteuer quittiert am %1.", connection.zeroVatAcknowledgedAt?.let { formatDateTime(it) }.orEmpty()),
         ) { addCssClasses("text-muted small") }
         return
     }
@@ -437,7 +437,7 @@ private fun renderPreviewBody(
             )
         preview.sampleLines.forEach { line ->
             table.row {
-                cell(line.entryDate.toString())
+                cell(formatDate(line.entryDate))
                 cell(line.voucherNumber)
                 cell(if (line.direction == AccountingExportDirection.INCOME) tr("Einnahme") else tr("Ausgabe"))
                 cell(line.categoryName ?: tr("(keine Zuordnung)"))
@@ -508,7 +508,7 @@ private fun renderUnknownItemsSection(
                 )
             items.forEach { item ->
                 table.row {
-                    cell(item.entryDate.toString())
+                    cell(formatDate(item.entryDate))
                     cell(item.voucherNumber)
                     cell(formatMoney(item.grossAmount))
                     cell(

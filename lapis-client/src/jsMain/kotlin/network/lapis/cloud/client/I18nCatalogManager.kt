@@ -37,7 +37,7 @@ class I18nCatalogManager(
         vararg args: Any?,
     ): String {
         // W6a: an amount token (see [moneyToken]) is formatted for the current language, never looked up. First, so no other branch sees it.
-        if (key.startsWith(MONEY_SENTINEL)) return formatMoneyToken(key)
+        if (key.startsWith(I18N_VALUE_SENTINEL)) return formatValueToken(key)
         // A composed key (see [trFormat]): KVision hands the WHOLE marker-stripped string to `gettext` with no
         // arguments, so the arguments travel inside the key.
         if (args.isEmpty() && key.contains(I18N_ARG_SEPARATOR)) return composed(key)
@@ -53,7 +53,7 @@ class I18nCatalogManager(
         // does so via `gettext(...)` itself, which resolves immediately and never returns a marker-prefixed string.
         // Every `String` argument is therefore always sanitized -- never resolved by content -- exactly like an
         // untrusted plain-`String` [trFormat] argument. This closes the money-forgery path where an attacker-typed
-        // member display name / account name / free-text field carrying [KV_I18N_MARKER] + [MONEY_SENTINEL] + a kind
+        // member display name / account name / free-text field carrying [KV_I18N_MARKER] + [I18N_VALUE_SENTINEL] + a kind
         // + digits was resolved into a fabricated amount.
         val sanitizedArgs =
             Array<Any?>(args.size) { index ->
@@ -156,7 +156,7 @@ private val PLACEHOLDER = Regex("""%(\d+)""")
  * `GovernanceService`) that itself contains [I18N_ARG_SEPARATOR] splits into an extra part once
  * [I18nCatalogManager.composed] later does `key.split(I18N_ARG_SEPARATOR)`, shifting every following argument by one
  * position; if that injected part also starts with [KV_I18N_MARKER] it is resolved through [I18nCatalogManager.gettext]
- * again, and a trailing [MONEY_SENTINEL] there lets attacker-controlled text render as a fabricated, freely chosen
+ * again, and a trailing [I18N_VALUE_SENTINEL] there lets attacker-controlled text render as a fabricated, freely chosen
  * amount -- exactly the forgery [moneyToken]'s KDoc says cannot happen.
  *
  * Security audit W6b follow-up (major finding 1, not closed by a first attempt): trust must never be decided by
@@ -193,12 +193,12 @@ internal class TrArg internal constructor(
 )
 
 /**
- * Unconditionally strips [I18N_ARG_SEPARATOR], [KV_I18N_MARKER] and [MONEY_SENTINEL] from untrusted free text --
+ * Unconditionally strips [I18N_ARG_SEPARATOR], [KV_I18N_MARKER] and [I18N_VALUE_SENTINEL] from untrusted free text --
  * server- or user-controlled labels, titles, display names -- before it is used either as a [trFormat] argument (see
  * [trFormatArgPayload]) or directly as a widget's content. KVision's `Widget` class resolves ANY content string that
  * starts with [KV_I18N_MARKER] through `I18n.trans`/`gettext` on render (see `io.kvision.core.Widget`), independent
  * of [trFormat]/[I18nCatalogManager.gettext] -- so a vote option label or motion title carrying a forged marker +
- * [MONEY_SENTINEL] payload renders as a fabricated amount even when it never touches [trFormat] (security audit W6b
+ * [I18N_VALUE_SENTINEL] payload renders as a fabricated amount even when it never touches [trFormat] (security audit W6b
  * follow-up, major finding 4). Any untrusted text handed to a widget as plain content must be sanitized with this
  * function first.
  *
@@ -210,7 +210,7 @@ internal class TrArg internal constructor(
  * added to [I18nCatalogManager.substitute]). Both markers are now stripped to a fixed point in the same loop.
  */
 internal fun sanitizeUntrustedI18nText(text: String): String {
-    // Security audit W6b follow-up (major finding 2): [I18N_ARG_SEPARATOR] and [MONEY_SENTINEL] are single characters
+    // Security audit W6b follow-up (major finding 2): [I18N_ARG_SEPARATOR] and [I18N_VALUE_SENTINEL] are single characters
     // -- removing occurrences of a single character can never CREATE a new occurrence of that same character, so a
     // single `replace` pass is safe for them. [KV_I18N_MARKER] and [KV_I18N_MARKER_PLURAL] are MULTI-character
     // ("###KvI18nS###" / "###KvI18nP###"): deleting one occurrence can splice its neighbours together into a NEW
@@ -218,7 +218,7 @@ internal fun sanitizeUntrustedI18nText(text: String): String {
     // intact marker `"###KvI18nS###"` after one pass. Replace both to a FIXED POINT instead -- keep removing until
     // neither remains -- so no nested/overlapping construction of either marker can survive. Each iteration
     // strictly removes at least one occurrence, so this always terminates.
-    var result = text.replace(I18N_ARG_SEPARATOR, "").replace(MONEY_SENTINEL, "")
+    var result = text.replace(I18N_ARG_SEPARATOR, "").replace(I18N_VALUE_SENTINEL, "")
     while (result.contains(KV_I18N_MARKER) || result.contains(KV_I18N_MARKER_PLURAL)) {
         result = result.replace(KV_I18N_MARKER, "").replace(KV_I18N_MARKER_PLURAL, "")
     }
