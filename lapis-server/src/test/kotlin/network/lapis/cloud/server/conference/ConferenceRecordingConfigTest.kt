@@ -127,7 +127,7 @@ class ConferenceRecordingConfigTest :
 
             config.toString() shouldBe
                 "ConferenceRecordingConfig(enabled=true, outputContainerDir='/out', " +
-                "outputHostDir='deploy/local/egress-out', ffmpegPath='/opt/ffmpeg', pollIntervalSeconds=10, " +
+                "outputHostDir='deploy/local/egress-out', ffmpegPath='/opt/ffmpeg', ffprobePath='/opt/ffprobe', pollIntervalSeconds=10, " +
                 "egressTimeoutMinutes=30, maxDurationMinutes=240, composeTimeoutMinutes=120, maxTracks=60, keepRaw=false)"
         }
 

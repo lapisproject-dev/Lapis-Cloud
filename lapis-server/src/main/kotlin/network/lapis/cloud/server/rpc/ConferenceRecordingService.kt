@@ -133,6 +133,14 @@ class ConferenceRecordingService(
         FederationInboxRateLimiter(maxRequests = DEFAULT_DELETE_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
     private val readRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = DEFAULT_READ_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /**
+     * Invoked once per SUCCESSFUL [startRecording], after its transaction committed -- wired in
+     * `Application.module` to `RecordingPoller.requestTick()` so the first `StartTrackEgress`
+     * happens now rather than on the next scheduled poll (ELB finding 2026-09-27: the first seconds
+     * of a recording were missing, see that class's KDoc "requestTick"). Still no LiveKit call from
+     * THIS class -- it only pokes the poller, which remains the sole egress caller.
+     */
+    private val onRecordingStarted: () -> Unit = {},
 ) : IConferenceRecordingService {
     override suspend fun getRecordingAvailability(): ConferenceRecordingAvailabilityDto {
         resolveCurrentMember(call)
@@ -164,71 +172,84 @@ class ConferenceRecordingService(
         // "roomUuid" rename already documents, see PeerTransferService.executeTransfer KDoc for
         // the canonical explanation).
         val roomUuid = roomId.toRecordingUuid()
-        return transaction {
-            // `.forUpdate()` locks the room row for the rest of this transaction -- closes the
-            // check-then-act race on the "one active recording per room" invariant below: two
-            // concurrent startRecording calls for the same room now serialize on this lock instead
-            // of both reading "no active recording" and both inserting a RECORDING row. Same
-            // discipline LtrBalanceProvider/PasswordResetTokenStore/AuditLogRecorder/
-            // FederationRelationshipStore already establish for exactly this bug class (see class
-            // KDoc "Authorization re-derivation" for the analogous per-call re-derivation
-            // discipline this mirrors). The room row is the natural lock target here -- there is no
-            // pre-existing row to lock on the recording side before the first recording exists.
-            val room =
-                ConferenceRoomTable
-                    .selectAll()
-                    .where { ConferenceRoomTable.id eq roomUuid }
-                    .forUpdate()
-                    .singleOrNull()
-                    ?: throw NotFoundException("Conference room $roomUuid not found")
-            if (room[ConferenceRoomTable.endedAt] != null) {
-                throw ConflictException("Conference room $roomUuid has already ended -- cannot start a recording")
+        val dto =
+            transaction {
+                startRecordingInTransaction(roomUuid = roomUuid, accessLevel = accessLevel, current = current)
             }
-            requireModeratorOrPrivileged(room = room, current = current)
+        // Only reached once the row is committed -- a poller tick woken BEFORE the commit would not
+        // see the new RECORDING row yet and the wake-up would be wasted.
+        onRecordingStarted()
+        return dto
+    }
 
-            val alreadyActive =
-                ConferenceRecordingTable
-                    .selectAll()
-                    .where {
-                        (ConferenceRecordingTable.roomId eq roomUuid) and
-                            (ConferenceRecordingTable.status inList ACTIVE_RECORDING_STATUSES)
-                    }.limit(1)
-                    .any()
-            if (alreadyActive) {
-                throw ConflictException("A recording is already active for this room")
-            }
-
-            val now = nowLocalDateTime()
-            val recordingId = Uuid.random()
-            ConferenceRecordingTable.insert {
-                it[ConferenceRecordingTable.id] = recordingId
-                it[ConferenceRecordingTable.roomId] = roomUuid
-                it[startedByMemberId] = current.memberId
-                it[startedAt] = now
-                it[stoppedAt] = null
-                it[readyAt] = null
-                it[status] = ConferenceRecordingStatus.RECORDING
-                it[ConferenceRecordingTable.accessLevel] = accessLevel
-                it[documentId] = null
-                it[rawDir] = recordingId.toString()
-                it[durationSeconds] = null
-                it[fileSizeBytes] = null
-                it[failureReason] = null
-                it[composeAttempts] = 0
-            }
-            // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction --
-            // see that object's KDoc "deadlock-avoidance contract".
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.CONFERENCE_RECORDING,
-                entityId = recordingId,
-                action = AuditAction.CREATE,
-                occurredAt = now,
-            )
-            val row = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingId }.single()
-            rowToDto(row = row, roomTitle = room[ConferenceRoomTable.title], current = current)
+    private fun startRecordingInTransaction(
+        roomUuid: Uuid,
+        accessLevel: DocumentAccessLevel,
+        current: CurrentMember,
+    ): ConferenceRecordingDto {
+        // `.forUpdate()` locks the room row for the rest of this transaction -- closes the
+        // check-then-act race on the "one active recording per room" invariant below: two
+        // concurrent startRecording calls for the same room now serialize on this lock instead
+        // of both reading "no active recording" and both inserting a RECORDING row. Same
+        // discipline LtrBalanceProvider/PasswordResetTokenStore/AuditLogRecorder/
+        // FederationRelationshipStore already establish for exactly this bug class (see class
+        // KDoc "Authorization re-derivation" for the analogous per-call re-derivation
+        // discipline this mirrors). The room row is the natural lock target here -- there is no
+        // pre-existing row to lock on the recording side before the first recording exists.
+        val room =
+            ConferenceRoomTable
+                .selectAll()
+                .where { ConferenceRoomTable.id eq roomUuid }
+                .forUpdate()
+                .singleOrNull()
+                ?: throw NotFoundException("Conference room $roomUuid not found")
+        if (room[ConferenceRoomTable.endedAt] != null) {
+            throw ConflictException("Conference room $roomUuid has already ended -- cannot start a recording")
         }
+        requireModeratorOrPrivileged(room = room, current = current)
+
+        val alreadyActive =
+            ConferenceRecordingTable
+                .selectAll()
+                .where {
+                    (ConferenceRecordingTable.roomId eq roomUuid) and
+                        (ConferenceRecordingTable.status inList ACTIVE_RECORDING_STATUSES)
+                }.limit(1)
+                .any()
+        if (alreadyActive) {
+            throw ConflictException("A recording is already active for this room")
+        }
+
+        val now = nowLocalDateTime()
+        val recordingId = Uuid.random()
+        ConferenceRecordingTable.insert {
+            it[ConferenceRecordingTable.id] = recordingId
+            it[ConferenceRecordingTable.roomId] = roomUuid
+            it[startedByMemberId] = current.memberId
+            it[startedAt] = now
+            it[stoppedAt] = null
+            it[readyAt] = null
+            it[status] = ConferenceRecordingStatus.RECORDING
+            it[ConferenceRecordingTable.accessLevel] = accessLevel
+            it[documentId] = null
+            it[rawDir] = recordingId.toString()
+            it[durationSeconds] = null
+            it[fileSizeBytes] = null
+            it[failureReason] = null
+            it[composeAttempts] = 0
+        }
+        // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction --
+        // see that object's KDoc "deadlock-avoidance contract".
+        AuditLogRecorder.record(
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            entityType = AuditEntityType.CONFERENCE_RECORDING,
+            entityId = recordingId,
+            action = AuditAction.CREATE,
+            occurredAt = now,
+        )
+        val row = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingId }.single()
+        return rowToDto(row = row, roomTitle = room[ConferenceRoomTable.title], current = current)
     }
 
     override suspend fun stopRecording(recordingId: String): ConferenceRecordingDto {

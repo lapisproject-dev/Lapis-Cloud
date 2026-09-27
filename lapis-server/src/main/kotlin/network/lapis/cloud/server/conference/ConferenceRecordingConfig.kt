@@ -50,6 +50,8 @@ class ConferenceRecordingConfig private constructor(
     val outputHostDir: String,
     /** `ffmpeg` binary name or absolute path -- resolved via the process `PATH` if not absolute. Only ever probed/invoked by a later wave's composer; this class never runs it. */
     val ffmpegPath: String,
+    /** `ffprobe` binary name or absolute path -- `LAPIS_FFPROBE_PATH`, else derived from [ffmpegPath] via [FfprobeMediaProber.deriveFfprobePath] (same directory, same suffix). Only ever invoked by [RecordingMediaProber]. */
+    val ffprobePath: String,
     /** [network.lapis.cloud.server.RecordingPoller] tick interval -- see that class's own KDoc (a later wave) for the full poll-not-webhook mechanism this drives. */
     val pollIntervalSeconds: Long,
     /** After `stoppedAt + this`, a recording still not fully `STOPPING` composes from whatever tracks ARE complete (>=1 video) or goes `FAILED` -- disk/stuck-egress guard. */
@@ -66,7 +68,8 @@ class ConferenceRecordingConfig private constructor(
     /** Deliberately omits nothing secret -- this class carries no credentials of its own (see class KDoc), so every field is safe to log as-is. Kept for symmetry with [ConferenceConfig.toString] regardless. */
     override fun toString(): String =
         "ConferenceRecordingConfig(enabled=$enabled, outputContainerDir='$outputContainerDir', " +
-            "outputHostDir='$outputHostDir', ffmpegPath='$ffmpegPath', pollIntervalSeconds=$pollIntervalSeconds, " +
+            "outputHostDir='$outputHostDir', ffmpegPath='$ffmpegPath', ffprobePath='$ffprobePath', " +
+            "pollIntervalSeconds=$pollIntervalSeconds, " +
             "egressTimeoutMinutes=$egressTimeoutMinutes, maxDurationMinutes=$maxDurationMinutes, " +
             "composeTimeoutMinutes=$composeTimeoutMinutes, maxTracks=$maxTracks, keepRaw=$keepRaw)"
 
@@ -91,12 +94,15 @@ class ConferenceRecordingConfig private constructor(
          * malformed number" posture [ConferenceConfig.load]'s own TTL/max-participants parsing
          * already establishes).
          */
-        fun load(env: (String) -> String? = System::getenv): ConferenceRecordingConfig =
-            ConferenceRecordingConfig(
+        fun load(env: (String) -> String? = System::getenv): ConferenceRecordingConfig {
+            val ffmpegPath = env("LAPIS_FFMPEG_PATH")?.trim().orEmpty().ifBlank { DEFAULT_FFMPEG_PATH }
+            return ConferenceRecordingConfig(
                 enabled = env("LAPIS_RECORDING_ENABLED")?.trim().equals("true", ignoreCase = true),
                 outputContainerDir = env("LAPIS_EGRESS_OUTPUT_CONTAINER_DIR")?.trim().orEmpty().ifBlank { DEFAULT_OUTPUT_CONTAINER_DIR },
                 outputHostDir = env("LAPIS_EGRESS_OUTPUT_HOST_DIR")?.trim().orEmpty().ifBlank { DEFAULT_OUTPUT_HOST_DIR },
-                ffmpegPath = env("LAPIS_FFMPEG_PATH")?.trim().orEmpty().ifBlank { DEFAULT_FFMPEG_PATH },
+                ffmpegPath = ffmpegPath,
+                ffprobePath =
+                    env("LAPIS_FFPROBE_PATH")?.trim().orEmpty().ifBlank { FfprobeMediaProber.deriveFfprobePath(ffmpegPath) },
                 pollIntervalSeconds = env("LAPIS_RECORDING_POLL_INTERVAL_SECONDS")?.trim()?.toLongOrNull() ?: DEFAULT_POLL_INTERVAL_SECONDS,
                 egressTimeoutMinutes =
                     env("LAPIS_RECORDING_EGRESS_TIMEOUT_MINUTES")?.trim()?.toLongOrNull() ?: DEFAULT_EGRESS_TIMEOUT_MINUTES,
@@ -106,6 +112,7 @@ class ConferenceRecordingConfig private constructor(
                 maxTracks = env("LAPIS_RECORDING_MAX_TRACKS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_TRACKS,
                 keepRaw = env("LAPIS_RECORDING_KEEP_RAW")?.trim().equals("true", ignoreCase = true),
             )
+        }
 
         /**
          * The ONE-TIME I/O probe [network.lapis.cloud.server.Application.module] runs at startup

@@ -5,10 +5,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -93,6 +94,20 @@ private const val FAILURE_NO_TRACK_STORED = "Der Aufzeichnungsdienst konnte kein
  * transient LiveKit error) never stops every other recording's own progress that same tick, and
  * tests can call it directly with zero timing dependency.
  *
+ * **[requestTick] -- the loop can be woken early.** ELB test recording 2026-09-27: the moderator
+ * pressed "Aufzeichnung starten", the UI immediately showed "Aufzeichnung läuft", but the first
+ * seconds of the meeting were missing from the finished video. Structural cause, not a composition
+ * bug: `startRecording` only inserts a `RECORDING` row (see `ConferenceRecordingService` KDoc), and
+ * the FIRST `StartTrackEgress` for that row happened on the next scheduled tick -- up to
+ * [ConferenceRecordingConfig.pollIntervalSeconds] (10 s by default) later, plus the egress's own
+ * join/subscribe latency, during which the participants were already talking "on the record".
+ * `startRecording` now calls [requestTick] right after committing its row, so the discovery pass
+ * runs within milliseconds; the loop's own `delay(interval)` becomes "sleep until the interval
+ * elapses OR someone requests a tick" ([wake], a conflated channel -- N requests during one sleep
+ * coalesce into ONE extra tick, so a burst of starts can never queue up a pile of redundant ticks).
+ * The egress's own startup latency (LiveKit joining the room, subscribing, first keyframe) is
+ * inherent to Track Egress and remains; the poll-interval part of the gap is gone.
+ *
  * ## Restart reconciliation
  *
  * Rows left non-terminal (`RECORDING`/`STOPPING`/`PROCESSING`) by a crashed process are picked up
@@ -151,6 +166,13 @@ private const val FAILURE_NO_TRACK_STORED = "Der Aufzeichnungsdienst konnte kein
  * footage may be the only remaining record of a legally significant meeting; a silent auto-delete
  * on failure would be an unrecoverable, unannounced data loss (see the Wave 2 UI/UX design review's
  * own D13 "Raw-file fate on FAILED must be explicit and safe").
+ *
+ * **Per-track alignment at composition time** -- each COMPLETE track's `offsetSeconds` is
+ * [RecordingTrackAlignment.offsetSeconds]: its `started_at`-derived start offset PLUS the head of
+ * media LiveKit received but the muxer never wrote (reported egress duration minus the file's
+ * probed media duration via [prober]) -- see that object's KDoc for why the file's own timeline
+ * cannot carry that information and why this is exact either way. Every track's numbers are
+ * logged at INFO so a real recording's residual A/V offset can be checked against them.
  */
 class RecordingPoller(
     private val liveKitAdminClient: LiveKitAdminClient,
@@ -158,11 +180,15 @@ class RecordingPoller(
     private val recordingConfig: ConferenceRecordingConfig,
     private val documentStorageRoot: File,
     private val composer: RecordingComposer,
+    private val prober: RecordingMediaProber = RecordingMediaProber.None,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
 ) {
     private val composeSemaphore = Semaphore(1)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
+
+    /** See class KDoc "requestTick". Conflated: at most one pending wake-up, never a queue. */
+    private val wake = Channel<Unit>(Channel.CONFLATED)
 
     /** Idempotent -- a second call while already running is a no-op. See class KDoc "Mechanism". */
     fun start() {
@@ -171,9 +197,21 @@ class RecordingPoller(
             scope.launch {
                 while (isActive) {
                     tick()
-                    delay(recordingConfig.pollIntervalSeconds.seconds)
+                    // Sleep until the interval elapses OR requestTick() wakes us -- see class KDoc.
+                    withTimeoutOrNull(recordingConfig.pollIntervalSeconds.seconds) { wake.receive() }
                 }
             }
+    }
+
+    /**
+     * Asks the running loop to run its next [tick] now instead of after the remaining poll delay --
+     * see class KDoc "requestTick". Non-suspending and never blocks: `trySend` on a conflated
+     * channel always succeeds immediately. A no-op if the loop is not running (a deployment with
+     * recording disabled never started it; nothing to wake).
+     */
+    fun requestTick() {
+        if (loopJob == null) return
+        wake.trySend(Unit)
     }
 
     /** Cancels the poll loop -- for tests/graceful shutdown. Any in-flight [tick] finishes; nothing is force-killed. */
@@ -513,10 +551,33 @@ class RecordingPoller(
         }
         val audioResolved = resolved.filter { it.track.trackSource in AUDIO_TRACK_SOURCES }
 
+        // A/V-sync fix (2026-09-27): per-track offset = started_at offset + head the muxer never
+        // wrote -- see class KDoc "Per-track alignment" and RecordingTrackAlignment's own KDoc.
+        val offsetByTrackId =
+            resolved.associate { r ->
+                val probed = prober.probeDurationSeconds(r.file)
+                val startOffset =
+                    RecordingTrackAlignment.startOffsetSeconds(
+                        startedAtEpochNanos = r.track.startedAtEpochNanos,
+                        t0EpochNanos = t0,
+                    )
+                val headLoss =
+                    RecordingTrackAlignment.headLossSeconds(
+                        reportedDurationMs = r.track.durationMs,
+                        probedDurationSeconds = probed,
+                    )
+                logger.info {
+                    "RecordingPoller: recording ${row.id} track ${r.track.trackSource} '${r.file.name}': " +
+                        "startOffset=${formatSeconds(startOffset)}s, reportedDurationMs=${r.track.durationMs}, " +
+                        "probedDurationS=${probed?.let(::formatSeconds) ?: "n/a"}, headLossApplied=${formatSeconds(headLoss)}s"
+                }
+                r.track.id to (startOffset + headLoss)
+            }
+
         val outputDurationSeconds =
             resolved
                 .maxOf { r ->
-                    offsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0 = t0) +
+                    RecordingTrackAlignment.startOffsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0EpochNanos = t0) +
                         (r.track.durationMs?.let { it / 1000.0 } ?: 0.0)
                 }.coerceAtLeast(1.0)
 
@@ -526,7 +587,7 @@ class RecordingPoller(
                     videoResolved.map { r ->
                         RecordingComposeVideoInput(
                             file = r.file,
-                            offsetSeconds = offsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0 = t0),
+                            offsetSeconds = offsetByTrackId.getValue(r.track.id),
                             isScreenShare = r.track.trackSource == ConferenceRecordingTrackSource.SCREEN_SHARE,
                         )
                     },
@@ -534,7 +595,7 @@ class RecordingPoller(
                     audioResolved.map { r ->
                         RecordingComposeAudioInput(
                             file = r.file,
-                            offsetSeconds = offsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0 = t0),
+                            offsetSeconds = offsetByTrackId.getValue(r.track.id),
                         )
                     },
                 outputDurationSeconds = outputDurationSeconds,
@@ -655,10 +716,8 @@ class RecordingPoller(
         to: LocalDateTime,
     ) = to.toInstant(TZ) - from.toInstant(TZ)
 
-    private fun offsetSeconds(
-        startedAtEpochNanos: Long?,
-        t0: Long,
-    ): Double = if (startedAtEpochNanos == null) 0.0 else (startedAtEpochNanos - t0) / 1_000_000_000.0
+    /** Log formatting only -- [java.util.Locale.ROOT] so a German default locale never prints `1,120`. */
+    private fun formatSeconds(seconds: Double): String = String.format(java.util.Locale.ROOT, "%.3f", seconds)
 }
 
 private val TZ = TimeZone.currentSystemDefault()

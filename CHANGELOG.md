@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Videokonferenz-Aufzeichnung: fehlende erste Sekunden und Rest-Versatz zwischen Audio und Video
+  (ELB-Test-Aufzeichnung 2026-09-27).** Zwei getrennte Ursachen, beide serverseitig:
+  1. *Abgeschnittener Anfang* — `startRecording` legte nur die `RECORDING`-Zeile an, der erste
+     `StartTrackEgress` passierte erst im nächsten regulären Tick des `RecordingPoller`, also bis zu
+     `LAPIS_RECORDING_POLL_INTERVAL_SECONDS` (Default 10 s) später, während die Oberfläche bereits
+     „Aufzeichnung läuft“ zeigte. Der Poller hat jetzt `requestTick()` (konflationierter Kanal, weckt
+     die Schleife sofort), das `ConferenceRecordingService.startRecording` unmittelbar nach dem
+     Commit aufruft. Die Egress-eigene Anlaufzeit (Raum beitreten, abonnieren, erstes Keyframe)
+     bleibt bestehen — der Poll-Intervall-Anteil der Lücke entfällt.
+  2. *A/V-Versatz* — die Komposition verankerte jede Spur ausschließlich an LiveKits
+     `file_results[0].started_at` (Empfangszeit des ERSTEN RTP-Pakets) und setzte den Dateianfang mit
+     `setpts=PTS-STARTPTS` auf null. Der GStreamer-Muxer im Egress (`mp4mux`, ebenso `oggmux`)
+     schreibt die Datei aber relativ zum ersten tatsächlich GESCHRIEBENEN Sample und legt für eine
+     Ein-Spur-Datei keine Edit-List für den Vorlauf an — alles, was der Egress empfangen, aber vor dem
+     ersten dekodierbaren Sample verworfen hat (z. B. ein Keyframe mit verlorenem erstem Paket), fehlt
+     am Dateianfang, ohne dass `started_at` das widerspiegelt. Die Spur landet dadurch um genau diesen
+     Vorlauf zu früh im komponierten Video (empirisch mit synthetischen Eingaben reproduziert: 0,8 s
+     Vorlauf → Videoblitz 0,8 s vor dem zugehörigen Ton). Da LiveKit `duration = ended_at − started_at`
+     mit `ended_at = started_at + maxPTS` meldet (Spanne erstes bis letztes EMPFANGENES Paket),
+     ergibt `gemeldete Dauer − per ffprobe gemessene Mediendauer` genau diesen Vorlauf; der neue
+     `RecordingMediaProber` (`ffprobe`, Pfad aus `LAPIS_FFMPEG_PATH` abgeleitet oder
+     `LAPIS_FFPROBE_PATH`) misst ihn pro Spur und `RecordingTrackAlignment` addiert ihn zum
+     Start-Offset (Schwelle 20 ms, Deckel 10 s, bei fehlgeschlagener Messung keine Korrektur —
+     Verhalten wie zuvor). Alle Werte pro Spur werden auf INFO geloggt, damit ein Rest-Versatz bei der
+     nächsten echten Aufzeichnung gegen die Zahlen geprüft werden kann. Nur unit- und
+     synthetisch-verifiziert, noch nicht an einer echten Ende-zu-Ende-Aufzeichnung.
+
 ### Security
 
 - **V1.9.1 — document/folder access levels are now visible and editable, closing a folder-level

@@ -59,11 +59,13 @@ import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
 import network.lapis.cloud.server.conference.FfmpegGalleryComposer
+import network.lapis.cloud.server.conference.FfprobeMediaProber
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.RecordingComposer
+import network.lapis.cloud.server.conference.RecordingMediaProber
 import network.lapis.cloud.server.conference.RecordingPoller
 import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.conference.StreamPoller
@@ -759,6 +761,11 @@ internal fun Application.module(
             ffmpegPath = conferenceRecordingConfig.ffmpegPath,
             timeoutMinutes = conferenceRecordingConfig.composeTimeoutMinutes,
         )
+    // A/V-sync fix (2026-09-27): ffprobe measures each raw track file's real media duration so the
+    // poller can re-align a head LiveKit received but the muxer never wrote -- see
+    // RecordingTrackAlignment KDoc. Lives in the same Debian `ffmpeg` package as the composer's
+    // binary (Dockerfile), derived from the same path unless LAPIS_FFPROBE_PATH says otherwise.
+    val recordingMediaProber: RecordingMediaProber = FfprobeMediaProber(ffprobePath = conferenceRecordingConfig.ffprobePath)
     val recordingPoller =
         RecordingPoller(
             liveKitAdminClient = liveKitAdminClient,
@@ -766,6 +773,7 @@ internal fun Application.module(
             recordingConfig = conferenceRecordingConfig,
             documentStorageRoot = documentStorageRoot,
             composer = recordingComposer,
+            prober = recordingMediaProber,
         )
     if (conferenceRecordingConfig.enabled) {
         recordingPoller.start()
@@ -1599,6 +1607,9 @@ internal fun Application.module(
                 ffmpegAvailable = ffmpegAvailable,
                 config = conferenceConfig,
                 recordingConfig = conferenceRecordingConfig,
+                // Wake the poller right after a recording row is committed -- see RecordingPoller
+                // KDoc "requestTick" (ELB finding 2026-09-27: first seconds missing).
+                onRecordingStarted = { recordingPoller.requestTick() },
             )
         }
         registerService(IConferenceWhiteboardService::class) { call ->
