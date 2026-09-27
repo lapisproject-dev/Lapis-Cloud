@@ -10,33 +10,64 @@ import java.util.concurrent.TimeUnit
 private val logger = KotlinLogging.logger {}
 
 /**
- * A/V-sync fix (2026-09-27) -- pluggable boundary around measuring a raw per-track egress file's
- * ACTUAL media duration, the second anchor [RecordingTrackAlignment] needs (see that object's KDoc
- * "Two anchors per track"). Same pluggable-boundary pattern as [RecordingComposer]: the poller
- * depends on this interface, tests use an in-memory fake, and `./gradlew clean check` never needs
- * a real `ffprobe` binary.
+ * What a probe of one raw per-track egress file yields -- both values `null` when they could not be
+ * determined. Since round 2 of the A/V-sync fix (2026-09-27) this is DIAGNOSTIC information only,
+ * logged by `RecordingPoller.composeOne` next to the offsets it actually applies (see
+ * [RecordingTrackAlignment] KDoc for why the duration difference is not a correction).
+ *
+ * @property durationSeconds the container-level media duration (`format.duration`).
+ * @property startTimeSeconds the file's own first timestamp (`format.start_time`). LiveKit's egress
+ *   muxers (`webmmux` with `offset-to-zero=false`, `oggmux`) write ABSOLUTE pipeline running
+ *   times, so a value clearly above zero is the one direct sign of media that was received (PTS
+ *   starts at the first received packet) but never written -- the composer's `setpts=PTS-STARTPTS`
+ *   re-zeros exactly this amount away. Logged so the next real recording shows whether that ever
+ *   happens; `mp4mux` re-zeros the file itself and always reports ~0 here.
+ */
+data class RecordingMediaProbe(
+    val durationSeconds: Double?,
+    val startTimeSeconds: Double?,
+) {
+    companion object {
+        val EMPTY = RecordingMediaProbe(durationSeconds = null, startTimeSeconds = null)
+    }
+}
+
+/**
+ * Pluggable boundary around measuring a raw per-track egress file with `ffprobe`. Same
+ * pluggable-boundary pattern as [RecordingComposer]: the poller depends on this interface, tests use
+ * an in-memory fake, and `./gradlew clean check` never needs a real `ffprobe` binary.
  */
 interface RecordingMediaProber {
     /**
      * The container-level media duration of [file] in seconds, or `null` if it could not be
      * determined (binary missing, timeout, unparseable output, unreadable file). NEVER throws --
-     * a failed probe must degrade to "no head-loss correction" in the poller, not fail the
-     * composition.
+     * a failed probe must degrade to "no diagnostic" in the poller, not fail the composition.
      */
     suspend fun probeDurationSeconds(file: File): Double?
 
-    /** Always `null` -- for deployments/tests without a probe; the poller then behaves exactly as before this fix. */
+    /**
+     * Duration AND start time of [file] -- see [RecordingMediaProbe]. The default derives only the
+     * duration via [probeDurationSeconds] (start time `null`), so a fake or a minimal implementation
+     * keeps working; [FfprobeMediaProber] answers both from one `ffprobe` call. NEVER throws.
+     */
+    suspend fun probe(file: File): RecordingMediaProbe =
+        RecordingMediaProbe(durationSeconds = probeDurationSeconds(file), startTimeSeconds = null)
+
+    /** Always empty -- for deployments/tests without a probe; the poller then logs `n/a` for the diagnostics. */
     object None : RecordingMediaProber {
         override suspend fun probeDurationSeconds(file: File): Double? = null
+
+        override suspend fun probe(file: File): RecordingMediaProbe = RecordingMediaProbe.EMPTY
     }
 }
 
 /**
  * `ProcessBuilder`-backed [RecordingMediaProber] running
- * `ffprobe -v error -show_entries format=duration -of csv=p=0 <file>` -- one line, the duration
- * as a decimal number (`ffprobe` always prints with a period, locale-independent). `ffprobe` ships
- * in the same Debian `ffmpeg` package the server image installs (see `Dockerfile`), so wherever
- * composition works, probing does too.
+ * `ffprobe -v error -show_entries format=start_time,duration -of default=noprint_wrappers=1 <file>`
+ * -- one `key=value` line per entry (`start_time=0.000000`, `duration=39.927313`; `ffprobe` always
+ * prints with a period, locale-independent, and prints `N/A` for a value it cannot determine).
+ * `ffprobe` ships in the same Debian `ffmpeg` package the server image installs (see `Dockerfile`),
+ * so wherever composition works, probing does too.
  *
  * Same output-drain and timeout discipline as [FfmpegGalleryComposer]: combined stdout+stderr read
  * on the calling coroutine (a probe's output is a handful of bytes, no separate drain thread
@@ -47,32 +78,44 @@ class FfprobeMediaProber(
     private val ffprobePath: String,
     private val timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
 ) : RecordingMediaProber {
-    override suspend fun probeDurationSeconds(file: File): Double? =
+    override suspend fun probeDurationSeconds(file: File): Double? = probe(file).durationSeconds
+
+    override suspend fun probe(file: File): RecordingMediaProbe =
         withContext(Dispatchers.IO) {
             val command =
-                listOf(ffprobePath, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file.absolutePath)
+                listOf(
+                    ffprobePath,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=start_time,duration",
+                    "-of",
+                    "default=noprint_wrappers=1",
+                    file.absolutePath,
+                )
             val process =
                 try {
                     ProcessBuilder(command).redirectErrorStream(true).start()
                 } catch (e: IOException) {
                     logger.warn { "ffprobe could not be started (${e::class.simpleName ?: "unknown error"}, path='$ffprobePath')" }
-                    return@withContext null
+                    return@withContext RecordingMediaProbe.EMPTY
                 }
             val output = process.inputStream.bufferedReader().use { it.readText() }
             val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!finished) {
                 process.destroyForcibly()
                 logger.warn { "ffprobe did not finish within ${timeoutSeconds}s for ${file.name}" }
-                return@withContext null
+                return@withContext RecordingMediaProbe.EMPTY
             }
             if (process.exitValue() != 0) {
                 logger.warn { "ffprobe exited with ${process.exitValue()} for ${file.name} -- output: ${output.trim().take(500)}" }
-                return@withContext null
+                return@withContext RecordingMediaProbe.EMPTY
             }
-            parseDuration(output) ?: run {
+            val parsed = parseProbe(output)
+            if (parsed.durationSeconds == null) {
                 logger.warn { "ffprobe output for ${file.name} carried no parseable duration: '${output.trim().take(200)}'" }
-                null
             }
+            parsed
         }
 
     companion object {
@@ -91,13 +134,25 @@ class FfprobeMediaProber(
             return if (parent == null) probeName else File(parent, probeName).path
         }
 
-        /** First line that parses as a finite, non-negative decimal (`ffprobe` may print `N/A` for a broken container). */
-        fun parseDuration(output: String): Double? =
-            output
-                .lineSequence()
-                .map { it.trim().trimEnd(',') }
-                .filter { it.isNotEmpty() }
-                .mapNotNull { it.toDoubleOrNull() }
-                .firstOrNull { it.isFinite() && it >= 0.0 }
+        /**
+         * Parses `default=noprint_wrappers=1` output: `duration` must be a finite, non-negative
+         * decimal (`N/A` for a broken container -> `null`); `start_time` may legitimately be a
+         * small negative number (Opus pre-skip), so it is kept whenever it is finite.
+         */
+        fun parseProbe(output: String): RecordingMediaProbe {
+            val values =
+                output
+                    .lineSequence()
+                    .map { it.trim() }
+                    .filter { '=' in it }
+                    .associate { line ->
+                        val key = line.substringBefore('=').trim()
+                        val value = line.substringAfter('=').trim().trimEnd(',')
+                        key to value.toDoubleOrNull()
+                    }
+            val duration = values["duration"]?.takeIf { it.isFinite() && it >= 0.0 }
+            val startTime = values["start_time"]?.takeIf { it.isFinite() }
+            return RecordingMediaProbe(durationSeconds = duration, startTimeSeconds = startTime)
+        }
     }
 }

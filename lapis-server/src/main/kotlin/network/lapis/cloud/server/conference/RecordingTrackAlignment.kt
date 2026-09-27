@@ -1,56 +1,67 @@
 package network.lapis.cloud.server.conference
 
 /**
- * A/V-sync fix (ELB test recording 2026-09-27: ~1 s audio/video offset plus a truncated start) --
- * the PURE timestamp arithmetic that places one raw per-track egress file on the composed output's
+ * The PURE timestamp arithmetic that places one raw per-track egress file on the composed output's
  * timeline. Split out of `RecordingPoller.composeOne` so it is unit-testable with realistic
  * nanosecond timestamps (`RecordingTrackAlignmentTest`) without a DB, LiveKit, or ffmpeg.
  *
- * ## Two anchors per track, not one
+ * ## One anchor per track: the file's `started_at`
  *
- * LiveKit Track Egress (v1.13.0, `pkg/pipeline/source/sdk` + `server-sdk-go/pkg/synchronizer`)
- * reports per file:
+ * A track's composed `offsetSeconds` is `started_at(track) - started_at(earliest track)` and
+ * nothing else ([offsetSeconds] == [startOffsetSeconds]). Source-verified against LiveKit Egress
+ * v1.13.0 (`livekit/egress` tag `v1.13.0`, `livekit/server-sdk-go` `50e969e`, 2026-09-27 round 2):
  *
- * - `started_at` = receive time of the FIRST RTP packet of that track (the synchronizer's
- *   `startedAt`, set in `TrackSynchronizer.initialize`); the first packet is given PTS ~0 relative
- *   to it, so the file's own timeline is anchored at `started_at` ...
- * - ... EXCEPT that the muxer (GStreamer `mp4mux`/`oggmux`) writes the file's timeline relative to
- *   the first sample that was actually WRITTEN, not the first packet received. `qtmux` in
- *   particular shifts a single-track file so its first written sample sits at t=0 and emits NO edit
- *   list for the gap (`gst_qt_mux_update_edit_lists`: `has_gap` is only ever true for a pad that
- *   starts later than ANOTHER pad of the same file). Every packet the pipeline received but never
- *   wrote (a keyframe whose first packet was lost, frames the depayloader/parser discarded before
- *   the first decodable sample, ...) therefore silently vanishes from the head of the file while
- *   `started_at` still points at the first received packet. The composer's own
- *   `setpts=PTS-STARTPTS+offset` cannot see that head either -- it re-zeros whatever the file's
- *   first timestamp is.
- * - `duration` = `ended_at - started_at`, where `ended_at = started_at + maxPTS` and `maxPTS` is
- *   the largest PTS the synchronizer assigned to any RECEIVED packet (`Synchronizer.End`). So the
- *   reported duration spans "first received packet .. last received packet" on the
- *   receive-time-anchored timeline, INDEPENDENT of what was written.
+ * - `EgressInfo.file_results[0].started_at` is the synchronizer's `startedAt`
+ *   (`pkg/pipeline/watch.go:276` -> `controller.updateStartTime(c.src.GetStartedAt())` ->
+ *   `FileInfo.StartedAt`), which `TrackSynchronizer.initialize` sets to the RECEIVE time of the
+ *   first RTP packet of the track (`pkg/synchronizer/track.go`, `getOrSetStartedAt(receivedAt)`).
+ *   Track Egress has no start gate (`pkg/pipeline/source/sdk.go`: `WithStartGate()` only for
+ *   RoomComposite/Template), so the very first packet initializes. That first packet is given PTS
+ *   ~0 (`getPTSWithRebase`: `pts = max(1ns, receivedAt - startTime)` for the first emitted packet),
+ *   i.e. the file's own PTS timeline is anchored at exactly this wall-clock instant.
+ * - `EgressInfo.started_at` (the JOB-level field) is `time.Now()` when the egress process builds
+ *   its `PipelineConfig` from the `StartEgress` request (`pkg/config/pipeline.go:208`) -- BEFORE
+ *   joining the room, subscribing, or receiving anything. `RecordingPoller.handleStopping` stores
+ *   the file-level value and falls back to the job-level one only if the former is `0`/missing.
  *
- * Hence: `reportedDuration - probedMediaDuration` = the length of the head that was received but
- * never written (up to one sample duration of bias, see [headLossSeconds]). Adding that to the
- * track's `started_at`-derived offset re-aligns the file's first written sample with the wall-clock
- * instant it was actually captured -- the correction is exact whether or not the muxer preserved
- * the head as an edit list, because the composer re-zeros the file's own start either way.
+ * Placing tracks by the difference of their file-level `started_at` is exactly what LiveKit's own
+ * multi-track synchronizer does inside ONE egress (`currentPTSOffset = startedAt - firstStartedAt`
+ * in `TrackSynchronizer.initialize`), so this mirrors Track Composite's anchoring across separate
+ * Track Egress processes -- minus LiveKit's cross-track sender-report drift alignment, which
+ * separate processes cannot share.
  *
- * A probe that failed ([probedDurationSeconds] `null`) or a nonsensical result (negative head, or a
- * head larger than [MAX_HEAD_LOSS_SECONDS]) yields NO correction -- degrade to the previous
- * behaviour, never to a wild offset; the caller logs the discrepancy so a real recording's raw
- * files can be inspected against these numbers.
+ * ## Why `reported duration - probed media duration` is NOT applied (round 2, 2026-09-27)
+ *
+ * Round 1 of this fix (`93f378ba`) added `reportedDurationMs/1000 - ffprobe(duration)` to the start
+ * offset as a "head loss" (media received before the first written sample). The first real ELB
+ * recording with that code still had an A/V offset, and its numbers refute the premise:
+ *
+ * | track | `started_at` (ns)     | reported ms | probed s  | difference |
+ * |-------|-----------------------|-------------|-----------|------------|
+ * | mic   | 1790529971823572890   | 40312       | 39.927313 | 0.385 s    |
+ * | cam   | 1790529971907704186   | 39905       | 39.804511 | 0.100 s    |
+ *
+ * - `FileInfo.Duration = EndedAt - StartedAt` where `EndedAt = max(sync.endedAt, pipelineEndedAt)`
+ *   (`controller.updateEndTime`, `controller.go:933-959`). `sync.endedAt = startedAt + maxPTS`
+ *   (last received packet), but `pipelineEndedAt = startedAt + <GStreamer pipeline running time
+ *   at EOS>` (`watch.go:133`) is a WALL-CLOCK floor: it grows with the StopEgress -> drain -> EOS
+ *   flush latency AFTER the last packet. So the reported duration is routinely LONGER than the
+ *   media that exists on either end of the file, and `reported - probed` measures (mostly) that
+ *   tail latency -- which differs between an audio and a video pipeline -- not a lost head.
+ * - No head-loss mechanism exists for these codecs on the receive-anchored timeline: `rtpvp8depay`
+ *   runs with `wait-for-keyframe=false` (GStreamer default, egress sets nothing else) and Opus has
+ *   no keyframes; the appwriter's sample queue holds 100 samples (2 s of audio) while the pipeline
+ *   reaches PLAYING, and `webmmux` (`offset-to-zero=false`) and `oggmux` both write ABSOLUTE
+ *   running times, so a first written sample at PTS `h > 0` would show up as the raw file's own
+ *   `start_time`, not as a shorter duration.
+ *
+ * Applying the difference shifted the ELB microphone by +0.385 s and the camera by +0.100 s -- a
+ * spurious 0.285 s relative shift (audio later than video) ON TOP of whatever offset existed
+ * before. The probe stays as a DIAGNOSTIC ([durationDiscrepancySeconds], plus the raw file's own
+ * `start_time`, both logged by the poller) so the next real recording tells whether any genuine
+ * head loss (`start_time > 0`) ever occurs -- it never changes the composition.
  */
 object RecordingTrackAlignment {
-    /**
-     * Ceiling on a plausible head loss. A track whose first written sample is more than this many
-     * seconds after its first received packet is not a "lost keyframe" but something else entirely
-     * (a broken file, a probe that measured the wrong thing) -- do not silently shift such a track.
-     */
-    const val MAX_HEAD_LOSS_SECONDS = 10.0
-
-    /** Below this the head loss is indistinguishable from muxer sample-duration rounding -- treated as zero. */
-    const val MIN_HEAD_LOSS_SECONDS = 0.020
-
     /**
      * This track's `started_at`-derived offset relative to the recording's earliest track
      * `t0`. `null` (no `started_at` recorded) -> 0.0 -- same fallback the poller has always used.
@@ -61,29 +72,22 @@ object RecordingTrackAlignment {
     ): Double = if (startedAtEpochNanos == null) 0.0 else (startedAtEpochNanos - t0EpochNanos) / 1_000_000_000.0
 
     /**
-     * Seconds of media received before the first WRITTEN sample -- see class KDoc. `0.0` whenever
-     * the inputs do not support a correction: missing duration, failed probe, negative difference
-     * (probed longer than reported -- e.g. a trailing muxer flush), sub-threshold difference, or a
-     * difference above [MAX_HEAD_LOSS_SECONDS].
+     * DIAGNOSTIC ONLY -- `reportedDuration - probedDuration` in seconds, signed, or `null` when
+     * either input is missing or the probe is not a finite non-negative number. Positive values are
+     * dominated by the egress's EOS-flush tail (see class KDoc); it is logged, never applied.
      */
-    fun headLossSeconds(
+    fun durationDiscrepancySeconds(
         reportedDurationMs: Long?,
         probedDurationSeconds: Double?,
-    ): Double {
-        if (reportedDurationMs == null || probedDurationSeconds == null) return 0.0
-        if (!probedDurationSeconds.isFinite() || probedDurationSeconds < 0.0) return 0.0
-        val diff = reportedDurationMs / 1000.0 - probedDurationSeconds
-        if (diff < MIN_HEAD_LOSS_SECONDS || diff > MAX_HEAD_LOSS_SECONDS) return 0.0
-        return diff
+    ): Double? {
+        if (reportedDurationMs == null || probedDurationSeconds == null) return null
+        if (!probedDurationSeconds.isFinite() || probedDurationSeconds < 0.0) return null
+        return reportedDurationMs / 1000.0 - probedDurationSeconds
     }
 
-    /** [startOffsetSeconds] + [headLossSeconds] -- the value handed to the composer as `offsetSeconds`. */
+    /** The value handed to the composer as `offsetSeconds` -- exactly [startOffsetSeconds], see class KDoc. */
     fun offsetSeconds(
         startedAtEpochNanos: Long?,
         t0EpochNanos: Long,
-        reportedDurationMs: Long?,
-        probedDurationSeconds: Double?,
-    ): Double =
-        startOffsetSeconds(startedAtEpochNanos = startedAtEpochNanos, t0EpochNanos = t0EpochNanos) +
-            headLossSeconds(reportedDurationMs = reportedDurationMs, probedDurationSeconds = probedDurationSeconds)
+    ): Double = startOffsetSeconds(startedAtEpochNanos = startedAtEpochNanos, t0EpochNanos = t0EpochNanos)
 }

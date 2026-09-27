@@ -17,23 +17,32 @@ All notable changes to this project are documented here. Format follows
      die Schleife sofort), das `ConferenceRecordingService.startRecording` unmittelbar nach dem
      Commit aufruft. Die Egress-eigene Anlaufzeit (Raum beitreten, abonnieren, erstes Keyframe)
      bleibt bestehen — der Poll-Intervall-Anteil der Lücke entfällt.
-  2. *A/V-Versatz* — die Komposition verankerte jede Spur ausschließlich an LiveKits
-     `file_results[0].started_at` (Empfangszeit des ERSTEN RTP-Pakets) und setzte den Dateianfang mit
-     `setpts=PTS-STARTPTS` auf null. Der GStreamer-Muxer im Egress (`mp4mux`, ebenso `oggmux`)
-     schreibt die Datei aber relativ zum ersten tatsächlich GESCHRIEBENEN Sample und legt für eine
-     Ein-Spur-Datei keine Edit-List für den Vorlauf an — alles, was der Egress empfangen, aber vor dem
-     ersten dekodierbaren Sample verworfen hat (z. B. ein Keyframe mit verlorenem erstem Paket), fehlt
-     am Dateianfang, ohne dass `started_at` das widerspiegelt. Die Spur landet dadurch um genau diesen
-     Vorlauf zu früh im komponierten Video (empirisch mit synthetischen Eingaben reproduziert: 0,8 s
-     Vorlauf → Videoblitz 0,8 s vor dem zugehörigen Ton). Da LiveKit `duration = ended_at − started_at`
-     mit `ended_at = started_at + maxPTS` meldet (Spanne erstes bis letztes EMPFANGENES Paket),
-     ergibt `gemeldete Dauer − per ffprobe gemessene Mediendauer` genau diesen Vorlauf; der neue
-     `RecordingMediaProber` (`ffprobe`, Pfad aus `LAPIS_FFMPEG_PATH` abgeleitet oder
-     `LAPIS_FFPROBE_PATH`) misst ihn pro Spur und `RecordingTrackAlignment` addiert ihn zum
-     Start-Offset (Schwelle 20 ms, Deckel 10 s, bei fehlgeschlagener Messung keine Korrektur —
-     Verhalten wie zuvor). Alle Werte pro Spur werden auf INFO geloggt, damit ein Rest-Versatz bei der
-     nächsten echten Aufzeichnung gegen die Zahlen geprüft werden kann. Nur unit- und
-     synthetisch-verifiziert, noch nicht an einer echten Ende-zu-Ende-Aufzeichnung.
+  2. *A/V-Versatz, Runde 1 (zurückgenommen, siehe Runde 2)* — die Komposition wurde um eine
+     „Kopfverlust“-Korrektur ergänzt: `gemeldete Egress-Dauer − per ffprobe gemessene Mediendauer`
+     wurde pro Spur zum Start-Offset addiert, in der Annahme, LiveKit-Egress verwerfe empfangene
+     Pakete vor dem ersten geschriebenen Sample und die Differenz sei dieser fehlende Vorlauf. Der
+     neue `RecordingMediaProber` (`ffprobe`, Pfad aus `LAPIS_FFMPEG_PATH` abgeleitet oder
+     `LAPIS_FFPROBE_PATH`) misst die Datei; alle Werte pro Spur werden auf INFO geloggt.
+  3. *A/V-Versatz, Runde 2* — die erste echte ELB-Aufzeichnung mit Runde 1 hatte weiterhin einen
+     Versatz, und ihre Zahlen widerlegen die Annahme aus Runde 1 (Mikrofon: gemeldet 40,312 s,
+     gemessen 39,927 s; Kamera: gemeldet 39,905 s, gemessen 39,805 s). Quellenprüfung an LiveKit
+     Egress v1.13.0 + `server-sdk-go`: `file_results[0].started_at` ist die Empfangszeit des ersten
+     RTP-Pakets (Synchronizer-`startedAt`, PTS 0), und `file_results[0].duration` wird durch die
+     Wanduhr-Laufzeit der GStreamer-Pipeline beim EOS nach unten begrenzt (`pipelineEndedAt`,
+     `watch.go`/`controller.updateEndTime`) — die gemeldete Dauer wächst also mit der
+     Stop-/Drain-/EOS-Latenz NACH dem letzten Paket, und `gemeldet − gemessen` misst überwiegend
+     dieses Ende, keinen fehlenden Anfang. Runde 1 verschob deshalb das Mikrofon um +0,385 s und die
+     Kamera um +0,100 s, also Audio gegenüber Video um weitere 0,285 s zu spät. Korrektur: der
+     komponierte Offset ist wieder ausschließlich die Differenz der `started_at`-Werte der Spuren
+     (bei der ELB-Aufzeichnung: Mikrofon 0,000 s, Kamera 0,084 s) — genau die Verankerung, die
+     LiveKits eigener Mehrspur-Synchronizer innerhalb eines Egress verwendet. Die `ffprobe`-Messung
+     bleibt als Diagnose (Mediendauer, `start_time` der Rohdatei, `gemeldet − gemessen`) im INFO-Log
+     und verändert die Komposition nicht mehr. Unit-Tests pinnen die echten ELB-Zahlen
+     (`RecordingTrackAlignmentTest`, `RecordingPollerTest`). Offen: ob nach dieser Rücknahme noch
+     ein Rest-Versatz bleibt, muss die nächste echte Aufzeichnung zeigen — Track Egress liefert
+     laut LiveKit keine untereinander synchronisierten Dateien; falls ein Rest bleibt, wäre
+     `TrackCompositeEgress` (eine Audio- plus eine Videospur in EINEM Egress, gemeinsamer
+     Synchronizer mit Sender-Report-Abgleich) der nächste Kandidat.
 
 ### Security
 

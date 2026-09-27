@@ -168,11 +168,14 @@ private const val FAILURE_NO_TRACK_STORED = "Der Aufzeichnungsdienst konnte kein
  * own D13 "Raw-file fate on FAILED must be explicit and safe").
  *
  * **Per-track alignment at composition time** -- each COMPLETE track's `offsetSeconds` is
- * [RecordingTrackAlignment.offsetSeconds]: its `started_at`-derived start offset PLUS the head of
- * media LiveKit received but the muxer never wrote (reported egress duration minus the file's
- * probed media duration via [prober]) -- see that object's KDoc for why the file's own timeline
- * cannot carry that information and why this is exact either way. Every track's numbers are
- * logged at INFO so a real recording's residual A/V offset can be checked against them.
+ * [RecordingTrackAlignment.offsetSeconds]: its file-level `started_at` (receive time of the track's
+ * first RTP packet) relative to the recording's earliest track, and nothing else. The [prober]'s
+ * `ffprobe` numbers (media duration, the file's own `start_time`, and the reported-minus-probed
+ * duration difference) are DIAGNOSTICS logged at INFO next to the applied offset -- round 1 of the
+ * 2026-09-27 fix applied that difference as a "head loss" and thereby introduced a spurious
+ * 0.285 s audio-vs-video shift on the first real ELB recording; see [RecordingTrackAlignment]'s KDoc
+ * for the LiveKit-source-level reason (`FileInfo.Duration` is floored by wall-clock pipeline
+ * running time at EOS, so the difference is tail latency, not a lost head).
  */
 class RecordingPoller(
     private val liveKitAdminClient: LiveKitAdminClient,
@@ -551,27 +554,31 @@ class RecordingPoller(
         }
         val audioResolved = resolved.filter { it.track.trackSource in AUDIO_TRACK_SOURCES }
 
-        // A/V-sync fix (2026-09-27): per-track offset = started_at offset + head the muxer never
-        // wrote -- see class KDoc "Per-track alignment" and RecordingTrackAlignment's own KDoc.
+        // A/V-sync fix round 2 (2026-09-27): per-track offset = started_at offset ONLY -- see class
+        // KDoc "Per-track alignment" and RecordingTrackAlignment's own KDoc. The probe is logged
+        // for diagnosis of the next real recording and never changes the offset.
         val offsetByTrackId =
             resolved.associate { r ->
-                val probed = prober.probeDurationSeconds(r.file)
-                val startOffset =
-                    RecordingTrackAlignment.startOffsetSeconds(
+                val probe = prober.probe(r.file)
+                val offset =
+                    RecordingTrackAlignment.offsetSeconds(
                         startedAtEpochNanos = r.track.startedAtEpochNanos,
                         t0EpochNanos = t0,
                     )
-                val headLoss =
-                    RecordingTrackAlignment.headLossSeconds(
+                val discrepancy =
+                    RecordingTrackAlignment.durationDiscrepancySeconds(
                         reportedDurationMs = r.track.durationMs,
-                        probedDurationSeconds = probed,
+                        probedDurationSeconds = probe.durationSeconds,
                     )
                 logger.info {
                     "RecordingPoller: recording ${row.id} track ${r.track.trackSource} '${r.file.name}': " +
-                        "startOffset=${formatSeconds(startOffset)}s, reportedDurationMs=${r.track.durationMs}, " +
-                        "probedDurationS=${probed?.let(::formatSeconds) ?: "n/a"}, headLossApplied=${formatSeconds(headLoss)}s"
+                        "offsetApplied=${formatSeconds(offset)}s (started_at relative to earliest track); diagnostics: " +
+                        "reportedDurationMs=${r.track.durationMs}, " +
+                        "probedDurationS=${probe.durationSeconds?.let(::formatSeconds) ?: "n/a"}, " +
+                        "probedStartTimeS=${probe.startTimeSeconds?.let(::formatSeconds) ?: "n/a"}, " +
+                        "reportedMinusProbedS=${discrepancy?.let(::formatSeconds) ?: "n/a"} (not applied)"
                 }
-                r.track.id to (startOffset + headLoss)
+                r.track.id to offset
             }
 
         val outputDurationSeconds =

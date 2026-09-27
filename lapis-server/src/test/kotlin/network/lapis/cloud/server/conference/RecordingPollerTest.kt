@@ -156,7 +156,11 @@ private class FakeRecordingComposer(
     }
 }
 
-/** A/V-sync fix (2026-09-27) -- returns a scripted media duration per file name, `null` for anything unscripted (a failed probe). */
+/**
+ * A/V-sync fix (2026-09-27) -- returns a scripted media duration per file name, `null` for anything
+ * unscripted (a failed probe). Uses the interface's default `probe()` (start time `null`), which is
+ * exactly the shape a minimal implementation has.
+ */
 private class FakeRecordingMediaProber(
     private val durationsByFileName: Map<String, Double> = emptyMap(),
 ) : RecordingMediaProber {
@@ -960,8 +964,9 @@ class RecordingPollerTest :
         }
 
         test(
-            "PROCESSING: A/V alignment -- video that started 300 ms after audio AND lost 0.82 s of head before its first written frame " +
-                "is offset by 1.120 s, audio (probe 20 ms longer than reported) stays at 0.0, unprobeable screen share keeps its start offset only",
+            "PROCESSING: A/V alignment (real ELB numbers 2026-09-27) -- offsets are the started_at differences ONLY " +
+                "(mic 0.000, cam 0.084, share 5.000); the probe's reported-minus-probed differences (0.385 s / 0.100 s) " +
+                "are logged but never applied",
         ) {
             val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
             val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
@@ -971,10 +976,11 @@ class RecordingPollerTest :
                 val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING)
                 val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
                 val micFile = rawDir.resolve("alice__MICROPHONE__TR_m.ogg").apply { writeBytes(byteArrayOf(1)) }
-                val camFile = rawDir.resolve("alice__CAMERA__TR_c.mp4").apply { writeBytes(byteArrayOf(1)) }
+                val camFile = rawDir.resolve("alice__CAMERA__TR_c.webm").apply { writeBytes(byteArrayOf(1)) }
                 val shareFile = rawDir.resolve("alice__SCREEN_SHARE__TR_s.mp4").apply { writeBytes(byteArrayOf(1)) }
-                // Realistic LiveKit nanosecond timestamps (see LiveKitEgressInfo KDoc sample).
-                val t0 = 1_786_260_219_805_661_967L
+                // REAL values of ELB recording 80394924-4185-4f82-8cc6-03ee8d9b269c (2026-09-27), see
+                // RecordingTrackAlignmentTest -- the recording that exposed round 1's double shift.
+                val t0 = 1_790_529_971_823_572_890L
                 createTrack(
                     recordingId,
                     egressId = "EG_m-$recordingId",
@@ -983,7 +989,7 @@ class RecordingPollerTest :
                     trackSource = ConferenceRecordingTrackSource.MICROPHONE,
                     fileName = micFile.name,
                     startedAtEpochNanos = t0,
-                    durationMs = 22_496L,
+                    durationMs = 40_312L,
                 )
                 createTrack(
                     recordingId,
@@ -992,8 +998,8 @@ class RecordingPollerTest :
                     status = ConferenceRecordingTrackStatus.COMPLETE,
                     trackSource = ConferenceRecordingTrackSource.CAMERA,
                     fileName = camFile.name,
-                    startedAtEpochNanos = t0 + 300_000_000L,
-                    durationMs = 22_196L,
+                    startedAtEpochNanos = 1_790_529_971_907_704_186L,
+                    durationMs = 39_905L,
                 )
                 createTrack(
                     recordingId,
@@ -1008,9 +1014,9 @@ class RecordingPollerTest :
                 val prober =
                     FakeRecordingMediaProber(
                         mapOf(
-                            micFile.name to 22.516, // ogg spans one 20 ms packet MORE than reported -> no correction, never negative
-                            camFile.name to 21.376, // 0.82 s received but never written
-                            // shareFile deliberately unscripted -> probe "fails" -> start offset only
+                            micFile.name to 39.927313, // ffprobe of the real mic.ogg: 0.385 s shorter than reported
+                            camFile.name to 39.804511, // ffprobe of the real cam.webm: 0.100 s shorter than reported
+                            // shareFile deliberately unscripted -> probe "fails" -> same offset as a successful probe
                         ),
                     )
                 var captured: RecordingComposeSpec? = null
@@ -1036,11 +1042,13 @@ class RecordingPollerTest :
                 spec.audioInputs.single().offsetSeconds shouldBe 0.0
                 val cam = spec.videoInputs.single { it.file.name == camFile.name }
                 val share = spec.videoInputs.single { it.file.name == shareFile.name }
-                cam.offsetSeconds shouldBe (1.120 plusOrMinus 0.0005)
+                // Round 1 (93f378ba) composed this recording with mic 0.385 / cam 0.184; round 2 keeps only
+                // the real 0.084 s started_at difference and the probe differences stay out of the offsets.
+                cam.offsetSeconds shouldBe (0.084 plusOrMinus 0.0005)
                 share.offsetSeconds shouldBe (5.0 plusOrMinus 0.0005)
                 share.isScreenShare shouldBe true
-                // Output duration is still governed by start offsets + reported durations (5.0 + 17.0 = 22.0 < 22.496).
-                spec.outputDurationSeconds shouldBe (22.496 plusOrMinus 0.0005)
+                // Output duration is governed by start offsets + reported durations (mic: 0 + 40.312 is the longest).
+                spec.outputDurationSeconds shouldBe (40.312 plusOrMinus 0.0005)
                 recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
             } finally {
                 hostRawRoot.deleteRecursively()
