@@ -1564,6 +1564,14 @@ html .form-select.is-invalid:focus {
   padding-top: 12px;
 }
 
+/* W7: Zifferngleiche Breite fuer Betraege und Zeitwerte -- eine Datumsspalte, die in einer
+   proportionalen Schrift tanzt, liest sich schlechter als eine, die stillsteht. `.lapis-num`
+   (Zahlenspalten) hat das seit W6a; hier fuer die freistehenden Wert-Spans. */
+.lapis-tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau). Wer eine neue Transition ergaenzt,
    ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

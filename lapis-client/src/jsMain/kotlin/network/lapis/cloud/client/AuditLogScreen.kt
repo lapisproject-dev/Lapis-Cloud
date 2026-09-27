@@ -294,7 +294,7 @@ const val CHAIN_VERIFICATION_BROKEN_GUIDANCE =
  */
 private fun auditLogColumns(): List<DataColumn<AuditLogEntryDto>> =
     listOf(
-        textColumn(title = tr("Zeitpunkt"), primary = true) { entry: AuditLogEntryDto -> entry.occurredAt.toString() },
+        timestampColumn(title = tr("Zeitpunkt"), numeric = false, primary = true) { entry: AuditLogEntryDto -> entry.occurredAt },
         DataColumn(
             title = tr("Entitätstyp"),
             cell = {
@@ -583,11 +583,19 @@ internal fun renderJournalEntrySnapshotBody(
     snapshot: JournalEntrySnapshot,
 ) {
     val details = panel.detailList()
-    details.labelValueRow(gettext("Datum"), snapshot.entryDate.toString())
+    details.labelValueRow(
+        gettext("Datum"),
+        dateToken(snapshot.entryDate),
+    )
     details.labelValueRow(gettext("Beschreibung"), snapshot.description)
     snapshot.voucherReference?.let { details.labelValueRow(gettext("Beleg"), it) }
     details.labelStatusBadgeRow(gettext("Status"), journalEntryStatusLabel(snapshot.status), journalEntryStatusColor(snapshot.status))
-    snapshot.postedAt?.let { details.labelValueRow(gettext("Gebucht am"), it.toString()) }
+    snapshot.postedAt?.let {
+        details.labelValueRow(
+            gettext("Gebucht am"),
+            dateTimeToken(it),
+        )
+    }
     details.labelValueRow(gettext("Erfasst von (Mitglieds-ID)"), snapshot.createdBy)
     snapshot.donorMemberId?.let { details.labelValueRow(gettext("Spendendes Mitglied (ID)"), it) }
     snapshot.externalDonorId?.let { details.labelValueRow(gettext("Externer Spender (ID)"), it) }
@@ -627,7 +635,10 @@ private fun renderResolutionSnapshotBody(
         resolutionModeLabel(snapshot.resolutionMode),
         resolutionModeColor(snapshot.resolutionMode),
     )
-    details.labelValueRow(gettext("Entschieden am"), snapshot.decidedAt.toString())
+    details.labelValueRow(
+        gettext("Entschieden am"),
+        dateTimeToken(snapshot.decidedAt),
+    )
     details.labelValueRow(gettext("Protokolliert von (ID)"), snapshot.recordedBy)
 }
 
@@ -638,8 +649,14 @@ private fun renderBoardMembershipSnapshotBody(
     val details = panel.detailList()
     details.labelValueRow(gettext("Mitglied (ID)"), snapshot.memberId)
     details.labelTypeBadgeRow(gettext("Rolle"), committeeRoleLabel(snapshot.committeeRole), committeeRoleColor(snapshot.committeeRole))
-    details.labelValueRow(gettext("Beginn"), snapshot.startedAt.toString())
-    details.labelValueRow(gettext("Ende"), snapshot.endedAt?.toString() ?: tr("laufend"))
+    details.labelValueRow(
+        gettext("Beginn"),
+        dateToken(snapshot.startedAt),
+    )
+    details.labelValueRow(
+        gettext("Ende"),
+        snapshot.endedAt?.let { dateToken(it) } ?: tr("laufend"),
+    )
 }
 
 private fun renderPartyDonationVerdictSnapshotBody(

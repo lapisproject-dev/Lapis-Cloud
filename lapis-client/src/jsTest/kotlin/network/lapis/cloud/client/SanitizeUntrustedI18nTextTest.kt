@@ -15,7 +15,7 @@ class SanitizeUntrustedI18nTextTest {
     @Test
     fun stripsThePlainMarkerSentinelAndArgSeparator() {
         assertEquals("Gewinner", sanitizeUntrustedI18nText(KV_I18N_MARKER + "Gewinner"))
-        assertEquals("abc", sanitizeUntrustedI18nText("a" + I18N_ARG_SEPARATOR + "b" + MONEY_SENTINEL + "c"))
+        assertEquals("abc", sanitizeUntrustedI18nText("a" + I18N_ARG_SEPARATOR + "b" + I18N_VALUE_SENTINEL + "c"))
     }
 
     @Test
@@ -32,7 +32,7 @@ class SanitizeUntrustedI18nTextTest {
 
     @Test
     fun stripsTheMoneySentinelAlone() {
-        assertEquals("ab", sanitizeUntrustedI18nText("a" + MONEY_SENTINEL + "b"))
+        assertEquals("ab", sanitizeUntrustedI18nText("a" + I18N_VALUE_SENTINEL + "b"))
     }
 
     @Test
@@ -55,11 +55,11 @@ class SanitizeUntrustedI18nTextTest {
     fun stripsADeeplyNestedForgedMoneyPayload_evenAfterSeveralReconstructionRounds() {
         // Several nested markers chained together, so a fixed-point implementation must actually iterate rather than
         // stop after the second pass by coincidence.
-        val innerMost = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+        val innerMost = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
         val nested = "###KvI" + ("###KvI" + innerMost + "18nS###") + "18nS###"
         val sanitized = sanitizeUntrustedI18nText(nested)
         assertFalse(sanitized.contains(KV_I18N_MARKER), "no reconstructed marker may survive: $sanitized")
-        assertFalse(sanitized.contains(MONEY_SENTINEL), "no sentinel may survive: $sanitized")
+        assertFalse(sanitized.contains(I18N_VALUE_SENTINEL), "no sentinel may survive: $sanitized")
     }
 
     @Test

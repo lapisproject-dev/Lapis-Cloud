@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * Security audit W6b round 4: through a real mounted [io.kvision.panel.Root] (not just a unit test of
  * [sanitizeUntrustedI18nText] itself), proves that every one of the five `untrusted*` widget-content helpers in
- * `UntrustedText.kt` sanitizes a forged `KV_I18N_MARKER` + `MONEY_SENTINEL` payload before it ever reaches the DOM
+ * `UntrustedText.kt` sanitizes a forged `KV_I18N_MARKER` + `I18N_VALUE_SENTINEL` payload before it ever reaches the DOM
  * -- so a screen that hands an untrusted DTO field to one of these helpers cannot render a fabricated amount, even
  * without a per-screen `sanitizeUntrustedI18nText(...)` wrap. Also proves ordinary text (umlauts, `%1`, `<`, `&`)
  * survives untouched -- the helpers must not damage legitimate content while stripping the control sequence.
@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
  * (must survive untouched), and a `null` case (must clear the widget's content) specific to this helper's signature.
  */
 class UntrustedTextHelpersDomTest {
-    private val forgedPayload = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+    private val forgedPayload = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
     private val ordinaryText = "Ortsverband Braunschweig, 50% Quorum <streng> & vertraulich"
 
     @Test
@@ -33,7 +33,7 @@ class UntrustedTextHelpersDomTest {
             root.untrustedDiv(forgedPayload, className = "flex-grow-1")
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
         }
         withMountedRoot("untrusted-div-ordinary-test") { root, element ->
             root.untrustedDiv(ordinaryText)
@@ -47,7 +47,7 @@ class UntrustedTextHelpersDomTest {
             root.untrustedSpan(forgedPayload, className = "fw-bold")
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
         }
         withMountedRoot("untrusted-span-ordinary-test") { root, element ->
             root.untrustedSpan(ordinaryText)
@@ -61,7 +61,7 @@ class UntrustedTextHelpersDomTest {
             root.untrustedP(forgedPayload, className = "mb-0")
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
         }
         withMountedRoot("untrusted-p-ordinary-test") { root, element ->
             root.untrustedP(ordinaryText)
@@ -75,7 +75,7 @@ class UntrustedTextHelpersDomTest {
             root.untrustedHeading(forgedPayload, level = 2, className = "h5")
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
             assertTrue(element().querySelector("h2") != null, "must render as an h2")
         }
         withMountedRoot("untrusted-heading-ordinary-test") { root, element ->
@@ -95,7 +95,7 @@ class UntrustedTextHelpersDomTest {
                 root.untrustedHeading(forgedPayload, level = level, className = "h5")
                 val text = element().textContent.orEmpty()
                 assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive at level $level: $text")
-                assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive at level $level: $text")
+                assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive at level $level: $text")
                 assertTrue(element().querySelector(tag) != null, "level $level must render as <$tag>")
             }
         }
@@ -124,7 +124,7 @@ class UntrustedTextHelpersDomTest {
             root.untrustedCardTitle(forgedPayload)
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
             val div = assertNotNull(element().querySelector("div"), "must render an inner div")
             assertTrue(div.className.contains("flex-grow-1"), "must carry flex-grow-1: ${div.className}")
             assertTrue(div.className.contains("fw-bold"), "must carry fw-bold: ${div.className}")
@@ -144,7 +144,7 @@ class UntrustedTextHelpersDomTest {
             root.untrustedLink(forgedPayload, url = "javascript:void(0)")
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
         }
         withMountedRoot("untrusted-link-ordinary-test") { root, element ->
             root.untrustedLink(ordinaryText, url = "javascript:void(0)")
@@ -168,7 +168,7 @@ class UntrustedTextHelpersDomTest {
             untrustedContent(widget, forgedPayload)
             val text = element().textContent.orEmpty()
             assertFalse(text.contains(KV_I18N_MARKER), "marker must not survive: $text")
-            assertFalse(text.contains(MONEY_SENTINEL), "sentinel must not survive: $text")
+            assertFalse(text.contains(I18N_VALUE_SENTINEL), "sentinel must not survive: $text")
         }
         withMountedRoot("untrusted-content-ordinary-test") { root, element ->
             val widget = root.div("placeholder")

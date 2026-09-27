@@ -16,6 +16,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.number
 import network.lapis.cloud.shared.domain.ConferenceStreamDestinationDto
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -391,11 +392,16 @@ internal fun conferenceStreamUrlLooksValid(url: String): Boolean {
 
 /** D9's "Schlüssel gesetzt am …" list-row copy -- zero-padded date, no time component (the exact
  * minute is not operationally interesting for this field, unlike the in-call "gestartet um HH:MM"
- * labels, which are). */
-@Suppress("DEPRECATION")
+ * labels, which are). Review-Befund 2026-09-24: this used to read `.monthNumber`/`.dayOfMonth`
+ * (deprecated in kotlinx-datetime 0.8.0, hence the now-removed `@Suppress("DEPRECATION")`) and its own
+ * `.toString().padStart(...)` -- now the non-deprecated `.day`/`.month.number`/`.year` API via
+ * `DateTime.kt`'s [pad2]/[pad4] (W7, tripwire T3 in `ClientTemporalFormatTripwireTest`), same as
+ * `ConferenceScreen.kt`'s `conferenceDefaultRoomTitle`. Deliberately still ISO order regardless of UI
+ * language, NOT [formatDate] -- this is a technical "key rotated at" audit marker, not a localized
+ * display date. */
 internal fun conferenceStreamDestinationDateLabel(dateTime: LocalDateTime): String {
-    val year = dateTime.year.toString().padStart(4, '0')
-    val month = dateTime.monthNumber.toString().padStart(2, '0')
-    val day = dateTime.dayOfMonth.toString().padStart(2, '0')
+    val year = pad4(dateTime.year)
+    val month = pad2(dateTime.month.number)
+    val day = pad2(dateTime.day)
     return "$year-$month-$day"
 }

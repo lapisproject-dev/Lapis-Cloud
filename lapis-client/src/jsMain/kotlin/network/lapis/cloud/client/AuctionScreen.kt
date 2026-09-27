@@ -183,7 +183,7 @@ fun renderAuctionScreen(container: SimplePanel) {
             val auctions = loadAuctionsOrShowBanner(statusFilter, auctionsPanel, disabledBanner) ?: return@launch
             val fetchedAt = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
             staleLabel.content =
-                gettext("Preisstand: %1:%2:%3 Uhr", fetchedAt.hour.pad2(), fetchedAt.minute.pad2(), fetchedAt.second.pad2())
+                gettext("Preisstand: %1:%2:%3 Uhr", pad2(fetchedAt.hour), pad2(fetchedAt.minute), pad2(fetchedAt.second))
             auctionsPanel.removeAll()
             if (auctions.isEmpty()) {
                 auctionsPanel.p(tr("Noch keine Auktionen vorhanden.")) { addCssClasses("text-muted small") }
@@ -225,8 +225,6 @@ fun renderAuctionScreen(container: SimplePanel) {
         }
     }
 }
-
-private fun Int.pad2(): String = if (this < 10) "0$this" else "$this"
 
 /**
  * The one call this screen routes outside `guarded()`'s generic wrapper (see file KDoc). Returns
@@ -701,7 +699,7 @@ internal fun renderMyBidsTable(
                     title = tr("Status"),
                     cell = { cell, bid -> cell.statusBadge(auctionStatusLabel(bid.auctionStatus), auctionStatusColor(bid.auctionStatus)) },
                 ),
-                textColumn<AuctionBidDto>(title = tr("Abgegeben"), cssClasses = "text-muted small") { it.createdAt.toString() },
+                dateTimeColumn<AuctionBidDto>(title = tr("Abgegeben"), numeric = false, cssClasses = "text-muted small") { it.createdAt },
             ),
         rows = bids,
         viewport = viewport,

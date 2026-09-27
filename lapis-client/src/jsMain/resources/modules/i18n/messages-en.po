@@ -9882,7 +9882,7 @@ msgstr "%1 years of membership"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "29.02. · in diesem Jahr am %1"
-msgstr "Feb 29 · this year on %1"
+msgstr "02-29 · this year on %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt
 msgid "Für %1 von %2 berücksichtigten Personen ist kein Geburtsdatum hinterlegt -- deren Geburtstage fehlen in dieser Liste."

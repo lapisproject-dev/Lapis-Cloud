@@ -2,9 +2,9 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.i18n.I18n
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.number
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
@@ -30,15 +30,17 @@ internal data class PriceHistoryPoint(
     val yValue: Double,
     /** Woertliche, server-formatierte Anzeige-Zeichenkette fuer den Tooltip -- NIE ueber [yValue]/Double nachgerechnet. */
     val tooltipLabel: String,
-    /** Lesbarer Zeitstempel fuer den Tooltip-Titel (`dd.MM.yyyy HH:mm`) -- direkt aus den
-     * Komponenten des server-gelieferten `LocalDateTime` gebildet (`.day`/`.month`/`.year`/
-     * `.hour`/`.minute`), NIE ueber `toInstant(TimeZone.currentSystemDefault())` im Browser
-     * nachgerechnet. Der Server erzeugt `priceTimestamp` bereits als
-     * `TimeZone.currentSystemDefault()` DES SERVER-PROZESSES (siehe `PriceOracleService.kt`) --
-     * eine Re-Interpretation dieses "nackten" `LocalDateTime` mit der Zeitzone DES BROWSERS wuerde
-     * bei einer Zeitzonen-Differenz zwischen Server und Operator falsche Zeitpunkte anzeigen
-     * (Review-Befund 2026-09-17). Die Komponenten direkt zu formatieren ist zeitzonen-neutral:
-     * es zeigt exakt das, was der Server als Wanduhrzeit erfasst hat. */
+    /** Lesbarer Zeitstempel fuer den Tooltip-Titel -- ueber [formatDateTimeIn] (`DateTime.kt`, W7) aus
+     * den Komponenten des server-gelieferten `LocalDateTime` gebildet, NIE ueber
+     * `toInstant(TimeZone.currentSystemDefault())` im Browser nachgerechnet. Der Server erzeugt
+     * `priceTimestamp` bereits als `TimeZone.currentSystemDefault()` DES SERVER-PROZESSES (siehe
+     * `PriceOracleService.kt`) -- eine Re-Interpretation dieses "nackten" `LocalDateTime` mit der
+     * Zeitzone DES BROWSERS wuerde bei einer Zeitzonen-Differenz zwischen Server und Operator falsche
+     * Zeitpunkte anzeigen (Review-Befund 2026-09-17). Die Komponenten direkt zu formatieren ist
+     * zeitzonen-neutral: es zeigt exakt das, was der Server als Wanduhrzeit erfasst hat. Chart.js-Daten
+     * sind kein KVision-Widget, also KEIN Token -- [formatPriceTimestampLabel] friert bei der Sprache
+     * des Moments ein, genau wie ein `gettext`-Argument ([DateTime.kt] Datei-KDoc "Widget content
+     * follows a language switch"). */
     val dateLabel: String,
 )
 
@@ -127,18 +129,26 @@ internal fun buildPriceHistoryChartData(
 }
 
 /**
- * `dd.MM.yyyy HH:mm` direkt aus den Komponenten von [timestamp] gebildet -- KEIN Umweg ueber
- * `toInstant(TimeZone...)`/`Clock`, siehe [PriceHistoryPoint.dateLabel] KDoc dafuer, warum das hier
- * zwingend ist. Gleiches manuelles `.padStart`-Idiom wie `ConferenceScreen.kt`'s
- * `conferenceRecordingStartedLabel`/`MemberAnniversariesScreen.kt`'s `formatDayMonth` (kein
- * `String.format`, JVM-only und im jsMain-Target nicht verfuegbar; kein `LocalDateTime.Format`, in
- * diesem Client bislang ungenutzt).
+ * [formatDateTimeIn] (`DateTime.kt`, W7 -- the app-wide date/time display convention) applied directly
+ * to the components of [timestamp] -- KEIN Umweg ueber `toInstant(TimeZone...)`/`Clock`, siehe
+ * [PriceHistoryPoint.dateLabel] KDoc dafuer, warum das hier zwingend ist. Vor W7 hatte diese Funktion
+ * eine eigene, handgeschriebene `.padStart`-Implementierung (`dd.MM.yyyy HH:mm`, ASCII-Leerzeichen,
+ * fest Deutsch) parallel zu `ConferenceScreen.kt`'s `conferenceRecordingStartedLabel`/
+ * `MemberAnniversariesScreen.kt`'s `formatDayMonth` -- drei unabhaengige Re-Implementierungen derselben
+ * Zero-Padding-Logik, genau die Duplizierung, die W7 beseitigen soll (Review-Befund 2026-09-24). Jetzt
+ * eine duenne Delegation, die automatisch [DateTime.kt]'s Komma+NBSP-Form (`dd.MM.yyyy, HH:mm`) und
+ * alle acht UI-Sprachen bekommt, statt einer vierten, wieder eigenen Form.
  */
-internal fun formatPriceTimestampLabel(timestamp: LocalDateTime): String {
-    val day = timestamp.day.toString().padStart(2, '0')
-    val monthNumber = timestamp.month.number
-    val month = monthNumber.toString().padStart(2, '0')
-    val hour = timestamp.hour.toString().padStart(2, '0')
-    val minute = timestamp.minute.toString().padStart(2, '0')
-    return "$day.$month.${timestamp.year} $hour:$minute"
-}
+internal fun formatPriceTimestampLabel(timestamp: LocalDateTime): String = formatPriceTimestampLabelIn(I18n.language, timestamp)
+
+/** [formatPriceTimestampLabel] for an EXPLICIT language -- mirrors [formatDateTimeIn]'s split from [formatDateTime]
+ * (`DateTime.kt`) so a test can assert deterministically without depending on the global `I18n.language` (Review-Befund
+ * 2026-09-24, round 3 MINOR: the round-2 fix for this same hazard only reworded the test-side literal, the IST side
+ * of both `PriceHistoryChartDataTest` assertions still read `I18n.language` through [formatPriceTimestampLabel]
+ * itself). Production code keeps calling the single-argument [formatPriceTimestampLabel] -- Chart.js data is not a
+ * KVision widget/token, so it freezes at the language of the moment by design, same as a `gettext` argument (see
+ * [PriceHistoryPoint.dateLabel] KDoc); this seam exists purely for tests. */
+internal fun formatPriceTimestampLabelIn(
+    language: String,
+    timestamp: LocalDateTime,
+): String = formatDateTimeIn(language, timestamp)

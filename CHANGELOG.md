@@ -252,6 +252,14 @@ All notable changes to this project are documented here. Format follows
   holder runs. Setting a Postgres-side timeout is a deployment-wide decision affecting every write path
   in the application and is scoped to its own wave, not bolted onto this one.
 
+### Added
+
+- **V1.4.32 W7 "Zeitstempel-Formatierung app-weit" (Teilwelle A, no new version)** -- one shared date/time
+  display convention (`DateTime.kt`), the temporal sibling of the W6a/W6b money convention: five
+  `format*`/`*In` functions, five live-translatable widget tokens, three table-column factories
+  (`dateColumn`/`dateTimeColumn`/`timestampColumn`), `machineDate`/`machineDateTime` for the prefill/sort-key
+  form, and `.lapis-tnum` tabular-nums styling shared with `Money.kt`'s spans.
+
 ### Fixed
 
 - **V1.9.2 — folder-creation visibility defaults to the most restrictive level the creating role may
@@ -266,6 +274,44 @@ All notable changes to this project are documented here. Format follows
   does not silently keep proposing itself for every folder created afterward in the same session).
   Purely a client-side default — `createFolder`'s own `canAccessDocumentAtLevel`/`ConflictException`
   check remains the real authority, unchanged by this wave.
+- **W7 review-fix pass (same branch)** -- a review of the W7 first commit found its own core claim untested
+  and, in four places, not yet true: `ClientTemporalFormatTripwireTest` (cited by `DateTime.kt`'s KDoc as
+  already existing) did not exist -- added with rules T1-T4; three independent hand-rolled date/time
+  formatters (`PriceHistoryChartData.kt`, two sites in `ConferenceScreen.kt`,
+  `ConferenceStreamDestinationsScreen.kt` -- the last also still on the deprecated `.monthNumber`/
+  `.dayOfMonth` kotlinx-datetime API) plus a fourth, differently-shaped one (`AuctionScreen.kt`'s private
+  `Int.pad2()`) now share `DateTime.kt`'s formatting instead of re-deriving it; `timestampColumn` and the
+  `.lapis-tnum` CSS class on every `Money.kt`/`DateTime.kt` span had zero test coverage, now covered;
+  `DateLocale.dayMonthTrailingDot` silently had no effect outside the `DMY_DOT` pattern, now enforced by a
+  construction-time `require`; a dead, unfalsifiable unit-test assertion was removed; the English leap-day
+  anniversary message mixed a month-name literal with a numeric day-month argument, now fully numeric like
+  every other catalog. See `docs/architecture/ui-ux-guideline.adoc`'s "Wave W7" section for the full list.
+- **W7 review-fix pass, round 2 (same branch)** -- a second review found the wave's own core claim
+  ("every screen uses `DateTime.kt` for display") untested and, measured by grep, not true: 14 confirmed
+  display-path `.toString()` call sites across 12 client files -- including `AuditLogScreen.kt` and
+  `WebhookDeliveryLogPanel.kt`, the two files the KDoc names by name -- converted onto
+  `dateColumn`/`dateTimeColumn`/`timestampColumn`/`format*`/`dateSpan`, except the three inside
+  `ReportRows.kt`'s GoBD financial reports (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`),
+  deliberately deferred because their ISO date strings are pinned verbatim by `ReportGoldenTest`. Also:
+  `PriceHistoryChartDataTest`'s own fix for the first pass's `I18n.language` global-state finding had
+  reintroduced the same anti-pattern in a sibling assertion; `DateLocale`'s new construction-time `require`
+  (round 1) had zero test coverage; the English leap-day fix (round 1) was correct but the guideline text
+  explaining it overclaimed for `pl`/`ru`, whose catalogs got the trailing dot they were missing
+  ("29.02" → "29.02.") to match their own `DATE_LOCALES` entry.
+- **W7 review-fix pass, round 3 (same branch)** -- a third review found round 2 had converted only some of
+  the raw `.toString()` sites inside each screen it touched, leaving a screen-internal format-mixing
+  regression that did not exist before this wave: `DunningCasesScreen.kt`, `AuditLogScreen.kt`,
+  `SepaBatchesScreen.kt`, `OpenItemsScreen.kt`, `AccountingExportScreen.kt` and `CrmContactsScreen.kt` each
+  showed a localized date/time next to a raw-ISO one on the same screen. Converted the remaining 15 raw
+  sites in exactly those six files, so every screen either fix pass touched is now internally consistent.
+  Re-measured round 2's "three sites remain" claim with round 2's own method and found it undercounted: 20
+  further files (31 call sites, 33 raw occurrences) were still open, now named in
+  `docs/architecture/ui-ux-guideline.adoc`'s "Not done in this wave" section as Teilwelle B instead of
+  "three". Also: `PriceHistoryChartDataTest`'s round-2 fix reworded only the expected-value side of two
+  assertions while their actual-value side stayed coupled to the global `I18n.language` -- added an
+  explicit-language seam (`formatPriceTimestampLabelIn`) and pinned the language explicitly (with `finally`)
+  in the one test that cannot reach that seam; and corrected a guideline paragraph that claimed the `pl`/`ru`
+  `.po` catalogs were left unchanged when round 2's own commit had in fact added their trailing dot.
 
 ## [0.24.0] — 2026-09-26
 
@@ -287,11 +333,16 @@ All notable changes to this project are documented here. Format follows
   Synchronous on purpose: `closeOpenModals()` is `suspend` and only 9 of the 44 files using
   `withMountedRoot` call it from a suspending context.
 
-  Five failures down to one. Still open and deliberately not patched blind:
-  `FormGrammarAuditDomTest.theFirstClickOnAButton_afterLeavingAnInvalidField_isNotLost`, which
-  needs a combination of at least three classes -- a diagnostic run found two modals still in the
-  document, one of them from `FormAuditMinorTest`, but that pair alone passes. `./gradlew clean
-  check` is therefore still red on `master` with exactly this one named, understood test.
+  Five failures down to one at the time. **Closed in full by `a0e675c` (2026-09-27)**: the fifth,
+  `FormGrammarAuditDomTest.theFirstClickOnAButton_afterLeavingAnInvalidField_isNotLost`, turned out
+  to share the same root cause one level up, not a fourth class to chase. Of the two ways a DOM test
+  mounts, only `formTest` cleaned up on entry; `withMountedRoot` cleaned up only on exit, so a test
+  reached through it depended on every preceding class in Karma's one browser page having tidied up
+  after itself -- the assumption both prior rounds' per-class fixes kept breaking. `withMountedRoot`
+  now also runs `disableModalTransitions` + `hardResetModalState` on entry, closing the dependency for
+  all 44 files that use it, present and future. Verified by reproducing the failure, then three
+  consecutive full `:lapis-client:jsBrowserTest` runs with zero failures. `./gradlew clean check` is
+  now `BUILD SUCCESSFUL` with no failing tests at all.
 
 ### Added
 

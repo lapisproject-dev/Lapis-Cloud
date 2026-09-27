@@ -4765,17 +4765,19 @@ private fun stopStreamConfirmDialog(
 
 /** Wave 4 "Politur", D1 -- the single-button flow's auto-generated default title. German date order,
  * zero-padded, mirrors `PdfMailmergeSupport.formatGermanDate`'s non-deprecated `.day`/`.month.number`/
- * `.year` API (NOT `.dayOfMonth`/`.monthNumber`, deprecated in kotlinx-datetime 0.8.0) -- via
- * `.padStart`, not `String.format` (JVM-only, unavailable in this jsMain target), matching this
- * file's own established `padStart` idiom for [conferenceRecordingStartedLabel]/
- * [conferenceStreamStartedLabel]. Deliberately includes the date, not just the time, since a room in
- * "Aktive Besprechungen" can persist across days. */
+ * `.year` API (NOT `.dayOfMonth`/`.monthNumber`, deprecated in kotlinx-datetime 0.8.0). The digits are
+ * embedded into a translated sentence (`gettext`'s msgid itself fixes the German day.month.year order
+ * in every catalog -- a pre-existing, separately tracked gap, not this wave's concern), so the full
+ * `formatDate`/`formatDateTime` STRING cannot be inserted as-is; only the zero-padding of the individual
+ * components is shared, via `DateTime.kt`'s [pad2] (W7 -- tripwire T3 in `ClientTemporalFormatTripwireTest`
+ * forbids a fourth independent `.toString().padStart(2, '0')` reimplementation), matching this file's own
+ * established idiom for [conferenceRecordingStartedLabel]/[conferenceStreamStartedLabel]. Deliberately
+ * includes the date, not just the time, since a room in "Aktive Besprechungen" can persist across days. */
 internal fun conferenceDefaultRoomTitle(now: LocalDateTime): String {
-    val day = now.day.toString().padStart(2, '0')
-    val monthNumber = now.month.number
-    val month = monthNumber.toString().padStart(2, '0')
-    val hour = now.hour.toString().padStart(2, '0')
-    val minute = now.minute.toString().padStart(2, '0')
+    val day = pad2(now.day)
+    val month = pad2(now.month.number)
+    val hour = pad2(now.hour)
+    val minute = pad2(now.minute)
     return gettext("Besprechung vom %1.%2.%3, %4:%5", day, month, now.year, hour, minute)
 }
 
@@ -5126,14 +5128,15 @@ internal fun recordingCanStart(
     activeRecording: ConferenceRecordingDto?,
 ): Boolean = canModerate && recordingAvailable && activeRecording == null
 
-/** The in-call detail line's "Aufzeichnung gestartet von X um HH:MM" copy -- zero-padded 24h time,
+/** The in-call detail line's "Aufzeichnung gestartet von X um HH:MM" copy -- zero-padded 24h time via
+ * `DateTime.kt`'s [pad2] (W7, shared with [conferenceDefaultRoomTitle]/[conferenceStreamStartedLabel]),
  * matching this codebase's plain-German, non-technical copy posture throughout this screen. */
 internal fun conferenceRecordingStartedLabel(
     startedByDisplayName: String,
     startedAt: LocalDateTime,
 ): String {
-    val hour = startedAt.hour.toString().padStart(2, '0')
-    val minute = startedAt.minute.toString().padStart(2, '0')
+    val hour = pad2(startedAt.hour)
+    val minute = pad2(startedAt.minute)
     return gettext("Aufzeichnung gestartet von %1 um %2:%3", startedByDisplayName, hour, minute)
 }
 
@@ -5519,8 +5522,8 @@ internal fun conferenceStreamStartedLabel(
     startedAt: LocalDateTime,
     layout: ConferenceStreamLayout,
 ): String {
-    val hour = startedAt.hour.toString().padStart(2, '0')
-    val minute = startedAt.minute.toString().padStart(2, '0')
+    val hour = pad2(startedAt.hour)
+    val minute = pad2(startedAt.minute)
     return gettext(
         "Live-Stream gestartet von %1 um %2:%3 · %4",
         startedByDisplayName,

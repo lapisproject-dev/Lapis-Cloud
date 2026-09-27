@@ -319,7 +319,7 @@ private fun dunningCaseColumns(): List<DataColumn<DunningCaseDto>> =
             numeric = true,
             cell = { container, case -> container.moneySpan(case.amountDue) },
         ),
-        textColumn(title = tr("Fällig am"), numeric = true) { case: DunningCaseDto -> case.dueDate.toString() },
+        dateColumn(title = tr("Fällig am"), numeric = true) { case: DunningCaseDto -> case.dueDate },
         DataColumn(
             title = tr("Beitragsstatus"),
             cell = { container, case ->
@@ -343,7 +343,7 @@ private fun dunningCaseColumns(): List<DataColumn<DunningCaseDto>> =
             cell = { container, case ->
                 if (case.nextLevelNumber != null) {
                     container.div(gettext("Stufe %1", case.nextLevelNumber))
-                    container.div(case.nextLevelDueOn?.toString() ?: "–") { addCssClasses("text-muted small") }
+                    container.div(case.nextLevelDueOn?.let { dateToken(it) } ?: "–") { addCssClasses("text-muted small") }
                 } else {
                     container.div("–")
                 }
@@ -437,8 +437,8 @@ private fun dunningNoticeColumns(role: AccountRole?): List<DataColumn<DunningNot
                 container.statusBadge(dunningNoticeStatusLabel(notice.status), dunningNoticeStatusColor(notice.status))
             },
         ),
-        textColumn(title = tr("Ausgestellt am"), numeric = true) { notice: DunningNoticeDto -> notice.issuedAt.toString() },
-        textColumn(title = tr("Antwort bis"), numeric = true) { notice: DunningNoticeDto -> notice.respondBy.toString() },
+        dateTimeColumn(title = tr("Ausgestellt am"), numeric = true) { notice: DunningNoticeDto -> notice.issuedAt },
+        dateColumn(title = tr("Antwort bis"), numeric = true) { notice: DunningNoticeDto -> notice.respondBy },
         DataColumn(
             title = tr("Gebühr"),
             numeric = true,

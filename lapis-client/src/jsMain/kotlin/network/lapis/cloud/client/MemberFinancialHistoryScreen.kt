@@ -200,7 +200,7 @@ private fun renderFinancialHistoryYear(
 /** Columns of a year block; the date is the row's identity (primary, left-aligned), the amount is numeric. */
 private fun financialHistoryColumns(): List<DataColumn<FinancialHistoryEntryDto>> =
     listOf(
-        textColumn(title = tr("Datum"), primary = true) { entry -> entry.date.toString() },
+        dateColumn(title = tr("Datum"), numeric = false, primary = true) { entry -> entry.date },
         DataColumn(
             title = tr("Art"),
             cell = { container, entry ->

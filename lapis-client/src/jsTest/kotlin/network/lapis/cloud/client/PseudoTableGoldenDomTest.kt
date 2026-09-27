@@ -149,8 +149,11 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Auktion", "Ihr Höchstgebot", "Führend", "Status", "Abgegeben"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("Vereinsbanner", "◆ 12,50${NBSP}LTR", "Ja", "Offen", "2026-09-01T10:30"),
-                    listOf("Tombola", "◆ 4,00${NBSP}LTR", "Nein", "Abgeschlossen (verkauft)", "2026-08-30T09:00"),
+                    // Review-Befund 2026-09-24 (round 2): `renderMyBidsTable`'s "Abgegeben" column moved off a raw
+                    // `.toString()` onto `dateTimeColumn` -- these two pinned strings follow, from the ISO wire
+                    // form to `DateTime.kt`'s de-locale display form (comma + NBSP, DD.MM.YYYY).
+                    listOf("Vereinsbanner", "◆ 12,50${NBSP}LTR", "Ja", "Offen", "01.09.2026,${NBSP}10:30"),
+                    listOf("Tombola", "◆ 4,00${NBSP}LTR", "Nein", "Abgeschlossen (verkauft)", "30.08.2026,${NBSP}09:00"),
                 ),
                 element().bodyRows(),
             )

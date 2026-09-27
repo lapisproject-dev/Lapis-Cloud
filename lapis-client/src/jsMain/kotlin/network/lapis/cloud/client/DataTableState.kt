@@ -165,7 +165,7 @@ class DataColumn<R>(
  * [text] is the cell renderer of EVERY data table in this app -- server-/member-controlled fields (display names,
  * free-text titles, comments) reach it just as often as static, developer-written labels. KVision's `Widget` resolves
  * ANY widget content that starts with [KV_I18N_MARKER] through `gettext` on render, independent of [trFormat]/
- * [I18nCatalogManager.gettext] -- so an untrusted value carrying a forged marker + [MONEY_SENTINEL] payload would
+ * [I18nCatalogManager.gettext] -- so an untrusted value carrying a forged marker + [I18N_VALUE_SENTINEL] payload would
  * render as a fabricated, freely chosen amount (security audit W6b follow-up round 3, major finding A). The value is
  * therefore always passed through [sanitizeUntrustedI18nText] before it becomes widget content -- unconditionally,
  * like every other untrusted-text call site, never decided by which caller happens to pass it.

@@ -101,24 +101,24 @@ class TrFormatTest {
 
     @Test
     fun aGettextArgumentCarryingAForgedMoneyPayload_isNeverResolvedIntoAnAmount() {
-        // Sanitization strips [KV_I18N_MARKER] and [MONEY_SENTINEL], never the kind char/digits after them -- so what
+        // Sanitization strips [KV_I18N_MARKER] and [I18N_VALUE_SENTINEL], never the kind char/digits after them -- so what
         // survives is inert plain text ("L9999"), never a formatted amount, and never the control characters.
-        val forgedArgument = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_LTR + "9999"
+        val forgedArgument = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_LTR + "9999"
         val resolved = gettext("Teilnehmende: %1", forgedArgument)
         assertEquals("Teilnehmende: L9999", resolved)
         assertTrue(!resolved.contains("99,99"), "a forged amount must never render: $resolved")
         assertTrue(!resolved.contains(KV_I18N_MARKER), "the marker must never leak: $resolved")
-        assertTrue(!resolved.contains(MONEY_SENTINEL), "the sentinel must never leak: $resolved")
+        assertTrue(!resolved.contains(I18N_VALUE_SENTINEL), "the sentinel must never leak: $resolved")
     }
 
     @Test
     fun aGettextArgumentCarryingAForgedMoneyPayload_isSanitizedRegardlessOfItsPositionInTheTemplate() {
-        val forgedArgument = KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_EUR + "123456"
+        val forgedArgument = KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_EUR + "123456"
         val resolved = gettext("%1 · %2 · %3", "vorher", forgedArgument, "nachher")
         assertEquals("vorher · E123456 · nachher", resolved)
         assertTrue(!resolved.contains("123.456"), "a forged amount must never render: $resolved")
         assertTrue(!resolved.contains(KV_I18N_MARKER))
-        assertTrue(!resolved.contains(MONEY_SENTINEL))
+        assertTrue(!resolved.contains(I18N_VALUE_SENTINEL))
     }
 
     // Security audit W6b, round 5 (minor finding): `substitute` used to replace `%1`, `%2`, ... one at a time over

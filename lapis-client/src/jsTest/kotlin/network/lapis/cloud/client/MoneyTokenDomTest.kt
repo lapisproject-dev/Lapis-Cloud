@@ -8,6 +8,7 @@ import io.kvision.i18n.tr
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * W6a S5: an amount that is widget content follows a language switch WITHOUT a screen rebuild (the renderer re-resolves the
@@ -16,7 +17,7 @@ import kotlin.test.assertFalse
  */
 class MoneyTokenDomTest {
     private fun leaks(text: String): Boolean =
-        text.contains(KV_I18N_MARKER) || text.contains(MONEY_SENTINEL) || text.contains(I18N_ARG_SEPARATOR)
+        text.contains(KV_I18N_MARKER) || text.contains(I18N_VALUE_SENTINEL) || text.contains(I18N_ARG_SEPARATOR)
 
     @Test
     fun moneySpan_rendersLocalized_andFollowsALanguageSwitch() {
@@ -60,7 +61,7 @@ class MoneyTokenDomTest {
             root.span("Betrag E1234.5")
             assertEquals("Betrag E1234.5", element().querySelector("span")?.textContent)
             // even a forged payload cannot throw or render anything but text
-            root.span(KV_I18N_MARKER + MONEY_SENTINEL + MONEY_KIND_EUR + "<img src=x onerror=alert(1)>")
+            root.span(KV_I18N_MARKER + I18N_VALUE_SENTINEL + MONEY_KIND_EUR + "<img src=x onerror=alert(1)>")
             assertEquals(0, element().querySelectorAll("img").length)
         }
     }
@@ -82,6 +83,30 @@ class MoneyTokenDomTest {
                 I18n.language = "de"
             }
             assertFalse(leaks(element().textContent.orEmpty()))
+        }
+    }
+
+    /**
+     * Review-Befund 2026-09-24: `moneySpan`/`ltrSpan`/`plainAmountSpan`/`countSpan` all
+     * `addCssClass(TABULAR_NUMS_CLASS)` (`Money.kt`) so a value column's digits stop shifting width as
+     * they change (`theme.css` `.lapis-tnum`) -- that behaviour had zero test coverage, so a future
+     * refactor of any of the four builder lambdas could drop the `addCssClass` call and `clean check`
+     * would stay green. Asserted directly on the rendered `<span>`'s `classList`, not by string-matching
+     * the CSS class name inside the digits (which would defeat the point of a dedicated CSS class).
+     */
+    @Test
+    fun everyMoneySpanCarriesTheTabularNumsClass() {
+        withMountedRoot("money-token-tnum") { root, _ ->
+            val money = root.moneySpan(1234.5.toDecimal())
+            val ltr = root.ltrSpan(12.5.toDecimal())
+            val plain = root.plainAmountSpan(3.0.toDecimal())
+            val count = root.countSpan(1234.0.toDecimal())
+            listOf(money, ltr, plain, count).forEach { span ->
+                assertTrue(
+                    span.getElement()?.classList?.contains(TABULAR_NUMS_CLASS) == true,
+                    "expected .$TABULAR_NUMS_CLASS on ${span.getElement()?.outerHTML}",
+                )
+            }
         }
     }
 }
