@@ -295,6 +295,7 @@ class EventServiceRpcTest :
                     // Welle V1.4.3.2 -- a generous, never-tripping budget; this file's own tests
                     // exercise none of the check-in RPCs (see EventCheckInRpcTest for those).
                     checkInRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
+                    seriesPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
                 )
             // Test-only route for `createEvent` -- lets the MAJOR-regression room tests below drive
             // `EventRoomCollisionGuard`/room-name resolution through the REAL RPC surface (not just

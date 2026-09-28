@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
 /**
@@ -60,6 +61,64 @@ data class RecurrenceRuleInput(
     val byMonthlyWeekday: MonthlyWeekdayRule? = null,
     val count: Int? = null,
     val until: LocalDate? = null,
+)
+
+/**
+ * Dritte und letzte Folgewelle "Wiederkehrende Veranstaltungen" -- RPC-Verdrahtung. Diese vier DTOs
+ * sind die einzige Wahrheitsquelle, die der Client für Serien-Vorschau/-Anlage/-Bearbeitung
+ * anzeigt; siehe `docs/architecture/event-series.adoc` Abschnitt "RPC-Verdrahtung".
+ *
+ * Ergebnis von `IEventService.previewSeries` -- die eine Wahrheitsquelle, die der Client anzeigt,
+ * sobald sie da ist.
+ */
+@Serializable
+data class SeriesPreviewDto(
+    val valid: Boolean,
+    val count: Int = 0,
+    val first: LocalDateTime? = null,
+    val last: LocalDateTime? = null,
+    /** Fertig formatierter Live-Satz ("Wöchentlich am Dienstag, 19:00–21:00 · 26 Termine · ..."), serverseitig gebaut -- siehe `RecurrenceSentence`. */
+    val sentence: String = "",
+    /** `RecurrenceRuleBuilder.build`'s `Result.Invalid.messages`, leer wenn `valid`. */
+    val errors: List<String> = emptyList(),
+)
+
+/** Ergebnis von `IEventService.createEventSeries`. */
+@Serializable
+data class EventSeriesCreateResultDto(
+    val seriesId: String,
+    val createdEventIds: List<String>,
+    val firstEvent: EventDto,
+)
+
+/** Ergebnis von `IEventService.impactOfSeriesEdit` -- Grundlage der Zahlen unter den Radiobuttons + im Bestätigungsdialog. */
+@Serializable
+data class EventSeriesImpactDto(
+    val affectedEventCount: Int,
+    val affectedRegistrationCount: Int,
+    /** `false` nur für die allererste Instanz der Serie -- steuert, ob THIS überhaupt als Option gezeigt wird. */
+    val isFirstOccurrence: Boolean,
+    /** `true` wenn die Regel (Wochentag/Frequenz) sich geändert hat -- steuert "THIS ausgeblendet" + Split-Hinweis. */
+    val ruleChanged: Boolean,
+)
+
+/**
+ * Ergebnis von `IEventService.updateSeriesEvent`/`cancelSeriesEvent`.
+ *
+ * Review MINOR fix: [affectedRegistrationCount] used to be named `notifiedRegistrationCount` for
+ * BOTH RPCs, obwohl `updateSeriesEvent` (eine reine Terminänderung) niemandem eine Mail schickt --
+ * nur `cancelSeriesEvent` versendet tatsächlich Absage-Benachrichtigungen (an genau diese aktiven
+ * Registrierungen). Der alte Name hätte ein künftiges Admin-UI, das ihn direkt als "X Personen
+ * benachrichtigt" anzeigt, für `updateSeriesEvent` fälschlich glauben lassen, Registrierte hätten
+ * eine Mail über die geänderte Zeit/den geänderten Ort erhalten. Der neue, neutrale Name (bewusst
+ * identisch zu [EventSeriesImpactDto.affectedRegistrationCount]) beschreibt in beiden Fällen korrekt
+ * nur die Anzahl der betroffenen aktiven Registrierungen -- ob tatsächlich gemailt wurde, ergibt
+ * sich allein daraus, welche RPC man aufgerufen hat, nicht aus diesem Feldnamen.
+ */
+@Serializable
+data class EventSeriesEditResultDto(
+    val affectedEventCount: Int,
+    val affectedRegistrationCount: Int,
 )
 
 /**

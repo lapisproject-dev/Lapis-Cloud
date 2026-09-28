@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventDto
@@ -10,6 +11,12 @@ import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRegistrationDto
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
+import network.lapis.cloud.shared.domain.EventSeriesCreateResultDto
+import network.lapis.cloud.shared.domain.EventSeriesEditResultDto
+import network.lapis.cloud.shared.domain.EventSeriesEditScope
+import network.lapis.cloud.shared.domain.EventSeriesImpactDto
+import network.lapis.cloud.shared.domain.RecurrenceRuleInput
+import network.lapis.cloud.shared.domain.SeriesPreviewDto
 
 /**
  * Welle V1.4.3.1 "Veranstaltungen: Kernschleife + Anmeldegebuehren-Zahlung" -- the AUTHENTICATED
@@ -123,4 +130,63 @@ interface IEventService {
      * `> 0` and becomes the resulting `OpenItem.dueDate` (itemDate = today).
      */
     suspend fun issueEventInvoice(input: EventInvoiceRequestDto): EventRegistrationDto
+
+    /**
+     * Dritte und letzte Folgewelle "Wiederkehrende Veranstaltungen". Role: BOARD/ADMIN. Live-
+     * Vorschau -- validates [rule] against [startsAt] the same way [createEventSeries] itself will
+     * (server re-validates, NEVER trusts a client-supplied raw RRULE string) and returns the
+     * expansion's count/first/last plus a ready-to-display sentence (`SeriesPreviewDto.sentence`).
+     * Rate-limited separately (higher budget than the other event-management RPCs -- called on
+     * every keystroke/selection change, client-debounced but not server-trusted to enforce that).
+     */
+    suspend fun previewSeries(
+        startsAt: LocalDateTime,
+        endsAt: LocalDateTime,
+        rule: RecurrenceRuleInput,
+    ): SeriesPreviewDto
+
+    /**
+     * Role: BOARD/ADMIN. Materializes a whole series from [input] (the shared template -- see
+     * `EventSeriesMaterializer` KDoc "Serie-Vorlage") and [rule]. Every instance is created
+     * `PUBLISHED` immediately (Entscheidung F3). Server re-validates [rule] against `input.startsAt`
+     * regardless of any prior `previewSeries` call.
+     */
+    suspend fun createEventSeries(
+        input: EventInput,
+        rule: RecurrenceRuleInput,
+    ): EventSeriesCreateResultDto
+
+    /**
+     * Role: BOARD/ADMIN. The numbers under the edit dialog's THIS/FOLLOWING/ALL radiobuttons --
+     * called once per scope choice (or up to three times in parallel when the dialog opens), never
+     * trusted as authoritative by [updateSeriesEvent]/[cancelSeriesEvent] (those recompute the
+     * impact themselves, TOCTOU-safe, under the row lock).
+     */
+    suspend fun impactOfSeriesEdit(
+        eventId: String,
+        scope: EventSeriesEditScope,
+    ): EventSeriesImpactDto
+
+    /**
+     * Role: BOARD/ADMIN. Applies [input] to [eventId]'s series under [scope] -- see
+     * `EventSeriesEditScope` KDoc for what each scope means, and `EventSeriesMaterializer.applyEdit`
+     * for the write path (row-lock discipline, FOLLOWING-split handling).
+     */
+    suspend fun updateSeriesEvent(
+        eventId: String,
+        input: EventInput,
+        scope: EventSeriesEditScope,
+    ): EventSeriesEditResultDto
+
+    /**
+     * Role: BOARD/ADMIN. Deletes or cancels [eventId]'s series under [scope] -- an instance with no
+     * registrations of any status is hard-deleted, one with any is cancelled and its active
+     * registrants are mailed [reason] (same mail as [cancelEvent], per affected instance). See
+     * `EventSeriesMaterializer.deleteOrCancel` KDoc "Entscheidung 3".
+     */
+    suspend fun cancelSeriesEvent(
+        eventId: String,
+        scope: EventSeriesEditScope,
+        reason: String,
+    ): EventSeriesEditResultDto
 }

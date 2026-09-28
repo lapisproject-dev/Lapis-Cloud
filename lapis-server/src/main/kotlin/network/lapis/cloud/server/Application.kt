@@ -1151,6 +1151,15 @@ internal fun Application.module(
     // ([eventTicketCodeFailureLimiter]) -- keyed by IP, so `LoginRateLimiter`'s
     // failures-only-count shape fits it, not FederationInboxRateLimiter's every-request shape.
     val eventCheckInRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes)
+    // Dritte Folgewelle "Wiederkehrende Veranstaltungen" -- higher budget than
+    // eventWriteRateLimiter: previewSeries is called on every keystroke/selection change in the
+    // admin UI's recurrence editor (client-debounced to 400ms, never trusted to enforce that
+    // server-side). See EventSeriesLimits.PREVIEW_RATE_PER_MINUTE.
+    val eventSeriesPreviewRateLimiter =
+        FederationInboxRateLimiter(
+            maxRequests = network.lapis.cloud.server.events.series.EventSeriesLimits.PREVIEW_RATE_PER_MINUTE,
+            window = 1.minutes,
+        )
     val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val eventTicketCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
     // Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- soft per-IP budget for
@@ -1854,6 +1863,7 @@ internal fun Application.module(
                 mailDispatcher = mailDispatcher,
                 writeRateLimiter = eventWriteRateLimiter,
                 checkInRateLimiter = eventCheckInRateLimiter,
+                seriesPreviewRateLimiter = eventSeriesPreviewRateLimiter,
             )
         }
         // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".

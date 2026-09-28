@@ -4,10 +4,12 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
+import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -24,6 +26,12 @@ import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventTicketIssuer
 import network.lapis.cloud.server.events.EventTicketPolicy
 import network.lapis.cloud.server.events.mailPromotion
+import network.lapis.cloud.server.events.series.EventSeriesLimits
+import network.lapis.cloud.server.events.series.EventSeriesMaterializer
+import network.lapis.cloud.server.events.series.EventSeriesScopeEngine
+import network.lapis.cloud.server.events.series.RecurrenceExpander
+import network.lapis.cloud.server.events.series.RecurrenceRuleBuilder
+import network.lapis.cloud.server.events.series.RecurrenceSentence
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
@@ -46,12 +54,18 @@ import network.lapis.cloud.shared.domain.EventRegistrationDto
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatusSets
+import network.lapis.cloud.shared.domain.EventSeriesCreateResultDto
+import network.lapis.cloud.shared.domain.EventSeriesEditResultDto
+import network.lapis.cloud.shared.domain.EventSeriesEditScope
+import network.lapis.cloud.shared.domain.EventSeriesImpactDto
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.OpenItemDirection
 import network.lapis.cloud.shared.domain.OpenItemSnapshot
 import network.lapis.cloud.shared.domain.OpenItemStatus
 import network.lapis.cloud.shared.domain.PaymentProvider
+import network.lapis.cloud.shared.domain.RecurrenceRuleInput
+import network.lapis.cloud.shared.domain.SeriesPreviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IEventService
@@ -63,6 +77,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
+import java.time.ZoneId
 import kotlin.uuid.Uuid
 
 private val EVENT_MANAGE_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -79,6 +94,16 @@ private const val MAX_BILLING_CITY_LENGTH = 200
 
 /** Matches `billing_country VARCHAR(100)` in V38__event_invoice.sql. */
 private const val MAX_BILLING_COUNTRY_LENGTH = 100
+
+/**
+ * Bounded retry count for `EventService.computeSeriesImpact`'s snapshot-plan-lock-recheck loop --
+ * see that function's KDoc. A concurrent repoint/detach has to land in the narrow window between
+ * the unlocked snapshot and the ascending-UUID lock pass to force a retry at all; a handful of
+ * attempts is far more than that race could plausibly need in practice, and a bound (instead of an
+ * unconditional loop) turns a pathological hot-contention case into a clear `ConflictException`
+ * for the caller to retry, rather than a request that spins forever.
+ */
+private const val MAX_SERIES_IMPACT_LOCK_ATTEMPTS = 5
 
 private fun requireMaxLength(
     value: String?,
@@ -111,7 +136,15 @@ class EventService(
     // BOARD/ADMIN event-management clicks) would throttle mid-event. See `IEventService.checkInByCode`
     // KDoc call sites' own rationale.
     private val checkInRateLimiter: FederationInboxRateLimiter,
+    // Dritte Folgewelle "Wiederkehrende Veranstaltungen" -- deliberately SEPARATE from
+    // [writeRateLimiter]: `previewSeries` is called on every keystroke/selection change in the
+    // admin UI's recurrence editor (client-debounced to 400ms, never trusted server-side to
+    // enforce that), a much higher-frequency budget than ordinary event-management writes.
+    private val seriesPreviewRateLimiter: FederationInboxRateLimiter,
 ) : IEventService {
+    /** Fixed, per [EventSeriesLimits.SUPPORTED_TIMEZONES] -- see that object's KDoc "Frage F2"/"Zeitzone" for why this codebase does not (yet) offer a per-series timezone picker. */
+    private val seriesZone: ZoneId = ZoneId.of(EventSeriesLimits.SUPPORTED_TIMEZONES.first())
+
     private val submission by lazy {
         EventRegistrationSubmission(
             checkoutGateways = checkoutGateways,
@@ -570,6 +603,321 @@ class EventService(
         val rawCode: String,
     )
 
+    // ── Dritte Folgewelle "Wiederkehrende Veranstaltungen" -- RPC-Verdrahtung ────────────────────
+
+    override suspend fun previewSeries(
+        startsAt: LocalDateTime,
+        endsAt: LocalDateTime,
+        rule: RecurrenceRuleInput,
+    ): SeriesPreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinSeriesPreviewRate(current.memberId)
+        return when (val built = RecurrenceRuleBuilder.build(rule = rule, dtstart = startsAt, zone = seriesZone)) {
+            is RecurrenceRuleBuilder.Result.Invalid -> SeriesPreviewDto(valid = false, errors = built.messages)
+            is RecurrenceRuleBuilder.Result.Ok -> {
+                val occurrences =
+                    runCatching { RecurrenceExpander.expand(rrule = built.rrule, dtstart = startsAt, zone = seriesZone) }
+                        .getOrElse { ex ->
+                            return SeriesPreviewDto(
+                                valid = false,
+                                errors =
+                                    listOf(
+                                        ex.message ?: "Ungültige Wiederholungsregel.",
+                                    ),
+                            )
+                        }
+                val sentence = RecurrenceSentence.build(rule = rule, occurrences = occurrences, templateEndTime = endsAt)
+                SeriesPreviewDto(
+                    valid = true,
+                    count = occurrences.size,
+                    first = occurrences.firstOrNull(),
+                    last = occurrences.lastOrNull(),
+                    sentence = sentence,
+                )
+            }
+        }
+    }
+
+    override suspend fun createEventSeries(
+        input: EventInput,
+        rule: RecurrenceRuleInput,
+    ): EventSeriesCreateResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        val now = DbClock.nowLocalDateTime()
+        EventPolicy.validate(input = input, now = now)
+        val durationMinutes = minutesBetween(startsAt = input.startsAt, endsAt = input.endsAt)
+        if (durationMinutes <= 0 ||
+            durationMinutes > network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_INSTANCE_DURATION_MINUTES
+        ) {
+            throw BadRequestException(
+                "Die Dauer einer Serien-Instanz muss zwischen 1 und " +
+                    "${network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_INSTANCE_DURATION_MINUTES} Minuten liegen.",
+            )
+        }
+        // Server re-validates the RRULE regardless of any prior previewSeries call -- never trust
+        // a client-supplied raw string, only the typed RecurrenceRuleInput.
+        val built = RecurrenceRuleBuilder.build(rule = rule, dtstart = input.startsAt, zone = seriesZone)
+        val rrule =
+            when (built) {
+                is RecurrenceRuleBuilder.Result.Invalid -> throw BadRequestException(built.messages.joinToString("; "))
+                is RecurrenceRuleBuilder.Result.Ok -> built.rrule
+            }
+        return transaction {
+            if (EventStore.countActiveSeries(now) >= network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_ACTIVE_SERIES_PER_ORG) {
+                throw ConflictException(
+                    "Es sind bereits " +
+                        "${network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_ACTIVE_SERIES_PER_ORG} aktive Serien vorhanden.",
+                )
+            }
+            val seriesId = Uuid.random()
+            EventStore.insertSeries(
+                id = seriesId,
+                rrule = rrule,
+                dtstart = input.startsAt,
+                timezone = seriesZone.id,
+                durationMinutes = durationMinutes,
+                splitFromSeriesId = null,
+                createdBy = current.memberId,
+                createdAt = now,
+            )
+            val createdIds =
+                EventSeriesMaterializer.materialize(
+                    seriesId = seriesId,
+                    rrule = rrule,
+                    dtstart = input.startsAt,
+                    zone = seriesZone,
+                    durationMinutes = durationMinutes,
+                    template = input,
+                    createdBy = current.memberId,
+                    now = now,
+                )
+            val firstEvent =
+                EventStore
+                    .getEventOrThrow(
+                        createdIds.first(),
+                    ).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
+            EventSeriesCreateResultDto(
+                seriesId = seriesId.toString(),
+                createdEventIds = createdIds.map { it.toString() },
+                firstEvent = firstEvent,
+            )
+        }
+    }
+
+    override suspend fun impactOfSeriesEdit(
+        eventId: String,
+        scope: EventSeriesEditScope,
+    ): EventSeriesImpactDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinSeriesPreviewRate(current.memberId)
+        val id = eventId.toEventUuid()
+        return transaction {
+            computeSeriesImpact(id = id, scope = scope).impact
+        }
+    }
+
+    override suspend fun updateSeriesEvent(
+        eventId: String,
+        input: EventInput,
+        scope: EventSeriesEditScope,
+    ): EventSeriesEditResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        val now = DbClock.nowLocalDateTime()
+        EventPolicy.validate(input = input, now = now)
+        val id = eventId.toEventUuid()
+        val durationMinutes = minutesBetween(startsAt = input.startsAt, endsAt = input.endsAt)
+        return transaction {
+            val (_, scopePlan, seriesId) = computeSeriesImpact(id = id, scope = scope)
+            val result =
+                EventSeriesMaterializer.applyEdit(
+                    scope = scope,
+                    scopePlan = scopePlan,
+                    seriesId = seriesId,
+                    newTemplate = input,
+                    durationMinutes = durationMinutes,
+                    createdBy = current.memberId,
+                    now = now,
+                )
+            EventSeriesEditResultDto(
+                affectedEventCount = result.affectedEventIds.size,
+                affectedRegistrationCount = EventStore.countActiveRegistrationsForEvents(result.affectedEventIds),
+            )
+        }
+    }
+
+    override suspend fun cancelSeriesEvent(
+        eventId: String,
+        scope: EventSeriesEditScope,
+        reason: String,
+    ): EventSeriesEditResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        if (reason.isBlank()) throw BadRequestException("Begründung ist erforderlich.")
+        val now = DbClock.nowLocalDateTime()
+        val id = eventId.toEventUuid()
+        val (dtoResult, notices, eventTitle) =
+            transaction {
+                val (_, scopePlan, seriesId, title) = computeSeriesImpact(id = id, scope = scope)
+                val result = EventSeriesMaterializer.deleteOrCancel(scope = scope, scopePlan = scopePlan, seriesId = seriesId, now = now)
+                Triple(
+                    EventSeriesEditResultDto(
+                        affectedEventCount = result.affectedEventIds.size,
+                        affectedRegistrationCount = result.notices.size,
+                    ),
+                    result.notices,
+                    title,
+                )
+            }
+        notices.forEach { notice ->
+            mailEventCancelled(
+                notice = EventCancellationNotice(to = notice.to, recipientName = notice.recipientName),
+                eventTitle = eventTitle,
+                reason = reason,
+            )
+        }
+        return dtoResult
+    }
+
+    /**
+     * The full result of [computeSeriesImpact]: the impact DTO plus everything a caller needs to
+     * carry out the actual edit/cancel -- [seriesId] and [title], both read from the SAME locked row
+     * [computeSeriesImpact] already fetched, so a caller never needs (and must never perform) a
+     * second, separate, unlocked re-read of the event row to get at them (see [computeSeriesImpact]
+     * KDoc for why that second read used to be a real TOCTOU gap).
+     */
+    private data class SeriesImpactComputation(
+        val impact: EventSeriesImpactDto,
+        val scopePlan: EventSeriesScopeEngine.ScopePlan,
+        val seriesId: Uuid,
+        val title: String,
+    )
+
+    /**
+     * Shared helper: locates [id]'s series + resolves [EventSeriesScopeEngine.plan] for [scope] --
+     * used by [impactOfSeriesEdit]/[updateSeriesEvent]/[cancelSeriesEvent] so the impact numbers are
+     * ALWAYS server-recomputed, never trusted from a prior client-visible call (TOCTOU safety). Must
+     * run inside an open transaction.
+     *
+     * Review MAJOR fix (Runde 1): this used to read the `event` row via the unlocked
+     * [EventStore.getEventOrThrow], and every caller then performed a SECOND, separately unlocked
+     * [EventStore.getEventOrThrow] of the very same row to obtain `seriesId` (and, for
+     * [cancelSeriesEvent], `title`) for the subsequent [EventSeriesMaterializer.applyEdit]/
+     * [EventSeriesMaterializer.deleteOrCancel] call. Between those two reads, nothing prevented a
+     * concurrent transaction (e.g. another admin's [EventSeriesEditScope.FOLLOWING] split on an
+     * earlier occurrence of the SAME series, which re-points `event.series_id` for every occurrence
+     * from [targetOriginalStart] onward via [EventStore.repointSeriesId]) from committing a change to
+     * this very row's `series_id` in that window.
+     *
+     * Review MINOR fix (Runde 2, lock-ordering/deadlock): the Runde-1 fix closed that window by
+     * taking [EventStore.lockEventForUpdate] on the CLICKED row alone, ONCE, right here, before the
+     * caller ever reaches [EventSeriesMaterializer.applyEdit]/[EventSeriesMaterializer.deleteOrCancel]
+     * -- but those two lock every AFFECTED row (which always includes the clicked one, see
+     * [EventSeriesScopeEngine.plan]'s KDoc) in a SEPARATE, later pass in ascending-UUID order
+     * ("deadlock avoidance for concurrent series edits", see their own KDoc). Locking the clicked row
+     * here FIRST, independently of where it falls in that ascending order, broke the series' single
+     * global lock order whenever the clicked row was not itself the lowest UUID of the affected set:
+     * two admins editing overlapping occurrences of the same series (e.g. admin 1 on occurrence C,
+     * admin 2 on occurrence A, with A < C) could each hold their own clicked-row lock while waiting
+     * on the other's -- a genuine `deadlock detected` from Postgres, surfaced to one admin as an
+     * unexpected failure.
+     *
+     * Fixed by locking the ENTIRE affected set -- including the clicked row -- in exactly ONE
+     * ascending-UUID pass, here, matching [EventSeriesMaterializer.applyEdit]/`.deleteOrCancel`'s own
+     * discipline (their subsequent per-row [EventStore.lockEventForUpdate] calls become harmless
+     * re-locks of a row this transaction already holds). Since the affected set depends on data
+     * ([EventSeriesScopeEngine.plan]'s output) read BEFORE any lock is held, this re-checks the
+     * clicked row under lock afterwards and retries the whole computation (bounded) if a concurrent
+     * commit changed it in the meantime -- the same TOCTOU guarantee as before, just without
+     * re-introducing an out-of-order lock.
+     */
+    private fun computeSeriesImpact(
+        id: Uuid,
+        scope: EventSeriesEditScope,
+    ): SeriesImpactComputation {
+        repeat(MAX_SERIES_IMPACT_LOCK_ATTEMPTS) {
+            val snapshot = EventStore.getEventOrThrow(id)
+            val seriesId = snapshot[EventTable.seriesId] ?: throw ConflictException("Dieser Termin gehört zu keiner Serie.")
+            if (snapshot[EventTable.seriesDetached]) {
+                throw ConflictException("Dieser Termin wurde bereits aus der Serie gelöst.")
+            }
+            val originalStart =
+                snapshot[EventTable.seriesOriginalStart] ?: throw ConflictException("Serien-Termin ohne series_original_start.")
+            val series = EventStore.getSeriesOrThrow(seriesId)
+            val scopePlan =
+                EventSeriesScopeEngine.plan(
+                    scope = scope,
+                    rrule = series[EventSeriesTable.rrule],
+                    dtstart = series[EventSeriesTable.dtstart],
+                    zone = seriesZone,
+                    targetOriginalStart = originalStart,
+                )
+            val affectedRowsUnlocked =
+                EventStore.findSeriesEventsByOriginalStarts(
+                    seriesId = seriesId,
+                    originalStarts = scopePlan.affectedOriginalStarts,
+                )
+            // Single ascending-UUID lock pass over the WHOLE affected set (clicked row included) --
+            // see KDoc above for why the clicked row must never be locked separately/first.
+            val idsToLock = (affectedRowsUnlocked.map { it[EventTable.id] } + id).distinct().sortedBy { it.toString() }
+            idsToLock.forEach { EventStore.lockEventForUpdate(it) }
+
+            // Re-check the clicked row UNDER LOCK: a concurrent transaction may have committed a
+            // `repointSeriesId`/detach between the unlocked snapshot above and the locks just taken.
+            // If so, the scope plan just computed may no longer be valid for the clicked row -- retry
+            // from a fresh snapshot instead of handing the caller a plan built against stale data.
+            val lockedRow = EventStore.getEventOrThrow(id)
+            if (lockedRow[EventTable.seriesId] != seriesId ||
+                lockedRow[EventTable.seriesDetached] ||
+                lockedRow[EventTable.seriesOriginalStart] != originalStart
+            ) {
+                return@repeat
+            }
+
+            val affectedIds = affectedRowsUnlocked.map { it[EventTable.id] }
+            val isFirstOccurrence = originalStart == series[EventSeriesTable.dtstart]
+            return SeriesImpactComputation(
+                impact =
+                    EventSeriesImpactDto(
+                        affectedEventCount = affectedIds.size,
+                        affectedRegistrationCount = EventStore.countActiveRegistrationsForEvents(affectedIds),
+                        isFirstOccurrence = isFirstOccurrence,
+                        ruleChanged = false,
+                    ),
+                scopePlan = scopePlan,
+                seriesId = seriesId,
+                title = lockedRow[EventTable.title],
+            )
+        }
+        throw ConflictException(
+            "Dieser Serien-Termin wurde zwischenzeitlich von einer anderen Bearbeitung verändert -- bitte erneut versuchen.",
+        )
+    }
+
+    private fun minutesBetween(
+        startsAt: LocalDateTime,
+        endsAt: LocalDateTime,
+    ): Int {
+        val start = startsAt.toJavaLocalDateTime()
+        val end = endsAt.toJavaLocalDateTime()
+        return java.time.Duration
+            .between(start, end)
+            .toMinutes()
+            .toInt()
+    }
+
+    private fun requireWithinSeriesPreviewRate(memberId: Uuid) {
+        if (!seriesPreviewRateLimiter.checkAndRecord("member:$memberId")) {
+            throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
+        }
+    }
+
     private fun requireWithinRate(memberId: Uuid) {
         if (!writeRateLimiter.checkAndRecord("member:$memberId")) {
             throw ConflictException("Zu viele Anfragen -- bitte spaeter erneut versuchen.")
@@ -778,6 +1126,19 @@ private fun ResultRow.toEventDto(
             null
         }
     val roomId = this[EventTable.roomId]
+    val seriesId = this[EventTable.seriesId]
+    val seriesDetached = this[EventTable.seriesDetached]
+    val seriesRuleSummary =
+        if (seriesId != null && !seriesDetached) {
+            EventStore.getSeriesOrNull(seriesId)?.let { seriesRow ->
+                runCatching {
+                    val parsed = RecurrenceRuleBuilder.parseWhitelisted(seriesRow[EventSeriesTable.rrule])
+                    RecurrenceSentence.frequencyOnly(parsed)
+                }.getOrNull()
+            }
+        } else {
+            null
+        }
     return EventDto(
         id = id.toString(),
         slug = slug,
@@ -802,6 +1163,9 @@ private fun ResultRow.toEventDto(
         roomId = roomId?.toString(),
         roomName = EventRoomStore.roomNameOrNull(roomId),
         coverImageUrl = EventCoverPolicy.coverImageUrl(baseUrl = baseUrl, slug = slug, coverImageId = this[EventTable.coverImageId]),
+        seriesId = seriesId?.toString(),
+        seriesDetached = seriesDetached,
+        seriesRuleSummary = seriesRuleSummary,
     )
 }
 

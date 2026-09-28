@@ -252,6 +252,7 @@ class EventInvoiceIssuanceTest :
                     mailDispatcher = mailDispatcher,
                     writeRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
                     checkInRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
+                    seriesPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
                 )
             post("/test/event-invoice/issue") {
                 val p = call.request.queryParameters
