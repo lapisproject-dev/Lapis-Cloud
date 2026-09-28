@@ -126,7 +126,13 @@ private val SUPPORTED_LANGUAGES =
         "ru" to "Русский",
     )
 
-private const val LANGUAGE_STORAGE_KEY = "lapis-cloud-language"
+// `internal`, not `private` -- same reasoning as `LanguageChange.kt`'s `requestLanguageChange`
+// parameters ("the parameters with defaults are the test seams"): `LanguagePersistenceDomTest`
+// asserts directly against this key/these two functions to pin down the "language survives a
+// screen/view change" regression guard, rather than re-deriving the storage key as a duplicated
+// literal string the way `index.html`'s theme-flash-prevention script necessarily does (that file
+// is plain HTML, this one is not).
+internal const val LANGUAGE_STORAGE_KEY = "lapis-cloud-language"
 
 /**
  * Reads a previously saved language choice from `localStorage`, falling back to German -- NOT
@@ -136,10 +142,10 @@ private const val LANGUAGE_STORAGE_KEY = "lapis-cloud-language"
  * to a fixed default here, rather than autodetecting, keeps the vault's own written-language
  * convention as the app's actual default too.
  */
-private fun initialLanguage(): String = localStorage[LANGUAGE_STORAGE_KEY] ?: "de"
+internal fun initialLanguage(): String = localStorage[LANGUAGE_STORAGE_KEY] ?: "de"
 
 /** Persists the choice and triggers [io.kvision.i18n.I18n]'s own live-retranslate-in-place. */
-private fun setLanguage(code: String) {
+internal fun setLanguage(code: String) {
     localStorage[LANGUAGE_STORAGE_KEY] = code
     I18n.language = code
 }
