@@ -79,6 +79,8 @@ internal object PublicLandingHtml {
         branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
         /** Sprachumschalter-Welle -- Default Deutsch. */
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String {
         val strings = PublicChrome.stringsFor(lang)
         return createHTML(prettyPrint = false).html {
@@ -92,6 +94,7 @@ internal object PublicLandingHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = "/",
+                        nav = nav,
                     )
                 }
                 renderHero(baseUrl = baseUrl, branding = branding, strings = strings)

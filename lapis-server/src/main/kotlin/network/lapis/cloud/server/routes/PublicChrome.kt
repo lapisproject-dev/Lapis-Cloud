@@ -79,6 +79,19 @@ internal data class PublicUiStrings(
     val navHome: String,
     val navTransparency: String,
     val navSocial: String,
+    /**
+     * Welle V1.9.11 "Öffentliche Icon-Navigation" -- `aria-label` of the `<nav class="chrome-nav">`
+     * element itself (distinct from [navHome] etc., which label the individual links inside it).
+     */
+    val navMain: String,
+    /** Welle V1.9.11 -- `aria-label`/tooltip text AND `<h1>` of `GET /aktuelles`, see [PublicOverviewHtml]. */
+    val navArticles: String,
+    /** Welle V1.9.11 -- `aria-label`/tooltip text AND `<h1>` of `GET /veranstaltungen`, see [PublicOverviewHtml]. */
+    val navEvents: String,
+    /** Welle V1.9.11 -- empty-state text on `GET /aktuelles` when no article is published yet. */
+    val articlesEmpty: String,
+    /** Welle V1.9.11 -- empty-state text on `GET /veranstaltungen` when no event is upcoming. */
+    val eventsEmpty: String,
     val login: String,
     val register: String,
     val languageLabel: String,
@@ -165,6 +178,11 @@ internal object PublicChrome {
                     navHome = "Startseite",
                     navTransparency = "Transparenz",
                     navSocial = "Soziales Netzwerk",
+                    navMain = "Hauptnavigation",
+                    navArticles = "Aktuelles",
+                    navEvents = "Veranstaltungen",
+                    articlesEmpty = "Noch keine veröffentlichten Artikel.",
+                    eventsEmpty = "Derzeit keine bevorstehenden Veranstaltungen.",
                     login = "Anmelden",
                     register = "Mitglied werden",
                     languageLabel = "Sprache",
@@ -210,6 +228,11 @@ internal object PublicChrome {
                     navHome = "Home",
                     navTransparency = "Transparency",
                     navSocial = "Social network",
+                    navMain = "Main navigation",
+                    navArticles = "News",
+                    navEvents = "Events",
+                    articlesEmpty = "No published articles yet.",
+                    eventsEmpty = "No upcoming events at the moment.",
                     login = "Log in",
                     register = "Become a member",
                     languageLabel = "Language",
@@ -255,6 +278,11 @@ internal object PublicChrome {
                     navHome = "Accueil",
                     navTransparency = "Transparence",
                     navSocial = "Réseau social",
+                    navMain = "Navigation principale",
+                    navArticles = "Actualités",
+                    navEvents = "Événements",
+                    articlesEmpty = "Aucun article publié pour le moment.",
+                    eventsEmpty = "Aucun événement à venir pour le moment.",
                     login = "Se connecter",
                     register = "Devenir membre",
                     languageLabel = "Langue",
@@ -300,6 +328,11 @@ internal object PublicChrome {
                     navHome = "Inicio",
                     navTransparency = "Transparencia",
                     navSocial = "Red social",
+                    navMain = "Navegación principal",
+                    navArticles = "Noticias",
+                    navEvents = "Eventos",
+                    articlesEmpty = "Todavía no hay artículos publicados.",
+                    eventsEmpty = "No hay eventos próximos por el momento.",
                     login = "Iniciar sesión",
                     register = "Hacerse miembro",
                     languageLabel = "Idioma",
@@ -345,6 +378,11 @@ internal object PublicChrome {
                     navHome = "Home",
                     navTransparency = "Trasparenza",
                     navSocial = "Rete sociale",
+                    navMain = "Navigazione principale",
+                    navArticles = "Notizie",
+                    navEvents = "Eventi",
+                    articlesEmpty = "Nessun articolo pubblicato per ora.",
+                    eventsEmpty = "Nessun evento in programma al momento.",
                     login = "Accedi",
                     register = "Diventa membro",
                     languageLabel = "Lingua",
@@ -390,6 +428,11 @@ internal object PublicChrome {
                     navHome = "Startpagina",
                     navTransparency = "Transparantie",
                     navSocial = "Sociaal netwerk",
+                    navMain = "Hoofdnavigatie",
+                    navArticles = "Nieuws",
+                    navEvents = "Evenementen",
+                    articlesEmpty = "Nog geen gepubliceerde artikelen.",
+                    eventsEmpty = "Op dit moment geen aankomende evenementen.",
                     login = "Aanmelden",
                     register = "Lid worden",
                     languageLabel = "Taal",
@@ -435,6 +478,11 @@ internal object PublicChrome {
                     navHome = "Strona główna",
                     navTransparency = "Przejrzystość",
                     navSocial = "Sieć społecznościowa",
+                    navMain = "Nawigacja główna",
+                    navArticles = "Aktualności",
+                    navEvents = "Wydarzenia",
+                    articlesEmpty = "Brak opublikowanych artykułów.",
+                    eventsEmpty = "Obecnie brak nadchodzących wydarzeń.",
                     login = "Zaloguj się",
                     register = "Zostań członkiem",
                     languageLabel = "Język",
@@ -480,6 +528,11 @@ internal object PublicChrome {
                     navHome = "Главная",
                     navTransparency = "Прозрачность",
                     navSocial = "Социальная сеть",
+                    navMain = "Главная навигация",
+                    navArticles = "Новости",
+                    navEvents = "Мероприятия",
+                    articlesEmpty = "Пока нет опубликованных статей.",
+                    eventsEmpty = "В настоящее время нет предстоящих мероприятий.",
                     login = "Войти",
                     register = "Стать участником",
                     languageLabel = "Язык",
@@ -524,8 +577,12 @@ internal object PublicChrome {
 
     fun stringsFor(lang: PublicLanguage): PublicUiStrings = STRINGS.getValue(lang)
 
-    /** Which of the three route families' nav entries (if any) is the "you are here" page. */
-    internal enum class NavTarget { HOME, TRANSPARENCY, SOCIAL }
+    /**
+     * Which nav entry (if any) is the "you are here" page. [ARTICLES]/[EVENTS] (Welle V1.9.11) are
+     * the two OPTIONAL tabs -- see [PublicNavAvailability] -- rendered only when the corresponding
+     * overview is non-empty; every OTHER value here is always rendered.
+     */
+    internal enum class NavTarget { HOME, TRANSPARENCY, SOCIAL, ARTICLES, EVENTS }
 
     /**
      * `"$baseUrl$currentPath"`, with a `?lang=`/`&lang=` suffix appended UNLESS [lang] is
@@ -545,6 +602,23 @@ internal object PublicChrome {
     }
 
     /**
+     * Welle V1.9.11 -- one icon-only nav link: no text node, `aria-label` for the accessible name AND
+     * the CSS tooltip ([SocialPublicHtml.STYLESHEET] `::after { content: attr(aria-label) }`), NO
+     * `title=` (see [renderChrome] KDoc guarantee 2), `aria-current="page"` when [isActive].
+     */
+    private fun FlowContent.navLink(
+        href: String,
+        cssClass: String,
+        label: String,
+        isActive: Boolean,
+    ) {
+        a(href = href, classes = cssClass) {
+            attributes["aria-label"] = label
+            if (isActive) attributes["aria-current"] = "page"
+        }
+    }
+
+    /**
      * Renders the skip-link + `<header class="chrome">` -- the caller emits these as the FIRST
      * children of `<body class="has-chrome">`, before its own `<main id="main">`. [currentPath] is
      * used ONLY to build the language-switcher links ([languageUrl]) -- never echoed back into any
@@ -558,6 +632,49 @@ internal object PublicChrome {
      * konsequent überall. Jetzt einheitlich: "Mitglied werden" bleibt ausschließlich der primäre
      * Hero-CTA von `/`, der Kopfbereich zeigt nur noch den seitenübergreifend sinnvollen "Anmelden"-
      * Link. [PublicUiStrings.register] selbst bleibt im Datensatz (weiterhin vom Hero verwendet).
+     *
+     * **Welle V1.9.11 "Öffentliche Icon-Navigation"**: the nav switched from text links to
+     * ICON-ONLY links (Kare/Ive/Jobs Design-Team-Review) -- each `<a>` carries NO text node at all,
+     * only an `aria-label` (read by a screen reader) and a CSS-only tooltip
+     * (`::after { content: attr(aria-label) }`, see [SocialPublicHtml.STYLESHEET]) that appears on
+     * `:hover`/`:focus-visible`. Four guarantees this makes to every future caller of this function
+     * (Jobs' closing review):
+     *
+     * 1. **Never a silent icon-only trap** -- every link's meaning is ALWAYS available via
+     *    `aria-label`, never solely via the decorative icon. Known residual gap, flagged in review
+     *    (V1.9.11 follow-up), not yet resolved: on touch devices (`@media (hover: hover)` excludes
+     *    them, see stylesheet), tapping a link does not reliably trigger `:focus-visible`, so a
+     *    sighted touch user never sees the text tooltip either -- only the screen reader gets the
+     *    `aria-label`. This guarantee still holds for assistive tech; it does NOT yet hold for
+     *    sighted touch users relying on icon recognition alone. Needs a deliberate Design-Team
+     *    decision (Kare/Ive/Jobs) before being fixed, e.g. always-visible labels in the `@media
+     *    (max-width: 30rem)` full-width nav row.
+     * 2. **No `title=` attribute** -- a native browser tooltip would double up with the CSS one and
+     *    behave inconsistently across browsers; the CSS `::after` tooltip is the ONE tooltip.
+     * 3. **Keyboard-reachable tooltip** -- `:focus-visible` shows the SAME tooltip `:hover` shows
+     *    (see stylesheet), so a keyboard user is never worse off than a mouse user. Known residual
+     *    gap: the tooltip cannot be dismissed with Escape without JavaScript (WCAG 1.4.13) -- this
+     *    page has no script on this path (`/`'s hash-bridge is the one narrow exception, unrelated to
+     *    this nav), so this is accepted, not fixed, in this wave.
+     * 4. **Fixed link order, bound to CSS CLASSES not `:nth-child`** (`.nav-home`, `.nav-transparency`,
+     *    `.nav-social`, `.nav-articles`, `.nav-events`) -- Raskin/Atkinson: [NavTarget.ARTICLES]/
+     *    [NavTarget.EVENTS] are CONDITIONAL (only present in the DOM when [nav] says so), so an
+     *    `:nth-child`-indexed icon rule (the pre-V1.9.11 scheme) would silently apply the WRONG icon
+     *    to whichever link happens to occupy that position once a conditional tab is missing.
+     *
+     * [nav] (Welle V1.9.11) decides whether the two OPTIONAL tabs (`/aktuelles`, `/veranstaltungen`)
+     * appear at all -- see [PublicNavAvailability] KDoc. Every error page passes
+     * [PublicNavAvailability.NONE] (never touches the DB, see that value's own KDoc "Fehlerseiten").
+     * Deliberately NO default value for this parameter (Breaking Change, bewusst) -- a caller that
+     * forgets to pass it is a production bug (an always-empty nav), not a test convenience case, same
+     * discipline `registerSocialPublicRoutes`'s `branding` parameter already establishes.
+     *
+     * Review fix (V1.9.11 follow-up): ALL five links -- the three fixed ones (`.nav-home`,
+     * `.nav-transparency`, `.nav-social`) and the two conditional ones -- now carry `?lang=` via
+     * [languageUrl] when [lang] is not [PublicLanguage.DEFAULT]. Before this fix only the two
+     * conditional tabs did, so navigating from an `?lang=en` page via "Home"/"Transparenz"/"Sozial"
+     * silently dropped back to German. `/`'s home link uses `currentPath = ""` (not `"/"`) so that
+     * [PublicLanguage.DEFAULT] still renders the bare `baseUrl`, byte-identical to before this fix.
      */
     fun FlowContent.renderChrome(
         lang: PublicLanguage,
@@ -565,6 +682,7 @@ internal object PublicChrome {
         baseUrl: String,
         branding: ResolvedBranding,
         currentPath: String,
+        nav: PublicNavAvailability,
     ) {
         val strings = stringsFor(lang)
         a(href = "#main", classes = "skip-link") { +strings.skipToContent }
@@ -580,18 +698,44 @@ internal object PublicChrome {
                     }
                 }
                 nav(classes = "chrome-nav") {
-                    attributes["aria-label"] = strings.navHome
-                    a(href = baseUrl) {
-                        if (active == NavTarget.HOME) attributes["aria-current"] = "page"
-                        +strings.navHome
+                    attributes["aria-label"] = strings.navMain
+                    navLink(
+                        // currentPath = "" (not "/"): keeps `href == baseUrl` byte-for-byte for
+                        // [PublicLanguage.DEFAULT] (no gratuitous trailing slash on the common case),
+                        // while still appending `?lang=xx` for every other language -- see
+                        // [languageUrl] KDoc.
+                        href = languageUrl(baseUrl = baseUrl, currentPath = "", lang = lang),
+                        cssClass = "nav-home",
+                        label = strings.navHome,
+                        isActive = active == NavTarget.HOME,
+                    )
+                    navLink(
+                        href = languageUrl(baseUrl = baseUrl, currentPath = "/transparenz", lang = lang),
+                        cssClass = "nav-transparency",
+                        label = strings.navTransparency,
+                        isActive = active == NavTarget.TRANSPARENCY,
+                    )
+                    navLink(
+                        href = languageUrl(baseUrl = baseUrl, currentPath = "/s", lang = lang),
+                        cssClass = "nav-social",
+                        label = strings.navSocial,
+                        isActive = active == NavTarget.SOCIAL,
+                    )
+                    if (nav.articles) {
+                        navLink(
+                            href = languageUrl(baseUrl = baseUrl, currentPath = "/aktuelles", lang = lang),
+                            cssClass = "nav-articles",
+                            label = strings.navArticles,
+                            isActive = active == NavTarget.ARTICLES,
+                        )
                     }
-                    a(href = "$baseUrl/transparenz") {
-                        if (active == NavTarget.TRANSPARENCY) attributes["aria-current"] = "page"
-                        +strings.navTransparency
-                    }
-                    a(href = "$baseUrl/s") {
-                        if (active == NavTarget.SOCIAL) attributes["aria-current"] = "page"
-                        +strings.navSocial
+                    if (nav.events) {
+                        navLink(
+                            href = languageUrl(baseUrl = baseUrl, currentPath = "/veranstaltungen", lang = lang),
+                            cssClass = "nav-events",
+                            label = strings.navEvents,
+                            isActive = active == NavTarget.EVENTS,
+                        )
                     }
                 }
                 details(classes = "chrome-lang") {

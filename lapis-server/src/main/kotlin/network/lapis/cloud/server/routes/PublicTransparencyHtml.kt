@@ -60,6 +60,8 @@ internal object PublicTransparencyHtml {
         branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
         /** Sprachumschalter-Welle -- Default Deutsch. */
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String {
         val strings = PublicChrome.stringsFor(lang)
         val currentPath = "/transparenz"
@@ -74,6 +76,7 @@ internal object PublicTransparencyHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = currentPath,
+                        nav = nav,
                     )
                 }
                 main {

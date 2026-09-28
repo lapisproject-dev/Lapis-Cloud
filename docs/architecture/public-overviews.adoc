@@ -1,0 +1,83 @@
+= Public Overview Pages — Welle V1.9.11
+:description: GET /aktuelles and GET /veranstaltungen — server-rendered, index,follow overviews of published articles and upcoming public events, linked from the new icon-only chrome tabs.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Before this wave, a published article or an upcoming public event had a detail page
+(`GET /aktuelles/{slug}`, `GET /veranstaltung/{slug}`), but no public, human-readable
+overview listing them. The only machine-readable overviews were the Embed JSON feeds
+(`GET /api/embed/v1/articles`, `GET /api/embed/v1/events`) — gated behind
+`LAPIS_EMBED_ENABLED`, CORS-restricted to allow-listed partner origins, and JSON, not
+HTML. `PublicNavAvailability` (see
+xref:public-chrome.adoc#icon-navigation[Public Chrome § icon-only navigation]) needed a
+same-shape HTML page to point its two new, conditional chrome tabs at.
+
+== `PublicOverviewHtml.kt`
+
+Renders both pages from the SAME `internal object`, mirroring `PublicLandingHtml`'s own
+shape:
+
+* `ArticleItem(title, slug, publishedAt)` / `EventItem(title, slug, startsAt)` — narrow
+  view models, same data-minimization-by-construction discipline `PublicPostView`
+  establishes: no excerpt, no author, no location, no capacity — only what the list needs.
+* `articlesPage(items, baseUrl, branding, lang, nav)` / `eventsPage(...)` — `index,follow`,
+  canonical link, 8-language `hreflang` alternates, the shared chrome
+  (`active = NavTarget.ARTICLES`/`EVENTS`), an `<h1>` = the chrome's own `navArticles`/
+  `navEvents` string, then either the empty-state text (`articlesEmpty`/`eventsEmpty`) or
+  a `ul.rank-list` (the SAME class the transparency rankings already use — no new CSS).
+* List entries are **always** `lang="de"` with a German date (`germanDate`) — `hreflang="de"`
+  on the entry's own `<a>` — regardless of the surrounding chrome's language: both detail
+  pages this list links to are themselves single-language German pages (see
+  `ArticlePublicHtml`/`EventPublicHtml` class KDoc), so the list entry matches what the
+  reader lands on. Only the chrome around it is translated.
+
+`germanDate`/`germanTime` moved out of `ArticlePublicHtml` into a new, shared
+`GermanDateFormat.kt` — `ArticlePublicHtml`'s detail page and both overview pages now
+call the same top-level functions, never two independently-drifting copies.
+
+== Routes
+
+`PublicArticlesOverviewRoutes.kt` (`GET /aktuelles`) and `PublicEventsOverviewRoutes.kt`
+(`GET /veranstaltungen`) reuse the exact same shared plumbing every other public-HTML
+route family in this package does (`withPublicErrorHandling`/`respondPublicCacheable`/
+`respondPublicTooManyRequests`/`respondPublicCanonicalRedirect`/
+`hasOnlyAllowedQueryParams`/`HTML_CONTENT_TYPE`/`rateLimitKeyFor`) — never a second,
+driftable copy. Same "Ablauf" shape as `registerPublicLandingRoutes`: error handling →
+own rate limiter → canonical-URL guard (`lang` is the only allowed query parameter) → a
+30-second, per-`PublicLanguage` TTL-memoized rendered body (mirrors `PublicLandingRoutes`'
+own body memo, same rationale — see that file's KDoc "Body memoization") → on a cache
+miss, one short `transaction {}` loading the rows → transaction closed → render outside
+of it → ETag/304.
+
+* `/aktuelles`: `ArticleStore.listPublishedNewestFirst(limit = 20)`, newest first. A row
+  whose `slug`/`publishedAt` is `null`, or whose `slug` does not match
+  `COVER_SLUG_PATTERN`, is skipped (logged at `warn`, id only) rather than rendered —
+  defense in depth: both columns are nullable at the DB layer, but a `PUBLISHED`
+  article's application-level invariant is that both are always set.
+* `/veranstaltungen`: `EventIcsFeed.loadUpcomingPublicPublished(now, limit = 50)` — the
+  SAME query `GET /veranstaltung.ics` already uses (`visibility = PUBLIC AND status =
+  PUBLISHED AND ends_at > now`, ascending by `starts_at`). `EventTable.slug` is not
+  nullable, but the slug-pattern check still applies (defense in depth, same posture as
+  the articles side).
+
+Both routes are registered directly after `registerPublicLandingRoutes` in
+`Application.kt`, before `staticFiles` — "literal beats catch-all", same reasoning as
+every other public-HTML route family.
+
+== Limitations (documented, not defects)
+
+* No pagination — hard-capped at 20 articles / 50 events.
+* No images, no excerpt, no location/capacity.
+* No sitemap entry for either page in this wave.
+* The DETAIL pages (`/aktuelles/{slug}`, `/veranstaltung/{slug}`) still carry no chrome —
+  a reader who clicks through from the overview loses the navigation until a later wave
+  adds it there too.
+
+== See also
+
+xref:public-chrome.adoc#icon-navigation[Public Chrome § icon-only navigation +
+`PublicNavAvailability`] — the provider deciding whether these two tabs (and therefore
+these two routes) are ever linked to from the chrome.

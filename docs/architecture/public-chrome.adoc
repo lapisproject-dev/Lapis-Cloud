@@ -24,6 +24,10 @@ NOTE: V1.4.7 "Rechtstexte" extended this to **five** route families — `GET /im
 and `GET /datenschutz` (see xref:legal-pages.adoc[]) share the same chrome and the same
 footer helper described below.
 
+NOTE: V1.9.11 "Öffentliche Icon-Navigation" extended this again to **seven** route
+families — `GET /aktuelles` and `GET /veranstaltungen` — and switched the nav itself from
+text links to icon-only links. See <<icon-navigation,below>>.
+
 == `PublicChrome.kt`
 
 * `PublicLanguage` — an 8-value enum (`code`, `nativeName`), `DEFAULT = DE`. `parse(raw)`
@@ -39,10 +43,12 @@ footer helper described below.
   unambiguous match exists; `/transparenz`- and `/s`-specific strings have no SPA
   precedent and are best-effort translations, not yet reviewed by a native speaker of
   each language.
-* `renderChrome(lang, active, baseUrl, branding, currentPath)` — a `FlowContent`
+* `renderChrome(lang, active, baseUrl, branding, currentPath, nav)` — a `FlowContent`
   extension rendering the skip-link + `<header class="chrome">` (brand wordmark/logo,
   primary nav with `aria-current="page"` on the active entry, an 8-entry
-  `<details class="chrome-lang">` language switcher, login/register CTAs).
+  `<details class="chrome-lang">` language switcher, login/register CTAs). Since V1.9.11
+  the `nav: PublicNavAvailability` parameter is **required, no default** — see
+  <<icon-navigation,below>>.
 * `languageUrl(baseUrl, currentPath, lang)` — `"$baseUrl$currentPath"`, with a
   `?lang=`/`&lang=` suffix appended UNLESS `lang == PublicLanguage.DEFAULT` — German is
   the unparameterized, canonical default, the same "no `?page=1`" convention
@@ -121,6 +127,48 @@ uses `currentPath = "/s/{id}"`. `serverErrorPage` (the `withPublicErrorHandling`
 fallback) takes **no** `lang` parameter at all and always renders German chrome — an
 unexpected failure can strike before `lang` was ever parsed; `branding.logoAvailable`
 still flows through so the operator's logo renders correctly even on a 500.
+
+[#icon-navigation]
+== V1.9.11: icon-only navigation + `PublicNavAvailability`
+
+The primary nav switched from text links to **icon-only** links: each `<a>` carries no
+text node at all, only an `aria-label` (read by a screen reader) and a CSS-only tooltip
+(`.chrome-nav a::after { content: attr(aria-label); }`, in `SocialPublicHtml.STYLESHEET`)
+that appears on `:hover`/`:focus-visible`. Icons are bound to CSS **classes**
+(`.nav-home`, `.nav-transparency`, `.nav-social`, `.nav-articles`, `.nav-events`), never
+`:nth-child` — the two new tabs are conditional, so an index-based rule would silently
+apply the wrong icon to whichever link happens to occupy that position once a conditional
+tab is absent.
+
+Four guarantees this makes: (1) every link's meaning is always available via
+`aria-label`, never solely via the icon; (2) no `title=` attribute (would double up with
+the CSS tooltip); (3) `:focus-visible` shows the same tooltip `:hover` does, so a
+keyboard user is not worse off than a mouse user — the one known residual gap is that the
+tooltip cannot be dismissed with Escape without JavaScript (WCAG 1.4.13), accepted rather
+than fixed since this path carries no script; (4) fixed link order
+(`/`, `/transparenz`, `/s`, then the two conditional tabs), bound to classes as above.
+
+`PublicNavAvailability(articles: Boolean, events: Boolean)` (`PublicNavAvailability.kt`)
+decides whether `/aktuelles`/`/veranstaltungen` appear at all — a tab is shown iff its
+overview is non-empty. `loadPublicNavAvailability` runs two narrow `WHERE … LIMIT 1`
+existence checks that **must stay identical** to the filters the overview routes
+themselves use (`ArticleStore.listPublishedNewestFirst`'s `status = PUBLISHED`;
+`EventIcsFeed.loadUpcomingPublicPublished`'s `visibility = PUBLIC AND status = PUBLISHED
+AND ends_at > now`). `PublicNavAvailabilityProvider` memoizes the result for 30 seconds,
+process-lifetime, ONE shared instance across every public route family
+(`Application.kt`'s `publicNavAvailability`) — a lookup failure falls back to the
+previous snapshot (or `NONE`) and is never itself cached, so the next call retries
+immediately. Every error page (404/400/429/500) passes `PublicNavAvailability.NONE`
+without ever touching the DB.
+
+`registerLegalRoutes` is the one exception to "sampled per request": `/impressum`/
+`/datenschutz` precompute all 2 × 8 render variants once, at registration time (no DB
+access at all is this file's whole point) — `nav` is sampled once there too, so those two
+pages can lag up to a restart behind the other five on whether the optional tabs show.
+Documented limitation, not a defect.
+
+See <<public-overviews.adoc#,Public Overview Pages — Welle V1.9.11>> for `GET /aktuelles`
+and `GET /veranstaltungen` themselves.
 
 == Not part of this wave
 

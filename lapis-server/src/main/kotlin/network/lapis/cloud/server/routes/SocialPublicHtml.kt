@@ -176,36 +176,77 @@ internal object SocialPublicHtml {
         .chrome a { color: #EDEAE3; text-decoration: none; }
         .chrome-logo { max-height: 22px; width: auto; vertical-align: middle; }
         .chrome-wordmark { font-family: Georgia, serif; letter-spacing: 0.01em; }
-        .chrome-nav { display: flex; gap: 0.9rem; margin: 0; }
-        .chrome-nav a { display: inline-flex; align-items: center; border-bottom: 2px solid transparent; padding: 0.2rem 0; }
+        /* Welle V1.9.11 "Öffentliche Icon-Navigation" -- switched from text links to ICON-ONLY links
+           (Design-Team-Review, Kare/Ive/Jobs), see PublicChrome.renderChrome KDoc for the four
+           guarantees this makes. Bound to CSS CLASSES, never an index-based selector -- .nav-articles/.nav-events
+           are CONDITIONAL (only present when PublicNavAvailability says so), so an index-based rule
+           would silently apply the wrong icon once a conditional tab is absent (Raskin/Atkinson). */
+        .chrome-nav { display: flex; gap: 0.25rem; margin: 0; }
+        .chrome-nav a {
+            position: relative; display: inline-flex; align-items: center; justify-content: center;
+            width: 2.75rem; height: 2.75rem; padding: 0; border-bottom: 2px solid transparent;
+        }
         .chrome-nav a[aria-current="page"] { color: #C9A227; border-bottom-color: #C9A227; }
-        /* Nutzer-Feedback 2026-09-09: passende Icons je Reiter -- rein dekorativ (CSS
-           mask-image, kein <img>/<svg> im Markup), deshalb ohne jede a11y-Auswirkung: ein
-           Screenreader sieht weiterhin nur den Linktext. currentColor via background-color +
-           mask übernimmt automatisch die aktive-Seite-Goldfarbe (siehe Regel oben) ohne eigene
-           Farbregel je Icon. Feste nth-child-Reihenfolge, weil PublicChrome.renderChrome die
-           drei Links immer in genau dieser Reihenfolge rendert (Start/Transparenz/Soziales
-           Netzwerk) -- siehe dessen eigene KDoc. */
         .chrome-nav a::before {
-            content: ""; display: inline-block; width: 1.05em; height: 1.05em; margin-right: 0.4em;
+            content: ""; display: inline-block; width: 1.25rem; height: 1.25rem;
             background-color: currentColor;
             -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
             -webkit-mask-position: center; mask-position: center;
             -webkit-mask-size: contain; mask-size: contain;
             flex-shrink: 0;
         }
-        .chrome-nav a:nth-child(1)::before {
+        .nav-home::before {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10v9h13v-9'/%3E%3C/svg%3E");
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11.5 12 4l9 7.5'/%3E%3Cpath d='M5.5 10v9h13v-9'/%3E%3C/svg%3E");
         }
-        .chrome-nav a:nth-child(2)::before {
+        .nav-transparency::before {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 20V10M12 20V4M20 20v-7'/%3E%3C/svg%3E");
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 20V10M12 20V4M20 20v-7'/%3E%3C/svg%3E");
         }
-        .chrome-nav a:nth-child(3)::before {
+        .nav-social::before {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='3'/%3E%3Ccircle cx='17' cy='9' r='2.5'/%3E%3Cpath d='M3 20c0-3 2.5-5 5-5s5 2 5 5'/%3E%3Cpath d='M14.5 20c0-2.2 1.8-4 4-4s4 1.8 4 4'/%3E%3C/svg%3E");
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='3'/%3E%3Ccircle cx='17' cy='9' r='2.5'/%3E%3Cpath d='M3 20c0-3 2.5-5 5-5s5 2 5 5'/%3E%3Cpath d='M14.5 20c0-2.2 1.8-4 4-4s4 1.8 4 4'/%3E%3C/svg%3E");
         }
+        /* Welle V1.9.11 -- new /aktuelles ("News") and /veranstaltungen ("Events") tabs. */
+        .nav-articles::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='1'/%3E%3Cpath d='M8 9h8M8 13h8M8 17h4'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='1'/%3E%3Cpath d='M8 9h8M8 13h8M8 17h4'/%3E%3C/svg%3E");
+        }
+        .nav-events::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='15' rx='1'/%3E%3Cpath d='M4 9h16M8 3v4M16 3v4'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='15' rx='1'/%3E%3Cpath d='M4 9h16M8 3v4M16 3v4'/%3E%3C/svg%3E");
+        }
+        /* CSS-only tooltip (Welle V1.9.11 § 0.1 -- no Bootstrap on this path, no script): the
+           `aria-label` doubles as the tooltip TEXT (S9 -- fixed translation constants, never user
+           data, no injection path; a screen reader reads the aria-label, never this ::after content,
+           so there is no double-announcement). Positioned centered BELOW the icon (`top: calc(100%
+           + 0.3rem)`), with a transparent 0.3rem "bridge" so there is no dead gap between link and
+           bubble. Review fix (V1.9.11 follow-up): this used to open UPWARDS (`bottom: calc(100% +
+           0.3rem)`). `<header class="chrome">` sits at the very top of the document (not sticky,
+           `.chrome-inner` only has 0.6rem top padding), so above ~30rem viewport width -- where
+           `.chrome-nav` shares the header's first row instead of wrapping to its own row -- the
+           28px-tall bubble was clipped by the viewport top: only its bottom few pixels were visible,
+           making the tooltip unreadable for both `:hover` and `:focus-visible`. Opening downward
+           instead has room to spare (z-index:2 sits over main's top margin, which is fine). */
+        .chrome-nav a::after {
+            content: attr(aria-label); position: absolute; top: calc(100% + 0.3rem); left: 50%;
+            transform: translateX(-50%); padding: 0.3rem 0.6rem; border-radius: 0.3rem;
+            background: #1E242E; color: #EDEAE3; font-size: 0.75rem; white-space: nowrap;
+            opacity: 0; visibility: hidden; z-index: 2;
+        }
+        .chrome-nav a:first-child::after { left: 0; transform: none; }
+        .chrome-nav a:last-child::after { left: auto; right: 0; transform: none; }
+        .chrome-nav a:focus-visible {
+            outline: 2px solid #C9A227; outline-offset: 2px;
+        }
+        .chrome-nav a:focus-visible::after { opacity: 1; visibility: visible; transition-delay: 0s; }
+        @media (hover: hover) {
+            .chrome-nav a:hover::after {
+                opacity: 1; visibility: visible;
+                transition: opacity 0.12s ease 300ms, visibility 0s linear 300ms;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) { .chrome-nav a::after { transition: none; } }
         .chrome-lang { margin-left: auto; position: relative; }
         .chrome-lang summary {
             cursor: pointer; list-style: none; padding: 0.5rem 0.6rem; min-height: 44px;
@@ -378,6 +419,8 @@ internal object SocialPublicHtml {
         branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
         /** Sprachumschalter-Welle -- steuert Chrome UND Body-Text dieser Seite, Default Deutsch. */
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String {
         val strings = PublicChrome.stringsFor(lang)
         val pageTitle =
@@ -408,6 +451,7 @@ internal object SocialPublicHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = currentPath,
+                        nav = nav,
                     )
                 }
                 main {
@@ -460,6 +504,8 @@ internal object SocialPublicHtml {
         branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
         /** Sprachumschalter-Welle -- siehe [timelinePage]'s eigene `lang` KDoc. */
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String =
         createHTML(prettyPrint = false).html {
             val strings = PublicChrome.stringsFor(lang)
@@ -482,6 +528,7 @@ internal object SocialPublicHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = currentPath,
+                        nav = nav,
                     )
                 }
                 main {
@@ -549,7 +596,16 @@ internal object SocialPublicHtml {
                 ogType = null,
             )
             body(classes = "has-chrome") {
-                with(PublicChrome) { renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s") }
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = null,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = "/s",
+                        nav = PublicNavAvailability.NONE,
+                    )
+                }
                 main {
                     attributes["id"] = "main"
                     h1 { +"Nicht gefunden" }
@@ -577,7 +633,16 @@ internal object SocialPublicHtml {
                 ogType = null,
             )
             body(classes = "has-chrome") {
-                with(PublicChrome) { renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s") }
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = null,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = "/s",
+                        nav = PublicNavAvailability.NONE,
+                    )
+                }
                 main {
                     attributes["id"] = "main"
                     h1 { +"Zu viele Anfragen" }
@@ -613,7 +678,16 @@ internal object SocialPublicHtml {
                 ogType = null,
             )
             body(classes = "has-chrome") {
-                with(PublicChrome) { renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s") }
+                with(PublicChrome) {
+                    renderChrome(
+                        lang = lang,
+                        active = null,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = "/s",
+                        nav = PublicNavAvailability.NONE,
+                    )
+                }
                 main {
                     attributes["id"] = "main"
                     h1 { +"Ungültige Anfrage" }
@@ -651,7 +725,14 @@ internal object SocialPublicHtml {
             )
             body(classes = "has-chrome") {
                 with(PublicChrome) {
-                    renderChrome(lang = PublicLanguage.DEFAULT, active = null, baseUrl = baseUrl, branding = branding, currentPath = "/s")
+                    renderChrome(
+                        lang = PublicLanguage.DEFAULT,
+                        active = null,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = "/s",
+                        nav = PublicNavAvailability.NONE,
+                    )
                 }
                 main {
                     attributes["id"] = "main"
@@ -682,6 +763,8 @@ internal object SocialPublicHtml {
         baseUrl: String,
         branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String {
         val strings = PublicChrome.stringsFor(lang)
         val currentPath = "/s/${view.postId}"
@@ -702,6 +785,7 @@ internal object SocialPublicHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = currentPath,
+                        nav = nav,
                     )
                 }
                 main {
@@ -752,6 +836,8 @@ internal object SocialPublicHtml {
          * Deutsch, in ein `<div lang="de">` gewrappt, siehe diese Funktions-KDoc.
          */
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String =
         createHTML(prettyPrint = false).html {
             val strings = PublicChrome.stringsFor(lang)
@@ -772,6 +858,7 @@ internal object SocialPublicHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = currentPath,
+                        nav = nav,
                     )
                 }
                 main {
@@ -876,6 +963,8 @@ internal object SocialPublicHtml {
         baseUrl: String,
         branding: ResolvedBranding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
         lang: PublicLanguage = PublicLanguage.DEFAULT,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String =
         createHTML(prettyPrint = false).html {
             val strings = PublicChrome.stringsFor(lang)
@@ -895,6 +984,7 @@ internal object SocialPublicHtml {
                         baseUrl = baseUrl,
                         branding = branding,
                         currentPath = "/s",
+                        nav = nav,
                     )
                 }
                 main {

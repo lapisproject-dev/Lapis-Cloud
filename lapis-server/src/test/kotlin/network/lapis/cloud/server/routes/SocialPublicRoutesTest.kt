@@ -217,6 +217,7 @@ class SocialPublicRoutesTest :
                             sitemapRateLimiter = sitemapLimiter,
                             reportRateLimiter = reportLimiter,
                             branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                            navAvailability = PublicNavAvailabilityProvider(),
                         )
                     }
                 }

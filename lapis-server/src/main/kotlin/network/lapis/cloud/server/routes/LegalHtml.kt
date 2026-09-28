@@ -53,8 +53,17 @@ internal object LegalHtml {
         baseUrl: String,
         branding: ResolvedBranding,
         lang: PublicLanguage,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
     ): String =
-        skeleton(baseUrl = baseUrl, branding = branding, lang = lang, currentPath = "/impressum", pageTitle = "Impressum") {
+        skeleton(
+            baseUrl = baseUrl,
+            branding = branding,
+            lang = lang,
+            currentPath = "/impressum",
+            pageTitle = "Impressum",
+            nav = nav,
+        ) {
             renderImprintBody(legal = legal)
         }
 
@@ -69,6 +78,8 @@ internal object LegalHtml {
         baseUrl: String,
         branding: ResolvedBranding,
         lang: PublicLanguage,
+        /** Welle V1.9.11 -- see [PublicChrome.renderChrome] KDoc. No default -- see that KDoc "Breaking Change, bewusst". */
+        nav: PublicNavAvailability,
         aiAssistantEnabled: Boolean = false,
         keycloakEnabled: Boolean = false,
         mcpEnabled: Boolean = false,
@@ -79,6 +90,7 @@ internal object LegalHtml {
             lang = lang,
             currentPath = "/datenschutz",
             pageTitle = "Datenschutzerklärung",
+            nav = nav,
         ) {
             renderPrivacyBody(
                 legal = legal,
@@ -94,6 +106,7 @@ internal object LegalHtml {
         lang: PublicLanguage,
         currentPath: String,
         pageTitle: String,
+        nav: PublicNavAvailability,
         content: FlowContent.() -> Unit,
     ): String {
         val strings = PublicChrome.stringsFor(lang)
@@ -102,7 +115,14 @@ internal object LegalHtml {
             renderLegalHead(baseUrl = baseUrl, branding = branding, lang = lang, currentPath = currentPath, pageTitle = pageTitle)
             body(classes = "has-chrome") {
                 with(PublicChrome) {
-                    renderChrome(lang = lang, active = null, baseUrl = baseUrl, branding = branding, currentPath = currentPath)
+                    renderChrome(
+                        lang = lang,
+                        active = null,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        currentPath = currentPath,
+                        nav = nav,
+                    )
                 }
                 main {
                     attributes["id"] = "main"

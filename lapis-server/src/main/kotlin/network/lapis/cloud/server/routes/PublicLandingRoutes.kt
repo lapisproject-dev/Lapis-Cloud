@@ -72,6 +72,8 @@ fun Route.registerPublicLandingRoutes(
      * `registerSocialPublicRoutes`.
      */
     branding: ResolvedBranding,
+    /** Welle V1.9.11 -- shared, process-lifetime nav-availability provider, see [PublicNavAvailabilityProvider] KDoc. No default -- every caller (production, tests) must pass one explicitly. */
+    navAvailability: PublicNavAvailabilityProvider,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     // See class KDoc "Body memoization" -- a fresh holder PER [registerPublicLandingRoutes] call
@@ -100,7 +102,14 @@ fun Route.registerPublicLandingRoutes(
                 return@withPublicErrorHandling
             }
             val lang = call.resolvePublicLanguage()
-            val body = renderCachedBody(cachedBody = cachedBody, lang = lang, baseUrl = baseUrl, branding = branding)
+            val body =
+                renderCachedBody(
+                    cachedBody = cachedBody,
+                    lang = lang,
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    navAvailability = navAvailability,
+                )
             call.respondPublicCacheable(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
@@ -185,11 +194,14 @@ private fun renderCachedBody(
     lang: PublicLanguage,
     baseUrl: String,
     branding: ResolvedBranding,
+    /** Welle V1.9.11 -- `.current()` is only ever called on a CACHE MISS, and never from inside the `transaction { buildView() }` below (see [PublicNavAvailabilityProvider.current] KDoc "S2, keine verschachtelte Transaktion"). */
+    navAvailability: PublicNavAvailabilityProvider,
 ): String {
     val now = Clock.System.now()
     cachedBody[lang]?.let { cached -> if (cached.expiresAt > now) return cached.body }
+    val nav = navAvailability.current()
     val view = transaction { buildView() }
-    val body = PublicLandingHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
+    val body = PublicLandingHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
     cachedBody[lang] = CachedLandingBody(body = body, expiresAt = now + LANDING_CACHE_TTL)
     return body
 }

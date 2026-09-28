@@ -8,6 +8,26 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.11 — Öffentliche Icon-Navigation + Übersichten Artikel/Veranstaltungen.** Der Kopfbereich
+  aller sechs (jetzt sieben) unauthentifizierten öffentlichen Seiten (`/`, `/s`, `/transparenz`,
+  `/impressum`, `/datenschutz`, neu `/aktuelles`, `/veranstaltungen`) zeigt die Navigation jetzt
+  icon-only statt als Textlinks — Klassen- statt `nth-child`-Bindung, damit die zwei neuen,
+  BEDINGTEN Reiter „Aktuelles" und „Veranstaltungen" nie das falsche Icon eines Nachbarn erben. Ein
+  reiner CSS-Tooltip (`::after { content: attr(aria-label) }`, sichtbar bei Hover/Focus) ersetzt den
+  bisherigen sichtbaren Linktext; jeder Link bleibt über `aria-label` vollständig zugänglich (kein
+  stiller Icon-only-Fallenzustand). Die beiden neuen Reiter erscheinen nur, wenn es tatsächlich
+  etwas zu zeigen gibt (`PublicNavAvailabilityProvider`, 30-Sekunden-Prozess-Cache, zwei schlanke
+  `LIMIT 1`-Existenzabfragen) — Fehlerseiten (404/400/429/500) zeigen sie nie, um dort keinen
+  Datenbankzugriff auszulösen. Zwei neue, server-gerenderte Übersichtsseiten `GET /aktuelles` und
+  `GET /veranstaltungen` (Titel + Datum, `index,follow`, `Cache-Control: public, max-age=300`, je 20
+  bzw. 50 Einträge gedeckelt, keine Paginierung, eigene Rate-Limiter) verlinken auf die bestehenden
+  Detailseiten `/aktuelles/{slug}` bzw. `/veranstaltung/{slug}` — bislang gab es dafür keine
+  öffentliche HTML-Übersicht, nur die Detailseiten selbst und die (CORS-/Opt-in-gated) Embed-Feeds.
+  `germanDate`/`germanTime` wurden aus `ArticlePublicHtml` in eine gemeinsame `GermanDateFormat.kt`
+  ausgelagert, damit beide Übersichtsseiten dieselbe Formatierung wie die Artikel-Detailseite
+  benutzen. Bekannte Einschränkung: die Detailseiten selbst tragen weiterhin keinen Kopfbereich (kein
+  Rücksprung zur Navigation von dort) — bleibt für eine Folgewelle offen.
+
 - **V1.9.10 — Mitgliederzahl auf der öffentlichen Startseite optional.** Vorstand kann jetzt per
   Organisationseinstellung entscheiden, ob die Zahl der aktiven Mitglieder auf der öffentlichen
   Startseite (`/`) und der Transparenzseite (`/transparenz`) erscheint. Neues Feld

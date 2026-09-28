@@ -319,7 +319,11 @@ links; `GET /impressum` and `GET /datenschutz` render the statutory German Impre
 Datenschutzerklärung from operator-supplied `LAPIS_LEGAL_*` configuration, degrading to an
 operator-addressed notice (never a 500, never a misleadingly empty page) when unset; and all three
 unauthenticated public route families (`/`, `/s`, `/transparenz`) now share one chrome component
-with an 8-language switcher. Navigation (2026-09-08/09): the six role-gated navbar dropdowns became
+with an 8-language switcher. Icon navigation + overviews (V1.9.11): the shared chrome's nav switched
+from text links to icon-only links (CSS-class-bound, a CSS-only tooltip via `aria-label`), and two
+new, conditional tabs — `GET /aktuelles` and `GET /veranstaltungen`, server-rendered `index,follow`
+overviews of published articles / upcoming public events — appear only once there is something to
+show (`PublicNavAvailabilityProvider`, a 30-second process cache). Navigation (2026-09-08/09): the six role-gated navbar dropdowns became
 a persistent, collapsible desktop sidebar / mobile offcanvas drawer — a wave that surfaced and fixed
 four real KVision/Bootstrap-Offcanvas integration bugs across three follow-up rounds, the last of
 which (sidebar disappearing after navigating to any page but the Dashboard) was live-reported by a

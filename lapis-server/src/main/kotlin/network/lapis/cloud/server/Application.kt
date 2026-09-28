@@ -149,6 +149,7 @@ import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
 import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
+import network.lapis.cloud.server.routes.PublicNavAvailabilityProvider
 import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
 import network.lapis.cloud.server.routes.registerArticleCoverRoutes
 import network.lapis.cloud.server.routes.registerArticlePublicRoutes
@@ -181,6 +182,8 @@ import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
+import network.lapis.cloud.server.routes.registerPublicArticlesOverviewRoutes
+import network.lapis.cloud.server.routes.registerPublicEventsOverviewRoutes
 import network.lapis.cloud.server.routes.registerPublicLandingRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
@@ -1305,6 +1308,17 @@ internal fun Application.module(
     // /transparenz -- a burst against one public route family must not eat into another's.
     val legalPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
+    // Welle V1.9.11 "Öffentliche Icon-Navigation" -- ONE process-lifetime, 30-second-TTL nav-
+    // availability provider shared by EVERY public-chrome route family below (registerSocialPublicRoutes,
+    // registerPublicTransparencyRoutes, registerPublicLandingRoutes, registerLegalRoutes, and the two
+    // new overview routes) -- see PublicNavAvailabilityProvider KDoc for why ONE shared instance,
+    // rather than one per route family.
+    val publicNavAvailability = PublicNavAvailabilityProvider()
+    // GET /aktuelles, GET /veranstaltungen -- own budgets, same "never eat into another public route
+    // family's budget" reasoning as every limiter above.
+    val publicArticlesOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    val publicEventsOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+
     // Welle "Digitaler Mitgliedsausweis (PDF)" -- drei eigene Budgets, nie geteilt:
     // [memberCardIssueRateLimiter] gilt fuer POST /api/members/{id}/card.pdf und ist bewusst KNAPP
     // (pro betroffenem Mitglied, nicht pro Aufrufer): jeder erfolgreiche Aufruf rotiert einen
@@ -2008,12 +2022,14 @@ internal fun Application.module(
             sitemapRateLimiter = socialPublicSitemapRateLimiter,
             reportRateLimiter = socialPublicReportRateLimiter,
             branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
         )
         // V1.3.0 "Öffentliche Transparenz-Startseite" -- literal route (/transparenz), same
         // "registered before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
         registerPublicTransparencyRoutes(
             readRateLimiter = publicTransparencyRateLimiter,
             branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
         )
         // Welle V1.4.6 "Öffentliche Startseite" -- literal route (GET /), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes'
@@ -2023,6 +2039,7 @@ internal fun Application.module(
         registerPublicLandingRoutes(
             readRateLimiter = publicLandingRateLimiter,
             branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
         )
         // V1.4.7 "Rechtstexte" -- literal routes (/impressum, /datenschutz), same "registered
         // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
@@ -2033,6 +2050,20 @@ internal fun Application.module(
             aiAssistantEnabled = aiConfig.isOperational,
             keycloakEnabled = keycloakConfig.isOperational,
             mcpEnabled = mcpConfig.isOperational,
+            navAvailability = publicNavAvailability,
+        )
+        // Welle V1.9.11 "Öffentliche Icon-Navigation" -- literal routes (/aktuelles,
+        // /veranstaltungen), same "registered before staticFiles" reasoning as
+        // registerSocialPublicRoutes' own routes -- "literal schlägt catch-all".
+        registerPublicArticlesOverviewRoutes(
+            readRateLimiter = publicArticlesOverviewRateLimiter,
+            branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
+        )
+        registerPublicEventsOverviewRoutes(
+            readRateLimiter = publicEventsOverviewRateLimiter,
+            branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
         )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own

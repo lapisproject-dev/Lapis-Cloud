@@ -180,3 +180,12 @@ switcher — see <<public-chrome.adoc#,Public Chrome & Language Switcher>>. That
 replaces this page's `renderHero`'s login link (moved into the shared chrome) and
 threads `ResolvedBranding` through `registerPublicLandingRoutes` instead of a bare
 `brandTitle: String`.
+
+Welle V1.9.11 "Öffentliche Icon-Navigation" adds two more conditional chrome tabs
+(`/aktuelles`, `/veranstaltungen`) and threads a `PublicNavAvailabilityProvider` through
+`registerPublicLandingRoutes` (sampled once per cache-miss, never inside the
+`transaction { buildView() }` block) — see
+<<public-chrome.adoc#icon-navigation,Public Chrome § icon-only navigation>> and
+<<public-overviews.adoc#,Public Overview Pages>>. `/`'s own body cache (30 s TTL) is
+unaffected in shape; the nav-availability snapshot just rides along inside the already
+cached rendered body.

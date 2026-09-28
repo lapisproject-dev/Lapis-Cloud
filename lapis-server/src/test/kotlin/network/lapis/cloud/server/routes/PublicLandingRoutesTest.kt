@@ -156,6 +156,7 @@ class PublicLandingRoutesTest :
                         registerPublicLandingRoutes(
                             readRateLimiter = readLimiter,
                             branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                            navAvailability = PublicNavAvailabilityProvider(),
                         )
                     }
                 }
@@ -254,6 +255,7 @@ class PublicLandingRoutesTest :
                         ),
                     baseUrl = "https://cloud.example.org",
                     branding = ResolvedBranding(title = "Test-Verein", logoAvailable = false, logoPath = null),
+                    nav = PublicNavAvailability.NONE,
                 )
             html shouldContain "id=\"kennzahlen\""
             html shouldNotContain "id=\"beitraege\""
@@ -270,6 +272,7 @@ class PublicLandingRoutesTest :
                     view = PublicLandingView(stats = null, topPosts = emptyList()),
                     baseUrl = "https://cloud.example.org",
                     branding = ResolvedBranding(title = "Partei der Vernunft", logoAvailable = true, logoPath = "/some/path"),
+                    nav = PublicNavAvailability.NONE,
                 )
             val h1Text =
                 Regex("""<h1[^>]*>([^<]*)</h1>""").find(html)?.groupValues?.get(1)
@@ -286,6 +289,7 @@ class PublicLandingRoutesTest :
                     view = PublicLandingView(stats = null, topPosts = emptyList()),
                     baseUrl = "https://cloud.example.org",
                     branding = ResolvedBranding(title = "Test-Verein", logoAvailable = false, logoPath = null),
+                    nav = PublicNavAvailability.NONE,
                 )
             html shouldNotContain "id=\"kennzahlen\""
             html shouldNotContain "id=\"beitraege\""
@@ -360,6 +364,7 @@ class PublicLandingRoutesTest :
                         ),
                     baseUrl = "https://cloud.example.org",
                     branding = ResolvedBranding(title = "Test-Verein", logoAvailable = false, logoPath = null),
+                    nav = PublicNavAvailability.NONE,
                 )
             html shouldContain "id=\"kennzahlen\""
             html shouldNotContain "class=\"stat-label\">Mitglieder<"
@@ -476,14 +481,24 @@ class PublicLandingRoutesTest :
                     install(AutoHeadResponse)
                     routing {
                         val branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null)
-                        registerPublicLandingRoutes(readRateLimiter = generousLimiter(), branding = branding)
+                        val navAvailability = PublicNavAvailabilityProvider()
+                        registerPublicLandingRoutes(
+                            readRateLimiter = generousLimiter(),
+                            branding = branding,
+                            navAvailability = navAvailability,
+                        )
                         registerSocialPublicRoutes(
                             readRateLimiter = generousLimiter(),
                             sitemapRateLimiter = generousLimiter(),
                             reportRateLimiter = generousLimiter(),
                             branding = branding,
+                            navAvailability = navAvailability,
                         )
-                        registerPublicTransparencyRoutes(readRateLimiter = generousLimiter(), branding = branding)
+                        registerPublicTransparencyRoutes(
+                            readRateLimiter = generousLimiter(),
+                            branding = branding,
+                            navAvailability = navAvailability,
+                        )
                     }
                 }
                 val landing = client.get("/")

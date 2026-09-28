@@ -58,6 +58,8 @@ fun Route.registerPublicTransparencyRoutes(
      * **Kein Default mehr** (Breaking Change, bewusst), analog zu `registerSocialPublicRoutes`.
      */
     branding: ResolvedBranding,
+    /** Welle V1.9.11 -- shared, process-lifetime nav-availability provider, see [PublicNavAvailabilityProvider] KDoc. No default -- every caller (production, tests) must pass one explicitly. */
+    navAvailability: PublicNavAvailabilityProvider,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
 
@@ -80,8 +82,9 @@ fun Route.registerPublicTransparencyRoutes(
                 return@withPublicErrorHandling
             }
             val lang = call.resolvePublicLanguage()
+            val nav = navAvailability.current()
             val view = transaction { buildView() }
-            val body = PublicTransparencyHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
+            val body = PublicTransparencyHtml.page(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
             call.respondPublicCacheable(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,

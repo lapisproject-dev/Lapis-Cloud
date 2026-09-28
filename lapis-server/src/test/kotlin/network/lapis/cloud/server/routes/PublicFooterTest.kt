@@ -50,6 +50,7 @@ class PublicFooterTest :
                         view = PublicLandingView(stats = null, topPosts = emptyList()),
                         baseUrl = baseUrl,
                         branding = branding,
+                        nav = PublicNavAvailability.NONE,
                     ),
                 "PublicTransparencyHtml.page" to
                     PublicTransparencyHtml.page(
@@ -70,18 +71,21 @@ class PublicFooterTest :
                             ),
                         baseUrl = baseUrl,
                         branding = branding,
+                        nav = PublicNavAvailability.NONE,
                     ),
                 "SocialPublicHtml.timelinePage" to
                     SocialPublicHtml.timelinePage(
                         view = PublicTimelineView(posts = emptyList(), page = 1, hasNext = false),
                         baseUrl = baseUrl,
                         branding = branding,
+                        nav = PublicNavAvailability.NONE,
                     ),
                 "SocialPublicHtml.postPage" to
                     SocialPublicHtml.postPage(
                         view = PublicThreadView(root = post(), descendants = emptyList(), truncated = false),
                         baseUrl = baseUrl,
                         branding = branding,
+                        nav = PublicNavAvailability.NONE,
                     ),
                 "SocialPublicHtml.notFoundPage" to SocialPublicHtml.notFoundPage(baseUrl = baseUrl, branding = branding),
                 "SocialPublicHtml.tooManyRequestsPage" to SocialPublicHtml.tooManyRequestsPage(baseUrl = baseUrl, branding = branding),
@@ -98,18 +102,33 @@ class PublicFooterTest :
                             ),
                         baseUrl = baseUrl,
                         branding = branding,
+                        nav = PublicNavAvailability.NONE,
                     ),
                 "SocialPublicHtml.reportFormPage" to
                     SocialPublicHtml.reportFormPage(
                         postId = "11111111-1111-1111-1111-111111111111",
                         baseUrl = baseUrl,
                         branding = branding,
+                        nav = PublicNavAvailability.NONE,
                     ),
-                "SocialPublicHtml.reportSubmittedPage" to SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl, branding = branding),
+                "SocialPublicHtml.reportSubmittedPage" to
+                    SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl, branding = branding, nav = PublicNavAvailability.NONE),
                 "LegalHtml.imprintPage" to
-                    LegalHtml.imprintPage(legal = completeLegalConfig(), baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DE),
+                    LegalHtml.imprintPage(
+                        legal = completeLegalConfig(),
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        lang = PublicLanguage.DE,
+                        nav = PublicNavAvailability.NONE,
+                    ),
                 "LegalHtml.privacyPage" to
-                    LegalHtml.privacyPage(legal = completeLegalConfig(), baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DE),
+                    LegalHtml.privacyPage(
+                        legal = completeLegalConfig(),
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        lang = PublicLanguage.DE,
+                        nav = PublicNavAvailability.NONE,
+                    ),
             )
 
         test("F1: every one of the 13 render call sites emits both the Impressum and Datenschutz footer links") {
@@ -148,6 +167,7 @@ class PublicFooterTest :
                     view = PublicTimelineView(posts = emptyList(), page = 1, hasNext = false),
                     baseUrl = baseUrl,
                     branding = brandedBranding,
+                    nav = PublicNavAvailability.NONE,
                 )
             html shouldContain "<a href=\"https://example.org\" rel=\"noopener noreferrer\">Beispielverein e. V.</a>"
         }

@@ -37,24 +37,34 @@ class LegalHtmlTest :
         fun imprint(
             legal: LegalConfig,
             lang: PublicLanguage = PublicLanguage.DE,
-        ): String = LegalHtml.imprintPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang)
+        ): String =
+            LegalHtml.imprintPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang, nav = PublicNavAvailability.NONE)
 
         fun privacy(
             legal: LegalConfig,
             lang: PublicLanguage = PublicLanguage.DE,
-        ): String = LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang)
+        ): String =
+            LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang, nav = PublicNavAvailability.NONE)
 
         test("V1.6.1: the KI-assistance privacy paragraph appears only when the AI layer is operational") {
             val legal = completeLegalConfig()
-            LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DE).let {
-                it shouldNotContain "KI-gestützte Satzungsauskunft"
-            }
+            LegalHtml
+                .privacyPage(
+                    legal = legal,
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = PublicLanguage.DE,
+                    nav = PublicNavAvailability.NONE,
+                ).let {
+                    it shouldNotContain "KI-gestützte Satzungsauskunft"
+                }
             val enabled =
                 LegalHtml.privacyPage(
                     legal = legal,
                     baseUrl = baseUrl,
                     branding = branding,
                     lang = PublicLanguage.DE,
+                    nav = PublicNavAvailability.NONE,
                     aiAssistantEnabled = true,
                 )
             enabled shouldContain "KI-gestützte Satzungsauskunft"
@@ -64,15 +74,23 @@ class LegalHtmlTest :
 
         test("V1.8.1: the MCP-access privacy paragraph appears only when the MCP layer is operational") {
             val legal = completeLegalConfig()
-            LegalHtml.privacyPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = PublicLanguage.DE).let {
-                it shouldNotContain "MCP-Zugang für KI-Agenten"
-            }
+            LegalHtml
+                .privacyPage(
+                    legal = legal,
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = PublicLanguage.DE,
+                    nav = PublicNavAvailability.NONE,
+                ).let {
+                    it shouldNotContain "MCP-Zugang für KI-Agenten"
+                }
             val enabled =
                 LegalHtml.privacyPage(
                     legal = legal,
                     baseUrl = baseUrl,
                     branding = branding,
                     lang = PublicLanguage.DE,
+                    nav = PublicNavAvailability.NONE,
                     mcpEnabled = true,
                 )
             enabled shouldContain "MCP-Zugang für KI-Agenten"
@@ -271,6 +289,7 @@ class LegalHtmlTest :
                     baseUrl = baseUrl,
                     branding = branding,
                     lang = PublicLanguage.DE,
+                    nav = PublicNavAvailability.NONE,
                     aiAssistantEnabled = true,
                     keycloakEnabled = true,
                     mcpEnabled = true,

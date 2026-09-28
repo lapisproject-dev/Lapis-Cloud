@@ -305,6 +305,7 @@ class PublicTransparencyRoutesTest :
                         registerPublicTransparencyRoutes(
                             readRateLimiter = readLimiter,
                             branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                            navAvailability = PublicNavAvailabilityProvider(),
                         )
                     }
                 }

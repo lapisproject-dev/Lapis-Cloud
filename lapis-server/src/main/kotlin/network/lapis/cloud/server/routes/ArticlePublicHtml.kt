@@ -165,22 +165,5 @@ internal object ArticlePublicHtml {
             }
         }
 
-    /** German day/month/year, no timezone conversion -- [LocalDateTime] is already wall-clock in the server's own default zone (same convention every other rendered German date in this codebase uses, e.g. `EventPublicHtml`'s bare `${view.startsAt}` -- this one is merely nicer-looking, not a different semantic). */
-    private val GERMAN_MONTHS =
-        listOf(
-            "Januar",
-            "Februar",
-            "März",
-            "April",
-            "Mai",
-            "Juni",
-            "Juli",
-            "August",
-            "September",
-            "Oktober",
-            "November",
-            "Dezember",
-        )
-
-    private fun germanDate(dt: LocalDateTime): String = "${dt.dayOfMonth}. ${GERMAN_MONTHS[dt.monthNumber - 1]} ${dt.year}"
+    // germanDate/germanTime moved to GermanDateFormat.kt (Welle V1.9.11) -- see that file's own KDoc.
 }

@@ -182,10 +182,12 @@ class EmbedRoutesCorsTest :
                                 sitemapRateLimiter = generousLimiter(),
                                 reportRateLimiter = generousLimiter(),
                                 branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                                navAvailability = PublicNavAvailabilityProvider(),
                             )
                             registerPublicTransparencyRoutes(
                                 readRateLimiter = generousLimiter(),
                                 branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
+                                navAvailability = PublicNavAvailabilityProvider(),
                             )
                             registerPublicApiRoutes(preAuthRateLimiter = generousLimiter(), postAuthRateLimiter = generousLimiter())
                         }

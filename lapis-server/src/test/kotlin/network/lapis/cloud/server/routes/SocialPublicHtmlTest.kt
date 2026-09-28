@@ -35,7 +35,7 @@ class SocialPublicHtmlTest :
 
         test("timelinePage renders post content, author, and a link to the post") {
             val view = PublicTimelineView(posts = listOf(post()), page = 1, hasNext = false)
-            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
+            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             html shouldContain "Hallo Welt"
             html shouldContain "Alice"
             html shouldContain "$baseUrl/s/$postId"
@@ -44,7 +44,7 @@ class SocialPublicHtmlTest :
 
         test("timelinePage with no posts shows the empty-state message, not an empty canvas") {
             val view = PublicTimelineView(posts = emptyList(), page = 1, hasNext = false)
-            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
+            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             html shouldContain "Noch keine öffentlichen Beiträge."
         }
 
@@ -53,12 +53,14 @@ class SocialPublicHtmlTest :
                 SocialPublicHtml.timelinePage(
                     view = PublicTimelineView(posts = emptyList(), page = 1, hasNext = true),
                     baseUrl = baseUrl,
+                    nav = PublicNavAvailability.NONE,
                 )
             page1 shouldContain "index,follow"
             val page2 =
                 SocialPublicHtml.timelinePage(
                     view = PublicTimelineView(posts = emptyList(), page = 2, hasNext = false),
                     baseUrl = baseUrl,
+                    nav = PublicNavAvailability.NONE,
                 )
             page2 shouldContain "noindex,follow"
             page2 shouldNotContain "\"index,follow\""
@@ -68,7 +70,7 @@ class SocialPublicHtmlTest :
             val root = post(content = "Wurzel-Inhalt")
             val child = post(id = "22222222-2222-2222-2222-222222222222", content = "Antwort-Inhalt", author = "Bob")
             val view = PublicThreadView(root = root, descendants = listOf(child), truncated = false)
-            val html = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl)
+            val html = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             html shouldContain "Wurzel-Inhalt"
             html shouldContain "Antwort-Inhalt"
             html shouldContain "Bob"
@@ -80,7 +82,7 @@ class SocialPublicHtmlTest :
 
         test("postPage with truncated=true shows the truncation notice, never a silent cutoff") {
             val view = PublicThreadView(root = post(), descendants = emptyList(), truncated = true)
-            val html = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl)
+            val html = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             html shouldContain "Weitere Antworten werden hier nicht angezeigt."
         }
 
@@ -123,11 +125,13 @@ class SocialPublicHtmlTest :
                     SocialPublicHtml.timelinePage(
                         view = PublicTimelineView(posts = listOf(post(content = payload)), page = 1, hasNext = false),
                         baseUrl = baseUrl,
+                        nav = PublicNavAvailability.NONE,
                     )
                 val threadHtml =
                     SocialPublicHtml.postPage(
                         view = PublicThreadView(root = post(content = payload), descendants = emptyList(), truncated = false),
                         baseUrl = baseUrl,
+                        nav = PublicNavAvailability.NONE,
                     )
                 listOf(timelineHtml, threadHtml).forEach { html ->
                     // A payload containing a live '<' must never survive verbatim -- kotlinx.html's
@@ -170,6 +174,7 @@ class SocialPublicHtmlTest :
                     SocialPublicHtml.postPage(
                         view = PublicThreadView(root = post(content = "Wurzel"), descendants = listOf(comment), truncated = false),
                         baseUrl = baseUrl,
+                        nav = PublicNavAvailability.NONE,
                     )
                 if (payload.contains('<')) {
                     threadHtml shouldNotContain payload
@@ -186,11 +191,13 @@ class SocialPublicHtmlTest :
                 SocialPublicHtml.timelinePage(
                     view = PublicTimelineView(posts = listOf(post(author = payload)), page = 1, hasNext = false),
                     baseUrl = baseUrl,
+                    nav = PublicNavAvailability.NONE,
                 )
             val threadHtml =
                 SocialPublicHtml.postPage(
                     view = PublicThreadView(root = post(author = payload), descendants = emptyList(), truncated = false),
                     baseUrl = baseUrl,
+                    nav = PublicNavAvailability.NONE,
                 )
             listOf(timelineHtml, threadHtml).forEach { html ->
                 html shouldNotContain "<script>alert"
@@ -199,7 +206,7 @@ class SocialPublicHtmlTest :
 
         test("T5 XSS-Katalog: an empty-string post content still renders a valid, non-empty title") {
             val view = PublicTimelineView(posts = listOf(post(content = "")), page = 1, hasNext = false)
-            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
+            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             html shouldContain "Beitrag"
         }
 
@@ -240,6 +247,7 @@ class SocialPublicHtmlTest :
                     SocialPublicHtml.timelinePage(
                         view = PublicTimelineView(posts = listOf(post(content = payload)), page = 1, hasNext = false),
                         baseUrl = baseUrl,
+                        nav = PublicNavAvailability.NONE,
                     )
                 // The defining XSS negative: no live '<script' tag is ever produced, whatever
                 // kotlinx.html's exact escaping quirk does to the surrounding text.
@@ -250,13 +258,13 @@ class SocialPublicHtmlTest :
 
         test("Determinism: two renders of the identical view are byte-identical (ETag precondition)") {
             val view = PublicTimelineView(posts = listOf(post()), page = 1, hasNext = true)
-            val first = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
-            val second = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
+            val first = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
+            val second = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             first shouldBe second
 
             val threadView = PublicThreadView(root = post(), descendants = emptyList(), truncated = false)
-            SocialPublicHtml.postPage(view = threadView, baseUrl = baseUrl) shouldBe
-                SocialPublicHtml.postPage(view = threadView, baseUrl = baseUrl)
+            SocialPublicHtml.postPage(view = threadView, baseUrl = baseUrl, nav = PublicNavAvailability.NONE) shouldBe
+                SocialPublicHtml.postPage(view = threadView, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
         }
 
         test(
@@ -297,6 +305,14 @@ class SocialPublicHtmlTest :
                     // fünfte öffentliche HTML-Routenfamilie (GET /impressum, GET /datenschutz).
                     File(mainSourceDir, "network/lapis/cloud/server/routes/LegalHtml.kt"),
                     File(mainSourceDir, "network/lapis/cloud/server/routes/LegalRoutes.kt"),
+                    // Welle V1.9.11 "Öffentliche Icon-Navigation" -- dieselbe Erweiterung, diesmal für
+                    // die sechste und siebte öffentliche HTML-Routenfamilie (GET /aktuelles,
+                    // GET /veranstaltungen) plus die zwei neuen, gemeinsam genutzten Hilfsdateien.
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicOverviewHtml.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicArticlesOverviewRoutes.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicEventsOverviewRoutes.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/PublicNavAvailability.kt"),
+                    File(mainSourceDir, "network/lapis/cloud/server/routes/GermanDateFormat.kt"),
                 )
             scannedFiles.forEach { file ->
                 file.exists() shouldBe true
@@ -312,6 +328,7 @@ class SocialPublicHtmlTest :
                 SocialPublicHtml.postPage(
                     view = PublicThreadView(root = post(content = "Wurzel"), descendants = listOf(comment), truncated = false),
                     baseUrl = baseUrl,
+                    nav = PublicNavAvailability.NONE,
                 )
             (1..12).forEach { i -> html shouldContain "Zeile $i" }
         }
@@ -319,7 +336,7 @@ class SocialPublicHtmlTest :
         test("M4: a long TIMELINE root-post summary is truncated with a visible, working \"read more\" link") {
             val longContent = (1..12).joinToString("\n") { "Zeile $it" }
             val view = PublicTimelineView(posts = listOf(post(content = longContent)), page = 1, hasNext = false)
-            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl)
+            val html = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, nav = PublicNavAvailability.NONE)
             html shouldContain "Zeile 1"
             html shouldNotContain "Zeile 12"
             html shouldContain "Gekürzt"

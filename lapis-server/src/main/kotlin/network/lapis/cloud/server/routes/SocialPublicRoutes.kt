@@ -186,6 +186,8 @@ fun Route.registerSocialPublicRoutes(
      * benennen, ein fehlendes Argument ist ein Production-Bug, kein Test-Komfort-Fall.
      */
     branding: ResolvedBranding,
+    /** Welle V1.9.11 -- shared, process-lifetime nav-availability provider, see [PublicNavAvailabilityProvider] KDoc. No default -- every caller (production, tests) must pass one explicitly. */
+    navAvailability: PublicNavAvailabilityProvider,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider()
@@ -250,7 +252,8 @@ fun Route.registerSocialPublicRoutes(
                     page = page,
                     hasNext = page * PUBLIC_PAGE_SIZE < pageDto.totalRankedCount,
                 )
-            val body = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
+            val nav = navAvailability.current()
+            val body = SocialPublicHtml.timelinePage(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
             call.respondPublicCacheable(
                 body = body,
                 contentType = HTML_CONTENT_TYPE,
@@ -339,12 +342,19 @@ fun Route.registerSocialPublicRoutes(
             when (resolution) {
                 is PostResolution.NotFound -> call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = lang)
                 is PostResolution.LegallyRemoved ->
-                    call.respondPublicLegallyRemoved(view = resolution.view, baseUrl = baseUrl, branding = branding, lang = lang)
+                    call.respondPublicLegallyRemoved(
+                        view = resolution.view,
+                        baseUrl = baseUrl,
+                        branding = branding,
+                        lang = lang,
+                        nav = navAvailability.current(),
+                    )
                 is PostResolution.Redirect ->
                     call.respondPublicRedirect(baseUrl = baseUrl, rootId = resolution.rootId, lang = lang)
                 is PostResolution.Found -> {
                     val view = resolution.thread.toPublicThreadView()
-                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang)
+                    val nav = navAvailability.current()
+                    val body = SocialPublicHtml.postPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
                     call.respondPublicCacheable(
                         body = body,
                         contentType = HTML_CONTENT_TYPE,
@@ -408,7 +418,14 @@ fun Route.registerSocialPublicRoutes(
                 call.respondPublicNotFound(baseUrl = baseUrl, branding = branding, lang = lang)
                 return@withPublicErrorHandling
             }
-            val body = SocialPublicHtml.reportFormPage(postId = postUuid.toString(), baseUrl = baseUrl, branding = branding, lang = lang)
+            val body =
+                SocialPublicHtml.reportFormPage(
+                    postId = postUuid.toString(),
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = lang,
+                    nav = navAvailability.current(),
+                )
             call.response.header(HttpHeaders.CacheControl, "no-store")
             call.applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
             call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
@@ -485,7 +502,8 @@ fun Route.registerSocialPublicRoutes(
             // ob das Honeypot-Feld ausgefuellt war. KEIN CSRF-Token (kein Schreibpfad mit einer
             // Session/privilegierten Wirkung dahinter -- ein fremdgesteuertes Absenden ist
             // funktional identisch zu direktem Spam und wird vom IP-Limiter behandelt).
-            val body = SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl, branding = branding, lang = lang)
+            val body =
+                SocialPublicHtml.reportSubmittedPage(baseUrl = baseUrl, branding = branding, lang = lang, nav = navAvailability.current())
             call.response.header(HttpHeaders.CacheControl, "no-store")
             call.applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
             call.respondText(text = body, contentType = HTML_CONTENT_TYPE)
@@ -942,11 +960,12 @@ private suspend fun ApplicationCall.respondPublicLegallyRemoved(
     baseUrl: String,
     branding: ResolvedBranding,
     lang: PublicLanguage = PublicLanguage.DEFAULT,
+    nav: PublicNavAvailability,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
     applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
     respondText(
-        text = SocialPublicHtml.legallyRemovedPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang),
+        text = SocialPublicHtml.legallyRemovedPage(view = view, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav),
         contentType = HTML_CONTENT_TYPE,
         status = HttpStatusCode(451, "Unavailable For Legal Reasons"),
     )

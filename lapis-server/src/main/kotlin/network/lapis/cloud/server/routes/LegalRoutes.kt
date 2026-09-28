@@ -37,12 +37,27 @@ fun Route.registerLegalRoutes(
     keycloakEnabled: Boolean = false,
     /** V1.8.1: renders the MCP-access privacy paragraph -- only for an installation where the MCP layer is operational. */
     mcpEnabled: Boolean = false,
+    /**
+     * Welle V1.9.11 -- see [PublicNavAvailabilityProvider] KDoc. No default -- every caller
+     * (production, tests) must pass one explicitly. **Sampled ONCE, at registration time** (below),
+     * NOT per request -- unlike every other `register*PublicRoutes` in this codebase: this file's own
+     * class KDoc "no DB access at all" precomputes all 2 × 8 render variants once, and a per-request
+     * `navAvailability.current()` call would either break that precomputation (falling back to a
+     * per-request render) or silently freeze the FIRST snapshot forever -- the SAME thing this
+     * one-time sampling already does, just made explicit rather than accidental. A production
+     * installation may therefore show `/impressum`/`/datenschutz`'s two optional tabs briefly out of
+     * step with `/`/`/s`/`/transparenz`/`/aktuelles`/`/veranstaltungen` immediately after the FIRST
+     * article/event is ever published -- a full restart (which any operator already does for other
+     * configuration changes) refreshes it. Documented limitation, not a defect.
+     */
+    navAvailability: PublicNavAvailabilityProvider,
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
+    val nav = navAvailability.current()
 
     val imprintBodies: Map<PublicLanguage, String> =
         PublicLanguage.entries.associateWith { lang ->
-            LegalHtml.imprintPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang)
+            LegalHtml.imprintPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
         }
     val privacyBodies: Map<PublicLanguage, String> =
         PublicLanguage.entries.associateWith { lang ->
@@ -51,6 +66,7 @@ fun Route.registerLegalRoutes(
                 baseUrl = baseUrl,
                 branding = branding,
                 lang = lang,
+                nav = nav,
                 aiAssistantEnabled = aiAssistantEnabled,
                 keycloakEnabled = keycloakEnabled,
                 mcpEnabled = mcpEnabled,

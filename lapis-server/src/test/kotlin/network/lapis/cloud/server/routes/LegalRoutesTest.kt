@@ -61,6 +61,7 @@ class LegalRoutesTest :
                             readRateLimiter = readLimiter,
                             branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
                             legal = legal,
+                            navAvailability = PublicNavAvailabilityProvider(),
                         )
                     }
                 }
