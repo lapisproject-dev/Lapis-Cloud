@@ -73,7 +73,7 @@
 // assignment is NOT modelled here (no DB constraint exists for it either) -- see that file's own
 // header and `network.lapis.cloud.server.events.EventRoomCollisionGuard`.
 //
-// **Welle "Veranstaltungs-Titelbild" (Event Cover Image) addendum** (`V52__event_cover_image.sql`)
+// **Welle "Veranstaltungs-Titelbild" (Event Cover Image) addendum** (`V54__event_cover_image.sql`)
 // adds exactly one column here: `event.coverImageId`, nullable, no FK -- it references a file
 // (`<uuid>.jpg|.png` under `network.lapis.cloud.server.events.EventCoverStorage`'s storage root),
 // not a row in another table, so there is no cross-domain stub to resolve here, unlike `roomId`
@@ -164,6 +164,37 @@
 // `invoice_issued_at` are set together or not at all (SQL-only CHECK
 // `chk_event_registration_invoice_consistency`, not modelled here -- same "cross-field CHECK
 // constraints are SQL-only" posture this file's own header already documents).
+//
+// **Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" addendum**
+// (`V56__event_series.sql`) adds ONE new table, `event_series` (the recurrence rule + its
+// timezone/duration template, one row per series), and THREE new `event` columns: `seriesId`
+// (nullable FK -> `event_series` -- an instance belonging to a series), `seriesOriginalStart`
+// (nullable, the RECURRENCE-ID-equivalent wall-clock moment this instance was originally
+// materialized at) and `seriesDetached` (whether this specific instance was edited independently
+// of the series, see `network.lapis.cloud.server.events.series.EventSeriesScopeEngine`, a later
+// wave). `event_series.rrule` is a normalized `RecurrenceRuleBuilder.build` string
+// (`VARCHAR(255)`, see `network.lapis.cloud.shared.domain.RecurrenceRuleInput` -- never a raw
+// client-supplied string, see `EventSeriesLimits.RRULE_MAX_LENGTH`).
+//
+// **Why `event_series.splitFromSeriesId` carries no `fkEntity`.** It is genuinely
+// self-referential -- `UmlToErmTransformer` explicitly skips self-referential UML associations
+// (same treatment `document_folder.parentFolderId` already establishes, `02-document.kuml.kts`
+// file header/`05-governance.kuml.kts` `L`-column addendum), so this is modelled as a plain
+// nullable `UUID` attribute, not an association. The actual FK exists only in SQL
+// (`V56__event_series.sql`), matching the hand-written `EventSeriesTable.splitFromSeriesId`
+// (`uuid("split_from_series_id").nullable()`, no `.references()`).
+//
+// **Why no `audit_log_entry` coverage for `event_series`.** Same posture this file's own "Why no
+// audit_log_entry coverage" section already establishes for `event`/`event_registration` -- a
+// recurring series is ordinary master data (a schedule template), not a GoBD-relevant financial
+// fact.
+//
+// **Why no `event_series_exdate` table.** A materialized-then-removed occurrence within the
+// CURRENT rule cannot occur under the scope-engine's own rules (a later wave) -- a wegfall always
+// lies either outside the new rule or behind a split's own `UNTIL`, so EXDATE is always
+// recomputable at render time by re-expanding the rule and diffing against the persisted
+// `event.seriesOriginalStart` rows. See `network.lapis.cloud.server.events.series
+// .RecurrenceExpander` KDoc and `docs/architecture/event-series.adoc` for the render-side detail.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -229,10 +260,58 @@ classDiagram(name = "Events") {
         literal(name = "EXPIRED")
     }
 
+    // Welle V1.4.37 addendum (see file header). One row per recurring series -- the rule +
+    // timezone/duration template that `EventSeriesMaterializer` (a later wave) expands into
+    // individual `event` rows.
+    val eventSeries = classOf(name = "EventSeries") {
+        stereotype("Entity") { "tableName" to "event_series"; "kotlinObjectName" to "EventSeriesTable" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        // Normalized RecurrenceRuleBuilder.build output -- never a raw client string, see file
+        // header addendum.
+        attribute(name = "rrule", type = "String") {
+            stereotype("Column") { "columnName" to "rrule"; "sqlType" to "VARCHAR(255)" }
+        }
+        // Wall-clock time in `timezone`, NOT UTC -- the first occurrence's start.
+        attribute(name = "dtstart", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "dtstart" }
+        }
+        // Single supported value for this wave (EventSeriesLimits.SUPPORTED_TIMEZONES) -- see the
+        // implementation plan's open question F1 for the JVM-default-zone follow-up this
+        // whitelist is a placeholder for.
+        attribute(name = "timezone", type = "String") {
+            stereotype("Column") { "columnName" to "timezone"; "sqlType" to "VARCHAR(64)" }
+        }
+        attribute(name = "durationMinutes", type = "Int") {
+            stereotype("Column") { "columnName" to "duration_minutes" }
+        }
+        // Self-referential -- see file header addendum for why this carries no `fkEntity`
+        // (matches document_folder.parentFolderId's established treatment).
+        attribute(name = "splitFromSeriesId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "split_from_series_id" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+    }
+
     val event = classOf(name = "Event") {
         stereotype("Entity") { "tableName" to "event"; "kotlinObjectName" to "EventTable" }
         stereotype("Index") { "columns" to listOf("slug"); "name" to "uq_event_slug"; "unique" to true }
         stereotype("Index") { "columns" to listOf("status", "starts_at"); "name" to "idx_event_status_starts_at" }
+        stereotype("Index") {
+            "columns" to listOf("series_id", "series_original_start")
+            "name" to "uq_event_series_occurrence"
+            "unique" to true
+        }
+        stereotype("Index") { "columns" to listOf("series_id", "starts_at"); "name" to "idx_event_series_starts" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -311,6 +390,26 @@ classDiagram(name = "Events") {
         attribute(name = "coverImageId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "cover_image_id" }
+        }
+        // V1.4.37 addendum (see file header). Nullable FK -> event_series -- not every event
+        // belongs to a series.
+        attribute(name = "seriesId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "series_id"; "fkEntity" to "EventSeries" }
+        }
+        // Set together with seriesId, or not at all (chk_event_series_pair, SQL-only -- see file
+        // header). The RECURRENCE-ID-equivalent wall-clock moment this instance was originally
+        // materialized at.
+        attribute(name = "seriesOriginalStart", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "series_original_start" }
+        }
+        // TRUE only once this specific instance was edited independently of its series (see
+        // EventSeriesScopeEngine, a later wave). Can only be TRUE when seriesId is set
+        // (chk_event_series_detached, SQL-only).
+        attribute(name = "seriesDetached", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "series_detached" }
         }
     }
 

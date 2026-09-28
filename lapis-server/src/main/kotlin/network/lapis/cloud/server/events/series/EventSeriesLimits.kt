@@ -50,4 +50,12 @@ internal object EventSeriesLimits {
     /** Mirrors `event_series.rrule VARCHAR(255)` (added in a later wave's migration) --
      * [RecurrenceRuleBuilder.build] refuses to produce a longer string. */
     const val RRULE_MAX_LENGTH = 255
+
+    /** Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" addendum. Upper bound on
+     * a single series instance's `endsAt - startsAt` -- mirrors the DB
+     * `chk_event_series_duration` CHECK constraint (`V56__event_series.sql`). One calendar day
+     * (1440 minutes): prevents a DAILY series from producing overlapping instances of itself, and
+     * a template this long belongs to a multi-day conference format this feature does not model,
+     * not a recurring series. */
+    const val MAX_INSTANCE_DURATION_MINUTES = 1440
 }

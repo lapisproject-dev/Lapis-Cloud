@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.EventVolunteerShiftTable
 import network.lapis.cloud.server.db.generated.EventVolunteerSignupTable
@@ -48,12 +49,16 @@ class EventPersonalDataTest :
         beforeSpec { DatabaseConfig.connect() }
 
         val createdVolunteerShiftIds = mutableListOf<Uuid>()
+        val createdEventSeriesIds = mutableListOf<Uuid>()
 
         afterSpec {
             transaction {
                 if (createdVolunteerShiftIds.isNotEmpty()) {
                     EventVolunteerSignupTable.deleteWhere { shiftId inList createdVolunteerShiftIds }
                     EventVolunteerShiftTable.deleteWhere { id inList createdVolunteerShiftIds }
+                }
+                if (createdEventSeriesIds.isNotEmpty()) {
+                    EventSeriesTable.deleteWhere { id inList createdEventSeriesIds }
                 }
                 if (createdEventIds.isNotEmpty()) {
                     EventCateringOrderTable.deleteWhere { eventId inList createdEventIds }
@@ -477,6 +482,59 @@ class EventPersonalDataTest :
                 transaction {
                     EventVolunteerSignupTable.selectAll().where { EventVolunteerSignupTable.shiftId eq shiftId }.count()
                 }
+            stillThere shouldBe 1L
+        }
+
+        // ── Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" addendum ───────────
+
+        test("exportMember includes the member's own created event series") {
+            val organizer = createTestMember("event-pd-series-organizer-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val seriesId = Uuid.random()
+            transaction {
+                EventSeriesTable.insert {
+                    it[id] = seriesId
+                    it[rrule] = "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU;COUNT=10"
+                    it[dtstart] = now
+                    it[timezone] = "Europe/Berlin"
+                    it[durationMinutes] = 90
+                    it[splitFromSeriesId] = null
+                    it[createdBy] = organizer
+                    it[EventSeriesTable.createdAt] = now
+                }
+            }
+            createdEventSeriesIds += seriesId
+
+            val export = transaction { EventPersonalData.exportMember(organizer) }
+            val createdSeries = export.jsonObject["createdEventSeries"]!!.jsonArray
+            createdSeries.size shouldBe 1
+        }
+
+        test("eraseMember retains event_series.created_by as an organisational FK anchor") {
+            val organizer = createTestMember("event-pd-series-erase-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val seriesId = Uuid.random()
+            transaction {
+                EventSeriesTable.insert {
+                    it[id] = seriesId
+                    it[rrule] = "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU;COUNT=10"
+                    it[dtstart] = now
+                    it[timezone] = "Europe/Berlin"
+                    it[durationMinutes] = 90
+                    it[splitFromSeriesId] = null
+                    it[createdBy] = organizer
+                    it[EventSeriesTable.createdAt] = now
+                }
+            }
+            createdEventSeriesIds += seriesId
+
+            val outcomes = transaction { EventPersonalData.eraseMember(memberId = organizer, mode = ErasureMode.ANONYMIZE) }
+            val seriesOutcome = outcomes.single { it.table == "event_series" }
+            seriesOutcome.rowsRetained shouldBe 1
+            seriesOutcome.rowsDeleted shouldBe 0
+            seriesOutcome.retentionReason?.isNotBlank() shouldBe true
+
+            val stillThere = transaction { EventSeriesTable.selectAll().where { EventSeriesTable.id eq seriesId }.count() }
             stillThere shouldBe 1L
         }
     })
