@@ -19,10 +19,12 @@ private val logger = KotlinLogging.logger {}
  * `network.lapis.cloud.server.payment.sepa.SepaBatchPoller`.
  *
  * **Scope**: only the two single-recipient transactional mailers ([SmtpPasswordResetMailer]/
- * [SmtpFriendVerificationMailer]) go through this class. `network.lapis.cloud.server.rpc
- * .MailingService.sendMailingMessage`'s bulk mailing-list send remains its own pre-existing
- * simulation (writes a `SENT` delivery-log row per subscriber, no real transport) -- deliberately
- * out of scope for this wave, see that method's own inline comment.
+ * [SmtpFriendVerificationMailer]) go through this class. Welle V1.9.7 "SuperMailer" gave
+ * `network.lapis.cloud.server.rpc.MailingService.sendMailingMessage`'s bulk mailing-list send a
+ * real transport too, but deliberately through its OWN dispatcher
+ * (`network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker`), never through this one --
+ * see that class's KDoc for why sharing this queue would be the wrong shape for a
+ * potentially-thousands-of-recipients bulk send.
  *
  * **Fire-and-forget by design, not merely for UX.** `POST /api/auth/password-reset/request`
  * returns the IDENTICAL response whether or not the email is registered (see `AuthRoutes.kt`

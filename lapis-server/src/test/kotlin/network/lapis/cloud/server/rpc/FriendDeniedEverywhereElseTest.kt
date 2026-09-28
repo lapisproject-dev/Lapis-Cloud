@@ -17,6 +17,9 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAdminClient
@@ -29,10 +32,14 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailBranding
+import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PeerTransferInput
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
@@ -436,7 +443,21 @@ private fun Route.registerDeniedDirectMessageTestRoutes() {
 }
 
 private fun Route.registerDeniedMailingTestRoutes() {
-    fun service(call: ApplicationCall) = MailingService(call = call)
+    fun noOpMailingDeliveryWorker() =
+        MailingDeliveryWorker(
+            transport = NoOpMailTransport(),
+            branding = MailBranding.notConfigured(),
+            mode = MailingDeliveryMode.LOG,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        )
+
+    fun service(call: ApplicationCall) =
+        MailingService(
+            call = call,
+            deliveryWorker = noOpMailingDeliveryWorker(),
+            deliveryMode = MailingDeliveryMode.LOG,
+            branding = MailBranding.notConfigured(),
+        )
     get("/test/list-mailing-lists") {
         service(call).listMailingLists()
         call.respondText("ok")

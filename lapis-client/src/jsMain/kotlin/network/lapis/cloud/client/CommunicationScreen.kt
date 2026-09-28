@@ -16,6 +16,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
@@ -238,7 +239,7 @@ internal fun renderMailingListDetail(
         AppScope.launch {
             val subscribers = guarded { rpcService<IMailingService>().listSubscribers(list.id) } ?: return@launch
             if (subscribers.isEmpty()) {
-                subscribersPanel.p(tr("Noch keine Abonnentinnen und Abonnenten."))
+                subscribersPanel.p(tr("Noch keine Abonnenten."))
                 return@launch
             }
             subscribers.forEach { subscriber -> renderSubscriberRow(subscribersPanel, subscriber) }
@@ -291,9 +292,15 @@ internal fun renderMailingListDetail(
     val bodyField = composeForm.textAreaField(label = tr("Text"), rows = 4, required = true)
     val draftButton = Button(tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINEPRIMARY)
     composeForm.buttons(primary = draftButton)
-    // D2: permanent, always-visible honesty caption -- not conditional on having just sent a
-    // message. See MAILING_SEND_STUB_CAPTION KDoc.
-    composePanel.div(tr(MAILING_SEND_STUB_CAPTION)) { addCssClasses("text-muted small") }
+    // Welle V1.9.7 "SuperMailer" D4: the honesty caption only makes sense in LOG delivery mode --
+    // in SMTP mode, sendMailingMessage now genuinely calls a real transport (MailingDeliveryWorker),
+    // so showing the old "this is only a log entry" text would be actively misleading. Fetched
+    // once per detail render; see MAILING_SEND_STUB_CAPTION KDoc for the caption text itself.
+    val deliveryModeCaption = composePanel.div("") { addCssClasses("text-muted small") }
+    AppScope.launch {
+        val mode = guarded { rpcService<IMailingService>().getMailingDeliveryMode() }
+        deliveryModeCaption.content = if (mode == MailingDeliveryMode.LOG) tr(MAILING_SEND_STUB_CAPTION) else ""
+    }
 
     val messagesPanel = detail.vPanel(spacing = 6)
 
@@ -370,7 +377,7 @@ private fun renderMailingMessageRow(
                 title = tr("Nachricht senden"),
                 message =
                     gettext(
-                        "Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der " +
+                        "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
                             "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
                         message.subject,
                         listName,
@@ -382,7 +389,11 @@ private fun renderMailingMessageRow(
                     val result = guarded { rpcService<IMailingService>().sendMailingMessage(message.id) }
                     sendButton.disabled = false
                     if (result != null) {
-                        notifySuccess(gettext("Nachricht \"%1\" wurde gesendet.", message.subject))
+                        // Review fix (finding #6, W-SuperMailer round 1): sendMailingMessage only
+                        // QUEUES the message now (V1.9.7 async rewrite) -- the actual send happens
+                        // later, off this RPC call, and in `smtp` mode can take minutes and can end
+                        // FAILED. "wurde gesendet" (has been sent) overclaims what just happened.
+                        notifySuccess(gettext("Nachricht \"%1\" wurde in die Versand-Warteschlange gestellt.", message.subject))
                         onChanged()
                     }
                 }
@@ -396,12 +407,11 @@ private fun renderMailingMessageRow(
 // ================================================================================================
 
 /**
- * [MailingMessageStatus.QUEUED] is never written by any code path today
- * (`MailingService.sendMailingMessage` writes `DRAFT` then jumps straight to `SENT` in one
- * synchronous loop, no intermediate queued state) -- reserved for a future async/webhook follow-up
- * per [IMailingService.sendMailingMessage] KDoc. Kept and labeled rather than omitted as
- * unreachable, same posture `DsgvoRightsScreen.kt`'s `legalHoldIndicator` already established for
- * its own currently-dead branch.
+ * Review fix (finding #6, W-SuperMailer round 1): [MailingMessageStatus.QUEUED] is no longer a
+ * dead branch -- since the V1.9.7 async-send rewrite, `MailingService.sendMailingMessage` writes
+ * exactly this status (a bounded `DRAFT -> QUEUED` transition, see its KDoc) and every message sits
+ * in it for the whole time `MailingDeliveryWorker` is still working through its recipients, which
+ * can be minutes for a large list.
  */
 fun mailingMessageStatusLabel(status: MailingMessageStatus): String =
     when (status) {
@@ -420,20 +430,19 @@ fun mailingMessageStatusColor(status: MailingMessageStatus): String =
     }
 
 /**
- * D2's permanent honesty caption, shown directly under the compose form's "Als Entwurf speichern"
- * button -- always visible, not conditional on having just sent a message. `sendMailingMessage`'s
- * "send" is a stub: it writes one [network.lapis.cloud.shared.domain.MailingDeliveryLogDto] row per
- * active subscriber with [network.lapis.cloud.shared.domain.DeliveryStatus.SENT] unconditionally
- * (`MailingService.kt`'s `runCatching { DeliveryStatus.SENT }` can never actually fail, per its own
- * inline comment) -- no real bulk-delivery provider is wired for THIS (mailing-list) send path,
- * deliberately out of scope for V1.2.3's SMTP transport (see `MailTemplates.kt`/`MailDispatcher.kt`
- * KDoc "does NOT cover MailingService.sendMailingMessage") -- that wave only wires up the two
- * single-recipient transactional mailers (password-reset, FRIEND email verification), not this
- * bulk-mailing simulation. Same honesty posture as `DsgvoRightsScreen.kt`'s
+ * Honesty caption, shown directly under the compose form's "Als Entwurf speichern" button --
+ * **only while [IMailingService.getMailingDeliveryMode] is `LOG`** (see the fetch-and-conditionally-
+ * render call site in [renderMailingListDetail]). Welle V1.9.7 "SuperMailer" replaced the old
+ * always-synchronous, always-simulated send (`MailingService.kt`'s previous `runCatching {
+ * DeliveryStatus.SENT }`, which never called any transport and could double-send on a repeat
+ * click) with a genuine async delivery worker -- in `LOG` mode (the server default,
+ * `LAPIS_MAILING_DELIVERY` unset), the full pipeline still runs (sanitize/render/queue/deliver)
+ * but the actual transport call is skipped, so this caption remains accurate for that mode. In
+ * `smtp` mode, real mail goes out and this caption is hidden entirely -- showing it there would be
+ * actively misleading. Same honesty posture as `DsgvoRightsScreen.kt`'s
  * `ERASURE_SELF_STATUS_VISIBILITY_CAPTION`.
  */
 const val MAILING_SEND_STUB_CAPTION =
     "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte " +
-        "E-Mail über einen externen Versanddienst verschickt. Jede aktive Abonnentin und jeder aktive " +
-        "Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche " +
-        "Zustellung."
+        "E-Mail über einen externen Versanddienst verschickt. Jeder aktive Abonnent erhält einen " +
+        "Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."

@@ -749,6 +749,34 @@ this case, but only a WARN, not a startup failure (an operator can legitimately 
 KDoc) stays on its default `false` regardless of whether SMTP is configured -- activating hard
 enforcement is a separate, later operational decision, not automatically flipped by this wave.
 
+== Mailing-list send mode (SuperMailer, V1.9.7, optional)
+
+`LAPIS_MAILING_DELIVERY` -- `log` (default, including when unset) or `smtp`. In `log` mode,
+`sendMailingMessage` runs the full pipeline (sanitize, render, queue one delivery-log row per
+eligible recipient) but never actually calls a transport -- the same honest non-delivery posture
+`NoOpMailTransport` establishes for the transactional mailers. `smtp` mode genuinely sends through
+the SMTP connection configured above (`network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker`)
+and therefore **requires** a complete `LAPIS_SMTP_*` configuration -- setting `LAPIS_MAILING_DELIVERY=smtp`
+without it, or setting it to anything other than `log`/`smtp`, fails the container at startup
+(`IllegalStateException`, same fail-fast posture as an incomplete SMTP configuration above). See
+`docs/architecture/mailing-newsletter.adoc` for the full design.
+
+**Before upgrading to this version, regardless of `LAPIS_MAILING_DELIVERY`**: this version's `V53`
+migration widens `V1__baseline.sql`'s own inline `CHECK` on `mailing_delivery_log.delivery_status`
+(H2 enforces that inline constraint independently of the named one Flyway manages, same trap as
+every migration since V11) -- Flyway's checksum validation of `V1` will otherwise reject the
+upgrade on EVERY instance, whatever `LAPIS_MAILING_DELIVERY` is set to (an operator who stays on
+the default `log` mode and skips this section still gets a container that fails to start). Run a
+`flyway repair` (see `network.lapis.cloud.server.bootstrap.FlywayRepair`) as part of this version's
+deploy, before the application container starts.
+
+`LAPIS_MAILING_SEND_DELAY_MS` (optional, default `250`) -- the pause between two recipients of the
+same bulk send, a throttle against the configured relay's own rate limits. The concrete sending
+limit of a netcup-hosted mailbox used as a relay has not been established yet; before a real
+multi-thousand-recipient send, confirm the provider's limit and raise this value if needed (a
+5000-recipient send at the 250ms default takes a little over 20 minutes end to end; a much smaller
+delay risks the relay throttling or blocking the connection mid-send).
+
 == White-Label-Branding (optional)
 
 `LAPIS_BRAND_TITLE`, `LAPIS_BRAND_LOGO_PATH` -- **both optional, independent of each other**

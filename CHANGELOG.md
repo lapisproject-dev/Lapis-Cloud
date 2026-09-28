@@ -70,6 +70,59 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.7 — SuperMailer: HTML-authored mailing content, real asynchronous send (`LAPIS_MAILING_DELIVERY`,
+  default `log`), data-model foundation for open-/click-tracking (Teil A implemented, Teil B/C not
+  built this wave — see below).**
+  - **Fixes a pre-existing correctness bug**: `MailingService.sendMailingMessage` previously never
+    called any real transport at all — it wrote a `SENT` delivery-log row per active subscriber
+    inside the same synchronous transaction that flipped the message to `SENT`, with no recipient-
+    eligibility filtering and no protection against a repeat click writing a second full round of
+    rows. `sendMailingMessage` is now a bounded `DRAFT -> QUEUED` transition (a repeat call throws
+    `ConflictException` instead of re-queuing) that hands off to a new
+    `network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker` — its own bounded queue/single
+    worker coroutine (never `MailDispatcher`'s 64-slot single-mail queue, which would risk starving
+    password-reset/FRIEND mail). `LAPIS_MAILING_DELIVERY=smtp` genuinely calls
+    `network.lapis.cloud.server.mail.MailTransport.send`; the default `log` runs the full pipeline
+    (sanitize/render/queue) but skips the transport call, same honest-non-delivery posture as before.
+    An unrecognized value, or `smtp` without real SMTP configured, fails fast at startup.
+  - **Crash recovery (D2)**: `MailingDeliveryWorker.recoverInterrupted()` runs once at startup —
+    leftover `PENDING` delivery-log rows become `FAILED`, still-`QUEUED` messages are closed out as
+    `SENT`/`FAILED`. Deliberately no automatic re-send (would risk mailing real members twice).
+  - **Recipient filter (D3)**: only active subscribers whose member is `MemberStatus.ACTIVE`, not
+    anonymized and not deceased, get a delivery-log row at all (a syntactically invalid mailbox
+    address is NOT part of this queuing-time filter — such a recipient still gets a row, `PENDING`
+    then `SKIPPED_NO_ADDRESS`, since the address is only re-validated later, per recipient, by the
+    worker) — previously every non-unsubscribed subscription row was mailed regardless of the
+    member's current status.
+  - **Teil A (HTML content)**: new `network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer`
+    (jsoup, MIT, allowlist-based — `p`/`br`/`strong`/`em`/`h2`/`h3`/`ul`/`ol`/`li`/`blockquote`/`a`
+    with `http`/`https`/`mailto` hrefs only) and `MailingPlainText` (derives the plain-text body from
+    the sanitized HTML, never the reverse) back a new `createDraftMessageHtml` RPC alongside the
+    pre-existing plain-text `createDraftMessage`. `MailingMailRenderer` is the one render path both
+    the async send and two new preview RPCs (`previewMailingMessage`/`previewMailingHtml`) go
+    through — a preview can never drift from what actually gets sent. New
+    `getMailingDeliveryMode()` RPC lets the compose screen show its "this is only a log entry" honesty
+    caption only while the server is actually in `log` mode (previously always shown, regardless of
+    mode, and worded with an unnecessary gendered pair — "Abonnentin/Abonnent" — now gender-neutral
+    per the vault's no-gendering convention).
+  - **New migration `V53__mailing_html_and_tracking.sql`** (additive/idempotent): `mailing_message
+    .body_html`, `mailing_list_subscription`'s two tracking-consent timestamps, `mailing_delivery_log`'s
+    tracking-snapshot columns, and two new tables (`mailing_message_link`, `mailing_link_click`) — the
+    full data-model foundation for Teil B (click counting) and Teil C (open counting), created but not
+    yet consumed by any code path this wave. `DeliveryStatus` gains `PENDING`/`FAILED`/
+    `SKIPPED_NO_ADDRESS`. **`V1__baseline.sql`'s own inline, unnamed `CHECK` on
+    `mailing_delivery_log.delivery_status` was also widened** (H2 enforces it independently of the
+    named constraint, same trap as every migration since V11) — an already-migrated instance needs
+    `flyway repair` before upgrading (see `bootstrap/FlywayRepair.kt`).
+  - **Not built this wave** (explicit scope reduction from the original implementation plan, not a
+    silent drop): the rich contenteditable client editor (toolbar, DOMPurify) — the compose screen
+    still uses a plain textarea, and `createDraftMessageHtml` exists as a real, tested RPC without
+    dedicated authoring UI yet. Teil B (click-tracking routes, `MailingTrackingToken`, click-rewrite
+    in the renderer) and Teil C (open-tracking pixel route, consent RPCs/UI toggles, `mailingMessageStats`,
+    the DSGVO contributor for tracking data, a retention poller) are follow-up waves; the schema
+    already carries everything they will need, so no further migration is expected when they land.
+  - See `docs/architecture/mailing-newsletter.adoc` for the full design, the send-flow diagram and
+    the exact list of what is/isn't implemented.
 - **V1.9.6 — Vorstands-Karte (member map), client half.** Follow-up to V1.9.5 (server + shared) --
   lands the `lapis-client` screen: `Routes.MEMBER_MAP = "/member-map"`, a "Mitgliederkarte" entry in
   the Verwaltung/Administration sidebar group (BOARD/ADMIN only, `requireRole` route guard, same tier

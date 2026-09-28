@@ -12,6 +12,15 @@ public object MailingListSubscriptionTable : Table("mailing_list_subscription") 
     public val id: Column<Uuid> = uuid("id")
     public val subscribedAt: Column<LocalDateTime> = datetime("subscribed_at")
     public val unsubscribedAt: Column<LocalDateTime?> = datetime("unsubscribed_at").nullable()
+
+    /**
+     * Welle V1.9.7 "SuperMailer", Grundlage für Teil C (Öffnungs-Zählung). In dieser Welle von
+     * keinem RPC-Pfad gesetzt (kein UI-Schalter) -- bleibt durchgehend NULL bis zur Folge-Welle.
+     */
+    public val openTrackingConsentedAt: Column<LocalDateTime?> = datetime("open_tracking_consented_at").nullable()
+
+    /** Welle V1.9.7, Grundlage für Teil B (Klick-Zählung). Siehe [openTrackingConsentedAt]. */
+    public val clickTrackingConsentedAt: Column<LocalDateTime?> = datetime("click_tracking_consented_at").nullable()
     public val mailingListId: Column<Uuid> = reference("mailing_list_id", MailingListTable.id)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 

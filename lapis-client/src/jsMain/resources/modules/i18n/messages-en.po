@@ -3775,9 +3775,8 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:372
 msgid ""
-"Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der "
-"Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht "
-"werden."
+"Die Nachricht \"%1\" wird an alle aktiven Abonnenten der Mailingliste \"%2\" "
+"verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
 msgstr ""
 "The message \"%1\" will be sent to all active subscribers of the mailing "
 "list \"%2\". This step cannot be undone."
@@ -6842,8 +6841,8 @@ msgid "Nachricht"
 msgstr "Message"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:385
-msgid "Nachricht \"%1\" wurde gesendet."
-msgstr "Message \"%1\" has been sent."
+msgid "Nachricht \"%1\" wurde in die Versand-Warteschlange gestellt."
+msgstr "Message \"%1\" has been placed in the send queue."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:370
 msgid "Nachricht senden"
@@ -7106,7 +7105,7 @@ msgid "Noch kein Konto? Jetzt Mitglied werden."
 msgstr "No account yet? Become a member now."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:241
-msgid "Noch keine Abonnentinnen und Abonnenten."
+msgid "Noch keine Abonnenten."
 msgstr "No subscribers yet."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:476
@@ -13397,7 +13396,7 @@ msgid "Nur für \"Ablehnen\" erforderlich."
 msgstr "Required for \"Reject\" only."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
-msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jede aktive Abonnentin und jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
+msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
 msgstr "In this version, sending is an internal log entry -- no real e-mail is sent through an external delivery service yet. Every active subscriber gets an entry with the status \"Sent\" in the system log, not an actual delivery."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt

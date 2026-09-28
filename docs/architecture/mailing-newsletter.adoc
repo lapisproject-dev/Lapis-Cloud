@@ -1,0 +1,110 @@
+= Mailing Newsletter ("SuperMailer")
+:description: HTML-authored mailing-list messages, real asynchronous delivery, and the data-model foundation for open/click tracking.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: This document's `[source,kuml]` block is rendered and validated by the
+`:docs-render:renderDocs` Gradle task (see `docs-render/`), same convention as
+`member-map.adoc`/`keycloak-login.adoc`.
+
+NOTE: **Implementation status (Welle V1.9.7).** Teil A (HTML-authored draft content, sanitization,
+rendering, preview) and the real asynchronous send (fixing the pre-existing "sendMailingMessage
+never called any transport" bug) are implemented. Teil B (click counting) and Teil C (open
+counting) are **not** implemented this wave -- see <<scope-this-wave>>. The schema already carries
+every column/table both parts will need, so no further migration is expected when they land.
+
+[[scope-this-wave]]
+== Scope of this wave
+
+* `network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer` (jsoup, allowlist-based) and
+  `MailingPlainText` (derives the plain-text body from the sanitized HTML, never the other way
+  round) give board-authored messages real HTML content
+  (`IMailingService.createDraftMessageHtml`), alongside the pre-existing plain-text path
+  (`createDraftMessage`, unchanged).
+* `MailingMailRenderer` is the ONE render path both the async send and the two preview RPCs
+  (`previewMailingMessage`/`previewMailingHtml`) go through -- a preview can never drift from what
+  actually gets sent.
+* `MailingDeliveryWorker` replaces the previous synchronous, always-simulated send with a real
+  asynchronous one: `LAPIS_MAILING_DELIVERY` (`log` default, or `smtp`) decides whether
+  `network.lapis.cloud.server.mail.MailTransport.send` is actually called. `sendMailingMessage` is
+  now a bounded `DRAFT -> QUEUED` transition (a repeat call throws
+  `network.lapis.cloud.shared.rpc.ConflictException` instead of re-queuing -- the bug this wave's
+  plan calls "finding #1": the previous implementation never called any transport at all and could
+  write a second full round of delivery-log rows on a repeat click).
+* Recipients are filtered once, at queuing time, to active, non-anonymized, non-deceased members --
+  everyone who fails that filter gets no delivery-log row at all. A syntactically invalid mailbox
+  address is NOT part of this queuing-time filter: such a recipient still gets a delivery-log row
+  (`PENDING`, then `SKIPPED_NO_ADDRESS` once the worker gets to it), because the address itself is
+  only re-validated later, per recipient, by `MailingDeliveryWorker`.
+* Not built this wave: the rich contenteditable client editor (DOMPurify, toolbar) -- the compose
+  screen still uses a plain textarea; `createDraftMessageHtml` exists as a real, tested RPC without
+  dedicated UI yet. Also not built: the tracking pixel/click routes, `MailingTrackingToken`, the
+  consent RPCs/UI toggles, the retention poller, and `mailingMessageStats`. The data model for all
+  of that (tracking-consent timestamps, tracking snapshot columns, `mailing_message_link`/
+  `mailing_link_click`) already exists (`V53__mailing_html_and_tracking.sql`) so that follow-up wave
+  needs no further migration.
+
+== Send flow (this wave)
+
+[source,kuml,name="mailing-send-flow"]
+----
+sequenceDiagram(name = "Mailing send -- async delivery") {
+    val board = lifeline(name = "Board member (RPC caller)")
+    val service = lifeline(name = "MailingService")
+    val db = lifeline(name = "PostgreSQL")
+    val worker = lifeline(name = "MailingDeliveryWorker")
+    val transport = lifeline(name = "MailTransport (SMTP or LOG no-op)")
+
+    message(from = board, to = service, label = "sendMailingMessage(messageId)")
+    message(from = service, to = db, label = "UPDATE mailing_message SET status='QUEUED' WHERE id=? AND status='DRAFT'")
+    message(from = db, to = service, label = "0 rows updated -> ConflictException (already sent/queued)")
+    message(from = service, to = db, label = "D3 filter: active subscription AND status=ACTIVE AND anonymized_at IS NULL AND date_of_death IS NULL")
+    message(from = service, to = db, label = "INSERT mailing_delivery_log rows, deliveryStatus=PENDING, one per eligible recipient")
+    message(from = service, to = board, label = "MailingMessageDto(status=QUEUED) -- returns BEFORE any recipient is actually mailed")
+    message(from = service, to = worker, label = "enqueue(messageId) -- own bounded queue, own single worker coroutine")
+    message(from = worker, to = db, label = "load message + re-sanitize stored body_html (defense in depth) + PENDING rows")
+    message(from = worker, to = transport, label = "send(to, subject, plainText, html) -- SMTP mode only, LOG mode skips this call")
+    message(from = transport, to = worker, label = "Sent / Failed / Skipped")
+    message(from = worker, to = db, label = "UPDATE mailing_delivery_log SET deliveryStatus=SENT|FAILED|SKIPPED_NO_ADDRESS per recipient")
+    message(from = worker, to = db, label = "UPDATE mailing_message SET status=SENT|FAILED (SENT iff at least one recipient row is SENT)")
+}
+----
+
+== Crash recovery (D2)
+
+`MailingDeliveryWorker.recoverInterrupted()` runs once at startup, before the server accepts any
+request. Every leftover `PENDING` delivery-log row (an interrupted send) becomes `FAILED`; every
+still-`QUEUED` message is closed out as `SENT` (if at least one recipient row is `SENT`) or `FAILED`
+otherwise. There is deliberately **no automatic re-send** -- retrying an interrupted bulk send
+risks mailing real members twice, which this wave treats as strictly worse than a manual re-check
+by the board. Because the V1 baseline's inline `CHECK` on `delivery_status` was widened alongside
+the named constraint in `V53`, an already-migrated instance needs a `flyway repair` before this
+version starts (see `bootstrap/FlywayRepair.kt` and `deploy/example/README.adoc`).
+
+== Content model
+
+* `mailing_message.body_text` (`VARCHAR(20000)`) -- always populated: either authored directly
+  (`createDraftMessage`) or derived from sanitized HTML (`createDraftMessageHtml`).
+* `mailing_message.body_html` (`TEXT`, nullable) -- sanitized HTML, `NULL` for plain-text drafts.
+  `MailingMailRenderer` treats `body_html == null` as the "legacy" path: the plain-text body is
+  HTML-escaped and wrapped in `<p>` tags per blank-line-separated paragraph, never raw-embedded.
+* Allowlist (`network.lapis.cloud.shared.domain.MailingHtmlPolicy`, shared between server and the
+  eventual client-side sanitizer): `p`, `br`, `strong`, `em`, `h2`, `h3`, `ul`, `ol`, `li`,
+  `blockquote`, `a` (href only, `http`/`https`/`mailto`). No `style`, no images, no forms, no
+  scripts, no iframes.
+
+== Data model foundation for Teil B/C (not yet consumed)
+
+`V53__mailing_html_and_tracking.sql` adds, ahead of need:
+
+* `mailing_list_subscription.open_tracking_consented_at` / `.click_tracking_consented_at` --
+  independent opt-in timestamps, currently never set by any RPC (no UI toggle exists yet).
+* `mailing_delivery_log.tracking_token_hash` / `.open_tracked` / `.click_tracked` /
+  `.first_opened_at` / `.open_count` -- written by `MailingDeliveryWorker` as `NULL`/`FALSE`/`0` in
+  this wave (no consent path is active).
+* `mailing_message_link` / `mailing_link_click` -- created, never populated this wave.
+
+A follow-up wave adds `MailingTrackingToken`, the `/api/mailing/o/{token}`/`/api/mailing/c/{token}/
+{index}` routes, the consent RPCs/UI toggles, `mailingMessageStats`, the DSGVO contributor for the
+tracking data, and a retention poller -- entirely additive on top of this schema.

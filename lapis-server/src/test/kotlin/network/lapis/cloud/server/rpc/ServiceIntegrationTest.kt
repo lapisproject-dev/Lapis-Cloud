@@ -15,6 +15,9 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
@@ -25,10 +28,14 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.FakeAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FakePasswordResetMailer
+import network.lapis.cloud.server.mail.MailBranding
+import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.SmtpConfigState
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -51,6 +58,14 @@ private const val ADMIN_ID = "00000000-0000-0000-0000-000000000001"
 private const val BOARD_ID = "00000000-0000-0000-0000-000000000002"
 private const val TREASURER_ID = "00000000-0000-0000-0000-000000000003"
 private const val MEMBER_ID = "00000000-0000-0000-0000-000000000004"
+
+private fun noOpMailingDeliveryWorker() =
+    MailingDeliveryWorker(
+        transport = NoOpMailTransport(),
+        branding = MailBranding.notConfigured(),
+        mode = MailingDeliveryMode.LOG,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    )
 
 class ServiceIntegrationTest :
     FunSpec({
@@ -168,17 +183,35 @@ class ServiceIntegrationTest :
                 application {
                     routing {
                         post("/test/create-list") {
-                            val service = MailingService(call)
+                            val service =
+                                MailingService(
+                                    call = call,
+                                    deliveryWorker = noOpMailingDeliveryWorker(),
+                                    deliveryMode = MailingDeliveryMode.LOG,
+                                    branding = MailBranding.notConfigured(),
+                                )
                             val list = service.createMailingList(name = "Newsletter", description = "Test-Liste")
                             call.respondText(list.id)
                         }
                         post("/test/subscribe/{listId}") {
-                            val service = MailingService(call)
+                            val service =
+                                MailingService(
+                                    call = call,
+                                    deliveryWorker = noOpMailingDeliveryWorker(),
+                                    deliveryMode = MailingDeliveryMode.LOG,
+                                    branding = MailBranding.notConfigured(),
+                                )
                             service.subscribe(call.parameters["listId"]!!)
                             call.respondText("ok")
                         }
                         get("/test/lists") {
-                            val service = MailingService(call)
+                            val service =
+                                MailingService(
+                                    call = call,
+                                    deliveryWorker = noOpMailingDeliveryWorker(),
+                                    deliveryMode = MailingDeliveryMode.LOG,
+                                    branding = MailBranding.notConfigured(),
+                                )
                             val lists = service.listMailingLists()
                             val target = lists.first()
                             call.respondText("${target.subscriberCount}:${target.isSubscribedByCurrentMember}")
@@ -720,12 +753,24 @@ class ServiceIntegrationTest :
                     }
                     routing {
                         post("/test/create-list2") {
-                            val service = MailingService(call)
+                            val service =
+                                MailingService(
+                                    call = call,
+                                    deliveryWorker = noOpMailingDeliveryWorker(),
+                                    deliveryMode = MailingDeliveryMode.LOG,
+                                    branding = MailBranding.notConfigured(),
+                                )
                             val list = service.createMailingList(name = "Rundschreiben", description = null)
                             call.respondText(list.id)
                         }
                         post("/test/draft/{listId}") {
-                            val service = MailingService(call)
+                            val service =
+                                MailingService(
+                                    call = call,
+                                    deliveryWorker = noOpMailingDeliveryWorker(),
+                                    deliveryMode = MailingDeliveryMode.LOG,
+                                    branding = MailBranding.notConfigured(),
+                                )
                             val message =
                                 service.createDraftMessage(
                                     mailingListId = call.parameters["listId"]!!,
@@ -735,7 +780,13 @@ class ServiceIntegrationTest :
                             call.respondText(message.id)
                         }
                         post("/test/send/{messageId}") {
-                            val service = MailingService(call)
+                            val service =
+                                MailingService(
+                                    call = call,
+                                    deliveryWorker = noOpMailingDeliveryWorker(),
+                                    deliveryMode = MailingDeliveryMode.LOG,
+                                    branding = MailBranding.notConfigured(),
+                                )
                             val message = service.sendMailingMessage(call.parameters["messageId"]!!)
                             call.respondText(message.status.name)
                         }
@@ -745,9 +796,13 @@ class ServiceIntegrationTest :
                 val listId = client.post("/test/create-list2") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
                 val messageId = client.post("/test/draft/$listId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
 
+                // Welle V1.9.7 "SuperMailer": sendMailingMessage is now async -- the RPC returns
+                // QUEUED immediately (deterministically, see MailingService.sendMailingMessage's
+                // own "queuedSnapshot" comment), never SENT synchronously, regardless of how fast
+                // MailingDeliveryWorker actually processes it in the background.
                 val firstSend = client.post("/test/send/$messageId") { header("X-Member-Id", BOARD_ID) }
                 firstSend.status shouldBe HttpStatusCode.OK
-                firstSend.bodyAsText() shouldBe "SENT"
+                firstSend.bodyAsText() shouldBe "QUEUED"
 
                 val secondSend = client.post("/test/send/$messageId") { header("X-Member-Id", BOARD_ID) }
                 secondSend.status shouldBe HttpStatusCode.Conflict

@@ -39,6 +39,21 @@ nimbus-jose-jwt         = "10.9.1"
 jakarta-mail-api        = "2.1.5"
 angus-mail              = "2.0.5"
 
+# Welle V1.9.7 "SuperMailer" Teil A -- server-side HTML sanitization for board-authored newsletter
+# content (network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer). jsoup: MIT license,
+# pure JVM, ZERO transitive runtime dependencies (verified against its own POM), the de-facto
+# standard Java HTML parser/cleaner (jhy/jsoup) -- same permissive-license/no-native-deps tier as
+# nimbus-jose-jwt/pdfbox/bcrypt. Deliberately NOT a hand-rolled regex-based sanitizer -- an
+# allowlist-based HTML sanitizer is exactly the kind of parser-grade problem regexes cannot solve
+# safely (malformed/nested tags, encoding tricks) -- see MailingHtmlSanitizer KDoc "Why jsoup, not
+# hand-rolled". Deliberately NOT the OWASP Java HTML Sanitizer either: its last Maven Central
+# release predates this repo's jakarta.mail-api pin by several years and its API is centered on
+# building a fresh policy object per call site rather than jsoup's Safelist+Cleaner pipeline this
+# codebase already knows from evaluating simple-java-mail (see jakarta-mail-api's own comment
+# above, "simple-java-mail ... würde ... jsoup u.a. mitbringen") -- jsoup alone, not the heavier
+# mail-sending wrapper, is the narrower dependency for exactly the one job needed here.
+jsoup                   = "1.23.2"
+
 # V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- com.github.hbci4j:hbci4j-core, Maven Central
 # (verifiziert 2026-09-13 gegen search.maven.org/repo1.maven.org: numFound=1, repositoryId=central,
 # latestVersion 4.0.0, KEIN JitPack, letztes Release 2023-03-13). Einzige realistische
@@ -188,6 +203,9 @@ nimbus-jose-jwt                  = { module = "com.nimbusds:nimbus-jose-jwt", ve
 # V1.2.3 Echter SMTP-Versand -- see the [versions] entry above for the library-choice rationale.
 jakarta-mail-api                 = { module = "jakarta.mail:jakarta.mail-api", version.ref = "jakarta-mail-api" }
 angus-mail                       = { module = "org.eclipse.angus:angus-mail", version.ref = "angus-mail" }
+
+# Welle V1.9.7 "SuperMailer" -- see the [versions] entry above for the library-choice rationale.
+jsoup                             = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 
 # V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- see the [versions] entry above for the library-choice
 # and license-deviation rationale.

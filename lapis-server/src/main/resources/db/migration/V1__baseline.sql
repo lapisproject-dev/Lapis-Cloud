@@ -417,7 +417,12 @@ CREATE TABLE mailing_delivery_log (
     delivery_status VARCHAR(20) NOT NULL,
     mailing_message_id UUID NOT NULL,
     member_id UUID NOT NULL,
-    CHECK (delivery_status IN ('SENT', 'BOUNCED', 'SKIPPED_UNSUBSCRIBED'))
+    -- V53__mailing_html_and_tracking.sql (Welle V1.9.7 "SuperMailer") added PENDING/FAILED/
+    -- SKIPPED_NO_ADDRESS -- this INLINE, unnamed CHECK is enforced by H2 independently of that
+    -- migration's own NAMED constraint (same trap as every wave since V11, see V51's comment for
+    -- the full writeup). Widening this literal list here changes V1's checksum -- an already-
+    -- migrated instance needs `flyway repair` (see bootstrap/FlywayRepair.kt).
+    CHECK (delivery_status IN ('SENT', 'BOUNCED', 'SKIPPED_UNSUBSCRIBED', 'PENDING', 'FAILED', 'SKIPPED_NO_ADDRESS'))
 );
 
 CREATE TABLE resolution (

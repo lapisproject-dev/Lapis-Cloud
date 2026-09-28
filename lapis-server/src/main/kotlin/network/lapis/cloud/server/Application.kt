@@ -113,6 +113,8 @@ import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryConfig
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.mcp.config.McpStartupCheck
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
@@ -250,6 +252,7 @@ import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.domain.AccountingExportProvider
+import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
@@ -571,6 +574,29 @@ internal fun Application.module(
     // its worker coroutines and any in-flight/queued sends dangle past shutdown instead of being
     // torn down together with the rest of the application (see MailDispatcher.shutdown KDoc).
     monitor.subscribe(ApplicationStopping) { mailDispatcher.shutdown() }
+
+    // Welle V1.9.7 "SuperMailer" -- LAPIS_MAILING_DELIVERY (default "log"), fail-fast on an
+    // unrecognized value (MailingDeliveryConfig.load) or on "smtp" without real SMTP configured
+    // (mirrors the SmtpConfig/SmtpStartupCheck "opt-in but broken must never silently degrade"
+    // posture above -- an operator who asked for real bulk mail delivery must never silently get
+    // LOG-mode behaviour instead).
+    val mailingDeliveryMode = MailingDeliveryConfig.load()
+    if (mailingDeliveryMode == MailingDeliveryMode.SMTP && smtpConfigState !is SmtpConfigState.Configured) {
+        throw IllegalStateException(
+            "${MailingDeliveryConfig.ENV_KEY}=smtp requires real SMTP configuration (LAPIS_SMTP_*) -- none is set.",
+        )
+    }
+    val mailingDeliveryWorker =
+        MailingDeliveryWorker(
+            transport = mailTransport,
+            branding = mailBranding,
+            mode = mailingDeliveryMode,
+            sendDelay = MailingDeliveryConfig.loadSendDelay(),
+        )
+    // D2 (plan) -- close out anything an earlier process instance left mid-send BEFORE this
+    // instance serves any request, see MailingDeliveryWorker.recoverInterrupted KDoc.
+    mailingDeliveryWorker.recoverInterrupted()
+    monitor.subscribe(ApplicationStopping) { mailingDeliveryWorker.shutdown() }
 
     // V0.7.2 Beitritts-/Registrierungs-Workflow -- constructed once here, same lifecycle as
     // loginRateLimiter above. passwordResetMailer delegates to mailDispatcher above -- a real
@@ -1478,7 +1504,9 @@ internal fun Application.module(
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }
-        registerService(IMailingService::class) { call -> MailingService(call) }
+        registerService(IMailingService::class) { call ->
+            MailingService(call = call, deliveryWorker = mailingDeliveryWorker, deliveryMode = mailingDeliveryMode, branding = mailBranding)
+        }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(
             IDsgvoService::class,

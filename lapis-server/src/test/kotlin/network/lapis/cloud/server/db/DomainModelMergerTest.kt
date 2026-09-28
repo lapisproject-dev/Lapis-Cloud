@@ -452,7 +452,12 @@ class DomainModelMergerTest :
             // WITH ONE cross-domain Member stub (dedups into the already-real member entity) -- so
             // it contributes +2 «Entity» declarations (1 stub + 1 real table) and 1 drop, net +1
             // distinct table name versus the V1.8.2 baseline above (163 -> 164).
-            val distinctTableNames = 164
+            // Welle V1.9.7 "SuperMailer" adds 03-communication.kuml.kts's TWO new real tables
+            // (mailing_message_link, mailing_link_click), WITH NO new cross-domain stub (the
+            // file's existing Member/MailingMessage/MailingDeliveryLog entities are reused) -- so
+            // it contributes +2 «Entity» declarations and 0 drops, net +2 distinct table names
+            // versus the V1.9.4 baseline above (164 -> 166).
+            val distinctTableNames = 166
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -486,6 +491,8 @@ class DomainModelMergerTest :
                     "MailingListSubscriptionTable.kt",
                     "MailingMessageTable.kt",
                     "MailingDeliveryLogTable.kt",
+                    "MailingMessageLinkTable.kt",
+                    "MailingLinkClickTable.kt",
                     "DirectMessageTable.kt",
                     "ErasureRequestTable.kt",
                     "DsgvoAuditLogTable.kt",

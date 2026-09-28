@@ -7,8 +7,10 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
+import network.lapis.cloud.server.db.generated.MailingLinkClickTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
+import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -38,7 +40,7 @@ class CommunicationSchemaDriftTest :
         /** Resolves an `ErmForeignKey.targetEntityId` back to its entity name within [model]. */
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the five communication entities plus the Member stub") {
+        test("model declares exactly the seven communication entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -46,6 +48,8 @@ class CommunicationSchemaDriftTest :
                     "mailing_list_subscription",
                     "mailing_message",
                     "mailing_delivery_log",
+                    "mailing_message_link",
+                    "mailing_link_click",
                     "direct_message",
                 )
         }
@@ -153,6 +157,54 @@ class CommunicationSchemaDriftTest :
             model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
         }
 
+        test("mailing_message_link table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "mailing_message_link" }
+            val real = transaction { introspectCommunicationTable("mailing_message_link") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+
+            entity.attributes.forEach { attr ->
+                val col = real.columns.getValue(attr.name!!)
+                withClue(clue = "column '${attr.name}'") {
+                    col.nullable shouldBe attr.nullable
+                }
+            }
+            real.foreignKeys["mailing_message_id"] shouldBe "mailing_message"
+            model.entityNameOf(entity.attributeByName("mailing_message_id")?.foreignKey?.targetEntityId ?: "") shouldBe "mailing_message"
+        }
+
+        test("mailing_message_link's composite UNIQUE constraint is pinned via a class-level «Index»") {
+            val real = transaction { introspectCommunicationTable("mailing_message_link") }
+            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("mailing_message_id", "link_index"))
+        }
+
+        test("mailing_link_click table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "mailing_link_click" }
+            val real = transaction { introspectCommunicationTable("mailing_link_click") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+
+            entity.attributes.forEach { attr ->
+                val col = real.columns.getValue(attr.name!!)
+                withClue(clue = "column '${attr.name}'") {
+                    col.nullable shouldBe attr.nullable
+                }
+            }
+            // D7 (plan): named so the association-derived default ("mailing_delivery_log_id")
+            // matches the real schema exactly.
+            real.foreignKeys["mailing_delivery_log_id"] shouldBe "mailing_delivery_log"
+            model.entityNameOf(
+                entity.attributeByName("mailing_delivery_log_id")?.foreignKey?.targetEntityId ?: "",
+            ) shouldBe "mailing_delivery_log"
+        }
+
+        test("mailing_link_click's composite UNIQUE constraint is pinned via a class-level «Index»") {
+            val real = transaction { introspectCommunicationTable("mailing_link_click") }
+            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder
+                listOf(setOf("mailing_delivery_log_id", "link_index"))
+        }
+
         test("direct_message table shape matches the real schema (sender_id/recipient_id as plain columns, two-FK-collision gap pinned)") {
             val entity = model.entities.single { it.name == "direct_message" }
             val real = transaction { introspectCommunicationTable("direct_message") }
@@ -212,6 +264,20 @@ class CommunicationSchemaDriftTest :
                 .map { it.name } shouldContainExactlyInAnyOrder MailingDeliveryLogTable.columns.map { it.name }
         }
 
+        test("mailing_message_link entity column-name set matches the hand-written MailingMessageLinkTable 1:1") {
+            model.entities
+                .single { it.name == "mailing_message_link" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder MailingMessageLinkTable.columns.map { it.name }
+        }
+
+        test("mailing_link_click entity column-name set matches the hand-written MailingLinkClickTable 1:1") {
+            model.entities
+                .single { it.name == "mailing_link_click" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder MailingLinkClickTable.columns.map { it.name }
+        }
+
         test("direct_message entity column-name set matches the hand-written DirectMessageTable 1:1") {
             model.entities
                 .single { it.name == "direct_message" }
@@ -240,7 +306,7 @@ class CommunicationSchemaDriftTest :
             deliveryStatus?.type shouldBe
                 ErmDataType.Enum(
                     name = "DeliveryStatus",
-                    values = listOf("SENT", "BOUNCED", "SKIPPED_UNSUBSCRIBED"),
+                    values = listOf("SENT", "BOUNCED", "SKIPPED_UNSUBSCRIBED", "PENDING", "FAILED", "SKIPPED_NO_ADDRESS"),
                     externalFqName = "network.lapis.cloud.shared.domain.DeliveryStatus",
                 )
         }

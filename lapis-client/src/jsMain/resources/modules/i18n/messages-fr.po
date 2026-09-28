@@ -3811,9 +3811,8 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:372
 msgid ""
-"Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der "
-"Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht "
-"werden."
+"Die Nachricht \"%1\" wird an alle aktiven Abonnenten der Mailingliste \"%2\" "
+"verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
 msgstr ""
 "Le message « %1 » sera envoyé à tous les abonnés actifs de la liste de "
 "diffusion « %2 ». Cette étape ne peut pas être annulée."
@@ -6927,8 +6926,8 @@ msgid "Nachricht"
 msgstr "Message"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:385
-msgid "Nachricht \"%1\" wurde gesendet."
-msgstr "Le message « %1 » a été envoyé."
+msgid "Nachricht \"%1\" wurde in die Versand-Warteschlange gestellt."
+msgstr "Le message « %1 » a été placé dans la file d'attente d'envoi."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:370
 msgid "Nachricht senden"
@@ -7192,7 +7191,7 @@ msgid "Noch kein Konto? Jetzt Mitglied werden."
 msgstr "Pas encore de compte ? Devenez membre dès maintenant."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:241
-msgid "Noch keine Abonnentinnen und Abonnenten."
+msgid "Noch keine Abonnenten."
 msgstr "Aucun abonné pour le moment."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:476
@@ -13508,7 +13507,7 @@ msgid "Nur für \"Ablehnen\" erforderlich."
 msgstr "Obligatoire uniquement pour \"Rejeter\"."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
-msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jede aktive Abonnentin und jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
+msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
 msgstr "Dans cette version, l'envoi est une entrée de journal interne -- aucun véritable e-mail n'est encore envoyé via un service d'envoi externe. Chaque personne abonnée active reçoit une entrée avec le statut \"Envoyé\" dans le journal système, et non une remise réelle."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt

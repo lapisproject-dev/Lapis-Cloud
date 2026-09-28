@@ -3777,9 +3777,8 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:372
 msgid ""
-"Die Nachricht \"%1\" wird an alle aktiven Abonnentinnen und Abonnenten der "
-"Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht "
-"werden."
+"Die Nachricht \"%1\" wird an alle aktiven Abonnenten der Mailingliste \"%2\" "
+"verschickt. Dieser Schritt kann nicht rückgängig gemacht werden."
 msgstr ""
 "Сообщение «%1» будет отправлено всем активным подписчикам рассылки «%2». "
 "Этот шаг нельзя отменить."
@@ -6864,8 +6863,8 @@ msgid "Nachricht"
 msgstr "Сообщение"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:385
-msgid "Nachricht \"%1\" wurde gesendet."
-msgstr "Сообщение «%1» отправлено."
+msgid "Nachricht \"%1\" wurde in die Versand-Warteschlange gestellt."
+msgstr "Сообщение «%1» добавлено в очередь отправки."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:370
 msgid "Nachricht senden"
@@ -7129,7 +7128,7 @@ msgid "Noch kein Konto? Jetzt Mitglied werden."
 msgstr "Ещё нет учётной записи? Станьте участником прямо сейчас."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:241
-msgid "Noch keine Abonnentinnen und Abonnenten."
+msgid "Noch keine Abonnenten."
 msgstr "Пока нет подписчиков."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:476
@@ -13433,7 +13432,7 @@ msgid "Nur für \"Ablehnen\" erforderlich."
 msgstr "Обязательно только для «Отклонить»."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt
-msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jede aktive Abonnentin und jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
+msgid "Der Versand ist in dieser Version ein interner Protokolleintrag -- es wird noch keine echte E-Mail über einen externen Versanddienst verschickt. Jeder aktive Abonnent erhält einen Eintrag mit Status \"Gesendet\" im Systemprotokoll, keine tatsächliche Zustellung."
 msgstr "В этой версии отправка -- это внутренняя запись в журнале -- реальное электронное письмо через внешнюю службу рассылки пока не отправляется. Каждый активный подписчик и каждая активная подписчица получает запись со статусом \"Отправлено\" в системном журнале, а не фактическую доставку."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt
