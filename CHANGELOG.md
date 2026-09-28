@@ -30,6 +30,71 @@ All notable changes to this project are documented here. Format follows
   Selbstnachrichten ablehnt (vorher unbeschränkt, aber bislang ohne Client-Aufrufer außerhalb
   dieser Welle).
 
+- **V1.4.34/V1.4.36 — Nachrichten-/Artikel-Modul mit redaktionellem Workflow.** Mitglieder
+  schreiben Artikel (Titel, Auszug, Markdown-Body, optionales Titelbild) als `DRAFT`, reichen sie
+  zur Freigabe ein (`SUBMITTED`), und ein Vorstandsmitglied genehmigt oder lehnt ab
+  (`PUBLISHED`/`REJECTED`) -- bewusste Abgrenzung zum Sozialen Netzwerk (V1.1): dort geht ein Post
+  sofort live und wird erst nachträglich moderiert (innen-gerichtete Community-Kommunikation), das
+  Artikel-Modul ist außen-gerichtetes redaktionelles Content-Management mit einem
+  Genehmigungs-Gate davor. Vier-Augen-Prinzip bei Freigabe/Ablehnung/Depublizierung
+  (`ArticleService.requireNotOwnArticle`) gilt ausnahmslos, auch für ein ADMIN-Mitglied, das
+  gleichzeitig Autor ist. Neue Tabelle `article` (`V55__article.sql`, `slug` erst bei erster
+  Freigabe zugewiesen und danach nie wieder geändert), `ArticleMarkdown` als einziger
+  Markdown-zu-HTML-Renderer (commonmark-java, `escapeHtml(true)`, Bilder nur als Alt-Text,
+  gefährliche Link-Schemes gestrippt, Überschriften auf h2..h4 gedeckelt) für Vorschau,
+  Vorstands-Review UND die öffentliche Seite gemeinsam. Öffentliche, unauthentifizierte Seite `GET
+  /aktuelles/{slug}` (immer aktiv, nicht hinter `LAPIS_EMBED_ENABLED`) samt eigenem Titelbild-Pfad
+  (`GET /aktuelles/{slug}/bild`, versioniert/cachebar) und ein zweiter, authentifizierter
+  Titelbild-Pfad für Autor/Reviewer (`/api/articles/{id}/cover`). Neues Partner-Embed-Widget `GET
+  /api/embed/v1/articles` (opt-in, `LAPIS_EMBED_ENABLED`, gleiche CORS-Origin-Allowlist wie die
+  übrigen Embed-Endpunkte, eigenes Allowlist-DTO ohne `body`/`authorId`/`reviewedBy`) -- siehe
+  `docs/api/embed-widgets.adoc`. Depublizierung (`unpublishArticle`, `PUBLISHED` -> `REJECTED` mit
+  Pflicht-Begründung) statt einer eigenen fünften Status: der Autor korrigiert und reicht erneut
+  ein, Slug und `publishedAt` bleiben als Audit-Spur erhalten, ohne die öffentliche Sichtbarkeit
+  wiederherzustellen (beide öffentlichen Lesepfade prüfen `status == PUBLISHED` bei jeder
+  Anfrage neu). DSGVO-Anbindung über `ArticlePersonalData`: ein veröffentlichter Artikel gilt als
+  Organisationsinhalt und wird bei einer Mitglieder-Löschung nicht entfernt, der `author_id`-/
+  `reviewed_by`-Zeiger verweist danach auf den anonymisierten Mitgliedsdatensatz. Ausführliche
+  Architektur-Dokumentation: `docs/architecture/article.adoc`.
+  +
+  Zwei echte Befunde aus dem Review-/Security-Audit-Loop, beide behoben, bevor diese Welle als
+  abgeschlossen galt: `IArticleService` war zwar implementiert, aber nie mit `registerService` in
+  `Application.kt` registriert -- die RPC-Schnittstelle existierte serverseitig, war aber von
+  keinem Client aus erreichbar. Und ein DoS-Fund: `saveDraft` war für jedes aktive Mitglied ohne
+  Rate-Limit und ohne Cap pro Autor erreichbar; behoben über mitglieds-gebundene Rate-Limiter
+  (Create/Update getrennt) und `ArticleStore.MAX_DRAFTS_PER_AUTHOR = 100` -- eine zweite
+  Review-Runde deckte auf, dass dieser Cap sich per `submitArticle`/`withdrawArticle`-Schleife
+  umgehen ließ (der Cap zählte ursprünglich nur `DRAFT`/`REJECTED`, `submitArticle` ist aber
+  autoren-only ohne Board-Gate), endgültig geschlossen, indem `countEditableByAuthor` jetzt jede
+  Nicht-`PUBLISHED`-Zeile zählt, da nur das Board-gated `approveArticle` eine Zeile aus dem Cap
+  entfernen kann. Bekannte Einschränkung: die öffentliche Detailseite `/aktuelles/{slug}` trägt
+  weiterhin keinen eigenen Kopfbereich (kein Rücksprung zur Seiten-Navigation von dort) -- bleibt
+  für eine Folgewelle offen.
+
+- **V1.4.37 — Wiederkehrende Veranstaltungen: Admin-UI + RRULE-iCal-Feed (Abschluss).** Das
+  server-seitige Fundament (Datenmodell, Scope-Engine, RPC-Verdrahtung -- `createEventSeries`,
+  `previewSeries`, `updateSeriesEvent`, `cancelSeriesEvent`, `impactOfSeriesEdit`) landete in
+  vorherigen Wellen; diese Welle liefert den Rest: die Admin-Oberfläche und den RRULE-fähigen
+  iCal-Feed. Neue Datei `EventSeriesEditor.kt`: ein Google-Calendar-artiges Wiederholung-Dropdown
+  (täglich/wöchentlich am Wochentag/monatlich am Tag im Monat oder n-ten Wochentag/jährlich) mit
+  aufklappbarem "Benutzerdefiniert" (Intervall, Wochentag-Chips -- Starttag fest markiert --,
+  Serie-Ende als Anzahl oder Enddatum, nie unbegrenzt), Live-Satz ausschließlich aus der
+  server-seitigen `previewSeries`-RPC (kein zweiter Client-Interpreter), sowie ein
+  THIS/FOLLOWING/ALL-Auswahldialog vor jeder Mehrfach-Änderung/-Absage mit den Auswirkungszahlen aus
+  `impactOfSeriesEdit` direkt in der Options-Beschriftung. `EventsScreen.kt`: die Terminliste bleibt
+  flach und chronologisch, zeigt aber ein ↻-Symbol (durchgestrichen für eine individuell aus der
+  Serie gelöste Ausnahme-Instanz) mit dem server-gebauten `seriesRuleSummary` als Tooltip; Bearbeiten/
+  Absagen eines noch nicht gelösten Serientermins läuft über den Scope-Dialog, ein bereits gelöster
+  Termin über den normalen Einzel-Event-Pfad (server-seitig ohnehin erzwungen).
+  `EventIcsFeed.render` rendert eine Serie jetzt als EIN RRULE-Master-`VEVENT` statt als N
+  unabhängige `VEVENT`s: eine individuell bearbeitete/gelöste Instanz bekommt ein eigenes `VEVENT`
+  mit `RECURRENCE-ID`, fehlende/abgesagte/versteckte Okkurrenzen werden per `EXDATE`
+  ausgeschlossen -- verifiziert per echtem `ical4j`-`CalendarBuilder`-Roundtrip-Parse
+  (`EventIcsFeedSeriesTest`). Ein Integrationstest (`EventSeriesInstanceIntegrationTest`) zeigt, dass
+  eine Serieninstanz eine ganz normale `event`-Zeile bleibt: Anmeldung/Kontingent/Warteliste,
+  Titelbild und das Embed-Widget funktionieren unverändert. 58 neue i18n-Katalogeinträge in allen
+  sieben Sprachen + Template.
+
 - **V1.9.11 — Öffentliche Icon-Navigation + Übersichten Artikel/Veranstaltungen.** Der Kopfbereich
   aller sechs (jetzt sieben) unauthentifizierten öffentlichen Seiten (`/`, `/s`, `/transparenz`,
   `/impressum`, `/datenschutz`, neu `/aktuelles`, `/veranstaltungen`) zeigt die Navigation jetzt

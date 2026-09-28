@@ -1288,8 +1288,9 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:417
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:474
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:180
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventSeriesEditor.kt:458
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:209
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:583
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2336
@@ -1419,7 +1420,7 @@ msgstr ""
 msgid "Abrechnen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:237
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:248
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:369
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:374
 msgid "Absagen"
@@ -1732,7 +1733,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:588
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:179
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:484
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:582
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
 msgid "Änderungen speichern"
 msgstr ""
 
@@ -2314,7 +2316,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:103
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:128
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:191
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:202
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:485
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:298
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:231
@@ -2327,7 +2329,7 @@ msgid "Beendet"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:658
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:401
 msgid "Beginn"
 msgstr ""
 
@@ -2625,7 +2627,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:736
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:198
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:235
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:324
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:397
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1132
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1182
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1649
@@ -3940,7 +3942,7 @@ msgid "Empfänger:"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:662
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:330
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:403
 msgid "Ende"
 msgstr ""
 
@@ -3986,9 +3988,9 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:297
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3057
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4585
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:601
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:680
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:722
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:728
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2117
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:437
@@ -4746,7 +4748,8 @@ msgid "Gremium: %1 · eingereicht von %2 am %3"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:592
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:265
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:289
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1206
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:564
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:839
@@ -4837,7 +4840,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:375
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:734
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:552
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:679
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:436
 msgid "Hochladen"
 msgstr ""
@@ -7514,7 +7517,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:557
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:619
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:680
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:347
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:420
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:286
 msgid "Sichtbarkeit"
 msgstr ""
@@ -8238,7 +8241,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:389
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:535
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:323
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:396
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:233
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:438
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:624
@@ -8484,8 +8487,8 @@ msgstr ""
 msgid "Vermögensverwaltung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:210
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:224
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:221
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:324
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:348
 msgid "Veröffentlichen"
@@ -8720,6 +8723,7 @@ msgid "Vote schließen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:716
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
 msgid "Weiter"
 msgstr ""
 
@@ -8959,7 +8963,7 @@ msgid "Wird zusammengeführt …"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:301
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:590
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:717
 msgid "Wirklich entfernen?"
 msgstr ""
 
@@ -9514,13 +9518,13 @@ msgid "Einbindungs-Code"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:103
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:172
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:183
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:323
 msgid "Kopieren"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:104
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:173
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:184
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:324
 msgid "Kopiert"
 msgstr ""
@@ -15737,4 +15741,177 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
+msgstr ""
+msgid "Wiederkehrende Veranstaltung (Serie)"
+msgstr ""
+
+msgid "Wiederholung"
+msgstr ""
+
+msgid "Tag(e)"
+msgstr ""
+
+msgid "Woche(n)"
+msgstr ""
+
+msgid "Monat(e)"
+msgstr ""
+
+msgid "Jahr(e)"
+msgstr ""
+
+msgid "Alle …"
+msgstr ""
+
+msgid "Intervall"
+msgstr ""
+
+msgid "Intervall: 1 bis %1."
+msgstr ""
+
+msgid "Am gleichen Tag im Monat"
+msgstr ""
+
+msgid "Am gleichen Wochentag im Monat"
+msgstr ""
+
+msgid "Monatliche Variante"
+msgstr ""
+
+msgid "Nach Anzahl der Termine"
+msgstr ""
+
+msgid "Am Enddatum"
+msgstr ""
+
+msgid "Serie endet …"
+msgstr ""
+
+msgid "Anzahl der Termine"
+msgstr ""
+
+msgid "Eine Serie umfasst höchstens %1 Termine, innerhalb von höchstens %2 Monaten ab dem Beginn."
+msgstr ""
+
+msgid "Wochentage:"
+msgstr ""
+
+msgid "Benutzerdefiniert…"
+msgstr ""
+
+msgid "Täglich"
+msgstr ""
+
+msgid "Wöchentlich am %1"
+msgstr ""
+
+msgid "Jährlich am %1"
+msgstr ""
+
+msgid "Monatlich am letzten %1"
+msgstr ""
+
+msgid "Monatlich am %1 %2"
+msgstr ""
+
+msgid "ersten"
+msgstr ""
+
+msgid "zweiten"
+msgstr ""
+
+msgid "dritten"
+msgstr ""
+
+msgid "vierten"
+msgstr ""
+
+msgid "Montag"
+msgstr ""
+
+msgid "Dienstag"
+msgstr ""
+
+msgid "Mittwoch"
+msgstr ""
+
+msgid "Donnerstag"
+msgstr ""
+
+msgid "Freitag"
+msgstr ""
+
+msgid "Samstag"
+msgstr ""
+
+msgid "Sonntag"
+msgstr ""
+
+msgid "Mo"
+msgstr ""
+
+msgid "Di"
+msgstr ""
+
+msgid "Mi"
+msgstr ""
+
+msgid "Do"
+msgstr ""
+
+msgid "Fr"
+msgstr ""
+
+msgid "Sa"
+msgstr ""
+
+msgid "So"
+msgstr ""
+
+msgid "Auswirkungen werden geladen…"
+msgstr ""
+
+msgid "Auswirkungen konnten nicht geladen werden -- bitte erneut versuchen."
+msgstr ""
+
+msgid "Betrifft"
+msgstr ""
+
+msgid "Nur dieser Termin (%1 Angemeldete)"
+msgstr ""
+
+msgid "Dieser und alle folgenden Termine (%1 Termine, %2 Angemeldete)"
+msgstr ""
+
+msgid "Alle Termine der Serie (%1 Termine, %2 Angemeldete)"
+msgstr ""
+
+msgid "Teil einer Serie"
+msgstr ""
+
+msgid "Diese Aktion kann nicht rückgängig gemacht werden. Ein Termin ohne jede Anmeldung wird endgültig gelöscht, ein Termin mit Anmeldungen wird abgesagt und alle aktiven Angemeldeten werden per E-Mail benachrichtigt."
+msgstr ""
+
+msgid "Serientermin absagen"
+msgstr ""
+
+msgid "Welche Termine sollen abgesagt bzw. gelöscht werden?"
+msgstr ""
+
+msgid "%1 Termin(e) wurden abgesagt bzw. gelöscht (%2 Angemeldete benachrichtigt)."
+msgstr ""
+
+msgid "Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden."
+msgstr ""
+
+msgid "Serie \"%1\" mit %2 Terminen wurde angelegt."
+msgstr ""
+
+msgid "Serientermin bearbeiten"
+msgstr ""
+
+msgid "Welche Termine sollen diese Änderung übernehmen?"
+msgstr ""
+
+msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr ""

@@ -1347,8 +1347,9 @@ msgstr "Подписка отменена %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:417
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:474
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:180
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventSeriesEditor.kt:458
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:209
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:583
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2336
@@ -1481,7 +1482,7 @@ msgstr "Готово к зачислению"
 msgid "Abrechnen"
 msgstr "Зачислить"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:237
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:248
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:369
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:374
 msgid "Absagen"
@@ -1812,7 +1813,8 @@ msgstr "Другая партия/фракция"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:588
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:179
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:484
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:582
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
 msgid "Änderungen speichern"
 msgstr "Сохранить изменения"
 
@@ -2410,7 +2412,7 @@ msgstr "Запрошено %1, %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:103
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:128
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:191
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:202
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:485
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:298
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:231
@@ -2423,7 +2425,7 @@ msgid "Beendet"
 msgstr "Завершено"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:658
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:401
 msgid "Beginn"
 msgstr "Начало"
 
@@ -2769,7 +2771,7 @@ msgstr "Текст решения"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:736
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:198
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:235
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:324
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:397
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1132
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1182
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1649
@@ -4390,7 +4392,7 @@ msgid "Empfänger:"
 msgstr "Получатель:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:662
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:330
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:403
 msgid "Ende"
 msgstr "Окончание"
 
@@ -4436,9 +4438,9 @@ msgstr "Обнаружено: %1 · Затронутые категории да
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:297
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3057
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4585
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:601
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:680
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:722
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:728
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2117
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:437
@@ -5264,7 +5266,8 @@ msgid "Gremium: %1 · eingereicht von %2 am %3"
 msgstr "Орган: %1 · подано %2, %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:592
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:265
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:289
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1206
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:564
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:839
@@ -5365,7 +5368,7 @@ msgstr "Высокий"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:375
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:734
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:552
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:679
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:436
 msgid "Hochladen"
 msgstr "Загрузить"
@@ -8233,7 +8236,7 @@ msgstr "Видно TREASURER/BOARD/ADMIN."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:557
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:619
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:680
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:347
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:420
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:286
 msgid "Sichtbarkeit"
 msgstr "Видимость"
@@ -9030,7 +9033,7 @@ msgstr "Лента"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:389
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:535
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:323
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:396
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:233
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:438
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:624
@@ -9293,8 +9296,8 @@ msgstr "История"
 msgid "Vermögensverwaltung"
 msgstr "Управление имуществом"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:210
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:224
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:221
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:324
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:348
 msgid "Veröffentlichen"
@@ -9552,6 +9555,7 @@ msgid "Vote schließen"
 msgstr "Закрыть голосование"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:716
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
 msgid "Weiter"
 msgstr "Далее"
 
@@ -9795,7 +9799,7 @@ msgid "Wird zusammengeführt …"
 msgstr "Объединение…"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:301
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:590
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:717
 msgid "Wirklich entfernen?"
 msgstr "Действительно удалить?"
 
@@ -16650,3 +16654,176 @@ msgstr "Пока нет собственных записей."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
 msgstr "Нет поездок типа «%1»."
+msgid "Wiederkehrende Veranstaltung (Serie)"
+msgstr "Повторяющееся мероприятие (серия)"
+
+msgid "Wiederholung"
+msgstr "Повторение"
+
+msgid "Tag(e)"
+msgstr "день/дней"
+
+msgid "Woche(n)"
+msgstr "неделя/недель"
+
+msgid "Monat(e)"
+msgstr "месяц/месяцев"
+
+msgid "Jahr(e)"
+msgstr "год/лет"
+
+msgid "Alle …"
+msgstr "Каждые …"
+
+msgid "Intervall"
+msgstr "Интервал"
+
+msgid "Intervall: 1 bis %1."
+msgstr "Интервал: от 1 до %1."
+
+msgid "Am gleichen Tag im Monat"
+msgstr "В тот же день месяца"
+
+msgid "Am gleichen Wochentag im Monat"
+msgstr "В тот же день недели месяца"
+
+msgid "Monatliche Variante"
+msgstr "Ежемесячный вариант"
+
+msgid "Nach Anzahl der Termine"
+msgstr "После количества событий"
+
+msgid "Am Enddatum"
+msgstr "До даты окончания"
+
+msgid "Serie endet …"
+msgstr "Серия заканчивается …"
+
+msgid "Anzahl der Termine"
+msgstr "Количество событий"
+
+msgid "Eine Serie umfasst höchstens %1 Termine, innerhalb von höchstens %2 Monaten ab dem Beginn."
+msgstr "Серия включает не более %1 событий в течение не более %2 месяцев с начала."
+
+msgid "Wochentage:"
+msgstr "Дни недели:"
+
+msgid "Benutzerdefiniert…"
+msgstr "Настраиваемое…"
+
+msgid "Täglich"
+msgstr "Ежедневно"
+
+msgid "Wöchentlich am %1"
+msgstr "Еженедельно по %1"
+
+msgid "Jährlich am %1"
+msgstr "Ежегодно %1"
+
+msgid "Monatlich am letzten %1"
+msgstr "Ежемесячно в последний %1"
+
+msgid "Monatlich am %1 %2"
+msgstr "Ежемесячно в %1 %2"
+
+msgid "ersten"
+msgstr "первый"
+
+msgid "zweiten"
+msgstr "второй"
+
+msgid "dritten"
+msgstr "третий"
+
+msgid "vierten"
+msgstr "четвёртый"
+
+msgid "Montag"
+msgstr "понедельник"
+
+msgid "Dienstag"
+msgstr "вторник"
+
+msgid "Mittwoch"
+msgstr "среда"
+
+msgid "Donnerstag"
+msgstr "четверг"
+
+msgid "Freitag"
+msgstr "пятница"
+
+msgid "Samstag"
+msgstr "суббота"
+
+msgid "Sonntag"
+msgstr "воскресенье"
+
+msgid "Mo"
+msgstr "пн"
+
+msgid "Di"
+msgstr "вт"
+
+msgid "Mi"
+msgstr "ср"
+
+msgid "Do"
+msgstr "чт"
+
+msgid "Fr"
+msgstr "пт"
+
+msgid "Sa"
+msgstr "сб"
+
+msgid "So"
+msgstr "вс"
+
+msgid "Auswirkungen werden geladen…"
+msgstr "Загрузка последствий…"
+
+msgid "Auswirkungen konnten nicht geladen werden -- bitte erneut versuchen."
+msgstr "Не удалось загрузить последствия -- попробуйте ещё раз."
+
+msgid "Betrifft"
+msgstr "Затрагивает"
+
+msgid "Nur dieser Termin (%1 Angemeldete)"
+msgstr "Только это событие (%1 зарегистрировано)"
+
+msgid "Dieser und alle folgenden Termine (%1 Termine, %2 Angemeldete)"
+msgstr "Это и все последующие события (%1 событий, %2 зарегистрировано)"
+
+msgid "Alle Termine der Serie (%1 Termine, %2 Angemeldete)"
+msgstr "Все события серии (%1 событий, %2 зарегистрировано)"
+
+msgid "Teil einer Serie"
+msgstr "Часть серии"
+
+msgid "Diese Aktion kann nicht rückgängig gemacht werden. Ein Termin ohne jede Anmeldung wird endgültig gelöscht, ein Termin mit Anmeldungen wird abgesagt und alle aktiven Angemeldeten werden per E-Mail benachrichtigt."
+msgstr "Это действие нельзя отменить. Событие без единой регистрации будет удалено безвозвратно; событие с регистрациями будет отменено, и все активно зарегистрированные будут уведомлены по электронной почте."
+
+msgid "Serientermin absagen"
+msgstr "Отменить событие серии"
+
+msgid "Welche Termine sollen abgesagt bzw. gelöscht werden?"
+msgstr "Какие события следует отменить или удалить?"
+
+msgid "%1 Termin(e) wurden abgesagt bzw. gelöscht (%2 Angemeldete benachrichtigt)."
+msgstr "%1 событие(й) отменено или удалено (%2 зарегистрированных уведомлено)."
+
+msgid "Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden."
+msgstr "Проверьте правило повторения -- в таком виде его нельзя создать."
+
+msgid "Serie \"%1\" mit %2 Terminen wurde angelegt."
+msgstr "Серия «%1» с %2 событиями создана."
+
+msgid "Serientermin bearbeiten"
+msgstr "Изменить событие серии"
+
+msgid "Welche Termine sollen diese Änderung übernehmen?"
+msgstr "Какие события должны получить это изменение?"
+
+msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
+msgstr "%1 событие(й) обновлено (затронуто %2 зарегистрированных)."

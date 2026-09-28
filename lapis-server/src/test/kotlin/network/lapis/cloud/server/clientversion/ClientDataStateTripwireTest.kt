@@ -49,9 +49,14 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * [READ_CALL] at all -- "unreadCount" starts with neither "count" nor any other listed prefix) into a real message list via
  * `listInbox()` (which IS matched -- starts with "list"), one more read call in a file this wave does not otherwise migrate onto
  * `dataSection`. 148 -> 149.
+ * Follow-up wave "Wiederkehrende Veranstaltungen: Client/iCal/i18n" adds ONE more, independently of the above (both landed on
+ * separate branches from the same 148 baseline, merged together here): `EventSeriesEditor.kt`'s debounced `previewSeries(`
+ * live-preview call (400ms after every keystroke/selection change in the recurrence editor) has the same "no sensible
+ * loading/error state" shape as the accepted badge reads above -- the live sentence it feeds simply stays blank until the next
+ * successful response, exactly like a badge count staying at its last value. 149 -> 150.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 149
+private const val READ_OUTSIDE_STATE_REGION_MAX = 150
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 44
 
 /**

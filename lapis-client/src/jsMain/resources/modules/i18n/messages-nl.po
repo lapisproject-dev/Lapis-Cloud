@@ -1346,8 +1346,9 @@ msgstr "Uitgeschreven op %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:417
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:474
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:180
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventSeriesEditor.kt:458
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:209
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:583
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2336
@@ -1479,7 +1480,7 @@ msgstr "Afwikkelbaar"
 msgid "Abrechnen"
 msgstr "Afwikkelen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:237
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:248
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:369
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:374
 msgid "Absagen"
@@ -1810,7 +1811,8 @@ msgstr "Andere partij/fractie"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:588
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:179
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:484
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:582
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
 msgid "Änderungen speichern"
 msgstr "Wijzigingen opslaan"
 
@@ -2407,7 +2409,7 @@ msgstr "Aangevraagd door %1 op %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:103
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:128
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:191
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:202
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:485
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:298
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:231
@@ -2420,7 +2422,7 @@ msgid "Beendet"
 msgstr "Beëindigd"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:658
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:401
 msgid "Beginn"
 msgstr "Begin"
 
@@ -2768,7 +2770,7 @@ msgstr "Besluittekst"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:736
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:198
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:235
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:324
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:397
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1132
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1182
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1649
@@ -4400,7 +4402,7 @@ msgid "Empfänger:"
 msgstr "Ontvanger:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:662
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:330
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:403
 msgid "Ende"
 msgstr "Einde"
 
@@ -4446,9 +4448,9 @@ msgstr "Ontdekt op: %1 · Betrokken gegevenscategorieën: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:297
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3057
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4585
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:601
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:680
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:722
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:728
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2117
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:437
@@ -5273,7 +5275,8 @@ msgid "Gremium: %1 · eingereicht von %2 am %3"
 msgstr "Orgaan: %1 · ingediend door %2 op %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:592
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:265
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:289
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1206
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:564
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:839
@@ -5374,7 +5377,7 @@ msgstr "Hoog"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:375
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:734
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:552
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:679
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:436
 msgid "Hochladen"
 msgstr "Uploaden"
@@ -8241,7 +8244,7 @@ msgstr "Zichtbaar voor TREASURER/BOARD/ADMIN."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:557
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:619
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:680
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:347
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:420
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:286
 msgid "Sichtbarkeit"
 msgstr "Zichtbaarheid"
@@ -9035,7 +9038,7 @@ msgstr "Tijdlijn"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:389
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:535
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:323
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:396
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:233
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:438
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:624
@@ -9298,8 +9301,8 @@ msgstr "Geschiedenis"
 msgid "Vermögensverwaltung"
 msgstr "Vermogensbeheer"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:210
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:224
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:221
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:324
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:348
 msgid "Veröffentlichen"
@@ -9558,6 +9561,7 @@ msgid "Vote schließen"
 msgstr "Stemming sluiten"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:716
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
 msgid "Weiter"
 msgstr "Volgende"
 
@@ -9802,7 +9806,7 @@ msgid "Wird zusammengeführt …"
 msgstr "Wordt samengevoegd …"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:301
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:590
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:717
 msgid "Wirklich entfernen?"
 msgstr "Echt verwijderen?"
 
@@ -16661,3 +16665,176 @@ msgstr "Nog geen eigen vermeldingen."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
 msgstr "Geen ritten van het type \"%1\"."
+msgid "Wiederkehrende Veranstaltung (Serie)"
+msgstr "Terugkerend evenement (serie)"
+
+msgid "Wiederholung"
+msgstr "Herhaling"
+
+msgid "Tag(e)"
+msgstr "dag(en)"
+
+msgid "Woche(n)"
+msgstr "week/weken"
+
+msgid "Monat(e)"
+msgstr "maand(en)"
+
+msgid "Jahr(e)"
+msgstr "jaar/jaren"
+
+msgid "Alle …"
+msgstr "Elke …"
+
+msgid "Intervall"
+msgstr "Interval"
+
+msgid "Intervall: 1 bis %1."
+msgstr "Interval: 1 tot %1."
+
+msgid "Am gleichen Tag im Monat"
+msgstr "Op dezelfde dag van de maand"
+
+msgid "Am gleichen Wochentag im Monat"
+msgstr "Op dezelfde weekdag van de maand"
+
+msgid "Monatliche Variante"
+msgstr "Maandelijkse variant"
+
+msgid "Nach Anzahl der Termine"
+msgstr "Na een aantal keren"
+
+msgid "Am Enddatum"
+msgstr "Op een einddatum"
+
+msgid "Serie endet …"
+msgstr "Serie eindigt …"
+
+msgid "Anzahl der Termine"
+msgstr "Aantal keren"
+
+msgid "Eine Serie umfasst höchstens %1 Termine, innerhalb von höchstens %2 Monaten ab dem Beginn."
+msgstr "Een serie omvat maximaal %1 keren, binnen maximaal %2 maanden vanaf de start."
+
+msgid "Wochentage:"
+msgstr "Weekdagen:"
+
+msgid "Benutzerdefiniert…"
+msgstr "Aangepast…"
+
+msgid "Täglich"
+msgstr "Dagelijks"
+
+msgid "Wöchentlich am %1"
+msgstr "Wekelijks op %1"
+
+msgid "Jährlich am %1"
+msgstr "Jaarlijks op %1"
+
+msgid "Monatlich am letzten %1"
+msgstr "Maandelijks op de laatste %1"
+
+msgid "Monatlich am %1 %2"
+msgstr "Maandelijks op de %1 %2"
+
+msgid "ersten"
+msgstr "eerste"
+
+msgid "zweiten"
+msgstr "tweede"
+
+msgid "dritten"
+msgstr "derde"
+
+msgid "vierten"
+msgstr "vierde"
+
+msgid "Montag"
+msgstr "maandag"
+
+msgid "Dienstag"
+msgstr "dinsdag"
+
+msgid "Mittwoch"
+msgstr "woensdag"
+
+msgid "Donnerstag"
+msgstr "donderdag"
+
+msgid "Freitag"
+msgstr "vrijdag"
+
+msgid "Samstag"
+msgstr "zaterdag"
+
+msgid "Sonntag"
+msgstr "zondag"
+
+msgid "Mo"
+msgstr "ma"
+
+msgid "Di"
+msgstr "di"
+
+msgid "Mi"
+msgstr "wo"
+
+msgid "Do"
+msgstr "do"
+
+msgid "Fr"
+msgstr "vr"
+
+msgid "Sa"
+msgstr "za"
+
+msgid "So"
+msgstr "zo"
+
+msgid "Auswirkungen werden geladen…"
+msgstr "Impact wordt geladen…"
+
+msgid "Auswirkungen konnten nicht geladen werden -- bitte erneut versuchen."
+msgstr "De impact kon niet worden geladen -- probeer het opnieuw."
+
+msgid "Betrifft"
+msgstr "Betreft"
+
+msgid "Nur dieser Termin (%1 Angemeldete)"
+msgstr "Alleen dit exemplaar (%1 aanmeldingen)"
+
+msgid "Dieser und alle folgenden Termine (%1 Termine, %2 Angemeldete)"
+msgstr "Dit en alle volgende exemplaren (%1 keren, %2 aanmeldingen)"
+
+msgid "Alle Termine der Serie (%1 Termine, %2 Angemeldete)"
+msgstr "Alle keren van de serie (%1 keren, %2 aanmeldingen)"
+
+msgid "Teil einer Serie"
+msgstr "Onderdeel van een serie"
+
+msgid "Diese Aktion kann nicht rückgängig gemacht werden. Ein Termin ohne jede Anmeldung wird endgültig gelöscht, ein Termin mit Anmeldungen wird abgesagt und alle aktiven Angemeldeten werden per E-Mail benachrichtigt."
+msgstr "Deze actie kan niet ongedaan worden gemaakt. Een exemplaar zonder aanmeldingen wordt definitief verwijderd; een exemplaar met aanmeldingen wordt geannuleerd en alle actief aangemelde personen worden per e-mail op de hoogte gebracht."
+
+msgid "Serientermin absagen"
+msgstr "Serie-exemplaar annuleren"
+
+msgid "Welche Termine sollen abgesagt bzw. gelöscht werden?"
+msgstr "Welke exemplaren moeten worden geannuleerd of verwijderd?"
+
+msgid "%1 Termin(e) wurden abgesagt bzw. gelöscht (%2 Angemeldete benachrichtigt)."
+msgstr "%1 exemplaar/exemplaren zijn geannuleerd of verwijderd (%2 aanmeldingen op de hoogte gebracht)."
+
+msgid "Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden."
+msgstr "Controleer de herhalingsregel -- deze kan zo niet worden aangemaakt."
+
+msgid "Serie \"%1\" mit %2 Terminen wurde angelegt."
+msgstr "Serie \"%1\" met %2 keren is aangemaakt."
+
+msgid "Serientermin bearbeiten"
+msgstr "Serie-exemplaar bewerken"
+
+msgid "Welche Termine sollen diese Änderung übernehmen?"
+msgstr "Welke exemplaren moeten deze wijziging krijgen?"
+
+msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
+msgstr "%1 exemplaar/exemplaren zijn bijgewerkt (%2 aanmeldingen betroffen)."

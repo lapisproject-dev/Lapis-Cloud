@@ -69,7 +69,10 @@ for their `OPTIONS` CORS preflight — see <<anonymous-donation-widget>> and
 preflight budget) — see <<cors-and-csp-contract>>. `/api/embed/v1/events` (60/min, same budget
 class as `/api/embed/v1/session`/`lapis-widgets.js`) shares its `OPTIONS` preflight's rate limit
 with the *event-registration* widget's own preflight budget, not a dedicated limiter — see
-<<events-list-widget>>.
+<<events-list-widget>>. `/api/embed/v1/articles` has its own dedicated 60/min `GET` limiter, but
+— like `/api/embed/v1/events` — shares its `OPTIONS` preflight's rate limit with the
+*event-registration* widget's own preflight budget rather than a dedicated one — see
+<<articles-list-widget>>.
 
 [[no-js-fallback-contract]]
 == No-JS fallback contract
@@ -99,7 +102,11 @@ Wave V1.4.33 adds a fifth, read-only surface — `GET /api/embed/v1/events` (see
 has no `data-lapis-widget="..."` hydration counterpart in this wave (no bundled JS renders it yet),
 so it is not one of the four snippet-based widgets above.
 
-All five are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
+Wave V1.4.34/V1.4.36 adds a sixth, read-only surface — `GET /api/embed/v1/articles` (see
+<<articles-list-widget>>) — a JSON list of the newest published articles, structurally a 1:1
+mirror of the events list widget. Likewise no `data-lapis-widget="..."` hydration counterpart.
+
+All six are opt-in, `LAPIS_EMBED_ENABLED=false` by default (see <<environment-variables>>).
 
 [[embedding-snippet]]
 == Embedding snippet
@@ -649,6 +656,92 @@ four widgets on this page) — a partner site fetches this JSON endpoint directl
 rendering. Adding a shared-bundle `hydrateEvents()` to `lapis-widgets.js` is a candidate for a
 follow-up wave once real partner-site rendering needs are clearer.
 
+[[articles-list-widget]]
+== Articles list widget (wave V1.4.34/V1.4.36)
+
+`GET /api/embed/v1/articles` — a read-only, JSON list of the newest `PUBLISHED` articles, for a
+partner site to render its own "Aktuelles" (news) teaser. Structurally a 1:1 mirror of
+<<events-list-widget,the events list widget>> above: same CORS/rate-limit posture (a request with
+**no** `Origin` header is answered normally, `200`, rather than rejected — this endpoint carries no
+session/credential risk, never reads a cookie, never writes anything, and never returns anything
+beyond what `/aktuelles/{slug}` already serves to an unauthenticated visitor), gated behind the
+SAME `LAPIS_EMBED_ENABLED`/`LAPIS_EMBED_ALLOWED_ORIGINS` opt-in as every other endpoint on this
+page — no separate environment variable.
+
+Its own, smaller cap: `EmbedArticlesFeedLimits.MAX_ARTICLES = 20`,
+`EmbedArticlesFeedLimits.DEFAULT_ARTICLES = 10` — deliberately its own, lower numbers than the
+events feed's `MAX_EVENTS = 50`: a partner-site article widget realistically shows the 5–10 most
+recent headlines, never a full archive dump. The optional `?limit=` query parameter is parsed by
+`EmbedArticlesFeedLimits.parseLimit`, which never throws: a missing, unparsable, or `<= 0` value
+falls back to `DEFAULT_ARTICLES`, and anything above `MAX_ARTICLES` is silently clamped down to it.
+
+[source]
+----
+GET /api/embed/v1/articles
+GET /api/embed/v1/articles?limit=5
+----
+
+Response (`200`):
+
+[source,json]
+----
+{
+  "articles": [
+    {
+      "slug": "jahresbericht-2026",
+      "title": "Jahresbericht 2026",
+      "excerpt": "Ein Rückblick auf ein ereignisreiches Jahr.",
+      "url": "https://verein.example/aktuelles/jahresbericht-2026",
+      "coverImageUrl": "https://verein.example/aktuelles/jahresbericht-2026/bild?v=a1b2c3d4",
+      "publishedAt": "2026-09-28T09:00:00Z"
+    }
+  ]
+}
+----
+
+* `url` — the public, human-facing article page (`/aktuelles/{slug}`), the same URL the RPC-facing
+  `ArticleDto` cover-URL family and the embed feed's own `coverImageUrl` are built from
+  (`ArticleCoverPolicy.publicCoverImageUrl`).
+* `coverImageUrl` — `null` (omitted from the wire JSON — this endpoint's `Json { explicitNulls =
+  false }` configuration drops it rather than serializing an explicit `null`) if the article has
+  no cover image set; otherwise the same absolute, versioned URL shape
+  <<event-cover-image,the event cover-image feature>> documents, via the SAME
+  `ArticleCoverPolicy.publicCoverImageUrl` function <<articles-list-widget,described above>>.
+* `publishedAt` — ISO-8601, always UTC (`Z` suffix).
+
+`EmbedArticleListItemDto` is a deliberate, explicit field-by-field allowlist mapping — it does
+**not** reuse `network.lapis.cloud.shared.domain.ArticleDto` — so the wire JSON can never contain
+`body`, `authorId`, `reviewedBy`, `id`, or `rejectionReason`, checked at the raw-JSON-string level
+by `EmbedArticlesFeedRoutesTest`, not merely "the DTO type has no such field". A `PUBLISHED` row
+whose `slug`/`publishedAt` is unexpectedly `null` (cannot happen by construction —
+`ArticleService.approveArticle` always sets both together in the same `UPDATE`) is skipped (logged
+at `warn`, id only) rather than failing the whole feed with a `500` — one inconsistent row must
+never 500 an entire partner site's news widget.
+
+Errors:
+
+[cols="1,3"]
+|===
+|Response |Meaning
+
+|`403` (no body) |`Origin` header present but not on `LAPIS_EMBED_ALLOWED_ORIGINS`.
+|`429` (no body, `Retry-After` header) |Rate limit exceeded (60/min, its own dedicated `GET`
+limiter, separate from the events feed's own budget — see <<rate-limits>>).
+|`500` (no body) |Unhandled server-side exception — never leaves a bare, header-less response.
+|===
+
+`Cache-Control: no-store` is present on every response, for the same reason
+<<events-list-widget,the events list widget>> carries it: the shared `applyEmbedCors` helper sets
+it unconditionally before any handler-specific logic runs.
+
+There is no bundled `data-lapis-widget="articles"` hydration script (unlike the four snippet-based
+widgets at the top of this document, and like the events list widget above) — a partner site
+fetches this JSON endpoint directly with its own rendering.
+
+See also: `docs/architecture/article.adoc` for the full article state machine, the four-eyes
+review-approval principle, and the shared Markdown-rendering pipeline this feed's public
+counterpart (`GET /aktuelles/{slug}`) is built on.
+
 [[event-cover-image]]
 == Event cover image (Veranstaltungs-Titelbild)
 
@@ -696,7 +789,10 @@ column (`event.cover_image_id`) and an optional `LAPIS_EVENT_COVER_STORAGE_ROOT`
 variable, but is likewise NOT itself a partner-API surface. Wave V1.4.33 adds the read-only
 events-list widget (<<events-list-widget>>) — again the SAME infrastructure, no new environment
 variable, and no database migration (a pure read/projection endpoint over already-existing
-columns).
+columns). Wave V1.4.34/V1.4.36 adds the read-only articles-list widget
+(<<articles-list-widget>>) on the SAME infrastructure once more — no new environment variable; the
+`article` table itself is new (`V55__article.sql`), but that migration ships with the article
+module's own RPC/public-page waves, not with this widget.
 
 See also: <<public-api-v1.adoc#,Lapis Cloud Public API>> for the sibling `/api/v1` read-only
 REST surface (a different audience: machine-to-machine integrations, not a browser widget).

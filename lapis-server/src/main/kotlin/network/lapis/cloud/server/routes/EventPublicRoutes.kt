@@ -156,11 +156,21 @@ internal fun Route.registerEventPublicRoutes(
                 return@withEventPublicErrorHandling
             }
             val now = DbClock.nowLocalDateTime()
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            // Follow-up wave "Wiederkehrende Veranstaltungen: iCal-Feed" -- `loadSeriesRenderData`
+            // needs its own DB reads (EventStore/EventSeriesTable), so it runs in the SAME
+            // transaction as `loadUpcomingPublicPublished` (see EventIcsFeed KDoc "Nicht gestreamt"
+            // -- `render` itself stays entirely outside any transaction).
+            val (rows, seriesData) =
+                transaction {
+                    val loadedRows = EventIcsFeed.loadUpcomingPublicPublished(now = now)
+                    val loadedSeriesData =
+                        EventIcsFeed.loadSeriesRenderData(loadedRows.mapNotNull { it[EventTable.seriesId] })
+                    loadedRows to loadedSeriesData
+                }
             if (rows.size >= EventIcsFeed.MAX_EVENTS) {
                 logger.warn { "Public iCal feed truncated at ${EventIcsFeed.MAX_EVENTS} events -- consider raising the cap." }
             }
-            val body = EventIcsFeed.render(rows = rows, baseUrl = baseUrl, brandTitle = brandTitle)
+            val body = EventIcsFeed.render(rows = rows, baseUrl = baseUrl, brandTitle = brandTitle, seriesData = seriesData)
             call.response.header(
                 HttpHeaders.ContentDisposition,
                 ContentDisposition.Inline
