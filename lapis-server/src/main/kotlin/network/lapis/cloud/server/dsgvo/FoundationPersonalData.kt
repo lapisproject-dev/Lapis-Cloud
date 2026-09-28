@@ -126,6 +126,12 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 // re-identification reason as externalReference above (anyone still holding an old
                 // card PDF or member list could otherwise re-link this anonymized row by number).
                 it[memberNumber] = null
+                // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- the chapter ASSIGNMENT
+                // itself is a fact about this member (who they were grouped with), cleared on
+                // erasure like every other member-scoped field above. The chapter row itself is
+                // untouched (it is organizational data, not this member's personal data). See
+                // RegionalChapterPersonalData for the SEPARATE regional_chapter_officer coverage.
+                it[regionalChapterId] = null
             }
         val accountsDeleted = AccountTable.deleteWhere { AccountTable.memberId eq memberId }
         return listOf(

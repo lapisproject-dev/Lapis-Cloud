@@ -5,6 +5,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -22,9 +23,12 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
@@ -43,6 +47,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 private const val INITIAL_PASSWORD = "initial-strong-password-1"
@@ -68,10 +73,32 @@ private fun keycloakEnabledConfig(): KeycloakConfig {
 class AuthServiceTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
+        // Welle V1.9.13 review-fix: getSessionInfo's regional-chapter-related fields coverage
+        // gap tests below.
+        val createdChapterIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
-        afterSpec { cleanUpAuthServiceTestData(createdMemberIds) }
+        afterSpec {
+            cleanUpAuthServiceTestData(createdMemberIds)
+            // Chapter cleanup AFTER member cleanup -- same FK ordering
+            // [RegionalChapterServiceTest]'s own `afterSpec` documents.
+            transaction { RegionalChapterTable.deleteWhere { id inList createdChapterIds } }
+        }
+
+        fun createChapterDirect(name: String = "AuthService-Chapter-${Uuid.random()}"): Uuid {
+            val id = Uuid.random()
+            transaction {
+                RegionalChapterTable.insert {
+                    it[RegionalChapterTable.id] = id
+                    it[RegionalChapterTable.name] = name
+                    it[nameKey] = name.lowercase()
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                }
+            }
+            createdChapterIds += id
+            return id
+        }
 
         fun createTestMember(
             email: String,
@@ -208,7 +235,12 @@ class AuthServiceTest :
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
                 val body = response.bodyAsText()
-                body shouldBe "$member:MEMBER:${issued.expiresAt}:false:-:keycloakMode=false"
+                body shouldStartWith "$member:MEMBER:${issued.expiresAt}:false:-:keycloakMode=false:regionalChaptersExist="
+                // regionalChaptersExist itself is a GLOBAL flag over the whole shared test
+                // database (see RegionalChapterServiceTest KDoc "Shared-database cleanup
+                // discipline") -- not asserted here, only that THIS member (never assigned to
+                // any chapter) has neither an ownRegionalChapter nor a chapterScope.
+                body shouldContain ":ownRegionalChapter=-:chapterScope=-"
             }
         }
 
@@ -226,7 +258,8 @@ class AuthServiceTest :
 
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:false:-:keycloakMode=false"
+                response.bodyAsText() shouldStartWith "$member:MEMBER:${issued.expiresAt}:false:-:keycloakMode=false:regionalChaptersExist="
+                response.bodyAsText() shouldContain ":ownRegionalChapter=-:chapterScope=-"
             }
         }
 
@@ -257,7 +290,9 @@ class AuthServiceTest :
 
                 val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "$member:MEMBER:${issued.expiresAt}:true:$issuer:keycloakMode=false"
+                response.bodyAsText() shouldStartWith
+                    "$member:MEMBER:${issued.expiresAt}:true:$issuer:keycloakMode=false:regionalChaptersExist="
+                response.bodyAsText() shouldContain ":ownRegionalChapter=-:chapterScope=-"
             }
         }
 
@@ -328,6 +363,65 @@ class AuthServiceTest :
                     true
             }
         }
+
+        // ── Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" ─────────────────────────────
+        // Review-fix test-coverage gap: getSessionInfo's regionalChaptersExist/ownRegionalChapter/
+        // chapterScope fields had no test at all.
+
+        test("getSessionInfo: regionalChaptersExist=true and ownRegionalChapter is populated once assigned to a chapter") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceTestRoutes() }
+                }
+
+                val chapter = createChapterDirect(name = "AuthService-Own-${Uuid.random()}")
+                val member = createTestMember("auth-service-own-chapter-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq member }) { it[regionalChapterId] = chapter } }
+                val issued = SessionStore.createSession(member)
+
+                val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
+                response.status shouldBe HttpStatusCode.OK
+                val body = response.bodyAsText()
+                body shouldContain ":regionalChaptersExist=true:"
+                body shouldContain ":ownRegionalChapter=$chapter:"
+                // Assigned to a chapter but holding NO officer grant -- chapterScope (the
+                // memberVisibility-derived narrowing) stays empty, distinct from ownRegionalChapter
+                // (the member's OWN assignment, unrelated to whether they administer anyone).
+                body shouldContain ":chapterScope=-"
+            }
+        }
+
+        test("getSessionInfo: chapterScope is populated ONLY for a member holding an ACTIVE officer grant for their OWN chapter") {
+            testApplication {
+                application {
+                    install(StatusPages) { installAuthServiceExceptionHandlers() }
+                    routing { registerAuthServiceTestRoutes() }
+                }
+
+                val chapter = createChapterDirect(name = "AuthService-Scope-${Uuid.random()}")
+                val officer = createTestMember("auth-service-officer-scope-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq officer }) { it[regionalChapterId] = chapter } }
+                transaction {
+                    RegionalChapterOfficerTable.insert {
+                        it[id] = Uuid.random()
+                        it[memberId] = officer
+                        it[regionalChapterId] = chapter
+                        it[grantedAt] = DbClock.nowLocalDateTime()
+                        it[grantedByMemberId] = null
+                        it[revokedAt] = null
+                        it[activeForMemberId] = officer
+                    }
+                }
+                val issued = SessionStore.createSession(officer)
+
+                val response = client.get("/test/session-info") { header("Authorization", "Bearer ${issued.rawToken}") }
+                response.status shouldBe HttpStatusCode.OK
+                val body = response.bodyAsText()
+                body shouldContain ":ownRegionalChapter=$chapter:"
+                body shouldContain ":chapterScope=$chapter:"
+            }
+        }
     })
 
 private fun cleanUpAuthServiceTestData(memberIds: List<Uuid>) {
@@ -335,6 +429,11 @@ private fun cleanUpAuthServiceTestData(memberIds: List<Uuid>) {
     transaction {
         OidcGuestProfileTable.deleteWhere { OidcGuestProfileTable.memberId inList memberIds }
         SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
+        // Welle V1.9.13 review-fix: an officer grant/chapter assignment blocks a member's own
+        // deletion below (FK) unless cleared first -- same ordering
+        // [RegionalChapterServiceTest]'s own `afterSpec` KDoc documents.
+        RegionalChapterOfficerTable.deleteWhere { RegionalChapterOfficerTable.memberId inList memberIds }
+        MemberTable.update({ MemberTable.id inList memberIds }) { it[regionalChapterId] = null }
         AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
         MemberTable.deleteWhere { MemberTable.id inList memberIds }
     }
@@ -367,7 +466,9 @@ private fun Route.registerAuthServiceTestRoutes() {
         val info = AuthService(call = call).getSessionInfo()
         call.respondText(
             "${info.memberId}:${info.role}:${info.expiresAt}:${info.isGuest}:${info.homeserverUrl ?: "-"}:" +
-                "keycloakMode=${info.keycloakMode}",
+                "keycloakMode=${info.keycloakMode}:regionalChaptersExist=${info.regionalChaptersExist}:" +
+                "ownRegionalChapter=${info.ownRegionalChapter?.let { "${it.id}:${it.name}" } ?: "-"}:" +
+                "chapterScope=${info.chapterScope?.let { "${it.id}:${it.name}" } ?: "-"}",
         )
     }
 }

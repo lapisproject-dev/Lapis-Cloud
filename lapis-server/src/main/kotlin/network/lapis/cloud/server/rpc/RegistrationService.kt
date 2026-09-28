@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FriendVerificationMailer
@@ -28,11 +29,14 @@ import network.lapis.cloud.shared.domain.FriendTermsDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.domain.WebhookEventType
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -156,6 +160,13 @@ class RegistrationService internal constructor(
      * KDoc "Keycloak mode" below for the full reasoning.
      */
     private val keycloakConfig: KeycloakConfig = KeycloakConfig.load(),
+    /**
+     * Review-fix (V1.9.13): default-constructs its own [RegionalChapterEnforcementConfig.load]
+     * like [keycloakConfig] above, so existing call sites/tests that don't pass one keep working
+     * unchanged (and get the safe, enforcement-OFF default). See that class's own KDoc for why the
+     * hard chapter-selection requirement defaults to off.
+     */
+    private val regionalChapterEnforcementConfig: RegionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load(),
 ) : IRegistrationService {
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
         MembershipAgreementDto(
@@ -163,6 +174,14 @@ class RegistrationService internal constructor(
             text = MembershipAgreementDisclaimer.TEXT,
             sha256 = MembershipAgreementDisclaimer.SHA256,
         )
+
+    override suspend fun listRegionalChapterOptions(): List<RegionalChapterRefDto> =
+        transaction {
+            RegionalChapterTable
+                .selectAll()
+                .orderBy(RegionalChapterTable.name)
+                .map { RegionalChapterRefDto(id = it[RegionalChapterTable.id].toString(), name = it[RegionalChapterTable.name]) }
+        }
 
     /**
      * Account-enumeration hardening (a deliberate extension beyond what login/password-reset
@@ -219,6 +238,14 @@ class RegistrationService internal constructor(
         // via latency alone, without ever looking at the response body.
         val passwordHash = PasswordHasher.hash(input.password)
         transaction {
+            // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- validated BEFORE the
+            // alreadyExists check, same "reject malformed/incomplete input before doing any work"
+            // posture as every other validation in this method. See
+            // `requireValidRegionalChapterSelection` KDoc; a chapter deleted concurrently between
+            // this read and the insert below is a narrow race, caught (best-effort) alongside the
+            // email-uniqueness race below.
+            val resolvedChapterId = requireValidRegionalChapterSelection(input.regionalChapterId)
+
             val alreadyExists = MemberTable.selectAll().where { MemberTable.email.lowerCase() eq normalizedEmail }.count() > 0
             // See class/interface KDoc "account-enumeration hardening" -- silent no-op, identical
             // response either way.
@@ -233,6 +260,7 @@ class RegistrationService internal constructor(
                     it[status] = MemberStatus.APPLICATION
                     it[joinedAt] = now.date
                     it[membershipTierId] = null
+                    it[regionalChapterId] = resolvedChapterId
                 }
                 AccountTable.insert {
                     it[id] = Uuid.random()
@@ -282,6 +310,12 @@ class RegistrationService internal constructor(
         val now = nowLocalDateTime()
         return transaction {
             requireApplicationRow(id = targetId, forUpdate = true)
+            // Welle V1.9.13 -- see `requireRegionalChapterBeforeActivation` KDoc. In practice
+            // already satisfied by `registerApplication`'s own equivalent check for a
+            // self-registered applicant -- this call is the backstop for every OTHER path onto
+            // APPLICATION (there is none today besides `registerApplication`, but the check costs
+            // nothing and closes the gap structurally rather than by convention).
+            requireRegionalChapterBeforeActivation(memberId = targetId, enabled = regionalChapterEnforcementConfig.enabled)
             val updated =
                 MemberTable.update({
                     (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.APPLICATION)
@@ -382,6 +416,12 @@ class RegistrationService internal constructor(
 
         val now = nowLocalDateTime()
         return transaction {
+            // Welle V1.9.13 -- this path creates the member directly as ACTIVE, so this is
+            // simultaneously the activation-rule check (equivalent to
+            // requireRegionalChapterBeforeActivation, but as an INPUT validation here since the
+            // row doesn't exist yet to check against).
+            val resolvedChapterId = requireValidRegionalChapterSelection(input.regionalChapterId)
+
             val alreadyExists = MemberTable.selectAll().where { MemberTable.email.lowerCase() eq normalizedEmail }.count() > 0
             if (alreadyExists) throw ConflictException("A member with this email already exists")
 
@@ -393,6 +433,7 @@ class RegistrationService internal constructor(
                 it[status] = MemberStatus.ACTIVE
                 it[joinedAt] = now.date
                 it[membershipTierId] = null
+                it[regionalChapterId] = resolvedChapterId
             }
             AccountTable.insert {
                 it[id] = Uuid.random()
@@ -439,6 +480,14 @@ class RegistrationService internal constructor(
                 // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
                 // withdrawn member can never be observed still seated in a Committee.
                 endAllOpenCommitteeMembershipsForMember(memberId = current.memberId, until = now.date, current = current)
+                // Welle V1.9.13, decision F1 -- see `revokeActiveRegionalChapterOfficerGrant` KDoc.
+                // Self-service leave: actor IS the leaving member.
+                revokeActiveRegionalChapterOfficerGrant(
+                    memberId = current.memberId,
+                    now = now,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                )
                 loadMember(current.memberId)
             }
         SessionStore.revokeAllForMember(memberId = current.memberId)
@@ -601,6 +650,7 @@ class RegistrationService internal constructor(
     override suspend fun applyForMembership(
         agreementVersion: String,
         agreementSha256: String,
+        regionalChapterId: String?,
     ): MemberDto {
         val current = resolveCurrentMember(call)
         if (!MembershipAgreementDisclaimer.matches(version = agreementVersion, sha256 = agreementSha256)) {
@@ -611,6 +661,8 @@ class RegistrationService internal constructor(
         }
         val now = nowLocalDateTime()
         return transaction {
+            // Welle V1.9.13 -- see `requireValidRegionalChapterSelection` KDoc / F3.
+            val resolvedChapterId = requireValidRegionalChapterSelection(regionalChapterId)
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq current.memberId }
@@ -621,6 +673,7 @@ class RegistrationService internal constructor(
                     (MemberTable.id eq current.memberId) and (MemberTable.status eq MemberStatus.FRIEND)
                 }) {
                     it[status] = MemberStatus.APPLICATION
+                    it[MemberTable.regionalChapterId] = resolvedChapterId
                 }
             if (updated == 0) {
                 throw ConflictException("Not a FRIEND account -- already applied, or already a member")
@@ -662,4 +715,40 @@ class RegistrationService internal constructor(
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid id: $this") }
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
+
+    /**
+     * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- resolves and validates a
+     * caller-supplied [regionalChapterId] for [registerApplication]/[createMemberDirect]/
+     * [applyForMembership]. Must be called from inside the caller's open transaction. A
+     * non-null id is ALWAYS validated (must parse, must reference an existing chapter) regardless
+     * of [regionalChapterEnforcementConfig] -- that flag only controls whether OMITTING a selection
+     * is rejected once chapters exist. Required once at least one `regional_chapter` row exists AND
+     * [regionalChapterEnforcementConfig] is enabled (see that class's own KDoc "Review-fix
+     * reasoning" for why the default is off); must stay `null` when no chapter exists at all yet
+     * (rejecting a non-null id in that case rather than silently ignoring it -- same "reject
+     * malformed input, never silently drop it" posture this codebase applies elsewhere). An
+     * unknown/malformed id is rejected without distinguishing the two (same "no information about
+     * WHICH check failed beyond the type" posture [MemberEmailInUseException]'s own KDoc
+     * documents for other validation paths in this codebase).
+     */
+    private fun requireValidRegionalChapterSelection(regionalChapterId: String?): Uuid? {
+        val anyChapterExists = RegionalChapterTable.selectAll().count() > 0
+        if (!anyChapterExists) {
+            if (regionalChapterId != null) throw BadRequestException("No regional chapters exist yet -- regionalChapterId must be null")
+            return null
+        }
+        if (regionalChapterId == null) {
+            if (regionalChapterEnforcementConfig.enabled) throw RegionalChapterRequiredException()
+            return null
+        }
+        val id =
+            runCatching {
+                Uuid.parse(
+                    regionalChapterId,
+                )
+            }.getOrElse { throw BadRequestException("regionalChapterId is not a valid id") }
+        val exists = RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq id }.count() > 0
+        if (!exists) throw BadRequestException("Unknown regionalChapterId")
+        return id
+    }
 }

@@ -5,8 +5,10 @@ import io.kotest.matchers.shouldBe
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
@@ -15,6 +17,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
@@ -86,5 +89,33 @@ class FoundationPersonalDataTest :
 
             val row = transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }
             row[MemberTable.dateOfDeath] shouldBe LocalDate(2026, 3, 3)
+        }
+
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" review-fix test-coverage gap --
+        // FoundationPersonalData.eraseMember's `regionalChapterId = null` clearing had no test.
+        test(
+            "eraseMember nulls regionalChapterId -- the chapter ASSIGNMENT is this member's own personal data, the chapter row itself is untouched",
+        ) {
+            val chapterId = Uuid.random()
+            transaction {
+                RegionalChapterTable.insert {
+                    it[RegionalChapterTable.id] = chapterId
+                    it[name] = "Foundation-Erase-Test-${Uuid.random()}"
+                    it[nameKey] = "foundation-erase-test-$chapterId"
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                }
+            }
+            val member = newDeceasedMember(LocalDate(2026, 3, 3))
+            transaction { MemberTable.update({ MemberTable.id eq member }) { it[regionalChapterId] = chapterId } }
+
+            transaction { FoundationPersonalData.eraseMember(memberId = member, mode = ErasureMode.ANONYMIZE) }
+
+            val row = transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single() }
+            row[MemberTable.regionalChapterId] shouldBe null
+            // The chapter row itself is organizational data, not personal data -- it must survive.
+            val chapterStillExists = transaction { RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq chapterId }.count() }
+            chapterStillExists shouldBe 1L
+
+            transaction { RegionalChapterTable.deleteWhere { RegionalChapterTable.id eq chapterId } }
         }
     })

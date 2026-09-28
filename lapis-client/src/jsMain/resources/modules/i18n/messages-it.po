@@ -16077,6 +16077,12 @@ msgstr "Impossibile leggere la risposta."
 msgid "Artikel"
 msgstr "Articolo"
 
+msgid "Landesverband"
+msgstr "Sezione regionale"
+
+msgid "Landesvorstand-Zugriff"
+msgstr "Accesso del comitato regionale"
+
 msgid "Eigenes Bild"
 msgstr "Immagine personale"
 

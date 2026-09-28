@@ -345,6 +345,7 @@ class LegalHtmlTest :
                     "keycloak_login" to "Anmeldung über Keycloak",
                     "mcp" to "MCP-Zugang für KI-Agenten",
                     "articles" to "freigegebene Artikel",
+                    "regionalChapter" to "Landesverband",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

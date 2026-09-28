@@ -43,8 +43,13 @@ class SchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "00-foundation.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly member, account and the membership_tier stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("member", "account", "membership_tier")
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" added a fourth entity here --
+        // regional_chapter, an id-only cross-domain stub (see 00-foundation.kuml.kts file header
+        // "V1.9.13" paragraph) so member.regional_chapter_id can resolve within this file's own
+        // evaluation. The real regional_chapter definition lives in
+        // 58-regional-chapter.kuml.kts.
+        test("model declares exactly member, account, the membership_tier stub, and the regional_chapter stub") {
+            model.entities.map { it.name }.toSet() shouldBe setOf("member", "account", "membership_tier", "regional_chapter")
         }
 
         // ── (1) Model vs. real H2-migrated schema ───────────────────────────────

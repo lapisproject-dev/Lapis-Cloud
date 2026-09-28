@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
@@ -24,12 +25,14 @@ import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
+import network.lapis.cloud.server.security.MemberVisibility
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.TemporaryPasswordGenerator
 import network.lapis.cloud.server.security.isPrivileged
+import network.lapis.cloud.server.security.memberVisibility
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
@@ -75,6 +78,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.neq
@@ -213,6 +217,14 @@ class MemberService(
      * rate-limiter constructor parameter on this class already establishes.
      */
     private val memberCardIssueRateLimiter: FederationInboxRateLimiter,
+    /**
+     * Review-fix (V1.9.13): default-constructs its own [RegionalChapterEnforcementConfig.load],
+     * same "default value on purpose, existing call sites keep working unchanged" idiom
+     * [RegistrationService]'s own `keycloakConfig`/`regionalChapterEnforcementConfig` constructor
+     * parameters establish. See that class's own KDoc for why the hard chapter-selection
+     * requirement defaults to off.
+     */
+    private val regionalChapterEnforcementConfig: RegionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load(),
 ) : IMemberService {
     // V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller -- see
     // IMemberService.listMembers KDoc for the full rationale. Only id + displayName are selected,
@@ -297,10 +309,6 @@ class MemberService(
 
     override suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto {
         val current = resolveCurrentMember(call)
-        // Welle V1.4.4.4 review fix (MAJOR finding): widened from `!current.isPrivileged`
-        // (BOARD/ADMIN) to also admit TREASURER -- see interface KDoc. `requireRole` (not
-        // `isPrivileged`) precisely because this is now a THREE-role, not a two-role, gate.
-        current.requireRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
         val limit = query.limit.coerceIn(1, MemberAdminQuery.MAX_LIMIT)
         val offset = query.offset.coerceAtLeast(0)
@@ -311,28 +319,77 @@ class MemberService(
                 ?.lowercase()
                 ?.takeIf { it.isNotBlank() }
 
-        // Plain function -- `eq`/`like`/`and`/`or`/`inList` are all top-level functions in this
-        // pinned Exposed version (the interface-member overloads are deprecated in favor of these),
-        // so this predicate builder needs no special receiver scope.
-        fun predicate(includeStatusFilter: Boolean): Op<Boolean> {
-            var predicate: Op<Boolean> = Op.TRUE
-            if (searchTerm != null) {
-                val pattern = containsPattern(searchTerm)
-                predicate =
-                    predicate and
-                    (
-                        (MemberTable.displayName.lowerCase() like pattern) or
-                            (MemberTable.email.lowerCase() like pattern) or
-                            (MemberTable.externalReference.lowerCase() like pattern)
-                    )
-            }
-            if (includeStatusFilter && query.statuses.isNotEmpty()) {
-                predicate = predicate and (MemberTable.status inList query.statuses)
-            }
-            return predicate
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- validated up front, BEFORE the
+        // transaction even opens, same "reject malformed input before touching the DB" posture
+        // this method already applies to limit/search. Both filters only make sense for `All`
+        // visibility (see below) -- validating them unconditionally here, regardless of the
+        // caller's eventual visibility, means a chapter-scoped officer who happens to pass one
+        // gets the SAME BadRequestException a BOARD caller would, not a silently-ignored value
+        // followed by success (see interface KDoc "ignored").
+        if (query.regionalChapterId != null && query.unassignedOnly) {
+            throw BadRequestException("regionalChapterId and unassignedOnly are mutually exclusive")
         }
+        val queriedChapterId =
+            query.regionalChapterId?.let {
+                runCatching { Uuid.parse(it) }.getOrElse { throw BadRequestException("regionalChapterId is not a valid id") }
+            }
 
         return transaction {
+            // Welle V1.9.13 -- see `network.lapis.cloud.server.security.memberVisibility` KDoc.
+            // Evaluated FIRST, before any roster data is touched -- `None` throws before a single
+            // row is read.
+            val visibility = current.memberVisibility()
+            if (visibility is MemberVisibility.None) throw ForbiddenException()
+            val chapterScopeId = (visibility as? MemberVisibility.Chapter)?.chapterId
+
+            // Plain function -- `eq`/`like`/`and`/`or`/`inList` are all top-level functions in this
+            // pinned Exposed version (the interface-member overloads are deprecated in favor of these),
+            // so this predicate builder needs no special receiver scope.
+            fun predicate(includeStatusFilter: Boolean): Op<Boolean> {
+                if (chapterScopeId != null) {
+                    // Chapter-scoped officer: hard-fixed to their own chapter's ACTIVE,
+                    // non-anonymized members. regionalChapterId/unassignedOnly are ignored (see
+                    // interface KDoc), statuses is intersected with {ACTIVE} (an empty intersection
+                    // yields Op.FALSE, i.e. a correctly-empty page with correct zero counters,
+                    // rather than silently falling back to "no status filter at all").
+                    var predicate: Op<Boolean> =
+                        (MemberTable.regionalChapterId eq chapterScopeId) and
+                            (MemberTable.status eq MemberStatus.ACTIVE) and
+                            (MemberTable.anonymizedAt.isNull())
+                    if (searchTerm != null) {
+                        // Deliberately NOT externalReference here -- see
+                        // `RegionalChapterVisibility` KDoc / Befund 7 (a match/no-match on that
+                        // field would leak which PdV-CSV-Import person-number belongs to whom).
+                        val pattern = containsPattern(searchTerm)
+                        predicate =
+                            predicate and
+                            ((MemberTable.displayName.lowerCase() like pattern) or (MemberTable.email.lowerCase() like pattern))
+                    }
+                    if (includeStatusFilter && query.statuses.isNotEmpty() && MemberStatus.ACTIVE !in query.statuses) {
+                        predicate = Op.FALSE
+                    }
+                    return predicate
+                }
+
+                var predicate: Op<Boolean> = Op.TRUE
+                if (searchTerm != null) {
+                    val pattern = containsPattern(searchTerm)
+                    predicate =
+                        predicate and
+                        (
+                            (MemberTable.displayName.lowerCase() like pattern) or
+                                (MemberTable.email.lowerCase() like pattern) or
+                                (MemberTable.externalReference.lowerCase() like pattern)
+                        )
+                }
+                if (includeStatusFilter && query.statuses.isNotEmpty()) {
+                    predicate = predicate and (MemberTable.status inList query.statuses)
+                }
+                if (queriedChapterId != null) predicate = predicate and (MemberTable.regionalChapterId eq queriedChapterId)
+                if (query.unassignedOnly) predicate = predicate and (MemberTable.regionalChapterId.isNull())
+                return predicate
+            }
+
             // Deterministic pagination requires a stable, two-column sort -- name/joinedAt alone is
             // not unique (two members can share a display name or a joined date), so a row could
             // otherwise be skipped or duplicated across page boundaries. id is always unique.
@@ -351,7 +408,7 @@ class MemberService(
                     .orderBy(*orderColumns)
                     .limit(limit)
                     .offset(offset.toLong())
-                    .map { it.toMemberAdminRowDto(includeFamilyDetails = current.isPrivileged) }
+                    .map { it.toMemberAdminRowDto(includeFamilyDetails = current.isPrivileged, chapterScoped = chapterScopeId != null) }
 
             val totalCount =
                 adminRosterSource
@@ -658,6 +715,14 @@ class MemberService(
                     if (remainingNonBlockedAdmins == 0L) throw LastAdminException()
                 }
 
+                // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- called BEFORE the
+                // status write, exactly like RegistrationService.approveApplication's own call
+                // site. `fromStatus != ACTIVE` is implied here: the no-op guard above already
+                // returned early for `newStatus == fromStatus`.
+                if (newStatus == MemberStatus.ACTIVE) {
+                    requireRegionalChapterBeforeActivation(memberId = targetId, enabled = regionalChapterEnforcementConfig.enabled)
+                }
+
                 // Welle V1.4.4.5 -- § 38 BGB: the membership already ended with the death; this
                 // write only records that fact. Clearing date_of_death when LEAVING DECEASED must
                 // happen in the SAME update, otherwise chk_member_date_of_death_requires_status
@@ -672,6 +737,16 @@ class MemberService(
                     }
                 }
                 val newDateOfDeath = if (newStatus == MemberStatus.DECEASED) dateOfDeath else null
+
+                // Welle V1.9.13, decision F1 -- see `revokeActiveRegionalChapterOfficerGrant` KDoc.
+                if (fromStatus == MemberStatus.ACTIVE) {
+                    revokeActiveRegionalChapterOfficerGrant(
+                        memberId = targetId,
+                        now = now,
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                    )
+                }
 
                 // Welle V1.3.2 "Webhooks" (ausgehend), D8/S24 -- fires ONLY on a genuine transition
                 // INTO ACTIVE (the no-op guard above already returned early for newStatus ==
@@ -1484,6 +1559,10 @@ private val adminRosterSource: ColumnSet =
         .join(MemberFamilyLinkTable, JoinType.LEFT, MemberTable.id, MemberFamilyLinkTable.memberId)
         .join(MemberFamilyTable, JoinType.LEFT, MemberFamilyLinkTable.familyId, MemberFamilyTable.id)
         .join(MembershipTierTable, JoinType.LEFT, MemberTable.membershipTierId, MembershipTierTable.id)
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- another PK-side, at-most-1:1
+        // LEFT JOIN (regionalChapterId -> regional_chapter.id), same "row multiplication
+        // structurally excluded" reasoning the KDoc above already gives for MembershipTierTable.
+        .join(RegionalChapterTable, JoinType.LEFT, MemberTable.regionalChapterId, RegionalChapterTable.id)
 
 /**
  * Review fix (Welle V1.4.4.4, MEDIUM finding): [includeFamilyDetails] gates the THREE
@@ -1508,22 +1587,37 @@ private val adminRosterSource: ColumnSet =
  * `network.lapis.cloud.shared.domain.MemberMembershipTierSnapshot`). Closing that residual path is
  * out of scope for this fix -- see the CHANGELOG entry for Welle V1.4.4.4's review fixes.
  */
-private fun ResultRow.toMemberAdminRowDto(includeFamilyDetails: Boolean): MemberAdminRowDto =
+private fun ResultRow.toMemberAdminRowDto(
+    includeFamilyDetails: Boolean,
+    /**
+     * Welle V1.9.13 -- `true` iff this row is being rendered for a chapter-scoped officer (see
+     * `network.lapis.cloud.server.security.MemberVisibility.Chapter`). Nulls `role`/
+     * `membershipTierId`/`membershipTierName`/`familyId`/`familyName`/`familyRole`/
+     * `externalReference`/`dateOfDeath` -- see [IMemberService.listMembersForAdministration]'s own
+     * KDoc "review fix (doc, stale since that wave)" for the full per-field rationale (a standalone
+     * `docs/architecture/regional-chapters.adoc` field table is, per the CHANGELOG's own "Umfang
+     * dieser Welle" disclosure, not yet built). Deliberately does NOT null `regionalChapterId`/
+     * `regionalChapterName` -- see those fields' own KDoc.
+     */
+    chapterScoped: Boolean = false,
+): MemberAdminRowDto =
     MemberAdminRowDto(
         id = this[MemberTable.id].toString(),
         displayName = this[MemberTable.displayName],
         email = this[MemberTable.email],
         status = this[MemberTable.status],
-        role = this.getOrNull(AccountTable.role),
+        role = if (chapterScoped) null else this.getOrNull(AccountTable.role),
         joinedAt = this[MemberTable.joinedAt],
-        externalReference = this[MemberTable.externalReference],
+        externalReference = if (chapterScoped) null else this[MemberTable.externalReference],
         anonymized = this[MemberTable.anonymizedAt] != null,
-        membershipTierId = this[MemberTable.membershipTierId]?.toString(),
-        membershipTierName = this.getOrNull(MembershipTierTable.name),
-        familyId = if (includeFamilyDetails) this.getOrNull(MemberFamilyLinkTable.familyId)?.toString() else null,
-        familyName = if (includeFamilyDetails) this.getOrNull(MemberFamilyTable.name) else null,
-        familyRole = if (includeFamilyDetails) this.getOrNull(MemberFamilyLinkTable.role) else null,
-        dateOfDeath = this[MemberTable.dateOfDeath],
+        membershipTierId = if (chapterScoped) null else this[MemberTable.membershipTierId]?.toString(),
+        membershipTierName = if (chapterScoped) null else this.getOrNull(MembershipTierTable.name),
+        familyId = if (includeFamilyDetails && !chapterScoped) this.getOrNull(MemberFamilyLinkTable.familyId)?.toString() else null,
+        familyName = if (includeFamilyDetails && !chapterScoped) this.getOrNull(MemberFamilyTable.name) else null,
+        familyRole = if (includeFamilyDetails && !chapterScoped) this.getOrNull(MemberFamilyLinkTable.role) else null,
+        dateOfDeath = if (chapterScoped) null else this[MemberTable.dateOfDeath],
+        regionalChapterId = this[MemberTable.regionalChapterId]?.toString(),
+        regionalChapterName = this.getOrNull(RegionalChapterTable.name),
     )
 
 private fun loadMemberAdminRow(
@@ -1534,7 +1628,7 @@ private fun loadMemberAdminRow(
         .selectAll()
         .where { MemberTable.id eq id }
         .single()
-        .toMemberAdminRowDto(includeFamilyDetails)
+        .toMemberAdminRowDto(includeFamilyDetails = includeFamilyDetails)
 
 /**
  * `%`/`_` in the raw search text are LIKE metacharacters -- without escaping, a single `%` turns
@@ -1570,4 +1664,5 @@ fun ResultRow.toMemberDto(): MemberDto =
         rejectionReason = this[MemberTable.rejectionReason],
         friendSince = this[MemberTable.friendSince],
         dateOfDeath = this[MemberTable.dateOfDeath],
+        regionalChapterId = this[MemberTable.regionalChapterId]?.toString(),
     )

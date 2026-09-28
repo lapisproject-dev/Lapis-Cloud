@@ -294,3 +294,63 @@ class McpFeatureDisabledException(
 class RateLimitedException(
     override val message: String = "Too many requests",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- see [MemberEmailInUseException] KDoc
+ * for why this is a distinct type rather than a `ConflictException` message (identical
+ * wire-transparency reasoning: Kilua RPC transmits only the subclass discriminator). Thrown by
+ * `network.lapis.cloud.server.rpc.RegionalChapterService.createChapter`/`renameChapter` when the
+ * normalized `name_key` already exists (case-insensitively).
+ */
+@RpcServiceException
+class RegionalChapterNameTakenException(
+    override val message: String = "A regional chapter with this name already exists",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.13 -- distinct type, see [RegionalChapterNameTakenException]. Thrown by
+ * `RegionalChapterService.deleteChapter` when at least one member (any status) is still assigned
+ * to the chapter, or at least one officer grant for it is still active -- the client reads the
+ * actual counts from [network.lapis.cloud.shared.domain.RegionalChapterDto.assignedMemberCount]/
+ * `.activeOfficerCount` (this exception's own `message` never reaches the browser).
+ */
+@RpcServiceException
+class RegionalChapterInUseException(
+    override val message: String = "Regional chapter still has assigned members or active officers",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.13 -- distinct type, see [RegionalChapterNameTakenException]. Thrown when the
+ * organization-wide chapter limit
+ * ([network.lapis.cloud.shared.domain.RegionalChapterRules.MAX_CHAPTERS]) or the per-chapter
+ * active-officer limit ([network.lapis.cloud.shared.domain.RegionalChapterRules
+ * .MAX_ACTIVE_OFFICERS_PER_CHAPTER]) would be exceeded.
+ */
+@RpcServiceException
+class RegionalChapterLimitReachedException(
+    override val message: String = "Regional chapter limit reached",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.13 -- distinct type, see [RegionalChapterNameTakenException]. "Bitte zuerst
+ * Landesverband zuordnen" -- thrown by `RegistrationService.approveApplication`/
+ * `.createMemberDirect`/`MemberService.updateMemberStatus` (via
+ * `network.lapis.cloud.server.rpc.requireRegionalChapterBeforeActivation`) when at least one
+ * regional chapter exists and the member being activated has none assigned.
+ */
+@RpcServiceException
+class RegionalChapterRequiredException(
+    override val message: String = "A regional chapter must be assigned before this member can become active",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.13 -- distinct type, see [RegionalChapterNameTakenException]. Thrown by
+ * `RegionalChapterService.grantOfficer` when the target member is not [MemberStatus.ACTIVE][
+ * network.lapis.cloud.shared.domain.MemberStatus.ACTIVE], is not assigned to the SAME chapter
+ * being granted, or has no login account ([network.lapis.cloud.shared.domain.MemberAdminRowDto
+ * .role] `== null`).
+ */
+@RpcServiceException
+class RegionalChapterOfficerIneligibleException(
+    override val message: String = "Member is not eligible for a regional-chapter-officer grant",
+) : AbstractServiceException()

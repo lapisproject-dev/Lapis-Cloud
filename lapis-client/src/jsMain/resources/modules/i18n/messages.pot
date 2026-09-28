@@ -15107,6 +15107,12 @@ msgstr ""
 msgid "Artikel"
 msgstr ""
 
+msgid "Landesverband"
+msgstr ""
+
+msgid "Landesvorstand-Zugriff"
+msgstr ""
+
 msgid "Eigenes Bild"
 msgstr ""
 

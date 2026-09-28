@@ -112,8 +112,19 @@ interface IMemberService {
      *
      * [MemberAdminQuery.limit]/[MemberAdminQuery.offset]/[MemberAdminQuery.search] are re-clamped
      * server-side ([MemberAdminQuery.MAX_LIMIT]/[MemberAdminQuery.MAX_SEARCH_LENGTH]) -- never
-     * trust a client-supplied limit/offset/search length directly into a query. Throws
-     * [ForbiddenException] if the caller is not BOARD, ADMIN, or TREASURER.
+     * trust a client-supplied limit/offset/search length directly into a query.
+     *
+     * **Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" review fix (doc, stale since that
+     * wave).** No longer strictly BOARD/ADMIN/TREASURER-only: a plain MEMBER holding an ACTIVE
+     * regional-chapter-officer grant is ALSO admitted, narrowed to their own chapter's ACTIVE,
+     * non-anonymized members (`network.lapis.cloud.server.security.memberVisibility`/
+     * `MemberVisibility.Chapter`) -- [MemberAdminQuery.regionalChapterId]/
+     * [MemberAdminQuery.unassignedOnly] are then ignored, [MemberAdminQuery.statuses] is
+     * intersected with `{ACTIVE}`, and every field [MemberAdminRowDto] carries beyond the roster
+     * itself (role/externalReference/membershipTierId/family-related/dateOfDeath) is nulled. A
+     * search never matches [MemberAdminRowDto.externalReference] for that narrowed caller either
+     * (a PdV-CSV-Import person number must not leak to a chapter officer). [ForbiddenException] is
+     * thrown for everyone else (a plain MEMBER without such a grant, GUEST, FRIEND).
      */
     suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto
 

@@ -35,6 +35,19 @@ data class RegistrationInput(
     val password: String,
     val agreementVersion: String,
     val agreementSha256: String,
+    /**
+     * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- a non-`null` value is ALWAYS rejected
+     * (`network.lapis.cloud.server.rpc.RegistrationService.requireValidRegionalChapterSelection`
+     * throws `BadRequestException`) while NO `regional_chapter` row exists yet on the server; must
+     * stay `null` in that case. Once at least one chapter exists, whether omitting a selection is
+     * REQUIRED instead (`RegionalChapterRequiredException`) is an operator toggle -- see
+     * `network.lapis.cloud.server.rpc.RegionalChapterEnforcementConfig` KDoc "Review-fix reasoning"
+     * for why this defaults to OFF until a client picker exists. A non-null value is always
+     * validated against the existing chapters regardless of that toggle. See
+     * `network.lapis.cloud.shared.rpc.IRegistrationService.listRegionalChapterOptions` for the
+     * unauthenticated picker source.
+     */
+    val regionalChapterId: String? = null,
 )
 
 /**
@@ -53,6 +66,8 @@ data class AdminCreateMemberInput(
     val email: String,
     val role: AccountRole,
     val temporaryPassword: String,
+    /** Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- see [RegistrationInput.regionalChapterId] KDoc; same required-once-any-chapter-exists rule, enforced by `RegistrationService.createMemberDirect`. */
+    val regionalChapterId: String? = null,
 )
 
 /**

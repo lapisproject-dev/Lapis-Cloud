@@ -36,6 +36,8 @@ import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
+import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -110,6 +112,8 @@ class MemberAdministrationTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdCommitteeIds = mutableListOf<Uuid>()
+        // Welle V1.9.13 review-fix: chapter-scoped-visibility coverage gap tests below.
+        val createdChapterIds = mutableListOf<Uuid>()
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -129,6 +133,13 @@ class MemberAdministrationTest :
                     AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId inList createdMemberIds }) {
                         it[actorMemberId] = null
                     }
+                }
+                // Welle V1.9.13 review-fix: an officer grant/chapter assignment blocks a member's
+                // own deletion below (FK) unless cleared first -- same ordering
+                // [RegionalChapterServiceTest]'s own `afterSpec` KDoc documents.
+                if (createdMemberIds.isNotEmpty()) {
+                    RegionalChapterOfficerTable.deleteWhere { memberId inList createdMemberIds }
+                    MemberTable.update({ MemberTable.id inList createdMemberIds }) { it[regionalChapterId] = null }
                 }
                 createdMemberIds.forEach { id ->
                     SepaMandateTable.deleteWhere { SepaMandateTable.memberId eq id }
@@ -151,6 +162,9 @@ class MemberAdministrationTest :
                     CommitteeMembershipTable.deleteWhere { CommitteeMembershipTable.committeeId eq id }
                     CommitteeTable.deleteWhere { CommitteeTable.id eq id }
                 }
+                // Members are already gone by this point (loop above), so no FK from MemberTable
+                // blocks this.
+                RegionalChapterTable.deleteWhere { id inList createdChapterIds }
             }
         }
 
@@ -185,6 +199,43 @@ class MemberAdministrationTest :
             }
             createdMemberIds += id
             return id
+        }
+
+        // Welle V1.9.13 review-fix: direct DB inserts (bypassing RegionalChapterService's own RPC
+        // round-trip), same "bulk-seed directly for speed" idiom [RegionalChapterServiceTest]
+        // establishes -- this file's own concern is `listMembersForAdministration`'s chapter-scoped
+        // VISIBILITY, not `RegionalChapterService` itself (already covered there).
+        fun createChapterDirect(name: String = "MemberAdmin-Chapter-${Uuid.random()}"): Uuid {
+            val id = Uuid.random()
+            transaction {
+                RegionalChapterTable.insert {
+                    it[RegionalChapterTable.id] = id
+                    it[RegionalChapterTable.name] = name
+                    it[nameKey] = name.lowercase()
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                }
+            }
+            createdChapterIds += id
+            return id
+        }
+
+        /** Grants [memberId] an ACTIVE regional-chapter-officer grant for [chapterId] -- direct insert, no audit entry (not this file's concern). */
+        fun grantOfficerDirect(
+            memberId: Uuid,
+            chapterId: Uuid,
+            grantedBy: Uuid,
+        ) {
+            transaction {
+                RegionalChapterOfficerTable.insert {
+                    it[id] = Uuid.random()
+                    it[RegionalChapterOfficerTable.memberId] = memberId
+                    it[RegionalChapterOfficerTable.regionalChapterId] = chapterId
+                    it[grantedAt] = DbClock.nowLocalDateTime()
+                    it[grantedByMemberId] = grantedBy
+                    it[revokedAt] = null
+                    it[activeForMemberId] = memberId
+                }
+            }
         }
 
         /** No `account` row at all -- the 407-CSV-import realism, see MemberAdminRowDto.role KDoc. */
@@ -474,6 +525,188 @@ class MemberAdministrationTest :
                 response.status shouldBe HttpStatusCode.OK
                 val rowsPart = response.bodyAsText().split("|")[0]
                 rowsPart.contains("$id:${MemberStatus.ACTIVE}:null:false") shouldBe true
+            }
+        }
+
+        // ── Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- chapter-scoped visibility ──
+        // Review-fix test-coverage gap: `memberVisibility()`/`MemberVisibility.Chapter` is this
+        // wave's actual authorization EXTENSION (`requireRole(TREASURER, BOARD, ADMIN)` was
+        // replaced by it) and had NO test at all before this block.
+
+        test("listMembersForAdministration: chapter-scoped officer sees only ACTIVE, non-anonymized members of their OWN chapter") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapterA = createChapterDirect()
+                val chapterB = createChapterDirect()
+                val officer = createTestMember("chapter-officer-${Uuid.random()}@example.org", displayName = "Chapterscope Officer")
+                transaction { MemberTable.update({ MemberTable.id eq officer }) { it[regionalChapterId] = chapterA } }
+                grantOfficerDirect(memberId = officer, chapterId = chapterA, grantedBy = Uuid.parse(ADMIN_ID))
+
+                val inChapterA =
+                    createTestMember(
+                        "chapter-in-a-${Uuid.random()}@example.org",
+                        role = AccountRole.ADMIN,
+                        externalReference = "PN-CHAPTER-A-1",
+                    )
+                transaction { MemberTable.update({ MemberTable.id eq inChapterA }) { it[regionalChapterId] = chapterA } }
+                transaction { MemberTable.update({ MemberTable.id eq inChapterA }) { it[membershipTierId] = DevSeedData.standardTierId } }
+
+                val inChapterB = createTestMember("chapter-in-b-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq inChapterB }) { it[regionalChapterId] = chapterB } }
+
+                val withdrawnInChapterA =
+                    createTestMember("chapter-withdrawn-a-${Uuid.random()}@example.org", status = MemberStatus.WITHDRAWN)
+                transaction { MemberTable.update({ MemberTable.id eq withdrawnInChapterA }) { it[regionalChapterId] = chapterA } }
+
+                val anonymizedInChapterA = createTestMember("chapter-anon-a-${Uuid.random()}@example.org")
+                transaction {
+                    MemberTable.update({ MemberTable.id eq anonymizedInChapterA }) {
+                        it[regionalChapterId] = chapterA
+                        it[anonymizedAt] = DbClock.nowLocalDateTime()
+                    }
+                }
+
+                val response = client.get("/test/roster?limit=100") { header("X-Member-Id", officer.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                val rowsPart = response.bodyAsText().split("|")[0]
+                val rows = rowsPart.split(";").filter { it.isNotBlank() }
+                val ids = rows.map { it.substringBefore(":") }
+
+                (inChapterA.toString() in ids) shouldBe true
+                (officer.toString() in ids) shouldBe true
+                (inChapterB.toString() in ids) shouldBe false
+                (withdrawnInChapterA.toString() in ids) shouldBe false
+                (anonymizedInChapterA.toString() in ids) shouldBe false
+
+                // Masking: role/externalReference/membershipTierId/family all null for the
+                // chapter-scoped caller, even though inChapterA genuinely has an ADMIN role, an
+                // externalReference and a membershipTierId set (see MemberService
+                // .toMemberAdminRowDto's `chapterScoped` parameter).
+                val inChapterARow = rows.single { it.startsWith("$inChapterA:") }
+                inChapterARow shouldBe "$inChapterA:${MemberStatus.ACTIVE}:null:false:null:null:null:null:null:null"
+            }
+        }
+
+        test("listMembersForAdministration: chapter-scoped officer's search never matches externalReference (Befund 7)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                val officer = createTestMember("chapter-search-officer-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq officer }) { it[regionalChapterId] = chapter } }
+                grantOfficerDirect(memberId = officer, chapterId = chapter, grantedBy = Uuid.parse(ADMIN_ID))
+
+                val target =
+                    createTestMember(
+                        "chapter-search-target-${Uuid.random()}@example.org",
+                        displayName = "Zzzchaptersearch Nomatchname",
+                        externalReference = "PN-CHAPTER-SEARCH-UNIQUE-1",
+                    )
+                transaction { MemberTable.update({ MemberTable.id eq target }) { it[regionalChapterId] = chapter } }
+
+                // Positive control: ADMIN's unscoped search DOES find it by externalReference.
+                val adminHit =
+                    client.get("/test/roster?search=PN-CHAPTER-SEARCH-UNIQUE-1") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                adminHit.split("|")[0].contains(target.toString()) shouldBe true
+
+                // The chapter-scoped officer's SAME search must NOT match via externalReference.
+                val officerMiss =
+                    client
+                        .get("/test/roster?search=PN-CHAPTER-SEARCH-UNIQUE-1") { header("X-Member-Id", officer.toString()) }
+                        .bodyAsText()
+                officerMiss.split("|")[0].contains(target.toString()) shouldBe false
+
+                // But a displayName search still works for the chapter-scoped officer.
+                val officerNameHit =
+                    client.get("/test/roster?search=zzzchaptersearch") { header("X-Member-Id", officer.toString()) }.bodyAsText()
+                officerNameHit.split("|")[0].contains(target.toString()) shouldBe true
+            }
+        }
+
+        test("listMembersForAdministration: chapter-scoped officer's statuses filter without ACTIVE returns an empty page") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                val officer = createTestMember("chapter-statusfilter-officer-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq officer }) { it[regionalChapterId] = chapter } }
+                grantOfficerDirect(memberId = officer, chapterId = chapter, grantedBy = Uuid.parse(ADMIN_ID))
+
+                val response =
+                    client.get("/test/roster?statuses=WITHDRAWN") { header("X-Member-Id", officer.toString()) }.bodyAsText()
+                val (rowsPart, totalCount) = response.split("|")
+                rowsPart.split(";").filter { it.isNotBlank() } shouldBe emptyList()
+                totalCount.toInt() shouldBe 0
+            }
+        }
+
+        test("listMembersForAdministration: a FRIEND status member holding an (unusual) officer grant is still Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                // Deliberately an inconsistent state no real business flow produces (FRIEND status
+                // AND an active officer grant) -- memberVisibility()'s `status !in
+                // MemberStatusSets.ORGANIZATION_MEMBER` check must reject it regardless.
+                val friend = createTestMember("chapter-friend-grant-${Uuid.random()}@example.org", status = MemberStatus.FRIEND)
+                transaction { MemberTable.update({ MemberTable.id eq friend }) { it[regionalChapterId] = chapter } }
+                grantOfficerDirect(memberId = friend, chapterId = chapter, grantedBy = Uuid.parse(ADMIN_ID))
+
+                val response = client.get("/test/roster") { header("X-Member-Id", friend.toString()) }
+                response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("listMembersForAdministration: regionalChapterId and unassignedOnly together is BadRequest") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                val response =
+                    client.get("/test/roster?regionalChapterId=$chapter&unassignedOnly=true") { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("listMembersForAdministration: ADMIN can filter by regionalChapterId or by unassignedOnly") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                val assigned =
+                    createTestMember("chapter-adminfilter-assigned-${Uuid.random()}@example.org", displayName = "Adminfilter Assigned")
+                transaction { MemberTable.update({ MemberTable.id eq assigned }) { it[regionalChapterId] = chapter } }
+                val unassigned =
+                    createTestMember("chapter-adminfilter-unassigned-${Uuid.random()}@example.org", displayName = "Adminfilter Unassigned")
+
+                val byChapter =
+                    client
+                        .get("/test/roster?search=adminfilter&regionalChapterId=$chapter") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                        .split("|")[0]
+                byChapter.contains(assigned.toString()) shouldBe true
+                byChapter.contains(unassigned.toString()) shouldBe false
+
+                val byUnassigned =
+                    client
+                        .get("/test/roster?search=adminfilter&unassignedOnly=true") { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                        .split("|")[0]
+                byUnassigned.contains(unassigned.toString()) shouldBe true
+                byUnassigned.contains(assigned.toString()) shouldBe false
             }
         }
 
@@ -2094,7 +2327,7 @@ class MemberAdministrationTest :
                 totalCount.toInt() shouldBe baselineTotal
 
                 val rows = rowsPart.split(";").filter { it.isNotBlank() }
-                rows.any { it.startsWith("$withoutFamily:") && it.endsWith(":null:null:null:null") } shouldBe true
+                rows.any { it.startsWith("$withoutFamily:") && it.contains(":null:null:null:null:") } shouldBe true
                 rows.any {
                     it.contains(
                         "$payer:",
@@ -2153,7 +2386,7 @@ class MemberAdministrationTest :
                         .filter { it.isNotBlank() }
                 adminRows.any {
                     it.contains("$payer:") &&
-                        it.endsWith(":$familyId:Treasurer-Sichtbarkeits-Testfamilie:PAYER:${DevSeedData.standardTierId}")
+                        it.contains(":$familyId:Treasurer-Sichtbarkeits-Testfamilie:PAYER:${DevSeedData.standardTierId}:")
                 } shouldBe true
 
                 val treasurerRows =
@@ -2164,7 +2397,7 @@ class MemberAdministrationTest :
                         .split(";")
                         .filter { it.isNotBlank() }
                 treasurerRows.any {
-                    it.contains("$payer:") && it.endsWith(":null:null:null:${DevSeedData.standardTierId}")
+                    it.contains("$payer:") && it.contains(":null:null:null:${DevSeedData.standardTierId}:")
                 } shouldBe true
 
                 transaction {
@@ -2952,11 +3185,16 @@ private fun Route.registerMemberAdminTestRoutes(
                     sort = q["sort"]?.let { MemberAdminSort.valueOf(it) } ?: MemberAdminSort.NAME_ASC,
                     limit = q["limit"]?.toInt() ?: MemberAdminQuery.DEFAULT_LIMIT,
                     offset = q["offset"]?.toInt() ?: 0,
+                    // Welle V1.9.13 review-fix: wired through so the chapter-scoped-visibility
+                    // coverage gap test block below can exercise both new filters end to end.
+                    regionalChapterId = q["regionalChapterId"],
+                    unassignedOnly = q["unassignedOnly"]?.toBoolean() ?: false,
                 ),
             )
         val rowsPart =
             page.rows.joinToString(";") {
-                "${it.id}:${it.status}:${it.role}:${it.anonymized}:${it.familyId}:${it.familyName}:${it.familyRole}:${it.membershipTierId}"
+                "${it.id}:${it.status}:${it.role}:${it.anonymized}:${it.familyId}:${it.familyName}:${it.familyRole}:" +
+                    "${it.membershipTierId}:${it.externalReference}:${it.dateOfDeath}"
             }
         val countsPart = page.statusCounts.entries.joinToString(",") { "${it.key}=${it.value}" }
         call.respondText("$rowsPart|${page.totalCount}|${page.limit}|${page.offset}|$countsPart")

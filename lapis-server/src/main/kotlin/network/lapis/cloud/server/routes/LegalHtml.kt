@@ -301,6 +301,15 @@ internal object LegalHtml {
             li { +"Freund-/Fördererkonten — Art. 6 Abs. 1 lit. b DSGVO." }
             li {
                 +(
+                    "Gliederungsverwaltung: Zuordnung zu einem Landesverband sowie die Erteilung " +
+                        "und der Entzug von Landesvorstand-Zugriff — Art. 6 Abs. 1 lit. b DSGVO " +
+                        "(Organisation der Mitgliedschaft). Ein Landesvorstand sieht dabei Name, " +
+                        "E-Mail-Adresse und Beitrittsdatum der aktiven Mitglieder des eigenen " +
+                        "Landesverbands."
+                )
+            }
+            li {
+                +(
                     "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung, " +
                         "Umsatzsteuer-Voranmeldung (Nachweishilfe) und Auktionen — Art. 6 Abs. 1 lit. c DSGVO " +
                         "(handels-/steuerrechtliche Aufbewahrungspflichten, GoBD/HGB/AO; bei politischen " +

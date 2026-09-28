@@ -545,6 +545,13 @@ fun decodeAuditSnapshot(
             // dedicated snapshot type -- same "backend-only wave" posture as DOCUMENT/
             // DOCUMENT_FOLDER above, falls through to the raw-text display.
             AuditEntityType.ARTICLE -> null
+            // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- RegionalChapterService
+            // writes RegionalChapterSnapshot/RegionalChapterOfficerSnapshot/
+            // MemberRegionalChapterSnapshot (see AuditLog.kt), but this client-side decode/render
+            // pair is deliberately not extended for this wave (same "backend-only wave" posture
+            // DOCUMENT/ARTICLE above already establish) -- falls through to the raw-text display.
+            AuditEntityType.REGIONAL_CHAPTER -> null
+            AuditEntityType.REGIONAL_CHAPTER_OFFICER -> null
         }
     }.getOrNull()
 

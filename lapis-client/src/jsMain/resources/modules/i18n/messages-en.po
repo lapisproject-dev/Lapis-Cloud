@@ -15984,6 +15984,12 @@ msgstr "Could not read the response."
 msgid "Artikel"
 msgstr "Article"
 
+msgid "Landesverband"
+msgstr "Regional chapter"
+
+msgid "Landesvorstand-Zugriff"
+msgstr "Regional chapter officer access"
+
 msgid "Eigenes Bild"
 msgstr "Own image"
 

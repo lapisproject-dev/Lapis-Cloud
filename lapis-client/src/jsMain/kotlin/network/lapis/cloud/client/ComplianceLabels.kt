@@ -156,6 +156,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.DOCUMENT_FOLDER -> gettext("Dokumentordner")
         // Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow"
         AuditEntityType.ARTICLE -> gettext("Artikel")
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)"
+        AuditEntityType.REGIONAL_CHAPTER -> gettext("Landesverband")
+        AuditEntityType.REGIONAL_CHAPTER_OFFICER -> gettext("Landesvorstand-Zugriff")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -248,6 +251,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.DOCUMENT_FOLDER -> "dark"
         // "secondary" -- routine editorial workflow, not an access-control/compliance action.
         AuditEntityType.ARTICLE -> "secondary"
+        // Welle V1.9.13 -- an access-control-relevant grant/chapter-lifecycle action, same tier as MEMBER.
+        AuditEntityType.REGIONAL_CHAPTER -> "warning"
+        AuditEntityType.REGIONAL_CHAPTER_OFFICER -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

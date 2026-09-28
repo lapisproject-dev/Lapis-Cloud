@@ -4,14 +4,18 @@ import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.extractSessionToken
+import network.lapis.cloud.server.security.memberVisibility
+import network.lapis.cloud.server.security.resolveChapterScopeRef
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -104,14 +108,40 @@ class AuthService internal constructor(
         // homeserverUrl for a genuine GUEST member (always has a 1:1 profile row -- see
         // OidcGuestMemberStore.resolveOrCreateGuestMember) and null for a real, non-guest member
         // (no matching row) -- no separate `if (isGuest)` branch/query needed.
-        val (displayName, homeserverUrl) =
+        val sessionExtras =
             transaction {
-                (MemberTable leftJoin OidcGuestProfileTable)
-                    .selectAll()
-                    .where { MemberTable.id eq current.memberId }
-                    .single()
-                    .let { it[MemberTable.displayName] to it.getOrNull(OidcGuestProfileTable.homeserverUrl) }
+                val row =
+                    (MemberTable leftJoin OidcGuestProfileTable)
+                        .selectAll()
+                        .where { MemberTable.id eq current.memberId }
+                        .single()
+                // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- memberVisibility MUST
+                // run inside this same transaction (see its own KDoc).
+                val visibility = current.memberVisibility()
+                val ownChapterId = row[MemberTable.regionalChapterId]
+                val ownChapter =
+                    ownChapterId?.let { id ->
+                        RegionalChapterTable
+                            .selectAll()
+                            .where { RegionalChapterTable.id eq id }
+                            .singleOrNull()
+                            ?.let {
+                                RegionalChapterRefDto(
+                                    id = it[RegionalChapterTable.id].toString(),
+                                    name = it[RegionalChapterTable.name],
+                                )
+                            }
+                    }
+                SessionExtras(
+                    displayName = row[MemberTable.displayName],
+                    homeserverUrl = row.getOrNull(OidcGuestProfileTable.homeserverUrl),
+                    ownRegionalChapter = ownChapter,
+                    chapterScope = resolveChapterScopeRef(visibility),
+                    regionalChaptersExist = RegionalChapterTable.selectAll().count() > 0,
+                )
             }
+        val displayName = sessionExtras.displayName
+        val homeserverUrl = sessionExtras.homeserverUrl
         // Only a real, token-resolved session has a meaningful expiry -- the test-only trusted-
         // X-Member-Id fallback (see RequestContext.resolveCurrentMember KDoc) has no SessionTable
         // row at all, so expiresAt falls back to SessionStore.SESSION_TTL-from-now in that case
@@ -132,6 +162,18 @@ class AuthService internal constructor(
             keycloakMode = keycloakConfig.enabled,
             mcpEnabled = mcpEnabled,
             mcpWriteEnabled = mcpWriteEnabled,
+            regionalChaptersExist = sessionExtras.regionalChaptersExist,
+            ownRegionalChapter = sessionExtras.ownRegionalChapter,
+            chapterScope = sessionExtras.chapterScope,
         )
     }
 }
+
+/** Welle V1.9.13 -- bundles [AuthService.getSessionInfo]'s regional-chapter-related reads (computed inside one transaction) so they can be assembled outside it without a 5-way destructuring. */
+private data class SessionExtras(
+    val displayName: String,
+    val homeserverUrl: String?,
+    val ownRegionalChapter: RegionalChapterRefDto?,
+    val chapterScope: RegionalChapterRefDto?,
+    val regionalChaptersExist: Boolean,
+)

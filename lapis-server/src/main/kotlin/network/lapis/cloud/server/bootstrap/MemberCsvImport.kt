@@ -792,6 +792,17 @@ internal fun runImport(
             }
 
             try {
+                // Review-fix note (V1.9.13, MINOR finding): this insert does NOT call
+                // `requireRegionalChapterBeforeActivation` -- an ACTIVE-status row from this
+                // import lands with `regionalChapterId == null` even while
+                // `RegionalChapterEnforcementConfig.enabled` is `true` and chapters already exist.
+                // Deliberate for now: this is an operator-run, one-off bootstrap/migration tool
+                // (not a live RPC path a member/admin triggers), and the imported rows are
+                // pre-existing real-world members whose chapter assignment is, in practice,
+                // unknown at import time -- forcing a chapter here would mean inventing one. If a
+                // later wave wants this closed, the two options are: reject rows without a
+                // resolvable chapter column, or run a bulk `assignMemberToChapter` pass right
+                // after import.
                 MemberTable.insert {
                     it[id] = Uuid.random()
                     it[displayName] = member.displayName

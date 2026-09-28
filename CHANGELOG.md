@@ -8,6 +8,73 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.13 — Gliederungsverwaltung (Landesverbände), Backend.** Ein ADMIN kann eine flache
+  (nicht-hierarchische) Liste benannter Landesverbände pflegen; BOARD/ADMIN weisen ein Mitglied
+  einem Landesverband zu; ADMIN kann einem Mitglied "Landesvorstand"-Zugriff auf genau seinen
+  eigenen Landesverband erteilen/entziehen. Neue Tabellen `regional_chapter`/
+  `regional_chapter_officer` (`V59__regional_chapters.sql`, plus In-Place-Erweiterung der
+  `chk_audit_log_entry_entity_type`-Prüfregel in `V1__baseline.sql` um `REGIONAL_CHAPTER`/
+  `REGIONAL_CHAPTER_OFFICER` — **OPERATOR NOTE: vor dem Deploy auf PdV/ELB/Staging muss
+  `./gradlew :lapis-server:flywayRepair` laufen**, siehe CLAUDE.md-Befund 2), neuer RPC-Dienst
+  `IRegionalChapterService` (`listChapters`/`createChapter`/`renameChapter`/`deleteChapter`/
+  `assignMemberToChapter`/`listOfficers`/`grantOfficer`/`revokeOfficer`), neue
+  `IRegistrationService.listRegionalChapterOptions()` (unauthentifiziert, für das
+  Registrierungsformular). Sobald mindestens ein Landesverband existiert, verlangt jeder Übergang
+  in den Status ACTIVE (`createMemberDirect`/`approveApplication`/`updateMemberStatus`) eine
+  Landesverband-Zuordnung (`RegionalChapterRequiredException`); `registerApplication` (das selbst
+  nur nach APPLICATION führt) und `applyForMembership` nehmen die Zuordnung bereits bei der
+  Antragstellung entgegen, damit sie beim späteren `approveApplication` schon vorliegt. **Stand
+  2026-09-28 (Review-Fix): diese Pflicht ist standardmäßig DEAKTIVIERT**
+  (`RegionalChapterEnforcementConfig`, Default `false`) -- ohne UI-Picker im unveränderten Client
+  hätte das erste angelegte Landesverband sonst jede Registrierung/Direktanlage blockiert; ein
+  Operator aktiviert sie erst, sobald der Client-Picker existiert. Ein Landesvorstand-Zugriff wird
+  beim Verlassen von ACTIVE automatisch entzogen. Neue
+  Sichtbarkeitsgrenze `network.lapis.cloud.server.security.memberVisibility`: ein Landesvorstand
+  (weiterhin `AccountRole.MEMBER`, keine Rollen-Erweiterung) sieht über
+  `listMembersForAdministration` ausschließlich die ACTIVE, nicht-anonymisierten Mitglieder des
+  eigenen Landesverbands, mit gesperrten Feldern (Rolle, Beitragsklasse, Familie,
+  externe Referenz, Sterbedatum) und ohne Suche über die externe Referenz (Personennummer-Leck).
+  DSGVO-Contributor `RegionalChapterPersonalData` registriert (eigene Zuweisungen hart gelöscht,
+  fremde `granted_by`-Referenzen anonymisiert); `FoundationPersonalData.eraseMember` löscht die
+  Landesverband-Zuordnung selbst.
+
+  **Umfang dieser Welle (Backend-only)**: Die vollständige Design-Spezifikation sieht zusätzlich
+  eine ADMIN-Verwaltungsoberfläche (`RegionalChaptersScreen`), eine Landesvorstand-Roster-Ansicht
+  (`ChapterRosterScreen`), Registrierungsformular-Integration, i18n-Kataloge (7 Sprachen), eine
+  behaviorale `RegionalChapterNoWideningTest` sowie `RegionalChapterI18nCatalogTest` und
+  `docs/architecture/regional-chapters.adoc` vor — diese Teile sind **noch nicht umgesetzt** und
+  bleiben für eine Folgewelle offen. Umgesetzt und mit echten, laufenden Tests abgesichert:
+  Datenmodell, Migration, alle sieben `IRegionalChapterService`-Methoden, die
+  Sichtbarkeitsgrenze samt `listMembersForAdministration`-Integration (inkl. der strukturellen
+  `RegionalChapterVisibilityAllowlistScanTest`, die einen neuen, ungeprüften Aufrufer von
+  `memberVisibility()` verhindert), die Aktivierungs-/Auto-Entzugsregel, `SessionInfoDto`-Felder
+  (`regionalChaptersExist`/`ownRegionalChapter`/`chapterScope`), und die DSGVO-Anbindung
+  (`RegionalChapterPersonalData` sowie `FoundationPersonalData`s Zuordnungs-Nullung).
+
+  **Review-Fixes (2026-09-28, vor dem Merge nach `master`):** (1) **CRITICAL** — `grantOfficer`
+  sperrte `(MemberTable leftJoin AccountTable)` mit `forUpdate()`; echtes PostgreSQL lehnt `FOR
+  UPDATE` auf der nullbaren Seite eines OUTER JOINs ab (H2/MODE=PostgreSQL im Testsuite akzeptiert
+  es stillschweigend), sodass jede Erteilung eines Landesvorstand-Zugriffs auf PdV/ELB/Staging mit
+  einem unbehandelten 500er gescheitert wäre. Behoben: `MemberTable` allein sperren, Account-
+  Existenz separat prüfen; dazu eine strukturelle `OuterJoinForUpdateScanTest`-Regressionswache
+  gegen dasselbe Muster im gesamten `lapis-server`-Hauptquellbaum. (2) **MEDIUM** — Deadlock-Risiko
+  durch entgegengesetzte Sperr-Reihenfolge zwischen `grantOfficer` (Verband→Mitglied) und
+  `assignMemberToChapter` (Mitglied→Verband); beide sperren jetzt konsequent Mitglied-vor-Verband.
+  (3) **MEDIUM** — ein Landesvorstand-Zugriff, der über einen Statuswechsel oder `leaveMembership`
+  endete, schrieb keinen Audit-Eintrag (nur ADMIN-initiierte Widerrufe taten das); jetzt schreibt
+  `revokeActiveRegionalChapterOfficerGrant` denselben `REGIONAL_CHAPTER_OFFICER`/`UPDATE`-Eintrag.
+  (4) Testabdeckungslücken geschlossen: `listMembersForAdministration`s Sichtbarkeitsgrenze
+  (Maskierung, Statusfilter, Suchausschluss der externen Referenz, Admin-Filter
+  `regionalChapterId`/`unassignedOnly`), `RegistrationService`s Verbandsauswahl über alle vier
+  Aufrufer, `AuthService.getSessionInfo`s neue Felder, `RegionalChapterPersonalData` (Export/
+  Löschung), `FoundationPersonalData`s Verbands-Nullung, `RegionalChapterService`s
+  `renameChapter`-Namenskonflikt, `MAX_CHAPTERS`/`MAX_ACTIVE_OFFICERS_PER_CHAPTER` sowie
+  `assignMemberToChapter`s automatischer Entzug eines Fremd-Verband-Grants. (5) Mehrere veraltete
+  KDoc-Verweise auf noch nicht existierende Artefakte (`docs/architecture/regional-chapters.adoc`,
+  `RegionalChapterNoWideningTest`) richtiggestellt; `RegionalChapterVisibilityAllowlistScanTest`
+  dagegen tatsächlich implementiert statt nur referenziert. `ktlint`/`detekt` (Named-Parameters-
+  Regel) grün gemacht.
+
 - **V1.9.12 — Mitfahrerzentrale.** Jedes ACTIVE Mitglied kann eine Fahrt anbieten (`OFFER`,
   1–8 freie Plätze) oder eine Mitfahrgelegenheit suchen (`REQUEST`) — neue Tabelle
   `carpool_posting` (`V58__carpool.sql`), neuer RPC-Dienst `ICarpoolService`

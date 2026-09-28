@@ -16020,6 +16020,12 @@ msgstr "Не удалось прочитать ответ."
 msgid "Artikel"
 msgstr "Статья"
 
+msgid "Landesverband"
+msgstr "Региональное отделение"
+
+msgid "Landesvorstand-Zugriff"
+msgstr "Доступ регионального правления"
+
 msgid "Eigenes Bild"
 msgstr "Собственное изображение"
 

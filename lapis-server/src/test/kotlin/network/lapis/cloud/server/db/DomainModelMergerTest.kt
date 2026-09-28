@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 58 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 59 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -58,8 +58,11 @@ class DomainModelMergerTest :
             // 55-articles.kuml.kts. Welle V1.9.4 "private Hintergrundbild-Uploads für
             // Videokonferenzen" -- was 56, now 57 with the addition of
             // 56-conference-background.kuml.kts (renumbered from 55 during the merge of both
-            // waves, which had independently claimed "55-").
-            scriptFiles shouldHaveSize 58
+            // waves, which had independently claimed "55-"). Welle V1.9.12 "Mitfahrerzentrale" --
+            // was 57, now 58 with the addition of 57-carpool.kuml.kts. Welle V1.9.13
+            // "Gliederungsverwaltung (Landesverbände)" -- was 58, now 59 with the addition of
+            // 58-regional-chapter.kuml.kts.
+            scriptFiles shouldHaveSize 59
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -477,7 +480,20 @@ class DomainModelMergerTest :
             // +1 drop) -- so it contributes +2 «Entity» declarations (the stub + the real table)
             // and +1 drop, net +1 distinct table name versus the V1.4.37 baseline above
             // (168 -> 169).
-            val distinctTableNames = 169
+            // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" adds 58-regional-chapter
+            // .kuml.kts's TWO new real tables (regional_chapter, regional_chapter_officer), WITH
+            // its own cross-domain Member stub (regional_chapter_officer.member_id/
+            // granted_by_member_id resolve through it, dedups into the already-real member
+            // entity, +1 drop) -- so it contributes +3 «Entity» declarations (the stub + the two
+            // real tables) and +1 drop, net +2 distinct table names. 00-foundation.kuml.kts
+            // ALSO gains a new RegionalChapter stub (id-only, so member.regional_chapter_id can
+            // resolve within that file's own evaluation) -- +1 «Entity» declaration that dedups
+            // into the SAME regional_chapter entity 58-regional-chapter.kuml.kts declares for
+            // real (0 net new distinct table names, exactly the "stub declared in one file,
+            // real definition in another, both dedup to one entity" shape every other
+            // cross-domain stub in this codebase already exhibits -- see e.g. member itself).
+            // Versus the V1.9.12 baseline above (169 -> 171).
+            val distinctTableNames = 171
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -778,6 +794,13 @@ class DomainModelMergerTest :
                     // its Member cross-domain stub dedups into the already-real member entity, no
                     // new Table file for it.
                     "CarpoolPostingTable.kt",
+                    // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- TWO new real
+                    // tables (regional_chapter, regional_chapter_officer); the Member cross-domain
+                    // stub in 58-regional-chapter.kuml.kts AND the RegionalChapter cross-domain
+                    // stub added to 00-foundation.kuml.kts both dedup into their already-real
+                    // counterparts, no new Table file for either stub.
+                    "RegionalChapterTable.kt",
+                    "RegionalChapterOfficerTable.kt",
                 )
         }
 

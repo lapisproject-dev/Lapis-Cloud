@@ -64,6 +64,10 @@ public object MemberTable : Table("member") {
     // by network.lapis.cloud.server.member.MemberNumberAllocator. See 00-foundation.kuml.kts.
     public val memberNumber: Column<String?> = varchar("member_number", 16).nullable()
 
+    // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- nullable FK -> regional_chapter.
+    // See 00-foundation.kuml.kts / 58-regional-chapter.kuml.kts.
+    public val regionalChapterId: Column<Uuid?> = optReference("regional_chapter_id", RegionalChapterTable.id)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 3 check constraint(s) declared on this entity are not

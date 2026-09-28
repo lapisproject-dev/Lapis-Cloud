@@ -3,6 +3,9 @@ package network.lapis.cloud.shared.domain
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
+// RegionalChapterRefDto lives in RegionalChapter.kt (same package) -- see [SessionInfoDto
+// .ownRegionalChapter]/[.chapterScope] KDoc.
+
 /**
  * "Whoami" projection of the caller's currently resolved session (V0.7.1 Authentifizierung) --
  * see [network.lapis.cloud.shared.rpc.IAuthService.getSessionInfo]. Deliberately minimal: just
@@ -61,4 +64,22 @@ data class SessionInfoDto(
     val keycloakMode: Boolean = false,
     val mcpEnabled: Boolean = false,
     val mcpWriteEnabled: Boolean = false,
+    /**
+     * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `true` iff at least one
+     * `regional_chapter` row exists on this server, so the client can decide whether the
+     * "Landesverbände"/"Mein Landesverband" navigation entries are shown at all. Defaults to
+     * `false`, same "feature off everywhere pre-existing" idiom as [aiAssistantEnabled].
+     */
+    val regionalChaptersExist: Boolean = false,
+    /** Welle V1.9.13 -- the caller's OWN chapter assignment (`member.regional_chapter_id`), resolved for "Meine Daten" display. `null` if unassigned or no chapters exist. */
+    val ownRegionalChapter: RegionalChapterRefDto? = null,
+    /**
+     * Welle V1.9.13 -- non-`null` iff the caller currently holds an ACTIVE regional-chapter-
+     * officer grant (`network.lapis.cloud.server.security.RegionalChapterVisibility.Chapter`) --
+     * drives the "Mein Landesverband" (chapter-scoped roster) navigation entry. A BOARD/ADMIN/
+     * TREASURER caller (whose [RegionalChapterVisibility] is always `All`) never has this set,
+     * even if they separately hold a grant -- see that sealed interface's own KDoc "role always
+     * wins first".
+     */
+    val chapterScope: RegionalChapterRefDto? = null,
 )

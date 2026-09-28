@@ -60,6 +60,16 @@ data class MemberAdminRowDto(
      * keine neue Personenkategorie hinzu.
      */
     val dateOfDeath: LocalDate? = null,
+    /**
+     * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `member.regional_chapter_id`,
+     * joined for display. Unlike [role]/[familyId]/etc., this field is deliberately NOT nulled in
+     * chapter-scoped mode (`RosterMode.CHAPTER_READONLY`) -- every row a chapter-scoped officer
+     * sees already belongs to their own chapter by construction (see
+     * `network.lapis.cloud.server.security.RegionalChapterVisibility`), so the value is never new
+     * information for that caller.
+     */
+    val regionalChapterId: String? = null,
+    val regionalChapterName: String? = null,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */
@@ -104,6 +114,16 @@ data class MemberAdminQuery(
     val sort: MemberAdminSort = MemberAdminSort.NAME_ASC,
     val limit: Int = DEFAULT_LIMIT,
     val offset: Int = 0,
+    /**
+     * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- filter to members assigned to
+     * this chapter. Mutually exclusive with [unassignedOnly] (server throws `BadRequestException`
+     * if both are set). Silently IGNORED by the server when the caller is a chapter-scoped
+     * regional-chapter officer (`network.lapis.cloud.server.security.RegionalChapterVisibility
+     * .Chapter`) -- that caller's result set is already narrowed to their own chapter.
+     */
+    val regionalChapterId: String? = null,
+    /** Welle V1.9.13 -- filter to members with `regionalChapterId == null`. See [regionalChapterId] "mutually exclusive"/"ignored" notes. */
+    val unassignedOnly: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_LIMIT = 25

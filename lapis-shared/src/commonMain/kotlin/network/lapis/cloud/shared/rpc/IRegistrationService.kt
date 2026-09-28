@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.FriendRegistrationInput
 import network.lapis.cloud.shared.domain.FriendTermsDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegistrationInput
 
 /**
@@ -44,6 +45,16 @@ interface IRegistrationService {
      * (registration happens BEFORE any member/account exists).
      */
     suspend fun getMembershipAgreement(): MembershipAgreementDto
+
+    /**
+     * Unauthenticated. Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- the full chapter
+     * picker list (id+name only), sorted by name, for the registration form's chapter dropdown.
+     * Empty list when no chapters exist yet. Deliberately unauthenticated, same reasoning
+     * [registerApplication]/[getMembershipAgreement] already establish -- a prospective member has
+     * no session yet, and a chapter name is not itself sensitive (see
+     * `network.lapis.cloud.server.rpc.RegionalChapterService` KDoc "F5").
+     */
+    suspend fun listRegionalChapterOptions(): List<RegionalChapterRefDto>
 
     /**
      * Unauthenticated. Creates a `Member(status=APPLICATION)` + `Account` (password set) pair after
@@ -156,5 +167,7 @@ interface IRegistrationService {
     suspend fun applyForMembership(
         agreementVersion: String,
         agreementSha256: String,
+        /** Welle V1.9.13 -- same required-once-any-chapter-exists rule as [RegistrationInput.regionalChapterId]; a FRIEND upgrading to APPLICATION picks a chapter here since [RegistrationInput] itself is not used on this path. */
+        regionalChapterId: String? = null,
     ): MemberDto
 }

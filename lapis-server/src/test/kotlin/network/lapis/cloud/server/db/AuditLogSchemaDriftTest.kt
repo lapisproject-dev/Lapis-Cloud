@@ -160,6 +160,8 @@ class AuditLogSchemaDriftTest :
                             "DOCUMENT",
                             "DOCUMENT_FOLDER",
                             "ARTICLE",
+                            "REGIONAL_CHAPTER",
+                            "REGIONAL_CHAPTER_OFFICER",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

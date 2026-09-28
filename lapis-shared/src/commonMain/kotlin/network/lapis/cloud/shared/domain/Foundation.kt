@@ -276,6 +276,8 @@ data class MemberDto(
     val rejectionReason: String? = null,
     val friendSince: LocalDate? = null,
     val dateOfDeath: LocalDate? = null,
+    /** Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `member.regional_chapter_id`. The client resolves the chapter's name from `IRegistrationService.listRegionalChapterOptions()`. */
+    val regionalChapterId: String? = null,
 )
 
 /**

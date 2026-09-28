@@ -16054,6 +16054,12 @@ msgstr "No se pudo leer la respuesta."
 msgid "Artikel"
 msgstr "Artículo"
 
+msgid "Landesverband"
+msgstr "Sección regional"
+
+msgid "Landesvorstand-Zugriff"
+msgstr "Acceso de la junta regional"
+
 msgid "Eigenes Bild"
 msgstr "Imagen propia"
 

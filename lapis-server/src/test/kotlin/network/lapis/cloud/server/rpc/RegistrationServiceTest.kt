@@ -23,6 +23,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
@@ -31,6 +32,7 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -49,9 +51,11 @@ import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.RegistrationInput
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import network.lapis.cloud.shared.rpc.WeakPasswordException
 import org.jetbrains.exposed.v1.core.and
@@ -82,13 +86,37 @@ class RegistrationServiceTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdCommitteeIds = mutableListOf<Uuid>()
+        val createdChapterIds = mutableListOf<Uuid>()
 
         beforeSpec {
             DatabaseConfig.connect()
             DevSeedData.seedIfEmpty(force = true)
         }
 
-        afterSpec { cleanUpRegistrationTestData(memberIds = createdMemberIds, committeeIds = createdCommitteeIds) }
+        afterSpec {
+            // Chapter cleanup AFTER member cleanup -- a member still referencing a chapter would
+            // otherwise block that chapter's deletion (FK), same ordering
+            // [RegionalChapterServiceTest]'s own `afterSpec` documents.
+            cleanUpRegistrationTestData(memberIds = createdMemberIds, committeeIds = createdCommitteeIds)
+            transaction { RegionalChapterTable.deleteWhere { id inList createdChapterIds } }
+        }
+
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- direct DB insert (bypassing
+        // RegionalChapterService's own RPC round-trip), same "bulk-seed directly for speed" idiom
+        // [RegionalChapterServiceTest] itself uses for its own limit tests.
+        fun createChapterDirect(name: String = "Reg-Chapter-${Uuid.random()}"): Uuid {
+            val id = Uuid.random()
+            transaction {
+                RegionalChapterTable.insert {
+                    it[RegionalChapterTable.id] = id
+                    it[RegionalChapterTable.name] = name
+                    it[nameKey] = name.lowercase()
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                }
+            }
+            createdChapterIds += id
+            return id
+        }
 
         fun createTestMember(
             email: String,
@@ -733,6 +761,221 @@ class RegistrationServiceTest :
                 afterReject.contains(applicant.toString()) shouldBe false
             }
         }
+
+        // ── Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" ─────────────────────────────
+        // Review-fix test-coverage gap: none of registerApplication/createMemberDirect/
+        // applyForMembership/approveApplication had ANY test exercising the chapter-selection
+        // path this wave added, and RegionalChapterEnforcementConfig's own default-off behavior
+        // (the review-fix for the separate production-breaking finding) had no test in THIS file
+        // either. `enforcementEnabled` mirrors [RegionalChapterActivationRuleTest]'s own helper.
+
+        test("listRegionalChapterOptions: unauthenticated, lists every chapter ordered by name") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val bId = createChapterDirect(name = "B-Options-${Uuid.random()}")
+                val aId = createChapterDirect(name = "A-Options-${Uuid.random()}")
+
+                val body = client.get("/test/regional-chapter-options").bodyAsText()
+                val ids = body.split(",").map { it.substringBefore(":") }
+                // A- sorts before B- lexicographically -- listRegionalChapterOptions orders by name.
+                (ids.indexOf(aId.toString()) < ids.indexOf(bId.toString())) shouldBe true
+            }
+        }
+
+        test("registerApplication: no chapter exists yet -- a non-null regionalChapterId is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val email = "reg-chapter-none-${Uuid.random()}@example.org"
+                val response =
+                    client.post("/test/register?email=$email&regionalChapterId=${Uuid.random()}")
+                response.status shouldBe HttpStatusCode.BadRequest
+                findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test("registerApplication: a valid regionalChapterId is persisted on the new member") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val chapterId = createChapterDirect()
+                val email = "reg-chapter-valid-${Uuid.random()}@example.org"
+
+                val response = client.post("/test/register?email=$email&regionalChapterId=$chapterId")
+                response.status shouldBe HttpStatusCode.OK
+
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+                val storedChapterId =
+                    transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.regionalChapterId] }
+                storedChapterId shouldBe chapterId
+            }
+        }
+
+        test("registerApplication: an unknown regionalChapterId is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                createChapterDirect()
+                val email = "reg-chapter-unknown-${Uuid.random()}@example.org"
+
+                val response = client.post("/test/register?email=$email&regionalChapterId=${Uuid.random()}")
+                response.status shouldBe HttpStatusCode.BadRequest
+                findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test("registerApplication: a malformed regionalChapterId is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                createChapterDirect()
+                val email = "reg-chapter-malformed-${Uuid.random()}@example.org"
+
+                val response = client.post("/test/register?email=$email&regionalChapterId=not-a-uuid")
+                response.status shouldBe HttpStatusCode.BadRequest
+                findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test("registerApplication: enforcement DISABLED (default) -- omitting a selection still succeeds although a chapter exists") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                createChapterDirect()
+                val email = "reg-chapter-enforcement-off-${Uuid.random()}@example.org"
+
+                val response = client.post("/test/register?email=$email")
+                response.status shouldBe HttpStatusCode.OK
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+            }
+        }
+
+        test("registerApplication: enforcement ENABLED -- omitting a selection is rejected once a chapter exists") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            regionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load { "true" },
+                        )
+                    }
+                }
+                createChapterDirect()
+                val email = "reg-chapter-enforcement-on-${Uuid.random()}@example.org"
+
+                val response = client.post("/test/register?email=$email")
+                response.status shouldBe HttpStatusCode.Conflict
+                findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test("createMemberDirect: a valid regionalChapterId is persisted, an unknown one is rejected") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val chapterId = createChapterDirect()
+                val email = "reg-direct-chapter-${Uuid.random()}@example.org"
+
+                val ok =
+                    client.post("/test/create-direct?email=$email&regionalChapterId=$chapterId") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                ok.status shouldBe HttpStatusCode.OK
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+                val storedChapterId =
+                    transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.regionalChapterId] }
+                storedChapterId shouldBe chapterId
+
+                val unknownEmail = "reg-direct-chapter-unknown-${Uuid.random()}@example.org"
+                val rejected =
+                    client.post("/test/create-direct?email=$unknownEmail&regionalChapterId=${Uuid.random()}") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }
+                rejected.status shouldBe HttpStatusCode.BadRequest
+                findMemberIdByEmail(unknownEmail) shouldBe null
+            }
+        }
+
+        test("applyForMembership: a valid regionalChapterId is persisted; enforcement ENABLED rejects omitting one") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            regionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load { "true" },
+                        )
+                    }
+                }
+                val chapterId = createChapterDirect()
+                val friendWithChapter = createTestMember("reg-apply-chapter-${Uuid.random()}@example.org", MemberStatus.FRIEND)
+                val friendWithoutChapter = createTestMember("reg-apply-nochapter-${Uuid.random()}@example.org", MemberStatus.FRIEND)
+
+                val ok =
+                    client.post("/test/apply-for-membership?regionalChapterId=$chapterId") {
+                        header("X-Member-Id", friendWithChapter.toString())
+                    }
+                ok.status shouldBe HttpStatusCode.OK
+                statusOf(friendWithChapter) shouldBe MemberStatus.APPLICATION
+                val storedChapterId =
+                    transaction {
+                        MemberTable.selectAll().where { MemberTable.id eq friendWithChapter }.single()[MemberTable.regionalChapterId]
+                    }
+                storedChapterId shouldBe chapterId
+
+                val rejected =
+                    client.post("/test/apply-for-membership") { header("X-Member-Id", friendWithoutChapter.toString()) }
+                rejected.status shouldBe HttpStatusCode.Conflict
+                statusOf(friendWithoutChapter) shouldBe MemberStatus.FRIEND
+            }
+        }
+
+        test("approveApplication: enforcement ENABLED -- blocked without a chapter assignment, succeeds once assigned") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing {
+                        registerRegistrationTestRoutes(
+                            rateLimiter = LoginRateLimiter(),
+                            regionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load { "true" },
+                        )
+                    }
+                }
+                val chapterId = createChapterDirect()
+                // MembershipAgreementAcknowledgmentTable row is irrelevant to approveApplication's
+                // own logic -- createTestMember (this file's helper) does not create one, and
+                // approveApplication never reads it.
+                val applicant = createTestMember("reg-approve-chapter-${Uuid.random()}@example.org", MemberStatus.APPLICATION)
+
+                val blocked = client.post("/test/approve/$applicant") { header("X-Member-Id", BOARD_ID) }
+                blocked.status shouldBe HttpStatusCode.Conflict
+                statusOf(applicant) shouldBe MemberStatus.APPLICATION
+
+                transaction { MemberTable.update({ MemberTable.id eq applicant }) { it[regionalChapterId] = chapterId } }
+                val approved = client.post("/test/approve/$applicant") { header("X-Member-Id", BOARD_ID) }
+                approved.status shouldBe HttpStatusCode.OK
+                statusOf(applicant) shouldBe MemberStatus.ACTIVE
+            }
+        }
     })
 
 private fun storedPasswordHashDirect(memberId: Uuid): String? =
@@ -879,6 +1122,13 @@ private fun StatusPagesConfig.installRegistrationExceptionHandlers() {
     exception<WeakPasswordException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.BadRequest)
     }
+    exception<BadRequestException> { call, cause ->
+        call.respondText(cause.message, status = HttpStatusCode.BadRequest)
+    }
+    // Welle V1.9.13 review-fix regression guard -- see this file's own "Welle V1.9.13" test block.
+    exception<RegionalChapterRequiredException> { call, cause ->
+        call.respondText(cause.message, status = HttpStatusCode.Conflict)
+    }
 }
 
 /** Shared throwaway routes for [RegistrationService] -- mirrors [CrowdfundingServiceTest]'s `registerCrowdfundingTestRoutes` style. */
@@ -891,6 +1141,12 @@ private fun Route.registerRegistrationTestRoutes(
     // `FriendRegistrationTest.kt`, round 3 review finding F5 fix -- an earlier version of this
     // comment incorrectly claimed both tests were in this file).
     keycloakConfig: KeycloakConfig = KeycloakConfig.load(env = { null }),
+    // V1.9.13 review-fix: explicit disabled-by-default config, same idiom as [keycloakConfig]
+    // above -- overridable so the STRICT `requireValidRegionalChapterSelection`/
+    // `requireRegionalChapterBeforeActivation` behavior can be exercised end to end (see the
+    // "Welle V1.9.13" tests below), while every OTHER test in this file (constructed without
+    // overriding this) keeps running against the safe, enforcement-OFF default.
+    regionalChapterEnforcementConfig: RegionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load(env = { null }),
 ) {
     // V0.11.0: fresh throwaway instances per test-route-set, same convention `rateLimiter` above
     // already establishes -- these two are exercised directly by FriendRegistrationTest, not here.
@@ -905,10 +1161,15 @@ private fun Route.registerRegistrationTestRoutes(
             friendSignupIpRateLimiter = friendIpRateLimiter,
             friendVerificationMailer = FakeFriendVerificationMailer(),
             keycloakConfig = keycloakConfig,
+            regionalChapterEnforcementConfig = regionalChapterEnforcementConfig,
         )
     get("/test/agreement") {
         val dto = registrationService(call).getMembershipAgreement()
         call.respondText("${dto.version}:${dto.sha256}")
+    }
+    get("/test/regional-chapter-options") {
+        val list = registrationService(call).listRegionalChapterOptions()
+        call.respondText(list.joinToString(",") { "${it.id}:${it.name}" })
     }
     post("/test/register") {
         val q = call.request.queryParameters
@@ -919,6 +1180,7 @@ private fun Route.registerRegistrationTestRoutes(
                 password = q["password"] ?: STRONG_PASSWORD,
                 agreementVersion = q["agreementVersion"] ?: MembershipAgreementDisclaimer.VERSION,
                 agreementSha256 = q["agreementSha256"] ?: MembershipAgreementDisclaimer.SHA256,
+                regionalChapterId = q["regionalChapterId"],
             ),
         )
         call.respondText("OK")
@@ -945,9 +1207,20 @@ private fun Route.registerRegistrationTestRoutes(
                     email = q["email"]!!,
                     role = AccountRole.valueOf(q["role"] ?: "MEMBER"),
                     temporaryPassword = q["password"] ?: STRONG_PASSWORD,
+                    regionalChapterId = q["regionalChapterId"],
                 ),
             )
         call.respondText("${dto.id}:${dto.status}:${dto.role}")
+    }
+    post("/test/apply-for-membership") {
+        val q = call.request.queryParameters
+        val dto =
+            registrationService(call).applyForMembership(
+                agreementVersion = q["agreementVersion"] ?: MembershipAgreementDisclaimer.VERSION,
+                agreementSha256 = q["agreementSha256"] ?: MembershipAgreementDisclaimer.SHA256,
+                regionalChapterId = q["regionalChapterId"],
+            )
+        call.respondText(dto.status.name)
     }
     post("/test/leave") {
         val dto = registrationService(call).leaveMembership()

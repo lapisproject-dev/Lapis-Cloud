@@ -16029,6 +16029,12 @@ msgstr "Nie można odczytać odpowiedzi."
 msgid "Artikel"
 msgstr "Artykuł"
 
+msgid "Landesverband"
+msgstr "Oddział regionalny"
+
+msgid "Landesvorstand-Zugriff"
+msgstr "Dostęp zarządu regionalnego"
+
 msgid "Eigenes Bild"
 msgstr "Własny obraz"
 

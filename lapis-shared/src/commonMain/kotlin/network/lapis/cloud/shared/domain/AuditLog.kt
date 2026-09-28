@@ -320,6 +320,33 @@ enum class AuditEntityType {
      * `V55__article.sql`'s `chk_audit_log_entry_entity_type` widening.
      */
     ARTICLE,
+
+    /**
+     * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `network.lapis.cloud.server.rpc
+     * .RegionalChapterService`'s `createChapter`/`renameChapter` write `CREATE`/`UPDATE`
+     * respectively, `entityId` = the `regional_chapter` row's id, [RegionalChapterSnapshot]
+     * before/after. `deleteChapter` writes `VOID` (there is no `DELETE` [AuditAction] literal --
+     * see that enum's own KDoc for why `VOID` is reused) with `after = null` -- the sole
+     * surviving record that the chapter ever existed, same idiom
+     * [CONFERENCE_RECORDING]'s own KDoc establishes for a hard-deleted row. A member's OWN
+     * chapter *assignment* (`RegionalChapterService.assignMemberToChapter`) is deliberately
+     * logged as `entityType = MEMBER` instead (see [MemberChangeSnapshot] KDoc "regionalChapterId"
+     * paragraph) -- it is a fact about the MEMBER row, not about the chapter. 16 chars, well
+     * under the `audit_log_entry.entity_type` `VARCHAR(29)` width limit. Appended LAST, after
+     * `ARTICLE`, additive only.
+     */
+    REGIONAL_CHAPTER,
+
+    /**
+     * Welle V1.9.13 -- `network.lapis.cloud.server.rpc.RegionalChapterService`'s `grantOfficer`/
+     * `revokeOfficer` each write exactly one `REGIONAL_CHAPTER_OFFICER` `CREATE`/`UPDATE` entry,
+     * `entityId` = the `regional_chapter_officer` row's id, [RegionalChapterOfficerSnapshot]
+     * before/after. Never carries the officer's display name/email -- same PII-minimization
+     * discipline every other snapshot in this file establishes (see [SepaMandateSnapshot] KDoc):
+     * only ids. 24 chars, well under the `VARCHAR(29)` width limit. Appended LAST, after
+     * `REGIONAL_CHAPTER`, additive only.
+     */
+    REGIONAL_CHAPTER_OFFICER,
 }
 
 /**
@@ -885,4 +912,42 @@ data class MemberMembershipTierSnapshot(
 data class TravelExpenseRatesSnapshot(
     val mileageRatePerKm: Decimal?,
     val perDiemRate: Decimal?,
+)
+
+/**
+ * Structured `before`/`after` payload for an [AuditEntityType.REGIONAL_CHAPTER] audit entry
+ * (Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)"). [name] IS carried (unlike a member's
+ * own PII) -- a chapter name is an organizational label chosen by an ADMIN, the same category of
+ * data [DunningLevelSnapshot.name] already carries for this file's PII-minimization discipline.
+ * `deleteChapter` writes this with `after = null` -- see [AuditEntityType.REGIONAL_CHAPTER] KDoc.
+ */
+@Serializable
+data class RegionalChapterSnapshot(
+    val name: String,
+)
+
+/**
+ * Structured `before`/`after` payload for an [AuditEntityType.REGIONAL_CHAPTER_OFFICER] audit
+ * entry (Welle V1.9.13). **Never carries the officer's display name/email** -- same
+ * PII-minimization discipline every other snapshot in this file establishes (see
+ * [SepaMandateSnapshot] KDoc): only ids. `revokeOfficer` writes this with `after = null`.
+ */
+@Serializable
+data class RegionalChapterOfficerSnapshot(
+    val memberId: String,
+    val regionalChapterId: String,
+)
+
+/**
+ * Structured `before`/`after` payload for the [AuditEntityType.MEMBER] audit entry
+ * `network.lapis.cloud.server.rpc.RegionalChapterService.assignMemberToChapter` writes (Welle
+ * V1.9.13) -- a member's chapter *assignment* is a fact about the member row, not about the
+ * chapter itself, so it deliberately reuses [AuditEntityType.MEMBER] rather than
+ * [AuditEntityType.REGIONAL_CHAPTER] (see that literal's own KDoc). A dedicated type rather than
+ * an added field on [MemberChangeSnapshot] -- same reasoning [MemberMembershipTierSnapshot]'s own
+ * KDoc already gives for its own dedicated type. No PII beyond ids.
+ */
+@Serializable
+data class MemberRegionalChapterSnapshot(
+    val regionalChapterId: String?,
 )

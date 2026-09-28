@@ -248,6 +248,7 @@ import network.lapis.cloud.server.rpc.PingService
 import network.lapis.cloud.server.rpc.PoliticianService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
+import network.lapis.cloud.server.rpc.RegionalChapterService
 import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SepaService
 import network.lapis.cloud.server.rpc.SocialNetworkService
@@ -323,6 +324,7 @@ import network.lapis.cloud.shared.rpc.IPoliticianService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IReceivableDunningService
+import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.ISepaService
 import network.lapis.cloud.shared.rpc.ISocialNetworkService
@@ -1631,6 +1633,8 @@ internal fun Application.module(
         }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(ICarpoolService::class) { call -> CarpoolService(call) }
+        // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)".
+        registerService(IRegionalChapterService::class) { call -> RegionalChapterService(call) }
         registerService(
             IDsgvoService::class,
         ) { call ->

@@ -60,6 +60,13 @@
 // FKs -> member), which OrganizationSchemaCatalogTest's topological restoreOrder cannot resolve.
 // Same treatment reviewedBy already establishes for itself, three attributes below.
 //
+// V1.9.13 "Gliederungsverwaltung (Landesverbände)": `member` gains a single nullable
+// regionalChapterId FK column -- see 58-regional-chapter.kuml.kts file header for the full domain
+// (regional_chapter/regional_chapter_officer, both owned by that file). A plain «Column» UUID
+// attribute with fkEntity, NOT a redundant association(...) block -- same reasoning
+// 57-carpool.kuml.kts's authorMemberId already documents. Nullable: not every member is assigned
+// to a chapter (existing members stay NULL after the migration; see V59__regional_chapters.sql).
+//
 // V1.4.4.5 (Sterbefall-Workflow): `member` gains a nullable dateOfDeath field. Fachlich rein
 // deklaratorisch -- § 38 BGB beendet die Mitgliedschaft AUTOMATISCH mit dem Tod, dieses Feld haelt
 // das nur fest, es bewirkt es nicht. Nullable: das genaue Datum steht bei der Meldung haeufig noch
@@ -125,6 +132,21 @@ classDiagram(name = "Foundation") {
         literal(name = "TREASURER")
         literal(name = "ADMIN")
     }
+
+    // RegionalChapter-owned stub -- id-only, mirrors the cross-domain-stub pattern every other
+    // domain file establishes for a table it references but does not own (kUML has no cross-file
+    // model-import mechanism, each domain script is evaluated independently -- see
+    // 14-audit-log.kuml.kts file header). Only exists here so UmlToErmTransformer can resolve
+    // member.regional_chapter_id's association target within THIS file's own evaluation; the real
+    // entity is owned by 58-regional-chapter.kuml.kts.
+    val regionalChapter =
+        classOf(name = "RegionalChapter") {
+            stereotype("Entity") { "tableName" to "regional_chapter"; "kotlinObjectName" to "RegionalChapterTable" }
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+        }
 
     val membershipTier = classOf(name = "MembershipTier") {
         stereotype("Entity") { "tableName" to "membership_tier"; "kotlinObjectName" to "MembershipTierTable" }
@@ -262,6 +284,12 @@ classDiagram(name = "Foundation") {
         attribute(name = "contributionExemptRequestId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "contribution_exempt_request_id" }
+        }
+        // V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- see file header. Nullable FK -> the
+        // regional_chapter table owned by 58-regional-chapter.kuml.kts.
+        attribute(name = "regionalChapterId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "regional_chapter_id"; "fkEntity" to "RegionalChapter" }
         }
     }
 
