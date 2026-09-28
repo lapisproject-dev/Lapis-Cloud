@@ -96,6 +96,18 @@ dependencies {
     // den Response-Stream).
     implementation(libs.kotlinx.html.jvm)
 
+    // V1.4.35 Wiederkehrende Veranstaltungen (RFC 5545 RRULE) -- see gradle/libs.versions.toml for
+    // the library-choice rationale. Groovy and jparsec are excluded: both are only needed by
+    // ical4j's ContentBuilder DSL / filter-expression features, neither of which this repo uses
+    // (only net.fortuna.ical4j.model.Recur) -- Groovy 3 + JDK 25 would be an unnecessary,
+    // ungoverned risk to carry onto the runtime classpath. Ical4jClasspathSmokeTest asserts these
+    // stay absent.
+    implementation(libs.ical4j) {
+        exclude(group = "org.apache.groovy")
+        exclude(group = "org.codehaus.groovy")
+        exclude(group = "org.jparsec")
+    }
+
     // Pre-existing gap found+fixed during V0.7.3 review round 1: h2 was testImplementation-only,
     // so `DatabaseConfig`'s own documented "LAPIS_DB_URL unset -> in-memory H2, zero external
     // setup" default was actually unusable via `./gradlew :lapis-server:run` (H2 driver missing

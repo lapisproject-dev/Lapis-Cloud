@@ -92,6 +92,14 @@ zxing-core              = "3.5.4"
 # larger surface/plugin graph is unnecessary here) deliberately at the latest stable 0.2x line.
 commonmark              = "0.22.0"
 
+# V1.4.35 Wiederkehrende Veranstaltungen (RFC 5545 RRULE) -- org.mnode.ical4j:ical4j 4.3.0,
+# Maven-Metadaten geprüft (Stand 2026-09-28), BSD-3, java.time-basiert, aktiv gepflegt. Genutzt
+# wird NUR net.fortuna.ical4j.model.Recur -- TimeZoneRegistry/CalendarOutputter kommen nicht zum
+# Einsatz (siehe RecurrenceExpander KDoc). Transitive Groovy-/jparsec-Abhängigkeiten (ContentBuilder-
+# DSL bzw. Filter-Ausdrücke, beide ungenutzt) werden in lapis-server/build.gradle.kts ausgeschlossen
+# -- Groovy 3 + JDK 25 wäre ein unnötiges Risiko. Siehe docs/architecture/event-series.adoc.
+ical4j                  = "4.3.0"
+
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm              = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -185,6 +193,10 @@ zxing-core                       = { module = "com.google.zxing:core", version.r
 
 # V1.4.34 Nachrichten-/Artikel-Modul -- see [versions] entry above for the library-choice rationale.
 commonmark                       = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+
+# V1.4.35 Wiederkehrende Veranstaltungen -- see the [versions] entry above for the library-choice
+# rationale. lapis-server ONLY.
+ical4j                           = { module = "org.mnode.ical4j:ical4j", version.ref = "ical4j" }
 
 # V0.7.1 Authentifizierung: password hashing -- see PasswordHasher KDoc for why bcrypt over
 # Argon2id (pure-JVM, zero JNI/native code, one Apache-2.0 transitive dependency, matching this

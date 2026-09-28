@@ -1,0 +1,203 @@
+= Recurring Events (Event Series)
+:description: The RFC 5545 subset this codebase supports for recurring events, the DoS/consistency limits it enforces, and why the RRULE is built via ical4j's `Recur` rather than a hand-rolled expander.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Wave V1.4.35 "Wiederkehrende Veranstaltungen / Veranstaltungsreihen" lets an admin define an
+`event` as a recurring series (weekly team meeting, monthly board session, yearly anniversary)
+instead of creating each occurrence by hand. RFC 5545 ("iCalendar") defines the `RRULE` grammar for
+recurrence; this codebase supports only a small, deliberately restricted subset of it, persists that
+subset as a normalized string in `event_series.rrule VARCHAR(255)` (added in a later wave's
+migration), and expands it into concrete occurrence rows via `net.fortuna.ical4j.model.Recur` -- the
+same library, not a hand-written date-arithmetic expander, because RRULE expansion (BYDAY ordinals,
+BYMONTHDAY month-skipping, DST-aware wall-clock arithmetic) is exactly the kind of calendar logic
+that is easy to get subtly wrong and ical4j has already been hardened against those edge cases.
+
+Three Kotlin objects in `network.lapis.cloud.server.events.series` carry this:
+
+* `RecurrenceRuleBuilder.build` -- validates a typed `RecurrenceRuleInput` (from
+  `:lapis-shared`) against a `DTSTART`/zone and produces the normalized RRULE string, or a list of
+  every validation failure found.
+* `RecurrenceRuleBuilder.parseWhitelisted` -- the read-back path: re-validates an
+  `event_series.rrule` DB value against exactly the subset `build` can produce, the actual line of
+  defense against a tampered/corrupted column value.
+* `RecurrenceExpander.expand` -- turns a normalized RRULE string plus `DTSTART` into the concrete
+  list of wall-clock occurrence times, via `ical4j`'s `Recur`.
+
+`EventSeriesMaterializer` (turning occurrences into `event` rows) and `EventSeriesScopeEngine`
+(this-and-following / all-in-series edits) are later waves and not covered by this document.
+
+== Supported RFC 5545 subset
+
+Only `DAILY` / `WEEKLY` / `MONTHLY` / `YEARLY` -- never `SECONDLY` / `MINUTELY` / `HOURLY` (no
+sub-daily recurrence is offered). Per frequency:
+
+[cols="1,3", options="header"]
+|===
+| `FREQ` | Allowed BY-clause
+
+| `DAILY`
+| none
+
+| `WEEKLY`
+| `BYDAY`, one to seven weekdays (`MO`..`SU`, RFC week order)
+
+| `MONTHLY`
+| exactly one of: `BYMONTHDAY` (a single day-of-month, `1..31`) **xor** `BYDAY` with exactly one
+  "nth weekday" token (`{1,2,3,4,-1}` + weekday, e.g. `-1TU` for "the last Tuesday")
+
+| `YEARLY`
+| none (recurs on `DTSTART`'s own month/day each year)
+|===
+
+`INTERVAL` is `1..MAX_INTERVAL` (12) for every frequency. Exactly one of `COUNT`
+(`1..MAX_INSTANCES_PER_SERIES`, 104) or `UNTIL` (at most `MAX_HORIZON_MONTHS`, 24, months after
+`DTSTART`) must be set -- never both, never neither. `UNTIL` is always emitted in UTC
+(`RecurrenceRuleBuilder.untilUtc`, anchored to 23:59:59 in the series' zone -- see that function's
+own KDoc for the RFC 5545 §3.3.10 rationale). Never `BYSETPOS` / `BYHOUR` / `BYWEEKNO` / `BYYEARDAY`
+/ etc.
+
+A fifth "nth weekday" ordinal (`{5, -2, -3, -4}`) is deliberately excluded even though RFC 5545
+permits `-4..-1, 1..4`: a fifth occurrence of a weekday does not exist in every month, which would
+silently skip months in a confusing way; only the always-valid "last" (`-1`) plus the always-valid
+`1..4` are offered.
+
+Anything outside this subset is rejected by both `RecurrenceRuleBuilder.build` (a typed input, so
+most of this is unreachable from a well-typed caller) and `RecurrenceRuleBuilder.parseWhitelisted`
+(an untyped string -- the actual defense against a tampered `event_series.rrule` column value).
+
+== `build`'s cross-check against real expansion
+
+A structurally valid RRULE string can still be semantically wrong in ways a purely field-by-field
+check cannot see. `RecurrenceRuleBuilder.build` therefore does not stop once it has assembled the
+RRULE string: it expands that exact string once, via `RecurrenceExpander.expand`, against the same
+`DTSTART`/zone, and cross-checks two things before returning `Result.Ok`:
+
+* **`DTSTART` must itself be an occurrence of the rule** (RFC 5545 §3.8.5.3: "the `DTSTART` property
+  ... is used to determine the recurrence set... SHOULD be synchronized with the recurrence rule, if
+  specified"). A `WEEKLY;BYDAY=TU` rule whose `DTSTART` falls on a Monday is technically legal RFC
+  5545 but leaves the recurrence set undefined, and real consumers (Google Calendar, Outlook)
+  silently count `DTSTART` as occurrence #1 within `COUNT` regardless -- exactly the kind of drift
+  between "what the admin configured" and "what a calendar client shows" this codebase refuses to
+  persist.
+* **A `COUNT`-bounded rule must actually reach `COUNT` occurrences within `MAX_HORIZON_MONTHS`.**
+  `COUNT` and the horizon are independent bounds (see below); a rule can pass both individually
+  (`COUNT=104` is in range, `MAX_HORIZON_MONTHS` is a fixed 24) while still being unable to produce
+  `COUNT` occurrences before the horizon cuts the search off -- e.g. `YEARLY;COUNT=5` only ever
+  produces 3 dates inside a 24-month horizon, or a `WEEKLY` rule with a large `INTERVAL` similarly
+  runs out of horizon before it runs out of `COUNT`. Without this check the stored RRULE and what
+  `RecurrenceExpander.expand` (and, later, the ICS export, which exports the RRULE verbatim) actually
+  materialize would silently diverge -- the admin sees no warning, the DB holds fewer events than the
+  RRULE string promises, and an external calendar client re-expanding the same RRULE independently
+  would show dates that do not exist on the server.
+
+This also covers a `DTSTART` that falls into a DST gap (e.g. `02:30` on the day Central Europe
+springs forward, which does not exist as a wall-clock time) as a special case of the first check --
+but `build` additionally rejects it explicitly and early (`ZoneId.rules.getValidOffsets(...).isEmpty()`)
+for a clearer error message, since silently rolling such a `DTSTART` forward (as
+`java.time.ZonedDateTime.of` does) would move every later occurrence's wall-clock time along with it,
+not just the first.
+
+== Grenzen (`EventSeriesLimits`)
+
+Every DoS-relevant or consistency-relevant bound lives in `EventSeriesLimits`, so
+`RecurrenceRuleBuilder` / `RecurrenceExpander` (and, in a later wave, `EventSeriesScopeEngine` /
+`IEventSeriesService`) all read the same numbers rather than each hardcoding its own copy.
+
+[cols="2,1,3", options="header"]
+|===
+| Constant | Value | Rationale
+
+| `MAX_INSTANCES_PER_SERIES`
+| 104
+| RFC 5545 places no upper bound on `COUNT`; this codebase caps at two years of weekly occurrences
+  (52 * 2) so a single series can never materialize an unbounded number of `event` rows in one
+  transaction.
+
+| `MAX_HORIZON_MONTHS`
+| 24
+| How far into the future `RecurrenceExpander.expand` is willing to search for occurrences,
+  independent of `MAX_INSTANCES_PER_SERIES` -- a `MONTHLY` rule with a huge `COUNT` but no matching
+  `BYMONTHDAY` in most months (e.g. `BYMONTHDAY=31`) must still terminate quickly.
+
+| `MAX_INTERVAL`
+| 12
+| RFC 5545 `INTERVAL` is unbounded; the admin UI only offers `1..12` -- anything beyond a year-long
+  interval belongs in a one-off `event`, not a series.
+
+| `MAX_ACTIVE_SERIES_PER_ORG`
+| 50
+| Caps how many series with a still-future occurrence a single organization instance may have open at
+  once -- guards against an admin (or a compromised admin session) mass-creating series to exhaust
+  capacity elsewhere.
+
+| `WRITE_RATE_PER_MINUTE`
+| 10
+| Rate limit (per admin) for series create/extend/scope-update RPCs.
+
+| `PREVIEW_RATE_PER_MINUTE`
+| 60
+| Rate limit for the debounced live preview RPCs (`previewSeries`/`previewScope`) -- higher than
+  `WRITE_RATE_PER_MINUTE` because the admin UI calls these on every keystroke/selection change,
+  debounced client-side to 400ms but not trusted to enforce that server-side.
+
+| `ALLOWED_MONTHLY_ORDINALS`
+| `{1, 2, 3, 4, -1}`
+| The only MONTHLY "nth weekday" ordinals this codebase's `RecurrenceRuleBuilder` accepts -- see the
+  "fifth occurrence" rationale above.
+
+| `SUPPORTED_TIMEZONES`
+| `{"Europe/Berlin"}`
+| A single fixed zone (rather than per-series free-form IANA IDs) is a deliberate scope cut, mirrored
+  by the DB `chk_event_series_timezone` CHECK constraint added in a later wave's migration.
+
+| `RRULE_MAX_LENGTH`
+| 255
+| Mirrors `event_series.rrule VARCHAR(255)` -- `RecurrenceRuleBuilder.build` refuses to produce a
+  longer string.
+|===
+
+`RecurrenceExpander.expand` enforces `MAX_INSTANCES_PER_SERIES` and `MAX_HORIZON_MONTHS` as its own,
+independent last line of defense (`TooManyOccurrencesException`), on top of `build`'s own
+`COUNT`/`UNTIL` checks: a `COUNT=104` rule read back from the DB could in principle have been paired
+with a manipulated `DTSTART`/`INTERVAL` combination, so `expand` re-derives the real occurrence count
+rather than trusting the stored `COUNT` value. The count is checked BEFORE any `EXDATE`s are
+subtracted -- an `EXDATE` represents an already-materialized-then-deleted occurrence of the SAME
+rule, not a smaller rule, so it must not be able to "buy back" headroom against the limit.
+
+== Why `net.fortuna.ical4j.model.Recur` only
+
+Only `Recur<ZonedDateTime>` is used from ical4j -- no `TimeZoneRegistry` (which would otherwise
+attempt an outbound network call to refresh ical4j's bundled tzdata; this codebase's posture forbids
+unexpected egress) and no `CalendarBuilder`/`CalendarOutputter` in production code (those appear only
+in a later wave's ICS round-trip test). Two ical4j system properties are set in `Application.kt`,
+before the library is ever classloaded:
+
+* `net.fortuna.ical4j.timezone.update.enabled=false` -- disables the outbound tzdata-refresh call.
+* `net.fortuna.ical4j.recur.maxincrementcount=1000` -- bounds how many internal increments
+  `Recur.getDates()` may perform before giving up on a pathological rule, independent of
+  `RecurrenceExpander`'s own `MAX_INSTANCES_PER_SERIES` check (defense in depth against a DoS via a
+  rule that increments many times without producing in-range results).
+
+`lapis-server/build.gradle.kts` excludes ical4j's transitive Groovy and jparsec dependencies (used
+only by its unrelated `ContentBuilder` DSL and filter-expression features) -- Groovy 3 on JDK 25
+would be an unnecessary risk for a feature that never uses it. `Ical4jClasspathSmokeTest` fails
+loudly, in a two-second unit test, if either exclusion or the timezone-update property ever stop
+holding.
+
+The expansion itself is carried out entirely in `java.time.ZonedDateTime` against the series' zone
+(`RecurrenceExpander.expand`'s seed), which is what keeps e.g. a `19:00` weekly rule at wall-clock
+`19:00` across a DST transition -- expanding in UTC `Instant` arithmetic instead would silently shift
+the wall-clock time by an hour the moment the rule crosses a DST boundary.
+
+== Non-goals (this wave)
+
+* No `BYSETPOS` / `BYHOUR` / `BYWEEKNO` / `BYYEARDAY` or any other RFC 5545 BY-rule beyond the subset
+  above.
+* No per-series free-form IANA timezone (`SUPPORTED_TIMEZONES` is a single fixed zone for now).
+* No `EventSeriesMaterializer` (persisting occurrences as `event` rows), `EventSeriesScopeEngine`
+  (this-and-following / all-in-series edits) or ICS export/import -- later waves of this same
+  feature, not covered by this document yet.

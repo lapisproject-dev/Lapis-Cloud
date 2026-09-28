@@ -310,6 +310,17 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 fun main() {
+    // V1.4.35 Wiederkehrende Veranstaltungen: ical4j system properties, set before the library is
+    // ever classloaded (first real use is inside RecurrenceExpander, triggered from RPC calls much
+    // later -- but main() is the one place guaranteed to run before any of that). Two properties:
+    // `timezone.update.enabled=false` prevents ical4j from making an OUTBOUND network call to
+    // refresh its bundled tzdata on first VTimeZone/Recur use (SSRF/egress risk this repo's posture
+    // forbids -- see docs/architecture/event-series.adoc); `recur.maxincrementcount` bounds how many
+    // internal increments Recur.getDates() may perform before giving up on a pathological rule,
+    // independent of RecurrenceExpander's own MAX_INSTANCES_PER_SERIES check (defense in depth
+    // against a DoS via a rule that increments many times without producing in-range results).
+    System.setProperty("net.fortuna.ical4j.timezone.update.enabled", "false")
+    System.setProperty("net.fortuna.ical4j.recur.maxincrementcount", "1000")
     DatabaseConfig.connect()
     DevSeedData.seedIfEmpty()
     // Staging-Instanz-Welle: deliberately ONLY here, never in `module()` below -- see
