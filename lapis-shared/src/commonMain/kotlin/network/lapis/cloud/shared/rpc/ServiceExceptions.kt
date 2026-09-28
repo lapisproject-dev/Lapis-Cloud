@@ -279,3 +279,18 @@ class AiDocumentNotReleasableException(
 class McpFeatureDisabledException(
     override val message: String = "MCP access is not available on this server",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- distinct type, same wire-transparency
+ * reason as [MemberEmailInUseException]: Kilua RPC never transmits an [AbstractServiceException]
+ * subclass's own `message` across the wire, only the subclass discriminator itself. A plain
+ * [ConflictException] would be indistinguishable, client-side, from every other conflict this
+ * codebase throws -- the editor's "Vorschau"-tab specifically needs to show "Vorschau vorübergehend
+ * nicht verfügbar" rather than a generic conflict toast. Thrown by
+ * `network.lapis.cloud.server.rpc.ArticleService.previewArticle` once the caller's per-member
+ * preview budget (30/min) is exhausted.
+ */
+@RpcServiceException
+class RateLimitedException(
+    override val message: String = "Too many requests",
+) : AbstractServiceException()

@@ -286,6 +286,90 @@ object MailTemplates {
     }
 
     /**
+     * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- author-facing notification for the
+     * three board decisions on a submitted/published article. **Never names the reviewing person**
+     * (mirrors `ArticleReviewDto` KDoc "keine Namen nach aussen") -- the signature is always
+     * [brandTitle], never a board member's name. [notification].title flows through
+     * [sanitizeSubjectFragment] before it ever reaches the `Subject:` header -- an article title is
+     * author-supplied free text, so a literal `\r`/`\n` (or a Unicode line/paragraph separator) in
+     * it must never be allowed to inject an extra mail header (classic header-injection vector).
+     */
+    fun articleReview(
+        notification: ArticleReviewNotification,
+        brandTitle: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val safeTitle = sanitizeSubjectFragment(notification.title)
+        val (heading, subjectVerb) =
+            when (notification.outcome) {
+                ArticleReviewOutcome.APPROVED -> "Ihr Artikel wurde veröffentlicht" to "veröffentlicht"
+                ArticleReviewOutcome.REJECTED -> "Ihr Artikel wurde abgelehnt" to "abgelehnt"
+                ArticleReviewOutcome.UNPUBLISHED -> "Ihr Artikel wurde depubliziert" to "depubliziert"
+            }
+        val subject = "Artikel „$safeTitle“ $subjectVerb – $brandTitle"
+        val reasonSentence =
+            when (notification.outcome) {
+                ArticleReviewOutcome.APPROVED -> null
+                ArticleReviewOutcome.REJECTED, ArticleReviewOutcome.UNPUBLISHED ->
+                    notification.reason?.let { "Begründung: $it" }
+                        ?: "Der Vorstand hat keine Begründung angegeben."
+            }
+        val introSentence =
+            when (notification.outcome) {
+                ArticleReviewOutcome.APPROVED -> "Ihr Artikel „${notification.title}“ wurde vom Vorstand geprüft und veröffentlicht."
+                ArticleReviewOutcome.REJECTED -> "Ihr Artikel „${notification.title}“ wurde vom Vorstand geprüft und nicht veröffentlicht."
+                ArticleReviewOutcome.UNPUBLISHED -> "Ihr Artikel „${notification.title}“ wurde vom Vorstand von der Webseite genommen."
+            }
+        val plainText =
+            buildString {
+                append(introSentence)
+                if (reasonSentence != null) {
+                    append("\n\n")
+                    append(reasonSentence)
+                }
+                if (notification.publicUrl != null) {
+                    append("\n\nSie finden Ihren Artikel hier:\n")
+                    append(notification.publicUrl)
+                }
+                append("\n\n")
+                append(brandTitle)
+                append("\n\n")
+                append(footer(branding))
+            }
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    h1 { +heading }
+                    p { +introSentence }
+                    if (reasonSentence != null) p { +reasonSentence }
+                    if (notification.publicUrl != null) {
+                        p {
+                            +"Sie finden Ihren Artikel hier: "
+                            a(href = notification.publicUrl) { +"Artikel öffnen" }
+                        }
+                    }
+                    p { +brandTitle }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
+     * Strips CR/LF and the Unicode NEL/LINE SEPARATOR/PARAGRAPH SEPARATOR characters (`\r`, `\n`,
+     * `\u0085`, ` `, ` `) plus any other control character from [fragment], replacing each
+     * with a single space, then trims -- a `Subject:` header value must never contain a raw line
+     * break (mail-header-injection), and an article title is author-supplied free text that has
+     * never been checked for this.
+     */
+    private fun sanitizeSubjectFragment(fragment: String): String =
+        fragment
+            .map { c -> if (c == '\r' || c == '\n' || c == '\u0085' || c == ' ' || c == ' ' || c.isISOControl()) ' ' else c }
+            .joinToString("")
+            .trim()
+
+    /**
      * Letzte Zeile in beiden Templates, Plaintext UND HTML identisch (V1.2.3 Design-Review, Punkt
      * 4b: keine Mail ohne Rückweg). Geht im HTML-Zweig durch kotlinx-html's Auto-Escaping ([p]-Block
      * mit `+`-Operator) -- [MailBranding.replyTo]/[MailBranding.publicBaseUrl] sind beide

@@ -44,6 +44,9 @@ object NavVisibility {
     /** Crowdfunding/Auktion/Politiker -- bleiben ORGANIZATION_MEMBER-exklusiv. */
     fun showsMemberOnlyEconomy(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 
+    /** Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- ORGANIZATION_MEMBER-exklusiv, gleiche Grammatik wie [showsSelfGovernance]/[showsMemberOnlyEconomy] (`ArticleService`/`IArticleService` gatet jedes Autoren-RPC mit `requireActiveMembership`). */
+    fun showsArticles(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
+
     /**
      * "Fragen zur Satzung" (V1.6.1, optional AI assistance) -- only where the server reports the AI
      * layer as operational ([network.lapis.cloud.shared.domain.SessionInfoDto.aiAssistantEnabled])

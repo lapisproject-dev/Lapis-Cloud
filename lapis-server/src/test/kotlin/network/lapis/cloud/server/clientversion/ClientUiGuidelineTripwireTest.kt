@@ -83,6 +83,16 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                     listOf(
                         "private const val WHITEBOARD_PAPER = \"#ffffff\"",
                     ),
+                // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- ArticleLabels.colorHex's four
+                // status colours are the exact hex values the implementation plan specifies (a fixed status-
+                // color legend, not a Bootstrap semantic badge shade) -- see that function's own KDoc.
+                "ArticleLabels.kt" to
+                    listOf(
+                        "ArticleDisplayStatus.DRAFT -> \"#6B7280\"",
+                        "ArticleDisplayStatus.SUBMITTED -> \"#2563EB\"",
+                        "ArticleDisplayStatus.PUBLISHED -> \"#16A34A\"",
+                        "ArticleDisplayStatus.REJECTED, ArticleDisplayStatus.UNPUBLISHED -> \"#DC2626\"",
+                    ),
             ),
         R14 to
             mapOf(

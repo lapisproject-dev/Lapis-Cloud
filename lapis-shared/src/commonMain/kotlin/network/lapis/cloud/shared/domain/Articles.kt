@@ -49,9 +49,18 @@ data class ArticleDraftInput(
 
 /**
  * One row of the board's "Freigabe"-queue ([network.lapis.cloud.shared.rpc.IArticleService
- * .listSubmittedArticles]). [authorIsSelf] steers the client's disabled review-button + hint text
- * (server-side enforcement is the real gate -- see `ArticleService.requireNotOwnArticle`) --
- * a client-side convenience only, never trusted for authorization.
+ * .listSubmittedArticles]) OR "Veröffentlicht"-list
+ * ([network.lapis.cloud.shared.rpc.IArticleService.listPublishedArticles]). [authorIsSelf] steers
+ * the client's disabled review-/depublish-button + hint text (server-side enforcement is the real
+ * gate -- see `ArticleService.requireNotOwnArticle`) -- a client-side convenience only, never
+ * trusted for authorization.
+ *
+ * [publishedAt]/[slug] are `null` for a row coming from [network.lapis.cloud.shared.rpc
+ * .IArticleService.listSubmittedArticles] (a SUBMITTED article has neither yet) and non-null for
+ * [network.lapis.cloud.shared.rpc.IArticleService.listPublishedArticles]'s rows -- deliberately the
+ * SAME wire type for both lists (not two near-identical DTOs) rather than duplicated, since every
+ * other field is already shared 1:1; defaulted to `null` so this stays source-compatible with the
+ * pre-V1.4.36 wire shape.
  */
 @Serializable
 data class ArticleSummaryDto(
@@ -60,6 +69,22 @@ data class ArticleSummaryDto(
     val excerpt: String,
     val submittedAt: LocalDateTime,
     val authorIsSelf: Boolean,
+    val publishedAt: LocalDateTime? = null,
+    val slug: String? = null,
+)
+
+/**
+ * Wire shape of `POST`/`DELETE /api/articles/{id}/cover` ([network.lapis.cloud.server.routes
+ * .ArticleCoverRoutes]) -- deliberate mirror of `network.lapis.cloud.shared.domain
+ * .EventCoverResultDto`, kept as its own type rather than a reuse: the two upload families are
+ * unrelated RPC/route surfaces (article vs. event), and a shared type would create an accidental
+ * coupling between them for no benefit (see `ArticleCoverPolicy` KDoc "kein Neubau" for the same
+ * "reuse the logic, not the wire type" split already applied to the underlying image
+ * processing/storage classes).
+ */
+@Serializable
+data class ArticleCoverResultDto(
+    val coverImageUrl: String?,
 )
 
 /**

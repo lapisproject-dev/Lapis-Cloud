@@ -117,4 +117,28 @@ class SidebarLabelsTest {
         assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(201))
         assertEquals("Ehrenamtspauschalen-Freigaben (200+)", volunteerAllowanceSidebarLabel(9999))
     }
+
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- articlesSidebarLabel mirrors the
+    // same grammar (ArticleStore.MAX_PAGE_SIZE = 200), same reasoning as every other case above.
+    @Test
+    fun articlesSidebarLabel_null_isThePlainLabelWithNoBadge() {
+        assertEquals("${kvI18nMarker}Artikel", articlesSidebarLabel(null))
+    }
+
+    @Test
+    fun articlesSidebarLabel_zero_isThePlainLabelWithNoBadge() {
+        assertEquals("${kvI18nMarker}Artikel", articlesSidebarLabel(0))
+    }
+
+    @Test
+    fun articlesSidebarLabel_belowCap_showsTheExactCount() {
+        assertEquals("Artikel (3)", articlesSidebarLabel(3))
+        assertEquals("Artikel (199)", articlesSidebarLabel(199))
+    }
+
+    @Test
+    fun articlesSidebarLabel_atOrAboveCap_showsTwoHundredPlus() {
+        assertEquals("Artikel (200+)", articlesSidebarLabel(200))
+        assertEquals("Artikel (200+)", articlesSidebarLabel(9999))
+    }
 }

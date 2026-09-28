@@ -251,6 +251,19 @@ internal object SocialPublicHtml {
            discipline every other block in this file follows) -- a fixed 4:3 aspect ratio, cropped
            via object-fit, matches the admin-side upload card's own preview box. */
         .event-cover { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 1rem; }
+
+        /* Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- shares this stylesheet, see
+           network.lapis.cloud.server.routes.ArticlePublicHtml class KDoc. These four classes are
+           ALSO defined, byte-for-byte the same rule bodies, in lapis-client's own theme.css (the
+           editor's "Vorschau" tab renders the identical server HTML and must look identical) --
+           keep both copies synchronised, see that file's own comment. */
+        .lapis-article-cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin-bottom: 1rem; }
+        .lapis-article-cover--thumb { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+        .lapis-article-meta { color: #888; font-size: 0.85rem; }
+        .lapis-article-lead { font-size: 1.1rem; font-weight: 500; }
+        .lapis-article-body { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+        .lapis-article-body h2, .lapis-article-body h3, .lapis-article-body h4 { margin: 1.2rem 0 0.4rem 0; }
+        .lapis-article-body p { margin: 0.6rem 0; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */

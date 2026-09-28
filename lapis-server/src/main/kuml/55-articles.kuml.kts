@@ -1,8 +1,9 @@
-// Articles domain — article (V53__article.sql).
+// Articles domain — article (V55__article.sql).
 //
-// Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" -- a single-table
-// domain modeling a self-service news/press-release article an ORGANIZATION_MEMBER author drafts,
-// and a BOARD/ADMIN reviewer approves/rejects/unpublishes (Vier-Augen-Prinzip -- see
+// Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow", erweitert Welle V1.4.36
+// "Nachrichten-/Artikel-Modul, Folgewelle" -- a single-table domain modeling a self-service
+// news/press-release article an ORGANIZATION_MEMBER author drafts, and a BOARD/ADMIN reviewer
+// approves/rejects/unpublishes (Vier-Augen-Prinzip -- see
 // `network.lapis.cloud.server.rpc.ArticleService.requireNotOwnArticle` KDoc). See
 // `network.lapis.cloud.server.rpc.ArticleService` KDoc and
 // `network.lapis.cloud.shared.domain.ArticleStatus` KDoc for the full state machine:
@@ -15,7 +16,22 @@
 // exactly once, then never changes it again -- see `ArticlePolicy.slugFor`). `cover_image_id`
 // deliberately has NO foreign key -- same convention as `event.cover_image_id`
 // (see 39-events.kuml.kts's own file header): it is an opaque pointer into the article-cover
-// storage directory, not a row in another table.
+// storage directory (`article-covers/`, a subdirectory on the same durable volume as
+// `documentStorageRoot`/`event-covers/`, see `Application.kt` wiring), not a row in another table.
+//
+// **V1.4.36 additions (no schema/migration change -- `cover_image_id` already existed):**
+// - `IArticleService.listPublishedArticles` -- BOARD/ADMIN-only, newest-`published_at`-first,
+//   capped at `ArticleStore.MAX_PAGE_SIZE` (200), backs the board's "Veröffentlicht" tab.
+// - The article's title-image URL is status-dependent, computed by
+//   `ArticleCoverPolicy.coverImageUrlFor`: PUBLISHED with a slug gets the public, cacheable
+//   `/aktuelles/{slug}/bild?v=...` URL; every other status gets the authenticated
+//   `/api/articles/{id}/cover?v=...` URL (reachable only by the author or a BOARD/ADMIN reviewer).
+// - "Depubliziert" is a CLIENT-SIDE DERIVATION, not a fifth `ArticleStatus` value: a row with
+//   `status = REJECTED` AND `published_at IS NOT NULL` was unpublished after having been public;
+//   `status = REJECTED` with `published_at IS NULL` was rejected without ever having been public.
+//   `ArticleService.rejectArticle` clears `published_at` back to `NULL` on every fresh rejection
+//   specifically so this derivation stays unambiguous across a publish → unpublish → resubmit →
+//   reject cycle (see that method's own KDoc "Q1").
 //
 // Two composite/DESC indexes declared on `article` (`idx_article_status_published_at` on
 // `(status, published_at DESC)`, `idx_article_author_updated_at` on `(author_id, updated_at
@@ -50,7 +66,7 @@ classDiagram(name = "Articles") {
         }
     }
 
-    // Literal order is load-bearing (mirrors `article.status VARCHAR(10)`, `V53__article.sql`) --
+    // Literal order is load-bearing (mirrors `article.status VARCHAR(10)`, `V55__article.sql`) --
     // append-only, never reorder -- see `ArticleStatus` KDoc for the same rule stated on the
     // Kotlin side.
     val articleStatus = enumOf(name = "ArticleStatus") {

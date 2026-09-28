@@ -98,6 +98,7 @@ import network.lapis.cloud.server.keycloak.KeycloakStartupCheck
 import network.lapis.cloud.server.legal.LegalConfig
 import network.lapis.cloud.server.legal.LegalStartupCheck
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
+import network.lapis.cloud.server.mail.ArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.JakartaMailTransport
 import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
@@ -107,6 +108,7 @@ import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpAdminPasswordResetNotificationMailer
+import network.lapis.cloud.server.mail.SmtpArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
@@ -147,6 +149,8 @@ import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
+import network.lapis.cloud.server.routes.registerArticleCoverRoutes
+import network.lapis.cloud.server.routes.registerArticlePublicRoutes
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
@@ -187,6 +191,7 @@ import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AiAssistantService
 import network.lapis.cloud.server.rpc.ApiKeyService
+import network.lapis.cloud.server.rpc.ArticleService
 import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
 import network.lapis.cloud.server.rpc.AuthService
@@ -261,6 +266,7 @@ import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IApiKeyService
+import network.lapis.cloud.shared.rpc.IArticleService
 import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.IAuthService
@@ -400,6 +406,14 @@ internal fun Application.module(
     val eventCoverStorageRoot =
         File(System.getenv("LAPIS_EVENT_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("event-covers").path)
     val eventCoverStorage = EventCoverStorage(eventCoverStorageRoot)
+
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- exact mirror of eventCoverStorage
+    // above: same durable volume as documentStorageRoot, own "article-covers/" subdirectory, own
+    // env override. Reuses EventCoverStorage/EventCoverImageProcessor 1:1, see ArticleCoverPolicy
+    // KDoc "kein Neubau".
+    val articleCoverStorageRoot =
+        File(System.getenv("LAPIS_ARTICLE_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("article-covers").path)
+    val articleCoverStorage = EventCoverStorage(articleCoverStorageRoot)
 
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's
@@ -598,6 +612,18 @@ internal fun Application.module(
     // its worker coroutines and any in-flight/queued sends dangle past shutdown instead of being
     // torn down together with the rest of the application (see MailDispatcher.shutdown KDoc).
     monitor.subscribe(ApplicationStopping) { mailDispatcher.shutdown() }
+
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- author-facing review-decision
+    // notifications (approve/reject/unpublish), fire-and-forget over mailDispatcher, same "smtp
+    // NotConfigured -> skip and log, never enqueue" posture SmtpArticleReviewNotificationMailer's
+    // own KDoc documents (Q3: kept plaintext+HTML, sender stays mailBranding.fromDisplayName).
+    val articleReviewNotificationMailer: ArticleReviewNotificationMailer =
+        SmtpArticleReviewNotificationMailer(
+            dispatcher = mailDispatcher,
+            branding = mailBranding,
+            smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+            brandTitle = resolvedBranding.title,
+        )
 
     // Welle V1.9.7 "SuperMailer" -- LAPIS_MAILING_DELIVERY (default "log"), fail-fast on an
     // unrecognized value (MailingDeliveryConfig.load) or on "smtp" without real SMTP configured
@@ -1132,6 +1158,20 @@ internal fun Application.module(
     // read paths).
     val eventCoverWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes)
     val eventCoverReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as the event-cover
+    // pair above (member-keyed write, bounded per-IP read), plus a member-keyed preview budget
+    // and an IP-keyed page-read budget for the public /aktuelles/{slug} surface.
+    val articlePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // Security fix (post-V1.4.36 review, DoS finding): saveDraft was reachable by every active
+    // member with no rate limit at all -- see ArticleService.saveDraft KDoc. Creates get a
+    // generous-but-bounded budget (mirrors eventCoverWriteRateLimiter's 20/10min posture for
+    // similarly rare write actions); updates get a much larger one because the editor auto-saves on
+    // a 2s debounce while a member is actively typing.
+    val articleDraftCreateRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes)
+    val articleDraftUpdateRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    val articleCoverWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes)
+    val articleCoverReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+    val articlePageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen" -- gates ONLY
     // IEventVolunteerService's two self-service methods (signUpSelf/cancelOwnSignup), member-keyed
     // -- same rate-limiting posture eventWriteRateLimiter establishes for
@@ -1365,6 +1405,8 @@ internal fun Application.module(
     // endpoints above (embedAssetRateLimiter/embedSessionRateLimiter), not the strict 5-30/hour
     // budgets reserved for money/write paths below.
     val embedEventsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as embedEventsFeedRateLimiter above.
+    val embedArticlesFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
     // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- der schärfste
     // Limiter dieser Codebase. Der EINZIGE unauthentifizierte Endpunkt, der auf Zuruf eines Fremden
@@ -1825,6 +1867,20 @@ internal fun Application.module(
         registerService(IEventVolunteerService::class) { call ->
             EventVolunteerService(call = call, writeRateLimiter = eventVolunteerWriteRateLimiter)
         }
+        // Welle V1.4.34/V1.4.36 "Nachrichten-/Artikel-Modul" -- was missing entirely before this
+        // wave (see implementation plan §0 finding 1): the RPCs existed on the server but were
+        // never reachable from a client.
+        registerService(IArticleService::class) { call ->
+            ArticleService(
+                call = call,
+                baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+                previewRateLimiter = articlePreviewRateLimiter,
+                draftCreateRateLimiter = articleDraftCreateRateLimiter,
+                draftUpdateRateLimiter = articleDraftUpdateRateLimiter,
+                reviewNotifier = articleReviewNotificationMailer,
+                coverStorage = articleCoverStorage,
+            )
+        }
     }
 
     routing {
@@ -2005,6 +2061,23 @@ internal fun Application.module(
             writeRateLimiter = eventCoverWriteRateLimiter,
             readRateLimiter = eventCoverReadRateLimiter,
         )
+        // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- literal routes (/aktuelles/*,
+        // /api/articles/*), always-on (NOT gated behind LAPIS_EMBED_ENABLED -- see
+        // registerArticlePublicRoutes KDoc), same "registered before staticFiles" reasoning as the
+        // event routes above.
+        registerArticlePublicRoutes(
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            branding = resolvedBranding,
+            coverStorage = articleCoverStorage,
+            pageRateLimiter = articlePageRateLimiter,
+            coverReadRateLimiter = articleCoverReadRateLimiter,
+        )
+        registerArticleCoverRoutes(
+            storage = articleCoverStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            writeRateLimiter = articleCoverWriteRateLimiter,
+            readRateLimiter = articleCoverReadRateLimiter,
+        )
         // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
         // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei
         // registerSocialPublicRoutes. Bei LAPIS_EMBED_ENABLED != true registriert der Aufruf NUR
@@ -2027,6 +2100,7 @@ internal fun Application.module(
             eventRegistrationRateLimiter = eventRegistrationRateLimiter,
             eventPageRateLimiter = eventPageRateLimiter,
             eventsFeedRateLimiter = embedEventsFeedRateLimiter,
+            articlesFeedRateLimiter = embedArticlesFeedRateLimiter,
             brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }

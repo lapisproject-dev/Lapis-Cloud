@@ -48,13 +48,26 @@ interface IArticleService {
     /** `DRAFT` only -- `ConflictException` for any other status. Own article only. */
     suspend fun deleteDraft(id: String)
 
-    /** Server-rendered preview HTML for the editor's "Vorschau" tab -- rate-limited, see `Application.kt` wiring. */
+    /**
+     * Server-rendered preview HTML for the editor's "Vorschau" tab -- rate-limited (30/min per
+     * member), see `Application.kt` wiring. Throws [network.lapis.cloud.shared.rpc
+     * .RateLimitedException] once that budget is exhausted.
+     */
     suspend fun previewArticle(body: String): String
 
     // -- Vorstand (BOARD/ADMIN) --
 
-    /** Oldest-submitted-first queue. */
+    /** Oldest-submitted-first queue, capped at 200. */
     suspend fun listSubmittedArticles(): List<ArticleSummaryDto>
+
+    /**
+     * Welle V1.4.36 -- newest-published-first list for the board's "Veröffentlicht" tab, capped at
+     * 200 (same `ArticleStore.MAX_PAGE_SIZE` ceiling [listSubmittedArticles] already enforces).
+     * [ArticleSummaryDto.authorIsSelf] steers the client's disabled "Depublizieren"-button (Vier-
+     * Augen-Prinzip applies to [unpublishArticle] exactly like it does to [approveArticle]/
+     * [rejectArticle] -- see `ArticleService.requireNotOwnArticle` KDoc).
+     */
+    suspend fun listPublishedArticles(): List<ArticleSummaryDto>
 
     /** `SUBMITTED` only -- `NotFoundException` otherwise. Never leaks the raw Markdown body -- see [ArticleReviewDto] KDoc. */
     suspend fun getArticleForReview(id: String): ArticleReviewDto

@@ -167,6 +167,7 @@ class EmbedRoutesCorsTest :
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
                             eventsFeedRateLimiter = generousLimiter(),
+                            articlesFeedRateLimiter = generousLimiter(),
                         )
                         if (withOtherPublicRoutes) {
                             registerAuthRoutes(

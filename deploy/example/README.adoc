@@ -184,7 +184,9 @@ pg_dump -U lapiscloud -h 127.0.0.1 -d lapiscloud -F c -f /tmp/lapiscloud.dump
   volume or environment variable) -- this one copy step already carries them along. Event cover
   images live under this same volume too (`event-covers/`, see `LAPIS_EVENT_COVER_STORAGE_ROOT`
   below), by default -- unless that variable is set, in which case its target directory must be
-  copied/mounted separately. Since V1.9.4, members' own uploaded conference background photos live
+  copied/mounted separately. Since V1.4.36, article cover images live under this same volume too
+  (`article-covers/`, see `LAPIS_ARTICLE_COVER_STORAGE_ROOT`), same default-vs-override posture.
+  Since V1.9.4, members' own uploaded conference background photos live
   there too, under a `conference-backgrounds/<memberId>/` storage-key prefix -- again no separate
   volume, and again carried along by this same copy step. NOTE: unlike every other prefix under
   this volume, `conference-backgrounds/` is deliberately excluded from the ADMIN-facing
