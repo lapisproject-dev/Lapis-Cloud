@@ -16208,3 +16208,23 @@ msgstr "%1 kodów pocztowych w tym obszarze"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:149
 msgid "Klicken zum Vergrößern"
 msgstr "Kliknij, aby przybliżyć"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "Tabelle filtern (PLZ oder Ort)"
+msgstr "Filtruj tabelę (kod pocztowy lub miejscowość)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "Ort suchen"
+msgstr "Szukaj miejscowości"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "%1 (%2 PLZ)"
+msgstr "%1 (%2 kodów pocztowych)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "innerhalb %1 km"
+msgstr "w promieniu %1 km"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "%1 Mitglieder ohne Ortszuordnung"
+msgstr "%1 członków bez lokalizacji"

@@ -5,6 +5,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.await
 import kotlinx.coroutines.promise
 import network.lapis.cloud.shared.domain.MemberMapEntryDto
+import network.lapis.cloud.shared.domain.MemberMapRules
 import org.w3c.dom.HTMLElement
 import kotlin.js.Promise
 import kotlin.js.jsTypeOf
@@ -47,8 +48,8 @@ class MemberMapMapControllerTest {
 
     /**
      * A minimal fake `Marker` -- see [MemberMapDeps.createMarker]. Counts `remove()` calls so
-     * [destroy_removesAllLabelMarkers] can assert every one of the 24 [MEMBER_MAP_LABELS] markers was
-     * torn down.
+     * [destroy_removesAllTwentyFourLabelMarkersPlusSixteenCapitalMarkers] can assert every marker
+     * (24 [MEMBER_MAP_LABELS] + 16 [MEMBER_MAP_CAPITALS], V1.9.9) was torn down.
      */
     private fun fakeMarker(onRemove: () -> Unit = {}): dynamic {
         val marker = js("({})")
@@ -82,19 +83,39 @@ class MemberMapMapControllerTest {
         return observer
     }
 
-    /** A minimal fake `Popup` -- see [MemberMapDeps.createPopup]. Counts `setDOMContent`/`remove()` calls for the hover-tooltip tests. */
+    /**
+     * A minimal fake `Popup` -- see [MemberMapDeps.createPopup]. Counts `setDOMContent`/`remove()` calls
+     * for the hover-tooltip tests. `on("close", ...)`/`remove()` mirror real `maplibre-gl`: `Popup.remove()`
+     * ALWAYS fires a `"close"` event, whether it was called programmatically (`clearSearchPin`) or by the
+     * popup's own native "×" button internally calling `remove()` on itself -- this fake's `remove()`
+     * therefore also invokes every registered `"close"` listener, so a test can simulate "the user clicked
+     * the native ×" simply by calling `.remove()` directly on the captured popup, bypassing the controller
+     * entirely (see `showSearchPin_thenNativePopupClose_alsoRemovesTheMarker`).
+     */
     private fun fakePopup(
         onSetDomContent: () -> Unit = {},
         onRemove: () -> Unit = {},
     ): dynamic {
         val popup = js("({})")
+        val closeListeners = mutableListOf<() -> Unit>()
         popup.setLngLat = { _: dynamic -> popup }
         popup.setDOMContent = { _: dynamic ->
             onSetDomContent()
             popup
         }
         popup.addTo = { _: dynamic -> popup }
-        popup.remove = { onRemove() }
+        popup.on = { type: dynamic, listener: dynamic ->
+            if (type == "close") {
+                @Suppress("UNCHECKED_CAST")
+                closeListeners.add(listener as () -> Unit)
+            }
+            popup
+        }
+        popup.remove = {
+            onRemove()
+            closeListeners.forEach { it() }
+            popup
+        }
         return popup
     }
 
@@ -302,7 +323,7 @@ class MemberMapMapControllerTest {
     // ── V1.9.8 "Orientierung": region labels + zoom band ───────────────────────────────────────
 
     @Test
-    fun wireLayers_createsExactlyTwentyFourLabelMarkers_andSetsInitialZoomBand() {
+    fun wireLayers_createsExactlyTwentyFourLabelMarkersPlusSixteenCapitalMarkers_andSetsInitialZoomBand() {
         val (map, registry) = fakeMapWithRegistry()
         var markerCreateCalls = 0
         val container = detachedDiv()
@@ -321,7 +342,9 @@ class MemberMapMapControllerTest {
         controller.init()
         registry.fire("load", null)
 
-        assertEquals(24, markerCreateCalls, "MEMBER_MAP_LABELS.size must equal the number of markers created")
+        // MEMBER_MAP_LABELS.size (24) + MEMBER_MAP_CAPITALS.size (16, V1.9.9) -- [fakeMap] has no
+        // `querySourceFeatures`, so `updatePlaceLabels` guards itself out and contributes zero.
+        assertEquals(40, markerCreateCalls, "MEMBER_MAP_LABELS.size + MEMBER_MAP_CAPITALS.size must equal the number of markers created")
         assertEquals("low", container.getAttribute("data-zoom-band"), "getZoom() == 0.0 (fakeMap default) must map to zoom band \"low\"")
     }
 
@@ -350,7 +373,7 @@ class MemberMapMapControllerTest {
     }
 
     @Test
-    fun destroy_removesAllTwentyFourLabelMarkers() {
+    fun destroy_removesAllTwentyFourLabelMarkersPlusSixteenCapitalMarkers() {
         val (map, registry) = fakeMapWithRegistry()
         var markerRemoveCalls = 0
         val deps =
@@ -366,7 +389,7 @@ class MemberMapMapControllerTest {
 
         controller.destroy()
 
-        assertEquals(24, markerRemoveCalls)
+        assertEquals(40, markerRemoveCalls)
     }
 
     // ── V1.9.8 "Orientierung": hover tooltip ────────────────────────────────────────────────────
@@ -558,7 +581,9 @@ class MemberMapMapControllerTest {
                 arrayOf(feature)
             }
             val source = js("({})")
-            source.getClusterExpansionZoom = { _: dynamic -> Promise.resolve(12.0) } // above MemberMapRules.MAX_ZOOM (10)
+            // V1.9.9: MemberMapRules.MAX_ZOOM bumped 10 -> 12 (see that constant's own KDoc) --
+            // 14.0 is above the NEW cap, same test intent as before the bump.
+            source.getClusterExpansionZoom = { _: dynamic -> Promise.resolve(14.0) } // above MemberMapRules.MAX_ZOOM (12)
             map.getSource = { _: dynamic -> source }
             val deps =
                 MemberMapDeps(
@@ -584,7 +609,7 @@ class MemberMapMapControllerTest {
             Promise.resolve(Unit).await()
 
             assertEquals(1, easeToCalls)
-            assertEquals(10.0, easeZoom, "the zoom must be capped at MemberMapRules.MAX_ZOOM, not the raw 12.0 the promise resolved with")
+            assertEquals(12.0, easeZoom, "the zoom must be capped at MemberMapRules.MAX_ZOOM, not the raw 14.0 the promise resolved with")
         }
 
     @Test
@@ -623,4 +648,268 @@ class MemberMapMapControllerTest {
 
             assertEquals(0, easeToCalls)
         }
+
+    // ── V1.9.9 "Details & Suche" ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun addCapitalMarkers_createsExactlySixteenMarkers() {
+        val (map, registry) = fakeMapWithRegistry()
+        val capitalMarkerCoordinates = mutableListOf<Array<Double>>()
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, lngLat ->
+                    capitalMarkerCoordinates.add(lngLat)
+                    fakeMarker()
+                },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        // MEMBER_MAP_LABELS (24) markers come first, then MEMBER_MAP_CAPITALS (16, added by
+        // `addCapitalMarkers` right after `addRegionLabels` in `wireLayers`) -- the tail 16 calls'
+        // coordinates must be exactly MEMBER_MAP_CAPITALS' own lon/lat pairs, in order.
+        val capitalCoordinates = capitalMarkerCoordinates.drop(24)
+        assertEquals(16, capitalCoordinates.size)
+        MEMBER_MAP_CAPITALS.forEachIndexed { index, capital ->
+            assertEquals(capital.lon, capitalCoordinates[index][0])
+            assertEquals(capital.lat, capitalCoordinates[index][1])
+        }
+    }
+
+    @Test
+    fun updatePlaceLabels_belowMinZoom_neverCallsQuerySourceFeatures() {
+        val (map, registry) = fakeMapWithRegistry()
+        map.getZoom = { 8.99 } // just below PLACE_LABELS_MIN_ZOOM (9.0)
+        var queryCalls = 0
+        map.querySourceFeatures = { _: dynamic, _: dynamic ->
+            queryCalls++
+            arrayOf<dynamic>()
+        }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        assertEquals(0, queryCalls)
+    }
+
+    @Test
+    fun updatePlaceLabels_atOrAboveMinZoom_queriesThePlacesSourceLayer_andCreatesOneMarkerPerDistinctName() {
+        val (map, registry) = fakeMapWithRegistry()
+        map.getZoom = { 9.0 }
+        var lastSourceId: String? = null
+        var lastOptions: dynamic = null
+        map.querySourceFeatures = { sourceId: dynamic, options: dynamic ->
+            lastSourceId = sourceId as String
+            lastOptions = options
+            val featureA = js("({})")
+            featureA.properties = js("({ name: \"Kleindorf\" })")
+            featureA.geometry = js("({ coordinates: [11.0, 49.0] })")
+            val featureB = js("({})")
+            featureB.properties = js("({ name: \"Kleindorf\" })") // duplicate name -> deduped by selectPlaceLabels
+            featureB.geometry = js("({ coordinates: [11.01, 49.01] })")
+            arrayOf(featureA, featureB)
+        }
+        var placeMarkerCreateCalls = 0
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ ->
+                    placeMarkerCreateCalls++
+                    fakeMarker()
+                },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        assertEquals("member-map-basemap", lastSourceId)
+        assertEquals("places", lastOptions.sourceLayer)
+        // 24 region labels + 16 capitals + exactly 1 deduped place label ("Kleindorf" appears once).
+        assertEquals(41, placeMarkerCreateCalls)
+    }
+
+    @Test
+    fun updatePlaceLabels_moveendEvent_rebuildsPlaceLabelMarkers() {
+        val (map, registry) = fakeMapWithRegistry()
+        map.getZoom = { 9.0 }
+        var queryCalls = 0
+        map.querySourceFeatures = { _: dynamic, _: dynamic ->
+            queryCalls++
+            arrayOf<dynamic>()
+        }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+        assertEquals(1, queryCalls, "wireLayers itself calls updatePlaceLabels once")
+
+        registry.fire("moveend", null)
+        assertEquals(2, queryCalls)
+    }
+
+    @Test
+    fun flyToPlace_noMap_neverThrows() {
+        val controller =
+            MemberMapMapController(
+                container = detachedDiv(),
+                deps = MemberMapDeps(webglAvailable = { false }),
+                onFeatureClicked = {},
+            )
+        controller.init() // WEBGL_MISSING -- map stays null
+        controller.flyToPlace(10.0, 50.0) // must not throw
+    }
+
+    @Test
+    fun flyToPlace_flies_toThePlaceFlyToZoom() {
+        val (map, registry) = fakeMapWithRegistry()
+        var flyToOptions: dynamic = null
+        map.flyTo = { options: dynamic -> flyToOptions = options }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        controller.flyToPlace(11.0, 51.0)
+
+        assertEquals(MemberMapRules.PLACE_FLY_TO_ZOOM.toDouble(), flyToOptions.zoom)
+    }
+
+    @Test
+    fun showSearchPin_thenClearSearchPin_addsThenRemovesOneMarkerAndOnePopup() {
+        val (map, registry) = fakeMapWithRegistry()
+        var pinMarkerRemoveCalls = 0
+        var pinPopupRemoveCalls = 0
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker(onRemove = { pinMarkerRemoveCalls++ }) },
+                createPopup = { _ -> fakePopup(onRemove = { pinPopupRemoveCalls++ }) },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        controller.showSearchPin(11.0, 51.0, document.createElement("div") as HTMLElement)
+        controller.clearSearchPin()
+
+        assertEquals(1, pinMarkerRemoveCalls)
+        assertEquals(1, pinPopupRemoveCalls)
+    }
+
+    /**
+     * Bug fix (2026-09-28, review finding on `clearSearchPin`'s own KDoc claim): before this fix,
+     * [MemberMapMapController.showSearchPin] never wired the popup's `"close"` event to
+     * [MemberMapMapController.clearSearchPin] -- clicking the popup's own native "×" removed only the
+     * popup, leaving [MemberMapMapController]'s `searchPinMarker` permanently on the map with no UI path
+     * left to remove it (not even a new search, since [MemberMapMapController.showSearchPin]'s own
+     * defensive `clearSearchPin()` call only runs when a NEW pin is about to be shown). This test calls
+     * `.remove()` DIRECTLY on the captured popup -- never `controller.clearSearchPin()` -- to faithfully
+     * simulate "the user closed only the popup", exactly as `fakePopup`'s own KDoc explains.
+     */
+    @Test
+    fun showSearchPin_thenNativePopupClose_alsoRemovesTheMarker() {
+        val (map, registry) = fakeMapWithRegistry()
+        var pinMarkerRemoveCalls = 0
+        var capturedPopup: dynamic = null
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker(onRemove = { pinMarkerRemoveCalls++ }) },
+                createPopup = { _ ->
+                    val created = fakePopup()
+                    capturedPopup = created
+                    created
+                },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        controller.showSearchPin(11.0, 51.0, document.createElement("div") as HTMLElement)
+        capturedPopup.remove()
+
+        assertEquals(1, pinMarkerRemoveCalls, "closing the popup via its own native × must also remove the now-orphaned pin marker")
+    }
+
+    @Test
+    fun showSearchPin_calledTwice_removesThePreviousPinFirst() {
+        val (map, registry) = fakeMapWithRegistry()
+        var pinMarkerRemoveCalls = 0
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker(onRemove = { pinMarkerRemoveCalls++ }) },
+                createPopup = { _ -> fakePopup() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        controller.showSearchPin(11.0, 51.0, document.createElement("div") as HTMLElement)
+        controller.showSearchPin(12.0, 52.0, document.createElement("div") as HTMLElement)
+
+        assertEquals(1, pinMarkerRemoveCalls, "the first pin must be removed before the second is shown")
+    }
+
+    @Test
+    fun destroy_alsoClearsTheSearchPin() {
+        val (map, registry) = fakeMapWithRegistry()
+        var pinMarkerRemoveCalls = 0
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker(onRemove = { pinMarkerRemoveCalls++ }) },
+                createPopup = { _ -> fakePopup() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+        controller.showSearchPin(11.0, 51.0, document.createElement("div") as HTMLElement)
+
+        controller.destroy()
+
+        assertTrue(pinMarkerRemoveCalls >= 1)
+    }
 }

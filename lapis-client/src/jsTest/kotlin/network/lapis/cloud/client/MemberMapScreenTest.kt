@@ -240,4 +240,55 @@ class MemberMapScreenTest {
                 .jsonPrimitive.content
         assertEquals(malicious, placeName)
     }
+
+    // ── V1.9.9 Ortssuche: memberCountsWithinRadii ───────────────────────────────────────────
+
+    @Test
+    fun memberCountsWithinRadii_entryExactlyAtSearchPoint_countsInEveryRadius() {
+        val entries = listOf(entry(lat = 52.5, lon = 13.4, count = 10))
+        val result = memberCountsWithinRadii(entries, lat = 52.5, lon = 13.4, radiiKm = listOf(5, 10, 25))
+        assertEquals(10, result.countsByRadiusKm[5])
+        assertEquals(10, result.countsByRadiusKm[10])
+        assertEquals(10, result.countsByRadiusKm[25])
+        assertEquals(0, result.skippedWithoutCoordinates)
+    }
+
+    @Test
+    fun memberCountsWithinRadii_entryOutsideEveryRadius_countsInNone() {
+        // Berlin center vs. an entry roughly 255 km away (Hamburg) -- outside all three default radii.
+        val entries = listOf(entry(lat = 53.55, lon = 10.0, count = 7))
+        val result = memberCountsWithinRadii(entries, lat = 52.5, lon = 13.4, radiiKm = listOf(5, 10, 25))
+        assertEquals(0, result.countsByRadiusKm[5])
+        assertEquals(0, result.countsByRadiusKm[10])
+        assertEquals(0, result.countsByRadiusKm[25])
+    }
+
+    @Test
+    fun memberCountsWithinRadii_entryWithoutCoordinates_isSkippedNotSilentlyDropped() {
+        val entries = listOf(entry(lat = null, lon = null, count = 3))
+        val result = memberCountsWithinRadii(entries, lat = 52.5, lon = 13.4, radiiKm = listOf(5, 10, 25))
+        assertEquals(3, result.skippedWithoutCoordinates)
+        assertEquals(0, result.countsByRadiusKm[5])
+    }
+
+    @Test
+    fun memberCountsWithinRadii_isCumulative_notBanded() {
+        // An entry within 5km is ALSO counted in the 10km and 25km buckets -- see this function's own KDoc.
+        val entries = listOf(entry(lat = 52.501, lon = 13.401, count = 4))
+        val result = memberCountsWithinRadii(entries, lat = 52.5, lon = 13.4, radiiKm = listOf(5, 10, 25))
+        assertEquals(4, result.countsByRadiusKm[5])
+        assertEquals(4, result.countsByRadiusKm[10])
+        assertEquals(4, result.countsByRadiusKm[25])
+    }
+
+    @Test
+    fun memberCountsWithinRadii_sumsMultipleEntriesWithinTheSameRadius() {
+        val entries =
+            listOf(
+                entry(postalCode = "10001", lat = 52.501, lon = 13.401, count = 3),
+                entry(postalCode = "10002", lat = 52.502, lon = 13.402, count = 5),
+            )
+        val result = memberCountsWithinRadii(entries, lat = 52.5, lon = 13.4, radiiKm = listOf(5))
+        assertEquals(8, result.countsByRadiusKm[5])
+    }
 }

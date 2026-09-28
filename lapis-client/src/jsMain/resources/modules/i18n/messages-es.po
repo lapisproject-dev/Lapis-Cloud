@@ -16233,3 +16233,23 @@ msgstr "%1 códigos postales en esta zona"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:149
 msgid "Klicken zum Vergrößern"
 msgstr "Haga clic para ampliar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "Tabelle filtern (PLZ oder Ort)"
+msgstr "Filtrar tabla (código postal o lugar)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "Ort suchen"
+msgstr "Buscar ubicación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "%1 (%2 PLZ)"
+msgstr "%1 (%2 códigos postales)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "innerhalb %1 km"
+msgstr "en un radio de %1 km"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "%1 Mitglieder ohne Ortszuordnung"
+msgstr "%1 miembros sin ubicación"

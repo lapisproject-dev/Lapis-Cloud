@@ -122,6 +122,7 @@ import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
 import network.lapis.cloud.server.membermap.MemberMapConfig
 import network.lapis.cloud.server.membermap.MemberMapStartupCheck
+import network.lapis.cloud.server.membermap.PlaceSearchIndex
 import network.lapis.cloud.server.membermap.PmtilesBasemap
 import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
@@ -380,6 +381,9 @@ internal fun Application.module(
     // call site keeps compiling unchanged, with the map feature simply unconfigured/off.
     memberMapConfig: MemberMapConfig = MemberMapConfig.notConfigured(),
     postalCodeCentroids: PostalCodeCentroidIndex? = PostalCodeCentroidIndex.bundled,
+    // Welle V1.9.9 "Ortssuche" -- same "explicit parameter with a production-safe default" pattern as
+    // [postalCodeCentroids] just above.
+    placeSearchIndex: PlaceSearchIndex? = PlaceSearchIndex.bundled,
 ) {
     // Idempotent (see DatabaseConfig/DevSeedData KDoc) — safe to call again here so that
     // ApplicationTest's `testApplication { application { module() } }` also gets a migrated,
@@ -1536,7 +1540,14 @@ internal fun Application.module(
         registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
         registerService(
             IBoardMemberMapService::class,
-        ) { call -> BoardMemberMapService(call = call, basemap = memberMapBasemap, centroids = postalCodeCentroids) }
+        ) { call ->
+            BoardMemberMapService(
+                call = call,
+                basemap = memberMapBasemap,
+                centroids = postalCodeCentroids,
+                placeSearchIndex = placeSearchIndex,
+            )
+        }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }

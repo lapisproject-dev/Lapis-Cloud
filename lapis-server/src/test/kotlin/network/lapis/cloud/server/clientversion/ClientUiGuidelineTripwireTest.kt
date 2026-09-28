@@ -651,8 +651,16 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
         // W4d batch 2 -- FILTER_IS_NOT_A_FORM: narrows the document list of the open folder, never submitted.
         "DocumentsScreen.kt" to
             listOf("searchInput = searchRow.text(label = tr(\"Dokumente in diesem Ordner durchsuchen\"))"),
-        // V1.9.6 -- FILTER_IS_NOT_A_FORM: narrows the PLZ/Ort table, never submitted.
-        "MemberMapScreen.kt" to listOf("val searchInput = tablePanel.text(label = tr(\"PLZ oder Ort\"))"),
+        // V1.9.6 -- FILTER_IS_NOT_A_FORM: narrows the PLZ/Ort table, never submitted. Renamed V1.9.9
+        // ("Tabelle filtern (PLZ oder Ort)") once the map-overlay Ortssuche field below made the
+        // original "PLZ oder Ort" label ambiguous between the two. V1.9.9 also adds the overlay field
+        // itself -- narrows nothing existing, it drives `MemberMapMapController.flyToPlace`, but is
+        // exactly as much "a filter, not a form" as the table one: no required field, no submit.
+        "MemberMapScreen.kt" to
+            listOf(
+                "val searchInput = tablePanel.text(label = tr(\"Tabelle filtern (PLZ oder Ort)\"))",
+                "val field = overlay.text(label = tr(\"Ort suchen\"))",
+            ),
     )
 
 /**

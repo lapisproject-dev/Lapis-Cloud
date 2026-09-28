@@ -32,11 +32,16 @@ import kotlin.uuid.Uuid
  * future refactor adds to [network.lapis.cloud.shared.domain.MemberMapEntryDto] without updating
  * this test). Same "post real JSON-RPC against the FULL `module()`" shape as [OpenItemRpcWireTest].
  *
- * **Route index**: `/rpc/routeBoardMemberMapServiceManager0` is `getMemberMap` -- the ONLY method on
- * [network.lapis.cloud.shared.rpc.IBoardMemberMapService], so index 0 is stable as long as that
- * interface stays single-method (see its own KDoc).
+ * **Route index**: `/rpc/routeBoardMemberMapServiceManager0` is `getMemberMap`,
+ * `/rpc/routeBoardMemberMapServiceManager1` is `searchPlaces` -- Kilua-RPC-KSP assigns route indices
+ * by DECLARATION ORDER on [network.lapis.cloud.shared.rpc.IBoardMemberMapService] (verified against
+ * `IOpenItemService`/`OpenItemRpcWireTest`'s own "the 7th `bind(...)`" comment, same mechanism). This
+ * interface was single-method (index 0 only) before V1.9.9 "Ortssuche" added `searchPlaces` as a
+ * SECOND method -- an intentional, accepted break of the old "index 0 stays stable because this stays
+ * single-method" pin, not a regression; both indices are pinned here now instead.
  */
 private const val GET_MEMBER_MAP_ROUTE = "/rpc/routeBoardMemberMapServiceManager0"
+private const val SEARCH_PLACES_ROUTE = "/rpc/routeBoardMemberMapServiceManager1"
 private const val WIRE_TEST_POSTAL_CODE = "38998"
 
 class BoardMemberMapRpcWireTest :
@@ -180,6 +185,50 @@ class BoardMemberMapRpcWireTest :
                 body shouldNotContain "displayName"
                 body shouldNotContain "street"
                 body shouldNotContain "city"
+            }
+        }
+
+        test("searchPlaces route index is stable at manager1 and answers a real (non-error) result for a BOARD caller") {
+            testApplication {
+                application { module() }
+                val board =
+                    createMember(
+                        role = AccountRole.BOARD,
+                        displayName = "Suchtest",
+                        email = "search-${Uuid.random()}@example.org",
+                        street = "Z",
+                    )
+
+                val response =
+                    client.post(SEARCH_PLACES_ROUTE) {
+                        header("X-Member-Id", board.toString())
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"id":1,"jsonrpc":"2.0","method":"searchPlaces","params":["\"Berlin\""]}""")
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "result"
+            }
+        }
+
+        test("searchPlaces: non-BOARD/ADMIN caller -> ForbiddenException crosses the wire, not a normal result") {
+            testApplication {
+                application { module() }
+                val member =
+                    createMember(
+                        role = AccountRole.MEMBER,
+                        displayName = "Nichtvorstand2",
+                        email = "nv2-${Uuid.random()}@example.org",
+                        street = "X",
+                    )
+
+                val response =
+                    client.post(SEARCH_PLACES_ROUTE) {
+                        header("X-Member-Id", member.toString())
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"id":1,"jsonrpc":"2.0","method":"searchPlaces","params":["\"Berlin\""]}""")
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldNotContain "placeName"
             }
         }
     })

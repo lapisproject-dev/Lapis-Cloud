@@ -15,9 +15,12 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.simplePanel
 import io.kvision.table.cell
 import io.kvision.table.row
+import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.BoardMemberMapResponse
 import network.lapis.cloud.shared.domain.MemberMapEntryDto
+import network.lapis.cloud.shared.domain.MemberMapPlaceDto
 import network.lapis.cloud.shared.rpc.IBoardMemberMapService
 import org.w3c.dom.HTMLElement
 
@@ -79,7 +82,11 @@ fun renderMemberMapScreen(container: SimplePanel) {
     )
     val tablePanel = grid.div(className = "lapis-member-map-table-panel")
 
-    val searchInput = tablePanel.text(label = tr("PLZ oder Ort"))
+    // V1.9.9: renamed from "PLZ oder Ort" -- this field filters the TABLE below; the new map-overlay
+    // Ortssuche field (built inside the `render` lambda, once `mapPanel` exists) is a SEPARATE search
+    // over ALL known German localities, not just postal codes with a member on them. Distinct enough
+    // labels matter once both fields are visible on the same screen at once.
+    val searchInput = tablePanel.text(label = tr("Tabelle filtern (PLZ oder Ort)"))
     val hitLine = tablePanel.div(className = "text-muted small")
     val tableHost = tablePanel.simplePanel()
     val liveRegion = tablePanel.div(className = "visually-hidden")
@@ -201,6 +208,7 @@ fun renderMemberMapScreen(container: SimplePanel) {
                             addCssClasses("text-muted small position-absolute bottom-0 start-0 m-2")
                         }
                     }
+                    wirePlaceSearchOverlay(mapPanel = mapPanel, dto = dto, mapController = { mapController })
                 }
                 renderTable()
             },
@@ -229,6 +237,150 @@ private fun announceSelection(
 ) {
     val place = entry.placeName ?: entry.postalCode
     untrustedContent(liveRegion, gettext("%1, %2: %3", entry.postalCode, place, memberMapPopupCountText(entry.count)))
+}
+
+/** V1.9.9 Ortssuche: how far a "N Mitglieder innerhalb von X km" ring reaches -- see [memberCountsWithinRadii]. */
+private val MEMBER_MAP_SEARCH_RADII_KM = listOf(5, 10, 25)
+
+/** V1.9.9 Ortssuche: the map-panel overlay search box + results dropdown, wired once per `render` pass (see the `dataSection` `render` lambda's own call site). [mapController] is a getter, not the controller itself -- by the time a board member CLICKS a result, `MemberMapMapController.init()`'s async `"load"` handshake may only just have finished, so this must always read the LATEST controller, never one captured at wiring time (`null` at that instant). */
+private fun wirePlaceSearchOverlay(
+    mapPanel: Div,
+    dto: BoardMemberMapResponse,
+    mapController: () -> MemberMapMapController?,
+) {
+    val overlay = mapPanel.div(className = "lapis-member-map-search")
+    val field = overlay.text(label = tr("Ort suchen"))
+    val resultsHost = overlay.div(className = "lapis-member-map-search-results")
+    resultsHost.hide()
+
+    var sequence = 0
+    var debounceHandle: Int? = null
+
+    fun clearResults() {
+        resultsHost.removeAll()
+        resultsHost.hide()
+    }
+
+    fun selectPlace(place: MemberMapPlaceDto) {
+        clearResults()
+        val controller = mapController() ?: return
+        controller.flyToPlace(place.lon, place.lat)
+        controller.showSearchPin(place.lon, place.lat, buildSearchPinPopupContent(dto.entries, place))
+    }
+
+    fun renderResults(results: List<MemberMapPlaceDto>) {
+        resultsHost.removeAll()
+        if (results.isEmpty()) {
+            resultsHost.hide()
+            return
+        }
+        results.forEach { place ->
+            val button = resultsHost.tag(TAG.BUTTON, className = "lapis-member-map-search-result")
+            button.setAttribute("type", "button")
+            untrustedContent(button, gettext("%1 (%2 PLZ)", place.placeName, place.postalCodes.size))
+            button.onClick { selectPlace(place) }
+        }
+        resultsHost.show()
+    }
+
+    field.subscribe { value ->
+        val query = value.orEmpty()
+        debounceHandle?.let { window.clearTimeout(it) }
+        if (query.trim().length < 2) {
+            clearResults()
+            return@subscribe
+        }
+        debounceHandle =
+            window.setTimeout({
+                val thisSequence = ++sequence
+                AppScope.launch {
+                    val results = guarded { rpcService<IBoardMemberMapService>().searchPlaces(query.trim()) }.orEmpty()
+                    // Discard a response that is no longer the LATEST outgoing request -- see this
+                    // function's own KDoc "why a getter, not the controller" for the analogous
+                    // staleness hazard on the controller reference; here the hazard is two in-flight
+                    // RPC calls resolving out of order (a fast connection answering a LATER keystroke
+                    // before a slow one answers an EARLIER keystroke).
+                    if (thisSequence != sequence) return@launch
+                    renderResults(results)
+                }
+            }, PLACE_SEARCH_DEBOUNCE_MS)
+    }
+}
+
+private const val PLACE_SEARCH_DEBOUNCE_MS = 250
+
+/** Builds the Ortssuche pin popup's DOM content -- `document.createTextNode` per line, never `innerHTML` (same XSS discipline as `MemberMapMapController.showPopup`/`buildTooltipContent`; [place] is server-returned, GeoNames-derived free text). */
+private fun buildSearchPinPopupContent(
+    entries: List<MemberMapEntryDto>,
+    place: MemberMapPlaceDto,
+): HTMLElement {
+    val counts = memberCountsWithinRadii(entries, place.lat, place.lon, MEMBER_MAP_SEARCH_RADII_KM)
+    val content = document.createElement("div") as HTMLElement
+    content.className = "lapis-member-map-search-pin-popup"
+    val title = document.createElement("div") as HTMLElement
+    title.appendChild(document.createTextNode(place.placeName))
+    content.appendChild(title)
+
+    val list = document.createElement("dl") as HTMLElement
+    MEMBER_MAP_SEARCH_RADII_KM.forEach { radiusKm ->
+        val term = document.createElement("dt") as HTMLElement
+        term.appendChild(document.createTextNode(gettext("innerhalb %1 km", radiusKm)))
+        val value = document.createElement("dd") as HTMLElement
+        value.appendChild(document.createTextNode(formatMemberCount(counts.countsByRadiusKm[radiusKm] ?: 0)))
+        list.appendChild(term)
+        list.appendChild(value)
+    }
+    content.appendChild(list)
+
+    if (counts.skippedWithoutCoordinates > 0) {
+        val note = document.createElement("div") as HTMLElement
+        note.className = "text-muted small"
+        note.appendChild(
+            document.createTextNode(gettext("%1 Mitglieder ohne Ortszuordnung", counts.skippedWithoutCoordinates)),
+        )
+        content.appendChild(note)
+    }
+    return content
+}
+
+/** One [memberCountsWithinRadii] result: how many members fall within each requested radius (cumulative, not banded -- a member within 5km is ALSO counted in the 10km and 25km figures), plus how many entries had no resolved coordinates at all and could not be judged either way. */
+internal data class RadiusCounts(
+    val countsByRadiusKm: Map<Int, Int>,
+    val skippedWithoutCoordinates: Int,
+)
+
+/**
+ * V1.9.9 Ortssuche: pure, DOM-free (see this file's own scope posture, same as [filterMemberMapEntries])
+ * -- sums [MemberMapEntryDto.count] for every entry whose resolved coordinates lie within each of
+ * [radiiKm] of ([lat], [lon]) (great-circle distance, [haversineKm] -- the same formula
+ * `PlaceSearchIndex`'s server-side twin uses, duplicated for the same reason that class's own KDoc
+ * gives: no natural shared home for a helper this small). An entry with unresolved coordinates
+ * (`lat`/`lon` both `null`, see [MemberMapEntryDto] KDoc) can be neither included nor excluded by
+ * distance -- its members are counted separately in [RadiusCounts.skippedWithoutCoordinates] instead
+ * of silently vanishing from the popup's own numbers.
+ */
+internal fun memberCountsWithinRadii(
+    entries: List<MemberMapEntryDto>,
+    lat: Double,
+    lon: Double,
+    radiiKm: List<Int>,
+): RadiusCounts {
+    val sortedRadii = radiiKm.sorted()
+    val counts = sortedRadii.associateWith { 0 }.toMutableMap()
+    var skipped = 0
+    entries.forEach { entry ->
+        val entryLat = entry.lat
+        val entryLon = entry.lon
+        if (entryLat == null || entryLon == null) {
+            skipped += entry.count
+            return@forEach
+        }
+        val distanceKm = haversineKm(lat, lon, entryLat, entryLon)
+        sortedRadii.forEach { radiusKm ->
+            if (distanceKm <= radiusKm) counts[radiusKm] = (counts[radiusKm] ?: 0) + entry.count
+        }
+    }
+    return RadiusCounts(countsByRadiusKm = counts, skippedWithoutCoordinates = skipped)
 }
 
 /** The gleichung "mappedTotal + unresolvableGermanPostalCode + noPostalCode + foreign = total" as a single always-visible line. */

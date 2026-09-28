@@ -60,14 +60,51 @@ data class BoardMemberMapResponse(
 )
 
 /**
+ * V1.9.9 "Ortssuche" -- one Ortssuche result. Deliberately carries ONLY GeoNames-derived place facts,
+ * never a member/postal-code aggregate count (that stays client-side, computed from the
+ * [BoardMemberMapResponse] the screen already loaded, via `memberCountsWithinRadii` -- see
+ * `network.lapis.cloud.server.membermap.PlaceSearchIndex` class KDoc "no new PII surface").
+ */
+@Serializable
+data class MemberMapPlaceDto(
+    val placeName: String,
+    val lat: Double,
+    val lon: Double,
+    /** Every 5-digit postal code the bundled centroid index groups under [placeName] at this location -- see `PlaceSearchIndex.build` KDoc. */
+    val postalCodes: List<String>,
+)
+
+/**
  * Pure, dependency-free rules shared between `lapis-server` (aggregation gate) and `lapis-client`
  * (map layer sizing, popup/marker radius) -- so client and server never independently reimplement
  * "what counts as a German postal code/country" and drift apart. See `MemberMapRulesTest`.
  */
 object MemberMapRules {
     const val MIN_ZOOM = 4
-    const val MAX_ZOOM = 10
+
+    /**
+     * V1.9.9: the VIEWPORT zoom limit -- bumped 10 -> 12 so a board member can zoom in far enough to
+     * tell apart member circles in a dense small town (Nutzer-Feedback: "beim Hineinzoomen hätte ich
+     * gern auch kleinere Ortschaften"). Distinct from [BASEMAP_TILE_MAX_ZOOM] since 2026-09-28 -- see
+     * that constant's own KDoc for why the two must never be conflated again.
+     */
+    const val MAX_ZOOM = 12
+
+    /**
+     * The vector SOURCE's own `maxzoom` (`MemberMapBasemapStyle.buildBasemapStyleJson`'s
+     * `"maxzoom"` field) -- the bundled/deployed `.pmtiles` basemap is extracted at
+     * `--maxzoom=10` (`deploy/example/README.adoc`), so MapLibre must keep asking for z10 tiles and
+     * OVERZOOM them past that (its default behaviour for a vector source once the viewport zoom
+     * exceeds `maxzoom`) rather than requesting nonexistent z11/z12 tiles, which would silently
+     * render blank/blurry past z10 (no error, nothing throws). **Must stay 10 unless the PMTiles
+     * file itself is re-extracted at a higher `--maxzoom`** -- bumping [MAX_ZOOM] alone without also
+     * checking this is the one-line regression this KDoc exists to prevent.
+     */
+    const val BASEMAP_TILE_MAX_ZOOM = 10
     const val FLY_TO_ZOOM = 9
+
+    /** A table-row-independent fly-to target for the Ortssuche result (V1.9.9) -- deeper than [FLY_TO_ZOOM] because a place search result is a single named locality, not necessarily a postal-code centroid with members plotted right at it. */
+    const val PLACE_FLY_TO_ZOOM = 11
 
     /** `[west, south, east, north]` -- Germany's bounding box with a small margin, the map's initial view. */
     val START_BOUNDS = listOf(5.87, 47.27, 15.04, 55.06)

@@ -58,6 +58,13 @@
   /* V1.9.6 Vorstands-Karte: MapLibre-Wasserflaeche -- eigenes Token, weil kein bestehendes Token eine
      dezent bläuliche Wasserfarbe traegt (Border-/Muted-Toene sind neutral-grau). */
   --lapis-map-water:       #DCE3EC;
+  /* V1.9.9 Vorstands-Karte: dedizierte, kontrastreichere Grenz-/Strassentoene fuer die Karte --
+     die bisher wiederverwendeten Tokens (--lapis-border, --lapis-border-strong) sind fuer feine
+     UI-Trennlinien auf WEISS kalibriert (bewusst zart), auf der hellgrauen Kartenflaeche
+     (--lapis-surface-sunken) waren Staatsgrenze/Landesgrenze dadurch kaum sichtbar. */
+  --lapis-map-border-country: #3D4552;
+  --lapis-map-border-state:   #8891A0;
+  --lapis-map-road:           #6B7280;
 
   /* Navigation -- Beinahe-Schwarz mit kühlem Lapis-Unterton, kein #000000 */
   --lapis-nav:             #14181E;
@@ -120,6 +127,9 @@
     --lapis-border:          #333A44;
     --lapis-border-strong:   #454D59;
     --lapis-map-water:       #1B2533;
+    --lapis-map-border-country: #C7CCD4;
+    --lapis-map-border-state:   #7C8493;
+    --lapis-map-road:           #99A1AD;
 
     --lapis-nav:             #0B0E12;
     --lapis-nav-hover-bg:    #1E242E;
@@ -166,6 +176,9 @@
   --lapis-border:          #333A44;
   --lapis-border-strong:   #454D59;
   --lapis-map-water:       #1B2533;
+  --lapis-map-border-country: #C7CCD4;
+  --lapis-map-border-state:   #7C8493;
+  --lapis-map-road:           #99A1AD;
 
   --lapis-nav:             #0B0E12;
   --lapis-nav-hover-bg:    #1E242E;
@@ -1729,6 +1742,112 @@ html .form-select.is-invalid:focus {
 }
 .lapis-member-map-tooltip div:first-child {
   font-weight: 600;
+}
+
+/* V1.9.9 "Vorstands-Karte: Details & Suche" -- Landeshauptstaedte (eigener Marker-Typ, DOM statt
+   PMTiles-Textlayer, siehe MemberMapLabels.kt "MEMBER_MAP_CAPITALS"): ein kleiner Punkt plus Name,
+   in jedem Zoom-Band sichtbar (anders als die Bundesland-Namen selbst braucht die Zuordnung
+   "welche Stadt ist die Hauptstadt" keinen Zoom-Kontext, um nuetzlich zu sein -- Magdeburg/Dresden
+   waren vorher ueberhaupt nicht benannt, siehe Nutzer-Feedback). */
+.lapis-member-map-capital {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  transform: translate(-50%, -50%);
+}
+.lapis-member-map-capital-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--lapis-accent-strong);
+  border: 1px solid var(--lapis-surface);
+  flex: none;
+}
+.lapis-member-map-capital-name {
+  font-size: .6875rem;
+  font-weight: 600;
+  color: var(--lapis-text);
+  white-space: nowrap;
+  text-shadow:
+    -1px -1px 0 var(--lapis-surface),
+    1px -1px 0 var(--lapis-surface),
+    -1px 1px 0 var(--lapis-surface),
+    1px 1px 0 var(--lapis-surface);
+}
+
+/* V1.9.9 -- kleinere Ortschaften, dynamisch aus der PMTiles-"places"-Ebene gelesen (siehe
+   MemberMapMapController.updatePlaceLabels), ab Zoom-Band "high" eingeblendet. Bewusst leiser als
+   die Bundesland-/Hauptstadt-Beschriftung (kleiner, gedaempfte Farbe) -- diese Ebene liefert
+   Orientierung beim Heranzoomen, sie soll die Mitglieder-Punkte selbst nicht uebertoenen. */
+.lapis-member-map-place-label {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  font-size: .625rem;
+  font-weight: 400;
+  color: var(--lapis-muted);
+  white-space: nowrap;
+  text-shadow:
+    -1px -1px 0 var(--lapis-surface),
+    1px -1px 0 var(--lapis-surface),
+    -1px 1px 0 var(--lapis-surface),
+    1px 1px 0 var(--lapis-surface);
+}
+
+/* V1.9.9 -- Ortssuche-Overlay, oben links im Kartenpanel (siehe MemberMapScreen.kt "mapPanel"-
+   Overlay). Eigenstaendiges Widget/eigener State, unabhaengig vom Tabellenfilter darunter. */
+.lapis-member-map-search {
+  position: absolute;
+  top: .5rem;
+  left: .5rem;
+  z-index: 2;
+  width: 280px;
+  max-width: calc(100% - 20px);
+}
+.lapis-member-map-search .form-control {
+  background-color: var(--lapis-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+}
+.lapis-member-map-search-results {
+  margin-top: 2px;
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border);
+  border-radius: .375rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.lapis-member-map-search-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: .375rem .625rem;
+  border: none;
+  background: none;
+  color: var(--lapis-text);
+  font-size: .8125rem;
+  cursor: pointer;
+}
+.lapis-member-map-search-result:hover,
+.lapis-member-map-search-result:focus {
+  background-color: var(--lapis-accent-soft);
+}
+.lapis-member-map-search-pin-popup dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0 .5rem;
+  font-size: .8125rem;
+}
+.lapis-member-map-search-pin-popup dt {
+  color: var(--lapis-muted);
+}
+.lapis-member-map-search-pin-popup dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
 }
 
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser

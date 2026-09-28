@@ -862,7 +862,16 @@ curl -sI -H 'Range: bytes=0-126' -H 'Accept-Encoding: gzip' \
 **Postal-code centroid data** (place names + coordinates for the table/map markers) ships bundled
 with `lapis-server` itself (GeoNames CC-BY-4.0, see `lapis-server/src/main/resources/geodata/
 LICENSE-GeoNames.txt`) -- no separate provisioning step, always available regardless of
-`LAPIS_MAP_PMTILES_PATH`.
+`LAPIS_MAP_PMTILES_PATH`. The same bundled CSV also backs the Ortssuche (place search) added in
+V1.9.9 -- no separate provisioning step for that either.
+
+**Small-locality labels (V1.9.9) and the `--maxzoom` you chose above**: once zoomed in, the map reads
+the basemap's own `places` vector layer to label nearby small towns (no glyph-serving route, no
+additional operator step -- see `docs/architecture/member-map.adoc` Q11). How many small localities
+actually show up depends entirely on the `--maxzoom` you extracted `germany.pmtiles` at: the
+`--maxzoom=10` command above is a reasonable default, but villages may be sparse or absent at that
+zoom in some regions -- this is a known limitation, not a bug, and no re-extraction is required for
+the rest of the feature (borders, state capitals, Ortssuche) to work correctly.
 
 **Third-party data and attribution** -- shown to the reader directly on the screen (the map's own
 attribution control, Q2 in `docs/architecture/member-map.adoc`); this file (and `README.adoc`'s

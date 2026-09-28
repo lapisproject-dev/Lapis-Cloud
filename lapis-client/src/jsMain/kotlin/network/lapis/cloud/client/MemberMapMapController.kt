@@ -17,6 +17,7 @@ import network.lapis.cloud.shared.domain.MemberMapRules
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
 import kotlin.js.JSON
+import kotlin.js.jsTypeOf
 
 /**
  * Welle V1.9.6 "Vorstands-Karte" -- registers the JS `pmtiles://` protocol handler EXACTLY ONCE per
@@ -84,6 +85,12 @@ internal class MemberMapDeps(
         },
 )
 
+/** V1.9.9 -- [MemberMapMapController.updatePlaceLabels] only queries/renders small-locality labels from this zoom onward; below it the map is still at a Bundesland-wide overview where individual village names would just be clutter. */
+private const val PLACE_LABELS_MIN_ZOOM = 9.0
+
+/** V1.9.9 -- hard cap on simultaneously rendered small-locality DOM markers, see [MemberMapMapController.updatePlaceLabels]. */
+private const val PLACE_LABELS_MAX_COUNT = 40
+
 /** `try { canvas.getContext("webgl2") ?: getContext("webgl") } catch { null }` -- some browsers throw rather than return `null` for a disabled/blocklisted GPU. */
 private fun detectWebglAvailable(): Boolean =
     try {
@@ -108,7 +115,8 @@ private fun detectWebglAvailable(): Boolean =
  * returns -- almost always races ahead of it; see [pendingEntries]'s own KDoc for the fix.
  *
  * **Theme sync**: a [MutationObserver] on `data-theme` re-reads [readMemberMapColors] and calls
- * `map.setPaintProperty(...)` for the map's nine color paint properties -- the exact same pattern
+ * `map.setPaintProperty(...)` for the map's ten color paint properties (including the V1.9.9
+ * `member-map-country-borders-halo` layer) -- the exact same pattern
  * `PriceOracleScreen.kt` already uses for Chart.js, just `setPaintProperty` instead of `chart.update()`.
  * The style itself is never rebuilt on a theme change (Design-Team decision, see
  * `MemberMapBasemapStyle.buildBasemapStyleJson` KDoc "Q Duarte").
@@ -122,6 +130,12 @@ private fun detectWebglAvailable(): Boolean =
  * smaller labels in from zoom band "mid" ([updateZoomBand]), and a hover tooltip on points/clusters
  * (`onPointHover`/`onClusterHover`) closing the "which circle is this row?" gap the table alone left
  * open. Same wave: the cluster-click zoom bug fix, see [onClusterClicked]'s own KDoc.
+ *
+ * **V1.9.9 "Details & Suche"**: 16 Landeshauptstadt markers ([addCapitalMarkers]), dynamically
+ * viewport-queried small-locality markers once zoomed in past [PLACE_LABELS_MIN_ZOOM]
+ * ([updatePlaceLabels], see its own KDoc for how this avoids a glyph-serving pipeline entirely), and
+ * the Ortssuche pin/popup lifecycle ([flyToPlace]/[showSearchPin]/[clearSearchPin]) `MemberMapScreen.kt`'s
+ * new map-panel search overlay drives.
  */
 internal class MemberMapMapController(
     private val container: HTMLElement,
@@ -137,6 +151,18 @@ internal class MemberMapMapController(
 
     /** The 24 static orientation labels ([MEMBER_MAP_LABELS]), created once in [addRegionLabels]. */
     private val labelMarkers = mutableListOf<dynamic>()
+
+    /** V1.9.9: the 16 [MEMBER_MAP_CAPITALS] markers, created once in [addCapitalMarkers] (never rebuilt -- fixed list, unlike [placeLabelMarkers]). */
+    private val capitalMarkers = mutableListOf<dynamic>()
+
+    /** V1.9.9: the current, viewport-dependent set of small-locality markers -- fully rebuilt on every [updatePlaceLabels] call (see that method's own KDoc), never just appended to. */
+    private val placeLabelMarkers = mutableListOf<dynamic>()
+
+    /** V1.9.9: the one Ortssuche pin marker currently shown (or `null`) -- see [showSearchPin]/[clearSearchPin]. */
+    private var searchPinMarker: dynamic = null
+
+    /** V1.9.9: the Ortssuche pin's own popup (separate from [popup]/[hoverPopup] -- a search result and a clicked postal-code point can be shown at the same time). */
+    private var searchPinPopup: dynamic = null
 
     /** The one hover tooltip currently shown (or `null`) -- see `onPointHover`/`onClusterHover`/`clearHover`. */
     private var hoverPopup: dynamic = null
@@ -198,8 +224,14 @@ internal class MemberMapMapController(
 
         wireInteraction(newMap)
         addRegionLabels(newMap)
+        addCapitalMarkers(newMap)
         updateZoomBand(newMap)
         newMap.on("zoom") { _: dynamic -> updateZoomBand(newMap) }
+        // V1.9.9: "moveend" (fires after BOTH a drag-move and a zoom settle, unlike "zoom"/"zoomend" alone)
+        // -- querying `places` on every intermediate drag/zoom frame would be wasted work MapLibre's own
+        // gesture animation already coalesces away by the time the user stops interacting.
+        newMap.on("moveend") { _: dynamic -> updatePlaceLabels(newMap) }
+        updatePlaceLabels(newMap)
         setupThemeObserver(newMap)
         setupResizeObserver(newMap)
         applyPendingEntries()
@@ -224,6 +256,91 @@ internal class MemberMapMapController(
             val marker = deps.createMarker(element, arrayOf(label.lon, label.lat))
             marker.addTo(newMap)
             labelMarkers.add(marker)
+        }
+    }
+
+    /**
+     * V1.9.9 "Details & Suche" -- places [MEMBER_MAP_CAPITALS] as DOM [Marker]s (dot + name), the same
+     * technique [addRegionLabels] already uses and for the same reason (see that method's KDoc and
+     * `MemberMapBasemapStyle.kt`'s class KDoc "no glyph pipeline"). Unlike the region labels, capitals
+     * are NOT zoom-band-gated in CSS -- knowing which city is a Bundesland's capital is useful context
+     * at every zoom level, not just once zoomed in. Called once per `"load"`, defensive `remove()`
+     * sweep first for the same reason [addRegionLabels] has one.
+     */
+    private fun addCapitalMarkers(newMap: dynamic) {
+        capitalMarkers.forEach { it.remove() }
+        capitalMarkers.clear()
+        MEMBER_MAP_CAPITALS.forEach { capital ->
+            val element = document.createElement("div") as HTMLElement
+            element.className = "lapis-member-map-capital"
+            element.setAttribute("aria-hidden", "true")
+            val dot = document.createElement("span") as HTMLElement
+            dot.className = "lapis-member-map-capital-dot"
+            val name = document.createElement("span") as HTMLElement
+            name.className = "lapis-member-map-capital-name"
+            name.appendChild(document.createTextNode(gettext(capital.name)))
+            element.appendChild(dot)
+            element.appendChild(name)
+            val marker = deps.createMarker(element, arrayOf(capital.lon, capital.lat))
+            marker.addTo(newMap)
+            capitalMarkers.add(marker)
+        }
+    }
+
+    /**
+     * V1.9.9 "Details & Suche" -- small-locality labels sourced from the bundled PMTiles basemap's own
+     * `places` vector source-layer, WITHOUT ever adding a MapLibre style/symbol layer for it (see
+     * `MemberMapBasemapStyle.kt`'s class KDoc for why: no `glyphs` URL, no new server route, no
+     * vendored font assets). `map.querySourceFeatures(sourceId, {sourceLayer})` reads already-fetched
+     * vector-tile bytes directly -- it works whether or not a style layer renders that source-layer at
+     * all, which is exactly the gap this method exploits.
+     *
+     * **Guarded, not assumed, on two fronts**: `querySourceFeatures` itself may not exist on whatever
+     * `deps.createMap` produced (every jsTest fakes [MemberMapDeps.createMap] with a plain object that
+     * does NOT define it -- see `MemberMapMapControllerTest`'s `fakeMap()` -- deliberately, so existing
+     * tests never need to know about this V1.9.9 addition unless they opt in); and the zoom gate
+     * ([PLACE_LABELS_MIN_ZOOM]) avoids even attempting the query while zoomed out to the Bundesland
+     * overview, where the underlying z10 tile's `places` features would mostly still be off-screen
+     * clutter-in-waiting rather than a locality actually near the visible area.
+     *
+     * Always fully clears and rebuilds [placeLabelMarkers] rather than diffing -- this runs at most
+     * once per `"moveend"`, a user-paced event, so the DOM churn is negligible and a diff would be
+     * meaningfully more code for no measurable benefit.
+     */
+    private fun updatePlaceLabels(newMap: dynamic) {
+        placeLabelMarkers.forEach { it.remove() }
+        placeLabelMarkers.clear()
+        if ((newMap.getZoom() as Double) < PLACE_LABELS_MIN_ZOOM) return
+        val queryFn = newMap.querySourceFeatures
+        if (jsTypeOf(queryFn) != "function") return
+
+        val options = js("({})")
+        options.sourceLayer = "places"
+        val rawFeatures = newMap.querySourceFeatures("member-map-basemap", options)
+        val length = (rawFeatures?.length as? Int) ?: 0
+        val candidates = mutableListOf<PlaceLabelCandidate>()
+        for (i in 0 until length) {
+            val feature = rawFeatures[i]
+            val props = feature.properties
+            // `props["name:de"]` (bracket indexing), not `.name:de` -- a colon is not a legal Kotlin
+            // identifier character, and `dynamic` indexing compiles to plain JS bracket access.
+            val name = (props.name as? String) ?: (props["name:de"] as? String) ?: continue
+            val coordinates = feature.geometry.coordinates
+            val lon = (coordinates[0] as? Double) ?: continue
+            val lat = (coordinates[1] as? Double) ?: continue
+            candidates += PlaceLabelCandidate(name = name, lon = lon, lat = lat)
+        }
+
+        val excluded = (MEMBER_MAP_LABELS.map { it.name } + MEMBER_MAP_CAPITALS.map { it.name }).toSet()
+        val selected = selectPlaceLabels(candidates, excluded, PLACE_LABELS_MAX_COUNT)
+        selected.forEach { place ->
+            val element = document.createElement("div") as HTMLElement
+            element.className = "lapis-member-map-place-label"
+            element.setAttribute("aria-hidden", "true")
+            element.appendChild(document.createTextNode(place.name))
+            val marker = deps.createMarker(element, arrayOf(place.lon, place.lat))
+            marker.addTo(newMap)
+            placeLabelMarkers.add(marker)
         }
     }
 
@@ -441,17 +558,87 @@ internal class MemberMapMapController(
 
     /** A table-row click: centers the map on the entry at [MemberMapRules.FLY_TO_ZOOM] -- `jumpTo` (no animation) under `prefers-reduced-motion`. */
     fun flyToEntry(entry: MemberMapEntryDto) {
-        val lat = entry.lat ?: return
-        val lon = entry.lon ?: return
+        flyTo(entry.lon ?: return, entry.lat ?: return, MemberMapRules.FLY_TO_ZOOM.toDouble())
+    }
+
+    /** V1.9.9 Ortssuche: an accepted search result -- same `prefers-reduced-motion` branch as [flyToEntry], but [MemberMapRules.PLACE_FLY_TO_ZOOM] (deeper, see that constant's own KDoc). */
+    fun flyToPlace(
+        lon: Double,
+        lat: Double,
+    ) {
+        flyTo(lon, lat, MemberMapRules.PLACE_FLY_TO_ZOOM.toDouble())
+    }
+
+    private fun flyTo(
+        lon: Double,
+        lat: Double,
+        zoom: Double,
+    ) {
         val currentMap = map ?: return
         val options = js("({})")
         options.center = arrayOf(lon, lat)
-        options.zoom = MemberMapRules.FLY_TO_ZOOM
+        options.zoom = zoom
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
             currentMap.jumpTo(options)
         } else {
             currentMap.flyTo(options)
         }
+    }
+
+    /**
+     * V1.9.9 Ortssuche: shows (or replaces) the one search-result pin, plus a popup with [content] --
+     * `setDOMContent`, never `setHTML` (same XSS discipline as [showPopup]/[buildTooltipContent];
+     * [content] is built by the caller, [MemberMapScreen.kt], from server-returned place names/counts).
+     * Only ONE pin at a time (a new search clears the old one first), same "one thing shown" posture
+     * as [popup]/[hoverPopup].
+     */
+    fun showSearchPin(
+        lon: Double,
+        lat: Double,
+        content: HTMLElement,
+    ) {
+        val currentMap = map ?: return
+        clearSearchPin()
+        val pinElement = document.createElement("div") as HTMLElement
+        pinElement.className = "lapis-member-map-search-pin"
+        val marker = deps.createMarker(pinElement, arrayOf(lon, lat))
+        marker.addTo(currentMap)
+        searchPinMarker = marker
+
+        val popupOptions = js("({})")
+        popupOptions.closeButton = true
+        popupOptions.className = "lapis-member-map-search-pin-popup"
+        val newPopup = deps.createPopup(popupOptions)
+        newPopup.setLngLat(arrayOf(lon, lat))
+        newPopup.setDOMContent(content)
+        newPopup.addTo(currentMap)
+        // `maplibre-gl`'s `Popup.remove()` ALWAYS fires `"close"`, whether triggered programmatically
+        // (this class's own `clearSearchPin()`) or by the popup's own native "×" button (`closeButton =
+        // true` above) calling `remove()` on itself internally -- listening here is what makes the pin
+        // MARKER disappear together with the popup when the board member uses that native "×", instead
+        // of being left stranded on the map with no way to remove it (bug found 2026-09-28: this listener
+        // was missing even though [clearSearchPin]'s own KDoc already claimed the "×" cleared the pin).
+        newPopup.on("close") { clearSearchPin() }
+        searchPinPopup = newPopup
+    }
+
+    /**
+     * Removes the Ortssuche pin/popup, if any -- called on a new search ([showSearchPin]'s own
+     * defensive call before showing the next pin), the popup's own native "×" (via the `"close"` event
+     * [showSearchPin] wires, see its KDoc), or [destroy].
+     *
+     * Nulls both fields out FIRST, then calls `.remove()` on the captured locals -- not the other way
+     * around. `Popup.remove()` fires `"close"` synchronously, which re-enters this very function (the
+     * listener [showSearchPin] wires); nulling first makes that reentrant call see already-`null` fields
+     * and no-op, instead of calling `.remove()` a second time on an object mid-removal.
+     */
+    fun clearSearchPin() {
+        val marker = searchPinMarker
+        val markerPopup = searchPinPopup
+        searchPinMarker = null
+        searchPinPopup = null
+        marker?.remove()
+        markerPopup?.remove()
     }
 
     private fun setupThemeObserver(newMap: dynamic) {
@@ -464,7 +651,7 @@ internal class MemberMapMapController(
         resizeObserver = observer
     }
 
-    /** The map's nine color paint properties -- see [MemberMapColors] KDoc. */
+    /** The map's ten color paint properties -- see [MemberMapColors] KDoc. */
     private fun applyColors(
         newMap: dynamic,
         colors: MemberMapColors,
@@ -473,6 +660,11 @@ internal class MemberMapMapController(
         newMap.setPaintProperty("member-map-water", "fill-color", colors.water)
         newMap.setPaintProperty("member-map-state-borders", "line-color", colors.stateBorder)
         newMap.setPaintProperty("member-map-country-borders", "line-color", colors.countryBorder)
+        // The halo sits UNDER "member-map-country-borders" (MemberMapBasemapStyle.kt) and is initially
+        // painted with the same colors.countryBorder -- it must be kept in sync here too, or a theme
+        // switch leaves the halo showing the OLD color while the solid border on top switches to the new
+        // one (visibly wrong two-tone border around the whole country).
+        newMap.setPaintProperty("member-map-country-borders-halo", "line-color", colors.countryBorder)
         newMap.setPaintProperty("member-map-highways", "line-color", colors.highway)
         newMap.setPaintProperty(MEMBER_MAP_POINTS_LAYER_ID, "circle-color", colors.pointFill)
         newMap.setPaintProperty(MEMBER_MAP_POINTS_LAYER_ID, "circle-stroke-color", colors.pointStroke)
@@ -486,8 +678,13 @@ internal class MemberMapMapController(
         hoverPopup?.remove()
         hoverPopup = null
         hoverKey = null
+        clearSearchPin()
         labelMarkers.forEach { it.remove() }
         labelMarkers.clear()
+        capitalMarkers.forEach { it.remove() }
+        capitalMarkers.clear()
+        placeLabelMarkers.forEach { it.remove() }
+        placeLabelMarkers.clear()
         themeObserver?.disconnect()
         themeObserver = null
         resizeObserver?.disconnect()
