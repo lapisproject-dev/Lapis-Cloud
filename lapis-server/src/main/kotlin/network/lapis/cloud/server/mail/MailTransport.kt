@@ -67,10 +67,15 @@ internal fun maskEmailForLogging(address: String): String {
 }
 
 /**
- * Abstraction over "send exactly one email, right now". [MailDispatcher] is the only caller in
- * this codebase -- individual mailer adapters ([SmtpPasswordResetMailer]/
- * [SmtpFriendVerificationMailer]) never call a [MailTransport] directly, see [MailDispatcher] KDoc
- * for why (timing-side-channel-safe fire-and-forget).
+ * Abstraction over "send exactly one email, right now". [MailDispatcher] is the only caller for
+ * the single-recipient transactional mailers in this codebase ([SmtpPasswordResetMailer]/
+ * [SmtpFriendVerificationMailer] never call a [MailTransport] directly, see [MailDispatcher] KDoc
+ * for why -- timing-side-channel-safe fire-and-forget). Welle V1.9.7 "SuperMailer" adds a SECOND,
+ * independent caller: `network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker` calls
+ * [send] directly (never through [MailDispatcher]) for bulk mailing-list sends -- see that class's
+ * own KDoc for why (a 64-slot single-mail queue shared with password-reset/FRIEND mail is the
+ * wrong shape for a potentially-thousands-of-recipients bulk send, and would risk starving those
+ * transactional mails).
  */
 interface MailTransport {
     /**

@@ -17,6 +17,9 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
@@ -29,6 +32,9 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SocialPostBoostTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.MailBranding
+import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
 import network.lapis.cloud.shared.domain.AccountRole
@@ -40,6 +46,7 @@ import network.lapis.cloud.shared.domain.CrowdfundingReactionValue
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.ElectionBallotInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
+import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PeerTransferCharacterization
 import network.lapis.cloud.shared.domain.PeerTransferInput
@@ -590,6 +597,14 @@ private fun selectSocialPostIdsOf(memberIds: List<Uuid>): List<Uuid> {
 }
 
 /** Throwaway routes -- ONE per Aufrufstelle aus Plan § 2.4/5.3, no wire format to reverse-engineer. */
+private fun noOpMailingDeliveryWorker() =
+    MailingDeliveryWorker(
+        transport = NoOpMailTransport(),
+        branding = MailBranding.notConfigured(),
+        mode = MailingDeliveryMode.LOG,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    )
+
 private fun Route.registerBoundaryTestRoutes() {
     fun socialModerationService(callCtx: io.ktor.server.application.ApplicationCall) =
         SocialNetworkService(
@@ -767,17 +782,35 @@ private fun Route.registerBoundaryTestRoutes() {
         call.respondText(service.unreadCount().toString())
     }
     get("/test/list-mailing-lists") {
-        val service = MailingService(call = call)
+        val service =
+            MailingService(
+                call = call,
+                deliveryWorker = noOpMailingDeliveryWorker(),
+                deliveryMode = MailingDeliveryMode.LOG,
+                branding = MailBranding.notConfigured(),
+            )
         call.respondText(service.listMailingLists().size.toString())
     }
     post("/test/subscribe") {
-        val service = MailingService(call = call)
+        val service =
+            MailingService(
+                call = call,
+                deliveryWorker = noOpMailingDeliveryWorker(),
+                deliveryMode = MailingDeliveryMode.LOG,
+                branding = MailBranding.notConfigured(),
+            )
         val q = call.request.queryParameters
         service.subscribe(mailingListId = q["mailingListId"]!!)
         call.respondText("ok")
     }
     post("/test/unsubscribe") {
-        val service = MailingService(call = call)
+        val service =
+            MailingService(
+                call = call,
+                deliveryWorker = noOpMailingDeliveryWorker(),
+                deliveryMode = MailingDeliveryMode.LOG,
+                branding = MailBranding.notConfigured(),
+            )
         val q = call.request.queryParameters
         service.unsubscribe(mailingListId = q["mailingListId"]!!)
         call.respondText("ok")

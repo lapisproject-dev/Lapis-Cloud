@@ -64,6 +64,7 @@ object PersonalDataRegistry {
             KeycloakLinkPersonalData,
             McpPersonalData,
             ArticlePersonalData,
+            ConferenceBackgroundPersonalData,
         )
 
     /**

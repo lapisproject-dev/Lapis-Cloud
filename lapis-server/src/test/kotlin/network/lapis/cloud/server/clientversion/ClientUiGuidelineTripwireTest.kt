@@ -159,6 +159,15 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                         "val moreToggleButton = controlsRow.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",
                     ),
+                // V1.9.4 own-uploaded-background remove (×) button -- same pattern as the conference control
+                // buttons above: aria-label is set right after construction via RawAttributes, not inline in
+                // the same call/lambda, so this scan cannot see it (no `title` at all, by design -- the tile's
+                // own visible label ("Eigenes Bild") already names it, the × only needs an accessible name via
+                // aria-label, not a redundant tooltip).
+                "ConferenceBackgroundSection.kt" to
+                    listOf(
+                        "wrapper.button(\"\", icon = \"fas fa-xmark\", style = ButtonStyle.OUTLINEDANGER) {",
+                    ),
             ),
         // Welle V1.4.27 (W3) / V1.4.31 (W5): the pseudo-table columns (`width = N.px` on a row/header cell). W5 paid off the last
         // four ledger entries: AuctionScreen, CrowdfundingScreen and PoliticianScreen became `dataTable`s
@@ -585,6 +594,9 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // W4d (this batch): no labelled text field at all -- only an IMMEDIATE SWITCH checkbox (justified below,
         // R24B_JUSTIFIED, same reason as `StatuteQaScreen.kt`).
         "NonprofitComplianceReportsScreen.kt",
+        // V1.9.6 "Vorstands-Karte, Client-Hälfte": only the PLZ/Ort search filter (justified below,
+        // FILTER_IS_NOT_A_FORM) -- no form to build.
+        "MemberMapScreen.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -639,6 +651,8 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
         // W4d batch 2 -- FILTER_IS_NOT_A_FORM: narrows the document list of the open folder, never submitted.
         "DocumentsScreen.kt" to
             listOf("searchInput = searchRow.text(label = tr(\"Dokumente in diesem Ordner durchsuchen\"))"),
+        // V1.9.6 -- FILTER_IS_NOT_A_FORM: narrows the PLZ/Ort table, never submitted.
+        "MemberMapScreen.kt" to listOf("val searchInput = tablePanel.text(label = tr(\"PLZ oder Ort\"))"),
     )
 
 /**

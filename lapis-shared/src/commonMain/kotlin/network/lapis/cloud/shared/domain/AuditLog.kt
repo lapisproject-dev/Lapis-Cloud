@@ -317,7 +317,7 @@ enum class AuditEntityType {
      * `rejectArticle`/`unpublishArticle` each write exactly one `ARTICLE` `UPDATE` entry per status
      * transition, `entityId` = the `article` row's id. 7 characters, well under the VARCHAR(29)
      * width limit. Appended LAST, after `DOCUMENT_FOLDER`, additive only -- see
-     * `V53__article.sql`'s `chk_audit_log_entry_entity_type` widening.
+     * `V55__article.sql`'s `chk_audit_log_entry_entity_type` widening.
      */
     ARTICLE,
 }

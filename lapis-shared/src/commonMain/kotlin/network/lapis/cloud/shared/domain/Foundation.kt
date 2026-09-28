@@ -137,6 +137,33 @@ object MemberStatusSets {
     val LTR_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.FRIEND)
 
     /**
+     * Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen". Deliberately NARROWER
+     * than [CONFERENCE_ELIGIBLE] -- uploading a private background image is a STORAGE-consuming
+     * write, not merely joining a call. [MemberStatus.FRIEND] is a self-registered, by-default
+     * identity-UNVERIFIED account (see [LTR_ELIGIBLE] KDoc "Akzeptiertes Restrisiko") that could
+     * otherwise be used as free image-hosting; [MemberStatus.GUEST] is a föderierte OIDC identity
+     * whose data belongs on ITS OWN home server, not this one. Only a full [ORGANIZATION_MEMBER]
+     * may upload. This gate covers UPLOAD only -- listing, viewing and deleting one's OWN already-
+     * uploaded images stay available regardless of the caller's CURRENT status (see
+     * `ConferenceBackgroundRoutes` KDoc), so a member who later loses ACTIVE status can still
+     * remove their own photos.
+     */
+    val CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /**
+     * Welle V1.9.5 "Vorstands-Karte" (member map, second attempt). Deliberately just
+     * [ORGANIZATION_MEMBER] -- narrower than e.g. [ANNIVERSARY_ELIGIBLE] or
+     * [CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE]'s own reasoning would suggest for a "member" concept, but
+     * this is a geographic-distribution report, not a courtesy list: [MemberStatus.DONOR] never had
+     * a Beitrittsvertrag with this organization, [MemberStatus.FRIEND]/[MemberStatus.GUEST] are
+     * unverified/foreign-hosted identities, and [MemberStatus.APPLICATION]/[MemberStatus.WITHDRAWN]/
+     * [MemberStatus.REJECTED]/[MemberStatus.DECEASED] are none of them a CURRENT resident this board
+     * needs to see on a live map. Combined with `anonymized_at IS NULL` at the query site (see
+     * `BoardMemberMapService`), not duplicated here.
+     */
+    val MEMBER_MAP_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /**
      * Politician-rating basket (V0.6.4 guest basket), deliberately EXCLUDES [MemberStatus.FRIEND]
      * -- an unverified, self-registered name must not move a public trust metric.
      */

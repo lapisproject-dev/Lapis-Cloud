@@ -324,6 +324,14 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Speicherung eigener Hintergrundbilder für Videokonferenzen (sofern hochgeladen) — Art. 6 " +
+                        "Abs. 1 lit. b DSGVO. Diese Bilder sind ausschließlich für das hochladende Mitglied " +
+                        "sichtbar, werden nicht in das Organisations-Backup einbezogen und bei Löschung " +
+                        "unmittelbar entfernt."
+                )
+            }
+            li {
+                +(
                     "Versand von E-Mails (u. a. Passwort-Rücksetzung, E-Mail-Bestätigung, Benachrichtigungen) " +
                         "— Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO."
                 )

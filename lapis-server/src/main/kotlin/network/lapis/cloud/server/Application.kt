@@ -23,11 +23,13 @@ import io.ktor.server.plugins.compression.excludeContentType
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.path
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.sync.Semaphore
 import network.lapis.cloud.server.accounting.export.AccountingExportConfig
 import network.lapis.cloud.server.accounting.export.AccountingExportPoller
 import network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter
@@ -112,10 +114,16 @@ import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryConfig
+import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.mcp.config.McpStartupCheck
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
+import network.lapis.cloud.server.membermap.MemberMapConfig
+import network.lapis.cloud.server.membermap.MemberMapStartupCheck
+import network.lapis.cloud.server.membermap.PmtilesBasemap
+import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
@@ -144,6 +152,7 @@ import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
 import network.lapis.cloud.server.routes.registerClientAssetRoutes
 import network.lapis.cloud.server.routes.registerClientVersionRoutes
+import network.lapis.cloud.server.routes.registerConferenceBackgroundRoutes
 import network.lapis.cloud.server.routes.registerConferenceRecordingRoutes
 import network.lapis.cloud.server.routes.registerCrmRoutes
 import network.lapis.cloud.server.routes.registerDatevRoutes
@@ -160,6 +169,7 @@ import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMcpRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
 import network.lapis.cloud.server.routes.registerMemberCardRoutes
+import network.lapis.cloud.server.routes.registerMemberMapRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -183,8 +193,10 @@ import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BankAccountService
 import network.lapis.cloud.server.rpc.BankStatementService
+import network.lapis.cloud.server.rpc.BoardMemberMapService
 import network.lapis.cloud.server.rpc.BoardMembershipService
 import network.lapis.cloud.server.rpc.CateringService
+import network.lapis.cloud.server.rpc.ConferenceBackgroundService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
@@ -242,6 +254,7 @@ import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.Greeting
 import network.lapis.cloud.shared.domain.AccountingExportProvider
+import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
@@ -254,8 +267,10 @@ import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBankAccountService
 import network.lapis.cloud.shared.rpc.IBankStatementService
+import network.lapis.cloud.shared.rpc.IBoardMemberMapService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.ICateringService
+import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -347,7 +362,7 @@ fun main() {
 
 private val applicationLogger = KotlinLogging.logger {}
 
-fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpConfig.load())
+fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpConfig.load(), memberMapConfig = MemberMapConfig.load())
 
 /**
  * The real module body. [aiConfig] is a parameter (production always passes [AiConfig.load]) so
@@ -360,6 +375,11 @@ fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpCon
 internal fun Application.module(
     aiConfig: AiConfig,
     mcpConfig: McpConfig = McpConfig.disabled(),
+    // Welle V1.9.5 "Vorstands-Karte" -- same "explicit parameter with a production-safe default"
+    // pattern as [aiConfig]/[mcpConfig] above, so every pre-existing `module(aiConfig = ...)` test
+    // call site keeps compiling unchanged, with the map feature simply unconfigured/off.
+    memberMapConfig: MemberMapConfig = MemberMapConfig.notConfigured(),
+    postalCodeCentroids: PostalCodeCentroidIndex? = PostalCodeCentroidIndex.bundled,
 ) {
     // Idempotent (see DatabaseConfig/DevSeedData KDoc) — safe to call again here so that
     // ApplicationTest's `testApplication { application { module() } }` also gets a migrated,
@@ -399,6 +419,12 @@ internal fun Application.module(
     // harmless -- requests to "/" just 404 instead of breaking server startup or the test suite.
     val clientDistRoot = File(System.getenv("LAPIS_CLIENT_DIST_ROOT") ?: "../lapis-client/build/dist/js/productionExecutable")
     clientDistRoot.mkdirs()
+
+    // Welle V1.9.5 "Vorstands-Karte" -- see MemberMapConfig/PmtilesBasemap/MemberMapStartupCheck
+    // KDoc. Never fail-fast (same posture as branding/SMTP): an unset/invalid/missing PMTiles file
+    // degrades to `tilesAvailable = false`, the server starts either way.
+    val memberMapBasemap = PmtilesBasemap(memberMapConfig.pmtilesPath)
+    MemberMapStartupCheck.log(config = memberMapConfig, basemap = memberMapBasemap)
 
     // V1.7.1b/V1.7.2 "Keycloak als externe Benutzerverwaltung" -- loaded here, BEFORE
     // resolvedBranding/clientShell below (V1.7.2 sub-wave 2a: clientShell's lazy block needs
@@ -572,6 +598,29 @@ internal fun Application.module(
     // its worker coroutines and any in-flight/queued sends dangle past shutdown instead of being
     // torn down together with the rest of the application (see MailDispatcher.shutdown KDoc).
     monitor.subscribe(ApplicationStopping) { mailDispatcher.shutdown() }
+
+    // Welle V1.9.7 "SuperMailer" -- LAPIS_MAILING_DELIVERY (default "log"), fail-fast on an
+    // unrecognized value (MailingDeliveryConfig.load) or on "smtp" without real SMTP configured
+    // (mirrors the SmtpConfig/SmtpStartupCheck "opt-in but broken must never silently degrade"
+    // posture above -- an operator who asked for real bulk mail delivery must never silently get
+    // LOG-mode behaviour instead).
+    val mailingDeliveryMode = MailingDeliveryConfig.load()
+    if (mailingDeliveryMode == MailingDeliveryMode.SMTP && smtpConfigState !is SmtpConfigState.Configured) {
+        throw IllegalStateException(
+            "${MailingDeliveryConfig.ENV_KEY}=smtp requires real SMTP configuration (LAPIS_SMTP_*) -- none is set.",
+        )
+    }
+    val mailingDeliveryWorker =
+        MailingDeliveryWorker(
+            transport = mailTransport,
+            branding = mailBranding,
+            mode = mailingDeliveryMode,
+            sendDelay = MailingDeliveryConfig.loadSendDelay(),
+        )
+    // D2 (plan) -- close out anything an earlier process instance left mid-send BEFORE this
+    // instance serves any request, see MailingDeliveryWorker.recoverInterrupted KDoc.
+    mailingDeliveryWorker.recoverInterrupted()
+    monitor.subscribe(ApplicationStopping) { mailingDeliveryWorker.shutdown() }
 
     // V0.7.2 Beitritts-/Registrierungs-Workflow -- constructed once here, same lifecycle as
     // loginRateLimiter above. passwordResetMailer delegates to mailDispatcher above -- a real
@@ -754,6 +803,12 @@ internal fun Application.module(
     val conferenceNotesEditRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val conferenceNotesDeleteRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     val conferenceNotesSaveRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" -- 10 uploads/hour/member
+    // (deliberately narrower window than most limiters here, matching the plan's own choice), plus
+    // a server-wide cap on CONCURRENT image decodes (decompression-bomb / CPU-DoS defense-in-depth,
+    // independent of the rate limiter -- see ConferenceBackgroundImageProcessor KDoc).
+    val conferenceBackgroundUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
+    val conferenceBackgroundDecodeSemaphore = Semaphore(permits = 2)
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
@@ -1413,6 +1468,19 @@ internal fun Application.module(
     // `docs/architecture/video-background-effects.adoc` vermerkt.
     install(Compression) {
         excludeContentType(ContentType.Image.WEBP)
+        // Welle V1.9.4: the conference-background image/thumbnail routes always serve an already
+        // JPEG-compressed body (ConferenceBackgroundImageProcessor re-encodes every upload to
+        // JPEG) -- gzip on top costs CPU per request for no size benefit, same reasoning as the
+        // WEBP exclusion above. This is a small, global change that also affects
+        // TravelExpenseReceiptRoutes' own JPEG/PNG receipt downloads, which is harmless (the same
+        // "already compressed" argument applies there too).
+        excludeContentType(ContentType.Image.JPEG)
+        // Welle V1.9.5 "Vorstands-Karte": the PMTiles basemap route (registerMemberMapRoutes) calls
+        // `call.suppressCompression()` itself, on every response, before this route needed a
+        // global exclusion here -- see that function's own KDoc for why a 206 partial-content
+        // response must never be gzip-wrapped (it would corrupt PMTiles' internal byte-offset
+        // directory) and for the bytecode-verified proof that `suppressCompression()` exists in
+        // `ktor-server-core-jvm` and is honored by this plugin.
     }
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
     // AutoHeadResponse (HEAD for the same GET routes) back the staticFiles() registration below --
@@ -1457,14 +1525,24 @@ internal fun Application.module(
         registerService(
             ITravelExpenseService::class,
         ) { call -> TravelExpenseService(call = call, receiptStorageRoot = documentStorageRoot) }
+        // Welle V1.9.4 -- reuses documentStorageRoot with a "conference-backgrounds/" storage-key
+        // prefix, same convention as travel-expense receipts above.
+        registerService(
+            IConferenceBackgroundService::class,
+        ) { call -> ConferenceBackgroundService(call = call, storageRoot = documentStorageRoot) }
         // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale".
         registerService(IVolunteerAllowanceService::class) { call -> VolunteerAllowanceService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
         registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
+        registerService(
+            IBoardMemberMapService::class,
+        ) { call -> BoardMemberMapService(call = call, basemap = memberMapBasemap, centroids = postalCodeCentroids) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }
-        registerService(IMailingService::class) { call -> MailingService(call) }
+        registerService(IMailingService::class) { call ->
+            MailingService(call = call, deliveryWorker = mailingDeliveryWorker, deliveryMode = mailingDeliveryMode, branding = mailBranding)
+        }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(
             IDsgvoService::class,
@@ -1760,6 +1838,12 @@ internal fun Application.module(
         }
         registerDocumentRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen".
+        registerConferenceBackgroundRoutes(
+            storageRoot = documentStorageRoot,
+            rateLimiter = conferenceBackgroundUploadRateLimiter,
+            decodeSemaphore = conferenceBackgroundDecodeSemaphore,
+        )
         // Welle "Digitaler Mitgliedsausweis (PDF)" -- POST (nicht GET), weil jeder Aufruf einen
         // frischen Ausweis-Code praegt und den vorherigen entwertet; siehe
         // registerMemberCardRoutes KDoc.
@@ -1971,6 +2055,7 @@ internal fun Application.module(
         // V1.4.23 Videokonferenz-Hintergrundeffekte -- WASM/Modell/Hintergrundbilder mit Cache-Control, siehe
         // `registerClientAssetRoutes` KDoc (ohne sie laedt jeder Kamera-Toggle 19 MB neu).
         registerClientAssetRoutes(clientDistRoot = clientDistRoot)
+        registerMemberMapRoutes(basemap = memberMapBasemap)
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last
         // documents the intent -- this is the fallback for everything not already handled above.

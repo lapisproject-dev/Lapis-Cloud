@@ -13,6 +13,12 @@ public object MailingMessageTable : Table("mailing_message") {
     public val id: Column<Uuid> = uuid("id")
     public val subject: Column<String> = varchar("subject", 300)
     public val bodyText: Column<String> = varchar("body_text", 20000)
+
+    /**
+     * Welle V1.9.7 "SuperMailer" -- sanitized HTML content (see `MailingHtmlSanitizer`), NULL for
+     * plain-text drafts and everything created before this wave. See 03-communication.kuml.kts.
+     */
+    public val bodyHtml: Column<String?> = text("body_html").nullable()
     public val sentBy: Column<Uuid> = reference("sent_by", MemberTable.id)
     public val sentAt: Column<LocalDateTime?> = datetime("sent_at").nullable()
     public val status: Column<MailingMessageStatus> = enumerationByName<MailingMessageStatus>("status", 6)

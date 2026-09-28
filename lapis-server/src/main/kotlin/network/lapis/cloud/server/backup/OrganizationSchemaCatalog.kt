@@ -32,6 +32,15 @@ object OrganizationSchemaCatalog {
     val EXCLUDED_TABLES: Map<String, String> =
         mapOf(
             "flyway_schema_history" to "Flyway migration bookkeeping, not organizational data.",
+            "conference_background_image" to
+                "Welle V1.9.4. Private, non-organizational data (a member's own uploaded video-" +
+                "conference background photo) -- the ADMIN-only whole-organization backup must " +
+                "not become a way to read a member's private photos (see " +
+                "docs/architecture/video-background-effects.adoc § \"Custom backgrounds\", " +
+                "\"Backup exclusion\"). Deliberately also NOT in OrganizationExportService." +
+                "BLOB_TABLES -- restoring only the metadata row without the file bytes would " +
+                "leave a row with no file behind it, which would still count against " +
+                "ConferenceBackgroundRules.MAX_PER_MEMBER and whose thumbnail would 404 forever.",
         )
 
     data class ColumnMetadata(

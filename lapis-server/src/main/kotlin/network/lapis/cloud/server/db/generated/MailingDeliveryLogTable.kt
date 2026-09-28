@@ -13,6 +13,18 @@ public object MailingDeliveryLogTable : Table("mailing_delivery_log") {
     public val id: Column<Uuid> = uuid("id")
     public val deliveredAt: Column<LocalDateTime> = datetime("delivered_at")
     public val deliveryStatus: Column<DeliveryStatus> = enumerationByName<DeliveryStatus>("delivery_status", 20)
+
+    /**
+     * Welle V1.9.7 "SuperMailer", Grundlage für Teil B/C. SHA-256 hash of an opaque token (see
+     * `MailingTrackingToken`, Folge-Welle) -- NULL while no recipient with an active consent
+     * exists. Written by `MailingDeliveryWorker`, always NULL in this wave (no consent path is
+     * active yet).
+     */
+    public val trackingTokenHash: Column<String?> = varchar("tracking_token_hash", 64).nullable().uniqueIndex()
+    public val openTracked: Column<Boolean> = bool("open_tracked").default(false)
+    public val clickTracked: Column<Boolean> = bool("click_tracked").default(false)
+    public val firstOpenedAt: Column<LocalDateTime?> = datetime("first_opened_at").nullable()
+    public val openCount: Column<Int> = integer("open_count").default(0)
     public val mailingMessageId: Column<Uuid> = reference("mailing_message_id", MailingMessageTable.id)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 

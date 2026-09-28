@@ -184,7 +184,15 @@ pg_dump -U lapiscloud -h 127.0.0.1 -d lapiscloud -F c -f /tmp/lapiscloud.dump
   volume or environment variable) -- this one copy step already carries them along. Event cover
   images live under this same volume too (`event-covers/`, see `LAPIS_EVENT_COVER_STORAGE_ROOT`
   below), by default -- unless that variable is set, in which case its target directory must be
-  copied/mounted separately:
+  copied/mounted separately. Since V1.9.4, members' own uploaded conference background photos live
+  there too, under a `conference-backgrounds/<memberId>/` storage-key prefix -- again no separate
+  volume, and again carried along by this same copy step. NOTE: unlike every other prefix under
+  this volume, `conference-backgrounds/` is deliberately excluded from the ADMIN-facing
+  whole-organization backup feature (`registerBackupRoutes` / `OrganizationSchemaCatalog.EXCLUDED_TABLES`)
+  -- these are private per-member photos, not organizational data. This filesystem-level copy of the
+  WHOLE volume during a server migration is unaffected by that exclusion (it is not going through
+  the backup feature), but an operator relying on the ADMIN backup ZIP alone for disaster recovery
+  will NOT recover members' custom background photos that way:
 +
 [source,bash]
 ----
@@ -743,6 +751,34 @@ this case, but only a WARN, not a startup failure (an operator can legitimately 
 KDoc) stays on its default `false` regardless of whether SMTP is configured -- activating hard
 enforcement is a separate, later operational decision, not automatically flipped by this wave.
 
+== Mailing-list send mode (SuperMailer, V1.9.7, optional)
+
+`LAPIS_MAILING_DELIVERY` -- `log` (default, including when unset) or `smtp`. In `log` mode,
+`sendMailingMessage` runs the full pipeline (sanitize, render, queue one delivery-log row per
+eligible recipient) but never actually calls a transport -- the same honest non-delivery posture
+`NoOpMailTransport` establishes for the transactional mailers. `smtp` mode genuinely sends through
+the SMTP connection configured above (`network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker`)
+and therefore **requires** a complete `LAPIS_SMTP_*` configuration -- setting `LAPIS_MAILING_DELIVERY=smtp`
+without it, or setting it to anything other than `log`/`smtp`, fails the container at startup
+(`IllegalStateException`, same fail-fast posture as an incomplete SMTP configuration above). See
+`docs/architecture/mailing-newsletter.adoc` for the full design.
+
+**Before upgrading to this version, regardless of `LAPIS_MAILING_DELIVERY`**: this version's `V53`
+migration widens `V1__baseline.sql`'s own inline `CHECK` on `mailing_delivery_log.delivery_status`
+(H2 enforces that inline constraint independently of the named one Flyway manages, same trap as
+every migration since V11) -- Flyway's checksum validation of `V1` will otherwise reject the
+upgrade on EVERY instance, whatever `LAPIS_MAILING_DELIVERY` is set to (an operator who stays on
+the default `log` mode and skips this section still gets a container that fails to start). Run a
+`flyway repair` (see `network.lapis.cloud.server.bootstrap.FlywayRepair`) as part of this version's
+deploy, before the application container starts.
+
+`LAPIS_MAILING_SEND_DELAY_MS` (optional, default `250`) -- the pause between two recipients of the
+same bulk send, a throttle against the configured relay's own rate limits. The concrete sending
+limit of a netcup-hosted mailbox used as a relay has not been established yet; before a real
+multi-thousand-recipient send, confirm the provider's limit and raise this value if needed (a
+5000-recipient send at the 250ms default takes a little over 20 minutes end to end; a much smaller
+delay risks the relay throttling or blocking the connection mid-send).
+
 == White-Label-Branding (optional)
 
 `LAPIS_BRAND_TITLE`, `LAPIS_BRAND_LOGO_PATH` -- **both optional, independent of each other**
@@ -780,6 +816,60 @@ logo shows no mark at all next to it, rather than a mark that would misleadingly
 `https://cloud.lapisproject.dev`, regardless of `LAPIS_BRAND_TITLE`/`LAPIS_BRAND_LOGO_PATH` --
 `LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
 platform itself comes from.
+
+== Member map (optional)
+
+`LAPIS_MAP_PMTILES_PATH` -- **optional**, unset by default. When unset (or invalid, or pointing at a
+missing/unreadable/non-PMTiles file), the BOARD/ADMIN-only "Mitgliederkarte" screen still works,
+just showing its "no basemap configured" state and the underlying table of postal-code aggregates
+regardless -- see `network.lapis.cloud.server.membermap.MemberMapConfig` KDoc, same never-fail-fast
+posture as White-Label-Branding above.
+
+**Provisioning the basemap file** (an operator step, done once per instance -- the file itself is
+NEVER committed to this or any other repository, see this repo's root `.gitignore`):
+
+[source,bash]
+----
+# go-pmtiles (https://github.com/protomaps/go-pmtiles) -- extracts only Germany's bounding box
+# via HTTP Range requests against a public Protomaps build, NOT a full-planet download (~196 MB
+# actually transferred, not the ~138 GB full planet file).
+pmtiles extract https://build.protomaps.com/<YYYYMMDD>.pmtiles germany.pmtiles \
+  --bbox=5.5,47.0,15.6,55.2 --maxzoom=10
+
+# Sanity-check the result before deploying it:
+pmtiles show germany.pmtiles
+----
+
+Place the resulting `germany.pmtiles` (roughly 190 MB) under `deploy/<instance>/geodata/` on the
+host and set `LAPIS_MAP_PMTILES_PATH=/app/geodata/germany.pmtiles` in that instance's `.env` --
+`docker-compose.yml` bind-mounts `./geodata:/app/geodata:ro` read-only, mirroring the
+`./branding:/app/branding:ro` mount above.
+
+**Reverse-proxy note**: the basemap is served over `GET /api/board/member-map/basemap.pmtiles` with
+HTTP `Range` support (hundreds of small range requests per map session) -- a reverse proxy in front
+of this deployment (Caddy, nginx, Apache) must pass `Range`/`Accept-Ranges`/206 responses through
+unmodified and must NOT gzip-re-encode them (gzip would corrupt PMTiles' internal byte-offset
+directory). Verify after any proxy change:
+
+[source,bash]
+----
+curl -sI -H 'Range: bytes=0-126' -H 'Accept-Encoding: gzip' \
+  --cookie '<a real session cookie>' \
+  https://<host>/api/board/member-map/basemap.pmtiles
+# Expect: HTTP/1.1 206 Partial Content, NO Content-Encoding header.
+----
+
+**Postal-code centroid data** (place names + coordinates for the table/map markers) ships bundled
+with `lapis-server` itself (GeoNames CC-BY-4.0, see `lapis-server/src/main/resources/geodata/
+LICENSE-GeoNames.txt`) -- no separate provisioning step, always available regardless of
+`LAPIS_MAP_PMTILES_PATH`.
+
+**Third-party data and attribution** -- shown to the reader directly on the screen (the map's own
+attribution control, Q2 in `docs/architecture/member-map.adoc`); this file (and `README.adoc`'s
+"Third-party data" section) also documents it for operators who never open the screen:
+
+* Postal code data (c) link:https://www.geonames.org[GeoNames.org], CC-BY-4.0.
+* Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL.
 
 == AI assistance (optional, default off)
 

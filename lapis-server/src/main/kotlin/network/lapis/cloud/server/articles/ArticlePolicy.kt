@@ -7,7 +7,7 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 /**
  * Pure fachlogik for `article` -- no DB access, no transaction, same unit-testable posture
  * [EventPolicy]/`network.lapis.cloud.server.crm.CrmContactPolicy` already establish. Mirrors
- * `V53__article.sql`'s column widths.
+ * `V55__article.sql`'s column widths.
  */
 object ArticlePolicy {
     const val TITLE_MIN = 5

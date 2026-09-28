@@ -98,6 +98,17 @@ kotlin {
                 // Requires re-running `./gradlew kotlinUpgradeYarnLock` after adding, siehe die
                 // `livekit-client`-Zeile oben für die Begründung (sonst opaker YarnLockMismatch).
                 implementation(npm("@livekit/track-processors", "0.8.1"))
+                // V1.9.6 Vorstands-Karte (Client-Hälfte): fünfte und sechste hand-deklarierte npm()-Abhängigkeit
+                // nach livekit-client/@fontsource-variable-inter/chart.js/@livekit-track-processors. maplibre-gl
+                // 5.24.0 (letzte UMD-Bundle-Version vor dem ESM-only-Wechsel in 6.x, siehe Q4 in
+                // docs/architecture/member-map.adoc) und pmtiles 4.5.0 (JS-`pmtiles://`-Protokoll-Handler für
+                // MapLibre). Beide BSD-3-Clause (verifiziert im jeweiligen Paket-package.json). Bundle-Zuwachs
+                // ~230 KB gzip fuer JEDEN Besucher, nicht nur BOARD/ADMIN (Q5, bereits akzeptierter Trade-off).
+                // Externals nach exaktem LiveKitJs.kt-Muster in maplibre/MapLibreJs.kt, maplibre/Protocol.kt
+                // bzw. maplibre/ResizeObserver.kt. Requires re-running `./gradlew :lapis-client:kotlinUpgradeYarnLock`
+                // after adding, siehe die livekit-client-Zeile oben für die Begründung.
+                implementation(npm("maplibre-gl", "5.24.0"))
+                implementation(npm("pmtiles", "4.5.0"))
             }
         }
         // V0.7.3 Basis-Mehrseiten-UI: this module had no jsTest source set at all before this wave

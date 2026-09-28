@@ -1174,6 +1174,32 @@ for scanned PDFs (reported as "format not readable"); the PostgreSQL full-text p
 coverage beyond its SQL shape and must be verified once manually against the real instance
 (`PostgresFullTextRetrieverLiveTest`).
 
+== Member map ("Vorstands-Karte", V1.9.5 + V1.9.6)
+
+A BOARD/ADMIN-only aggregate view of where the organization's members live, at postal-code
+granularity -- no member id, name, street, city or date of any kind crosses the wire, only
+postal-code-bucketed counts (five aggregate categories: mapped, unresolvable-but-German, missing
+postal code, foreign, and the raw total). V1.9.5 built the server-side aggregation
+(`BoardMemberMapService.getMemberMap`) and the PMTiles basemap HTTP route; V1.9.6 added the
+`lapis-client` screen ("Mitgliederkarte" in the Verwaltung/Administration sidebar group, BOARD/ADMIN
+route guard) -- a MapLibre/PMTiles vector map with weighted, clustered postal-code markers next to an
+always-visible table of the exact same numbers. Full architecture, the privacy boundary, the
+country/postal-code classification rules and the recorded Q1-Q7 decisions:
+`docs/architecture/member-map.adoc`.
+
+The basemap file itself (~190 MB, extracted from a public Protomaps build) is an optional,
+operator-provisioned deployment artifact, never part of this repository -- see
+`deploy/example/README.adoc`, section "Member map (optional)", for how to provision it. The
+postal-code centroid lookup (place names + coordinates) ships bundled with `lapis-server` already
+(GeoNames, CC-BY-4.0).
+
+=== Third-party data
+
+* Postal code data (c) link:https://www.geonames.org[GeoNames.org], CC-BY-4.0 -- see
+  `lapis-server/src/main/resources/geodata/LICENSE-GeoNames.txt`.
+* Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL
+  (via a https://protomaps.com[Protomaps] build, BSD-3-Clause build tooling).
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

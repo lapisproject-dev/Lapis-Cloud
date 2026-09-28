@@ -487,6 +487,13 @@ object Routes {
     // direkt. Lebt in der bestehenden "Verwaltung"-Dropdown, direkt neben [MEMBER_HONORS].
     const val MEMBER_FAMILIES = "/families"
 
+    // Welle V1.9.6 "Vorstands-Karte, Client-Hälfte" -- BOARD/ADMIN, verifiziert gegen
+    // BoardMemberMapService.kt: current.requireRole(BOARD, ADMIN) -- keine Selbstauskunft-Variante
+    // (dieselbe Design-Entscheidung wie MEMBER_ANNIVERSARIES). Lebt in der Verwaltung-Dropdown,
+    // direkt neben "Geburtstage & Jubiläen". Kein Query-Parameter -- bewusst kein Deep-Link auf eine
+    // einzelne PLZ (Security-Checkliste, docs/architecture/member-map.adoc).
+    const val MEMBER_MAP = "/member-map"
+
     // Welle V1.4.5.1.1 "Kontoauszuege" -- TREASURER/BOARD/ADMIN auf Routenebene, verifiziert gegen
     // `BankStatementService.kt`s `BANK_STATEMENT_READ_ROLES`. Die engere TREASURER/ADMIN-Stufe
     // (`BANK_STATEMENT_WRITE_ROLES` = `BankStatementRoutes.BANK_STATEMENT_UPLOAD_ROLES`) wird
@@ -913,6 +920,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_FAMILIES) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBER_FAMILIES) { container -> renderMemberFamiliesScreen(container, hashQueryParam("family")) }
+        }
+    }
+    routing.kvOn(Routes.MEMBER_MAP) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.MEMBER_MAP, ::renderMemberMapScreen)
         }
     }
     routing.kvOn(Routes.BANK_IMPORT) {

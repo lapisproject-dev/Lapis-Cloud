@@ -1,5 +1,5 @@
 = Video-Conference Background Effects
-:description: Background blur and six built-in background images for the video conference, computed entirely in the participant's browser; WASM, model and images are served from this server, never from a CDN.
+:description: Background blur, six built-in background images and a member's own uploaded background images for the video conference; segmentation runs entirely in the participant's browser, WASM/model/images are served from this server, never from a CDN.
 :toc:
 :toc-placement: preamble
 :icons: font
@@ -7,15 +7,24 @@
 == Context
 
 Wave V1.4.23 adds background effects to the video conference: two blur strengths and six built-in background
-images, chosen from one collapsed row in the "Mehr" sheet of the call. It is a pure client wave. There is no new
-RPC, DTO, table or migration; the chosen effect lives in the browser's `localStorage`.
+images, chosen from one collapsed row in the "Mehr" sheet of the call. It was a pure client wave -- no new RPC,
+DTO, table or migration; the chosen effect lives in the browser's `localStorage`.
+
+Wave V1.9.4 extends this with a member's OWN uploaded background photo (up to 3 per member). This is no longer a
+pure client wave: uploading a photo means its bytes DO reach the server -- see xref:custom-backgrounds[Custom
+backgrounds] below for the full design and for where the sentence "no image is sent to the server" below now needs
+qualifying (segmentation itself is still 100% local; a chosen CUSTOM background's bytes travel once, at upload
+time, over an authenticated HTTPS route).
 
 The privacy core is the reason the design looks the way it does:
 
-* The camera frames are segmented and composited in the participant's own browser (WebGL2 + WASM). No image is sent
-  to the server for this; only the already-processed track goes out over the existing LiveKit publication.
-* The segmentation WASM, the segmentation model and the background images are served by this server. No request
-  goes to a CDN or to Google, so no third party learns that a conference takes place.
+* The camera frames are segmented and composited in the participant's own browser (WebGL2 + WASM), for BOTH the
+  built-in effects and a custom uploaded background. No camera frame is ever sent to the server for this; only the
+  already-processed track goes out over the existing LiveKit publication.
+* The segmentation WASM, the segmentation model and the six built-in background images are served by this server.
+  No request for those goes to a CDN or to Google, so no third party learns that a conference takes place. A
+  member's own uploaded background image is ALSO served by this server, from an authenticated, per-member-scoped
+  route (see xref:custom-backgrounds[Custom backgrounds]) -- not from a CDN either.
 
 == Mechanism
 
@@ -78,23 +87,43 @@ The code is split along the DOM boundary:
 | Unit | Responsibility
 
 | `ConferenceBackgroundEffects.kt`
-| Pure logic, no DOM: the nine-id whitelist, asset paths, persisted value, the three-state availability gate
-  (`ConferenceBackgroundAvailability`, including the user-agent-only app-WebView detection), the state machine
-  (`conferenceBackgroundReduce`) and the "what goes on a new track" rule (`effectToApplyForNewTrack`). Unit tested.
+| Pure logic, no DOM: the nine-id whitelist plus `ConferenceBackgroundChoice` (V1.9.4 -- generalizes a built-in
+  effect and a member's own uploaded image into one type), asset paths, persisted value, the three-state
+  availability gate (`ConferenceBackgroundAvailability`, including the user-agent-only app-WebView detection), the
+  state machine (`conferenceBackgroundReduce`) and the "what goes on a new track" rule
+  (`choiceToApplyForNewTrack`). Unit tested.
 
 | `ConferenceBackgroundController.kt`
 | Holds at most one `BackgroundProcessorWrapper` per effect episode, pre-loads a background image before it builds
   or switches one, applies it to the local camera track under a mutex and a 10 s timeout, and owns the failure path,
-  the generation counter and `localStorage`. `dispose` deliberately runs outside the mutex.
+  the generation counter and `localStorage`. `dispose` deliberately runs outside the mutex. V1.9.4 adds
+  `reconcileCustomImages`/`onCustomImageDeleted` -- reconciling the stored intent against the member's actual list
+  of uploaded images (a deleted image must not surface as a load failure, see "Stumbling blocks" below).
 
 | `ConferenceBackgroundSection.kt`
-| The collapsed row and the tile grid (roving tabindex, `role="radiogroup"`).
+| The collapsed row and the tile grid (roving tabindex, `role="radiogroup"`). V1.9.4 adds the member's own tiles
+  (each wrapped in a `role="none"` container so the radiogroup itself still contains only `role="radio"`
+  elements) plus the upload form and the per-member image count messaging.
+
+| `ConferenceBackgroundUploads.kt` (V1.9.4)
+| Client-side normalization before upload (`createImageBitmap` + canvas, capped at
+  `ConferenceBackgroundRules.MAX_OUTPUT_LONG_EDGE_PX`, comfort-only -- the server re-validates and re-encodes
+  everything) and the dedicated `fetch`-based HTTP transport (`ConferenceBackgroundHttp`), same reasoning as
+  `TravelExpenseHttp.kt` for why this is not Kilua RPC.
 
 | `TrackProcessorsJs.kt`
 | Minimal Kotlin externals for the npm package.
 
 | `LiveKitRoomSession.kt`
 | Relays `RoomEvent.LocalTrackPublished` for the own camera. Nothing else changed there.
+
+| `ConferenceBackgroundImageProcessor.kt` (server, V1.9.4)
+| Decodes an untrusted upload and re-encodes it to a metadata-stripped JPEG (main + thumbnail) -- the whole
+  security boundary against a malicious image file. See xref:custom-backgrounds[Custom backgrounds].
+
+| `ConferenceBackgroundRoutes.kt` / `ConferenceBackgroundService.kt` (server, V1.9.4)
+| The byte-carrying HTTP routes (upload/delete/download, same "not Kilua RPC" reasoning as
+  `TravelExpenseReceiptRoutes.kt`) and the read-only RPC companion (`listMine`).
 |===
 
 == No CDN
@@ -271,7 +300,10 @@ user agent or a JS bridge in `Lapis-Cloud-Mobile`), which is a change to that re
   gzip a large file. Mitigated in practice by the one-year `immutable` policy (browsers and any intermediate cache
   fetch it once), not by a limit. If this ever needs a real fix, pre-compressed files on disk
   (`preCompressed(CompressedFileType.GZIP)`) or a rate limit on the asset prefix are the options.
-* **No custom background uploads, and no server-side background** -- by design for this wave.
+* **No server-side background composition** -- segmentation and compositing always run in the browser, for both
+  built-in and (since V1.9.4) custom images. See xref:custom-backgrounds[Custom backgrounds] for what V1.9.4
+  added and its own known gaps (Android-app upload untested on a device, operator has filesystem access to the
+  stored files).
 * **The segmentation model is a third-party artefact** (Apache-2.0, checksum documented in `PROVENANCE.adoc`) and is
   shipped inside the image.
 * **Firefox and Safari only work through the library's canvas fallback path**, and the un-awaited
@@ -325,6 +357,81 @@ user agent or a JS bridge in `Lapis-Cloud-Mobile`), which is a change to that re
   bug).
 * A set processor survives a device switch, `restartTrack` and camera off/on by itself (`setMediaStreamTrack` restarts
   it). The `LocalTrackPublished` hook is an idempotent belt-and-braces path, not the main mechanism.
+
+[[custom-backgrounds]]
+== Custom backgrounds (V1.9.4)
+
+A full member (`MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE`, deliberately narrower than
+`CONFERENCE_ELIGIBLE` -- see that set's own KDoc for why `FRIEND`/`GUEST` may not upload) can upload up to
+`ConferenceBackgroundRules.MAX_PER_MEMBER` (3) private background photos. Segmentation and compositing STILL run
+entirely in the browser -- only the upload itself is a byte-carrying round trip to the server, once, at upload
+time.
+
+**The browser normalizes, the server is authoritative.** `normalizeBackgroundForUpload` (client) re-encodes the
+selected file to a JPEG scaled to at most `MAX_OUTPUT_LONG_EDGE_PX` (1920) BEFORE it is uploaded -- purely a
+courtesy (smaller upload, immediate feedback, some EXIF/orientation handling); the server never trusts it.
+`ConferenceBackgroundImageProcessor` re-decodes the upload from sniffed magic bytes only (never the declared
+`Content-Type`), rejects on header-only dimensions before ever calling a decoder (the decompression-bomb guard),
+and re-encodes to a metadata-stripped JPEG -- no EXIF, no XMP, no embedded ICC profile, and no byte range of the
+original file survives (closes the "polyglot file" class of attack). Only `image/jpeg` and `image/png` are
+accepted; a decoded output is always `TYPE_INT_RGB`, painted onto a `#202020` canvas first, so a source with an
+alpha channel or CMYK never produces a wrong-color or blank result.
+
+**Limits.**
+
+[cols="2,2",options="header"]
+|===
+| Limit | Value
+
+| Max upload size | 4 MiB (`ConferenceBackgroundRules.MAX_UPLOAD_BYTES`)
+| Accepted source dimensions | 320-4096 px per side (header-only check, before decode)
+| Stored main image | JPEG, long edge <= 1920 px, never upscaled
+| Stored thumbnail | JPEG, exactly 320x180 (cover-cropped)
+| Images per member | 3 (`ConferenceBackgroundRules.MAX_PER_MEMBER`)
+| Uploads per member | 10 per rolling hour (`FederationInboxRateLimiter`)
+| Concurrent server-wide decodes | 2 (`Semaphore`), a 5 s wait before 503
+|===
+
+**Who may upload, who may see/delete.** Only `ORGANIZATION_MEMBER` (ACTIVE) may `POST` a new image. Listing,
+viewing (`GET .../image`, `.../thumb`) and deleting one's OWN already-uploaded images stay available regardless of
+the caller's CURRENT status -- a member who later loses ACTIVE status can still remove their own photos. There is
+NO privileged bypass anywhere: BOARD and ADMIN get the identical 404 an unrelated member or a wrong id gets, on
+every one of the four routes, including a `If-None-Match` check (checked only AFTER the ownership gate, so a 304
+can never confirm someone else's id/etag). This is a deliberate departure from `TravelExpenseReceiptRoutes`'
+BOARD/ADMIN download bypass: these are private photos with no organizational interest attached.
+
+**Storage and backup.** Files live under `conference-backgrounds/<memberId>/<imageId>.jpg` (+ `.thumb.jpg`) inside
+the existing `LAPIS_DOCUMENT_STORAGE_ROOT` volume -- no new volume. The `conference_background_image` table is
+listed in `OrganizationSchemaCatalog.EXCLUDED_TABLES`: the ADMIN-only whole-organization backup does NOT include
+it (nor the file bytes, which are also never added to `OrganizationExportService.BLOB_TABLES`) -- a private photo
+must not become readable through an operational backup ZIP. `ConferenceBackgroundService.listMine` self-heals: a
+row whose main file is missing on disk (should not normally happen, given the exclusion above, but defense in
+depth) is filtered out of the result and deleted in the same transaction, rather than silently occupying one of
+the 3 slots forever.
+
+**DSGVO.** `ConferenceBackgroundPersonalData` is a hard-delete contributor (row AND both files gone on Art. 17
+erasure, same posture as `MemberCardPersonalData` -- an uploaded photo has no accountability/retention interest of
+its own). Export carries only metadata (id/width/height/sizeBytes/createdAt) -- never the storage keys, never the
+bytes.
+
+**Two privacy sentences, shown in the section itself:** "Ihr Kamerabild wird nur in diesem Browser bearbeitet und
+nie an den Server gesendet." (the camera stream itself, still fully local) and "Eigene Bilder werden ohne
+Standort- und Kameradaten gespeichert und sind für andere Mitglieder und den Vorstand nicht sichtbar." (what
+uploading actually means -- bytes DO reach the server, stripped of metadata, private to the uploader).
+
+**Honest gaps.**
+
+* Uploading from the `Lapis-Cloud-Mobile` Android app's file chooser has not been exercised on a real device in
+  this wave (the app sets no custom user agent or JS bridge for the WebView -- see `AuthenticatedWebViewScreen
+  .android.kt` -- so no app-specific upload guard was needed, but the end-to-end file-picker flow itself is
+  untested).
+* The server operator has ordinary filesystem access to the stored files, same as for every other uploaded
+  document/receipt in this codebase -- there is no at-rest encryption of the image bytes.
+* `image/webp` is not accepted for upload even though the built-in backgrounds are served as `.webp` -- the
+  processor only ever re-encodes to JPEG (simpler decode-input surface: two JDK-native readers, not three).
+
+**Content-Security-Policy.** As with the rest of this feature, there is no global CSP today; if one is introduced,
+`img-src 'self'` is sufficient for the custom-background routes (no external image host is ever referenced).
 
 == Manual test plan
 
@@ -391,3 +498,20 @@ there as part of M12.
 * *M14 Grid is inert while applying.* Switch to a background image on a throttled connection and click other tiles
   while the preparing line is up. Expect no reaction (grid dimmed, `aria-busy="true"`) and exactly one apply, not a
   chain of them.
+* *M15 Custom upload, desktop (Chrome, Firefox and Safari).* Upload a normal JPEG/PNG photo. Expect: the tile
+  appears after the nine built-ins, selecting it applies it like any other background, the count reads "1 von 3",
+  and after a reload the choice is restored. Repeat to 3, confirm the upload button disables and the "please
+  remove one first" line appears; the 4th attempt (bypassing the disabled button via devtools, or via a second
+  tab) gets a clear failure text, never a raw server response.
+* *M16 Custom upload, iPhone Safari.* Upload a HEIC photo taken in portrait orientation straight from the photo
+  library. Expect it to convert client-side and upload as JPEG, orientation correct (not rotated 90°), and the
+  thumbnail/tile to render correctly.
+* *M17 Custom upload, Android app.* From the Lapis-Cloud-Mobile app, open the "Eigenes Bild auswählen" file
+  chooser and pick a photo from the device gallery. Expect the native Android file picker to appear and the
+  upload to succeed exactly as on desktop -- this is the one path from "Honest gaps" above that has not been
+  exercised on a device before this manual pass.
+* *M18 Delete on one device, join on another.* Upload a custom image on device A, select it as the active
+  background, then delete it (also on device A). On device B (already logged in as the same member, not yet
+  joined a call), join a conference: expect a SILENT fallback to "Aus" -- no error notice, no failed-to-load
+  message, the stored preference is simply cleared. This is the `reconcileCustomImages`/`customListKnown` gate
+  described in "Stumbling blocks" S3 of the implementation plan.

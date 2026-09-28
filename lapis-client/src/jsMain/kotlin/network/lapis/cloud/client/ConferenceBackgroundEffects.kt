@@ -9,6 +9,12 @@ import io.kvision.i18n.tr
  * LiveKit-Track (DOM/WebGL/WASM) steht in [ConferenceBackgroundController], die Oberflaeche in
  * `ConferenceScreen.kt`; Architektur und manueller Pruefplan: `docs/architecture/video-background-effects.adoc`.
  *
+ * V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen": [ConferenceBackgroundChoice]
+ * generalizes every "which background?" question from the nine-way [ConferenceBackgroundEffect]
+ * whitelist to also include a member's OWN uploaded image, identified by server-issued id --
+ * without ever letting an arbitrary string become a URL (see [conferenceBackgroundImagePath]'s own
+ * KDoc "einzige Stelle, an der eine URL entsteht").
+ *
  * **Ablageort**: bewusst direkt unter `.../client/` (flach) -- `ConferenceBackgroundI18nCatalogTest` scannt
  * dieses Verzeichnis nach Dateinamen, ohne Rekursion.
  *
@@ -39,6 +45,28 @@ internal enum class ConferenceBackgroundEffect(
     BG_MIDNIGHT("bg-midnight"),
     BG_STUDIO("bg-studio"),
 }
+
+/**
+ * V1.9.4 -- generalizes the nine built-in [ConferenceBackgroundEffect]s and a member's own uploaded
+ * image into one type every part of the state machine reasons about. [Custom.imageId] is ALWAYS a
+ * canonical UUID string that has passed [CUSTOM_BACKGROUND_REGEX] -- see [conferenceBackgroundImagePath]
+ * for the one place a URL is derived from it.
+ */
+internal sealed interface ConferenceBackgroundChoice {
+    data class BuiltIn(
+        val effect: ConferenceBackgroundEffect,
+    ) : ConferenceBackgroundChoice
+
+    data class Custom(
+        val imageId: String,
+    ) : ConferenceBackgroundChoice
+}
+
+internal val CONFERENCE_BACKGROUND_OFF = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.OFF)
+
+/** Canonical lower-case UUID only -- no trim/lowercase applied anywhere ([parseStoredBackgroundChoice] KDoc "kein trim"). */
+private val CUSTOM_BACKGROUND_REGEX =
+    Regex("^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 internal object ConferenceBackgroundAssets {
     /**
@@ -83,45 +111,72 @@ internal const val CONFERENCE_BACKGROUND_MAX_FPS = 15
 internal const val CONFERENCE_BACKGROUND_APPLY_TIMEOUT_MS = 10_000L
 
 /**
- * Persistierter Wert -> Effekt. `null` fuer alles ausser einer exakten Whitelist-ID (leer, blank, falsche
+ * Persistierter Wert -> Wahl. `null` fuer alles ausser einer exakten Whitelist-ID (leer, blank, falsche
  * Gross-/Kleinschreibung, Pfad, URL, unbekannt) UND fuer `"off"` -- der Aufrufer behandelt `null` als
- * [ConferenceBackgroundEffect.OFF]. Bewusst KEIN `trim()`/`lowercase()`: ein manipulierter Wert soll nie
- * "fast passen".
+ * [CONFERENCE_BACKGROUND_OFF]. Bewusst KEIN `trim()`/`lowercase()`: ein manipulierter Wert soll nie
+ * "fast passen". V1.9.4: erkennt zusaetzlich `custom:<uuid>` -- ersetzt `parseStoredBackgroundEffect`.
  */
-internal fun parseStoredBackgroundEffect(raw: String?): ConferenceBackgroundEffect? {
+internal fun parseStoredBackgroundChoice(raw: String?): ConferenceBackgroundChoice? {
     if (raw == null) return null
+    if (raw.startsWith("custom:")) {
+        return if (CUSTOM_BACKGROUND_REGEX.matches(raw)) {
+            ConferenceBackgroundChoice.Custom(raw.removePrefix("custom:"))
+        } else {
+            null
+        }
+    }
     val effect = ConferenceBackgroundEffect.entries.firstOrNull { it.id == raw } ?: return null
-    return if (effect == ConferenceBackgroundEffect.OFF) null else effect
+    return if (effect == ConferenceBackgroundEffect.OFF) null else ConferenceBackgroundChoice.BuiltIn(effect)
 }
 
 /**
  * Wert fuer `localStorage`: `null` == Schluessel LOESCHEN (nie `""` schreiben -- Lehre aus dem
- * `deviceId`-Bug, V1.4.19), sonst die Whitelist-ID.
+ * `deviceId`-Bug, V1.4.19), sonst die Whitelist-ID bzw. `custom:<uuid>`.
  */
-internal fun conferenceBackgroundPersistValue(effect: ConferenceBackgroundEffect): String? =
-    if (effect == ConferenceBackgroundEffect.OFF) null else effect.id
-
-/** Same-origin-Pfad des Hintergrundbilds, nur fuer die sechs `BG_*`-Effekte, sonst `null`. */
-internal fun conferenceBackgroundImagePath(effect: ConferenceBackgroundEffect): String? =
-    when (effect) {
-        ConferenceBackgroundEffect.BG_WARM_GREY,
-        ConferenceBackgroundEffect.BG_COOL_BLUE,
-        ConferenceBackgroundEffect.BG_SAGE,
-        ConferenceBackgroundEffect.BG_SANDSTONE,
-        ConferenceBackgroundEffect.BG_MIDNIGHT,
-        ConferenceBackgroundEffect.BG_STUDIO,
-        -> "${ConferenceBackgroundAssets.BACKGROUND_IMAGE_DIR}/${effect.id}.webp"
-        ConferenceBackgroundEffect.OFF,
-        ConferenceBackgroundEffect.BLUR_LIGHT,
-        ConferenceBackgroundEffect.BLUR_STRONG,
-        -> null
+internal fun conferenceBackgroundPersistValue(choice: ConferenceBackgroundChoice): String? =
+    when (choice) {
+        is ConferenceBackgroundChoice.BuiltIn -> if (choice.effect == ConferenceBackgroundEffect.OFF) null else choice.effect.id
+        is ConferenceBackgroundChoice.Custom -> "custom:${choice.imageId}"
     }
 
-internal fun conferenceBackgroundBlurRadius(effect: ConferenceBackgroundEffect): Int? =
-    when (effect) {
-        ConferenceBackgroundEffect.BLUR_LIGHT -> CONFERENCE_BLUR_RADIUS_LIGHT
-        ConferenceBackgroundEffect.BLUR_STRONG -> CONFERENCE_BLUR_RADIUS_STRONG
-        else -> null
+/**
+ * Same-origin-Pfad des Hintergrundbilds. Fuer die sechs `BG_*`-Effekte ein statisches Asset; fuer
+ * [ConferenceBackgroundChoice.Custom] `/api/conference-backgrounds/{uuid}/image` -- die ID wird HIER
+ * erneut gegen [CUSTOM_BACKGROUND_REGEX] geprueft (Verteidigung in der Tiefe: selbst ein Aufrufer, der
+ * [parseStoredBackgroundChoice] umgeht, kann keine beliebige URL erzeugen). Diese Funktion ist die
+ * EINZIGE Stelle im ganzen Client, an der eine Hintergrundbild-URL entsteht.
+ */
+internal fun conferenceBackgroundImagePath(choice: ConferenceBackgroundChoice): String? =
+    when (choice) {
+        is ConferenceBackgroundChoice.Custom ->
+            if (CUSTOM_BACKGROUND_REGEX.matches("custom:${choice.imageId}")) "/api/conference-backgrounds/${choice.imageId}/image" else null
+        is ConferenceBackgroundChoice.BuiltIn ->
+            when (choice.effect) {
+                ConferenceBackgroundEffect.BG_WARM_GREY,
+                ConferenceBackgroundEffect.BG_COOL_BLUE,
+                ConferenceBackgroundEffect.BG_SAGE,
+                ConferenceBackgroundEffect.BG_SANDSTONE,
+                ConferenceBackgroundEffect.BG_MIDNIGHT,
+                ConferenceBackgroundEffect.BG_STUDIO,
+                -> "${ConferenceBackgroundAssets.BACKGROUND_IMAGE_DIR}/${choice.effect.id}.webp"
+                ConferenceBackgroundEffect.OFF,
+                ConferenceBackgroundEffect.BLUR_LIGHT,
+                ConferenceBackgroundEffect.BLUR_STRONG,
+                -> null
+            }
+    }
+
+/** Thumbnail path for one of the member's OWN uploaded images -- only ever called with an id already validated by [CUSTOM_BACKGROUND_REGEX]. */
+internal fun conferenceBackgroundThumbPath(imageId: String): String? =
+    if (CUSTOM_BACKGROUND_REGEX.matches("custom:$imageId")) "/api/conference-backgrounds/$imageId/thumb" else null
+
+internal fun conferenceBackgroundBlurRadius(choice: ConferenceBackgroundChoice): Int? =
+    (choice as? ConferenceBackgroundChoice.BuiltIn)?.let { builtIn ->
+        when (builtIn.effect) {
+            ConferenceBackgroundEffect.BLUR_LIGHT -> CONFERENCE_BLUR_RADIUS_LIGHT
+            ConferenceBackgroundEffect.BLUR_STRONG -> CONFERENCE_BLUR_RADIUS_STRONG
+            else -> null
+        }
     }
 
 /**
@@ -159,32 +214,50 @@ internal fun conferenceBackgroundEffectLabelTr(effect: ConferenceBackgroundEffec
         ConferenceBackgroundEffect.BG_STUDIO -> tr("Helles Studio")
     }
 
+/** V1.9.4 -- [conferenceBackgroundEffectLabel] generalized to [ConferenceBackgroundChoice]; a custom image is always "Eigenes Bild". */
+internal fun conferenceBackgroundChoiceLabel(choice: ConferenceBackgroundChoice): String =
+    when (choice) {
+        is ConferenceBackgroundChoice.BuiltIn -> conferenceBackgroundEffectLabel(choice.effect)
+        is ConferenceBackgroundChoice.Custom -> gettext("Eigenes Bild")
+    }
+
+/** V1.9.4 -- [conferenceBackgroundEffectLabelTr] generalized to [ConferenceBackgroundChoice]. */
+internal fun conferenceBackgroundChoiceLabelTr(choice: ConferenceBackgroundChoice): String =
+    when (choice) {
+        is ConferenceBackgroundChoice.BuiltIn -> conferenceBackgroundEffectLabelTr(choice.effect)
+        is ConferenceBackgroundChoice.Custom -> tr("Eigenes Bild")
+    }
+
 /**
  * Beschriftung der eingeklappten "Hintergrund"-Zeile -- der Zustand steht im Text (Tesler: kein unsichtbarer
  * Modus). `gettext` mit Platzhalter, deshalb NUR fuer Attribute (`title`) geeignet; der sichtbare Knopftext
  * kommt aus [conferenceBackgroundToggleLabelTr].
  */
-internal fun conferenceBackgroundToggleLabel(effect: ConferenceBackgroundEffect): String =
-    gettext("Hintergrund: %1", conferenceBackgroundEffectLabel(effect))
+internal fun conferenceBackgroundToggleLabel(choice: ConferenceBackgroundChoice): String =
+    gettext("Hintergrund: %1", conferenceBackgroundChoiceLabel(choice))
 
 /**
- * Dieselbe Beschriftung als `tr(...)`-Marker fuer den SICHTBAREN Knopftext (Audit-Befund N4). Bewusst neun
- * vollstaendige, eigene msgids statt einer Zusammensetzung: KVisions `tr(...)` kennt keine Platzhalter, und
- * ein zusammengesetzter `gettext`-Text wuerde bei einem Sprachwechsel zur Laufzeit nie neu uebersetzt (die
- * Aufloesung passiert ausschliesslich im Patch-Zyklus, siehe `ClientTrAttributeLeakTest` KDoc). NUR als
- * Widget-Inhalt verwenden.
+ * Dieselbe Beschriftung als `tr(...)`-Marker fuer den SICHTBAREN Knopftext (Audit-Befund N4). Bewusst zehn
+ * (neun eingebaute + "Eigenes Bild") vollstaendige, eigene msgids statt einer Zusammensetzung: KVisions
+ * `tr(...)` kennt keine Platzhalter, und ein zusammengesetzter `gettext`-Text wuerde bei einem
+ * Sprachwechsel zur Laufzeit nie neu uebersetzt (die Aufloesung passiert ausschliesslich im
+ * Patch-Zyklus, siehe `ClientTrAttributeLeakTest` KDoc). NUR als Widget-Inhalt verwenden.
  */
-internal fun conferenceBackgroundToggleLabelTr(effect: ConferenceBackgroundEffect): String =
-    when (effect) {
-        ConferenceBackgroundEffect.OFF -> tr("Hintergrund: Aus")
-        ConferenceBackgroundEffect.BLUR_LIGHT -> tr("Hintergrund: Weichzeichnen leicht")
-        ConferenceBackgroundEffect.BLUR_STRONG -> tr("Hintergrund: Weichzeichnen stark")
-        ConferenceBackgroundEffect.BG_WARM_GREY -> tr("Hintergrund: Warmes Grau")
-        ConferenceBackgroundEffect.BG_COOL_BLUE -> tr("Hintergrund: Kühles Blau")
-        ConferenceBackgroundEffect.BG_SAGE -> tr("Hintergrund: Salbeigrün")
-        ConferenceBackgroundEffect.BG_SANDSTONE -> tr("Hintergrund: Sandstein")
-        ConferenceBackgroundEffect.BG_MIDNIGHT -> tr("Hintergrund: Nachtblau")
-        ConferenceBackgroundEffect.BG_STUDIO -> tr("Hintergrund: Helles Studio")
+internal fun conferenceBackgroundToggleLabelTr(choice: ConferenceBackgroundChoice): String =
+    when (choice) {
+        is ConferenceBackgroundChoice.Custom -> tr("Hintergrund: Eigenes Bild")
+        is ConferenceBackgroundChoice.BuiltIn ->
+            when (choice.effect) {
+                ConferenceBackgroundEffect.OFF -> tr("Hintergrund: Aus")
+                ConferenceBackgroundEffect.BLUR_LIGHT -> tr("Hintergrund: Weichzeichnen leicht")
+                ConferenceBackgroundEffect.BLUR_STRONG -> tr("Hintergrund: Weichzeichnen stark")
+                ConferenceBackgroundEffect.BG_WARM_GREY -> tr("Hintergrund: Warmes Grau")
+                ConferenceBackgroundEffect.BG_COOL_BLUE -> tr("Hintergrund: Kühles Blau")
+                ConferenceBackgroundEffect.BG_SAGE -> tr("Hintergrund: Salbeigrün")
+                ConferenceBackgroundEffect.BG_SANDSTONE -> tr("Hintergrund: Sandstein")
+                ConferenceBackgroundEffect.BG_MIDNIGHT -> tr("Hintergrund: Nachtblau")
+                ConferenceBackgroundEffect.BG_STUDIO -> tr("Hintergrund: Helles Studio")
+            }
     }
 
 /**
@@ -274,9 +347,9 @@ internal enum class ConferenceBackgroundFailure { LOAD_FAILED, APPLY_FAILED, TIM
 
 internal data class ConferenceBackgroundState(
     /** Absicht des Nutzers -- wird bei einem Fehlschlag NICHT ueberschrieben (Zhuo-Ruling K6). */
-    val desired: ConferenceBackgroundEffect = ConferenceBackgroundEffect.OFF,
+    val desired: ConferenceBackgroundChoice = CONFERENCE_BACKGROUND_OFF,
     /** Was tatsaechlich auf dem Track liegt. */
-    val applied: ConferenceBackgroundEffect = ConferenceBackgroundEffect.OFF,
+    val applied: ConferenceBackgroundChoice = CONFERENCE_BACKGROUND_OFF,
     val phase: ConferenceBackgroundPhase = ConferenceBackgroundPhase.OFF,
     /** Der EINE automatische Versuch pro Sitzung wurde verbraucht. */
     val autoAttemptUsed: Boolean = false,
@@ -287,31 +360,31 @@ internal data class ConferenceBackgroundState(
 internal sealed interface ConferenceBackgroundEvent {
     /** Bewusster Klick auf eine Kachel -- erlaubt einen neuen Versuch, auch wenn der automatische verbraucht ist. */
     data class UserSelected(
-        val effect: ConferenceBackgroundEffect,
+        val choice: ConferenceBackgroundChoice,
     ) : ConferenceBackgroundEvent
 
     data object ApplyStarted : ConferenceBackgroundEvent
 
     data class ApplySucceeded(
-        val effect: ConferenceBackgroundEffect,
+        val choice: ConferenceBackgroundChoice,
     ) : ConferenceBackgroundEvent
 
     data class ApplyFailed(
         val failure: ConferenceBackgroundFailure,
     ) : ConferenceBackgroundEvent
 
-    /** Neuer/erneut publizierter lokaler Kamera-Track -- aendert den Zustand nie (die Entscheidung trifft [effectToApplyForNewTrack]). */
+    /** Neuer/erneut publizierter lokaler Kamera-Track -- aendert den Zustand nie (die Entscheidung trifft [choiceToApplyForNewTrack]). */
     data object NewLocalTrack : ConferenceBackgroundEvent
 
     /** Der Prozessor ist nicht mehr am Track (z. B. Track gestoppt) -- `desired` bleibt unangetastet. */
     data object ProcessorLost : ConferenceBackgroundEvent
 }
 
-private fun phaseAfterSelection(effect: ConferenceBackgroundEffect): ConferenceBackgroundPhase =
-    if (effect == ConferenceBackgroundEffect.OFF) ConferenceBackgroundPhase.OFF else ConferenceBackgroundPhase.APPLYING
+private fun phaseAfterSelection(choice: ConferenceBackgroundChoice): ConferenceBackgroundPhase =
+    if (choice == CONFERENCE_BACKGROUND_OFF) ConferenceBackgroundPhase.OFF else ConferenceBackgroundPhase.APPLYING
 
-private fun phaseAfterSuccess(effect: ConferenceBackgroundEffect): ConferenceBackgroundPhase =
-    if (effect == ConferenceBackgroundEffect.OFF) ConferenceBackgroundPhase.OFF else ConferenceBackgroundPhase.ACTIVE
+private fun phaseAfterSuccess(choice: ConferenceBackgroundChoice): ConferenceBackgroundPhase =
+    if (choice == CONFERENCE_BACKGROUND_OFF) ConferenceBackgroundPhase.OFF else ConferenceBackgroundPhase.ACTIVE
 
 /**
  * Reiner Reducer, wirft fuer keine Event-/Zustands-Kombination (Tabellentest im jsTest).
@@ -327,50 +400,51 @@ internal fun conferenceBackgroundReduce(
     when (event) {
         is ConferenceBackgroundEvent.UserSelected ->
             current.copy(
-                desired = event.effect,
-                phase = phaseAfterSelection(event.effect),
+                desired = event.choice,
+                phase = phaseAfterSelection(event.choice),
                 // Ein bewusster Klick bekommt immer einen frischen Versuch.
                 autoAttemptUsed = false,
             )
         ConferenceBackgroundEvent.ApplyStarted -> current.copy(phase = ConferenceBackgroundPhase.APPLYING)
         is ConferenceBackgroundEvent.ApplySucceeded ->
             current.copy(
-                applied = event.effect,
-                phase = phaseAfterSuccess(event.effect),
+                applied = event.choice,
+                phase = phaseAfterSuccess(event.choice),
             )
         is ConferenceBackgroundEvent.ApplyFailed ->
             current.copy(
-                applied = ConferenceBackgroundEffect.OFF,
+                applied = CONFERENCE_BACKGROUND_OFF,
                 phase = ConferenceBackgroundPhase.FAILED_FALLBACK,
                 autoAttemptUsed = true,
                 notifiedFailures = current.notifiedFailures + event.failure,
             )
         ConferenceBackgroundEvent.NewLocalTrack -> current
-        ConferenceBackgroundEvent.ProcessorLost ->
-            current.copy(applied = ConferenceBackgroundEffect.OFF, phase = ConferenceBackgroundPhase.OFF)
+        ConferenceBackgroundEvent.ProcessorLost -> current.copy(applied = CONFERENCE_BACKGROUND_OFF, phase = ConferenceBackgroundPhase.OFF)
     }
 
 /**
- * Welcher Effekt soll auf einem NEUEN `LocalVideoTrack` liegen? Kern der Jobs-K6-Regel:
+ * Welche Wahl soll auf einem NEUEN `LocalVideoTrack` liegen? Kern der Jobs-K6-Regel:
  * - [desired] == OFF -> OFF
  * - letzter Versuch dieser Sitzung fehlgeschlagen UND automatischer Versuch verbraucht -> OFF (die
  *   gespeicherte Absicht bleibt erhalten, nur ein bewusster Klick versucht erneut)
  * - sonst -> [desired]
+ *
+ * V1.9.4: ersetzt `effectToApplyForNewTrack`, identische Logik ueber [ConferenceBackgroundChoice].
  */
-internal fun effectToApplyForNewTrack(
-    desired: ConferenceBackgroundEffect,
+internal fun choiceToApplyForNewTrack(
+    desired: ConferenceBackgroundChoice,
     lastAttemptFailed: Boolean,
     sessionAutoRetryUsed: Boolean,
-): ConferenceBackgroundEffect =
+): ConferenceBackgroundChoice =
     when {
-        desired == ConferenceBackgroundEffect.OFF -> ConferenceBackgroundEffect.OFF
-        lastAttemptFailed && sessionAutoRetryUsed -> ConferenceBackgroundEffect.OFF
+        desired == CONFERENCE_BACKGROUND_OFF -> CONFERENCE_BACKGROUND_OFF
+        lastAttemptFailed && sessionAutoRetryUsed -> CONFERENCE_BACKGROUND_OFF
         else -> desired
     }
 
-/** [effectToApplyForNewTrack] auf den Zustandsautomaten angewandt. */
-internal fun conferenceBackgroundEffectForNewTrack(state: ConferenceBackgroundState): ConferenceBackgroundEffect =
-    effectToApplyForNewTrack(
+/** [choiceToApplyForNewTrack] auf den Zustandsautomaten angewandt. */
+internal fun conferenceBackgroundChoiceForNewTrack(state: ConferenceBackgroundState): ConferenceBackgroundChoice =
+    choiceToApplyForNewTrack(
         desired = state.desired,
         lastAttemptFailed = state.phase == ConferenceBackgroundPhase.FAILED_FALLBACK,
         sessionAutoRetryUsed = state.autoAttemptUsed,
@@ -382,8 +456,8 @@ internal fun conferenceBackgroundEffectForNewTrack(state: ConferenceBackgroundSt
  * gespeicherte Wert unveraendert bleiben. Waehrend des Ladens und bei ausgeschalteter Kamera zeigt sie die
  * Absicht (sofortiges Feedback; angewendet wird mit dem naechsten Track).
  */
-internal fun conferenceBackgroundDisplayedEffect(state: ConferenceBackgroundState): ConferenceBackgroundEffect =
-    if (state.phase == ConferenceBackgroundPhase.FAILED_FALLBACK) ConferenceBackgroundEffect.OFF else state.desired
+internal fun conferenceBackgroundDisplayedChoice(state: ConferenceBackgroundState): ConferenceBackgroundChoice =
+    if (state.phase == ConferenceBackgroundPhase.FAILED_FALLBACK) CONFERENCE_BACKGROUND_OFF else state.desired
 
 /** Eine Meldung pro Ursache pro Sitzung. */
 internal fun conferenceBackgroundShouldNotify(

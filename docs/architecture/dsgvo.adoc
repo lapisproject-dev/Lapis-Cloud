@@ -310,6 +310,40 @@ path, both introduced in V1.8.2b:
   windows are deliberately SHORTER than every other retention period in this document -- a draft is
   disposable scratch content, see that class' own KDoc.
 
+== Board member map (aggregated postal codes) (V1.9.5, server + shared half only)
+
+NOTE: This wave implements the RPC aggregate and the basemap HTTP route only -- `lapis-client` has
+no member-map screen yet (see xref:member-map.adoc[member-map.adoc]'s status note). Everything
+below already holds today because it is a property of the server-side query and response shape,
+independent of whether a client screen exists.
+
+The BOARD/ADMIN-only member map (xref:member-map.adoc[member-map.adoc]) is deliberately **not**
+covered by `PersonalDataRegistry`/`PersonalDataContributor` at all -- it reads `member.postal_code`
+and `member.country` for export/erasure purposes exactly as every other `member`-scoped column
+already does through `MemberPersonalDataContributor`, and it never introduces a new table or a new
+identifiable record. What makes this feature DSGVO-relevant is not a new storage location but a new
+*view* over existing columns:
+
+* **Purpose limitation**: the query is a board reporting aggregate (Art. 6(1)(f) legitimate
+  interest -- understanding the organization's own geographic footprint), never a lookup of an
+  individual member's address. The response shape enforces this structurally: no member id, name or
+  precise address ever crosses the wire, only postal-code-bucketed counts -- see
+  xref:member-map.adoc#privacy-boundary[member-map.adoc "Privacy boundary"].
+* **Data minimization**: the underlying query selects only two columns
+  (`postal_code`, `country`) for eligible members, nothing else -- there is no richer
+  in-memory representation at any point for a later change to accidentally widen.
+* **Access control**: `BOARD`/`ADMIN` only, enforced server-side today (`BoardMemberMapService`,
+  `registerMemberMapRoutes`); a client-side route guard is planned as defense in depth once the
+  client half of this wave lands, not yet implemented (see status note above). No self-service
+  variant either way.
+* **Erasure**: an anonymized member (`anonymized_at IS NOT NULL`) is excluded from every query this
+  feature runs -- the existing `MemberPersonalDataContributor` erasure path (which clears
+  `postal_code`/`country` along with the rest of a member's address) removes that member from the
+  map's counts as an ordinary consequence, no separate erasure logic needed here.
+* **Third-party data**: the postal-code centroid lookup (GeoNames, CC-BY-4.0) and the basemap
+  vector tiles (OpenStreetMap, ODbL, via Protomaps) contain no personal data about this
+  organization's members -- they are reference geodata, unrelated to any `DataSubject`.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the

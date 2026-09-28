@@ -1659,7 +1659,7 @@ file by file, `ReportRows.kt` excepted.
   an untrusted DTO field before it reaches a widget call is invisible to it (see "Untrusted widget text" above).
   Server-side rejection/stripping of `KV_I18N_MARKER`/`MONEY_SENTINEL` on write was not investigated or built --
   out of scope for a client-only wave.
-* W5 audit round: `#:` source references of about 400 W5 msgids point at wrong lines (hand-maintained; only the msgid counts). The 44 px rule covers
+* W5 audit round: the 44 px rule covers
   `.btn-close`, `.dropdown-item`, `.navbar .nav-link` and `.lapis-icon-only`; other third-party controls are not measured. The `banners` slot (R37)
   is used by two screens (the postal-mail band moved into it in the audit round) -- `TravelExpenseScreen`'s rates/configuration bands still stand in the body (they are data-driven panels). Glyph msgids not migrated:
   '● Aufzeichnung läuft', '◆ Live-Stream %1 → %2', '‹ Zurück' / 'Weiter ›', '← Zurück zur Timeline', '↳ Änderungsantrag: %1', 'Zum LTR-Konto ->'.
@@ -1670,7 +1670,7 @@ file by file, `ReportRows.kt` excepted.
   LTR balance strip, the pseudo-tables of auction/crowdfunding/politician.
 * W4c audit: **the manual browser check at 375 / 767 / 768 / 1440 px, light and dark, was not done** -- the layout claims of this wave rest
   on the DOM tests and the measured contrast numbers. Not covered by any test: the row action of `SepaMandatesScreen`, the accounting-export
-  run flow, the SEPA creditor settings, `cancelFinTsSetup`, the dunning-case actions. No plural forms in the catalogs; the event screens share
+  run flow, the SEPA creditor settings, `cancelFinTsSetup`, the dunning-case actions. The event screens share
   the msgids "Stornieren" / "Storniert" that are now "Reverse" / "Reversed". The length checks count UTF-16 code units, `postings.size` is
   unlimited, and a draft with an amount between 10^12 and about 10^13 cannot be booked any more.
 * W4c: **W4d runs on the old grammar** -- the screens named under "Not done in this wave" of section W4c, with their numbers. R24 is
@@ -1732,8 +1732,7 @@ file by file, `ReportRows.kt` excepted.
   intended replacement).
 * R9 debt: the whiteboard paper colour (a document colour) and three `rgba()` overlay-chip backgrounds in
   `ConferenceScreen` (W5).
-* Minor audit findings left open: approximate `#:` source references of the new msgids, the `ntr` stub in
-  `I18nCatalogManager`, the period column not marked numeric.
+* Minor audit findings left open: the period column not marked numeric.
 * Browser verification at 375, 767, 768 and 1440 px in both themes is manual; the 40 px row-height target (R22) and
   the dark-mode acceptance (R49) have no automated check in either wave.
 
@@ -1757,3 +1756,83 @@ Fixed in passing (not a UI-grammar finding, a labeling bug): the document-creati
 dropdown showed the raw enum constant (`"PUBLIC_MEMBERS"`) instead of a translated label -- see
 `ClientUntrustedWidgetTextTripwireTest`'s `KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS` ledger, which drops
 from 2 to 1 as a result (the remaining exception, `MemberAdministrationScreen.kt`, is unrelated).
+
+=== i18n-Restschuld (V1.9.3): plural-catalog support + `#:` reference regeneration
+
+Closed the two follow-up gaps deliberately left open by commit d906e0b ("remove 28 orphaned msgids"),
+both previously listed under "Known gaps" above, across two rounds on branch
+`feature/i18n-restschuld-plural-refs`.
+
+**Round 4 (correctness readiness):**
+
+* `I18nCatalogManager.ngettext()` used to select singular/plural with a bare `value == 1` binary --
+  wrong for Polish and Russian's one/few/many grammar. It now reads a real plural catalog array
+  (`catalog[msgid] = [msgstr[0], msgstr[1], ...]`, the exact shape `gettext.js`'s own `po2json`
+  wrapper produces for a `msgid`/`msgid_plural` `.po` entry) and indexes it with `pluralFormIndex()`
+  (`PluralRules.kt`), a 1:1 transcription of the standard GNU gettext `Plural-Forms` expression for
+  each of this app's eight UI languages. Falls back to the pre-existing binary whenever no plural
+  array entry exists (untranslated key, plain-string entry, or German, which is never
+  catalog-backed) -- never throws on a malformed catalog shape.
+* A `Plural-Forms:` header was added to `messages.pot` and all seven `messages-<lang>.po` catalogs.
+* `scripts/i18n/regenerate-source-refs.mjs` regenerated the `#:` source-reference comments of all
+  eight catalogs from the current source tree -- about 400 stale W5-era references now point at
+  real source locations. Verified empirically, not estimated: msgid/msgstr content is byte-for-byte
+  identical before and after this script ran; only `#:` comments changed. Closes the "W5 audit
+  round: `#:` source references ... point at wrong lines" gap above. Covered by
+  `scripts/i18n/regenerate-source-refs.test.mjs` (12/12 green).
+* This round intentionally added no application call site: this codebase's house style (audit fix
+  M4) avoids grammatical plurals glued onto a template in favour of separate, fully translated
+  sentences. `PluralRulesTest` + `I18nCatalogManagerPluralTest` covered all eight languages' category
+  boundaries end-to-end, but with synthetic messages only -- no real call site exercised the new
+  code path yet.
+
+**Round 5 (first real adoption + review-fix):**
+
+* The bug the whole effort exists for: `SepaBatchesScreen.kt` had three `gettext("%1 Positionen ...",
+  count)` call sites that always used the German plural noun, even for `count == 1` -- "Lauf anlegen
+  (1 Positionen, 10,00 €)", "1 Positionen konnten nicht gebucht werden.". All three are now
+  `ngettext("%1 Position ...", "%1 Positionen ...", count, count, ...)`, and every one of the eight
+  catalogs gained the matching `msgid`/`msgid_plural` block (a new German singular string, the
+  existing plural string unchanged as `msgid_plural`, the existing translation reused as the
+  highest-count form so only the new singular -- and, for pl/ru, an additional "few" form -- needed
+  translating). A pre-existing DOM test (`FormSubmitBodyPart3FinanceDomTest`) had hard-coded the bug
+  as its expectation (`startsWith("Lauf anlegen (1 Positionen")`) and was corrected in the same
+  round -- the clearest evidence the bug was real and observable, not theoretical.
+* **KVision publishes no top-level free function for the plural case** -- unlike `gettext()`
+  (`io.kvision.i18n.gettext`, a real top-level function), there is no `io.kvision.i18n.ngettext` to
+  import; only the `I18n` singleton's own `ngettext()` method exists, plus a `tr(...)`-style
+  DEFERRED/marker-based `I18nManager.ntr(singularKey, pluralKey, value)` default method that takes
+  NO substitution arguments at all (its `trans()` counterpart only ever reconstructs
+  `ngettext(singular, plural, count, count)` from the marker) -- unusable here, since "Lauf anlegen
+  (%1 Position, %2)" needs a second substituted value (the formatted amount) that a marker
+  round-trip would silently drop. `I18nCatalogManager.kt` therefore gained its own small top-level
+  `ngettext(singularKey, pluralKey, value, vararg args)`, an immediate-resolution wrapper around
+  `I18n.ngettext(...)` mirroring KVision's own `gettext()` wrapper exactly -- this is what the three
+  `SepaBatchesScreen.kt` call sites above actually call.
+* New JVM-side safety net: `PluralMessagesCatalogTest` (`lapis-server`) + `parsePluralCatalog`
+  (`CatalogSupport.kt`) -- `AllClientMessagesCatalogTest`'s existing scanner is blind to `ngettext(`
+  call sites and to `msgid`/`msgid_plural` catalog blocks in both directions (see that test's own
+  updated KDoc), so it gives these three entries no coverage at all. New Kotlin/JS tests in
+  `I18nCatalogManagerPluralTest` exercise `I18nManager.ngettext()` with the three REAL
+  msgid/msgid_plural pairs across all seven catalog languages (not just the synthetic pairs round 4
+  added).
+* `scripts/i18n/regenerate-source-refs.mjs`'s own comment claimed its matcher "would also pick up a
+  literal first argument for `ntr(`/`ngettext(` too, if one ever appeared" -- empirically false (its
+  negative lookbehind `(?<![A-Za-z0-9_])` blocks a match starting inside "n**tr(**"/"n**gettext(**",
+  since the preceding "n" is a word character). The comment is corrected; the matcher itself is
+  UNCHANGED this round (deliberately: extending it to cover two more call sites is a possible,
+  separately scoped follow-up, not required for three sites) -- the three new `ngettext(...)` call
+  sites in `SepaBatchesScreen.kt` therefore carry no `#:` reference, same as any other
+  indirectly-reached msgid; no `#:` line is more honest than a wrong one.
+* **Known, deliberate CLDR deviation kept as-is:** `PluralRules.kt`'s Polish/Russian handling uses
+  the classic GNU gettext three-form (`one`/`few`/`many`) expression, not the newer CLDR category
+  set -- this is the same expression already shipped in round 4 and reviewed then; round 5 did not
+  revisit it, since the three new call sites are covered correctly by it (verified against the real
+  `po2json` output for all eight catalogs, see the commit this section was added in).
+* **Not done in this wave**: a grep for the same "naive plural, no `(en)` workaround" pattern found
+  further candidates outside the required scope (`"%1 Einträge geladen"`, `"%1 Jahre Förderer"` /
+  `"%1 Jahre Mitgliedschaft"`, `"%1 Stimmen abgegeben."`, `"%1 Antworten · %2 Boosts"`, `"%1 Tage ×
+  %2"`) -- deliberately left for a future wave rather than expanding this one's scope past the three
+  `SepaBatchesScreen.kt` sites the bug report named. Extending
+  `scripts/i18n/regenerate-source-refs.mjs`'s matcher to also cover `ntr(`/`ngettext(` (closing the
+  gap this round's comment fix only documents) remains a possible, separately scoped follow-up too.

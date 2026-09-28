@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 55 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 56 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -55,8 +55,11 @@ class DomainModelMergerTest :
             // V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- was 54, now 55 with
             // the addition of 54-mcp-server.kuml.kts. Welle V1.4.34 "Nachrichten-/Artikel-Modul mit
             // redaktionellem Workflow" -- was 55, now 56 with the addition of
-            // 55-articles.kuml.kts.
-            scriptFiles shouldHaveSize 56
+            // 55-articles.kuml.kts. Welle V1.9.4 "private Hintergrundbild-Uploads für
+            // Videokonferenzen" -- was 56, now 57 with the addition of
+            // 56-conference-background.kuml.kts (renumbered from 55 during the merge of both
+            // waves, which had independently claimed "55-").
+            scriptFiles shouldHaveSize 57
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -453,7 +456,17 @@ class DomainModelMergerTest :
             // already-real member entity) -- so it contributes +2 «Entity» declarations (the stub +
             // the one real table) and 1 drop, net +1 distinct table name versus the V1.8.2
             // baseline above (163 -> 164).
-            val distinctTableNames = 164
+            // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" adds
+            // 56-conference-background.kuml.kts's ONE real table (conference_background_image),
+            // WITH ONE cross-domain Member stub (dedups into the already-real member entity) -- so
+            // it contributes +2 «Entity» declarations (1 stub + 1 real table) and 1 drop, net +1
+            // distinct table name versus the V1.4.34 baseline above (164 -> 165).
+            // Welle V1.9.7 "SuperMailer" adds 03-communication.kuml.kts's TWO new real tables
+            // (mailing_message_link, mailing_link_click), WITH NO new cross-domain stub (the
+            // file's existing Member/MailingMessage/MailingDeliveryLog entities are reused) -- so
+            // it contributes +2 «Entity» declarations and 0 drops, net +2 distinct table names
+            // versus the V1.9.4 baseline above (165 -> 167).
+            val distinctTableNames = 167
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -487,6 +500,8 @@ class DomainModelMergerTest :
                     "MailingListSubscriptionTable.kt",
                     "MailingMessageTable.kt",
                     "MailingDeliveryLogTable.kt",
+                    "MailingMessageLinkTable.kt",
+                    "MailingLinkClickTable.kt",
                     "DirectMessageTable.kt",
                     "ErasureRequestTable.kt",
                     "DsgvoAuditLogTable.kt",
@@ -740,6 +755,10 @@ class DomainModelMergerTest :
                     // new real table; its Member cross-domain stub dedups into the already-real
                     // entity, no new Table file for it.
                     "ArticleTable.kt",
+                    // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" -- ONE
+                    // new real table; its Member cross-domain stub dedups into the already-real
+                    // member entity, no new Table file for it.
+                    "ConferenceBackgroundImageTable.kt",
                 )
         }
 

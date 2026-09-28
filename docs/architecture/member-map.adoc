@@ -1,0 +1,194 @@
+= Member Map ("Vorstands-Karte")
+:description: BOARD/ADMIN-only aggregate view of member geographic distribution at postal-code granularity, on a self-hosted PMTiles/MapLibre basemap.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), same convention as `keycloak-login.adoc`.
+
+NOTE: **Implementation status (as of V1.9.6): server, shared and client are all implemented.**
+Everything under <<privacy-boundary,Privacy boundary>> and
+<<Classification rules (the three-way split, plus foreign)>> (`BoardMemberMapService`,
+`aggregateMemberMap`, `registerMemberMapRoutes`, `PostalCodeCentroidIndex`, `PmtilesBasemap`) landed
+in V1.9.5; the `lapis-client` screen (`Routes.MEMBER_MAP = "/member-map"`, the "Mitgliederkarte" menu
+entry, the MapLibre map, the on-screen notice/attribution, the screen-local search and the
+client-side route guard) landed in V1.9.6. Access control is enforced both server-side
+(`BoardMemberMapService`, `registerMemberMapRoutes`) and, as defense in depth, client-side
+(`requireRole(routing, BOARD, ADMIN)` on the route); see <<privacy-boundary,Privacy boundary>>.
+
+== Context
+
+Welle V1.9.5 (second attempt after an aborted first pass, see the CHANGELOG entry for the
+Q1-Q7 decisions this wave records). The board wants to see roughly where the organization's
+members live -- not to identify individuals, but to answer questions like "do we have members
+outside our home region", "would a regional event reach many members", "is our footprint
+concentrated in one city". This document describes the resulting data flow and the privacy
+boundary that shapes every decision in it.
+
+== Data flow
+
+[source,kuml,name="member-map-data-flow"]
+----
+sequenceDiagram(name = "Member map -- request paths") {
+    val browser = lifeline(name = "Browser")
+    val server = lifeline(name = "Lapis Cloud Server")
+    val db = lifeline(name = "PostgreSQL")
+    val csv = lifeline(name = "Classpath CSV (GeoNames centroids)")
+    val pmtiles = lifeline(name = "PMTiles file (operator-provisioned)")
+
+    message(from = browser, to = server, label = "RPC getMemberMap()")
+    message(from = server, to = db, label = "SELECT postal_code, country WHERE status IN MEMBER_MAP_ELIGIBLE AND anonymized_at IS NULL")
+    message(from = db, to = server, label = "rows: (postal_code, country) only -- no id, name, street, city, date")
+    message(from = server, to = server, label = "group + count in memory (privacy boundary IS the query shape)")
+    message(from = server, to = csv, label = "lookup(postalCode) per distinct code, in-memory index, parsed once per JVM")
+    message(from = csv, to = server, label = "place name + centroid, or nothing (unresolvable bucket)")
+    message(from = server, to = browser, label = "BoardMemberMapResponse: entries[] + 5 aggregate counts, no identifying field")
+
+    message(from = browser, to = server, label = "GET /api/board/member-map/basemap.pmtiles (Range, hundreds of requests)")
+    message(from = server, to = server, label = "auth (BOARD/ADMIN) BEFORE any file probe -- see registerMemberMapRoutes KDoc")
+    message(from = server, to = pmtiles, label = "read 127-byte header (PmtilesBasemap.probe, every request) + requested byte range")
+    message(from = pmtiles, to = server, label = "header valid -> bytes; anything else -> nothing revealed")
+    message(from = server, to = browser, label = "206 Partial Content (never gzip-wrapped) or 404 (never 500)")
+}
+----
+
+Two entirely separate request paths never cross: the RPC path never touches the PMTiles file, and
+the basemap route never touches the database. Vector tile geometry (country/state boundaries,
+water, roads) comes from the PMTiles file; postal-code place names and coordinates come from the
+bundled CSV; member counts come from PostgreSQL. Nothing about an individual member ever leaves the
+first query's result set -- see <<privacy-boundary,Privacy boundary>> below.
+
+[[privacy-boundary]]
+== Privacy boundary
+
+The privacy guarantee is enforced by the *shape of the database query*, not by filtering a richer
+result afterward:
+
+* `network.lapis.cloud.server.rpc.BoardMemberMapService.getMemberMap` selects **only**
+  `member.postal_code` and `member.country` for members in
+  `network.lapis.cloud.shared.domain.MemberStatusSets.MEMBER_MAP_ELIGIBLE` (currently just
+  `ACTIVE`) with `anonymized_at IS NULL`. No `id`, `display_name`, `email`, `street`, `city`,
+  `date_of_birth` or `joined_at` column is ever part of the `SELECT`.
+* `member.city` is **never** read by this feature at all -- the only place name shown anywhere
+  (table, map popup) comes from the bundled GeoNames postal-code centroid index, never from a
+  member's own address field.
+* The response (`network.lapis.cloud.shared.domain.BoardMemberMapResponse`) carries only
+  postal-code-bucketed counts and five running totals. `BoardMemberMapRpcWireTest` asserts this
+  against the *raw* RPC response body, not just the typed DTO, specifically so a future field added
+  to the DTO without updating that test's expectations would be caught.
+* Role gate: `BOARD`/`ADMIN` only, enforced server-side (`BoardMemberMapService`,
+  `registerMemberMapRoutes`) -- this is the actual, currently-enforced boundary, and by itself
+  sufficient (a non-BOARD/ADMIN caller gets `ForbiddenException` from the RPC and 401/403 from the
+  basemap route regardless of any client). A client-side route guard
+  (`requireRole(routing, BOARD, ADMIN)` on `Routes.MEMBER_MAP`) additionally lands as defense in depth
+  in V1.9.6. There is deliberately **no** self-service variant -- a member's own location is never
+  singled out.
+* No export, no print button, no "share" link, no postal code ever appears in a URL -- server-side
+  properties, true independent of the client, and the V1.9.6 screen adds no such affordance either.
+  The screen carries a persistent notice ("Nur für Vorstand und Administration. Genauigkeit:
+  PLZ-Mittelpunkt, keine Adressen. Bitte nicht weitergeben.").
+
+== Classification rules (the three-way split, plus foreign)
+
+`network.lapis.cloud.server.membermap.aggregateMemberMap` partitions every eligible member's
+(postal code, country) group into exactly one of four buckets, in this order:
+
+. `!MemberMapRules.isGermanCountry(country)` -> `foreign`. Checked *first*, before postal-code
+  shape -- see <<q3>> below: a foreign postal code that happens to look like a valid German one
+  (France's `75001`) must never land in either German bucket.
+. `!MemberMapRules.isGermanPostalCode(postalCode)` -> `noPostalCode` (missing or malformed).
+. The (trimmed) postal code resolves against the bundled centroid index -> `mappedTotal`, with a
+  place name and coordinates.
+. Otherwise (a valid-shaped German postal code the bundled index has no entry for) ->
+  `unresolvableGermanPostalCode` -- an entry with no coordinates, counted separately from
+  `noPostalCode` so the board can tell "we don't know this person's postal code" apart from
+  "we know it, but our reference data doesn't cover it" (this THIRD category is the concrete
+  difference between this wave and the first, aborted attempt at this feature, whose scope had
+  collapsed both into one bucket).
+
+Invariant, checked at the end of `aggregateMemberMap` and exercised over 200 random group lists in
+`MemberMapAggregationTest`: `total == mappedTotal + unresolvableGermanPostalCode + noPostalCode +
+foreign`.
+
+== Degradation matrix
+
+The server side of this matrix is real: `tilesAvailable`/`geodataAvailable` on
+`BoardMemberMapResponse` report exactly these two independent conditions, computed fresh on every
+call. The "Result" column describes how the V1.9.6 client (`MemberMapScreen.kt`,
+`memberMapDegradation`) reacts to each combination. Two independent optional data sources, each
+degrading gracefully and independently on the server
+(never a hard failure, never blocking server startup -- same posture as
+`BrandConfig`/`SmtpConfig`):
+
+[cols="1,1,2"]
+|===
+| PMTiles basemap | Postal-code centroid CSV | Result
+
+| configured, valid
+| bundled, parses
+| Full map + full table (place names, coordinates).
+
+| not configured / invalid / missing
+| bundled, parses
+| Table only (`tilesAvailable=false`), all resolvable entries still have place names and
+  coordinates -- the numbers are never worse for a missing basemap.
+
+| configured, valid
+| fails to parse (packaging error)
+| Map basemap renders, but every valid German postal code counts as
+  `unresolvableGermanPostalCode` (`geodataAvailable=false`) -- no place names, no points on the
+  map, counts are still exactly right.
+
+| not configured
+| fails to parse
+| Table only, every valid German postal code unresolvable. The feature never disappears entirely --
+  the aggregate counts (the most important numbers) are always correct regardless of either
+  source's availability.
+
+| n/a
+| n/a (WebGL missing/disabled in the browser)
+| A dedicated "the map cannot be displayed in this browser" notice, distinct from the two cases
+  above -- the table remains fully available (Q6).
+|===
+
+== Q1-Q7 decisions
+
+Q1, Q2, Q4-Q7 below are `lapis-client` decisions, implemented in V1.9.6 exactly as recorded here. Q3
+is a server+shared decision, implemented and tested since V1.9.5 (`MemberMapRules.isGermanCountry`).
+
+[[q3]]
+* **Q1 -- route and menu placement**: `Routes.MEMBER_MAP = "/member-map"`, menu entry
+  "Mitgliederkarte" directly next to "Geburtstage & Jubiläen" in the existing
+  Verwaltung/Administration sidebar group -- there is no dedicated "Vorstand" menu section in this
+  codebase to place it under instead.
+* **Q2 -- attribution text**: a hardcoded, XSS-safe constant
+  (`© OpenStreetMap contributors`, linking to `https://www.openstreetmap.org/copyright`) rather
+  than trusting the PMTiles file's own embedded metadata HTML (which is missing the word
+  "contributors" in the bundled build, and would be an operator-controlled-HTML-into-DOM path if
+  used directly). The map's vector source is configured *without* a TileJSON `url`, specifically so
+  MapLibre never reads that embedded metadata attribution at all.
+* **Q3 -- what counts as "Germany"**: `member.country` is free text with no normalization. Blank/
+  unset counts as Germany -- the decisive rule (`MemberMapRules.isGermanCountry`): without it,
+  almost every domestic member (whose `country` field was simply never filled in) would
+  incorrectly land in the `foreign` bucket. Recognized spellings, case/whitespace-insensitive:
+  `de`, `deu`, `d`, `deutschland`, `germany`, `brd`, `bundesrepublik deutschland`.
+* **Q4 -- MapLibre version**: `maplibre-gl` pinned to `5.24.0` (last UMD-bundle release before
+  `6.x` went ESM-only, which Kotlin/JS's `@JsModule`/webpack interop cannot currently consume
+  without extra build-side work). `pmtiles` (the JS `pmtiles://` protocol handler) at `4.5.0`.
+* **Q5 -- bundle size**: accepted cost, no code-splitting this wave -- the client ships as one
+  `main.bundle.js`, and MapLibre + pmtiles add roughly 230 KB gzipped for every visitor, not just
+  BOARD/ADMIN ones who actually use the map.
+* **Q6 -- no WebGL**: a distinct notice ("Die Karte kann in diesem Browser nicht angezeigt werden.
+  Alle Zahlen stehen in der Tabelle.") separate from the two data-source-degradation cases above --
+  the table never depends on WebGL.
+* **Q7 -- search**: a screen-local search field (postal-code prefix, or place name from the start,
+  case-insensitive) -- this codebase has no generic, reusable table-search component; every screen
+  with a search field implements its own, and this one follows that existing pattern rather than
+  inventing a shared component as a side effect of this wave.
+
+== No database migration
+
+`member.postal_code`, `member.country`, `member.status` and `member.anonymized_at` have existed
+since V1 -- this wave adds no column, no table, and the kUML entity-relationship model is
+unchanged.

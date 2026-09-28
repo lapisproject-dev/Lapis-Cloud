@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" -- see
  * `55-articles.kuml.kts` file header for the full schema-scope rationale and the state machine
  * this enum backs. Literal order load-bearing (mirrors `article.status VARCHAR(10)`,
- * `V53__article.sql`) -- append-only, never reorder.
+ * `V55__article.sql`) -- append-only, never reorder.
  *
  * State machine (see `ArticleService` for the transition implementations):
  * `DRAFT`/`REJECTED` --submitArticle--> `SUBMITTED` --withdrawArticle--> `DRAFT`

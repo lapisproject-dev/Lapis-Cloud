@@ -28,8 +28,8 @@ import kotlin.test.assertTrue
  */
 class ConferenceBackgroundControllerTest {
     private class FakeProcessor : BackgroundProcessorHandle {
-        val switched = mutableListOf<ConferenceBackgroundEffect>()
-        var behavior: suspend (ConferenceBackgroundEffect) -> Unit = {}
+        val switched = mutableListOf<ConferenceBackgroundChoice>()
+        var behavior: suspend (ConferenceBackgroundChoice) -> Unit = {}
 
         /**
          * What `BackgroundTransformer.backgroundImageAndPath?.path` would report. Audit finding M1: the
@@ -41,10 +41,10 @@ class ConferenceBackgroundControllerTest {
         /** `true` makes a resolving `switchTo` leave [appliedImagePath] untouched -- the swallowed-error shape. */
         var silentSwitchFailure = false
 
-        override suspend fun switchTo(effect: ConferenceBackgroundEffect) {
-            switched += effect
-            behavior(effect)
-            if (!silentSwitchFailure) conferenceBackgroundImagePath(effect)?.let { appliedImagePath = it }
+        override suspend fun switchTo(choice: ConferenceBackgroundChoice) {
+            switched += choice
+            behavior(choice)
+            if (!silentSwitchFailure) conferenceBackgroundImagePath(choice)?.let { appliedImagePath = it }
         }
 
         override fun appliedBackgroundImagePath(): String? = appliedImagePath
@@ -115,8 +115,8 @@ class ConferenceBackgroundControllerTest {
         val messages = mutableListOf<String>()
         val states = mutableListOf<ConferenceBackgroundState>()
         var swapped = 0
-        val factoryEffects = mutableListOf<ConferenceBackgroundEffect>()
-        var processorBehavior: suspend (ConferenceBackgroundEffect) -> Unit = {}
+        val factoryEffects = mutableListOf<ConferenceBackgroundChoice>()
+        var processorBehavior: suspend (ConferenceBackgroundChoice) -> Unit = {}
 
         /** M1: `true` makes a freshly built processor report "no background image" despite a resolved apply. */
         var simulateSilentImageFailure = false
@@ -132,11 +132,11 @@ class ConferenceBackgroundControllerTest {
                 onProcessedStreamSwapped = { swapped++ },
                 onStateChanged = { states += it },
                 supported = supported,
-                processorFactory = { effect ->
-                    factoryEffects += effect
+                processorFactory = { choice ->
+                    factoryEffects += choice
                     FakeProcessor().also {
                         it.behavior = processorBehavior
-                        if (!simulateSilentImageFailure) it.appliedImagePath = conferenceBackgroundImagePath(effect)
+                        if (!simulateSilentImageFailure) it.appliedImagePath = conferenceBackgroundImagePath(choice)
                         created += it
                     }
                 },
@@ -169,11 +169,14 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
-            assertEquals(listOf(ConferenceBackgroundEffect.BLUR_LIGHT), h.factoryEffects)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
+            assertEquals(
+                listOf<ConferenceBackgroundChoice>(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT)),
+                h.factoryEffects,
+            )
             assertEquals(1, track.setCalls)
             assertSame(h.created[0], track.current)
-            assertEquals(ConferenceBackgroundEffect.BLUR_LIGHT, h.controller.state.applied)
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), h.controller.state.applied)
             assertEquals(ConferenceBackgroundPhase.ACTIVE, h.controller.state.phase)
             assertEquals(1, h.swapped)
             assertEquals("blur-light", stored())
@@ -185,13 +188,13 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), track)
             assertEquals("bg-sage", stored())
-            h.controller.select(ConferenceBackgroundEffect.OFF, track)
+            h.controller.select(CONFERENCE_BACKGROUND_OFF, track)
             assertEquals(1, track.stopCalls)
             assertNull(track.current)
             assertNull(stored())
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
         }
 
@@ -200,13 +203,16 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
-            h.controller.select(ConferenceBackgroundEffect.BG_STUDIO, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), track)
             assertEquals(1, h.created.size)
             assertEquals(1, track.setCalls)
             assertEquals(0, track.stopCalls)
-            assertEquals(listOf(ConferenceBackgroundEffect.BG_STUDIO), h.created[0].switched)
-            assertEquals(ConferenceBackgroundEffect.BG_STUDIO, h.controller.state.applied)
+            assertEquals(
+                listOf<ConferenceBackgroundChoice>(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO)),
+                h.created[0].switched,
+            )
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), h.controller.state.applied)
         }
 
     @Test
@@ -214,8 +220,8 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_STRONG, track)
-            h.controller.select(ConferenceBackgroundEffect.BLUR_STRONG, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG), track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG), track)
             assertEquals(1, h.created.size)
             assertEquals(1, track.setCalls)
             assertTrue(h.created[0].switched.isEmpty())
@@ -226,10 +232,10 @@ class ConferenceBackgroundControllerTest {
     fun select_withoutTrack_persistsIntent_butAppliesNothing() =
         withCleanStorage {
             val h = Harness()
-            h.controller.select(ConferenceBackgroundEffect.BG_MIDNIGHT, null)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_MIDNIGHT), null)
             assertTrue(h.created.isEmpty())
             assertEquals("bg-midnight", stored())
-            assertEquals(ConferenceBackgroundEffect.BG_MIDNIGHT, h.controller.state.desired)
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_MIDNIGHT), h.controller.state.desired)
             assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
         }
 
@@ -241,15 +247,19 @@ class ConferenceBackgroundControllerTest {
             val h = Harness()
             val track = FakeTrack()
             track.setBehavior = { throw IllegalStateException("boom") }
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             assertEquals(1, track.stopCalls, "stopProcessor must run after a failed setProcessor")
             assertNull(track.current)
             val state = h.controller.state
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, state.phase)
-            assertEquals(ConferenceBackgroundEffect.OFF, state.applied)
-            assertEquals(ConferenceBackgroundEffect.BLUR_LIGHT, state.desired, "intent survives a failure")
+            assertEquals(CONFERENCE_BACKGROUND_OFF, state.applied)
+            assertEquals(
+                ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT),
+                state.desired,
+                "intent survives a failure",
+            )
             assertEquals("blur-light", stored(), "stored intent survives a failure")
-            assertEquals(ConferenceBackgroundEffect.OFF, conferenceBackgroundDisplayedEffect(state))
+            assertEquals(CONFERENCE_BACKGROUND_OFF, conferenceBackgroundDisplayedChoice(state))
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.LOAD_FAILED)), h.messages)
             assertEquals(1, h.swapped)
         }
@@ -260,8 +270,8 @@ class ConferenceBackgroundControllerTest {
             val h = Harness()
             val track = FakeTrack()
             track.setBehavior = { throw IllegalStateException("boom") }
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
-            h.controller.select(ConferenceBackgroundEffect.BLUR_STRONG, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG), track)
             assertEquals(2, track.stopCalls)
             assertEquals(1, h.messages.size, "one message per cause per session")
             assertEquals(2, h.created.size, "a failed processor is never reused")
@@ -272,13 +282,13 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             h.created[0].behavior = { throw IllegalStateException("image") }
-            h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), track)
             assertEquals(1, track.stopCalls)
             assertNull(track.current)
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, h.controller.state.phase)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.LOAD_FAILED)), h.messages)
         }
 
@@ -287,9 +297,9 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), track)
             h.created[0].behavior = { throw IllegalStateException("blur") }
-            h.controller.select(ConferenceBackgroundEffect.BLUR_STRONG, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG), track)
             assertEquals(1, track.stopCalls)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.APPLY_FAILED)), h.messages)
             assertEquals("blur-strong", stored())
@@ -301,7 +311,7 @@ class ConferenceBackgroundControllerTest {
             val h = Harness(timeoutMs = 30L)
             val track = FakeTrack()
             track.setBehavior = { awaitCancellation() }
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             assertEquals(1, track.stopCalls)
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, h.controller.state.phase)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.TIMEOUT)), h.messages)
@@ -313,12 +323,12 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness(timeoutMs = 30L)
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), track)
             h.created[0].behavior = { awaitCancellation() }
-            h.controller.select(ConferenceBackgroundEffect.BG_STUDIO, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), track)
             assertEquals(1, track.stopCalls)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.TIMEOUT)), h.messages)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
         }
 
     @Test
@@ -327,12 +337,12 @@ class ConferenceBackgroundControllerTest {
             val h = Harness()
             val track = FakeTrack()
             track.setBehavior = { throw IllegalStateException("boom") }
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             val setCallsAfterFailure = track.setCalls
             h.controller.onLocalCameraTrack(track)
             assertEquals(setCallsAfterFailure, track.setCalls, "the one automatic attempt is used up")
             track.setBehavior = {}
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             assertEquals(ConferenceBackgroundPhase.ACTIVE, h.controller.state.phase)
             assertSame(h.created.last(), track.current)
         }
@@ -352,16 +362,28 @@ class ConferenceBackgroundControllerTest {
             val track = FakeTrack()
             val gate = CompletableDeferred<Unit>()
             track.setBehavior = { gate.await() }
-            val first = GlobalScope.launch { h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track) }
+            val first =
+                GlobalScope.launch {
+                    h.controller.select(
+                        ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT),
+                        track,
+                    )
+                }
             track.setProcessorEntered.await()
-            val second = GlobalScope.launch { h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track) }
+            val second =
+                GlobalScope.launch {
+                    h.controller.select(
+                        ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE),
+                        track,
+                    )
+                }
             repeat(5) { yield() } // dem zweiten Klick die Gelegenheit geben, sich am Mutex anzustellen
             gate.complete(Unit)
             first.join()
             second.join()
             assertEquals(1, track.maxRunning)
             assertEquals(1, h.created.size, "the second click reuses the episode's processor via switchTo")
-            assertEquals(ConferenceBackgroundEffect.BG_SAGE, h.controller.state.applied)
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), h.controller.state.applied)
         }
 
     // --- New track / dispose / unsupported / storage -----------------------------------------
@@ -372,12 +394,12 @@ class ConferenceBackgroundControllerTest {
             localStorage[CONFERENCE_BACKGROUND_STORAGE_KEY] = "bg-studio"
             val h = Harness()
             h.controller.restoreDesiredFromStorage()
-            assertEquals(ConferenceBackgroundEffect.BG_STUDIO, h.controller.state.desired)
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), h.controller.state.desired)
             val track = FakeTrack()
             h.controller.onLocalCameraTrack(track)
             h.controller.onLocalCameraTrack(track)
             assertEquals(1, track.setCalls)
-            assertEquals(ConferenceBackgroundEffect.BG_STUDIO, h.controller.state.applied)
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), h.controller.state.applied)
         }
 
     @Test
@@ -385,11 +407,11 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             h.controller.dispose(track)
             assertEquals(1, track.stopCalls)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
-            assertEquals(ConferenceBackgroundEffect.BLUR_LIGHT, h.controller.state.desired)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
+            assertEquals(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), h.controller.state.desired)
             assertEquals("blur-light", stored())
         }
 
@@ -399,10 +421,10 @@ class ConferenceBackgroundControllerTest {
             localStorage[CONFERENCE_BACKGROUND_STORAGE_KEY] = "bg-sage"
             val h = Harness(supported = false)
             h.controller.restoreDesiredFromStorage()
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.desired)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.desired)
             assertTrue(h.states.isEmpty(), "no visible state change on an unsupported browser")
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             h.controller.onLocalCameraTrack(track)
             assertEquals(0, track.setCalls)
             assertTrue(h.created.isEmpty())
@@ -416,7 +438,7 @@ class ConferenceBackgroundControllerTest {
             localStorage[CONFERENCE_BACKGROUND_STORAGE_KEY] = "https://evil.example/x.png"
             val h = Harness()
             h.controller.restoreDesiredFromStorage()
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.desired)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.desired)
         }
 
     // --- Audit-Befund B1: Verlassen darf nie hinter einem haengenden Effektladen warten -----------
@@ -439,7 +461,13 @@ class ConferenceBackgroundControllerTest {
             val track = FakeTrack()
             val gate = CompletableDeferred<Unit>()
             track.setBehavior = { gate.await() }
-            val applying = GlobalScope.launch { h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track) }
+            val applying =
+                GlobalScope.launch {
+                    h.controller.select(
+                        ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT),
+                        track,
+                    )
+                }
             track.setProcessorEntered.await() // der Versuch laeuft jetzt und haelt den Mutex
             h.controller.dispose(track)
             assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
@@ -447,7 +475,7 @@ class ConferenceBackgroundControllerTest {
             applying.join()
             // Der ueberholte Versuch meldet weder Erfolg noch Fehler und haelt nichts fest (M4).
             assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             assertTrue(h.messages.isEmpty(), "a superseded attempt must not notify")
             assertEquals(1, h.detachedCleanups.size, "a superseded attempt schedules an unbounded cleanup")
             h.detachedCleanups[0].invoke()
@@ -471,7 +499,13 @@ class ConferenceBackgroundControllerTest {
                 probeEntered.complete(Unit)
                 probeGate.await()
             }
-            val applying = GlobalScope.launch { h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track) }
+            val applying =
+                GlobalScope.launch {
+                    h.controller.select(
+                        ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE),
+                        track,
+                    )
+                }
             probeEntered.await()
             h.controller.dispose(track)
             probeGate.complete(Unit)
@@ -480,8 +514,12 @@ class ConferenceBackgroundControllerTest {
             assertEquals(0, track.setCalls, "nothing may be attached to the camera track after dispose")
             assertTrue(h.messages.isEmpty())
             assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase, "the phase must not stay APPLYING")
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
-            assertEquals(ConferenceBackgroundEffect.BG_SAGE, h.controller.state.desired, "the intent survives")
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
+            assertEquals(
+                ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE),
+                h.controller.state.desired,
+                "the intent survives",
+            )
         }
 
     /** The same promise for the "Aus" path, whose `removeProcessor` also suspends. */
@@ -490,7 +528,7 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness(timeoutMs = 60_000L, disposeStopTimeoutMs = 60_000L)
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             val statesBefore = h.states.size
             val stopGate = CompletableDeferred<Unit>()
             val stopEntered = CompletableDeferred<Unit>()
@@ -498,14 +536,14 @@ class ConferenceBackgroundControllerTest {
                 stopEntered.complete(Unit)
                 stopGate.await()
             }
-            val applying = GlobalScope.launch { h.controller.select(ConferenceBackgroundEffect.OFF, track) }
+            val applying = GlobalScope.launch { h.controller.select(CONFERENCE_BACKGROUND_OFF, track) }
             stopEntered.await()
             track.stopBehavior = {} // dispose' eigenes stopProcessor darf nicht am selben Gate haengen
             h.controller.dispose(track)
             stopGate.complete(Unit)
             applying.join()
             assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             // Nach dispose kein weiterer sichtbarer Zustandswechsel aus dem ueberholten Versuch: genau EINER
             // (der von dispose selbst) kam noch hinzu.
             assertEquals(statesBefore + 2, h.states.size, "only UserSelected(OFF) and dispose' own transition")
@@ -516,7 +554,7 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness(disposeStopTimeoutMs = 30L)
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             // stopProcessor haengt hinter livekits trackChangeLock -- der Deckel greift.
             track.stopBehavior = { awaitCancellation() }
             h.controller.dispose(track)
@@ -534,7 +572,7 @@ class ConferenceBackgroundControllerTest {
             val h = Harness()
             val track = FakeTrack()
             h.controller.dispose(track)
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             h.controller.onLocalCameraTrack(track)
             assertEquals(0, track.setCalls)
             assertTrue(h.created.isEmpty())
@@ -548,7 +586,7 @@ class ConferenceBackgroundControllerTest {
             val h = Harness(timeoutMs = 30L)
             val track = FakeTrack()
             track.setBehavior = { awaitCancellation() }
-            h.controller.select(ConferenceBackgroundEffect.BLUR_LIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.TIMEOUT)), h.messages)
             assertEquals(1, track.stopCalls, "the capped cleanup still runs")
             assertEquals(1, h.detachedCleanups.size, "plus an unbounded one, because stopProcessor shares the lock")
@@ -570,9 +608,9 @@ class ConferenceBackgroundControllerTest {
             val track = FakeTrack()
             val lateGate = CompletableDeferred<Unit>()
             track.lateSetGate = lateGate
-            h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), track)
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, h.controller.state.phase)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.TIMEOUT)), h.messages)
             assertEquals(1, h.detachedCleanups.size)
             // Das "unkuendbare" Promise wird JETZT fertig und setzt den Prozessor doch noch.
@@ -582,7 +620,7 @@ class ConferenceBackgroundControllerTest {
             track.lateSetGate = null
             h.detachedCleanups[0].invoke()
             assertNull(track.current, "the unbounded cleanup removes the zombie")
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied, "the reported state stays honest")
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied, "the reported state stays honest")
         }
 
     // --- Audit-Befund M1: ein nicht ladbares Hintergrundbild ist ein Fehler, kein schwarzes Bild --
@@ -593,7 +631,7 @@ class ConferenceBackgroundControllerTest {
             val h = Harness()
             val track = FakeTrack()
             h.imageProbeBehavior = { throw IllegalStateException("404") }
-            h.controller.select(ConferenceBackgroundEffect.BG_STUDIO, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), track)
             assertEquals(listOf("/assets/video-backgrounds/bg-studio.webp"), h.probedImages)
             assertTrue(h.created.isEmpty(), "the camera is never touched for a doomed image")
             assertEquals(0, track.setCalls)
@@ -607,8 +645,8 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BLUR_STRONG, track)
-            h.controller.select(ConferenceBackgroundEffect.OFF, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG), track)
+            h.controller.select(CONFERENCE_BACKGROUND_OFF, track)
             assertTrue(h.probedImages.isEmpty())
         }
 
@@ -622,12 +660,12 @@ class ConferenceBackgroundControllerTest {
             val h = Harness()
             h.simulateSilentImageFailure = true
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BG_MIDNIGHT, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_MIDNIGHT), track)
             assertEquals(1, track.setCalls)
             assertEquals(1, track.stopCalls, "the half-applied processor is torn down")
             assertNull(track.current)
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, h.controller.state.phase)
-            assertEquals(ConferenceBackgroundEffect.OFF, h.controller.state.applied)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.LOAD_FAILED)), h.messages)
         }
 
@@ -636,13 +674,175 @@ class ConferenceBackgroundControllerTest {
         withCleanStorage {
             val h = Harness()
             val track = FakeTrack()
-            h.controller.select(ConferenceBackgroundEffect.BG_SAGE, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE), track)
             assertEquals(ConferenceBackgroundPhase.ACTIVE, h.controller.state.phase)
             // switchTo erfuellt sich, laesst aber den alten Bildpfad stehen.
             h.created[0].silentSwitchFailure = true
-            h.controller.select(ConferenceBackgroundEffect.BG_STUDIO, track)
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO), track)
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, h.controller.state.phase)
             assertEquals(listOf(conferenceBackgroundFailureMessage(ConferenceBackgroundFailure.LOAD_FAILED)), h.messages)
             assertEquals(1, track.stopCalls)
+        }
+
+    // --- V1.9.4, reconcileCustomImages / onCustomImageDeleted / customListKnown gate --------------
+    // Review-Befund "Testabdeckung": bisher ungetestet. Die zweite dieser Tests haette den separat
+    // gefundenen reconcileCustomImages-Befund (ids == null faellt faelschlich fruehzeitig zurueck statt
+    // normal anzuwenden) direkt aufgedeckt.
+
+    private val customImageId = "12345678-1234-1234-1234-123456789abc"
+    private val customChoice = ConferenceBackgroundChoice.Custom(customImageId)
+
+    @Test
+    fun reconcileCustomImages_knownDeletion_resetsToOff_clearsStorage_andTearsDownTheProcessor() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(customChoice, track)
+            assertEquals(customChoice, h.controller.state.applied)
+            assertEquals("custom:$customImageId", stored())
+
+            h.controller.reconcileCustomImages(ids = emptySet(), track = track)
+
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.desired, "the intent falls back to Aus, silently")
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
+            assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
+            assertNull(stored(), "the localStorage key is removed, not just the in-memory state")
+            assertEquals(1, track.stopCalls, "the already-applied processor is torn down")
+            assertTrue(h.messages.isEmpty(), "a deleted-elsewhere image is not a failure worth a toast (Tesler/Norman)")
+        }
+
+    /**
+     * Review-Befund (MAJOR): die KDoc von [ConferenceBackgroundController.reconcileCustomImages] sagt fuer
+     * `ids == null` (gescheiterter `listMine()`-Aufruf) ausdruecklich "normal angewendet" -- ein
+     * fruehzeitiges Zurueckkehren ohne Anwendung waere ein unsichtbarer Modus: der Umschalter zeigt
+     * weiter "Hintergrund: Eigenes Bild", die Kamera laeuft aber ohne jeden Effekt.
+     */
+    @Test
+    fun reconcileCustomImages_failedListing_stillAppliesTheDesiredCustomChoice() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            // Absicht setzen OHNE anzuwenden (Kamera war beim Beitritt noch aus) -- derselbe Ablauf wie
+            // restoreDesiredFromStorage() gefolgt von einem spaeteren Kamera-Track.
+            h.controller.select(customChoice, track = null)
+            assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase, "precondition: not applied yet")
+
+            h.controller.reconcileCustomImages(ids = null, track = track)
+
+            assertEquals(1, track.setCalls, "a failed listMine() must NOT block the normal apply path")
+            assertEquals(listOf("/api/conference-backgrounds/$customImageId/image"), h.probedImages)
+            assertEquals(customChoice, h.controller.state.applied)
+            assertEquals(ConferenceBackgroundPhase.ACTIVE, h.controller.state.phase)
+            assertEquals("custom:$customImageId", stored(), "the intent was never touched")
+        }
+
+    @Test
+    fun reconcileCustomImages_knownPresence_appliesTheDesiredCustomChoice() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(customChoice, track = null)
+            h.controller.reconcileCustomImages(ids = setOf(customImageId), track = track)
+            assertEquals(1, track.setCalls)
+            assertEquals(customChoice, h.controller.state.applied)
+        }
+
+    @Test
+    fun reconcileCustomImages_withoutATrack_onlySetsTheKnownFlag_appliesNothingYet() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(customChoice, track = null)
+            h.controller.reconcileCustomImages(ids = setOf(customImageId), track = null)
+            assertEquals(0, track.setCalls, "no track yet -- nothing to apply to")
+            assertEquals(ConferenceBackgroundPhase.OFF, h.controller.state.phase)
+            // customListKnown is now true -- the very next camera track applies immediately (see the
+            // onLocalCameraTrack gate tests below), without a second reconcileCustomImages() call.
+            h.controller.onLocalCameraTrack(track)
+            assertEquals(1, track.setCalls)
+        }
+
+    @Test
+    fun onLocalCameraTrack_withAnUnknownCustomListYet_doesNotApplyTheSavedChoice() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            // Absicht wiederhergestellt (z. B. restoreDesiredFromStorage()), aber reconcileCustomImages()
+            // ist fuer diese Sitzung noch NIE gelaufen -- S3 des Umsetzungsplans: ein inzwischen auf
+            // einem anderen Geraet geloeschtes Bild soll beim Beitritt keine 404/LOAD_FAILED-Meldung
+            // ausloesen, bevor die Liste ueberhaupt geprueft wurde.
+            h.controller.select(customChoice, track = null)
+            h.controller.onLocalCameraTrack(track)
+            assertEquals(0, track.setCalls, "customListKnown gate must block the apply")
+            assertTrue(h.created.isEmpty())
+        }
+
+    @Test
+    fun onLocalCameraTrack_afterReconcileHasRun_appliesTheSavedCustomChoice() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(customChoice, track = null)
+            h.controller.reconcileCustomImages(ids = setOf(customImageId), track = null)
+            h.controller.onLocalCameraTrack(track)
+            assertEquals(1, track.setCalls, "the gate opens once the list is known, even from a track-less reconcile")
+            assertEquals(customChoice, h.controller.state.applied)
+        }
+
+    @Test
+    fun onLocalCameraTrack_builtInChoice_isNeverBlockedByTheCustomListGate() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT), track = null)
+            h.controller.onLocalCameraTrack(track)
+            assertEquals(1, track.setCalls, "built-in effects can never be 'deleted elsewhere' -- the gate is Custom-only")
+        }
+
+    @Test
+    fun onCustomImageDeleted_theDesiredButNotYetAppliedImage_fallsBackToOff() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            // Kamera aus -- nur die Absicht ist gesetzt, nie angewendet.
+            h.controller.select(customChoice, track = null)
+            assertEquals(customChoice, h.controller.state.desired)
+
+            h.controller.onCustomImageDeleted(imageId = customImageId, track = null)
+
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.desired)
+            assertNull(stored())
+        }
+
+    @Test
+    fun onCustomImageDeleted_theCurrentlyAppliedImage_tearsDownTheProcessorToo() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(customChoice, track)
+            assertEquals(customChoice, h.controller.state.applied)
+
+            h.controller.onCustomImageDeleted(imageId = customImageId, track = track)
+
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.desired)
+            assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
+            assertEquals(1, track.stopCalls)
+            assertNull(track.current)
+        }
+
+    @Test
+    fun onCustomImageDeleted_aDifferentImage_isANoOp() =
+        withCleanStorage {
+            val h = Harness()
+            val track = FakeTrack()
+            h.controller.select(customChoice, track)
+            val setCallsBefore = track.setCalls
+
+            h.controller.onCustomImageDeleted(imageId = "87654321-4321-4321-4321-cba987654321", track = track)
+
+            assertEquals(customChoice, h.controller.state.desired, "an unrelated deletion changes nothing")
+            assertEquals(customChoice, h.controller.state.applied)
+            assertEquals(setCallsBefore, track.setCalls)
+            assertEquals(0, track.stopCalls)
         }
 }

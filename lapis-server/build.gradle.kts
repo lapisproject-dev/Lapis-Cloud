@@ -80,6 +80,11 @@ dependencies {
     implementation(libs.jakarta.mail.api)
     runtimeOnly(libs.angus.mail)
 
+    // Welle V1.9.7 "SuperMailer" Teil A -- see gradle/libs.versions.toml for the library-choice/
+    // license rationale. `implementation`, NOT `runtimeOnly`: MailingHtmlSanitizer references
+    // org.jsoup.* types directly.
+    implementation(libs.jsoup)
+
     // V1.4.14 Wave 2 FinTS/HBCI-Live-Kontoabruf -- see gradle/libs.versions.toml for the
     // library-choice/license rationale. `implementation`, NOT `runtimeOnly`: unlike angus-mail we
     // reference `org.kapott.*` types directly (Hbci4jFinTsClient/Hbci4jRawMt940Extractor). ONLY

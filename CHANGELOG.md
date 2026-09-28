@@ -100,6 +100,107 @@ All notable changes to this project are documented here. Format follows
      Audio- und Video-Ereignis im fertigen MP4 — ein reiner String-Vergleich des Filtergraphen kann
      die beiden `first_pts`-Verhaltensweisen nicht unterscheiden.
 
+### Added
+
+- **V1.9.7 — SuperMailer: HTML-authored mailing content, real asynchronous send (`LAPIS_MAILING_DELIVERY`,
+  default `log`), data-model foundation for open-/click-tracking (Teil A implemented, Teil B/C not
+  built this wave — see below).**
+  - **Fixes a pre-existing correctness bug**: `MailingService.sendMailingMessage` previously never
+    called any real transport at all — it wrote a `SENT` delivery-log row per active subscriber
+    inside the same synchronous transaction that flipped the message to `SENT`, with no recipient-
+    eligibility filtering and no protection against a repeat click writing a second full round of
+    rows. `sendMailingMessage` is now a bounded `DRAFT -> QUEUED` transition (a repeat call throws
+    `ConflictException` instead of re-queuing) that hands off to a new
+    `network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker` — its own bounded queue/single
+    worker coroutine (never `MailDispatcher`'s 64-slot single-mail queue, which would risk starving
+    password-reset/FRIEND mail). `LAPIS_MAILING_DELIVERY=smtp` genuinely calls
+    `network.lapis.cloud.server.mail.MailTransport.send`; the default `log` runs the full pipeline
+    (sanitize/render/queue) but skips the transport call, same honest-non-delivery posture as before.
+    An unrecognized value, or `smtp` without real SMTP configured, fails fast at startup.
+  - **Crash recovery (D2)**: `MailingDeliveryWorker.recoverInterrupted()` runs once at startup —
+    leftover `PENDING` delivery-log rows become `FAILED`, still-`QUEUED` messages are closed out as
+    `SENT`/`FAILED`. Deliberately no automatic re-send (would risk mailing real members twice).
+  - **Recipient filter (D3)**: only active subscribers whose member is `MemberStatus.ACTIVE`, not
+    anonymized and not deceased, get a delivery-log row at all (a syntactically invalid mailbox
+    address is NOT part of this queuing-time filter — such a recipient still gets a row, `PENDING`
+    then `SKIPPED_NO_ADDRESS`, since the address is only re-validated later, per recipient, by the
+    worker) — previously every non-unsubscribed subscription row was mailed regardless of the
+    member's current status.
+  - **Teil A (HTML content)**: new `network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer`
+    (jsoup, MIT, allowlist-based — `p`/`br`/`strong`/`em`/`h2`/`h3`/`ul`/`ol`/`li`/`blockquote`/`a`
+    with `http`/`https`/`mailto` hrefs only) and `MailingPlainText` (derives the plain-text body from
+    the sanitized HTML, never the reverse) back a new `createDraftMessageHtml` RPC alongside the
+    pre-existing plain-text `createDraftMessage`. `MailingMailRenderer` is the one render path both
+    the async send and two new preview RPCs (`previewMailingMessage`/`previewMailingHtml`) go
+    through — a preview can never drift from what actually gets sent. New
+    `getMailingDeliveryMode()` RPC lets the compose screen show its "this is only a log entry" honesty
+    caption only while the server is actually in `log` mode (previously always shown, regardless of
+    mode, and worded with an unnecessary gendered pair — "Abonnentin/Abonnent" — now gender-neutral
+    per the vault's no-gendering convention).
+  - **New migration `V53__mailing_html_and_tracking.sql`** (additive/idempotent): `mailing_message
+    .body_html`, `mailing_list_subscription`'s two tracking-consent timestamps, `mailing_delivery_log`'s
+    tracking-snapshot columns, and two new tables (`mailing_message_link`, `mailing_link_click`) — the
+    full data-model foundation for Teil B (click counting) and Teil C (open counting), created but not
+    yet consumed by any code path this wave. `DeliveryStatus` gains `PENDING`/`FAILED`/
+    `SKIPPED_NO_ADDRESS`. **`V1__baseline.sql`'s own inline, unnamed `CHECK` on
+    `mailing_delivery_log.delivery_status` was also widened** (H2 enforces it independently of the
+    named constraint, same trap as every migration since V11) — an already-migrated instance needs
+    `flyway repair` before upgrading (see `bootstrap/FlywayRepair.kt`).
+  - **Not built this wave** (explicit scope reduction from the original implementation plan, not a
+    silent drop): the rich contenteditable client editor (toolbar, DOMPurify) — the compose screen
+    still uses a plain textarea, and `createDraftMessageHtml` exists as a real, tested RPC without
+    dedicated authoring UI yet. Teil B (click-tracking routes, `MailingTrackingToken`, click-rewrite
+    in the renderer) and Teil C (open-tracking pixel route, consent RPCs/UI toggles, `mailingMessageStats`,
+    the DSGVO contributor for tracking data, a retention poller) are follow-up waves; the schema
+    already carries everything they will need, so no further migration is expected when they land.
+  - See `docs/architecture/mailing-newsletter.adoc` for the full design, the send-flow diagram and
+    the exact list of what is/isn't implemented.
+- **V1.9.6 — Vorstands-Karte (member map), client half.** Follow-up to V1.9.5 (server + shared) --
+  lands the `lapis-client` screen: `Routes.MEMBER_MAP = "/member-map"`, a "Mitgliederkarte" entry in
+  the Verwaltung/Administration sidebar group (BOARD/ADMIN only, `requireRole` route guard, same tier
+  as "Geburtstage & Jubiläen"), and the MapLibre/PMTiles vector map itself. Two new hand-declared npm
+  dependencies (`maplibre-gl` 5.24.0, the last UMD-bundle release before 6.x went ESM-only, and
+  `pmtiles` 4.5.0 for the `pmtiles://` protocol handler) -- externals in
+  `network.lapis.cloud.client.maplibre`. The map shows every eligible member's postal code as a
+  weighted, sub-linearly sized circle (`MemberMapRules.radiusPx`, shared with the server since
+  V1.9.5), clustered by MapLibre's own supercluster at low zoom (`memberSum`, a SUM of each grouped
+  point's own member count -- never the built-in `point_count`, which would undercount a cluster of
+  few but large postal codes). An always-visible table underneath mirrors the exact same numbers row
+  by row, including postal codes without a resolved location -- no number is ever shown only on the
+  map, and there is no k-anonymity/rounding (a single-member postal code shows exactly `1`, this is a
+  BOARD/ADMIN-only aggregate view, not a public one). A screen-local PLZ/place-name search filters
+  both the table and (implicitly, by what's visible) the reader's attention; a table-row click flies
+  the map to that entry, a map-point click highlights the corresponding table row. Four degradation
+  states (`MemberMapDegradation`) cover every combination of "no WebGL in this browser", "no basemap
+  file configured" and "postal-code centroid data failed to parse" -- the table stays fully populated
+  in every one of them. Security: `placeName` (GeoNames free text) is serialized into GeoJSON via
+  `kotlinx.serialization.json` (never string concatenation) and only ever reaches the DOM through
+  `Popup.setDOMContent`'s text nodes or a plain KVision `span`, never `setHTML`/`innerHTML`; the
+  basemap is fetched same-origin (`pmtiles:///api/board/member-map/basemap.pmtiles`), no third-party
+  CDN request; no postal code is ever placed in a URL or query parameter (deliberately no deep link).
+  See `docs/architecture/member-map.adoc` (status note removed -- server, shared and client are now
+  all implemented) for the full design and the Q1-Q7 decisions this records.
+- **V1.9.5 — Vorstands-Karte (member map), second attempt, server + shared half only.** This wave
+  lands the RPC service, the aggregation logic, the PMTiles basemap HTTP route and the bundled
+  postal-code centroid index -- **the `lapis-client` screen (route, menu entry, map, on-screen
+  notices, search) is NOT part of this wave and does not exist yet**, it is planned for a follow-up
+  wave. `BoardMemberMapService.getMemberMap` is a BOARD/ADMIN-only RPC aggregate of member
+  geographic distribution at postal-code granularity. No member id, name, street, city or date of
+  any kind crosses the wire, only postal-code-bucketed counts across **three** categories the first
+  attempt's scope had collapsed into two: mapped (resolved against the bundled GeoNames postal-code
+  centroid index), a **new third bucket** for a valid-shaped German postal code the bundled index
+  has no entry for (`unresolvableGermanPostalCode`, distinct from a genuinely missing/malformed
+  one), and foreign (country checked BEFORE postal-code shape, so e.g. France's `75001` never lands
+  in either German bucket). See `docs/architecture/member-map.adoc` for the full design (including
+  its own status note on what is/isn't implemented yet) and its recorded decisions -- Q3 (blank/
+  unset `country` counts as Germany -- the decisive rule, without it almost every domestic member
+  would land in "foreign") is implemented and tested today; Q1 (route `/member-map`, menu entry
+  "Mitgliederkarte"), Q2 (attribution text), Q4 (`maplibre-gl` version pin), Q5 (bundle-size
+  trade-off), Q6 (WebGL-missing notice) and Q7 (screen-local search) are `lapis-client` decisions
+  recorded for that follow-up wave, not yet built.
+  No database migration -- `member.postal_code`/`country`/`status`/`anonymized_at` have existed
+  since V1, nothing new was added to the schema or the kUML ERM.
+
 ### Security
 
 - **V1.9.1 — document/folder access levels are now visible and editable, closing a folder-level
@@ -348,6 +449,40 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen"** -- a full member (`ACTIVE`,
+  `MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE`, deliberately narrower than
+  `CONFERENCE_ELIGIBLE`) can now upload up to 3 private background photos for the video conference,
+  alongside the existing 9 built-in effects. Segmentation and compositing still run entirely in the
+  browser (no camera frame is ever sent to the server); only the upload itself is a byte-carrying
+  round trip, once, at upload time. New table `conference_background_image`
+  (`V52__conference_background_image.sql`, model `56-conference-background.kuml.kts`), byte-carrying
+  routes `POST/GET/DELETE /api/conference-backgrounds*` (mirrors `TravelExpenseReceiptRoutes`' "not
+  Kilua RPC" reasoning), read-only RPC companion `IConferenceBackgroundService.listMine`.
+  `ConferenceBackgroundImageProcessor` re-decodes every upload from sniffed magic bytes only (never
+  the declared `Content-Type`), rejects on header-only dimensions before ever calling a decoder
+  (decompression-bomb guard, verified by a decode-call-counting test), and re-encodes to a
+  metadata-stripped JPEG (no EXIF/GPS/XMP/ICC profile, no byte range of the original file survives --
+  closes the "polyglot file" attack class). Client-side `normalizeBackgroundForUpload` re-encodes to
+  JPEG before upload as a courtesy (smaller upload, immediate feedback); the server never trusts it
+  and re-validates everything. IDOR-safe throughout: BOARD/ADMIN get the identical 404 an unrelated
+  member gets on every route, no privileged bypass anywhere (a deliberate departure from the travel-
+  expense receipt download route's own BOARD/ADMIN bypass -- these are private photos with no
+  organizational interest attached). Listing/viewing/deleting one's own images stays available
+  regardless of the caller's current status, so losing ACTIVE status never traps a member's own
+  photos. DSGVO: hard-delete contributor (`ConferenceBackgroundPersonalData`), export carries only
+  metadata (id/width/height/sizeBytes/createdAt), never storage keys or bytes.
+  `conference_background_image` is listed in `OrganizationSchemaCatalog.EXCLUDED_TABLES` --
+  deliberately excluded from the ADMIN-facing whole-organization backup (private, non-organizational
+  data) and NOT added to `OrganizationExportService.BLOB_TABLES` either. Limits: 4 MiB upload cap,
+  320-4096 px accepted source dimensions, output capped at 1920 px long edge, thumbnail 320x180, 3
+  images per member, 10 uploads per member per rolling hour, a server-wide `Semaphore(2)` bounding
+  concurrent decodes. Client: `ConferenceBackgroundChoice` (`BuiltIn`/`Custom`) generalizes the
+  existing nine-effect whitelist and the state machine to also cover a member's own images; own
+  tiles are wrapped in a `role="none"` container so the tile grid's `role="radiogroup"` still
+  contains only `role="radio"` elements (its × remove button is a sibling, not a descendant, of the
+  radio). See `docs/architecture/video-background-effects.adoc`'s "Custom backgrounds" section for
+  the full design, security checklist and known gaps (Android-app upload not yet exercised on a real
+  device).
 - **V1.4.32 W7 "Zeitstempel-Formatierung app-weit" (Teilwelle A, no new version)** -- one shared date/time
   display convention (`DateTime.kt`), the temporal sibling of the W6a/W6b money convention: five
   `format*`/`*In` functions, five live-translatable widget tokens, three table-column factories
@@ -483,6 +618,35 @@ All notable changes to this project are documented here. Format follows
   explicit-language seam (`formatPriceTimestampLabelIn`) and pinned the language explicitly (with `finally`)
   in the one test that cannot reach that seam; and corrected a guideline paragraph that claimed the `pl`/`ru`
   `.po` catalogs were left unchanged when round 2's own commit had in fact added their trailing dot.
+- **V1.9.3 — i18n-Restschuld: SEPA batch screen always showed the German plural noun, even for exactly
+  one item.** `SepaBatchesScreen.kt` had three `gettext("%1 Positionen ...", count)` call sites that never
+  varied their noun by `count` -- "Lauf anlegen (1 Positionen, 10,00 €)", "1 Positionen konnten nicht
+  gebucht werden.". Round 4 (same branch, `fix(i18n): plural-form catalog support + regenerated source
+  references`) had already made `I18nCatalogManager.ngettext()` correctness-ready (a real plural catalog
+  array, indexed by a CLDR-adjacent `pluralFormIndex()` covering all eight UI languages' one/few/many
+  grammar) but adopted it nowhere. This round is the first real adoption: all three call sites now use
+  `ngettext("%1 Position ...", "%1 Positionen ...", count, count, ...)`. KVision publishes no top-level
+  free function for the plural case (only `I18n.ngettext()` and a `tr(...)`-style deferred `ntr()` that
+  takes no substitution arguments at all, unusable here since "%2" needs the formatted amount too), so
+  `I18nCatalogManager.kt` gained its own small top-level `ngettext(...)` wrapper around `I18n.ngettext(...)`,
+  mirroring KVision's own `gettext()` wrapper. Every one of the eight catalogs (`messages.pot` + all seven
+  `messages-<lang>.po`) gained the matching `msgid`/`msgid_plural` block. A pre-existing DOM test had
+  hard-coded the bug as its own expectation (`FormSubmitBodyPart3FinanceDomTest`,
+  `startsWith("Lauf anlegen (1 Positionen")`) and needed fixing in the same round -- the clearest
+  evidence the bug was real, not theoretical. New JVM-side coverage (`PluralMessagesCatalogTest`) closes
+  the gap left by `AllClientMessagesCatalogTest`'s scanner, which is blind to `ngettext(` call sites and
+  `msgid_plural` catalog blocks in both directions; new Kotlin/JS
+  tests exercise the three real msgid/msgid_plural pairs across all seven catalog languages. Also
+  corrected a stale doc-comment in `scripts/i18n/regenerate-source-refs.mjs` that claimed its matcher
+  would also pick up `ntr(`/`ngettext(` call sites -- empirically false (its negative lookbehind blocks a
+  match starting inside "n**tr(**"/"n**gettext(**"); the matcher itself is unchanged this round, so the
+  three new call sites carry no `#:` source reference, same as any other indirectly-reached msgid.
+  Deliberately **not** widened to further candidates of the same pattern found by grep (`"%1 Einträge
+  geladen"`, `"%1 Jahre Förderer/Mitgliedschaft"`, `"%1 Stimmen abgegeben."`, `"%1 Antworten · %2
+  Boosts"`, `"%1 Tage × %2"`) -- named as open follow-up work in
+  `docs/architecture/ui-ux-guideline.adoc`'s "i18n-Restschuld" section rather than expanding this wave's
+  scope past the three sites the bug report named. See that section for the full round 4 + round 5
+  write-up.
 
 ## [0.24.0] — 2026-09-26
 

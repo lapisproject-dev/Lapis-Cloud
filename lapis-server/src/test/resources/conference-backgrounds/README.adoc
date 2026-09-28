@@ -1,0 +1,313 @@
+= Fixtures for `ConferenceBackgroundImageProcessorTest`
+
+Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen". All fixtures here are
+synthetic, generated on this machine -- no real photo, no real GPS coordinate, no real person.
+
+`exiftool` was not available in this environment; every fixture below was generated with Python 3
++ Pillow (and, for the CMYK JPEG, ImageMagick) instead. The exact generation script is reproduced
+below so a fixture can be regenerated or extended without guessing.
+
+== Fixtures
+
+|===
+|File |Purpose
+
+|`exif-gps-xmp.jpg`
+|A 500x400 JPEG (both sides comfortably clear of `ConferenceBackgroundRules.MIN_SIDE_PX`) carrying
+a real APP1 EXIF segment (with a *fictional* GPS position, Berlin-ish 52°30'N 13°24'E, plus a
+`DateTime` tag), a hand-appended APP1 XMP packet (`http://ns.adobe.com/xap/1.0/` namespace, so
+`ConferenceBackgroundImageProcessorTest` can grep for that literal string), and an embedded sRGB
+ICC profile (APP2, `ICC_PROFILE`). Exercises "EXIF/XMP/ICC must not survive re-encoding".
+
+|`exif-png.png`
+|Same idea for PNG (also 500x400): a real `eXIf` chunk (GPS + DateTime, same fictional coordinate)
+and an `iTXt` chunk carrying the identical XMP packet text (`XML:com.adobe.xmp` keyword, the
+real-world convention Adobe tooling uses).
+
+|`bomb.png`
+|Hand-built (not via Pillow) decompression-bomb PNG: a valid `IHDR` chunk declaring 20000x20000
+8-bit RGB, followed by a **deliberately tiny, truncated** `IDAT` (one compressed pseudo-scanline)
+and `IEND`. 69 bytes total. `ConferenceBackgroundImageProcessor.process` must reject this on the
+header dimension check alone (`DimensionsOutOfRange`) -- the decode-call-counting test seam proves
+`decode()` is never invoked, so the tiny/invalid `IDAT` is never actually decompressed.
+
+|`landscape.jpg`
+|Ordinary 2400x1600 JPEG (solid fill) -- exercises the "downscale to `MAX_OUTPUT_LONG_EDGE_PX`"
+happy path (2400 > 1920).
+
+|`portrait.png`
+|Ordinary 600x1200 PNG (solid fill) -- portrait orientation, within bounds, no downscale needed
+(1200 < 1920).
+
+|`too-small.png`
+|200x200 PNG -- both sides below `ConferenceBackgroundRules.MIN_SIDE_PX` (320) ->
+`DimensionsOutOfRange`.
+
+|`alpha.png`
+|500x400 PNG with a fully-transparent RGBA fill -- verifies the flattened output shows the
+`#202020` canvas fill color, never pink/garbage/premultiplied artifacts.
+
+|`garbage-after-magic.jpg`
+|Valid JPEG SOI+APP0 magic bytes followed by 71 bytes of non-JPEG garbage -- not a real, complete
+JPEG stream -> `Undecodable`.
+
+|`random-bytes.bin`
+|256 bytes of `os.urandom` -- no valid magic bytes of any kind -> `Undecodable`.
+
+|`polyglot.jpg`
+|A complete, valid, small JPEG (500x500) with an HTML fragment AND a fake ZIP local-file-header
+(`PK\x03\x04`) appended AFTER the JPEG's own EOI marker. Must decode successfully (`Ok`) and the
+re-encoded output bytes must contain neither `<html` nor the ZIP signature -- the output comes
+entirely from a freshly rendered raster, never a byte range of the input (see processor KDoc point
+6, "polyglot... structurally impossible").
+
+|`scan-bomb.jpg`
+|Security-Audit fix (2026-09-27, MAJOR "CPU DoS via a progressive-JPEG scan bomb"): a genuine,
+legally-dimensioned (4096x4096, exactly at `MAX_SIDE_PX`) flat-color progressive JPEG, generated
+with Pillow's own `progressive=True` encoder (10 real scans), with its smallest real scan (16
+bytes, a late AC refinement pass) spliced in 40 extra times just before EOI -- 50 SOS markers
+total, comfortably over the processor's `MAX_JPEG_SCANS` (32). Exercises "rejected by
+`jpegScanCountExceeds` on the marker structure ALONE, `decode()` never invoked" (see processor KDoc
+point 4a) the same way `bomb.png` exercises the header-dimension gate. Not hand-built like
+`bomb.png` -- see the regeneration script below, which parses the real Pillow output to find real
+scan boundaries rather than guessing at JPEG entropy-coding byte-stuffing rules by hand.
+
+|`scan-bomb-extraneous-byte.jpg`
+|Security-Audit fix (2026-09-27, MAJOR "scan-bomb fix bypassed by a single extraneous byte"):
+`scan-bomb.jpg` (above) with a single `0x00` byte spliced in immediately before its first SOS
+(`0xFF 0xDA`) marker -- one byte larger, otherwise byte-identical. Real decoders (the JDK's and
+libjpeg's) tolerate that stray byte as extraneous data before a marker and decode the file anyway
+(verified empirically with Pillow -- `Image.open(...).load()` succeeds, `4096x4096`). Before this
+fix, `jpegScanCountExceeds` treated the stray byte as "malformed marker stream, not our job, let
+`decode()` judge it" and returned `false` outright -- bypassing the scan-count gate entirely
+regardless of the true SOS count. Exercises "the gate still rejects a scan bomb even when one
+extraneous byte sits in front of its first SOS marker, `decode()` never invoked".
+
+|`scan-bomb-bogus-length-com.jpg`,
+`scan-bomb-bogus-length-app1.jpg`,
+`scan-bomb-bogus-length-ff00.jpg`
+|Security-Audit fix (2026-09-27, MAJOR "scan-bomb gate still bypassable via a bogus 2-byte
+length"): `scan-bomb.jpg`'s 50 real SOS markers, with one of three 4-byte bypass sequences spliced
+in immediately before the first one, followed by 500 MORE copies of its smallest scan (550 SOS
+markers total, 156,735 bytes, still 4096x4096) -- `-com`/`-app1`/`-ff00` differ only in that
+4-byte sequence: `FF FE 00 00` (a COM marker declaring a bogus 0 length), `FF E1 00 01` (an APP1
+marker declaring a bogus 1 length -- both shorter than the 2-byte length field itself), and
+`FF 00 00 00` (`0xFF 0x00`, byte-stuffing syntax that is only legal INSIDE entropy-coded scan
+data, at a marker position, followed by a bogus 0 length). Both the JDK's built-in JPEG reader and
+libjpeg tolerate all three and decode the file anyway. Before this fix, `jpegScanCountExceeds`
+treated each as "malformed marker stream, not our job, let `decode()` judge it" and returned
+`false` outright the instant it hit the bypass sequence -- silently ending the walk before a
+single one of the 550 real SOS markers that follow was ever counted. Verified empirically against
+the real, compiled class: `ConferenceBackgroundImageProcessor().process(...)` returned `Ok` after
+~25 s of blocking native decode for all three, where the fixed gate now rejects all three as
+`Undecodable` with `decode()` never invoked. See the generation script below (built from
+`scan-bomb.jpg`'s own scan boundaries, same technique as `scan-bomb-extraneous-byte.jpg` above)
+and `ConferenceBackgroundImageProcessor.jpegScanCountExceeds` KDoc for the full root-cause
+writeup.
+
+|===
+
+NOTE: The plan for this wave anticipated a `cmyk.jpg` fixture (a genuine 4-component Adobe-marker
+CMYK JPEG, produced with `magick -size 500x400 xc:skyblue -colorspace CMYK -define
+jpeg:colorspace=4 cmyk.jpg` -- plain `-colorspace CMYK` alone is not enough, ImageMagick silently
+writes a normal 3-component YCbCr JPEG without the second flag) on the assumption that the JDK's
+built-in JPEG reader cannot decode Adobe CMYK JPEGs. Verified empirically on this environment's
+JDK 25: it decodes such a fixture successfully (returns `BackgroundImageOutcome.Ok`, correctly
+color-converted) -- the historical "JDK chokes on CMYK JPEG" limitation no longer holds for the
+JDK 25 baseline this codebase targets for self-hosted services (see CLAUDE.md "JDK-Versions-Policy").
+No `Undecodable`-via-CMYK test case exists as a result; the fixture was removed rather than kept
+with an assertion that does not hold.
+
+== Regeneration script (Python 3 + Pillow)
+
+[source,python]
+----
+from PIL import Image, PngImagePlugin, ImageCms
+from PIL.TiffImagePlugin import IFDRational
+import struct, zlib, os
+
+R = IFDRational
+
+def make_gps_exif(img):
+    exif = img.getexif()
+    exif[0x0132] = "2020:01:01 00:00:00"  # DateTime
+    exif[0x8825] = {  # GPSInfo IFD
+        1: 'N', 2: (R(52, 1), R(30, 1), R(0, 1)),
+        3: 'E', 4: (R(13, 1), R(24, 1), R(0, 1)),
+    }
+    return exif.tobytes()
+
+xmp_packet = ('<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>'
+              '<x:xmpmeta xmlns:x="adobe:ns:meta/" xmlns:xap="http://ns.adobe.com/xap/1.0/">'
+              '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+              '<rdf:Description rdf:about=""/></rdf:RDF></x:xmpmeta><?xpacket end="w"?>').encode("utf-8")
+
+# exif-gps-xmp.jpg
+img = Image.new("RGB", (500, 400), (100, 150, 200))  # NOT 400x300 -- 300 < MIN_SIDE_PX (320)
+exif_bytes = make_gps_exif(img)
+icc_bytes = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+img.save("exif-gps-xmp.jpg", "JPEG", exif=exif_bytes, icc_profile=icc_bytes, quality=90)
+xmp_segment_payload = b'http://ns.adobe.com/xap/1.0/\x00' + xmp_packet
+xmp_segment = b'\xff\xe1' + struct.pack(">H", len(xmp_segment_payload) + 2) + xmp_segment_payload
+with open("exif-gps-xmp.jpg", "rb") as f: data = f.read()
+with open("exif-gps-xmp.jpg", "wb") as f: f.write(data[:2] + xmp_segment + data[2:])
+
+# exif-png.png
+img2 = Image.new("RGB", (500, 400), (100, 150, 200))
+pnginfo = PngImagePlugin.PngInfo()
+pnginfo.add_itxt("XML:com.adobe.xmp", xmp_packet.decode("utf-8"), lang="", tkey="")
+img2.save("exif-png.png", "PNG", exif=make_gps_exif(img2), pnginfo=pnginfo)
+
+# bomb.png
+def chunk(tag, data):
+    return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
+ihdr = struct.pack(">IIBBBBB", 20000, 20000, 8, 2, 0, 0, 0)
+idat = zlib.compress(b'\x00' + bytes(3))
+with open("bomb.png", "wb") as f:
+    f.write(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b''))
+
+# landscape.jpg / portrait.png / too-small.png / alpha.png
+Image.new("RGB", (2400, 1600), (200, 100, 50)).save("landscape.jpg", "JPEG", quality=90)
+Image.new("RGB", (600, 1200), (10, 200, 10)).save("portrait.png", "PNG")
+Image.new("RGB", (200, 200), (0, 0, 0)).save("too-small.png", "PNG")
+Image.new("RGBA", (500, 400), (255, 0, 0, 0)).save("alpha.png", "PNG")
+
+# garbage-after-magic.jpg / random-bytes.bin
+with open("garbage-after-magic.jpg", "wb") as f:
+    f.write(b'\xff\xd8\xff\xe0' + b'\x00' * 50 + b'GARBAGEGARBAGEGARBAGE')
+with open("random-bytes.bin", "wb") as f:
+    f.write(os.urandom(256))
+
+# polyglot.jpg
+base = Image.new("RGB", (500, 500), (5, 5, 5))
+base.save("polyglot-base.jpg", "JPEG", quality=85)
+with open("polyglot-base.jpg", "rb") as f: jpeg_bytes = f.read()
+appended = b"<html><body>evil</body></html>" + b"PK\x03\x04" + b"fake zip local file header content"
+with open("polyglot.jpg", "wb") as f: f.write(jpeg_bytes + appended)
+----
+
+[source,python]
+----
+# scan-bomb.jpg -- see ConferenceBackgroundImageProcessor.jpegScanCountExceeds KDoc for the marker-
+# walking rules this mirrors (byte-stuffing, restart markers, segment length fields).
+from PIL import Image
+
+Image.new("RGB", (4096, 4096), (120, 140, 160)).save("scan-bomb-base.jpg", "JPEG", quality=85, progressive=True)
+with open("scan-bomb-base.jpg", "rb") as f: data = f.read()
+assert data[0:2] == b'\xff\xd8'
+
+i = 2
+scans = []
+while i < len(data):
+    assert data[i] == 0xFF
+    j = i + 1
+    while data[j] == 0xFF: j += 1
+    marker = data[j]
+    marker_start = i
+    i = j + 1
+    if marker == 0xD9:  # EOI
+        eoi_start = marker_start
+        break
+    elif marker == 0x01 or (0xD0 <= marker <= 0xD7):
+        continue
+    elif marker == 0xDA:  # SOS
+        seg_len = (data[i] << 8) | data[i + 1]
+        i += seg_len
+        while True:
+            if data[i] == 0xFF:
+                nxt = data[i + 1]
+                if nxt == 0x00: i += 2
+                elif 0xD0 <= nxt <= 0xD7: i += 2
+                elif nxt == 0xFF: i += 1
+                else: break
+            else:
+                i += 1
+        scans.append((marker_start, i))
+    else:
+        seg_len = (data[i] << 8) | data[i + 1]
+        i += seg_len
+
+smallest = min(scans, key=lambda se: se[1] - se[0])
+bomb = data[:eoi_start] + data[smallest[0]:smallest[1]] * 40 + data[eoi_start:]
+with open("scan-bomb.jpg", "wb") as f: f.write(bomb)
+----
+
+[source,python]
+----
+# scan-bomb-extraneous-byte.jpg -- scan-bomb.jpg (above) with one 0x00 byte spliced in immediately
+# before its first SOS marker. See jpegScanCountExceeds KDoc, "scan-bomb fix bypassed by a single
+# extraneous byte" (2026-09-27).
+with open("scan-bomb.jpg", "rb") as f: data = f.read()
+idx = data.find(b"\xff\xda")
+assert idx != -1
+with open("scan-bomb-extraneous-byte.jpg", "wb") as f:
+    f.write(data[:idx] + b"\x00" + data[idx:])
+----
+
+[source,python]
+----
+# scan-bomb-bogus-length-{com,app1,ff00}.jpg -- scan-bomb.jpg (above, 50 SOS markers) with one of
+# three 4-byte bypass sequences spliced in immediately before its first SOS marker, followed by 500
+# MORE copies of its smallest scan (550 SOS markers total). See jpegScanCountExceeds KDoc,
+# "scan-bomb gate still bypassable via a bogus 2-byte length" (2026-09-27). Re-parses scan-bomb.jpg
+# the same way the scan-bomb.jpg generation script above does, to find the first SOS marker's start,
+# the smallest scan's byte range, and EOI's start.
+with open("scan-bomb.jpg", "rb") as f: data = f.read()
+assert data[0:2] == b"\xff\xd8"
+
+i = 2
+scans = []
+eoi_start = None
+while i < len(data):
+    assert data[i] == 0xFF
+    j = i + 1
+    while data[j] == 0xFF: j += 1
+    marker = data[j]
+    marker_start = i
+    i = j + 1
+    if marker == 0xD9:
+        eoi_start = marker_start
+        break
+    elif marker == 0x01 or (0xD0 <= marker <= 0xD7):
+        continue
+    elif marker == 0xDA:
+        seg_len = (data[i] << 8) | data[i + 1]
+        i += seg_len
+        while True:
+            if data[i] == 0xFF:
+                nxt = data[i + 1]
+                if nxt == 0x00: i += 2
+                elif 0xD0 <= nxt <= 0xD7: i += 2
+                elif nxt == 0xFF: i += 1
+                else: break
+            else:
+                i += 1
+        scans.append((marker_start, i))
+    else:
+        seg_len = (data[i] << 8) | data[i + 1]
+        i += seg_len
+
+first_sos_start = scans[0][0]
+smallest = min(scans, key=lambda se: se[1] - se[0])
+smallest_bytes = data[smallest[0]:smallest[1]]
+
+variants = {
+    "scan-bomb-bogus-length-com.jpg": b"\xff\xfe\x00\x00",   # COM, bogus length 0
+    "scan-bomb-bogus-length-app1.jpg": b"\xff\xe1\x00\x01",  # APP1, bogus length 1
+    "scan-bomb-bogus-length-ff00.jpg": b"\xff\x00\x00\x00",  # FF 00 at a marker position, then bogus length 0
+}
+for filename, anomaly in variants.items():
+    new_data = (
+        data[:first_sos_start] + anomaly + data[first_sos_start:eoi_start]
+        + smallest_bytes * 500 + data[eoi_start:]
+    )
+    with open(filename, "wb") as f:
+        f.write(new_data)
+----
+
+[source,bash]
+----
+# cmyk.jpg (ImageMagick, not Pillow -- Pillow cannot ENCODE CMYK JPEG). Both flags are required:
+# "-colorspace CMYK" alone still writes a plain 3-component YCbCr JPEG.
+magick -size 500x400 xc:skyblue -colorspace CMYK -define jpeg:colorspace=4 cmyk.jpg
+----

@@ -54,7 +54,15 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "right after, before any chart exists (PriceOracleChartLifecycleDomTest)"
             ),
         "ConferenceBackgroundSection.kt" to
-            (2 to "RawAttributes hook and tile keyboard hook: the group is hidden while the tiles are built, so no element exists yet"),
+            (
+                3 to
+                    "RawAttributes hook, the nine built-in tiles' keyboard hook (group hidden while built, no element yet), " +
+                    "and (V1.9.4) the same keyboard hook for an own uploaded tile in buildCustomTile -- safe under the " +
+                    "established/documented call order (setCustomImages BEFORE the group's first open(), see " +
+                    "ConferenceScreen.kt's own call site right after the controller is built); calling it while the " +
+                    "group is ALREADY visible (upload/delete always happen with the panel open) renders the new tile " +
+                    "immediately too, verified by a DOM probe (ConferenceBackgroundSectionDomTest) -- no gap"
+            ),
         "ConferenceRecordingsPanel.kt" to
             (1 to "raw <video> in a late insert hook; more widgets follow in the same card, exactly one video results"),
         "ConferenceWhiteboardController.kt" to
@@ -66,6 +74,15 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "roster/chat badges (raw child, next add patches), stage/grid zones " +
                     "(first fire is the replacement, before any tile exists), chatRow (hidden panel), setStaticA11yLabel/" +
                     "setDynamicA11yTitle (getElement() ?: hook idiom)"
+            ),
+        "MemberMapScreen.kt" to
+            (
+                3 to
+                    "root's own destroy hook is registered as the very FIRST statement after `dataScreenRoot()`, before any " +
+                    "child is added -- no element/key exists on root yet; the PLZ button's focus-restore hook and the map " +
+                    "canvas host's insert hook are both registered on a widget that was JUST created (`tag(TAG.BUTTON, ...)` / " +
+                    "`div(className = ...)`), before that widget has any element of its own, exactly the `canvasHost` shape " +
+                    "already audited for PriceOracleScreen.kt"
             ),
     )
 

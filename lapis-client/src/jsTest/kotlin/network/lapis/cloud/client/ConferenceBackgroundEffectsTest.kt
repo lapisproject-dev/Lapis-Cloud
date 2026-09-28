@@ -13,6 +13,11 @@ import kotlin.test.assertTrue
  * Gate, Zustandsautomat samt Jobs-K6-Regel (Fehlschlag laesst die Absicht unberuehrt, hoechstens ein
  * automatischer Versuch pro Sitzung). Kamera/WASM/WebGL sind unter Karma nicht testbar -- dafuer gibt es den
  * manuellen Pruefplan in `docs/architecture/video-background-effects.adoc`.
+ *
+ * V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen" -- alle Faelle wurden auf
+ * [ConferenceBackgroundChoice] umgestellt (ersetzt den bisherigen bloßen [ConferenceBackgroundEffect]
+ * ueberall dort, wo die Wahl generisch ist); neue Faelle fuer [ConferenceBackgroundChoice.Custom]
+ * (`custom:<uuid>`-Parsing, same-origin-Bildpfad, Zaehlertexte) stehen am Ende der jeweiligen Abschnitte.
  */
 class ConferenceBackgroundEffectsTest {
     private val imageEffects =
@@ -25,35 +30,40 @@ class ConferenceBackgroundEffectsTest {
             ConferenceBackgroundEffect.BG_STUDIO,
         )
 
+    private val sampleUuid = "12345678-1234-1234-1234-123456789abc"
+
     // --- Whitelist / Parsing ------------------------------------------------------------------
 
     @Test
     fun parse_nullBlankAndOff_areNull() {
-        assertNull(parseStoredBackgroundEffect(null))
-        assertNull(parseStoredBackgroundEffect(""))
-        assertNull(parseStoredBackgroundEffect("   "))
-        assertNull(parseStoredBackgroundEffect("off"))
+        assertNull(parseStoredBackgroundChoice(null))
+        assertNull(parseStoredBackgroundChoice(""))
+        assertNull(parseStoredBackgroundChoice("   "))
+        assertNull(parseStoredBackgroundChoice("off"))
     }
 
     @Test
     fun parse_wrongCaseAndHostileValues_areNull() {
-        assertNull(parseStoredBackgroundEffect("BLUR-LIGHT"))
-        assertNull(parseStoredBackgroundEffect("../../etc/passwd"))
-        assertNull(parseStoredBackgroundEffect("https://evil.example/x.png"))
-        assertNull(parseStoredBackgroundEffect("bg-does-not-exist"))
-        assertNull(parseStoredBackgroundEffect(" bg-sage"))
+        assertNull(parseStoredBackgroundChoice("BLUR-LIGHT"))
+        assertNull(parseStoredBackgroundChoice("../../etc/passwd"))
+        assertNull(parseStoredBackgroundChoice("https://evil.example/x.png"))
+        assertNull(parseStoredBackgroundChoice("bg-does-not-exist"))
+        assertNull(parseStoredBackgroundChoice(" bg-sage"))
     }
 
     @Test
     fun parse_knownId_roundTrips() {
-        assertEquals(ConferenceBackgroundEffect.BG_WARM_GREY, parseStoredBackgroundEffect("bg-warm-grey"))
+        assertEquals(
+            ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_WARM_GREY),
+            parseStoredBackgroundChoice("bg-warm-grey"),
+        )
     }
 
     @Test
     fun parse_everyEnumId_roundTrips_exceptOff() {
         ConferenceBackgroundEffect.entries.forEach { effect ->
-            val expected = if (effect == ConferenceBackgroundEffect.OFF) null else effect
-            assertEquals(expected, parseStoredBackgroundEffect(effect.id), effect.id)
+            val expected = if (effect == ConferenceBackgroundEffect.OFF) null else ConferenceBackgroundChoice.BuiltIn(effect)
+            assertEquals(expected, parseStoredBackgroundChoice(effect.id), effect.id)
         }
     }
 
@@ -66,13 +76,39 @@ class ConferenceBackgroundEffectsTest {
 
     @Test
     fun persistValue_off_isNull_neverBlank() {
-        assertNull(conferenceBackgroundPersistValue(ConferenceBackgroundEffect.OFF))
+        assertNull(conferenceBackgroundPersistValue(CONFERENCE_BACKGROUND_OFF))
         val nonOff = ConferenceBackgroundEffect.entries.filter { it != ConferenceBackgroundEffect.OFF }
         nonOff.forEach { effect ->
-            val value = conferenceBackgroundPersistValue(effect)
+            val value = conferenceBackgroundPersistValue(ConferenceBackgroundChoice.BuiltIn(effect))
             assertEquals(effect.id, value)
             assertTrue(value!!.isNotBlank())
         }
+    }
+
+    // --- V1.9.4: custom:<uuid> Parsing ----------------------------------------------------------
+
+    @Test
+    fun parse_customWithCanonicalUuid_roundTrips() {
+        assertEquals(
+            ConferenceBackgroundChoice.Custom(sampleUuid),
+            parseStoredBackgroundChoice("custom:$sampleUuid"),
+        )
+    }
+
+    @Test
+    fun parse_customWithoutOrMalformedUuid_isNull() {
+        assertNull(parseStoredBackgroundChoice("custom:"))
+        assertNull(parseStoredBackgroundChoice("custom:not-a-uuid"))
+        assertNull(parseStoredBackgroundChoice("custom:${sampleUuid.uppercase()}")) // kein trim/lowercase, siehe KDoc
+        assertNull(parseStoredBackgroundChoice("custom: $sampleUuid"))
+        assertNull(parseStoredBackgroundChoice("custom:$sampleUuid/../etc"))
+        assertNull(parseStoredBackgroundChoice("custom:${sampleUuid}extra"))
+        assertNull(parseStoredBackgroundChoice("custom:12345678123412341234123456789abc")) // ohne Bindestriche
+    }
+
+    @Test
+    fun persistValue_custom_isPrefixedWithCustomColon() {
+        assertEquals("custom:$sampleUuid", conferenceBackgroundPersistValue(ConferenceBackgroundChoice.Custom(sampleUuid)))
     }
 
     // --- Asset-Pfade ---------------------------------------------------------------------------
@@ -80,31 +116,55 @@ class ConferenceBackgroundEffectsTest {
     @Test
     fun imagePath_forBackgrounds_isSameOriginWebp() {
         imageEffects.forEach { effect ->
-            assertEquals("/assets/video-backgrounds/${effect.id}.webp", conferenceBackgroundImagePath(effect))
+            assertEquals(
+                "/assets/video-backgrounds/${effect.id}.webp",
+                conferenceBackgroundImagePath(ConferenceBackgroundChoice.BuiltIn(effect)),
+            )
         }
     }
 
     @Test
     fun imagePath_forOffAndBlur_isNull() {
-        assertNull(conferenceBackgroundImagePath(ConferenceBackgroundEffect.OFF))
-        assertNull(conferenceBackgroundImagePath(ConferenceBackgroundEffect.BLUR_LIGHT))
-        assertNull(conferenceBackgroundImagePath(ConferenceBackgroundEffect.BLUR_STRONG))
+        assertNull(conferenceBackgroundImagePath(CONFERENCE_BACKGROUND_OFF))
+        assertNull(conferenceBackgroundImagePath(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT)))
+        assertNull(conferenceBackgroundImagePath(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG)))
+    }
+
+    @Test
+    fun imagePath_forCustom_isSameOriginApiPath() {
+        assertEquals(
+            "/api/conference-backgrounds/$sampleUuid/image",
+            conferenceBackgroundImagePath(ConferenceBackgroundChoice.Custom(sampleUuid)),
+        )
+    }
+
+    @Test
+    fun thumbPath_forCustom_isSameOriginApiPath() {
+        assertEquals("/api/conference-backgrounds/$sampleUuid/thumb", conferenceBackgroundThumbPath(sampleUuid))
+    }
+
+    @Test
+    fun thumbPath_rejectsANonCanonicalId_evenIfSomehowReached() {
+        assertNull(conferenceBackgroundThumbPath("../../etc/passwd"))
+        assertNull(conferenceBackgroundThumbPath(""))
     }
 
     @Test
     fun producedPaths_neverEscapeTheSameOrigin() {
         val paths =
-            ConferenceBackgroundEffect.entries.mapNotNull { conferenceBackgroundImagePath(it) } +
+            ConferenceBackgroundEffect.entries.mapNotNull { conferenceBackgroundImagePath(ConferenceBackgroundChoice.BuiltIn(it)) } +
                 listOf(
+                    conferenceBackgroundImagePath(ConferenceBackgroundChoice.Custom(sampleUuid))!!,
+                    conferenceBackgroundThumbPath(sampleUuid)!!,
                     ConferenceBackgroundAssets.TASKS_VISION_FILE_SET,
                     ConferenceBackgroundAssets.MODEL_ASSET_PATH,
                     ConferenceBackgroundAssets.BACKGROUND_IMAGE_DIR,
                 )
         paths.forEach { path ->
-            assertTrue(path.startsWith("/assets/"), path)
+            assertTrue(path.startsWith("/assets/") || path.startsWith("/api/"), path)
             assertFalse(path.contains("//"), path)
             assertFalse(path.contains(".."), path)
-            assertFalse(path.contains(":"), path)
+            assertTrue(path.indexOf(":") == -1, path) // ein same-origin "/..."-Pfad hat nie einen Doppelpunkt (kein Schema, kein Port)
             assertFalse(path.startsWith("http"), path)
         }
     }
@@ -119,10 +179,11 @@ class ConferenceBackgroundEffectsTest {
 
     @Test
     fun blurRadius_lightAndStrong_onlyForBlurEffects() {
-        assertEquals(8, conferenceBackgroundBlurRadius(ConferenceBackgroundEffect.BLUR_LIGHT))
-        assertEquals(24, conferenceBackgroundBlurRadius(ConferenceBackgroundEffect.BLUR_STRONG))
-        assertNull(conferenceBackgroundBlurRadius(ConferenceBackgroundEffect.OFF))
-        imageEffects.forEach { assertNull(conferenceBackgroundBlurRadius(it)) }
+        assertEquals(8, conferenceBackgroundBlurRadius(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT)))
+        assertEquals(24, conferenceBackgroundBlurRadius(ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG)))
+        assertNull(conferenceBackgroundBlurRadius(CONFERENCE_BACKGROUND_OFF))
+        assertNull(conferenceBackgroundBlurRadius(ConferenceBackgroundChoice.Custom(sampleUuid)))
+        imageEffects.forEach { assertNull(conferenceBackgroundBlurRadius(ConferenceBackgroundChoice.BuiltIn(it))) }
     }
 
     @Test
@@ -307,39 +368,52 @@ class ConferenceBackgroundEffectsTest {
     @Test
     fun defaultState_isOffOffOff() {
         val state = ConferenceBackgroundState()
-        assertEquals(ConferenceBackgroundEffect.OFF, state.desired)
-        assertEquals(ConferenceBackgroundEffect.OFF, state.applied)
+        assertEquals(CONFERENCE_BACKGROUND_OFF, state.desired)
+        assertEquals(CONFERENCE_BACKGROUND_OFF, state.applied)
         assertEquals(ConferenceBackgroundPhase.OFF, state.phase)
         assertFalse(state.autoAttemptUsed)
     }
 
     @Test
     fun happyPath_selectStartSucceed() {
+        val blurLight = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_LIGHT)
         var state = ConferenceBackgroundState()
-        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(ConferenceBackgroundEffect.BLUR_LIGHT))
-        assertEquals(ConferenceBackgroundEffect.BLUR_LIGHT, state.desired)
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(blurLight))
+        assertEquals(blurLight, state.desired)
         state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplyStarted)
         assertEquals(ConferenceBackgroundPhase.APPLYING, state.phase)
-        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplySucceeded(ConferenceBackgroundEffect.BLUR_LIGHT))
-        assertEquals(ConferenceBackgroundEffect.BLUR_LIGHT, state.applied)
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplySucceeded(blurLight))
+        assertEquals(blurLight, state.applied)
+        assertEquals(ConferenceBackgroundPhase.ACTIVE, state.phase)
+    }
+
+    @Test
+    fun happyPath_selectStartSucceed_forACustomImage() {
+        val custom = ConferenceBackgroundChoice.Custom(sampleUuid)
+        var state = ConferenceBackgroundState()
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(custom))
+        assertEquals(custom, state.desired)
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplySucceeded(custom))
+        assertEquals(custom, state.applied)
         assertEquals(ConferenceBackgroundPhase.ACTIVE, state.phase)
     }
 
     @Test
     fun applyFailed_fallsBackToOff_butKeepsDesired() {
+        val bgSage = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE)
         var state = ConferenceBackgroundState()
-        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(ConferenceBackgroundEffect.BG_SAGE))
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(bgSage))
         state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplyFailed(ConferenceBackgroundFailure.LOAD_FAILED))
-        assertEquals(ConferenceBackgroundEffect.OFF, state.applied)
+        assertEquals(CONFERENCE_BACKGROUND_OFF, state.applied)
         assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, state.phase)
         assertTrue(state.autoAttemptUsed)
-        assertEquals(ConferenceBackgroundEffect.BG_SAGE, state.desired) // Zhuo-Ruling: Absicht bleibt
+        assertEquals(bgSage, state.desired) // Zhuo-Ruling: Absicht bleibt
         assertTrue(ConferenceBackgroundFailure.LOAD_FAILED in state.notifiedFailures)
     }
 
     @Test
     fun applyFailed_notifiesOncePerCause_notOncePerSession() {
-        var state = ConferenceBackgroundState(desired = ConferenceBackgroundEffect.BG_SAGE)
+        var state = ConferenceBackgroundState(desired = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE))
         assertTrue(conferenceBackgroundShouldNotify(state, ConferenceBackgroundFailure.LOAD_FAILED))
         state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplyFailed(ConferenceBackgroundFailure.LOAD_FAILED))
         assertFalse(conferenceBackgroundShouldNotify(state, ConferenceBackgroundFailure.LOAD_FAILED))
@@ -355,33 +429,35 @@ class ConferenceBackgroundEffectsTest {
 
     @Test
     fun userClickAfterFailure_getsAFreshAttempt() {
+        val bgSage = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE)
         var state = ConferenceBackgroundState()
-        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(ConferenceBackgroundEffect.BG_SAGE))
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(bgSage))
         state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplyFailed(ConferenceBackgroundFailure.APPLY_FAILED))
         assertTrue(state.autoAttemptUsed)
-        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(ConferenceBackgroundEffect.BG_SAGE))
+        state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.UserSelected(bgSage))
         assertEquals(ConferenceBackgroundPhase.APPLYING, state.phase)
         assertFalse(state.autoAttemptUsed)
-        assertEquals(ConferenceBackgroundEffect.BG_SAGE, conferenceBackgroundEffectForNewTrack(state))
+        assertEquals(bgSage, conferenceBackgroundChoiceForNewTrack(state))
     }
 
     @Test
     fun newLocalTrack_neverChangesDesired_orAnythingElse() {
-        val state = ConferenceBackgroundState(desired = ConferenceBackgroundEffect.BLUR_STRONG)
+        val state = ConferenceBackgroundState(desired = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG))
         assertEquals(state, conferenceBackgroundReduce(state, ConferenceBackgroundEvent.NewLocalTrack))
     }
 
     @Test
     fun processorLost_clearsApplied_butKeepsDesired() {
+        val bgStudio = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_STUDIO)
         val state =
             ConferenceBackgroundState(
-                desired = ConferenceBackgroundEffect.BG_STUDIO,
-                applied = ConferenceBackgroundEffect.BG_STUDIO,
+                desired = bgStudio,
+                applied = bgStudio,
                 phase = ConferenceBackgroundPhase.ACTIVE,
             )
         val next = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ProcessorLost)
-        assertEquals(ConferenceBackgroundEffect.OFF, next.applied)
-        assertEquals(ConferenceBackgroundEffect.BG_STUDIO, next.desired)
+        assertEquals(CONFERENCE_BACKGROUND_OFF, next.applied)
+        assertEquals(bgStudio, next.desired)
     }
 
     @Test
@@ -389,9 +465,12 @@ class ConferenceBackgroundEffectsTest {
         val events =
             buildList<ConferenceBackgroundEvent> {
                 ConferenceBackgroundEffect.entries.forEach {
-                    add(ConferenceBackgroundEvent.UserSelected(it))
-                    add(ConferenceBackgroundEvent.ApplySucceeded(it))
+                    val choice = ConferenceBackgroundChoice.BuiltIn(it)
+                    add(ConferenceBackgroundEvent.UserSelected(choice))
+                    add(ConferenceBackgroundEvent.ApplySucceeded(choice))
                 }
+                add(ConferenceBackgroundEvent.UserSelected(ConferenceBackgroundChoice.Custom(sampleUuid)))
+                add(ConferenceBackgroundEvent.ApplySucceeded(ConferenceBackgroundChoice.Custom(sampleUuid)))
                 ConferenceBackgroundFailure.entries.forEach { add(ConferenceBackgroundEvent.ApplyFailed(it)) }
                 add(ConferenceBackgroundEvent.ApplyStarted)
                 add(ConferenceBackgroundEvent.NewLocalTrack)
@@ -404,30 +483,27 @@ class ConferenceBackgroundEffectsTest {
         }
     }
 
-    // --- effectToApplyForNewTrack (Jobs-K6) ----------------------------------------------------
+    // --- choiceToApplyForNewTrack (Jobs-K6, ex effectToApplyForNewTrack) -----------------------
 
     @Test
     fun newTrack_normalCase_appliesDesired() {
-        assertEquals(
-            ConferenceBackgroundEffect.BG_SAGE,
-            effectToApplyForNewTrack(ConferenceBackgroundEffect.BG_SAGE, lastAttemptFailed = false, sessionAutoRetryUsed = false),
-        )
+        val bgSage = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE)
+        assertEquals(bgSage, choiceToApplyForNewTrack(desired = bgSage, lastAttemptFailed = false, sessionAutoRetryUsed = false))
     }
 
     @Test
     fun newTrack_failedAndAutoRetryUsed_isOff() {
+        val bgSage = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE)
         assertEquals(
-            ConferenceBackgroundEffect.OFF,
-            effectToApplyForNewTrack(ConferenceBackgroundEffect.BG_SAGE, lastAttemptFailed = true, sessionAutoRetryUsed = true),
+            CONFERENCE_BACKGROUND_OFF,
+            choiceToApplyForNewTrack(desired = bgSage, lastAttemptFailed = true, sessionAutoRetryUsed = true),
         )
     }
 
     @Test
     fun newTrack_failedButAutoRetryStillAvailable_appliesDesired() {
-        assertEquals(
-            ConferenceBackgroundEffect.BG_SAGE,
-            effectToApplyForNewTrack(ConferenceBackgroundEffect.BG_SAGE, lastAttemptFailed = true, sessionAutoRetryUsed = false),
-        )
+        val bgSage = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_SAGE)
+        assertEquals(bgSage, choiceToApplyForNewTrack(desired = bgSage, lastAttemptFailed = true, sessionAutoRetryUsed = false))
     }
 
     @Test
@@ -435,8 +511,8 @@ class ConferenceBackgroundEffectsTest {
         listOf(false, true).forEach { failed ->
             listOf(false, true).forEach { used ->
                 assertEquals(
-                    ConferenceBackgroundEffect.OFF,
-                    effectToApplyForNewTrack(ConferenceBackgroundEffect.OFF, failed, used),
+                    CONFERENCE_BACKGROUND_OFF,
+                    choiceToApplyForNewTrack(desired = CONFERENCE_BACKGROUND_OFF, lastAttemptFailed = failed, sessionAutoRetryUsed = used),
                 )
             }
         }
@@ -444,21 +520,23 @@ class ConferenceBackgroundEffectsTest {
 
     @Test
     fun newTrack_afterAutomaticRestoreFailed_noSecondAutomaticAttempt() {
-        var state = ConferenceBackgroundState(desired = ConferenceBackgroundEffect.BG_MIDNIGHT) // aus localStorage
-        assertEquals(ConferenceBackgroundEffect.BG_MIDNIGHT, conferenceBackgroundEffectForNewTrack(state))
+        val bgMidnight = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BG_MIDNIGHT)
+        var state = ConferenceBackgroundState(desired = bgMidnight) // aus localStorage
+        assertEquals(bgMidnight, conferenceBackgroundChoiceForNewTrack(state))
         state = conferenceBackgroundReduce(state, ConferenceBackgroundEvent.ApplyFailed(ConferenceBackgroundFailure.TIMEOUT))
-        assertEquals(ConferenceBackgroundEffect.OFF, conferenceBackgroundEffectForNewTrack(state))
-        assertEquals(ConferenceBackgroundEffect.BG_MIDNIGHT, state.desired)
+        assertEquals(CONFERENCE_BACKGROUND_OFF, conferenceBackgroundChoiceForNewTrack(state))
+        assertEquals(bgMidnight, state.desired)
     }
 
     // --- Anzeige -------------------------------------------------------------------------------
 
     @Test
-    fun displayedEffect_followsDesired_exceptAfterFailure() {
-        val chosen = ConferenceBackgroundState(desired = ConferenceBackgroundEffect.BLUR_STRONG)
-        assertEquals(ConferenceBackgroundEffect.BLUR_STRONG, conferenceBackgroundDisplayedEffect(chosen))
+    fun displayedChoice_followsDesired_exceptAfterFailure() {
+        val blurStrong = ConferenceBackgroundChoice.BuiltIn(ConferenceBackgroundEffect.BLUR_STRONG)
+        val chosen = ConferenceBackgroundState(desired = blurStrong)
+        assertEquals(blurStrong, conferenceBackgroundDisplayedChoice(chosen))
         val failed = conferenceBackgroundReduce(chosen, ConferenceBackgroundEvent.ApplyFailed(ConferenceBackgroundFailure.APPLY_FAILED))
-        assertEquals(ConferenceBackgroundEffect.OFF, conferenceBackgroundDisplayedEffect(failed))
+        assertEquals(CONFERENCE_BACKGROUND_OFF, conferenceBackgroundDisplayedChoice(failed))
     }
 
     // --- Labels / Meldungen --------------------------------------------------------------------
@@ -466,13 +544,16 @@ class ConferenceBackgroundEffectsTest {
     @Test
     fun toggleLabel_isNeverEmpty_neverLeaksTheKvisionMarker() {
         ConferenceBackgroundEffect.entries.forEach { effect ->
-            val label = conferenceBackgroundToggleLabel(effect)
+            val label = conferenceBackgroundToggleLabel(ConferenceBackgroundChoice.BuiltIn(effect))
             assertTrue(label.isNotBlank(), effect.id)
             assertFalse(label.contains("###KvI18nS###"), effect.id)
             val effectLabel = conferenceBackgroundEffectLabel(effect)
             assertTrue(effectLabel.isNotBlank(), effect.id)
             assertFalse(effectLabel.contains("###KvI18nS###"), effect.id)
         }
+        val customLabel = conferenceBackgroundToggleLabel(ConferenceBackgroundChoice.Custom(sampleUuid))
+        assertTrue(customLabel.isNotBlank())
+        assertFalse(customLabel.contains("###KvI18nS###"))
     }
 
     /**
@@ -483,19 +564,25 @@ class ConferenceBackgroundEffectsTest {
     @Test
     fun visibleLabels_carryTheKvisionMarker_soALanguageSwitchRetranslatesThem() {
         ConferenceBackgroundEffect.entries.forEach { effect ->
-            val tileLabel = conferenceBackgroundEffectLabelTr(effect)
-            val toggleLabel = conferenceBackgroundToggleLabelTr(effect)
+            val choice = ConferenceBackgroundChoice.BuiltIn(effect)
+            val tileLabel = conferenceBackgroundChoiceLabelTr(choice)
+            val toggleLabel = conferenceBackgroundToggleLabelTr(choice)
             assertTrue(tileLabel.contains("###KvI18nS###"), effect.id)
             assertTrue(toggleLabel.contains("###KvI18nS###"), effect.id)
             // Kein Platzhalter mehr im sichtbaren Text: tr() kann keine Argumente einsetzen.
             assertFalse(toggleLabel.contains("%1"), effect.id)
         }
-        // Neun verschiedene Knopfbeschriftungen -- der Zustand steht wirklich im Text.
+        val customToggleLabel = conferenceBackgroundToggleLabelTr(ConferenceBackgroundChoice.Custom(sampleUuid))
+        assertTrue(customToggleLabel.contains("###KvI18nS###"))
+        assertFalse(customToggleLabel.contains("%1"))
+        // Zehn verschiedene Knopfbeschriftungen (neun eingebaute + "Eigenes Bild") -- der Zustand steht
+        // wirklich im Text.
         val distinctToggleLabels =
-            ConferenceBackgroundEffect.entries
-                .map { conferenceBackgroundToggleLabelTr(it) }
-                .toSet()
-        assertEquals(ConferenceBackgroundEffect.entries.size, distinctToggleLabels.size)
+            (
+                ConferenceBackgroundEffect.entries.map { conferenceBackgroundToggleLabelTr(ConferenceBackgroundChoice.BuiltIn(it)) } +
+                    customToggleLabel
+            ).toSet()
+        assertEquals(ConferenceBackgroundEffect.entries.size + 1, distinctToggleLabels.size)
     }
 
     @Test

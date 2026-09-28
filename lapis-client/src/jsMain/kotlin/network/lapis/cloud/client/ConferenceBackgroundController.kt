@@ -61,7 +61,7 @@ internal fun conferenceBackgroundSupportedInThisBrowser(): Boolean =
  */
 internal interface BackgroundProcessorHandle {
     /** In-place effect change within one episode (no rebuild). Rejects/throws on failure. */
-    suspend fun switchTo(effect: ConferenceBackgroundEffect)
+    suspend fun switchTo(choice: ConferenceBackgroundChoice)
 
     /**
      * Welches Hintergrundbild der Transformer TATSAECHLICH haelt, oder `null`. Audit-Befund M1: `init`
@@ -85,8 +85,8 @@ internal interface BackgroundTrack {
 internal class RealBackgroundProcessor(
     val raw: BackgroundProcessorWrapper,
 ) : BackgroundProcessorHandle {
-    override suspend fun switchTo(effect: ConferenceBackgroundEffect) {
-        raw.switchTo(switchBackgroundOptionsFor(effect)).await()
+    override suspend fun switchTo(choice: ConferenceBackgroundChoice) {
+        raw.switchTo(switchBackgroundOptionsFor(choice)).await()
     }
 
     override fun appliedBackgroundImagePath(): String? = runCatching { raw.transformer.backgroundImageAndPath?.path }.getOrNull()
@@ -125,9 +125,9 @@ internal class LiveKitBackgroundTrack(
     override fun currentProcessor(): BackgroundProcessorHandle? = track.getProcessor()?.let { RealBackgroundProcessor(it) }
 }
 
-private fun switchBackgroundOptionsFor(effect: ConferenceBackgroundEffect): SwitchBackgroundProcessorOptions {
-    val imagePath = conferenceBackgroundImagePath(effect)
-    val blurRadius = conferenceBackgroundBlurRadius(effect)
+private fun switchBackgroundOptionsFor(choice: ConferenceBackgroundChoice): SwitchBackgroundProcessorOptions {
+    val imagePath = conferenceBackgroundImagePath(choice)
+    val blurRadius = conferenceBackgroundBlurRadius(choice)
     return obj<SwitchBackgroundProcessorOptions> {
         if (imagePath != null) {
             mode = "virtual-background"
@@ -139,9 +139,9 @@ private fun switchBackgroundOptionsFor(effect: ConferenceBackgroundEffect): Swit
     }
 }
 
-private fun createRealBackgroundProcessor(effect: ConferenceBackgroundEffect): BackgroundProcessorHandle {
-    val imagePath = conferenceBackgroundImagePath(effect)
-    val blurRadius = conferenceBackgroundBlurRadius(effect)
+private fun createRealBackgroundProcessor(choice: ConferenceBackgroundChoice): BackgroundProcessorHandle {
+    val imagePath = conferenceBackgroundImagePath(choice)
+    val blurRadius = conferenceBackgroundBlurRadius(choice)
     val options =
         obj<BackgroundProcessorOptions> {
             if (imagePath != null) {
@@ -284,8 +284,8 @@ internal class ConferenceBackgroundController(
     private val onStateChanged: (ConferenceBackgroundState) -> Unit,
     /** Test seam: defaults to the real browser gate. */
     val supported: Boolean = conferenceBackgroundSupportedInThisBrowser(),
-    /** Test seam: builds a processor for [effect]; defaults to the real `@livekit/track-processors` wrapper. */
-    private val processorFactory: (ConferenceBackgroundEffect) -> BackgroundProcessorHandle = ::createRealBackgroundProcessor,
+    /** Test seam: builds a processor for [choice]; defaults to the real `@livekit/track-processors` wrapper. */
+    private val processorFactory: (ConferenceBackgroundChoice) -> BackgroundProcessorHandle = ::createRealBackgroundProcessor,
     /** Test seam: defaults to [CONFERENCE_BACKGROUND_APPLY_TIMEOUT_MS]. */
     private val applyTimeoutMs: Long = CONFERENCE_BACKGROUND_APPLY_TIMEOUT_MS,
     /** Test seam: laedt das Hintergrundbild vorab, wirft bei Misserfolg (siehe [probeBackgroundImage]). */
@@ -321,6 +321,16 @@ internal class ConferenceBackgroundController(
      */
     private var disposed: Boolean = false
 
+    /**
+     * V1.9.4 -- `true` sobald das erste `listMine()` (Erfolg ODER Fehlschlag) fuer diese Sitzung
+     * zurueck ist. Solange das nicht der Fall ist, wendet [onLocalCameraTrack] eine gespeicherte
+     * [ConferenceBackgroundChoice.Custom]-Wahl NICHT automatisch an -- ohne diese Bremse wuerde ein
+     * inzwischen geloeschtes eigenes Bild beim Beitritt eine 404 und eine sichtbare `LOAD_FAILED`-
+     * Meldung ausloesen, obwohl der Nutzer nichts falsch gemacht hat (siehe [reconcileCustomImages]
+     * KDoc, Stolperfalle S3 des Umsetzungsplans).
+     */
+    private var customListKnown: Boolean = false
+
     private fun transition(event: ConferenceBackgroundEvent) {
         state = conferenceBackgroundReduce(state, event)
         onStateChanged(state)
@@ -337,14 +347,14 @@ internal class ConferenceBackgroundController(
             } catch (e: Throwable) {
                 null
             }
-        val effect = parseStoredBackgroundEffect(raw) ?: ConferenceBackgroundEffect.OFF
-        state = state.copy(desired = effect)
+        val choice = parseStoredBackgroundChoice(raw) ?: CONFERENCE_BACKGROUND_OFF
+        state = state.copy(desired = choice)
         onStateChanged(state)
     }
 
-    private fun persist(effect: ConferenceBackgroundEffect) {
+    private fun persist(choice: ConferenceBackgroundChoice) {
         try {
-            val value = conferenceBackgroundPersistValue(effect)
+            val value = conferenceBackgroundPersistValue(choice)
             if (value == null) {
                 localStorage.removeItem(CONFERENCE_BACKGROUND_STORAGE_KEY)
             } else {
@@ -361,25 +371,25 @@ internal class ConferenceBackgroundController(
      * gespeichert und der Effekt kommt mit dem naechsten Kamera-Track ([onLocalCameraTrack]).
      */
     suspend fun select(
-        effect: ConferenceBackgroundEffect,
+        choice: ConferenceBackgroundChoice,
         track: BackgroundTrack?,
     ) {
         if (!supported || disposed) return
         mutex.withLock {
             if (disposed) return
-            transition(ConferenceBackgroundEvent.UserSelected(effect))
-            persist(effect)
+            transition(ConferenceBackgroundEvent.UserSelected(choice))
+            persist(choice)
             if (track == null) {
                 // Kein Track -- Absicht steht, angewendet wird spaeter. Phase beruhigen, damit die Ladezeile nicht haengt.
                 transition(ConferenceBackgroundEvent.ProcessorLost)
                 return
             }
-            applyLocked(track, effect)
+            applyLocked(track, choice)
         }
     }
 
     /**
-     * Neuer/erneut publizierter lokaler Kamera-Track -- wendet [conferenceBackgroundEffectForNewTrack] an.
+     * Neuer/erneut publizierter lokaler Kamera-Track -- wendet [conferenceBackgroundChoiceForNewTrack] an.
      * Idempotent: liegt unser Wrapper bereits am Track und entspricht der angewendete Effekt dem
      * gewuenschten, passiert nichts. (Ein gesetzter Prozessor ueberlebt `switchActiveDevice`/`restartTrack`/
      * Kamera-Aus-An ohnehin von selbst -- `setMediaStreamTrack` ruft `processor.restart()`; dieser Pfad ist
@@ -390,11 +400,89 @@ internal class ConferenceBackgroundController(
         mutex.withLock {
             if (disposed) return
             transition(ConferenceBackgroundEvent.NewLocalTrack)
-            val effect = conferenceBackgroundEffectForNewTrack(state)
-            if (effect == ConferenceBackgroundEffect.OFF) return
+            val choice = conferenceBackgroundChoiceForNewTrack(state)
+            if (choice == CONFERENCE_BACKGROUND_OFF) return
+            // S3 (Umsetzungsplan): eine gespeicherte EIGENE Wahl wird erst angewendet, sobald
+            // reconcileCustomImages() einmal gelaufen ist -- sonst wendet ein Beitritt ein
+            // inzwischen geloeschtes Bild an und ergibt eine 404/LOAD_FAILED-Meldung fuer etwas,
+            // das der Nutzer nicht falsch gemacht hat. Eingebaute Effekte sind davon nicht
+            // betroffen (sie koennen nie "geloescht" werden).
+            if (choice is ConferenceBackgroundChoice.Custom && !customListKnown) return
             val current = wrapper
-            if (current != null && track.currentProcessor() == current && state.applied == effect) return
-            applyLocked(track, effect)
+            if (current != null && track.currentProcessor() == current && state.applied == choice) return
+            applyLocked(track, choice)
+        }
+    }
+
+    /**
+     * V1.9.4 -- gleicht die Absicht mit der tatsaechlichen Liste der eigenen Bilder ab, einmal pro
+     * Beitritt (siehe `ConferenceScreen.kt` Aufrufstelle direkt nach dem Controller-Aufbau).
+     *
+     * - [ids] `null` bedeutet: der RPC-Aufruf ist gescheitert. Die Absicht bleibt stehen (kein
+     *   stiller Rueckfall auf blosse Netzwerk-Flakiness), [customListKnown] wird trotzdem gesetzt
+     *   (sonst wuerde ein dauerhaft fehlschlagender Aufruf [onLocalCameraTrack] fuer immer sperren)
+     *   und danach normal angewendet -- ein 404 beim eigentlichen Bildladen faellt dann in den
+     *   regulaeren `LOAD_FAILED`-Pfad.
+     * - Ist [ConferenceBackgroundState.desired] ein [ConferenceBackgroundChoice.Custom], dessen id
+     *   NICHT in [ids] steht (geloescht, auf einem anderen Geraet oder von einem anderen Ort aus),
+     *   faellt der Automat STILL auf "Aus" zurueck: kein `notifyFailure`, der `localStorage`-
+     *   Schluessel wird entfernt, ein evtl. bereits gesetzter Prozessor wird abgebaut. Ein
+     *   inzwischen geloeschtes Bild ist kein Fehler, den man dem Nutzer melden muesste (Tesler/
+     *   Norman: ehrlich, aber nicht alarmierend).
+     * - Sonst, wenn ein Track vorliegt und die Absicht (weiterhin) ein AUSSTEHENDES `Custom` ist,
+     *   wird ganz normal angewendet.
+     *
+     * Laeuft unter [mutex] wie jede andere Anwendung, respektiert [disposed].
+     */
+    suspend fun reconcileCustomImages(
+        ids: Set<String>?,
+        track: BackgroundTrack?,
+    ) {
+        if (!supported || disposed) return
+        mutex.withLock {
+            if (disposed) return
+            customListKnown = true
+            val desired = state.desired
+            // Review-Befund (MAJOR): NUR ein bekannt geloeschtes Bild (ids != null UND die id fehlt darin)
+            // faellt still auf "Aus" zurueck. Ein gescheiterter Listenabruf (ids == null) darf NICHT
+            // denselben fruehen Ausstieg nehmen -- die KDoc oben sagt ausdruecklich "normal angewendet",
+            // ein spaeterer 404 beim Bildladen faellt dann in den regulaeren LOAD_FAILED-Pfad. Der vorige
+            // `ids == null ||`-Zweig kehrte fuer diesen Fall aber schon hier zurueck, ohne je anzuwenden --
+            // ein unsichtbarer Modus (Tesler-Regel): der Umschalter zeigte weiter "Hintergrund: Eigenes
+            // Bild", waehrend die Kamera ohne jeden Effekt lief.
+            if (desired is ConferenceBackgroundChoice.Custom && ids != null && desired.imageId !in ids) {
+                // Bekannt geloescht (nicht nur ein gescheiterter Listenabruf) -- still zuruecksetzen.
+                transition(ConferenceBackgroundEvent.UserSelected(CONFERENCE_BACKGROUND_OFF))
+                try {
+                    localStorage.removeItem(CONFERENCE_BACKGROUND_STORAGE_KEY)
+                } catch (e: Throwable) {
+                    // Storage gesperrt -- ohne Bedeutung, die Absicht ist bereits im Speicher zurueckgesetzt.
+                }
+                if (track != null && wrapper != null) removeProcessor(track)
+                transition(ConferenceBackgroundEvent.ProcessorLost)
+                return
+            }
+            if (track != null && desired is ConferenceBackgroundChoice.Custom) {
+                applyLocked(track, desired)
+            }
+        }
+    }
+
+    /**
+     * V1.9.4 -- das gerade geloeschte Bild ([imageId]) ist entweder die Absicht oder tatsaechlich
+     * angewendet: auf "Aus" wechseln (derselbe Pfad wie ein bewusster Klick auf die Aus-Kachel).
+     * Kein-op, wenn ein ANDERES Bild geloescht wird.
+     */
+    suspend fun onCustomImageDeleted(
+        imageId: String,
+        track: BackgroundTrack?,
+    ) {
+        val desired = state.desired
+        val applied = state.applied
+        val affectsDesired = desired is ConferenceBackgroundChoice.Custom && desired.imageId == imageId
+        val affectsApplied = applied is ConferenceBackgroundChoice.Custom && applied.imageId == imageId
+        if (affectsDesired || affectsApplied) {
+            select(choice = CONFERENCE_BACKGROUND_OFF, track = track)
         }
     }
 
@@ -422,26 +510,26 @@ internal class ConferenceBackgroundController(
 
     private suspend fun applyLocked(
         track: BackgroundTrack,
-        effect: ConferenceBackgroundEffect,
+        choice: ConferenceBackgroundChoice,
     ) {
         // Folge-Audit, Punkt 2: kein Anwendungsschritt und keine sichtbare `APPLYING`-Phase mehr, nachdem
         // [dispose] gelaufen ist -- erst damit stimmt die Zusage von [disposed]. Die Aufrufer pruefen das
         // bereits beim Betreten des Mutex; dies ist die Pruefung an der Stelle, die sie einhalten MUSS.
         if (disposed) return
-        if (effect == ConferenceBackgroundEffect.OFF) {
+        if (choice == CONFERENCE_BACKGROUND_OFF) {
             removeProcessor(track)
             if (disposed) return // removeProcessor suspendiert -- dispose kann inzwischen gelaufen sein
-            transition(ConferenceBackgroundEvent.ApplySucceeded(ConferenceBackgroundEffect.OFF))
+            transition(ConferenceBackgroundEvent.ApplySucceeded(CONFERENCE_BACKGROUND_OFF))
             onProcessedStreamSwapped()
             return
         }
-        if (wrapper != null && track.currentProcessor() == wrapper && state.applied == effect) {
-            transition(ConferenceBackgroundEvent.ApplySucceeded(effect)) // Klick auf den bereits aktiven Effekt
+        if (wrapper != null && track.currentProcessor() == wrapper && state.applied == choice) {
+            transition(ConferenceBackgroundEvent.ApplySucceeded(choice)) // Klick auf den bereits aktiven Effekt
             return
         }
         transition(ConferenceBackgroundEvent.ApplyStarted)
         val attempt = ++generation
-        val imagePath = conferenceBackgroundImagePath(effect)
+        val imagePath = conferenceBackgroundImagePath(choice)
         var failure: ConferenceBackgroundFailure? = null
         try {
             val existing = wrapper
@@ -470,7 +558,7 @@ internal class ConferenceBackgroundController(
                     if (existing != null && track.currentProcessor() == existing) {
                         // Effektwechsel innerhalb einer Episode: kein Neuaufbau (Modell/WASM bleiben geladen).
                         try {
-                            existing.switchTo(effect)
+                            existing.switchTo(choice)
                         } catch (e: Throwable) {
                             failure =
                                 if (imagePath != null) {
@@ -485,7 +573,7 @@ internal class ConferenceBackgroundController(
                             throw IllegalStateException("Hintergrundbild liegt nach dem Umschalten nicht am Transformer")
                         }
                     } else {
-                        val created = processorFactory(effect)
+                        val created = processorFactory(choice)
                         wrapper = created
                         try {
                             track.setProcessor(created)
@@ -518,7 +606,7 @@ internal class ConferenceBackgroundController(
         if (failed != null) {
             handleFailure(track, failed)
         } else {
-            transition(ConferenceBackgroundEvent.ApplySucceeded(effect))
+            transition(ConferenceBackgroundEvent.ApplySucceeded(choice))
             onProcessedStreamSwapped()
         }
     }
