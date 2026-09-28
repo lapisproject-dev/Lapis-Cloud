@@ -15386,3 +15386,111 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
 msgid "Vorschau wird geladen…"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Baden-Württemberg"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Bayern"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Brandenburg"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Hessen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Mecklenburg-Vorpommern"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Niedersachsen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Nordrhein-Westfalen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Rheinland-Pfalz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Sachsen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Sachsen-Anhalt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Schleswig-Holstein"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Thüringen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Berlin"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Hamburg"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Bremen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Saarland"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Dänemark"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Niederlande"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Belgien"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Frankreich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Schweiz"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Österreich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Tschechien"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Polen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:134
+msgid "PLZ %1 · %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:147
+msgid "%1 PLZ in diesem Bereich"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:149
+msgid "Klicken zum Vergrößern"
+msgstr ""

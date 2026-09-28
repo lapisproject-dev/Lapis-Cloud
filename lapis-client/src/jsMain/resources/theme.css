@@ -1682,6 +1682,68 @@ html .form-select.is-invalid:focus {
 .lapis-article-body h2, .lapis-article-body h3, .lapis-article-body h4 { margin: 1.2rem 0 0.4rem 0; }
 .lapis-article-body p { margin: 0.6rem 0; }
 
+/* V1.9.8 "Vorstands-Karte: Orientierung" -- Bundesland-/Nachbarland-Beschriftungen (DOM-Marker, nicht
+   PMTiles-Textlayer, siehe MemberMapLabels.kt/MemberMapBasemapStyle.kt). Vierfacher Text-Shadow-Halo
+   statt eines Hintergrund-Chips: die Beschriftung soll wie ein Kartenlabel wirken, nicht wie ein
+   UI-Widget ueber der Karte schweben (Kare/Rams-Diskussion, Design-Team-Sitzung). Keine neuen Custom-
+   Properties -- ausschliesslich bereits vorhandene Tokens. */
+.lapis-member-map-label {
+  position: absolute;
+  pointer-events: none;
+  white-space: pre-line;
+  text-align: center;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--lapis-text);
+  text-shadow:
+    -1px -1px 0 var(--lapis-surface),
+    1px -1px 0 var(--lapis-surface),
+    -1px 1px 0 var(--lapis-surface),
+    1px 1px 0 var(--lapis-surface);
+}
+.lapis-member-map-label--state {
+  font-size: .8125rem;
+}
+.lapis-member-map-label--small-state {
+  font-size: .6875rem;
+  color: var(--lapis-muted);
+}
+.lapis-member-map-label--neighbor {
+  font-size: .6875rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--lapis-muted);
+}
+
+/* Sichtbarkeit je Zoom-Band (`data-zoom-band`, von MemberMapMapController.updateZoomBand gesetzt):
+   "low" zeigt nur die 12 grossflaechigen Bundeslaender, "mid" ergaenzt Stadtstaaten/Saarland und
+   Nachbarlaender, "high" blendet die Nachbarlaender wieder aus (beim Reinzoomen interessiert der
+   Laenderkontext nicht mehr). */
+.lapis-member-map-canvas-host[data-zoom-band="low"] .lapis-member-map-label--small-state,
+.lapis-member-map-canvas-host[data-zoom-band="low"] .lapis-member-map-label--neighbor,
+.lapis-member-map-canvas-host[data-zoom-band="high"] .lapis-member-map-label--neighbor {
+  display: none;
+}
+
+/* Hover-Tooltip auf Punkten/Clustern -- `.maplibregl-popup-content` ist die von `maplibre-gl.css`
+   (siehe App.kt) bereitgestellte Klasse; MapLibre haengt den per `setDOMContent` uebergebenen Knoten
+   ALS KIND von `.maplibregl-popup-content` ein (nicht umgekehrt), daher hier der Ahnen-Selektor.
+   Dieses Repo erzeugt aktuell nur auf der Vorstands-Karte ueberhaupt ein `maplibregl-gl`-Popup, ein
+   globaler Selektor ist daher unproblematisch -- beide Popup-Arten (Klick UND Hover) profitieren
+   einheitlich vom Theme-Anschluss. */
+.maplibregl-popup-content {
+  background-color: var(--lapis-surface);
+  color: var(--lapis-text);
+  border: 1px solid var(--lapis-border);
+  box-shadow: none;
+  padding: .5rem .75rem;
+  font-size: .8125rem;
+  line-height: 1.4;
+}
+.lapis-member-map-tooltip div:first-child {
+  font-weight: 600;
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau). Wer eine neue Transition ergaenzt,
    ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

@@ -8,6 +8,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.8 — Vorstands-Karte: Orientierung (Bundesland-/Nachbarland-Beschriftungen, Hover-Tooltip,
+  Cluster-Klick-Fix).** Live-Nutzer-Feedback: 30+ Kreise ohne jede Beschriftung ließen sich nicht
+  zuordnen, zu welchem Gebiet der jeweilige Kreis gehört. DOM-basierte Bundesland- (12) und
+  Nachbarland-Beschriftungen (8, plus 4 Stadtstaaten/Saarland ab mittlerem Zoom) statt einer
+  Glyph-Pipeline auf den PMTiles (`MemberMapLabels.kt`) — ein-/ausgeblendet über ein
+  `data-zoom-band`-Attribut, damit die Übersicht bei niedrigem Zoom nicht mit allen 16
+  Bundesland-Namen zugleich überladen wird. Hover-Tooltip auf Kreisen/Clustern (PLZ + Ort bzw.
+  Anzahl PLZ + Mitgliedersumme), ausschließlich über `createTextNode`, nie `innerHTML`/`setHTML`.
+  Nebenbei repariert: ein Klick auf einen Cluster zoomte nie hinein — `maplibre-gl` 5.24.0s
+  `getClusterExpansionZoom` liefert ein `Promise`, der Code war noch gegen die alte
+  Node-Callback-Signatur geschrieben.
+
 - **V1.4.33 "Veranstaltungsliste als Embed-Widget"** — new read-only, keyless endpoint
   `GET /api/embed/v1/events` on the existing Website-Embed-Widget surface (`EmbedConfig`/CORS
   infrastructure from V1.4.1a): returns the next up to 50 upcoming `PUBLIC`+`PUBLISHED` events as

@@ -1,10 +1,12 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.gettext
 import kotlinx.browser.document
 import kotlinx.browser.window
 import network.lapis.cloud.client.chart.MutationObserver
 import network.lapis.cloud.client.maplibre.AttributionControl
 import network.lapis.cloud.client.maplibre.Map
+import network.lapis.cloud.client.maplibre.Marker
 import network.lapis.cloud.client.maplibre.NavigationControl
 import network.lapis.cloud.client.maplibre.Popup
 import network.lapis.cloud.client.maplibre.Protocol
@@ -36,13 +38,50 @@ internal object MemberMapPmtilesProtocol {
 internal enum class MemberMapInitResult { WEBGL_MISSING, CREATED }
 
 /**
- * The two side-effecting collaborators of [MemberMapMapController], injectable so a test can fake both
- * without ever constructing a real `maplibre-gl` `Map`/WebGL context -- see this class's own KDoc
+ * The side-effecting collaborators of [MemberMapMapController], injectable so a test can fake all of
+ * them without ever constructing a real `maplibre-gl` `Map`/WebGL context -- see this class's own KDoc
  * "Stolperfalle" #2. Production always uses the defaults.
+ *
+ * **V1.9.8 addition**: [createMarker]/[createPopup]/[hoverCapable] back the orientation labels and
+ * hover tooltip ([MemberMapMapController.addRegionLabels]/`onPointHover`/`onClusterHover`) the same
+ * way [createMap]/[webglAvailable] already back the map itself -- so `MemberMapMapControllerTest` can
+ * fake a `Marker`/`Popup` without a real WebGL canvas, exactly as it already fakes `Map`.
  */
 internal class MemberMapDeps(
     val createMap: (dynamic) -> dynamic = { options -> Map(options) },
     val webglAvailable: () -> Boolean = ::detectWebglAvailable,
+    val createMarker: (element: HTMLElement, lngLat: Array<Double>) -> dynamic =
+        { element, lngLat ->
+            val options = js("({})")
+            options.element = element
+            options.anchor = "center"
+            Marker(options).setLngLat(lngLat)
+        },
+    val createPopup: (dynamic) -> dynamic = { options -> Popup(options) },
+    /** `false` on a coarse-pointer (touch) device -- a `mousemove`-driven tooltip would otherwise fire from an emulated hover right before the tap's own click, showing then immediately hiding a popup under the finger. */
+    val hoverCapable: () -> Boolean = { !window.matchMedia("(pointer: coarse)").matches },
+    /**
+     * V1.9.8 fix: builds AND STARTS the `data-theme` [MutationObserver] -- injectable (not just the
+     * [MutationObserver] construction itself), because `observe()` targets `document.documentElement`,
+     * the SAME real, shared element across every test in one Karma/Chrome run. A test that lets
+     * `wireLayers` -> `setupThemeObserver` run this production default registers a REAL observer on
+     * that shared element; unless the test disconnects it (`controller.destroy()`), the observer
+     * outlives the test and its callback closure keeps referencing that test's now-irrelevant `newMap`
+     * -- a LATER, unrelated test's `data-theme` change then fires it, calling `setPaintProperty` (or
+     * whatever that stale fake lacked) on an object that was never meant to see this event again. See
+     * `MemberMapMapControllerTest`'s `fakeThemeObserver` KDoc for the concrete failure this caused.
+     * [onChange] is invoked with no arguments on every `data-theme` mutation; production ignores the
+     * mutation records themselves, exactly as the old inline `MutationObserver { _, _ -> ... }` did.
+     */
+    val createThemeObserver: (onChange: () -> Unit) -> dynamic =
+        { onChange ->
+            val observer = MutationObserver { _, _ -> onChange() }
+            val observerOptions = js("({})")
+            observerOptions.attributes = true
+            observerOptions.attributeFilter = arrayOf("data-theme")
+            observer.observe(document.documentElement!!, observerOptions)
+            observer
+        },
 )
 
 /** `try { canvas.getContext("webgl2") ?: getContext("webgl") } catch { null }` -- some browsers throw rather than return `null` for a disabled/blocklisted GPU. */
@@ -64,7 +103,9 @@ private fun detectWebglAvailable(): Boolean =
  * map's `"load"` event fires, adds the clustered points source ([buildPointsSourceJson]) and its two
  * layers ([buildPointsLayerJson]/[buildClustersLayerJson]) -- MapLibre rejects `addSource`/`addLayer`
  * calls before `"load"`. [setPoints] only ever touches the SOURCE's data afterwards
- * (`source.setData(...)`), it never rebuilds the style or the layers.
+ * (`source.setData(...)`), it never rebuilds the style or the layers. **`"load"` is genuinely async**
+ * (WebGL context + style loading), so the caller's very first [setPoints] call -- right after [init]
+ * returns -- almost always races ahead of it; see [pendingEntries]'s own KDoc for the fix.
  *
  * **Theme sync**: a [MutationObserver] on `data-theme` re-reads [readMemberMapColors] and calls
  * `map.setPaintProperty(...)` for the map's nine color paint properties -- the exact same pattern
@@ -75,6 +116,12 @@ private fun detectWebglAvailable(): Boolean =
  * **Cleanup**: [destroy] removes any open popup, disconnects both observers and removes the map --
  * called from `MemberMapScreen.kt`'s `addAfterDestroyHook`, same idiom as `PriceOracleScreen.kt`'s
  * `teardownChart`.
+ *
+ * **V1.9.8 "Orientierung"**: 24 static Bundesland-/Nachbarland-labels ([addRegionLabels], see
+ * `MemberMapLabels.kt`), a `data-zoom-band` attribute on [container] the CSS uses to fade the
+ * smaller labels in from zoom band "mid" ([updateZoomBand]), and a hover tooltip on points/clusters
+ * (`onPointHover`/`onClusterHover`) closing the "which circle is this row?" gap the table alone left
+ * open. Same wave: the cluster-click zoom bug fix, see [onClusterClicked]'s own KDoc.
  */
 internal class MemberMapMapController(
     private val container: HTMLElement,
@@ -83,8 +130,31 @@ internal class MemberMapMapController(
 ) {
     private var map: dynamic = null
     private var popup: Popup? = null
-    private var themeObserver: MutationObserver? = null
+
+    /** `dynamic`, not the typed [MutationObserver] -- built via [MemberMapDeps.createThemeObserver], which a test fakes with a plain object exposing only `disconnect()` (see that dep's own KDoc). */
+    private var themeObserver: dynamic = null
     private var resizeObserver: ResizeObserver? = null
+
+    /** The 24 static orientation labels ([MEMBER_MAP_LABELS]), created once in [addRegionLabels]. */
+    private val labelMarkers = mutableListOf<dynamic>()
+
+    /** The one hover tooltip currently shown (or `null`) -- see `onPointHover`/`onClusterHover`/`clearHover`. */
+    private var hoverPopup: dynamic = null
+
+    /** `"p:<postalCode>"` or `"c:<clusterId>"` of the feature [hoverPopup] currently describes -- lets a `mousemove` over the SAME feature just reposition the popup instead of rebuilding its content on every pixel of movement. */
+    private var hoverKey: String? = null
+
+    /**
+     * Bug fix (2026-09-28, found live on PdV -- table populated, map empty): [MemberMapScreen.kt]
+     * calls [setPoints] synchronously right after [init] returns, but [init] only *schedules* the
+     * source/layers to be added on the map's async `"load"` event -- WebGL context creation and style
+     * loading take real time, so [setPoints] almost always runs before [wireLayers] has ever added
+     * [MEMBER_MAP_SOURCE_ID]. The old code's `map?.getSource(...) ?: return` silently dropped the data
+     * in that race, every single time in practice. [setPoints] now always remembers the latest entries
+     * here; [wireLayers] applies them once the source actually exists, and a later [setPoints] call
+     * (source already present) still applies immediately as before, this field just also gets updated.
+     */
+    private var pendingEntries: List<MemberMapEntryDto>? = null
 
     fun init(): MemberMapInitResult {
         if (!deps.webglAvailable()) return MemberMapInitResult.WEBGL_MISSING
@@ -127,8 +197,47 @@ internal class MemberMapMapController(
         newMap.addControl(AttributionControl(attributionOptions), "bottom-right")
 
         wireInteraction(newMap)
+        addRegionLabels(newMap)
+        updateZoomBand(newMap)
+        newMap.on("zoom") { _: dynamic -> updateZoomBand(newMap) }
         setupThemeObserver(newMap)
         setupResizeObserver(newMap)
+        applyPendingEntries()
+    }
+
+    /**
+     * V1.9.8 "Orientierung" -- places [MEMBER_MAP_LABELS] as plain DOM-element [Marker]s (see that
+     * file's KDoc "why DOM markers instead of a PMTiles text layer"). Translates each label's raw
+     * German [MemberMapLabel.name] at THIS call site, not in [MEMBER_MAP_LABELS] itself (see that
+     * property's own KDoc). `labelMarkers.forEach { it.remove() }` first is defensive only --
+     * `wireLayers` fires once per `"load"` event in practice, but nothing prevents a future caller
+     * from invoking it twice.
+     */
+    private fun addRegionLabels(newMap: dynamic) {
+        labelMarkers.forEach { it.remove() }
+        labelMarkers.clear()
+        MEMBER_MAP_LABELS.forEach { label ->
+            val element = document.createElement("div") as HTMLElement
+            element.className = "lapis-member-map-label lapis-member-map-label--${label.kind.cssSuffix()}"
+            element.setAttribute("aria-hidden", "true")
+            element.appendChild(document.createTextNode(memberMapLabelText(gettext(label.name))))
+            val marker = deps.createMarker(element, arrayOf(label.lon, label.lat))
+            marker.addTo(newMap)
+            labelMarkers.add(marker)
+        }
+    }
+
+    /** Writes the current [memberMapZoomBand] onto `data-zoom-band` -- `theme.css` does the actual per-band label visibility. */
+    private fun updateZoomBand(newMap: dynamic) {
+        container.setAttribute("data-zoom-band", memberMapZoomBand(newMap.getZoom() as Double))
+    }
+
+    /** Applies [pendingEntries] to the source if both exist yet -- see that field's own KDoc for why this is needed at all. */
+    private fun applyPendingEntries() {
+        val entries = pendingEntries ?: return
+        val source = map?.getSource(MEMBER_MAP_SOURCE_ID) ?: return
+        source.setData(JSON.parse(buildPointsGeoJson(entries)))
+        pendingEntries = null
     }
 
     private fun wireInteraction(newMap: dynamic) {
@@ -139,9 +248,115 @@ internal class MemberMapMapController(
 
         newMap.on("click", MEMBER_MAP_CLUSTERS_LAYER_ID) { e: dynamic -> onClusterClicked(newMap, e) }
         newMap.on("click", MEMBER_MAP_POINTS_LAYER_ID) { e: dynamic -> onPointClicked(newMap, e) }
+
+        // V1.9.8 "Orientierung" -- hover tooltip, only on devices with an actual pointer (see
+        // MemberMapDeps.hoverCapable KDoc). Checked ONCE here, before registering any listener, not
+        // inside the handlers themselves -- registering a no-op `mousemove` handler on a touch device
+        // would still cost MapLibre a hit-test on every emulated move event for nothing.
+        if (deps.hoverCapable()) {
+            newMap.on("mousemove", MEMBER_MAP_POINTS_LAYER_ID) { e: dynamic -> onPointHover(newMap, e) }
+            newMap.on("mousemove", MEMBER_MAP_CLUSTERS_LAYER_ID) { e: dynamic -> onClusterHover(newMap, e) }
+            newMap.on("mouseleave", MEMBER_MAP_POINTS_LAYER_ID) { _: dynamic -> clearHover() }
+            newMap.on("mouseleave", MEMBER_MAP_CLUSTERS_LAYER_ID) { _: dynamic -> clearHover() }
+        }
     }
 
-    /** ±12px box around the click point, exactly matching a fingertip's imprecision -- a single-pixel hit test misses on touch devices. */
+    /** Builds a multi-line tooltip `<div>` via `createTextNode` per line -- never `innerHTML`/`setHTML` (Security-Checkliste "XSS", same discipline as [showPopup]). */
+    private fun buildTooltipContent(lines: List<String>): HTMLElement {
+        val content = document.createElement("div") as HTMLElement
+        content.className = "lapis-member-map-tooltip"
+        lines.forEach { line ->
+            val row = document.createElement("div") as HTMLElement
+            row.appendChild(document.createTextNode(line))
+            content.appendChild(row)
+        }
+        return content
+    }
+
+    /** Shows/repositions [hoverPopup] for [key] -- rebuilds its content only when [key] changed since the last call (a `mousemove` fires on nearly every pixel while the cursor stays over the same feature). */
+    private fun showHoverPopup(
+        newMap: dynamic,
+        key: String,
+        coordinates: dynamic,
+        lines: List<String>,
+    ) {
+        if (key == hoverKey) {
+            hoverPopup?.setLngLat(coordinates)
+            return
+        }
+        hoverKey = key
+        val existing = hoverPopup
+        val popupToUse: dynamic =
+            if (existing != null) {
+                existing
+            } else {
+                val options = js("({})")
+                options.closeButton = false
+                options.closeOnClick = false
+                val created = deps.createPopup(options)
+                hoverPopup = created
+                created
+            }
+        popupToUse.setDOMContent(buildTooltipContent(lines))
+        popupToUse.setLngLat(coordinates)
+        popupToUse.addTo(newMap)
+    }
+
+    private fun clearHover() {
+        hoverPopup?.remove()
+        hoverKey = null
+    }
+
+    private fun onPointHover(
+        newMap: dynamic,
+        e: dynamic,
+    ) {
+        val features = e.features
+        if (features == null || (features.length as Int) == 0) return
+        val feature = features[0]
+        val postalCode = feature.properties.postalCode as? String ?: return
+        val placeName = feature.properties.placeName as? String
+        val count = (feature.properties.count as? Double)?.toInt() ?: 0
+        showHoverPopup(
+            newMap,
+            key = "p:$postalCode",
+            coordinates = feature.geometry.coordinates,
+            lines = memberMapPointTooltipLines(placeName, postalCode, count),
+        )
+    }
+
+    private fun onClusterHover(
+        newMap: dynamic,
+        e: dynamic,
+    ) {
+        val features = e.features
+        if (features == null || (features.length as Int) == 0) return
+        val feature = features[0]
+        val clusterId = feature.properties.cluster_id ?: return
+        val pointCount = (feature.properties.point_count as? Double)?.toInt() ?: 0
+        // `memberSum`, never `point_count` -- same distinction as `clusterRadiusExpression`'s own
+        // KDoc "Pflichttest #6": `point_count` counts grouped POINTS, not the members they carry.
+        val memberSum = (feature.properties.memberSum as? Double)?.toInt() ?: 0
+        showHoverPopup(
+            newMap,
+            key = "c:$clusterId",
+            coordinates = feature.geometry.coordinates,
+            lines = memberMapClusterTooltipLines(pointCount, memberSum),
+        )
+    }
+
+    /**
+     * ±12px box around the click point, exactly matching a fingertip's imprecision -- a single-pixel
+     * hit test misses on touch devices.
+     *
+     * **Bug fix (V1.9.8)**: `getClusterExpansionZoom` is `Promise<number>`-returning in the pinned
+     * `maplibre-gl` 5.24.0 (`getClusterExpansionZoom(clusterId: number): Promise<number>`), NOT the
+     * Node-style `(error, zoom) => void` callback the old code passed -- that callback was simply
+     * never invoked, so a cluster click never zoomed in. `.then`/`.catch` on the `dynamic` promise
+     * work as ordinary dynamic calls; a rejection (malformed/unknown cluster id) is swallowed rather
+     * than left as an unhandled-rejection console error, same posture as the rest of this class's
+     * defensive early-returns.
+     */
     private fun onClusterClicked(
         newMap: dynamic,
         e: dynamic,
@@ -155,14 +370,18 @@ internal class MemberMapMapController(
         val feature = features[0]
         val clusterId = feature.properties.cluster_id
         val source = newMap.getSource(MEMBER_MAP_SOURCE_ID)
-        source.getClusterExpansionZoom(clusterId) { _: dynamic, zoom: dynamic ->
-            if (zoom == null) return@getClusterExpansionZoom
-            val cappedZoom = kotlin.math.min((zoom as Double), MemberMapRules.MAX_ZOOM.toDouble())
-            val easeOptions = js("({})")
-            easeOptions.center = feature.geometry.coordinates
-            easeOptions.zoom = cappedZoom
-            newMap.easeTo(easeOptions)
-        }
+        // clearHover(), not just `hoverPopup?.remove()` -- see onPointClicked's own comment on the
+        // same call below for why leaving `hoverKey` stale here strands the tooltip invisible.
+        clearHover()
+        val expansion =
+            source.getClusterExpansionZoom(clusterId).then { zoom: dynamic ->
+                val cappedZoom = kotlin.math.min((zoom as Double), MemberMapRules.MAX_ZOOM.toDouble())
+                val easeOptions = js("({})")
+                easeOptions.center = feature.geometry.coordinates
+                easeOptions.zoom = cappedZoom
+                newMap.easeTo(easeOptions)
+            }
+        expansion.catch { _: dynamic -> Unit }
     }
 
     private fun onPointClicked(
@@ -175,6 +394,12 @@ internal class MemberMapMapController(
         val postalCode = feature.properties.postalCode as? String ?: return
         val placeName = feature.properties.placeName as? String ?: postalCode
         val count = (feature.properties.count as? Double)?.toInt() ?: 0
+        // clearHover(), not just `hoverPopup?.remove()` -- `remove()` alone left `hoverKey` pointing at
+        // this feature, so a later `mousemove` still over it (no genuine `mouseleave` in between, just
+        // MapLibre's own tiny-jitter re-fire) took `showHoverPopup`'s `key == hoverKey` fast path, which
+        // only calls `setLngLat` and never `addTo(newMap)` again -- the already-`remove()`d popup stayed
+        // detached/invisible until an actual `mouseleave` or a hover over a DIFFERENT feature happened.
+        clearHover()
         showPopup(newMap, feature.geometry.coordinates, placeName, count)
         onFeatureClicked(postalCode)
     }
@@ -197,17 +422,21 @@ internal class MemberMapMapController(
 
         val popupOptions = js("({})")
         popupOptions.closeButton = true
-        val newPopup = Popup(popupOptions)
+        val newPopup = deps.createPopup(popupOptions)
         newPopup.setLngLat(coordinates)
         newPopup.setDOMContent(content)
         newPopup.addTo(newMap)
         popup = newPopup
     }
 
-    /** Feeds fresh RPC data into the already-built source (never rebuilds the style/layers, see class KDoc). */
+    /**
+     * Feeds fresh RPC data into the source (never rebuilds the style/layers, see class KDoc). Always
+     * remembers [entries] in [pendingEntries] first -- the source may not exist yet (see that field's
+     * KDoc), in which case [wireLayers] applies it once `"load"` fires instead of this call doing it.
+     */
     fun setPoints(entries: List<MemberMapEntryDto>) {
-        val source = map?.getSource(MEMBER_MAP_SOURCE_ID) ?: return
-        source.setData(JSON.parse(buildPointsGeoJson(entries)))
+        pendingEntries = entries
+        applyPendingEntries()
     }
 
     /** A table-row click: centers the map on the entry at [MemberMapRules.FLY_TO_ZOOM] -- `jumpTo` (no animation) under `prefers-reduced-motion`. */
@@ -226,15 +455,7 @@ internal class MemberMapMapController(
     }
 
     private fun setupThemeObserver(newMap: dynamic) {
-        val observer =
-            MutationObserver { _, _ ->
-                applyColors(newMap, readMemberMapColors())
-            }
-        val observerOptions = js("({})")
-        observerOptions.attributes = true
-        observerOptions.attributeFilter = arrayOf("data-theme")
-        observer.observe(document.documentElement!!, observerOptions)
-        themeObserver = observer
+        themeObserver = deps.createThemeObserver { applyColors(newMap, readMemberMapColors()) }
     }
 
     private fun setupResizeObserver(newMap: dynamic) {
@@ -262,6 +483,11 @@ internal class MemberMapMapController(
     fun destroy() {
         popup?.remove()
         popup = null
+        hoverPopup?.remove()
+        hoverPopup = null
+        hoverKey = null
+        labelMarkers.forEach { it.remove() }
+        labelMarkers.clear()
         themeObserver?.disconnect()
         themeObserver = null
         resizeObserver?.disconnect()

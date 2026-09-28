@@ -1,10 +1,16 @@
 package network.lapis.cloud.client
 
 import kotlinx.browser.document
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.await
+import kotlinx.coroutines.promise
 import network.lapis.cloud.shared.domain.MemberMapEntryDto
 import org.w3c.dom.HTMLElement
+import kotlin.js.Promise
+import kotlin.js.jsTypeOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -17,7 +23,11 @@ import kotlin.test.assertTrue
 class MemberMapMapControllerTest {
     private fun detachedDiv(): HTMLElement = document.createElement("div") as HTMLElement
 
-    /** A minimal fake "map" object carrying only the methods [MemberMapMapController] calls -- see [MemberMapDeps.createMap]. */
+    /**
+     * A minimal fake "map" object carrying only the methods [MemberMapMapController] calls -- see
+     * [MemberMapDeps.createMap]. `getZoom` defaults to `0.0` (V1.9.8: [MemberMapMapController.updateZoomBand]
+     * calls it unconditionally once `wireLayers` runs, i.e. on every test that fires `"load"`).
+     */
     private fun fakeMap(): dynamic {
         val calls = js("({})")
         calls.removed = false
@@ -29,9 +39,128 @@ class MemberMapMapControllerTest {
         map.on = { _: dynamic, second: dynamic, third: dynamic -> }
         map.off = { _: dynamic, _: dynamic -> }
         map.getCanvas = { js("({style: {}})") }
+        map.getZoom = { 0.0 }
         map.resize = {}
         map.remove = { calls.removed = true }
         return map
+    }
+
+    /**
+     * A minimal fake `Marker` -- see [MemberMapDeps.createMarker]. Counts `remove()` calls so
+     * [destroy_removesAllLabelMarkers] can assert every one of the 24 [MEMBER_MAP_LABELS] markers was
+     * torn down.
+     */
+    private fun fakeMarker(onRemove: () -> Unit = {}): dynamic {
+        val marker = js("({})")
+        marker.addTo = { _: dynamic -> marker }
+        marker.setLngLat = { _: dynamic -> marker }
+        marker.remove = { onRemove() }
+        return marker
+    }
+
+    /**
+     * A minimal fake theme observer -- see [MemberMapDeps.createThemeObserver]. `wireLayers` calls
+     * `setupThemeObserver` UNCONDITIONALLY on every `"load"` fire, so every test in this file that
+     * fires `"load"` must pass `createThemeObserver = { _ -> fakeThemeObserver() }`, never letting the
+     * default (production) implementation run: that default calls `observer.observe(...)` on the REAL,
+     * SUITE-SHARED `document.documentElement` (Karma runs every test in one browser tab), and this
+     * class's tests never mount into a real KVision `Root`, so nothing else ever calls
+     * `document.documentElement.setAttribute("data-theme", ...)` to trigger it during THIS test -- but
+     * a completely unrelated LATER test that changes `data-theme` (e.g. a theme-toggle test elsewhere
+     * in the suite) fires the callback anyway, against this test's already-finished `newMap`/`applyColors`
+     * closure. Bug found 2026-09-28 in a full `clean check --no-build-cache --rerun-tasks` run: a stray,
+     * never-`disconnect()`ed real observer from an earlier `MemberMapMapControllerTest` made
+     * `ReportScreensDomTest.financialReports_failedLoadIsAnErrorStateWithRetry`'s `data-theme` change
+     * throw `TypeError: newMap.setPaintProperty is not a function` -- a fake `map` from a LONG-FINISHED
+     * test has no such method. Using this fake instead (never touching the real DOM at all) makes that
+     * class of cross-test leak structurally impossible rather than merely disciplined-away by
+     * `controller.destroy()` in every test.
+     */
+    private fun fakeThemeObserver(onDisconnect: () -> Unit = {}): dynamic {
+        val observer = js("({})")
+        observer.disconnect = { onDisconnect() }
+        return observer
+    }
+
+    /** A minimal fake `Popup` -- see [MemberMapDeps.createPopup]. Counts `setDOMContent`/`remove()` calls for the hover-tooltip tests. */
+    private fun fakePopup(
+        onSetDomContent: () -> Unit = {},
+        onRemove: () -> Unit = {},
+    ): dynamic {
+        val popup = js("({})")
+        popup.setLngLat = { _: dynamic -> popup }
+        popup.setDOMContent = { _: dynamic ->
+            onSetDomContent()
+            popup
+        }
+        popup.addTo = { _: dynamic -> popup }
+        popup.remove = { onRemove() }
+        return popup
+    }
+
+    /**
+     * A fake map's event registry -- tracks every `on(...)` call MapLibre's real `Map` accepts, BOTH
+     * the 2-arg `(type, listener)` overload (`"load"`/`"zoom"`) and the 3-arg `(type, layerId,
+     * listener)` overload (`"click"`/`"mousemove"`/`"mouseleave"` on a specific layer), distinguished
+     * by `jsTypeOf` on the second argument (a function for the 2-arg form, a layer-id string for the
+     * 3-arg form). Lets a test both COUNT registrations for an event type (e.g. "exactly two
+     * `mousemove` listeners when hover-capable") and FIRE one specific `(event, layer)` pair.
+     */
+    private class FakeEventRegistry {
+        private data class Reg(
+            val event: String,
+            val layer: String?,
+            val callback: (dynamic) -> Unit,
+        )
+
+        private val regs = mutableListOf<Reg>()
+
+        fun on(
+            event: dynamic,
+            a: dynamic,
+            b: dynamic,
+        ) {
+            val ev = event as String
+            @Suppress("UNCHECKED_CAST")
+            if (jsTypeOf(a) == "function") {
+                regs.add(Reg(ev, null, a as (dynamic) -> Unit))
+            } else {
+                regs.add(Reg(ev, a as String, b as (dynamic) -> Unit))
+            }
+        }
+
+        fun count(event: String): Int = regs.count { it.event == event }
+
+        fun fire(
+            event: String,
+            layer: String?,
+            payload: dynamic = null,
+        ) {
+            regs.filter { it.event == event && it.layer == layer }.forEach { it.callback(payload) }
+        }
+    }
+
+    /** [fakeMap] wired so every `on(...)` call lands in a fresh [FakeEventRegistry] instead of being dropped. */
+    private fun fakeMapWithRegistry(): Pair<dynamic, FakeEventRegistry> {
+        val registry = FakeEventRegistry()
+        val map = fakeMap()
+        map.on = { event: dynamic, a: dynamic, b: dynamic -> registry.on(event, a, b) }
+        // NOT `map to registry` -- `to` is an infix call, and on a `dynamic` receiver Kotlin/JS
+        // compiles ANY member-looking call (including a stdlib infix extension) as a dynamic
+        // property/method lookup on the underlying JS object, not as `kotlin.to`. `Pair(...)` is an
+        // ordinary constructor call, unaffected by the dynamic receiver.
+        return Pair(map, registry)
+    }
+
+    /** Builds a `mousemove`/`click`-shaped fake MapLibre feature event: one feature with [properties] set on it. */
+    private fun fakeFeatureEvent(coordinates: Array<Double> = arrayOf(10.0, 52.0)): Pair<dynamic, dynamic> {
+        val feature = js("({})")
+        feature.properties = js("({})")
+        feature.geometry = js("({})")
+        feature.geometry.coordinates = coordinates
+        val event = js("({})")
+        event.features = arrayOf(feature)
+        return Pair(event, feature) // not `event to feature` -- see fakeMapWithRegistry's own KDoc on dynamic + infix `to`
     }
 
     @Test
@@ -97,6 +226,60 @@ class MemberMapMapControllerTest {
         )
     }
 
+    /**
+     * Regression test for the bug found live on PdV 2026-09-28: the table showed real data, the map
+     * showed no circles at all. Root cause -- [MemberMapScreen.kt] calls [MemberMapMapController.setPoints]
+     * synchronously right after [MemberMapMapController.init] returns, but the source is only added
+     * once the map's `"load"` event fires, which is genuinely async (WebGL context + style loading).
+     * The old code's `map?.getSource(...) ?: return` silently dropped the data in that race, every
+     * single time in practice -- this test reproduces exactly that ordering (`setPoints` BEFORE
+     * `"load"` fires) and asserts the data still reaches the source once `"load"` does fire.
+     */
+    @Test
+    fun setPoints_calledBeforeLoadFires_stillReachesTheSourceOnceLoadFires() {
+        var loadCallback: (() -> Unit)? = null
+        var addSourceCalls = 0
+        val setDataCalls = mutableListOf<String>()
+        val fakeSource = js("({})")
+        fakeSource.setData = { data: dynamic -> setDataCalls.add(JSON.stringify(data)) }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ ->
+                    val map = fakeMap()
+                    map.on = { event: dynamic, callback: dynamic, _: dynamic ->
+                        if (event == "load") loadCallback = { (callback as (dynamic) -> Unit)(null) }
+                    }
+                    map.addSource = { _: dynamic, _: dynamic -> addSourceCalls++ }
+                    // Only resolves once "load" has actually run -- matches the real MapLibre contract
+                    // (getSource on an unknown id returns undefined, never throws).
+                    map.getSource = { _: dynamic -> if (addSourceCalls > 0) fakeSource else undefined }
+                    map
+                },
+                webglAvailable = { true },
+                // V1.9.8 "Orientierung": `wireLayers` now also calls `addRegionLabels`/`updateZoomBand`,
+                // which by default construct a REAL `maplibre-gl` `Marker` and read `newMap.getZoom()` --
+                // neither exists on this test's fake map (see `fakeMap()`'s own KDoc). Faking both keeps
+                // this pinned regression test exercising exactly what it always exercised (the
+                // `setPoints`/`"load"` race), without it now also being a test of the orientation layer.
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+
+        val entries =
+            listOf(MemberMapEntryDto(postalCode = "38100", placeName = "Braunschweig", lat = 52.27, lon = 10.52, count = 3))
+        controller.setPoints(entries) // races ahead of "load" -- must not throw, must not lose the data
+
+        assertEquals(0, setDataCalls.size, "the source cannot receive data before it exists yet")
+
+        loadCallback?.invoke() // simulates the map's real async "load" event firing
+
+        assertEquals(1, setDataCalls.size, "the pending entries must be applied once the source exists")
+        assertTrue(setDataCalls.single().contains("38100"), "the applied data must be the entries passed to setPoints, not empty")
+    }
+
     @Test
     fun flyToEntry_withoutCoordinates_neverThrows_andDoesNothing() {
         var flyToCalls = 0
@@ -115,4 +298,329 @@ class MemberMapMapControllerTest {
         controller.flyToEntry(MemberMapEntryDto(postalCode = "99999", placeName = null, lat = null, lon = null, count = 1))
         assertEquals(0, flyToCalls, "an unresolved entry (no lat/lon) must never move the map")
     }
+
+    // ── V1.9.8 "Orientierung": region labels + zoom band ───────────────────────────────────────
+
+    @Test
+    fun wireLayers_createsExactlyTwentyFourLabelMarkers_andSetsInitialZoomBand() {
+        val (map, registry) = fakeMapWithRegistry()
+        var markerCreateCalls = 0
+        val container = detachedDiv()
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ ->
+                    markerCreateCalls++
+                    fakeMarker()
+                },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = container, deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        assertEquals(24, markerCreateCalls, "MEMBER_MAP_LABELS.size must equal the number of markers created")
+        assertEquals("low", container.getAttribute("data-zoom-band"), "getZoom() == 0.0 (fakeMap default) must map to zoom band \"low\"")
+    }
+
+    @Test
+    fun wireLayers_zoomEvent_updatesTheZoomBandAttribute() {
+        val (map, registry) = fakeMapWithRegistry()
+        var currentZoom = 0.0
+        map.getZoom = { currentZoom }
+        val container = detachedDiv()
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = container, deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+        assertEquals("low", container.getAttribute("data-zoom-band"))
+
+        currentZoom = 9.0
+        registry.fire("zoom", null)
+        assertEquals("high", container.getAttribute("data-zoom-band"))
+    }
+
+    @Test
+    fun destroy_removesAllTwentyFourLabelMarkers() {
+        val (map, registry) = fakeMapWithRegistry()
+        var markerRemoveCalls = 0
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker(onRemove = { markerRemoveCalls++ }) },
+                hoverCapable = { false },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        controller.destroy()
+
+        assertEquals(24, markerRemoveCalls)
+    }
+
+    // ── V1.9.8 "Orientierung": hover tooltip ────────────────────────────────────────────────────
+
+    @Test
+    fun wireLayers_hoverCapableFalse_registersNoMousemoveListeners() {
+        val (map, registry) = fakeMapWithRegistry()
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { false },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        assertEquals(0, registry.count("mousemove"), "a touch device must never register a mousemove-driven tooltip")
+    }
+
+    @Test
+    fun wireLayers_hoverCapableTrue_registersExactlyTwoMousemoveListeners() {
+        val (map, registry) = fakeMapWithRegistry()
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                hoverCapable = { true },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        assertEquals(2, registry.count("mousemove"), "one mousemove listener per layer (points + clusters)")
+    }
+
+    @Test
+    fun onPointHover_buildsContentViaTextNodes_neverSetHTML() {
+        val (map, registry) = fakeMapWithRegistry()
+        var setDomContentCalls = 0
+        var setHtmlCalls = 0
+        var lastContent: HTMLElement? = null
+        val popup = js("({})")
+        popup.setLngLat = { _: dynamic -> popup }
+        popup.addTo = { _: dynamic -> popup }
+        popup.remove = {}
+        popup.setDOMContent = { node: dynamic ->
+            setDomContentCalls++
+            lastContent = node as HTMLElement
+            popup
+        }
+        popup.setHTML = { _: dynamic ->
+            setHtmlCalls++
+            popup
+        }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                createPopup = { _ -> popup },
+                hoverCapable = { true },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        val (event, feature) = fakeFeatureEvent()
+        feature.properties.postalCode = "38100"
+        feature.properties.placeName = "<b>x</b>"
+        feature.properties.count = 3.0
+        registry.fire("mousemove", MEMBER_MAP_POINTS_LAYER_ID, event)
+
+        assertEquals(1, setDomContentCalls)
+        assertEquals(0, setHtmlCalls, "the tooltip must never use setHTML -- placeName is untrusted free text")
+        val text = lastContent?.textContent ?: ""
+        assertTrue(text.contains("<b>x</b>"), "the raw text must be present as inert text content")
+        assertFalse(
+            (lastContent?.innerHTML ?: "").contains("<b>"),
+            "must never be interpreted as a real markup tag (a real <b> would render unescaped in innerHTML)",
+        )
+    }
+
+    @Test
+    fun onPointHover_sameFeatureTwice_rebuildsContentOnlyOnce() {
+        val (map, registry) = fakeMapWithRegistry()
+        var setDomContentCalls = 0
+        var popupRemoveCalls = 0
+        val popup = js("({})")
+        popup.setLngLat = { _: dynamic -> popup }
+        popup.addTo = { _: dynamic -> popup }
+        popup.setDOMContent = { _: dynamic ->
+            setDomContentCalls++
+            popup
+        }
+        popup.remove = { popupRemoveCalls++ }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                createPopup = { _ -> popup },
+                hoverCapable = { true },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        val (event, feature) = fakeFeatureEvent()
+        feature.properties.postalCode = "38100"
+        feature.properties.placeName = "Braunschweig"
+        feature.properties.count = 3.0
+        registry.fire("mousemove", MEMBER_MAP_POINTS_LAYER_ID, event)
+        registry.fire("mousemove", MEMBER_MAP_POINTS_LAYER_ID, event)
+
+        assertEquals(
+            1,
+            setDomContentCalls,
+            "the SAME feature under the cursor must not rebuild the tooltip content on every pixel of movement",
+        )
+
+        registry.fire("mouseleave", MEMBER_MAP_POINTS_LAYER_ID)
+        assertEquals(1, popupRemoveCalls, "mouseleave must remove the open tooltip")
+    }
+
+    @Test
+    fun onClusterHover_usesMemberSum_neverPointCount() {
+        val (map, registry) = fakeMapWithRegistry()
+        var lastLines: List<String> = emptyList()
+        val popup = js("({})")
+        popup.setLngLat = { _: dynamic -> popup }
+        popup.addTo = { _: dynamic -> popup }
+        popup.setDOMContent = { node: dynamic ->
+            val el = node as HTMLElement
+            lastLines =
+                (0 until el.children.length).map {
+                    el.children
+                        .item(it)
+                        ?.textContent
+                        .orEmpty()
+                }
+            popup
+        }
+        popup.remove = {}
+        val deps =
+            MemberMapDeps(
+                createMap = { _ -> map },
+                webglAvailable = { true },
+                createMarker = { _, _ -> fakeMarker() },
+                createPopup = { _ -> popup },
+                hoverCapable = { true },
+                createThemeObserver = { _ -> fakeThemeObserver() },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+        registry.fire("load", null)
+
+        val (event, feature) = fakeFeatureEvent()
+        feature.properties.cluster_id = 7
+        feature.properties.point_count = 3.0
+        feature.properties.memberSum = 42.0
+        registry.fire("mousemove", MEMBER_MAP_CLUSTERS_LAYER_ID, event)
+
+        assertTrue(lastLines[0].contains("3"), "line 1 is the point count")
+        assertTrue(lastLines[1].contains("42"), "line 2 must be memberSum, never point_count")
+    }
+
+    // ── V1.9.8 bug fix: cluster-click zoom via the real Promise-returning getClusterExpansionZoom ──
+
+    @Test
+    fun onClusterClicked_resolvedPromise_easesToTheCappedZoom() =
+        GlobalScope.promise {
+            val (map, registry) = fakeMapWithRegistry()
+            var easeToCalls = 0
+            var easeZoom: Double? = null
+            map.easeTo = { options: dynamic ->
+                easeToCalls++
+                easeZoom = options.zoom as Double
+            }
+            map.queryRenderedFeatures = { _: dynamic, _: dynamic ->
+                val (_, feature) = fakeFeatureEvent()
+                feature.properties.cluster_id = 7
+                arrayOf(feature)
+            }
+            val source = js("({})")
+            source.getClusterExpansionZoom = { _: dynamic -> Promise.resolve(12.0) } // above MemberMapRules.MAX_ZOOM (10)
+            map.getSource = { _: dynamic -> source }
+            val deps =
+                MemberMapDeps(
+                    createMap = { _ -> map },
+                    webglAvailable = { true },
+                    createMarker = { _, _ -> fakeMarker() },
+                    hoverCapable = { false },
+                    createThemeObserver = { _ -> fakeThemeObserver() },
+                )
+            val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+            controller.init()
+            registry.fire("load", null)
+
+            val clickEvent = js("({})")
+            clickEvent.point = js("({})")
+            clickEvent.point.x = 10.0
+            clickEvent.point.y = 10.0
+            registry.fire("click", MEMBER_MAP_CLUSTERS_LAYER_ID, clickEvent)
+
+            // getClusterExpansionZoom's Promise resolves on the microtask queue -- awaiting a resolved
+            // Promise here (this whole test function IS a Promise, via GlobalScope.promise) lets that
+            // queue drain before the assertions run.
+            Promise.resolve(Unit).await()
+
+            assertEquals(1, easeToCalls)
+            assertEquals(10.0, easeZoom, "the zoom must be capped at MemberMapRules.MAX_ZOOM, not the raw 12.0 the promise resolved with")
+        }
+
+    @Test
+    fun onClusterClicked_rejectedPromise_neverThrows_neverEases() =
+        GlobalScope.promise {
+            val (map, registry) = fakeMapWithRegistry()
+            var easeToCalls = 0
+            map.easeTo = { _: dynamic -> easeToCalls++ }
+            map.queryRenderedFeatures = { _: dynamic, _: dynamic ->
+                val (_, feature) = fakeFeatureEvent()
+                feature.properties.cluster_id = 7
+                arrayOf(feature)
+            }
+            val source = js("({})")
+            source.getClusterExpansionZoom = { _: dynamic -> Promise.reject(Exception("unknown cluster id")) }
+            map.getSource = { _: dynamic -> source }
+            val deps =
+                MemberMapDeps(
+                    createMap = { _ -> map },
+                    webglAvailable = { true },
+                    createMarker = { _, _ -> fakeMarker() },
+                    hoverCapable = { false },
+                    createThemeObserver = { _ -> fakeThemeObserver() },
+                )
+            val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+            controller.init()
+            registry.fire("load", null)
+
+            val clickEvent = js("({})")
+            clickEvent.point = js("({})")
+            clickEvent.point.x = 10.0
+            clickEvent.point.y = 10.0
+            registry.fire("click", MEMBER_MAP_CLUSTERS_LAYER_ID, clickEvent) // must not throw synchronously
+
+            Promise.resolve(Unit).await()
+
+            assertEquals(0, easeToCalls)
+        }
 }

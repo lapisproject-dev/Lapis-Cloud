@@ -685,6 +685,12 @@ fun main() {
     // die spätere, damit "gewinnende" Deklaration ist; die @font-face-Regeln selbst sind ordnungs-
     // unabhängig (keine Kollision mit irgendetwas anderem im Bundle).
     js("require('@fontsource-variable/inter/index.css')")
+    // V1.9.8 "Orientierung" -- `maplibre-gl`'s OWN stylesheet, required so `Popup`'s pointer/box/
+    // close-button chrome renders correctly (it relies on `.maplibregl-popup-*` classes this
+    // codebase never had loaded before -- the click-popup already used `Popup`, but hover made it a
+    // core interaction, not an edge case). Before `./theme.css` so `.lapis-member-map-tooltip
+    // .maplibregl-popup-content`'s higher-specificity override always wins regardless of import order.
+    js("require('maplibre-gl/dist/maplibre-gl.css')")
     js("require('./theme.css')")
     registerRemoteTypes()
     // Bug fix: startApplication() previously registered no CSS modules at all -- KVision only

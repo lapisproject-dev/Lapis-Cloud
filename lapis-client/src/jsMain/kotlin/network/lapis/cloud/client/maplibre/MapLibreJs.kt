@@ -96,6 +96,22 @@ external class NavigationControl(
     options: dynamic = definedExternally,
 )
 
+/**
+ * V1.9.8 "Vorstands-Karte: Orientierung" -- a plain DOM-element marker, used for the 24 static
+ * Bundesland-/Nachbarland-labels ([network.lapis.cloud.client.MEMBER_MAP_LABELS]). Deliberately
+ * minimal, same discipline as [Map]/[Popup]: only `setLngLat`/`addTo`/`remove`, nothing this
+ * codebase's call site does not use (no drag, no offset, no rotation).
+ */
+external class Marker(
+    options: dynamic = definedExternally,
+) {
+    fun setLngLat(lngLat: dynamic): Marker
+
+    fun addTo(map: Map): Marker
+
+    fun remove(): Marker
+}
+
 external class AttributionControl(
     options: dynamic = definedExternally,
 )

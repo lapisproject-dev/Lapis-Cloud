@@ -24,9 +24,15 @@ import kotlin.math.sqrt
  *
  * **PMTiles vector-layer names and `kind` values are verified against the real test fixture**
  * (`lapis-server/src/test/resources/member-map/germany-test-fixture.pmtiles`, a Protomaps Basemap
- * schema build), not guessed -- see the wave's plan §1: layers `earth`/`water`/`boundaries`/`roads`,
- * `boundaries.kind` `"country"`/`"unrecognized_country"`/`"region"` (region = state border), `roads.kind
- * = "highway"`.
+ * v4.15.2 schema build), not guessed. The fixture carries NINE vector layers (`boundaries`,
+ * `buildings`, `earth`, `landcover`, `landuse`, `places`, `pois`, `roads`, `water`) -- this style
+ * uses only four of them: `earth`/`water`/`boundaries`/`roads`, with `boundaries.kind`
+ * `"country"`/`"unrecognized_country"`/`"region"` (region = state border) and `roads.kind =
+ * "highway"`. `places` (which carries `name`/`name:de`) exists but is deliberately NOT used as a
+ * MapLibre `symbol` text layer -- that would need a `glyphs` URL this style does not have, and
+ * standing up a glyph-serving pipeline for a static handful of labels is disproportionate. V1.9.8
+ * "Orientierung" instead renders 24 Bundesland-/Nachbarland-labels as plain DOM markers -- see
+ * `MemberMapLabels.kt`'s own KDoc and `docs/architecture/member-map.adoc` §Q8.
  */
 internal const val MEMBER_MAP_BASEMAP_PMTILES_URL = "pmtiles:///api/board/member-map/basemap.pmtiles"
 
