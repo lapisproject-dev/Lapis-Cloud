@@ -124,13 +124,32 @@ fun Route.registerPublicLandingRoutes(
  * VOLLSTÄNDIG leer ist (0 Mitglieder UND 0 öffentliche Beiträge) -- der Kennzahlenblock entfällt dann
  * GANZ, statt drei Nullen zu zeigen. Der `publicPostCount == 0L`-Guard vor [loadTopPosts] spart
  * zusätzlich die komplette `SocialReadPipeline.timelinePage`-Abfrage auf einer frischen Installation.
+ *
+ * **Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit" (Kay/Jobs)**: ist `activeMemberCount` `null` (die
+ * Organisation hat die Sichtbarkeit ausgeschaltet), fließt die Mitgliederzahl NICHT in den
+ * Leerzustands-Guard ein -- eine ausgeblendete Zahl darf nicht über einen Seitenkanal (ob der
+ * Kennzahlenblock überhaupt erscheint) zurückgeschlossen werden können. Der Block erscheint dann
+ * genau dann, wenn es etwas anderes zu zeigen gibt (Beiträge oder ein positiver LTR-Gesamtwert).
  */
 private fun buildView(): PublicLandingView {
     val stats = PublicTransparencyReader.loadStats()
     val posts = if (stats.publicPostCount == 0L) emptyList() else loadTopPosts(limit = LANDING_TOP_POSTS_LIMIT)
-    val showStats = !(stats.activeMemberCount == 0L && stats.publicPostCount == 0L)
-    return PublicLandingView(stats = stats.takeIf { showStats }, topPosts = posts)
+    return PublicLandingView(stats = stats.takeIf { showStats(it) }, topPosts = posts)
 }
+
+/**
+ * The Leerzustand/Seitenkanal decision itself (see [buildView] KDoc), pulled out as its own pure
+ * function -- `DevSeedData.seedIfEmpty` always seeds at least one member, so the `activeMemberCount
+ * == null` branch has no realistic route-level (real-DB) fixture; [PublicLandingRoutesTest] covers
+ * this branch by calling this function directly with hand-built [PublicTransparencyStats], not by
+ * routing through a real `GET /` request.
+ */
+internal fun showStats(stats: PublicTransparencyStats): Boolean =
+    if (stats.activeMemberCount != null) {
+        !(stats.activeMemberCount == 0L && stats.publicPostCount == 0L)
+    } else {
+        stats.publicPostCount > 0L || stats.mintedLtrPositive
+    }
 
 private const val LANDING_TOP_POSTS_LIMIT = 5
 

@@ -8,6 +8,23 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.10 — Mitgliederzahl auf der öffentlichen Startseite optional.** Vorstand kann jetzt per
+  Organisationseinstellung entscheiden, ob die Zahl der aktiven Mitglieder auf der öffentlichen
+  Startseite (`/`) und der Transparenzseite (`/transparenz`) erscheint. Neues Feld
+  `showPublicMemberCount` auf `organization_settings` (`V57__public_member_count_visibility.sql`),
+  `NOT NULL DEFAULT TRUE` — als einziges Boolean-Feld dieser Tabelle ein Opt-OUT statt Opt-IN, damit
+  keine bestehende Organisation eine Verhaltensänderung erlebt. Ausblenden geschieht strukturell in
+  `PublicTransparencyReader.loadStats` (die Zahl wird gar nicht erst abgefragt, wenn das Flag aus
+  ist — nicht nur im Renderer verborgen); der Leerzustands-Guard der Startseite bezieht eine
+  ausgeblendete Mitgliederzahl bewusst NICHT mehr ein (kein Seitenkanal-Rückschluss über die bloße
+  Anwesenheit des Kennzahlenblocks). ADMIN-only zu setzen (der generische
+  `updateOrganizationSettings`-Schreibpfad ersetzt das komplette Einstellungsobjekt inklusive
+  IBAN/DATEV-Nummern/Kontenzuordnung — ein BOARD-Schreibrecht hier hätte diese Felder mit
+  freigegeben, nur um einen Klick zu sparen); TREASURER/BOARD sehen den Status read-only. Toggle in
+  der Mitgliederverwaltung (`MemberAdministrationScreen.kt`, exakt dasselbe
+  Wholesale-Replace-Muster wie der bestehende Politiker-Ranking-Schalter). Die Änderung wird
+  innerhalb weniger Minuten wirksam (bestehende 30-Sekunden-In-Memory-Caches beider öffentlichen
+  Routen, kein neuer Invalidierungs-Hook).
 - **V1.9.9 — Vorstands-Karte: Details & Suche (Grenzen, Landeshauptstädte, Kleinorte, Ortssuche).**
   Nutzer-Feedback (2026-09-28): Staatsgrenzen/Landesgrenzen kaum sichtbar, Landeshauptstädte wie
   Magdeburg und Dresden fehlten komplett (nur die Bundesland-Namen selbst waren beschriftet, siehe

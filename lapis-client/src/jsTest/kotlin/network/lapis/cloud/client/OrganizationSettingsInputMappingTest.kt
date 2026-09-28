@@ -49,6 +49,10 @@ class OrganizationSettingsInputMappingTest {
             receivablesAccountId = "receivables-1",
             payablesAccountId = "payables-1",
             receivableDunningEnabled = true,
+            // Deliberately the DTO's default value (true) negated -- the DTO default for this ONE
+            // field is `true` (unlike every other field here), so a forgotten mapping in `toInput`
+            // would otherwise silently pass this template unnoticed.
+            showPublicMemberCount = false,
         )
 
     @Test
@@ -80,6 +84,7 @@ class OrganizationSettingsInputMappingTest {
         assertEquals("receivables-1", input.receivablesAccountId)
         assertEquals("payables-1", input.payablesAccountId)
         assertEquals(true, input.receivableDunningEnabled)
+        assertEquals(false, input.showPublicMemberCount)
     }
 
     /**
@@ -119,6 +124,7 @@ class OrganizationSettingsInputMappingTest {
                 receivablesAccountId = "receivables-1",
                 payablesAccountId = "payables-1",
                 receivableDunningEnabled = true,
+                showPublicMemberCount = false,
             )
         assertEquals(expected, fullyPopulated.toInput())
     }
@@ -149,6 +155,13 @@ class OrganizationSettingsInputMappingTest {
         val input = fullyPopulated.toInputWithPoliticianRankingEnabled(newValue = false)
         assertEquals(false, input.politicianRankingEnabled)
         assertEquals(fullyPopulated.toInput().copy(politicianRankingEnabled = false), input)
+    }
+
+    @Test
+    fun toInputWithShowPublicMemberCount_changesOnlyThatFlag() {
+        val input = fullyPopulated.toInputWithShowPublicMemberCount(newValue = true)
+        assertEquals(true, input.showPublicMemberCount)
+        assertEquals(fullyPopulated.toInput().copy(showPublicMemberCount = true), input)
     }
 
     @Test
@@ -192,8 +205,9 @@ class OrganizationSettingsInputMappingTest {
             ),
             input,
         )
-        // Die zwei Felder ohne Formularfeld auf diesem Bildschirm -- genau die, die der Bug verlor.
+        // Die Felder ohne Formularfeld auf diesem Bildschirm -- genau die, die der Bug verlor.
         assertEquals(true, input.isKleinunternehmer)
         assertEquals(true, input.receivableDunningEnabled)
+        assertEquals(false, input.showPublicMemberCount)
     }
 }

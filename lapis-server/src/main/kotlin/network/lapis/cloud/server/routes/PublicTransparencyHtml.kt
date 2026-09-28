@@ -150,7 +150,9 @@ internal object PublicTransparencyHtml {
             attributes["id"] = "kennzahlen"
             h2 { +strings.jumpStats }
             div(classes = "stats") {
-                statTile(value = stats.activeMemberCount.toString(), label = strings.statMembers)
+                // Welle V1.9.10: activeMemberCount is null when the organization opted out -- see
+                // PublicTransparencyReader.loadStats KDoc.
+                stats.activeMemberCount?.let { statTile(value = it.toString(), label = strings.statMembers) }
                 statTile(value = "${stats.mintedLtrTotal} LTR", label = strings.statLtr)
                 statTile(value = stats.publicPostCount.toString(), label = strings.statPosts)
             }

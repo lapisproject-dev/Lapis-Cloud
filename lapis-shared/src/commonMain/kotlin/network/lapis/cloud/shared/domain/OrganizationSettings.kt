@@ -144,6 +144,19 @@ import kotlinx.serialization.Serializable
  * .updateOrganizationSettings] only ever writes the columns [OrganizationSettingsInput] actually
  * carries, keeping these two rates off that type makes an accidental overwrite through the generic
  * update path structurally impossible.
+ *
+ * [showPublicMemberCount] (Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit") is a tenth ordinary,
+ * ADMIN-writable configuration field -- same treatment as [isKleinunternehmer] above, part of
+ * [OrganizationSettingsInput]. **Defaults to `true`** -- the only Boolean field in this whole DTO
+ * whose default is `true` rather than `false`; every opt-in gate above ([postalMailEnabled],
+ * [politicianRankingEnabled], [auctionEnabled], etc.) defaults to the conservative "off" state,
+ * but this field is an opt-OUT: the pre-existing behaviour (active member count always shown on
+ * the public landing page and `/transparenz`) must not change for any existing organization when
+ * this field is introduced, so `true` is the safe default. Governs whether
+ * `network.lapis.cloud.server.routes.PublicTransparencyReader.loadStats` includes the active member
+ * count at all -- setting it to `false` hides the figure from both public pages within a few minutes
+ * (subject to their existing response-cache TTLs), while leaving post counts and minted-LTR totals
+ * unaffected.
  */
 @Serializable
 data class OrganizationSettingsDto(
@@ -181,6 +194,7 @@ data class OrganizationSettingsDto(
     val receivablesAccountId: String? = null,
     val payablesAccountId: String? = null,
     val receivableDunningEnabled: Boolean = false,
+    val showPublicMemberCount: Boolean = true,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */
@@ -232,4 +246,6 @@ data class OrganizationSettingsInput(
      *  plain ADMIN-writable opt-in flag is sufficient for this wave's scope (no PDF/postal
      *  dispatch). */
     val receivableDunningEnabled: Boolean = false,
+    /** V1.9.10. See [OrganizationSettingsDto.showPublicMemberCount] KDoc. */
+    val showPublicMemberCount: Boolean = true,
 )

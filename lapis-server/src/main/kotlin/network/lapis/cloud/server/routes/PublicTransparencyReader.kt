@@ -7,11 +7,13 @@ import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.rpc.DonationIncomeAmount
 import network.lapis.cloud.server.rpc.GeneralLedgerCalculator
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -61,8 +63,11 @@ internal data class PublicRankingSection(
 )
 
 internal data class PublicTransparencyStats(
-    val activeMemberCount: Long,
+    /** `null` when the organization has opted out via `showPublicMemberCount == false` -- see [loadStats]. */
+    val activeMemberCount: Long?,
     val mintedLtrTotal: String,
+    /** `mintedLtrTotal` re-derived as a `Boolean` at the source, so callers never re-parse the formatted string. */
+    val mintedLtrPositive: Boolean,
     val publicPostCount: Long,
 )
 
@@ -86,13 +91,28 @@ internal object PublicTransparencyReader {
      * silently DEPRESS that number every time a member spends), which is a different, less honest
      * statement than "how much LTR has this organization minted in total". See implementation plan
      * § 3.3 O6.
+     *
+     * **Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit"**: [PublicTransparencyStats.activeMemberCount]
+     * is `null` -- never queried at all, not merely hidden downstream -- while
+     * `organization_settings.show_public_member_count` is `false`. Read in the SAME transaction as
+     * every other stat here, no second round-trip. See that column's own KDoc
+     * (`OrganizationSettingsDto.showPublicMemberCount`) for the opt-out rationale.
      */
     fun loadStats(): PublicTransparencyStats {
+        val showMemberCount =
+            OrganizationSettingsTable
+                .select(OrganizationSettingsTable.showPublicMemberCount)
+                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                .single()[OrganizationSettingsTable.showPublicMemberCount]
         val activeMemberCount =
-            MemberTable
-                .selectAll()
-                .where { (MemberTable.status eq MemberStatus.ACTIVE) and MemberTable.anonymizedAt.isNull() }
-                .count()
+            if (!showMemberCount) {
+                null
+            } else {
+                MemberTable
+                    .selectAll()
+                    .where { (MemberTable.status eq MemberStatus.ACTIVE) and MemberTable.anonymizedAt.isNull() }
+                    .count()
+            }
         val mintTotal = LtrLedgerEntryTable.amountLtr.sum()
         val mintedLtrTotal =
             LtrLedgerEntryTable
@@ -106,6 +126,7 @@ internal object PublicTransparencyReader {
         return PublicTransparencyStats(
             activeMemberCount = activeMemberCount,
             mintedLtrTotal = mintedLtrTotal.toPlainString(),
+            mintedLtrPositive = mintedLtrTotal > BigDecimal.ZERO,
             publicPostCount = publicPostCount,
         )
     }

@@ -26,9 +26,11 @@ import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PublicRankingConsentDisclaimer
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -270,6 +272,27 @@ class PublicTransparencyRoutesTest :
 
         fun generousLimiter() = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
 
+        // Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit" -- see PublicLandingRoutesTest's identical
+        // helper KDoc for why an ALWAYS-reset finally block is mandatory here (shared baseline row).
+        suspend fun withMemberCountHidden(block: suspend () -> Unit) {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[showPublicMemberCount] =
+                        false
+                }
+            }
+            try {
+                block()
+            } finally {
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[showPublicMemberCount] =
+                            true
+                    }
+                }
+            }
+        }
+
         suspend fun testApp(
             readLimiter: FederationInboxRateLimiter = generousLimiter(),
             block: suspend ApplicationTestBuilder.() -> Unit,
@@ -298,6 +321,22 @@ class PublicTransparencyRoutesTest :
                 body shouldContain "Vorstand"
                 (response.headers["Content-Security-Policy"] ?: "") shouldContain "default-src 'none'"
                 response.headers["Cache-Control"] shouldBe "public, max-age=60"
+            }
+        }
+
+        // ── V1.9.10: flag off -- neither the member-count tile nor its label appear ────────
+        test("GET /transparenz: showPublicMemberCount == false -- body contains neither the member-count value nor its label") {
+            testApp {
+                withMemberCountHidden {
+                    val body = client.get("/transparenz").bodyAsText()
+                    // NOT a bare "Mitglieder" shouldNotContain -- see PublicLandingRoutesTest's
+                    // identical caveat (the H2 "Kennzahlen"/nav labels do not contain the substring,
+                    // but other page chrome legitimately might). What must be absent is the stat
+                    // TILE/label specifically.
+                    body shouldNotContain "class=\"stat-label\">Mitglieder<"
+                    body shouldContain "Kennzahlen"
+                    body shouldContain "Vorstand"
+                }
             }
         }
 

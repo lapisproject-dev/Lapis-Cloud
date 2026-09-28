@@ -63,4 +63,5 @@ internal fun OrganizationSettingsDto.toInput(): OrganizationSettingsInput =
         receivablesAccountId = receivablesAccountId,
         payablesAccountId = payablesAccountId,
         receivableDunningEnabled = receivableDunningEnabled,
+        showPublicMemberCount = showPublicMemberCount,
     )

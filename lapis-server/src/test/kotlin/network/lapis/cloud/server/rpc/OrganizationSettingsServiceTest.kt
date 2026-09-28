@@ -72,6 +72,8 @@ class OrganizationSettingsServiceTest :
                     it[isPoliticalParty] = false
                     it[postalMailEnabled] = false
                     it[politicianRankingEnabled] = false
+                    // V1.9.10 -- default is TRUE (opt-out), unlike every other flag reset here.
+                    it[showPublicMemberCount] = true
                     // V1.4.5.2 DATEV-Format-Export -- reset so the range-validation tests below stay
                     // order-independent, same reasoning as every other field reset here.
                     it[datevBeraterNummer] = null
@@ -265,6 +267,50 @@ class OrganizationSettingsServiceTest :
                 val afterUpdate =
                     client.get("/test/get-politician-ranking-enabled") { header("X-Member-Id", TREASURER_ID) }
                 afterUpdate.bodyAsText() shouldBe "true"
+            }
+        }
+
+        test(
+            "showPublicMemberCount defaults to true, round-trips false through update -> get, " +
+                "and is ADMIN-only to set",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause ->
+                            call.respondText(cause.message, status = HttpStatusCode.Forbidden)
+                        }
+                    }
+                    routing { registerOrgSettingsTestRoutes() }
+                }
+
+                val beforeUpdate =
+                    client.get("/test/get-show-public-member-count") { header("X-Member-Id", TREASURER_ID) }
+                beforeUpdate.bodyAsText() shouldBe "true"
+
+                val forbiddenBoard =
+                    client.post(
+                        "/test/update?name=X&showPublicMemberCount=false",
+                    ) { header("X-Member-Id", BOARD_ID) }
+                forbiddenBoard.status shouldBe HttpStatusCode.Forbidden
+
+                client.post(
+                    "/test/update?name=Verein%20Z&showPublicMemberCount=false",
+                ) { header("X-Member-Id", ADMIN_ID) }
+
+                val afterUpdate =
+                    client.get("/test/get-show-public-member-count") { header("X-Member-Id", TREASURER_ID) }
+                afterUpdate.bodyAsText() shouldBe "false"
+
+                // Roundtrip: an update to an UNRELATED field must not silently reset this one back
+                // to its default -- same "no field is lost on the next unrelated save" invariant the
+                // class KDoc establishes for the whole write-set.
+                client.post(
+                    "/test/update?name=Verein%20Z2&showPublicMemberCount=false",
+                ) { header("X-Member-Id", ADMIN_ID) }
+                val afterUnrelatedUpdate =
+                    client.get("/test/get-show-public-member-count") { header("X-Member-Id", TREASURER_ID) }
+                afterUnrelatedUpdate.bodyAsText() shouldBe "false"
             }
         }
         // V1.4.5.2 "DATEV-Format-Export" (Review-Runde finding, 2026-09): the range-validation
@@ -488,6 +534,10 @@ private fun Route.registerOrgSettingsTestRoutes() {
         val service = OrganizationSettingsService(call)
         call.respondText(service.getOrganizationSettings().politicianRankingEnabled.toString())
     }
+    get("/test/get-show-public-member-count") {
+        val service = OrganizationSettingsService(call)
+        call.respondText(service.getOrganizationSettings().showPublicMemberCount.toString())
+    }
     post("/test/update") {
         val service = OrganizationSettingsService(call)
         val q = call.request.queryParameters
@@ -506,6 +556,9 @@ private fun Route.registerOrgSettingsTestRoutes() {
                     isPoliticalParty = q["isPoliticalParty"]?.toBoolean() ?: false,
                     postalMailEnabled = q["postalMailEnabled"]?.toBoolean() ?: false,
                     politicianRankingEnabled = q["politicianRankingEnabled"]?.toBoolean() ?: false,
+                    // V1.9.10 -- unlike every other flag here, the DEFAULT is true (opt-out, not
+                    // opt-in, see OrganizationSettingsDto.showPublicMemberCount KDoc).
+                    showPublicMemberCount = q["showPublicMemberCount"]?.toBoolean() ?: true,
                     datevBeraterNummer = q["datevBeraterNummer"]?.toInt(),
                     datevMandantNummer = q["datevMandantNummer"]?.toInt(),
                     // Welle V1.4.22 Audit-Nachtrag (MAJOR-3): the three mapping fields whose

@@ -298,6 +298,9 @@ class OrganizationSettingsService(
                 it[OrganizationSettingsTable.receivablesAccountId] = receivablesLedgerAccountId
                 it[OrganizationSettingsTable.payablesAccountId] = payablesLedgerAccountId
                 it[receivableDunningEnabled] = input.receivableDunningEnabled
+                // V1.9.10 "Mitgliederzahl-Sichtbarkeit" -- ordinary ADMIN-writable configuration,
+                // same tier again.
+                it[showPublicMemberCount] = input.showPublicMemberCount
                 // V1.4.5.2 DATEV-Format-Export -- ordinary ADMIN-writable configuration, same tier
                 // as the mapping fields above.
                 it[datevBeraterNummer] = input.datevBeraterNummer
@@ -509,4 +512,7 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         receivablesAccountId = this[OrganizationSettingsTable.receivablesAccountId]?.toString(),
         payablesAccountId = this[OrganizationSettingsTable.payablesAccountId]?.toString(),
         receivableDunningEnabled = this[OrganizationSettingsTable.receivableDunningEnabled],
+        // V1.9.10 Mitgliederzahl-Sichtbarkeit -- ordinary ADMIN-writable configuration, same tier
+        // again.
+        showPublicMemberCount = this[OrganizationSettingsTable.showPublicMemberCount],
     )

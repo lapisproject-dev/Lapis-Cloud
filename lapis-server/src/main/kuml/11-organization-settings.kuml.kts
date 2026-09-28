@@ -111,6 +111,17 @@
 //    `IAccountingService.getVatReturnPreview` KDoc. Deliberately NOT gated by a disclaimer of its
 //    own: it is a factual §19 UStG status the organization already holds or does not, not a new
 //    liability this platform introduces -- the risk-relevant act is `enableVat` itself.
+//
+// **Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit"** adds one field: `showPublicMemberCount` -- an
+// ORDINARY ADMIN-writable field (part of the generic `updateOrganizationSettings` write-set, same
+// tier as `politicianRankingEnabled`), NOT NULL, defaults to TRUE. This is the only Boolean field
+// in this file whose default is TRUE rather than FALSE -- every other opt-in gate above defaults
+// to the more conservative "off" state, but this one is an opt-OUT: the pre-existing behaviour
+// (member count always public) must not change for any existing organization when this column is
+// introduced, so the safe default is "visible". Controls whether
+// `network.lapis.cloud.server.PublicTransparencyReader.loadStats` includes the active member
+// count at all -- when FALSE, the count is not even queried, not merely hidden in the renderer
+// (see that class's KDoc for the "hiding must not happen only in the renderer" rationale).
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -405,6 +416,17 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "receivableDunningEnabled", type = "Boolean") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "receivable_dunning_enabled" }
+        }
+        // Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit" -- explicit opt-out, NOT NULL, defaults to
+        // TRUE (unlike every other Boolean flag in this file, which all default to FALSE -- here
+        // the pre-existing behaviour "always visible" is the default, so no existing organization
+        // sees a behaviour change). ADMIN-only to set, part of the generic
+        // updateOrganizationSettings write-set, same tier as politicianRankingEnabled. Controls
+        // PublicTransparencyReader.loadStats -- when FALSE, activeMemberCount is not even queried
+        // (see PublicLandingHtml/PublicTransparencyHtml renderStats for the rendering side).
+        attribute(name = "showPublicMemberCount", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "show_public_member_count" }
         }
     }
 }

@@ -55,7 +55,13 @@ class PublicFooterTest :
                     PublicTransparencyHtml.page(
                         view =
                             PublicTransparencyView(
-                                stats = PublicTransparencyStats(activeMemberCount = 1L, mintedLtrTotal = "0.00", publicPostCount = 0L),
+                                stats =
+                                    PublicTransparencyStats(
+                                        activeMemberCount = 1L,
+                                        mintedLtrTotal = "0.00",
+                                        mintedLtrPositive = false,
+                                        publicPostCount = 0L,
+                                    ),
                                 board = emptyList(),
                                 topPosts = emptyList(),
                                 ltr = null,

@@ -83,7 +83,7 @@ internal object PublicLandingHtml {
         val strings = PublicChrome.stringsFor(lang)
         return createHTML(prettyPrint = false).html {
             attributes["lang"] = lang.code
-            renderHead(baseUrl = baseUrl, branding = branding, lang = lang)
+            renderHead(baseUrl = baseUrl, branding = branding, lang = lang, showMemberCount = view.stats?.activeMemberCount != null)
             body(classes = "has-chrome") {
                 with(PublicChrome) {
                     renderChrome(
@@ -110,9 +110,19 @@ internal object PublicLandingHtml {
         baseUrl: String,
         branding: ResolvedBranding,
         lang: PublicLanguage,
+        /**
+         * Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit" -- whether [view]'s stats carry a non-`null`
+         * `activeMemberCount`. A narrow `Boolean` rather than the full [PublicLandingView], to keep
+         * this function's coupling to the view minimal (it only ever needed this one fact).
+         */
+        showMemberCount: Boolean,
     ) {
         val strings = PublicChrome.stringsFor(lang)
-        val description = "${strings.statMembers}, ${strings.statPosts} · ${branding.title}"
+        val description =
+            listOfNotNull(
+                strings.statMembers.takeIf { showMemberCount },
+                strings.statPosts,
+            ).joinToString(", ") + " · ${branding.title}"
         val canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/", lang = lang)
         head {
             meta(charset = "utf-8")
@@ -178,7 +188,10 @@ internal object PublicLandingHtml {
         section {
             attributes["id"] = "kennzahlen"
             div(classes = "stats") {
-                statTile(value = stats.activeMemberCount.toString(), label = strings.statMembers)
+                // Welle V1.9.10: activeMemberCount is null when the organization opted out -- see
+                // PublicTransparencyReader.loadStats KDoc. No placeholder tile (Atkinson) -- .stats
+                // { display: flex; flex-wrap: wrap; } copes with two tiles as well as three.
+                stats.activeMemberCount?.let { statTile(value = it.toString(), label = strings.statMembers) }
                 statTile(value = "${stats.mintedLtrTotal} LTR", label = strings.statLtr)
                 statTile(value = stats.publicPostCount.toString(), label = strings.statPosts)
             }

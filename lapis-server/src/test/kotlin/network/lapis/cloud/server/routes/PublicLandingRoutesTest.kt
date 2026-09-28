@@ -23,15 +23,19 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialPostState
 import network.lapis.cloud.shared.domain.SocialPostVisibility
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
@@ -115,6 +119,31 @@ class PublicLandingRoutesTest :
 
         fun generousLimiter() = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes)
 
+        // Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit" -- `organization_settings` is the single shared
+        // baseline row every other test class in this JVM run also reads (see class KDoc's own
+        // `DevSeedData.seedIfEmpty` reasoning). Flip the flag off for the duration of [block], then
+        // ALWAYS reset it to `true` (the default) afterwards, even if [block] throws -- otherwise a
+        // failed assertion here would leave the member count hidden for every test that runs after
+        // this one in the same suite/JVM.
+        suspend fun withMemberCountHidden(block: suspend () -> Unit) {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[showPublicMemberCount] =
+                        false
+                }
+            }
+            try {
+                block()
+            } finally {
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[showPublicMemberCount] =
+                            true
+                    }
+                }
+            }
+        }
+
         suspend fun testApp(
             readLimiter: FederationInboxRateLimiter = generousLimiter(),
             block: suspend ApplicationTestBuilder.() -> Unit,
@@ -153,6 +182,41 @@ class PublicLandingRoutesTest :
             }
         }
 
+        // ── V1.9.10: flag off -- neither the member-count tile nor its label appear ────────
+        test("GET /: showPublicMemberCount == false -- body contains neither the member-count value nor its label") {
+            testApp {
+                withMemberCountHidden {
+                    val author = createAuthor()
+                    insertPost(authorMemberId = author, content = "Sichtbarer Beitrag trotz ausgeblendeter Mitgliederzahl")
+
+                    val body = client.get("/").bodyAsText()
+                    // NOT a bare "Mitglieder" shouldNotContain -- the hero tagline
+                    // ("Mitgliederverwaltung -- ...") legitimately contains that substring on every
+                    // render, flag or no flag. What must be absent is the stat TILE/label specifically.
+                    body shouldNotContain "class=\"stat-label\">Mitglieder<"
+                    body shouldContain "Öffentliche Beiträge"
+                    body shouldContain "Sichtbarer Beitrag trotz ausgeblendeter Mitgliederzahl"
+                }
+            }
+        }
+
+        // ── V1.9.10: meta description omits the member-count label when the flag is off ────
+        test("GET /: meta description omits the member-count label when showPublicMemberCount == false") {
+            testApp {
+                withMemberCountHidden {
+                    val author = createAuthor()
+                    insertPost(authorMemberId = author)
+
+                    val body = client.get("/").bodyAsText()
+                    val description =
+                        Regex("""<meta name="description" content="([^"]*)"""").find(body)?.groupValues?.get(1)
+                            ?: error("meta description not found in body")
+                    description shouldNotContain "Mitglieder"
+                    description shouldContain "Öffentliche Beiträge"
+                }
+            }
+        }
+
         // ── Regressions-Test: der Hero-Primary-CTA (nicht der gleichlautende Chrome-CTA) muss zur
         // SPA-Registrierung verlinken. Prüft gezielt DIESES Anchor-Tag über seine "cta-primary"-Klasse
         // (der Chrome-Link trägt "chrome-cta", siehe [PublicChrome.renderChrome]) statt nur den
@@ -183,6 +247,7 @@ class PublicLandingRoutesTest :
                                 PublicTransparencyStats(
                                     activeMemberCount = 3L,
                                     mintedLtrTotal = "0.00",
+                                    mintedLtrPositive = false,
                                     publicPostCount = 0L,
                                 ),
                             topPosts = emptyList(),
@@ -227,6 +292,78 @@ class PublicLandingRoutesTest :
             html shouldNotContain ">0<"
             html shouldContain "Test-Verein"
             html shouldContain "href=\"https://cloud.example.org/app#/login\""
+        }
+
+        // ── V1.9.10: Seitenkanal-Test -- flag off, 0 posts, 0 minted LTR -- pure unit test of the
+        // DECISION function [showStats] itself, not of [PublicLandingHtml.page]'s rendering: that
+        // decision (activeMemberCount == null -> excluded from the empty-state guard) happens in
+        // [buildView]/[showStats], which `PublicLandingHtml.page` never re-derives -- it only ever
+        // renders whatever `view.stats` it is handed. `DevSeedData.seedIfEmpty` always seeds >= 1
+        // member, so this combination (member count hidden AND nothing else to show) has no
+        // realistic route-level (real-DB) fixture -- same reasoning as Leerzustand B above. The
+        // whole point: whether the block appears must NOT depend on how many members actually
+        // exist once the flag is off (no side-channel leak via block presence).
+        test(
+            "showStats: activeMemberCount == null (flag off) with 0 posts and 0 minted LTR returns " +
+                "false, independent of the real member count",
+        ) {
+            showStats(
+                PublicTransparencyStats(
+                    activeMemberCount = null,
+                    mintedLtrTotal = "0.00",
+                    mintedLtrPositive = false,
+                    publicPostCount = 0L,
+                ),
+            ) shouldBe false
+        }
+
+        // Rendering counterpart of the assertion above: a `null` stats view (the actual outcome
+        // `showStats` produces in the Seitenkanal case) renders neither section -- already the exact
+        // shape [PublicLandingView.stats]'s own KDoc and the "Leerzustand B" test below establish, so
+        // no separate render-level test is needed for the flag-off variant specifically.
+
+        test(
+            "showStats: activeMemberCount == null (flag off) with a positive minted LTR total " +
+                "returns true (the LTR figure alone is enough to show the block)",
+        ) {
+            showStats(
+                PublicTransparencyStats(
+                    activeMemberCount = null,
+                    mintedLtrTotal = "42.00",
+                    mintedLtrPositive = true,
+                    publicPostCount = 0L,
+                ),
+            ) shouldBe true
+        }
+
+        // ── V1.9.10: flag off, but a positive minted-LTR total -- the block still appears,
+        // WITHOUT the member-count tile (the LTR total is a separate, unaffected statistic). This
+        // one DOES exercise PublicLandingHtml.page's rendering directly (unlike the showStats unit
+        // tests above) -- it is valid to do so here because the view's `stats` is supplied already
+        // non-null, exactly the shape `buildView` would produce once `showStats` has decided `true`.
+        test(
+            "V1.9.10: activeMemberCount == null (flag off) with a positive minted LTR total still " +
+                "renders the stats block, minus the member-count tile",
+        ) {
+            val html =
+                PublicLandingHtml.page(
+                    view =
+                        PublicLandingView(
+                            stats =
+                                PublicTransparencyStats(
+                                    activeMemberCount = null,
+                                    mintedLtrTotal = "42.00",
+                                    mintedLtrPositive = true,
+                                    publicPostCount = 0L,
+                                ),
+                            topPosts = emptyList(),
+                        ),
+                    baseUrl = "https://cloud.example.org",
+                    branding = ResolvedBranding(title = "Test-Verein", logoAvailable = false, logoPath = null),
+                )
+            html shouldContain "id=\"kennzahlen\""
+            html shouldNotContain "class=\"stat-label\">Mitglieder<"
+            html shouldContain "42.00 LTR"
         }
 
         // ── 4/5: robots + canonical ─────────────────────────────────────────────────────

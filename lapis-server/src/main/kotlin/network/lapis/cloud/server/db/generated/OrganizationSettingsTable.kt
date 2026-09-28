@@ -65,6 +65,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val payablesAccountId: Column<Uuid?> = optReference("payables_account_id", LedgerAccountTable.id)
     public val receivableDunningEnabled: Column<Boolean> = bool("receivable_dunning_enabled")
     // TODO default = "FALSE"
+    // Welle V1.9.10 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
+    public val showPublicMemberCount: Column<Boolean> = bool("show_public_member_count")
+    // TODO default = "TRUE"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }
