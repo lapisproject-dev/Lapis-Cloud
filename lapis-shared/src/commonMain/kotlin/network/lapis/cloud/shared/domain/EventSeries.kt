@@ -9,11 +9,13 @@ import kotlinx.serialization.Serializable
  *
  * This file holds ONLY the recurrence-rule input shape shared between server and client
  * (`RecurrenceRuleBuilder`/`RecurrenceExpander` in `:lapis-server` consume it, the client's
- * `EventRecurrenceEditor` produces it). It deliberately does NOT (yet) declare `EventSeriesInput`,
- * `EventSeriesDto`, `EventScopeImpactDto` etc. from the full design -- those depend on
- * `EventInput`/`EventStatus` wiring and the scope-engine data model that land in later waves of
- * this feature; keeping this file narrow keeps it independently testable and mergeable before that
- * follow-on work exists.
+ * `EventRecurrenceEditor` produces it) plus, since the V1.4.37 "Folgewelle (Rest)" scope-engine
+ * step, [EventSeriesEditScope] -- the "this / this-and-following / all" choice both
+ * `EventSeriesScopeEngine` (`:lapis-server`) and the eventual client scope-picker dialog need to
+ * share. It deliberately does NOT (yet) declare `EventSeriesInput`, `EventSeriesDto`,
+ * `EventScopeImpactDto` etc. from the full design -- those depend on `EventInput`/`EventStatus`
+ * RPC wiring that lands in a later wave of this feature; keeping this file narrow keeps it
+ * independently testable and mergeable before that follow-on work exists.
  *
  * Literal order of [RecurrenceFrequency] and [RecurrenceWeekday] is load-bearing wherever this
  * codebase's other `@Serializable enum class`es document the same rule (see `Events.kt` file
@@ -59,3 +61,23 @@ data class RecurrenceRuleInput(
     val count: Int? = null,
     val until: LocalDate? = null,
 )
+
+/**
+ * Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" -- the classic
+ * calendar-app "edit recurring event" choice (Google/Outlook both offer exactly these three),
+ * consumed by `EventSeriesScopeEngine` (`:lapis-server`) to decide which materialized `event` rows
+ * an edit touches:
+ * - [THIS]: only the single occurrence being edited. It is detached from the series
+ *   (`event.series_detached = true`, `series_id`/`series_original_start` stay put so the ICS
+ *   feed/UI can still show "part of a series, edited") -- future series-wide edits never touch it
+ *   again.
+ * - [FOLLOWING]: the edited occurrence and every later occurrence of the SAME series. Unless the
+ *   edited occurrence is itself the very first one (in which case this degenerates to [ALL] -- there
+ *   is nothing "before" it to keep on the old rule), this SPLITS the series in two:
+ *   `event_series.split_from_series_id` on the new series points back at the original, whose own
+ *   `rrule` is truncated to stop just before the edited occurrence.
+ * - [ALL]: every occurrence of the series, past and future alike (except any individually
+ *   [THIS]-detached instance, which by definition opted out of series-wide edits already).
+ */
+@Serializable
+enum class EventSeriesEditScope { THIS, FOLLOWING, ALL }
