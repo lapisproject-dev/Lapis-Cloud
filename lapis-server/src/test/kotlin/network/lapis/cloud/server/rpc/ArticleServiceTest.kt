@@ -18,19 +18,28 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.articles.ArticleStore
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.events.CoverImageFormat
+import network.lapis.cloud.server.events.EventCoverStorage
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.ArticleReviewOutcome
+import network.lapis.cloud.server.mail.FakeArticleReviewNotificationMailer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleDraftInput
+import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -38,6 +47,9 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.io.path.createTempDirectory
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private const val ADMIN_ID = "00000000-0000-0000-0000-000000000001"
@@ -335,6 +347,55 @@ class ArticleServiceTest :
             }
         }
 
+        test(
+            "Q1: publish -> unpublish -> resubmit -> reject ends with publishedAt == null " +
+                "(a plainly rejected article must never carry a stale publishedAt, see rejectArticle's own KDoc)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes() }
+                }
+                val author = createTestMember("article-republish-reject-cycle@example.org")
+                val draftId =
+                    client
+                        .post(
+                            "/test/save-draft?title=Republish%20Reject%20Zyklus&excerpt=Auszug&body=Inhalt",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(draftId)
+
+                client.post("/test/submit/$draftId") { header("X-Member-Id", author.toString()) }
+                client.post("/test/approve/$draftId") { header("X-Member-Id", BOARD_ID) }
+                val afterApprove = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.single() }
+                (afterApprove[ArticleTable.publishedAt] != null) shouldBe true
+
+                // unpublishArticle deliberately KEEPS publishedAt (audit trail, see that function's
+                // own KDoc) -- the REJECTED status here still carries the earlier publish's
+                // publishedAt.
+                client.post("/test/unpublish/$draftId?reason=Ausreichend%20langer%20Grund") { header("X-Member-Id", BOARD_ID) }
+                val afterUnpublish = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.single() }
+                (afterUnpublish[ArticleTable.publishedAt] != null) shouldBe true
+
+                // submitArticle (REJECTED -> SUBMITTED) does not touch publishedAt either.
+                client.post("/test/submit/$draftId") { header("X-Member-Id", author.toString()) }
+                val afterResubmit = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.single() }
+                (afterResubmit[ArticleTable.publishedAt] != null) shouldBe true
+
+                // Only rejectArticle's own Q1 fix clears it -- this is the assertion that regresses
+                // if that one `it[publishedAt] = null` line is ever removed/reverted.
+                val rejected =
+                    client
+                        .post("/test/reject/$draftId?reason=Erneut%20abgelehnt") {
+                            header("X-Member-Id", BOARD_ID)
+                        }.bodyAsText()
+                rejected shouldBe "REJECTED"
+                val afterReject = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.single() }
+                afterReject[ArticleTable.publishedAt] shouldBe null
+            }
+        }
+
         test("deleteDraft: only DRAFT is deletable") {
             testApplication {
                 application {
@@ -358,6 +419,39 @@ class ArticleServiceTest :
                 client.post("/test/withdraw/$draftId") { header("X-Member-Id", author.toString()) }
                 val deleteWhileDraft = client.post("/test/delete-draft/$draftId") { header("X-Member-Id", author.toString()) }
                 deleteWhileDraft.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("deleteDraft: also deletes the cover file from storage (row gone first, file second)") {
+            testApplication {
+                val storage = EventCoverStorage(createTempDirectory("article-covers-delete-test").toFile())
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(coverStorage = storage) }
+                }
+                val author = createTestMember("article-delete-cover@example.org")
+                val draftId =
+                    client
+                        .post(
+                            "/test/save-draft?title=Entwurf%20mit%20Titelbild&excerpt=Auszug&body=Inhalt",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(draftId)
+
+                val coverId = Uuid.random()
+                storage.write(id = coverId, format = CoverImageFormat.JPEG, bytes = byteArrayOf(1, 2, 3))
+                transaction {
+                    ArticleTable.update({ ArticleTable.id eq Uuid.parse(draftId) }) { it[ArticleTable.coverImageId] = coverId }
+                }
+                (storage.resolve(coverId) != null) shouldBe true
+
+                val response = client.post("/test/delete-draft/$draftId") { header("X-Member-Id", author.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+
+                storage.resolve(coverId) shouldBe null
+                val remaining = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.count() }
+                remaining shouldBe 0L
             }
         }
 
@@ -402,6 +496,316 @@ class ArticleServiceTest :
                 html shouldBe "<h2>Titel</h2>\n"
             }
         }
+
+        test("listPublishedArticles: BOARD/ADMIN only, newest-published-first, authorIsSelf set; a non-board caller is Forbidden") {
+            testApplication {
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes() }
+                }
+                val author = createTestMember("article-list-published@example.org")
+                val draftId =
+                    client
+                        .post(
+                            "/test/save-draft?title=Ver%C3%B6ffentlichter%20Artikel&excerpt=Auszug&body=Inhalt",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(draftId)
+                client.post("/test/submit/$draftId") { header("X-Member-Id", author.toString()) }
+                client.post("/test/approve/$draftId") { header("X-Member-Id", BOARD_ID) }
+
+                val forbidden = client.get("/test/list-published") { header("X-Member-Id", author.toString()) }
+                forbidden.status shouldBe HttpStatusCode.Forbidden
+
+                // BOARD_ID is the reviewer here, not the author -- authorIsSelf must be false.
+                val listed = client.get("/test/list-published") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                listed.contains("$draftId:false:") shouldBe true
+            }
+        }
+
+        test(
+            "Vier-Augen-Prinzip auch beim Depublizieren ueber die listPublishedArticles-gefundene eigene Zeile: ADMIN-Autor bekommt Forbidden, Status bleibt PUBLISHED",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes() }
+                }
+                val draftId =
+                    client
+                        .post(
+                            "/test/save-draft?title=Admin%20Artikel%20fuer%20Depublish&excerpt=Auszug&body=Inhalt",
+                        ) { header("X-Member-Id", ADMIN_ID) }
+                        .bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(draftId)
+                client.post("/test/submit/$draftId") { header("X-Member-Id", ADMIN_ID) }
+                client.post("/test/approve/$draftId") { header("X-Member-Id", BOARD_ID) }
+
+                val ownRowVisible = client.get("/test/list-published") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                ownRowVisible.contains("$draftId:true:") shouldBe true
+
+                val selfUnpublish =
+                    client.post("/test/unpublish/$draftId?reason=Zehn%20Zeichen%20Grund") { header("X-Member-Id", ADMIN_ID) }
+                selfUnpublish.status shouldBe HttpStatusCode.Forbidden
+
+                val row = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.single() }
+                row[ArticleTable.status].name shouldBe "PUBLISHED"
+            }
+        }
+
+        test("previewArticle: the 31st call within the window throws RateLimitedException (429)") {
+            testApplication {
+                val limiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(previewRateLimiter = limiter) }
+                }
+                val author = createTestMember("article-preview-ratelimit@example.org")
+                repeat(30) {
+                    val ok = client.get("/test/preview?body=x") { header("X-Member-Id", author.toString()) }
+                    ok.status shouldBe HttpStatusCode.OK
+                }
+                val limited = client.get("/test/preview?body=x") { header("X-Member-Id", author.toString()) }
+                limited.status shouldBe HttpStatusCode.TooManyRequests
+            }
+        }
+
+        test("saveDraft (create): the 21st draft-creation call within the window throws RateLimitedException (429)") {
+            testApplication {
+                val limiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes)
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(draftCreateRateLimiter = limiter) }
+                }
+                val author = createTestMember("article-draft-create-ratelimit@example.org")
+                repeat(20) {
+                    val response =
+                        client.post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                            header("X-Member-Id", author.toString())
+                        }
+                    response.status shouldBe HttpStatusCode.OK
+                    createdArticleIds += Uuid.parse(response.bodyAsText().split(":")[0])
+                }
+                val limited =
+                    client.post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                        header("X-Member-Id", author.toString())
+                    }
+                limited.status shouldBe HttpStatusCode.TooManyRequests
+            }
+        }
+
+        test("saveDraft (update): the 61st update call within the window throws RateLimitedException (429)") {
+            testApplication {
+                val limiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(draftUpdateRateLimiter = limiter) }
+                }
+                val author = createTestMember("article-draft-update-ratelimit@example.org")
+                val id =
+                    client
+                        .post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                            header("X-Member-Id", author.toString())
+                        }.bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(id)
+                repeat(60) {
+                    val response =
+                        client.post("/test/save-draft?id=$id&title=Titel&excerpt=Auszug&body=Inhalt") {
+                            header("X-Member-Id", author.toString())
+                        }
+                    response.status shouldBe HttpStatusCode.OK
+                }
+                val limited =
+                    client.post("/test/save-draft?id=$id&title=Titel&excerpt=Auszug&body=Inhalt") {
+                        header("X-Member-Id", author.toString())
+                    }
+                limited.status shouldBe HttpStatusCode.TooManyRequests
+            }
+        }
+
+        test("saveDraft (create): a per-author cap on DRAFT/REJECTED articles throws ConflictException once reached") {
+            testApplication {
+                // Generous limiter -- this test exercises the STORAGE cap, not the rate limiter.
+                val limiter = FederationInboxRateLimiter(maxRequests = 1000, window = 10.minutes)
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(draftCreateRateLimiter = limiter) }
+                }
+                val author = createTestMember("article-draft-cap@example.org")
+                repeat(ArticleStore.MAX_DRAFTS_PER_AUTHOR) {
+                    val response =
+                        client.post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                            header("X-Member-Id", author.toString())
+                        }
+                    response.status shouldBe HttpStatusCode.OK
+                    createdArticleIds += Uuid.parse(response.bodyAsText().split(":")[0])
+                }
+                val overCap =
+                    client.post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                        header("X-Member-Id", author.toString())
+                    }
+                overCap.status shouldBe HttpStatusCode.Conflict
+
+                // Updating an EXISTING draft (not creating a new one) is unaffected by the cap.
+                val existingId = createdArticleIds.last().toString()
+                val updated =
+                    client.post("/test/save-draft?id=$existingId&title=Aktualisiert&excerpt=Auszug&body=Inhalt") {
+                        header("X-Member-Id", author.toString())
+                    }
+                updated.status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "saveDraft (create) + submitArticle: the cap cannot be bypassed by submitting immediately after each " +
+                "create, and withdrawArticle cannot pile up DRAFT rows beyond it either (round-2 security fix)",
+        ) {
+            testApplication {
+                // Generous limiter -- this test exercises the STORAGE cap, not the rate limiter.
+                val limiter = FederationInboxRateLimiter(maxRequests = 1000, window = 10.minutes)
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(draftCreateRateLimiter = limiter) }
+                }
+                val author = createTestMember("article-submit-cap-bypass@example.org")
+                repeat(ArticleStore.MAX_DRAFTS_PER_AUTHOR) {
+                    val id =
+                        client
+                            .post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                                header("X-Member-Id", author.toString())
+                            }.bodyAsText()
+                            .split(":")[0]
+                    createdArticleIds += Uuid.parse(id)
+                    // Immediately move the row to SUBMITTED -- with the round-1 cap (DRAFT/REJECTED
+                    // only) this loop would never trip the cap, since submitted rows dropped out of
+                    // the count entirely. The round-2 fix counts SUBMITTED too, so this must now
+                    // behave identically to leaving every row as DRAFT.
+                    val submitResponse = client.post("/test/submit/$id") { header("X-Member-Id", author.toString()) }
+                    submitResponse.status shouldBe HttpStatusCode.OK
+                }
+                // The author now holds MAX_DRAFTS_PER_AUTHOR SUBMITTED rows -- one more create must
+                // still be refused, exactly as if they were all still DRAFT.
+                val overCap =
+                    client.post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                        header("X-Member-Id", author.toString())
+                    }
+                overCap.status shouldBe HttpStatusCode.Conflict
+
+                // withdrawArticle (SUBMITTED -> DRAFT) must not let the author sneak past the cap
+                // either: withdrawing one SUBMITTED row back to DRAFT keeps the total non-PUBLISHED
+                // count unchanged, so a subsequent create is STILL refused.
+                val withdrawn = client.post("/test/withdraw/${createdArticleIds.last()}") { header("X-Member-Id", author.toString()) }
+                withdrawn.status shouldBe HttpStatusCode.OK
+                val stillOverCap =
+                    client.post("/test/save-draft?title=Titel&excerpt=Auszug&body=Inhalt") {
+                        header("X-Member-Id", author.toString())
+                    }
+                stillOverCap.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test("listMyArticles: capped at ArticleStore.MAX_PAGE_SIZE") {
+            testApplication {
+                val limiter = FederationInboxRateLimiter(maxRequests = 1000, window = 10.minutes)
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(draftCreateRateLimiter = limiter) }
+                }
+                val author = createTestMember("article-list-capped@example.org")
+                val overLimitCount = ArticleStore.MAX_PAGE_SIZE + 5
+                // Round-2 security fix: countEditableByAuthor now counts DRAFT+REJECTED+SUBMITTED
+                // (everything but PUBLISHED), so submit-immediately no longer keeps this author
+                // under MAX_DRAFTS_PER_AUTHOR (100) -- that's the whole point of the fix. This test
+                // is about listByAuthor's OWN, independent MAX_PAGE_SIZE cap, not about
+                // MAX_DRAFTS_PER_AUTHOR, so rows are inserted directly as PUBLISHED (which is
+                // outside the author-mutable cap and can only normally be reached via board
+                // approval) to grow listByAuthor's row count past MAX_PAGE_SIZE without touching
+                // the creation cap at all.
+                val now = LocalDateTime(2026, 1, 1, 0, 0)
+                transaction {
+                    repeat(overLimitCount) { i ->
+                        val id =
+                            ArticleStore.insertDraft(
+                                authorId = author,
+                                input = ArticleDraftInput(title = "Titel", excerpt = "Auszug", body = "Inhalt"),
+                                now = now,
+                            )
+                        createdArticleIds += id
+                        ArticleTable.update({ ArticleTable.id eq id }) {
+                            it[status] = ArticleStatus.PUBLISHED
+                            it[publishedAt] = now
+                            it[slug] = "list-capped-test-$i-$id"
+                        }
+                    }
+                }
+                val listed = client.get("/test/list-mine") { header("X-Member-Id", author.toString()) }.bodyAsText()
+                val count = if (listed.isEmpty()) 0 else listed.split(",").size
+                count shouldBe ArticleStore.MAX_PAGE_SIZE
+            }
+        }
+
+        test("approve/reject/unpublish notify the FakeArticleReviewNotificationMailer with the right outcome/reason/publicUrl") {
+            testApplication {
+                val mailer = FakeArticleReviewNotificationMailer()
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(mailer = mailer) }
+                }
+                val author = createTestMember("article-mail-notify@example.org")
+                val draftId =
+                    client
+                        .post(
+                            "/test/save-draft?title=Artikel%20fuer%20Mailbenachrichtigung&excerpt=Auszug&body=Inhalt",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(draftId)
+                client.post("/test/submit/$draftId") { header("X-Member-Id", author.toString()) }
+                client.post("/test/approve/$draftId") { header("X-Member-Id", BOARD_ID) }
+
+                mailer.calls.size shouldBe 1
+                mailer.calls[0].outcome shouldBe ArticleReviewOutcome.APPROVED
+                mailer.calls[0].authorEmail shouldBe "article-mail-notify@example.org"
+                (mailer.calls[0].publicUrl != null) shouldBe true
+
+                client.post("/test/unpublish/$draftId?reason=Ausreichend%20langer%20Grund") { header("X-Member-Id", BOARD_ID) }
+                mailer.calls.size shouldBe 2
+                mailer.calls[1].outcome shouldBe ArticleReviewOutcome.UNPUBLISHED
+                mailer.calls[1].reason shouldBe "Ausreichend langer Grund"
+                mailer.calls[1].publicUrl shouldBe null
+            }
+        }
+
+        test("a mail-transport failure (throwOnSend) leaves the RPC response successful and the DB status change intact") {
+            testApplication {
+                val mailer = FakeArticleReviewNotificationMailer().apply { throwOnSend = true }
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes(mailer = mailer) }
+                }
+                val author = createTestMember("article-mail-failure@example.org")
+                val draftId =
+                    client
+                        .post(
+                            "/test/save-draft?title=Artikel%20trotz%20Mailfehler&excerpt=Auszug&body=Inhalt",
+                        ) { header("X-Member-Id", author.toString()) }
+                        .bodyAsText()
+                        .split(":")[0]
+                createdArticleIds += Uuid.parse(draftId)
+                client.post("/test/submit/$draftId") { header("X-Member-Id", author.toString()) }
+
+                val approved = client.post("/test/approve/$draftId") { header("X-Member-Id", BOARD_ID) }
+                approved.status shouldBe HttpStatusCode.OK
+                approved.bodyAsText() shouldBe "PUBLISHED"
+
+                val row = transaction { ArticleTable.selectAll().where { ArticleTable.id eq Uuid.parse(draftId) }.single() }
+                row[ArticleTable.status].name shouldBe "PUBLISHED"
+                mailer.calls.size shouldBe 1
+            }
+        }
     })
 
 private fun StatusPagesConfig.installArticleExceptionHandlers() {
@@ -410,10 +814,26 @@ private fun StatusPagesConfig.installArticleExceptionHandlers() {
     exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }
     exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<BadRequestException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.BadRequest) }
+    exception<RateLimitedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.TooManyRequests) }
 }
 
-private fun Route.registerArticleTestRoutes() {
-    fun service(call: io.ktor.server.application.ApplicationCall) = ArticleService(call = call, baseUrl = "https://test.invalid")
+private fun Route.registerArticleTestRoutes(
+    mailer: FakeArticleReviewNotificationMailer = FakeArticleReviewNotificationMailer(),
+    previewRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
+    draftCreateRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes),
+    draftUpdateRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes),
+    coverStorage: EventCoverStorage = EventCoverStorage(createTempDirectory("article-covers-test").toFile()),
+) {
+    fun service(call: io.ktor.server.application.ApplicationCall) =
+        ArticleService(
+            call = call,
+            baseUrl = "https://test.invalid",
+            previewRateLimiter = previewRateLimiter,
+            draftCreateRateLimiter = draftCreateRateLimiter,
+            draftUpdateRateLimiter = draftUpdateRateLimiter,
+            reviewNotifier = mailer,
+            coverStorage = coverStorage,
+        )
 
     post("/test/save-draft") {
         val q = call.request.queryParameters
@@ -453,5 +873,13 @@ private fun Route.registerArticleTestRoutes() {
     get("/test/preview") {
         val body = call.request.queryParameters["body"] ?: ""
         call.respondText(service(call).previewArticle(body))
+    }
+    get("/test/list-published") {
+        val list = service(call).listPublishedArticles()
+        call.respondText(list.joinToString(",") { "${it.id}:${it.authorIsSelf}:${it.slug}" })
+    }
+    get("/test/list-mine") {
+        val list = service(call).listMyArticles()
+        call.respondText(list.joinToString(",") { it.id })
     }
 }

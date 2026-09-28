@@ -6,6 +6,7 @@ import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventRoomTable
+import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.EventVolunteerShiftTable
 import network.lapis.cloud.server.db.generated.EventVolunteerSignupTable
@@ -84,6 +85,16 @@ import kotlin.uuid.Uuid
  * `event_catering_order`. Extending this existing contributor rather than adding a new
  * `EventVolunteerPersonalData` one: same "small satellite of the event domain" posture the
  * Room/Catering addenda above already establish (see `51-event-volunteer.kuml.kts` file header).
+ *
+ * **Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" addendum.**
+ * [EventSeriesTable] gained a seventh member-FK-bearing column, `created_by` -- same retain-with-
+ * reason posture as [EventVolunteerShiftTable.createdBy]/[EventRoomTable.createdBy]/
+ * [EventTable.createdBy] ("who created this series", pure organisatorische Nachvollziehbarkeit,
+ * the series itself describes no person, it is a recurrence-rule template). Extending this
+ * existing contributor rather than adding a new `EventSeriesPersonalData` one: same "small
+ * satellite of the event domain" posture the Room/Catering/Volunteer addenda above already
+ * establish -- `event_series` is owned by this very file's own `39-events.kuml.kts` addendum, not
+ * a separate domain file.
  */
 object EventPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "events"
@@ -96,6 +107,7 @@ object EventPersonalData : MemberPersonalDataContributor {
             EventCateringOrderTable,
             EventVolunteerShiftTable,
             EventVolunteerSignupTable,
+            EventSeriesTable,
         )
 
     /** Export bundle cap -- same posture `CrmPersonalData.MAX_EXPORTED_INTERACTIONS` establishes. */
@@ -217,6 +229,24 @@ object EventPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            put(
+                "createdEventSeries",
+                buildJsonArray {
+                    EventSeriesTable
+                        .selectAll()
+                        .where { EventSeriesTable.createdBy eq memberId }
+                        .limit(MAX_EXPORTED_REGISTRATIONS)
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[EventSeriesTable.id].toString())
+                                    put("rrule", row[EventSeriesTable.rrule])
+                                    put("createdAt", row[EventSeriesTable.createdAt].toString())
+                                },
+                            )
+                        }
+                },
+            )
         }
 
     override fun eraseMember(
@@ -263,6 +293,12 @@ object EventPersonalData : MemberPersonalDataContributor {
             EventVolunteerSignupTable
                 .selectAll()
                 .where { EventVolunteerSignupTable.memberId eq memberId }
+                .count()
+                .toInt()
+        val createdEventSeriesCount =
+            EventSeriesTable
+                .selectAll()
+                .where { EventSeriesTable.createdBy eq memberId }
                 .count()
                 .toInt()
         val outcomes = mutableListOf<TableErasureOutcome>()
@@ -340,6 +376,17 @@ object EventPersonalData : MemberPersonalDataContributor {
                         "member_id-FK bleibt als Anker erhalten -- eine Schichtzusage ist eine unkritische " +
                             "Planungsangabe (wer hilft wann mit), kein Gesundheits-/Sonderkategoriedatum. Das " +
                             "referenzierte member-Datum wird an anderer Stelle anonymisiert.",
+                )
+        }
+        if (createdEventSeriesCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event_series",
+                    rowsRetained = createdEventSeriesCount,
+                    retentionReason =
+                        "Organisatorische Nachvollziehbarkeit, wer eine Veranstaltungsreihe angelegt hat -- " +
+                            "created_by bleibt als FK-Anker erhalten, die Reihe selbst (ein Wiederholungsregel-" +
+                            "Template) beschreibt keine Person.",
                 )
         }
         return outcomes

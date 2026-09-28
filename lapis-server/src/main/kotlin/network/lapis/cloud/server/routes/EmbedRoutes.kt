@@ -119,6 +119,11 @@ fun Route.registerEmbedRoutes(
     // Limiter statt eines Paars; die OPTIONS-Preflight teilt sich eventPageRateLimiter (siehe
     // registerEmbedEventsFeedRoutes' eigene KDoc, OQ-2).
     eventsFeedRateLimiter: FederationInboxRateLimiter,
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- articles-list feed widget, same
+    // read-only/public-by-design posture as eventsFeedRateLimiter above (Q5: opt-in behind
+    // LAPIS_EMBED_ENABLED, unlike the always-on /aktuelles/* public page/cover routes -- see
+    // registerArticlePublicRoutes KDoc).
+    articlesFeedRateLimiter: FederationInboxRateLimiter,
     brandTitle: String = BrandConfig.DEFAULT_TITLE,
 ) {
     // Registered FIRST, unconditionally -- see this function's own KDoc "A false EmbedConfig.enabled
@@ -181,6 +186,14 @@ fun Route.registerEmbedRoutes(
         config = config,
         baseUrl = baseUrl,
         feedRateLimiter = eventsFeedRateLimiter,
+        preflightRateLimiter = eventPageRateLimiter,
+    )
+
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Artikelliste als Embed-Widget.
+    registerEmbedArticlesFeedRoutes(
+        config = config,
+        baseUrl = baseUrl,
+        feedRateLimiter = articlesFeedRateLimiter,
         preflightRateLimiter = eventPageRateLimiter,
     )
 

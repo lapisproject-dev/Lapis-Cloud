@@ -1,28 +1,17 @@
 package network.lapis.cloud.server.routes
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
-import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.plugins.origin
-import io.ktor.server.request.formFieldLimit
-import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.readAvailable
 import network.lapis.cloud.server.db.generated.EventTable
-import network.lapis.cloud.server.events.CoverProcessingResult
-import network.lapis.cloud.server.events.EventCoverImageProcessor
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventStore
@@ -35,15 +24,13 @@ import network.lapis.cloud.shared.domain.EventCoverResultDto
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.io.ByteArrayOutputStream
 import java.net.URI
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
-private const val MAX_UPLOAD_WITH_MULTIPART_OVERHEAD_BYTES = EventCoverPolicy.MAX_UPLOAD_BYTES + 64 * 1024
-private const val SNIFF_BYTES = 8
-private val SLUG_PATTERN = Regex("^[a-z0-9-]{1,120}$")
+/** Welle V1.4.36 -- alias so this file's own read below stays readable after `SLUG_PATTERN` moved to [COVER_SLUG_PATTERN] in `CoverUploadSupport.kt`. */
+private val SLUG_PATTERN = COVER_SLUG_PATTERN
 
 /**
  * Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- upload/remove/serve routes for a public
@@ -64,8 +51,9 @@ private val SLUG_PATTERN = Regex("^[a-z0-9-]{1,120}$")
  * Security checklist (see the wave plan's own table for the full rationale):
  * - **CSRF**: `Origin`/`Sec-Fetch-Site` checked on every write, in addition to the session cookie's
  *   own `SameSite=Strict`.
- * - **DoS**: an early `Content-Length` rejection BEFORE any byte is read, [formFieldLimit], and the
- *   image processor's own decompression-bomb guard (dimensions checked before decode).
+ * - **DoS**: an early `Content-Length` rejection BEFORE any byte is read, a form-field byte-size
+ *   limit (see `CoverUploadSupport.receiveSingleCoverUpload`), and the image processor's own
+ *   decompression-bomb guard (dimensions checked before decode).
  * - **Path traversal**: the stored file name is always `<server-generated Uuid>.<jpg|png>` -- see
  *   [EventCoverStorage] KDoc.
  * - **Content-Type/XSS**: magic-byte sniffing only, full re-encode strips every byte of the
@@ -108,90 +96,14 @@ internal fun Route.registerEventCoverRoutes(
                 }
 
         val contentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
-        if (contentLength != null && contentLength > MAX_UPLOAD_WITH_MULTIPART_OVERHEAD_BYTES) {
+        if (contentLength != null && contentLength > COVER_UPLOAD_MAX_BYTES_WITH_MULTIPART_OVERHEAD) {
             call.respond(HttpStatusCode.PayloadTooLarge, "Max upload size is ${EventCoverPolicy.MAX_UPLOAD_BYTES} bytes")
             return@post
         }
-        call.formFieldLimit = MAX_UPLOAD_WITH_MULTIPART_OVERHEAD_BYTES
 
-        var uploadBytes: ByteArray? = null
-        var tooLarge = false
-        var fileItemCount = 0
-        try {
-            call.receiveMultipart().forEachPart { part ->
-                when (part) {
-                    is PartData.FileItem -> {
-                        fileItemCount++
-                        if (fileItemCount == 1) {
-                            val buffer = ByteArrayOutputStream()
-                            val channel: ByteReadChannel = part.provider()
-                            val chunk = ByteArray(8192)
-                            var total = 0L
-                            while (true) {
-                                val read = channel.readAvailable(chunk)
-                                if (read == -1) break
-                                total += read
-                                if (total > EventCoverPolicy.MAX_UPLOAD_BYTES) {
-                                    tooLarge = true
-                                    break
-                                }
-                                buffer.write(chunk, 0, read)
-                            }
-                            if (!tooLarge) uploadBytes = buffer.toByteArray()
-                        }
-                        part.release()
-                    }
-                    else -> part.release()
-                }
-            }
-        } catch (e: Exception) {
-            logger.info(e) { "Event cover upload stream failed for event $eventId" }
-            throw e
-        }
-
-        if (tooLarge) {
-            call.respond(HttpStatusCode.PayloadTooLarge, "Max upload size is ${EventCoverPolicy.MAX_UPLOAD_BYTES} bytes")
-            return@post
-        }
-        if (fileItemCount > 1) {
-            call.respond(HttpStatusCode.BadRequest, "Request must contain exactly one file part")
-            return@post
-        }
-        val bytes = uploadBytes
-        if (bytes == null || bytes.isEmpty()) {
-            call.respond(HttpStatusCode.BadRequest, "No file part in request")
-            return@post
-        }
-
-        val format = EventCoverImageProcessor.sniff(bytes.copyOfRange(0, minOf(SNIFF_BYTES, bytes.size)))
-        if (format == null) {
-            call.respond(HttpStatusCode.UnsupportedMediaType, "Nur JPEG oder PNG werden unterstuetzt.")
-            return@post
-        }
-
-        val result = EventCoverImageProcessor.process(bytes = bytes, format = format)
-        when (result) {
-            CoverProcessingResult.DimensionsTooLarge -> {
-                call.respond(
-                    HttpStatusCode.UnprocessableEntity,
-                    "Das Bild ist zu gross (maximal ${EventCoverPolicy.MAX_EDGE_PX}px Kantenlaenge).",
-                )
-                return@post
-            }
-            CoverProcessingResult.DimensionsTooSmall -> {
-                call.respond(
-                    HttpStatusCode.UnprocessableEntity,
-                    "Das Bild ist zu klein (mindestens ${EventCoverPolicy.MIN_LONG_EDGE_PX}x${EventCoverPolicy.MIN_SHORT_EDGE_PX}px, je nach Ausrichtung).",
-                )
-                return@post
-            }
-            CoverProcessingResult.Undecodable -> {
-                call.respond(HttpStatusCode.UnprocessableEntity, "Die Bilddatei konnte nicht gelesen werden.")
-                return@post
-            }
-            is CoverProcessingResult.Ok -> Unit
-        }
-        val ok = result as CoverProcessingResult.Ok
+        // Welle V1.4.36 -- multipart-receive/sniff/process extracted (byte-identical behavior) into
+        // CoverUploadSupport.kt so ArticleCoverRoutes can reuse it; see that file's own KDoc.
+        val ok = call.receiveSingleCoverUpload() ?: return@post
 
         val newId = Uuid.random()
         storage.write(id = newId, format = ok.format, bytes = ok.bytes)
@@ -352,50 +264,6 @@ internal fun Route.registerEventCoverRoutes(
     }
 }
 
-private suspend fun ApplicationCall.respondCoverFile(
-    storage: EventCoverStorage,
-    coverImageId: Uuid,
-) {
-    val resolved = storage.resolve(coverImageId)
-    if (resolved == null) {
-        logger.warn { "Event cover file missing on disk for id=$coverImageId" }
-        respond(HttpStatusCode.NotFound)
-        return
-    }
-    val (file, format) = resolved
-    response.header("X-Content-Type-Options", "nosniff")
-    response.header("Content-Security-Policy", "default-src 'none'")
-    response.header("Cross-Origin-Resource-Policy", "cross-origin")
-    respond(LocalFileContent(file, format.contentType))
-}
-
-/**
- * `true` iff [headers] carry no evidence of a cross-origin request. A "simple request" (which
- * `multipart/form-data` is) needs no CORS preflight, so this check -- not CORS -- is the only CSRF
- * defense for this route family (see class KDoc). Deliberately conservative: a MISSING `Origin`
- * header is treated as same-origin (a same-origin `fetch`/form submit from a modern browser always
- * sends one; a same-origin plain navigation from a very old browser might not -- rejecting that
- * outright would be a usability regression with no attacker-relevant upside, since `SameSite=Strict`
- * on the session cookie already blocks the cross-site case even when `Origin` is absent). An
- * `Origin: null` (present but the literal string "null", as a sandboxed iframe or a local `file://`
- * page sends) and a `Sec-Fetch-Site` other than `same-origin` are both rejected outright.
- */
-private fun isSameOriginRequest(
-    headers: Headers,
-    canonicalOrigin: URI?,
-): Boolean {
-    val secFetchSite = headers["Sec-Fetch-Site"]
-    if (secFetchSite != null && secFetchSite != "same-origin") return false
-
-    val origin = headers[HttpHeaders.Origin] ?: return true
-    if (origin == "null") return false
-    if (canonicalOrigin == null) return false
-    val parsedOrigin = runCatching { URI(origin) }.getOrNull() ?: return false
-    return parsedOrigin.scheme == canonicalOrigin.scheme &&
-        parsedOrigin.host == canonicalOrigin.host &&
-        effectivePort(parsedOrigin) == effectivePort(canonicalOrigin)
-}
-
 /** See the upload route's own comment for why this exists instead of a bare `Uuid?`. */
 private sealed interface SetCoverOutcome {
     data object EventNotFound : SetCoverOutcome
@@ -404,14 +272,3 @@ private sealed interface SetCoverOutcome {
         val previousCoverImageId: Uuid?,
     ) : SetCoverOutcome
 }
-
-private fun effectivePort(uri: URI): Int =
-    if (uri.port != -1) {
-        uri.port
-    } else {
-        when (uri.scheme) {
-            "https" -> 443
-            "http" -> 80
-            else -> -1
-        }
-    }

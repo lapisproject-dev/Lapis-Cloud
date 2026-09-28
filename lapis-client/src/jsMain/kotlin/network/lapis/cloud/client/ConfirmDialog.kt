@@ -72,8 +72,20 @@ internal class ConfirmOnce {
  *
  * Raskin-Auflage (dieser Wellen-Plan §3): der Bestätigen-Knopf sitzt NICHT an der Stelle des
  * Auslösers -- Modal-Footer, `SECONDARY` links ("Abbrechen"), `DANGER` rechts ([confirmLabel]).
- * When [reasonRequired] is `true`, a click with a blank reason reports the error at the field (no `disabled` button, W4b)
- * -- [onConfirm] is only ever invoked with a non-blank, trimmed reason in that case.
+ * When [reasonRequired] is `true` and [reasonMinLength] is `null`, a click with a blank reason
+ * reports the error at the field (no `disabled` button, W4b) -- [onConfirm] is only ever invoked
+ * with a non-blank, trimmed reason in that case.
+ *
+ * **[reasonMinLength] (Welle V1.4.36) -- a SECOND, stricter gate on top of [reasonRequired].**
+ * When given, the confirm button starts (and stays) `disabled` until the trimmed reason reaches at
+ * least [reasonMinLength] characters (and, if [reasonMaxLength] is also set, does not exceed it) --
+ * unlike the W4b "click and see the error at the field" posture above, this mirrors
+ * [confirmWithTypedConfirmationDialog]'s disabled-until-valid grammar: `ArticlesScreen`'s
+ * "Depublizieren" dialog needs a mandatory 10..1000-character reason, and a board member who has
+ * not yet typed enough must see that the action is not yet available, not discover it by clicking
+ * and getting a field error. Abwärtskompatibel: every existing caller passes neither
+ * [reasonMinLength] nor [reasonPlaceholder] nor [showCounter], so their behavior is byte-for-byte
+ * unchanged (`null`/`false` defaults).
  */
 fun confirmWithReasonDialog(
     title: String,
@@ -83,6 +95,9 @@ fun confirmWithReasonDialog(
     reasonRequired: Boolean,
     confirmLabel: String = tr("Bestätigen"),
     reasonMaxLength: Int? = null,
+    reasonMinLength: Int? = null,
+    reasonPlaceholder: String? = null,
+    showCounter: Boolean = false,
     onConfirm: (String?) -> Unit,
 ) {
     val modal = Modal(caption = title)
@@ -94,7 +109,7 @@ fun confirmWithReasonDialog(
     // meldet den Fehler AM Feld und setzt den Fokus dorthin. Die Invariante bleibt: [onConfirm] erhält ausschließlich eine
     // nicht-leere, getrimmte Begründung -- bzw. bei `reasonRequired = false` und leerem Feld `null`.
     val form = modal.lapisForm()
-    val minLength = if (reasonRequired) 1 else 0
+    val minLength = reasonMinLength ?: if (reasonRequired) 1 else 0
     val reasonField =
         form.textField(
             label = reasonLabel,
@@ -103,17 +118,44 @@ fun confirmWithReasonDialog(
             // Überschreitung wird vor dem Round-Trip abgewiesen. `null` = unverändertes Verhalten für alle Aufrufer.
             hint =
                 reasonMaxLength?.let {
-                    if (reasonRequired) gettext("%1 bis %2 Zeichen.", minLength, it) else gettext("Höchstens %1 Zeichen.", it)
+                    if (minLength > 0) gettext("%1 bis %2 Zeichen.", minLength, it) else gettext("Höchstens %1 Zeichen.", it)
                 },
             rule = { value ->
-                if (reasonMaxLength != null) FormRules.reasonText(value = value, min = minLength, max = reasonMaxLength) else FieldCheck.Ok
+                if (reasonMaxLength != null || minLength > 0) {
+                    FormRules.reasonText(value = value, min = minLength, max = reasonMaxLength ?: Int.MAX_VALUE)
+                } else {
+                    FieldCheck.Ok
+                }
             },
+            init = { control -> reasonPlaceholder?.let { control.placeholder = it } },
         )
+
+    // Welle V1.4.36 -- live character counter, e.g. "42/1000". Purely cosmetic (the actual gate is
+    // `rule`/the disabled-button check below), so a missing/late-updating counter can never let an
+    // out-of-range reason through.
+    val counterSlot: io.kvision.html.Div? =
+        if (showCounter && reasonMaxLength != null) {
+            modal.div("0/$reasonMaxLength") { addCssClasses("text-muted small text-end") }
+        } else {
+            null
+        }
+
     form.finish()
 
     val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val once = ConfirmOnce()
     val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER)
+    if (reasonMinLength != null) confirmButton.disabled = true
+
+    reasonField.subscribe { raw ->
+        val trimmedLength = raw.trim().length
+        if (counterSlot != null) counterSlot.content = "$trimmedLength/$reasonMaxLength"
+        if (reasonMinLength != null) {
+            val withinMax = reasonMaxLength == null || trimmedLength <= reasonMaxLength
+            confirmButton.disabled = trimmedLength < reasonMinLength || !withinMax
+        }
+    }
+
     confirmButton.onClick {
         // Erst prüfen, dann sperren: ein ungültiger Klick verbraucht die Einmal-Sperre nicht (der Nutzer korrigiert und klickt erneut).
         if (!form.validateAndReport()) return@onClick

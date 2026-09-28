@@ -78,6 +78,7 @@ class EmbedAssetTest :
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
                             eventsFeedRateLimiter = generousLimiter(),
+                            articlesFeedRateLimiter = generousLimiter(),
                         )
                     }
                 }
@@ -128,6 +129,7 @@ class EmbedAssetTest :
                             eventRegistrationRateLimiter = generousLimiter(),
                             eventPageRateLimiter = generousLimiter(),
                             eventsFeedRateLimiter = generousLimiter(),
+                            articlesFeedRateLimiter = generousLimiter(),
                         )
                     }
                 }

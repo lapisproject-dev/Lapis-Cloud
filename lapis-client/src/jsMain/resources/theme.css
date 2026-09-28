@@ -1682,6 +1682,19 @@ html .form-select.is-invalid:focus {
   }
 }
 
+/* Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- byte-for-byte the same four rule
+   bodies as network.lapis.cloud.server.routes.SocialPublicHtml.STYLESHEET's own V1.4.36 block
+   (see that file's own comment): the editor's "Vorschau" tab renders the SAME server-produced
+   HTML the public /aktuelles/{slug} page renders, and must look identical. Keep both copies
+   synchronised whenever either changes. */
+.lapis-article-cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; margin-bottom: 1rem; }
+.lapis-article-cover--thumb { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.lapis-article-meta { color: #888; font-size: 0.85rem; }
+.lapis-article-lead { font-size: 1.1rem; font-weight: 500; }
+.lapis-article-body { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+.lapis-article-body h2, .lapis-article-body h3, .lapis-article-body h4 { margin: 1.2rem 0 0.4rem 0; }
+.lapis-article-body p { margin: 0.6rem 0; }
+
 /* V1.9.8 "Vorstands-Karte: Orientierung" -- Bundesland-/Nachbarland-Beschriftungen (DOM-Marker, nicht
    PMTiles-Textlayer, siehe MemberMapLabels.kt/MemberMapBasemapStyle.kt). Vierfacher Text-Shadow-Halo
    statt eines Hintergrund-Chips: die Beschriftung soll wie ein Kartenlabel wirken, nicht wie ein

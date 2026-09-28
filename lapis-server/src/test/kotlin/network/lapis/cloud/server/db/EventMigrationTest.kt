@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.EventCateringOrderTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventRoomTable
+import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OpenItemTable
@@ -750,6 +751,173 @@ class EventMigrationTest :
             val insertException = probeInsert(cateringOrderColumns(id = orderId, eventId = eventId))
             insertException shouldBe null
             val deleteException = probeInsert("DELETE FROM event_catering_order WHERE id = '$orderId'")
+            deleteException shouldBe null
+        }
+
+        // ── Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" -- V56__event_series.sql ──
+
+        val createdSeriesIds = mutableListOf<Uuid>()
+
+        afterSpec {
+            transaction {
+                if (createdSeriesIds.isNotEmpty()) {
+                    val idList = createdSeriesIds.joinToString(",") { "'$it'" }
+                    // event.series_id FK-references event_series -- any event this spec pointed at a
+                    // series must be un-linked first, same "children before parent" discipline the
+                    // top-level afterSpec above already follows for event_catering_order/event.
+                    exec("UPDATE event SET series_id = NULL, series_original_start = NULL WHERE series_id IN ($idList)")
+                    // event_series.split_from_series_id is self-referential -- this spec's own
+                    // "fk_event_series_split_from accepts a real, earlier series id" test creates
+                    // exactly such a pair, so the FK must be broken BEFORE the batch DELETE below,
+                    // otherwise H2 can evaluate the DELETE against a still-referenced parent row.
+                    exec("UPDATE event_series SET split_from_series_id = NULL WHERE id IN ($idList)")
+                    EventSeriesTable.deleteWhere { EventSeriesTable.id inList createdSeriesIds }
+                }
+            }
+        }
+
+        fun newSeriesId(): Uuid = Uuid.random().also { createdSeriesIds += it }
+
+        fun seriesColumns(
+            id: Uuid,
+            rrule: String = "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU;COUNT=10",
+            dtstart: String = "2026-09-10 19:00:00",
+            timezone: String = "Europe/Berlin",
+            durationMinutes: Int = 90,
+            splitFromSeriesId: Uuid? = null,
+        ): String {
+            val splitSql = splitFromSeriesId?.let { "'$it'" } ?: "NULL"
+            return "INSERT INTO event_series (id, rrule, dtstart, timezone, duration_minutes, " +
+                "split_from_series_id, created_by, created_at) VALUES ('$id', '$rrule', TIMESTAMP '$dtstart', " +
+                "'$timezone', $durationMinutes, $splitSql, '$ADMIN_UUID', TIMESTAMP '2026-01-01 00:00:00')"
+        }
+
+        test("chk_event_series_timezone rejects a timezone other than Europe/Berlin") {
+            val exception = probeInsert(seriesColumns(id = newSeriesId(), timezone = "UTC"))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_series_timezone", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_series_duration rejects a zero duration") {
+            val exception = probeInsert(seriesColumns(id = newSeriesId(), durationMinutes = 0))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_series_duration", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_series_duration rejects a duration over 1440 minutes") {
+            val exception = probeInsert(seriesColumns(id = newSeriesId(), durationMinutes = 1441))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_series_duration", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_series_duration accepts exactly 1440 minutes") {
+            val exception = probeInsert(seriesColumns(id = newSeriesId(), durationMinutes = 1440))
+            exception shouldBe null
+        }
+
+        test("fk_event_series_split_from rejects an unknown split-from series id") {
+            val exception = probeInsert(seriesColumns(id = newSeriesId(), splitFromSeriesId = Uuid.random()))
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("fk_event_series_split_from", ignoreCase = true) shouldBe true
+        }
+
+        test("fk_event_series_split_from accepts a real, earlier series id (self-referential split)") {
+            val originalId = newSeriesId()
+            val originalInsert = probeInsert(seriesColumns(id = originalId))
+            originalInsert shouldBe null
+            val splitException = probeInsert(seriesColumns(id = newSeriesId(), splitFromSeriesId = originalId))
+            splitException shouldBe null
+        }
+
+        test("chk_event_series_pair rejects series_original_start set without series_id") {
+            val eventId = createRealEvent()
+            val exception =
+                probeInsert(
+                    "UPDATE event SET series_original_start = TIMESTAMP '2026-09-10 19:00:00' WHERE id = '$eventId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_series_pair", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_series_detached rejects series_detached = TRUE without series_id") {
+            val eventId = createRealEvent()
+            val exception = probeInsert("UPDATE event SET series_detached = TRUE WHERE id = '$eventId'")
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_series_detached", ignoreCase = true) shouldBe true
+        }
+
+        test("event.series_id accepts a real event_series id together with series_original_start") {
+            val eventId = createRealEvent()
+            val seriesId = newSeriesId()
+            val seriesInsert = probeInsert(seriesColumns(id = seriesId))
+            seriesInsert shouldBe null
+            val exception =
+                probeInsert(
+                    "UPDATE event SET series_id = '$seriesId', " +
+                        "series_original_start = TIMESTAMP '2026-09-10 19:00:00' WHERE id = '$eventId'",
+                )
+            exception shouldBe null
+        }
+
+        test("fk_event_series rejects an unknown series id") {
+            val eventId = createRealEvent()
+            val bogusSeriesId = Uuid.random()
+            val exception =
+                probeInsert(
+                    "UPDATE event SET series_id = '$bogusSeriesId', " +
+                        "series_original_start = TIMESTAMP '2026-09-10 19:00:00' WHERE id = '$eventId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("fk_event_series", ignoreCase = true) shouldBe true
+        }
+
+        test("uq_event_series_occurrence rejects a duplicate (series_id, series_original_start) pair") {
+            val seriesId = newSeriesId()
+            probeInsert(seriesColumns(id = seriesId)) shouldBe null
+            val originalStart = "2026-09-15 19:00:00"
+
+            val firstEventId = createRealEvent()
+            val firstUpdate =
+                probeInsert(
+                    "UPDATE event SET series_id = '$seriesId', series_original_start = TIMESTAMP '$originalStart' " +
+                        "WHERE id = '$firstEventId'",
+                )
+            firstUpdate shouldBe null
+
+            val secondEventId = createRealEvent()
+            val secondUpdate =
+                probeInsert(
+                    "UPDATE event SET series_id = '$seriesId', series_original_start = TIMESTAMP '$originalStart' " +
+                        "WHERE id = '$secondEventId'",
+                )
+            (secondUpdate is ExposedSQLException) shouldBe true
+            (secondUpdate?.message ?: "").contains("uq_event_series_occurrence", ignoreCase = true) shouldBe true
+        }
+
+        test(
+            "uq_event_series_occurrence permits multiple NULL (series_id, series_original_start) pairs -- " +
+                "non-series events never collide",
+        ) {
+            // Both events get series_id/series_original_start NULL by default (eventColumns' fixture
+            // never sets either) -- no explicit UPDATE needed. If a plain UNIQUE INDEX rejected
+            // multiple NULLs (as some engines' PRIMARY KEY-style uniqueness would), this second
+            // insert would fail -- it does not, matching the precedent
+            // uq_event_registration_active_participant/uq_event_registration_ticket_code already
+            // establish (see V56__event_series.sql header).
+            val firstInsert = probeInsert(eventColumns(id = newEventId()))
+            firstInsert shouldBe null
+            val secondInsert = probeInsert(eventColumns(id = newEventId()))
+            secondInsert shouldBe null
+        }
+
+        test(
+            "V56 migration is idempotent -- a real event_series INSERT/DELETE round-trip still succeeds " +
+                "against the already-migrated schema",
+        ) {
+            val seriesId = newSeriesId()
+            val insertException = probeInsert(seriesColumns(id = seriesId))
+            insertException shouldBe null
+            val deleteException = probeInsert("DELETE FROM event_series WHERE id = '$seriesId'")
             deleteException shouldBe null
         }
     })

@@ -3,6 +3,9 @@
 // see 39-events.kuml.kts file header addendum.
 // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- hand-edited, `coverImageId` column
 // added, see 39-events.kuml.kts file header addendum.
+// Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" -- hand-edited, `seriesId`/
+// `seriesOriginalStart`/`seriesDetached` columns added, see 39-events.kuml.kts file header
+// addendum.
 
 package network.lapis.cloud.server.db.generated
 
@@ -44,8 +47,18 @@ public object EventTable : Table("event") {
     // a row in another table.
     public val coverImageId: Column<Uuid?> = uuid("cover_image_id").nullable()
 
+    // V1.4.37 addendum -- see 39-events.kuml.kts file header. No `.references()` here: EventSeriesTable
+    // must be initialized before EventTable for a typed reference to resolve, and this codebase's
+    // Exposed table objects have no explicit initialization order guarantee across files -- same
+    // "plain nullable column, FK only in SQL" posture roomId/coverImageId's own hand-edits already
+    // establish, chosen here to avoid a fragile load-order dependency (V56__event_series.sql carries
+    // the actual FK).
+    public val seriesId: Column<Uuid?> = uuid("series_id").nullable()
+    public val seriesOriginalStart: Column<LocalDateTime?> = datetime("series_original_start").nullable()
+    public val seriesDetached: Column<Boolean> = bool("series_detached").default(false)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 2 index(es) declared on this entity are not emitted —
+    // Note: 4 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 }

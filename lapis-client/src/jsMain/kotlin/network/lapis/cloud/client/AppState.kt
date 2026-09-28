@@ -10,6 +10,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import network.lapis.cloud.shared.rpc.WeakPasswordException
 
@@ -118,6 +119,10 @@ private fun handleGuardedFailure(e: Throwable) {
         is InvalidPasswordException -> notifyError(tr("Aktuelles Passwort ist falsch."))
         is WeakPasswordException ->
             notifyError(tr("Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, nicht die E-Mail-Adresse)."))
+        // Welle V1.4.36 -- ArticleService.previewArticle's 30/min-per-member Rate-Limit. Same
+        // "typed exception -> fixed German toast" reasoning as every other branch above: Kilua RPC
+        // never transmits the server's own message, only the exception TYPE.
+        is RateLimitedException -> notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

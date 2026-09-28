@@ -466,7 +466,12 @@ class DomainModelMergerTest :
             // file's existing Member/MailingMessage/MailingDeliveryLog entities are reused) -- so
             // it contributes +2 «Entity» declarations and 0 drops, net +2 distinct table names
             // versus the V1.9.4 baseline above (165 -> 167).
-            val distinctTableNames = 167
+            // Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" adds
+            // 39-events.kuml.kts's ONE new real table (event_series), WITH NO new cross-domain
+            // stub (the file's existing Member stub is reused for event_series.created_by) -- so
+            // it contributes +1 «Entity» declaration and 0 drops, net +1 distinct table name
+            // versus the V1.9.7 baseline above (167 -> 168).
+            val distinctTableNames = 168
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -657,6 +662,10 @@ class DomainModelMergerTest :
                     // file for either.
                     "EventTable.kt",
                     "EventRegistrationTable.kt",
+                    // Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" -- ONE new
+                    // real table (event_series), no new cross-domain stub beyond the file's
+                    // already-present Member stub (reused for event_series.created_by).
+                    "EventSeriesTable.kt",
                     // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)" -- two new real tables
                     // (bank_statement_import, bank_statement_line); their Member/Contribution/
                     // PaymentTransaction cross-domain stubs all dedup into already-real entities, no

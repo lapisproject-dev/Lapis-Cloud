@@ -560,6 +560,15 @@ object Routes {
      * gleicher Copy-Paste-Stolperstein wie [CONTRIBUTION_RELIEF]/[TRAVEL_EXPENSE_APPROVALS].
      */
     const val VOLUNTEER_ALLOWANCE_APPROVALS = "/volunteer-allowance-approvals"
+
+    /**
+     * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- `requireAuth` (jedes
+     * authentifizierte ORGANIZATION_MEMBER), gleiche Grammatik wie [TRAVEL_EXPENSES]. Der Editor
+     * ist ein Zustand INNERHALB dieses Bildschirms (keine eigene Route) -- BOARD/ADMIN sehen
+     * zusätzliche Reiter "Freigabe"/"Veröffentlicht" auf derselben Route, gesteuert über die
+     * Rolle des angemeldeten Mitglieds, nicht über einen zweiten Pfad.
+     */
+    const val ARTICLES = "/articles"
 }
 
 private var appRouting: Routing? = null
@@ -961,6 +970,12 @@ fun initRouting(pageContainer: SimplePanel) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.VOLUNTEER_ALLOWANCE_APPROVALS, ::renderVolunteerAllowanceApprovalsScreen)
         }
+    }
+    // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- requireAuth, same posture as
+    // TRAVEL_EXPENSES/VOLUNTEER_ALLOWANCES: the additional BOARD/ADMIN tabs inside the screen are
+    // gated by role INSIDE renderArticlesScreen, not by a second route.
+    routing.kvOn(Routes.ARTICLES) {
+        requireAuth(routing) { show(Routes.ARTICLES, ::renderArticlesScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

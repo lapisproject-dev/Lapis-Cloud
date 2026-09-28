@@ -16,6 +16,7 @@ import network.lapis.cloud.shared.domain.ContributionReliefStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.domain.VolunteerAllowancePaymentStatus
+import network.lapis.cloud.shared.rpc.IArticleService
 import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
@@ -363,6 +364,21 @@ fun buildSidebar(
                 sidebarLink(Routes.STATUTE_QA, tr("Fragen zur Satzung"), "fas fa-magnifying-glass", toggle)
             }
             sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
+            // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Design-Team-Entscheidung
+            // Q6: Gruppe "Kommunikation" (neben COMMUNICATION), nicht "Selbstverwaltung". Für
+            // BOARD/ADMIN aktualisiert sich das Label mit der Freigabe-Warteschlangen-Größe --
+            // gleiches "engerer Unter-Zweig + Sidebar-Zähler"-Muster wie CONTRIBUTION_RELIEF/
+            // TRAVEL_EXPENSE_APPROVALS weiter unten, hier aber INNERHALB derselben Gruppe (jedes
+            // Mitglied sieht den Eintrag selbst, nur BOARD/ADMIN sieht die Zahl).
+            val articlesLink = sidebarLink(Routes.ARTICLES, tr("Artikel"), "fas fa-newspaper", toggle)
+            if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
+                AppScope.launch {
+                    val openCount = runCatching { rpcService<IArticleService>().listSubmittedArticles().size }.getOrNull()
+                    if (openCount != null && openCount > 0) {
+                        articlesLink.label = articlesSidebarLabel(openCount)
+                    }
+                }
+            }
             sidebarLink(Routes.DONATE, tr("Spenden"), "fas fa-hand-holding-heart", toggle)
             sidebarLink(Routes.DSGVO_RIGHTS, tr("Meine Daten"), "fas fa-shield-halved", toggle)
             // Welle V1.4.11 -- Selbstbedienung, jedes Mitglied mit Mitgliedschaftsstatus kann
