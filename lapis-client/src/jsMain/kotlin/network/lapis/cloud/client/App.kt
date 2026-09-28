@@ -575,6 +575,17 @@ private fun refreshNavbar(
             }
             separator()
         }
+        // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- a second, small
+        // identity marker for a "Landesvorstand" (regional-chapter officer) session, same
+        // `dropdown-item-text` non-interactive-row idiom as the guest badge above. Updates
+        // automatically on the next `refreshShell` (every `AppState.setSession` call rebuilds the
+        // whole navbar, see `RegionalChaptersScreen.refreshSessionFromServer` KDoc) -- no separate
+        // wiring needed here.
+        session.chapterScope?.let { scope ->
+            val row = span(className = "dropdown-item-text")
+            untrustedContent(row, gettext("Landesvorstand · %1", scope.name))
+            separator()
+        }
         // Deliberately plain `ddLink`, NOT [NavHighlight]-registered -- see this function's own
         // KDoc "Jobs' review call".
         ddLink(tr("Mein Konto"), url = "#${Routes.DASHBOARD}")

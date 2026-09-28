@@ -52,6 +52,45 @@ internal fun rpcResult(
     return StubResponse(text = JSON.stringify(body))
 }
 
+/**
+ * Review fix (Welle V1.9.14, MAJOR test-coverage finding): simulates the server rejecting an RPC
+ * call with a thrown [network.lapis.cloud.shared.rpc.AbstractServiceException] subclass, the way
+ * `RegistrationScreen.kt`'s own catch chain (and every other `regionalChapterGuarded`/`guarded`
+ * caller) actually receives it over the wire -- needed wherever the exception is caught OUTSIDE a
+ * guard function (a plain `try`/`catch` block, so a block-that-throws-directly unit test like
+ * `MemberAdminGuardTest` cannot exercise it).
+ *
+ * Verified against the pinned `dev.kilua:kilua-rpc-core` 0.0.45 sources (`CallAgent.jsonRpcCall`,
+ * `dev.kilua.rpc.RpcServiceManager` (jvm) `createJsonRpcRequestHandler`): on `error != null` with
+ * `exceptionType != "dev.kilua.rpc.ServiceException"` and `exceptionJson != null`, the client does
+ * `RpcSerialization.getJson().decodeFromString<AbstractServiceException>(exceptionJson)`. That
+ * `Json` has no custom `classDiscriminator`, so [network.lapis.cloud.shared.rpc.AbstractServiceException]'s
+ * open-polymorphism default applies: a flat `{"type":"<fully qualified subclass name>",...}`
+ * object, [fqcn] being the value `subclass(...::class)` registers each exception class under in the
+ * KSP-generated `dev.kilua.rpc.registerRpcServiceExceptions()` (`GeneratedRpcServiceExceptions.kt`,
+ * `lapis-shared/build/generated/ksp/...`) -- i.e. the class's fully qualified Kotlin name, unchanged
+ * by any `@SerialName` (none of this project's `@RpcServiceException` classes declare one).
+ * `message` is included so `ignoreUnknownKeys = true` covers either way whether the compiler plugin
+ * actually keeps it serializable (see `AppState.guarded` KDoc: empirically it never survives to the
+ * client's own `e.message`, so its exact wire presence is irrelevant to any test asserting on the
+ * reconstructed exception's TYPE, never its message).
+ */
+internal fun serviceExceptionResult(
+    id: Int,
+    fqcn: String,
+): StubResponse {
+    val exceptionJson = js("({})")
+    exceptionJson.type = fqcn
+    exceptionJson.message = "simulated for a test"
+    val body = js("({})")
+    body.id = id
+    body.result = null
+    body.error = "simulated for a test"
+    body.exceptionType = null
+    body.exceptionJson = JSON.stringify(exceptionJson)
+    return StubResponse(text = JSON.stringify(body))
+}
+
 /** The promise `fetch` returns for [response]: resolved (after [StubResponse.delayMs]) or rejected for a network error. */
 private fun answer(response: StubResponse): Promise<dynamic> =
     Promise { resolve, reject ->

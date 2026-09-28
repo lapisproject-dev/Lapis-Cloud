@@ -222,6 +222,30 @@ this table, and (from this wave onward) any tier change it triggers is separatel
   table, never as a summed count, same "Row-counting, not naive double-counting" discipline
   `MemberHonorPersonalData` already establishes.
 
+== Regional chapters (`regional_chapter_officer`, Welle V1.9.13/V1.9.14)
+
+`RegionalChapterPersonalData` covers `regional_chapter_officer.member_id`/`granted_by_member_id` --
+who was granted "Landesvorstand" (regional-chapter officer) access to which regional chapter, by
+whom, and when. `regional_chapter` itself is NOT covered here: its `name` is an organizational
+label, not personal data, but the table is deliberately not on the
+`PersonalDataRegistry.noPersonalDataAllowlist` either -- it is not ownerless (`RegionalChapterService`
+fully owns its lifecycle, and `member.regional_chapter_id` itself is covered by
+`FoundationPersonalData`). See `docs/architecture/regional-chapters.adoc` for the full feature.
+
+* Own grants (`member_id == subject`) are **hard-deleted** (`rowsDeleted`) -- unlike
+  `CommunicationPersonalData`'s `direct_message`, there is no counterparty copy a grant needs to be
+  preserved for.
+* Grants the subject GRANTED to someone else (`granted_by_member_id == subject`) are **anonymized**
+  (`granted_by_member_id = NULL`, `rowsAnonymized`) -- same accountability-preserving "WHO did this
+  administrative act" treatment `AccountingPersonalData`/`accounting_export_run.started_by`
+  already establishes: the fact that someone granted the access is retained, the identity of the
+  now-erased grantor is not.
+* `exportMember` emits two arrays: `officerGrants` (the subject's own grants) and
+  `officerGrantsIssued` (grants the subject, as ADMIN, issued to OTHER members) --
+  `officerGrantsIssued` deliberately carries no recipient identity (no `memberId`/`displayName`),
+  only `chapterName`/`grantedAt`/`revokedAt`: the recipient is a different data subject whose own
+  identity is not this export's business.
+
 == Deceased-member exception: `member.date_of_death` (Welle V1.4.4.5)
 
 `FoundationPersonalData` treats `member.date_of_death` (`V24__member_date_of_death.sql`)
@@ -359,6 +383,9 @@ identifiable record. What makes this feature DSGVO-relevant is not a new storage
   single-field-redaction contributor for `contribution_relief_request` (Welle V1.4.10).
 * `network.lapis.cloud.server.dsgvo.AiAssistantPersonalData` — hard-delete plus retain-and-redact
   contributor for the three AI tables with a member reference (Welle V1.6.1).
+* `network.lapis.cloud.server.dsgvo.RegionalChapterPersonalData` — hard-delete-own/anonymize-issued
+  contributor for `regional_chapter_officer` (Welle V1.9.13), see
+  `docs/architecture/regional-chapters.adoc`.
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

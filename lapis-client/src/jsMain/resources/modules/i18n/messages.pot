@@ -15921,3 +15921,172 @@ msgstr ""
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr ""
+
+msgid "Gliederungsverwaltung"
+msgstr ""
+
+msgid "Mein Landesverband"
+msgstr ""
+
+msgid "Landesverband anlegen"
+msgstr ""
+
+msgid "Name des Landesverbands"
+msgstr ""
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr ""
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr ""
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr ""
+
+msgid "Landesvorstand verwalten"
+msgstr ""
+
+msgid "Landesverband %1 löschen"
+msgstr ""
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr ""
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr ""
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr ""
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr ""
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr ""
+
+msgid "erteilt von %1"
+msgstr ""
+
+msgid "Zugang entziehen"
+msgstr ""
+
+msgid "Zugang wirklich entziehen?"
+msgstr ""
+
+msgid "Jetzt entziehen"
+msgstr ""
+
+msgid "Suche"
+msgstr ""
+
+msgid "Als Landesvorstand eintragen"
+msgstr ""
+
+msgid "kein Login-Konto"
+msgstr ""
+
+msgid "bereits Landesvorstand"
+msgstr ""
+
+msgid "Landesvorstand eintragen"
+msgstr ""
+
+msgid "Zugang erteilen"
+msgstr ""
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr ""
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr ""
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr ""
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr ""
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr ""
+
+msgid "Alle Landesverbände"
+msgstr ""
+
+msgid "nicht zugeordnet"
+msgstr ""
+
+msgid "Landesverband zuordnen"
+msgstr ""
+
+msgid "Landesverband für %1"
+msgstr ""
+
+msgid "— nicht zugeordnet —"
+msgstr ""
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr ""
+
+msgid "Zuordnung speichern"
+msgstr ""
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr ""
+
+msgid "— noch nicht festgelegt —"
+msgstr ""
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr ""
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr ""
+
+msgid "— weiß ich noch nicht —"
+msgstr ""
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr ""
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr ""
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr ""
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr ""
+
+msgid "Suche nach Name oder E-Mail"
+msgstr ""
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr ""
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr ""
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr ""
+
+msgid "Zum Dashboard"
+msgstr ""
+
+msgid "Landesvorstand · %1"
+msgstr ""
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr ""
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr ""
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr ""
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] ""
+msgstr[1] ""
+

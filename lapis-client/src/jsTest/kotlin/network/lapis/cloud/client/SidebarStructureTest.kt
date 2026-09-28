@@ -7,6 +7,7 @@ import io.kvision.panel.SimplePanel
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -222,6 +223,55 @@ class SidebarStructureTest {
         assertFalse(
             hasStatuteQaLink(adminSession.copy(aiAssistantEnabled = true, status = MemberStatus.FRIEND)),
             "a FRIEND has no membership group and the server refuses the feature for non-members",
+        )
+    }
+
+    // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche".
+    @Test
+    fun sidebarGroupForRoute_mapsTheTwoNewRoutesToTheirGroups() {
+        assertEquals(SidebarGroupId.ADMINISTRATION, sidebarGroupForRoute(Routes.REGIONAL_CHAPTERS))
+        assertEquals(SidebarGroupId.MEMBERSHIP, sidebarGroupForRoute(Routes.MY_CHAPTER))
+    }
+
+    @Test
+    fun administrationGroup_showsRegionalChaptersEntry_onlyForAdmin() {
+        assertTrue(sidebarLinkUrls(adminSession).contains("#${Routes.REGIONAL_CHAPTERS}"))
+        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.BOARD)).contains("#${Routes.REGIONAL_CHAPTERS}"))
+        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.TREASURER)).contains("#${Routes.REGIONAL_CHAPTERS}"))
+    }
+
+    @Test
+    fun administrationGroup_regionalChaptersEntry_immediatelyFollowsMembers() {
+        AppState.setSession(adminSession)
+        val body = SimplePanel()
+        buildSidebar(body, adminSession, activeRoute = null) {}
+        val nav = body.getChildren().single() as Nav
+        val urls =
+            nav
+                .getChildren()
+                .filterIsInstance<Nav>()
+                .flatMap { it.getChildren() }
+                .filterIsInstance<Link>()
+                .mapNotNull { it.url }
+        val membersIndex = urls.indexOf("#${Routes.MEMBERS}")
+        val chaptersIndex = urls.indexOf("#${Routes.REGIONAL_CHAPTERS}")
+        assertEquals(membersIndex + 1, chaptersIndex)
+    }
+
+    @Test
+    fun membershipGroup_showsMyChapterEntry_onlyWithAnActiveChapterScope() {
+        val chapterScope = RegionalChapterRefDto(id = "c1", name = "Bayern")
+        assertFalse(
+            sidebarLinkUrls(adminSession.copy(role = AccountRole.MEMBER)).contains("#${Routes.MY_CHAPTER}"),
+            "no chapterScope must not show the entry",
+        )
+        assertTrue(
+            sidebarLinkUrls(adminSession.copy(role = AccountRole.MEMBER, chapterScope = chapterScope)).contains("#${Routes.MY_CHAPTER}"),
+            "an active chapterScope must show the entry",
+        )
+        assertFalse(
+            sidebarLinkUrls(adminSession.copy(role = AccountRole.BOARD, chapterScope = null)).contains("#${Routes.MY_CHAPTER}"),
+            "BOARD without a chapterScope must not see the entry either",
         )
     }
 

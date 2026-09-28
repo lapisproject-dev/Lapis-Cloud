@@ -574,6 +574,26 @@ object Routes {
      * Rolle des angemeldeten Mitglieds, nicht über einen zweiten Pfad.
      */
     const val ARTICLES = "/articles"
+
+    /**
+     * Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- ADMIN-only, verified
+     * against `RegionalChapterService.kt`: `listChapters`/`createChapter`/`renameChapter`/
+     * `deleteChapter`/`listOfficers`/`grantOfficer`/`revokeOfficer` all call
+     * `current.requireRole(AccountRole.ADMIN)`, uniformly -- same route-level ADMIN-only posture as
+     * [BACKUP]/[SEPA_SETTINGS]/[CONFERENCE_STREAM_DESTINATIONS]. Lives in the existing ADMIN-only
+     * "Verwaltung" dropdown, directly next to [MEMBERS] -- no new top-level dropdown.
+     */
+    const val REGIONAL_CHAPTERS = "/regional-chapters"
+
+    /**
+     * Welle V1.9.14 -- the "Landesvorstand" (regional-chapter officer) self-service roster. NOT
+     * `requireRole`-gated at all: reachability depends only on the session's server-computed
+     * `SessionInfoDto.chapterScope` (see [NavVisibility.showsChapterRoster]) -- a caller without an
+     * active officer grant is redirected to [DASHBOARD] without a toast, mirroring
+     * `renderChapterRosterScreen`'s own `NoLongerOfficer` state for a grant that lapses AFTER the
+     * route already resolved.
+     */
+    const val MY_CHAPTER = "/my-chapter"
 }
 
 private var appRouting: Routing? = null
@@ -663,6 +683,22 @@ fun initRouting(pageContainer: SimplePanel) {
         // that function's class KDoc.
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBERS, ::renderMemberAdministrationScreen)
+        }
+    }
+    routing.kvOn(Routes.REGIONAL_CHAPTERS) {
+        requireRole(routing, AccountRole.ADMIN) { show(Routes.REGIONAL_CHAPTERS, ::renderRegionalChaptersScreen) }
+    }
+    routing.kvOn(Routes.MY_CHAPTER) {
+        // No toast/redirect-with-message: a caller without an active officer grant simply never sees
+        // this route offered (NavVisibility.showsChapterRoster), so silently sending them to the
+        // dashboard mirrors every other nav-gated-not-route-gated route's "route resolves, screen
+        // decides" posture -- see Routes.AI_DRAFTS KDoc for the same reasoning.
+        requireAuth(routing) {
+            if (NavVisibility.showsChapterRoster(AppState.session?.chapterScope)) {
+                show(Routes.MY_CHAPTER, ::renderChapterRosterScreen)
+            } else {
+                routing.navigate(Routes.DASHBOARD)
+            }
         }
     }
     routing.kvOn(Routes.CONTRIBUTIONS) {

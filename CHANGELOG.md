@@ -8,6 +8,72 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.14 — Gliederungsverwaltung (Landesverbände), Oberfläche.** Der Client-Anteil dieser Welle
+  (siehe "Umfang dieser Welle" unter V1.9.13 unten, dort als noch offen markiert): ein ADMIN-only
+  `RegionalChaptersScreen` (`/regional-chapters`, Sidebar-Gruppe "Verwaltung") zum Anlegen/
+  Umbenennen/Löschen von Landesverbänden sowie zum Erteilen/Entziehen von "Landesvorstand"-Zugriff
+  (Mitgliedersuche, Bestätigungsdialog mit Konsequenz-Hinweis, "Zugang entziehen" mit
+  Inline-Bestätigung); eine schlanke Selbstbedienungs-Ansicht `ChapterRosterScreen`
+  (`/my-chapter`, Sidebar-Gruppe "Mitgliedschaft", nur mit aktivem Officer-Zugang sichtbar) mit
+  genau drei Spalten (Name/E-Mail/Beitritt) und einem dauerhaften Hinweis auf die eingeschränkte
+  Sicht; ein optionales Landesverband-Feld im Registrierungsformular sowie bei der Direktanlage
+  eines Mitglieds; eine Landesverband-Spalte plus -Filter in der Mitgliederverwaltung, dazu ein
+  Zuordnungsabschnitt im Mitglieder-Editor (BOARD/ADMIN, denselben Peer-Schutz wie jede andere
+  Aktion dort) und bei offenen Anträgen; ein kleiner "Landesvorstand · &lt;Name&gt;"-Hinweis im
+  Konto-Dropdown. Die Mitgliederverwaltung entscheidet über das Erscheinen aller Landesverband-UI
+  anhand der tatsächlich geladenen Optionsliste, nicht anhand des (potenziell veralteten)
+  `SessionInfoDto.regionalChaptersExist`-Flags — dieses Flag wird serverseitig weiterhin berechnet,
+  aber vom neuen Client nicht mehr gelesen. i18n-Kataloge für alle 60 neuen Textstrings (inkl.
+  einer Pluralform) in allen sieben Sprachen; `RegionalChapterI18nCatalogTest` als eigener
+  i18n-Wächter; `docs/architecture/regional-chapters.adoc` (Datenmodell, Rollen-Architektur-
+  Entscheidung, Sichtbarkeitsgrenze, Client-Oberflächen, Zurückgestelltes). Keine Server-Änderung
+  außer Kommentar-Korrekturen (KDoc, die zuvor "noch nicht gebaut" behauptete). Client filtert und
+  cached selbst nichts — jede Sichtbarkeitsgrenze bleibt ausschließlich serverseitig durchgesetzt
+  (siehe `docs/architecture/regional-chapters.adoc#visibility-boundary`).
+
+  **Ausdrücklich nicht Teil dieser Welle**: eine behaviorale server-seitige
+  `RegionalChapterNoWideningTest` (Query-Manipulation gegen einen chapter-gescopten Aufrufer) und
+  ein Session-Test für `chapterScope` nach Grant/Revoke — beide waren im ursprünglichen Wellen-Plan
+  vorgesehen, aber in dieser Iteration nicht umgesetzt; die bestehende
+  `RegionalChapterVisibilityAllowlistScanTest`/`RegionalChapterVisibilityTest`-Abdeckung aus V1.9.13
+  bleibt der aktuelle Stand. Ein optionaler Glossareintrag "Landesverband/Landesvorstand" in
+  `docs/architecture/i18n-glossary.adoc` wurde ebenfalls zurückgestellt. Diese Lücken sind für eine
+  Folgewelle vorgemerkt.
+
+  **Review-Fixes (2026-09-28, vor dem Merge nach `master`):** (1) **MAJOR (Testabdeckung)** — die
+  neue Fehlerbehandlung dieser Welle hatte KEINE Tests (siehe "Ausdrücklich nicht Teil dieser
+  Welle" oben, vor diesem Fix): `regionalChapterGuarded`/`memberAdminGuarded` jetzt vollständig
+  DOM-frei unit-getestet (`MemberAdminGuardTest`, 17 Fälle — welche Exception ein Feld-Error, welche
+  einen Toast auslöst, `onNameTaken`/`onChapterRejected`-Dispatch, `CancellationException`-
+  Durchreichung); die `RegistrationScreen.kt`-catch-Kette über einen echten gemounteten Screen mit
+  simuliertem Kilua-RPC-Exception-Wire-Format (`RegistrationScreenFieldErrorDomTest`, gegen die
+  gepinnte `kilua-rpc-core` 0.0.45 verifiziert); `ChapterRosterScreen.kt`s Session-Recheck/
+  `NoLongerOfficer`-Zustand/`ForbiddenException`-Race (`ChapterRosterScreenDomTest`). Die
+  `RegionalChaptersScreen`-CRUD-/Grant-/Revoke-Flows sowie der `MY_CHAPTER`-Routing-Redirect bleiben
+  weiterhin ohne DOM-Test — vollständige DOM-Testabdeckung ist damit noch nicht erreicht, aber die
+  drei vom Review als Minimum benannten Stellen sind es. (2) **MINOR (Logik)** —
+  `ChapterRosterScreen.kt`s erster Load verwechselte einen fehlgeschlagenen
+  `refreshSessionFromServer()` (Netzwerkfehler, 5xx) mit "der Zugang ist wirklich weg": jetzt Fallback
+  auf `AppState.session?.chapterScope`; `refreshSessionFromServer` selbst reicht eine echte
+  `UnauthenticatedException` jetzt über `guarded` durch (Session-Ablauf-Behandlung), statt sie wie
+  jeden anderen Fehler stumm zu verschlucken. (3) **MINOR (Race)** — `RegionalChaptersScreen.kt`s
+  Landesvorstand-Suche (`renderOfficerGrantSearch`) hatte keinen Generation-Guard; zwei schnell
+  aufeinanderfolgende Suchen konnten eine gemischte, doppelte Ergebnisliste erzeugen. (4) **MINOR
+  (Edge Case)** — `RegionalChaptersScreen.kt`s `isEmpty`-Prädikat blendete das
+  Landesverband-anlegen-Formular vollständig aus, wenn keine Landesverbände existierten UND kein
+  Mitglied ACTIVE/APPLICATION war (z. B. nur DONOR/WITHDRAWN) — der erste Landesverband war dann gar
+  nicht anlegbar; jetzt immer `false`, der Hinweistext lebt jetzt in der normalen Render-Funktion.
+  (5) **MINOR (Effizienz)** — `MemberAdministrationScreen.kt`s `chapterFilterSelect.subscribe` hatte
+  nicht den `isInitial`-Guard, den `searchInput.subscribe` in derselben Funktion bereits dokumentiert
+  und nutzt — jeder Mount mit existierenden Landesverbänden lud die Mitgliederliste zweimal. (6)
+  **NIT** — `renderDirectMemberCreation` (`MemberAdministrationScreen.kt`) behandelt einen
+  Landesverband-bezogenen `BadRequestException` (Verband zwischen Laden und Absenden gelöscht) jetzt
+  wie `RegistrationScreen.kt` mit einem Feld-Error statt dem generischen "Ungültige Anfrage."-Toast;
+  KDoc von `regionalChapterGuarded`/`NavVisibility.showsChapterRoster` korrigiert (keine falschen
+  Behauptungen mehr über Vererbung bzw. Session-Refresh-Zeitpunkte). (7) **NIT (Konvention)** —
+  `docs/architecture/regional-chapters.adoc` war größtenteils auf Deutsch (verletzt die
+  Lapis-Dokumentationskonvention "Englisch"); vollständig ins Englische übersetzt.
+
 - **V1.9.13 — Gliederungsverwaltung (Landesverbände), Backend.** Ein ADMIN kann eine flache
   (nicht-hierarchische) Liste benannter Landesverbände pflegen; BOARD/ADMIN weisen ein Mitglied
   einem Landesverband zu; ADMIN kann einem Mitglied "Landesvorstand"-Zugriff auf genau seinen
@@ -38,12 +104,13 @@ All notable changes to this project are documented here. Format follows
   fremde `granted_by`-Referenzen anonymisiert); `FoundationPersonalData.eraseMember` löscht die
   Landesverband-Zuordnung selbst.
 
-  **Umfang dieser Welle (Backend-only)**: Die vollständige Design-Spezifikation sieht zusätzlich
+  **Umfang dieser Welle (Backend-only)**: Die vollständige Design-Spezifikation sah zusätzlich
   eine ADMIN-Verwaltungsoberfläche (`RegionalChaptersScreen`), eine Landesvorstand-Roster-Ansicht
-  (`ChapterRosterScreen`), Registrierungsformular-Integration, i18n-Kataloge (7 Sprachen), eine
-  behaviorale `RegionalChapterNoWideningTest` sowie `RegionalChapterI18nCatalogTest` und
-  `docs/architecture/regional-chapters.adoc` vor — diese Teile sind **noch nicht umgesetzt** und
-  bleiben für eine Folgewelle offen. Umgesetzt und mit echten, laufenden Tests abgesichert:
+  (`ChapterRosterScreen`), Registrierungsformular-Integration, i18n-Kataloge (7 Sprachen) und
+  `docs/architecture/regional-chapters.adoc` vor — **nachgeholt in V1.9.14** (siehe oben). Weiterhin
+  offen (auch nach V1.9.14, siehe dortiger "Ausdrücklich nicht Teil dieser Welle"-Absatz): eine
+  behaviorale `RegionalChapterNoWideningTest` und vollständige DOM-Testabdeckung. Umgesetzt und
+  mit echten, laufenden Tests abgesichert (bereits in V1.9.13):
   Datenmodell, Migration, alle sieben `IRegionalChapterService`-Methoden, die
   Sichtbarkeitsgrenze samt `listMembersForAdministration`-Integration (inkl. der strukturellen
   `RegionalChapterVisibilityAllowlistScanTest`, die einen neuen, ungeprüften Aufrufer von

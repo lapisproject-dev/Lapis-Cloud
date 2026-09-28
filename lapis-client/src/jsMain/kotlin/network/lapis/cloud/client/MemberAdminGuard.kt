@@ -12,6 +12,11 @@ import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RegionalChapterInUseException
+import network.lapis.cloud.shared.rpc.RegionalChapterLimitReachedException
+import network.lapis.cloud.shared.rpc.RegionalChapterNameTakenException
+import network.lapis.cloud.shared.rpc.RegionalChapterOfficerIneligibleException
+import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 
 /**
@@ -32,47 +37,138 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
  * [ConflictException] (blank name, transition not allowed, reason too short, anonymized member,
  * deceased target of a granted account) falls through to [guarded]'s own generic conflict toast --
  * there is nothing more specific to say about those causes anyway.
+ *
+ * Welle V1.9.14 also gained the [RegionalChapterRequiredException] branch: `updateMemberStatus`
+ * throws it when the activation flag (`RegionalChapterEnforcementConfig`) is on and the target has
+ * no chapter assigned yet -- purely additive, same generic toast [regionalChapterGuarded] uses for
+ * this exception on its own call sites.
  */
 suspend fun <T> memberAdminGuarded(block: suspend () -> T): T? =
     try {
         block()
     } catch (e: CancellationException) {
         throw e
-    } catch (e: UnauthenticatedException) {
-        guarded<T> { throw e }
-    } catch (e: ForbiddenException) {
-        notifyError(tr("Keine Berechtigung für diese Aktion."))
-        null
-    } catch (e: NotFoundException) {
-        notifyError(tr("Nicht gefunden."))
-        null
-    } catch (e: MemberEmailInUseException) {
-        notifyError(tr("Diese E-Mail-Adresse wird bereits von einem anderen Mitglied verwendet."))
-        null
-    } catch (e: MemberEmailTooLongException) {
-        // Review Runde 3 -- NIT fix: without this dedicated catch, this fell through to the
-        // generic ConflictException toast below ("bitte Ansicht aktualisieren"), which is actively
-        // wrong advice for a length problem (see MemberEmailTooLongException's own KDoc).
-        notifyError(gettext("Diese E-Mail-Adresse ist zu lang (höchstens %1 Zeichen).", Validation.EMAIL_MAX_LENGTH))
-        null
-    } catch (e: MemberHasNoAccountException) {
-        // Welle V1.4.9 "Admin-Passwort-Reset" widened this message from the updateMemberRole-
-        // specific "keine Rolle zu ändern" wording to a neutral sentence -- setTemporaryPasswordForMember
-        // / sendPasswordResetMailToMember throw the SAME exception type and show the SAME toast.
-        notifyError(tr("Dieses Mitglied hat kein Login-Konto."))
-        null
-    } catch (e: MemberAlreadyHasAccountException) {
-        notifyError(tr("Dieses Mitglied hat bereits ein Login-Konto -- bitte Ansicht aktualisieren."))
-        null
-    } catch (e: LastAdminException) {
-        notifyError(tr("Der letzte verbleibende Administrator kann nicht entfernt werden."))
-        null
-    } catch (e: ConflictException) {
-        notifyError(tr("Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."))
-        null
-    } catch (e: BadRequestException) {
-        notifyError(tr("Ungültige Anfrage."))
+    } catch (e: RegionalChapterRequiredException) {
+        notifyError(tr("Bitte zuerst einen Landesverband zuordnen."))
         null
     } catch (e: Throwable) {
-        guarded<T> { throw e }
+        handleMemberAdminFailure(e)
+    }
+
+/**
+ * Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- the chapter-specific
+ * counterpart to [memberAdminGuarded]: adds five [RegionalChapterInUseException]/
+ * [RegionalChapterLimitReachedException]/[RegionalChapterNameTakenException]/
+ * [RegionalChapterOfficerIneligibleException]/[RegionalChapterRequiredException] branches ahead of
+ * every OTHER branch (plan §2.6 "diese Zweige kommen vor die Zweige von memberAdminGuarded"), then
+ * delegates the rest to the SAME shared handler [memberAdminGuarded] itself uses
+ * ([handleMemberAdminFailure]) so the two guards never drift. Review fix (NIT, KDoc correction):
+ * all five extend [network.lapis.cloud.shared.rpc.AbstractServiceException] DIRECTLY (see
+ * `ServiceExceptions.kt`) -- unlike [MemberEmailInUseException]/[MemberHasNoAccountException]/etc.
+ * in [memberAdminGuarded]'s own KDoc, they are not narrower siblings of [ConflictException]/
+ * [BadRequestException] that would otherwise "fall through" to those; branch order still matters
+ * (a `when`/`catch` chain always tries the more specific type first), it just is not resolving an
+ * inheritance relationship here.
+ *
+ * [onNameTaken] lets a caller with a live form (create/rename) show the conflict AT THE FIELD
+ * instead of a toast -- when `null` (the default), a toast is shown. [onChapterRejected] is the
+ * same idea for [RegionalChapterRequiredException] ONLY. Review fix (NIT, KDoc correction): this
+ * function is never handed a [BadRequestException] to inspect for [onChapterRejected] -- Kilua
+ * RPC's polymorphic exception protocol never transmits enough to tell a "chapter no longer exists"
+ * `BadRequestException` apart from any other one (see [memberAdminGuarded] KDoc). A caller with its
+ * own chapter-select field that wants the SAME field-error treatment for that case
+ * (`RegistrationScreen.kt`/`renderDirectMemberCreation` in `MemberAdministrationScreen.kt`) instead
+ * catches `BadRequestException` ITSELF, ahead of this guard, and only falls through to
+ * `regionalChapterGuarded { throw e }` when its own chapter field was not the one submitted (blank/
+ * absent) -- see either call site's own KDoc/comment for the exact condition.
+ */
+suspend fun <T> regionalChapterGuarded(
+    onNameTaken: (() -> Unit)? = null,
+    onChapterRejected: (() -> Unit)? = null,
+    block: suspend () -> T,
+): T? =
+    try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: RegionalChapterNameTakenException) {
+        if (onNameTaken != null) {
+            onNameTaken()
+        } else {
+            notifyError(tr("Ein Landesverband mit diesem Namen existiert bereits."))
+        }
+        null
+    } catch (e: RegionalChapterInUseException) {
+        notifyError(tr("Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."))
+        null
+    } catch (e: RegionalChapterLimitReachedException) {
+        notifyError(tr("Die Höchstzahl ist erreicht."))
+        null
+    } catch (e: RegionalChapterOfficerIneligibleException) {
+        notifyError(tr("Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."))
+        null
+    } catch (e: RegionalChapterRequiredException) {
+        if (onChapterRejected != null) {
+            onChapterRejected()
+        } else {
+            notifyError(tr("Bitte zuerst einen Landesverband zuordnen."))
+        }
+        null
+    } catch (e: Throwable) {
+        handleMemberAdminFailure(e)
+    }
+
+/**
+ * Shared branch list [memberAdminGuarded] and [regionalChapterGuarded] both fall through to, kept
+ * as ONE private function (plan §2.6 "eine gemeinsame private Funktion ... die beide Guards
+ * benutzen") so the two guards' generic error handling can never silently drift apart. Branch
+ * ORDER matters and is preserved from the pre-V1.9.14 [memberAdminGuarded]: the specific
+ * `@RpcServiceException` subclasses first, the generic [Throwable] fallback last.
+ */
+private suspend fun <T> handleMemberAdminFailure(e: Throwable): T? =
+    when (e) {
+        is UnauthenticatedException -> guarded<T> { throw e }
+        is ForbiddenException -> {
+            notifyError(tr("Keine Berechtigung für diese Aktion."))
+            null
+        }
+        is NotFoundException -> {
+            notifyError(tr("Nicht gefunden."))
+            null
+        }
+        is MemberEmailInUseException -> {
+            notifyError(tr("Diese E-Mail-Adresse wird bereits von einem anderen Mitglied verwendet."))
+            null
+        }
+        is MemberEmailTooLongException -> {
+            // Review Runde 3 -- NIT fix: without this dedicated catch, this fell through to the
+            // generic ConflictException toast below ("bitte Ansicht aktualisieren"), which is actively
+            // wrong advice for a length problem (see MemberEmailTooLongException's own KDoc).
+            notifyError(gettext("Diese E-Mail-Adresse ist zu lang (höchstens %1 Zeichen).", Validation.EMAIL_MAX_LENGTH))
+            null
+        }
+        is MemberHasNoAccountException -> {
+            // Welle V1.4.9 "Admin-Passwort-Reset" widened this message from the updateMemberRole-
+            // specific "keine Rolle zu ändern" wording to a neutral sentence -- setTemporaryPasswordForMember
+            // / sendPasswordResetMailToMember throw the SAME exception type and show the SAME toast.
+            notifyError(tr("Dieses Mitglied hat kein Login-Konto."))
+            null
+        }
+        is MemberAlreadyHasAccountException -> {
+            notifyError(tr("Dieses Mitglied hat bereits ein Login-Konto -- bitte Ansicht aktualisieren."))
+            null
+        }
+        is LastAdminException -> {
+            notifyError(tr("Der letzte verbleibende Administrator kann nicht entfernt werden."))
+            null
+        }
+        is ConflictException -> {
+            notifyError(tr("Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht aktualisieren."))
+            null
+        }
+        is BadRequestException -> {
+            notifyError(tr("Ungültige Anfrage."))
+            null
+        }
+        else -> guarded<T> { throw e }
     }

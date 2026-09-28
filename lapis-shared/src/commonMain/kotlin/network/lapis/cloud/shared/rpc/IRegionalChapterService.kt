@@ -8,10 +8,9 @@ import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
 /**
  * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- ADMIN maintains the flat chapter list
  * and grants/revokes "Landesvorstand" (regional-chapter officer) access; BOARD/ADMIN may (re-)
- * assign a member to a chapter. A standalone `docs/architecture/regional-chapters.adoc` design doc
- * is, per the CHANGELOG's own "Umfang dieser Welle" disclosure, not yet built -- this interface's
- * own per-method KDoc and `network.lapis.cloud.server.rpc.RegionalChapterService`'s carry the
- * model instead.
+ * assign a member to a chapter. See `docs/architecture/regional-chapters.adoc` (Welle V1.9.14) for
+ * the full design doc; this interface's own per-method KDoc and
+ * `network.lapis.cloud.server.rpc.RegionalChapterService`'s carry the model too.
  */
 @RpcService
 interface IRegionalChapterService {

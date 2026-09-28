@@ -7,18 +7,20 @@ package network.lapis.cloud.server.rpc
  * .requireValidRegionalChapterSelection]). **Default OFF**, same posture
  * [network.lapis.cloud.server.keycloak.KeycloakConfig] KDoc documents for its own optional feature.
  *
- * **Review-fix reasoning.** This wave ships BACKEND-ONLY (no chapter picker in
- * `RegistrationScreen`/`MemberAdministrationScreen`, no chapter-management admin screen at all,
- * see `CHANGELOG.md`). With enforcement unconditionally on, the FIRST chapter an ADMIN ever creates
- * (reachable today only via a direct RPC call, e.g. from devtools or a future admin tool) would
- * immediately start rejecting every self-registration/admin-create/apply-for-membership call the
- * existing, unmodified client makes -- a `RegionalChapterRequiredException` the client has no picker
- * to satisfy and does not know how to recover from. Read via env-var lookups injected as a
+ * **Still Default OFF as of Welle V1.9.14, deliberately.** V1.9.13 shipped backend-only, when
+ * enforcing unconditionally would have immediately rejected every self-registration/admin-create/
+ * apply-for-membership call the then-unmodified client made (a `RegionalChapterRequiredException`
+ * the client had no picker to satisfy). V1.9.14 added the chapter picker to `RegistrationScreen`/
+ * `MemberAdministrationScreen` AND the `RegionalChaptersScreen` admin UI to actually create
+ * chapters through -- but the default stays OFF: whether every active member MUST be assigned a
+ * chapter is an operator policy decision, not something this wave should flip silently just
+ * because the picker now exists (a betreiber running chapters purely informally, with some members
+ * intentionally unassigned, is a legitimate choice). Read via env-var lookups injected as a
  * `(String) -> String?` function (`load`'s `env` parameter), same testability reasoning
  * [network.lapis.cloud.server.conference.ConferenceConfig] KDoc gives for its own constructor-
  * parameter-default idiom (`System.getenv` cannot be mutated per-JVM-test-run). An operator flips
- * `LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED=true` once the client picker/admin UI has actually
- * shipped -- the rule's OWN logic ([requireRegionalChapterBeforeActivation]) and its full test
+ * `LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED=true` when they decide the assignment should become
+ * mandatory -- the rule's OWN logic ([requireRegionalChapterBeforeActivation]) and its full test
  * coverage stay exactly as designed and already reviewed; only its DEFAULT activation moment moves.
  */
 class RegionalChapterEnforcementConfig private constructor(

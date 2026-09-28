@@ -697,9 +697,14 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
  * `text(` calls (Intervall, Anzahl der Termine, Enddatum) are a small, embedded recurrence-rule editor inside
  * `EventsScreen.kt`'s creation form, which itself is not (yet) built with `lapisForm` -- migrating just this one embedded
  * widget to the form grammar while its host screen stays a plain widget tree would not remove any real debt, only rename it.
- * Only ever lowered.
+ * 144 after Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" adds a brand-new file,
+ * `ChapterRosterScreen.kt` -- its one labelled `text(` call (the roster's "Suche nach Name oder E-Mail" filter) is the
+ * same FILTER_IS_NOT_A_FORM shape every other roster/filter search input in this codebase already takes (see
+ * `MemberAdministrationScreen.kt`'s own `searchInput` in [R24_JUSTIFIED] below) -- a search box has nothing to submit
+ * and no invalid state to report, so it stays a plain labelled `text(` call outside the form grammar, same as its host
+ * file's counterpart on `MemberAdministrationScreen.kt`. Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 143
+private const val R24_REMAINING_MAX = 144
 
 private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
 
@@ -770,6 +775,10 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
                 "val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))",
             ),
         "MemberAnniversariesScreen.kt" to listOf("filterRow.select( [label \"Zeitraum\"]"),
+        // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- FILTER_IS_NOT_A_FORM,
+        // same reason as every statusSelect/committeeFilterSelect above: narrows the member roster by
+        // chapter, never submitted.
+        "MemberAdministrationScreen.kt" to listOf("filterRow.select( [label \"Landesverband\"]"),
         // AREA / ACTION SELECTOR (never submitted)
         "CommunicationScreen.kt" to listOf("val listSelect = row.select(options = emptyList(), label = tr(\"Mailingliste\"))"),
         "MyVolunteerShiftsScreen.kt" to

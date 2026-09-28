@@ -15,10 +15,15 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.perc
 import io.kvision.utils.px
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegistrationInput
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 
 /**
  * Screen 2 of the V0.7.3 plan -- self-service join flow. The registrant must see and explicitly
@@ -46,15 +51,24 @@ fun renderRegistrationScreen(container: SimplePanel) {
     val loadingNotice = root.p(tr("Beitrittsvertrag wird geladen ..."))
 
     AppScope.launch {
-        val agreement = guarded { rpcService<IRegistrationService>().getMembershipAgreement() }
+        // Welle V1.9.14 -- loaded in parallel: neither depends on the other, and
+        // `loadRegionalChapterOptionsOrEmpty` never shows a toast (see its own KDoc), so a failure
+        // there never blocks the registration form itself.
+        val (agreement, chapters) =
+            coroutineScope {
+                val agreementDeferred = async { guarded { rpcService<IRegistrationService>().getMembershipAgreement() } }
+                val chaptersDeferred = async { loadRegionalChapterOptionsOrEmpty() }
+                agreementDeferred.await() to chaptersDeferred.await()
+            }
         loadingNotice.hide()
-        if (agreement != null) renderRegistrationForm(root, agreement)
+        if (agreement != null) renderRegistrationForm(root, agreement, chapters)
     }
 }
 
 private fun renderRegistrationForm(
     root: SimplePanel,
     agreement: MembershipAgreementDto,
+    chapters: List<RegionalChapterRefDto> = emptyList(),
 ) {
     root.h2(gettext("Beitrittsvertrag (Version %1)", agreement.version)) { addCssClass("h5") }
     root.div {
@@ -65,7 +79,8 @@ private fun renderRegistrationForm(
     }
 
     val form = root.lapisForm()
-    // Vier Felder, alle Pflicht: keine Sterne, Legende "Alle Felder sind Pflichtfelder." (Fall b).
+    // Vier bis fünf Felder, alle bis auf den optionalen Landesverband Pflicht (Welle V1.9.14 macht
+    // aus Fall (b) ggf. Fall (a) -- der Formular-Baustein entscheidet das automatisch in `buttons()`).
     val displayNameField = form.textField(label = tr("Name"), required = true)
     val emailField =
         form.textField(
@@ -100,21 +115,59 @@ private fun renderRegistrationForm(
         required = true,
         requiredMessage = gettext("Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."),
     )
+    // Welle V1.9.14 -- MUST be built before `form.buttons(...)` (plan §1 P9), only when chapters
+    // exist at all. Optional -- the board can assign one later via `MemberAdministrationScreen.kt`.
+    val chapterField =
+        if (chapters.isNotEmpty()) {
+            form.selectField(
+                label = tr("Landesverband"),
+                options = listOf("" to tr("— weiß ich noch nicht —")) + untrustedOptions(chapters.map { it.id to it.name }),
+                hint = tr("Optional. Der Vorstand kann die Zuordnung später vornehmen."),
+            )
+        } else {
+            null
+        }
 
     val submitButton = Button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton)
     submitButton.onClick {
         form.submit(submitButton) {
+            val chapterId = chapterField?.value
+            // Welle V1.9.14 -- registerApplication runs in ITS OWN try, ahead of the `guarded {}`
+            // fallback (plan §2.8): RegionalChapterRequiredException/a chapter-shaped
+            // BadRequestException are shown AT THE FIELD; everything else (including a
+            // non-chapter-shaped BadRequestException) delegates to `guarded {}`'s own handling via
+            // `guarded { throw e }`, so the account-enumeration-hardening posture
+            // (`IRegistrationService.registerApplication` KDoc) is preserved for every OTHER error.
             val result =
-                guarded {
+                try {
                     rpcService<IRegistrationService>().registerApplication(
                         buildRegistrationInput(
                             displayName = displayNameField.value,
                             email = emailField.value,
                             password = passwordField.value,
                             agreement = agreement,
+                            regionalChapterId = chapterId,
                         ),
                     )
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: RegionalChapterRequiredException) {
+                    if (chapterField != null) {
+                        chapterField.showError(tr("Bitte wählen Sie einen Landesverband."))
+                        null
+                    } else {
+                        guarded { throw e }
+                    }
+                } catch (e: BadRequestException) {
+                    if (chapterField != null && !chapterId.isNullOrBlank()) {
+                        chapterField.showError(tr("Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."))
+                        null
+                    } else {
+                        guarded { throw e }
+                    }
+                } catch (e: Throwable) {
+                    guarded { throw e }
                 }
             if (result != null) {
                 root.removeAll()
@@ -140,6 +193,7 @@ internal fun buildRegistrationInput(
     email: String,
     password: String,
     agreement: MembershipAgreementDto,
+    regionalChapterId: String? = null,
 ): RegistrationInput =
     RegistrationInput(
         displayName = displayName.trim(),
@@ -147,6 +201,9 @@ internal fun buildRegistrationInput(
         password = password,
         agreementVersion = agreement.version,
         agreementSha256 = agreement.sha256,
+        // Welle V1.9.14 -- blank/`null` alike become `null` (an empty select value "— weiß ich noch
+        // nicht —" is `""`, never a real chapter id).
+        regionalChapterId = regionalChapterId?.takeIf { it.isNotBlank() },
     )
 
 private fun renderRegistrationPending(root: SimplePanel) {

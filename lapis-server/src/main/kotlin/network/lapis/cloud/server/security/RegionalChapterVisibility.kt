@@ -18,12 +18,12 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.shared.rpc.IMemberService.listMembersForAdministration]. Every OTHER RPC
  * service/route is completely unaffected by this wave -- the officer's [network.lapis.cloud.shared
  * .domain.AccountRole] stays `MEMBER`, so every existing `requireRole`/`isPrivileged`/
- * `ESCALATED_ROLES` gate in this codebase treats them exactly like any other plain member. A
- * standalone `docs/architecture/regional-chapters.adoc` design doc and a dedicated
- * `RegionalChapterNoWideningTest` are both listed in the CHANGELOG's own "Umfang dieser Welle"
- * disclosure as NOT YET BUILT (deferred to a follow-up wave) -- [MemberVisibility]/
- * [memberVisibility] below carry the actual security argument this KDoc paragraph used to point
- * elsewhere for, and `RegionalChapterVisibilityAllowlistScanTest` (see [memberVisibility] KDoc
+ * `ESCALATED_ROLES` gate in this codebase treats them exactly like any other plain member. See
+ * `docs/architecture/regional-chapters.adoc` (Welle V1.9.14) for the full design doc -- a
+ * behavioral `RegionalChapterNoWideningTest` (query-manipulation coverage against a chapter-scoped
+ * caller) remains deferred to a follow-up wave per the CHANGELOG's own "Ausdrücklich nicht Teil
+ * dieser Welle" disclosure. [MemberVisibility]/[memberVisibility] below carry the actual security
+ * argument, and `RegionalChapterVisibilityAllowlistScanTest` (see [memberVisibility] KDoc
  * "Allowlisted call sites only") is the real, currently-existing regression guard.
  *
  * **Role always wins first.** [MemberVisibility.All] for BOARD/TREASURER/ADMIN is checked BEFORE
@@ -58,9 +58,10 @@ sealed interface MemberVisibility {
  * KDoc also listed `RegionalChapterService`, which calls `requireRole` directly and has never
  * actually called this function. Never call this from an API-key route
  * (`ApiKeyAuth`/`PublicApiRoutes`) or from the `mcp` package -- those surfaces are out of scope for
- * this wave entirely (a dedicated `RegionalChapterNoWideningTest` covering that explicitly is, per
- * the CHANGELOG's own "Umfang dieser Welle" disclosure, not yet built -- the allowlist scan above
- * is this wave's actual guard against a NEW call site appearing there unnoticed).
+ * this wave entirely (a dedicated behavioral `RegionalChapterNoWideningTest` covering that
+ * explicitly remains deferred, per the CHANGELOG's own V1.9.14 "Ausdrücklich nicht Teil dieser
+ * Welle" disclosure -- the allowlist scan above is this wave's actual guard against a NEW call
+ * site appearing there unnoticed).
  *
  * Re-reads [CurrentMember.status]/the officer-grant table FRESH on every call, inside the SAME
  * transaction as whatever query the caller is about to run -- no caching, no time-of-check/

@@ -1,7 +1,9 @@
 package network.lapis.cloud.client
 
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 
 /**
  * V0.11.0 FRIEND self-registration -- pure, DOM-free predicates extracted from `App.kt`'s
@@ -69,4 +71,31 @@ object NavVisibility {
         status: MemberStatus,
         mcpEnabled: Boolean,
     ): Boolean = mcpEnabled && status in MemberStatusSets.LTR_ELIGIBLE
+
+    /**
+     * V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- the "Gliederungsverwaltung"
+     * sidebar entry (ADMINISTRATION group) and its route (`Routes.REGIONAL_CHAPTERS`). Mirrors
+     * `RegionalChapterService.kt`'s own gate: `listChapters`/`createChapter`/`renameChapter`/
+     * `deleteChapter`/`listOfficers`/`grantOfficer`/`revokeOfficer` are all ADMIN-only (the single
+     * exception, `assignMemberToChapter`, is BOARD/ADMIN but lives on `MemberAdministrationScreen.kt`
+     * instead -- this predicate only gates the standalone chapter-management screen itself, which
+     * needs the FULL surface, not just assignment).
+     */
+    fun showsRegionalChapterAdmin(role: AccountRole?): Boolean = role == AccountRole.ADMIN
+
+    /**
+     * V1.9.14 -- the "Mein Landesverband" sidebar entry (MEMBERSHIP group) and its route
+     * (`Routes.MY_CHAPTER`). Driven ONLY by the server-computed [RegionalChapterRefDto]
+     * (`SessionInfoDto.chapterScope`), NEVER a client-derived boolean -- the server alone decides
+     * whether a session belongs to an active "Landesvorstand" (regional-chapter officer) grant (see
+     * `AuthService.getSessionInfo` KDoc). A stale/null [chapterScope] simply hides the entry.
+     * Review fix (NIT, KDoc correction): `RegionalChaptersScreen.refreshSessionFromServer` only
+     * runs after `createChapter`/`deleteChapter` in that file, NOT after `grantOfficer`/
+     * `revokeOfficer`/`renameChapter` -- functionally harmless (the ADMIN driving that screen always
+     * has `MemberVisibility.All` and therefore never has a [chapterScope] of their own to go stale),
+     * but this entry is NOT actually refreshed after every grant/revoke as the previous wording
+     * claimed. `ChapterRosterScreen.kt`'s own session re-check (once per mount, see its class KDoc)
+     * is what keeps an ACTUAL officer's own view current across a revoke elsewhere.
+     */
+    fun showsChapterRoster(chapterScope: RegionalChapterRefDto?): Boolean = chapterScope != null
 }

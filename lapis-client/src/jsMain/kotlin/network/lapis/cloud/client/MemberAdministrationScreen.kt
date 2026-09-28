@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.form.select.Select
+import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -35,10 +36,15 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
+import network.lapis.cloud.shared.domain.RegionalChapterRules
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 
 /**
  * Screen 4 of the V0.7.3 plan -- BOARD/ADMIN only, route-guarded in `Routing.kt` (never even
@@ -60,13 +66,30 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
 
     val callerRole = AppState.session?.role
     val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
-    if (isBoardOrAdmin) renderPendingApplications(root)
-    renderMemberRoster(root)
+    // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- loaded once, BEFORE any
+    // of the sections below, and threaded through as a plain parameter (never
+    // `session.regionalChaptersExist`, see plan §1 P5: that session flag is stale until the next
+    // login/boot-probe, `chapters.isNotEmpty()` is the live source of truth). Not `guarded` -- see
+    // `loadRegionalChapterOptionsOrEmpty` KDoc.
+    AppScope.launch {
+        val chapters = loadRegionalChapterOptionsOrEmpty()
+        renderMemberAdministrationSections(root, chapters, callerRole, isBoardOrAdmin)
+    }
+}
+
+private fun renderMemberAdministrationSections(
+    root: SimplePanel,
+    chapters: List<RegionalChapterRefDto>,
+    callerRole: AccountRole?,
+    isBoardOrAdmin: Boolean,
+) {
+    if (isBoardOrAdmin) renderPendingApplications(root, chapters)
+    renderMemberRoster(root, chapters)
     // V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI": ADMIN-only (mirrors
     // IKeycloakLinkService's own role gate), and only in Keycloak mode -- see KeycloakLinkScreen.kt
     // class KDoc "house rule ... never offer an action the server rejects anyway".
     if (callerRole == AccountRole.ADMIN && AppState.session?.keycloakMode == true) renderKeycloakLinkSection(root)
-    if (isBoardOrAdmin) renderDirectMemberCreation(root)
+    if (isBoardOrAdmin) renderDirectMemberCreation(root, chapters)
     // Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit": visible to TREASURER/BOARD/ADMIN alike (same read
     // gate IOrganizationSettingsService.getOrganizationSettings already enforces server-side), but
     // ADMIN-only to CHANGE -- see renderPublicMemberCountToggle KDoc for why this deliberately does
@@ -74,7 +97,10 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
     renderPublicMemberCountToggle(root, canAdmin = callerRole == AccountRole.ADMIN)
 }
 
-private fun renderPendingApplications(root: SimplePanel) {
+private fun renderPendingApplications(
+    root: SimplePanel,
+    chapters: List<RegionalChapterRefDto>,
+) {
     root.h2(tr("Offene Anträge")) { addCssClass("h5") }
     // Welle V1.4.25: `dataSection` + `dataTable` replace the hand-built table -- the same density,
     // loading/error/empty grammar and narrow-viewport card list as the roster below, so the two tables of
@@ -89,13 +115,13 @@ private fun renderPendingApplications(root: SimplePanel) {
             load = { guarded { rpcService<IRegistrationService>().listPendingApplications() } },
             render = { panel, applications ->
                 panel.dataTable(
-                    columns = pendingApplicationColumns(),
+                    columns = pendingApplicationColumns(chapters),
                     rows = applications,
                     actions = {
                         actions,
                         application,
                         ->
-                        renderPendingApplicationActions(actions, application, onChanged = { section.reload() })
+                        renderPendingApplicationActions(actions, application, chapters, onChanged = { section.reload() })
                     },
                 )
             },
@@ -103,15 +129,34 @@ private fun renderPendingApplications(root: SimplePanel) {
     section.reload()
 }
 
-private fun pendingApplicationColumns(): List<DataColumn<MemberDto>> =
-    listOf(
+private fun pendingApplicationColumns(chapters: List<RegionalChapterRefDto>): List<DataColumn<MemberDto>> =
+    listOf<DataColumn<MemberDto>>(
         DataColumn(
             title = tr("Antragsteller"),
             primary = true,
             cell = { container, application -> container.span(pendingApplicationLabel(application)) },
         ),
         DataColumn(title = tr("Rolle"), cell = { container, application -> container.accountRoleBadge(application.role) }),
-    )
+    ) +
+        if (chapters.isNotEmpty()) {
+            listOf(
+                DataColumn(
+                    title = tr("Landesverband"),
+                    cell = { container, application ->
+                        val name = chapters.firstOrNull { it.id == application.regionalChapterId }?.name
+                        if (name !=
+                            null
+                        ) {
+                            container.untrustedSpan(name)
+                        } else {
+                            container.span(tr("nicht zugeordnet")) { addCssClass("text-body-secondary") }
+                        }
+                    },
+                ),
+            )
+        } else {
+            emptyList()
+        }
 
 private fun pendingApplicationLabel(application: MemberDto): String {
     val friendSince = application.friendSince
@@ -131,13 +176,17 @@ private fun pendingApplicationLabel(application: MemberDto): String {
 private fun renderPendingApplicationActions(
     actionsContainer: Container,
     application: MemberDto,
+    chapters: List<RegionalChapterRefDto>,
     onChanged: () -> Unit,
 ) {
     val actionsRow = actionsContainer.hPanel(spacing = 8)
     val approveButton = actionsRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
     approveButton.onClick {
         AppScope.launch {
-            val result = guarded { rpcService<IRegistrationService>().approveApplication(application.id) }
+            // Welle V1.9.14: RegionalChapterRequiredException is possible here when the enforcement
+            // flag is on and no chapter is assigned yet -- regionalChapterGuarded (not guarded) shows
+            // the right toast for that case too.
+            val result = regionalChapterGuarded { rpcService<IRegistrationService>().approveApplication(application.id) }
             if (result != null) {
                 notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
                 onChanged()
@@ -154,6 +203,23 @@ private fun renderPendingApplicationActions(
                     onChanged()
                 }
             }
+        }
+    }
+    // Welle V1.9.14 -- only offered when chapters exist at all AND the caller may assign one for
+    // this row's role/status (same peer-protection predicate the roster editor uses).
+    if (chapters.isNotEmpty() &&
+        canAssignChapterOf(AppState.session?.role, AppState.session?.memberId, application.role, application.status, false, application.id)
+    ) {
+        val assignButton = actionsRow.button(tr("Landesverband zuordnen"), style = ButtonStyle.OUTLINESECONDARY)
+        assignButton.onClick {
+            val modal = Modal(caption = gettext("Landesverband für %1", application.displayName))
+            val legendGroup = LegendGroup()
+            renderChapterAssignmentSection(modal, application.id, application.regionalChapterId, chapters, legendGroup) {
+                modal.hide()
+                onChanged()
+            }
+            modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+            modal.show()
         }
     }
 }
@@ -202,10 +268,60 @@ internal data class RosterState(
     val statuses: Set<MemberStatus> = emptySet(),
     val sort: MemberAdminSort = MemberAdminSort.NAME_ASC,
     val offset: Int = 0,
+    /** Welle V1.9.14 -- see [ChapterFilter]. */
+    val chapterFilter: ChapterFilter = ChapterFilter.All,
 )
 
 private val STATUS_CHIPS: List<MemberStatus?> =
     listOf(null, MemberStatus.ACTIVE, MemberStatus.WITHDRAWN, MemberStatus.DONOR, MemberStatus.DECEASED)
+
+/**
+ * Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- the roster's chapter
+ * filter, kept as a closed set rather than a bare `String?` so [toQueryFields] can guarantee
+ * `regionalChapterId`/`unassignedOnly` are NEVER both set at once (the server throws
+ * `BadRequestException` if they are, see `MemberAdminQuery.regionalChapterId` KDoc).
+ */
+internal sealed interface ChapterFilter {
+    data object All : ChapterFilter
+
+    data object Unassigned : ChapterFilter
+
+    data class Chapter(
+        val id: String,
+    ) : ChapterFilter
+}
+
+/** `(regionalChapterId, unassignedOnly)` -- never both set. */
+internal fun ChapterFilter.toQueryFields(): Pair<String?, Boolean> =
+    when (this) {
+        ChapterFilter.All -> null to false
+        ChapterFilter.Unassigned -> null to true
+        is ChapterFilter.Chapter -> id to false
+    }
+
+/** Sentinel select value for [ChapterFilter.Unassigned] -- never collides with a real chapter UUID. */
+internal const val CHAPTER_FILTER_UNASSIGNED_VALUE = "__unassigned__"
+
+/** Parses a `selectField` value into a [ChapterFilter]: `""` -> [ChapterFilter.All], the sentinel -> [ChapterFilter.Unassigned], else a chapter id. */
+internal fun chapterFilterFromSelectValue(value: String?): ChapterFilter =
+    when {
+        value.isNullOrBlank() -> ChapterFilter.All
+        value == CHAPTER_FILTER_UNASSIGNED_VALUE -> ChapterFilter.Unassigned
+        else -> ChapterFilter.Chapter(value)
+    }
+
+/** Extracted from [renderMemberRoster]'s inline `load` so [ChapterFilterTest] can cover it without a DOM. */
+internal fun rosterQuery(state: RosterState): MemberAdminQuery {
+    val (chapterId, unassignedOnly) = state.chapterFilter.toQueryFields()
+    return MemberAdminQuery(
+        search = state.search.ifBlank { null },
+        statuses = state.statuses,
+        sort = state.sort,
+        offset = state.offset,
+        regionalChapterId = chapterId,
+        unassignedOnly = unassignedOnly,
+    )
+}
 
 /**
  * Replaces the old `renderMemberDirectory` -- that function's own KDoc ("dafür existiert aktuell
@@ -216,7 +332,10 @@ private val STATUS_CHIPS: List<MemberStatus?> =
  * see this file's class KDoc and [canEditMembershipTierOf]) -- server-side re-enforces this
  * independently, this is not the only gate.
  */
-private fun renderMemberRoster(root: SimplePanel) {
+private fun renderMemberRoster(
+    root: SimplePanel,
+    chapters: List<RegionalChapterRefDto>,
+) {
     root.h2(tr("Mitgliederverzeichnis")) { addCssClass("h5") }
 
     var state = RosterState()
@@ -227,6 +346,20 @@ private fun renderMemberRoster(root: SimplePanel) {
 
     val filterRow = root.hPanel(spacing = 8)
     val searchInput = filterRow.text(label = tr("Suche nach Name, E-Mail oder Personennummer"))
+    // Welle V1.9.14 -- only rendered once chapters actually exist (mirrors every other chapter-UI
+    // element's `chapters.isNotEmpty()` gate, plan §1 P5).
+    val chapterFilterSelect =
+        if (chapters.isNotEmpty()) {
+            filterRow.select(
+                label = tr("Landesverband"),
+                options =
+                    listOf("" to tr("Alle Landesverbände"), CHAPTER_FILTER_UNASSIGNED_VALUE to tr("Nicht zugeordnet")) +
+                        untrustedOptions(chapters.map { it.id to it.name }),
+                value = "",
+            )
+        } else {
+            null
+        }
     val chipsRow = root.hPanel(spacing = 6)
 
     lateinit var section: DataSection
@@ -260,10 +393,18 @@ private fun renderMemberRoster(root: SimplePanel) {
         pagerRow.show()
     }
 
+    val chapterFilterTermLabel: (ChapterFilter) -> String? = { filter ->
+        when (filter) {
+            ChapterFilter.All -> null
+            ChapterFilter.Unassigned -> tr("Nicht zugeordnet")
+            is ChapterFilter.Chapter -> chapters.firstOrNull { it.id == filter.id }?.name
+        }
+    }
+
     section =
         root.dataSection<MemberAdminPageDto>(
             emptyText = tr("Noch keine Mitglieder vorhanden."),
-            filterTerm = { rosterFilterTerm(state) },
+            filterTerm = { rosterFilterTerm(state.search, state.statuses, chapterFilterTermLabel(state.chapterFilter)) },
             noMatchText = { term -> gettext("Kein Mitglied passt zu \"%1\".", term) },
             isEmpty = { it.rows.isEmpty() },
             onSettled = { page ->
@@ -279,21 +420,10 @@ private fun renderMemberRoster(root: SimplePanel) {
                     renderPager(page)
                 }
             },
-            load = {
-                guarded {
-                    rpcService<IMemberService>().listMembersForAdministration(
-                        MemberAdminQuery(
-                            search = state.search.ifBlank { null },
-                            statuses = state.statuses,
-                            sort = state.sort,
-                            offset = state.offset,
-                        ),
-                    )
-                }
-            },
+            load = { guarded { rpcService<IMemberService>().listMembersForAdministration(rosterQuery(state)) } },
             render = { panel, page ->
                 panel.dataTable(
-                    columns = rosterColumns(),
+                    columns = rosterColumns(chapters.isNotEmpty()),
                     rows = page.rows,
                     sort = state.sort.toSortState(),
                     onSort = { clicked ->
@@ -302,12 +432,31 @@ private fun renderMemberRoster(root: SimplePanel) {
                         refresh()
                     },
                     sortOptions = ROSTER_SORT_OPTIONS,
-                    actions = { actions, row -> renderRosterActions(actions, row, onChanged = { refresh() }) },
+                    actions = { actions, row -> renderRosterActions(actions, row, chapters, onChanged = { refresh() }) },
                     focusSortKey = sortFocus.takeForRender(),
                 )
             },
         )
     pagerRow = root.hPanel(spacing = 8)
+
+    // Review fix (efficiency): KVision's `subscribe` invokes the observer immediately with the
+    // field's current value on registration -- same trap `searchInput.subscribe` below already
+    // documents and guards against with `isInitialSearchEvent`. Without this guard, EVERY mount of
+    // a roster with at least one chapter fired `refresh()` twice (the synthetic first `subscribe`
+    // event, then the explicit `refresh()` call at the end of this function): two identical
+    // `listMembersForAdministration` round trips. Harmless for correctness (`DataLoadController`'s
+    // generation guard already discards the stale one), but avoidable load.
+    var isInitialChapterFilterEvent = true
+    chapterFilterSelect?.subscribe { value ->
+        if (isInitialChapterFilterEvent) {
+            isInitialChapterFilterEvent = false
+            return@subscribe
+        }
+        // No debounce (Design-Team decision, same as every other `select` filter): a select change is
+        // one discrete event, not a keystroke stream.
+        state = state.copy(chapterFilter = chapterFilterFromSelectValue(value), offset = 0)
+        refresh()
+    }
 
     chipButtons =
         STATUS_CHIPS.associateWith { status ->
@@ -366,9 +515,9 @@ private val ROSTER_SORT_OPTIONS =
 private const val ROSTER_SORT_NAME = "name"
 private const val ROSTER_SORT_JOINED = "joined"
 
-/** The columns of the roster table / card list; Name is the card title. */
-private fun rosterColumns(): List<DataColumn<MemberAdminRowDto>> =
-    listOf(
+/** The columns of the roster table / card list; Name is the card title. [showChapter] mirrors every other chapter-UI element's `chapters.isNotEmpty()` gate (Welle V1.9.14). */
+private fun rosterColumns(showChapter: Boolean): List<DataColumn<MemberAdminRowDto>> =
+    listOf<DataColumn<MemberAdminRowDto>>(
         DataColumn(
             title = tr("Name"),
             primary = true,
@@ -378,26 +527,50 @@ private fun rosterColumns(): List<DataColumn<MemberAdminRowDto>> =
         textColumn(title = tr("E-Mail")) { row: MemberAdminRowDto -> row.email },
         DataColumn(title = tr("Status"), cell = { container, row -> container.renderRosterStatus(row) }),
         DataColumn(title = tr("Rolle"), cell = { container, row -> container.renderRosterRole(row) }),
-        DataColumn(
-            title = tr("Beitritt"),
-            numeric = true,
-            sortKey = ROSTER_SORT_JOINED,
-            cell = { container, row -> container.span(row.joinedAt.toString()) },
-        ),
-    )
+    ) +
+        if (showChapter) {
+            listOf(
+                DataColumn(
+                    title = tr("Landesverband"),
+                    cell = { container, row ->
+                        val name = row.regionalChapterName
+                        if (name !=
+                            null
+                        ) {
+                            container.untrustedSpan(name)
+                        } else {
+                            container.span(tr("nicht zugeordnet")) { addCssClass("text-body-secondary") }
+                        }
+                    },
+                ),
+            )
+        } else {
+            emptyList()
+        } +
+        listOf(
+            DataColumn(
+                title = tr("Beitritt"),
+                numeric = true,
+                sortKey = ROSTER_SORT_JOINED,
+                cell = { container, row -> container.span(row.joinedAt.toString()) },
+            ),
+        )
 
 /**
  * The term the "no match" sentence quotes: the search text, or -- with only a status chip active -- that
- * chip's label. `null` when nothing filters (an empty page then means "no members yet").
+ * chip's label, or -- with a chapter filter active and no other filter -- that chapter's label (Welle
+ * V1.9.14, [chapterFilterLabel]). `null` when nothing filters (an empty page then means "no members yet").
+ * [chapterFilterLabel] defaults to `null` so every pre-existing two-argument call site stays
+ * source-compatible.
  */
 internal fun rosterFilterTerm(
     search: String,
     statuses: Set<MemberStatus>,
+    chapterFilterLabel: String? = null,
 ): String? =
     search.trim().takeIf { it.isNotEmpty() }
         ?: statuses.singleOrNull()?.let { memberStatusLabel(it) }
-
-private fun rosterFilterTerm(state: RosterState): String? = rosterFilterTerm(state.search, state.statuses)
+        ?: chapterFilterLabel
 
 /** `MemberAdminSort` <-> the generic [SortState] of `dataTable` (all four values, both directions). */
 internal fun MemberAdminSort.toSortState(): SortState =
@@ -476,6 +649,7 @@ private fun Container.renderRosterRole(row: MemberAdminRowDto) {
 private fun renderRosterActions(
     actionsCell: Container,
     row: MemberAdminRowDto,
+    chapters: List<RegionalChapterRefDto>,
     onChanged: () -> Unit,
 ) {
     // GitHub issue #1 -- icon instead of text, so the actions column stays narrow at any table
@@ -488,7 +662,7 @@ private fun renderRosterActions(
     if (row.anonymized) {
         editButton.disabled = true
         editButton.tableActionTooltip(tr("DSGVO-gelöscht"))
-    } else if (!hasAnyEditableSectionFor(callerRole, callerMemberId, row)) {
+    } else if (!hasAnyEditableSectionFor(callerRole, callerMemberId, row, chaptersExist = chapters.isNotEmpty())) {
         // Regression fix (Review Runde 3): before the per-section gating in openMemberEditorDialog
         // existed, "Stammdaten" was rendered UNCONDITIONALLY, so the modal could never be empty.
         // Now that all five sections are individually gated (Peer-Schutz), a BOARD caller on an
@@ -512,7 +686,7 @@ private fun renderRosterActions(
             ),
         )
     } else {
-        editButton.onClick { openMemberEditorDialog(row, onChanged) }
+        editButton.onClick { openMemberEditorDialog(row, onChanged, chapters) }
     }
 
     // Welle V1.4.4.1 "Beitragshistorie" -- der erste von zwei Einstiegen in
@@ -623,6 +797,7 @@ private fun renderRosterActions(
 internal fun openMemberEditorDialog(
     row: MemberAdminRowDto,
     onChanged: () -> Unit,
+    chapters: List<RegionalChapterRefDto> = emptyList(),
 ) {
     val callerRole = AppState.session?.role
     val callerMemberId = AppState.session?.memberId
@@ -936,6 +1111,16 @@ internal fun openMemberEditorDialog(
         }
     }
 
+    // ── Landesverband (Welle V1.9.14) ──
+    if (chapters.isNotEmpty() && canAssignChapterOf(callerRole, callerMemberId, row.role, row.status, row.anonymized, row.id)) {
+        modal.div { addCssClass("mt-3") }
+        modal.h2(tr("Landesverband")) { addCssClass("h6") }
+        renderChapterAssignmentSection(modal, row.id, row.regionalChapterId, chapters, legendGroup) {
+            modal.hide()
+            onChanged()
+        }
+    }
+
     // ── Konto anlegen (Welle V1.2.13) ──
     if (canGrantAccountTo(callerRole, row)) {
         modal.div { addCssClass("mt-3") }
@@ -1063,17 +1248,18 @@ fun canEditCoreDataOf(
 }
 
 /**
- * Whether [openMemberEditorDialog] would render AT LEAST ONE of its six sections for [row] --
- * i.e. whether the "Bearbeiten" button in [renderMemberRosterRow] should be enabled at all. Purely
+ * Whether [openMemberEditorDialog] would render AT LEAST ONE of its sections for [row] -- i.e.
+ * whether the "Bearbeiten" button in [renderMemberRosterRow] should be enabled at all. Purely
  * `canEditCoreDataOf(...) || canChangeStatusOf(...) || canEditRoleOf(...) || canGrantAccountTo(...)
- * || canEditMembershipTierOf(...) || canCorrectDateOfDeathOf(...)` (the sixth predicate, added
- * V1.4.4.5, follows the exact same reasoning as the other five), kept as its own named function
- * (rather than inlined at the one call site) so the six predicates this depends on stay a single,
- * obviously-in-sync list with the six `if`-gates inside [openMemberEditorDialog] -- see this
- * file's ESCALATED_ROLES KDoc for why the client mirrors the server's Peer-Schutz boundary at all:
- * an escalated-role target (or, for a BOARD caller, their OWN row -- BOARD/ADMIN/TREASURER is
- * itself an escalated role) can leave all six predicates `false` at once, which without this check
- * would previously open a modal with a title, an empty body, and only a "Schließen" button.
+ * || canEditMembershipTierOf(...) || canCorrectDateOfDeathOf(...) || (chaptersExist &&
+ * canAssignChapterOf(...))` (the sixth predicate, added V1.4.4.5, and the seventh, added V1.9.14,
+ * follow the exact same reasoning as the first five), kept as its own named function (rather than
+ * inlined at the one call site) so the predicates this depends on stay a single, obviously-in-sync
+ * list with the `if`-gates inside [openMemberEditorDialog] -- see this file's ESCALATED_ROLES KDoc
+ * for why the client mirrors the server's Peer-Schutz boundary at all: an escalated-role target
+ * (or, for a BOARD caller, their OWN row -- BOARD/ADMIN/TREASURER is itself an escalated role) can
+ * leave every predicate `false` at once, which without this check would previously open a modal
+ * with a title, an empty body, and only a "Schließen" button.
  *
  * Review fix (Welle V1.4.4.4, MAJOR finding): `canEditMembershipTierOf` was originally left OUT of
  * this OR-chain, so a BOARD caller on an escalated-role target (TREASURER/BOARD/ADMIN, including
@@ -1089,18 +1275,91 @@ fun canEditCoreDataOf(
  * predicates: the earlier fix had accidentally re-opened exactly the self-/peer-benefit hole this
  * function exists to close, just through the newest of the five sections instead of one of the
  * original four.
+ *
+ * [chaptersExist] (Welle V1.9.14, default `false`) additionally ORs in [canAssignChapterOf] --
+ * default `false` keeps every pre-existing call site byte-for-byte unchanged (plan §2.7 "S3").
+ * **Keep the OR-chain and this KDoc in sync** -- this exact chain has already caused two
+ * regressions (V1.4.4.4 MAJOR, Review Runde 3), see [canEditMembershipTierOf]'s own KDoc.
  */
 fun hasAnyEditableSectionFor(
     callerRole: AccountRole?,
     callerMemberId: String?,
     row: MemberAdminRowDto,
+    chaptersExist: Boolean = false,
 ): Boolean =
     canEditCoreDataOf(callerRole, row) ||
         canChangeStatusOf(callerRole, callerMemberId, row) ||
         canEditRoleOf(callerRole, callerMemberId, row) ||
         canGrantAccountTo(callerRole, row) ||
         canEditMembershipTierOf(callerRole, callerMemberId, row) ||
-        canCorrectDateOfDeathOf(callerRole, callerMemberId, row)
+        canCorrectDateOfDeathOf(callerRole, callerMemberId, row) ||
+        (chaptersExist && canAssignChapterOf(callerRole, callerMemberId, row.role, row.status, row.anonymized, row.id))
+
+/**
+ * Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- mirrors
+ * `IRegionalChapterService.assignMemberToChapter`'s own KDoc exactly: BOARD or ADMIN may assign,
+ * the target's [MemberStatus] must be in [network.lapis.cloud.shared.domain.RegionalChapterRules
+ * .ASSIGNABLE_STATUSES], the row must not be anonymized, and -- the peer-protection boundary --
+ * an ESCALATED target role (BOARD/TREASURER/ADMIN) requires ADMIN specifically. [targetMemberId]
+ * is unused today (the server has no "not your own row" special case for THIS action, unlike
+ * [canEditCoreDataOf]/[canChangeStatusOf]: a BOARD caller assigning their OWN chapter is allowed,
+ * as long as their own role -- BOARD -- does not already trip the escalated-role branch above,
+ * which it does, so ADMIN is required anyway) -- kept as a parameter purely for documentation and
+ * call-site symmetry with the escalated-role predicates above.
+ */
+fun canAssignChapterOf(
+    callerRole: AccountRole?,
+    @Suppress("UNUSED_PARAMETER") callerMemberId: String?,
+    targetRole: AccountRole?,
+    targetStatus: MemberStatus,
+    anonymized: Boolean,
+    @Suppress("UNUSED_PARAMETER") targetMemberId: String,
+): Boolean {
+    if (anonymized) return false
+    if (targetStatus !in RegionalChapterRules.ASSIGNABLE_STATUSES) return false
+    if (targetRole != null && targetRole in ESCALATED_ROLES) return callerRole == AccountRole.ADMIN
+    return callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
+}
+
+/**
+ * The chapter-picker section shared by [openMemberEditorDialog], the pending-applications
+ * "Landesverband zuordnen" action and (indirectly, via its own form) `RegistrationScreen.kt`'s
+ * optional picker. [onSaved] is called after a successful `assignMemberToChapter` (the caller
+ * decides whether that means closing a modal, reloading a section, or both).
+ */
+internal fun renderChapterAssignmentSection(
+    host: Container,
+    memberId: String,
+    currentChapterId: String?,
+    chapters: List<RegionalChapterRefDto>,
+    legendGroup: LegendGroup,
+    onSaved: () -> Unit,
+) {
+    val form = host.lapisForm(legendGroup)
+    val chapterField =
+        form.selectField(
+            label = tr("Landesverband"),
+            options = listOf("" to tr("— nicht zugeordnet —")) + untrustedOptions(chapters.map { it.id to it.name }),
+            value = currentChapterId ?: "",
+        )
+    form.panel.p(tr("Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch.")) {
+        addCssClasses("text-muted small")
+    }
+    val saveButton = Button(tr("Zuordnung speichern"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
+    saveButton.onClick {
+        form.submit(saveButton) {
+            val result =
+                regionalChapterGuarded {
+                    rpcService<IRegionalChapterService>().assignMemberToChapter(memberId, chapterField.value.ifBlank { null })
+                }
+            if (result != null) {
+                notifySuccess(tr("Landesverband-Zuordnung gespeichert."))
+                onSaved()
+            }
+        }
+    }
+}
 
 /**
  * Welle V1.4.4.4 "Familienmitgliedschaften" -- ob der Abschnitt "Beitragstarif" in
@@ -1295,7 +1554,10 @@ fun pagerLabel(
     return gettext("%1–%2 von %3", from, to, totalCount)
 }
 
-internal fun renderDirectMemberCreation(root: SimplePanel) {
+internal fun renderDirectMemberCreation(
+    root: SimplePanel,
+    chapters: List<RegionalChapterRefDto> = emptyList(),
+) {
     root.h2(tr("Mitglied direkt anlegen")) { addCssClass("h5") }
     root.p(
         tr(
@@ -1337,6 +1599,18 @@ internal fun renderDirectMemberCreation(root: SimplePanel) {
             tr("Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."),
         )
     }
+    // Welle V1.9.14 -- MUST be built before `form.buttons(...)` (plan §1 P9): the pflicht-legend
+    // decision happens there and needs the final field count/required-set.
+    val chapterField =
+        if (chapters.isNotEmpty()) {
+            form.selectField(
+                label = tr("Landesverband"),
+                options = listOf("" to tr("— noch nicht festgelegt —")) + untrustedOptions(chapters.map { it.id to it.name }),
+                required = false,
+            )
+        } else {
+            null
+        }
 
     val createButton = Button(tr("Mitglied anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = createButton)
@@ -1346,22 +1620,48 @@ internal fun renderDirectMemberCreation(root: SimplePanel) {
             val email = emailField.value.trim()
             // Ein Passwort wird NIE getrimmt.
             val temporaryPassword = passwordField.value
+            val chapterId = chapterField?.value?.ifBlank { null }
+            // Review fix (NIT "misleading KDoc/behavior"): a chapter-shaped `BadRequestException`
+            // (the chapter picked here was deleted between loading the options and submitting --
+            // `createMemberDirect` then throws `BadRequestException("Unknown regionalChapterId")`)
+            // now gets the SAME field error `RegistrationScreen.kt`'s own catch chain already shows
+            // for the identical case, instead of `regionalChapterGuarded`'s generic "Ungültige
+            // Anfrage." toast -- see [regionalChapterGuarded] KDoc. RegionalChapterRequiredException
+            // is caught here too so the fallback to `regionalChapterGuarded { throw e }` (everything
+            // else) still gets its usual dispatch, unchanged from before this fix.
             val result =
-                guarded {
+                try {
                     rpcService<IRegistrationService>().createMemberDirect(
                         AdminCreateMemberInput(
                             displayName = name,
                             email = email,
                             role = AccountRole.valueOf(roleField.value),
                             temporaryPassword = temporaryPassword,
+                            regionalChapterId = chapterId,
                         ),
                     )
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: RegionalChapterRequiredException) {
+                    chapterField?.showError(tr("Bitte wählen Sie einen Landesverband."))
+                        ?: notifyError(tr("Bitte zuerst einen Landesverband zuordnen."))
+                    null
+                } catch (e: BadRequestException) {
+                    if (chapterField != null && !chapterId.isNullOrBlank()) {
+                        chapterField.showError(tr("Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."))
+                        null
+                    } else {
+                        regionalChapterGuarded { throw e }
+                    }
+                } catch (e: Throwable) {
+                    regionalChapterGuarded { throw e }
                 }
             if (result != null) {
                 notifySuccess(gettext("%1 wurde angelegt.", name))
                 nameField.reset()
                 emailField.reset()
                 passwordField.reset()
+                chapterField?.reset()
             }
         }
     }

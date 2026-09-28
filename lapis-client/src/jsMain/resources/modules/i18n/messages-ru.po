@@ -16833,3 +16833,173 @@ msgstr "Какие события должны получить это изме�
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "%1 событие(й) обновлено (затронуто %2 зарегистрированных)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Управление региональными отделениями"
+
+msgid "Mein Landesverband"
+msgstr "Моё региональное отделение"
+
+msgid "Landesverband anlegen"
+msgstr "Создать региональное отделение"
+
+msgid "Name des Landesverbands"
+msgstr "Название регионального отделения"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "Возможно не более %1 региональных отделений."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "Региональное отделение с таким названием уже существует."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "Региональное отделение «%1» создано."
+
+msgid "Landesvorstand verwalten"
+msgstr "Управление региональным правлением"
+
+msgid "Landesverband %1 löschen"
+msgstr "Удалить региональное отделение %1"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "Действительно удалить региональное отделение «%1»? Это действие нельзя отменить."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "Региональное отделение «%1» удалено."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "Региональное отделение переименовано в «%1»."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "Пока не зарегистрировано ни одного представителя регионального правления."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Поиск участника этого регионального отделения"
+
+msgid "erteilt von %1"
+msgstr "предоставлено %1"
+
+msgid "Zugang entziehen"
+msgstr "Отозвать доступ"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "Действительно отозвать доступ?"
+
+msgid "Jetzt entziehen"
+msgstr "Отозвать сейчас"
+
+msgid "Suche"
+msgstr "Поиск"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Назначить представителем регионального правления"
+
+msgid "kein Login-Konto"
+msgstr "нет учётной записи для входа"
+
+msgid "bereits Landesvorstand"
+msgstr "уже представитель регионального правления"
+
+msgid "Landesvorstand eintragen"
+msgstr "Назначить представителя регионального правления"
+
+msgid "Zugang erteilen"
+msgstr "Предоставить доступ"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 назначен представителем регионального правления."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "Удаление возможно только тогда, когда не осталось ни одного назначенного участника (%1) и ни одного представителя регионального правления (%2)."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 получит доступ к активным участникам %2 (имя и адрес электронной почты, без данных о взносах и семье). Действие протоколируется."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Активные участники: %1 · Назначено: %2 · Представители правления: %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Укажите название длиной от %1 до %2 символов."
+
+msgid "Alle Landesverbände"
+msgstr "Все региональные отделения"
+
+msgid "nicht zugeordnet"
+msgstr "не назначено"
+
+msgid "Landesverband zuordnen"
+msgstr "Назначить региональное отделение"
+
+msgid "Landesverband für %1"
+msgstr "Региональное отделение для %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— не назначено —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "Существующий доступ представителя правления к другому региональному отделению при этом автоматически прекращается."
+
+msgid "Zuordnung speichern"
+msgstr "Сохранить назначение"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Назначение регионального отделения сохранено."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— пока не определено —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Выберите региональное отделение."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Сначала назначьте региональное отделение."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— пока не знаю —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Необязательно. Правление сможет назначить это позже."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "Это региональное отделение больше недоступно -- перезагрузите страницу."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Отфильтруйте по «Не назначено» в разделе управления участниками."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "Региональные отделения ещё не созданы. Пока их нет, ничего не меняется ни в регистрации, ни в управлении участниками."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Поиск по имени или адресу электронной почты"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "В этом региональном отделении нет активных участников."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "Как представитель регионального правления, вы видите только активных участников регионального отделения %1. Роль, данные о взносах, семейные связи и личные номера скрыты."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Ваш доступ представителя регионального правления больше не активен."
+
+msgid "Zum Dashboard"
+msgstr "На главную панель"
+
+msgid "Landesvorstand · %1"
+msgstr "Представитель правления · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "Достигнуто максимальное количество."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "Этот участник не подходит для роли представителя регионального правления (статус должен быть активным)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "Региональное отделение всё ещё используется -- обновите страницу."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 участник без регионального отделения"
+msgstr[1] "%1 участника без регионального отделения"
+msgstr[2] "%1 участников без регионального отделения"
+

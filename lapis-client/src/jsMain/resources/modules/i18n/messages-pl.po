@@ -16842,3 +16842,173 @@ msgstr "Które terminy mają otrzymać tę zmianę?"
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "Zaktualizowano %1 termin(y) (dotyczy %2 zapisanych)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Zarządzanie oddziałami regionalnymi"
+
+msgid "Mein Landesverband"
+msgstr "Mój oddział regionalny"
+
+msgid "Landesverband anlegen"
+msgstr "Utwórz oddział regionalny"
+
+msgid "Name des Landesverbands"
+msgstr "Nazwa oddziału regionalnego"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "Możliwe jest maksymalnie %1 oddziałów regionalnych."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "Oddział regionalny o tej nazwie już istnieje."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "Oddział regionalny „%1” został utworzony."
+
+msgid "Landesvorstand verwalten"
+msgstr "Zarządzaj zarządem oddziału regionalnego"
+
+msgid "Landesverband %1 löschen"
+msgstr "Usuń oddział regionalny %1"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "Czy na pewno usunąć oddział regionalny „%1”? Tej operacji nie można cofnąć."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "Oddział regionalny „%1” został usunięty."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "Oddział regionalny został przemianowany na „%1”."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "Nie zarejestrowano jeszcze żadnego członka zarządu oddziału regionalnego."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Wyszukaj członka tego oddziału regionalnego"
+
+msgid "erteilt von %1"
+msgstr "przyznane przez %1"
+
+msgid "Zugang entziehen"
+msgstr "Odbierz dostęp"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "Czy na pewno odebrać dostęp?"
+
+msgid "Jetzt entziehen"
+msgstr "Odbierz teraz"
+
+msgid "Suche"
+msgstr "Szukaj"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Zarejestruj jako członka zarządu oddziału regionalnego"
+
+msgid "kein Login-Konto"
+msgstr "brak konta logowania"
+
+msgid "bereits Landesvorstand"
+msgstr "już jest członkiem zarządu oddziału regionalnego"
+
+msgid "Landesvorstand eintragen"
+msgstr "Zarejestruj członka zarządu oddziału regionalnego"
+
+msgid "Zugang erteilen"
+msgstr "Przyznaj dostęp"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 został zarejestrowany jako członek zarządu oddziału regionalnego."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "Usunięcie jest możliwe dopiero, gdy nie są już przypisani żadni członkowie (%1) ani członkowie zarządu oddziału regionalnego (%2)."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 uzyska dostęp do aktywnych członków %2 (imię i nazwisko oraz e-mail, bez danych o składkach czy rodzinie). Czynność jest rejestrowana."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Aktywni członkowie: %1 · Przypisani: %2 · Członkowie zarządu oddziału: %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Podaj nazwę o długości od %1 do %2 znaków."
+
+msgid "Alle Landesverbände"
+msgstr "Wszystkie oddziały regionalne"
+
+msgid "nicht zugeordnet"
+msgstr "nieprzypisany"
+
+msgid "Landesverband zuordnen"
+msgstr "Przypisz oddział regionalny"
+
+msgid "Landesverband für %1"
+msgstr "Oddział regionalny dla %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— nieprzypisany —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "Istniejący dostęp członka zarządu do innego oddziału regionalnego zostanie wówczas automatycznie zakończony."
+
+msgid "Zuordnung speichern"
+msgstr "Zapisz przypisanie"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Przypisanie do oddziału regionalnego zapisane."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— jeszcze nieustalone —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Wybierz oddział regionalny."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Najpierw przypisz oddział regionalny."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— jeszcze nie wiem —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Opcjonalnie. Zarząd może dokonać przypisania później."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "Ten oddział regionalny nie jest już dostępny -- odśwież stronę."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Filtruj według „Nieprzypisany” w zarządzaniu członkami."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "Nie utworzono jeszcze żadnego oddziału regionalnego. Dopóki żaden nie istnieje, nic się nie zmienia w rejestracji ani zarządzaniu członkami."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Szukaj według imienia lub e-maila"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "Brak aktywnych członków w tym oddziale regionalnym."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "Jako członek zarządu oddziału regionalnego widzisz wyłącznie aktywnych członków oddziału regionalnego %1. Rola, dane o składkach, powiązania rodzinne i numery osobowe są ukryte."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Twój dostęp jako członka zarządu oddziału regionalnego nie jest już aktywny."
+
+msgid "Zum Dashboard"
+msgstr "Do panelu głównego"
+
+msgid "Landesvorstand · %1"
+msgstr "Członek zarządu oddziału · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "Osiągnięto maksymalną liczbę."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "Ten członek nie kwalifikuje się jako członek zarządu oddziału regionalnego (status musi być aktywny)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "Oddział regionalny jest wciąż używany -- odśwież widok."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 członek bez oddziału regionalnego"
+msgstr[1] "%1 członków bez oddziału regionalnego"
+msgstr[2] "%1 członków bez oddziału regionalnego"
+

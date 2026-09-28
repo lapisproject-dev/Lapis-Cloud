@@ -1594,10 +1594,10 @@ private fun ResultRow.toMemberAdminRowDto(
      * `network.lapis.cloud.server.security.MemberVisibility.Chapter`). Nulls `role`/
      * `membershipTierId`/`membershipTierName`/`familyId`/`familyName`/`familyRole`/
      * `externalReference`/`dateOfDeath` -- see [IMemberService.listMembersForAdministration]'s own
-     * KDoc "review fix (doc, stale since that wave)" for the full per-field rationale (a standalone
-     * `docs/architecture/regional-chapters.adoc` field table is, per the CHANGELOG's own "Umfang
-     * dieser Welle" disclosure, not yet built). Deliberately does NOT null `regionalChapterId`/
-     * `regionalChapterName` -- see those fields' own KDoc.
+     * KDoc "review fix (doc, stale since that wave)" for the full per-field rationale, and
+     * `docs/architecture/regional-chapters.adoc` (Welle V1.9.14) for the visibility-boundary field
+     * table. Deliberately does NOT null `regionalChapterId`/`regionalChapterName` -- see those
+     * fields' own KDoc.
      */
     chapterScoped: Boolean = false,
 ): MemberAdminRowDto =

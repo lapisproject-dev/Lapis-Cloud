@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -100,5 +102,21 @@ class NavVisibilityTest {
             val expected = status == MemberStatus.ACTIVE || status == MemberStatus.FRIEND
             assertEquals(expected, NavVisibility.showsAiDrafts(status, mcpEnabled = true), "showsAiDrafts mismatch for $status")
         }
+    }
+
+    // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche".
+    @Test
+    fun showsRegionalChapterAdmin_isTrueOnlyForAdmin() {
+        assertTrue(NavVisibility.showsRegionalChapterAdmin(AccountRole.ADMIN))
+        assertFalse(NavVisibility.showsRegionalChapterAdmin(null))
+        assertFalse(NavVisibility.showsRegionalChapterAdmin(AccountRole.MEMBER))
+        assertFalse(NavVisibility.showsRegionalChapterAdmin(AccountRole.TREASURER))
+        assertFalse(NavVisibility.showsRegionalChapterAdmin(AccountRole.BOARD))
+    }
+
+    @Test
+    fun showsChapterRoster_isTrueOnlyWithAChapterScope() {
+        assertTrue(NavVisibility.showsChapterRoster(RegionalChapterRefDto(id = "c1", name = "Bayern")))
+        assertFalse(NavVisibility.showsChapterRoster(null))
     }
 }

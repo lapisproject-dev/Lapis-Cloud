@@ -16867,3 +16867,172 @@ msgstr "¿Qué fechas deben recibir este cambio?"
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "Se actualizaron %1 fecha(s) (%2 inscritos afectados)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Gestión de secciones regionales"
+
+msgid "Mein Landesverband"
+msgstr "Mi sección regional"
+
+msgid "Landesverband anlegen"
+msgstr "Crear sección regional"
+
+msgid "Name des Landesverbands"
+msgstr "Nombre de la sección regional"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "Como máximo %1 secciones regionales son posibles."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "Ya existe una sección regional con este nombre."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "Se creó la sección regional \"%1\"."
+
+msgid "Landesvorstand verwalten"
+msgstr "Gestionar la directiva de la sección regional"
+
+msgid "Landesverband %1 löschen"
+msgstr "Eliminar la sección regional %1"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "¿Eliminar realmente la sección regional \"%1\"? Esto no se puede deshacer."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "Se eliminó la sección regional \"%1\"."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "La sección regional fue renombrada a \"%1\"."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "Aún no hay ningún directivo de la sección regional registrado."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Buscar un miembro de esta sección regional"
+
+msgid "erteilt von %1"
+msgstr "concedido por %1"
+
+msgid "Zugang entziehen"
+msgstr "Revocar el acceso"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "¿Revocar realmente el acceso?"
+
+msgid "Jetzt entziehen"
+msgstr "Revocar ahora"
+
+msgid "Suche"
+msgstr "Buscar"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Registrar como directivo de la sección regional"
+
+msgid "kein Login-Konto"
+msgstr "sin cuenta de acceso"
+
+msgid "bereits Landesvorstand"
+msgstr "ya es directivo de la sección regional"
+
+msgid "Landesvorstand eintragen"
+msgstr "Registrar directivo de la sección regional"
+
+msgid "Zugang erteilen"
+msgstr "Conceder el acceso"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 fue registrado como directivo de la sección regional."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "La eliminación solo es posible cuando ya no haya miembros (%1) ni directivos de la sección regional (%2) asignados."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 obtendrá acceso a los miembros activos de %2 (nombre y correo electrónico, sin datos de cuotas ni familiares). La acción queda registrada."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Miembros activos: %1 · Asignados: %2 · Directivos de la sección regional: %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Introduzca un nombre de %1 a %2 caracteres."
+
+msgid "Alle Landesverbände"
+msgstr "Todas las secciones regionales"
+
+msgid "nicht zugeordnet"
+msgstr "sin asignar"
+
+msgid "Landesverband zuordnen"
+msgstr "Asignar sección regional"
+
+msgid "Landesverband für %1"
+msgstr "Sección regional para %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— sin asignar —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "Un acceso de directivo existente para otra sección regional finaliza automáticamente al hacerlo."
+
+msgid "Zuordnung speichern"
+msgstr "Guardar asignación"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Asignación de la sección regional guardada."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— aún no definido —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Elija una sección regional."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Asigne primero una sección regional."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— aún no lo sé —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Opcional. La junta directiva puede realizar la asignación más adelante."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "Esta sección regional ya no está disponible; recargue la página."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Filtre por «Sin asignar» en la administración de miembros."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "Aún no se ha creado ninguna sección regional. Mientras no exista ninguna, nada cambia en el registro ni en la administración de miembros."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Buscar por nombre o correo electrónico"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "No hay miembros activos en esta sección regional."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "Como directivo de la sección regional, solo ve a los miembros activos de la sección regional %1. El rol, los datos de cuotas, los vínculos familiares y los números de referencia personal están ocultos."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Su acceso como directivo de la sección regional ya no está activo."
+
+msgid "Zum Dashboard"
+msgstr "Al panel principal"
+
+msgid "Landesvorstand · %1"
+msgstr "Directivo de la sección regional · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "Se ha alcanzado el número máximo."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "Este miembro no es apto como directivo de la sección regional (el estado debe ser activo)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "La sección regional todavía está en uso; actualice la vista."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 miembro sin sección regional"
+msgstr[1] "%1 miembros sin sección regional"
+

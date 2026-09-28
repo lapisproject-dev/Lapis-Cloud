@@ -1240,6 +1240,21 @@ postal-code centroid lookup (place names + coordinates) ships bundled with `lapi
 * Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL
   (via a https://protomaps.com[Protomaps] build, BSD-3-Clause build tooling).
 
+== Regional chapters ("Gliederungsverwaltung", Landesverbände) (V1.9.13/V1.9.14)
+
+An optional, flat (single-level) set of named regional chapters an ADMIN maintains -- members can
+be assigned to one, and a plain `MEMBER` can be granted a "Landesvorstand" (regional-chapter
+officer) access that narrows the member roster to their own chapter's active, non-anonymized
+members only (name/e-mail/join date; role, contributions and family links stay hidden). V1.9.13
+built the server (data model, `IRegionalChapterService`, the visibility boundary, the DSGVO
+contributor); V1.9.14 added the client -- an ADMIN-only chapter-management screen, the officer
+self-service roster, and an optional chapter picker on registration/direct member creation/the
+member editor. No account-role change: a "Landesvorstand" stays a plain `MEMBER` account, every
+existing role gate in this codebase is unaffected. The optional "assignment required once a chapter
+exists" activation rule ships **default OFF** -- an operator who wants chapters purely informal,
+without requiring every active member to have one, leaves it off. Full architecture, the role-
+design decision and the visibility boundary: `docs/architecture/regional-chapters.adoc`.
+
 == Documentation Convention
 
 Consistent across all Lapis and kUML projects (see `CLAUDE.md`):

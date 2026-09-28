@@ -62,9 +62,9 @@ data class MemberAdminRowDto(
     val dateOfDeath: LocalDate? = null,
     /**
      * Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `member.regional_chapter_id`,
-     * joined for display. Unlike [role]/[familyId]/etc., this field is deliberately NOT nulled in
-     * chapter-scoped mode (`RosterMode.CHAPTER_READONLY`) -- every row a chapter-scoped officer
-     * sees already belongs to their own chapter by construction (see
+     * joined for display. Unlike [role]/[familyId]/etc., this field is deliberately NOT nulled for
+     * a chapter-scoped officer caller (Welle V1.9.14's `network.lapis.cloud.client.ChapterRosterScreen`)
+     * -- every row a chapter-scoped officer sees already belongs to their own chapter by construction (see
      * `network.lapis.cloud.server.security.RegionalChapterVisibility`), so the value is never new
      * information for that caller.
      */

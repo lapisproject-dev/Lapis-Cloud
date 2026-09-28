@@ -1,0 +1,223 @@
+= Regional Chapters ("Gliederungsverwaltung", Landesverbände)
+:description: Flat (non-hierarchical) regional-chapter model, the "Landesvorstand" (regional-chapter officer) grant, and the visibility boundary it enforces.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs`
+Gradle task (see `docs-render/`), same convention as `keycloak-login.adoc`/`member-map.adoc`.
+
+NOTE: **Implementation status.** V1.9.13 built the server: `regional_chapter`/
+`regional_chapter_officer` tables, `IRegionalChapterService`, the activation rule
+(`RegionalChapterEnforcementConfig`, default OFF), the visibility boundary
+(`RegionalChapterVisibility`) and the DSGVO contributor (`RegionalChapterPersonalData`). **V1.9.14**
+added the client: the ADMIN-only `RegionalChaptersScreen.kt` (chapter CRUD, officer grant/revoke),
+the "Landesvorstand" self-service `ChapterRosterScreen.kt`, and the optional chapter picker on
+registration/direct-creation/roster-editing. See <<deferred,Deferred>> for what is still missing.
+
+== Context
+
+User request: how can the real PdV regional chapters ("Landesverbände") be represented in Lapis
+Cloud? Lapis Cloud is strictly one-organization-per-instance (a single hardcoded
+`organization_settings` row, no `organizationId` column anywhere in the data model) -- a
+"Gliederungsverwaltung" (chapter administration) had been requested twice in the vault before but
+never designed or implemented. Four foundational decisions were settled by asking back before the
+design session: one shared treasury for the federal level and the regional chapters, automatic dual
+membership federal+regional (no separate regional-chapter-only membership), only ONE hierarchy
+level (no district/local chapters in this wave), and dedicated, access-restricted roles for
+regional-chapter officers.
+
+== Data model
+
+A flat set of named regional chapters; each member carries at most one `regional_chapter_id`
+reference. `RegionalChapterRules.MAX_CHAPTERS` (50) and `MAX_ACTIVE_OFFICERS_PER_CHAPTER` (25) are
+hard upper limits. `name_key` (the lower-cased `name`, normalized via `RegionalChapterRules
+.nameKey`) carries the uniqueness rule `uq_regional_chapter_name_key` -- Postgres cannot index an
+expression (`lower(name)`) directly, hence the dedicated column.
+
+`RegionalChapterOfficer.active_for_member_id` is the guard that enforces "at most ONE active grant
+per member" (a partial-unique column, `NULL` for an already-revoked grant, otherwise equal to
+`member_id`) -- `uq_regional_chapter_officer_active`.
+
+[source,kuml,name="regional-chapters-model"]
+----
+classDiagram(name = "Regional Chapters — Model") {
+    val chapter = classOf(name = "RegionalChapter") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "name", type = "String")
+        attribute(name = "nameKey", type = "String")
+    }
+
+    val officer = classOf(name = "RegionalChapterOfficer") {
+        attribute(name = "grantId", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "regionalChapterId", type = "UUID")
+        attribute(name = "grantedAt", type = "LocalDateTime")
+        attribute(name = "grantedByMemberId", type = "UUID")
+        attribute(name = "activeForMemberId", type = "UUID", isReadOnly = true)
+    }
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "regionalChapterId", type = "UUID")
+    }
+
+    association(source = chapter, target = member) {
+        source { multiplicity(spec = "0..1"); role = "chapter" }
+        target { multiplicity(spec = "0..*"); role = "members" }
+    }
+
+    association(source = chapter, target = officer) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "officerGrants" }
+    }
+
+    dependency(client = officer, supplier = member, name = "grants access to")
+}
+----
+
+== Role architecture
+
+The real core of this wave was NOT the data model, but the question: how does a "Landesvorstand"
+(regional-chapter officer) get access to the (restricted) data of their own regional chapter,
+without bending the existing `AccountRole` architecture?
+
+Design-team debate:
+
+* **Tesler position** -- a fifth `AccountRole` value (e.g. `REGIONAL_OFFICER`). Rejected: would have
+  touched roughly 50 existing `requireRole` call sites across the repo and created a global role
+  incapable of being chapter-scoped.
+* **Kay position** -- tie the permission to a regional-congress election (`CommitteeType`, analogous
+  to the existing governance structure). Rejected by Norman: under DSGVO an election result must not
+  SILENTLY unlock data access -- that has to stay a deliberate, logged human action (an election can
+  be counted incorrectly, be contested afterwards, or be held without any link to a concrete
+  data-access decision).
+
+**Decision**: a separate "officer grant" (`RegionalChapterOfficer`), issued only by ADMIN.
+`AccountRole` stays `MEMBER` for a regional-chapter officer -- every existing role gate in the repo
+is therefore completely untouched. Only TWO call sites query the new visibility boundary
+(`MemberService.listMembersForAdministration`, `AuthService.getSessionInfo`), structurally guarded
+against a new, unintended third call site by a dedicated scan test
+(`RegionalChapterVisibilityAllowlistScanTest`).
+
+== Visibility boundary
+
+`network.lapis.cloud.server.security.RegionalChapterVisibility` (`memberVisibility()`) computes one
+of three levels for the current caller -- **role always wins first**:
+
+1. `MemberVisibility.All` -- BOARD/TREASURER/ADMIN, unconditional. Checked BEFORE the officer-grant
+   lookup even runs: a BOARD/ADMIN/TREASURER member who additionally holds an (irrelevant, never
+   exercised) officer grant is never narrowed by it.
+2. `MemberVisibility.Chapter(chapterId)` -- a plain `MEMBER` with an ACTIVE officer grant FOR the
+   regional chapter they are themselves currently assigned to (both conditions checked -- a grant
+   for a chapter other than the member's own CURRENT chapter, e.g. after an intervening
+   `assignMemberToChapter` reassignment, does NOT count).
+3. `MemberVisibility.None` -- every other case (no grant, not an `ORGANIZATION_MEMBER` status).
+
+For `Chapter` visibility, `listMembersForAdministration` narrows the result:
+
+* Only `MemberStatus.ACTIVE`, non-anonymized members of the caller's own regional chapter.
+* Role, contribution data, family relationships and personnel numbers (`externalReference`) are
+  hidden (`null`, or not delivered at all).
+* The search does not evaluate `externalReference` for this caller.
+* Any query parameter that would filter beyond the caller's own chapter boundary
+  (`regionalChapterId` of a chapter that is not their own, `unassignedOnly`) is IGNORED, not
+  rejected as an error -- the result stays scoped to the caller's own chapter regardless.
+* `statusCounts`/`totalCount` are likewise scaled to the caller's own, already-narrowed data set --
+  a regional-chapter officer cannot derive anything about the organization as a whole from them.
+
+Client-side the SAME boundary is enforced once more as pure UX hardening (NEVER the actual security
+boundary): `ChapterRosterScreen.kt` never sends `regionalChapterId`/`unassignedOnly`/`statuses` at
+all (`chapterRosterQuery`), and filters/caches nothing client-side.
+
+[source,kuml,name="regional-chapters-officer-roster"]
+----
+sequenceDiagram(name = "Landesvorstand roster read") {
+    val browser = lifeline(name = "Browser (ChapterRosterScreen)")
+    val server = lifeline(name = "Lapis Cloud Server")
+    val auth = lifeline(name = "AuthService")
+    val member = lifeline(name = "MemberService")
+    val visibility = lifeline(name = "RegionalChapterVisibility")
+    val db = lifeline(name = "member table")
+
+    message(from = browser, to = auth, label = "getSessionInfo()")
+    message(from = auth, to = visibility, label = "memberVisibility()")
+    reply(from = visibility, to = auth, label = "Chapter(chapterId)")
+    reply(from = auth, to = browser, label = "chapterScope")
+
+    message(from = browser, to = member, label = "listMembersForAdministration(query)")
+    message(from = member, to = visibility, label = "memberVisibility()")
+    reply(from = visibility, to = member, label = "Chapter(chapterId)")
+    message(from = member, to = db, label = "SELECT ... WHERE regional_chapter_id = :chapterId AND status = ACTIVE")
+    reply(from = db, to = member, label = "rows")
+    reply(from = member, to = browser, label = "masked MemberAdminPageDto")
+}
+----
+
+== Activation rule & enforcement flag
+
+`RegionalChapterEnforcementConfig`/`RegionalChapterActivationRule` -- once AT LEAST ONE regional
+chapter exists AND the flag is switched on, a status change to `MemberStatus.ACTIVE` (registration,
+direct creation, application approval, `updateMemberStatus`) requires a regional-chapter assignment;
+without one the server throws `RegionalChapterRequiredException`.
+
+**Default: OFF.** This is a deliberate operator decision, not a technical necessity -- an operator
+who wants to keep regional chapters informal/optional (not every member MUST be assigned to one)
+leaves the flag off. As long as the flag stays off, the mere existence of a regional chapter changes
+nothing about the existing registration/creation flow.
+
+== Client surfaces
+
+Five surfaces, all under the same base rule: **the client filters nothing itself, caches nothing
+itself** -- every visibility boundary is enforced exclusively server-side.
+
+1. **`RegionalChaptersScreen.kt`** (`/regional-chapters`, ADMIN-only) -- create/rename/delete the
+   regional-chapter list, grant/revoke regional-chapter-officer access, "members without a regional
+   chapter" notice.
+2. **`ChapterRosterScreen.kt`** (`/my-chapter`, anyone with an active officer grant) -- the
+   self-service "Mein Landesverband" view: read-only, three columns (name/e-mail/joined).
+3. **`MemberAdministrationScreen.kt`** -- a regional-chapter column + filter on the roster, an
+   optional assignment section in the editor dialog (BOARD/ADMIN, peer-protected like every other
+   action there), assignment on open applications and on direct creation.
+4. **`RegistrationScreen.kt`** -- an optional regional-chapter field on the membership-application
+   form.
+5. **Sidebar/navbar** -- "Gliederungsverwaltung" (ADMINISTRATION group, ADMIN-only), "Mein
+   Landesverband" (MEMBERSHIP group, only with an officer grant), a small "Landesvorstand ·
+   <Name>" notice in the account dropdown.
+
+== DSGVO
+
+`RegionalChapterPersonalData` (Art. 15/17 contributor) treats both a member's own exercised officer
+grant AND every grant THEY issued (`grantedByMemberId`) as personal data -- both are anonymized on
+erasure, both appear in the export (`officerGrantsIssued`). See `docs/architecture/dsgvo.adoc`.
+
+== Decisions
+
+* Flat, not hierarchical -- no district/local chapters in this wave (user decision made before the
+  design session).
+* One shared treasury for the federal level and the regional chapters -- no separate
+  regional-chapter budget/account.
+* Automatic dual membership federal+regional -- no standalone regional-chapter-only membership.
+* An officer grant instead of a role extension or an election link -- see <<Role architecture>>.
+* Activation requirement gated behind a flag, default OFF -- see <<Activation rule & enforcement
+  flag>>.
+* The client filters/caches nothing itself -- the visibility boundary is exclusively server-side.
+
+[[deferred]]
+== Deferred
+
+* Hierarchy (district/local chapters).
+* A `regionalChapterRequired` signal in `SessionInfoDto` that tells the client BEFORE submitting
+  whether the activation flag is currently on (today the client only learns this reactively, via the
+  `RegionalChapterRequiredException` a submit attempt triggers).
+* Chapter selection in `applyForMembership` (FRIEND -> APPLICATION upgrade) -- `IRegistrationService`
+  already accepts a `regionalChapterId` parameter there server-side, the client does not yet offer a
+  field for it.
+* `ownRegionalChapter` in "Meine Daten" (DSGVO self-service data access) -- a member today sees their
+  own regional chapter nowhere explicitly mirrored as its own data field (only implicitly, if they
+  happen to be the officer of their own chapter).
+* A read view for BOARD (today BOARD already sees everything via `MemberVisibility.All` anyway -- a
+  filtered "group by regional chapter" view would only be a UX improvement, not a new permission).
+* A session push on grant/revoke -- a freshly (de-)authorized regional-chapter officer only sees the
+  change after the next `refreshSessionFromServer()` call (a login, or an action on
+  `RegionalChaptersScreen.kt`), not live/immediately in another already-open browser tab.

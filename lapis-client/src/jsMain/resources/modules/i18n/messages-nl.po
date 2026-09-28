@@ -16844,3 +16844,172 @@ msgstr "Welke exemplaren moeten deze wijziging krijgen?"
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "%1 exemplaar/exemplaren zijn bijgewerkt (%2 aanmeldingen betroffen)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Beheer van regionale afdelingen"
+
+msgid "Mein Landesverband"
+msgstr "Mijn regionale afdeling"
+
+msgid "Landesverband anlegen"
+msgstr "Regionale afdeling aanmaken"
+
+msgid "Name des Landesverbands"
+msgstr "Naam van de regionale afdeling"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "Maximaal %1 regionale afdelingen mogelijk."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "Er bestaat al een regionale afdeling met deze naam."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "Regionale afdeling \"%1\" is aangemaakt."
+
+msgid "Landesvorstand verwalten"
+msgstr "Regionale bestuursleden beheren"
+
+msgid "Landesverband %1 löschen"
+msgstr "Regionale afdeling %1 verwijderen"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "Regionale afdeling \"%1\" echt verwijderen? Dit kan niet ongedaan worden gemaakt."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "Regionale afdeling \"%1\" is verwijderd."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "Regionale afdeling is hernoemd naar \"%1\"."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "Nog geen regionaal bestuurslid geregistreerd."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Zoek een lid van deze regionale afdeling"
+
+msgid "erteilt von %1"
+msgstr "verleend door %1"
+
+msgid "Zugang entziehen"
+msgstr "Toegang intrekken"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "Toegang echt intrekken?"
+
+msgid "Jetzt entziehen"
+msgstr "Nu intrekken"
+
+msgid "Suche"
+msgstr "Zoeken"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Registreren als regionaal bestuurslid"
+
+msgid "kein Login-Konto"
+msgstr "geen inlogaccount"
+
+msgid "bereits Landesvorstand"
+msgstr "al regionaal bestuurslid"
+
+msgid "Landesvorstand eintragen"
+msgstr "Regionaal bestuurslid registreren"
+
+msgid "Zugang erteilen"
+msgstr "Toegang verlenen"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 is geregistreerd als regionaal bestuurslid."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "Verwijderen is pas mogelijk als er geen leden (%1) en geen regionale bestuursleden (%2) meer zijn toegewezen."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 krijgt toegang tot de actieve leden van %2 (naam en e-mail, geen contributie- of familiegegevens). De actie wordt gelogd."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Actieve leden: %1 · Toegewezen: %2 · Regionale bestuursleden: %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Voer een naam van %1 tot %2 tekens in."
+
+msgid "Alle Landesverbände"
+msgstr "Alle regionale afdelingen"
+
+msgid "nicht zugeordnet"
+msgstr "niet toegewezen"
+
+msgid "Landesverband zuordnen"
+msgstr "Regionale afdeling toewijzen"
+
+msgid "Landesverband für %1"
+msgstr "Regionale afdeling voor %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— niet toegewezen —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "Een bestaande toegang als regionaal bestuurslid voor een andere regionale afdeling eindigt daardoor automatisch."
+
+msgid "Zuordnung speichern"
+msgstr "Toewijzing opslaan"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Toewijzing aan regionale afdeling opgeslagen."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— nog niet bepaald —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Kies een regionale afdeling."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Wijs eerst een regionale afdeling toe."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— weet ik nog niet —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Optioneel. Het bestuur kan de toewijzing later uitvoeren."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "Deze regionale afdeling is niet meer beschikbaar -- laad de pagina opnieuw."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Filter op „Niet toegewezen” in het ledenbeheer."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "Nog geen regionale afdelingen aangemaakt. Zolang er geen bestaat, verandert er niets voor registratie en ledenbeheer."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Zoeken op naam of e-mail"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "Geen actieve leden in deze regionale afdeling."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "Als regionaal bestuurslid ziet u uitsluitend de actieve leden van de regionale afdeling %1. Rol, contributiegegevens, familiebanden en persoonsnummers zijn verborgen."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Uw toegang als regionaal bestuurslid is niet meer actief."
+
+msgid "Zum Dashboard"
+msgstr "Naar het dashboard"
+
+msgid "Landesvorstand · %1"
+msgstr "Regionaal bestuurslid · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "Het maximumaantal is bereikt."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "Dit lid komt niet in aanmerking als regionaal bestuurslid (status moet actief zijn)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "Regionale afdeling wordt nog gebruikt -- ververs de weergave."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 lid zonder regionale afdeling"
+msgstr[1] "%1 leden zonder regionale afdeling"
+

@@ -118,6 +118,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DOCUMENTS,
                 Routes.STATUTE_QA,
                 Routes.COMMUNICATION,
+                Routes.MY_CHAPTER,
                 Routes.CARPOOL,
                 Routes.DONATE,
                 Routes.DSGVO_RIGHTS,
@@ -157,6 +158,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
         SidebarGroupId.ADMINISTRATION to
             listOf(
                 Routes.MEMBERS,
+                Routes.REGIONAL_CHAPTERS,
                 Routes.DSGVO_COMPLIANCE,
                 Routes.BOARD_MEMBERSHIP,
                 Routes.SOCIAL_MODERATION,
@@ -365,6 +367,12 @@ fun buildSidebar(
                 sidebarLink(Routes.STATUTE_QA, tr("Fragen zur Satzung"), "fas fa-magnifying-glass", toggle)
             }
             sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
+            // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- nur sichtbar mit
+            // aktivem "Landesvorstand"-Zugang (serverseitig berechnetes SessionInfoDto.chapterScope,
+            // siehe NavVisibility.showsChapterRoster KDoc), kein eigenes Rollen-Gate.
+            if (NavVisibility.showsChapterRoster(session.chapterScope)) {
+                sidebarLink(Routes.MY_CHAPTER, tr("Mein Landesverband"), "fas fa-users-rectangle", toggle)
+            }
             // Welle V1.9.12 "Mitfahrerzentrale" -- fa-car-side statt fa-car (Icon-Kollision
             // vermeiden: fa-car ist bereits an TRAVEL_EXPENSES weiter unten in dieser Gruppe vergeben).
             sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side", toggle)
@@ -527,6 +535,11 @@ fun buildSidebar(
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
         nav.sidebarGroup(SidebarGroupId.ADMINISTRATION, tr("Verwaltung"), "fas fa-user-gear") { toggle ->
             sidebarLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), "fas fa-users-gear", toggle)
+            // Welle V1.9.14 -- ADMIN-only (NavVisibility.showsRegionalChapterAdmin), enger als der
+            // TREASURER/BOARD/ADMIN-Gruppen-Header selbst.
+            if (NavVisibility.showsRegionalChapterAdmin(session.role)) {
+                sidebarLink(Routes.REGIONAL_CHAPTERS, tr("Gliederungsverwaltung"), "fas fa-sitemap", toggle)
+            }
             if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
                 sidebarLink(Routes.DSGVO_COMPLIANCE, tr("DSGVO-Compliance"), "fas fa-shield-halved", toggle)
                 sidebarLink(

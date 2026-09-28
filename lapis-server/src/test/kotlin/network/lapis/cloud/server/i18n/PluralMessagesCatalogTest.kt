@@ -33,6 +33,9 @@ private val EXPECTED_PLURAL_MESSAGES: List<Pair<String, String>> =
         "%1 Position konnte nicht gebucht werden -- erneut versuchen mit \"Abrechnen\"." to
             "%1 Positionen konnten nicht gebucht werden -- erneut versuchen mit \"Abrechnen\".",
         "%1 Position konnte nicht gebucht werden." to "%1 Positionen konnten nicht gebucht werden.",
+        // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" --
+        // RegionalChaptersScreen.kt's "%1 Mitglieder ohne Landesverband" headline (plan §1 P6).
+        "%1 Mitglied ohne Landesverband" to "%1 Mitglieder ohne Landesverband",
     )
 
 /** `nplurals` per language, matching `PluralRules.kt`'s `pluralFormCount` (not importable here: `lapis-client` is a separate, jsMain-only module). */

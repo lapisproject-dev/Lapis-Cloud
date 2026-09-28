@@ -16890,3 +16890,172 @@ msgstr "Quali occorrenze devono ricevere questa modifica?"
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "%1 occorrenza/e sono state aggiornate (%2 iscritti interessati)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Gestione delle sezioni regionali"
+
+msgid "Mein Landesverband"
+msgstr "La mia sezione regionale"
+
+msgid "Landesverband anlegen"
+msgstr "Crea sezione regionale"
+
+msgid "Name des Landesverbands"
+msgstr "Nome della sezione regionale"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "Sono possibili al massimo %1 sezioni regionali."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "Esiste già una sezione regionale con questo nome."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "La sezione regionale \"%1\" è stata creata."
+
+msgid "Landesvorstand verwalten"
+msgstr "Gestisci i dirigenti della sezione regionale"
+
+msgid "Landesverband %1 löschen"
+msgstr "Elimina la sezione regionale %1"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "Eliminare davvero la sezione regionale \"%1\"? L'operazione non può essere annullata."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "La sezione regionale \"%1\" è stata eliminata."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "La sezione regionale è stata rinominata in \"%1\"."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "Nessun dirigente della sezione regionale ancora registrato."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Cerca un membro di questa sezione regionale"
+
+msgid "erteilt von %1"
+msgstr "concesso da %1"
+
+msgid "Zugang entziehen"
+msgstr "Revoca l'accesso"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "Revocare davvero l'accesso?"
+
+msgid "Jetzt entziehen"
+msgstr "Revoca ora"
+
+msgid "Suche"
+msgstr "Cerca"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Registra come dirigente della sezione regionale"
+
+msgid "kein Login-Konto"
+msgstr "nessun account di accesso"
+
+msgid "bereits Landesvorstand"
+msgstr "già dirigente della sezione regionale"
+
+msgid "Landesvorstand eintragen"
+msgstr "Registra dirigente della sezione regionale"
+
+msgid "Zugang erteilen"
+msgstr "Concedi l'accesso"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 è stato registrato come dirigente della sezione regionale."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "L'eliminazione è possibile solo quando non sono più assegnati membri (%1) né dirigenti della sezione regionale (%2)."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 otterrà l'accesso ai membri attivi di %2 (nome ed e-mail, nessun dato su contributi o famiglia). L'operazione viene registrata."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Membri attivi: %1 · Assegnati: %2 · Dirigenti della sezione regionale: %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Inserire un nome di %1-%2 caratteri."
+
+msgid "Alle Landesverbände"
+msgstr "Tutte le sezioni regionali"
+
+msgid "nicht zugeordnet"
+msgstr "non assegnato"
+
+msgid "Landesverband zuordnen"
+msgstr "Assegna sezione regionale"
+
+msgid "Landesverband für %1"
+msgstr "Sezione regionale per %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— non assegnato —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "Un accesso da dirigente esistente per un'altra sezione regionale termina automaticamente di conseguenza."
+
+msgid "Zuordnung speichern"
+msgstr "Salva assegnazione"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Assegnazione della sezione regionale salvata."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— non ancora definito —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Selezionare una sezione regionale."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Assegnare prima una sezione regionale."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— non lo so ancora —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Facoltativo. Il consiglio direttivo può effettuare l'assegnazione in seguito."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "Questa sezione regionale non è più disponibile -- ricaricare la pagina."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Filtra per \"Non assegnato\" nella gestione dei membri."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "Nessuna sezione regionale ancora creata. Finché non ne esiste alcuna, nulla cambia per la registrazione e la gestione dei membri."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Cerca per nome o e-mail"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "Nessun membro attivo in questa sezione regionale."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "In qualità di dirigente della sezione regionale, vede esclusivamente i membri attivi della sezione regionale %1. Ruolo, dati sui contributi, legami familiari e numeri di riferimento personale sono nascosti."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Il suo accesso come dirigente della sezione regionale non è più attivo."
+
+msgid "Zum Dashboard"
+msgstr "Alla dashboard"
+
+msgid "Landesvorstand · %1"
+msgstr "Dirigente della sezione regionale · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "Il numero massimo è stato raggiunto."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "Questo membro non è idoneo come dirigente della sezione regionale (lo stato deve essere attivo)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "La sezione regionale è ancora in uso -- aggiornare la visualizzazione."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 membro senza sezione regionale"
+msgstr[1] "%1 membri senza sezione regionale"
+

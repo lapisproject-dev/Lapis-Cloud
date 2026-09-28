@@ -16908,3 +16908,172 @@ msgstr "Quelles occurrences doivent recevoir cette modification ?"
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "%1 occurrence(s) ont été mise(s) à jour (%2 inscrits concernés)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Gestion des sections régionales"
+
+msgid "Mein Landesverband"
+msgstr "Ma section régionale"
+
+msgid "Landesverband anlegen"
+msgstr "Créer une section régionale"
+
+msgid "Name des Landesverbands"
+msgstr "Nom de la section régionale"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "Au maximum %1 sections régionales sont possibles."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "Une section régionale portant ce nom existe déjà."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "La section régionale « %1 » a été créée."
+
+msgid "Landesvorstand verwalten"
+msgstr "Gérer les responsables de la section régionale"
+
+msgid "Landesverband %1 löschen"
+msgstr "Supprimer la section régionale %1"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "Vraiment supprimer la section régionale « %1 » ? Cette action est irréversible."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "La section régionale « %1 » a été supprimée."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "La section régionale a été renommée en « %1 »."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "Aucun responsable de section régionale enregistré pour l'instant."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Rechercher un membre de cette section régionale"
+
+msgid "erteilt von %1"
+msgstr "accordé par %1"
+
+msgid "Zugang entziehen"
+msgstr "Révoquer l'accès"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "Vraiment révoquer l'accès ?"
+
+msgid "Jetzt entziehen"
+msgstr "Révoquer maintenant"
+
+msgid "Suche"
+msgstr "Recherche"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Enregistrer comme responsable de section régionale"
+
+msgid "kein Login-Konto"
+msgstr "aucun compte de connexion"
+
+msgid "bereits Landesvorstand"
+msgstr "déjà responsable de section régionale"
+
+msgid "Landesvorstand eintragen"
+msgstr "Enregistrer un responsable de section régionale"
+
+msgid "Zugang erteilen"
+msgstr "Accorder l'accès"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 a été enregistré comme responsable de section régionale."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "La suppression n'est possible que lorsque plus aucun membre (%1) ni responsable de section régionale (%2) n'y est rattaché."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 obtiendra l'accès aux membres actifs de %2 (nom et e-mail, aucune donnée de cotisation ni familiale). L'action est journalisée."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Membres actifs : %1 · Rattachés : %2 · Responsables de section régionale : %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Veuillez saisir un nom de %1 à %2 caractères."
+
+msgid "Alle Landesverbände"
+msgstr "Toutes les sections régionales"
+
+msgid "nicht zugeordnet"
+msgstr "non rattaché"
+
+msgid "Landesverband zuordnen"
+msgstr "Rattacher une section régionale"
+
+msgid "Landesverband für %1"
+msgstr "Section régionale pour %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— non rattaché —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "Un accès de responsable existant pour une autre section régionale prend alors automatiquement fin."
+
+msgid "Zuordnung speichern"
+msgstr "Enregistrer le rattachement"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Rattachement à la section régionale enregistré."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— pas encore défini —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Veuillez choisir une section régionale."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Veuillez d'abord rattacher une section régionale."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— je ne sais pas encore —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Facultatif. Le conseil d'administration peut effectuer le rattachement plus tard."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "Cette section régionale n'est plus disponible -- veuillez recharger la page."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Filtrer sur « Non rattaché » dans la gestion des membres."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "Aucune section régionale créée pour l'instant. Tant qu'aucune n'existe, rien ne change pour l'inscription ni pour la gestion des membres."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Rechercher par nom ou e-mail"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "Aucun membre actif dans cette section régionale."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "En tant que responsable de section régionale, vous ne voyez que les membres actifs de la section régionale %1. Le rôle, les données de cotisation, les liens familiaux et les numéros de référence personnels sont masqués."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Votre accès de responsable de section régionale n'est plus actif."
+
+msgid "Zum Dashboard"
+msgstr "Vers le tableau de bord"
+
+msgid "Landesvorstand · %1"
+msgstr "Responsable de section régionale · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "Le nombre maximal est atteint."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "Ce membre n'est pas éligible comme responsable de section régionale (le statut doit être actif)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "La section régionale est encore utilisée -- veuillez actualiser la vue."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 membre sans section régionale"
+msgstr[1] "%1 membres sans section régionale"
+

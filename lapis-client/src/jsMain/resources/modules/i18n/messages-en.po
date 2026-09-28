@@ -16797,3 +16797,172 @@ msgstr "Which occurrences should receive this change?"
 
 msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
 msgstr "%1 occurrence(s) were updated (%2 registered affected)."
+
+msgid "Gliederungsverwaltung"
+msgstr "Regional chapter management"
+
+msgid "Mein Landesverband"
+msgstr "My regional chapter"
+
+msgid "Landesverband anlegen"
+msgstr "Create regional chapter"
+
+msgid "Name des Landesverbands"
+msgstr "Name of the regional chapter"
+
+msgid "Höchstens %1 Landesverbände möglich."
+msgstr "At most %1 regional chapters are possible."
+
+msgid "Ein Landesverband mit diesem Namen existiert bereits."
+msgstr "A regional chapter with this name already exists."
+
+msgid "Landesverband \"%1\" wurde angelegt."
+msgstr "Regional chapter \"%1\" was created."
+
+msgid "Landesvorstand verwalten"
+msgstr "Manage regional chapter officers"
+
+msgid "Landesverband %1 löschen"
+msgstr "Delete regional chapter %1"
+
+msgid "Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden."
+msgstr "Really delete regional chapter \"%1\"? This cannot be undone."
+
+msgid "Landesverband \"%1\" wurde gelöscht."
+msgstr "Regional chapter \"%1\" was deleted."
+
+msgid "Landesverband wurde in \"%1\" umbenannt."
+msgstr "Regional chapter was renamed to \"%1\"."
+
+msgid "Noch kein Landesvorstand eingetragen."
+msgstr "No regional chapter officer registered yet."
+
+msgid "Mitglied dieses Landesverbands suchen"
+msgstr "Search for a member of this regional chapter"
+
+msgid "erteilt von %1"
+msgstr "granted by %1"
+
+msgid "Zugang entziehen"
+msgstr "Revoke access"
+
+msgid "Zugang wirklich entziehen?"
+msgstr "Really revoke access?"
+
+msgid "Jetzt entziehen"
+msgstr "Revoke now"
+
+msgid "Suche"
+msgstr "Search"
+
+msgid "Als Landesvorstand eintragen"
+msgstr "Register as regional chapter officer"
+
+msgid "kein Login-Konto"
+msgstr "no login account"
+
+msgid "bereits Landesvorstand"
+msgstr "already a regional chapter officer"
+
+msgid "Landesvorstand eintragen"
+msgstr "Register regional chapter officer"
+
+msgid "Zugang erteilen"
+msgstr "Grant access"
+
+msgid "%1 wurde als Landesvorstand eingetragen."
+msgstr "%1 was registered as regional chapter officer."
+
+msgid "Löschen erst möglich, wenn keine Mitglieder (%1) und keine Landesvorstände (%2) mehr zugeordnet sind."
+msgstr "Deletion is only possible once no members (%1) and no regional chapter officers (%2) are assigned any more."
+
+msgid "%1 erhält Zugriff auf die aktiven Mitglieder von %2 (Name und E-Mail, keine Beitrags- oder Familiendaten). Der Vorgang wird protokolliert."
+msgstr "%1 will get access to the active members of %2 (name and e-mail, no contribution or family data). The action is logged."
+
+msgid "Aktive Mitglieder: %1 · Zugeordnet: %2 · Landesvorstände: %3"
+msgstr "Active members: %1 · Assigned: %2 · Regional chapter officers: %3"
+
+msgid "Bitte einen Namen mit %1 bis %2 Zeichen angeben."
+msgstr "Please enter a name with %1 to %2 characters."
+
+msgid "Alle Landesverbände"
+msgstr "All regional chapters"
+
+msgid "nicht zugeordnet"
+msgstr "not assigned"
+
+msgid "Landesverband zuordnen"
+msgstr "Assign regional chapter"
+
+msgid "Landesverband für %1"
+msgstr "Regional chapter for %1"
+
+msgid "— nicht zugeordnet —"
+msgstr "— not assigned —"
+
+msgid "Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch."
+msgstr "An existing regional chapter officer access for a different regional chapter ends automatically as a result."
+
+msgid "Zuordnung speichern"
+msgstr "Save assignment"
+
+msgid "Landesverband-Zuordnung gespeichert."
+msgstr "Regional chapter assignment saved."
+
+msgid "— noch nicht festgelegt —"
+msgstr "— not yet decided —"
+
+msgid "Bitte wählen Sie einen Landesverband."
+msgstr "Please choose a regional chapter."
+
+msgid "Bitte zuerst einen Landesverband zuordnen."
+msgstr "Please assign a regional chapter first."
+
+msgid "— weiß ich noch nicht —"
+msgstr "— I don't know yet —"
+
+msgid "Optional. Der Vorstand kann die Zuordnung später vornehmen."
+msgstr "Optional. The board can make the assignment later."
+
+msgid "Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."
+msgstr "This regional chapter is no longer available -- please reload the page."
+
+msgid "In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern."
+msgstr "Filter for \"Not assigned\" in the member administration."
+
+msgid "Noch keine Landesverbände angelegt. Solange keiner existiert, ändert sich für Registrierung und Mitgliederverwaltung nichts."
+msgstr "No regional chapters created yet. As long as none exists, nothing changes for registration or member administration."
+
+msgid "Suche nach Name oder E-Mail"
+msgstr "Search by name or e-mail"
+
+msgid "Keine aktiven Mitglieder in diesem Landesverband."
+msgstr "No active members in this regional chapter."
+
+msgid "Sie sehen als Landesvorstand ausschließlich die aktiven Mitglieder des Landesverbands %1. Rolle, Beitragsdaten, Familienbezüge und Personennummern sind ausgeblendet."
+msgstr "As a regional chapter officer, you see exclusively the active members of the regional chapter %1. Role, contribution data, family relations and personal reference numbers are hidden."
+
+msgid "Ihr Landesvorstand-Zugang ist nicht mehr aktiv."
+msgstr "Your regional chapter officer access is no longer active."
+
+msgid "Zum Dashboard"
+msgstr "To the dashboard"
+
+msgid "Landesvorstand · %1"
+msgstr "Regional chapter officer · %1"
+
+msgid "Die Höchstzahl ist erreicht."
+msgstr "The maximum has been reached."
+
+msgid "Dieses Mitglied ist nicht als Landesvorstand geeignet (Status muss aktiv sein)."
+msgstr "This member is not eligible as a regional chapter officer (status must be active)."
+
+msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
+msgstr "Regional chapter is still in use -- please refresh the view."
+
+
+msgid "%1 Mitglied ohne Landesverband"
+msgid_plural "%1 Mitglieder ohne Landesverband"
+msgstr[0] "%1 member without a regional chapter"
+msgstr[1] "%1 members without a regional chapter"
+
