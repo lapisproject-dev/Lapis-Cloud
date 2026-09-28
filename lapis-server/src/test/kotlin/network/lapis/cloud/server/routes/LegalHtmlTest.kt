@@ -308,6 +308,7 @@ class LegalHtmlTest :
                     "dunning" to "Mahnwesen",
                     "documents" to "Dokumentenablage",
                     "communication" to "interne Kommunikation",
+                    "carpool" to "Mitfahrerzentrale",
                     "governance" to "Gremien",
                     "elections" to "Wahlen",
                     "systemic_consensus" to "Abstimmungsverfahren",

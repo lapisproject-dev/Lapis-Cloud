@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 56 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 58 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -59,7 +59,7 @@ class DomainModelMergerTest :
             // Videokonferenzen" -- was 56, now 57 with the addition of
             // 56-conference-background.kuml.kts (renumbered from 55 during the merge of both
             // waves, which had independently claimed "55-").
-            scriptFiles shouldHaveSize 57
+            scriptFiles shouldHaveSize 58
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -471,7 +471,13 @@ class DomainModelMergerTest :
             // stub (the file's existing Member stub is reused for event_series.created_by) -- so
             // it contributes +1 «Entity» declaration and 0 drops, net +1 distinct table name
             // versus the V1.9.7 baseline above (167 -> 168).
-            val distinctTableNames = 168
+            // Welle V1.9.12 "Mitfahrerzentrale" adds 57-carpool.kuml.kts's ONE new real table
+            // (carpool_posting), WITH its own cross-domain Member stub (carpool_posting
+            // .author_member_id resolves through it, dedups into the already-real member entity,
+            // +1 drop) -- so it contributes +2 «Entity» declarations (the stub + the real table)
+            // and +1 drop, net +1 distinct table name versus the V1.4.37 baseline above
+            // (168 -> 169).
+            val distinctTableNames = 169
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -768,6 +774,10 @@ class DomainModelMergerTest :
                     // new real table; its Member cross-domain stub dedups into the already-real
                     // member entity, no new Table file for it.
                     "ConferenceBackgroundImageTable.kt",
+                    // Welle V1.9.12 "Mitfahrerzentrale" -- ONE new real table (carpool_posting);
+                    // its Member cross-domain stub dedups into the already-real member entity, no
+                    // new Table file for it.
+                    "CarpoolPostingTable.kt",
                 )
         }
 

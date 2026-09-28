@@ -15,7 +15,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.or
-import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -46,18 +45,9 @@ class DirectMessageService(
     ): DirectMessageDto {
         val current = resolveCurrentMember(call)
         val recipient = Uuid.parse(recipientId)
-        val now = DbClock.nowLocalDateTime()
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            val id = Uuid.random()
-            DirectMessageTable.insert {
-                it[DirectMessageTable.id] = id
-                it[senderId] = current.memberId
-                it[DirectMessageTable.recipientId] = recipient
-                it[DirectMessageTable.body] = body
-                it[sentAt] = now
-            }
-            loadMessage(id)
+            insertDirectMessage(senderId = current.memberId, recipientId = recipient, body = body)
         }
     }
 
@@ -117,8 +107,6 @@ class DirectMessageService(
             .join(senderMember, JoinType.INNER, DirectMessageTable.senderId, senderMember[MemberTable.id])
             .join(recipientMember, JoinType.INNER, DirectMessageTable.recipientId, recipientMember[MemberTable.id])
             .selectAll()
-
-    private fun loadMessage(id: Uuid) = baseQuery().where { DirectMessageTable.id eq id }.single().toDirectMessageDto()
 
     private fun ResultRow.toDirectMessageDto(): DirectMessageDto =
         DirectMessageDto(

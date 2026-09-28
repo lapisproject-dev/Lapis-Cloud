@@ -53,6 +53,7 @@ import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
 import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
@@ -204,6 +205,7 @@ import network.lapis.cloud.server.rpc.BankAccountService
 import network.lapis.cloud.server.rpc.BankStatementService
 import network.lapis.cloud.server.rpc.BoardMemberMapService
 import network.lapis.cloud.server.rpc.BoardMembershipService
+import network.lapis.cloud.server.rpc.CarpoolService
 import network.lapis.cloud.server.rpc.CateringService
 import network.lapis.cloud.server.rpc.ConferenceBackgroundService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
@@ -279,6 +281,7 @@ import network.lapis.cloud.shared.rpc.IBankAccountService
 import network.lapis.cloud.shared.rpc.IBankStatementService
 import network.lapis.cloud.shared.rpc.IBoardMemberMapService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
+import network.lapis.cloud.shared.rpc.ICarpoolService
 import network.lapis.cloud.shared.rpc.ICateringService
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
@@ -1032,6 +1035,13 @@ internal fun Application.module(
     postDraftRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { postDraftRetentionPoller.stop() }
 
+    // Welle V1.9.12 "Mitfahrerzentrale" -- immer aktiv, gleiches Muster wie postDraftRetentionPoller:
+    // ein Feed-Eintrag verschwindet schon vorher aus CarpoolService.listPostings, dieser Poller
+    // räumt erst CarpoolRetention.RETENTION_DAYS_AFTER_DEPARTURE Tage später endgültig auf.
+    val carpoolRetentionPoller = CarpoolRetentionPoller()
+    carpoolRetentionPoller.start()
+    monitor.subscribe(ApplicationStopping) { carpoolRetentionPoller.stop() }
+
     // Welle V1.4.5.2 "DATEV-Format-Export" -- own instance, same budget shape as
     // dunningPreviewRateLimiter/dunningIssueRateLimiter, because the raw Ktor download route and
     // the RPC preview service are wired independently here (the RPC preview itself carries no rate
@@ -1620,6 +1630,7 @@ internal fun Application.module(
             MailingService(call = call, deliveryWorker = mailingDeliveryWorker, deliveryMode = mailingDeliveryMode, branding = mailBranding)
         }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
+        registerService(ICarpoolService::class) { call -> CarpoolService(call) }
         registerService(
             IDsgvoService::class,
         ) { call ->

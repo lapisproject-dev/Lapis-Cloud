@@ -16,6 +16,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
@@ -104,12 +105,65 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
     return ::refresh
 }
 
+/**
+ * Welle V1.9.12 "Mitfahrerzentrale", Design-Team-Pflichtteil: aus dem reinen Unread-Zähler wird
+ * eine echte Liste, weil die Mitfahrerzentrale-Kontaktnachrichten hier eintreffen (Postfach-
+ * Erweiterung statt neuem Bereich). `message.body`/`senderDisplayName` sind Freitext eines anderen
+ * Mitglieds -- IMMER über [untrustedDiv]/[sanitizeUntrustedI18nText] gerendert, nie roh (gleiche
+ * Pflicht wie `list.name`/`message.subject` weiter unten in dieser Datei).
+ */
 private fun renderInbox(root: SimplePanel) {
     root.h2(tr("Postfach")) { addCssClass("h5") }
-    val panel = root.vPanel(spacing = 4)
-    AppScope.launch {
-        val unread = guarded { rpcService<IDirectMessageService>().unreadCount() } ?: return@launch
-        panel.div(gettext("Ungelesene Nachrichten: %1", unread))
+    val panel = root.vPanel(spacing = 8)
+
+    fun refresh() {
+        panel.removeAll()
+        AppScope.launch {
+            val messages = guarded { rpcService<IDirectMessageService>().listInbox() } ?: return@launch
+            if (messages.isEmpty()) {
+                panel.p(tr("Noch keine Nachrichten."))
+                return@launch
+            }
+            messages.forEach { message -> renderInboxMessageRow(panel, message, ::refresh) }
+        }
+    }
+    refresh()
+}
+
+private fun renderInboxMessageRow(
+    panel: SimplePanel,
+    message: DirectMessageDto,
+    onChanged: () -> Unit,
+) {
+    val unread = message.readAt == null
+    val row = panel.vPanel(spacing = 4) { addCssClasses(if (unread) "border border-primary rounded p-2" else "border rounded p-2") }
+    val headerRow = row.hPanel(spacing = 8) { addCssClass("align-items-center") }
+    headerRow.untrustedDiv(message.senderDisplayName, className = "flex-grow-1 fw-bold")
+    if (unread) headerRow.statusBadge(tr("Ungelesen"), "primary")
+    headerRow.div(formatDateTime(message.sentAt)) { addCssClasses("text-muted small") }
+    row.untrustedDiv(message.body)
+
+    if (unread) {
+        // Als gelesen markieren, sobald die Nachricht gerendert wird -- ein zweiter Aufruf (z. B.
+        // beim nächsten refresh()) ist ein wirkungsloses No-op auf Serverseite. Kein Knopf zum
+        // Doppelklick-Schützen (feuert beim Rendern, nicht bei einem Klick) -- `runGuardedAction(null)`
+        // trotzdem verwendet, damit R29 (Schreibzugriffe außerhalb eines Guards) diesen Aufruf nicht
+        // als ungeschützt zählt.
+        runGuardedAction(null) { guarded { rpcService<IDirectMessageService>().markRead(message.id) } }
+    }
+
+    val replyForm = row.lapisForm()
+    val replyField = replyForm.textAreaField(label = tr("Antwort"), rows = 2, required = true)
+    val replyButton = Button(tr("Antworten"), style = ButtonStyle.OUTLINEPRIMARY)
+    replyForm.buttons(primary = replyButton)
+    replyButton.onClick {
+        replyForm.submit(replyButton) {
+            val result = guarded { rpcService<IDirectMessageService>().sendDirectMessage(message.senderId, replyField.value.trim()) }
+            if (result != null) {
+                notifySuccess(tr("Antwort wurde gesendet."))
+                onChanged()
+            }
+        }
     }
 }
 
