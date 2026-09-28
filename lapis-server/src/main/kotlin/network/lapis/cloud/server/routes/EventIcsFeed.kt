@@ -3,9 +3,14 @@ package network.lapis.cloud.server.routes
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toJavaLocalDateTime
+import kotlinx.datetime.toKotlinLocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.series.RecurrenceExpander
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -14,6 +19,8 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import java.time.ZoneId
+import kotlin.uuid.Uuid
 
 /**
  * Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- data loading + RFC-5545 text
@@ -77,15 +84,77 @@ internal object EventIcsFeed {
             .toList()
 
     /**
+     * Follow-up wave "Wiederkehrende Veranstaltungen: iCal-Feed" -- everything [render] needs about
+     * ONE `event_series` row to emit an RFC-5545-compliant RRULE master `VEVENT` for it, gathered
+     * INSIDE a transaction (unlike [render] itself, which -- see class KDoc -- deliberately runs
+     * outside any transaction). [eventsByOriginalStart] is EVERY still-attached `event` row of this
+     * series (any status/visibility, keyed by [EventTable.seriesOriginalStart]) -- [render] needs the
+     * full set, not just the publicly-visible [loadUpcomingPublicPublished] subset, to tell "this
+     * occurrence was hard-deleted/cancelled/hidden -> EXDATE" apart from "this occurrence is a normal,
+     * still-covered-by-the-rule instance -> no per-occurrence VEVENT at all" apart from "this
+     * occurrence was individually edited/detached -> its own RECURRENCE-ID VEVENT".
+     */
+    data class SeriesRenderData(
+        val rrule: String,
+        val dtstart: LocalDateTime,
+        val zone: ZoneId,
+        val durationMinutes: Int,
+        val eventsByOriginalStart: Map<LocalDateTime, ResultRow>,
+    )
+
+    /**
+     * Loads [SeriesRenderData] for every id in [seriesIds] -- MUST run inside an open transaction
+     * (same discipline [loadUpcomingPublicPublished] already establishes; [EventStore]/[EventSeriesTable]
+     * access requires one). A series id with no `event_series` row anymore (should not happen --
+     * `event.series_id` has no `ON DELETE` semantics that would strand it, but defense in depth
+     * matches this class' general posture) is silently skipped; [render] falls back to rendering that
+     * series' rows as plain standalone `VEVENT`s rather than losing them.
+     */
+    fun loadSeriesRenderData(seriesIds: Collection<Uuid>): Map<Uuid, SeriesRenderData> {
+        val result = LinkedHashMap<Uuid, SeriesRenderData>()
+        for (seriesId in seriesIds.distinct()) {
+            val seriesRow = EventStore.getSeriesOrNull(seriesId) ?: continue
+            val eventsByOriginalStart =
+                EventStore
+                    .findAllSeriesEvents(seriesId)
+                    .mapNotNull { row -> row[EventTable.seriesOriginalStart]?.let { it to row } }
+                    .toMap()
+            result[seriesId] =
+                SeriesRenderData(
+                    rrule = seriesRow[EventSeriesTable.rrule],
+                    dtstart = seriesRow[EventSeriesTable.dtstart],
+                    zone = ZoneId.of(seriesRow[EventSeriesTable.timezone]),
+                    durationMinutes = seriesRow[EventSeriesTable.durationMinutes],
+                    eventsByOriginalStart = eventsByOriginalStart,
+                )
+        }
+        return result
+    }
+
+    /**
      * `baseUrl` bereits `trimEnd('/')` -- wie überall sonst in `EventPublicRoutes.kt`/
      * `Application.kt` übergeben. Erzeugt ein valides `VCALENDAR` auch für eine leere [rows]-Liste
      * (kein `VEVENT`-Block) -- manche Kalender-Clients scheitern sonst beim Parsen eines
      * `VCALENDAR` ohne jedes `VEVENT`.
+     *
+     * **RRULE-Serien-Unterstützung** (Follow-up-Welle "Wiederkehrende Veranstaltungen"): a row whose
+     * `series_id` has a matching entry in [seriesData] is rendered as part of that series' RRULE
+     * master `VEVENT` (emitted exactly once per distinct series, the first time one of its rows is
+     * encountered in [rows]) rather than as its own standalone `VEVENT` -- UNLESS the row is
+     * individually detached ([EventTable.seriesDetached]), in which case it ALSO gets its own
+     * `RECURRENCE-ID` exception `VEVENT` overriding that one occurrence. Occurrences the master's raw
+     * RRULE expansion would produce but that are missing/cancelled/hidden in [seriesData] get an
+     * `EXDATE` on the master instead, so a calendar client never regenerates a "ghost" instance of an
+     * occurrence this feed would otherwise never show. A `series_id` with no entry in [seriesData]
+     * (caller passed none, or [loadSeriesRenderData] found no `event_series` row) falls back to the
+     * pre-existing plain per-row `VEVENT` rendering -- purely additive, no prior caller (a plain,
+     * non-series event, or one passing the default empty map) sees any behavior change.
      */
     fun render(
         rows: List<ResultRow>,
         baseUrl: String,
         brandTitle: String,
+        seriesData: Map<Uuid, SeriesRenderData> = emptyMap(),
     ): String {
         val host = baseUrl.substringAfter("://")
         // DbClock.nowLocalDateTime() OHNE TimeZone.UTC-Argument: icsUtc() erwartet -- wie an
@@ -102,27 +171,147 @@ internal object EventIcsFeed {
         sb.append("CALSCALE:GREGORIAN\r\n")
         sb.append("METHOD:PUBLISH\r\n")
         sb.append(foldLine("X-WR-CALNAME:${icsEscape(brandTitle)} – Veranstaltungen"))
+        val renderedSeriesMasters = mutableSetOf<Uuid>()
         for (row in rows) {
-            val eventId = row[EventTable.id]
-            val slug = row[EventTable.slug]
-            sb.append("BEGIN:VEVENT\r\n")
-            sb.append(foldLine("UID:$eventId@$host"))
-            sb.append(foldLine("DTSTAMP:$dtstamp"))
-            sb.append(foldLine("DTSTART:${icsUtc(row[EventTable.startsAt])}"))
-            sb.append(foldLine("DTEND:${icsUtc(row[EventTable.endsAt])}"))
-            sb.append(foldLine("SUMMARY:${icsEscape(row[EventTable.title])}"))
-            row[EventTable.description].takeIf { it.isNotBlank() }?.let {
-                sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
+            val seriesId = row[EventTable.seriesId]
+            val data = seriesId?.let { seriesData[it] }
+            if (seriesId != null && data != null) {
+                if (renderedSeriesMasters.add(seriesId)) {
+                    appendSeriesMaster(sb = sb, seriesId = seriesId, data = data, host = host, dtstamp = dtstamp, baseUrl = baseUrl)
+                }
+                if (row[EventTable.seriesDetached]) {
+                    appendSeriesExceptionVevent(sb = sb, row = row, seriesId = seriesId, host = host, dtstamp = dtstamp, baseUrl = baseUrl)
+                }
+                // A plain, non-detached occurrence is already covered by the master's RRULE -- no
+                // per-occurrence VEVENT for it.
+            } else {
+                appendSingleVevent(sb = sb, row = row, host = host, dtstamp = dtstamp, baseUrl = baseUrl)
             }
-            row[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
-                sb.append(foldLine("LOCATION:${icsEscape(it)}"))
-            }
-            sb.append(foldLine("URL:$baseUrl/veranstaltung/$slug"))
-            sb.append("STATUS:CONFIRMED\r\n")
-            sb.append("END:VEVENT\r\n")
         }
         sb.append("END:VCALENDAR\r\n")
         return sb.toString()
+    }
+
+    private fun appendSingleVevent(
+        sb: StringBuilder,
+        row: ResultRow,
+        host: String,
+        dtstamp: String,
+        baseUrl: String,
+    ) {
+        val eventId = row[EventTable.id]
+        val slug = row[EventTable.slug]
+        sb.append("BEGIN:VEVENT\r\n")
+        sb.append(foldLine("UID:$eventId@$host"))
+        sb.append(foldLine("DTSTAMP:$dtstamp"))
+        sb.append(foldLine("DTSTART:${icsUtc(row[EventTable.startsAt])}"))
+        sb.append(foldLine("DTEND:${icsUtc(row[EventTable.endsAt])}"))
+        sb.append(foldLine("SUMMARY:${icsEscape(row[EventTable.title])}"))
+        row[EventTable.description].takeIf { it.isNotBlank() }?.let {
+            sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
+        }
+        row[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
+            sb.append(foldLine("LOCATION:${icsEscape(it)}"))
+        }
+        sb.append(foldLine("URL:$baseUrl/veranstaltung/$slug"))
+        sb.append("STATUS:CONFIRMED\r\n")
+        sb.append("END:VEVENT\r\n")
+    }
+
+    /**
+     * The RRULE-carrying master `VEVENT` for one series -- `UID` is `series-$seriesId@$host` (never
+     * collides with a per-event `UID`, which is always a plain UUID). `SUMMARY`/`DESCRIPTION`/
+     * `LOCATION`/`URL` are taken from a REPRESENTATIVE occurrence -- preferring the series' own
+     * `DTSTART` occurrence (the "template" instance -- an [EventSeriesEditScope.ALL] edit updates
+     * every non-detached occurrence's fields identically, so any of them would do, but the very first
+     * one is the least surprising choice), falling back to any other non-detached occurrence, and
+     * finally to any occurrence at all -- a series whose EVERY occurrence happens to be individually
+     * detached still needs a title to render (defensive; [EventSeriesScopeEngine] never actually
+     * produces that state today, since [network.lapis.cloud.shared.domain.EventSeriesEditScope.ALL]
+     * scope always covers the first occurrence too, but this function makes no such assumption).
+     * `EXDATE` is emitted once per raw-RRULE occurrence that is missing, cancelled, or hidden
+     * (non-`PUBLIC`/non-`PUBLISHED`) in [SeriesRenderData.eventsByOriginalStart] -- see [render]'s own
+     * KDoc for why that, and not skipping the date entirely, is required for a spec-compliant feed.
+     */
+    private fun appendSeriesMaster(
+        sb: StringBuilder,
+        seriesId: Uuid,
+        data: SeriesRenderData,
+        host: String,
+        dtstamp: String,
+        baseUrl: String,
+    ) {
+        val representative =
+            data.eventsByOriginalStart[data.dtstart]
+                ?: data.eventsByOriginalStart.values.firstOrNull { !it[EventTable.seriesDetached] }
+                ?: data.eventsByOriginalStart.values.firstOrNull()
+                ?: return
+        val occurrences = RecurrenceExpander.expand(rrule = data.rrule, dtstart = data.dtstart, zone = data.zone)
+        val exdates =
+            occurrences.filter { occurrenceStart ->
+                val ev = data.eventsByOriginalStart[occurrenceStart]
+                ev == null ||
+                    ev[EventTable.status] != EventStatus.PUBLISHED ||
+                    ev[EventTable.visibility] != EventVisibility.PUBLIC
+            }
+
+        sb.append("BEGIN:VEVENT\r\n")
+        sb.append(foldLine("UID:series-$seriesId@$host"))
+        sb.append(foldLine("DTSTAMP:$dtstamp"))
+        sb.append(foldLine("DTSTART:${icsUtc(data.dtstart)}"))
+        sb.append(foldLine("DTEND:${icsUtc(data.dtstart.plusMinutesCompat(data.durationMinutes))}"))
+        sb.append(foldLine("RRULE:${data.rrule}"))
+        // RFC 5545 §3.8.5.1 permits either one EXDATE property per date or a single comma-separated
+        // EXDATE listing several -- one property per date, matching this class' one-line-folding
+        // helper without needing a separate comma-joining/length-budget calculation.
+        exdates.forEach { occurrenceStart -> sb.append(foldLine("EXDATE:${icsUtc(occurrenceStart)}")) }
+        sb.append(foldLine("SUMMARY:${icsEscape(representative[EventTable.title])}"))
+        representative[EventTable.description].takeIf { it.isNotBlank() }?.let {
+            sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
+        }
+        representative[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
+            sb.append(foldLine("LOCATION:${icsEscape(it)}"))
+        }
+        sb.append(foldLine("URL:$baseUrl/veranstaltung/${representative[EventTable.slug]}"))
+        sb.append("STATUS:CONFIRMED\r\n")
+        sb.append("END:VEVENT\r\n")
+    }
+
+    /**
+     * An individually-detached occurrence's own `VEVENT` -- same `UID` as its series' master
+     * ([appendSeriesMaster]), plus `RECURRENCE-ID` set to the ORIGINAL (undetached) occurrence time
+     * ([EventTable.seriesOriginalStart], not [EventTable.startsAt] -- RFC 5545 §3.8.4.4: `RECURRENCE-ID`
+     * identifies WHICH instance of the recurrence set this override replaces, which is always the
+     * time the master's own RRULE would have produced, regardless of how far [row]'s own `startsAt`
+     * has since moved). Every other field (`DTSTART`/`DTEND`/`SUMMARY`/...) reflects [row]'s CURRENT,
+     * possibly-edited values -- exactly what RFC 5545 exception semantics require a calendar client to
+     * display in place of the ruled-generated instance.
+     */
+    private fun appendSeriesExceptionVevent(
+        sb: StringBuilder,
+        row: ResultRow,
+        seriesId: Uuid,
+        host: String,
+        dtstamp: String,
+        baseUrl: String,
+    ) {
+        val originalStart = row[EventTable.seriesOriginalStart] ?: return
+        sb.append("BEGIN:VEVENT\r\n")
+        sb.append(foldLine("UID:series-$seriesId@$host"))
+        sb.append(foldLine("DTSTAMP:$dtstamp"))
+        sb.append(foldLine("RECURRENCE-ID:${icsUtc(originalStart)}"))
+        sb.append(foldLine("DTSTART:${icsUtc(row[EventTable.startsAt])}"))
+        sb.append(foldLine("DTEND:${icsUtc(row[EventTable.endsAt])}"))
+        sb.append(foldLine("SUMMARY:${icsEscape(row[EventTable.title])}"))
+        row[EventTable.description].takeIf { it.isNotBlank() }?.let {
+            sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
+        }
+        row[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
+            sb.append(foldLine("LOCATION:${icsEscape(it)}"))
+        }
+        sb.append(foldLine("URL:$baseUrl/veranstaltung/${row[EventTable.slug]}"))
+        sb.append("STATUS:CONFIRMED\r\n")
+        sb.append("END:VEVENT\r\n")
     }
 
     /**
@@ -142,6 +331,10 @@ internal object EventIcsFeed {
             utc.second,
         )
     }
+
+    /** `LocalDateTime + N minutes` -- same idiom `EventSeriesMaterializer.plusMinutesKt` already establishes for the exact same arithmetic, duplicated here rather than shared to keep this file's dependency on the `events.series` package limited to [RecurrenceExpander] alone. */
+    private fun LocalDateTime.plusMinutesCompat(minutes: Int): LocalDateTime =
+        this.toJavaLocalDateTime().plusMinutes(minutes.toLong()).toKotlinLocalDateTime()
 
     /**
      * RFC 5545 §3.3.11 TEXT escaping -- backslash, semicolon, comma, dann literale Zeilenumbrüche

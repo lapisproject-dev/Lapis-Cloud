@@ -8,6 +8,30 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.4.37 — Wiederkehrende Veranstaltungen: Admin-UI + RRULE-iCal-Feed (Abschluss).** Das
+  server-seitige Fundament (Datenmodell, Scope-Engine, RPC-Verdrahtung -- `createEventSeries`,
+  `previewSeries`, `updateSeriesEvent`, `cancelSeriesEvent`, `impactOfSeriesEdit`) landete in
+  vorherigen Wellen; diese Welle liefert den Rest: die Admin-Oberfläche und den RRULE-fähigen
+  iCal-Feed. Neue Datei `EventSeriesEditor.kt`: ein Google-Calendar-artiges Wiederholung-Dropdown
+  (täglich/wöchentlich am Wochentag/monatlich am Tag im Monat oder n-ten Wochentag/jährlich) mit
+  aufklappbarem "Benutzerdefiniert" (Intervall, Wochentag-Chips -- Starttag fest markiert --,
+  Serie-Ende als Anzahl oder Enddatum, nie unbegrenzt), Live-Satz ausschließlich aus der
+  server-seitigen `previewSeries`-RPC (kein zweiter Client-Interpreter), sowie ein
+  THIS/FOLLOWING/ALL-Auswahldialog vor jeder Mehrfach-Änderung/-Absage mit den Auswirkungszahlen aus
+  `impactOfSeriesEdit` direkt in der Options-Beschriftung. `EventsScreen.kt`: die Terminliste bleibt
+  flach und chronologisch, zeigt aber ein ↻-Symbol (durchgestrichen für eine individuell aus der
+  Serie gelöste Ausnahme-Instanz) mit dem server-gebauten `seriesRuleSummary` als Tooltip; Bearbeiten/
+  Absagen eines noch nicht gelösten Serientermins läuft über den Scope-Dialog, ein bereits gelöster
+  Termin über den normalen Einzel-Event-Pfad (server-seitig ohnehin erzwungen).
+  `EventIcsFeed.render` rendert eine Serie jetzt als EIN RRULE-Master-`VEVENT` statt als N
+  unabhängige `VEVENT`s: eine individuell bearbeitete/gelöste Instanz bekommt ein eigenes `VEVENT`
+  mit `RECURRENCE-ID`, fehlende/abgesagte/versteckte Okkurrenzen werden per `EXDATE`
+  ausgeschlossen -- verifiziert per echtem `ical4j`-`CalendarBuilder`-Roundtrip-Parse
+  (`EventIcsFeedSeriesTest`). Ein Integrationstest (`EventSeriesInstanceIntegrationTest`) zeigt, dass
+  eine Serieninstanz eine ganz normale `event`-Zeile bleibt: Anmeldung/Kontingent/Warteliste,
+  Titelbild und das Embed-Widget funktionieren unverändert. 58 neue i18n-Katalogeinträge in allen
+  sieben Sprachen + Template.
+
 - **V1.9.11 — Öffentliche Icon-Navigation + Übersichten Artikel/Veranstaltungen.** Der Kopfbereich
   aller sechs (jetzt sieben) unauthentifizierten öffentlichen Seiten (`/`, `/s`, `/transparenz`,
   `/impressum`, `/datenschutz`, neu `/aktuelles`, `/veranstaltungen`) zeigt die Navigation jetzt

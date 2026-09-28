@@ -45,9 +45,13 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `reliefLink`/`travelExpenseLink`/the volunteer-allowance counter already establish there) -- a background badge count has no
  * sensible `dataSection`/`dataErrorState` presentation (there is no visible "loading"/"error" state for a sidebar number), so this
  * is not migration debt, it is the same accepted shape as its three siblings, one more time. 147 -> 148.
+ * Follow-up wave "Wiederkehrende Veranstaltungen: Client/iCal/i18n" adds ONE more: `EventSeriesEditor.kt`'s debounced
+ * `previewSeries(` live-preview call (400ms after every keystroke/selection change in the recurrence editor) has the same
+ * "no sensible loading/error state" shape as the accepted badge reads above -- the live sentence it feeds simply stays blank
+ * until the next successful response, exactly like a badge count staying at its last value. 148 -> 149.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 148
+private const val READ_OUTSIDE_STATE_REGION_MAX = 149
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 44
 
 /**

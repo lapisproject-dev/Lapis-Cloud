@@ -155,6 +155,17 @@ private fun renderEventListRow(
         // Security audit W6b follow-up round 3 (major finding A): an event title is organizer-editable free
         // text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
         headerRow.div(sanitizeUntrustedI18nText(event.title)) { addCssClasses("flex-grow-1 fw-bold") }
+        // Follow-up wave "Wiederkehrende Veranstaltungen: Admin-UI" -- the ↻ recurrence symbol from
+        // the implementation plan's "flache, chronologische Terminliste" section. Struck through for
+        // an individually detached exception instance (still part of the series historically, but no
+        // longer governed by it -- see `EventSeriesEditScope.THIS` KDoc). `event.seriesRuleSummary` is
+        // server-built (`RecurrenceSentence.frequencyOnly`), so no client-side sentence logic here.
+        if (event.seriesId != null) {
+            headerRow.div("↻") {
+                addCssClasses(if (event.seriesDetached) "text-muted text-decoration-line-through" else "text-muted")
+                title = event.seriesRuleSummary ?: tr("Teil einer Serie")
+            }
+        }
         headerRow.eventStatusBadge(event.status)
         headerRow.eventVisibilityBadge(event.visibility)
 
@@ -253,10 +264,23 @@ private fun renderEventListRow(
     renderDisplay()
 }
 
+/**
+ * Branches on series membership -- an event that still belongs to a non-detached series
+ * ([EventDto.seriesId] non-null, [EventDto.seriesDetached] `false`) is cancelled via
+ * [seriesEditScopeDialog]/`cancelSeriesEvent` (THIS/FOLLOWING/ALL); a plain event, or an already
+ * individually detached series exception, keeps the original single-event [cancelEvent] path
+ * unchanged -- see `EventSeriesScopeEngine`/`EventService.computeSeriesImpact` KDoc for why a
+ * detached instance is REJECTED by `impactOfSeriesEdit`/`cancelSeriesEvent` ("Dieser Termin wurde
+ * bereits aus der Serie gelöst.") and must therefore never reach that path.
+ */
 private fun cancelEventDialog(
     event: EventDto,
     onCancelled: () -> Unit,
 ) {
+    if (event.seriesId != null && !event.seriesDetached) {
+        cancelSeriesEventDialog(event, onCancelled)
+        return
+    }
     val affectedCount = event.occupiedSeats + event.waitlistCount
     confirmWithReasonDialog(
         title = tr("Veranstaltung absagen"),
@@ -274,6 +298,56 @@ private fun cancelEventDialog(
             if (result != null) {
                 notifyInfo(tr("Veranstaltung wurde abgesagt."))
                 onCancelled()
+            }
+        }
+    }
+}
+
+/**
+ * The series-aware cancel path: collects the mandatory cancellation reason FIRST (same
+ * `confirmWithReasonDialog` grammar as the plain path), then opens [seriesEditScopeDialog] for the
+ * THIS/FOLLOWING/ALL choice -- reason before scope, since the reason is identical regardless of scope
+ * and asking twice would be redundant. `cancelSeriesEvent` itself decides per affected instance
+ * whether it hard-deletes (zero registrations) or cancels-and-mails (`EventSeriesMaterializer
+ * .deleteOrCancel` KDoc "Entscheidung 3") -- this dialog's wording covers both outcomes rather than
+ * promising one specific one.
+ */
+private fun cancelSeriesEventDialog(
+    event: EventDto,
+    onCancelled: () -> Unit,
+) {
+    confirmWithReasonDialog(
+        title = tr("Serientermin absagen"),
+        message =
+            tr(
+                "Diese Aktion kann nicht rückgängig gemacht werden. Ein Termin ohne jede Anmeldung wird " +
+                    "endgültig gelöscht, ein Termin mit Anmeldungen wird abgesagt und alle aktiven " +
+                    "Angemeldeten werden per E-Mail benachrichtigt.",
+            ),
+        reasonLabel = tr("Grund"),
+        reasonRequired = true,
+        confirmLabel = tr("Weiter"),
+    ) { reason ->
+        val nonBlankReason = reason ?: return@confirmWithReasonDialog
+        seriesEditScopeDialog(
+            eventId = event.id,
+            title = tr("Serientermin absagen"),
+            message = tr("Welche Termine sollen abgesagt bzw. gelöscht werden?"),
+            confirmLabel = tr("Absagen und benachrichtigen"),
+            confirmStyle = ButtonStyle.DANGER,
+        ) { scope ->
+            AppScope.launch {
+                val result = guarded { rpcService<IEventService>().cancelSeriesEvent(event.id, scope, nonBlankReason) }
+                if (result != null) {
+                    notifyInfo(
+                        gettext(
+                            "%1 Termin(e) wurden abgesagt bzw. gelöscht (%2 Angemeldete benachrichtigt).",
+                            result.affectedEventCount,
+                            result.affectedRegistrationCount,
+                        ),
+                    )
+                    onCancelled()
+                }
             }
         }
     }
@@ -443,6 +517,7 @@ private fun renderEventCreationForm(
     val panel = root.vPanel(spacing = 6)
     panel.div(tr("Ein Titelbild können Sie nach dem Anlegen hinzufügen.")) { addCssClasses("text-muted small") }
     val fields = buildEventFormFields(panel, prefill = null, rooms = rooms)
+    val recurrenceEditor = renderRecurrenceEditor(panel, fields.startsAtInput, fields.endsAtInput)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
@@ -451,13 +526,37 @@ private fun renderEventCreationForm(
     val createButton = panel.button(tr("Veranstaltung anlegen"), style = ButtonStyle.PRIMARY)
     createButton.onClick {
         val input = readEventForm(fields, errorBox, existingStartsAt = null) ?: return@onClick
-        createButton.disabled = true
-        AppScope.launch {
-            val result = guarded { rpcService<IEventService>().createEvent(input) }
-            createButton.disabled = false
-            if (result != null) {
-                notifySuccess(gettext("Veranstaltung \"%1\" wurde angelegt.", input.title))
-                onCreated()
+        if (recurrenceEditor.isEnabled) {
+            val rule = recurrenceEditor.currentRule()
+            if (rule == null) {
+                errorBox.content = tr("Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden.")
+                errorBox.show()
+                return@onClick
+            }
+            createButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IEventService>().createEventSeries(input, rule) }
+                createButton.disabled = false
+                if (result != null) {
+                    notifySuccess(
+                        gettext(
+                            "Serie \"%1\" mit %2 Terminen wurde angelegt.",
+                            input.title,
+                            result.createdEventIds.size,
+                        ),
+                    )
+                    onCreated()
+                }
+            }
+        } else {
+            createButton.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IEventService>().createEvent(input) }
+                createButton.disabled = false
+                if (result != null) {
+                    notifySuccess(gettext("Veranstaltung \"%1\" wurde angelegt.", input.title))
+                    onCreated()
+                }
             }
         }
     }
@@ -486,6 +585,35 @@ private fun renderEventEditForm(
 
     saveButton.onClick {
         val input = readEventForm(fields, errorBox, existingStartsAt = event.startsAt) ?: return@onClick
+        // Series-aware branch (see `cancelEventDialog`'s own KDoc for the exact same
+        // `seriesId != null && !seriesDetached` condition and why a detached instance must NEVER
+        // reach `updateSeriesEvent`/`impactOfSeriesEdit`, which reject it server-side).
+        if (event.seriesId != null && !event.seriesDetached) {
+            seriesEditScopeDialog(
+                eventId = event.id,
+                title = tr("Serientermin bearbeiten"),
+                message = tr("Welche Termine sollen diese Änderung übernehmen?"),
+                confirmLabel = tr("Änderungen speichern"),
+            ) { scope ->
+                saveButton.disabled = true
+                AppScope.launch {
+                    val result =
+                        guarded { rpcService<IEventService>().updateSeriesEvent(eventId = event.id, input = input, scope = scope) }
+                    saveButton.disabled = false
+                    if (result != null) {
+                        notifySuccess(
+                            gettext(
+                                "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen).",
+                                result.affectedEventCount,
+                                result.affectedRegistrationCount,
+                            ),
+                        )
+                        onSaved()
+                    }
+                }
+            }
+            return@onClick
+        }
         saveButton.disabled = true
         AppScope.launch {
             val result = guarded { rpcService<IEventService>().updateEvent(id = event.id, input = input) }

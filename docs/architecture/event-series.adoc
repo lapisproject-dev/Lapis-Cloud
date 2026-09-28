@@ -241,22 +241,78 @@ admin-facing client UI are NOT yet implemented -- see <<known-gaps>>.
 `seriesRuleSummary` (a short frequency-only phrase, e.g. `"Wöchentlich am Dienstag"`, resolved
 per-row for the terminliste's future ↻ symbol).
 
-[[known-gaps]]
-== Known gaps (explicitly out of scope for this commit)
+[[client-ui]]
+== Admin client UI (`EventSeriesEditor.kt`/`EventsScreen.kt`)
 
-The following pieces of the original implementation plan for this wave are NOT yet implemented,
-and are called out here explicitly rather than silently dropped:
+Follow-up wave "Wiederkehrende Veranstaltungen: Client/iCal/i18n" implements the pieces the
+previous section's "Known gaps" list still owed. A new file, `EventSeriesEditor.kt`, holds:
 
-* **Admin client UI** (`EventsScreen.kt`) -- the "Wiederholung"-Dropdown, the benutzerdefiniert-Block,
-  the live-Satz debounce, and the Drei-Radiobutton-Bearbeitungsdialog described in the implementation
-  plan's section 6 are not built. The RPC surface above is fully usable from any client (e.g. a
-  future `EventsScreen.kt` change, or manual testing via the RPC endpoints), but no UI calls it yet.
-* **i18n** -- no new `tr()`/`gettext()` msgids were added (there is no new client UI to add them to
-  yet).
-* **ICS feed** (`EventIcsFeed.kt`) -- a series-materialized `event` row today renders as a plain,
-  independent `VEVENT` in the public iCal feed, exactly like a one-off event. The RRULE-aware
-  master-`VEVENT` + `RECURRENCE-ID`-exception rendering described in the implementation plan's
-  section 8 is not implemented.
+* **The recurrence editor** -- a preset dropdown (täglich / wöchentlich am Wochentag / monatlich am
+  Tag im Monat oder am n-ten Wochentag / jährlich, all derived from the chosen start date/time) plus
+  an aufklappbares "Benutzerdefiniert" for the full `RecurrenceRuleInput` shape (Intervall,
+  Frequenz, Wochentag-Chips, Serie-Ende als Anzahl oder Enddatum -- never unbounded). The start
+  weekday's chip is permanently checked and disabled in the WEEKLY custom editor, because
+  `RecurrenceRuleBuilder.build` unconditionally rejects a rule whose `DTSTART` weekday is missing
+  from `byWeekdays`. The live sentence under the picker is EXCLUSIVELY `previewSeries`'s own
+  `SeriesPreviewDto.sentence` (server-built by `RecurrenceSentence`), debounced 400ms client-side --
+  this file never reimplements that formatting.
+* **`seriesEditScopeDialog`** -- the THIS/FOLLOWING/ALL choice shown before any edit/cancel of a
+  still-attached (non-detached) series event. Implemented as a `Select` rather than literal HTML
+  radio inputs (no radio-button precedent existed anywhere in `:lapis-client`); the THIS impact is
+  fetched first (its `isFirstOccurrence` decides whether FOLLOWING even gets its own option -- on
+  the series' very first occurrence, FOLLOWING and ALL are identical), then ALL. Each option's own
+  label already carries the affected-event/affected-registration counts from `impactOfSeriesEdit` --
+  this dialog IS the mandatory confirmation step, there is no second, nested one.
 
-These are recommended as the scope of an immediate follow-up wave -- the server-side RPC surface and
-persistence (this wave) is what everything else builds on.
+`EventsScreen.kt` wires this in: the creation form calls `createEventSeries` instead of
+`createEvent` when the recurrence editor is enabled; editing/cancelling a still-attached series
+event opens `seriesEditScopeDialog` and calls `updateSeriesEvent`/`cancelSeriesEvent`; an already
+individually detached instance (`seriesDetached == true`) keeps the plain single-event
+`updateEvent`/`cancelEvent` path, because `EventService.computeSeriesImpact` rejects a detached
+instance outright ("Dieser Termin wurde bereits aus der Serie gelöst."). The event list stays flat
+and chronological (no collapsed series group) and shows a ↻ symbol per series row (struck through
+for a detached exception instance), tooltipped with the server-built `EventDto.seriesRuleSummary`.
+
+58 new `tr()`/`gettext()` msgids were added across all seven language catalogs plus the template
+(hand-translated -- this repo has no machine-translation tooling for new catalog content, only
+`scripts/i18n/regenerate-source-refs.mjs` for the `#:` source-reference comments).
+`AllClientMessagesCatalogTest` passes.
+
+[[ics-feed]]
+== ICS feed RRULE support (`EventIcsFeed.kt`)
+
+A series-materialized `event` row no longer renders as an independent `VEVENT`. `EventIcsFeed.render`
+now groups the visible rows by `series_id` and, per distinct series, emits exactly ONE RRULE-carrying
+master `VEVENT` (`UID: series-<seriesId>@<host>`, `DTSTART`/`RRULE` taken from the `event_series` row,
+`SUMMARY`/`DESCRIPTION`/`LOCATION` from a representative occurrence). Two kinds of per-occurrence
+overrides:
+
+* An individually detached instance (`event.series_detached`) gets its own `VEVENT` sharing the
+  master's `UID`, with `RECURRENCE-ID` set to the occurrence's ORIGINAL (`series_original_start`)
+  time and every other field reflecting its current, edited values -- the standard RFC 5545
+  §3.8.4.4 exception shape.
+* An occurrence the raw RRULE expansion would produce but that is missing (hard-deleted), cancelled,
+  or otherwise hidden (non-`PUBLIC`/non-`PUBLISHED`) gets an `EXDATE` on the master instead, so a
+  calendar client never regenerates a "ghost" instance for it.
+
+`EventIcsFeed.loadSeriesRenderData` gathers the extra data this needs (the series' own
+`rrule`/`dtstart`/`timezone`/`durationMinutes`, plus every still-attached occurrence keyed by its
+original start) inside the SAME transaction as `loadUpcomingPublicPublished` -- `render` itself stays
+transaction-free, unchanged posture from before this wave. `EmbedEventsFeedRoutes.kt` reuses
+`loadUpcomingPublicPublished` verbatim and is therefore unaffected by (and does not need to call)
+the new RRULE rendering path.
+
+Verified by `EventIcsFeedSeriesTest`, including a real `net.fortuna.ical4j.data.CalendarBuilder`
+round-trip parse of the produced text (the exact rigor `RecurrenceExpander`'s own KDoc had
+anticipated for a test file of this name).
+
+[[normal-event-row]]
+== A series instance is an ordinary `event` row
+
+`EventSeriesInstanceIntegrationTest` demonstrates directly that a series-materialized instance
+participates in every pre-existing feature unmodified: registration/capacity/waitlist promotion
+(`EventRegistrationSubmission`/`EventCapacityGuard`, same mechanics
+`network.lapis.cloud.server.events.EventCapacityTest` already proves for a plain event), the cover
+image (`EventCoverPolicy.coverImageUrl`, a pure function of `slug`/`coverImageId` -- both already
+unique per materialized instance), and the embed widget (`EventIcsFeed.loadUpcomingPublicPublished`,
+the exact query `EmbedEventsFeedRoutes.kt` reuses).

@@ -1335,8 +1335,9 @@ msgstr "Unsubscribed on %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:417
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:474
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:180
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventSeriesEditor.kt:458
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:209
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:583
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2336
@@ -1466,7 +1467,7 @@ msgstr "Postable"
 msgid "Abrechnen"
 msgstr "Post"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:237
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:248
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:369
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:374
 msgid "Absagen"
@@ -1798,7 +1799,8 @@ msgstr "Other party/faction"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:588
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:179
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:484
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:582
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
 msgid "Änderungen speichern"
 msgstr "Save changes"
 
@@ -2393,7 +2395,7 @@ msgstr "Requested by %1 on %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:103
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:128
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:191
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:202
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:485
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:298
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:231
@@ -2406,7 +2408,7 @@ msgid "Beendet"
 msgstr "Ended"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:658
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:401
 msgid "Beginn"
 msgstr "Start"
 
@@ -2751,7 +2753,7 @@ msgstr "Resolution text"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:736
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:198
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:235
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:324
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:397
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1132
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1182
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1649
@@ -4371,7 +4373,7 @@ msgid "Empfänger:"
 msgstr "Recipient:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:662
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:330
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:403
 msgid "Ende"
 msgstr "End"
 
@@ -4416,9 +4418,9 @@ msgstr "Discovered on: %1 · Affected data categories: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:297
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3057
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4585
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:595
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:601
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:680
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:722
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:728
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2117
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:585
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:437
@@ -5240,7 +5242,8 @@ msgid "Gremium: %1 · eingereicht von %2 am %3"
 msgstr "Committee: %1 · submitted by %2 on %3"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:592
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:265
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:289
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1206
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:564
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:839
@@ -5341,7 +5344,7 @@ msgstr "High"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:375
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:734
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:552
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:679
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:436
 msgid "Hochladen"
 msgstr "Upload"
@@ -8188,7 +8191,7 @@ msgstr "Visible to TREASURER/BOARD/ADMIN."
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:557
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:619
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:680
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:347
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:420
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:286
 msgid "Sichtbarkeit"
 msgstr "Visibility"
@@ -8981,7 +8984,7 @@ msgstr "Timeline"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:373
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:389
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:535
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:323
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:396
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:233
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:438
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:624
@@ -9245,8 +9248,8 @@ msgstr "History"
 msgid "Vermögensverwaltung"
 msgstr "Asset administration"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:210
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:224
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:221
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:324
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:348
 msgid "Veröffentlichen"
@@ -9503,6 +9506,7 @@ msgid "Vote schließen"
 msgstr "Close vote"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:716
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:328
 msgid "Weiter"
 msgstr "Continue"
 
@@ -9746,7 +9750,7 @@ msgid "Wird zusammengeführt …"
 msgstr "Merging …"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:301
-#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:590
+#: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:717
 msgid "Wirklich entfernen?"
 msgstr "Really remove?"
 
@@ -16443,3 +16447,177 @@ msgstr "Member count is now shown publicly."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1455
 msgid "Mitgliederzahl wird öffentlich nicht mehr angezeigt."
 msgstr "Member count is no longer shown publicly."
+
+msgid "Wiederkehrende Veranstaltung (Serie)"
+msgstr "Recurring event (series)"
+
+msgid "Wiederholung"
+msgstr "Recurrence"
+
+msgid "Tag(e)"
+msgstr "day(s)"
+
+msgid "Woche(n)"
+msgstr "week(s)"
+
+msgid "Monat(e)"
+msgstr "month(s)"
+
+msgid "Jahr(e)"
+msgstr "year(s)"
+
+msgid "Alle …"
+msgstr "Every …"
+
+msgid "Intervall"
+msgstr "Interval"
+
+msgid "Intervall: 1 bis %1."
+msgstr "Interval: 1 to %1."
+
+msgid "Am gleichen Tag im Monat"
+msgstr "On the same day of the month"
+
+msgid "Am gleichen Wochentag im Monat"
+msgstr "On the same weekday of the month"
+
+msgid "Monatliche Variante"
+msgstr "Monthly variant"
+
+msgid "Nach Anzahl der Termine"
+msgstr "After a number of occurrences"
+
+msgid "Am Enddatum"
+msgstr "On an end date"
+
+msgid "Serie endet …"
+msgstr "Series ends …"
+
+msgid "Anzahl der Termine"
+msgstr "Number of occurrences"
+
+msgid "Eine Serie umfasst höchstens %1 Termine, innerhalb von höchstens %2 Monaten ab dem Beginn."
+msgstr "A series covers at most %1 occurrences, within at most %2 months of the start."
+
+msgid "Wochentage:"
+msgstr "Weekdays:"
+
+msgid "Benutzerdefiniert…"
+msgstr "Custom…"
+
+msgid "Täglich"
+msgstr "Daily"
+
+msgid "Wöchentlich am %1"
+msgstr "Weekly on %1"
+
+msgid "Jährlich am %1"
+msgstr "Yearly on %1"
+
+msgid "Monatlich am letzten %1"
+msgstr "Monthly on the last %1"
+
+msgid "Monatlich am %1 %2"
+msgstr "Monthly on the %1 %2"
+
+msgid "ersten"
+msgstr "first"
+
+msgid "zweiten"
+msgstr "second"
+
+msgid "dritten"
+msgstr "third"
+
+msgid "vierten"
+msgstr "fourth"
+
+msgid "Montag"
+msgstr "Monday"
+
+msgid "Dienstag"
+msgstr "Tuesday"
+
+msgid "Mittwoch"
+msgstr "Wednesday"
+
+msgid "Donnerstag"
+msgstr "Thursday"
+
+msgid "Freitag"
+msgstr "Friday"
+
+msgid "Samstag"
+msgstr "Saturday"
+
+msgid "Sonntag"
+msgstr "Sunday"
+
+msgid "Mo"
+msgstr "Mon"
+
+msgid "Di"
+msgstr "Tue"
+
+msgid "Mi"
+msgstr "Wed"
+
+msgid "Do"
+msgstr "Thu"
+
+msgid "Fr"
+msgstr "Fri"
+
+msgid "Sa"
+msgstr "Sat"
+
+msgid "So"
+msgstr "Sun"
+
+msgid "Auswirkungen werden geladen…"
+msgstr "Loading impact…"
+
+msgid "Auswirkungen konnten nicht geladen werden -- bitte erneut versuchen."
+msgstr "The impact could not be loaded -- please try again."
+
+msgid "Betrifft"
+msgstr "Affects"
+
+msgid "Nur dieser Termin (%1 Angemeldete)"
+msgstr "Only this occurrence (%1 registered)"
+
+msgid "Dieser und alle folgenden Termine (%1 Termine, %2 Angemeldete)"
+msgstr "This and all following occurrences (%1 occurrences, %2 registered)"
+
+msgid "Alle Termine der Serie (%1 Termine, %2 Angemeldete)"
+msgstr "All occurrences of the series (%1 occurrences, %2 registered)"
+
+msgid "Teil einer Serie"
+msgstr "Part of a series"
+
+msgid "Diese Aktion kann nicht rückgängig gemacht werden. Ein Termin ohne jede Anmeldung wird endgültig gelöscht, ein Termin mit Anmeldungen wird abgesagt und alle aktiven Angemeldeten werden per E-Mail benachrichtigt."
+msgstr "This action cannot be undone. An occurrence with no registrations at all is permanently deleted; an occurrence with registrations is cancelled and every actively registered person is notified by e-mail."
+
+msgid "Serientermin absagen"
+msgstr "Cancel series occurrence"
+
+msgid "Welche Termine sollen abgesagt bzw. gelöscht werden?"
+msgstr "Which occurrences should be cancelled or deleted?"
+
+msgid "%1 Termin(e) wurden abgesagt bzw. gelöscht (%2 Angemeldete benachrichtigt)."
+msgstr "%1 occurrence(s) were cancelled or deleted (%2 registered notified)."
+
+msgid "Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden."
+msgstr "Please check the recurrence rule -- it cannot be created as is."
+
+msgid "Serie \"%1\" mit %2 Terminen wurde angelegt."
+msgstr "Series \"%1\" with %2 occurrences was created."
+
+msgid "Serientermin bearbeiten"
+msgstr "Edit series occurrence"
+
+msgid "Welche Termine sollen diese Änderung übernehmen?"
+msgstr "Which occurrences should receive this change?"
+
+msgid "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen)."
+msgstr "%1 occurrence(s) were updated (%2 registered affected)."
