@@ -323,6 +323,7 @@ class LegalHtmlTest :
                     "aiAssistant" to "KI-gestützte Satzungsauskunft",
                     "keycloak_login" to "Anmeldung über Keycloak",
                     "mcp" to "MCP-Zugang für KI-Agenten",
+                    "articles" to "freigegebene Artikel",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

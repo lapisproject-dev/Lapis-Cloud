@@ -15404,3 +15404,6 @@ msgstr "Error al eliminar."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "No se pudo leer la respuesta."
 
+msgid "Artikel"
+msgstr "Artículo"
+

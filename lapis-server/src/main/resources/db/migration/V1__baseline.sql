@@ -806,7 +806,14 @@ CREATE TABLE audit_log_entry (
     -- against this SAME still-unnamed inline constraint even though V51's named constraint had
     -- already been widened. Flyway repair needed on an already-migrated instance, same as every
     -- precedent above.
-    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION', 'BANK_ACCOUNT', 'OPEN_ITEM', 'OPEN_ITEM_NETTING', 'RECEIVABLE_DUNNING_NOTICE', 'DOCUMENT', 'DOCUMENT_FOLDER')),
+    -- Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow": 'ARTICLE' appended
+    -- in place, by the exact same "H2 enforces both constraints independently" reasoning as every
+    -- precedent above -- confirmed live (ArticleServiceTest): a fresh H2 test database rejected an
+    -- ArticleService.submitArticle/approveArticle/etc. audit INSERT with entity_type = 'ARTICLE'
+    -- against this SAME still-unnamed inline constraint even though V53's named constraint had
+    -- already been widened. Flyway repair needed on an already-migrated instance, same as every
+    -- precedent above.
+    CHECK (entity_type IN ('JOURNAL_ENTRY', 'PARTY_DONATION_VERDICT', 'RESOLUTION', 'BOARD_MEMBERSHIP', 'CONFERENCE_RECORDING', 'CONFERENCE_STREAM', 'CONFERENCE_STREAM_DESTINATION', 'CONFERENCE_ROOM', 'SOCIAL_POST', 'ORGANIZATION_SETTINGS', 'SEPA_MANDATE', 'SEPA_DEBIT_BATCH', 'DUNNING_NOTICE', 'MEMBER', 'PAYMENT_TRANSACTION', 'API_KEY', 'WEBHOOK_ENDPOINT', 'BANK_STATEMENT_IMPORT', 'ACCOUNTING_EXPORT_CONNECTION', 'ACCOUNTING_EXPORT_RUN', 'ACCOUNTING_EXPORT_MAPPING', 'CONTRIBUTION_RELIEF_REQUEST', 'TRAVEL_EXPENSE_REPORT', 'VOLUNTEER_ALLOWANCE_PAYMENT', 'VOLUNTEER_DECLARATION', 'BANK_ACCOUNT', 'OPEN_ITEM', 'OPEN_ITEM_NETTING', 'RECEIVABLE_DUNNING_NOTICE', 'DOCUMENT', 'DOCUMENT_FOLDER', 'ARTICLE')),
     CHECK (action IN ('CREATE', 'UPDATE', 'POST', 'VOID'))
 );
 

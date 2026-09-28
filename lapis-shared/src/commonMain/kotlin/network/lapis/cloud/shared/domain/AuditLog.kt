@@ -310,6 +310,16 @@ enum class AuditEntityType {
      * limit. Appended LAST, after `DOCUMENT`, additive only.
      */
     DOCUMENT_FOLDER,
+
+    /**
+     * Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" --
+     * `network.lapis.cloud.server.rpc.ArticleService`'s `submitArticle`/`approveArticle`/
+     * `rejectArticle`/`unpublishArticle` each write exactly one `ARTICLE` `UPDATE` entry per status
+     * transition, `entityId` = the `article` row's id. 7 characters, well under the VARCHAR(29)
+     * width limit. Appended LAST, after `DOCUMENT_FOLDER`, additive only -- see
+     * `V53__article.sql`'s `chk_audit_log_entry_entity_type` widening.
+     */
+    ARTICLE,
 }
 
 /**

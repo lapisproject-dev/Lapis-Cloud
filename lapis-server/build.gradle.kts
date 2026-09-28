@@ -63,6 +63,10 @@ dependencies {
     // V0.7.1 Authentifizierung — see PasswordHasher KDoc for why bcrypt over Argon2id.
     implementation(libs.bcrypt)
 
+    // V1.4.34 Nachrichten-/Artikel-Modul — see gradle/libs.versions.toml for the library-choice
+    // rationale (Apache-2.0, pure JVM, no transitive deps).
+    implementation(libs.commonmark)
+
     // V0.8.2 OIDC-Gastzugang-Federation — see gradle/libs.versions.toml for why a library was
     // chosen over hand-rolling (departure from V0.8.1's HTTP-Signatures posture).
     implementation(libs.nimbus.jose.jwt)

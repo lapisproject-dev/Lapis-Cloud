@@ -154,6 +154,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // die Begriffe, die DocumentsScreen.kt bereits durchgängig verwendet.
         AuditEntityType.DOCUMENT -> gettext("Dokument")
         AuditEntityType.DOCUMENT_FOLDER -> gettext("Dokumentordner")
+        // Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow"
+        AuditEntityType.ARTICLE -> gettext("Artikel")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -244,6 +246,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // violation" tier API_KEY/WEBHOOK_ENDPOINT/ACCOUNTING_EXPORT_CONNECTION already carry.
         AuditEntityType.DOCUMENT -> "dark"
         AuditEntityType.DOCUMENT_FOLDER -> "dark"
+        // "secondary" -- routine editorial workflow, not an access-control/compliance action.
+        AuditEntityType.ARTICLE -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

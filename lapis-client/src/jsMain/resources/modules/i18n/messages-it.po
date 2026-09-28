@@ -15427,3 +15427,6 @@ msgstr "Rimozione non riuscita."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "Impossibile leggere la risposta."
 
+msgid "Artikel"
+msgstr "Articolo"
+

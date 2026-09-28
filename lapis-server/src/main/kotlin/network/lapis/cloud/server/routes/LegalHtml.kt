@@ -397,6 +397,15 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Von Mitgliedern verfasste und vom Vorstand freigegebene Artikel (redaktioneller " +
+                        "Nachrichten-Workflow): Titel, Auszug und Inhalt Ihres Entwurfs sind bis zur " +
+                        "Freigabe nur Ihnen selbst sowie dem Vorstand sichtbar; nach der Veröffentlichung " +
+                        "wird der Artikelinhalt öffentlich, Ihr Name als Autor jedoch nicht angezeigt — " +
+                        "Art. 6 Abs. 1 lit. b DSGVO."
+                )
+            }
+            li {
+                +(
                     "Politiker-Profile und Politiker-Ranking, sofern aktiv genutzt — Vergabe/Entzug des " +
                         "Politiker-Status ist eine Organisationsentscheidung (Art. 6 Abs. 1 lit. b DSGVO); " +
                         "die von Mitgliedern abgegebenen Bewertungen (Like/Dislike) sowie die daraus " +

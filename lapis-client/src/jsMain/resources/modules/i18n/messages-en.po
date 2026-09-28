@@ -15334,3 +15334,6 @@ msgstr "Removal failed."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "Could not read the response."
 
+msgid "Artikel"
+msgstr "Article"
+

@@ -15378,3 +15378,6 @@ msgstr "Verwijderen mislukt."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "Kan het antwoord niet lezen."
 
+msgid "Artikel"
+msgstr "Artikel"
+

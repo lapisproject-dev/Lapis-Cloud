@@ -15445,3 +15445,6 @@ msgstr "Échec de la suppression."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "Impossible de lire la réponse."
 
+msgid "Artikel"
+msgstr "Article"
+

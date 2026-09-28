@@ -540,6 +540,11 @@ fun decodeAuditSnapshot(
             // above) -- falls through to the raw-text display.
             AuditEntityType.DOCUMENT -> null
             AuditEntityType.DOCUMENT_FOLDER -> null
+            // Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" --
+            // ArticleService writes plain `{"status":"..."}` JSON (see ArticleService.kt), no
+            // dedicated snapshot type -- same "backend-only wave" posture as DOCUMENT/
+            // DOCUMENT_FOLDER above, falls through to the raw-text display.
+            AuditEntityType.ARTICLE -> null
         }
     }.getOrNull()
 

@@ -15363,3 +15363,6 @@ msgstr "Не удалось удалить."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "Не удалось прочитать ответ."
 
+msgid "Artikel"
+msgstr "Статья"
+

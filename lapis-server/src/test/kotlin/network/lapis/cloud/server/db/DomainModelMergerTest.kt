@@ -53,8 +53,10 @@ class DomainModelMergerTest :
             // 53 with the addition of 52-member-card.kuml.kts. Welle V1.6.1 "KI-Fundament + Pilot
             // Satzungs-Q&A" -- was 53, now 54 with the addition of 53-ai-assistant.kuml.kts. Welle
             // V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- was 54, now 55 with
-            // the addition of 54-mcp-server.kuml.kts.
-            scriptFiles shouldHaveSize 55
+            // the addition of 54-mcp-server.kuml.kts. Welle V1.4.34 "Nachrichten-/Artikel-Modul mit
+            // redaktionellem Workflow" -- was 55, now 56 with the addition of
+            // 55-articles.kuml.kts.
+            scriptFiles shouldHaveSize 56
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -445,7 +447,13 @@ class DomainModelMergerTest :
             // stub + the one real table) and 1 drop, net +1 distinct table name versus the V1.8.1
             // baseline above (162 -> 163). social_post itself also gains one new column
             // (ai_assisted) -- a new column on an already-real table, no new Table file.
-            val distinctTableNames = 163
+            // Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" adds
+            // 55-articles.kuml.kts's ONE new real table (article), WITH ONE cross-domain Member
+            // stub (article.author_id/reviewed_by both resolve through it -- dedups into the
+            // already-real member entity) -- so it contributes +2 «Entity» declarations (the stub +
+            // the one real table) and 1 drop, net +1 distinct table name versus the V1.8.2
+            // baseline above (163 -> 164).
+            val distinctTableNames = 164
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -728,6 +736,10 @@ class DomainModelMergerTest :
                     // SocialPost cross-domain stub dedups into the already-real social_post entity,
                     // no new Table file for it.
                     "McpPostDraftTable.kt",
+                    // Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" -- ONE
+                    // new real table; its Member cross-domain stub dedups into the already-real
+                    // entity, no new Table file for it.
+                    "ArticleTable.kt",
                 )
         }
 

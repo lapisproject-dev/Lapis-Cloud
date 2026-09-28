@@ -14378,3 +14378,6 @@ msgstr ""
 msgid "Antwort konnte nicht gelesen werden."
 msgstr ""
 
+msgid "Artikel"
+msgstr ""
+

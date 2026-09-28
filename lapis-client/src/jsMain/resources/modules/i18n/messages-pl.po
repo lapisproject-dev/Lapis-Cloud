@@ -15376,3 +15376,6 @@ msgstr "Usuwanie nie powiodło się."
 msgid "Antwort konnte nicht gelesen werden."
 msgstr "Nie można odczytać odpowiedzi."
 
+msgid "Artikel"
+msgstr "Artykuł"
+

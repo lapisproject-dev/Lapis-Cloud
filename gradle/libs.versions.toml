@@ -85,6 +85,13 @@ kotlinx-html            = "0.12.0"
 # Rendern nach SVG/PDF passiert in QrCodeMatrix/LetterPdfBuilder von Hand, ohne AWT/ImageIO.
 zxing-core              = "3.5.4"
 
+# V1.4.34 Nachrichten-/Artikel-Modul: server-side Markdown -> sanitized HTML rendering for the
+# editorial article body (never the raw Markdown to any client but the author). Apache-2.0, pure
+# JVM, no transitive deps beyond kotlin-stdlib -- same "permissive license / no native deps" latte
+# as kotlinx-html/zxing-core/nimbus-jose-jwt above. `commonmark-java` (not flexmark -- flexmark's
+# larger surface/plugin graph is unnecessary here) deliberately at the latest stable 0.2x line.
+commonmark              = "0.22.0"
+
 [plugins]
 kotlin-multiplatform    = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-jvm              = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -175,6 +182,9 @@ pdfbox                           = { module = "org.apache.pdfbox:pdfbox", versio
 
 # V1.4.3.2 Veranstaltungs-Ticketing -- see [versions] entry above for the library-choice rationale.
 zxing-core                       = { module = "com.google.zxing:core", version.ref = "zxing-core" }
+
+# V1.4.34 Nachrichten-/Artikel-Modul -- see [versions] entry above for the library-choice rationale.
+commonmark                       = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 
 # V0.7.1 Authentifizierung: password hashing -- see PasswordHasher KDoc for why bcrypt over
 # Argon2id (pure-JVM, zero JNI/native code, one Apache-2.0 transitive dependency, matching this
