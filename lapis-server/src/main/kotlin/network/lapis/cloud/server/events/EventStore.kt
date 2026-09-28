@@ -2,6 +2,7 @@ package network.lapis.cloud.server.events
 
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
@@ -26,6 +27,7 @@ import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -113,6 +115,13 @@ internal object EventStore {
         createdBy: Uuid,
         // Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks.
         roomId: Uuid? = null,
+        // Dritte Folgewelle "Wiederkehrende Veranstaltungen" -- additive, defaulted to the
+        // pre-existing DRAFT behaviour. `EventSeriesMaterializer` passes `PUBLISHED` so a whole
+        // series goes live in one step (see that class' KDoc "Entscheidung F3").
+        status: EventStatus = EventStatus.DRAFT,
+        // Dritte Folgewelle -- additive, defaulted so no pre-existing caller/test breaks.
+        seriesId: Uuid? = null,
+        seriesOriginalStart: LocalDateTime? = null,
     ) {
         EventTable.insert {
             it[EventTable.id] = id
@@ -126,13 +135,15 @@ internal object EventStore {
             it[EventTable.capacity] = capacity
             it[EventTable.feeAmount] = feeAmount
             it[EventTable.feeCurrency] = feeCurrency
-            it[status] = EventStatus.DRAFT
+            it[EventTable.status] = status
             it[EventTable.visibility] = visibility
             it[EventTable.registrationClosesAt] = registrationClosesAt
             it[EventTable.createdAt] = createdAt
             it[EventTable.createdBy] = createdBy
             it[cancelledAt] = null
             it[EventTable.roomId] = roomId
+            it[EventTable.seriesId] = seriesId
+            it[EventTable.seriesOriginalStart] = seriesOriginalStart
         }
     }
 
@@ -655,6 +666,148 @@ internal object EventStore {
                     (EventRegistrationTable.status eq EventRegistrationStatus.CONFIRMED) and
                     (EventRegistrationTable.ticketCodeSha256.isNull())
             }.toList()
+
+    // ── event_series (dritte Folgewelle "Wiederkehrende Veranstaltungen") ─────────────────────────
+
+    fun insertSeries(
+        id: Uuid,
+        rrule: String,
+        dtstart: LocalDateTime,
+        timezone: String,
+        durationMinutes: Int,
+        splitFromSeriesId: Uuid?,
+        createdBy: Uuid,
+        createdAt: LocalDateTime,
+    ) {
+        EventSeriesTable.insert {
+            it[EventSeriesTable.id] = id
+            it[EventSeriesTable.rrule] = rrule
+            it[EventSeriesTable.dtstart] = dtstart
+            it[EventSeriesTable.timezone] = timezone
+            it[EventSeriesTable.durationMinutes] = durationMinutes
+            it[EventSeriesTable.splitFromSeriesId] = splitFromSeriesId
+            it[EventSeriesTable.createdBy] = createdBy
+            it[EventSeriesTable.createdAt] = createdAt
+        }
+    }
+
+    fun getSeriesOrNull(id: Uuid): ResultRow? = EventSeriesTable.selectAll().where { EventSeriesTable.id eq id }.singleOrNull()
+
+    fun getSeriesOrThrow(id: Uuid): ResultRow = getSeriesOrNull(id) ?: throw NotFoundException("Event series $id not found")
+
+    /** Replaces `event_series.rrule` -- used when [EventSeriesScopeEngine.ScopePlan.split] truncates the ORIGINAL series. */
+    fun updateSeriesRrule(
+        id: Uuid,
+        rrule: String,
+    ) {
+        EventSeriesTable.update({ EventSeriesTable.id eq id }) {
+            it[EventSeriesTable.rrule] = rrule
+        }
+    }
+
+    /**
+     * A series counts as "active" iff at least one of its materialized `event` rows has
+     * `endsAt > now` AND `status != CANCELLED` -- the `MAX_ACTIVE_SERIES_PER_ORG` gate
+     * ([EventSeriesLimits]). Counts DISTINCT `series_id`, not rows.
+     */
+    fun countActiveSeries(now: LocalDateTime): Int =
+        EventTable
+            .select(EventTable.seriesId)
+            .where {
+                (EventTable.seriesId.isNotNull()) and
+                    (EventTable.endsAt greater now) and
+                    (EventTable.status neq EventStatus.CANCELLED)
+            }.withDistinct()
+            .count()
+            .toInt()
+
+    fun findSeriesEventOrNull(
+        seriesId: Uuid,
+        originalStart: LocalDateTime,
+    ): ResultRow? =
+        EventTable
+            .selectAll()
+            .where { (EventTable.seriesId eq seriesId) and (EventTable.seriesOriginalStart eq originalStart) }
+            .singleOrNull()
+
+    fun findSeriesEventOrThrow(
+        seriesId: Uuid,
+        originalStart: LocalDateTime,
+    ): ResultRow =
+        findSeriesEventOrNull(seriesId = seriesId, originalStart = originalStart)
+            ?: throw NotFoundException("No materialized event for series $seriesId at $originalStart")
+
+    fun findSeriesEventsByOriginalStarts(
+        seriesId: Uuid,
+        originalStarts: Set<LocalDateTime>,
+    ): List<ResultRow> {
+        if (originalStarts.isEmpty()) return emptyList()
+        return EventTable
+            .selectAll()
+            .where { (EventTable.seriesId eq seriesId) and (EventTable.seriesOriginalStart inList originalStarts) }
+            .orderBy(EventTable.seriesOriginalStart to SortOrder.ASC)
+            .toList()
+    }
+
+    /** Every non-detached, still-`series_id`-pointing `event` row of [seriesId] -- used to lock/re-point a whole series. */
+    fun findAllSeriesEvents(seriesId: Uuid): List<ResultRow> =
+        EventTable
+            .selectAll()
+            .where { EventTable.seriesId eq seriesId }
+            .orderBy(EventTable.seriesOriginalStart to SortOrder.ASC)
+            .toList()
+
+    /** Total (any status) `event_registration` row count across [eventIds] -- the impact-dialog "Y Angemeldete" number and the Hart-Löschen gate (counts EVERY status, not just active, see `EventSeriesMaterializer` KDoc "Entscheidung 3"). */
+    fun countAllRegistrationsForEvents(eventIds: Collection<Uuid>): Int {
+        if (eventIds.isEmpty()) return 0
+        return EventRegistrationTable
+            .selectAll()
+            .where { EventRegistrationTable.eventId inList eventIds.distinct() }
+            .count()
+            .toInt()
+    }
+
+    /** Only non-CANCELLED/EXPIRED registrations across [eventIds] -- the "wie viele Personen werden per Mail benachrichtigt" count. */
+    fun countActiveRegistrationsForEvents(eventIds: Collection<Uuid>): Int {
+        if (eventIds.isEmpty()) return 0
+        return EventRegistrationTable
+            .selectAll()
+            .where {
+                (EventRegistrationTable.eventId inList eventIds.distinct()) and
+                    (EventRegistrationTable.status notInList EventRegistrationStatusSets.INACTIVE.toList())
+            }.count()
+            .toInt()
+    }
+
+    fun markSeriesEventsDetached(eventIds: Collection<Uuid>) {
+        if (eventIds.isEmpty()) return
+        EventTable.update({ EventTable.id inList eventIds }) {
+            it[seriesDetached] = true
+        }
+    }
+
+    /** Re-points `event.series_id` for [eventIds] to [newSeriesId] -- the FOLLOWING-split write. */
+    fun repointSeriesId(
+        eventIds: Collection<Uuid>,
+        newSeriesId: Uuid,
+    ) {
+        if (eventIds.isEmpty()) return
+        EventTable.update({ EventTable.id inList eventIds }) {
+            it[seriesId] = newSeriesId
+        }
+    }
+
+    /**
+     * Hard-deletes an `event` row -- guarded on ZERO `event_registration` rows of ANY status
+     * (see `EventSeriesMaterializer` KDoc "Entscheidung 3": `fk_event_registration_event` has no
+     * `ON DELETE CASCADE`, so a naive delete against an event with historical
+     * CANCELLED/EXPIRED registrations would fail the FK constraint). Returns the affected row
+     * count (0 if [id] does not exist, or 1 on success) -- this method does NOT itself re-check
+     * the registration-count guard; the caller ([EventSeriesMaterializer.deleteOrCancel]) must
+     * have already established that count is zero, inside the SAME transaction, under the row
+     * lock.
+     */
+    fun deleteEventHard(id: Uuid): Int = EventTable.deleteWhere { EventTable.id eq id }
 }
 
 /** ANDs [this] onto [existing] (or returns [this] alone if [existing] is `null`) -- same idiom `CrmContactStore`'s own `andWith` establishes. */

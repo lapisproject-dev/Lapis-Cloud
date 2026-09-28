@@ -45,6 +45,20 @@ All notable changes to this project are documented here. Format follows
   Wholesale-Replace-Muster wie der bestehende Politiker-Ranking-Schalter). Die Änderung wird
   innerhalb weniger Minuten wirksam (bestehende 30-Sekunden-In-Memory-Caches beider öffentlichen
   Routen, kein neuer Invalidierungs-Hook).
+
+- **Wiederkehrende Veranstaltungen — dritte und letzte Folgewelle (RPC-Verdrahtung).** Baut auf der
+  bereits vorhandenen Datenbank/Fachlogik (`RecurrenceRuleBuilder`, `RecurrenceExpander`,
+  `EventSeriesScopeEngine`) auf und verdrahtet sie erstmals gegen `event`/`event_series`: fünf neue
+  `IEventService`-RPC-Methoden (`previewSeries`, `createEventSeries`, `impactOfSeriesEdit`,
+  `updateSeriesEvent`, `cancelSeriesEvent`), ein neuer `EventSeriesMaterializer` (materialisiert eine
+  Serie als N sofort `PUBLISHED`e `event`-Zeilen, alles-oder-nichts bei Raumkollision) und eine neue
+  `RecurrenceSentence`-Fachlogik für den serverseitig gebauten Live-Vorschau-Satz. `EventDto` bekam
+  additive `seriesId`/`seriesDetached`/`seriesRuleSummary`-Felder. Hart-Löschen einer Serien-Instanz
+  ist gegen `event_registration`-Zeilen jeden Status abgesichert (kein `ON DELETE CASCADE`).
+  Admin-Client-UI, i18n und die RRULE-bewusste iCal-Feed-Erweiterung sind bewusst NICHT Teil dieser
+  Welle — siehe `docs/architecture/event-series.adoc` Abschnitt "Known gaps" für die offenen Punkte
+  der nächsten Welle.
+
 - **V1.9.9 — Vorstands-Karte: Details & Suche (Grenzen, Landeshauptstädte, Kleinorte, Ortssuche).**
   Nutzer-Feedback (2026-09-28): Staatsgrenzen/Landesgrenzen kaum sichtbar, Landeshauptstädte wie
   Magdeburg und Dresden fehlten komplett (nur die Bundesland-Namen selbst waren beschriftet, siehe

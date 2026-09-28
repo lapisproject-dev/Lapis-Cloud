@@ -198,6 +198,65 @@ the wall-clock time by an hour the moment the rule crosses a DST boundary.
 * No `BYSETPOS` / `BYHOUR` / `BYWEEKNO` / `BYYEARDAY` or any other RFC 5545 BY-rule beyond the subset
   above.
 * No per-series free-form IANA timezone (`SUPPORTED_TIMEZONES` is a single fixed zone for now).
-* No `EventSeriesMaterializer` (persisting occurrences as `event` rows), `EventSeriesScopeEngine`
-  (this-and-following / all-in-series edits) or ICS export/import -- later waves of this same
-  feature, not covered by this document yet.
+
+NOTE: `EventSeriesMaterializer` (persisting occurrences as `event` rows) and `EventSeriesScopeEngine`
+(this-and-following / all-in-series edits) are IMPLEMENTED as of the third and final follow-up wave
+-- see <<rpc-wiring>> below. ICS export (RRULE-aware `VEVENT`/`RECURRENCE-ID` rendering) and the
+admin-facing client UI are NOT yet implemented -- see <<known-gaps>>.
+
+[[rpc-wiring]]
+== RPC-Verdrahtung (dritte und letzte Folgewelle)
+
+`IEventService` (`:lapis-shared`) gained five new authenticated RPC methods, implemented by
+`EventService` (`:lapis-server`):
+
+* `previewSeries(startsAt, endsAt, rule)` -- live preview: server-validates `rule` via
+  `RecurrenceRuleBuilder.build`, expands it via `RecurrenceExpander.expand`, and returns a
+  `SeriesPreviewDto` whose `sentence` field is the ONE truth-carrying, ready-to-display string
+  (built by the new `RecurrenceSentence` object, German, server-side, deliberately not run through
+  `tr()` -- same precedent as `EventService.mailEventCancelled`'s server-built mail text). Rate-limited
+  separately (`eventSeriesPreviewRateLimiter`, `EventSeriesLimits.PREVIEW_RATE_PER_MINUTE` = 60/min)
+  from the other event-management writes.
+* `createEventSeries(input, rule)` -- materializes the whole series via the new
+  `EventSeriesMaterializer.materialize`: one `event` row per occurrence, each immediately
+  `PUBLISHED` (not `DRAFT` -- a per-instance manual-publish step would be unusable at up to 104
+  instances), each carrying `series_id`/`series_original_start`. Room-collision checking
+  (`EventRoomCollisionGuard`) runs per-instance, alles-oder-nichts (the whole series-create
+  transaction rolls back on the first collision). Gated by `EventSeriesLimits
+  .MAX_ACTIVE_SERIES_PER_ORG` (`EventStore.countActiveSeries`).
+* `impactOfSeriesEdit(eventId, scope)` -- the numbers behind a THIS/FOLLOWING/ALL scope choice
+  (`EventSeriesImpactDto`), always server-recomputed from `EventSeriesScopeEngine.plan` -- never
+  trusted from an earlier client-visible call (TOCTOU safety, `updateSeriesEvent`/`cancelSeriesEvent`
+  recompute it again themselves under their own row locks).
+* `updateSeriesEvent(eventId, input, scope)` / `cancelSeriesEvent(eventId, scope, reason)` -- apply a
+  scope-plan via the new `EventSeriesMaterializer.applyEdit`/`.deleteOrCancel`. A THIS scope detaches
+  the single occurrence (`event.series_detached = true`); a genuine FOLLOWING split inserts a second
+  `event_series` row (`split_from_series_id`) and re-points the moved-forward occurrences'
+  `series_id`. Deleting an instance with ZERO `event_registration` rows of ANY status hard-deletes it
+  (`EventStore.deleteEventHard` -- `fk_event_registration_event` has no `ON DELETE CASCADE`); any
+  other instance is cancelled the same way a single `EventService.cancelEvent` would (status
+  `CANCELLED`, active registrations cancelled, registrants mailed the given reason).
+
+`EventDto` gained three additive, defaulted fields: `seriesId`, `seriesDetached`,
+`seriesRuleSummary` (a short frequency-only phrase, e.g. `"Wöchentlich am Dienstag"`, resolved
+per-row for the terminliste's future ↻ symbol).
+
+[[known-gaps]]
+== Known gaps (explicitly out of scope for this commit)
+
+The following pieces of the original implementation plan for this wave are NOT yet implemented,
+and are called out here explicitly rather than silently dropped:
+
+* **Admin client UI** (`EventsScreen.kt`) -- the "Wiederholung"-Dropdown, the benutzerdefiniert-Block,
+  the live-Satz debounce, and the Drei-Radiobutton-Bearbeitungsdialog described in the implementation
+  plan's section 6 are not built. The RPC surface above is fully usable from any client (e.g. a
+  future `EventsScreen.kt` change, or manual testing via the RPC endpoints), but no UI calls it yet.
+* **i18n** -- no new `tr()`/`gettext()` msgids were added (there is no new client UI to add them to
+  yet).
+* **ICS feed** (`EventIcsFeed.kt`) -- a series-materialized `event` row today renders as a plain,
+  independent `VEVENT` in the public iCal feed, exactly like a one-off event. The RRULE-aware
+  master-`VEVENT` + `RECURRENCE-ID`-exception rendering described in the implementation plan's
+  section 8 is not implemented.
+
+These are recommended as the scope of an immediate follow-up wave -- the server-side RPC surface and
+persistence (this wave) is what everything else builds on.

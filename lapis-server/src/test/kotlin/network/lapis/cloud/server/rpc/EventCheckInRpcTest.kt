@@ -216,6 +216,7 @@ class EventCheckInRpcTest :
                     mailDispatcher = mailDispatcher,
                     writeRateLimiter = writeRateLimiter,
                     checkInRateLimiter = checkInRateLimiter,
+                    seriesPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10_000, window = 1.minutes),
                 )
             post("/test/event/{id}/open-checkin") {
                 val roster = serviceFor(call).openCheckIn(eventId = call.parameters["id"]!!)

@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,11 +10,13 @@ import kotlinx.serialization.Serializable
  *
  * This file holds ONLY the recurrence-rule input shape shared between server and client
  * (`RecurrenceRuleBuilder`/`RecurrenceExpander` in `:lapis-server` consume it, the client's
- * `EventRecurrenceEditor` produces it). It deliberately does NOT (yet) declare `EventSeriesInput`,
- * `EventSeriesDto`, `EventScopeImpactDto` etc. from the full design -- those depend on
- * `EventInput`/`EventStatus` wiring and the scope-engine data model that land in later waves of
- * this feature; keeping this file narrow keeps it independently testable and mergeable before that
- * follow-on work exists.
+ * `EventRecurrenceEditor` produces it) plus, since the V1.4.37 "Folgewelle (Rest)" scope-engine
+ * step, [EventSeriesEditScope] -- the "this / this-and-following / all" choice both
+ * `EventSeriesScopeEngine` (`:lapis-server`) and the eventual client scope-picker dialog need to
+ * share. It deliberately does NOT (yet) declare `EventSeriesInput`, `EventSeriesDto`,
+ * `EventScopeImpactDto` etc. from the full design -- those depend on `EventInput`/`EventStatus`
+ * RPC wiring that lands in a later wave of this feature; keeping this file narrow keeps it
+ * independently testable and mergeable before that follow-on work exists.
  *
  * Literal order of [RecurrenceFrequency] and [RecurrenceWeekday] is load-bearing wherever this
  * codebase's other `@Serializable enum class`es document the same rule (see `Events.kt` file
@@ -59,3 +62,81 @@ data class RecurrenceRuleInput(
     val count: Int? = null,
     val until: LocalDate? = null,
 )
+
+/**
+ * Dritte und letzte Folgewelle "Wiederkehrende Veranstaltungen" -- RPC-Verdrahtung. Diese vier DTOs
+ * sind die einzige Wahrheitsquelle, die der Client für Serien-Vorschau/-Anlage/-Bearbeitung
+ * anzeigt; siehe `docs/architecture/event-series.adoc` Abschnitt "RPC-Verdrahtung".
+ *
+ * Ergebnis von `IEventService.previewSeries` -- die eine Wahrheitsquelle, die der Client anzeigt,
+ * sobald sie da ist.
+ */
+@Serializable
+data class SeriesPreviewDto(
+    val valid: Boolean,
+    val count: Int = 0,
+    val first: LocalDateTime? = null,
+    val last: LocalDateTime? = null,
+    /** Fertig formatierter Live-Satz ("Wöchentlich am Dienstag, 19:00–21:00 · 26 Termine · ..."), serverseitig gebaut -- siehe `RecurrenceSentence`. */
+    val sentence: String = "",
+    /** `RecurrenceRuleBuilder.build`'s `Result.Invalid.messages`, leer wenn `valid`. */
+    val errors: List<String> = emptyList(),
+)
+
+/** Ergebnis von `IEventService.createEventSeries`. */
+@Serializable
+data class EventSeriesCreateResultDto(
+    val seriesId: String,
+    val createdEventIds: List<String>,
+    val firstEvent: EventDto,
+)
+
+/** Ergebnis von `IEventService.impactOfSeriesEdit` -- Grundlage der Zahlen unter den Radiobuttons + im Bestätigungsdialog. */
+@Serializable
+data class EventSeriesImpactDto(
+    val affectedEventCount: Int,
+    val affectedRegistrationCount: Int,
+    /** `false` nur für die allererste Instanz der Serie -- steuert, ob THIS überhaupt als Option gezeigt wird. */
+    val isFirstOccurrence: Boolean,
+    /** `true` wenn die Regel (Wochentag/Frequenz) sich geändert hat -- steuert "THIS ausgeblendet" + Split-Hinweis. */
+    val ruleChanged: Boolean,
+)
+
+/**
+ * Ergebnis von `IEventService.updateSeriesEvent`/`cancelSeriesEvent`.
+ *
+ * Review MINOR fix: [affectedRegistrationCount] used to be named `notifiedRegistrationCount` for
+ * BOTH RPCs, obwohl `updateSeriesEvent` (eine reine Terminänderung) niemandem eine Mail schickt --
+ * nur `cancelSeriesEvent` versendet tatsächlich Absage-Benachrichtigungen (an genau diese aktiven
+ * Registrierungen). Der alte Name hätte ein künftiges Admin-UI, das ihn direkt als "X Personen
+ * benachrichtigt" anzeigt, für `updateSeriesEvent` fälschlich glauben lassen, Registrierte hätten
+ * eine Mail über die geänderte Zeit/den geänderten Ort erhalten. Der neue, neutrale Name (bewusst
+ * identisch zu [EventSeriesImpactDto.affectedRegistrationCount]) beschreibt in beiden Fällen korrekt
+ * nur die Anzahl der betroffenen aktiven Registrierungen -- ob tatsächlich gemailt wurde, ergibt
+ * sich allein daraus, welche RPC man aufgerufen hat, nicht aus diesem Feldnamen.
+ */
+@Serializable
+data class EventSeriesEditResultDto(
+    val affectedEventCount: Int,
+    val affectedRegistrationCount: Int,
+)
+
+/**
+ * Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" -- the classic
+ * calendar-app "edit recurring event" choice (Google/Outlook both offer exactly these three),
+ * consumed by `EventSeriesScopeEngine` (`:lapis-server`) to decide which materialized `event` rows
+ * an edit touches:
+ * - [THIS]: only the single occurrence being edited. It is detached from the series
+ *   (`event.series_detached = true`, `series_id`/`series_original_start` stay put so the ICS
+ *   feed/UI can still show "part of a series, edited") -- future series-wide edits never touch it
+ *   again.
+ * - [FOLLOWING]: the edited occurrence and every later occurrence of the SAME series. Unless the
+ *   edited occurrence is itself the very first one (in which case this degenerates to [ALL] -- there
+ *   is nothing "before" it to keep on the old rule), this SPLITS the series in two:
+ *   `event_series.split_from_series_id` on the new series points back at the original, whose own
+ *   `rrule` is truncated to stop just before the edited occurrence.
+ * - [ALL]: every occurrence of the series, past and future alike (except any individually
+ *   [THIS]-detached instance, which by definition opted out of series-wide edits already).
+ */
+@Serializable
+enum class EventSeriesEditScope { THIS, FOLLOWING, ALL }

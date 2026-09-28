@@ -92,6 +92,16 @@ data class EventDto(
      * `EventCoverRoutes`' GET route KDoc).
      */
     val coverImageUrl: String? = null,
+    /**
+     * Dritte Folgewelle "Wiederkehrende Veranstaltungen" -- additive, defaulted so no pre-existing
+     * caller/test breaks. Non-null iff this event was materialized as part of an
+     * `EventSeriesCreateResultDto`/`EventSeriesMaterializer` series.
+     */
+    val seriesId: String? = null,
+    /** `true` once `EventSeriesEditScope.THIS` detached this single occurrence from its series. */
+    val seriesDetached: Boolean = false,
+    /** Non-null only when `seriesId != null && !seriesDetached` -- for the ↻ symbol's tooltip/aria-label. */
+    val seriesRuleSummary: String? = null,
 )
 
 /**
