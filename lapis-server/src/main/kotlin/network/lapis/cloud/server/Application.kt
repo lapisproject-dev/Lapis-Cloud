@@ -23,6 +23,7 @@ import io.ktor.server.plugins.compression.excludeContentType
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.request.path
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -116,6 +117,10 @@ import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.mcp.config.McpStartupCheck
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
+import network.lapis.cloud.server.membermap.MemberMapConfig
+import network.lapis.cloud.server.membermap.MemberMapStartupCheck
+import network.lapis.cloud.server.membermap.PmtilesBasemap
+import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
@@ -160,6 +165,7 @@ import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMcpRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
 import network.lapis.cloud.server.routes.registerMemberCardRoutes
+import network.lapis.cloud.server.routes.registerMemberMapRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -183,6 +189,7 @@ import network.lapis.cloud.server.rpc.AuthService
 import network.lapis.cloud.server.rpc.BackupService
 import network.lapis.cloud.server.rpc.BankAccountService
 import network.lapis.cloud.server.rpc.BankStatementService
+import network.lapis.cloud.server.rpc.BoardMemberMapService
 import network.lapis.cloud.server.rpc.BoardMembershipService
 import network.lapis.cloud.server.rpc.CateringService
 import network.lapis.cloud.server.rpc.ConferenceBackgroundService
@@ -255,6 +262,7 @@ import network.lapis.cloud.shared.rpc.IAuthService
 import network.lapis.cloud.shared.rpc.IBackupService
 import network.lapis.cloud.shared.rpc.IBankAccountService
 import network.lapis.cloud.shared.rpc.IBankStatementService
+import network.lapis.cloud.shared.rpc.IBoardMemberMapService
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.ICateringService
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
@@ -338,7 +346,7 @@ fun main() {
 
 private val applicationLogger = KotlinLogging.logger {}
 
-fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpConfig.load())
+fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpConfig.load(), memberMapConfig = MemberMapConfig.load())
 
 /**
  * The real module body. [aiConfig] is a parameter (production always passes [AiConfig.load]) so
@@ -351,6 +359,11 @@ fun Application.module() = module(aiConfig = AiConfig.load(), mcpConfig = McpCon
 internal fun Application.module(
     aiConfig: AiConfig,
     mcpConfig: McpConfig = McpConfig.disabled(),
+    // Welle V1.9.5 "Vorstands-Karte" -- same "explicit parameter with a production-safe default"
+    // pattern as [aiConfig]/[mcpConfig] above, so every pre-existing `module(aiConfig = ...)` test
+    // call site keeps compiling unchanged, with the map feature simply unconfigured/off.
+    memberMapConfig: MemberMapConfig = MemberMapConfig.notConfigured(),
+    postalCodeCentroids: PostalCodeCentroidIndex? = PostalCodeCentroidIndex.bundled,
 ) {
     // Idempotent (see DatabaseConfig/DevSeedData KDoc) — safe to call again here so that
     // ApplicationTest's `testApplication { application { module() } }` also gets a migrated,
@@ -379,6 +392,12 @@ internal fun Application.module(
     // harmless -- requests to "/" just 404 instead of breaking server startup or the test suite.
     val clientDistRoot = File(System.getenv("LAPIS_CLIENT_DIST_ROOT") ?: "../lapis-client/build/dist/js/productionExecutable")
     clientDistRoot.mkdirs()
+
+    // Welle V1.9.5 "Vorstands-Karte" -- see MemberMapConfig/PmtilesBasemap/MemberMapStartupCheck
+    // KDoc. Never fail-fast (same posture as branding/SMTP): an unset/invalid/missing PMTiles file
+    // degrades to `tilesAvailable = false`, the server starts either way.
+    val memberMapBasemap = PmtilesBasemap(memberMapConfig.pmtilesPath)
+    MemberMapStartupCheck.log(config = memberMapConfig, basemap = memberMapBasemap)
 
     // V1.7.1b/V1.7.2 "Keycloak als externe Benutzerverwaltung" -- loaded here, BEFORE
     // resolvedBranding/clientShell below (V1.7.2 sub-wave 2a: clientShell's lazy block needs
@@ -1394,6 +1413,12 @@ internal fun Application.module(
         // TravelExpenseReceiptRoutes' own JPEG/PNG receipt downloads, which is harmless (the same
         // "already compressed" argument applies there too).
         excludeContentType(ContentType.Image.JPEG)
+        // Welle V1.9.5 "Vorstands-Karte": the PMTiles basemap route (registerMemberMapRoutes) calls
+        // `call.suppressCompression()` itself, on every response, before this route needed a
+        // global exclusion here -- see that function's own KDoc for why a 206 partial-content
+        // response must never be gzip-wrapped (it would corrupt PMTiles' internal byte-offset
+        // directory) and for the bytecode-verified proof that `suppressCompression()` exists in
+        // `ktor-server-core-jvm` and is honored by this plugin.
     }
     // V0.7.3 Basis-Mehrseiten-UI: PartialContent (HTTP Range, for large JS/asset bundles) and
     // AutoHeadResponse (HEAD for the same GET routes) back the staticFiles() registration below --
@@ -1447,6 +1472,9 @@ internal fun Application.module(
         registerService(IVolunteerAllowanceService::class) { call -> VolunteerAllowanceService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
         registerService(IMemberAnniversaryService::class) { call -> MemberAnniversaryService(call = call) }
+        registerService(
+            IBoardMemberMapService::class,
+        ) { call -> BoardMemberMapService(call = call, basemap = memberMapBasemap, centroids = postalCodeCentroids) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }
@@ -1952,6 +1980,7 @@ internal fun Application.module(
         // V1.4.23 Videokonferenz-Hintergrundeffekte -- WASM/Modell/Hintergrundbilder mit Cache-Control, siehe
         // `registerClientAssetRoutes` KDoc (ohne sie laedt jeder Kamera-Toggle 19 MB neu).
         registerClientAssetRoutes(clientDistRoot = clientDistRoot)
+        registerMemberMapRoutes(basemap = memberMapBasemap)
         // Registered last: literal routes above (/api/..., RPC service paths) always win over this
         // catch-all in Ktor's routing trie regardless of registration order, but keeping it last
         // documents the intent -- this is the fallback for everything not already handled above.

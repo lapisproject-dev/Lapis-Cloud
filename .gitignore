@@ -140,6 +140,13 @@ deploy/production-demo/
 import-data/
 *.import-report.csv
 
+# Welle V1.9.5 "Vorstands-Karte" -- the operator-provisioned PMTiles basemap (~187 MB,
+# extracted from a public Protomaps build) is deployment-local and NEVER committed. The
+# small (389 KB, zoom 0-3 only) test fixture under lapis-server/src/test/resources is the
+# one deliberate exception -- see docs/architecture/member-map.adoc.
+*.pmtiles
+!lapis-server/src/test/resources/member-map/*.pmtiles
+
 .DS_Store
 
 # JVM crash dumps (a crashed Gradle/Kotlin daemon leaves these in the working directory)

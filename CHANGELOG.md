@@ -68,6 +68,29 @@ All notable changes to this project are documented here. Format follows
      Audio- und Video-Ereignis im fertigen MP4 — ein reiner String-Vergleich des Filtergraphen kann
      die beiden `first_pts`-Verhaltensweisen nicht unterscheiden.
 
+### Added
+
+- **V1.9.5 — Vorstands-Karte (member map), second attempt, server + shared half only.** This wave
+  lands the RPC service, the aggregation logic, the PMTiles basemap HTTP route and the bundled
+  postal-code centroid index -- **the `lapis-client` screen (route, menu entry, map, on-screen
+  notices, search) is NOT part of this wave and does not exist yet**, it is planned for a follow-up
+  wave. `BoardMemberMapService.getMemberMap` is a BOARD/ADMIN-only RPC aggregate of member
+  geographic distribution at postal-code granularity. No member id, name, street, city or date of
+  any kind crosses the wire, only postal-code-bucketed counts across **three** categories the first
+  attempt's scope had collapsed into two: mapped (resolved against the bundled GeoNames postal-code
+  centroid index), a **new third bucket** for a valid-shaped German postal code the bundled index
+  has no entry for (`unresolvableGermanPostalCode`, distinct from a genuinely missing/malformed
+  one), and foreign (country checked BEFORE postal-code shape, so e.g. France's `75001` never lands
+  in either German bucket). See `docs/architecture/member-map.adoc` for the full design (including
+  its own status note on what is/isn't implemented yet) and its recorded decisions -- Q3 (blank/
+  unset `country` counts as Germany -- the decisive rule, without it almost every domestic member
+  would land in "foreign") is implemented and tested today; Q1 (route `/member-map`, menu entry
+  "Mitgliederkarte"), Q2 (attribution text), Q4 (`maplibre-gl` version pin), Q5 (bundle-size
+  trade-off), Q6 (WebGL-missing notice) and Q7 (screen-local search) are `lapis-client` decisions
+  recorded for that follow-up wave, not yet built.
+  No database migration -- `member.postal_code`/`country`/`status`/`anonymized_at` have existed
+  since V1, nothing new was added to the schema or the kUML ERM.
+
 ### Security
 
 - **V1.9.1 — document/folder access levels are now visible and editable, closing a folder-level

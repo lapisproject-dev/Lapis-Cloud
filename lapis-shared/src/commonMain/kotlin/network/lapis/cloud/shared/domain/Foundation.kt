@@ -151,6 +151,19 @@ object MemberStatusSets {
     val CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
 
     /**
+     * Welle V1.9.5 "Vorstands-Karte" (member map, second attempt). Deliberately just
+     * [ORGANIZATION_MEMBER] -- narrower than e.g. [ANNIVERSARY_ELIGIBLE] or
+     * [CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE]'s own reasoning would suggest for a "member" concept, but
+     * this is a geographic-distribution report, not a courtesy list: [MemberStatus.DONOR] never had
+     * a Beitrittsvertrag with this organization, [MemberStatus.FRIEND]/[MemberStatus.GUEST] are
+     * unverified/foreign-hosted identities, and [MemberStatus.APPLICATION]/[MemberStatus.WITHDRAWN]/
+     * [MemberStatus.REJECTED]/[MemberStatus.DECEASED] are none of them a CURRENT resident this board
+     * needs to see on a live map. Combined with `anonymized_at IS NULL` at the query site (see
+     * `BoardMemberMapService`), not duplicated here.
+     */
+    val MEMBER_MAP_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /**
      * Politician-rating basket (V0.6.4 guest basket), deliberately EXCLUDES [MemberStatus.FRIEND]
      * -- an unverified, self-registered name must not move a public trust metric.
      */

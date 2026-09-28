@@ -142,6 +142,10 @@ services:
       LAPIS_BRAND_LOGO_PATH: ${LAPIS_BRAND_LOGO_PATH:-}
       # V1.4.18 -- operator website URL linked from the public footer, see BrandConfig KDoc.
       LAPIS_BRAND_WEBSITE_URL: ${LAPIS_BRAND_WEBSITE_URL:-}
+      # Vorstands-Karte (V1.9.5) -- OPTIONAL, unset by default, see README.adoc "Member map
+      # (optional)" and MemberMapConfig KDoc. Never fail-fast: unset/invalid/missing just means the
+      # BOARD/ADMIN-only map screen shows its "no basemap configured" state.
+      LAPIS_MAP_PMTILES_PATH: ${LAPIS_MAP_PMTILES_PATH:-}
       # Rechtstexte (V1.4.7) -- fuellen GET /impressum + GET /datenschutz, siehe .env.example und
       # README.adoc "Impressum & Datenschutz". Erste sieben PFLICHT (fehlend -> Betreiber-Hinweis
       # statt HTTP 500), Rest optional. Nie werfend, nie fail-fast.
@@ -221,6 +225,12 @@ services:
       # rebuild must preserve. The operator drops the file directly into
       # deploy/production/branding/ on the host; :ro because lapis-server only ever reads it.
       - ./branding:/app/branding:ro
+      # Vorstands-Karte (V1.9.5) -- same bind-mount reasoning as ./branding above: the PMTiles
+      # basemap file is deployment-local, operator-provisioned (never checked into git, see the
+      # root .gitignore's `*.pmtiles` entry), not runtime state a rebuild must preserve. The operator
+      # places germany.pmtiles under deploy/<instance>/geodata/ and points LAPIS_MAP_PMTILES_PATH at
+      # /app/geodata/germany.pmtiles -- see README.adoc "Member map (optional)".
+      - ./geodata:/app/geodata:ro
     ports:
       # Loopback-only, matching the prior systemd deployment's Apache-proxies-to-127.0.0.1:8080
       # setup exactly -- Apache's vhost config needs no change for this cutover.
