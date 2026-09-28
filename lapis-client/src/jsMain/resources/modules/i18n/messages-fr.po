@@ -16166,3 +16166,111 @@ msgstr "Les codes postaux n'ont pas pu être résolus -- la carte n'affiche aucu
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:300
 msgid "Weder Kartenbasis noch Postleitzahlen-Auflösung sind verfügbar. Alle Zahlen stehen in der Tabelle."
 msgstr "Ni le fond de carte ni la résolution des codes postaux ne sont disponibles. Tous les chiffres sont disponibles dans le tableau."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Baden-Württemberg"
+msgstr "Bade-Wurtemberg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Bayern"
+msgstr "Bavière"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Brandenburg"
+msgstr "Brandebourg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Hessen"
+msgstr "Hesse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Mecklenburg-Vorpommern"
+msgstr "Mecklembourg-Poméranie-Occidentale"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Niedersachsen"
+msgstr "Basse-Saxe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Nordrhein-Westfalen"
+msgstr "Rhénanie-du-Nord-Westphalie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Rheinland-Pfalz"
+msgstr "Rhénanie-Palatinat"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Sachsen"
+msgstr "Saxe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Sachsen-Anhalt"
+msgstr "Saxe-Anhalt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Schleswig-Holstein"
+msgstr "Schleswig-Holstein"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Thüringen"
+msgstr "Thuringe"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Berlin"
+msgstr "Berlin"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Hamburg"
+msgstr "Hambourg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Bremen"
+msgstr "Brême"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Saarland"
+msgstr "Sarre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Dänemark"
+msgstr "Danemark"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Niederlande"
+msgstr "Pays-Bas"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Belgien"
+msgstr "Belgique"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Frankreich"
+msgstr "France"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Schweiz"
+msgstr "Suisse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Österreich"
+msgstr "Autriche"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Tschechien"
+msgstr "Tchéquie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Polen"
+msgstr "Pologne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:134
+msgid "PLZ %1 · %2"
+msgstr "Code postal %1 · %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:147
+msgid "%1 PLZ in diesem Bereich"
+msgstr "%1 codes postaux dans cette zone"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:149
+msgid "Klicken zum Vergrößern"
+msgstr "Cliquez pour agrandir"

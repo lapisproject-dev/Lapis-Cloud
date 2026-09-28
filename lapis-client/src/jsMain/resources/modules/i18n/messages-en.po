@@ -16055,3 +16055,111 @@ msgstr "Postal codes could not be resolved -- the map shows no points."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:300
 msgid "Weder Kartenbasis noch Postleitzahlen-Auflösung sind verfügbar. Alle Zahlen stehen in der Tabelle."
 msgstr "Neither the basemap nor postal code resolution is available. All figures are available in the table."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Baden-Württemberg"
+msgstr "Baden-Württemberg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Bayern"
+msgstr "Bavaria"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Brandenburg"
+msgstr "Brandenburg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Hessen"
+msgstr "Hesse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Mecklenburg-Vorpommern"
+msgstr "Mecklenburg-Vorpommern"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Niedersachsen"
+msgstr "Lower Saxony"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Nordrhein-Westfalen"
+msgstr "North Rhine-Westphalia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Rheinland-Pfalz"
+msgstr "Rhineland-Palatinate"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Sachsen"
+msgstr "Saxony"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Sachsen-Anhalt"
+msgstr "Saxony-Anhalt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Schleswig-Holstein"
+msgstr "Schleswig-Holstein"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Thüringen"
+msgstr "Thuringia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Berlin"
+msgstr "Berlin"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Hamburg"
+msgstr "Hamburg"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Bremen"
+msgstr "Bremen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Saarland"
+msgstr "Saarland"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Dänemark"
+msgstr "Denmark"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Niederlande"
+msgstr "Netherlands"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Belgien"
+msgstr "Belgium"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Frankreich"
+msgstr "France"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Schweiz"
+msgstr "Switzerland"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Österreich"
+msgstr "Austria"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Tschechien"
+msgstr "Czechia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
+msgid "Polen"
+msgstr "Poland"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:134
+msgid "PLZ %1 · %2"
+msgstr "Postal code %1 · %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:147
+msgid "%1 PLZ in diesem Bereich"
+msgstr "%1 postal codes in this area"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:149
+msgid "Klicken zum Vergrößern"
+msgstr "Click to zoom in"
