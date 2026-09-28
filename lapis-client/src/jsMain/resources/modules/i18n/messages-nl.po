@@ -15996,3 +15996,63 @@ msgstr "Te veel uploads – probeer het later opnieuw."
 
 msgid "Hochladen fehlgeschlagen."
 msgstr "Uploaden mislukt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:313
+msgid "%1 Mitglieder"
+msgstr "%1 leden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:236
+msgid "%1 Mitglieder gesamt -- %2 zugeordnet, %3 PLZ ohne Geodaten, %4 ohne PLZ, %5 im Ausland."
+msgstr "%1 leden in totaal -- %2 toegewezen, %3 postcodes zonder geodata, %4 zonder postcode, %5 in het buitenland."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:309
+msgid "%1 von %2 PLZ · %3 Mitglieder"
+msgstr "%1 van %2 postcodes · %3 leden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:231
+msgid "%1, %2: %3"
+msgstr "%1, %2: %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:313
+msgid "1 Mitglied"
+msgstr "1 lid"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:294
+msgid "Die Karte kann in diesem Browser nicht angezeigt werden. Alle Zahlen stehen in der Tabelle."
+msgstr "De kaart kan niet worden weergegeven in deze browser. Alle cijfers staan in de tabel."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:78
+msgid "Karte der Mitgliederverteilung nach PLZ. Alle Werte stehen auch in der Tabelle."
+msgstr "Kaart van de ledenverdeling per postcode. Alle waarden staan ook in de tabel."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:296
+msgid "Keine Kartenbasis konfiguriert. Alle Zahlen stehen in der Tabelle."
+msgstr "Geen kaartbasis geconfigureerd. Alle cijfers staan in de tabel."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:156
+msgid "Keine aktiven Mitglieder."
+msgstr "Geen actieve leden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:64
+msgid "Mitgliederkarte"
+msgstr "Ledenkaart"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:114
+msgid "Mitgliederverteilung nach Postleitzahl"
+msgstr "Ledenverdeling per postcode"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:67
+msgid "Nur für Vorstand und Administration. Genauigkeit: PLZ-Mittelpunkt, keine Adressen. Bitte nicht weitergeben."
+msgstr "Alleen voor bestuur en administratie. Nauwkeurigheid: postcode-middelpunt, geen adressen. Niet delen a.u.b."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:82
+msgid "PLZ oder Ort"
+msgstr "Postcode of plaats"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:298
+msgid "Postleitzahlen konnten nicht aufgelöst werden -- die Karte zeigt keine Punkte."
+msgstr "Postcodes konden niet worden herleid -- de kaart toont geen punten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:300
+msgid "Weder Kartenbasis noch Postleitzahlen-Auflösung sind verfügbar. Alle Zahlen stehen in der Tabelle."
+msgstr "Noch de kaartbasis, noch de postcode-herleiding is beschikbaar. Alle cijfers staan in de tabel."

@@ -70,6 +70,31 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.6 — Vorstands-Karte (member map), client half.** Follow-up to V1.9.5 (server + shared) --
+  lands the `lapis-client` screen: `Routes.MEMBER_MAP = "/member-map"`, a "Mitgliederkarte" entry in
+  the Verwaltung/Administration sidebar group (BOARD/ADMIN only, `requireRole` route guard, same tier
+  as "Geburtstage & Jubiläen"), and the MapLibre/PMTiles vector map itself. Two new hand-declared npm
+  dependencies (`maplibre-gl` 5.24.0, the last UMD-bundle release before 6.x went ESM-only, and
+  `pmtiles` 4.5.0 for the `pmtiles://` protocol handler) -- externals in
+  `network.lapis.cloud.client.maplibre`. The map shows every eligible member's postal code as a
+  weighted, sub-linearly sized circle (`MemberMapRules.radiusPx`, shared with the server since
+  V1.9.5), clustered by MapLibre's own supercluster at low zoom (`memberSum`, a SUM of each grouped
+  point's own member count -- never the built-in `point_count`, which would undercount a cluster of
+  few but large postal codes). An always-visible table underneath mirrors the exact same numbers row
+  by row, including postal codes without a resolved location -- no number is ever shown only on the
+  map, and there is no k-anonymity/rounding (a single-member postal code shows exactly `1`, this is a
+  BOARD/ADMIN-only aggregate view, not a public one). A screen-local PLZ/place-name search filters
+  both the table and (implicitly, by what's visible) the reader's attention; a table-row click flies
+  the map to that entry, a map-point click highlights the corresponding table row. Four degradation
+  states (`MemberMapDegradation`) cover every combination of "no WebGL in this browser", "no basemap
+  file configured" and "postal-code centroid data failed to parse" -- the table stays fully populated
+  in every one of them. Security: `placeName` (GeoNames free text) is serialized into GeoJSON via
+  `kotlinx.serialization.json` (never string concatenation) and only ever reaches the DOM through
+  `Popup.setDOMContent`'s text nodes or a plain KVision `span`, never `setHTML`/`innerHTML`; the
+  basemap is fetched same-origin (`pmtiles:///api/board/member-map/basemap.pmtiles`), no third-party
+  CDN request; no postal code is ever placed in a URL or query parameter (deliberately no deep link).
+  See `docs/architecture/member-map.adoc` (status note removed -- server, shared and client are now
+  all implemented) for the full design and the Q1-Q7 decisions this records.
 - **V1.9.5 — Vorstands-Karte (member map), second attempt, server + shared half only.** This wave
   lands the RPC service, the aggregation logic, the PMTiles basemap HTTP route and the bundled
   postal-code centroid index -- **the `lapis-client` screen (route, menu entry, map, on-screen

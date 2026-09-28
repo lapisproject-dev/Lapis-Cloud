@@ -55,6 +55,9 @@
   --lapis-muted:           #5A626E;
   --lapis-border:          #E3E6EB;
   --lapis-border-strong:   #C9CFD8;
+  /* V1.9.6 Vorstands-Karte: MapLibre-Wasserflaeche -- eigenes Token, weil kein bestehendes Token eine
+     dezent bläuliche Wasserfarbe traegt (Border-/Muted-Toene sind neutral-grau). */
+  --lapis-map-water:       #DCE3EC;
 
   /* Navigation -- Beinahe-Schwarz mit kühlem Lapis-Unterton, kein #000000 */
   --lapis-nav:             #14181E;
@@ -116,6 +119,7 @@
     --lapis-muted:           #9AA1AC;
     --lapis-border:          #333A44;
     --lapis-border-strong:   #454D59;
+    --lapis-map-water:       #1B2533;
 
     --lapis-nav:             #0B0E12;
     --lapis-nav-hover-bg:    #1E242E;
@@ -161,6 +165,7 @@
   --lapis-muted:           #9AA1AC;
   --lapis-border:          #333A44;
   --lapis-border-strong:   #454D59;
+  --lapis-map-water:       #1B2533;
 
   --lapis-nav:             #0B0E12;
   --lapis-nav-hover-bg:    #1E242E;
@@ -1595,6 +1600,73 @@ html .form-select.is-invalid:focus {
 .lapis-tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+/* V1.9.6 Vorstands-Karte -- Kartenpanel + Tabellenspalte des zweispaltigen Layouts (Breakpoint 992px,
+   identisch zum Tabellen-Card-Breakpoint der Screen-eigenen Tabelle, siehe MemberMapScreen.kt). Nur
+   CSS-Klassen fuer Groessen (kein `width`/`height` in der Kotlin-DSL, R2/R55-Baseline ist leer). */
+.lapis-member-map-summary {
+  background-color: var(--lapis-total-surface);
+  border-radius: .375rem;
+  padding: .5rem .75rem;
+}
+
+.lapis-member-map-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 992px) {
+  .lapis-member-map-grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+.lapis-member-map-panel {
+  position: relative;
+  height: clamp(300px, 55vh, 420px);
+  background-color: var(--lapis-surface-sunken);
+  border-radius: .375rem;
+  overflow: hidden;
+}
+@media (min-width: 992px) {
+  .lapis-member-map-panel {
+    height: clamp(480px, calc(100vh - 260px), 760px);
+  }
+}
+
+.lapis-member-map-canvas-host {
+  position: absolute;
+  inset: 0;
+}
+
+.lapis-member-map-notice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  color: var(--lapis-muted);
+}
+
+.lapis-member-map-table-panel {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+@media (min-width: 992px) {
+  .lapis-member-map-table-panel .table-responsive {
+    max-height: clamp(480px, calc(100vh - 260px), 760px);
+    overflow-y: auto;
+  }
+  .lapis-member-map-table-panel thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--lapis-surface);
+    z-index: 1;
+  }
 }
 
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser

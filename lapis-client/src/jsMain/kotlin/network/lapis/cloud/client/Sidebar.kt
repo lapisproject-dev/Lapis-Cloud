@@ -168,6 +168,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.MEMBER_ANNIVERSARIES,
                 Routes.MEMBER_HONORS,
                 Routes.MEMBER_FAMILIES,
+                Routes.MEMBER_MAP,
             ),
         SidebarGroupId.SYSTEM to
             listOf(
@@ -525,6 +526,7 @@ fun buildSidebar(
                 sidebarLink(Routes.MEMBER_ANNIVERSARIES, tr("Geburtstage & Jubiläen"), "fas fa-cake-candles", toggle)
                 sidebarLink(Routes.MEMBER_HONORS, tr("Ehrungen & Auszeichnungen"), "fas fa-medal", toggle)
                 sidebarLink(Routes.MEMBER_FAMILIES, tr("Familienmitgliedschaften"), "fas fa-people-roof", toggle)
+                sidebarLink(Routes.MEMBER_MAP, tr("Mitgliederkarte"), "fas fa-map-location-dot", toggle)
             }
         }
     }

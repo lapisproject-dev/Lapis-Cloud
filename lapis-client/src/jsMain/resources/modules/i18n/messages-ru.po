@@ -15985,3 +15985,63 @@ msgstr "Слишком много загрузок – попробуйте по
 
 msgid "Hochladen fehlgeschlagen."
 msgstr "Не удалось загрузить."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:313
+msgid "%1 Mitglieder"
+msgstr "%1 участников"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:236
+msgid "%1 Mitglieder gesamt -- %2 zugeordnet, %3 PLZ ohne Geodaten, %4 ohne PLZ, %5 im Ausland."
+msgstr "Всего %1 участников -- %2 сопоставлено, %3 почтовых индексов без геоданных, %4 без почтового индекса, %5 за границей."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:309
+msgid "%1 von %2 PLZ · %3 Mitglieder"
+msgstr "%1 из %2 почтовых индексов · %3 участников"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:231
+msgid "%1, %2: %3"
+msgstr "%1, %2: %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:313
+msgid "1 Mitglied"
+msgstr "1 участник"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:294
+msgid "Die Karte kann in diesem Browser nicht angezeigt werden. Alle Zahlen stehen in der Tabelle."
+msgstr "Карта не может быть отображена в этом браузере. Все данные доступны в таблице."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:78
+msgid "Karte der Mitgliederverteilung nach PLZ. Alle Werte stehen auch in der Tabelle."
+msgstr "Карта распределения участников по почтовым индексам. Все значения также доступны в таблице."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:296
+msgid "Keine Kartenbasis konfiguriert. Alle Zahlen stehen in der Tabelle."
+msgstr "Базовая карта не настроена. Все данные доступны в таблице."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:156
+msgid "Keine aktiven Mitglieder."
+msgstr "Нет активных участников."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:64
+msgid "Mitgliederkarte"
+msgstr "Карта участников"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:114
+msgid "Mitgliederverteilung nach Postleitzahl"
+msgstr "Распределение участников по почтовым индексам"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:67
+msgid "Nur für Vorstand und Administration. Genauigkeit: PLZ-Mittelpunkt, keine Adressen. Bitte nicht weitergeben."
+msgstr "Только для правления и администрации. Точность: центр почтового индекса, без адресов. Пожалуйста, не передавайте дальше."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:82
+msgid "PLZ oder Ort"
+msgstr "Почтовый индекс или населённый пункт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:298
+msgid "Postleitzahlen konnten nicht aufgelöst werden -- die Karte zeigt keine Punkte."
+msgstr "Не удалось определить почтовые индексы -- на карте нет точек."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:300
+msgid "Weder Kartenbasis noch Postleitzahlen-Auflösung sind verfügbar. Alle Zahlen stehen in der Tabelle."
+msgstr "Недоступны ни базовая карта, ни определение почтовых индексов. Все данные доступны в таблице."

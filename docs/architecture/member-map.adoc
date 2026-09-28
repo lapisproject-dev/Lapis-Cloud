@@ -7,17 +7,15 @@
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
 Gradle task (see `docs-render/`), same convention as `keycloak-login.adoc`.
 
-WARNING: **Implementation status (as of this wave's commit on `feature/board-member-map-v2`):
-server + shared only.** Everything under <<privacy-boundary,Privacy boundary>> and
-<<Classification rules (the three-way split, plus foreign)>> is implemented and tested
-(`BoardMemberMapService`, `aggregateMemberMap`, `registerMemberMapRoutes`,
-`PostalCodeCentroidIndex`, `PmtilesBasemap`). There is NO `lapis-client` code on this branch yet --
-no `/member-map` route, no "Mitgliederkarte" menu entry, no MapLibre map, no on-screen notice or
-attribution, no screen-local search, no client-side route guard. Every mention of the screen, the
-menu, the map, an on-screen notice, a route guard, or the degradation matrix below describes the
-INTENDED client design this wave's plan recorded, not code that exists yet -- it is pending a
-follow-up wave. Access control today is server-side only (`BoardMemberMapService`,
-`registerMemberMapRoutes`); see <<privacy-boundary,Privacy boundary>>.
+NOTE: **Implementation status (as of V1.9.6): server, shared and client are all implemented.**
+Everything under <<privacy-boundary,Privacy boundary>> and
+<<Classification rules (the three-way split, plus foreign)>> (`BoardMemberMapService`,
+`aggregateMemberMap`, `registerMemberMapRoutes`, `PostalCodeCentroidIndex`, `PmtilesBasemap`) landed
+in V1.9.5; the `lapis-client` screen (`Routes.MEMBER_MAP = "/member-map"`, the "Mitgliederkarte" menu
+entry, the MapLibre map, the on-screen notice/attribution, the screen-local search and the
+client-side route guard) landed in V1.9.6. Access control is enforced both server-side
+(`BoardMemberMapService`, `registerMemberMapRoutes`) and, as defense in depth, client-side
+(`requireRole(routing, BOARD, ADMIN)` on the route); see <<privacy-boundary,Privacy boundary>>.
 
 == Context
 
@@ -82,13 +80,14 @@ result afterward:
 * Role gate: `BOARD`/`ADMIN` only, enforced server-side (`BoardMemberMapService`,
   `registerMemberMapRoutes`) -- this is the actual, currently-enforced boundary, and by itself
   sufficient (a non-BOARD/ADMIN caller gets `ForbiddenException` from the RPC and 401/403 from the
-  basemap route regardless of any client). A client-side route guard is planned as defense in depth
-  once the client half of this wave lands, not yet implemented. There is deliberately **no**
-  self-service variant -- a member's own location is never singled out.
+  basemap route regardless of any client). A client-side route guard
+  (`requireRole(routing, BOARD, ADMIN)` on `Routes.MEMBER_MAP`) additionally lands as defense in depth
+  in V1.9.6. There is deliberately **no** self-service variant -- a member's own location is never
+  singled out.
 * No export, no print button, no "share" link, no postal code ever appears in a URL -- server-side
-  properties, true today independent of the client. The screen is PLANNED to carry a persistent
-  notice ("Nur für Vorstand und Administration. Genauigkeit: PLZ-Mittelpunkt, keine Adressen. Bitte
-  nicht weitergeben.") once built -- there is no screen yet.
+  properties, true independent of the client, and the V1.9.6 screen adds no such affordance either.
+  The screen carries a persistent notice ("Nur für Vorstand und Administration. Genauigkeit:
+  PLZ-Mittelpunkt, keine Adressen. Bitte nicht weitergeben.").
 
 == Classification rules (the three-way split, plus foreign)
 
@@ -112,13 +111,13 @@ Invariant, checked at the end of `aggregateMemberMap` and exercised over 200 ran
 `MemberMapAggregationTest`: `total == mappedTotal + unresolvableGermanPostalCode + noPostalCode +
 foreign`.
 
-== Degradation matrix (planned client behavior)
+== Degradation matrix
 
-The server side of this matrix is real today: `tilesAvailable`/`geodataAvailable` on
-`BoardMemberMapResponse` already report exactly these two independent conditions, computed fresh on
-every call. The "Result" column describes how the (not yet built) client is intended to react to
-each combination -- there is no screen to render "Full map + full table" or the WebGL notice yet.
-Two independent optional data sources, each degrading gracefully and independently on the server
+The server side of this matrix is real: `tilesAvailable`/`geodataAvailable` on
+`BoardMemberMapResponse` report exactly these two independent conditions, computed fresh on every
+call. The "Result" column describes how the V1.9.6 client (`MemberMapScreen.kt`,
+`memberMapDegradation`) reacts to each combination. Two independent optional data sources, each
+degrading gracefully and independently on the server
 (never a hard failure, never blocking server startup -- same posture as
 `BrandConfig`/`SmtpConfig`):
 
@@ -153,13 +152,10 @@ Two independent optional data sources, each degrading gracefully and independent
   above -- the table remains fully available (Q6).
 |===
 
-== Q1-Q7 decisions (recorded here, not just in the wave's plan; client-facing ones are still pending)
+== Q1-Q7 decisions
 
-Q1, Q2, Q4-Q7 below describe `lapis-client` decisions -- none of them are implemented on this
-branch yet (see the status warning at the top of this document). They are recorded now so the
-follow-up wave that builds the client implements exactly what was decided, not so a reader
-concludes the screen already exists. Q3 is the one decision already implemented and tested today
-(`MemberMapRules.isGermanCountry`, server+shared).
+Q1, Q2, Q4-Q7 below are `lapis-client` decisions, implemented in V1.9.6 exactly as recorded here. Q3
+is a server+shared decision, implemented and tested since V1.9.5 (`MemberMapRules.isGermanCountry`).
 
 [[q3]]
 * **Q1 -- route and menu placement**: `Routes.MEMBER_MAP = "/member-map"`, menu entry

@@ -787,19 +787,13 @@ logo shows no mark at all next to it, rather than a mark that would misleadingly
 `LAPIS_BRAND_*` rebrands the deployment's own presentation, it does not white-label away where the
 platform itself comes from.
 
-== Member map (optional, server-side only -- no client screen exists yet)
-
-NOTE: As of this wave, `lapis-client` has no "Mitgliederkarte" screen, menu entry or map rendering
--- only the server-side RPC aggregate and this basemap HTTP route exist. The screen described below
-is the design this route/config was built for; it is planned for a follow-up wave, not present
-today. Provisioning `LAPIS_MAP_PMTILES_PATH` now is still useful (see below) since it does not
-depend on the client existing.
+== Member map (optional)
 
 `LAPIS_MAP_PMTILES_PATH` -- **optional**, unset by default. When unset (or invalid, or pointing at a
-missing/unreadable/non-PMTiles file), the (planned) BOARD/ADMIN-only "Mitgliederkarte" screen is
-designed to still work, just showing its "no basemap configured" state and the underlying table of
-postal-code aggregates regardless -- see `network.lapis.cloud.server.membermap.MemberMapConfig`
-KDoc, same never-fail-fast posture as White-Label-Branding above.
+missing/unreadable/non-PMTiles file), the BOARD/ADMIN-only "Mitgliederkarte" screen still works,
+just showing its "no basemap configured" state and the underlying table of postal-code aggregates
+regardless -- see `network.lapis.cloud.server.membermap.MemberMapConfig` KDoc, same never-fail-fast
+posture as White-Label-Branding above.
 
 **Provisioning the basemap file** (an operator step, done once per instance -- the file itself is
 NEVER committed to this or any other repository, see this repo's root `.gitignore`):
@@ -840,10 +834,9 @@ with `lapis-server` itself (GeoNames CC-BY-4.0, see `lapis-server/src/main/resou
 LICENSE-GeoNames.txt`) -- no separate provisioning step, always available regardless of
 `LAPIS_MAP_PMTILES_PATH`.
 
-**Third-party data and attribution** -- PLANNED to be shown to the reader directly on the screen
-(footnote and map attribution control) once the client half of this feature is built; until then
-this file (and `README.adoc`'s "Third-party data" section) is the only place this attribution
-appears:
+**Third-party data and attribution** -- shown to the reader directly on the screen (the map's own
+attribution control, Q2 in `docs/architecture/member-map.adoc`); this file (and `README.adoc`'s
+"Third-party data" section) also documents it for operators who never open the screen:
 
 * Postal code data (c) link:https://www.geonames.org[GeoNames.org], CC-BY-4.0.
 * Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL.

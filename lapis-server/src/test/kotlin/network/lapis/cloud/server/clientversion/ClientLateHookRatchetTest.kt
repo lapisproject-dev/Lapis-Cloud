@@ -75,6 +75,15 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "(first fire is the replacement, before any tile exists), chatRow (hidden panel), setStaticA11yLabel/" +
                     "setDynamicA11yTitle (getElement() ?: hook idiom)"
             ),
+        "MemberMapScreen.kt" to
+            (
+                3 to
+                    "root's own destroy hook is registered as the very FIRST statement after `dataScreenRoot()`, before any " +
+                    "child is added -- no element/key exists on root yet; the PLZ button's focus-restore hook and the map " +
+                    "canvas host's insert hook are both registered on a widget that was JUST created (`tag(TAG.BUTTON, ...)` / " +
+                    "`div(className = ...)`), before that widget has any element of its own, exactly the `canvasHost` shape " +
+                    "already audited for PriceOracleScreen.kt"
+            ),
     )
 
 /**

@@ -594,6 +594,9 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // W4d (this batch): no labelled text field at all -- only an IMMEDIATE SWITCH checkbox (justified below,
         // R24B_JUSTIFIED, same reason as `StatuteQaScreen.kt`).
         "NonprofitComplianceReportsScreen.kt",
+        // V1.9.6 "Vorstands-Karte, Client-Hälfte": only the PLZ/Ort search filter (justified below,
+        // FILTER_IS_NOT_A_FORM) -- no form to build.
+        "MemberMapScreen.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -648,6 +651,8 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
         // W4d batch 2 -- FILTER_IS_NOT_A_FORM: narrows the document list of the open folder, never submitted.
         "DocumentsScreen.kt" to
             listOf("searchInput = searchRow.text(label = tr(\"Dokumente in diesem Ordner durchsuchen\"))"),
+        // V1.9.6 -- FILTER_IS_NOT_A_FORM: narrows the PLZ/Ort table, never submitted.
+        "MemberMapScreen.kt" to listOf("val searchInput = tablePanel.text(label = tr(\"PLZ oder Ort\"))"),
     )
 
 /**
