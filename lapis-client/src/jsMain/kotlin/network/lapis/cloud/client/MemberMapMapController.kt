@@ -64,7 +64,9 @@ private fun detectWebglAvailable(): Boolean =
  * map's `"load"` event fires, adds the clustered points source ([buildPointsSourceJson]) and its two
  * layers ([buildPointsLayerJson]/[buildClustersLayerJson]) -- MapLibre rejects `addSource`/`addLayer`
  * calls before `"load"`. [setPoints] only ever touches the SOURCE's data afterwards
- * (`source.setData(...)`), it never rebuilds the style or the layers.
+ * (`source.setData(...)`), it never rebuilds the style or the layers. **`"load"` is genuinely async**
+ * (WebGL context + style loading), so the caller's very first [setPoints] call -- right after [init]
+ * returns -- almost always races ahead of it; see [pendingEntries]'s own KDoc for the fix.
  *
  * **Theme sync**: a [MutationObserver] on `data-theme` re-reads [readMemberMapColors] and calls
  * `map.setPaintProperty(...)` for the map's nine color paint properties -- the exact same pattern
@@ -85,6 +87,18 @@ internal class MemberMapMapController(
     private var popup: Popup? = null
     private var themeObserver: MutationObserver? = null
     private var resizeObserver: ResizeObserver? = null
+
+    /**
+     * Bug fix (2026-09-28, found live on PdV -- table populated, map empty): [MemberMapScreen.kt]
+     * calls [setPoints] synchronously right after [init] returns, but [init] only *schedules* the
+     * source/layers to be added on the map's async `"load"` event -- WebGL context creation and style
+     * loading take real time, so [setPoints] almost always runs before [wireLayers] has ever added
+     * [MEMBER_MAP_SOURCE_ID]. The old code's `map?.getSource(...) ?: return` silently dropped the data
+     * in that race, every single time in practice. [setPoints] now always remembers the latest entries
+     * here; [wireLayers] applies them once the source actually exists, and a later [setPoints] call
+     * (source already present) still applies immediately as before, this field just also gets updated.
+     */
+    private var pendingEntries: List<MemberMapEntryDto>? = null
 
     fun init(): MemberMapInitResult {
         if (!deps.webglAvailable()) return MemberMapInitResult.WEBGL_MISSING
@@ -129,6 +143,15 @@ internal class MemberMapMapController(
         wireInteraction(newMap)
         setupThemeObserver(newMap)
         setupResizeObserver(newMap)
+        applyPendingEntries()
+    }
+
+    /** Applies [pendingEntries] to the source if both exist yet -- see that field's own KDoc for why this is needed at all. */
+    private fun applyPendingEntries() {
+        val entries = pendingEntries ?: return
+        val source = map?.getSource(MEMBER_MAP_SOURCE_ID) ?: return
+        source.setData(JSON.parse(buildPointsGeoJson(entries)))
+        pendingEntries = null
     }
 
     private fun wireInteraction(newMap: dynamic) {
@@ -204,10 +227,14 @@ internal class MemberMapMapController(
         popup = newPopup
     }
 
-    /** Feeds fresh RPC data into the already-built source (never rebuilds the style/layers, see class KDoc). */
+    /**
+     * Feeds fresh RPC data into the source (never rebuilds the style/layers, see class KDoc). Always
+     * remembers [entries] in [pendingEntries] first -- the source may not exist yet (see that field's
+     * KDoc), in which case [wireLayers] applies it once `"load"` fires instead of this call doing it.
+     */
     fun setPoints(entries: List<MemberMapEntryDto>) {
-        val source = map?.getSource(MEMBER_MAP_SOURCE_ID) ?: return
-        source.setData(JSON.parse(buildPointsGeoJson(entries)))
+        pendingEntries = entries
+        applyPendingEntries()
     }
 
     /** A table-row click: centers the map on the entry at [MemberMapRules.FLY_TO_ZOOM] -- `jumpTo` (no animation) under `prefers-reduced-motion`. */

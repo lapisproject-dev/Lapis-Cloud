@@ -97,6 +97,52 @@ class MemberMapMapControllerTest {
         )
     }
 
+    /**
+     * Regression test for the bug found live on PdV 2026-09-28: the table showed real data, the map
+     * showed no circles at all. Root cause -- [MemberMapScreen.kt] calls [MemberMapMapController.setPoints]
+     * synchronously right after [MemberMapMapController.init] returns, but the source is only added
+     * once the map's `"load"` event fires, which is genuinely async (WebGL context + style loading).
+     * The old code's `map?.getSource(...) ?: return` silently dropped the data in that race, every
+     * single time in practice -- this test reproduces exactly that ordering (`setPoints` BEFORE
+     * `"load"` fires) and asserts the data still reaches the source once `"load"` does fire.
+     */
+    @Test
+    fun setPoints_calledBeforeLoadFires_stillReachesTheSourceOnceLoadFires() {
+        var loadCallback: (() -> Unit)? = null
+        var addSourceCalls = 0
+        val setDataCalls = mutableListOf<String>()
+        val fakeSource = js("({})")
+        fakeSource.setData = { data: dynamic -> setDataCalls.add(JSON.stringify(data)) }
+        val deps =
+            MemberMapDeps(
+                createMap = { _ ->
+                    val map = fakeMap()
+                    map.on = { event: dynamic, callback: dynamic, _: dynamic ->
+                        if (event == "load") loadCallback = { (callback as (dynamic) -> Unit)(null) }
+                    }
+                    map.addSource = { _: dynamic, _: dynamic -> addSourceCalls++ }
+                    // Only resolves once "load" has actually run -- matches the real MapLibre contract
+                    // (getSource on an unknown id returns undefined, never throws).
+                    map.getSource = { _: dynamic -> if (addSourceCalls > 0) fakeSource else undefined }
+                    map
+                },
+                webglAvailable = { true },
+            )
+        val controller = MemberMapMapController(container = detachedDiv(), deps = deps, onFeatureClicked = {})
+        controller.init()
+
+        val entries =
+            listOf(MemberMapEntryDto(postalCode = "38100", placeName = "Braunschweig", lat = 52.27, lon = 10.52, count = 3))
+        controller.setPoints(entries) // races ahead of "load" -- must not throw, must not lose the data
+
+        assertEquals(0, setDataCalls.size, "the source cannot receive data before it exists yet")
+
+        loadCallback?.invoke() // simulates the map's real async "load" event firing
+
+        assertEquals(1, setDataCalls.size, "the pending entries must be applied once the source exists")
+        assertTrue(setDataCalls.single().contains("38100"), "the applied data must be the entries passed to setPoints, not empty")
+    }
+
     @Test
     fun flyToEntry_withoutCoordinates_neverThrows_andDoesNothing() {
         var flyToCalls = 0
