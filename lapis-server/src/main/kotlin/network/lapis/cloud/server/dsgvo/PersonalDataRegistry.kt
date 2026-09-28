@@ -65,6 +65,7 @@ object PersonalDataRegistry {
             McpPersonalData,
             ArticlePersonalData,
             ConferenceBackgroundPersonalData,
+            CarpoolPersonalData,
         )
 
     /**

@@ -8,6 +8,28 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.12 — Mitfahrerzentrale.** Jedes ACTIVE Mitglied kann eine Fahrt anbieten (`OFFER`,
+  1–8 freie Plätze) oder eine Mitfahrgelegenheit suchen (`REQUEST`) — neue Tabelle
+  `carpool_posting` (`V58__carpool.sql`), neuer RPC-Dienst `ICarpoolService`
+  (`listPostings`/`listMyPostings`/`createPosting`/`updatePosting`/`deletePosting`/
+  `contactAuthor`), neuer Sidebar-Eintrag „Mitfahrerzentrale" innerhalb der Gruppe
+  „Mitgliedschaft" (kein eigenes `NavVisibility`-Prädikat, läuft unter dem gruppenweiten
+  `showsMembershipSection`-Gate wie „Kommunikation"). Kontaktaufnahme läuft über eine ganz
+  normale Direktnachricht statt eines eigenen Nachrichtensystems (`postingId` wird serverseitig
+  aufgelöst, das DTO trägt bewusst keine `authorMemberId`); die Antwort landet im bestehenden
+  Postfach unter „Kommunikation", das dafür von einem reinen Unread-Zähler zu einer echten
+  Nachrichtenliste mit Inline-Antwortformular erweitert wurde. Serverseitige Grenzen: Datum
+  heute bis +180 Tage, höchstens 10 zukünftige Einträge pro Mitglied, Freitextfelder
+  längenbegrenzt. Ein Eintrag verschwindet aus dem Feed am Tag nach der Abfahrt, wird aber erst
+  7 Tage später endgültig gelöscht (`CarpoolRetentionPoller`, gleiches Muster wie die
+  KI-Entwürfe-Aufbewahrung), damit eine knapp abgelaufene eigene Fahrt noch kurz dupliziert
+  werden kann. DSGVO-Contributor `CarpoolPersonalData` registriert (harte Löschung bei
+  `eraseMember`, keine Gegenpartei-Kopie wie bei Direktnachrichten). Im Zuge dieser Welle wurde
+  `DirectMessageService.sendDirectMessage`s Einfügepfad in eine gemeinsame
+  `insertDirectMessage`-Funktion extrahiert, die jetzt zusätzlich leere Nachrichten und
+  Selbstnachrichten ablehnt (vorher unbeschränkt, aber bislang ohne Client-Aufrufer außerhalb
+  dieser Welle).
+
 - **V1.4.34/V1.4.36 — Nachrichten-/Artikel-Modul mit redaktionellem Workflow.** Mitglieder
   schreiben Artikel (Titel, Auszug, Markdown-Body, optionales Titelbild) als `DRAFT`, reichen sie
   zur Freigabe ein (`SUBMITTED`), und ein Vorstandsmitglied genehmigt oder lehnt ab

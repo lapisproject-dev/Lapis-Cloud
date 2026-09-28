@@ -31,6 +31,11 @@ object Routes {
     const val STATUTE_QA = "/statute-qa"
     const val COMMUNICATION = "/communication"
 
+    // Welle V1.9.12 "Mitfahrerzentrale" -- `requireAuth` wie CONTRIBUTIONS/DOCUMENTS/COMMUNICATION:
+    // CarpoolService gattet serverseitig jede Methode über requireActiveMembership, kein eigenes
+    // NavVisibility-Prädikat (siehe Sidebar.kt -- läuft unter showsMembershipSection).
+    const val CARPOOL = "/carpool"
+
     // Governance UI wave: reads are open to any authenticated member (see `IGovernanceService`
     // KDoc -- no RPC method in this interface requires a role to READ), so all three routes use
     // `requireAuth`, not `requireRole`, exactly like CONTRIBUTIONS/DOCUMENTS/COMMUNICATION.
@@ -671,6 +676,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.COMMUNICATION) {
         requireAuth(routing) { show(Routes.COMMUNICATION, ::renderCommunicationScreen) }
+    }
+    routing.kvOn(Routes.CARPOOL) {
+        requireAuth(routing) { show(Routes.CARPOOL, ::renderCarpoolScreen) }
     }
     routing.kvOn(Routes.COMMITTEES) {
         requireAuth(routing) { show(Routes.COMMITTEES, ::renderCommitteesScreen) }

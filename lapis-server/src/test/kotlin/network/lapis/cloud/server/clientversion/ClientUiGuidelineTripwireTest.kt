@@ -582,6 +582,12 @@ private val R24_MIGRATED: Set<String> =
         // `PoliticianScreen.politicianRevokeConfirmDialog`) in the same wave so R29 does not rise when
         // the file joins this set.
         "KeycloakLinkScreen.kt",
+        // Welle V1.9.12 "Mitfahrerzentrale": every labelled text field (Von/Nach/Abfahrtsdatum/
+        // Abfahrtszeit/Freie Plätze/Notiz in the create/edit form, Nachricht in the contact form)
+        // goes through `lapisForm`'s `textField`/`textAreaField`/`selectField` from the start --
+        // the file's only RAW `select(...)` call is the feed's "Art" type filter (justified below,
+        // FILTER_IS_NOT_A_FORM: it narrows the feed, is never submitted, has no validation).
+        "CarpoolScreen.kt",
     )
 
 /** Screens examined that have NO labelled text field to migrate: strict too, but there is no form to build. */
@@ -807,6 +813,9 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         // reason as TravelExpenseApprovalsScreen.kt's statusSelect above).
         "VolunteerAllowanceApprovalsScreen.kt" to
             listOf("val statusSelect = filterRow.select(options = statusOptions, value = \"\", label = tr(\"Status\"))"),
+        // Welle V1.9.12 "Mitfahrerzentrale" -- FILTER_IS_NOT_A_FORM: narrows the feed by
+        // OFFER/REQUEST, never submitted, same reason as the approval-queue statusSelects above.
+        "CarpoolScreen.kt" to listOf("filterRow.select( [label \"Art\"]"),
     )
 
 /**

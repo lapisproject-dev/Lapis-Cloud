@@ -118,6 +118,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DOCUMENTS,
                 Routes.STATUTE_QA,
                 Routes.COMMUNICATION,
+                Routes.CARPOOL,
                 Routes.DONATE,
                 Routes.DSGVO_RIGHTS,
                 Routes.TRAVEL_EXPENSES,
@@ -364,6 +365,9 @@ fun buildSidebar(
                 sidebarLink(Routes.STATUTE_QA, tr("Fragen zur Satzung"), "fas fa-magnifying-glass", toggle)
             }
             sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
+            // Welle V1.9.12 "Mitfahrerzentrale" -- fa-car-side statt fa-car (Icon-Kollision
+            // vermeiden: fa-car ist bereits an TRAVEL_EXPENSES weiter unten in dieser Gruppe vergeben).
+            sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side", toggle)
             // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Design-Team-Entscheidung
             // Q6: Gruppe "Kommunikation" (neben COMMUNICATION), nicht "Selbstverwaltung". Für
             // BOARD/ADMIN aktualisiert sich das Label mit der Freigabe-Warteschlangen-Größe --
