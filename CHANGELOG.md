@@ -8,6 +8,47 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.4.34/V1.4.36 — Nachrichten-/Artikel-Modul mit redaktionellem Workflow.** Mitglieder
+  schreiben Artikel (Titel, Auszug, Markdown-Body, optionales Titelbild) als `DRAFT`, reichen sie
+  zur Freigabe ein (`SUBMITTED`), und ein Vorstandsmitglied genehmigt oder lehnt ab
+  (`PUBLISHED`/`REJECTED`) -- bewusste Abgrenzung zum Sozialen Netzwerk (V1.1): dort geht ein Post
+  sofort live und wird erst nachträglich moderiert (innen-gerichtete Community-Kommunikation), das
+  Artikel-Modul ist außen-gerichtetes redaktionelles Content-Management mit einem
+  Genehmigungs-Gate davor. Vier-Augen-Prinzip bei Freigabe/Ablehnung/Depublizierung
+  (`ArticleService.requireNotOwnArticle`) gilt ausnahmslos, auch für ein ADMIN-Mitglied, das
+  gleichzeitig Autor ist. Neue Tabelle `article` (`V55__article.sql`, `slug` erst bei erster
+  Freigabe zugewiesen und danach nie wieder geändert), `ArticleMarkdown` als einziger
+  Markdown-zu-HTML-Renderer (commonmark-java, `escapeHtml(true)`, Bilder nur als Alt-Text,
+  gefährliche Link-Schemes gestrippt, Überschriften auf h2..h4 gedeckelt) für Vorschau,
+  Vorstands-Review UND die öffentliche Seite gemeinsam. Öffentliche, unauthentifizierte Seite `GET
+  /aktuelles/{slug}` (immer aktiv, nicht hinter `LAPIS_EMBED_ENABLED`) samt eigenem Titelbild-Pfad
+  (`GET /aktuelles/{slug}/bild`, versioniert/cachebar) und ein zweiter, authentifizierter
+  Titelbild-Pfad für Autor/Reviewer (`/api/articles/{id}/cover`). Neues Partner-Embed-Widget `GET
+  /api/embed/v1/articles` (opt-in, `LAPIS_EMBED_ENABLED`, gleiche CORS-Origin-Allowlist wie die
+  übrigen Embed-Endpunkte, eigenes Allowlist-DTO ohne `body`/`authorId`/`reviewedBy`) -- siehe
+  `docs/api/embed-widgets.adoc`. Depublizierung (`unpublishArticle`, `PUBLISHED` -> `REJECTED` mit
+  Pflicht-Begründung) statt einer eigenen fünften Status: der Autor korrigiert und reicht erneut
+  ein, Slug und `publishedAt` bleiben als Audit-Spur erhalten, ohne die öffentliche Sichtbarkeit
+  wiederherzustellen (beide öffentlichen Lesepfade prüfen `status == PUBLISHED` bei jeder
+  Anfrage neu). DSGVO-Anbindung über `ArticlePersonalData`: ein veröffentlichter Artikel gilt als
+  Organisationsinhalt und wird bei einer Mitglieder-Löschung nicht entfernt, der `author_id`-/
+  `reviewed_by`-Zeiger verweist danach auf den anonymisierten Mitgliedsdatensatz. Ausführliche
+  Architektur-Dokumentation: `docs/architecture/article.adoc`.
+  +
+  Zwei echte Befunde aus dem Review-/Security-Audit-Loop, beide behoben, bevor diese Welle als
+  abgeschlossen galt: `IArticleService` war zwar implementiert, aber nie mit `registerService` in
+  `Application.kt` registriert -- die RPC-Schnittstelle existierte serverseitig, war aber von
+  keinem Client aus erreichbar. Und ein DoS-Fund: `saveDraft` war für jedes aktive Mitglied ohne
+  Rate-Limit und ohne Cap pro Autor erreichbar; behoben über mitglieds-gebundene Rate-Limiter
+  (Create/Update getrennt) und `ArticleStore.MAX_DRAFTS_PER_AUTHOR = 100` -- eine zweite
+  Review-Runde deckte auf, dass dieser Cap sich per `submitArticle`/`withdrawArticle`-Schleife
+  umgehen ließ (der Cap zählte ursprünglich nur `DRAFT`/`REJECTED`, `submitArticle` ist aber
+  autoren-only ohne Board-Gate), endgültig geschlossen, indem `countEditableByAuthor` jetzt jede
+  Nicht-`PUBLISHED`-Zeile zählt, da nur das Board-gated `approveArticle` eine Zeile aus dem Cap
+  entfernen kann. Bekannte Einschränkung: die öffentliche Detailseite `/aktuelles/{slug}` trägt
+  weiterhin keinen eigenen Kopfbereich (kein Rücksprung zur Seiten-Navigation von dort) -- bleibt
+  für eine Folgewelle offen.
+
 - **V1.4.37 — Wiederkehrende Veranstaltungen: Admin-UI + RRULE-iCal-Feed (Abschluss).** Das
   server-seitige Fundament (Datenmodell, Scope-Engine, RPC-Verdrahtung -- `createEventSeries`,
   `previewSeries`, `updateSeriesEvent`, `cancelSeriesEvent`, `impactOfSeriesEdit`) landete in

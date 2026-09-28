@@ -1,0 +1,319 @@
+= Article Module (Nachrichten-/Artikel-Modul)
+:description: The DRAFT/SUBMITTED/PUBLISHED/REJECTED state machine, the four-eyes principle enforcement, slug/cover-image handling, the shared Markdown renderer, and the embed feed contract for the editorial article workflow.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Context
+
+Wave V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow", completed by the follow-up
+wave V1.4.36, lets an organization member write and publish articles/news under an editorial review
+workflow, distinct from the immediate-publish, LTR-weighted posts of the Soziales Netzwerk (V1.1).
+A `Soziales Netzwerk` post goes live instantly and is moderated only afterwards -- that is
+inward-facing community communication. The article module is outward-facing, editorial content
+management with an approval gate in front of it: a member drafts an article, submits it for
+review, and only a BOARD/ADMIN reviewer's approval makes it publicly visible at
+`/aktuelles/{slug}`.
+
+Three Kotlin packages carry this:
+
+* `network.lapis.cloud.shared.domain` (`:lapis-shared`) -- `ArticleStatus`, `ArticleDto`,
+  `ArticleDraftInput`, `ArticleSummaryDto`, `ArticleCoverResultDto`, `ArticleReviewDto`.
+* `network.lapis.cloud.server.articles` (`:lapis-server`) -- `ArticlePolicy` (pure validation),
+  `ArticleStore` (Exposed data access, no transaction of its own), `ArticleCoverPolicy` (cover URL
+  formatting), `ArticleMarkdown` (the single Markdown-to-HTML renderer).
+* `network.lapis.cloud.server.rpc.ArticleService` -- the authenticated RPC implementation
+  (`IArticleService`, `:lapis-shared`), plus the unauthenticated public routes in
+  `network.lapis.cloud.server.routes` (`ArticlePublicRoutes`, `ArticleCoverRoutes`,
+  `EmbedArticlesFeedRoutes`, `PublicArticlesOverviewRoutes`) and the client UI
+  (`ArticleEditor.kt`/`ArticlesScreen.kt` in `:lapis-client`).
+
+`V55__article.sql` is the schema migration; the `article` table's KDoc there documents the
+`slug`/`cover_image_id` column semantics referenced throughout this document.
+
+[[gap-found]]
+NOTE: `IArticleService` was implemented in wave V1.4.34 but never registered with
+`registerService` in `Application.kt` -- the RPC surface existed on the server but was unreachable
+from any client until wave V1.4.36 fixed this (see that wave's own commit message and the
+`Application.kt` comment at the `registerService(IArticleService::class)` call site).
+
+== State machine
+
+[cols="1,3", options="header"]
+|===
+| Transition | RPC / enforcement
+
+| `DRAFT`/`REJECTED` → `SUBMITTED`
+| `ArticleService.submitArticle` -- re-validates title/excerpt/body against
+  `ArticlePolicy.validateForSubmit` server-side regardless of any client-side pre-check.
+
+| `SUBMITTED` → `DRAFT`
+| `ArticleService.withdrawArticle` -- own article only.
+
+| `SUBMITTED` → `PUBLISHED`
+| `ArticleService.approveArticle` -- assigns the slug (see <<slug>>), sets `publishedAt`.
+
+| `SUBMITTED` → `REJECTED`
+| `ArticleService.rejectArticle` -- optional `reason` (≤ 1000 chars, `ArticlePolicy
+  .validateRejectionReason`).
+
+| `PUBLISHED` → `REJECTED`
+| `ArticleService.unpublishArticle` -- mandatory `reason` (10..1000 chars, `ArticlePolicy
+  .validateUnpublishReason`). See <<unpublish>> for why this reuses `REJECTED` rather than a
+  separate status.
+|===
+
+`ArticleStatus` is `@Serializable enum class ArticleStatus { DRAFT, SUBMITTED, PUBLISHED,
+REJECTED }` (`Articles.kt`) -- literal order is load-bearing (mirrors `article.status
+VARCHAR(10)`), append-only, never reordered. Every transition above runs inside a single
+`transaction { }` with an optimistic `(id eq articleId) and (status eq expectedStatus)` guard on
+the `UPDATE` (`updated == 0` throws `ConflictException("... was concurrently changed -- retry")`),
+except `approveArticle`/`rejectArticle`/`unpublishArticle`, which take a `FOR UPDATE` row lock
+first (`ArticleStore.lockForUpdateOrThrow`) because those three also need to enforce the four-eyes
+check below before deciding anything.
+
+`saveDraft` (create-or-update) is reachable only while an article is `DRAFT` or `REJECTED` --
+`SUBMITTED`/`PUBLISHED` are read-only from that RPC's perspective (`ConflictException`
+otherwise, per `IArticleService.saveDraft` KDoc). `deleteDraft` requires `DRAFT` specifically
+(`ConflictException` for any other status, including `REJECTED`).
+
+[[four-eyes]]
+== Four-eyes principle (Vier-Augen-Prinzip)
+
+`approveArticle`, `rejectArticle`, and `unpublishArticle` all call a shared private helper,
+`ArticleService.requireNotOwnArticle`:
+
+[source,kotlin]
+----
+private fun requireNotOwnArticle(row: ResultRow, current: CurrentMember) {
+    if (row[ArticleTable.authorId] == current.memberId) {
+        throw ForbiddenException("Eigene Artikel gibt ein anderes Vorstandsmitglied frei.")
+    }
+}
+----
+
+This refuses even an ADMIN who is also the article's own author -- the check is unconditional on
+role. The comparison runs against the freshly `FOR UPDATE`-row-locked `authorId`, not a value read
+before the lock (`ArticleStore.lockForUpdateOrThrow` is always called first in these three
+functions) -- the same "lock first, decide second" ordering `CrowdfundingService.approveProject`
+already establishes elsewhere in this codebase, so a concurrent change of authorship could never
+race past the check (not currently possible for `article.author_id`, which has no mutator, but the
+ordering discipline itself is the property that matters, not today's absence of a way to exploit
+its absence).
+
+`ArticleSummaryDto.authorIsSelf` and `ArticleReviewDto.authorIsSelf` mirror this server-side truth
+into the client's disabled review-/depublish-button state and hint text -- a convenience only,
+never trusted for authorization; the real gate is `requireNotOwnArticle` above.
+
+[[slug]]
+== Slug assignment (once, on approval)
+
+`article.slug VARCHAR(120) UNIQUE` is `NULL` until an article is first approved.
+`ArticleService.approveArticle` assigns it exactly once and never changes it again:
+
+[source,kotlin]
+----
+val slug = row[ArticleTable.slug] ?: ArticlePolicy.slugFor(title = row[ArticleTable.title]) { candidate ->
+    ArticleStore.slugTaken(slug = candidate, excludingId = articleId)
+}
+----
+
+`ArticlePolicy.slugFor` delegates to `EventPolicy.slugFor` rather than duplicating the
+transliteration/collision-suffix logic -- `EventPolicy` is a public (not `internal`) object, so
+this is a plain cross-package call, not a visibility workaround. A dedicated,
+domain-neutral `SlugGenerator` extraction was considered and deliberately deferred as
+out-of-scope risk-minimization for this wave; the delegation is the lower-risk minimal diff.
+
+Because the slug is preserved across an `unpublishArticle` → resubmit → `approveArticle` cycle
+(the `??:` above only assigns a NEW slug when none exists yet), a republished article keeps its
+original public URL.
+
+[[cover]]
+== Cover image storage and the public unauthenticated cover route
+
+An article's cover image reuses `network.lapis.cloud.server.events.EventCoverStorage`/
+`EventCoverImageProcessor` 1:1 with an article-specific storage root (`article-covers/`,
+wired in `Application.kt`) -- deliberately no new image-processing/storage code
+(`ArticleCoverPolicy` KDoc "kein Neubau"). Size/format constants
+(`EventCoverPolicy.MAX_UPLOAD_BYTES`/`MIN_*`/`TARGET_LONG_EDGE_PX`/`JPEG_QUALITY`) are reused
+verbatim so the two upload families never silently drift apart on limits.
+
+`ArticleCoverPolicy` picks one of two URL shapes per article, in exactly one place
+(`coverImageUrlFor`, the single call site every DTO-mapping function goes through):
+
+* **PUBLISHED with a slug**: the public, unauthenticated, cacheable
+  `{baseUrl}/aktuelles/{slug}/bild?v={first 8 hex chars of the cover image id}` -- served by
+  `ArticlePublicRoutes`' `GET /aktuelles/{slug}/bild`. `?v=` is a cache-busting version tag; when
+  the requested version matches the current one the response is
+  `Cache-Control: public, max-age=31536000, immutable`, otherwise `public, max-age=300`.
+* **Every other status** (`DRAFT`/`SUBMITTED`/`REJECTED`): the authenticated
+  `{baseUrl}/api/articles/{id}/cover?v=...` -- served by `ArticleCoverRoutes`' `GET
+  /api/articles/{id}/cover`, reachable only by the author (any status) or a BOARD/ADMIN reviewer
+  (every status except `DRAFT`, since an unsubmitted draft is not theirs to look at yet).
+  `Cache-Control: private, no-store`.
+
+Both cover routes (`GET`, and the author-only `POST`/`DELETE /api/articles/{id}/cover` upload/
+remove routes) apply existence-oracle discipline: an unknown id, a foreign member's article, and a
+genuinely missing cover all render the identical `404`, never a `401`/`403` -- a failing session
+resolution on the `GET` route does not throw, so an anonymous caller sees the same `404` a
+non-owning member would. The `POST` upload route does a cheap, non-locking ownership/status
+pre-check before the (potentially slow) multipart receive/re-encode, writes the file to disk
+before taking any row lock, then re-verifies ownership/status under a `FOR UPDATE` lock right
+before `ArticleStore.setCoverImageId` -- if the article was concurrently submitted/approved/
+deleted in between, the just-written file is deleted and the request fails with the same status
+the pre-check would have used. `deleteDraft` deletes the article row first and the orphaned cover
+file second (never the reverse), so a crash between the two can only leave an orphaned file, never
+a dangling DB reference to a missing one. On `unpublishArticle`, the cover file is deliberately
+**kept** -- a later resubmit/re-approve cycle must not force the author to re-upload it.
+
+[[markdown]]
+== One shared Markdown renderer (preview, review, and public page)
+
+`ArticleMarkdown.render` (`network.lapis.cloud.server.articles.ArticleMarkdown`, built on
+`org.commonmark`) is the *only* place `article.body` Markdown is ever turned into HTML. It backs
+three call sites that must never diverge: `ArticleService.previewArticle` (the editor's "Vorschau"
+tab), `ArticleService.getArticleForReview` (`ArticleReviewDto.renderedBodyHtml` -- the board
+reviews exactly the HTML the public page will later show, never the raw Markdown), and
+`ArticlePublicRoutes`' `GET /aktuelles/{slug}` (rendered fresh from the stored `body` on every
+request, outside any transaction).
+
+Deliberately narrow scope (no GFM tables/strikethrough extension), with four defense-in-depth
+departures from commonmark-java's defaults:
+
+1. `escapeHtml(true)` -- raw HTML/`<script>` in the source is escaped as text, never passed
+   through.
+2. Link scheme allowlisting (`LinkAttributeProvider`): `http(s)` links get `target="_blank"` +
+   `rel="nofollow noopener ugc"`; `mailto:` links keep `rel` but no `target`; any other scheme
+   (`javascript:`, `data:`, a blank/malformed href) has its `href` stripped entirely -- the anchor
+   renders as dead, inert text, the visible link *text* stays.
+3. Images render as their alt text only, never an `<img>` tag (`ImageAsAltTextRenderer` recurses
+   into the image node's children and emits their text content) -- commonmark-java has no built-in
+   "image → alt text" mode.
+4. Headings are shifted down by one level and capped at h4 (`HeadingShiftRenderer`, `minLevel = 2,
+   maxLevel = 4`) -- an article's own `<h1>` is reserved for the page-level title the surrounding
+   template renders, so `# Foo` in the body becomes `<h2>Foo</h2>`.
+
+On the public page (`ArticlePublicHtml.articlePage`), the rendered HTML is inserted via
+`unsafe { +view.renderedBodyHtml }` rather than `kotlinx.html`'s normal escaping text API -- this
+is safe specifically because that string is the *output* of `ArticleMarkdown.render`, already
+sanitized per the four points above, not raw author input; escaping it a second time would
+double-encode every entity the renderer already produced.
+
+The public page carries the strictest Content-Security-Policy of any public route in this
+codebase (`default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; frame-ancestors
+'none'`), plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+`X-Frame-Options: DENY` -- appropriate for a page whose entire purpose is rendering
+author-supplied (sanitized) content.
+
+[[read-only-published]]
+== Why PUBLISHED is read-only, and the unpublish-then-resubmit correction path
+
+`saveDraft` only accepts an existing article whose status is `DRAFT` or `REJECTED`
+(`ConflictException` otherwise) -- a `PUBLISHED` article can never be silently edited by its
+author. To correct a published article, a BOARD/ADMIN reviewer (never the author, per the
+four-eyes rule) must first call `unpublishArticle`, which transitions `PUBLISHED` → `REJECTED`
+with a mandatory reason (audit trail). This deliberately reuses the `REJECTED` status rather than
+introducing a fifth status: the article then becomes editable again exactly like a genuinely
+rejected one, and the author resubmits it through the normal `submitArticle`/`approveArticle`
+path. `unpublishArticle` keeps `publishedAt`/`slug` on the row (audit trail) -- this cannot
+resurrect public visibility on its own, because both the public route
+(`ArticleStore.getPublishedBySlugOrNull`) and the embed feed
+(`ArticleStore.listPublishedNewestFirst`) re-check `status == PUBLISHED` on every request.
+
+[[unpublish]]
+`rejectArticle`, run on an article that carries a stale `publishedAt` from an *earlier*
+publish-then-unpublish-then-resubmit cycle, explicitly clears `publishedAt` back to `null` -- a
+subsequently `REJECTED` article must not still carry a non-null `publishedAt`, or the client's
+"Depubliziert" vs. "Abgelehnt" status-label derivation (`ArticleLabels.displayStatus`, keyed on
+`status == REJECTED && publishedAt != null`) would misreport a genuinely-rejected-on-first-try
+article as "Depubliziert". History is unaffected -- the full transition sequence remains in
+`audit_log_entry` regardless of what the row's own `publishedAt` column currently holds.
+
+[[draft-cap]]
+== Draft cap and rate limits (post-review security fix)
+
+The initial V1.4.34 implementation exposed a DoS/resource-exhaustion path: `saveDraft` was
+reachable by every active member with no rate limit and no cap on the number of drafts per
+author, and `listByAuthor` loaded every row -- including the full `body`, up to
+`ArticlePolicy.BODY_MAX` = 100,000 characters each -- with no `LIMIT`. Wave V1.4.36's review/
+security-audit loop fixed this in three parts:
+
+* **Member-keyed rate limits** on `saveDraft`: `draftCreateRateLimiter` gates the `id == null`
+  (create) path, `draftUpdateRateLimiter` gates the `id != null` (update) path with a much larger
+  budget, because the editor's auto-save fires on a debounce timer while a member is actively
+  typing, not just on explicit clicks. Both checks run before the transaction opens (cheap
+  in-memory check first, same ordering `previewArticle`'s own `previewRateLimiter` check
+  establishes).
+* **`ArticleStore.MAX_DRAFTS_PER_AUTHOR = 100`** -- a hard ceiling, checked in `saveDraft`'s
+  `id == null` branch via `ArticleStore.countEditableByAuthor`, before `insertDraft` runs
+  (`ConflictException` once reached).
+* **`ArticleStore.listByAuthor`/`listSubmittedOldestFirst`/`listPublishedNewestFirst`** are all
+  capped at `ArticleStore.MAX_PAGE_SIZE = 200`.
+
+A round-2 review finding then closed a bypass in the cap itself: `countEditableByAuthor`
+originally counted only `DRAFT`/`REJECTED` rows, on the (false) assumption that a `SUBMITTED` row
+"already requires board review to be created". In fact `submitArticle` is author-only (no board
+gate, no rate limit, no cap of its own), so an author could loop `saveDraft(null, ...)` +
+`submitArticle(id)`, moving each row straight from `DRAFT` to `SUBMITTED` so it never counted
+against the cap -- bounded only by `draftCreateRateLimiter` (still roughly 2,880 rows/day/account
+with no ceiling over time), and additionally flooding the board's `listSubmittedOldestFirst`
+review queue. `withdrawArticle` (`SUBMITTED` → `DRAFT`) then broke the cap's own invariant on top
+of that, turning an unbounded pile of `SUBMITTED` rows back into an unbounded pile of `DRAFT`
+rows. The fix: `countEditableByAuthor` now counts every row that is **not** `PUBLISHED` (`DRAFT` +
+`REJECTED` + `SUBMITTED`) -- moving a row between these three statuses never changes an author's
+non-`PUBLISHED` row count, so neither `submitArticle` nor `withdrawArticle` can be used to escape
+the cap. Only the board-gated `approveArticle` (four-eyes, an author can never approve their own
+article) removes a row from this count, by moving it to `PUBLISHED`.
+
+`previewArticle` has its own, separate `previewRateLimiter` (30/min per member, per
+`IArticleService.previewArticle` KDoc).
+
+== DSGVO / personal-data handling
+
+`ArticlePersonalData` (`network.lapis.cloud.server.dsgvo`) registers `ArticleTable` as a
+`MemberPersonalDataContributor` (`sectionKey = "articles"`, `displayName = "Artikel"`). Its export
+(`exportMember`) returns two JSON arrays for a given member: `authoredArticles` (id/title/status/
+createdAt for every article they authored) and `reviewedArticles` (id/title/status for every
+article they reviewed, i.e. `reviewedBy == memberId`).
+
+On erasure (`eraseMember`), rows are **retained**, not deleted: a published article is
+organizational content (the party's own public communication), not purely the author's/
+reviewer's personal data -- the same "organizational record outlives the author" posture
+`DocumentPersonalData` already establishes for `document`. The retention reason recorded is
+`"Organisationsinhalt (öffentliche Publikation), kein reines Personendatum; Autor-/
+Freigabe-Zeiger zeigt nach der Anonymisierung auf den anonymisierten Mitgliedsdatensatz"` -- after
+anonymization, `author_id`/`reviewed_by` continue to point at the now-anonymized member row rather
+than being nulled out or the article being deleted.
+
+Neither the author's name nor the internal article/member id is ever exposed to an
+unauthenticated reader: `ArticleDto` and `ArticleReviewDto` deliberately carry no `authorId`/
+`reviewedBy` field at all, and `ArticlePublicHtml`'s rendered page carries no author name and no
+internal id anywhere in its markup -- a client only ever learns whether it may act on its *own*
+article via the RPC surface's own role/ownership checks, never by comparing ids client-side.
+
+== Embed feed contract
+
+`GET /api/embed/v1/articles` (`EmbedArticlesFeedRoutes.kt`) is a read-only, keyless, CORS-gated
+JSON feed of the newest `PUBLISHED` articles, for a partner website to render its own "Aktuelles"
+teaser. Full request/response contract, rate limits, and the `LAPIS_EMBED_ENABLED` opt-in gate are
+documented in `docs/api/embed-widgets.adoc#events-list-widget[the sibling events-list-widget
+section]`'s article counterpart -- see that document's "Articles list widget" section.
+
+In short: `EmbedArticleListItemDto` is an explicit field-by-field allowlist mapping, deliberately
+*not* a reuse of `ArticleDto` -- the wire JSON must never contain `body`/`authorId`/
+`reviewedBy`/`id`/`rejectionReason`. A `PUBLISHED` row whose `slug`/`publishedAt` is unexpectedly
+`null` (which cannot happen by construction, since `approveArticle` always sets both together in
+the same `UPDATE`) is skipped and logged rather than failing the whole feed with a `500` -- the
+same "never throw on a single data inconsistency" stance `ArticlePublicRoutes`' own `/aktuelles/
+{slug}` route takes (there it 404s the one affected article instead of failing the whole page).
+
+== Non-goals (this wave)
+
+* No pagination on the author's own article list, the board's review/published queues, or the
+  public `/aktuelles` overview -- all are hard-capped (`MAX_PAGE_SIZE` / `MAX_ARTICLES`) rather
+  than paginated.
+* No public byline/author name anywhere (Design-Team decision "keine Namen nach außen") -- see
+  "DSGVO / personal-data handling" above.
+* The public detail page (`/aktuelles/{slug}`) itself carries no header/navigation chrome (no way
+  back to the site navigation from there) -- flagged as a known limitation in the V1.9.11
+  CHANGELOG entry, open for a follow-up wave.

@@ -873,6 +873,42 @@ click (deliberately absent — that would be a cross-site tracking channel), and
 recognition/aggregation across multiple anonymous donations (DSGVO data minimization — every
 widget donation is a fresh, unlinked `external_donor` row by design).
 
+== Article Module (V1.4.34/V1.4.36)
+
+An editorial article/news workflow, distinct from the Soziales Netzwerk's immediate-publish posts
+(V1.1): a `Soziales Netzwerk` post goes live instantly and is moderated only afterwards — inward-
+facing community communication. The article module is the opposite shape — outward-facing,
+editorial content management with an approval gate in front of publication, intended for a
+party's/association's own public "Aktuelles" (news) section. A member writes an article (title,
+excerpt, Markdown body, optional cover image) as a draft, submits it for review, and only a
+BOARD/ADMIN reviewer's explicit approval makes it publicly visible at `/aktuelles/{slug}`.
+
+=== Workflow
+
+`DRAFT`/`REJECTED` → *submit* → `SUBMITTED` → *board approves* → `PUBLISHED`, or *board rejects*
+→ `REJECTED` (with an optional reason). A published article can be corrected only by a
+BOARD/ADMIN reviewer *unpublishing* it first (mandatory reason) — never edited directly by its
+own author — which returns it to `REJECTED` so the author can revise and resubmit through the
+normal path; its slug and publication date are kept as an audit trail without restoring public
+visibility. The four-eyes principle applies to every board decision (approve/reject/unpublish)
+without exception — a reviewer can never act on their own article, not even an ADMIN. Full state
+machine, four-eyes enforcement, slug/cover-image handling, and the shared Markdown-rendering
+pipeline: `docs/architecture/article.adoc`.
+
+An approved article's cover image is served from a public, unauthenticated, versioned URL
+(`/aktuelles/{slug}/bild`); before approval (or after an unpublish), the same image is reachable
+only through an authenticated route restricted to the author and BOARD/ADMIN reviewers
+(`/api/articles/{id}/cover`). A read-only partner-website embed widget,
+`GET /api/embed/v1/articles`, lists the newest published articles (opt-in behind
+`LAPIS_EMBED_ENABLED`, same CORS origin allowlist as the other embed endpoints — see
+"Website Integration" above and `docs/api/embed-widgets.adoc`). No new environment variable is
+needed beyond the existing `LAPIS_EMBED_*` family.
+
+=== What doesn't work yet (this wave)
+
+The public article detail page (`/aktuelles/{slug}`) carries no header/navigation chrome of its
+own — no link back to the site's public navigation from there. No other gaps known at this time.
+
 == Interessenten-/Sympathisanten-CRM (V1.4.2)
 
 A standalone contact entity (`crm_contact`/`crm_interaction`) for people who are not members —
