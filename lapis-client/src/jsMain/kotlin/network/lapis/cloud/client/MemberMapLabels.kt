@@ -1,6 +1,11 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Welle V1.9.8 "Vorstands-Karte: Orientierung" -- the pure, DOM-free half of the map's orientation
@@ -122,6 +127,111 @@ internal fun memberMapZoomBand(zoom: Double): String =
         zoom < 8.0 -> "mid"
         else -> "high"
     }
+
+// ── V1.9.9 "Vorstands-Karte: Details & Suche" ─────────────────────────────────────────────────
+
+/**
+ * One Landeshauptstadt. [name] is the canonical GERMAN raw string, same "not eagerly translated"
+ * discipline as [MemberMapLabel.name] (see [MEMBER_MAP_LABELS] KDoc) -- most of these 16 city names
+ * pass through `gettext` unchanged (only e.g. "München"/"Hannover" have an EN catalog entry).
+ */
+internal data class MemberMapCapital(
+    val name: String,
+    val lon: Double,
+    val lat: Double,
+)
+
+/**
+ * The 16 Landeshauptstädte -- one per Bundesland, including the three city-states (whose capital IS
+ * the state itself: Berlin/Hamburg/Bremen). Added because the 12/4/8 [MEMBER_MAP_LABELS] name only
+ * the STATE, not its seat of government -- direct user feedback named Magdeburg (Sachsen-Anhalt) and
+ * Dresden (Sachsen) as missing, both genuinely absent from the label set before this wave. Rendered
+ * as a separate, always-visible marker kind (dot + name, `MemberMapMapController.addCapitalMarkers`)
+ * rather than folded into [MEMBER_MAP_LABELS] itself -- a capital is useful context at every zoom
+ * band, unlike [MemberMapLabelKind.NEIGHBOR], which V1.9.8 deliberately fades out once zoomed in.
+ * Coordinates verified inside [network.lapis.cloud.shared.domain.MemberMapRules.MAX_BOUNDS].
+ */
+internal val MEMBER_MAP_CAPITALS: List<MemberMapCapital> =
+    listOf(
+        MemberMapCapital("Stuttgart", 9.18, 48.78),
+        MemberMapCapital("München", 11.58, 48.14),
+        MemberMapCapital("Berlin", 13.405, 52.52),
+        MemberMapCapital("Potsdam", 13.07, 52.40),
+        MemberMapCapital("Bremen", 8.80, 53.08),
+        MemberMapCapital("Hamburg", 10.00, 53.55),
+        MemberMapCapital("Wiesbaden", 8.24, 50.08),
+        MemberMapCapital("Schwerin", 11.42, 53.63),
+        MemberMapCapital("Hannover", 9.73, 52.37),
+        MemberMapCapital("Düsseldorf", 6.77, 51.23),
+        MemberMapCapital("Mainz", 8.27, 50.00),
+        MemberMapCapital("Saarbrücken", 7.00, 49.23),
+        MemberMapCapital("Dresden", 13.74, 51.05),
+        MemberMapCapital("Magdeburg", 11.63, 52.13),
+        MemberMapCapital("Kiel", 10.14, 54.32),
+        MemberMapCapital("Erfurt", 11.03, 50.98),
+    )
+
+/** One feature MapLibre's `querySourceFeatures` returned from the `places` vector source-layer -- raw name + coordinates, before [selectPlaceLabels] dedupes/caps/excludes. */
+internal data class PlaceLabelCandidate(
+    val name: String,
+    val lon: Double,
+    val lat: Double,
+)
+
+/**
+ * Picks which small-locality names [network.lapis.cloud.client.MemberMapMapController.updatePlaceLabels]
+ * turns into DOM markers -- pure and unit-testable on its own, independent of the MapLibre query that
+ * produces [candidates] (real `querySourceFeatures` results can contain many duplicate features for
+ * the SAME place across adjacent tiles at a shared tile boundary; blank/whitespace-only names some
+ * vector-tile builds emit for unnamed features; and the [MEMBER_MAP_CAPITALS]/[MEMBER_MAP_LABELS]
+ * names already shown by the other two marker layers).
+ *
+ * Ordering is insertion order of [candidates] (already whatever order MapLibre returned, typically
+ * tile-scan order) -- there is no reliable `population_rank`-equivalent property confirmed present in
+ * every PMTiles build this codebase might be pointed at, so this deliberately does not attempt to
+ * rank by "importance"; [maxCount] alone keeps the marker count bounded.
+ */
+internal fun selectPlaceLabels(
+    candidates: List<PlaceLabelCandidate>,
+    excludedNames: Set<String>,
+    maxCount: Int,
+): List<PlaceLabelCandidate> {
+    val excludedNormalized = excludedNames.map { it.trim().lowercase() }.toSet()
+    val seen = mutableSetOf<String>()
+    val result = mutableListOf<PlaceLabelCandidate>()
+    for (candidate in candidates) {
+        if (result.size >= maxCount) break
+        val trimmed = candidate.name.trim()
+        if (trimmed.isEmpty()) continue
+        val key = trimmed.lowercase()
+        if (key in excludedNormalized) continue
+        if (!seen.add(key)) continue
+        result += candidate.copy(name = trimmed)
+    }
+    return result
+}
+
+/**
+ * Great-circle distance in kilometers (mean Earth radius 6371 km) -- used by
+ * [network.lapis.cloud.client.memberCountsWithinRadii] for the Ortssuche popup's "N Mitglieder
+ * innerhalb von X km" lines. Accurate enough at Germany's scale (a few hundred km at most) that the
+ * spherical-Earth simplification's error is negligible for this purpose.
+ */
+internal fun haversineKm(
+    lat1: Double,
+    lon1: Double,
+    lat2: Double,
+    lon2: Double,
+): Double {
+    val earthRadiusKm = 6371.0
+    val dLat = (lat2 - lat1) * PI / 180.0
+    val dLon = (lon2 - lon1) * PI / 180.0
+    val a =
+        sin(dLat / 2) * sin(dLat / 2) +
+            cos(lat1 * PI / 180.0) * cos(lat2 * PI / 180.0) * sin(dLon / 2) * sin(dLon / 2)
+    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return earthRadiusKm * c
+}
 
 /** Line 1 ("PLZ 38100 · Braunschweig", or just "PLZ 38100" when [placeName] is unresolved) + line 2 (member count, reusing [memberMapPopupCountText]). */
 internal fun memberMapPointTooltipLines(

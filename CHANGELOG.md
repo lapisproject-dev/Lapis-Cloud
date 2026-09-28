@@ -8,6 +8,42 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.9 — Vorstands-Karte: Details & Suche (Grenzen, Landeshauptstädte, Kleinorte, Ortssuche).**
+  Nutzer-Feedback (2026-09-28): Staatsgrenzen/Landesgrenzen kaum sichtbar, Landeshauptstädte wie
+  Magdeburg und Dresden fehlten komplett (nur die Bundesland-Namen selbst waren beschriftet, siehe
+  V1.9.8), beim Hineinzoomen keine kleineren Ortschaften, keine Ortssuche.
+  - **Grenzen**: drei neue, dediziert kontrastreiche Karten-Tokens (`--lapis-map-border-country`/
+    `-state`/`-road`, `theme.css`) statt der bisher wiederverwendeten UI-Trennlinien-Tokens (gegen
+    `--lapis-surface-sunken` kaum sichtbar), zoom-interpolierte Linienbreiten statt fester 0,75/1,25px,
+    gestrichelte Landesgrenzen, ein Halo unter der Staatsgrenze zur zusätzlichen Abhebung. Die
+    Straßen-Ebene (früher zuoberst gemalt, verdeckte die Grenzen) malt jetzt zuerst.
+  - **16 Landeshauptstädte** (`MEMBER_MAP_CAPITALS`, `MemberMapLabels.kt`) als eigener, immer
+    sichtbarer DOM-Marker-Typ (Punkt + Name) — ergänzt die bestehenden 24 Bundesland-/
+    Nachbarland-Beschriftungen aus V1.9.8, ersetzt sie nicht.
+  - **Kleinere Ortschaften beim Hineinzoomen**: liest die bereits gebündelte PMTiles-`places`-Ebene
+    direkt über `map.querySourceFeatures(...)`, OHNE eine MapLibre-Symbol-Textebene bzw. eine
+    `glyphs`-Route anzulegen — kein neuer Server-Endpunkt, keine gebündelten Drittanbieter-Schriftdateien
+    diese Welle (bewusste Abweichung von der ursprünglichen Glyph-Pipeline-Idee, siehe
+    `docs/architecture/member-map.adoc` Q11 für die Kompromissbegründung und die bekannte Einschränkung
+    bezüglich Ortschaftsdichte bei `--maxzoom=10`-Extraktion). Aktiv ab Zoom 9, auf 40 gleichzeitig
+    gerenderte Marker gedeckelt. `MemberMapRules.MAX_ZOOM` (Betrachtungs-Zoom) von 10 auf 12 angehoben;
+    die Vektor-Quelle selbst bleibt bei `maxzoom=10` (`BASEMAP_TILE_MAX_ZOOM`, MapLibre "overzoomt").
+  - **Ortssuche**: neues Overlay-Suchfeld direkt im Kartenpanel (unabhängig vom bestehenden
+    Tabellenfilter, der zur Abgrenzung in "Tabelle filtern (PLZ oder Ort)" umbenannt wurde). Neuer
+    Server-Index `PlaceSearchIndex` (gruppiert Postleitzahlen mit identischem Ortsnamen per
+    Single-Linkage-Clustering, 15 km-Radius — "Berlin" liefert ein Ergebnis mit ~180 PLZ statt 180
+    Einzelzeilen; zwei real getrennte Orte mit demselben Namen wie "Bernau" bleiben getrennt),
+    Institutions-Namen (`Commerzbank AG`, `Finanzamt ...` — real im gebündelten Datensatz vorhanden)
+    werden vor der Gruppierung herausgefiltert. Auswahl eines Treffers fliegt die Karte dorthin und
+    zeigt Mitgliederzahlen innerhalb 5/10/25 km (rein clientseitig aus den bereits geladenen Daten
+    berechnet, kein zweiter Server-Aufruf, keine neuen Mitgliederdaten). Neue RPC-Methode
+    `searchPlaces` auf `IBoardMemberMapService` (bisher bewusst einmethodig — dieser Bruch ist
+    beabsichtigt, `BoardMemberMapRpcWireTest` pinnt jetzt beide Routen-Indizes), serverseitig BOARD/
+    ADMIN-only, Query serverseitig validiert (2-50 Zeichen, keine Steuerzeichen) und nie geloggt.
+  - **Bewusst nicht Teil dieser Welle**: kein echter `glyphs`-Server-Endpunkt (siehe oben) — daher
+    hängt die tatsächliche Dichte kleiner Ortschaften vom `--maxzoom` der jeweiligen
+    `.pmtiles`-Extraktion des Betreibers ab, nicht garantiert vollständig bei `--maxzoom=10`.
+
 - **V1.9.8 — Vorstands-Karte: Orientierung (Bundesland-/Nachbarland-Beschriftungen, Hover-Tooltip,
   Cluster-Klick-Fix).** Live-Nutzer-Feedback: 30+ Kreise ohne jede Beschriftung ließen sich nicht
   zuordnen, zu welchem Gebiet der jeweilige Kreis gehört. DOM-basierte Bundesland- (12) und

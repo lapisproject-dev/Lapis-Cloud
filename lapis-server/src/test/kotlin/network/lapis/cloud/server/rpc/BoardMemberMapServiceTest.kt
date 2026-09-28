@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -21,6 +22,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.membermap.PlaceSearchIndex
 import network.lapis.cloud.server.membermap.PmtilesBasemap
 import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
 import network.lapis.cloud.shared.domain.AccountRole
@@ -160,6 +162,83 @@ class BoardMemberMapServiceTest :
             val parts = body.split(":")
             parts[0] shouldBe "1"
             parts[2] shouldBe "false"
+        }
+
+        // ── V1.9.9 "Ortssuche": BoardMemberMapService.searchPlaces ─────────────────────────────
+
+        fun Route.registerSearchPlacesTestRoute() {
+            get("/test/membermap/search") {
+                val query = call.request.queryParameters["q"].orEmpty()
+                val results =
+                    BoardMemberMapService(
+                        call = call,
+                        basemap = PmtilesBasemap(null),
+                        centroids = null,
+                        placeSearchIndex = PlaceSearchIndex.bundled,
+                    ).searchPlaces(query)
+                call.respondText("${results.size}:${results.firstOrNull()?.placeName ?: ""}")
+            }
+        }
+
+        fun runSearchTest(
+            query: String,
+            memberId: Uuid?,
+        ): HttpResponse {
+            lateinit var result: HttpResponse
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberMapExceptionHandlers() }
+                    routing { registerSearchPlacesTestRoute() }
+                }
+                result =
+                    client.get("/test/membermap/search") {
+                        memberId?.let { header("X-Member-Id", it.toString()) }
+                        parameter("q", query)
+                    }
+            }
+            return result
+        }
+
+        test("searchPlaces: no auth header -> 401") {
+            runSearchTest(query = "Berlin", memberId = null).status shouldBe HttpStatusCode.Unauthorized
+        }
+
+        test("searchPlaces: MEMBER role -> 403") {
+            val member = createMember(role = AccountRole.MEMBER, status = MemberStatus.ACTIVE)
+            runSearchTest(query = "Berlin", memberId = member).status shouldBe HttpStatusCode.Forbidden
+        }
+
+        test("searchPlaces: BOARD role, real query -> a non-empty result, exact name first") {
+            val board = createMember(role = AccountRole.BOARD, status = MemberStatus.ACTIVE)
+            val response = runSearchTest(query = "Berlin", memberId = board)
+            response.status shouldBe HttpStatusCode.OK
+            // "<size>:<firstPlaceName>" -- the exact-name tier always ranks first (see PlaceSearchIndexTest
+            // for the full ranking-tier coverage); this route-level test only proves the RPC/role plumbing
+            // actually reaches PlaceSearchIndex.search and returns something real, not an empty stub.
+            val (sizeText, firstName) = response.bodyAsText().split(":", limit = 2)
+            (sizeText.toInt() >= 1) shouldBe true
+            firstName shouldBe "Berlin"
+        }
+
+        test("searchPlaces: query below minimum length (1 char) -> empty result, not an error") {
+            val board = createMember(role = AccountRole.BOARD, status = MemberStatus.ACTIVE)
+            val response = runSearchTest(query = "B", memberId = board)
+            response.status shouldBe HttpStatusCode.OK
+            response.bodyAsText() shouldBe "0:"
+        }
+
+        test("searchPlaces: query above maximum length (51 chars) -> empty result, not an error") {
+            val board = createMember(role = AccountRole.BOARD, status = MemberStatus.ACTIVE)
+            val response = runSearchTest(query = "B".repeat(51), memberId = board)
+            response.status shouldBe HttpStatusCode.OK
+            response.bodyAsText() shouldBe "0:"
+        }
+
+        test("searchPlaces: query containing a control character -> empty result, not an error") {
+            val board = createMember(role = AccountRole.BOARD, status = MemberStatus.ACTIVE)
+            val response = runSearchTest(query = "Ber\u0000lin", memberId = board)
+            response.status shouldBe HttpStatusCode.OK
+            response.bodyAsText() shouldBe "0:"
         }
     })
 

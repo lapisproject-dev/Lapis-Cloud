@@ -125,4 +125,85 @@ class MemberMapLabelsTest {
         assertTrue(lines[1].contains("42"))
         assertTrue(lines[1].contains("Mitglieder"))
     }
+
+    // ── V1.9.9 "Details & Suche": MEMBER_MAP_CAPITALS ───────────────────────────────────────
+
+    @Test
+    fun memberMapCapitals_hasExactlySixteenEntries_onePerBundesland() {
+        assertEquals(16, MEMBER_MAP_CAPITALS.size)
+    }
+
+    @Test
+    fun memberMapCapitals_namesAreAllUnique() {
+        val names = MEMBER_MAP_CAPITALS.map { it.name }
+        assertEquals(names.size, names.toSet().size)
+    }
+
+    @Test
+    fun memberMapCapitals_everyCoordinateLiesInsideMaxBounds() {
+        val (west, south, east, north) = MemberMapRules.MAX_BOUNDS
+        MEMBER_MAP_CAPITALS.forEach { capital ->
+            assertTrue(capital.lon in west..east, "${capital.name}: lon ${capital.lon} outside [$west, $east]")
+            assertTrue(capital.lat in south..north, "${capital.name}: lat ${capital.lat} outside [$south, $north]")
+        }
+    }
+
+    @Test
+    fun memberMapCapitals_containsMagdeburgAndDresden() {
+        // Direct user feedback (2026-09-28): these two were missing from the map entirely before
+        // V1.9.9 -- MEMBER_MAP_LABELS only ever named the STATE (Sachsen-Anhalt/Sachsen), never its
+        // capital.
+        val names = MEMBER_MAP_CAPITALS.map { it.name }
+        assertTrue("Magdeburg" in names)
+        assertTrue("Dresden" in names)
+    }
+
+    // ── selectPlaceLabels ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun selectPlaceLabels_dropsDuplicateNamesCaseInsensitive() {
+        val candidates =
+            listOf(
+                PlaceLabelCandidate("Dorf", 10.0, 50.0),
+                PlaceLabelCandidate("dorf", 10.01, 50.01),
+                PlaceLabelCandidate("DORF", 10.02, 50.02),
+            )
+        val result = selectPlaceLabels(candidates, excludedNames = emptySet(), maxCount = 10)
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun selectPlaceLabels_dropsExcludedNamesCaseInsensitive() {
+        val candidates = listOf(PlaceLabelCandidate("Bayern", 11.0, 49.0), PlaceLabelCandidate("Kleindorf", 11.0, 49.0))
+        val result = selectPlaceLabels(candidates, excludedNames = setOf("bayern"), maxCount = 10)
+        assertEquals(listOf("Kleindorf"), result.map { it.name })
+    }
+
+    @Test
+    fun selectPlaceLabels_dropsBlankNames() {
+        val candidates = listOf(PlaceLabelCandidate("   ", 11.0, 49.0), PlaceLabelCandidate("Kleindorf", 11.0, 49.0))
+        val result = selectPlaceLabels(candidates, excludedNames = emptySet(), maxCount = 10)
+        assertEquals(listOf("Kleindorf"), result.map { it.name })
+    }
+
+    @Test
+    fun selectPlaceLabels_respectsMaxCount() {
+        val candidates = (1..100).map { PlaceLabelCandidate("Ort $it", 11.0, 49.0) }
+        val result = selectPlaceLabels(candidates, excludedNames = emptySet(), maxCount = 40)
+        assertEquals(40, result.size)
+    }
+
+    // ── haversineKm ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun haversineKm_samePoint_isZero() {
+        assertEquals(0.0, haversineKm(52.5, 13.4, 52.5, 13.4), 0.0001)
+    }
+
+    @Test
+    fun haversineKm_berlinToHamburg_isRoughlyTwoHundredFiftyKm() {
+        // Berlin (52.52, 13.405) -> Hamburg (53.55, 10.0), real great-circle distance ~255 km.
+        val distance = haversineKm(52.52, 13.405, 53.55, 10.0)
+        assertTrue(distance in 240.0..270.0, "expected ~255 km, was $distance")
+    }
 }

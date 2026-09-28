@@ -24,6 +24,15 @@ class PostalCodeCentroidIndex internal constructor(
 
     fun lookup(postalCode: String): PostalCodeCentroid? = byCode[postalCode.trim()]
 
+    /**
+     * V1.9.9 "Ortssuche" -- the ONE place in this codebase [PlaceSearchIndex.build] is allowed to
+     * iterate every entry (see that class's KDoc for why: it groups postal codes by place, something
+     * [lookup]'s single-code interface cannot do). Returns a defensive read-only view, postal code
+     * ascending (`byCode`'s own insertion order, i.e. the bundled CSV's row order -- not re-sorted,
+     * callers that need a specific order sort themselves).
+     */
+    fun entries(): List<Pair<String, PostalCodeCentroid>> = byCode.entries.map { it.key to it.value }
+
     companion object {
         const val RESOURCE = "/geodata/de-postal-centroids.csv"
         private const val EXPECTED_HEADER = "postal_code,place_name,lat,lon"

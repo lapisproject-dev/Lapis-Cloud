@@ -28,11 +28,17 @@ import kotlin.math.sqrt
  * `buildings`, `earth`, `landcover`, `landuse`, `places`, `pois`, `roads`, `water`) -- this style
  * uses only four of them: `earth`/`water`/`boundaries`/`roads`, with `boundaries.kind`
  * `"country"`/`"unrecognized_country"`/`"region"` (region = state border) and `roads.kind =
- * "highway"`. `places` (which carries `name`/`name:de`) exists but is deliberately NOT used as a
- * MapLibre `symbol` text layer -- that would need a `glyphs` URL this style does not have, and
- * standing up a glyph-serving pipeline for a static handful of labels is disproportionate. V1.9.8
- * "Orientierung" instead renders 24 Bundesland-/Nachbarland-labels as plain DOM markers -- see
- * `MemberMapLabels.kt`'s own KDoc and `docs/architecture/member-map.adoc` §Q8.
+ * "highway"`. `places` (which carries `name`/`name:de`) exists but this style still has no `glyphs`
+ * URL and no MapLibre `symbol` text layer -- standing up a glyph-serving pipeline (a new server route
+ * plus vendored third-party font assets) for what would still only be a fixed handful of labels
+ * remains disproportionate. V1.9.8 "Orientierung" renders 24 Bundesland-/Nachbarland-labels as plain
+ * DOM markers, V1.9.9 adds Landeshauptstädte the same way (`MEMBER_MAP_CAPITALS`, see
+ * `MemberMapLabels.kt`'s own KDoc) -- and, new this wave, reads `places` WITHOUT ever adding a style
+ * layer for it at all: `MemberMapMapController.updatePlaceLabels` calls
+ * `map.querySourceFeatures("member-map-basemap", {sourceLayer: "places"})`, a query against
+ * already-fetched vector-tile bytes that needs no `glyphs` URL, and turns a capped set of nearby
+ * small-locality names into DOM markers exactly like the other two label kinds. See that method's own
+ * KDoc, and `docs/architecture/member-map.adoc` §Q8/§Q11.
  */
 internal const val MEMBER_MAP_BASEMAP_PMTILES_URL = "pmtiles:///api/board/member-map/basemap.pmtiles"
 
@@ -87,9 +93,14 @@ internal fun readMemberMapColors(): MemberMapColors {
     return MemberMapColors(
         land = token("--lapis-surface-sunken"),
         water = token("--lapis-map-water"),
-        countryBorder = token("--lapis-border-strong"),
-        stateBorder = token("--lapis-border"),
-        highway = token("--lapis-muted"),
+        // V1.9.9: dedicated, higher-contrast map-only tokens -- see theme.css KDoc comment at
+        // `--lapis-map-border-country`. The three reused tokens above (`--lapis-border-strong`/
+        // `--lapis-border`/`--lapis-muted`) are calibrated for hairline UI dividers on WHITE, not
+        // for a fill-colored map background; borders were barely visible against
+        // `--lapis-surface-sunken` (Nutzer-Feedback 2026-09-28).
+        countryBorder = token("--lapis-map-border-country"),
+        stateBorder = token("--lapis-map-border-state"),
+        highway = token("--lapis-map-road"),
         pointFill = token("--lapis-accent"),
         pointStroke = token("--lapis-accent-contrast"),
         clusterFill = token("--lapis-accent-strong"),
@@ -123,7 +134,7 @@ internal fun buildBasemapStyleJson(colors: MemberMapColors): String {
               "tiles": ["$MEMBER_MAP_BASEMAP_PMTILES_URL/{z}/{x}/{y}"],
               "bounds": [$bounds],
               "minzoom": ${MemberMapRules.MIN_ZOOM},
-              "maxzoom": ${MemberMapRules.MAX_ZOOM}
+              "maxzoom": ${MemberMapRules.BASEMAP_TILE_MAX_ZOOM}
             }
           },
           "layers": [
@@ -142,12 +153,41 @@ internal fun buildBasemapStyleJson(colors: MemberMapColors): String {
               "paint": { "fill-color": "${colors.water}" }
             },
             {
+              "id": "member-map-highways",
+              "type": "line",
+              "source": "member-map-basemap",
+              "source-layer": "roads",
+              "filter": ["==", ["get", "kind"], "highway"],
+              "minzoom": 6,
+              "paint": {
+                "line-color": "${colors.highway}",
+                "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 9, 1.0, 12, 1.75]
+              }
+            },
+            {
               "id": "member-map-state-borders",
               "type": "line",
               "source": "member-map-basemap",
               "source-layer": "boundaries",
               "filter": ["==", ["get", "kind"], "region"],
-              "paint": { "line-color": "${colors.stateBorder}", "line-width": 0.75 }
+              "paint": {
+                "line-color": "${colors.stateBorder}",
+                "line-dasharray": [3, 2],
+                "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 8, 1.3, 12, 1.8]
+              }
+            },
+            {
+              "id": "member-map-country-borders-halo",
+              "type": "line",
+              "source": "member-map-basemap",
+              "source-layer": "boundaries",
+              "filter": ["in", ["get", "kind"], ["literal", ["country", "unrecognized_country"]]],
+              "paint": {
+                "line-color": "${colors.countryBorder}",
+                "line-opacity": 0.2,
+                "line-blur": 1,
+                "line-width": ["interpolate", ["linear"], ["zoom"], 4, 4, 8, 6, 12, 8]
+              }
             },
             {
               "id": "member-map-country-borders",
@@ -155,16 +195,10 @@ internal fun buildBasemapStyleJson(colors: MemberMapColors): String {
               "source": "member-map-basemap",
               "source-layer": "boundaries",
               "filter": ["in", ["get", "kind"], ["literal", ["country", "unrecognized_country"]]],
-              "paint": { "line-color": "${colors.countryBorder}", "line-width": 1.25 }
-            },
-            {
-              "id": "member-map-highways",
-              "type": "line",
-              "source": "member-map-basemap",
-              "source-layer": "roads",
-              "filter": ["==", ["get", "kind"], "highway"],
-              "minzoom": 6,
-              "paint": { "line-color": "${colors.highway}", "line-width": 1.0 }
+              "paint": {
+                "line-color": "${colors.countryBorder}",
+                "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.5, 8, 2.25, 12, 3.0]
+              }
             }
           ]
         }

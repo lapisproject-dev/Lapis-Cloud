@@ -15494,3 +15494,23 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapLabels.kt:149
 msgid "Klicken zum Vergrößern"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "Tabelle filtern (PLZ oder Ort)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "Ort suchen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "%1 (%2 PLZ)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "innerhalb %1 km"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:1
+msgid "%1 Mitglieder ohne Ortszuordnung"
+msgstr ""

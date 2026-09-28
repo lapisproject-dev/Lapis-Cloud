@@ -7,17 +7,20 @@
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
 Gradle task (see `docs-render/`), same convention as `keycloak-login.adoc`.
 
-NOTE: **Implementation status (as of V1.9.8): server, shared and client are all implemented.**
+NOTE: **Implementation status (as of V1.9.9): server, shared and client are all implemented.**
 Everything under <<privacy-boundary,Privacy boundary>> and
 <<Classification rules (the three-way split, plus foreign)>> (`BoardMemberMapService`,
 `aggregateMemberMap`, `registerMemberMapRoutes`, `PostalCodeCentroidIndex`, `PmtilesBasemap`) landed
 in V1.9.5; the `lapis-client` screen (`Routes.MEMBER_MAP = "/member-map"`, the "Mitgliederkarte" menu
 entry, the MapLibre map, the on-screen notice/attribution, the screen-local search and the
 client-side route guard) landed in V1.9.6. V1.9.8 "Orientierung" added Bundesland-/Nachbarland-labels,
-a hover tooltip on points/clusters, and fixed a cluster-click zoom bug -- see <<q8,Q8>>. Access
-control is enforced both server-side (`BoardMemberMapService`, `registerMemberMapRoutes`) and, as
-defense in depth, client-side (`requireRole(routing, BOARD, ADMIN)` on the route); see
-<<privacy-boundary,Privacy boundary>>.
+a hover tooltip on points/clusters, and fixed a cluster-click zoom bug -- see <<q8,Q8>>. **V1.9.9
+"Details & Suche"** made country/state borders genuinely visible (<<q9,Q9>>), added 16 Landeshauptstadt
+markers (<<q10,Q10>>), renders small-locality labels once zoomed in without standing up a glyph
+pipeline (<<q11,Q11>>), and added a map-overlay Ortssuche with radius-based member counts
+(<<q12,Q12>>). Access control is enforced both server-side (`BoardMemberMapService`,
+`registerMemberMapRoutes`) and, as defense in depth, client-side (`requireRole(routing, BOARD,
+ADMIN)` on the route); see <<privacy-boundary,Privacy boundary>>.
 
 == Context
 
@@ -52,6 +55,11 @@ sequenceDiagram(name = "Member map -- request paths") {
     message(from = server, to = pmtiles, label = "read 127-byte header (PmtilesBasemap.probe, every request) + requested byte range")
     message(from = pmtiles, to = server, label = "header valid -> bytes; anything else -> nothing revealed")
     message(from = server, to = browser, label = "206 Partial Content (never gzip-wrapped) or 404 (never 500)")
+
+    message(from = browser, to = server, label = "RPC searchPlaces(query) -- V1.9.9 Ortssuche")
+    message(from = server, to = csv, label = "PlaceSearchIndex.bundled -- built once at startup from the SAME csv, never re-read per request")
+    message(from = csv, to = server, label = "ranked List<PlaceGroup>: place name + centroid + postal codes, institution-like rows already excluded")
+    message(from = server, to = browser, label = "List<MemberMapPlaceDto>, capped at 8 -- no member data, GeoNames facts only")
 }
 ----
 
@@ -204,9 +212,88 @@ V1.9.8. Q3 is a server+shared decision, implemented and tested since V1.9.5
   where a cluster click never zoomed in, because `maplibre-gl` 5.24.0's
   `getClusterExpansionZoom` is `Promise`-returning, not the Node-style callback the code had been
   written against.
+  +
+  _(revised V1.9.9, see <<q11,Q11>>: `MemberMapRules.MAX_ZOOM` moved from the vector source's own
+  `maxzoom` to a separate constant -- the historical reasoning above stays as written.)_
+
+[[q9]]
+* **Q9 -- borders barely visible (V1.9.9)**: direct user feedback -- state and country borders were
+  present in the style (`member-map-state-borders`/`member-map-country-borders`) but painted with
+  `--lapis-border`/`--lapis-border-strong`, two tokens calibrated for hairline UI dividers on WHITE,
+  not for a filled map background; against `--lapis-surface-sunken` the contrast was close to 1:1.
+  Fix: three dedicated, higher-contrast tokens (`--lapis-map-border-country`/`-state`/`-road`, all
+  three `theme.css` blocks), zoom-interpolated line widths (thin at the overview zoom, thicker once
+  zoomed in) instead of one flat width, a dashed style for state borders (visually distinct from the
+  solid country border at a glance), and a soft "halo" line under the country border for extra
+  separation from the state borders and the highway layer. The highway layer, which used to be the
+  LAST layer added (painted over everything, including the borders), now paints first among the line
+  layers so borders always sit on top.
+
+[[q10]]
+* **Q10 -- Landeshauptstädte (V1.9.9)**: direct user feedback named Magdeburg (Sachsen-Anhalt) and
+  Dresden (Sachsen) specifically as missing -- `MEMBER_MAP_LABELS` only ever named the STATE, never
+  its capital. `MEMBER_MAP_CAPITALS` (`MemberMapLabels.kt`) adds one marker per Bundesland (16,
+  including the three city-states, whose capital is the state itself) as a dot + name, same DOM
+  `Marker` technique as Q8, always visible (not zoom-band-gated -- unlike a neighbour country, "which
+  city is this state's capital" is useful context at every zoom level).
+
+[[q11]]
+* **Q11 -- small localities without a glyph pipeline (V1.9.9)**: the user also asked for smaller
+  towns to appear on zooming in. The bundled `places` vector layer carries them, but a real MapLibre
+  `symbol` text layer needs a `glyphs` URL -- a new server route serving vendored, third-party
+  Noto-Sans `.pbf` glyph files. That route was deliberately **not** built this wave (see below); this
+  wave instead reads the SAME `places` source-layer WITHOUT ever adding a style layer for it:
+  `MemberMapMapController.updatePlaceLabels` calls `map.querySourceFeatures("member-map-basemap",
+  {sourceLayer: "places"})` -- a query against already-fetched vector-tile bytes, independent of
+  whether a style layer renders that source-layer at all -- and turns a capped, deduplicated set of
+  nearby small-locality names into DOM markers, the same technique as Q8/Q10. Active from
+  `PLACE_LABELS_MIN_ZOOM` (9) onward, refreshed on `"moveend"`, capped at 40 simultaneously rendered
+  markers. Alongside this, `MemberMapRules.MAX_ZOOM` (the VIEWPORT zoom limit) moved from 10 to 12 so
+  a board member can zoom in far enough to tell members' circles apart in a dense small town; the
+  vector SOURCE's own `maxzoom` stays at 10 (`BASEMAP_TILE_MAX_ZOOM`, a new, separate constant) since
+  the bundled/deployed `.pmtiles` file is extracted at `--maxzoom=10` -- MapLibre overzooms z10 tiles
+  past that rather than requesting nonexistent z11/z12 tiles.
++
+**Known limitation, not solved this wave**: small-locality DENSITY depends entirely on how the
+operator's own `.pmtiles` file was extracted. At `--maxzoom=10` the `places` layer's smaller
+`locality`-kind features may be sparse or absent in some regions -- this wave did not re-extract the
+bundled/example basemap at a higher `--maxzoom` to keep file size and the operator-facing extraction
+instructions unchanged. A future wave could either accept this as documented behaviour, or revisit a
+real `glyphs` route (Q8's "disproportionate" judgement reconsidered) if village-level coverage turns
+out to matter enough to the board to justify vendoring third-party font assets into the server JAR.
+
+[[q12]]
+* **Q12 -- Ortssuche (V1.9.9)**: alongside the existing table filter (renamed "Tabelle filtern (PLZ
+  oder Ort)" to disambiguate it from the new field), a second, independent search field sits as an
+  overlay in the top-left of the map panel itself. It searches `PlaceSearchIndex`
+  (`lapis-server/.../membermap/PlaceSearchIndex.kt`) -- a grouped, ranked index built once at startup
+  from the SAME bundled GeoNames postal-code centroid CSV `PostalCodeCentroidIndex` already loads,
+  never a new dataset. Postal codes sharing an identical place name are grouped (single-linkage,
+  15 km) so "Berlin" returns one result with ~180 postal codes attached rather than 180 near-identical
+  rows, while two real, unrelated towns that happen to share a name (e.g. "Bernau") correctly stay
+  separate. Institution-like `place_name` rows (`Commerzbank AG`, `Finanzamt Dresden - Nord`, ...) are
+  filtered out before grouping -- useful for the original per-postal-code lookup, but noise as
+  Ortssuche autocomplete suggestions. Selecting a result flies the map to it
+  (`MemberMapRules.PLACE_FLY_TO_ZOOM`) and shows a pin popup with member counts within 5/10/25 km
+  (`memberCountsWithinRadii`, Haversine distance over the ALREADY-LOADED `dto.entries` -- no second
+  server round-trip, and no new member data crosses the wire: the counts are computed entirely
+  client-side from data the board member's own screen already holds). The RPC method itself
+  (`searchPlaces`) returns only GeoNames-derived place facts (name, coordinates, postal codes) --
+  never a member id, count, or anything else -- and is validated server-side (length 2-50 after
+  trimming, no control characters) independent of whatever the client widget already enforces, since
+  the RPC route is directly reachable by anyone who can forge a BOARD/ADMIN session. The raw query
+  text is deliberately never logged (unlike `getMemberMap`'s aggregate-only log line), since a search
+  term is closer to free-text board-member input than five aggregate numbers.
++
+**Breaking change to a previously pinned assumption**: `IBoardMemberMapService` was single-method
+before this wave, and `BoardMemberMapRpcWireTest` pinned `/rpc/routeBoardMemberMapServiceManager0`
+specifically BECAUSE it was the interface's only method. `searchPlaces` is a second, deliberate
+method -- `getMemberMap` keeps route index 0 (Kilua-RPC-KSP assigns indices by declaration order),
+`searchPlaces` is index 1, and both are pinned now instead of just one.
 
 == No database migration
 
 `member.postal_code`, `member.country`, `member.status` and `member.anonymized_at` have existed
 since V1 -- this wave adds no column, no table, and the kUML entity-relationship model is
-unchanged.
+unchanged. Still true as of V1.9.9: `PlaceSearchIndex` (Q12) is an in-memory index built from the
+already-bundled CSV, not a new table.
