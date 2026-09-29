@@ -365,7 +365,18 @@ body {
    sidebar, PZB-style. See `Sidebar.kt`/`App.kt` for the KVision-side construction. */
 
 :root {
-  --lapis-sidebar-width: 264px;
+  /* 368px, not the original 264px -- widened 2026-09-28 together with the nav-link/group-header
+     font-size drop to 0.8125rem below, to satisfy "no sidebar entry ever line-wraps, in any of
+     the 8 supported locales" (bug report: German "Ehrenamtspauschalen-Freigaben"/"Reisekosten-
+     Freigaben" wrapped to 2-3 lines). Measured in a real browser (Inter, real Font Awesome glyphs)
+     across every sidebar label in every locale, including the "(NNN)"/"(200+)" dynamic-count
+     suffix `Sidebar.kt`'s `reliefSidebarLabel`/`travelExpenseSidebarLabel`/`volunteerAllowance
+     SidebarLabel` append: the worst case is Spanish "Aprobaciones de compensaciones de
+     voluntariado (200+)" (the ES translation of "Ehrenamtspauschalen-Freigaben (%1)"), a
+     sub-item (`.lapis-sidebar-group-body`'s extra 1.75rem left padding), which needs ~351px at
+     0.8125rem. 368px keeps a safety margin over that measurement instead of cutting it exactly
+     at the edge. */
+  --lapis-sidebar-width: 368px;
 }
 
 .lapis-shell {
@@ -471,7 +482,13 @@ body {
 
 .lapis-sidebar {
   flex: 0 0 var(--lapis-sidebar-width);
-  --bs-offcanvas-width: min(86vw, 300px);
+  /* Mirrors --lapis-sidebar-width's own 368px (see that variable's comment) so the mobile
+     offcanvas panel is exactly as wide as the desktop sidebar, not narrower -- on a phone
+     narrower than ~428px the 86vw cap still wins (this is a physical-space floor, not a
+     regression: a viewport that narrow cannot show a 368px-wide non-wrapping line no matter
+     what the panel's own width is), in which case .lapis-sidebar-nav's horizontal scroll
+     (below) is the fallback that keeps a long label reachable without ever wrapping it. */
+  --bs-offcanvas-width: min(86vw, 368px);
   background-color: var(--lapis-surface);
   border-right: 1px solid var(--lapis-border);
 }
@@ -486,6 +503,13 @@ body {
   flex-direction: column;
   gap: 0.125rem;
   padding: 0.75rem 0.5rem;
+  /* Safety net for a viewport too narrow for --lapis-sidebar-width's own 368px (see that
+     variable's comment): every entry below is `white-space: nowrap`, so on a phone where even
+     the offcanvas's `min(86vw, 368px)` cap loses to 86vw, a long nowrap label would otherwise be
+     silently clipped by the panel's own edge. `overflow-x: auto` lets it scroll into view instead
+     -- reachable and fully readable, never wrapped, never clipped. No visible effect at or above
+     368px, where nothing is ever wide enough to trigger it. */
+  overflow-x: auto;
 }
 
 @media (min-width: 992px) {
@@ -549,6 +573,14 @@ body {
   color: var(--lapis-text);
   border-bottom: none;
   padding: 0.5rem 0.5rem;
+  /* 2026-09-28 wrap fix: dropped from the inherited 1rem to match `.lapis-sidebar-group-header`'s
+     own existing 0.8125rem (a few lines below) -- one consistent size for the whole sidebar,
+     and part of what makes --lapis-sidebar-width's 368px enough to fit every locale's longest
+     label (see that variable's own comment for the full measurement). `nowrap` is the actual
+     fix for the reported bug; the font-size reduction is what keeps the resulting width sane
+     instead of needing a much wider sidebar to compensate. */
+  font-size: 0.8125rem;
+  white-space: nowrap;
 }
 
 .lapis-sidebar .nav-link:hover,
@@ -568,6 +600,10 @@ body {
   letter-spacing: 0.02em;
   text-decoration: none !important;
   padding: 0.5rem 0.5rem;
+  /* 2026-09-28 wrap fix -- see `.lapis-sidebar .nav-link`'s own comment above; group headers
+     ("Mitgliedschaft", "Wirtschaft", ...) are short enough today to never need this in practice,
+     added for consistency/future-proofing rather than a label that currently wraps. */
+  white-space: nowrap;
 }
 
 .lapis-sidebar-group-header:hover,
