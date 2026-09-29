@@ -37,9 +37,13 @@ COPY docs-render ./docs-render
 RUN ./gradlew --no-daemon :lapis-server:installDist
 
 # Step 2: Kotlin/JS compile + webpack production bundle. Gradle cache from step 1 is preserved
-# in the layer filesystem so npm/yarn packages are not re-downloaded. Node heap capped at 3 GB --
-# conservative enough to share the 8 GB host with the fresh Gradle JVM that orchestrates this step.
-RUN NODE_OPTIONS=--max-old-space-size=3072 ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
+# in the layer filesystem so npm/yarn packages are not re-downloaded. Node heap capped at 4 GB --
+# still conservative enough to share the smallest host this image is built on (the 8 GB demo VPS,
+# see netcup VPS 1000 G12 daily-reset notes) with the fresh Gradle JVM that orchestrates this step.
+# Raised from 3 GB (2026-09-29): the bundle outgrew the old cap after a heavy day of client-side
+# waves (Gliederungsverwaltung, Mitfahrerzentrale, an untrusted-text sanitization pass across 16
+# files) -- observed ERR_WORKER_OUT_OF_MEMORY on pdv2 (31 GB host, plenty of headroom) at 3072 MB.
+RUN NODE_OPTIONS=--max-old-space-size=4096 ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
 
 FROM eclipse-temurin:25-jre AS runtime
 
