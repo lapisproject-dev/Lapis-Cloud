@@ -262,7 +262,9 @@ private fun openEditReceivableLevel(
     level: ReceivableDunningLevelDto,
     onChanged: () -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Mahnstufe \"%1\" bearbeiten", level.name))
+    // Security audit follow-up (untrusted-text sanitization gaps): level.name is admin-editable free text --
+    // Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Mahnstufe \"%1\" bearbeiten", level.name)))
     // Die Primäraktion steht in der Modal-Fußleiste (Abbrechen links, Speichern rechts, R27), nicht im Formularkörper.
     renderReceivableLevelForm(modal, existing = level, modal = modal) {
         modal.hide()

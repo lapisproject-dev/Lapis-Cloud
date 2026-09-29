@@ -256,7 +256,11 @@ private fun renderMotionRow(
             if (indented) addCssClasses("ps-4")
         }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val title = if (isAmendment) gettext("↳ Änderungsantrag: %1", motion.title) else motion.title
+    // Security audit follow-up (untrusted-text sanitization gaps): motion.title is member-controlled free text
+    // (same field sanitized via amendment.title elsewhere in this file). The non-amendment branch assigns the
+    // RAW field straight to this local `val`, invisible to the widget-text tripwire's regex (a bare identifier,
+    // no dotted field access at the div(...) call site) -- sanitize once here so both branches stay safe.
+    val title = sanitizeUntrustedI18nText(if (isAmendment) gettext("↳ Änderungsantrag: %1", motion.title) else motion.title)
     headerRow.div(title) { addCssClasses("flex-grow-1 fw-bold") }
     if (isAmendment) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
     headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
@@ -427,7 +431,9 @@ private fun renderMotionMeta(
     onChanged: () -> Unit,
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val title = if (motion.amendsMotionId != null) gettext("Änderungsantrag: %1", motion.title) else motion.title
+    // Security audit follow-up (untrusted-text sanitization gaps): same motion.title local-var-indirection gap
+    // as renderMotionRow above in this file -- sanitize once here so both branches stay safe.
+    val title = sanitizeUntrustedI18nText(if (motion.amendsMotionId != null) gettext("Änderungsantrag: %1", motion.title) else motion.title)
     headerRow.h2(title) { addCssClasses("h5 flex-grow-1") }
     if (motion.amendsMotionId != null) headerRow.typeBadge(tr("Änderungsantrag"), "secondary")
     headerRow.statusBadge(motionStatusLabel(motion.status), motionStatusColor(motion.status))
@@ -507,7 +513,10 @@ private fun renderAmendmentContext(
     onSelectMotion: (String) -> Unit,
 ) {
     val callout = panel.vPanel(spacing = 4) { addCssClasses("alert alert-light border") }
-    callout.div(gettext("Änderungsantrag zu: %1", parent.title)) { addCssClass("fw-bold") }
+    // Security audit follow-up (untrusted-text sanitization gaps): parent.title is member-controlled free text
+    // (a MotionDto, same as amendment.title sanitized below in this file) composed into a gettext(...) string --
+    // sanitize the whole composed result.
+    callout.div(sanitizeUntrustedI18nText(gettext("Änderungsantrag zu: %1", parent.title))) { addCssClass("fw-bold") }
     val link = callout.button(tr("Zum Hauptantrag"), style = ButtonStyle.OUTLINESECONDARY)
     link.onClick { onSelectMotion(parent.id) }
 }
@@ -607,7 +616,9 @@ private fun renderScheduleSection(
             panel.p(tr("Der Hauptantrag muss zuerst selbst terminiert werden."))
             return
         }
-        panel.div(gettext("Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\".", parent.title)) {
+        // Security audit follow-up (untrusted-text sanitization gaps): parent.title is member-controlled free
+        // text composed into a gettext(...) string -- sanitize the whole composed result, same as above.
+        panel.div(sanitizeUntrustedI18nText(gettext("Wird automatisch auf dieselbe Sitzung terminiert wie \"%1\".", parent.title))) {
             addCssClasses("text-muted small")
         }
         val scheduleButton = panel.button(tr("Jetzt terminieren"), style = ButtonStyle.PRIMARY)

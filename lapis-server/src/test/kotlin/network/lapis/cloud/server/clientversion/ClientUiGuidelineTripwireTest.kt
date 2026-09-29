@@ -760,8 +760,10 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
             listOf(
                 "val committeeFilterSelect = filterRow.select(options = listOf(\"\" to tr(\"Alle Gremien\")), value = \"\", label = tr(\"Gremium\"))",
                 "val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = \"\", label = tr(\"Status\"))",
-                // SELECTION LIST (a checkbox per eligible member)
-                "eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }",
+                // SELECTION LIST (a checkbox per eligible member). Split across three lines and the label
+                // now sanitized (security fix, untrusted-text-sanitization-gaps) -- the fingerprint below is
+                // the actual per-line text the scanner now sees, not the old single-line compound statement.
+                "recipientsPanel.checkBox(label = sanitizeUntrustedI18nText(member.displayName))",
             ),
         "MotionsScreen.kt" to
             listOf(

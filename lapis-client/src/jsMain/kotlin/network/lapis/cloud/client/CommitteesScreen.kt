@@ -248,7 +248,10 @@ private fun renderCommitteeRoster(
     canManage: Boolean,
 ) {
     rosterPanel.removeAll()
-    rosterPanel.h2(gettext("Besetzung: %1", committee.name)) { addCssClass("h5") }
+    // Security audit follow-up (untrusted-text sanitization gaps): committee.name is admin-editable free text
+    // composed into a gettext(...) string -- sanitize the whole composed result, same as the raw committee.name
+    // rendering in renderCommitteeRow above in this same file.
+    rosterPanel.h2(sanitizeUntrustedI18nText(gettext("Besetzung: %1", committee.name))) { addCssClass("h5") }
     val rosterFilterRow = rosterPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeEndedCheck = rosterFilterRow.checkBox(label = tr("Ausgeschiedene anzeigen"))
     val rosterListPanel = rosterPanel.vPanel(spacing = 4)

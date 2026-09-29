@@ -430,7 +430,9 @@ internal fun eventInvoiceModal(
     row: EventCheckInRowDto,
     onIssued: () -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Rechnung stellen: %1", row.displayName))
+    // Security audit follow-up (untrusted-text sanitization gaps): row.displayName is a member display name,
+    // free text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Rechnung stellen: %1", row.displayName)))
     // Formular-Grammatik (V1.4.29): die Rechnungsanschrift ist optional (spiegelt [EventInvoiceRequestDto]), nur die
     // Fälligkeitsfrist ist Pflicht => Fall (a), Stern nur an der Frist. Kein "(optional)" im Label.
     val form = modal.lapisForm()

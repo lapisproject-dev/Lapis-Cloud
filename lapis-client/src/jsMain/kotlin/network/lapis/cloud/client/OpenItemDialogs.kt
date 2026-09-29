@@ -57,7 +57,9 @@ internal fun openItemSettlementDialog(
     knownSettlementIds: Set<String>?,
     onDone: () -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Posten ausgleichen: %1", item.counterpartyName))
+    // Security audit follow-up (untrusted-text sanitization gaps): item.counterpartyName is admin-editable free
+    // text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Posten ausgleichen: %1", item.counterpartyName)))
     modal.div(trFormat(tr("Offen: %1"), trusted(moneyToken(item.openAmount)))) { addCssClasses("fw-bold mb-2") }
     // W4c: der Ausgleich ist ein [LapisForm] (die Knöpfe stehen in der Modal-Fußleiste, deshalb `finish()`). Die Fehler stehen am
     // Feld; die Regeln sind dieselben wie vorher (Betrag > 0 und <= offener Betrag, echtes Datum, Zahlungskonto).
@@ -263,7 +265,9 @@ internal fun openItemMetadataDialog(
     item: OpenItemDto,
     onChanged: (OpenItemDetailDto) -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Beleg/Notiz bearbeiten: %1", item.counterpartyName))
+    // Security audit follow-up (untrusted-text sanitization gaps): item.counterpartyName is admin-editable free
+    // text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Beleg/Notiz bearbeiten: %1", item.counterpartyName)))
     val form = modal.lapisForm()
     val referenceField =
         form.textField(

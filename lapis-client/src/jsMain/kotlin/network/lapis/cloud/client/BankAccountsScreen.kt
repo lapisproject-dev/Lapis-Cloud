@@ -386,7 +386,9 @@ internal fun showFinTsSetupModal(
     disclaimer: FinTsComplianceDisclaimerDto,
     onChanged: () -> Unit,
 ) {
-    val modal = Modal(caption = gettext("FinTS-Live-Abruf: %1", account.label))
+    // Security audit follow-up (untrusted-text sanitization gaps): account.label is admin-editable free text --
+    // Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("FinTS-Live-Abruf: %1", account.label)))
     var openHandle: String? = null
     var inTanStep = false
 

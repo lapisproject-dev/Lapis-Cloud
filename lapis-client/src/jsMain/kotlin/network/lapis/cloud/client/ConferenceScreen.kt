@@ -784,12 +784,18 @@ private fun renderGuestLobby(
  */
 internal fun conferenceGuestJoinBlockedReason(info: ConferenceGuestJoinInfoDto): String? =
     when {
-        !info.roomActive -> gettext("Die Besprechung „%1\" ist bereits beendet.", info.title)
+        // Security audit follow-up (untrusted-text sanitization gaps): info.title is member-editable free text.
+        // The caller assigns the result straight to `blockedBox.content` (a bare local `val`, invisible to the
+        // widget-text tripwire's assignment regex) -- sanitize here, at the single source of this return value,
+        // so every caller stays safe regardless of how it is later rendered.
+        !info.roomActive -> sanitizeUntrustedI18nText(gettext("Die Besprechung „%1\" ist bereits beendet.", info.title))
         !info.allowsFederationGuests ->
-            gettext(
-                "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. " +
-                    "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten.",
-                info.title,
+            sanitizeUntrustedI18nText(
+                gettext(
+                    "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. " +
+                        "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten.",
+                    info.title,
+                ),
             )
         else -> null
     }
@@ -816,8 +822,15 @@ private fun conferenceGuestConsentModal(
 ) {
     val d = info.disclaimer
     val modal = Modal(caption = tr("Als Gast beitreten"))
-    modal.div(gettext("Besprechung: %1", info.title)) { addCssClasses("fw-bold") }
-    modal.div(gettext("Gastgeberin dieser Besprechung: %1", info.organizationName)) { addCssClasses("fw-bold mb-1") }
+    // Security audit follow-up (untrusted-text sanitization gaps): info.title is the same member-editable free
+    // text sanitized via room.title elsewhere in this file (renderRoomRow etc.).
+    modal.div(sanitizeUntrustedI18nText(gettext("Besprechung: %1", info.title))) { addCssClasses("fw-bold") }
+    // Security audit follow-up (untrusted-text sanitization gaps): organizationName is an admin-configured
+    // instance display name, same untrusted-free-text category as info.title above -- sanitize the whole
+    // composed result.
+    modal.div(sanitizeUntrustedI18nText(gettext("Gastgeberin dieser Besprechung: %1", info.organizationName))) {
+        addCssClasses("fw-bold mb-1")
+    }
     modal.div(
         tr(
             "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser " +
@@ -1074,7 +1087,12 @@ private fun enterCall(
     // call site's own comment for why this two-step split is deliberate, not an oversight.
     // Wave 6: a breakout call's title carries the breakout room's own label, so a participant
     // switched between rooms always sees at a glance which one they are currently in.
-    var roomTitle = if (isBreakout) gettext("%1 – %2", room.title, breakoutLabel.orEmpty()) else room.title
+    // Security audit follow-up (untrusted-text sanitization gaps): room.title is member-editable free text
+    // (same category as room.title sanitized elsewhere in this file). Unlike a direct `.h2(room.title)` call,
+    // this local var is invisible to the widget-text tripwire's regex (it only matches a raw DOTTED field
+    // access immediately inside the widget call) but is later handed straight to `titleRow.h2(roomTitle)`
+    // below -- sanitize once here, at the point of computation, so every downstream use stays safe.
+    var roomTitle = sanitizeUntrustedI18nText(if (isBreakout) gettext("%1 – %2", room.title, breakoutLabel.orEmpty()) else room.title)
     val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val roleLine =
         callPanel.div(
@@ -1571,7 +1589,10 @@ private fun enterCall(
         breakoutOverviewPanel.show()
         currentBreakoutRooms.forEach { breakoutRoomDto ->
             val names = breakoutRoomDto.assignedDisplayNames.ifEmpty { listOf(gettext("niemand zugewiesen")) }
-            breakoutOverviewPanel.div(gettext("%1: %2", breakoutRoomDto.label, names.joinToString(", "))) {
+            // Security audit follow-up (untrusted-text sanitization gaps): breakoutRoomDto.label is host-assigned
+            // free text (same category as target.label sanitized elsewhere in this file) and
+            // assignedDisplayNames are member display names -- sanitize the whole composed result.
+            breakoutOverviewPanel.div(sanitizeUntrustedI18nText(gettext("%1: %2", breakoutRoomDto.label, names.joinToString(", ")))) {
                 addCssClasses("text-muted small")
             }
         }
@@ -1766,7 +1787,9 @@ private fun enterCall(
                 // Rule: only update UI state once the guarded {} call's result confirms success --
                 // never optimistically before the RPC resolves.
                 if (result != null) {
-                    roomTitle = result.title
+                    // Security audit follow-up (untrusted-text sanitization gaps): result.title echoes back the
+                    // just-submitted (still untrusted) title -- sanitize before it reaches titleRow.h2(roomTitle).
+                    roomTitle = sanitizeUntrustedI18nText(result.title)
                     baseDocumentTitle = roomTitle
                     updateStatusBadgesAndTitle()
                     renderTitleViewMode()
@@ -4799,7 +4822,12 @@ private fun startStreamDialog(
     val targetsPanel = modal.vPanel(spacing = 2)
     val checkboxesByTarget =
         targets.associateWith { target ->
-            targetsPanel.checkBox(label = gettext("%1 (%2)", target.label, conferenceStreamPlatformLabel(target.platform)))
+            // Security audit follow-up (untrusted-text sanitization gaps): target.label is host-assigned free
+            // text (same field sanitized via row.div(sanitizeUntrustedI18nText(target.label)) elsewhere in this
+            // file) -- CheckBox.label reaches the same render path, sanitize the whole composed result.
+            targetsPanel.checkBox(
+                label = sanitizeUntrustedI18nText(gettext("%1 (%2)", target.label, conferenceStreamPlatformLabel(target.platform))),
+            )
         }
     val selectionErrorBox =
         modal.div().apply {

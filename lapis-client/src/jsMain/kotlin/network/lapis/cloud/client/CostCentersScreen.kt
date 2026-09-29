@@ -234,7 +234,11 @@ private fun costCenterColumns(): List<DataColumn<CostCenterDto>> =
             sortKey = COST_CENTER_SORT_DESCRIPTION,
             cell = { container, costCenter ->
                 costCenter.description?.takeIf { it.isNotBlank() }?.let { description ->
-                    container.div(description) {
+                    // Security audit follow-up (untrusted-text sanitization gaps): description is
+                    // costCenter.description, admin-editable free text bound to a bare local `let` parameter --
+                    // invisible to the widget-text tripwire's regex (no dotted field access at the call site) --
+                    // handed straight to div(...) with no sanitizing wrapper at all. Sanitize before rendering.
+                    container.untrustedDiv(description) {
                         addCssClasses("text-muted small text-truncate")
                         // `text-truncate` (overflow:hidden + white-space:nowrap) hat ohne begrenzte Breite
                         // keine sichtbare Wirkung. `maxWidth` statt `width`, damit kurze Beschreibungen nicht

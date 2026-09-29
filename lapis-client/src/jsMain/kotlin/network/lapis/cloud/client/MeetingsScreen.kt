@@ -455,8 +455,14 @@ internal fun renderEinladungSection(
     val selectAllLink = quickToggleRow.link(tr("Alle auswählen"), url = "javascript:void(0)", dataNavigo = false)
     val deselectAllLink = quickToggleRow.link(tr("Alle abwählen"), url = "javascript:void(0)", dataNavigo = false)
     // Unchecked by default -- a costly/PII-sharing action must never default to "everyone selected".
+    // Security audit follow-up (untrusted-text sanitization gaps): member.displayName is member-controlled free
+    // text -- CheckBox.label reaches the same Widget/I18n render path as div/span/p content, but is outside the
+    // widget-text tripwire's regex (it only matches div/span/p/h1..h6/link), so this was found only by manual
+    // review. Sanitize before it becomes the checkbox's label.
     val checkboxesByMember =
-        eligibleMembers.associateWith { member -> recipientsPanel.checkBox(label = member.displayName) }
+        eligibleMembers.associateWith { member ->
+            recipientsPanel.checkBox(label = sanitizeUntrustedI18nText(member.displayName))
+        }
 
     fun selectedRecipients(): List<MemberSummaryDto> = checkboxesByMember.filterValues { it.value }.keys.toList()
     // `.input`, nicht der Wrapper-<div> der CheckBox: nur das <input> nimmt `focus()` an. `watch`: jede Checkbox räumt die
@@ -577,9 +583,15 @@ private fun renderAgendaSection(
         agenda.forEach { item ->
             val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
             val description = if (item.description.isNullOrBlank()) "" else " -- ${item.description}"
-            row.div(gettext("%1. %2%3", item.position, item.title, description)) { addCssClasses("flex-grow-1") }
+            // Security audit follow-up (untrusted-text sanitization gaps): item.title/item.description are
+            // member-editable free text composed into gettext(...) strings -- sanitize the whole composed result.
+            row.div(sanitizeUntrustedI18nText(gettext("%1. %2%3", item.position, item.title, description))) {
+                addCssClasses("flex-grow-1")
+            }
             item.presenterDisplayName?.let { presenter ->
-                row.div(gettext("Vortragend: %1", presenter)) { addCssClasses("text-muted small") }
+                // presenter is a member display name -- same untrusted-field category as subscriber.memberDisplayName
+                // (CommunicationScreen.kt) / mandate.memberDisplayName elsewhere, sanitize before rendering.
+                row.div(sanitizeUntrustedI18nText(gettext("Vortragend: %1", presenter))) { addCssClasses("text-muted small") }
             }
             if (canManage) {
                 val removeButton = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
@@ -791,7 +803,13 @@ fun renderResolutionRow(
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    headerRow.div(gettext("%1: %2", resolution.number, resolution.title)) { addCssClasses("flex-grow-1 fw-bold") }
+    // Security audit follow-up (untrusted-text sanitization gaps): resolution.title is member-authored free
+    // text (resolution.number is a server-generated "<CommitteeType>-<year>-<running number>" identifier, not
+    // free text -- see nextResolutionNumber in ResolutionBook.kt -- but sanitizing the whole composed result is
+    // harmless either way and matches this file's established idiom).
+    headerRow.div(sanitizeUntrustedI18nText(gettext("%1: %2", resolution.number, resolution.title))) {
+        addCssClasses("flex-grow-1 fw-bold")
+    }
     headerRow.statusBadge(resolutionStatusLabel(resolution.status), resolutionStatusColor(resolution.status))
     headerRow.typeBadge(resolutionModeLabel(resolution.resolutionMode), resolutionModeColor(resolution.resolutionMode))
     row.untrustedP(resolution.text, className = "mb-0")
@@ -905,15 +923,21 @@ private fun renderProtocolPreview(
     // container (not the surrounding "Drucken" button, filters, or navbar) survives to the
     // printed page / "Save as PDF" output. See that file's own KDoc comment for the full rationale.
     val printArea = panel.vPanel(spacing = 6) { addCssClass("protocol-print-area") }
-    printArea.h2(gettext("Protokoll: %1", draft.meeting.title)) { addCssClass("h5") }
+    // Security audit follow-up (untrusted-text sanitization gaps): draft.meeting.title is the same
+    // member-editable free text sanitized via meeting.title elsewhere in this file (renderMeetingHeader etc.).
+    printArea.h2(sanitizeUntrustedI18nText(gettext("Protokoll: %1", draft.meeting.title))) { addCssClass("h5") }
     val locationSuffix = if (draft.meeting.location.isNullOrBlank()) "" else " · Ort: ${draft.meeting.location}"
+    // draft.meeting.committeeName is admin-editable free text (same category as committee.name in
+    // CommitteesScreen.kt) composed into this gettext(...) string -- sanitize the whole composed result.
     printArea.div(
-        gettext(
-            "Gremium: %1 · %2 · Termin: %3%4",
-            draft.meeting.committeeName,
-            meetingFormatLabel(draft.meeting.format),
-            formatDateTime(draft.meeting.scheduledAt),
-            locationSuffix,
+        sanitizeUntrustedI18nText(
+            gettext(
+                "Gremium: %1 · %2 · Termin: %3%4",
+                draft.meeting.committeeName,
+                meetingFormatLabel(draft.meeting.format),
+                formatDateTime(draft.meeting.scheduledAt),
+                locationSuffix,
+            ),
         ),
     )
 
@@ -925,13 +949,17 @@ private fun renderProtocolPreview(
             val representedName = attendance.representedByDisplayName
             val representedSuffix = if (representedName == null) "" else " (vertreten durch $representedName)"
             val noteSuffix = if (attendance.note.isNullOrBlank()) "" else " -- ${attendance.note}"
+            // Security audit follow-up (untrusted-text sanitization gaps): memberDisplayName/
+            // representedByDisplayName/note are member-controlled free text -- sanitize the whole composed result.
             printArea.div(
-                gettext(
-                    "%1: %2%3%4",
-                    attendance.memberDisplayName,
-                    attendanceStatusLabel(attendance.status),
-                    representedSuffix,
-                    noteSuffix,
+                sanitizeUntrustedI18nText(
+                    gettext(
+                        "%1: %2%3%4",
+                        attendance.memberDisplayName,
+                        attendanceStatusLabel(attendance.status),
+                        representedSuffix,
+                        noteSuffix,
+                    ),
                 ),
             ) { addCssClass("small") }
         }
@@ -945,7 +973,12 @@ private fun renderProtocolPreview(
             val descriptionSuffix = if (item.description.isNullOrBlank()) "" else " -- ${item.description}"
             val presenterName = item.presenterDisplayName
             val presenterSuffix = if (presenterName == null) "" else " (Vortragend: $presenterName)"
-            printArea.div(gettext("%1. %2%3%4", item.position, item.title, descriptionSuffix, presenterSuffix)) {
+            // Security audit follow-up (untrusted-text sanitization gaps): item.title/item.description/
+            // presenterName are member-editable free text -- sanitize the whole composed result, same as the
+            // agenda section above in this file.
+            printArea.div(
+                sanitizeUntrustedI18nText(gettext("%1. %2%3%4", item.position, item.title, descriptionSuffix, presenterSuffix)),
+            ) {
                 addCssClass("small")
             }
         }

@@ -83,7 +83,12 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
             }
             lists.forEach { list ->
                 val row = panel.hPanel(spacing = 8) { addCssClass("align-items-center") }
-                row.div(gettext("%1 (%2 Abonnenten)", list.name, list.subscriberCount)) { addCssClass("flex-grow-1") }
+                // Security audit follow-up (untrusted-text sanitization gaps): list.name is member-/admin-editable
+                // free text composed into a gettext(...) string before it reaches widget content -- sanitize the
+                // whole composed result before KVision can resolve a forged marker on render.
+                row.div(sanitizeUntrustedI18nText(gettext("%1 (%2 Abonnenten)", list.name, list.subscriberCount))) {
+                    addCssClass("flex-grow-1")
+                }
                 val toggleButton = row.button(if (list.isSubscribedByCurrentMember) tr("Abbestellen") else tr("Abonnieren"))
                 toggleButton.onClick {
                     AppScope.launch {
@@ -251,7 +256,10 @@ private fun renderManageListSelector(
     fun refresh(selectId: String?) {
         AppScope.launch {
             lists = guarded { rpcService<IMailingService>().listMailingLists() } ?: emptyList()
-            listSelect.options = lists.map { it.id to gettext("%1 (%2 Abonnenten)", it.name, it.subscriberCount) }
+            // Security audit follow-up (untrusted-text sanitization gaps): the option label carries the
+            // member-/admin-editable list name -- sanitize via untrustedOptions like the memberSelect.options
+            // assignment below in this same file.
+            listSelect.options = untrustedOptions(lists.map { it.id to gettext("%1 (%2 Abonnenten)", it.name, it.subscriberCount) })
             listSelect.value = selectId?.takeIf { id -> lists.any { it.id == id } } ?: lists.firstOrNull()?.id
         }
     }
@@ -429,12 +437,17 @@ private fun renderMailingMessageRow(
         sendButton.onClick {
             confirmDialog(
                 title = tr("Nachricht senden"),
+                // Security audit follow-up (untrusted-text sanitization gaps): message.subject and listName are
+                // sender-/admin-editable free text composed into this gettext(...) string, which confirmDialog
+                // hands straight to modal.div(message) -- sanitize the whole composed result.
                 message =
-                    gettext(
-                        "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
-                            "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
-                        message.subject,
-                        listName,
+                    sanitizeUntrustedI18nText(
+                        gettext(
+                            "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
+                                "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
+                            message.subject,
+                            listName,
+                        ),
                     ),
                 confirmLabel = tr("Senden"),
             ) {

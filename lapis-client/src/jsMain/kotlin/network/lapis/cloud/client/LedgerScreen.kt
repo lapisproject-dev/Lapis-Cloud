@@ -1405,7 +1405,10 @@ private fun renderDonorInfo(
         }
     if (label != null) {
         val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        row.div(label) { addCssClasses("flex-grow-1") }
+        // Security audit follow-up (untrusted-text sanitization gaps): label carries
+        // entry.donorMemberDisplayName/externalDonorDisplayName, member-/donor-controlled free text composed
+        // into a gettext(...) string above -- sanitize the whole composed result before rendering.
+        row.div(sanitizeUntrustedI18nText(label)) { addCssClasses("flex-grow-1") }
         entry.donorCategory?.let { row.typeBadge(donorCategoryLabel(it), donorCategoryColor(it)) }
     }
 

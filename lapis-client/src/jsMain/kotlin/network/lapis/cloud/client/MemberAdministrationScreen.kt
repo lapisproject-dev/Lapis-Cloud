@@ -212,7 +212,9 @@ private fun renderPendingApplicationActions(
     ) {
         val assignButton = actionsRow.button(tr("Landesverband zuordnen"), style = ButtonStyle.OUTLINESECONDARY)
         assignButton.onClick {
-            val modal = Modal(caption = gettext("Landesverband für %1", application.displayName))
+            // Security audit follow-up (untrusted-text sanitization gaps): application.displayName is a member
+            // display name, free text -- Modal.caption is a widget-content sink, sanitize the composed result.
+            val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Landesverband für %1", application.displayName)))
             val legendGroup = LegendGroup()
             renderChapterAssignmentSection(modal, application.id, application.regionalChapterId, chapters, legendGroup) {
                 modal.hide()
@@ -230,7 +232,9 @@ internal fun rejectApplicationDialog(
     applicantName: String,
     onConfirm: (String) -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Antrag von %1 ablehnen", applicantName))
+    // Security audit follow-up (untrusted-text sanitization gaps): applicantName is a member display name, free
+    // text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Antrag von %1 ablehnen", applicantName)))
     modal.p(tr("Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."))
     // Formular-Grammatik (V1.4.29): das früher UNBESCHRIFTETE Pflichtfeld hat jetzt ein Label, einen Feldfehler und einen
     // Fokus dorthin. Die Serverregel (nicht leer) bleibt unverändert; die Regel hier spiegelt sie nur früher.
@@ -801,7 +805,9 @@ internal fun openMemberEditorDialog(
 ) {
     val callerRole = AppState.session?.role
     val callerMemberId = AppState.session?.memberId
-    val modal = Modal(caption = gettext("%1 bearbeiten", row.displayName))
+    // Security audit follow-up (untrusted-text sanitization gaps): row.displayName is a member display name,
+    // free text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("%1 bearbeiten", row.displayName)))
     // Sechs Formulare in einem Modal: die Legende "* Pflichtfeld" steht nur einmal (beim ersten Formular, das sie braucht).
     val legendGroup = LegendGroup()
 

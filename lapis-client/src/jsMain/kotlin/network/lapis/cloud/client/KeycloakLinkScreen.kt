@@ -97,7 +97,9 @@ internal fun openKeycloakLinkDialog(
     member: UnlinkedMemberDto,
     onChanged: () -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Keycloak-Verknüpfung -- %1", member.displayName))
+    // Security audit follow-up (untrusted-text sanitization gaps): member.displayName is member-editable free
+    // text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Keycloak-Verknüpfung -- %1", member.displayName)))
     modal.p(
         gettext(
             "Verknüpft %1 (%2) mit einer Keycloak-Identität. Das Subject ist die eindeutige Benutzer-ID " +

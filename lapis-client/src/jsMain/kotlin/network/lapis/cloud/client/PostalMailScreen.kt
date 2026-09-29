@@ -251,10 +251,16 @@ fun postalDispatchConfirmDialog(
 
     val recipientRow = modal.hPanel(spacing = 8) { addCssClasses("border rounded p-2 mt-2 small") }
     recipientRow.div(tr("Empfänger:")) { addCssClasses("text-muted") }
-    recipientRow.div(recipientDisplayName) { addCssClass("flex-grow-1") }
+    // Security audit follow-up (untrusted-text sanitization gaps): recipientDisplayName/documentLabel are plain
+    // `String` function parameters (a bare local, invisible to the widget-text tripwire's regex, which only
+    // matches a raw DOTTED field access) handed straight to div(...) with no gettext(...)/sanitizing wrapper at
+    // all -- recipientDisplayName is genuinely untrusted (a member/donor display name, both callers pass a raw
+    // DTO field); documentLabel happens to always be gettext()-composed by both current callers, but sanitize it
+    // too since this is a reusable function whose contract does not otherwise guarantee that.
+    recipientRow.untrustedDiv(recipientDisplayName, className = "flex-grow-1")
     val documentRow = modal.hPanel(spacing = 8) { addCssClasses("border rounded p-2 mb-2 small") }
     documentRow.div(tr("Dokument:")) { addCssClasses("text-muted") }
-    documentRow.div(documentLabel) { addCssClass("flex-grow-1") }
+    documentRow.untrustedDiv(documentLabel, className = "flex-grow-1")
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     // Kostenpflichtig und endgültig: ein Doppelklick (oder ein Klick während das Modal noch ausgeblendet wird) darf nie ein
@@ -290,7 +296,10 @@ fun postalEinladungDispatchConfirmDialog(
         ),
     )
     val listPanel = modal.vPanel(spacing = 2) { addCssClasses("border rounded p-2 mt-2 mb-2 small text-muted") }
-    recipientDisplayNames.forEach { name -> listPanel.div(name) }
+    // Security audit follow-up (untrusted-text sanitization gaps): name is a member display name, free text
+    // bound to a bare `forEach` lambda parameter -- invisible to the widget-text tripwire's regex -- handed
+    // straight to div(...) with no sanitizing wrapper at all. Sanitize before rendering.
+    recipientDisplayNames.forEach { name -> listPanel.untrustedDiv(name) }
     modal.div(tr("Maximal 50 Empfänger pro Versand.")) { addCssClasses("text-muted small") }
 
     modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })

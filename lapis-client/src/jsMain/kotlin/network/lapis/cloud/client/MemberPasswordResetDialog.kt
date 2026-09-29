@@ -150,7 +150,9 @@ fun openMemberPasswordResetDialog(
     row: MemberAdminRowDto,
     onChanged: () -> Unit,
 ) {
-    val modal = Modal(caption = gettext("Zugang zurücksetzen — %1", row.displayName))
+    // Security audit follow-up (untrusted-text sanitization gaps): row.displayName is a member display name,
+    // free text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Zugang zurücksetzen — %1", row.displayName)))
     // Eigener Inhalts-Container statt direkt auf `modal` -- die Quittung ersetzt NUR diesen
     // Container (per removeAll()), der Footer-Knopf "Schließen" (modal.addButton, ganz unten)
     // bleibt davon unberührt.
