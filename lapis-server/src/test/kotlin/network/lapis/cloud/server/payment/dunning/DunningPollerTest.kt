@@ -46,6 +46,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.io.File
 import java.math.BigDecimal
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.uuid.Uuid
@@ -63,6 +64,7 @@ class DunningPollerTest :
         val createdContributionIds = mutableListOf<Uuid>()
         val createdLevelIds = mutableListOf<Uuid>()
         val createdAckIds = mutableListOf<Uuid>()
+        val createdStorageRoots = mutableListOf<File>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -125,6 +127,8 @@ class DunningPollerTest :
             createdAckIds.clear()
             createdMemberIds.clear()
             createdTierIds.clear()
+            createdStorageRoots.forEach { it.deleteRecursively() }
+            createdStorageRoots.clear()
             transaction {
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[dunningEnabled] = false
@@ -254,23 +258,24 @@ class DunningPollerTest :
             maxNoticesPerTick: Int = 200,
             provider: PostalMailProvider = NoopPostalMailProvider,
             phaseBQueryBatchSize: Int = 500,
-        ) = DunningPoller(
-            dunningConfig =
-                DunningConfig.load { key ->
-                    when (key) {
-                        "LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED" -> postalDispatchEnabled.toString()
-                        "LAPIS_DUNNING_MAX_NOTICES_PER_TICK" -> maxNoticesPerTick.toString()
-                        else -> null
-                    }
-                },
-            documentStorageRoot =
-                kotlin.io.path
-                    .createTempDirectory("dunning-poller-test")
-                    .toFile(),
-            postalMailProvider = provider,
-            clock = clock,
-            phaseBQueryBatchSize = phaseBQueryBatchSize,
-        )
+        ): DunningPoller {
+            val storageRoot = kotlin.io.path.createTempDirectory("dunning-poller-test").toFile()
+            createdStorageRoots += storageRoot
+            return DunningPoller(
+                dunningConfig =
+                    DunningConfig.load { key ->
+                        when (key) {
+                            "LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED" -> postalDispatchEnabled.toString()
+                            "LAPIS_DUNNING_MAX_NOTICES_PER_TICK" -> maxNoticesPerTick.toString()
+                            else -> null
+                        }
+                    },
+                documentStorageRoot = storageRoot,
+                postalMailProvider = provider,
+                clock = clock,
+                phaseBQueryBatchSize = phaseBQueryBatchSize,
+            )
+        }
 
         test("gate: dunning_enabled=false -> tick writes nothing, not even Phase A") {
             val memberId = createMember()

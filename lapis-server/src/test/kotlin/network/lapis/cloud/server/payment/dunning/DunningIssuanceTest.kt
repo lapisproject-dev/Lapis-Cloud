@@ -30,6 +30,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import java.io.File
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
@@ -46,6 +47,7 @@ class DunningIssuanceTest :
         val createdContributionIds = mutableListOf<Uuid>()
         val createdLevelIds = mutableMapOf<Int, Uuid>()
         val createdAckIds = mutableListOf<Uuid>()
+        val createdStorageRoots = mutableListOf<File>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -86,6 +88,8 @@ class DunningIssuanceTest :
             createdAckIds.clear()
             createdMemberIds.clear()
             createdTierIds.clear()
+            createdStorageRoots.forEach { it.deleteRecursively() }
+            createdStorageRoots.clear()
             transaction {
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[dunningEnabled] = false
@@ -227,10 +231,11 @@ class DunningIssuanceTest :
             }
         }
 
-        fun storageRoot() =
-            kotlin.io.path
-                .createTempDirectory("dunning-issuance-test")
-                .toFile()
+        fun storageRoot(): File {
+            val root = kotlin.io.path.createTempDirectory("dunning-issuance-test").toFile()
+            createdStorageRoots += root
+            return root
+        }
 
         test(
             "issueDunningNotice: a whole-cycle-cancel landing between Phase 1 and Phase 2 -> Superseded, no zombie level-3 notice, cycle stays fully cancelled",
