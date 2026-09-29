@@ -443,6 +443,38 @@ Karma's single browser page it covered every class that ran after it. Four of th
 the remaining one is named in `CHANGELOG.md` and still fails. See `CHANGELOG.md` `[0.24.0]` and
 `docs/architecture/mcp-server.adoc` for full detail.
 
+**`v0.25.0`** covers two intense days of work across a dozen-plus numbered waves (V1.9.1 through
+V1.9.14, plus the remaining V1.4.32-V1.4.37 recurring-events/date-formatting/article-module
+follow-ups) -- this section groups them by theme rather than listing each one; see `CHANGELOG.md`
+`[0.25.0]` for full wave-by-wave detail. **Document/folder access control** gains a per-folder
+`DocumentAccessLevel` (V1.9.1) enforced as the most restrictive level along a folder's own ancestor
+chain, plus a folder-creation default that follows the creating role's own most-restrictive
+visibility (V1.9.2). **App-wide date/time display and i18n follow-ups** (V1.4.32 W7, three
+review-fix rounds; V1.9.3) close a long tail of raw-ISO-date leaks and a German-plural-shown-for-
+singular bug on the SEPA batch screen. **Video conferencing** gets a round of real-pilot fixes from
+an ELB test session (no wave number of their own, dated 2026-09-27 in `CHANGELOG.md`) --
+persisted device choice, portrait-tile letterboxing, roster resync on reconnect, egress error
+logging, recording-start-gap elimination and two rounds of A/V-sync correction (see
+"Videokonferenzen" above) -- plus private per-conference background images (V1.9.4). **Recurring
+events** ("Wiederkehrende Veranstaltungen") complete across three
+follow-up waves: an RRULE recurrence library, RPC wiring against the event/event-series tables, and
+finally the admin UI plus an RRULE-aware iCal feed (V1.4.35-V1.4.37). **Content and publishing**
+gain an editorial article/news module with a four-eyes approval gate (V1.4.34/V1.4.36, see "Article
+Module" below), an event cover-image upload, an events-list embed widget (V1.4.33), and two new
+public overview pages plus icon-only navigation across every public route (V1.9.11). **The
+Vorstands-Karte (member map)** ships end to end -- privacy-preserving postal-code aggregate view,
+PMTiles basemap, then three fast-follow waves closing real board feedback: orientation labels and a
+hover tooltip, then border contrast, state-capital labels, small-locality labels and a place search
+(V1.9.5-V1.9.9, see "Member map" below). **SuperMailer** adds HTML-authored mailing content and a
+real asynchronous send path, replacing a newsletter send that previously never called any transport
+at all (V1.9.7). Board can now **toggle the public member count** on the homepage/transparency page
+off (V1.9.10, opt-out default). Members get a **Mitfahrerzentrale** (carpooling bulletin board,
+V1.9.12, see "Mitfahrerzentrale" below) and an optional **Gliederungsverwaltung** (regional chapters,
+V1.9.13/V1.9.14, see "Regional chapters" below). Finally, a **16-file untrusted-text sanitization
+sweep** closes the remaining gaps in the app-wide "W6b security-härtung" XSS-class hardening effort,
+and a **production build fix** raises the client webpack step's Node heap cap after the bundle grew
+past the old ceiling -- see `CHANGELOG.md` `[0.25.0]` for both.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -1214,7 +1246,7 @@ for scanned PDFs (reported as "format not readable"); the PostgreSQL full-text p
 coverage beyond its SQL shape and must be verified once manually against the real instance
 (`PostgresFullTextRetrieverLiveTest`).
 
-== Member map ("Vorstands-Karte", V1.9.5 + V1.9.6)
+== Member map ("Vorstands-Karte", V1.9.5-V1.9.9)
 
 A BOARD/ADMIN-only aggregate view of where the organization's members live, at postal-code
 granularity -- no member id, name, street, city or date of any kind crosses the wire, only
@@ -1224,8 +1256,23 @@ postal code, foreign, and the raw total). V1.9.5 built the server-side aggregati
 `lapis-client` screen ("Mitgliederkarte" in the Verwaltung/Administration sidebar group, BOARD/ADMIN
 route guard) -- a MapLibre/PMTiles vector map with weighted, clustered postal-code markers next to an
 always-visible table of the exact same numbers. Full architecture, the privacy boundary, the
-country/postal-code classification rules and the recorded Q1-Q7 decisions:
+country/postal-code classification rules and the recorded Q1-Q12 decisions:
 `docs/architecture/member-map.adoc`.
+
+Three fast-follow waves closed real board feedback on the initial map. **V1.9.8 "Orientierung"**
+added DOM-based Bundesland/Nachbarland labels (shown/hidden by zoom band, since the bundled basemap
+style has no glyph-serving route for a real MapLibre text layer) and a hover tooltip on
+points/clusters, and fixed a cluster click that never zoomed in (a `Promise`-vs-callback API
+mismatch against the pinned `maplibre-gl` version). **V1.9.9 "Details & Suche"** made country/state
+borders actually visible (dedicated high-contrast map tokens, replacing UI-divider tokens that
+were nearly invisible against the map background), added the 16 Landeshauptstadt (state capital)
+markers that had been missing, rendered small-locality labels once zoomed in by querying the
+already-bundled vector tiles directly (`map.querySourceFeatures`, still no glyph-serving route
+stood up), and added an in-map Ortssuche (place search) that flies to a searched place and shows
+member counts within 5/10/25 km -- computed entirely client-side from data already on the board
+member's screen, no second server round-trip and no new member data transmitted. See
+`docs/architecture/member-map.adoc`'s Q8-Q12 decision log for the full reasoning behind each of
+these.
 
 The basemap file itself (~190 MB, extracted from a public Protomaps build) is an optional,
 operator-provisioned deployment artifact, never part of this repository -- see
@@ -1240,6 +1287,91 @@ postal-code centroid lookup (place names + coordinates) ships bundled with `lapi
 * Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL
   (via a https://protomaps.com[Protomaps] build, BSD-3-Clause build tooling).
 
+== SuperMailer (V1.9.7)
+
+HTML-authored mailing content and a real asynchronous send path for the newsletter/mailing-list
+feature, plus the data-model foundation for open-/click-tracking (built this wave, not yet
+consumed by any code path). This wave also fixed a pre-existing correctness bug:
+`MailingService.sendMailingMessage` previously never called any real transport at all -- it wrote a
+`SENT` delivery-log row per active subscriber inside the same transaction that flipped a message to
+`SENT`, with no recipient-eligibility filtering. `sendMailingMessage` is now a bounded
+`DRAFT -> QUEUED` transition handed off to a dedicated `MailingDeliveryWorker` (its own bounded
+queue, separate from the transactional-mail dispatcher so a mailing run can never starve
+password-reset/FRIEND-verification mail); `LAPIS_MAILING_DELIVERY` (default `log`) controls whether
+it genuinely calls `MailTransport.send` or runs the full sanitize/render/queue pipeline without the
+transport call, the same honest-non-delivery posture the rest of this codebase's mail paths follow.
+Only active, non-anonymized subscribers get queued at all -- previously every non-unsubscribed
+subscription row was mailed regardless of the member's current status.
+
+The compose screen gained a second, HTML-authoring RPC (`createDraftMessageHtml`) alongside the
+existing plain-text one, backed by an allowlist-based sanitizer (`MailingHtmlSanitizer`, jsoup) and
+a shared render path (`MailingMailRenderer`) that both the async send and the preview RPCs go
+through, so a preview can never drift from what actually gets sent.
+
+=== What doesn't work yet (this wave)
+
+The compose screen still uses a plain textarea, not a rich contenteditable editor -- HTML content
+must currently be authored as raw HTML in that textarea; `createDraftMessageHtml` itself is real
+and tested. Open-/click-tracking (Teil B/C of the original plan) are follow-up waves: the schema
+already carries the columns and two new tables they will need, but no tracking pixel, click-rewrite,
+consent RPC/UI toggle, or DSGVO tracking-data contributor exists yet.
+
+== Public member count toggle (V1.9.10)
+
+Board can now decide, per organization setting, whether the number of active members appears on
+the public homepage (`/`) and the transparency page (`/transparenz`). The new
+`showPublicMemberCount` field on `organization_settings` defaults to `TRUE` -- the only Boolean on
+that table that is an opt-*out* rather than an opt-*in*, so no existing organization experiences a
+behaviour change on upgrade. Hiding it is structural, not cosmetic: `PublicTransparencyReader
+.loadStats` does not even query the count when the flag is off, and the homepage's own empty-state
+guard deliberately stops counting a hidden member count towards "is there anything to show" -- so
+the mere presence or absence of the stats block cannot itself leak whether the count is hidden.
+Setting it is ADMIN-only (the generic settings-update RPC replaces the whole settings object,
+including IBAN/DATEV fields, so a BOARD write right here would have given BOARD those fields too);
+TREASURER/BOARD see the current state read-only. The change takes effect within a few minutes,
+riding the existing 30-second in-memory cache on both public routes.
+
+== Public icon navigation + overview pages (V1.9.11)
+
+The shared header chrome across all seven unauthenticated public pages (`/`, `/s`, `/transparenz`,
+`/impressum`, `/datenschutz`, and the two new ones below) switched from text links to icon-only
+links with a pure-CSS hover/focus tooltip (`aria-label`-driven, so every link stays fully
+accessible with no silent icon-only trap). Two new, server-rendered overview pages, `GET /aktuelles`
+(published articles) and `GET /veranstaltungen` (upcoming public events), link out to the existing
+detail pages -- previously the only public way to browse them was the (opt-in, CORS-gated) embed
+feeds or a bookmarked direct link. Both new tabs appear in the navigation only when there is
+actually something to show (`PublicNavAvailabilityProvider`, a 30-second process-wide cache over
+two lightweight existence checks) and never appear on an error page, so a broken/rate-limited
+request never triggers an extra database lookup.
+
+=== What doesn't work yet (this wave)
+
+Neither the article detail page (`/aktuelles/{slug}`) nor the event detail page carries its own
+header/navigation chrome -- there is still no link back to the site's public navigation from a
+detail page itself. Tracked as a known limitation, open for a follow-up wave.
+
+== Mitfahrerzentrale (V1.9.12)
+
+A carpooling bulletin board for members: any `ACTIVE` member can offer a ride (`OFFER`, 1-8 free
+seats) or ask for one (`REQUEST`) between two free-text places on a given date, up to 180 days
+out, capped at 10 future postings per member. Contacting a posting's author routes through the
+existing direct-message mechanism rather than a bespoke messaging system -- `CarpoolPostingDto`
+deliberately carries no author id the client could address directly; the server alone resolves the
+recipient from the posting. Building this exposed two real gaps in that pre-existing mechanism,
+both closed as part of this wave: direct messages had never had a client UI at all before (the
+"Kommunikation" screen was upgraded from a bare unread-counter to a real message list with an
+inline reply form), and `sendDirectMessage` had never validated for an empty body or a message to
+oneself. A posting drops out of the public feed the day after its departure date but is only hard-
+deleted seven days later (`CarpoolRetentionPoller`), so an author can still see and duplicate a
+just-expired trip of their own. Full design, the RPC surface, and the direct-message-reuse
+decision: `docs/architecture/carpool.adoc`.
+
+=== What doesn't work yet (this wave)
+
+No seat reservation/booking/acceptance workflow -- a posting is a bulletin-board entry, not a
+matched ride. No structured place data (no postal code, no map, no distance calculation) and no
+notification when a new posting matching a member's interest appears.
+
 == Regional chapters ("Gliederungsverwaltung", Landesverbände) (V1.9.13/V1.9.14)
 
 An optional, flat (single-level) set of named regional chapters an ADMIN maintains -- members can
@@ -1253,7 +1385,21 @@ member editor. No account-role change: a "Landesvorstand" stays a plain `MEMBER`
 existing role gate in this codebase is unaffected. The optional "assignment required once a chapter
 exists" activation rule ships **default OFF** -- an operator who wants chapters purely informal,
 without requiring every active member to have one, leaves it off. Full architecture, the role-
-design decision and the visibility boundary: `docs/architecture/regional-chapters.adoc`.
+design decision (a dedicated "officer grant" issued by ADMIN, deliberately not a fifth
+`AccountRole` value and not tied to a regional-congress election result -- see
+`docs/architecture/regional-chapters.adoc`'s "Role architecture" section for the full Design-Team
+debate behind that choice) and the visibility boundary: `docs/architecture/regional-chapters.adoc`.
+
+=== What doesn't work yet (this wave)
+
+Only one hierarchy level -- no district/local sub-chapters. No client-side signal tells a member
+before they submit a registration whether the activation flag is currently on (today it is only
+learned reactively, from the error a submit attempt triggers). A freshly granted/revoked officer
+only sees the change after their next session refresh, not live in an already-open browser tab. No
+behavioral server-side test yet covers query-parameter manipulation by a chapter-scoped caller
+attempting to widen their own visibility -- the existing allowlist-scan/visibility tests are the
+current coverage. See `docs/architecture/regional-chapters.adoc`'s "Deferred" section for the full
+list.
 
 == Documentation Convention
 

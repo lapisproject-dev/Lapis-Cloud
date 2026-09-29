@@ -1,0 +1,194 @@
+= Mitfahrerzentrale (Carpooling)
+:description: Offer/request carpool postings among members, contact routed through the existing direct-message system, and the retention policy that expires a posting after its departure date.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: **Implementation status.** V1.9.12 built the whole feature in one wave: the `carpool_posting`
+table, `ICarpoolService`, the retention poller, the DSGVO contributor, and the `lapis-client`
+screen. No prior wave touched this domain.
+
+== Context
+
+Every `MemberStatus.ACTIVE` member may offer a ride (`OFFER`, 1-8 free seats) or ask for one
+(`REQUEST`) between two free-text places on a given date. This is deliberately a lightweight
+bulletin board, not a ride-matching/booking system: there is no seat reservation, no
+confirmation workflow, and no notion of who ultimately rides with whom -- a posting is visible to
+every member, and contacting its author is the only interaction the server mediates.
+
+The sidebar entry "Mitfahrerzentrale" sits in the existing `MEMBERSHIP` group and carries no
+dedicated `NavVisibility` predicate of its own -- it falls under that group's existing
+`showsMembershipSection` gate, the same way "Kommunikation" does, per this codebase's convention
+that a route without a DIFFERING visibility rule does not get a bespoke predicate.
+
+== Data model
+
+[source,kuml,name="carpool-model"]
+----
+classDiagram(name = "Carpooling -- Model") {
+    val posting = classOf(name = "CarpoolPosting") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "authorMemberId", type = "UUID")
+        attribute(name = "type", type = "CarpoolPostingType")
+        attribute(name = "fromPlace", type = "String")
+        attribute(name = "toPlace", type = "String")
+        attribute(name = "departureDate", type = "LocalDate")
+        attribute(name = "departureTime", type = "LocalTime", isReadOnly = true)
+        attribute(name = "seatsOffered", type = "Int", isReadOnly = true)
+        attribute(name = "notes", type = "String", isReadOnly = true)
+        attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "updatedAt", type = "LocalDateTime")
+    }
+
+    val type = enumOf(name = "CarpoolPostingType") {
+        literal(name = "OFFER")
+        literal(name = "REQUEST")
+    }
+
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+    }
+
+    association(source = member, target = posting) {
+        source { multiplicity(spec = "1"); role = "author" }
+        target { multiplicity(spec = "0..*"); role = "postings" }
+    }
+
+    dependency(client = posting, supplier = type, name = "has")
+}
+----
+
+`carpool_posting` (`V58__carpool.sql`, purely additive) carries no field for a precise meeting
+point -- `from_place`/`to_place` are free-text place-or-postal-code strings, never a street/house
+number, a deliberate scope cut recorded in the migration's own header comment. Two `CHECK`
+constraints enforce shape independently of the application layer: `type IN ('OFFER', 'REQUEST')`,
+and `seats_offered` is set (1..8) if and only if `type = 'OFFER'` -- a `REQUEST` row's
+`seats_offered` must be `NULL`. `CarpoolPostingDto` deliberately carries no `authorMemberId` field
+(see <<contact-routing>>).
+
+== RPC surface (`ICarpoolService`)
+
+Every method is `ORGANIZATION_MEMBER`-exclusive (`requireActiveMembership`, checked first inside
+every transaction, same discipline as every other member-gated service in this codebase):
+
+[cols="1,3", options="header"]
+|===
+| Method | Behaviour
+
+| `listPostings(type: CarpoolPostingType? = null)`
+| The public feed -- only `departure_date >= today`, capped at `MAX_FEED_SIZE = 200`, ordered by
+  date/time/creation. An optional `type` filter narrows to `OFFER`-only or `REQUEST`-only.
+
+| `listMyPostings()`
+| The caller's own postings, including already-departed ones not yet purged by the retention
+  poller (`isPast = true`) -- lets an author still see, and re-create from, a posting that just
+  fell out of the public feed.
+
+| `createPosting(input)` / `updatePosting(id, input)`
+| `CarpoolValidation.validate` re-checks every field server-side regardless of client-side
+  pre-validation, then `CarpoolValidation.requireUnderQuota` enforces
+  `MAX_FUTURE_POSTINGS_PER_MEMBER = 10`. `updatePosting` additionally passes its own `id` as
+  `excludingPostingId` so editing a row never counts it against its own quota twice, and actively
+  writes `seatsOffered = null` when a row's `type` flips `OFFER -> REQUEST` -- a plain
+  field-for-field update would otherwise violate `chk_carpool_posting_seats` (see the inline
+  comment at that call site).
+
+| `deletePosting(id)`
+| Author-only (`ForbiddenException` otherwise).
+
+| `contactAuthor(postingId, message)`
+| See <<contact-routing>>.
+|===
+
+Every write path re-derives ownership from the freshly read row rather than trusting a
+client-supplied author id -- there is no such field to trust in the first place, since
+`CarpoolPostingInput`/`CarpoolPostingDto` never carry one.
+
+[[contact-routing]]
+== Contact routing: an existing direct message, not a new messaging system
+
+The Design Team's explicit ruling (Larry Tesler's line, recorded in `CarpoolService`'s own KDoc):
+a client must never be able to address `contactAuthor` with a member id it read off a DTO. This
+shaped two decisions at once -- `CarpoolPostingDto` carries no `authorMemberId` field at all, and
+`contactAuthor` resolves the recipient itself from `postingId` alone, inside the same transaction
+that validates the posting is not expired and not the caller's own.
+
+Rather than build a bespoke carpool-messaging system, `contactAuthor` sends a normal
+`DirectMessageDto` through the pre-existing direct-message mechanism -- the reply lands in the
+recipient's ordinary "Kommunikation" mailbox alongside every other direct message they have. This
+reuse surfaced two real gaps in that pre-existing mechanism, both closed as part of this wave
+rather than deferred:
+
+* **No client UI had ever existed for direct messages.** `DirectMessageService.sendDirectMessage`
+  was reachable only via RPC/raw HTTP before this wave; the "Kommunikation" screen showed nothing
+  more than a raw unread-count badge. `contactAuthor` needed a real reply surface, so the
+  Kommunikation screen was extended from a bare counter into an actual message list with an inline
+  reply form -- carpooling is the first feature in this codebase to give direct messages a client
+  UI at all.
+* **`sendDirectMessage` under-validated its input.** Before this wave, the RPC method's own insert
+  path accepted an empty message body and a message addressed to oneself without complaint --
+  never exercised in practice because no client caller existed yet. Building `contactAuthor`
+  exposed this: `DirectMessageService.sendDirectMessage`'s insert logic was extracted into a shared
+  `network.lapis.cloud.server.rpc.insertDirectMessage` helper (`DirectMessaging.kt`), used by both
+  `sendDirectMessage` and `contactAuthor`, which now rejects an empty/over-length body
+  (`DIRECT_MESSAGE_MAX_BODY_LENGTH = 10 000`), a message to oneself, and a recipient who is not an
+  active, non-anonymized `ORGANIZATION_MEMBER` (`ConflictException` in each case) -- the same gap
+  class `DirectMessageService`'s own "V0.11.0 security fix" KDoc had already closed for the
+  *sender* side, now closed for the recipient/content side too. This is a deliberate, reviewed
+  behaviour change for `sendDirectMessage` itself, not just new code for carpooling.
+
+`contactAuthor` layers one further, carpool-specific check on top of `insertDirectMessage`: the
+posting must still be in the future (`departure_date >= today`) at contact time, re-checked
+server-side even though the public feed already filters expired postings client-visibly -- a
+client could otherwise hold a stale posting id from an earlier `listPostings()` response.
+
+== Retention and expiry
+
+A posting's lifecycle has two independent cutoffs, deliberately not the same date:
+
+[cols="1,3", options="header"]
+|===
+| Cutoff | Effect
+
+| `departure_date < today`
+| The posting drops out of `listPostings()` (the public feed) the day after departure, but
+  **stays** in `listMyPostings()` for its own author, marked `isPast = true`.
+
+| `departure_date < today - CarpoolRetention.RETENTION_DAYS_AFTER_DEPARTURE` (7 days)
+| `CarpoolRetentionPoller` hard-deletes the row.
+
+|===
+
+The 7-day gap between "leaves the public feed" and "is actually deleted" exists so an author whose
+own trip just departed can still see and duplicate it (e.g. to re-post the same weekly commute)
+without re-typing every field, without ever showing that stale posting to anyone else.
+
+`CarpoolRetentionPoller` and `CarpoolRetention.deleteDueRows` are a deliberate 1:1 copy of
+`network.lapis.cloud.server.social.PostDraftRetention`'s pattern: always running (no feature flag,
+no external secret required), `start()`/`stop()` idempotent, one `tick()` per interval (default 24
+hours) wrapped in `runCatching` so a single failed run never crashes the poller loop, and a
+`MAX_DELETED_PER_RUN = 5 000` cap on each run as a DoS/runaway-query guard, same as the post-draft
+poller's own cap.
+
+== DSGVO contributor
+
+`CarpoolPersonalData` (`sectionKey = "carpool"`, `displayName = "Mitfahrerzentrale"`) exports every
+posting a member has authored (`carpoolPostings`, full field set including timestamps) under Art.
+15, and **hard-deletes** every one of them on erasure regardless of the requested `ErasureMode`.
+This is a deliberate departure from `CommunicationPersonalData`'s handling of `direct_message`:
+a direct message has a counterparty who may have an independent interest in retaining their copy
+of the conversation, so that table is anonymized rather than deleted outright. A `carpool_posting`
+has no such counterparty copy -- once a member is erased, nothing about their carpool postings is
+kept anywhere, deliberately simpler than the direct-message case rather than mirroring it.
+
+== Non-goals (this wave)
+
+* No seat reservation, booking, or acceptance/decline workflow -- a posting is a bulletin-board
+  entry, not a matched ride.
+* No structured place data (no postal code/geocoding, no map, no distance calculation) -- `from
+  Place`/`toPlace` are plain free text, unrelated to the separate Member Map feature's postal-code
+  handling.
+* No notification when a new posting matching a member's interest appears -- a member must check
+  the feed themselves.
+* No moderation/reporting path specific to carpool postings beyond what already exists for direct
+  messages in general.

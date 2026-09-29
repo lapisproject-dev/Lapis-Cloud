@@ -6,6 +6,66 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-09-29
+
+### Fixed
+
+- **Production client build: `ERR_WORKER_OUT_OF_MEMORY` during the Kotlin/JS webpack step.** The
+  production client bundle outgrew the Dockerfile's 3 GB Node heap cap after this stretch's heavy
+  client-side work (Gliederungsverwaltung, Mitfahrerzentrale, the 16-file untrusted-text
+  sanitization pass below, several i18n catalog expansions) pushed `jsBrowserProductionWebpack`'s
+  memory footprint over it. Observed on `pdv2` (a 31 GB host with plenty of headroom -- the failure
+  was purely the configured V8 heap ceiling, not actual host memory pressure), reproduced both with
+  three concurrent per-instance builds and with a single solo rebuild. Raised the Node heap cap
+  (`NODE_OPTIONS=--max-old-space-size`) from 3 GB to 4 GB in the `Dockerfile`, not further -- the
+  same Dockerfile is also built on a much smaller 8 GB host (the demo instance), and a larger jump
+  would narrow headroom there more than warranted without first checking that host's own margin.
+
+### Security
+
+- **Untrusted-text-to-widget sanitization: remaining gaps closed (XSS-class), 16 files.** User-reported
+  starting point: `CommunicationScreen.kt`'s `renderMailingLists` rendered `list.name` raw via
+  `gettext(...)` into a widget div, unlike the sibling `renderMailingListDetail`, which already
+  wraps it in `sanitizeUntrustedI18nText` (the established "W6b security-härtung" fix pattern --
+  KVision's `Widget` class resolves any content string starting with its internal i18n marker
+  through its own translation mechanism at render time, independent of the app's own `gettext`
+  calls). Verifying the report and then searching the whole module for the same pattern found 7 more
+  instances across `CommunicationScreen`/`CommitteesScreen`/`MotionsScreen`/`MeetingsScreen`/
+  `ConferenceScreen`; a follow-up exhaustive pass found substantially more by tracing
+  local-variable indirection and sink types the existing `ClientUntrustedWidgetTextTripwireTest`
+  regex doesn't cover (Modal captions, CheckBox labels, bare local `val`s assigned raw before being
+  handed to a widget). 16 files fixed in total: `BankAccountsScreen`/`CommitteesScreen`/
+  `CommunicationScreen`/`ConferenceScreen`/`CostCentersScreen`/`DunningSettingsScreen`/
+  `EventCheckInScreen`/`KeycloakLinkScreen`/`LedgerScreen`/`MeetingsScreen`/
+  `MemberAdministrationScreen`/`MemberPasswordResetDialog`/`MotionsScreen`/`OpenItemDialogs`/
+  `PostalMailScreen`/`ReceivableDunningSettingsScreen`.
+
+  Key finding, independently verified against `I18nCatalogManager.gettext`'s own body: `gettext()`
+  already sanitizes every `String` vararg argument internally before substitution -- which means
+  most of the originally found `gettext(..., untrustedField)`-composed sites were defense-in-depth,
+  not independently exploitable, and were fixed anyway for consistency with this codebase's
+  "sanitize at every touch point" posture. The genuinely exploitable gaps were the ones that
+  bypassed `gettext()` entirely: a raw local-variable assignment (`ConferenceScreen.kt`'s
+  `roomTitle = ... else room.title`, no `gettext()` call in that branch), and fields handed directly
+  to a widget with no `gettext()`/sanitize wrapper at all (`CostCentersScreen.kt` had zero prior
+  sanitization anywhere in the file; `PostalMailScreen.kt`'s confirm-dialog parameters). Confirmed
+  false positives, left unfixed: `notifySuccess(gettext(...))` is an established, pervasive pattern
+  at 30+ call sites across the codebase -- fixing only the one originally-flagged site would be
+  inconsistent noise, and it is not exploitable per the `gettext`-internal-sanitization finding
+  above; `disclaimer.version` strings trace to hardcoded server-side Kotlin constants, never
+  admin-editable; `ResolutionDto.number` is a server-generated identifier, not free text. Known gap
+  flagged but not chased: `Table`/`DataColumn` cell rendering across dozens of screens uses
+  untrusted DTO fields raw -- whether KVision's `Table` DSL routes through the same
+  `Widget.translate` sink as div/span was not confirmed within scope, recommended as a dedicated
+  follow-up review.
+
+  **Review fix (same wave):** `ClientUiGuidelineTripwireTest.kt`'s R24B exemption ledger carried a
+  stale fingerprint for `MeetingsScreen.kt`'s per-member selection checkbox -- splitting the
+  statement across three lines and sanitizing the label
+  (`recipientsPanel.checkBox(label = sanitizeUntrustedI18nText(member.displayName))`) changed the
+  single-line text the scanner fingerprints, so the ledger entry was updated to the new per-line
+  text rather than the old single-line compound statement.
+
 ### Added
 
 - **V1.9.14 — Gliederungsverwaltung (Landesverbände), Oberfläche.** Der Client-Anteil dieser Welle
