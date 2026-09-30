@@ -144,9 +144,7 @@ private fun renderCarpoolCard(
     if (posting.isOwn) headerRow.typeBadge(tr("Eigener Eintrag"), "secondary")
     if (posting.isPast) headerRow.statusBadge(tr("Abgelaufen"), "secondary")
 
-    val timeSuffix =
-        posting.departureTime?.let { gettext(", ab %1 Uhr", it.toString()) } ?: tr(", Uhrzeit flexibel")
-    row.div(formatDate(posting.departureDate) + timeSuffix) { addCssClasses("text-muted small") }
+    row.div(formatDate(posting.departureDate) + carpoolDepartureTimeSuffix(posting.departureTime)) { addCssClasses("text-muted small") }
 
     posting.seatsOffered?.let { seats -> row.div(gettext("%1 freie Plätze", seats)) }
     posting.notes?.takeIf { it.isNotBlank() }?.let { notes -> row.untrustedDiv(notes) { addCssClasses("small") } }
@@ -373,3 +371,11 @@ private fun openCarpoolForm(
         }
     }
 }
+
+/**
+ * The ", ab HH:MM Uhr" / ", Uhrzeit flexibel" tail of a card's date line. Must return resolved text via
+ * `gettext`, never a `tr()` marker token: the result is concatenated behind the formatted date, and KVision
+ * only resolves a marker at the very start of a widget's content -- mid-string it leaked as `###KvI18nS###`.
+ */
+internal fun carpoolDepartureTimeSuffix(departureTime: LocalTime?): String =
+    departureTime?.let { gettext(", ab %1 Uhr", it.toString()) } ?: gettext(", Uhrzeit flexibel")

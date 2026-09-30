@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import kotlinx.datetime.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 /**
@@ -30,5 +31,19 @@ class CarpoolScreenTest {
     @Test
     fun parseTimeInputValue_garbage_isNull() {
         assertNull(parseTimeInputValue("not a time"))
+    }
+
+    @Test
+    fun departureTimeSuffix_flexible_isResolvedText_notAnI18nMarker() {
+        val suffix = carpoolDepartureTimeSuffix(null)
+        assertFalse(suffix.contains(KV_I18N_MARKER), "marker leaked into the date line: $suffix")
+        assertEquals(", Uhrzeit flexibel", suffix)
+    }
+
+    @Test
+    fun departureTimeSuffix_withTime_isResolvedText() {
+        val suffix = carpoolDepartureTimeSuffix(LocalTime(14, 30, 0))
+        assertFalse(suffix.contains(KV_I18N_MARKER), suffix)
+        assertEquals(", ab 14:30 Uhr", suffix)
     }
 }
