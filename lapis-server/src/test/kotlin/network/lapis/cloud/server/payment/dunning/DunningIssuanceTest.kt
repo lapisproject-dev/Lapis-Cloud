@@ -32,6 +32,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.math.BigDecimal
+import kotlin.io.path.createTempDirectory
 import kotlin.uuid.Uuid
 
 /**
@@ -232,7 +233,7 @@ class DunningIssuanceTest :
         }
 
         fun storageRoot(): File {
-            val root = kotlin.io.path.createTempDirectory("dunning-issuance-test").toFile()
+            val root = createTempDirectory("dunning-issuance-test").toFile()
             createdStorageRoots += root
             return root
         }

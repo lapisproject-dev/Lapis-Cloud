@@ -49,6 +49,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.math.BigDecimal
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.io.path.createTempDirectory
 import kotlin.uuid.Uuid
 
 /**
@@ -259,7 +260,7 @@ class DunningPollerTest :
             provider: PostalMailProvider = NoopPostalMailProvider,
             phaseBQueryBatchSize: Int = 500,
         ): DunningPoller {
-            val storageRoot = kotlin.io.path.createTempDirectory("dunning-poller-test").toFile()
+            val storageRoot = createTempDirectory("dunning-poller-test").toFile()
             createdStorageRoots += storageRoot
             return DunningPoller(
                 dunningConfig =
