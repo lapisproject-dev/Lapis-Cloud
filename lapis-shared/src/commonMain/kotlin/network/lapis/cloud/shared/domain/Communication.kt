@@ -23,6 +23,10 @@ data class MailingListDto(
     val createdBy: String,
     val subscriberCount: Int,
     val isSubscribedByCurrentMember: Boolean,
+    /** Welle V1.9.15 -- the CURRENT member's own open-tracking consent timestamp (self-service context only), `null` = no consent. */
+    val currentMemberOpenTrackingConsentedAt: LocalDateTime? = null,
+    /** Welle V1.9.15 -- the CURRENT member's own click-tracking consent timestamp (self-service context only), `null` = no consent. */
+    val currentMemberClickTrackingConsentedAt: LocalDateTime? = null,
 )
 
 @Serializable
@@ -33,6 +37,10 @@ data class MailingListSubscriptionDto(
     val memberDisplayName: String,
     val subscribedAt: LocalDateTime,
     val unsubscribedAt: LocalDateTime?,
+    /** Welle V1.9.15 -- only filled in the self-service context (`setTrackingConsent`); `listSubscribers` leaves it `null` (data minimisation). */
+    val openTrackingConsentedAt: LocalDateTime? = null,
+    /** See [openTrackingConsentedAt]. */
+    val clickTrackingConsentedAt: LocalDateTime? = null,
 )
 
 @Serializable
@@ -93,4 +101,42 @@ data class DirectMessageDto(
     val body: String,
     val sentAt: LocalDateTime,
     val readAt: LocalDateTime?,
+)
+
+/**
+ * Welle V1.9.15 -- per-link aggregate of [MailingMessageStatsDto]. [uniqueRecipients]/[totalClicks]
+ * are `null` when the click cohort is below
+ * [MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS] (k-anonymity floor).
+ */
+@Serializable
+data class MailingLinkStatsDto(
+    val linkIndex: Int,
+    val targetUrl: String,
+    val uniqueRecipients: Int?,
+    val totalClicks: Int?,
+)
+
+/**
+ * Welle V1.9.15 -- aggregate-only statistics for one sent mailing message. **Never** carries a
+ * member id, name or personal timestamp -- only counts, and only when the consenting cohort is at
+ * least [MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS].
+ */
+@Serializable
+data class MailingMessageStatsDto(
+    val messageId: String,
+    /** Number of deliveries with status SENT. */
+    val delivered: Int,
+    /** SENT deliveries whose recipient had opted into open tracking at send time. */
+    val openCohort: Int,
+    /** Of [openCohort], those that loaded the pixel at least once; `null` when suppressed. */
+    val openedAtLeastOnce: Int?,
+    /** SENT deliveries whose recipient had opted into click tracking at send time. */
+    val clickCohort: Int,
+    val links: List<MailingLinkStatsDto>,
+    val openSuppressed: Boolean,
+    val clickSuppressed: Boolean,
+    /** `openSuppressed || clickSuppressed`. */
+    val suppressed: Boolean,
+    /** `true` once the retention period ([MailingHtmlPolicy.RETENTION_DAYS]) has passed and the raw events were erased. */
+    val retentionExpired: Boolean,
 )

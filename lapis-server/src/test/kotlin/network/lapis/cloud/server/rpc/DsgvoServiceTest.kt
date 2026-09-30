@@ -46,6 +46,8 @@ import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
+import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
+import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -81,6 +83,8 @@ private fun noOpMailingDeliveryWorker() =
         transport = NoOpMailTransport(),
         branding = MailBranding.notConfigured(),
         mode = MailingDeliveryMode.LOG,
+        trackingToken = testTrackingToken(),
+        baseUrl = TEST_TRACKING_BASE_URL,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     )
 

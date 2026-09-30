@@ -730,6 +730,21 @@ data class MemberChangeSnapshot(
      * unveraendert bleibt und die Dekodierung aelterer, bereits gespeicherter Zeilen abwaertskompatibel bleibt.
      */
     val adminPasswordAction: AdminPasswordAction? = null,
+    /**
+     * Welle V1.9.15 "SuperMailer" -- set ONLY by `MailingService.setTrackingConsent`/`unsubscribe`
+     * when a member's own open/click tracking consent actually changed. Booleans and the list id
+     * only -- no PII, same discipline as [displayNameChanged]. Logged under [AuditEntityType.MEMBER]
+     * (no new entity type, so no schema/CHECK migration). Default `null`: older rows decode unchanged.
+     */
+    val mailingTrackingConsent: MailingTrackingConsentSnapshot? = null,
+)
+
+/** Welle V1.9.15 -- the consent state AFTER a change (before: the same shape in the `before` snapshot). */
+@Serializable
+data class MailingTrackingConsentSnapshot(
+    val mailingListId: String,
+    val openTracking: Boolean,
+    val clickTracking: Boolean,
 )
 
 /**

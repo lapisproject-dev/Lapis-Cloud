@@ -200,6 +200,8 @@ class MailingDeliveryWorkerTest :
             transport = transport,
             branding = MailBranding.notConfigured(),
             mode = mode,
+            trackingToken = testTrackingToken(),
+            baseUrl = TEST_TRACKING_BASE_URL,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
             sendDelay = 0.milliseconds,
         )
@@ -378,6 +380,8 @@ class MailingDeliveryWorkerTest :
                     transport = GateMailTransport(started = started, gate = gate),
                     branding = MailBranding.notConfigured(),
                     mode = MailingDeliveryMode.SMTP,
+                    trackingToken = testTrackingToken(),
+                    baseUrl = TEST_TRACKING_BASE_URL,
                     scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                     sendDelay = 0.milliseconds,
                 )

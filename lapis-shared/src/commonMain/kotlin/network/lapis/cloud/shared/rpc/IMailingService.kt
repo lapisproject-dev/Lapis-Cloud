@@ -5,6 +5,7 @@ import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
+import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingPreviewDto
 
 @RpcService
@@ -98,4 +99,22 @@ interface IMailingService {
      * Role: Board/Admin.
      */
     suspend fun sendMailingMessage(messageId: String): MailingMessageDto
+
+    /**
+     * Welle V1.9.15 -- self-service, ACTIVE members only, only for an active subscription. Per flag:
+     * `true` sets the consent timestamp to now if it was not already set; `false` clears it AND
+     * erases the member's already-collected counting data of that kind for this list (withdrawal
+     * is immediately effective, Art. 7(3)/17(1)(b) DSGVO). Both default to "no consent".
+     */
+    suspend fun setTrackingConsent(
+        mailingListId: String,
+        openTracking: Boolean,
+        clickTracking: Boolean,
+    ): MailingListSubscriptionDto
+
+    /**
+     * Welle V1.9.15 -- aggregate-only statistics (no personal data, minimum cohort
+     * [network.lapis.cloud.shared.domain.MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS]). Role: Board/Admin.
+     */
+    suspend fun mailingMessageStats(messageId: String): MailingMessageStatsDto
 }

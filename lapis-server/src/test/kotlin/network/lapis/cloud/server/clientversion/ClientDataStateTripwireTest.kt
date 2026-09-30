@@ -54,10 +54,14 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * live-preview call (400ms after every keystroke/selection change in the recurrence editor) has the same "no sensible
  * loading/error state" shape as the accepted badge reads above -- the live sentence it feeds simply stays blank until the next
  * successful response, exactly like a badge count staying at its last value. 149 -> 150.
+ * Welle V1.9.15 "SuperMailer" adds ONE more, in the new `MailingHtmlEditor.kt` (a new file, hence 44 -> 45 files too): the editor's
+ * "Vorschau" action calls `previewMailingHtml(` on demand from a button inside `runGuardedAction`. Like the debounced series preview
+ * above it is a user-triggered, stateless computation with no list to show a loading/empty/error state for -- a failure already
+ * toasts through `guarded`, and the preview box simply stays as it was. 150 -> 151.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 150
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 44
+private const val READ_OUTSIDE_STATE_REGION_MAX = 151
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 45
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

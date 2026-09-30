@@ -1899,6 +1899,42 @@ html .form-select.is-invalid:focus {
   text-align: right;
 }
 
+/* Welle V1.9.15 "SuperMailer" Teil A -- WYSIWYG-Editor fuer Mailing-Nachrichten (MailingHtmlEditor.kt).
+   Ausschliesslich vorhandene Tokens, keine neue Farbe, keine Transition. Die Hoehe ist begrenzt
+   (scrollt selbst), damit ein langer Text nie die Seite sprengt. */
+.lapis-mailing-editor {
+  min-height: 12rem;
+  max-height: 40rem;
+  overflow: auto;
+  padding: .5rem .75rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: .375rem;
+  background: var(--lapis-surface);
+  color: var(--lapis-text);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.lapis-mailing-editor:focus {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 1px;
+}
+.lapis-mailing-editor p { margin: 0 0 .6rem 0; }
+.lapis-mailing-editor h2,
+.lapis-mailing-editor h3 { margin: 1rem 0 .4rem 0; }
+.lapis-mailing-editor blockquote {
+  margin: .6rem 0;
+  padding-left: .75rem;
+  border-left: 3px solid var(--lapis-border-strong);
+  color: var(--lapis-muted);
+}
+.lapis-mailing-editor a { color: var(--lapis-accent); text-decoration: underline; }
+.lapis-mailing-toolbar .btn[aria-pressed="true"] {
+  background: var(--lapis-accent-soft);
+  border-color: var(--lapis-accent);
+  color: var(--lapis-accent-strong);
+}
+.lapis-mailing-plaintext { white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau). Wer eine neue Transition ergaenzt,
    ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

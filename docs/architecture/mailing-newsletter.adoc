@@ -8,11 +8,13 @@ NOTE: This document's `[source,kuml]` block is rendered and validated by the
 `:docs-render:renderDocs` Gradle task (see `docs-render/`), same convention as
 `member-map.adoc`/`keycloak-login.adoc`.
 
-NOTE: **Implementation status (Welle V1.9.7).** Teil A (HTML-authored draft content, sanitization,
-rendering, preview) and the real asynchronous send (fixing the pre-existing "sendMailingMessage
-never called any transport" bug) are implemented. Teil B (click counting) and Teil C (open
-counting) are **not** implemented this wave -- see <<scope-this-wave>>. The schema already carries
-every column/table both parts will need, so no further migration is expected when they land.
+NOTE: **Implementation status (Welle V1.9.15).** Implemented: Teil A (HTML-authored content,
+sanitization, rendering, preview, and -- since V1.9.15 -- the client-side WYSIWYG editor), the real
+asynchronous send, **Teil B (click counting) and Teil C (open counting)** as a strictly opt-in
+feature, the consent RPC/UI, aggregate-only statistics, a 180-day retention poller and the DSGVO
+export/erasure. **Not implemented**: editing an already saved draft (there is no update RPC; the editor
+only creates drafts), a server-side message catalog for the public 404/429 pages of the tracking routes
+(German only, like every public server page).
 
 [[scope-this-wave]]
 == Scope of this wave
@@ -37,13 +39,8 @@ every column/table both parts will need, so no further migration is expected whe
   address is NOT part of this queuing-time filter: such a recipient still gets a delivery-log row
   (`PENDING`, then `SKIPPED_NO_ADDRESS` once the worker gets to it), because the address itself is
   only re-validated later, per recipient, by `MailingDeliveryWorker`.
-* Not built this wave: the rich contenteditable client editor (DOMPurify, toolbar) -- the compose
-  screen still uses a plain textarea; `createDraftMessageHtml` exists as a real, tested RPC without
-  dedicated UI yet. Also not built: the tracking pixel/click routes, `MailingTrackingToken`, the
-  consent RPCs/UI toggles, the retention poller, and `mailingMessageStats`. The data model for all
-  of that (tracking-consent timestamps, tracking snapshot columns, `mailing_message_link`/
-  `mailing_link_click`) already exists (`V53__mailing_html_and_tracking.sql`) so that follow-up wave
-  needs no further migration.
+* Follow-up wave V1.9.15 (<<tracking>>, <<editor>>) builds everything the V1.9.7 schema was prepared for;
+  it needs no new migration.
 
 == Send flow (this wave)
 
@@ -94,17 +91,84 @@ version starts (see `bootstrap/FlywayRepair.kt` and `deploy/example/README.adoc`
   `blockquote`, `a` (href only, `http`/`https`/`mailto`). No `style`, no images, no forms, no
   scripts, no iframes.
 
-== Data model foundation for Teil B/C (not yet consumed)
+== Data model (V53)
 
-`V53__mailing_html_and_tracking.sql` adds, ahead of need:
+`V53__mailing_html_and_tracking.sql` carries: `mailing_list_subscription.open_tracking_consented_at` /
+`.click_tracking_consented_at`; `mailing_delivery_log.tracking_token_hash` / `.open_tracked` /
+`.click_tracked` / `.first_opened_at` / `.open_count`; and the tables `mailing_message_link` (frozen
+link targets) and `mailing_link_click` (per delivery and link). Since V1.9.15 all of it is written.
 
-* `mailing_list_subscription.open_tracking_consented_at` / `.click_tracking_consented_at` --
-  independent opt-in timestamps, currently never set by any RPC (no UI toggle exists yet).
-* `mailing_delivery_log.tracking_token_hash` / `.open_tracked` / `.click_tracked` /
-  `.first_opened_at` / `.open_count` -- written by `MailingDeliveryWorker` as `NULL`/`FALSE`/`0` in
-  this wave (no consent path is active).
-* `mailing_message_link` / `mailing_link_click` -- created, never populated this wave.
+[[tracking]]
+== Click and open tracking (V1.9.15)
 
-A follow-up wave adds `MailingTrackingToken`, the `/api/mailing/o/{token}`/`/api/mailing/c/{token}/
-{index}` routes, the consent RPCs/UI toggles, `mailingMessageStats`, the DSGVO contributor for the
-tracking data, and a retention poller -- entirely additive on top of this schema.
+*Opt-in, default off.* A member enables "count opens" and "count clicks" independently per list
+(`IMailingService.setTrackingConsent`, active subscription required). An administrator can never set
+consent (`adminSubscribeMember` does not), re-subscribing starts without consent, and **withdrawing or
+unsubscribing erases what was already counted for that member and list** (Art. 7(3)/17(1)(b) DSGVO).
+Consent changes are audited under `AuditEntityType.MEMBER` (list id and two booleans, no PII), so no
+schema change was needed.
+
+*Token.* `MailingTrackingToken` issues `1.<nonce>.<linkIndex>.<mac>` (click) and `1.<nonce>.o.<mac>`
+(open); the nonce is 16 `SecureRandom` bytes that live only in memory and in the mail, the database
+stores `SHA-256(nonce)`. The MAC is HMAC-SHA256 (truncated to 16 bytes) under
+`LAPIS_MAILING_TRACKING_KEY`, compared in constant time; the `c`/`o` prefix stops a click token from
+working as an open token. The key is mandatory for `LAPIS_MAILING_DELIVERY=smtp` (fail-fast) and
+**must stay stable: rotating it makes every already-sent tracking link answer 404.**
+
+*Snapshot per delivery.* `MailingDeliveryWorker` renders once per recipient. It reads the recipient's
+consent at send time and stores `open_tracked`/`click_tracked` plus the token hash on the delivery
+row; only then is the mail rendered (links rewritten to `/m/c/<token>`, a 1x1 pixel `/m/o/<token>.gif`
+before the footer). Plain-text messages, the plain-text body, the footer and `mailto:` links are never
+touched, and previews never contain tracking artifacts.
+
+[source,kuml,name="mailing-tracking-flow"]
+----
+sequenceDiagram(name = "Mailing tracking -- send and click") {
+    val worker = lifeline(name = "MailingDeliveryWorker")
+    val db = lifeline(name = "PostgreSQL")
+    val mail = lifeline(name = "Recipient mail client")
+    val route = lifeline(name = "GET /m/c/{token}")
+    val target = lifeline(name = "Link target")
+
+    message(from = worker, to = db, label = "read consent; store token hash and open/click snapshot on the delivery row")
+    message(from = worker, to = mail, label = "mail with signed click URLs and open pixel")
+    message(from = mail, to = route, label = "click: GET /m/c/token")
+    message(from = route, to = db, label = "verify MAC, look up hash, resolve target from mailing_message_link")
+    message(from = route, to = db, label = "count only if: not HEAD, snapshot on, consent still set, subscription active, member not anonymized")
+    message(from = route, to = mail, label = "302 to the stored target (404 without Location on any failure)")
+    message(from = mail, to = target, label = "follows the redirect")
+}
+----
+
+*Routes.* `GET /m/c/{token}` redirects to the target stored for `(message, index)` -- never to anything
+in the request, so it is not an open redirect; the target is re-validated (http/https, no control
+characters, bounded, ASCII-encoded) and every failure is one identical neutral 404 without a
+`Location`. `GET /m/o/{token}.gif` always answers the same 43-byte GIF (even over the rate limit, so it
+is no oracle). Both are rate limited per IP (click 120/min, pixel 600/min because image proxies bundle
+many recipients behind few IPs), send `Referrer-Policy: no-referrer`/`Cache-Control: no-store`/
+`X-Robots-Tag: noindex`, and never log a token or target. `AutoHeadResponse` rewrites a HEAD request
+to GET before routing, so the handlers read `request.local.method` to keep link scanners' HEAD
+probes from counting. Counters saturate at `MailingHtmlPolicy.MAX_EVENT_COUNT` (1000) in the `WHERE`
+clause.
+
+*Statistics.* `mailingMessageStats` (Board/Admin) returns counts only -- delivered, open/click cohort,
+opened at least once, per-link unique recipients and total clicks -- never an id, name or personal
+timestamp. A cohort below `MIN_CONSENTS_FOR_STATS` (5) is suppressed (`null`, open and click
+separately). The UI shows no percentages and labels opens an estimate (image blockers, automatic image
+loading).
+
+*Retention and DSGVO.* `MailingTrackingRetentionPoller` (every 24 h, batched) erases click rows and
+resets the open data for messages older than 180 days; the token hash stays so old links keep
+redirecting. `CommunicationPersonalData` exports consent timestamps, the member's deliveries and
+per-link clicks (Art. 15) and deletes the click rows before the delivery log (the FK has no cascade).
+
+[[editor]]
+== Editor (V1.9.15)
+
+The compose screen uses a `contenteditable` editor (`MailingHtmlEditor`, editing commands isolated in
+`RichTextCommands`): a toolbar with nine buttons (`role="toolbar"`, roving tabindex, `aria-pressed`),
+an inline link form (https/http/mailto only), Ctrl/Cmd+B/I/K, paste as plain text only, drops refused,
+and a preview that shows the server's own render. No DOMPurify: the client normalizer
+(`MailingHtmlNormalizer`, same allowlist and renames from `MailingHtmlPolicy`) only tidies browser
+differences; `MailingHtmlSanitizer` on the server stays the authority. The server accepts at most 200
+links in total (not 200 distinct ones).

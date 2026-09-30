@@ -3,10 +3,10 @@ package network.lapis.cloud.shared.domain
 /**
  * Welle V1.9.7 "SuperMailer" -- the single, shared allowlist/limits every HTML-sanitizing pass for
  * mailing-message content is built from. Currently consumed by the server-side
- * `network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer` (jsoup); a follow-up wave's
- * client-side rich editor (DOMPurify) is meant to reuse these exact same constants rather than
- * duplicating a second, potentially-drifting allowlist -- kept in `commonMain` for that reason
- * even though only the JVM side consumes it today.
+ * `network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer` (jsoup) and, since V1.9.15, by
+ * the client-side editor's own DOM normalizer (`MailingHtmlNormalizer`, no DOMPurify -- a rejected
+ * dependency, the server sanitizer stays the authority). Both read [ALLOWED_TAGS]/[TAG_RENAMES]/
+ * [ALLOWED_HREF_SCHEMES] from here rather than duplicating a second, potentially-drifting allowlist.
  *
  * **Values are deliberately conservative** -- a newsletter body is prose (paragraphs, headings,
  * lists, a quote, links), never a page layout. No `style`/`class`/`id`, no images, no forms, no

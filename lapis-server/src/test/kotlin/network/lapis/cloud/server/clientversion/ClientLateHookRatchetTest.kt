@@ -109,6 +109,12 @@ private const val RAW_SETATTRIBUTE_MAX = 0
 /** file -> (matches, why each is fine). The FinTS PIN fields were moved to `Widget.setAttribute` (tested); the conference banners were not (no test path). */
 private val AUDITED_RAW_DOM_SET_ATTRIBUTE: Map<String, Pair<Int, String>> =
     mapOf(
+        "MailingHtmlEditor.kt" to
+            (
+                1 to
+                    "false positive: every setAttribute here is KVision's Widget.setAttribute (toolbar/textbox ARIA, tabindex, " +
+                    "aria-pressed); the raw element is only used for addEventListener wiring and focus() inside addWithLifecycle hooks"
+            ),
         "ConferenceBackgroundSection.kt" to
             (2 to "RawAttributes: the tile attributes are re-applied by an insert hook on every (re-)insert; the group is built hidden"),
         "ConferenceScreen.kt" to

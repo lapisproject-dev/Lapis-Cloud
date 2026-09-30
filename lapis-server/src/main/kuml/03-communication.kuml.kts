@@ -1,5 +1,7 @@
 // Communication domain — mailing_list/mailing_list_subscription/mailing_message/
 // mailing_delivery_log/direct_message (V4__communication.sql).
+// HINWEIS V1.9.15: Die Formulierungen unten "immer NULL / Folge-Welle" sind überholt -- Consent-Spalten, Tracking-Snapshot,
+// mailing_message_link und mailing_link_click werden seit V1.9.15 geschrieben (siehe docs/architecture/mailing-newsletter.adoc).
 //
 // This is the versioned source-of-truth *model* for the schema shape (ADR-0016), verified
 // against both the real Flyway-migrated H2 schema and the hand-written Exposed Table objects

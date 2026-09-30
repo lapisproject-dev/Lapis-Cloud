@@ -1,8 +1,10 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.CheckBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.html.Button
+import io.kvision.html.ButtonSize
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -13,14 +15,18 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
+import io.kvision.table.cell
+import io.kvision.table.row
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
+import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingListDto
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
+import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
 import network.lapis.cloud.shared.rpc.IDirectMessageService
 import network.lapis.cloud.shared.rpc.IMailingService
@@ -103,11 +109,98 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
                         if (result != null) refresh()
                     }
                 }
+                if (list.isSubscribedByCurrentMember) {
+                    lateinit var switches: TrackingConsentSwitches
+                    switches =
+                        renderTrackingConsentSwitches(panel, list) { open, click ->
+                            switches.setBusy(true)
+                            val gaveConsent =
+                                (open && list.currentMemberOpenTrackingConsentedAt == null) ||
+                                    (click && list.currentMemberClickTrackingConsentedAt == null)
+                            runGuardedAction(null) {
+                                val saved = guarded { rpcService<IMailingService>().setTrackingConsent(list.id, open, click) }
+                                if (saved != null) {
+                                    notifySuccess(if (gaveConsent) tr("Einwilligung gespeichert.") else tr("Einwilligung widerrufen."))
+                                }
+                                // Re-render from the server state either way: on success it carries the new timestamps,
+                                // on failure it puts the switches back to what is actually stored.
+                                refresh()
+                            }
+                        }
+                }
             }
         }
     }
     refresh()
     return ::refresh
+}
+
+/** The two opt-in switches under one subscribed list -- see [renderTrackingConsentSwitches]. */
+internal class TrackingConsentSwitches(
+    val form: LapisForm,
+    val openField: LapisField,
+    val clickField: LapisField,
+) {
+    /** Disables both switches while a request is running (no second change can overtake the first). */
+    fun setBusy(busy: Boolean) {
+        (openField.control as? CheckBox)?.disabled = busy
+        (clickField.control as? CheckBox)?.disabled = busy
+    }
+}
+
+/**
+ * Welle V1.9.15 "SuperMailer" Teil B/C -- the member's own, voluntary opt-in to counting: one switch for
+ * "open" (an invisible image in the mail), one for "click" (links run through this server first). Both
+ * start OFF, each is independent, and changing either reports BOTH values to [onChange] -- the server
+ * applies them in one call. Withdrawing also erases what was already counted for that list.
+ *
+ * Built with a [lapisForm] and [LapisForm.checkField] (R24B: no bare labelled `checkBox`). The switch look
+ * is Bootstrap's `form-switch` on the checkbox widget.
+ */
+internal fun renderTrackingConsentSwitches(
+    host: SimplePanel,
+    list: MailingListDto,
+    onChange: (open: Boolean, click: Boolean) -> Unit,
+): TrackingConsentSwitches {
+    val box = host.vPanel(spacing = 2) { addCssClasses("ps-3 pb-2") }
+    box.div(tr("Auswertung der Nachrichten (freiwillig)")) { addCssClasses("text-muted small fw-bold") }
+    val form = box.lapisForm()
+    val openField =
+        form.checkField(
+            label = tr("Öffnungen zählen"),
+            value = list.currentMemberOpenTrackingConsentedAt != null,
+            hint =
+                tr(
+                    "Ein unsichtbares Bild in der E-Mail meldet, dass sie geöffnet wurde. " +
+                        "Nur mit Ihrer Einwilligung, jederzeit widerrufbar.",
+                ),
+            init = { it.addCssClass("form-switch") },
+        )
+    val clickField =
+        form.checkField(
+            label = tr("Klicks zählen"),
+            value = list.currentMemberClickTrackingConsentedAt != null,
+            hint =
+                tr(
+                    "Links in der E-Mail laufen zuerst über unseren Server, der den Klick zählt. " +
+                        "Nur mit Ihrer Einwilligung, jederzeit widerrufbar.",
+                ),
+            init = { it.addCssClass("form-switch") },
+        )
+    form.finish()
+    // KVision's `subscribe` reports the CURRENT value immediately on subscription (and again on every change): only a real
+    // change against the last known state may reach [onChange], otherwise merely rendering the switches would call the server.
+    var known = (openField.value == "true") to (clickField.value == "true")
+    val emit = {
+        val now = (openField.value == "true") to (clickField.value == "true")
+        if (now != known) {
+            known = now
+            onChange(now.first, now.second)
+        }
+    }
+    openField.subscribe { emit() }
+    clickField.subscribe { emit() }
+    return TrackingConsentSwitches(form, openField, clickField)
 }
 
 /**
@@ -348,10 +441,21 @@ internal fun renderMailingListDetail(
     // ---- Nachrichten -------------------------------------------------------------------------
     detail.div(tr("Nachrichten")) { addCssClasses("fw-bold mt-2") }
     val composePanel = detail.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-    // Zwei Pflichtfelder => Fall (c): kein Stern, keine Legende.
     val composeForm = composePanel.lapisForm()
     val subjectField = composeForm.textField(label = tr("Betreff"), required = true)
-    val bodyField = composeForm.textAreaField(label = tr("Text"), rows = 4, required = true)
+    // Welle V1.9.15 Teil A: the plain textarea became the WYSIWYG editor (MailingHtmlEditor). The text is a
+    // required part of the form, but it is not a LapisField -- a cross-field rule carries the "enter a text"
+    // check into the same collective message area and focus handling every other field uses.
+    val editor =
+        MailingHtmlEditor(
+            host = composeForm.panel,
+            labelText = tr("Text"),
+            subjectProvider = { subjectField.value },
+            onEdited = { composeForm.onFieldStateChanged() },
+        )
+    composeForm.crossFieldRule(focusOn = editor.editable) {
+        if (editor.isBlank()) FieldCheck.Invalid(gettext("Bitte einen Text eingeben.")) else FieldCheck.Ok
+    }
     val draftButton = Button(tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINEPRIMARY)
     composeForm.buttons(primary = draftButton)
     // Welle V1.9.7 "SuperMailer" D4: the honesty caption only makes sense in LOG delivery mode --
@@ -382,11 +486,11 @@ internal fun renderMailingListDetail(
     draftButton.onClick {
         composeForm.submit(draftButton) {
             val subject = subjectField.value.trim()
-            val result = guarded { rpcService<IMailingService>().createDraftMessage(list.id, subject, bodyField.value.trim()) }
+            val result = guarded { rpcService<IMailingService>().createDraftMessageHtml(list.id, subject, editor.html()) }
             if (result != null) {
                 notifySuccess(gettext("Entwurf \"%1\" wurde gespeichert.", subject))
                 subjectField.reset()
-                bodyField.reset()
+                editor.clear()
                 refreshMessages()
             }
         }
@@ -432,6 +536,27 @@ private fun renderMailingMessageRow(
         row.div(gettext("Gesendet am %1", formatDateTime(sentAt))) { addCssClasses("text-muted small") }
     }
 
+    if (message.status == MailingMessageStatus.SENT) {
+        val statsHost = row.vPanel(spacing = 4)
+        statsHost.hide()
+        val statsButton =
+            row.button(tr("Statistik"), icon = "fas fa-chart-simple", style = ButtonStyle.OUTLINESECONDARY) {
+                size = ButtonSize.SMALL
+            }
+        statsButton.onClick {
+            if (statsHost.visible) {
+                statsHost.hide()
+            } else {
+                runGuardedAction(statsButton) {
+                    val stats = guarded { rpcService<IMailingService>().mailingMessageStats(message.id) } ?: return@runGuardedAction
+                    statsHost.removeAll()
+                    renderMailingStatsPanel(statsHost, stats)
+                    statsHost.show()
+                }
+            }
+        }
+    }
+
     if (message.status == MailingMessageStatus.DRAFT) {
         val sendButton = row.button(tr("Senden"), style = ButtonStyle.OUTLINEDANGER)
         sendButton.onClick {
@@ -466,6 +591,50 @@ private fun renderMailingMessageRow(
                 }
             }
         }
+    }
+}
+
+/**
+ * Welle V1.9.15 -- renders [stats] into [host]. Aggregates only: the server never sends an id, a name or a
+ * personal timestamp, and numbers below [MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS] arrive as `null`, which
+ * is shown as a plain explanation rather than a zero (a zero would claim "nobody clicked"). **No
+ * percentages**: the open count is an estimate (image blockers hide opens, some mail programs load images
+ * automatically), and a percentage of an estimate invites a precision nobody has.
+ */
+internal fun renderMailingStatsPanel(
+    host: SimplePanel,
+    stats: MailingMessageStatsDto,
+) {
+    val box = host.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
+    box.div(gettext("Zugestellt: %1", stats.delivered))
+    if (stats.retentionExpired) {
+        box.div(tr("Auswertung nach Aufbewahrungsfrist gelöscht.")) { addCssClasses("text-muted small") }
+        return
+    }
+    stats.openedAtLeastOnce?.let { opened ->
+        box.div(gettext("Geöffnet (Schätzwert): %1 von %2 mit Einwilligung", opened, stats.openCohort))
+    }
+    if (!stats.clickSuppressed && stats.links.isNotEmpty()) {
+        val table =
+            box.standardTable(
+                listOf(TableHeader(tr("Link")), TableHeader(tr("Empfänger"), numeric = true), TableHeader(tr("Klicks"), numeric = true)),
+            )
+        stats.links.forEach { link ->
+            table.row {
+                // The target URL is message content typed by a board member: never as raw widget content.
+                cell(sanitizeUntrustedI18nText(link.targetUrl)) { addCssClass("text-break") }
+                numCell((link.uniqueRecipients ?: 0).toString())
+                numCell((link.totalClicks ?: 0).toString())
+            }
+        }
+    }
+    if (stats.suppressed) {
+        box.div(gettext("Zu wenige Einwilligungen für eine Auswertung (mindestens %1).", MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS)) {
+            addCssClasses("text-muted small")
+        }
+    }
+    box.div(tr("Öffnungen sind ungenau: Bildblocker unterdrücken sie, manche Mail-Programme laden Bilder automatisch.")) {
+        addCssClasses("text-muted small")
     }
 }
 

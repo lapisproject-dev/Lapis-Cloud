@@ -26,12 +26,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
+import network.lapis.cloud.server.db.generated.MailingLinkClickTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
+import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.MailBranding
@@ -39,15 +43,21 @@ import network.lapis.cloud.server.mail.MailSendOutcome
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
+import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
+import network.lapis.cloud.server.mail.newsletter.TrackingFixture
+import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
+import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.batchInsert
@@ -79,10 +89,18 @@ class MailingServiceTest :
                         .where {
                             MailingMessageTable.mailingListId inList createdListIds
                         }.map { it[MailingMessageTable.id] }
+                val deliveryIds =
+                    MailingDeliveryLogTable
+                        .selectAll()
+                        .where { MailingDeliveryLogTable.mailingMessageId inList messageIds }
+                        .map { it[MailingDeliveryLogTable.id] }
+                MailingLinkClickTable.deleteWhere { MailingLinkClickTable.mailingDeliveryLogId inList deliveryIds }
                 MailingDeliveryLogTable.deleteWhere { MailingDeliveryLogTable.mailingMessageId inList messageIds }
+                MailingMessageLinkTable.deleteWhere { MailingMessageLinkTable.mailingMessageId inList messageIds }
                 MailingMessageTable.deleteWhere { MailingMessageTable.id inList messageIds }
                 MailingListSubscriptionTable.deleteWhere { MailingListSubscriptionTable.mailingListId inList createdListIds }
                 MailingListTable.deleteWhere { MailingListTable.id inList createdListIds }
+                AuditLogEntryTable.deleteWhere { AuditLogEntryTable.actorMemberId inList createdMemberIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
                 MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
             }
@@ -156,6 +174,8 @@ class MailingServiceTest :
                 transport = NoOpMailTransport(),
                 branding = MailBranding.notConfigured(),
                 mode = mode,
+                trackingToken = testTrackingToken(),
+                baseUrl = TEST_TRACKING_BASE_URL,
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                 sendDelay = 0.milliseconds,
             )
@@ -222,6 +242,50 @@ class MailingServiceTest :
                         }
                         get("/test/mode") {
                             call.respondText(service(call).getMailingDeliveryMode().name)
+                        }
+                        post("/test/consent") {
+                            val q = call.request.queryParameters
+                            val dto =
+                                service(call).setTrackingConsent(
+                                    mailingListId = q["listId"]!!,
+                                    openTracking = q["open"] == "true",
+                                    clickTracking = q["click"] == "true",
+                                )
+                            call.respondText(
+                                "${dto.openTrackingConsentedAt != null}|${dto.clickTrackingConsentedAt != null}|${dto.openTrackingConsentedAt}",
+                            )
+                        }
+                        get("/test/lists") {
+                            val lists = service(call).listMailingLists()
+                            call.respondText(
+                                lists.joinToString(",") {
+                                    "${it.id}:${it.currentMemberOpenTrackingConsentedAt != null}:${it.currentMemberClickTrackingConsentedAt != null}"
+                                },
+                            )
+                        }
+                        post("/test/unsubscribe") {
+                            service(call).unsubscribe(call.request.queryParameters["listId"]!!)
+                            call.respondText("OK")
+                        }
+                        post("/test/subscribe") {
+                            service(call).subscribe(call.request.queryParameters["listId"]!!)
+                            call.respondText("OK")
+                        }
+                        post("/test/admin-subscribe") {
+                            val q = call.request.queryParameters
+                            service(call).adminSubscribeMember(mailingListId = q["listId"]!!, memberId = q["memberId"]!!)
+                            call.respondText("OK")
+                        }
+                        get("/test/subscribers") {
+                            val subs = service(call).listSubscribers(call.request.queryParameters["listId"]!!)
+                            call.respondText(subs.joinToString(",") { "${it.openTrackingConsentedAt}/${it.clickTrackingConsentedAt}" })
+                        }
+                        get("/test/stats/{id}") {
+                            val dto = service(call).mailingMessageStats(call.parameters["id"]!!)
+                            call.respondText(
+                                kotlinx.serialization.json.Json
+                                    .encodeToString(MailingMessageStatsDto.serializer(), dto),
+                            )
                         }
                         post("/test/send/{id}") {
                             val dto = service(call).sendMailingMessage(call.parameters["id"]!!)
@@ -484,6 +548,8 @@ class MailingServiceTest :
                     transport = hangingTransport,
                     branding = MailBranding.notConfigured(),
                     mode = MailingDeliveryMode.SMTP,
+                    trackingToken = testTrackingToken(),
+                    baseUrl = TEST_TRACKING_BASE_URL,
                     scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                     sendDelay = 0.milliseconds,
                 )
@@ -509,12 +575,26 @@ class MailingServiceTest :
                     val subscriber = createMember(email = "rollback-${Uuid.random()}@example.org")
                     subscribe(listId = listId, memberId = subscriber)
                     val draftId =
-                        post("/test/draft?listId=$listId&subject=Betreff&body=Text") {
+                        post(
+                            "/test/draft-html?listId=$listId&subject=Betreff&bodyHtml=" +
+                                java.net.URLEncoder.encode("<p><a href=\"https://example.org/r\">r</a></p>", "UTF-8"),
+                        ) {
                             header("X-Member-Id", boardId.toString())
-                        }.bodyAsText()
+                        }.bodyAsText().substringBefore("|")
 
                     val response = post("/test/send/$draftId") { header("X-Member-Id", boardId.toString()) }
                     response.bodyAsText().let { it.startsWith("CONFLICT") } shouldBe true
+                    // V1.9.15: the frozen link rows are rolled back too, so the retry can capture them again.
+                    transaction {
+                        MailingMessageLinkTable
+                            .selectAll()
+                            .where {
+                                MailingMessageLinkTable.mailingMessageId eq
+                                    Uuid.parse(
+                                        draftId,
+                                    )
+                            }.count()
+                    } shouldBe 0
 
                     transaction {
                         MailingMessageTable
@@ -554,6 +634,310 @@ class MailingServiceTest :
                     }
                 }
                 saturatedWorker.shutdown()
+            }
+        }
+
+        // ── Welle V1.9.15: consent, link capture, stats ─────────────────────────────────────────────
+
+        fun consentOf(
+            listId: Uuid,
+            memberId: Uuid,
+        ): Pair<Boolean, Boolean> =
+            transaction {
+                val row =
+                    MailingListSubscriptionTable
+                        .selectAll()
+                        .where {
+                            (MailingListSubscriptionTable.mailingListId eq listId) and (MailingListSubscriptionTable.memberId eq memberId)
+                        }.single()
+                (row[MailingListSubscriptionTable.openTrackingConsentedAt] != null) to
+                    (row[MailingListSubscriptionTable.clickTrackingConsentedAt] != null)
+            }
+
+        fun auditCountFor(memberId: Uuid): Int =
+            transaction {
+                AuditLogEntryTable
+                    .selectAll()
+                    .where {
+                        (AuditLogEntryTable.actorMemberId eq memberId) and (AuditLogEntryTable.entityType eq AuditEntityType.MEMBER)
+                    }.count()
+                    .toInt()
+            }
+
+        test("setTrackingConsent: opt-in sets the timestamp, a repeated opt-in keeps it, withdrawal clears it") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val member = createMember(email = "consent-${Uuid.random()}@example.org")
+                subscribe(listId, member)
+                val first =
+                    post(
+                        "/test/consent?listId=$listId&open=true&click=true",
+                    ) { header("X-Member-Id", member.toString()) }.bodyAsText()
+                first.startsWith("true|true|") shouldBe true
+                val again =
+                    post(
+                        "/test/consent?listId=$listId&open=true&click=true",
+                    ) { header("X-Member-Id", member.toString()) }.bodyAsText()
+                again shouldBe first // timestamp unchanged
+                auditCountFor(member) shouldBe 1 // repeated no-op change is not audited
+                post("/test/consent?listId=$listId&open=false&click=true") { header("X-Member-Id", member.toString()) }
+                consentOf(listId, member) shouldBe (false to true)
+                post("/test/consent?listId=$listId&open=false&click=false") { header("X-Member-Id", member.toString()) }
+                consentOf(listId, member) shouldBe (false to false)
+                auditCountFor(member) shouldBe 3
+            }
+        }
+
+        test("setTrackingConsent: the audit snapshot carries no PII (list id and booleans only)") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val member = createMember(email = "audit-pii-${Uuid.random()}@example.org")
+                subscribe(listId, member)
+                post("/test/consent?listId=$listId&open=true&click=false") { header("X-Member-Id", member.toString()) }
+                val after =
+                    transaction {
+                        AuditLogEntryTable
+                            .selectAll()
+                            .where { AuditLogEntryTable.actorMemberId eq member }
+                            .single()[AuditLogEntryTable.afterSnapshot]!!
+                    }
+                after shouldContain listId.toString()
+                after shouldContain "\"openTracking\":true"
+                after shouldNotContain "audit-pii-"
+                after shouldNotContain "Mailing-Testmitglied"
+            }
+        }
+
+        test("setTrackingConsent without an active subscription is a Conflict; a non-ACTIVE member is refused") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val notSubscribed = createMember(email = "nosub-${Uuid.random()}@example.org")
+                post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", notSubscribed.toString()) }
+                    .bodyAsText()
+                    .startsWith("CONFLICT") shouldBe true
+                val guest = createMember(email = "guest-consent-${Uuid.random()}@example.org", status = MemberStatus.GUEST)
+                subscribe(listId, guest)
+                post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", guest.toString()) }
+                    .bodyAsText() shouldBe "FORBIDDEN"
+                val unsub = createMember(email = "unsub-consent-${Uuid.random()}@example.org")
+                subscribe(listId, unsub)
+                post("/test/unsubscribe?listId=$listId") { header("X-Member-Id", unsub.toString()) }
+                post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", unsub.toString()) }
+                    .bodyAsText()
+                    .startsWith("CONFLICT") shouldBe true
+            }
+        }
+
+        test("withdrawing consent erases already-collected counts of exactly that kind; unsubscribe erases both") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val member = createMember(email = "erase-${Uuid.random()}@example.org")
+                subscribe(listId, member)
+                post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", member.toString()) }
+                val fx = TrackingFixture()
+                run {
+                    val msg = fx.message(listId = listId, sentBy = boardId)
+                    fx.link(messageId = msg, index = 0, url = "https://example.org/x")
+                    val (delivery, _) = fx.delivery(messageId = msg, memberId = member, openTracked = true, clickTracked = true)
+                    network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+                        .recordClick(
+                            deliveryLogId = delivery,
+                            linkIndex = 0,
+                            now =
+                                network.lapis.cloud.server.db.DbClock
+                                    .nowLocalDateTime(),
+                        )
+                    network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+                        .recordOpen(
+                            deliveryLogId = delivery,
+                            now =
+                                network.lapis.cloud.server.db.DbClock
+                                    .nowLocalDateTime(),
+                        )
+
+                    post("/test/consent?listId=$listId&open=true&click=false") { header("X-Member-Id", member.toString()) }
+                    fx.clicksOf(delivery) shouldBe emptyMap()
+                    fx.openCountOf(delivery) shouldBe 1
+
+                    post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", member.toString()) }
+                    post("/test/unsubscribe?listId=$listId") { header("X-Member-Id", member.toString()) }
+                    fx.openCountOf(delivery) shouldBe 0
+                    consentOf(listId, member) shouldBe (false to false)
+                    val auditBefore = auditCountFor(member)
+                    // Unsubscribing again has nothing to withdraw -> no further audit entry.
+                    post("/test/unsubscribe?listId=$listId") { header("X-Member-Id", member.toString()) }
+                    auditCountFor(member) shouldBe auditBefore
+                }
+            }
+        }
+
+        test("re-subscribing starts without consent; adminSubscribeMember never sets consent; listSubscribers hides consent") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val member = createMember(email = "resub-${Uuid.random()}@example.org")
+                subscribe(listId, member)
+                post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", member.toString()) }
+                post("/test/unsubscribe?listId=$listId") { header("X-Member-Id", member.toString()) }
+                post("/test/subscribe?listId=$listId") { header("X-Member-Id", member.toString()) }
+                consentOf(listId, member) shouldBe (false to false)
+
+                val adminAdded = createMember(email = "admin-added-${Uuid.random()}@example.org")
+                post("/test/admin-subscribe?listId=$listId&memberId=$adminAdded") { header("X-Member-Id", boardId.toString()) }
+                consentOf(listId, adminAdded) shouldBe (false to false)
+
+                post("/test/consent?listId=$listId&open=true&click=true") { header("X-Member-Id", member.toString()) }
+                val subscribers = get("/test/subscribers?listId=$listId") { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                subscribers shouldBe "null/null,null/null"
+            }
+        }
+
+        test("listMailingLists exposes only the caller's own consent") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val a = createMember(email = "own-a-${Uuid.random()}@example.org")
+                val b = createMember(email = "own-b-${Uuid.random()}@example.org")
+                subscribe(listId, a)
+                subscribe(listId, b)
+                post("/test/consent?listId=$listId&open=true&click=false") { header("X-Member-Id", a.toString()) }
+                val forA = get("/test/lists") { header("X-Member-Id", a.toString()) }.bodyAsText()
+                val forB = get("/test/lists") { header("X-Member-Id", b.toString()) }.bodyAsText()
+                forA shouldContain "$listId:true:false"
+                forB shouldContain "$listId:false:false"
+            }
+        }
+
+        test("sendMailingMessage freezes the trackable links; the enqueue-failure rollback removes them again") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val subscriber = createMember(email = "links-${Uuid.random()}@example.org")
+                subscribe(listId, subscriber)
+                val html =
+                    "<p><a href=\"https://a.example/1\">a</a> <a href=\"https://b.example/2\">b</a> " +
+                        "<a href=\"https://a.example/1\">c</a></p>"
+                val draft =
+                    post("/test/draft-html?listId=$listId&subject=Betreff&bodyHtml=" + java.net.URLEncoder.encode(html, "UTF-8")) {
+                        header("X-Member-Id", boardId.toString())
+                    }.bodyAsText()
+                val messageId = Uuid.parse(draft.substringBefore("|"))
+                post("/test/send/$messageId") { header("X-Member-Id", boardId.toString()) }.bodyAsText() shouldBe "QUEUED"
+                val links =
+                    transaction {
+                        MailingMessageLinkTable
+                            .selectAll()
+                            .where { MailingMessageLinkTable.mailingMessageId eq messageId }
+                            .associate { it[MailingMessageLinkTable.linkIndex] to it[MailingMessageLinkTable.targetUrl] }
+                    }
+                links shouldBe mapOf(0 to "https://a.example/1", 1 to "https://b.example/2")
+            }
+        }
+
+        test("mailingMessageStats: BOARD only, unknown id is NotFound") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val fx = TrackingFixture()
+                val msg = fx.message(listId = listId, sentBy = boardId)
+                get("/test/stats/$msg") { header("X-Member-Id", plainMemberId.toString()) }.bodyAsText() shouldBe "FORBIDDEN"
+                get("/test/stats/${Uuid.random()}") { header("X-Member-Id", boardId.toString()) }.bodyAsText() shouldBe "NOT_FOUND"
+            }
+        }
+
+        test("mailingMessageStats: cohorts below the k-anonymity floor are suppressed, open and click separately") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val fx = TrackingFixture()
+                val msg = fx.message(listId = listId, sentBy = boardId)
+                fx.link(messageId = msg, index = 0, url = "https://example.org/x")
+                repeat(MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS - 1) {
+                    val m = createMember(email = "k-${Uuid.random()}@example.org")
+                    val (d, _) = fx.delivery(messageId = msg, memberId = m, openTracked = true, clickTracked = true)
+                    network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+                        .recordClick(
+                            deliveryLogId = d,
+                            linkIndex = 0,
+                            now =
+                                network.lapis.cloud.server.db.DbClock
+                                    .nowLocalDateTime(),
+                        )
+                }
+                val json = get("/test/stats/$msg") { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                val stats =
+                    kotlinx.serialization.json.Json
+                        .decodeFromString(MailingMessageStatsDto.serializer(), json)
+                stats.delivered shouldBe MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS - 1
+                stats.openSuppressed shouldBe true
+                stats.clickSuppressed shouldBe true
+                stats.suppressed shouldBe true
+                stats.openedAtLeastOnce shouldBe null
+                stats.links.single().uniqueRecipients shouldBe null
+                stats.links.single().totalClicks shouldBe null
+            }
+        }
+
+        test("mailingMessageStats: from 5 consents on, aggregates appear; unique recipients differ from total clicks; no ids leak") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val fx = TrackingFixture()
+                val msg = fx.message(listId = listId, sentBy = boardId)
+                fx.link(messageId = msg, index = 0, url = "https://example.org/x")
+                fx.link(messageId = msg, index = 1, url = "https://example.org/y")
+                val memberIds = mutableListOf<Uuid>()
+                repeat(MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS) { i ->
+                    val m = createMember(email = "agg-${Uuid.random()}@example.org")
+                    memberIds += m
+                    val (d, _) = fx.delivery(messageId = msg, memberId = m, openTracked = true, clickTracked = true)
+                    val now =
+                        network.lapis.cloud.server.db.DbClock
+                            .nowLocalDateTime()
+                    if (i < 3) {
+                        repeat(2) {
+                            network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+                                .recordClick(deliveryLogId = d, linkIndex = 0, now = now)
+                        }
+                        network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+                            .recordOpen(deliveryLogId = d, now = now)
+                    }
+                }
+                val json = get("/test/stats/$msg") { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                val stats =
+                    kotlinx.serialization.json.Json
+                        .decodeFromString(MailingMessageStatsDto.serializer(), json)
+                stats.suppressed shouldBe false
+                stats.openCohort shouldBe 5
+                stats.clickCohort shouldBe 5
+                stats.openedAtLeastOnce shouldBe 3
+                val link0 = stats.links.single { it.linkIndex == 0 }
+                link0.uniqueRecipients shouldBe 3
+                link0.totalClicks shouldBe 6
+                stats.links.single { it.linkIndex == 1 }.uniqueRecipients shouldBe 0
+                memberIds.forEach { json shouldNotContain it.toString() }
+                json shouldNotContain "Mailing-Testmitglied"
+                stats.retentionExpired shouldBe false
+            }
+        }
+
+        test("mailingMessageStats: retentionExpired once the retention period has passed") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val fx = TrackingFixture()
+                val old =
+                    network.lapis.cloud.server.db.DbClock
+                        .nowLocalDateTime()
+                        .let {
+                            kotlinx.datetime.LocalDateTime(
+                                it.date.minus(
+                                    kotlinx.datetime.DatePeriod(
+                                        days =
+                                            MailingHtmlPolicy.RETENTION_DAYS + 2,
+                                    ),
+                                ),
+                                it.time,
+                            )
+                        }
+                val msg = fx.message(listId = listId, sentBy = boardId, sentAt = old)
+                val json = get("/test/stats/$msg") { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                kotlinx.serialization.json.Json
+                    .decodeFromString(MailingMessageStatsDto.serializer(), json)
+                    .retentionExpired shouldBe true
             }
         }
     })

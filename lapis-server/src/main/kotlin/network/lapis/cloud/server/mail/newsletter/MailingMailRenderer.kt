@@ -4,12 +4,14 @@ import kotlinx.html.body
 import kotlinx.html.div
 import kotlinx.html.head
 import kotlinx.html.html
+import kotlinx.html.img
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
 import kotlinx.html.unsafe
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailTemplates
+import org.jsoup.Jsoup
 
 /**
  * Welle V1.9.7 "SuperMailer" Teil A -- renders a [network.lapis.cloud.shared.domain.MailingMessageDto]
@@ -18,16 +20,14 @@ import network.lapis.cloud.server.mail.MailTemplates
  * `.previewMailingHtml`) -- exactly ONE render code path for both, so a preview is never allowed to
  * drift from what actually gets sent.
  *
- * **No tracking parameter in this wave.** The design plan's [content]/[legacyBodyText] split (HTML
- * vs. plain-text drafts) is fully implemented; the plan's additional `tracking: RecipientTracking?`
- * parameter (open-pixel insertion, click-link rewriting) is deliberately NOT built here -- the
- * routes that would actually SERVE `/api/mailing/o/{token}`/`/api/mailing/c/{token}/{index}`, the
- * token generation (`MailingTrackingToken`) and the consent RPCs that would ever produce a non-null
- * tracking state are all out of scope for this wave (Teil B "Klick-Zählung"/Teil C
- * "Öffnungs-Zählung"), see CHANGELOG. Shipping a renderer branch that emits links to routes that do
- * not exist would be worse than shipping nothing -- every recipient would see a dead link/broken
- * image. The follow-up wave adds the tracking parameter, the token plumbing and the routes
- * together, in one coherent change.
+ * **Tracking (Welle V1.9.15).** The optional [RecipientTracking] parameter carries the per-recipient
+ * tracking snapshot [MailingDeliveryWorker] decided on (consent at send time): when
+ * [RecipientTracking.clickUrlFor] is set, every `http(s)` `<a href>` inside the message CONTENT that
+ * has an entry in [RecipientTracking.linkIndexByUrl] is rewritten to the signed click URL; when
+ * [RecipientTracking.pixelUrl] is set, a 1x1 open pixel is appended as the last element before the
+ * footer. `mailto:` links and unknown hrefs are never touched, the footer/unsubscribe line lives
+ * outside the content and is never rewritten, and the previews pass `tracking = null` so a preview
+ * can never contain (or mint) a tracking artifact.
  *
  * **Plain-text NEVER carries HTML markup or a tracking artifact** (S10 in the plan) -- [content]'s
  * [SanitizedMailingHtml.plainText] is derived once, by [MailingHtmlSanitizer], from the UNREWRITTEN
@@ -36,11 +36,23 @@ import network.lapis.cloud.server.mail.MailTemplates
 object MailingMailRenderer {
     private const val CONTENT_WIDTH_PX = 600
 
+    /**
+     * [clickUrlFor] is `null` unless the recipient's click-tracking snapshot is on; [pixelUrl] is
+     * `null` unless the open-tracking snapshot is on. [linkIndexByUrl] comes from the message's
+     * `mailing_message_link` rows, never from a fresh sanitize pass.
+     */
+    class RecipientTracking(
+        val clickUrlFor: ((linkIndex: Int) -> String)?,
+        val linkIndexByUrl: Map<String, Int>,
+        val pixelUrl: String?,
+    )
+
     fun render(
         subject: String,
         content: SanitizedMailingHtml?,
         legacyBodyText: String,
         branding: MailBranding,
+        tracking: RecipientTracking? = null,
     ): MailTemplates.RenderedMail {
         val plainBody = content?.plainText ?: legacyBodyText
         val footerLine = footer(branding)
@@ -56,7 +68,7 @@ object MailingMailRenderer {
                             // Content is ALWAYS SanitizedMailingHtml.html -- output of
                             // MailingHtmlSanitizer.sanitize, never raw author input (type-enforced:
                             // SanitizedMailingHtml's constructor is internal to this package).
-                            unsafe { +content.html }
+                            unsafe { +rewriteLinks(html = content.html, tracking = tracking) }
                         } else {
                             // Legacy/plain-text draft (createDraftMessage): escape via kotlinx.html's
                             // ordinary text-node API, one <p> per blank-line-separated paragraph.
@@ -64,11 +76,38 @@ object MailingMailRenderer {
                                 if (paragraph.isNotBlank()) p { +paragraph }
                             }
                         }
+                        if (content != null && tracking?.pixelUrl != null) {
+                            img {
+                                attributes["src"] = tracking.pixelUrl
+                                attributes["width"] = "1"
+                                attributes["height"] = "1"
+                                attributes["alt"] = ""
+                                attributes["style"] = "display:block;border:0;"
+                            }
+                        }
                         p { +footerLine }
                     }
                 }
             }
         return MailTemplates.RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    private fun rewriteLinks(
+        html: String,
+        tracking: RecipientTracking?,
+    ): String {
+        val clickUrlFor = tracking?.clickUrlFor ?: return html
+        val body = Jsoup.parseBodyFragment(html).body()
+        body.ownerDocument()?.outputSettings()?.prettyPrint(false)
+        var rewritten = false
+        body.select("a[href]").forEach { anchor ->
+            val index = tracking.linkIndexByUrl[anchor.attr("href")]
+            if (index != null) {
+                anchor.attr("href", clickUrlFor(index))
+                rewritten = true
+            }
+        }
+        return if (rewritten) body.html() else html
     }
 
     /** Same footer text/logic as [MailTemplates]' own private `footer` -- kept local since this renderer is not part of that object. */

@@ -153,18 +153,19 @@ class FormSubmitBodyPart3DomTest {
     @Test
     fun mailingMessage_draft_sendsSubjectAndBodyEachInItsSlot_trimmed(): Promise<Unit> =
         formTest {
-            val draft = routeOf { rpcService<IMailingService>().createDraftMessage("l", "s", "b") }
+            // V1.9.15: the compose form saves through createDraftMessageHtml, the body comes from the WYSIWYG editor.
+            val draft = routeOf { rpcService<IMailingService>().createDraftMessageHtml("l", "s", "b") }
             withFetchStub(respond = answering(routeOf { rpcService<IMemberService>().listMembers() } to membersJson(two))) { calls ->
                 mountedForm("p3-draft") { root, element ->
                     renderMailingListDetail(root, mailingList(), refreshSelfService = {})
                     element().typeInto("Betreff", "  Einladung zur Sitzung  ")
-                    element().typeInto("Text", "  Liebe Mitglieder, wir laden ein.  ")
+                    element().querySelector("[role=textbox]")!!.innerHTML = "<p>Liebe Mitglieder, wir laden ein.</p>"
                     element().buttonNamed("Als Entwurf speichern").click()
-                    awaitUntil("createDraftMessage", timeoutMs = 800) { calls.toRoute(draft).size == 1 }
+                    awaitUntil("createDraftMessageHtml", timeoutMs = 800) { calls.toRoute(draft).size == 1 }
                     val sent = calls.singleCall(draft)
                     assertEquals("list-1", sent.rpcParam(0) as String)
                     assertEquals("Einladung zur Sitzung", sent.rpcParam(1) as String, "the subject, not the body")
-                    assertEquals("Liebe Mitglieder, wir laden ein.", sent.rpcParam(2) as String, "the body, not the subject")
+                    assertEquals("<p>Liebe Mitglieder, wir laden ein.</p>", sent.rpcParam(2) as String, "the body, not the subject")
                 }
             }
         }
@@ -172,7 +173,7 @@ class FormSubmitBodyPart3DomTest {
     @Test
     fun mailingMessage_draft_withoutSubjectAndBody_sendsNothingAtAll(): Promise<Unit> =
         formTest {
-            val draft = routeOf { rpcService<IMailingService>().createDraftMessage("l", "s", "b") }
+            val draft = routeOf { rpcService<IMailingService>().createDraftMessageHtml("l", "s", "b") }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-draft-empty") { root, element ->
                     renderMailingListDetail(root, mailingList(), refreshSelfService = {})

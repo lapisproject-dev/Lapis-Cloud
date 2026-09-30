@@ -101,6 +101,12 @@ object AuditLogPersonalData : MemberPersonalDataContributor {
                                         // KDoc: never carries the password itself, neither plaintext
                                         // nor hash).
                                         put("adminPasswordAction", after.adminPasswordAction?.name)
+                                        // Welle V1.9.15 -- tracking-consent changes (list id + two booleans, no PII).
+                                        after.mailingTrackingConsent?.let { consent ->
+                                            put("mailingTrackingConsentListId", consent.mailingListId)
+                                            put("mailingTrackingOpenConsent", consent.openTracking)
+                                            put("mailingTrackingClickConsent", consent.clickTracking)
+                                        }
                                     }
                                 }
                             }

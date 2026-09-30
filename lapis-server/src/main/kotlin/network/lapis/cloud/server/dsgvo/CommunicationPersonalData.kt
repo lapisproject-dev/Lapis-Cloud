@@ -5,13 +5,17 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
+import network.lapis.cloud.server.db.generated.MailingLinkClickTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
+import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -24,6 +28,10 @@ import kotlin.uuid.Uuid
  * recipient are included, each annotated with a `direction` field, but the counterparty's
  * *other* data is never expanded — a bulk export must not become a channel to harvest a third
  * party's personal data.
+ *
+ * **Welle V1.9.15**: [MailingLinkClickTable] (per-link click counts, FK to the delivery log) is
+ * owned here and exported/erased with the deliveries. [MailingMessageLinkTable] holds only message
+ * content (target URLs), no member FK, and is deliberately NOT a covered table.
  *
  * **Erasure**: [MailingListSubscriptionTable] and [MailingDeliveryLogTable] rows have no
  * retention duty and are hard-deleted regardless of [ErasureMode]. [MailingListTable] (creator)
@@ -44,6 +52,7 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
             MailingListSubscriptionTable,
             MailingMessageTable,
             MailingDeliveryLogTable,
+            MailingLinkClickTable,
             DirectMessageTable,
         )
 
@@ -72,6 +81,51 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                                 put("mailingListId", row[MailingListSubscriptionTable.mailingListId].toString())
                                 put("subscribedAt", row[MailingListSubscriptionTable.subscribedAt].toString())
                                 put("unsubscribedAt", row[MailingListSubscriptionTable.unsubscribedAt]?.toString())
+                                put("openTrackingConsentedAt", row[MailingListSubscriptionTable.openTrackingConsentedAt]?.toString())
+                                put("clickTrackingConsentedAt", row[MailingListSubscriptionTable.clickTrackingConsentedAt]?.toString())
+                            },
+                        )
+                    }
+            }
+            // Welle V1.9.15 -- Art. 15: what was counted about this member's own deliveries (the
+            // `mailing_delivery_log` rows were never exported before this wave). Clicks are listed
+            // per link; the raw token hash is NOT exported (it is a credential surrogate, not data).
+            putJsonArray("mailingDeliveries") {
+                MailingDeliveryLogTable
+                    .selectAll()
+                    .where { MailingDeliveryLogTable.memberId eq memberId }
+                    .forEach { row ->
+                        val deliveryId = row[MailingDeliveryLogTable.id]
+                        val messageId = row[MailingDeliveryLogTable.mailingMessageId]
+                        val linkUrls =
+                            MailingMessageLinkTable
+                                .selectAll()
+                                .where { MailingMessageLinkTable.mailingMessageId eq messageId }
+                                .associate { it[MailingMessageLinkTable.linkIndex] to it[MailingMessageLinkTable.targetUrl] }
+                        add(
+                            buildJsonObject {
+                                put("messageId", messageId.toString())
+                                put("deliveryStatus", row[MailingDeliveryLogTable.deliveryStatus].name)
+                                put("deliveredAt", row[MailingDeliveryLogTable.deliveredAt].toString())
+                                put("openTracked", row[MailingDeliveryLogTable.openTracked])
+                                put("clickTracked", row[MailingDeliveryLogTable.clickTracked])
+                                put("firstOpenedAt", row[MailingDeliveryLogTable.firstOpenedAt]?.toString())
+                                put("openCount", row[MailingDeliveryLogTable.openCount])
+                                putJsonArray("clicks") {
+                                    MailingLinkClickTable
+                                        .selectAll()
+                                        .where { MailingLinkClickTable.mailingDeliveryLogId eq deliveryId }
+                                        .forEach { click ->
+                                            add(
+                                                buildJsonObject {
+                                                    put("linkIndex", click[MailingLinkClickTable.linkIndex])
+                                                    put("targetUrl", linkUrls[click[MailingLinkClickTable.linkIndex]])
+                                                    put("clickCount", click[MailingLinkClickTable.clickCount])
+                                                    put("firstClickedAt", click[MailingLinkClickTable.firstClickedAt].toString())
+                                                },
+                                            )
+                                        }
+                                }
                             },
                         )
                     }
@@ -116,6 +170,14 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
     ): List<TableErasureOutcome> {
         val listsRetained = MailingListTable.selectAll().where { MailingListTable.createdBy eq memberId }.count()
         val subscriptionsDeleted = MailingListSubscriptionTable.deleteWhere { MailingListSubscriptionTable.memberId eq memberId }
+        // Welle V1.9.15 -- click rows reference the delivery log by FK (no CASCADE by repo
+        // convention), so they MUST go first or the delivery-log delete below aborts on the FK.
+        val ownDeliveryIds =
+            MailingDeliveryLogTable
+                .select(
+                    MailingDeliveryLogTable.id,
+                ).where { MailingDeliveryLogTable.memberId eq memberId }
+        val clicksDeleted = MailingLinkClickTable.deleteWhere { mailingDeliveryLogId inSubQuery ownDeliveryIds }
         val deliveryLogDeleted = MailingDeliveryLogTable.deleteWhere { MailingDeliveryLogTable.memberId eq memberId }
         val messagesRetained = MailingMessageTable.selectAll().where { MailingMessageTable.sentBy eq memberId }.count()
 
@@ -141,6 +203,7 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                 rowsRetained = messagesRetained.toInt(),
                 retentionReason = "Von anderen Mitgliedern empfangene Organisationskommunikation",
             ),
+            TableErasureOutcome(table = "mailing_link_click", rowsDeleted = clicksDeleted),
             TableErasureOutcome(table = "mailing_delivery_log", rowsDeleted = deliveryLogDeleted),
             TableErasureOutcome(
                 table = "direct_message",

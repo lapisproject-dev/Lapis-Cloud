@@ -35,6 +35,8 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
+import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
+import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
@@ -448,6 +450,8 @@ private fun Route.registerDeniedMailingTestRoutes() {
             transport = NoOpMailTransport(),
             branding = MailBranding.notConfigured(),
             mode = MailingDeliveryMode.LOG,
+            trackingToken = testTrackingToken(),
+            baseUrl = TEST_TRACKING_BASE_URL,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
         )
 

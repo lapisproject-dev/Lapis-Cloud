@@ -12,11 +12,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
+import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailSendOutcome
-import network.lapis.cloud.server.mail.MailTemplates
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.mail.maskEmailForLogging
@@ -79,6 +79,9 @@ class MailingDeliveryWorker(
     private val transport: MailTransport,
     private val branding: MailBranding,
     private val mode: MailingDeliveryMode,
+    private val trackingToken: MailingTrackingToken,
+    /** Public base URL (no trailing slash) the click/open tracking URLs are built from. */
+    private val baseUrl: String,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     private val perSendTimeout: Duration = DEFAULT_PER_SEND_TIMEOUT,
     private val sendDelay: Duration = DEFAULT_SEND_DELAY,
@@ -160,19 +163,23 @@ class MailingDeliveryWorker(
             logger.error { "processMessage: mailing message $messageId no longer exists, skipping" }
             return
         }
-        val (renderedMail, pendingRows) = plan
 
         var anySent = false
-        for ((deliveryLogId, memberId) in pendingRows) {
+        for ((deliveryLogId, memberId) in plan.pendingRows) {
             try {
-                val email =
-                    transaction {
-                        MemberTable
-                            .selectAll()
-                            .where { MemberTable.id eq memberId }
-                            .singleOrNull()
-                            ?.get(MemberTable.email)
-                    }
+                // Welle V1.9.15 -- ONE render per recipient: the tracking snapshot (consent at send
+                // time) is decided and persisted here, in its own small transaction, BEFORE the mail
+                // is rendered and sent. The nonce inside the URLs exists only in memory from here on.
+                val recipient = prepareRecipient(plan = plan, deliveryLogId = deliveryLogId, memberId = memberId)
+                val email = recipient.email
+                val renderedMail =
+                    MailingMailRenderer.render(
+                        subject = plan.subject,
+                        content = plan.sanitized,
+                        legacyBodyText = plan.legacyBodyText,
+                        branding = branding,
+                        tracking = recipient.tracking,
+                    )
                 val outcomeStatus =
                     if (email == null || !isValidMailboxAddress(email)) {
                         DeliveryStatus.SKIPPED_NO_ADDRESS
@@ -242,9 +249,19 @@ class MailingDeliveryWorker(
         val memberId: Uuid,
     )
 
+    /** Message-level send plan -- everything that does NOT depend on the individual recipient. */
     private data class SendPlan(
-        val renderedMail: MailTemplates.RenderedMail,
+        val subject: String,
+        val sanitized: SanitizedMailingHtml?,
+        val legacyBodyText: String,
+        val listId: Uuid,
+        val linkIndexByUrl: Map<String, Int>,
         val pendingRows: List<PendingRow>,
+    )
+
+    private data class RecipientContext(
+        val email: String?,
+        val tracking: MailingMailRenderer.RecipientTracking?,
     )
 
     private fun loadSendPlan(messageId: Uuid): SendPlan? =
@@ -252,13 +269,6 @@ class MailingDeliveryWorker(
             val message =
                 MailingMessageTable.selectAll().where { MailingMessageTable.id eq messageId }.singleOrNull() ?: return@transaction null
             val sanitized = message[MailingMessageTable.bodyHtml]?.let { MailingHtmlSanitizer.sanitize(it) }
-            val rendered =
-                MailingMailRenderer.render(
-                    subject = message[MailingMessageTable.subject],
-                    content = sanitized,
-                    legacyBodyText = message[MailingMessageTable.bodyText],
-                    branding = branding,
-                )
             val pending =
                 MailingDeliveryLogTable
                     .selectAll()
@@ -268,7 +278,69 @@ class MailingDeliveryWorker(
                     }.map { row ->
                         PendingRow(deliveryLogId = row[MailingDeliveryLogTable.id], memberId = row[MailingDeliveryLogTable.memberId])
                     }
-            SendPlan(renderedMail = rendered, pendingRows = pending)
+            SendPlan(
+                subject = message[MailingMessageTable.subject],
+                sanitized = sanitized,
+                legacyBodyText = message[MailingMessageTable.bodyText],
+                listId = message[MailingMessageTable.mailingListId],
+                linkIndexByUrl = if (sanitized != null) MailingTrackingData.linkIndexByUrl(messageId) else emptyMap(),
+                pendingRows = pending,
+            )
+        }
+
+    /**
+     * Reads the recipient's address and CURRENT tracking consent, and -- when at least one consent
+     * exists, the message is an HTML message and the address is valid -- mints a token, persists
+     * `tracking_token_hash` plus the `open_tracked`/`click_tracked` SNAPSHOT on the delivery row and
+     * builds the per-recipient [MailingMailRenderer.RecipientTracking]. Plain-text messages are
+     * never tracked (no HTML to carry a pixel or links).
+     */
+    private fun prepareRecipient(
+        plan: SendPlan,
+        deliveryLogId: Uuid,
+        memberId: Uuid,
+    ): RecipientContext =
+        transaction {
+            val email =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq memberId }
+                    .singleOrNull()
+                    ?.get(MemberTable.email)
+            if (email == null || !isValidMailboxAddress(email) || plan.sanitized == null) {
+                return@transaction RecipientContext(email = email, tracking = null)
+            }
+            val subscription =
+                MailingListSubscriptionTable
+                    .selectAll()
+                    .where {
+                        (MailingListSubscriptionTable.mailingListId eq plan.listId) and
+                            (MailingListSubscriptionTable.memberId eq memberId)
+                    }.singleOrNull()
+            val clickTracked = subscription?.get(MailingListSubscriptionTable.clickTrackingConsentedAt) != null
+            val openTracked = subscription?.get(MailingListSubscriptionTable.openTrackingConsentedAt) != null
+            if (!clickTracked && !openTracked) return@transaction RecipientContext(email = email, tracking = null)
+
+            val issued = trackingToken.issue()
+            MailingDeliveryLogTable.update({ MailingDeliveryLogTable.id eq deliveryLogId }) {
+                it[trackingTokenHash] = issued.hashHex
+                it[MailingDeliveryLogTable.openTracked] = openTracked
+                it[MailingDeliveryLogTable.clickTracked] = clickTracked
+            }
+            RecipientContext(
+                email = email,
+                tracking =
+                    MailingMailRenderer.RecipientTracking(
+                        clickUrlFor =
+                            if (clickTracked) {
+                                { index -> "$baseUrl/m/c/${trackingToken.clickToken(nonce = issued.nonce, linkIndex = index)}" }
+                            } else {
+                                null
+                            },
+                        linkIndexByUrl = plan.linkIndexByUrl,
+                        pixelUrl = if (openTracked) "$baseUrl/m/o/${trackingToken.openToken(issued.nonce)}.gif" else null,
+                    ),
+            )
         }
 
     /**

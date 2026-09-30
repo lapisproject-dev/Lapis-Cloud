@@ -781,6 +781,14 @@ multi-thousand-recipient send, confirm the provider's limit and raise this value
 5000-recipient send at the 250ms default takes a little over 20 minutes end to end; a much smaller
 delay risks the relay throttling or blocking the connection mid-send).
 
+`LAPIS_MAILING_TRACKING_KEY` (V1.9.15) -- base64 HMAC key (at least 32 bytes, not all-zero/all-ones;
+generate with `openssl rand -base64 32`) that signs the opt-in click/open tracking links. **Mandatory
+when `LAPIS_MAILING_DELIVERY=smtp`**: an instance already running in `smtp` mode will NOT start after the
+upgrade until this variable is set (fail-fast, same posture as above) -- add it to the instance's `.env`
+before deploying. In `log` mode a missing key falls back to an ephemeral key (links do not survive a
+restart; nothing leaves the server in that mode anyway). **Keep the key stable**: rotating it invalidates
+every already-sent tracking link (they answer 404). The key is never logged.
+
 == White-Label-Branding (optional)
 
 `LAPIS_BRAND_TITLE`, `LAPIS_BRAND_LOGO_PATH` -- **both optional, independent of each other**

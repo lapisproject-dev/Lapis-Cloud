@@ -119,6 +119,9 @@ import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryConfig
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
+import network.lapis.cloud.server.mail.newsletter.MailingTrackingConfig
+import network.lapis.cloud.server.mail.newsletter.MailingTrackingRetentionPoller
+import network.lapis.cloud.server.mail.newsletter.MailingTrackingToken
 import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.mcp.config.McpStartupCheck
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
@@ -172,6 +175,7 @@ import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
 import network.lapis.cloud.server.routes.registerLegalRoutes
+import network.lapis.cloud.server.routes.registerMailingTrackingRoutes
 import network.lapis.cloud.server.routes.registerMailmergeRoutes
 import network.lapis.cloud.server.routes.registerMcpRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
@@ -648,11 +652,16 @@ internal fun Application.module(
             "${MailingDeliveryConfig.ENV_KEY}=smtp requires real SMTP configuration (LAPIS_SMTP_*) -- none is set.",
         )
     }
+    // Welle V1.9.15 -- HMAC key for click/open tracking tokens. Fail-fast in smtp mode without a
+    // valid LAPIS_MAILING_TRACKING_KEY (MailingTrackingConfig); LOG mode falls back to an ephemeral key.
+    val mailingTrackingToken = MailingTrackingToken(MailingTrackingConfig.loadKey(mode = mailingDeliveryMode))
     val mailingDeliveryWorker =
         MailingDeliveryWorker(
             transport = mailTransport,
             branding = mailBranding,
             mode = mailingDeliveryMode,
+            trackingToken = mailingTrackingToken,
+            baseUrl = mailBranding.publicBaseUrl.trimEnd('/'),
             sendDelay = MailingDeliveryConfig.loadSendDelay(),
         )
     // D2 (plan) -- close out anything an earlier process instance left mid-send BEFORE this
@@ -1043,6 +1052,16 @@ internal fun Application.module(
     val carpoolRetentionPoller = CarpoolRetentionPoller()
     carpoolRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolRetentionPoller.stop() }
+
+    // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
+    val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
+    mailingTrackingRetentionPoller.start()
+    monitor.subscribe(ApplicationStopping) { mailingTrackingRetentionPoller.stop() }
+
+    // Welle V1.9.15 -- public tracking endpoints: click budget per IP, and a higher pixel budget
+    // because image proxies (Gmail, Apple Mail Privacy Protection) bundle many recipients behind few IPs.
+    val mailingClickRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes, maxTrackedKeys = 50_000)
+    val mailingPixelRateLimiter = FederationInboxRateLimiter(maxRequests = 600, window = 1.minutes, maxTrackedKeys = 50_000)
 
     // Welle V1.4.5.2 "DATEV-Format-Export" -- own instance, same budget shape as
     // dunningPreviewRateLimiter/dunningIssueRateLimiter, because the raw Ktor download route and
@@ -2103,6 +2122,13 @@ internal fun Application.module(
             brandTitle = resolvedBranding.title,
             pageRateLimiter = memberCardPublicPageRateLimiter,
             codeFailureLimiter = memberCardCodeFailureLimiter,
+        )
+        // Welle V1.9.15 "SuperMailer" -- literal routes (/m/c/*, /m/o/*), same reasoning.
+        registerMailingTrackingRoutes(
+            trackingToken = mailingTrackingToken,
+            clickRateLimiter = mailingClickRateLimiter,
+            pixelRateLimiter = mailingPixelRateLimiter,
+            brandTitle = resolvedBranding.title,
         )
         // Welle V1.4.3.1 "Veranstaltungen" -- literal routes (/veranstaltung/*), same "registered
         // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.

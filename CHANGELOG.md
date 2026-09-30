@@ -6,6 +6,42 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **V1.9.15 — SuperMailer follow-up: opt-in click/open tracking, consent, statistics, retention,
+  DSGVO, WYSIWYG editor.**
+  - **Editor (Teil A)**: the compose screen's textarea is replaced by a `contenteditable` editor
+    (`MailingHtmlEditor`, toolbar with nine buttons, inline link form, preview of the server render).
+    Decision: **no DOMPurify and no new npm dependency** -- paste is plain text only, a small DOM
+    normalizer tidies engine differences, and the server sanitizer remains the authority. The server
+    sanitizer already mapped `b/i/div` to `strong/em/p`; unchanged. `createDraftMessageHtml` is now used
+    by the UI.
+  - **Tracking (Teil B/C)**: per-list, per-member opt-in (`IMailingService.setTrackingConsent`), default
+    off. Click URLs `/m/c/{token}` (302 to a target read only from `mailing_message_link`) and an open
+    pixel `/m/o/{token}.gif`, HMAC-signed tokens whose nonce is never stored (only its SHA-256). The
+    consent snapshot is taken per delivery at send time and re-checked on every hit. HEAD requests
+    (link scanners) never count. Per-IP rate limits (click 120/min, pixel 600/min). Plain text, footer
+    and `mailto:` links are never rewritten.
+  - **Statistics**: `mailingMessageStats` (Board/Admin), aggregates only, minimum cohort 5 (open and
+    click suppressed separately), "Statistik" panel on sent messages, no percentages.
+  - **Retention and DSGVO**: a 24-hourly poller erases raw events after 180 days. Withdrawing consent
+    or unsubscribing erases the member's already-collected data of that kind. The Art. 15 export now
+    includes consent timestamps, the member's delivery rows and clicks per link (deliveries were not
+    exported before); erasure deletes click rows before the delivery log (FK without cascade).
+  - **New environment variable `LAPIS_MAILING_TRACKING_KEY`** (base64, at least 32 bytes, not all-zero/
+    all-ones). **Required when `LAPIS_MAILING_DELIVERY=smtp` -- a running smtp instance will not start
+    without it after this upgrade.** Keep it stable: rotation makes all already-sent tracking links 404.
+    In `log` mode a missing key falls back to an ephemeral one.
+  - Audit: consent changes are logged as `AuditEntityType.MEMBER` (list id and booleans, no PII) via a
+    new optional field of `MemberChangeSnapshot` -- no new entity type, therefore **no migration**.
+  - Catalogs: 32 new msgids in all seven languages; the source references of the catalogs were
+    regenerated (`scripts/i18n/regenerate-source-refs.mjs`), which also refreshed stale references.
+  - Not done / deviations: already saved drafts are not editable (no update RPC); the 200-link limit
+    counts all links, not distinct ones; the public 404/429 page of the click route is German only
+    (like all public server pages); `db/generated` KDoc still says the tracking columns are "always NULL"
+    until regenerated; Datenschutzerklaerung/footer notice for the new counting is left to each
+    organization (open question).
+
 ## [0.25.0] — 2026-09-29
 
 ### Fixed
