@@ -860,7 +860,7 @@ internal fun renderRecordReturnForm(
     val batchField = form.selectField(label = tr("Lauf"), options = emptyList(), value = null, required = true)
     val itemPlaceholder = listOf("" to tr("-- Position wählen --"))
     val itemField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Position"),
             options = itemPlaceholder,
             value = "",
@@ -961,7 +961,7 @@ internal fun renderRecordReturnForm(
         batchId: String?,
         preselectFirst: Boolean = true,
     ) {
-        (itemField.control as Select).options = itemPlaceholder
+        (itemField.control as SearchableSelect).options = itemPlaceholder
         itemField.setValue("")
         itemField.validate(force = false)
         if (batchId.isNullOrBlank()) return
@@ -972,7 +972,7 @@ internal fun renderRecordReturnForm(
             val returnable = detail.items.filter { it.status in setOf(SepaDebitItemStatus.PENDING, SepaDebitItemStatus.SETTLEABLE) }
             // Mit Platzhalter (`""`): ohne ihn zeigte ein leerer Wert (nach einer erfassten Rücklastschrift) im <select> trotzdem die
             // erste Position, obwohl das Feld leer ist.
-            (itemField.control as Select).options =
+            (itemField.control as SearchableSelect).options =
                 itemPlaceholder +
                 returnable.map { item -> item.id to gettext("%1 -- %2", item.memberDisplayName, formatMoney(item.amount)) }
             itemField.setValue(if (preselectFirst) returnable.firstOrNull()?.id ?: "" else "")

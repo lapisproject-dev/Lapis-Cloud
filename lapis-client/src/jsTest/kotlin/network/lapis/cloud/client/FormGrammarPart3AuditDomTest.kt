@@ -150,7 +150,7 @@ class FormGrammarPart3AuditDomTest {
             mountedForm("p3a-return") { root, element ->
                 renderRecordReturnForm(root) {}
                 awaitUntil("the first item is preselected", timeoutMs = 1500) {
-                    (element().controlOf("Position") as HTMLSelectElement).value == "i1"
+                    element().comboValue("Position") == "i1"
                 }
                 block(record, calls, element)
             }
@@ -237,7 +237,7 @@ class FormGrammarPart3AuditDomTest {
 
                 assertEquals(
                     "",
-                    (element().controlOf("Position") as HTMLSelectElement).value,
+                    element().comboValue("Position"),
                     "no item is pre-selected: the placeholder shows",
                 )
                 assertEquals(

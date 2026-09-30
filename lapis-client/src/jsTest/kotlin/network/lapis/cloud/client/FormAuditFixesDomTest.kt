@@ -25,7 +25,6 @@ import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMemberService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
@@ -222,16 +221,11 @@ class FormAuditFixesDomTest {
             ) { calls ->
                 mountedForm("audit-communication-member") { root, element ->
                     renderMailingListDetail(root, mailingList(), refreshSelfService = {})
-                    val select = element().controlOf("Mitglied") as HTMLSelectElement
-                    awaitUntil("the members are loaded", timeoutMs = 800) { select.options.length == 3 }
-                    assertEquals("", select.value, "nothing is preselected: the empty placeholder stands")
-                    assertEquals(
-                        "— bitte wählen —",
-                        select.options
-                            .item(0)
-                            ?.textContent
-                            ?.trim(),
-                    )
+                    val combobox = element().controlOf("Mitglied") as HTMLInputElement
+                    awaitUntil("the members are loaded", timeoutMs = 800) { element().comboOptionIds("Mitglied").size == 3 }
+                    assertEquals("", combobox.value, "nothing is preselected: the empty placeholder stands")
+                    assertEquals("— bitte wählen —", combobox.getAttribute("placeholder"))
+                    assertEquals("", element().comboOptionIds("Mitglied").first(), "the placeholder entry is the pinned none entry")
                     val before = calls.rpcCount
 
                     element().buttonNamed("Hinzufügen").click()

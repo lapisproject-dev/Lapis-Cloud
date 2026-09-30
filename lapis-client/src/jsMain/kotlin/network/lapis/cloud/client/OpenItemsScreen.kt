@@ -1349,15 +1349,19 @@ internal fun renderOpenItemCreateForm(
     // 403-Toast (K3-Verwandter), deshalb nur für [OpenItemAuthzUi.canLinkCrmContact].
     val crmField =
         if (OpenItemAuthzUi.canLinkCrmContact(role)) {
-            form.selectField(label = tr("CRM-Kontakt"), options = listOf("" to tr("(kein CRM-Kontakt)")), value = "")
+            form.searchableSelectField(label = tr("CRM-Kontakt"), options = listOf("" to tr("(kein CRM-Kontakt)")), value = "")
         } else {
             null
         }
     if (crmField != null) {
         AppScope.launch {
             val page = guarded { rpcService<ICrmService>().listContacts(limit = CRM_CONTACT_LIMIT) } ?: return@launch
-            (crmField.control as Select).options =
-                listOf("" to tr("(kein CRM-Kontakt)")) + untrustedOptions(page.items.map { it.id to it.displayName })
+            val crmSelect = crmField.control as SearchableSelect
+            crmSelect.options = listOf("" to tr("(kein CRM-Kontakt)")) + untrustedOptions(page.items.map { it.id to it.displayName })
+            // Honest about the cap: the search only covers the contacts that were actually loaded.
+            if (page.total > page.items.size) {
+                crmSelect.listNote = gettext("Nur die ersten %1 von %2 Kontakten geladen.", page.items.size, page.total)
+            }
         }
     }
 

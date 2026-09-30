@@ -53,7 +53,6 @@ import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.ISepaService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
-import org.w3c.dom.HTMLSelectElement
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -483,8 +482,7 @@ class FormSubmitBodyPart3FinanceDomTest {
                 mountedForm("p3b-return") { root, element ->
                     renderRecordReturnForm(root) {}
                     awaitUntil("the item options load", timeoutMs = 1500) {
-                        (element().controlOf("Position") as HTMLSelectElement).value ==
-                            "i-a"
+                        (element().controlOf("Position") as HTMLInputElement).value.startsWith("Anna")
                     }
                     element().chooseIn("Position", "i-b")
                     element().typeInto("Rücklastschrift-Datum", "2026-02-11")
@@ -854,8 +852,7 @@ class FormSubmitBodyPart3FinanceDomTest {
                     // The external donor: its own id and ITS category (from the donor record), no member id.
                     element().chooseIn("Spendertyp", "EXTERNAL")
                     awaitUntil("the external donor panel shows", timeoutMs = 1500) {
-                        element().querySelector("select option[value='x-1']") !=
-                            null
+                        "x-1" in element().comboOptionIds("Externer Spender")
                     }
                     element().chooseIn("Externer Spender", "x-1")
                     element().buttonNamed("Als Spende zuordnen").click()

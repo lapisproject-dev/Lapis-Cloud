@@ -848,8 +848,15 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * "Betrifft" select -- six labelled choice fields, none of them justified filters (each genuinely feeds the series
  * create/edit RPC call, unlike the accepted status-filter exceptions above). Only ever
  * lowered.
+ *
+ * 69 after Welle V1.9.16 "Durchsuchbare Personenauswahl": eight labelled `select(` calls that chose a PERSON (`LtrLedgerScreen` x5,
+ * `PriceOracleScreen`, `MemberHonorsScreen`, the stream-participant choice in `ConferenceScreen`) became `searchableSelect(`
+ * calls (`SearchableSelect.kt`). HONEST COVERAGE NOTE: [SELECT_CALL]'s `(?<![A-Za-z0-9_])` guard means `searchableSelect(` and
+ * `searchableSelectField(` are NOT counted -- the count dropped because those fields left the scanner's view, not because
+ * they became form fields. `selectField(`/`searchableSelectField(` were never counted (they ARE the grammar). The person pickers
+ * that stay plain selects are policed by [ClientPersonSelectTripwireTest] instead. Only ever lowered.
  */
-private const val R24B_REMAINING_MAX = 77
+private const val R24B_REMAINING_MAX = 69
 
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())

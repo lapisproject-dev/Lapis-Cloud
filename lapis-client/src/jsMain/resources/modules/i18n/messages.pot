@@ -8,6 +8,9 @@ msgstr ""
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
 msgstr ""
 
+msgid "%1 von %2 angezeigt – weitertippen, um einzugrenzen."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:129
 msgid "%1 wurde mit Keycloak verknüpft."
 msgstr ""
@@ -26,6 +29,9 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:177
 msgid "Als Standard setzen"
+msgstr ""
+
+msgid "Auswahl leeren"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:142
@@ -163,8 +169,14 @@ msgstr ""
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr ""
 
+msgid "Nach Name filtern"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:274
 msgid "Neu anmelden …"
+msgstr ""
+
+msgid "Nur die ersten %1 von %2 Kontakten geladen."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:453
@@ -177,6 +189,9 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:181
 msgid "Standardkonto gesetzt."
+msgstr ""
+
+msgid "Suche leeren"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:467
@@ -732,8 +747,14 @@ msgstr ""
 msgid "Telefon: %1"
 msgstr ""
 
+msgid "Tippen zum Suchen"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:43
 msgid "Treffen"
+msgstr ""
+
+msgid "Treffer: %1"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupHttp.kt:137
@@ -788,6 +809,9 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:46
 msgid "VR-Bank"
+msgstr ""
+
+msgid "Vorschläge anzeigen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:99

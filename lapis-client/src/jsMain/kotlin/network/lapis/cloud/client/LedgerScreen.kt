@@ -1792,7 +1792,7 @@ internal fun renderNewEntryForm(
     // Legende "* Pflichtfeld" wie "freiwillig", obwohl es das Absenden blockiert.
     val donorRequiredHint = tr("Pflichtangabe für diesen Spendertyp.")
     val memberField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Mitglied"),
             options = untrustedOptions(members.map { it.id to it.displayName }),
             hint = donorRequiredHint,
@@ -1814,7 +1814,7 @@ internal fun renderNewEntryForm(
 
     val externalPanel = panel.vPanel(spacing = 4)
     val externalField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Externer Spender"),
             options = untrustedOptions(externalDonors.map { it.id to it.displayName }),
             hint = donorRequiredHint,

@@ -1643,6 +1643,54 @@ rises above its ledgered value, exactly like `Money.kt`'s `MOTIONS_SCREEN_LEDGER
 closing route 1 (optional, Teilwelle B's Commit 6, not done in this wave except as noted) would lower these numbers
 file by file, `ReportRows.kt` excepted.
 
+== Searchable person select and list filter (V1.9.16)
+
+A native `<select>` with hundreds of members is unusable, so every PERSON picker is a `SearchableSelect`
+(`SearchableSelect.kt`) and every fully loaded list of people has a name filter (`ListFilter.kt`). Matching is shared
+(`SearchFilter.kt`): case- and diacritic-insensitive ("muller" and "mueller" both find "Müller"), every word of the query
+must occur in any order, word-start matches rank first, the query is never compiled into a regular expression.
+
+=== SearchableSelect
+
+* It IS a `Text` control (an ARIA combobox), so it goes through the normal form grammar: `searchableSelectField(...)` next
+  to `textField`/`selectField`, or `Container.searchableSelect(...)` outside a form. Hint, error slot, `aria-required`,
+  `aria-invalid`, blur validation, `LapisField.setValue/reset/subscribe` work unchanged.
+* `value` is always the `id` of an entry that was really offered, never free text. Typing only searches; leaving the field
+  (blur, Tab without arrowing to an entry, Esc Esc) restores the previous selection. A choice from the list raises a real
+  bubbling `change` event, because `LapisField` and `crossFieldRule(watch = ...)` listen for it.
+* Options are `(id, label)` pairs like KVision's `Select`. A pair with id `""` is the pinned "none" entry (shown only for an
+  empty query, label resolved through `resolvedAttributeText`). All other labels are untrusted and are run through
+  `sanitizeUntrustedI18nText` by the widget itself (idempotent: the `untrustedOptions(...)` wrapper at the call sites stays,
+  it keeps `ClientUntrustedWidgetTextTripwireTest` honest). They are rendered only as plain widget text.
+* At most 50 entries are rendered; the dropdown says how many more match. `listNote` adds a standing remark, e.g. when a
+  server cap means only part of the people were loaded (CRM contacts on the open-items form).
+* Keyboard: focus selects the text and does not open the list; click, Arrow Down/Up, Alt+Arrow Down or typing open it; the
+  first match is active; arrows do not wrap; Enter picks; Esc closes, a second Esc restores (a third reaches the surrounding
+  modal); Tab picks only an entry the user moved to with the arrows. The dropdown never takes focus (`mousedown` on list and
+  buttons is swallowed), so a click on an entry is not a blur and cannot trigger a premature validation.
+* Layout is pure CSS (`.lapis-ssel*` in `theme.css`, tokens only): dropdown and the two icon buttons live in a zero-height
+  layer directly below the `<input>` (flex `order`), z-index 1060 above Bootstrap modals, opens upwards when there is less
+  than 200 px below. No global listeners and no insert/destroy hooks (`ClientLateHookRatchetTest` is unaffected).
+
+=== ListFilter
+
+`listFilterField()` builds a labelled filter with a clear button and a live "3 von 12" count; the screen renders through
+`filter.apply(items, nameOf = ...)` and re-renders from `filter.subscribe { ... }`. The filter owns the text, so it survives a
+reload of the list. The roster keeps the screen's own order. **Only for lists that are loaded completely**: a filter over
+a page-wise loaded list would "not find" people on later pages -- those need a server-side search.
+
+=== Enforcement and exceptions
+
+`ClientPersonSelectTripwireTest` fails on a plain `select(`/`selectField(` built from person-name fields (heuristic, recall
+limits stated in its KDoc). Its ledger lists the deliberate exceptions and may only shrink. `R24B_REMAINING_MAX` dropped from 77
+to 69 because eight person selects left the scanner's view (`searchableSelect(` is not matched by R24B's `SELECT_CALL`;
+that blind spot is stated, not hidden).
+
+Person lists WITHOUT a new client filter, with the reason: `CrmContactsScreen` and `OpenItemsScreen` (page-wise loading),
+`MemberAdministrationScreen` (server-side search exists), `MemberFamiliesScreen.memberPicker` (server search, limit 20 -- a plain
+select on purpose; only its missing sanitising was fixed), `SepaMandatesScreen`, `MemberHonorsScreen`, `DonorsScreen`,
+`MemberAnniversariesScreen`, `ChapterRosterScreen`, `EventCheckInScreen` (already have a search field).
+
 == Known gaps
 
 * W6b security round 5: the bare in-builder-lambda `content = dtoField.field` assignment shape (no receiver

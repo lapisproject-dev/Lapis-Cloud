@@ -1935,6 +1935,86 @@ html .form-select.is-invalid:focus {
 }
 .lapis-mailing-plaintext { white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Durchsuchbare Personenauswahl (SearchableSelect.kt). Aufbau: der Feld-Wrapper ist eine Flex-Spalte, damit Dropdown und Knoepfe
+   (`.lapis-ssel-layer`, Hoehe 0) per `order` DIREKT unter dem <input> liegen -- vor Hinweis- und Fehlerslot, obwohl sie im DOM
+   spaeter montiert werden. Nichts wird per JavaScript vermessen; der Dropdown klappt bei zu wenig Platz nach oben
+   (`.lapis-ssel-layer--up`). Nur Tokens, keine Farbliterale, keine Transition (Tripwire R11/R54). */
+.lapis-ssel {
+  --lapis-ssel-h: calc(1.5em + .75rem + 2px);
+  display: flex;
+  flex-direction: column;
+}
+.lapis-ssel > .lapis-ssel-layer { order: 2; }
+.lapis-ssel > .form-text,
+.lapis-ssel > .invalid-feedback { order: 3; }
+.lapis-ssel .form-control { padding-right: 4.75rem; }
+.lapis-ssel-layer {
+  height: 0;
+  position: relative;
+}
+.lapis-ssel-actions {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  height: var(--lapis-ssel-h);
+  position: absolute;
+  right: .25rem;
+}
+.lapis-ssel-button {
+  color: var(--lapis-muted);
+  padding: .25rem .5rem;
+}
+.lapis-ssel-button:hover { color: var(--lapis-text); }
+.lapis-ssel-dropdown {
+  background: var(--lapis-surface);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: .375rem;
+  box-shadow: 0 .25rem .75rem var(--lapis-border-strong);
+  left: 0;
+  max-height: min(18rem, 50vh);
+  overflow-y: auto;
+  position: absolute;
+  right: 0;
+  top: 2px;
+  z-index: 1060;
+}
+.lapis-ssel-layer--up .lapis-ssel-dropdown {
+  bottom: calc(var(--lapis-ssel-h) + 2px);
+  top: auto;
+}
+.lapis-ssel-list {
+  list-style: none;
+  margin: 0;
+  padding: .25rem 0;
+}
+.lapis-ssel-option {
+  align-items: baseline;
+  color: var(--lapis-text);
+  cursor: pointer;
+  display: flex;
+  gap: .5rem;
+  overflow-wrap: anywhere;
+  padding: .375rem .75rem;
+}
+.lapis-ssel-option:hover,
+.lapis-ssel-option--active {
+  background: var(--lapis-accent-soft);
+}
+.lapis-ssel-option[aria-selected="true"] {
+  color: var(--lapis-accent-strong);
+  font-weight: 600;
+}
+.lapis-ssel-hint {
+  border-top: 1px solid var(--lapis-border);
+  padding: .375rem .75rem;
+}
+.lapis-ssel-hint:empty { display: none; }
+@media (pointer: coarse) {
+  .lapis-ssel { --lapis-ssel-h: 44px; }
+  .lapis-ssel-option { min-height: 44px; }
+  .lapis-ssel-button { min-height: 44px; min-width: 44px; }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau). Wer eine neue Transition ergaenzt,
    ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

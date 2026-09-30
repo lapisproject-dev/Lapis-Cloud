@@ -12,6 +12,8 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import kotlin.js.Promise
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -104,9 +106,63 @@ internal fun HTMLElement.chooseIn(
     value: String,
     nth: Int = 0,
 ) {
-    val select = controlOf(label, nth) as HTMLSelectElement
+    val control = controlOf(label, nth)
+    if (control is HTMLInputElement && control.getAttribute("role") == "combobox") {
+        chooseInCombobox(control, value)
+        return
+    }
+    val select = control as HTMLSelectElement
     select.value = value
     select.dispatchEvent(Event("change"))
+}
+
+/**
+ * The ids of the entries a [SearchableSelect] offers right now (the none entry `""` included), read by opening its list and
+ * closing it again with Esc. For tests that wait for options that arrive asynchronously.
+ */
+internal fun HTMLElement.comboOptionIds(
+    label: String,
+    nth: Int = 0,
+): List<String> {
+    val input = controlOf(label, nth) as HTMLInputElement
+    input.click()
+    val ids = (input.closest(".lapis-ssel") as HTMLElement).allOf("[role=option]").map { it.getAttribute("data-value").orEmpty() }
+    input.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Escape", bubbles = true, cancelable = true)))
+    return ids
+}
+
+/**
+ * The id a [SearchableSelect] currently holds (`""` when nothing is chosen): the field itself only shows the NAME, so this opens the
+ * list, reads the entry marked `aria-selected`, and closes it with Esc again.
+ */
+internal fun HTMLElement.comboValue(
+    label: String,
+    nth: Int = 0,
+): String {
+    val input = controlOf(label, nth) as HTMLInputElement
+    input.click()
+    val selected =
+        (input.closest(".lapis-ssel") as HTMLElement)
+            .querySelector("[role=option][aria-selected=true]")
+            ?.getAttribute("data-value")
+            .orEmpty()
+    input.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Escape", bubbles = true, cancelable = true)))
+    return selected
+}
+
+/**
+ * Picks the entry with id [value] from a [SearchableSelect] the way a person does: focus, click (opens the list), click the entry.
+ * The entry must be among the rendered ones (at most 50) -- fine for test data; a test with more options types a query first.
+ */
+internal fun chooseInCombobox(
+    input: HTMLInputElement,
+    value: String,
+) {
+    input.focus()
+    input.click()
+    val wrapper = assertNotNull(input.closest(".lapis-ssel") as? HTMLElement, "combobox without .lapis-ssel wrapper")
+    val option = assertNotNull(wrapper.querySelector("[role=option][data-value='$value']") as? HTMLElement, "no option with id '$value'")
+    option.click()
 }
 
 internal fun HTMLElement.tick(

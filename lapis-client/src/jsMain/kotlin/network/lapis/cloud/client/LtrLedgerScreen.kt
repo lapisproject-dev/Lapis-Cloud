@@ -408,7 +408,7 @@ private fun renderPeerTransferForm(
     }
     val panel = root.vPanel(spacing = 6)
     val recipientSelect =
-        panel.select(options = untrustedOptions(recipientCandidates.map { it.id to it.displayName }), label = tr("Empfänger"))
+        panel.searchableSelect(options = untrustedOptions(recipientCandidates.map { it.id to it.displayName }), label = tr("Empfänger"))
     val amountInput = panel.text(label = tr("Betrag (LTR)"))
     val characterizationOptions = PeerTransferCharacterization.entries.map { it.name to peerTransferCharacterizationLabel(it) }
     val characterizationSelect =
@@ -549,7 +549,7 @@ private fun renderMemberLookupSection(
         return
     }
     val row = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val memberSelect = row.select(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
+    val memberSelect = row.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
     val showButton = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     val resultPanel = root.vPanel(spacing = 6)
 
@@ -589,7 +589,7 @@ private fun renderMintForm(
         return
     }
     val panel = root.vPanel(spacing = 6)
-    val memberSelect = panel.select(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
+    val memberSelect = panel.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
     val amountInput = panel.text(label = tr("Betrag (LTR)"))
     val noteInput = panel.text(label = tr("Notiz (optional)"))
     val errorBox =
@@ -656,8 +656,8 @@ private fun renderArbitrationTransferForm(
     }
     val panel = root.vPanel(spacing = 6)
     val memberOptions = untrustedOptions(members.map { it.id to it.displayName })
-    val senderSelect = panel.select(options = memberOptions, label = tr("Absender"))
-    val recipientSelect = panel.select(options = memberOptions, label = tr("Empfänger"))
+    val senderSelect = panel.searchableSelect(options = memberOptions, label = tr("Absender"))
+    val recipientSelect = panel.searchableSelect(options = memberOptions, label = tr("Empfänger"))
     val amountInput = panel.text(label = tr("Betrag (LTR)"))
     val characterizationOptions = PeerTransferCharacterization.entries.map { it.name to peerTransferCharacterizationLabel(it) }
     val characterizationSelect =

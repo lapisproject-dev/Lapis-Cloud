@@ -243,8 +243,8 @@ internal fun renderMeetingCreationForm(
     val formatField =
         form.selectField(label = tr("Format"), options = formatOptions, value = MeetingFormat.IN_PERSON.name, required = true)
     val memberOptions = listOf("" to tr("-- keine --")) + untrustedOptions(memberCandidates.map { it.id to it.displayName })
-    val chairField = form.selectField(label = tr("Sitzungsleitung"), options = memberOptions, value = "")
-    val minuteTakerField = form.selectField(label = tr("Protokollführung"), options = memberOptions, value = "")
+    val chairField = form.searchableSelectField(label = tr("Sitzungsleitung"), options = memberOptions, value = "")
+    val minuteTakerField = form.searchableSelectField(label = tr("Protokollführung"), options = memberOptions, value = "")
 
     val createButton = Button(tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = createButton)
@@ -636,7 +636,7 @@ internal fun renderAddAgendaItemForm(
     val titleField = form.textField(label = tr("Titel"), required = true)
     val descriptionField = form.textField(label = tr("Beschreibung"))
     val presenterOptions = listOf("" to tr("-- kein --")) + untrustedOptions(eligibleMembers.map { it.id to it.displayName })
-    val presenterField = form.selectField(label = tr("Vortragend"), options = presenterOptions, value = "")
+    val presenterField = form.searchableSelectField(label = tr("Vortragend"), options = presenterOptions, value = "")
 
     val addButton = Button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
     form.buttons(primary = addButton)
@@ -730,7 +730,7 @@ internal fun renderAttendanceRecordingForm(
                 slotHost = form.panel,
             )
         val representedByField =
-            form.selectField(
+            form.searchableSelectField(
                 label = tr("Vertreten durch (nur bei \"Vertreten\")"),
                 options = representedOptions,
                 value = existing?.representedByMemberId.orEmpty(),

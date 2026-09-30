@@ -352,6 +352,32 @@ class LapisForm internal constructor(
     }
 
     /**
+     * Durchsuchbare Personenauswahl (siehe [SearchableSelect]) statt eines nativen `<select>`: überall dort, wo aus vielen
+     * Mitgliedern/Spendern/Kontakten gewählt wird. Läuft über dieselbe [wire]-Verdrahtung wie [textField], denn [SearchableSelect]
+     * IST ein `Text`-Steuerelement: Hinweis- und Fehlerslot stehen im eigenen Wrapper, `aria-required`/`aria-invalid` am
+     * `<input role="combobox">`, [LapisField.setValue]/[LapisField.reset]/[LapisField.subscribe] funktionieren unverändert.
+     * [LapisField.value] ist immer eine angebotene Id, nie freier Text. [noneOption] (Wert `""`, z. B. "-- keine --") steht fest
+     * oben und nur bei leerer Suche; wie bei [selectField] gilt ein leerer Wert als "nichts gewählt" ([required]).
+     */
+    fun searchableSelectField(
+        label: String,
+        options: List<Pair<String, String>>? = null,
+        value: String? = null,
+        required: Boolean = false,
+        hint: String? = null,
+        host: Container = panel,
+        requiredMessage: String? = null,
+        rule: (String) -> FieldCheck = { FieldCheck.Ok },
+        noneOption: String? = null,
+        details: Map<String, String> = emptyMap(),
+        init: ((SearchableSelect) -> Unit)? = null,
+    ): LapisField {
+        val control = host.searchableSelect(options = options, value = value, label = label, noneOption = noneOption, details = details)
+        init?.invoke(control)
+        return wire(control = control, label = label, required = required, hint = hint, requiredMessage = requiredMessage, rule = rule)
+    }
+
+    /**
      * Zustimmungs-/Schalter-Checkbox mit FELDGEBUNDENEM Fehlerslot (löst die W4a-Notlösung "Kreuzregel in die Sammelfläche"
      * ab). [required] `== true` heißt "muss angekreuzt sein" -- NICHT über den Leerwert-Pfad von [LapisField] (KVisions
      * `CheckBox.getValueAsString()` liefert `"false"`, also nicht-leer, und `required` wäre wirkungslos), sondern über eine

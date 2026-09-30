@@ -347,7 +347,7 @@ private fun openMemberHonorEditorDialog(
             }
         }
     val memberSelect =
-        modal.select(
+        modal.searchableSelect(
             options = memberOptions,
             value = existing?.memberId ?: defaultMemberId ?: memberOptions.firstOrNull()?.first,
             label = tr("Mitglied"),

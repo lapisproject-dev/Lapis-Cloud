@@ -8,6 +8,37 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **V1.9.16 — Searchable person select and name filter for people lists (client only).** Picking a member
+  from a native dropdown is unusable with hundreds of members; now you can type.
+  - **`SearchableSelect`** (ARIA combobox, a `Text` control, so it runs through the normal form grammar as
+    `searchableSelectField`/`searchableSelect`): type to narrow the list, case- and diacritic-insensitive
+    ("muller"/"mueller" find "Müller"), every word must match, word-start matches first, at most 50 entries
+    rendered with a "keep typing" hint. The value is always an offered id, never free text; typing alone changes
+    nothing, leaving the field restores the previous selection. Keyboard: arrows (no wrap), Enter, Esc (close, then
+    restore), Tab picks only an entry reached with the arrows. Names are sanitised and rendered as plain text.
+  - **`ListFilter`** (`listFilterField`): name filter with clear button and a "3 von 12" count above the committee
+    roster, the board roster, mailing-list subscribers and politician profiles. The filter text survives a reload.
+  - **No server change, no migration.** 8 new msgids (plus the existing "%1 von %2") in all seven languages; one more
+    msgid ("only the first N contacts loaded") for the CRM contact cap.
+  - **Tripwire `ClientPersonSelectTripwireTest`**: fails when a plain `select` is built from person names again; its
+    ledger lists the one deliberate exception and may only shrink. `R24B_REMAINING_MAX` 77 -> 69 (honest note: the
+    eight converted fields left R24B's view, see `ui-ux-guideline.adoc`).
+- **Person pickers converted** (all previously plain selects): `LtrLedgerScreen` (recipient, member x2, sender,
+  recipient), `MeetingsScreen` (chair, minute taker, presenter, represented-by), `CommitteesScreen`,
+  `BoardMembershipScreen`, `SepaMandatesScreen`/`SepaMandateSection`, `MemberHonorsScreen` (modal),
+  `PriceOracleScreen`, `PoliticianScreen`, `LedgerScreen` and `BankStatementImportScreen` (member and external donor),
+  `CommunicationScreen`, `OpenItemsScreen` (CRM contact; says so when only part of the contacts was loaded),
+  `SepaBatchesScreen` (return position, labelled with the member name), `ConferenceScreen` (person of a
+  single-person stream).
+- **Not done, with the reason** (see also `docs/architecture/ui-ux-guideline.adoc`): `CrmContactsScreen` and
+  `OpenItemsScreen` lists are loaded page by page, a client filter would "not find" people on later pages (they need a
+  server-side search, which touches DTO/RPC and was out of scope). `MemberFamiliesScreen` member picker already has a
+  server-side search (limit 20) and stays a plain select. `MemberAdministrationScreen`, `SepaMandatesScreen`,
+  `MemberHonorsScreen`, `DonorsScreen`, `MemberAnniversariesScreen`, `ChapterRosterScreen`, `EventCheckInScreen`
+  already have a search field. Every select that does not list people (committees, tiers, chapters, accounts, rooms,
+  events, mailing lists, breakout rooms, status/kind/role filters) stays a normal select.
+- **Fixed**: the `MemberFamiliesScreen` member picker built its options without `untrustedOptions`, so a display name
+  carrying the KVision i18n marker could leak into the option text; now sanitised (test added).
 - **V1.9.15 — SuperMailer follow-up: opt-in click/open tracking, consent, statistics, retention,
   DSGVO, WYSIWYG editor.**
   - **Editor (Teil A)**: the compose screen's textarea is replaced by a `contenteditable` editor

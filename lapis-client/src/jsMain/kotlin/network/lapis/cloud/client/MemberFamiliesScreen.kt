@@ -503,13 +503,13 @@ private fun renderFamilyDetailBody(
  * [IMemberService.listMembersForAdministration]. Deliberately NOT [IMemberService.listMembers]
  * (ACTIVE-only, no search) -- see file KDoc.
  */
-private class MemberPickerHandle(
+internal class MemberPickerHandle(
     val select: Select,
 ) {
     fun selectedId(): String? = select.value
 }
 
-private fun SimplePanel.memberPicker(labelText: String): MemberPickerHandle {
+internal fun SimplePanel.memberPicker(labelText: String): MemberPickerHandle {
     val row = hPanel(spacing = 6) { addCssClasses("align-items-end flex-wrap") }
     val searchInput = row.text(label = gettext("%1 suchen", labelText))
     val select = row.select(options = emptyList(), label = labelText)
@@ -524,7 +524,8 @@ private fun SimplePanel.memberPicker(labelText: String): MemberPickerHandle {
                         MemberAdminQuery(search = term?.takeIf { it.isNotBlank() }, limit = 20),
                     )
                 } ?: return@launch
-            select.options = page.rows.map { it.id to gettext("%1 (%2)", it.displayName, it.email) }
+            // Untrusted display name / e-mail: sanitised like every other person option (this one was missed before).
+            select.options = untrustedOptions(page.rows.map { it.id to gettext("%1 (%2)", it.displayName, it.email) })
         }
     }
     searchButton.onClick { runSearch() }

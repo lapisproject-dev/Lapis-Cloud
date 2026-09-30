@@ -8,6 +8,9 @@ msgstr ""
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
 msgstr "%1 bankrekening(en) hebben een nieuwe FinTS-aanmelding nodig voordat de live-opvraging doorgaat."
 
+msgid "%1 von %2 angezeigt – weitertippen, um einzugrenzen."
+msgstr "%1 van %2 weergegeven – blijf typen om te verfijnen."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:129
 msgid "%1 wurde mit Keycloak verknüpft."
 msgstr "%1 is gekoppeld aan Keycloak."
@@ -27,6 +30,9 @@ msgstr "Alle leden zijn al gekoppeld (of de automatische koppeling heeft ze al t
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:177
 msgid "Als Standard setzen"
 msgstr "Als standaard instellen"
+
+msgid "Auswahl leeren"
+msgstr "Selectie wissen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:142
 msgid "Bank"
@@ -163,9 +169,15 @@ msgstr "Aanmelden met %1"
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr "Leden die de automatische Keycloak-koppeling (matching op e-mailadres) niet kon toewijzen -- bijvoorbeeld omdat de Keycloak-identiteit een ander e-mailadres gebruikt. Hier kan een beheerder de koppeling handmatig aanmaken."
 
+msgid "Nach Name filtern"
+msgstr "Filteren op naam"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:274
 msgid "Neu anmelden …"
 msgstr "Opnieuw aanmelden …"
+
+msgid "Nur die ersten %1 von %2 Kontakten geladen."
+msgstr "Alleen de eerste %1 van %2 contacten zijn geladen."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:453
 msgid "PIN"
@@ -178,6 +190,9 @@ msgstr "Juridische mededeling (volledig lezen):"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:181
 msgid "Standardkonto gesetzt."
 msgstr "Standaardrekening ingesteld."
+
+msgid "Suche leeren"
+msgstr "Zoekopdracht wissen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:467
 msgid "TAN"
@@ -732,9 +747,15 @@ msgstr "Telefoon (optioneel)"
 msgid "Telefon: %1"
 msgstr "Telefoon: %1"
 
+msgid "Tippen zum Suchen"
+msgstr "Typ om te zoeken"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:43
 msgid "Treffen"
 msgstr "Bijeenkomst"
+
+msgid "Treffer: %1"
+msgstr "Resultaten: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupHttp.kt:137
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementHttp.kt:101
@@ -789,6 +810,9 @@ msgstr "Suggesties"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:46
 msgid "VR-Bank"
 msgstr "VR-Bank"
+
+msgid "Vorschläge anzeigen"
+msgstr "Suggesties tonen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:99
 msgid "Weitere Importe laden"

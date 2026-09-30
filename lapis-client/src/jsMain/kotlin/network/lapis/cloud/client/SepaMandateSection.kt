@@ -166,7 +166,7 @@ internal fun renderSepaMandateForm(
     val form = container.lapisForm()
     val memberField =
         if (onBehalf) {
-            form.selectField(
+            form.searchableSelectField(
                 label = tr("Mitglied"),
                 options = memberOptions,
                 value = memberOptions.firstOrNull()?.first,

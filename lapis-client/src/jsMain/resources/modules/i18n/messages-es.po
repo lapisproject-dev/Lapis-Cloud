@@ -8,6 +8,9 @@ msgstr ""
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
 msgstr "%1 cuenta(s) bancaria(s) requieren un nuevo inicio de sesión FinTS antes de que continúe la consulta en vivo."
 
+msgid "%1 von %2 angezeigt – weitertippen, um einzugrenzen."
+msgstr "%1 de %2 mostrados – siga escribiendo para acotar."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:129
 msgid "%1 wurde mit Keycloak verknüpft."
 msgstr "%1 se ha vinculado con Keycloak."
@@ -27,6 +30,9 @@ msgstr "Todos los miembros ya están vinculados (o la vinculación automática y
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:177
 msgid "Als Standard setzen"
 msgstr "Establecer como predeterminada"
+
+msgid "Auswahl leeren"
+msgstr "Borrar selección"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:142
 msgid "Bank"
@@ -163,9 +169,15 @@ msgstr "Iniciar sesión con %1"
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr "Miembros que la vinculación automática con Keycloak (por coincidencia de dirección de correo electrónico) no pudo asignar -- por ejemplo, porque la identidad de Keycloak utiliza una dirección de correo diferente. Aquí un administrador puede crear la vinculación manualmente."
 
+msgid "Nach Name filtern"
+msgstr "Filtrar por nombre"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:274
 msgid "Neu anmelden …"
 msgstr "Volver a iniciar sesión …"
+
+msgid "Nur die ersten %1 von %2 Kontakten geladen."
+msgstr "Solo se cargaron los primeros %1 de %2 contactos."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:453
 msgid "PIN"
@@ -178,6 +190,9 @@ msgstr "Aviso legal (léalo por completo):"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:181
 msgid "Standardkonto gesetzt."
 msgstr "Cuenta predeterminada establecida."
+
+msgid "Suche leeren"
+msgstr "Borrar búsqueda"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:467
 msgid "TAN"
@@ -732,9 +747,15 @@ msgstr "Teléfono (opcional)"
 msgid "Telefon: %1"
 msgstr "Teléfono: %1"
 
+msgid "Tippen zum Suchen"
+msgstr "Escriba para buscar"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:43
 msgid "Treffen"
 msgstr "Reunión"
+
+msgid "Treffer: %1"
+msgstr "Resultados: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupHttp.kt:137
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementHttp.kt:101
@@ -789,6 +810,9 @@ msgstr "Sugerencias"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:46
 msgid "VR-Bank"
 msgstr "VR-Bank"
+
+msgid "Vorschläge anzeigen"
+msgstr "Mostrar sugerencias"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:99
 msgid "Weitere Importe laden"

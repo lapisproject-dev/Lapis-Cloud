@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -242,7 +241,7 @@ internal fun renderCommitteeCreation(
     }
 }
 
-private fun renderCommitteeRoster(
+internal fun renderCommitteeRoster(
     rosterPanel: SimplePanel,
     committee: CommitteeDto,
     canManage: Boolean,
@@ -254,8 +253,13 @@ private fun renderCommitteeRoster(
     rosterPanel.h2(sanitizeUntrustedI18nText(gettext("Besetzung: %1", committee.name))) { addCssClass("h5") }
     val rosterFilterRow = rosterPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val includeEndedCheck = rosterFilterRow.checkBox(label = tr("Ausgeschiedene anzeigen"))
+    // Name filter over the roster that is already fully loaded (`listCommitteeMembers` has no paging): hidden while it is empty.
+    val rosterFilter = rosterPanel.listFilterField()
+    rosterFilter.setVisible(false)
     val rosterListPanel = rosterPanel.vPanel(spacing = 4)
     val addMemberPanel = if (canManage) rosterPanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") } else null
+
+    var loadedMemberships: List<CommitteeMembershipDto> = emptyList()
 
     fun refreshRoster() {
         rosterListPanel.removeAll()
@@ -264,13 +268,11 @@ private fun renderCommitteeRoster(
                 guarded {
                     rpcService<IGovernanceService>().listCommitteeMembers(committee.id, activeOnly = !includeEndedCheck.value)
                 } ?: return@launch
-            if (memberships.isEmpty()) {
-                rosterListPanel.p(tr("Noch keine Mitglieder in diesem Gremium."))
-                return@launch
-            }
-            memberships.forEach { membership -> renderRosterRow(rosterListPanel, membership, canManage, ::refreshRoster) }
+            loadedMemberships = memberships
+            renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, ::refreshRoster)
         }
     }
+    rosterFilter.subscribe { renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, ::refreshRoster) }
 
     val rosterRefreshButton = rosterFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     rosterRefreshButton.onClick { refreshRoster() }
@@ -279,6 +281,29 @@ private fun renderCommitteeRoster(
     if (canManage && addMemberPanel != null) {
         renderAddCommitteeMemberForm(addMemberPanel, committee.id, ::refreshRoster)
     }
+}
+
+/** Renders the roster through the name filter; the filter text survives reloads because [filter] owns it. */
+private fun renderRosterRows(
+    listPanel: SimplePanel,
+    filter: ListFilter,
+    memberships: List<CommitteeMembershipDto>,
+    canManage: Boolean,
+    onChanged: () -> Unit,
+) {
+    listPanel.removeAll()
+    if (memberships.isEmpty()) {
+        filter.setVisible(false)
+        listPanel.p(tr("Noch keine Mitglieder in diesem Gremium."))
+        return
+    }
+    filter.setVisible(true)
+    val visible = filter.apply(memberships, nameOf = { it.memberDisplayName })
+    if (visible.isEmpty()) {
+        listPanel.p(gettext("Kein Eintrag passt zu \"%1\".", filter.term)) { addCssClasses("text-muted") }
+        return
+    }
+    visible.forEach { membership -> renderRosterRow(listPanel, membership, canManage, onChanged) }
 }
 
 private fun renderRosterRow(
@@ -364,13 +389,13 @@ internal fun renderAddCommitteeMemberForm(
     val form = panel.lapisForm()
     val roleOptions = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
     val memberField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Mitglied"),
             options = emptyList(),
             required = true,
             requiredMessage = gettext("Bitte ein Mitglied auswählen."),
         )
-    val memberSelect = memberField.control as Select
+    val memberSelect = memberField.control as SearchableSelect
     val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.MEMBER.name, required = true)
     val sinceField =
         form.textField(

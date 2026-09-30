@@ -621,7 +621,7 @@ internal fun renderAssignmentWorkbench(
     val memberDonorPanel = body.vPanel(spacing = 4)
     val donorRequiredHint = tr("Pflichtangabe für diesen Spendertyp.")
     val memberField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Mitglied"),
             options = untrustedOptions(members.map { it.id to it.displayName }),
             hint = donorRequiredHint,
@@ -643,7 +643,7 @@ internal fun renderAssignmentWorkbench(
         )
     val externalDonorPanel = body.vPanel(spacing = 4)
     val externalField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Externer Spender"),
             options = untrustedOptions(externalDonors.map { it.id to it.displayName }),
             hint = donorRequiredHint,

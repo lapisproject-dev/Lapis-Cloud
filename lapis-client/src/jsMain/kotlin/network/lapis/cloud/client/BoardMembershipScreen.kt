@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.check.checkBox
-import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -87,20 +86,38 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
 
     // ---- Current roster -----------------------------------------------------------------------
     root.h2(tr("Aktueller Vorstand")) { addCssClass("h5") }
+    // Name filter over the fully loaded board (`listCurrentBoard` has no paging); hidden while the roster is empty.
+    val rosterFilter = root.listFilterField()
+    rosterFilter.setVisible(false)
     val rosterPanel = root.vPanel(spacing = 6)
+
+    fun renderRosterRows() {
+        rosterPanel.removeAll()
+        if (currentBoard.isEmpty()) {
+            rosterFilter.setVisible(false)
+            rosterPanel.p(tr("Aktuell keine Vorstandsmitglieder erfasst."))
+            return
+        }
+        rosterFilter.setVisible(true)
+        val visible =
+            rosterFilter.apply(
+                currentBoard.sortedWith(compareBy({ it.committeeRole.rank }, { it.memberDisplayName })),
+                nameOf = { it.memberDisplayName },
+            )
+        if (visible.isEmpty()) {
+            rosterPanel.p(gettext("Kein Eintrag passt zu \"%1\".", rosterFilter.term)) { addCssClasses("text-muted") }
+            return
+        }
+        visible.forEach { membership -> renderBoardRow(rosterPanel, membership, ::refreshAll) }
+    }
+    rosterFilter.subscribe { renderRosterRows() }
 
     fun refreshRoster() {
         rosterPanel.removeAll()
         AppScope.launch {
             val board = guarded { rpcService<IBoardMembershipService>().listCurrentBoard() } ?: return@launch
             currentBoard = board
-            if (board.isEmpty()) {
-                rosterPanel.p(tr("Aktuell keine Vorstandsmitglieder erfasst."))
-                return@launch
-            }
-            board
-                .sortedWith(compareBy({ it.committeeRole.rank }, { it.memberDisplayName }))
-                .forEach { membership -> renderBoardRow(rosterPanel, membership, ::refreshAll) }
+            renderRosterRows()
         }
     }
     refreshRosterFn = ::refreshRoster
@@ -254,13 +271,13 @@ internal fun renderAppointmentForm(
     val form = panel.lapisForm()
     val roleOptions = CommitteeRole.entries.sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
     val memberField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Mitglied"),
             options = emptyList(),
             required = true,
             requiredMessage = gettext("Bitte ein Mitglied auswählen."),
         )
-    val memberSelect = memberField.control as Select
+    val memberSelect = memberField.control as SearchableSelect
     val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.MEMBER.name, required = true)
     val startedAtField =
         form.textField(

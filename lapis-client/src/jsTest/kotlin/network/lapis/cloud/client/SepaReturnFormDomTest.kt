@@ -112,7 +112,7 @@ class SepaReturnFormDomTest {
 
                     element().chooseIn("Lauf", "b-open")
                     awaitUntil("error cleared", timeoutMs = 1500) { !element().shownErrors().contains("Bitte eine Position auswählen.") }
-                    assertEquals("i-b-open", (element().controlOf("Position") as org.w3c.dom.HTMLSelectElement).value)
+                    assertEquals("i-b-open", element().comboValue("Position"))
                     assertTrue(
                         element().controlOf("Position").getAttribute("aria-invalid") != "true",
                         "the item select no longer claims to be invalid",

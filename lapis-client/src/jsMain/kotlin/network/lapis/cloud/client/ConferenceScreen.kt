@@ -4845,7 +4845,7 @@ private fun startStreamDialog(
     val layoutOptions = ConferenceStreamLayout.entries.map { it.name to conferenceStreamLayoutLabel(it) }
     val layoutSelect = modal.select(options = layoutOptions, value = ConferenceStreamLayout.GRID.name, label = tr("Layout"))
     val participantSelect =
-        modal.select(
+        modal.searchableSelect(
             options = participantOptions,
             value = participantOptions.firstOrNull()?.first,
             label = tr("Person (nur bei \"Einzelne Person\")"),

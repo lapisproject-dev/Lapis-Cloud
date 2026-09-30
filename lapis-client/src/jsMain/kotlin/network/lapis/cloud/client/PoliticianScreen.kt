@@ -153,6 +153,9 @@ fun renderPoliticianScreen(container: SimplePanel) {
             label = tr("Anzeige"),
         )
     val politiciansRefreshButton = listControlsRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    // Name filter over the fully loaded profile list (`listPoliticians` has no paging); hidden while the list is empty.
+    val politicianFilter = root.listFilterField()
+    politicianFilter.setVisible(false)
     val politiciansPanel = root.vPanel(spacing = 10)
 
     // ---- Verwaltung (BOARD/ADMIN, D3 staged disclosure -- always reachable, see file KDoc) ------
@@ -176,6 +179,28 @@ fun renderPoliticianScreen(container: SimplePanel) {
         }
     }
 
+    var loadedPoliticians: List<PoliticianProfileDto> = emptyList()
+    var reloadPoliticians: () -> Unit = {}
+
+    fun renderPoliticianCards() {
+        politiciansPanel.removeAll()
+        if (loadedPoliticians.isEmpty()) {
+            politicianFilter.setVisible(false)
+            politiciansPanel.p(tr("Noch keine Politiker-Profile vorhanden.")) { addCssClasses("text-muted small") }
+            return
+        }
+        politicianFilter.setVisible(true)
+        val visible = politicianFilter.apply(loadedPoliticians, nameOf = { it.displayName })
+        if (visible.isEmpty()) {
+            politiciansPanel.p(gettext("Kein Eintrag passt zu \"%1\".", politicianFilter.term)) { addCssClasses("text-muted") }
+            return
+        }
+        visible.forEach { politician ->
+            renderPoliticianCard(politiciansPanel, politician, canBoard, currentMemberId) { reloadPoliticians() }
+        }
+    }
+    politicianFilter.subscribe { renderPoliticianCards() }
+
     fun loadPoliticians() {
         disabledBanner.hide()
         topPanel.show()
@@ -187,18 +212,13 @@ fun renderPoliticianScreen(container: SimplePanel) {
             val politicians =
                 loadPoliticiansOrShowBanner(includeFormer, topPanel, politiciansPanel, disabledBanner, canAdmin, canTreasury)
                     ?: return@launch
-            politiciansPanel.removeAll()
-            if (politicians.isEmpty()) {
-                politiciansPanel.p(tr("Noch keine Politiker-Profile vorhanden.")) { addCssClasses("text-muted small") }
-            } else {
-                politicians.forEach { politician ->
-                    renderPoliticianCard(politiciansPanel, politician, canBoard, currentMemberId) { loadPoliticians() }
-                }
-            }
+            loadedPoliticians = politicians
+            renderPoliticianCards()
             loadTopPoliticians()
         }
     }
 
+    reloadPoliticians = ::loadPoliticians
     politiciansRefreshButton.onClick { loadPoliticians() }
     includeFormerSelect.subscribe { loadPoliticians() }
 
@@ -630,7 +650,7 @@ private fun renderGrantForm(
     // R24/R24B (W4d): migrated to the form grammar -- Mitglied (required select) + Mandatstext (optional textArea).
     val form = root.lapisForm()
     val memberField =
-        form.selectField(
+        form.searchableSelectField(
             label = tr("Mitglied"),
             options = untrustedOptions(members.map { it.id to it.displayName }),
             required = true,

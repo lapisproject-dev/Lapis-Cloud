@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.check.CheckBox
-import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonSize
@@ -387,17 +386,35 @@ internal fun renderMailingListDetail(
 
     // ---- Abonnenten ----------------------------------------------------------------------------
     detail.div(tr("Abonnenten")) { addCssClasses("fw-bold mt-2") }
+    // Name filter over the fully loaded subscriber list (`listSubscribers` has no paging); hidden while the list is empty.
+    val subscriberFilter = detail.listFilterField()
+    subscriberFilter.setVisible(false)
     val subscribersPanel = detail.vPanel(spacing = 4)
+    var loadedSubscribers: List<MailingListSubscriptionDto> = emptyList()
+
+    fun renderSubscribers() {
+        subscribersPanel.removeAll()
+        if (loadedSubscribers.isEmpty()) {
+            subscriberFilter.setVisible(false)
+            subscribersPanel.p(tr("Noch keine Abonnenten."))
+            return
+        }
+        subscriberFilter.setVisible(true)
+        val visible = subscriberFilter.apply(loadedSubscribers, nameOf = { it.memberDisplayName })
+        if (visible.isEmpty()) {
+            subscribersPanel.p(gettext("Kein Eintrag passt zu \"%1\".", subscriberFilter.term)) { addCssClasses("text-muted") }
+            return
+        }
+        visible.forEach { subscriber -> renderSubscriberRow(subscribersPanel, subscriber) }
+    }
+    subscriberFilter.subscribe { renderSubscribers() }
 
     fun refreshSubscribers() {
         subscribersPanel.removeAll()
         AppScope.launch {
             val subscribers = guarded { rpcService<IMailingService>().listSubscribers(list.id) } ?: return@launch
-            if (subscribers.isEmpty()) {
-                subscribersPanel.p(tr("Noch keine Abonnenten."))
-                return@launch
-            }
-            subscribers.forEach { subscriber -> renderSubscriberRow(subscribersPanel, subscriber) }
+            loadedSubscribers = subscribers
+            renderSubscribers()
         }
     }
     refreshSubscribers()
@@ -407,16 +424,15 @@ internal fun renderMailingListDetail(
     val addForm = detail.lapisForm()
     val addRow = addForm.panel.hPanel(spacing = 8) { addCssClasses("align-items-end") }
     val memberField =
-        addForm.selectField(
+        addForm.searchableSelectField(
             label = tr("Mitglied"),
             options = listOf("" to gettext("— bitte wählen —")),
             value = "",
             required = true,
             host = addRow,
-            slotHost = addForm.panel, // Fehlerslot UNTER die Zeile, nicht als Flex-Element zwischen Feld und Knopf
             requiredMessage = gettext("Bitte ein Mitglied auswählen."),
         )
-    val memberSelect = memberField.control as Select
+    val memberSelect = memberField.control as SearchableSelect
     val addButton = addRow.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
     addForm.finish()
     AppScope.launch {

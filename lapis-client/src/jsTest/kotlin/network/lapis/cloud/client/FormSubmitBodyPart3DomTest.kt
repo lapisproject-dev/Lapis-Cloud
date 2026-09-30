@@ -204,8 +204,7 @@ class FormSubmitBodyPart3DomTest {
                 mountedForm("p3-board-appoint") { root, element ->
                     renderAppointmentForm(root, currentBoardProvider = { emptyList() }, onAppointed = {})
                     awaitUntil("the members are loaded", timeoutMs = 800) {
-                        (element().controlOf("Mitglied") as org.w3c.dom.HTMLSelectElement).options.length ==
-                            3
+                        element().comboOptionIds("Mitglied").size == 3
                     }
                     element().chooseIn("Mitglied", "m3")
                     element().chooseIn("Rolle", "SECRETARY")
@@ -228,8 +227,7 @@ class FormSubmitBodyPart3DomTest {
                 mountedForm("p3-board-appoint-bad") { root, element ->
                     renderAppointmentForm(root, currentBoardProvider = { emptyList() }, onAppointed = {})
                     awaitUntil("the members are loaded", timeoutMs = 800) {
-                        (element().controlOf("Mitglied") as org.w3c.dom.HTMLSelectElement).options.length ==
-                            3
+                        element().comboOptionIds("Mitglied").size == 3
                     }
                     val before = calls.rpcCount
                     element().typeInto("Seit", "kein Datum")
@@ -265,8 +263,7 @@ class FormSubmitBodyPart3DomTest {
                 mountedForm("p3-board-displace") { root, element ->
                     renderAppointmentForm(root, currentBoardProvider = { listOf(incumbent) }, onAppointed = {})
                     awaitUntil("the members are loaded", timeoutMs = 800) {
-                        (element().controlOf("Mitglied") as org.w3c.dom.HTMLSelectElement).options.length ==
-                            3
+                        element().comboOptionIds("Mitglied").size == 3
                     }
                     element().chooseIn("Mitglied", "m2")
                     element().chooseIn("Rolle", "CHAIR")
@@ -1009,8 +1006,7 @@ class FormSubmitBodyPart3DomTest {
                 mountedForm("p3-committee-member") { root, element ->
                     renderAddCommitteeMemberForm(root, "committee-1", onAdded = {})
                     awaitUntil("the members are loaded", timeoutMs = 800) {
-                        (element().controlOf("Mitglied") as org.w3c.dom.HTMLSelectElement).options.length ==
-                            3
+                        element().comboOptionIds("Mitglied").size == 3
                     }
                     element().chooseIn("Mitglied", "m3")
                     element().chooseIn("Rolle", "SECRETARY")
