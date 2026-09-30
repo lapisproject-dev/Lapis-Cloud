@@ -5,12 +5,15 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.chapters.ChapterCrestStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.events.EventCoverStorage
+import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -19,10 +22,13 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MemberRegionalChapterSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PublicTextNormalization
+import network.lapis.cloud.shared.domain.PublicTextRules
 import network.lapis.cloud.shared.domain.RegionalChapterDto
 import network.lapis.cloud.shared.domain.RegionalChapterOfficerDto
 import network.lapis.cloud.shared.domain.RegionalChapterOfficerSnapshot
 import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
+import network.lapis.cloud.shared.domain.RegionalChapterPublicRules
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.domain.RegionalChapterSnapshot
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -65,9 +71,18 @@ import kotlin.uuid.Uuid
  * itself is BOARD/ADMIN only (TREASURER is deliberately NOT admitted -- unlike
  * `listMembersForAdministration`, this is chapter-*administration*, not roster reading).
  */
-class RegionalChapterService(
+class RegionalChapterService internal constructor(
     private val call: ApplicationCall,
+    /**
+     * Welle V1.9.20 -- where crest files live (delete-after-commit on chapter deletion / crest
+     * removal). `null` in tests that never touch crests; `Application` always passes the real one.
+     */
+    private val crestStorage: EventCoverStorage?,
+    private val baseUrl: String,
 ) : IRegionalChapterService {
+    /** Public constructor for callers without crest storage (tests); `Application` uses the internal one above. */
+    constructor(call: ApplicationCall) : this(call = call, crestStorage = null, baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'))
+
     override suspend fun listChapters(): RegionalChapterOverviewDto {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
@@ -211,6 +226,7 @@ class RegionalChapterService(
         current.requireRole(AccountRole.ADMIN)
         val id = chapterId.toChapterUuidOrThrow()
         val now = DbClock.nowLocalDateTime()
+        var deletedCrestImageId: Uuid? = null
         transaction {
             val row =
                 RegionalChapterTable
@@ -253,7 +269,10 @@ class RegionalChapterService(
                 after = null,
                 occurredAt = now,
             )
+            deletedCrestImageId = row[RegionalChapterTable.crestImageId]
         }
+        // Welle V1.9.20 -- the crest FILE goes only AFTER the commit (a failed commit keeps the file).
+        deletedCrestImageId?.let { crestStorage?.delete(it) }
     }
 
     override suspend fun assignMemberToChapter(
@@ -582,6 +601,83 @@ class RegionalChapterService(
         )
     }
 
+    override suspend fun updateChapterDescription(
+        chapterId: String,
+        description: String?,
+    ): RegionalChapterDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        val id = chapterId.toChapterUuidOrThrow()
+        val normalized: String? =
+            if (description == null) {
+                null
+            } else {
+                when (
+                    val result =
+                        PublicTextRules.normalize(
+                            raw = description,
+                            maxCodePoints = RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS,
+                            maxLineBreaks = RegionalChapterPublicRules.DESCRIPTION_MAX_LINE_BREAKS,
+                        )
+                ) {
+                    PublicTextNormalization.Empty -> null
+                    is PublicTextNormalization.Ok -> result.text
+                    PublicTextNormalization.TooLong,
+                    PublicTextNormalization.TooManyLineBreaks,
+                    PublicTextNormalization.ControlChars,
+                    -> throw BadRequestException("description is too long, has too many line breaks or contains control characters")
+                }
+            }
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val row = ChapterCrestStore.lockChapter(id) ?: throw NotFoundException("Regional chapter $chapterId not found")
+            val hadDescription = !row[RegionalChapterTable.description].isNullOrBlank()
+            val hasCrest = row[RegionalChapterTable.crestImageId] != null
+            RegionalChapterTable.update({ RegionalChapterTable.id eq id }) {
+                it[RegionalChapterTable.description] = normalized
+            }
+            ChapterCrestStore.recordAudit(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                chapterId = id,
+                name = row[RegionalChapterTable.name],
+                before = hadDescription to hasCrest,
+                after = (normalized != null) to hasCrest,
+                now = now,
+            )
+            loadChapterDto(id)
+        }
+    }
+
+    override suspend fun removeChapterCrest(chapterId: String): RegionalChapterDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        val id = chapterId.toChapterUuidOrThrow()
+        val now = DbClock.nowLocalDateTime()
+        var removedImageId: Uuid? = null
+        val dto =
+            transaction {
+                val row = ChapterCrestStore.lockChapter(id) ?: throw NotFoundException("Regional chapter $chapterId not found")
+                val previous = ChapterCrestStore.clearCrest(id)
+                if (previous != null) {
+                    ChapterCrestStore.recordAudit(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        chapterId = id,
+                        name = row[RegionalChapterTable.name],
+                        before = !row[RegionalChapterTable.description].isNullOrBlank() to true,
+                        after = !row[RegionalChapterTable.description].isNullOrBlank() to false,
+                        now = now,
+                    )
+                }
+                removedImageId = previous
+                loadChapterDto(id)
+            }
+        // The file goes only AFTER the commit -- idempotent when there was no crest.
+        removedImageId?.let { crestStorage?.delete(it) }
+        return dto
+    }
+
     private fun loadChapterDto(id: Uuid): RegionalChapterDto {
         val chapterRow = RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq id }.single()
         val activeMemberCount =
@@ -611,6 +707,14 @@ class RegionalChapterService(
             activeMemberCount = activeMemberCount,
             assignedMemberCount = assignedMemberCount,
             activeOfficerCount = activeOfficerCount,
+            description = chapterRow[RegionalChapterTable.description]?.takeIf { it.isNotBlank() },
+            crestUrl =
+                if (chapterRow[RegionalChapterTable.crestImageId] != null) {
+                    chapterRow[RegionalChapterTable.crestPublicToken]?.let { "$baseUrl/public/chapter-crests/$it" }
+                } else {
+                    null
+                },
+            hasCrest = chapterRow[RegionalChapterTable.crestImageId] != null,
         )
     }
 }

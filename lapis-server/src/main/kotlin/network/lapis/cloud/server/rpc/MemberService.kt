@@ -10,6 +10,8 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
+import network.lapis.cloud.server.db.generated.MemberPhotoTable
+import network.lapis.cloud.server.db.generated.MemberPublicBioTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
@@ -20,6 +22,7 @@ import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.MemberCardIssuance
+import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
@@ -753,6 +756,15 @@ class MemberService(
                 // PUBLISHED photo: reset to PRIVATE in the SAME transaction (the public route's live
                 // status join is the primary guard, this keeps consent from reviving on reactivation).
                 MemberPhotoStore.revokePublicationOnStatusLoss(
+                    memberId = targetId,
+                    newStatus = newStatus,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    now = now,
+                )
+                // Welle V1.9.20 -- same reasoning for the public short introduction and the politician
+                // listing consent: neither may silently come back after a later reactivation.
+                MemberPublicBioStore.revokePublicationOnStatusLoss(
                     memberId = targetId,
                     newStatus = newStatus,
                     actorMemberId = current.memberId,
@@ -1575,6 +1587,11 @@ private val adminRosterSource: ColumnSet =
         // LEFT JOIN (regionalChapterId -> regional_chapter.id), same "row multiplication
         // structurally excluded" reasoning the KDoc above already gives for MembershipTierTable.
         .join(RegionalChapterTable, JoinType.LEFT, MemberTable.regionalChapterId, RegionalChapterTable.id)
+        // Welle V1.9.20 -- two more at-most-1:1 LEFT JOINs (`uq_member_photo_member` and
+        // `uq_member_public_bio_member` guarantee one row per member_id) that only feed the two
+        // moderation-presence flags of the roster; never any content.
+        .join(MemberPhotoTable, JoinType.LEFT, MemberTable.id, MemberPhotoTable.memberId)
+        .join(MemberPublicBioTable, JoinType.LEFT, MemberTable.id, MemberPublicBioTable.memberId)
 
 /**
  * Review fix (Welle V1.4.4.4, MEDIUM finding): [includeFamilyDetails] gates the THREE
@@ -1630,6 +1647,11 @@ private fun ResultRow.toMemberAdminRowDto(
         dateOfDeath = if (chapterScoped) null else this[MemberTable.dateOfDeath],
         regionalChapterId = this[MemberTable.regionalChapterId]?.toString(),
         regionalChapterName = this.getOrNull(RegionalChapterTable.name),
+        // Welle V1.9.20 -- presence flags only, for the BOARD/ADMIN moderation buttons. `includeFamilyDetails`
+        // is, at every call site, exactly `current.isPrivileged` (BOARD/ADMIN) -- the same gate the
+        // moderation RPCs themselves use; a TREASURER or chapter-scoped officer always gets `false`.
+        hasPhoto = includeFamilyDetails && !chapterScoped && this.getOrNull(MemberPhotoTable.id) != null,
+        hasPublicBio = includeFamilyDetails && !chapterScoped && this.getOrNull(MemberPublicBioTable.id) != null,
     )
 
 private fun loadMemberAdminRow(

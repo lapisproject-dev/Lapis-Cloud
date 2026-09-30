@@ -79,9 +79,11 @@ classDiagram(name = "PublicRankingConsent") {
         attribute(name = "memberId", type = "UUID") {
             stereotype("Column") { "columnName" to "member_id"; "fkEntity" to "Member" }
         }
-        // 'LTR_HOLDINGS' (12 chars) | 'DONATIONS' (9 chars) -- see network.lapis.cloud.shared.domain.PublicRankingKind.
+        // 'LTR_HOLDINGS' (12 chars) | 'DONATIONS' (9 chars) | 'POLITICIAN_LISTING' (18 chars, V1.9.20 --
+        // a public LISTING consent, not a leaderboard) -- see network.lapis.cloud.shared.domain.PublicRankingKind.
+        // Column widened from 12 to 24 by V62__public_profiles.sql.
         attribute(name = "rankingKind", type = "String") {
-            stereotype("Column") { "columnName" to "ranking_kind"; "sqlType" to "VARCHAR(12)" }
+            stereotype("Column") { "columnName" to "ranking_kind"; "sqlType" to "VARCHAR(24)" }
         }
         // 'GRANTED' (7) | 'REVOKED' (7) -- see network.lapis.cloud.shared.domain.PublicRankingConsentEventType.
         attribute(name = "eventType", type = "String") {

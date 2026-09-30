@@ -17259,3 +17259,145 @@ msgstr "De foto kon niet worden geüpload."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Upload eerst een foto."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Uw korte voorstelling wordt getoond op de openbare websites van deze organisatie, bijvoorbeeld op de pagina's van het bestuur en de politici en in de ingebedde feed van de website. U kunt uw toestemming op elk moment intrekken; de tekst is dan vanaf de volgende opvraging niet meer beschikbaar. Kopieën die derden al hebben gemaakt, kunnen wij niet terughalen."
+
+msgid "Kurzvorstellung"
+msgstr "Korte voorstelling"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Korte voorstelling opslaan"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Korte voorstelling verwijderen"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Korte voorstelling openbaar tonen"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "De foto wijzigt u in de fotokaart hierboven."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Korte voorstelling verwijderd."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Korte voorstelling opgeslagen."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "Uw korte voorstelling wordt definitief verwijderd."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Korte voorstelling publiceren"
+
+msgid "Bitte zuerst speichern."
+msgstr "Sla eerst op."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Uw naam en functie staan al op de openbare pagina. De korte voorstelling is vrijwillig en in eerste instantie privé."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "U maakt momenteel geen deel uit van het bestuur en staat niet als politicus vermeld. Een opgeslagen tekst blijft privé en kan op elk moment worden verwijderd."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Momenteel niet openbaar zichtbaar."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Momenteel openbaar op: %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "De korte voorstelling mag maximaal %1 tekens lang zijn."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Gebruik maximaal %1 regeleinden."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "De tekst bevat ongeldige tekens."
+
+msgid "Mein öffentliches Profil"
+msgstr "Mijn openbare profiel"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Openbare politici-pagina"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "De foto van %1 wordt definitief verwijderd."
+
+msgid "Foto entfernt."
+msgstr "Foto verwijderd."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Korte voorstelling verwijderen"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "De openbare korte voorstelling van %1 wordt definitief verwijderd."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Korte voorstelling verwijderd."
+
+msgid "Öffentliche Darstellung"
+msgstr "Openbare weergave"
+
+msgid "Wappen %1"
+msgstr "Wapen %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG of PNG, minstens 64 × 64 pixels, maximaal 2 MB."
+
+msgid "Wappen auswählen"
+msgstr "Wapen kiezen"
+
+msgid "Wappen ersetzen"
+msgstr "Wapen vervangen"
+
+msgid "Wappen hochladen"
+msgstr "Wapen uploaden"
+
+msgid "Wappen gespeichert."
+msgstr "Wapen opgeslagen."
+
+msgid "Wappen entfernen"
+msgstr "Wapen verwijderen"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "Het wapen van \"%1\" wordt definitief verwijderd."
+
+msgid "Wappen entfernt."
+msgstr "Wapen verwijderd."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Openbare beschrijving"
+
+msgid "Beschreibung speichern"
+msgstr "Beschrijving opslaan"
+
+msgid "Beschreibung gespeichert."
+msgstr "Beschrijving opgeslagen."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "De beschrijving mag maximaal %1 tekens lang zijn."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Alleen JPEG- of PNG-afbeeldingen zijn toegestaan."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "Het bestand is groter dan 2 MB."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "De afbeelding is te klein (minstens 64 × 64 pixels)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "Het wapen kon niet worden geüpload."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Sla eerst een korte voorstelling op."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "De korte voorstelling kan momenteel niet worden opgeslagen of gepubliceerd."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "De korte voorstelling is te lang of bevat ongeldige tekens."

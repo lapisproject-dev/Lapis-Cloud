@@ -216,6 +216,19 @@ internal object SocialPublicHtml {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='15' rx='1'/%3E%3Cpath d='M4 9h16M8 3v4M16 3v4'/%3E%3C/svg%3E");
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='15' rx='1'/%3E%3Cpath d='M4 9h16M8 3v4M16 3v4'/%3E%3C/svg%3E");
         }
+        /* Welle V1.9.20 "Öffentliche Seiten" -- /vorstand, /politiker, /landesverbaende tabs; same viewBox and stroke as above. */
+        .nav-board::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='7.5' r='3'/%3E%3Cpath d='M6 20v-1.5c0-3 2.7-5 6-5s6 2 6 5V20z'/%3E%3Cpath d='M12 14v4'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='7.5' r='3'/%3E%3Cpath d='M6 20v-1.5c0-3 2.7-5 6-5s6 2 6 5V20z'/%3E%3Cpath d='M12 14v4'/%3E%3C/svg%3E");
+        }
+        .nav-politicians::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10 12 4l9 6'/%3E%3Cpath d='M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10 12 4l9 6'/%3E%3Cpath d='M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18'/%3E%3C/svg%3E");
+        }
+        .nav-chapters::before {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z'/%3E%3Ccircle cx='12' cy='10' r='2.3'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z'/%3E%3Ccircle cx='12' cy='10' r='2.3'/%3E%3C/svg%3E");
+        }
         /* CSS-only tooltip (Welle V1.9.11 § 0.1 -- no Bootstrap on this path, no script): the
            `aria-label` doubles as the tooltip TEXT (S9 -- fixed translation constants, never user
            data, no injection path; a screen reader reads the aria-label, never this ::after content,
@@ -262,7 +275,26 @@ internal object SocialPublicHtml {
         .chrome-cta { border: 1px solid currentColor; border-radius: 0.35rem; padding: 0.4rem 0.9rem; }
         .skip-link { position: absolute; left: -9999px; top: 0; }
         .skip-link:focus { position: static; display: block; padding: 0.5rem 1.5rem; background: #C9A227; color: #14181E; }
-        @media (max-width: 30rem) { .chrome-nav { order: 3; width: 100%; } }
+        /* Welle V1.9.20 -- touch fix (closes the residual gap documented in PublicChrome.renderChrome
+           KDoc guarantee 1): on a phone there is no hover and :focus-visible is unreliable, so the
+           four-column nav row shows the text label (the aria-label, via the same ::after) UNDER each
+           icon, always visible, at most two lines. Above 30rem nothing changes. */
+        @media (max-width: 30rem) {
+            .chrome-nav { order: 3; width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.25rem; }
+            .chrome-nav a {
+                width: auto; height: auto; min-height: 3.5rem; flex-direction: column; gap: 0.15rem;
+                padding: 0.35rem 0.15rem; text-align: center;
+            }
+            .chrome-nav a::after,
+            .chrome-nav a:first-child::after,
+            .chrome-nav a:last-child::after {
+                position: static; top: auto; left: auto; right: auto; transform: none;
+                opacity: 1; visibility: visible; background: none; padding: 0; border-radius: 0;
+                font-size: 0.6875rem; line-height: 1.15; white-space: normal; max-width: 100%;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+                hyphens: auto; overflow-wrap: anywhere;
+            }
+        }
 
         /* V1.4.7 "Rechtstexte" (/impressum, /datenschutz) -- shares this stylesheet, same reasoning
            as every block above: no second stylesheet, no inline <style>, see
@@ -305,6 +337,54 @@ internal object SocialPublicHtml {
         .lapis-article-body { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
         .lapis-article-body h2, .lapis-article-body h3, .lapis-article-body h4 { margin: 1.2rem 0 0.4rem 0; }
         .lapis-article-body p { margin: 0.6rem 0; }
+
+        /* Welle V1.9.20 "Öffentliche Seiten" (/vorstand, /politiker, /landesverbaende) -- shares this
+           stylesheet, see network.lapis.cloud.server.routes.PublicProfilesHtml class KDoc. Colours
+           only from values already used above (no new hex literals except the crest tile's light
+           ground, which is the chrome's own text colour). The avatar has a FIXED size, so a missing
+           photo never shifts the layout. */
+        .person-grid {
+            list-style: none; margin: 1rem 0; padding: 0; display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 1.25rem 1rem;
+        }
+        .person-card {
+            display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.25rem;
+            padding: 1rem 0.75rem; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.5rem;
+        }
+        .avatar { display: block; width: 6rem; height: 6rem; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .avatar-initials {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(128, 128, 128, 0.2); font-size: 1.75rem; font-weight: 600;
+        }
+        .avatar-silhouette {
+            background-color: rgba(128, 128, 128, 0.35);
+            -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+            -webkit-mask-position: center; mask-position: center;
+            -webkit-mask-size: 60%; mask-size: 60%;
+        }
+        .avatar-silhouette {
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.5' r='3.5'/%3E%3Cpath d='M5 21c0-4 3.1-6.5 7-6.5s7 2.5 7 6.5z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8.5' r='3.5'/%3E%3Cpath d='M5 21c0-4 3.1-6.5 7-6.5s7 2.5 7 6.5z'/%3E%3C/svg%3E");
+        }
+        .person-name { margin: 0.4rem 0 0 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+        .person-role { margin: 0; color: #888; font-size: 0.85rem; overflow-wrap: anywhere; }
+        .person-card .bio { margin: 0.5rem 0 0 0; font-size: 0.9rem; text-align: left; white-space: pre-line; overflow-wrap: anywhere; }
+        .chapter-card { flex-direction: row; text-align: left; align-items: flex-start; gap: 0.9rem; }
+        .chapter-card .chapter-text { min-width: 0; }
+        .crest-tile {
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 4rem; height: 4rem; border-radius: 0.4rem; background: #EDEAE3;
+        }
+        .crest-image { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .crest-placeholder {
+            display: block; width: 2rem; height: 2rem; background-color: #14181E;
+            -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+            -webkit-mask-position: center; mask-position: center;
+            -webkit-mask-size: contain; mask-size: contain;
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 5 6v5.5c0 4.4 3 7.6 7 9.5 4-1.9 7-5.1 7-9.5V6z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 5 6v5.5c0 4.4 3 7.6 7 9.5 4-1.9 7-5.1 7-9.5V6z'/%3E%3C/svg%3E");
+        }
+        .profiles-link { margin: 0.75rem 0 0 0; }
         """
 
     /** Title length ceiling -- shared by `<title>` and `og:title`. */

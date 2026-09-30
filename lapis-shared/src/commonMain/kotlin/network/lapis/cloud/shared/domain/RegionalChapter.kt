@@ -38,6 +38,11 @@ data class RegionalChapterDto(
     val activeMemberCount: Int,
     val assignedMemberCount: Int,
     val activeOfficerCount: Int,
+    /** Welle V1.9.20 -- optional public description (<= [RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS] code points), shown on `/landesverbaende`. */
+    val description: String? = null,
+    /** Welle V1.9.20 -- absolute token URL of the crest image (`/public/chapter-crests/{token}`), `null` while no crest is set. */
+    val crestUrl: String? = null,
+    val hasCrest: Boolean = false,
 )
 
 /**
@@ -105,3 +110,33 @@ object RegionalChapterRules {
     /** H2/Postgres cannot index an expression (`lower(name)`) -- this column-level key is what `uq_regional_chapter_name_key` actually enforces uniqueness on. `Locale.ROOT`-equivalent: JS/JVM-portable, ASCII/Unicode `lowercase()` with no platform-default-locale dependency. */
     fun nameKey(normalized: String): String = normalized.lowercase()
 }
+
+/** Welle V1.9.20 "Öffentliche Seiten" -- limits of the public chapter description and crest, shared by server validation and client pre-checks. */
+object RegionalChapterPublicRules {
+    const val DESCRIPTION_MAX_CODEPOINTS = 300
+    const val DESCRIPTION_MAX_LINE_BREAKS = 4
+    const val CREST_MAX_UPLOAD_BYTES = 2L * 1024 * 1024
+    const val CREST_TARGET_LONG_EDGE_PX = 1024
+    const val CREST_MIN_EDGE_PX = 64
+}
+
+/** Machine-readable outcome of a failed crest upload -- the browser maps each to a fixed, translated message (server free text never reaches it). */
+@Serializable
+enum class ChapterCrestUploadError {
+    UNSUPPORTED_FORMAT,
+    FILE_TOO_LARGE,
+    TOO_SMALL,
+    DIMENSIONS_TOO_LARGE,
+    UNDECODABLE,
+    RATE_LIMITED,
+    FORBIDDEN,
+    NOT_FOUND,
+    INVALID_REQUEST,
+    BUSY,
+}
+
+/** JSON body of every crest upload response; [error] is `null` on success. */
+@Serializable
+data class ChapterCrestUploadResultDto(
+    val error: ChapterCrestUploadError? = null,
+)

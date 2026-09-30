@@ -121,3 +121,7 @@ would restore an empty shell. After a restore members upload their photo again.
 Other members viewing photos, a crop tool, public list feeds and website widgets (V1.9.20/21), a preview for moderators, a
 moderation screen (only the RPC exists), photos in the backup, and a sweep for orphaned files after a crash between writing the
 file and committing (such a file is never served).
+
+== V1.9.20 cross-reference
+
+See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).

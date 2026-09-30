@@ -58,4 +58,16 @@ interface IRegionalChapterService {
 
     /** ADMIN only. Idempotent for an already-revoked grant (silent no-op). Throws [NotFoundException] for an unknown grantId. */
     suspend fun revokeOfficer(grantId: String)
+
+    /**
+     * Welle V1.9.20 -- BOARD/ADMIN. Sets (or, for a blank [description], clears) the public
+     * description of [chapterId] (at most `RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS` code points).
+     */
+    suspend fun updateChapterDescription(
+        chapterId: String,
+        description: String?,
+    ): RegionalChapterDto
+
+    /** Welle V1.9.20 -- BOARD/ADMIN. Removes the crest image of [chapterId] (idempotent). The upload itself is `POST /api/regional-chapters/{id}/crest`. */
+    suspend fun removeChapterCrest(chapterId: String): RegionalChapterDto
 }

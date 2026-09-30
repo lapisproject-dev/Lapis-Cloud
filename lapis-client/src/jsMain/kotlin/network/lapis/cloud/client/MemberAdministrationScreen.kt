@@ -40,6 +40,8 @@ import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IContributionService
+import network.lapis.cloud.shared.rpc.IMemberPhotoService
+import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
@@ -760,6 +762,57 @@ private fun renderRosterActions(
                     confirmLabel = tr("Ausstellen und herunterladen"),
                 ) {
                     MemberCardHttp.submitCardPdfDownload(row.id)
+                }
+            }
+        }
+    }
+
+    // Welle V1.9.20 "Öffentliche Seiten" -- Moderation: BOARD/ADMIN können ein Mitgliedsfoto bzw. eine
+    // öffentliche Kurzvorstellung entfernen. Die Knöpfe erscheinen nur, wenn das Roster-DTO die
+    // Anwesenheit meldet (`hasPhoto`/`hasPublicBio`, server-seitig nur für BOARD/ADMIN befüllt) -- kein
+    // Angebot für eine Aktion ohne Gegenstand. Die Bestätigung nennt keinen Inhalt (es wird nie ein Bild
+    // oder Text geladen). Danach wird die Liste an Ort und Stelle neu geladen (`onChanged`).
+    if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN) && !row.anonymized) {
+        if (row.hasPhoto) {
+            val removePhotoButton = actionsCell.tableActionButton("fas fa-image", tr("Foto entfernen"), ButtonStyle.OUTLINEDANGER)
+            removePhotoButton.onClick {
+                confirmDialog(
+                    title = tr("Foto entfernen"),
+                    message = gettext("Das Foto von %1 wird endgültig gelöscht.", row.displayName),
+                    confirmLabel = tr("Entfernen"),
+                ) {
+                    runGuardedAction(button = null) {
+                        var done = false
+                        guarded {
+                            rpcService<IMemberPhotoService>().moderationRemovePhoto(row.id)
+                            done = true
+                        }
+                        if (!done) return@runGuardedAction
+                        notifySuccess(tr("Foto entfernt."))
+                        onChanged()
+                    }
+                }
+            }
+        }
+        if (row.hasPublicBio) {
+            val removeBioButton =
+                actionsCell.tableActionButton("fas fa-comment-slash", tr("Kurzvorstellung entfernen"), ButtonStyle.OUTLINEDANGER)
+            removeBioButton.onClick {
+                confirmDialog(
+                    title = tr("Kurzvorstellung entfernen"),
+                    message = gettext("Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht.", row.displayName),
+                    confirmLabel = tr("Entfernen"),
+                ) {
+                    runGuardedAction(button = null) {
+                        var done = false
+                        guarded {
+                            rpcService<IMemberPublicProfileService>().moderationRemoveBio(row.id)
+                            done = true
+                        }
+                        if (!done) return@runGuardedAction
+                        notifySuccess(tr("Kurzvorstellung entfernt."))
+                        onChanged()
+                    }
                 }
             }
         }

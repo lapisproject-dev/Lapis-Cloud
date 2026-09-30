@@ -6,6 +6,57 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.20 "Public pages: board, politicians, regional chapters"
+
+- **Three public, server-rendered pages** `GET /vorstand`, `GET /politiker`, `GET /landesverbaende`, each with an optional
+  icon tab in the public chrome (appended after the existing tabs, shown only when the page would show something) and a
+  matching embed feed `GET /api/embed/v1/board|politicians|chapters` (behind `LAPIS_EMBED_ENABLED`, CORS allowlist,
+  explicit allowlist DTOs -- no ids, e-mails, dates, trust or like figures). Page, feed and nav tab read the SAME loaders
+  (`PublicProfilesReader`), so they cannot disagree. The pages are never cached (`no-store`, no body memo): a withdrawn
+  photo, bio or listing is gone on the next request; only the visibility of the nav tab is cached for 30 s.
+- **Short introduction** (max. 500 code points) for board members and appointed politicians, written by the member
+  themselves, private until a versioned consent (`member-bio-public-v1`, wording pinned by a SHA-256 tripwire) is given;
+  a consent under an older wording is stored but never shown; a text change keeps an existing consent; deleting the text
+  deletes the consent. New card "Mein öffentliches Profil" on "Meine Daten" with live counter and preview.
+- **Politician listing consent** as a new `PublicRankingKind.POLITICIAN_LISTING` (own disclosure text without any
+  ranking/cohort wording, only for an appointed politician, ends with the politician status and with status loss, so a
+  later re-appointment never re-publishes without a fresh consent). It is not a leaderboard (`isLeaderboard`) and does not
+  touch the LTR/donation cohorts.
+- **Chapter crest and description**: crest upload `POST /api/regional-chapters/{id}/crest` (BOARD/ADMIN, JPEG/PNG only,
+  2 MB, minimum 64 px, full metadata-free re-encode, alpha kept for PNG, new token per upload) and public delivery
+  `GET /public/chapter-crests/{token}` (no CORS, one identical 404 for every miss). `EventCoverImageProcessor.process`
+  now takes `CoverImageLimits` (default = unchanged event cover behaviour). Description (max. 300 code points) via
+  `IRegionalChapterService.updateChapterDescription`.
+- **Moderation**: BOARD/ADMIN can remove a member's photo or public bio from the roster (`hasPhoto`/`hasPublicBio` flags,
+  BOARD/ADMIN only, never content); `IMemberPublicProfileService.moderationRemoveBio` answers identically for unknown ids.
+- Migration `V62__public_profiles.sql` (additive, idempotent): `member_public_bio`, `regional_chapter.description`/
+  `crest_*`, `public_ranking_consent_event.ranking_kind` widened to 24 characters. kUML model `60-member-public-bio`.
+- DSGVO: `MemberPublicBioPersonalData` (export/erasure), privacy page purposes, audit entries without any text
+  (`MemberChangeSnapshot.memberPublicBio`, `RegionalChapterSnapshot` booleans).
+- Touch fix for the public nav: on narrow screens the labels are always visible (closes the documented V1.9.11 gap).
+
+### Changed -- V1.9.20
+
+- `PublicTransparencyReader.loadBoard` now uses the shared `PublicProfilesReader.boardSelectionCondition()` (identical
+  result); `/transparenz` links to `/vorstand` when that page shows a board. `MemberPhotoStore.publicServableCondition()` is
+  the single definition of "photo may be shown" for the delivery route and the new readers.
+- `robots.txt` disallows `/vorstand` and `/politiker` (person pages are `noindex`); `/landesverbaende` is indexable.
+
+### Security -- V1.9.20
+
+- Crest upload: same-origin check, BOARD/ADMIN, per-actor rate limit, `Content-Length` and stream caps, magic-byte sniffing
+  (SVG/GIF/WebP refused), header dimension and decompression-bomb guard before decoding, polyglot/metadata neutralized by
+  the fresh re-encode, unknown chapter is a 404 only AFTER the role check, old file deleted only after the commit.
+- Public pages escape every user text; image URLs are built only from pattern-checked tokens; CSP `img-src 'self'`.
+
+### Deliberately not implemented -- V1.9.20
+
+- Sorting politicians by trust (no consent for it); chapter chairs on the chapter page (no release path); detail pages per
+  person (prevents enumeration); taking over data into the PdV instance (separate task); changes to the real website; an
+  "active chapters" filter (chapters have no active flag, all are shown); crest files in a backup restore (the row travels,
+  the file does not: the crest URL answers 404 until re-uploaded); instant nav tabs (up to 30 s delay, data never delayed);
+  a BOARD entry point to the chapter screen (the server allows BOARD, the management screen route is ADMIN-only).
+
 ### Security
 
 - **V1.9.17 — Table cells: the open v0.25.0 item is closed. Verified exploitable (text spoofing), fixed centrally.**

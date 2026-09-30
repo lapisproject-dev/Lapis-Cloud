@@ -17282,3 +17282,145 @@ msgstr "No se pudo subir la foto."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Suba primero una foto."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Su breve presentación se muestra en los sitios web públicos de esta organización, por ejemplo en las páginas de la junta directiva y de los políticos y en el feed incrustado del sitio web. Puede retirar su consentimiento en cualquier momento; el texto deja de estar disponible a partir de la siguiente consulta. No podemos recuperar las copias que terceros ya hayan hecho."
+
+msgid "Kurzvorstellung"
+msgstr "Breve presentación"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Guardar breve presentación"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Eliminar breve presentación"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Mostrar la breve presentación públicamente"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "La foto se cambia en la tarjeta de foto de arriba."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Breve presentación eliminada."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Breve presentación guardada."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "Su breve presentación se eliminará definitivamente."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Publicar breve presentación"
+
+msgid "Bitte zuerst speichern."
+msgstr "Por favor, guarde primero."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Su nombre y su cargo ya aparecen en la página pública. La breve presentación es voluntaria y al principio es privada."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "Actualmente no forma parte de la junta directiva ni figura como político. Un texto guardado permanece privado y puede eliminarse en cualquier momento."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Actualmente no es visible públicamente."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Actualmente público en: %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "La breve presentación puede tener como máximo %1 caracteres."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Utilice como máximo %1 saltos de línea."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "El texto contiene caracteres no permitidos."
+
+msgid "Mein öffentliches Profil"
+msgstr "Mi perfil público"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Página pública de políticos"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "La foto de %1 se eliminará definitivamente."
+
+msgid "Foto entfernt."
+msgstr "Foto eliminada."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Eliminar breve presentación"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "La breve presentación pública de %1 se eliminará definitivamente."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Breve presentación eliminada."
+
+msgid "Öffentliche Darstellung"
+msgstr "Presentación pública"
+
+msgid "Wappen %1"
+msgstr "Escudo %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG o PNG, al menos 64 × 64 píxeles, como máximo 2 MB."
+
+msgid "Wappen auswählen"
+msgstr "Elegir escudo"
+
+msgid "Wappen ersetzen"
+msgstr "Reemplazar escudo"
+
+msgid "Wappen hochladen"
+msgstr "Subir escudo"
+
+msgid "Wappen gespeichert."
+msgstr "Escudo guardado."
+
+msgid "Wappen entfernen"
+msgstr "Eliminar escudo"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "El escudo de \"%1\" se eliminará definitivamente."
+
+msgid "Wappen entfernt."
+msgstr "Escudo eliminado."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Descripción pública"
+
+msgid "Beschreibung speichern"
+msgstr "Guardar descripción"
+
+msgid "Beschreibung gespeichert."
+msgstr "Descripción guardada."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "La descripción puede tener como máximo %1 caracteres."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Solo se permiten imágenes JPEG o PNG."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "El archivo supera los 2 MB."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "La imagen es demasiado pequeña (al menos 64 × 64 píxeles)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "No se pudo subir el escudo."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Por favor, guarde primero una breve presentación."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "La breve presentación no se puede guardar ni publicar en este momento."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "La breve presentación es demasiado larga o contiene caracteres no permitidos."

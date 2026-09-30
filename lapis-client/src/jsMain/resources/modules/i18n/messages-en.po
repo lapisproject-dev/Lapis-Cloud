@@ -17211,3 +17211,145 @@ msgstr "The photo could not be uploaded."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Please upload a photo first."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Your short introduction is shown on this organization's public websites, for example on the Board and Politicians pages and in the website's embed feed. You can withdraw your consent at any time; the text is then no longer retrievable from the next request on. We cannot retrieve copies that third parties have already made."
+
+msgid "Kurzvorstellung"
+msgstr "Short introduction"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Save short introduction"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Delete short introduction"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Show short introduction publicly"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "You change the photo in the photo card above."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Short introduction deleted."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Short introduction saved."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "Your short introduction will be deleted permanently."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Publish short introduction"
+
+msgid "Bitte zuerst speichern."
+msgstr "Please save first."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Your name and role already appear on the public page. The short introduction is voluntary and private at first."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "You are currently neither on the board nor listed as a politician. A stored text stays private and can be deleted at any time."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Currently not publicly visible."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Currently public on: %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "The short introduction may be at most %1 characters long."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Please use at most %1 line breaks."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "The text contains invalid characters."
+
+msgid "Mein öffentliches Profil"
+msgstr "My public profile"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Public politicians page"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "The photo of %1 will be deleted permanently."
+
+msgid "Foto entfernt."
+msgstr "Photo removed."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Remove short introduction"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "The public short introduction of %1 will be deleted permanently."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Short introduction removed."
+
+msgid "Öffentliche Darstellung"
+msgstr "Public presentation"
+
+msgid "Wappen %1"
+msgstr "Crest %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG or PNG, at least 64 × 64 pixels, at most 2 MB."
+
+msgid "Wappen auswählen"
+msgstr "Choose crest"
+
+msgid "Wappen ersetzen"
+msgstr "Replace crest"
+
+msgid "Wappen hochladen"
+msgstr "Upload crest"
+
+msgid "Wappen gespeichert."
+msgstr "Crest saved."
+
+msgid "Wappen entfernen"
+msgstr "Remove crest"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "The crest of \"%1\" will be deleted permanently."
+
+msgid "Wappen entfernt."
+msgstr "Crest removed."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Public description"
+
+msgid "Beschreibung speichern"
+msgstr "Save description"
+
+msgid "Beschreibung gespeichert."
+msgstr "Description saved."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "The description may be at most %1 characters long."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Only JPEG or PNG images are allowed."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "The file is larger than 2 MB."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "The image is too small (at least 64 × 64 pixels)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "The crest could not be uploaded."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Please save a short introduction first."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "The short introduction cannot be saved or published at the moment."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "The short introduction is too long or contains invalid characters."

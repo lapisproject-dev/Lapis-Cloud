@@ -49,6 +49,12 @@ object OrganizationSchemaCatalog {
                 "without the file would restore a row with nothing behind it. Restore targets an empty " +
                 "database, so the table simply stays empty and members upload their photo again (see " +
                 "docs/architecture/member-photo.adoc, \"Backup exclusion\").",
+            "member_public_bio" to
+                "Welle V1.9.20. A member's self-written short introduction plus its consent state -- " +
+                "PRIVATE until the member publishes it, so the ADMIN-only whole-organization backup " +
+                "must not become a way to read an unpublished self-description. Restore targets an " +
+                "empty database, so the table simply stays empty and members write the text again " +
+                "(see docs/architecture/public-profiles.adoc, \"Backup\").",
         )
 
     data class ColumnMetadata(

@@ -14,7 +14,7 @@ import org.jetbrains.exposed.v1.datetime.datetime
 public object PublicRankingConsentEventTable : Table("public_ranking_consent_event") {
     public val id: Column<Uuid> = uuid("id")
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
-    public val rankingKind: Column<PublicRankingKind> = enumerationByName<PublicRankingKind>("ranking_kind", 12)
+    public val rankingKind: Column<PublicRankingKind> = enumerationByName<PublicRankingKind>("ranking_kind", 24)
     public val eventType: Column<PublicRankingConsentEventType> = enumerationByName<PublicRankingConsentEventType>("event_type", 7)
     public val occurredAt: Column<LocalDateTime> = datetime("occurred_at")
     public val supersededAt: Column<LocalDateTime?> = datetime("superseded_at").nullable()

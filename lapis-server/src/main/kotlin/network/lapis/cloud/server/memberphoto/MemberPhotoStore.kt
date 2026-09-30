@@ -16,9 +16,12 @@ import network.lapis.cloud.shared.domain.MemberPhotoRules
 import network.lapis.cloud.shared.domain.MemberPhotoVisibility
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -172,19 +175,31 @@ internal object MemberPhotoStore {
     }
 
     /**
+     * THE one definition of "this photo may be shown publicly right now": PUBLIC visibility, a public
+     * token present and the owning member CURRENTLY in [MemberStatusSets.MEMBER_PHOTO_ELIGIBLE].
+     * Used by [findPublicServable] (the delivery route) AND by `PublicProfilesReader` (the photo link
+     * on /vorstand, /politiker and the embed feeds) -- so a page can never show a photo link whose
+     * delivery would answer 404. Needs a query that joins [MemberPhotoTable] and [MemberTable].
+     */
+    fun publicServableCondition(): Op<Boolean> =
+        (MemberPhotoTable.visibility eq MemberPhotoVisibility.PUBLIC) and
+            MemberPhotoTable.publicToken.isNotNull() and
+            (MemberTable.status inList MemberStatusSets.MEMBER_PHOTO_ELIGIBLE)
+
+    /**
      * The storage key to serve for [token] -- but ONLY while the photo is PUBLIC and the owning
-     * member CURRENTLY has an eligible status. Evaluated live on every request, so a withdrawal or a
-     * status loss takes effect immediately; every "no" answer is the same `null`.
+     * member CURRENTLY has an eligible status ([publicServableCondition]). Evaluated live on every
+     * request, so a withdrawal or a status loss takes effect immediately; every "no" answer is the
+     * same `null`.
      */
     fun findPublicServable(token: String): String? =
         (MemberPhotoTable innerJoin MemberTable)
             .selectAll()
             .where {
                 (MemberPhotoTable.publicToken eq token) and
-                    (MemberPhotoTable.visibility eq MemberPhotoVisibility.PUBLIC) and
-                    (MemberPhotoTable.memberId eq MemberTable.id)
+                    (MemberPhotoTable.memberId eq MemberTable.id) and
+                    publicServableCondition()
             }.singleOrNull()
-            ?.takeIf { it[MemberTable.status] in MemberStatusSets.MEMBER_PHOTO_ELIGIBLE }
             ?.get(MemberPhotoTable.storageKey)
 
     /**

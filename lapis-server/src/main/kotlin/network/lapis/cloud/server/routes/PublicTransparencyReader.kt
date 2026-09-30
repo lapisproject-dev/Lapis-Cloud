@@ -16,7 +16,6 @@ import network.lapis.cloud.server.rpc.GeneralLedgerCalculator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
 import network.lapis.cloud.shared.domain.CommitteeRole
-import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
@@ -144,13 +143,10 @@ internal object PublicTransparencyReader {
         val rows =
             (CommitteeMembershipTable innerJoin CommitteeTable innerJoin MemberTable)
                 .select(MemberTable.displayName, CommitteeMembershipTable.role, CommitteeMembershipTable.since, MemberTable.id)
-                .where {
-                    (CommitteeTable.type eq CommitteeType.EXECUTIVE_BOARD) and
-                        (CommitteeTable.active eq true) and
-                        CommitteeMembershipTable.until.isNull() and
-                        MemberTable.anonymizedAt.isNull() and
-                        (MemberTable.status eq MemberStatus.ACTIVE)
-                }.toList()
+                // Welle V1.9.20: the selection itself lives in PublicProfilesReader so /transparenz and
+                // /vorstand can never drift apart -- identical WHERE clause as before.
+                .where { PublicProfilesReader.boardSelectionCondition() }
+                .toList()
         return rows
             .sortedWith(
                 compareBy<ResultRow> { it[CommitteeMembershipTable.role].rank }

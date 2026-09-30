@@ -370,6 +370,23 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Öffentliche Kurzvorstellung (freiwillig, nur für Vorstandsmitglieder und ernannte Politiker) — " +
+                        "Art. 6 Abs. 1 lit. a DSGVO. Der selbst verfasste Text ist nach dem Speichern privat. Nur wenn das " +
+                        "Mitglied ausdrücklich einwilligt, wird er auf den öffentlichen Seiten Vorstand und Politiker sowie " +
+                        "im Einbettungs-Feed der Website angezeigt; die Einwilligung ist jederzeit mit Wirkung für die " +
+                        "Zukunft widerrufbar, der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Der Text " +
+                        "wird nicht in das Organisations-Backup einbezogen und bei Löschung unmittelbar entfernt."
+                )
+            }
+            li {
+                +(
+                    "Veröffentlichung als Politiker (Name und Amt, auf Wunsch mit Foto und Kurzvorstellung) auf der " +
+                        "öffentlichen Seite Politiker und im Einbettungs-Feed — Art. 6 Abs. 1 lit. a DSGVO. Die " +
+                        "Einwilligung ist jederzeit mit Wirkung für die Zukunft widerrufbar und endet mit dem Politiker-Status."
+                )
+            }
+            li {
+                +(
                     "Versand von E-Mails (u. a. Passwort-Rücksetzung, E-Mail-Bestätigung, Benachrichtigungen) " +
                         "— Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO."
                 )

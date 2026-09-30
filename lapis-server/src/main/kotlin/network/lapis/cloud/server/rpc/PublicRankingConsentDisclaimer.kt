@@ -125,6 +125,43 @@ object PublicRankingConsentDisclaimer {
         unter einer neuen Version durch die eigene, rechtlich geprüfte Fassung ersetzen.
         """.trimIndent()
 
+    // Welle V1.9.20 "Öffentliche Seiten" -- consent to be LISTED as a politician. NOT a leaderboard:
+    // the text deliberately says nothing about a ranking, a balance, an amount or a minimum cohort.
+    private val POLITICIAN_LISTING_VERSION = "public-politician-listing-v1"
+    private val POLITICIAN_LISTING_HEADLINE = "Ihr Name und Ihr Amt können auf der öffentlichen Politiker-Seite erscheinen."
+    private val POLITICIAN_LISTING_KEY_POINTS =
+        listOf(
+            """
+            Ihr Anzeigename und Ihr Amt werden veröffentlicht, auf Wunsch auch Ihr Foto und Ihre
+            Kurzvorstellung (beides geben Sie getrennt frei). Sie erscheinen -- solange Ihre
+            Zustimmung wirksam ist -- auf der öffentlichen Seite /politiker und im
+            Einbettungs-Feed der Website, für jede Besucherin und jeden Besucher ohne Anmeldung
+            einsehbar, unabhängig von deren Mitgliedschaft.
+            """.trimIndent(),
+            """
+            Sie können jederzeit widerrufen. Ein Widerruf entfernt Ihren Eintrag mit der nächsten
+            Abfrage von der Seite und aus dem Feed -- ohne Rückfrage, ohne Bestätigungsdialog. Die
+            Einwilligung endet außerdem, wenn Ihr Politiker-Status beendet wird oder Sie nicht mehr
+            aktives Mitglied sind.
+            """.trimIndent(),
+        )
+    private val POLITICIAN_LISTING_DETAIL =
+        """
+        Die Seite und der Feed enthalten nur Name, Amt und -- sofern von Ihnen freigegeben -- Foto
+        und Kurzvorstellung. Es werden keine Bewertungen, keine Gewichtungen und keine Zahlen zu
+        Ihrer Person veröffentlicht.
+
+        Wortlautänderung: Ändert sich dieser Hinweistext, verliert eine bereits erteilte
+        Zustimmung ihre Wirkung -- Sie müssen der neuen Fassung erneut zustimmen, damit Ihr
+        Eintrag wieder erscheint.
+
+        Kopien, die Dritte bereits angefertigt haben (etwa Suchmaschinen oder Archivdienste),
+        können wir nach einem Widerruf nicht zurückholen.
+
+        Dieser Hinweis stellt keine Rechtsberatung dar. Ein reales Deployment sollte diesen Text
+        unter einer neuen Version durch die eigene, rechtlich geprüfte Fassung ersetzen.
+        """.trimIndent()
+
     private val LTR_HOLDINGS: Disclaimer =
         build(
             kind = PublicRankingKind.LTR_HOLDINGS,
@@ -142,11 +179,21 @@ object PublicRankingConsentDisclaimer {
             detail = DONATIONS_DETAIL,
         )
 
+    private val POLITICIAN_LISTING: Disclaimer =
+        build(
+            kind = PublicRankingKind.POLITICIAN_LISTING,
+            version = POLITICIAN_LISTING_VERSION,
+            headline = POLITICIAN_LISTING_HEADLINE,
+            keyPoints = POLITICIAN_LISTING_KEY_POINTS,
+            detail = POLITICIAN_LISTING_DETAIL,
+        )
+
     /** The current, versioned disclosure for [kind]. */
     fun of(kind: PublicRankingKind): Disclaimer =
         when (kind) {
             PublicRankingKind.LTR_HOLDINGS -> LTR_HOLDINGS
             PublicRankingKind.DONATIONS -> DONATIONS
+            PublicRankingKind.POLITICIAN_LISTING -> POLITICIAN_LISTING
         }
 
     private fun build(

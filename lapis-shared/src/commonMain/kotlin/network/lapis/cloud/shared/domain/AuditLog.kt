@@ -757,6 +757,13 @@ data class MemberChangeSnapshot(
      * older rows decode unchanged.
      */
     val memberPhoto: MemberPhotoAuditSnapshot? = null,
+    /**
+     * Welle V1.9.20 "Öffentliche Seiten" -- what happened to a member's public short introduction
+     * (save/delete/publish/unpublish/moderation/status loss). Carries NEVER the text itself -- only
+     * the action, the publication state and the consent version. Logged under
+     * [AuditEntityType.MEMBER]. Default `null`: older rows decode unchanged.
+     */
+    val memberPublicBio: MemberPublicBioAuditSnapshot? = null,
 )
 
 /** Welle V1.9.19 -- what happened to a member's photo publication. No PII, no token. */
@@ -978,6 +985,14 @@ data class TravelExpenseRatesSnapshot(
 @Serializable
 data class RegionalChapterSnapshot(
     val name: String,
+    /**
+     * Welle V1.9.20 -- whether a public description / crest image was set AFTER the change (before:
+     * the same flags in the `before` snapshot). Booleans only -- never the description text or the
+     * crest token/key. Default `false` is not serialized (`encodeDefaults = false`), so every
+     * pre-V1.9.20 payload and its hash stay byte-identical.
+     */
+    val descriptionPresent: Boolean = false,
+    val crestPresent: Boolean = false,
 )
 
 /**

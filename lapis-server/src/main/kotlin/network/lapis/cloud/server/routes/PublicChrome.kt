@@ -92,6 +92,20 @@ internal data class PublicUiStrings(
     val articlesEmpty: String,
     /** Welle V1.9.11 -- empty-state text on `GET /veranstaltungen` when no event is upcoming. */
     val eventsEmpty: String,
+    /** Welle V1.9.20 -- `aria-label`/tooltip AND `<h1>` of `GET /vorstand` (reuses [boardEmpty] for the empty state). */
+    val navBoard: String,
+    /** Welle V1.9.20 -- `aria-label`/tooltip AND `<h1>` of `GET /politiker`. */
+    val navPoliticians: String,
+    /** Welle V1.9.20 -- `aria-label`/tooltip AND `<h1>` of `GET /landesverbaende`. */
+    val navChapters: String,
+    /** Welle V1.9.20 -- empty-state text on `GET /politiker`. */
+    val politiciansEmpty: String,
+    /** Welle V1.9.20 -- empty-state text on `GET /landesverbaende`. */
+    val chaptersEmpty: String,
+    /** Welle V1.9.20 -- prefix of the crest `alt` text; the chapter name follows, e.g. "Wappen Bayern". */
+    val crestAltPrefix: String,
+    /** Welle V1.9.20 -- link text on `/transparenz` towards `/vorstand`. */
+    val transparencyBoardLink: String,
     val login: String,
     val register: String,
     val languageLabel: String,
@@ -183,6 +197,13 @@ internal object PublicChrome {
                     navEvents = "Veranstaltungen",
                     articlesEmpty = "Noch keine veröffentlichten Artikel.",
                     eventsEmpty = "Derzeit keine bevorstehenden Veranstaltungen.",
+                    navBoard = "Vorstand",
+                    navPoliticians = "Politiker",
+                    navChapters = "Landesverbände",
+                    politiciansEmpty = "Derzeit sind keine Politiker gelistet.",
+                    chaptersEmpty = "Noch keine Landesverbände angelegt.",
+                    crestAltPrefix = "Wappen",
+                    transparencyBoardLink = "Vorstand vorgestellt →",
                     login = "Anmelden",
                     register = "Mitglied werden",
                     languageLabel = "Sprache",
@@ -233,6 +254,13 @@ internal object PublicChrome {
                     navEvents = "Events",
                     articlesEmpty = "No published articles yet.",
                     eventsEmpty = "No upcoming events at the moment.",
+                    navBoard = "Board",
+                    navPoliticians = "Politicians",
+                    navChapters = "Regional chapters",
+                    politiciansEmpty = "No politicians are listed at the moment.",
+                    chaptersEmpty = "No regional chapters yet.",
+                    crestAltPrefix = "Crest of",
+                    transparencyBoardLink = "Meet the board →",
                     login = "Log in",
                     register = "Become a member",
                     languageLabel = "Language",
@@ -283,6 +311,13 @@ internal object PublicChrome {
                     navEvents = "Événements",
                     articlesEmpty = "Aucun article publié pour le moment.",
                     eventsEmpty = "Aucun événement à venir pour le moment.",
+                    navBoard = "Conseil d'administration",
+                    navPoliticians = "Politiciens",
+                    navChapters = "Sections régionales",
+                    politiciansEmpty = "Aucun politicien n'est répertorié pour le moment.",
+                    chaptersEmpty = "Aucune section régionale pour le moment.",
+                    crestAltPrefix = "Blason",
+                    transparencyBoardLink = "Découvrir le conseil →",
                     login = "Se connecter",
                     register = "Devenir membre",
                     languageLabel = "Langue",
@@ -333,6 +368,13 @@ internal object PublicChrome {
                     navEvents = "Eventos",
                     articlesEmpty = "Todavía no hay artículos publicados.",
                     eventsEmpty = "No hay eventos próximos por el momento.",
+                    navBoard = "Junta directiva",
+                    navPoliticians = "Políticos",
+                    navChapters = "Agrupaciones regionales",
+                    politiciansEmpty = "Por ahora no hay políticos en la lista.",
+                    chaptersEmpty = "Todavía no hay agrupaciones regionales.",
+                    crestAltPrefix = "Escudo",
+                    transparencyBoardLink = "Conocer a la junta directiva →",
                     login = "Iniciar sesión",
                     register = "Hacerse miembro",
                     languageLabel = "Idioma",
@@ -383,6 +425,13 @@ internal object PublicChrome {
                     navEvents = "Eventi",
                     articlesEmpty = "Nessun articolo pubblicato per ora.",
                     eventsEmpty = "Nessun evento in programma al momento.",
+                    navBoard = "Consiglio direttivo",
+                    navPoliticians = "Politici",
+                    navChapters = "Sezioni regionali",
+                    politiciansEmpty = "Al momento non ci sono politici in elenco.",
+                    chaptersEmpty = "Non ci sono ancora sezioni regionali.",
+                    crestAltPrefix = "Stemma",
+                    transparencyBoardLink = "Conosci il consiglio direttivo →",
                     login = "Accedi",
                     register = "Diventa membro",
                     languageLabel = "Lingua",
@@ -433,6 +482,13 @@ internal object PublicChrome {
                     navEvents = "Evenementen",
                     articlesEmpty = "Nog geen gepubliceerde artikelen.",
                     eventsEmpty = "Op dit moment geen aankomende evenementen.",
+                    navBoard = "Bestuur",
+                    navPoliticians = "Politici",
+                    navChapters = "Regionale afdelingen",
+                    politiciansEmpty = "Er staan momenteel geen politici op de lijst.",
+                    chaptersEmpty = "Nog geen regionale afdelingen.",
+                    crestAltPrefix = "Wapen",
+                    transparencyBoardLink = "Maak kennis met het bestuur →",
                     login = "Aanmelden",
                     register = "Lid worden",
                     languageLabel = "Taal",
@@ -483,6 +539,13 @@ internal object PublicChrome {
                     navEvents = "Wydarzenia",
                     articlesEmpty = "Brak opublikowanych artykułów.",
                     eventsEmpty = "Obecnie brak nadchodzących wydarzeń.",
+                    navBoard = "Zarząd",
+                    navPoliticians = "Politycy",
+                    navChapters = "Oddziały regionalne",
+                    politiciansEmpty = "Obecnie na liście nie ma żadnych polityków.",
+                    chaptersEmpty = "Brak jeszcze oddziałów regionalnych.",
+                    crestAltPrefix = "Herb",
+                    transparencyBoardLink = "Poznaj zarząd →",
                     login = "Zaloguj się",
                     register = "Zostań członkiem",
                     languageLabel = "Język",
@@ -533,6 +596,13 @@ internal object PublicChrome {
                     navEvents = "Мероприятия",
                     articlesEmpty = "Пока нет опубликованных статей.",
                     eventsEmpty = "В настоящее время нет предстоящих мероприятий.",
+                    navBoard = "Правление",
+                    navPoliticians = "Политики",
+                    navChapters = "Региональные отделения",
+                    politiciansEmpty = "Сейчас в списке нет политиков.",
+                    chaptersEmpty = "Региональных отделений пока нет.",
+                    crestAltPrefix = "Герб",
+                    transparencyBoardLink = "Познакомиться с правлением →",
                     login = "Войти",
                     register = "Стать участником",
                     languageLabel = "Язык",
@@ -582,7 +652,7 @@ internal object PublicChrome {
      * the two OPTIONAL tabs -- see [PublicNavAvailability] -- rendered only when the corresponding
      * overview is non-empty; every OTHER value here is always rendered.
      */
-    internal enum class NavTarget { HOME, TRANSPARENCY, SOCIAL, ARTICLES, EVENTS }
+    internal enum class NavTarget { HOME, TRANSPARENCY, SOCIAL, ARTICLES, EVENTS, BOARD, POLITICIANS, CHAPTERS }
 
     /**
      * `"$baseUrl$currentPath"`, with a `?lang=`/`&lang=` suffix appended UNLESS [lang] is
@@ -641,14 +711,11 @@ internal object PublicChrome {
      * (Jobs' closing review):
      *
      * 1. **Never a silent icon-only trap** -- every link's meaning is ALWAYS available via
-     *    `aria-label`, never solely via the decorative icon. Known residual gap, flagged in review
-     *    (V1.9.11 follow-up), not yet resolved: on touch devices (`@media (hover: hover)` excludes
-     *    them, see stylesheet), tapping a link does not reliably trigger `:focus-visible`, so a
-     *    sighted touch user never sees the text tooltip either -- only the screen reader gets the
-     *    `aria-label`. This guarantee still holds for assistive tech; it does NOT yet hold for
-     *    sighted touch users relying on icon recognition alone. Needs a deliberate Design-Team
-     *    decision (Kare/Ive/Jobs) before being fixed, e.g. always-visible labels in the `@media
-     *    (max-width: 30rem)` full-width nav row.
+     *    `aria-label`, never solely via the decorative icon. The former residual gap (V1.9.11
+     *    follow-up: on touch devices `:focus-visible` does not reliably fire, so a sighted touch user
+     *    never saw the tooltip) is CLOSED since Welle V1.9.20: at `max-width: 30rem` the nav becomes a
+     *    four-column grid that shows the label under each icon permanently (at most two lines), see
+     *    [SocialPublicHtml.STYLESHEET]. Above that width the hover/focus tooltip is unchanged.
      * 2. **No `title=` attribute** -- a native browser tooltip would double up with the CSS one and
      *    behave inconsistently across browsers; the CSS `::after` tooltip is the ONE tooltip.
      * 3. **Keyboard-reachable tooltip** -- `:focus-visible` shows the SAME tooltip `:hover` shows
@@ -657,8 +724,10 @@ internal object PublicChrome {
      *    page has no script on this path (`/`'s hash-bridge is the one narrow exception, unrelated to
      *    this nav), so this is accepted, not fixed, in this wave.
      * 4. **Fixed link order, bound to CSS CLASSES not `:nth-child`** (`.nav-home`, `.nav-transparency`,
-     *    `.nav-social`, `.nav-articles`, `.nav-events`) -- Raskin/Atkinson: [NavTarget.ARTICLES]/
-     *    [NavTarget.EVENTS] are CONDITIONAL (only present in the DOM when [nav] says so), so an
+     *    `.nav-social`, `.nav-articles`, `.nav-events`, and since V1.9.20 `.nav-board`,
+     *    `.nav-politicians`, `.nav-chapters`) -- Raskin/Atkinson: every tab after `.nav-social`
+     *    ([NavTarget.ARTICLES], [NavTarget.EVENTS], [NavTarget.BOARD], [NavTarget.POLITICIANS],
+     *    [NavTarget.CHAPTERS]) is CONDITIONAL (only present in the DOM when [nav] says so), so an
      *    `:nth-child`-indexed icon rule (the pre-V1.9.11 scheme) would silently apply the WRONG icon
      *    to whichever link happens to occupy that position once a conditional tab is missing.
      *
@@ -735,6 +804,31 @@ internal object PublicChrome {
                             cssClass = "nav-events",
                             label = strings.navEvents,
                             isActive = active == NavTarget.EVENTS,
+                        )
+                    }
+                    // Welle V1.9.20 -- appended LAST (never reorder the existing tabs), conditional like the two above.
+                    if (nav.board) {
+                        navLink(
+                            href = languageUrl(baseUrl = baseUrl, currentPath = "/vorstand", lang = lang),
+                            cssClass = "nav-board",
+                            label = strings.navBoard,
+                            isActive = active == NavTarget.BOARD,
+                        )
+                    }
+                    if (nav.politicians) {
+                        navLink(
+                            href = languageUrl(baseUrl = baseUrl, currentPath = "/politiker", lang = lang),
+                            cssClass = "nav-politicians",
+                            label = strings.navPoliticians,
+                            isActive = active == NavTarget.POLITICIANS,
+                        )
+                    }
+                    if (nav.chapters) {
+                        navLink(
+                            href = languageUrl(baseUrl = baseUrl, currentPath = "/landesverbaende", lang = lang),
+                            cssClass = "nav-chapters",
+                            label = strings.navChapters,
+                            isActive = active == NavTarget.CHAPTERS,
                         )
                     }
                 }

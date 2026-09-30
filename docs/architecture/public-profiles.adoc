@@ -1,0 +1,104 @@
+= Public pages: board, politicians, regional chapters (V1.9.20)
+:toc:
+
+== Purpose
+
+Three server-rendered public pages (`/vorstand`, `/politiker`, `/landesverbaende`) and three embed feeds
+(`/api/embed/v1/board`, `/politicians`, `/chapters`) that show who leads the organization. They build on the member photo
+(V1.9.19), the public ranking consent store (V1.3.0) and the regional chapters (V1.9.13).
+
+== Visibility matrix
+
+[cols="2,3,3,2"]
+|===
+| Item | Shown when | Consent | Live?
+
+| Board member (name, role) | current open seat in an active `EXECUTIVE_BOARD` committee, member `ACTIVE`, not anonymized | none (public record, same selection as `/transparenz`) | yes
+| Board member photo | photo `PUBLIC` and member `ACTIVE` (`MemberPhotoStore.publicServableCondition()`) | photo consent | yes
+| Short introduction | text stored and consent under the CURRENT wording (`member-bio-public-v1`) | bio consent | yes
+| Politician (name, office) | `ACTIVE`, non-revoked politician profile, member `ACTIVE`, effective `POLITICIAN_LISTING` consent | listing consent (`public-politician-listing-v1`) | yes
+| Politician photo / bio | as above, each with its own consent | photo / bio consent | yes
+| Chapter (name, crest, description) | every chapter (there is no active flag) | none (organization data) | yes
+|===
+
+Office text of a politician is `mandate_text` squeezed to one line and cut to 200 code points.
+
+== Architecture
+
+[source,kuml,name="public-profiles-components"]
+----
+classDiagram(name = "Public profiles") {
+    val reader = classOf(name = "PublicProfilesReader") {
+        operation(name = "loadBoardCards") { returns("List") }
+        operation(name = "loadPoliticianCards") { returns("List") }
+        operation(name = "loadChapterCards") { returns("List") }
+    }
+    val pages = classOf(name = "PublicProfilesOverviewRoutes")
+    val feeds = classOf(name = "EmbedProfilesFeedRoutes")
+    val nav = classOf(name = "PublicNavAvailability")
+    val bio = classOf(name = "MemberPublicBioStore")
+    val photo = classOf(name = "MemberPhotoStore")
+
+    dependency(client = pages, supplier = reader, name = "uses")
+    dependency(client = feeds, supplier = reader, name = "uses")
+    dependency(client = nav, supplier = reader, name = "uses")
+    dependency(client = reader, supplier = bio, name = "effectivePublicCondition")
+    dependency(client = reader, supplier = photo, name = "publicServableCondition")
+}
+----
+
+One read layer, three consumers: a page, its feed and its nav tab cannot disagree. Every function runs in the caller's
+transaction and returns data-minimized cards (no id, e-mail, date or number about a person). Caps: 30 board cards, 100
+politicians (DB pre-limit 500, then a German `Collator` sort), 50 chapters; the feeds have no `limit` parameter.
+
+== Caching
+
+The pages answer `Cache-Control: no-store` and keep no body memo (unlike `/aktuelles`), because the consents promise that a
+withdrawal acts immediately. Only the nav tab visibility is cached (30 s TTL): a tab can linger up to 30 s after the last
+entry was withdrawn and then leads to an empty state (HTTP 200), never to personal data. The two person pages are
+`noindex,follow` and disallowed in `robots.txt`; `/landesverbaende` is indexable. `img-src 'self'` is always set in the CSP.
+
+== Consents
+
+* Short introduction: `member_public_bio` (one row per member). Consent = `consent_granted_at` + `consent_text_version`
+  (both set or both `NULL`, a CHECK). Publishing needs an `ACTIVE` member, a stored text and the current version. A text change keeps
+  the consent; a blank text deletes row and consent; withdrawal and deletion are always possible. Saving needs eligibility
+  (board seat or ACTIVE politician profile) OR an existing row, so an ex-officer can still edit and delete.
+* Politician listing: `PublicRankingKind.POLITICIAN_LISTING` in `public_ranking_consent_event`. Grant only with an active
+  politician profile; `PoliticianService.revokePoliticianStatus` revokes it; status loss revokes it
+  (`MemberPublicBioStore.revokePublicationOnStatusLoss`, called next to the photo hook in `MemberService.updateMemberStatus`
+  and `RegistrationService.leaveMembership`). It has no cohort minimum and no ranking.
+* Wording of the bio consent lives in `MEMBER_PUBLIC_BIO_CONSENT_TEXT` (client); `MemberPublicBioConsentTextPinTest` pins its hash.
+
+== Chapter crest
+
+Upload `POST /api/regional-chapters/{chapterId}/crest`: same-origin, BOARD/ADMIN, per-actor limit, `Content-Length` cap, streamed
+2 MB cap, magic-byte sniff (JPEG/PNG only), `EventCoverImageProcessor.process` with `CoverImageLimits.CHAPTER_CREST`
+(minimum 64 px, target 1024 px, header and bomb guards first, fresh metadata-free re-encode, PNG keeps alpha), chapter lock
+(unknown id = 404 only after the role check), file written, token committed, old file deleted after commit. The database stores
+the server UUID (file name key), never a path. Delivery `GET /public/chapter-crests/{token}`: per-IP limit first, token pattern,
+database; every miss is one bare 404; headers `nosniff`, `Content-Disposition: inline`, sandbox CSP, CORP `cross-origin`,
+`Cache-Control: public, max-age=300` once. No CORS on purpose (an `<img>` needs none).
+
+== Embed feeds
+
+Behind `LAPIS_EMBED_ENABLED=true` (per instance: PdV, ELB, staging must list their allowed origins in the embed configuration;
+this wave changes no operations files). `applyEmbedCors` already sets `Cache-Control: no-store` once; nothing appends it again.
+Exact key sets: board `{name, role, roleLabel, photoUrl?, bio?}`, politicians `{name, office?, photoUrl?, bio?}`, chapters
+`{name, crestUrl?, description?}` -- absent optionals are omitted.
+
+== Backup
+
+`member_public_bio` is excluded from the ADMIN backup (a private self-description). `regional_chapter` stays in; the `crest_*`
+columns travel but the files do not, so after a restore the crest URL answers 404 until a crest is uploaded again (same posture as
+event and article covers). Alternative not taken: nulling `crest_*` on export.
+
+== Operations
+
+Migration V62 runs with Flyway and is additive/idempotent. Crest files live in `chapter-crests/` on the document storage volume
+(`LAPIS_CHAPTER_CREST_STORAGE_ROOT` overrides). Nothing here needs a compose change.
+
+== Not implemented
+
+Trust-sorted politician list, chapter chairs, per-person detail pages, data takeover into the PdV instance, the real website,
+an "active chapters" filter, crest files in a restore, instant nav tabs, a BOARD entry point to the (ADMIN-only) chapter screen.

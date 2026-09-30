@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
 import network.lapis.cloud.server.db.generated.ErasureRequestTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.dsgvo.DataSubject
 import network.lapis.cloud.server.dsgvo.PersonalDataRegistry
 import network.lapis.cloud.server.dsgvo.TableErasureOutcome
@@ -26,6 +27,7 @@ import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
 import network.lapis.cloud.shared.domain.ExportManifestDto
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PoliticianProfileStatus
 import network.lapis.cloud.shared.domain.PublicRankingConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.PublicRankingConsentStateDto
 import network.lapis.cloud.shared.domain.PublicRankingKind
@@ -39,6 +41,7 @@ import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -293,6 +296,12 @@ class DsgvoService(
         }
         return transaction {
             lockMemberRow(current.memberId)
+            // Welle V1.9.20 -- a LISTING consent only makes sense for an appointed politician; without a
+            // profile it would be an orphaned consent that could publish the person later, the moment a
+            // third party appoints them. Checked under the member lock.
+            if (kind == PublicRankingKind.POLITICIAN_LISTING && !hasActivePoliticianProfile(current.memberId)) {
+                throw BadRequestException("Nur ernannte Politiker können dieser Veröffentlichung zustimmen.")
+            }
             PublicRankingConsentStore.grant(memberId = current.memberId, kind = kind, version = version, sha256 = sha256, now = nowUtc())
             PublicRankingConsentStore.currentState(memberId = current.memberId).single { it.kind == kind }
         }
@@ -308,6 +317,16 @@ class DsgvoService(
             PublicRankingConsentStore.currentState(memberId = current.memberId).single { it.kind == kind }
         }
     }
+
+    /** An ACTIVE, non-revoked politician profile for [memberId] -- a plain read, called under the member row lock. */
+    private fun hasActivePoliticianProfile(memberId: Uuid): Boolean =
+        PoliticianProfileTable
+            .selectAll()
+            .where {
+                (PoliticianProfileTable.memberId eq memberId) and
+                    (PoliticianProfileTable.status eq PoliticianProfileStatus.ACTIVE) and
+                    PoliticianProfileTable.revokedAt.isNull()
+            }.any()
 
     /**
      * A GUEST has no LTR account here (it lives on their federated home server); a FRIEND's

@@ -16338,3 +16338,145 @@ msgstr ""
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr ""
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr ""
+
+msgid "Kurzvorstellung"
+msgstr ""
+
+msgid "Kurzvorstellung speichern"
+msgstr ""
+
+msgid "Kurzvorstellung löschen"
+msgstr ""
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr ""
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr ""
+
+msgid "%1 / %2"
+msgstr ""
+
+msgid "Kurzvorstellung gelöscht."
+msgstr ""
+
+msgid "Kurzvorstellung gespeichert."
+msgstr ""
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr ""
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr ""
+
+msgid "Bitte zuerst speichern."
+msgstr ""
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr ""
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr ""
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr ""
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr ""
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr ""
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr ""
+
+msgid "Mein öffentliches Profil"
+msgstr ""
+
+msgid "Öffentliche Politiker-Seite"
+msgstr ""
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr ""
+
+msgid "Foto entfernt."
+msgstr ""
+
+msgid "Kurzvorstellung entfernen"
+msgstr ""
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr ""
+
+msgid "Kurzvorstellung entfernt."
+msgstr ""
+
+msgid "Öffentliche Darstellung"
+msgstr ""
+
+msgid "Wappen %1"
+msgstr ""
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr ""
+
+msgid "Wappen auswählen"
+msgstr ""
+
+msgid "Wappen ersetzen"
+msgstr ""
+
+msgid "Wappen hochladen"
+msgstr ""
+
+msgid "Wappen gespeichert."
+msgstr ""
+
+msgid "Wappen entfernen"
+msgstr ""
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr ""
+
+msgid "Wappen entfernt."
+msgstr ""
+
+msgid "Öffentliche Beschreibung"
+msgstr ""
+
+msgid "Beschreibung speichern"
+msgstr ""
+
+msgid "Beschreibung gespeichert."
+msgstr ""
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr ""
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr ""
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr ""
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr ""
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr ""
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr ""
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr ""

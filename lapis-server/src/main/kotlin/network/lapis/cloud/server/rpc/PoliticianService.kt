@@ -20,6 +20,7 @@ import network.lapis.cloud.shared.domain.PoliticianRaterType
 import network.lapis.cloud.shared.domain.PoliticianReactionDto
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
 import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
+import network.lapis.cloud.shared.domain.PublicRankingKind
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IPoliticianService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -198,6 +199,14 @@ class PoliticianService(
         val targetMemberId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         return transaction {
+            // Welle V1.9.20 -- member row lock FIRST (the lock order DsgvoService.grantPublicRankingConsent
+            // uses: member, then a plain read of the profile), because the POLITICIAN_LISTING consent
+            // store requires its caller to hold it. No other path locks profile-then-member.
+            MemberTable
+                .selectAll()
+                .where { MemberTable.id eq targetMemberId }
+                .forUpdate()
+                .singleOrNull()
             val row = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             if (row[PoliticianProfileTable.status] != PoliticianProfileStatus.ACTIVE) {
                 throw ConflictException("PoliticianProfile for member $targetMemberId is already FORMER")
@@ -218,6 +227,10 @@ class PoliticianService(
             // it, a direct consequence of this domain's single-table (not per-kind-table) schema.
             PoliticianWeightSnapshotTable.deleteWhere { PoliticianWeightSnapshotTable.politicianProfileId eq profileId }
             PoliticianReactionTable.deleteWhere { PoliticianReactionTable.politicianProfileId eq profileId }
+            // Welle V1.9.20 -- the public listing consent ends WITH the status, in the same locked
+            // transaction: a later re-appointment by a third party must not silently publish the
+            // person again without a fresh consent. A no-op when nothing was granted.
+            PublicRankingConsentStore.revoke(memberId = targetMemberId, kind = PublicRankingKind.POLITICIAN_LISTING, now = now)
             loadProfile(profileId)
         }
     }

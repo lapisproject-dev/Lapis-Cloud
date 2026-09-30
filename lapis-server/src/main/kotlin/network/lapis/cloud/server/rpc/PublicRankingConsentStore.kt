@@ -123,13 +123,14 @@ internal object PublicRankingConsentStore {
     /**
      * Revokes [kind] for [memberId]. A silent, idempotent no-op (writes nothing) if there is no
      * CURRENT [PublicRankingConsentEventType.GRANTED] row -- a member who was never opted in, or
-     * who is already revoked, gets no new row from a repeated revoke.
+     * who is already revoked, gets no new row from a repeated revoke. Returns `true` iff a grant was
+     * actually revoked (Welle V1.9.20: status-loss hooks log on that).
      */
     fun revoke(
         memberId: Uuid,
         kind: PublicRankingKind,
         now: LocalDateTime,
-    ) {
+    ): Boolean {
         val currentlyGranted =
             PublicRankingConsentEventTable
                 .select(PublicRankingConsentEventTable.id)
@@ -139,7 +140,7 @@ internal object PublicRankingConsentStore {
                         PublicRankingConsentEventTable.supersededAt.isNull() and
                         (PublicRankingConsentEventTable.eventType eq PublicRankingConsentEventType.GRANTED)
                 }.firstOrNull() != null
-        if (!currentlyGranted) return
+        if (!currentlyGranted) return false
         supersedeCurrentRows(memberId = memberId, kind = kind, now = now)
         PublicRankingConsentEventTable.insert {
             it[id] = Uuid.random()
@@ -154,6 +155,7 @@ internal object PublicRankingConsentStore {
             it[consentVersion] = PublicRankingConsentDisclaimer.of(kind).version
             it[consentSha256] = PublicRankingConsentDisclaimer.of(kind).sha256
         }
+        return true
     }
 
     private fun supersedeCurrentRows(

@@ -1,9 +1,12 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
+import io.kvision.html.icon
+import io.kvision.html.image
 import io.kvision.html.p
 import io.kvision.html.span
 import io.kvision.i18n.gettext
@@ -13,12 +16,16 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.ChapterCrestUploadError
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PublicTextNormalization
+import network.lapis.cloud.shared.domain.PublicTextRules
 import network.lapis.cloud.shared.domain.RegionalChapterDto
 import network.lapis.cloud.shared.domain.RegionalChapterOfficerDto
 import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
+import network.lapis.cloud.shared.domain.RegionalChapterPublicRules
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.domain.SessionInfoDto
@@ -187,6 +194,9 @@ private fun renderChapterCard(
     if (blockReason != null) {
         card.p(blockReason) { addCssClasses("text-muted small mb-0") }
     }
+    // ── Öffentliche Darstellung (Wappen + Beschreibung), Welle V1.9.20 ──
+    renderChapterPublicSection(card, chapter, onChanged)
+
     deleteButton.onClick {
         confirmDialog(
             title = gettext("Landesverband %1 löschen", chapter.name),
@@ -203,6 +213,123 @@ private fun renderChapterCard(
                     onChanged()
                     refreshSessionFromServer()
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Welle V1.9.20 "Öffentliche Seiten" -- the public face of a chapter: the crest tile (fixed 96 px, so a
+ * missing crest never shifts the layout), upload/remove, and the public description with a live
+ * code-point counter. The file goes to `POST /api/regional-chapters/{id}/crest` ([ChapterCrestHttp]);
+ * description and removal are RPCs. Every failure is a fixed, translated sentence chosen by an enum code.
+ */
+private fun renderChapterPublicSection(
+    card: SimplePanel,
+    chapter: RegionalChapterDto,
+    onChanged: () -> Unit,
+) {
+    val section = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
+    section.p(tr("Öffentliche Darstellung")) { addCssClasses("fw-bold small mb-0") }
+
+    val tile = section.div { addCssClass("lapis-crest-tile") }
+    val crestUrl = chapter.crestUrl
+    if (chapter.hasCrest && crestUrl != null) {
+        tile.image(crestUrl, sanitizeUntrustedI18nText(gettext("Wappen %1", chapter.name)))
+    } else {
+        tile.icon("fas fa-shield-halved").setAttribute("aria-hidden", "true")
+    }
+    section.p(tr("JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB.")) { addCssClasses("text-muted small mb-0") }
+    val errorBox = section.div("") { addCssClasses("alert alert-danger small mb-0") }
+    errorBox.setAttribute("role", "alert")
+    errorBox.hide()
+
+    val uploadForm = section.lapisForm()
+    val fileUpload = uploadForm.panel.upload(label = tr("Wappen auswählen"))
+    val fileField =
+        uploadForm.register(
+            fileUpload,
+            label = tr("Wappen auswählen"),
+            required = true,
+            requiredMessage = tr("Bitte eine Datei auswählen."),
+        )
+    val uploadButton = Button(if (chapter.hasCrest) tr("Wappen ersetzen") else tr("Wappen hochladen"), style = ButtonStyle.OUTLINEPRIMARY)
+    uploadForm.buttons(primary = uploadButton)
+    uploadButton.onClick {
+        uploadForm.submit(uploadButton) {
+            val nativeFile = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) } ?: return@submit
+            errorBox.hide()
+            val failure =
+                when {
+                    nativeFile.type !in setOf("image/jpeg", "image/png") -> ChapterCrestUploadError.UNSUPPORTED_FORMAT
+                    nativeFile.size.toDouble() > RegionalChapterPublicRules.CREST_MAX_UPLOAD_BYTES -> ChapterCrestUploadError.FILE_TOO_LARGE
+                    else ->
+                        when (val result = ChapterCrestHttp.upload(chapterId = chapter.id, file = nativeFile)) {
+                            ChapterCrestHttp.Result.Ok -> null
+                            is ChapterCrestHttp.Result.Error -> result.code
+                        }
+                }
+            fileField.reset()
+            if (failure != null) {
+                errorBox.content = chapterCrestUploadErrorMessage(failure)
+                errorBox.show()
+            } else {
+                notifySuccess(tr("Wappen gespeichert."))
+                onChanged()
+            }
+        }
+    }
+
+    if (chapter.hasCrest) {
+        val removeButton = section.button(tr("Wappen entfernen"), style = ButtonStyle.OUTLINEDANGER)
+        removeButton.onClick {
+            confirmDialog(
+                title = tr("Wappen entfernen"),
+                message = gettext("Das Wappen von \"%1\" wird endgültig gelöscht.", chapter.name),
+                confirmLabel = tr("Entfernen"),
+            ) {
+                runGuardedAction(button = null) {
+                    regionalChapterGuarded { rpcService<IRegionalChapterService>().removeChapterCrest(chapter.id) }
+                        ?: return@runGuardedAction
+                    notifySuccess(tr("Wappen entfernt."))
+                    onChanged()
+                }
+            }
+        }
+    }
+
+    val descriptionForm = section.lapisForm()
+    val descriptionField =
+        descriptionForm.textAreaField(
+            label = tr("Öffentliche Beschreibung"),
+            rows = 3,
+            value = chapter.description,
+            rule = { raw -> chapterDescriptionCheck(raw) },
+        )
+    val counter = descriptionForm.panel.div("") { addCssClasses("small text-muted") }
+
+    fun updateCounter() {
+        val count = PublicTextRules.codePointCount(descriptionField.value.trim())
+        counter.content = gettext("%1 / %2", count, RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS)
+        if (count > RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS) {
+            counter.addCssClass("text-danger")
+        } else {
+            counter.removeCssClass("text-danger")
+        }
+    }
+    updateCounter()
+    descriptionField.subscribe { updateCounter() }
+    val saveDescriptionButton = Button(tr("Beschreibung speichern"), style = ButtonStyle.PRIMARY)
+    descriptionForm.buttons(primary = saveDescriptionButton)
+    saveDescriptionButton.onClick {
+        descriptionForm.submit(saveDescriptionButton) {
+            val result =
+                regionalChapterGuarded {
+                    rpcService<IRegionalChapterService>().updateChapterDescription(chapter.id, descriptionField.value)
+                }
+            if (result != null) {
+                notifySuccess(tr("Beschreibung gespeichert."))
+                onChanged()
             }
         }
     }
@@ -420,6 +547,26 @@ internal fun chapterCountsLine(dto: RegionalChapterDto): String =
         dto.assignedMemberCount,
         dto.activeOfficerCount,
     )
+
+internal fun chapterDescriptionCheck(raw: String): FieldCheck =
+    when (
+        PublicTextRules.normalize(
+            raw = raw,
+            maxCodePoints = RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS,
+            maxLineBreaks = RegionalChapterPublicRules.DESCRIPTION_MAX_LINE_BREAKS,
+        )
+    ) {
+        is PublicTextNormalization.Ok, PublicTextNormalization.Empty -> FieldCheck.Ok
+        PublicTextNormalization.TooLong ->
+            FieldCheck.Invalid(
+                gettext("Die Beschreibung darf höchstens %1 Zeichen lang sein.", RegionalChapterPublicRules.DESCRIPTION_MAX_CODEPOINTS),
+            )
+        PublicTextNormalization.TooManyLineBreaks ->
+            FieldCheck.Invalid(
+                gettext("Bitte höchstens %1 Zeilenumbrüche verwenden.", RegionalChapterPublicRules.DESCRIPTION_MAX_LINE_BREAKS),
+            )
+        PublicTextNormalization.ControlChars -> FieldCheck.Invalid(gettext("Der Text enthält unzulässige Zeichen."))
+    }
 
 internal fun chapterNameCheck(raw: String): FieldCheck {
     val normalized = RegionalChapterRules.normalizeName(raw)

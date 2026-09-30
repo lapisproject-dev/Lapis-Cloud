@@ -633,6 +633,12 @@ fun Route.registerSocialPublicRoutes(
     // Archivdienst (archive.org) strukturell nicht zu halten ist. Siehe begleitendes
     // `meta(name = "robots", content = "noindex,follow")` in PublicTransparencyHtml.
     //
+    // Welle V1.9.20 "Öffentliche Seiten": "Disallow: /vorstand" und "/politiker" -- beide Seiten zeigen
+    // Namen (und optional Foto/Kurzvorstellung) unter widerrufbarer Einwilligung, deren Widerruf
+    // sofort wirken soll; ein Suchmaschinen-Index könnte das nicht einhalten (siehe
+    // `noindex,follow` in PublicProfilesHtml). /landesverbaende enthält keine Personendaten und
+    // bleibt indexierbar.
+    //
     // Welle V1.4.6 "Öffentliche Startseite": "Disallow: /app" -- die SPA-Shell unter /app ist ein
     // leeres <div id="lapis-client">, ihre Indexierung wäre reines Rauschen und könnte im
     // Suchmaschinen-Ranking mit der neuen, inhaltstragenden Landingpage unter / konkurrieren (siehe
@@ -649,6 +655,8 @@ fun Route.registerSocialPublicRoutes(
                 Disallow: /rpc/
                 Disallow: /s/*/report
                 Disallow: /transparenz
+                Disallow: /vorstand
+                Disallow: /politiker
                 Disallow: /app
 
                 Sitemap: $baseUrl/sitemap.xml

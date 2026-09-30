@@ -127,7 +127,12 @@ internal object PublicOverviewHtml {
         }
     }
 
-    private fun skeleton(
+    /**
+     * The shared page shell of every overview page. `internal` since Welle V1.9.20 -- the
+     * [PublicProfilesHtml] pages reuse it; [robots] is `index,follow` for the article/event lists
+     * and `noindex,follow` for the pages that show PERSONAL data under a revocable consent.
+     */
+    internal fun skeleton(
         baseUrl: String,
         branding: ResolvedBranding,
         lang: PublicLanguage,
@@ -135,6 +140,7 @@ internal object PublicOverviewHtml {
         heading: String,
         active: PublicChrome.NavTarget,
         nav: PublicNavAvailability,
+        robots: String = "index,follow",
         content: kotlinx.html.FlowContent.() -> Unit,
     ): String {
         val canonicalUrl = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = currentPath, lang = lang)
@@ -144,7 +150,7 @@ internal object PublicOverviewHtml {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"$heading – ${branding.title}" }
-                meta(name = "robots", content = "index,follow")
+                meta(name = "robots", content = robots)
                 link(rel = "canonical", href = canonicalUrl)
                 link(rel = "stylesheet", href = "/s/assets/style.css")
                 with(PublicChrome) { renderHreflangAlternates(baseUrl = baseUrl, currentPath = currentPath) }

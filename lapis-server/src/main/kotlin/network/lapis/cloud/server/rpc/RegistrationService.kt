@@ -13,6 +13,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
@@ -492,6 +493,14 @@ class RegistrationService internal constructor(
                 // Welle V1.9.19 -- a withdrawn member's PUBLISHED photo goes back to PRIVATE in the
                 // same transaction (see MemberService.updateMemberStatus for the reasoning).
                 MemberPhotoStore.revokePublicationOnStatusLoss(
+                    memberId = current.memberId,
+                    newStatus = MemberStatus.WITHDRAWN,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    now = now,
+                )
+                // Welle V1.9.20 -- public short introduction + politician listing consent, same reasoning.
+                MemberPublicBioStore.revokePublicationOnStatusLoss(
                     memberId = current.memberId,
                     newStatus = MemberStatus.WITHDRAWN,
                     actorMemberId = current.memberId,

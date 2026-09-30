@@ -17258,3 +17258,145 @@ msgstr "Nie udało się przesłać zdjęcia."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Najpierw prześlij zdjęcie."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Twoje krótkie przedstawienie jest wyświetlane na publicznych stronach tej organizacji, na przykład na stronach zarządu i polityków oraz w osadzanym kanale witryny. Zgodę możesz wycofać w dowolnym momencie; tekst przestaje być dostępny od następnego zapytania. Nie możemy cofnąć kopii, które wykonały już osoby trzecie."
+
+msgid "Kurzvorstellung"
+msgstr "Krótkie przedstawienie"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Zapisz krótkie przedstawienie"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Usuń krótkie przedstawienie"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Pokazuj krótkie przedstawienie publicznie"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "Zdjęcie zmienisz w karcie zdjęcia powyżej."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Krótkie przedstawienie usunięte."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Krótkie przedstawienie zapisane."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "Twoje krótkie przedstawienie zostanie trwale usunięte."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Opublikuj krótkie przedstawienie"
+
+msgid "Bitte zuerst speichern."
+msgstr "Najpierw zapisz."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Twoje imię i nazwisko oraz funkcja są już na stronie publicznej. Krótkie przedstawienie jest dobrowolne i początkowo prywatne."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "Obecnie nie jest Pan/Pani w zarządzie ani na liście polityków. Zapisany tekst pozostaje prywatny i można go w każdej chwili usunąć."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Obecnie niewidoczne publicznie."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Obecnie publiczne na: %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "Krótkie przedstawienie może mieć najwyżej %1 znaków."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Użyj najwyżej %1 podziałów wiersza."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "Tekst zawiera niedozwolone znaki."
+
+msgid "Mein öffentliches Profil"
+msgstr "Mój profil publiczny"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Publiczna strona polityków"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "Zdjęcie użytkownika %1 zostanie trwale usunięte."
+
+msgid "Foto entfernt."
+msgstr "Zdjęcie usunięte."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Usuń krótkie przedstawienie"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "Publiczne krótkie przedstawienie użytkownika %1 zostanie trwale usunięte."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Krótkie przedstawienie usunięte."
+
+msgid "Öffentliche Darstellung"
+msgstr "Prezentacja publiczna"
+
+msgid "Wappen %1"
+msgstr "Herb %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG lub PNG, co najmniej 64 × 64 pikseli, najwyżej 2 MB."
+
+msgid "Wappen auswählen"
+msgstr "Wybierz herb"
+
+msgid "Wappen ersetzen"
+msgstr "Zastąp herb"
+
+msgid "Wappen hochladen"
+msgstr "Prześlij herb"
+
+msgid "Wappen gespeichert."
+msgstr "Herb zapisany."
+
+msgid "Wappen entfernen"
+msgstr "Usuń herb"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "Herb \"%1\" zostanie trwale usunięty."
+
+msgid "Wappen entfernt."
+msgstr "Herb usunięty."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Opis publiczny"
+
+msgid "Beschreibung speichern"
+msgstr "Zapisz opis"
+
+msgid "Beschreibung gespeichert."
+msgstr "Opis zapisany."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "Opis może mieć najwyżej %1 znaków."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Dozwolone są tylko obrazy JPEG lub PNG."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "Plik jest większy niż 2 MB."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "Obraz jest za mały (co najmniej 64 × 64 pikseli)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "Nie udało się przesłać herbu."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Najpierw zapisz krótkie przedstawienie."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "Krótkiego przedstawienia nie można obecnie zapisać ani opublikować."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "Krótkie przedstawienie jest za długie lub zawiera niedozwolone znaki."

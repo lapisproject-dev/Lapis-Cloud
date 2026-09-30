@@ -68,6 +68,7 @@ object PersonalDataRegistry {
             CarpoolPersonalData,
             RegionalChapterPersonalData,
             MemberPhotoPersonalData,
+            MemberPublicBioPersonalData,
         )
 
     /**

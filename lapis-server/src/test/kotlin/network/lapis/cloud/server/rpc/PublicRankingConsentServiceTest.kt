@@ -189,7 +189,7 @@ class PublicRankingConsentServiceTest :
 
                 // No opt-in yet -- both kinds are not effective.
                 val before = client.get("/test/consents") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
-                before shouldBe "LTR_HOLDINGS=false;DONATIONS=false"
+                before shouldBe "LTR_HOLDINGS=false;DONATIONS=false;POLITICIAN_LISTING=false"
 
                 val granted =
                     client.post("/test/grant/LTR_HOLDINGS?v=$version&h=$sha") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
@@ -197,7 +197,7 @@ class PublicRankingConsentServiceTest :
 
                 // DONATIONS is untouched by granting LTR_HOLDINGS -- independently revocable (D9).
                 val afterLtrGrant = client.get("/test/consents") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
-                afterLtrGrant shouldBe "LTR_HOLDINGS=true;DONATIONS=false"
+                afterLtrGrant shouldBe "LTR_HOLDINGS=true;DONATIONS=false;POLITICIAN_LISTING=false"
 
                 totalRowCount(memberId = Uuid.parse(MEMBER_ID), kind = PublicRankingKind.LTR_HOLDINGS) shouldBe 1L
                 currentRowCount(memberId = Uuid.parse(MEMBER_ID), kind = PublicRankingKind.LTR_HOLDINGS) shouldBe 1L
@@ -206,7 +206,7 @@ class PublicRankingConsentServiceTest :
                 revoked shouldBe "false"
 
                 val afterRevoke = client.get("/test/consents") { header("X-Member-Id", MEMBER_ID) }.bodyAsText()
-                afterRevoke shouldBe "LTR_HOLDINGS=false;DONATIONS=false"
+                afterRevoke shouldBe "LTR_HOLDINGS=false;DONATIONS=false;POLITICIAN_LISTING=false"
 
                 // Append-only: grant + revoke left TWO rows, neither physically deleted, exactly
                 // ONE of them (the revoke) is the current (non-superseded) row.
@@ -310,7 +310,7 @@ class PublicRankingConsentServiceTest :
                 }
 
                 val body = client.get("/test/consents") { header("X-Member-Id", staleMemberId.toString()) }.bodyAsText()
-                body shouldBe "LTR_HOLDINGS=false=true;DONATIONS=false=false"
+                body shouldBe "LTR_HOLDINGS=false=true;DONATIONS=false=false;POLITICIAN_LISTING=false=false"
             }
         }
 

@@ -40,6 +40,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.security.MessageDigest
+import kotlin.time.Duration.Companion.minutes
 
 private val STATE_PATTERN = Regex("^[0-9a-f]{32}$")
 private val JS_CONTENT_TYPE = ContentType("application", "javascript").withParameter("charset", "utf-8")
@@ -124,6 +125,11 @@ fun Route.registerEmbedRoutes(
     // LAPIS_EMBED_ENABLED, unlike the always-on /aktuelles/* public page/cover routes -- see
     // registerArticlePublicRoutes KDoc).
     articlesFeedRateLimiter: FederationInboxRateLimiter,
+    // Welle V1.9.20 "Öffentliche Seiten" -- board/politicians/chapters feed widgets, same read-only,
+    // public-by-design posture as articlesFeedRateLimiter (opt-in behind LAPIS_EMBED_ENABLED). ONE
+    // shared limiter for the three feeds; the OPTIONS preflights share eventPageRateLimiter.
+    profilesFeedRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
     brandTitle: String = BrandConfig.DEFAULT_TITLE,
 ) {
     // Registered FIRST, unconditionally -- see this function's own KDoc "A false EmbedConfig.enabled
@@ -194,6 +200,14 @@ fun Route.registerEmbedRoutes(
         config = config,
         baseUrl = baseUrl,
         feedRateLimiter = articlesFeedRateLimiter,
+        preflightRateLimiter = eventPageRateLimiter,
+    )
+
+    // Welle V1.9.20 "Öffentliche Seiten" -- Vorstand/Politiker/Landesverbände als Embed-Feeds.
+    registerEmbedProfilesFeedRoutes(
+        config = config,
+        baseUrl = baseUrl,
+        feedRateLimiter = profilesFeedRateLimiter,
         preflightRateLimiter = eventPageRateLimiter,
     )
 

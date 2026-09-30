@@ -70,6 +70,14 @@ data class MemberAdminRowDto(
      */
     val regionalChapterId: String? = null,
     val regionalChapterName: String? = null,
+    /**
+     * Welle V1.9.20 -- only presence flags that drive the moderation buttons ("Foto entfernen",
+     * "Kurzvorstellung entfernen"); NEVER the content. Filled ONLY for BOARD/ADMIN callers, always
+     * `false` for a TREASURER (same idiom as the family fields above) -- the moderation RPCs are
+     * BOARD/ADMIN-only, so the flags would be a pointless existence oracle for anyone else.
+     */
+    val hasPhoto: Boolean = false,
+    val hasPublicBio: Boolean = false,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */

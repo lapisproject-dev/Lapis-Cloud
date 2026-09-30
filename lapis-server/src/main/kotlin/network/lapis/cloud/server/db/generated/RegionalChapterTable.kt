@@ -20,5 +20,12 @@ public object RegionalChapterTable : Table("regional_chapter") {
     public val nameKey: Column<String> = varchar("name_key", 80).uniqueIndex()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
 
+    // Welle V1.9.20 "Öffentliche Seiten" (V62__public_profiles.sql) -- see 58-regional-chapter.kuml.kts.
+    // The three crest_* columns are all NULL or all set (chk_regional_chapter_crest_state).
+    public val description: Column<String?> = varchar("description", 1200).nullable()
+    public val crestImageId: Column<Uuid?> = uuid("crest_image_id").nullable()
+    public val crestPublicToken: Column<String?> = varchar("crest_public_token", 64).nullable()
+    public val crestContentType: Column<String?> = varchar("crest_content_type", 32).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

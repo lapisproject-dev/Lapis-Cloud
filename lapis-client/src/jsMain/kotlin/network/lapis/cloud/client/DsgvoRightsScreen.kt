@@ -28,6 +28,7 @@ import network.lapis.cloud.shared.domain.ExportManifestDto
 import network.lapis.cloud.shared.domain.PublicRankingConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.PublicRankingConsentStateDto
 import network.lapis.cloud.shared.domain.PublicRankingKind
+import network.lapis.cloud.shared.domain.isLeaderboard
 import network.lapis.cloud.shared.rpc.IDsgvoService
 
 /**
@@ -111,6 +112,11 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     root.h2(tr("Mein Foto")) { addCssClass("h5") }
     renderMemberPhotoSection(root)
 
+    // Welle V1.9.20 "Öffentliche Seiten" -- directly below the photo: the short introduction and the
+    // politician listing consent. The card renders nothing for a member who is neither board member
+    // nor politician and has no stored text.
+    renderMemberPublicProfileSection(root)
+
     root.h2(tr("Auskunft")) { addCssClass("h5") }
     root.div(
         tr(
@@ -164,16 +170,23 @@ private fun renderPublicRankingConsentSection(root: SimplePanel) {
     val panel = root.vPanel(spacing = 10)
     AppScope.launch {
         val states = guarded { rpcService<IDsgvoService>().getPublicRankingConsents() } ?: return@launch
-        PublicRankingKind.entries.forEach { kind ->
+        // Welle V1.9.20: POLITICIAN_LISTING is not a leaderboard -- it lives on the "Mein öffentliches Profil" card.
+        PublicRankingKind.entries.filter { it.isLeaderboard }.forEach { kind ->
             renderPublicRankingConsentToggle(panel, kind, states.firstOrNull { it.kind == kind })
         }
     }
 }
 
-private fun renderPublicRankingConsentToggle(
+/**
+ * One consent toggle card with the two-layer disclosure. `internal` since Welle V1.9.20: the
+ * "Mein öffentliches Profil" card reuses it for [PublicRankingKind.POLITICIAN_LISTING]. [onChanged]
+ * runs after a successful grant/revoke (the profile card refreshes its status line there).
+ */
+internal fun renderPublicRankingConsentToggle(
     root: SimplePanel,
     kind: PublicRankingKind,
     initialState: PublicRankingConsentStateDto?,
+    onChanged: () -> Unit = {},
 ) {
     val card = root.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -206,8 +219,10 @@ private fun renderPublicRankingConsentToggle(
         }
     }
 
-    card.div(tr("Ihr Name erscheint nur, wenn mindestens fünf Mitglieder in diese Rangliste eingewilligt haben.")) {
-        addCssClasses("text-muted small")
+    if (kind.isLeaderboard) {
+        card.div(tr("Ihr Name erscheint nur, wenn mindestens fünf Mitglieder in diese Rangliste eingewilligt haben.")) {
+            addCssClasses("text-muted small")
+        }
     }
 
     toggle.onClick {
@@ -230,6 +245,7 @@ private fun renderPublicRankingConsentToggle(
             if (result != null) {
                 toggle.value = result.effective
                 notifySuccess(if (wantsGranted) tr("Einwilligung gespeichert.") else tr("Einwilligung widerrufen."))
+                onChanged()
             } else {
                 toggle.value = !wantsGranted
             }
@@ -237,10 +253,11 @@ private fun renderPublicRankingConsentToggle(
     }
 }
 
-private fun publicRankingKindLabel(kind: PublicRankingKind): String =
+internal fun publicRankingKindLabel(kind: PublicRankingKind): String =
     when (kind) {
         PublicRankingKind.LTR_HOLDINGS -> gettext("LTR-Guthaben")
         PublicRankingKind.DONATIONS -> gettext("Spenden")
+        PublicRankingKind.POLITICIAN_LISTING -> gettext("Öffentliche Politiker-Seite")
     }
 
 private fun renderExportManifest(

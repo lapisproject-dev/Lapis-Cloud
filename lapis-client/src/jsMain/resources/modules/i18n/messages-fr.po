@@ -17322,3 +17322,145 @@ msgstr "La photo n'a pas pu être téléversée."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Veuillez d'abord téléverser une photo."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Votre courte présentation est affichée sur les sites web publics de cette organisation, par exemple sur les pages du conseil d'administration et des politiciens ainsi que dans le flux intégré du site. Vous pouvez retirer votre consentement à tout moment ; le texte n'est alors plus accessible dès la requête suivante. Nous ne pouvons pas récupérer les copies que des tiers ont déjà faites."
+
+msgid "Kurzvorstellung"
+msgstr "Courte présentation"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Enregistrer la courte présentation"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Supprimer la courte présentation"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Afficher la courte présentation publiquement"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "Vous modifiez la photo dans la carte photo ci-dessus."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Courte présentation supprimée."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Courte présentation enregistrée."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "Votre courte présentation sera définitivement supprimée."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Publier la courte présentation"
+
+msgid "Bitte zuerst speichern."
+msgstr "Veuillez d'abord enregistrer."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Votre nom et votre rôle figurent déjà sur la page publique. La courte présentation est facultative et d'abord privée."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "Vous ne faites actuellement ni partie du conseil d'administration ni n'êtes répertorié comme politicien. Un texte enregistré reste privé et peut être supprimé à tout moment."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Actuellement non visible publiquement."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Actuellement public sur : %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "La courte présentation ne doit pas dépasser %1 caractères."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Veuillez utiliser au maximum %1 sauts de ligne."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "Le texte contient des caractères non autorisés."
+
+msgid "Mein öffentliches Profil"
+msgstr "Mon profil public"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Page publique des politiciens"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "La photo de %1 sera définitivement supprimée."
+
+msgid "Foto entfernt."
+msgstr "Photo supprimée."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Supprimer la courte présentation"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "La courte présentation publique de %1 sera définitivement supprimée."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Courte présentation supprimée."
+
+msgid "Öffentliche Darstellung"
+msgstr "Présentation publique"
+
+msgid "Wappen %1"
+msgstr "Blason %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG ou PNG, au moins 64 × 64 pixels, 2 Mo au maximum."
+
+msgid "Wappen auswählen"
+msgstr "Choisir le blason"
+
+msgid "Wappen ersetzen"
+msgstr "Remplacer le blason"
+
+msgid "Wappen hochladen"
+msgstr "Téléverser le blason"
+
+msgid "Wappen gespeichert."
+msgstr "Blason enregistré."
+
+msgid "Wappen entfernen"
+msgstr "Supprimer le blason"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "Le blason de « %1 » sera définitivement supprimé."
+
+msgid "Wappen entfernt."
+msgstr "Blason supprimé."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Description publique"
+
+msgid "Beschreibung speichern"
+msgstr "Enregistrer la description"
+
+msgid "Beschreibung gespeichert."
+msgstr "Description enregistrée."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "La description ne doit pas dépasser %1 caractères."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Seules les images JPEG ou PNG sont autorisées."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "Le fichier dépasse 2 Mo."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "L'image est trop petite (au moins 64 × 64 pixels)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "Le blason n'a pas pu être téléversé."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Veuillez d'abord enregistrer une courte présentation."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "La courte présentation ne peut pas être enregistrée ni publiée pour le moment."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "La courte présentation est trop longue ou contient des caractères non autorisés."

@@ -27,6 +27,11 @@
 // exports/erases it, registered in PersonalDataRegistry. The chapter's own name is NOT personal
 // data (an organizational label), only appears via export as the resolved display value.
 //
+// Welle V1.9.20 adds description + crest_* to regional_chapter (public /landesverbaende page and
+// embed feed). Crest FILES are not part of the admin backup (only the crest_* columns travel):
+// after a restore the public crest URL answers 404 until a crest is uploaded again -- same posture
+// as event/article covers, see docs/architecture/public-profiles.adoc "Backup".
+//
 // Cross-domain stub: a minimal id-only Member stub (Foundation-owned), same pattern every other
 // domain file establishes, only so UmlToErmTransformer can resolve member_id/granted_by_member_id.
 import dev.kuml.profile.erm.ermMappingProfile
@@ -53,6 +58,7 @@ classDiagram(name = "RegionalChapter") {
         classOf(name = "RegionalChapter") {
             stereotype("Entity") { "tableName" to "regional_chapter"; "kotlinObjectName" to "RegionalChapterTable" }
             stereotype("Index") { "columns" to listOf("name_key"); "unique" to true; "name" to "uq_regional_chapter_name_key" }
+            stereotype("Index") { "columns" to listOf("crest_public_token"); "unique" to true; "name" to "uq_regional_chapter_crest_token" }
 
             attribute(name = "id", type = "UUID") {
                 stereotype("Id")
@@ -68,6 +74,28 @@ classDiagram(name = "RegionalChapter") {
             }
             attribute(name = "createdAt", type = "LocalDateTime") {
                 stereotype("Column") { "columnName" to "created_at" }
+            }
+            // Welle V1.9.20 "Oeffentliche Seiten" (V62__public_profiles.sql) -- public description
+            // (<= 300 code points, application-validated; VARCHAR(1200) is UTF-16 headroom) and crest.
+            attribute(name = "description", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "description"; "sqlType" to "VARCHAR(1200)" }
+            }
+            // File-name key of the stored crest image -- never a path. NOT an FK, NOT the public token.
+            attribute(name = "crestImageId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "crest_image_id" }
+            }
+            // 256-bit Base64url key of the public URL /public/chapter-crests/{token}; regenerated on every upload.
+            attribute(name = "crestPublicToken", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "crest_public_token"; "sqlType" to "VARCHAR(64)" }
+            }
+            // 'image/jpeg' | 'image/png'. The three crest_* columns are all NULL or all set
+            // (chk_regional_chapter_crest_state, plain SQL CHECK in V62).
+            attribute(name = "crestContentType", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "crest_content_type"; "sqlType" to "VARCHAR(32)" }
             }
         }
 

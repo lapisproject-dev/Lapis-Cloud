@@ -326,6 +326,7 @@ class LegalHtmlTest :
                     "conference" to "Videokonferenzen",
                     "conferenceBackgrounds" to "eigener Hintergrundbilder",
                     "memberPhoto" to "Mitgliedsfoto",
+                    "memberPublicBio" to "Öffentliche Kurzvorstellung",
                     "social_network" to "sozialen Netzwerk",
                     "payments" to "Zahlungsverkehr",
                     "crm" to "(CRM)",

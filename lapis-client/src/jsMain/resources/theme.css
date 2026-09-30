@@ -2080,6 +2080,82 @@ html .form-select.is-invalid:focus {
   display: block;
 }
 
+/* Welle V1.9.20 "Oeffentliche Seiten": Wappen-Kachel (Gliederungsverwaltung) und Vorschau-Karte "Mein
+   oeffentliches Profil" -- die Vorschau nutzt die Formensprache der oeffentlichen Seite (runder Avatar,
+   Name, Rolle, Text). Keine Farbliterale, nur Tokens. */
+.lapis-crest-tile {
+  width: 96px;
+  height: 96px;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: var(--lapis-muted);
+  background-color: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.4rem;
+}
+
+.lapis-crest-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.lapis-public-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem 0.75rem;
+  max-width: 18rem;
+  text-align: center;
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.5rem;
+  background-color: var(--lapis-surface);
+}
+
+.lapis-public-card-avatar {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.lapis-public-card-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--lapis-muted);
+  background-color: var(--lapis-surface-sunken);
+}
+
+.lapis-public-card-name {
+  margin-top: 0.4rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.lapis-public-card-role {
+  color: var(--lapis-muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.lapis-public-card-bio {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  text-align: left;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

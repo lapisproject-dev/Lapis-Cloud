@@ -161,6 +161,7 @@ import network.lapis.cloud.server.routes.registerArticlePublicRoutes
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
 import network.lapis.cloud.server.routes.registerBankStatementRoutes
+import network.lapis.cloud.server.routes.registerChapterCrestRoutes
 import network.lapis.cloud.server.routes.registerClientAssetRoutes
 import network.lapis.cloud.server.routes.registerClientVersionRoutes
 import network.lapis.cloud.server.routes.registerConferenceBackgroundRoutes
@@ -190,8 +191,11 @@ import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
 import network.lapis.cloud.server.routes.registerPublicArticlesOverviewRoutes
+import network.lapis.cloud.server.routes.registerPublicBoardOverviewRoutes
+import network.lapis.cloud.server.routes.registerPublicChaptersOverviewRoutes
 import network.lapis.cloud.server.routes.registerPublicEventsOverviewRoutes
 import network.lapis.cloud.server.routes.registerPublicLandingRoutes
+import network.lapis.cloud.server.routes.registerPublicPoliticiansOverviewRoutes
 import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
@@ -246,6 +250,7 @@ import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
 import network.lapis.cloud.server.rpc.MemberHonorService
 import network.lapis.cloud.server.rpc.MemberPhotoService
+import network.lapis.cloud.server.rpc.MemberPublicProfileService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
@@ -322,6 +327,7 @@ import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
 import network.lapis.cloud.shared.rpc.IMemberHonorService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
+import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
@@ -440,6 +446,14 @@ internal fun Application.module(
     // override LAPIS_MEMBER_PHOTO_STORAGE_ROOT. MemberPhotoStorage.fromEnvironment() is the ONLY
     // place that derives this root -- the DSGVO contributor calls the same function.
     val memberPhotoStorage = MemberPhotoStorage.fromEnvironment()
+
+    // Welle V1.9.20 "Öffentliche Seiten" -- regional chapter crest images. Same durable volume as
+    // documentStorageRoot, own "chapter-crests/" subdirectory, own env override
+    // LAPIS_CHAPTER_CREST_STORAGE_ROOT. Reuses EventCoverStorage 1:1 (file name = server UUID + fixed
+    // format enum, never client input), exactly like the event/article covers above.
+    val chapterCrestStorageRoot =
+        File(System.getenv("LAPIS_CHAPTER_CREST_STORAGE_ROOT") ?: documentStorageRoot.resolve("chapter-crests").path)
+    val chapterCrestStorage = EventCoverStorage(chapterCrestStorageRoot)
 
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's
@@ -1222,6 +1236,14 @@ internal fun Application.module(
     val memberPhotoModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 60.minutes)
     val memberPhotoOwnReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes)
     val memberPhotoPublicReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // Welle V1.9.20 "Öffentliche Seiten" -- own budgets, never shared with another route family:
+    // the member's own short introduction (write/visibility), BOARD/ADMIN moderation, the BOARD/ADMIN
+    // crest upload (per actor) and the public crest delivery (per IP, before any DB access).
+    val memberPublicProfileWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes)
+    val memberPublicProfileModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 60.minutes)
+    val chapterCrestUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 60.minutes)
+    val chapterCrestPublicReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as the event-cover
     // pair above (member-keyed write, bounded per-IP read), plus a member-keyed preview budget
     // and an IP-keyed page-read budget for the public /aktuelles/{slug} surface.
@@ -1375,6 +1397,10 @@ internal fun Application.module(
     // family's budget" reasoning as every limiter above.
     val publicArticlesOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val publicEventsOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.9.20 -- GET /vorstand, /politiker, /landesverbaende, one budget each.
+    val publicBoardOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    val publicPoliticiansOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    val publicChaptersOverviewRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
     // Welle "Digitaler Mitgliedsausweis (PDF)" -- drei eigene Budgets, nie geteilt:
     // [memberCardIssueRateLimiter] gilt fuer POST /api/members/{id}/card.pdf und ist bewusst KNAPP
@@ -1482,6 +1508,8 @@ internal fun Application.module(
     val embedEventsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as embedEventsFeedRateLimiter above.
     val embedArticlesFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.9.20 -- ONE shared budget for the three read-only profile feeds (board/politicians/chapters).
+    val embedProfilesFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
 
     // Welle V1.4.1b "Öffentliche Website-Integration -- anonymer Spenden-Pfad" -- der schärfste
     // Limiter dieser Codebase. Der EINZIGE unauthentifizierte Endpunkt, der auf Zuruf eines Fremden
@@ -1680,7 +1708,21 @@ internal fun Application.module(
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(ICarpoolService::class) { call -> CarpoolService(call) }
         // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)".
-        registerService(IRegionalChapterService::class) { call -> RegionalChapterService(call) }
+        registerService(IRegionalChapterService::class) { call ->
+            RegionalChapterService(
+                call = call,
+                crestStorage = chapterCrestStorage,
+                baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            )
+        }
+        // Welle V1.9.20 "Öffentliche Seiten" -- the member's own short introduction (Vorstand/Politiker pages).
+        registerService(IMemberPublicProfileService::class) { call ->
+            MemberPublicProfileService(
+                call = call,
+                writeRateLimiter = memberPublicProfileWriteRateLimiter,
+                moderationRateLimiter = memberPublicProfileModerationRateLimiter,
+            )
+        }
         registerService(
             IDsgvoService::class,
         ) { call ->
@@ -2136,6 +2178,23 @@ internal fun Application.module(
             branding = resolvedBranding,
             navAvailability = publicNavAvailability,
         )
+        // Welle V1.9.20 "Öffentliche Seiten" -- literal routes (/vorstand, /politiker, /landesverbaende),
+        // same "registered before staticFiles" reasoning. Never cached (personal data under a revocable consent).
+        registerPublicBoardOverviewRoutes(
+            readRateLimiter = publicBoardOverviewRateLimiter,
+            branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
+        )
+        registerPublicPoliticiansOverviewRoutes(
+            readRateLimiter = publicPoliticiansOverviewRateLimiter,
+            branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
+        )
+        registerPublicChaptersOverviewRoutes(
+            readRateLimiter = publicChaptersOverviewRateLimiter,
+            branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
+        )
         // V1.3.1 "API-Fundament, lesend" -- literal routes (/api/v1/*), same "registered before
         // staticFiles" reasoning as registerSocialPublicRoutes'/registerPublicTransparencyRoutes' own
         // routes.
@@ -2193,6 +2252,14 @@ internal fun Application.module(
             ownReadRateLimiter = memberPhotoOwnReadRateLimiter,
             publicReadRateLimiter = memberPhotoPublicReadRateLimiter,
         )
+        // Welle V1.9.20 "Öffentliche Seiten" -- regional chapter crest upload + public delivery, always-on
+        // (NOT inside registerEmbedRoutes), registered before staticFiles. No CORS: a crest is an <img> source.
+        registerChapterCrestRoutes(
+            storage = chapterCrestStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            uploadRateLimiter = chapterCrestUploadRateLimiter,
+            publicReadRateLimiter = chapterCrestPublicReadRateLimiter,
+        )
         // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- literal routes (/aktuelles/*,
         // /api/articles/*), always-on (NOT gated behind LAPIS_EMBED_ENABLED -- see
         // registerArticlePublicRoutes KDoc), same "registered before staticFiles" reasoning as the
@@ -2233,6 +2300,7 @@ internal fun Application.module(
             eventPageRateLimiter = eventPageRateLimiter,
             eventsFeedRateLimiter = embedEventsFeedRateLimiter,
             articlesFeedRateLimiter = embedArticlesFeedRateLimiter,
+            profilesFeedRateLimiter = embedProfilesFeedRateLimiter,
             brandTitle = resolvedBranding.title,
         )
         getAllServiceManagers().forEach { applyRoutes(it) }

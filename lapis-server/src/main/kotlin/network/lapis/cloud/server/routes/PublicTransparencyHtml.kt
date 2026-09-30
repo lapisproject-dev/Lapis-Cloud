@@ -90,7 +90,14 @@ internal object PublicTransparencyHtml {
                         if (view.donations != null) a(href = "#spenden") { +strings.jumpDonors }
                     }
                     renderStats(stats = view.stats, strings = strings)
-                    renderBoard(board = view.board, strings = strings)
+                    renderBoard(
+                        board = view.board,
+                        strings = strings,
+                        // Welle V1.9.20 -- only when /vorstand would actually show something (same PublicNavAvailability
+                        // signal as its nav tab), so the link can never lead to an empty page.
+                        boardPageUrl =
+                            if (nav.board) PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/vorstand", lang = lang) else null,
+                    )
                     renderTopPosts(posts = view.topPosts, baseUrl = baseUrl, lang = lang, strings = strings)
                     view.ltr?.let { renderRankingSection(id = "ltr", title = strings.topLtrHolders, unit = "LTR", rankingSection = it) }
                     view.donations?.let {
@@ -175,6 +182,7 @@ internal object PublicTransparencyHtml {
     private fun FlowContent.renderBoard(
         board: List<PublicBoardMemberRow>,
         strings: PublicUiStrings,
+        boardPageUrl: String?,
     ) {
         section {
             attributes["id"] = "vorstand"
@@ -190,6 +198,9 @@ internal object PublicTransparencyHtml {
                             span { +member.role.label(strings) }
                         }
                     }
+                }
+                if (boardPageUrl != null) {
+                    p(classes = "profiles-link") { a(href = boardPageUrl) { +strings.transparencyBoardLink } }
                 }
             }
         }

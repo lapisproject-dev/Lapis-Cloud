@@ -34,9 +34,15 @@ private val logger = KotlinLogging.logger {}
 internal data class PublicNavAvailability(
     val articles: Boolean,
     val events: Boolean,
+    /** Welle V1.9.20 -- `/vorstand`: at least one board card ([PublicProfilesReader.loadBoardCards]). */
+    val board: Boolean = false,
+    /** Welle V1.9.20 -- `/politiker`: at least one listed politician ([PublicProfilesReader.loadPoliticianCards]). */
+    val politicians: Boolean = false,
+    /** Welle V1.9.20 -- `/landesverbaende`: at least one chapter ([PublicProfilesReader.loadChapterCards]). */
+    val chapters: Boolean = false,
 ) {
     companion object {
-        val NONE = PublicNavAvailability(articles = false, events = false)
+        val NONE = PublicNavAvailability(articles = false, events = false, board = false, politicians = false, chapters = false)
     }
 }
 
@@ -76,6 +82,11 @@ internal fun loadPublicNavAvailability(now: LocalDateTime = DbClock.nowLocalDate
                     }.limit(1)
                     .empty()
                     .not(),
+            // Welle V1.9.20 -- the SAME loaders the pages and feeds use, LIMIT 1 -- one definition of
+            // "visible", so a tab can never lead to an empty page (or a page exist without its tab).
+            board = PublicProfilesReader.loadBoardCards(limit = 1).isNotEmpty(),
+            politicians = PublicProfilesReader.loadPoliticianCards(limit = 1).isNotEmpty(),
+            chapters = PublicProfilesReader.loadChapterCards(limit = 1).isNotEmpty(),
         )
     }
 
@@ -88,6 +99,11 @@ internal fun loadPublicNavAvailability(now: LocalDateTime = DbClock.nowLocalDate
  * A production installation may show a just-published article/event up to [ttl] late in the chrome
  * (bounded staleness, same posture [PublicLandingRoutes]' own body memo already establishes) -- never
  * early: a lookup failure (see below) never optimistically shows a tab.
+ *
+ * **Welle V1.9.20, accepted trade-off**: a tab for `/vorstand`, `/politiker` or `/landesverbaende`
+ * can remain visible for up to [ttl] after the last entry was withdrawn -- it then leads to a page
+ * with an empty state (HTTP 200), never to personal data: the pages themselves are NOT cached (see
+ * [PublicProfilesOverviewRoutes]), only the visibility of the tab is delayed.
  *
  * A failed lookup (a transient DB hiccup) is **never cached** -- [current] falls back to the previous
  * snapshot's value (or [PublicNavAvailability.NONE] if there is none yet) but the NEXT call retries the
@@ -116,7 +132,7 @@ class PublicNavAvailabilityProvider internal constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "public nav availability lookup failed; rendering without the optional /aktuelles and /veranstaltungen tabs" }
+            logger.warn(e) { "public nav availability lookup failed; rendering without the optional public tabs" }
             snapshot.get()?.value ?: PublicNavAvailability.NONE
         }
     }

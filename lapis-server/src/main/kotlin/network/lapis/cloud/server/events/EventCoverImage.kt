@@ -34,6 +34,30 @@ enum class CoverImageFormat(
 }
 
 /**
+ * Welle V1.9.20 "Öffentliche Seiten" -- the size thresholds [EventCoverImageProcessor.process]
+ * applies: the minimum edges below which an image is rejected and the long edge it is downscaled
+ * to. Everything ELSE of the pipeline (sniffing, header-dimension and decompression-bomb guards, the
+ * decode-with-subsampling, EXIF orientation, the fresh metadata-free re-encode) is identical for
+ * every caller. [EVENT_COVER] is the default and reproduces the pre-V1.9.20 behaviour exactly;
+ * [CHAPTER_CREST] admits small logos (a crest is legitimately tiny) and stores up to 1024 px.
+ */
+internal data class CoverImageLimits(
+    val minLongEdgePx: Int,
+    val minShortEdgePx: Int,
+    val targetLongEdgePx: Int,
+) {
+    companion object {
+        val EVENT_COVER =
+            CoverImageLimits(
+                minLongEdgePx = EventCoverPolicy.MIN_LONG_EDGE_PX,
+                minShortEdgePx = EventCoverPolicy.MIN_SHORT_EDGE_PX,
+                targetLongEdgePx = EventCoverPolicy.TARGET_LONG_EDGE_PX,
+            )
+        val CHAPTER_CREST = CoverImageLimits(minLongEdgePx = 64, minShortEdgePx = 64, targetLongEdgePx = 1024)
+    }
+}
+
+/**
  * Outcome of [EventCoverImageProcessor.process] -- a typed result, never an exception, for every
  * FACHLICH-expected outcome (same "typed result over exception for expected states" posture
  * `network.lapis.cloud.shared.domain.EventCheckInOutcome` KDoc documents), because the route caller
@@ -162,6 +186,7 @@ internal object EventCoverImageProcessor {
     suspend fun process(
         bytes: ByteArray,
         format: CoverImageFormat,
+        limits: CoverImageLimits = CoverImageLimits.EVENT_COVER,
     ): CoverProcessingResult =
         concurrency.withPermit {
             val readers = ImageIO.getImageReadersByFormatName(format.imageIoFormatName)
@@ -187,11 +212,11 @@ internal object EventCoverImageProcessor {
                 if (longEdge > EventCoverPolicy.MAX_EDGE_PX || width.toLong() * height.toLong() > EventCoverPolicy.MAX_PIXELS) {
                     return@withPermit CoverProcessingResult.DimensionsTooLarge
                 }
-                if (longEdge < EventCoverPolicy.MIN_LONG_EDGE_PX || shortEdge < EventCoverPolicy.MIN_SHORT_EDGE_PX) {
+                if (longEdge < limits.minLongEdgePx || shortEdge < limits.minShortEdgePx) {
                     return@withPermit CoverProcessingResult.DimensionsTooSmall
                 }
 
-                val subsample = (longEdge / (2 * EventCoverPolicy.TARGET_LONG_EDGE_PX)).coerceAtLeast(1)
+                val subsample = (longEdge / (2 * limits.targetLongEdgePx)).coerceAtLeast(1)
                 val param = reader.defaultReadParam
                 if (subsample > 1) param.setSourceSubsampling(subsample, subsample, 0, 0)
 
@@ -205,7 +230,7 @@ internal object EventCoverImageProcessor {
 
                 val orientation = if (format == CoverImageFormat.JPEG) readExifOrientation(bytes) else 1
                 val oriented = applyOrientation(image = decoded, orientation = orientation)
-                val resized = downscaleToTarget(source = oriented, targetLongEdge = EventCoverPolicy.TARGET_LONG_EDGE_PX)
+                val resized = downscaleToTarget(source = oriented, targetLongEdge = limits.targetLongEdgePx)
 
                 val flattened = flatten(source = resized, format = format)
                 val encoded = encode(image = flattened, format = format)

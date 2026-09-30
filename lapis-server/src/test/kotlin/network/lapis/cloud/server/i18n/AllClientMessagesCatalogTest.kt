@@ -59,6 +59,8 @@ private val UNWRAPPED_CONSTANT_USES: Map<String, Int> =
         "REASON_FAILED" to 2,
         "REASON_PENDING" to 2,
         "REASON_UNSUPPORTED" to 2,
+        // pinned consent wording member-bio-public-v1, deliberately untranslated (confirm() shows only the pinned German text)
+        "MEMBER_PUBLIC_BIO_CONSENT_TEXT" to 1,
     )
 
 private fun looksGerman(value: String): Boolean =

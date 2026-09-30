@@ -17249,3 +17249,145 @@ msgstr "Не удалось загрузить фото."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Сначала загрузите фото."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Ваше краткое представление показывается на публичных сайтах этой организации, например на страницах правления и политиков, а также во встраиваемой ленте сайта. Вы можете отозвать согласие в любое время; текст перестанет быть доступен со следующего запроса. Копии, уже сделанные третьими лицами, мы вернуть не можем."
+
+msgid "Kurzvorstellung"
+msgstr "Краткое представление"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Сохранить краткое представление"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Удалить краткое представление"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Показывать краткое представление публично"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "Фото можно изменить в карточке фото выше."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Краткое представление удалено."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Краткое представление сохранено."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "Ваше краткое представление будет удалено безвозвратно."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Опубликовать краткое представление"
+
+msgid "Bitte zuerst speichern."
+msgstr "Сначала сохраните."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Ваше имя и должность уже указаны на публичной странице. Краткое представление добровольно и сначала остаётся приватным."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "Сейчас вы не входите в правление и не числитесь политиком. Сохранённый текст остаётся приватным и может быть удалён в любое время."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Сейчас публично не отображается."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Сейчас публично на: %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "Краткое представление не должно быть длиннее %1 символов."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Используйте не более %1 переносов строки."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "Текст содержит недопустимые символы."
+
+msgid "Mein öffentliches Profil"
+msgstr "Мой публичный профиль"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Публичная страница политиков"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "Фото %1 будет удалено безвозвратно."
+
+msgid "Foto entfernt."
+msgstr "Фото удалено."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Удалить краткое представление"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "Публичное краткое представление %1 будет удалено безвозвратно."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Краткое представление удалено."
+
+msgid "Öffentliche Darstellung"
+msgstr "Публичное представление"
+
+msgid "Wappen %1"
+msgstr "Герб %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG или PNG, не менее 64 × 64 пикселей, не более 2 МБ."
+
+msgid "Wappen auswählen"
+msgstr "Выбрать герб"
+
+msgid "Wappen ersetzen"
+msgstr "Заменить герб"
+
+msgid "Wappen hochladen"
+msgstr "Загрузить герб"
+
+msgid "Wappen gespeichert."
+msgstr "Герб сохранён."
+
+msgid "Wappen entfernen"
+msgstr "Удалить герб"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "Герб «%1» будет удалён безвозвратно."
+
+msgid "Wappen entfernt."
+msgstr "Герб удалён."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Публичное описание"
+
+msgid "Beschreibung speichern"
+msgstr "Сохранить описание"
+
+msgid "Beschreibung gespeichert."
+msgstr "Описание сохранено."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "Описание не должно быть длиннее %1 символов."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Допускаются только изображения JPEG или PNG."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "Файл больше 2 МБ."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "Изображение слишком маленькое (не менее 64 × 64 пикселей)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "Не удалось загрузить герб."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Сначала сохраните краткое представление."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "Краткое представление сейчас нельзя сохранить или опубликовать."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "Краткое представление слишком длинное или содержит недопустимые символы."

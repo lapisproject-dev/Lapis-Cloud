@@ -10,7 +10,21 @@ import kotlinx.serialization.Serializable
  * donation figure are never bundled into one opt-in.
  */
 @Serializable
-enum class PublicRankingKind { LTR_HOLDINGS, DONATIONS }
+enum class PublicRankingKind {
+    LTR_HOLDINGS,
+    DONATIONS,
+
+    /**
+     * Welle V1.9.20 "Öffentliche Seiten" -- NOT a leaderboard: consent of an appointed politician to
+     * be LISTED (name, office, optional photo/short bio) on the public `/politiker` page and the
+     * embed feed. Reuses the versioned, hashed consent store of the two leaderboards; it has no
+     * minimum cohort and no ranking (see [isLeaderboard]). Append-only -- never reorder.
+     */
+    POLITICIAN_LISTING,
+}
+
+/** `true` for the two opt-in LEADERBOARDS ([PublicRankingKind.LTR_HOLDINGS], [PublicRankingKind.DONATIONS]); `false` for [PublicRankingKind.POLITICIAN_LISTING]. */
+val PublicRankingKind.isLeaderboard: Boolean get() = this != PublicRankingKind.POLITICIAN_LISTING
 
 /** One row of the append-only `public_ranking_consent_event` log -- see that table's own KDoc. */
 @Serializable

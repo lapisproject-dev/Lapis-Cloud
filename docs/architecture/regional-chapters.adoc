@@ -221,3 +221,7 @@ erasure, both appear in the export (`officerGrantsIssued`). See `docs/architectu
 * A session push on grant/revoke -- a freshly (de-)authorized regional-chapter officer only sees the
   change after the next `refreshSessionFromServer()` call (a login, or an action on
   `RegionalChaptersScreen.kt`), not live/immediately in another already-open browser tab.
+
+== V1.9.20 cross-reference
+
+See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).

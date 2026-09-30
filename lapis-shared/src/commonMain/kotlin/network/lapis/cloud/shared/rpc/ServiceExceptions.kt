@@ -437,3 +437,37 @@ class MemberPhotoNotEligibleException(
 class MemberPhotoRateLimitedException(
     override val message: String = "Too many member photo actions",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.9.20 "Öffentliche Seiten" -- distinct type (Kilua RPC transmits only the subclass
+ * discriminator). Thrown by `MemberPublicProfileService.setOwnBioPublic` when a publication is
+ * requested but the member has no stored short introduction.
+ */
+@RpcServiceException
+class MemberPublicBioMissingException(
+    override val message: String = "No public short introduction stored",
+) : AbstractServiceException()
+
+/** Welle V1.9.20 -- distinct type. The consent text version sent with a publication request differs from [network.lapis.cloud.shared.domain.MemberPublicBioRules.CONSENT_TEXT_VERSION]. */
+@RpcServiceException
+class MemberPublicBioConsentOutdatedException(
+    override val message: String = "The consent text has changed -- please confirm again",
+) : AbstractServiceException()
+
+/** Welle V1.9.20 -- distinct type. The text is too long, has too many line breaks or carries control characters. */
+@RpcServiceException
+class MemberPublicBioValidationException(
+    override val message: String = "The short introduction is not valid",
+) : AbstractServiceException()
+
+/** Welle V1.9.20 -- distinct type. The caller is neither eligible (board mandate / politician) nor holds a stored short introduction, or is not an ACTIVE member when publishing. */
+@RpcServiceException
+class MemberPublicBioNotEligibleException(
+    override val message: String = "Not eligible for a public short introduction",
+) : AbstractServiceException()
+
+/** Welle V1.9.20 -- distinct type, thrown when a public-profile action exceeds its per-member rate limit. */
+@RpcServiceException
+class MemberPublicBioRateLimitedException(
+    override val message: String = "Too many public profile actions",
+) : AbstractServiceException()

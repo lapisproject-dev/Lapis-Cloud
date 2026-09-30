@@ -179,3 +179,7 @@ disclaimer stay entirely German by design (see above).
 
 See also: <<public-landing.adoc#,Public Landing Page — Welle V1.4.6>> for the `GET /`
 route family this chrome now wraps.
+
+== V1.9.20 cross-reference
+
+See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).

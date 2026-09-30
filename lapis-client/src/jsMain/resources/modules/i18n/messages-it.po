@@ -17304,3 +17304,145 @@ msgstr "Non è stato possibile caricare la foto."
 
 msgid "Bitte zuerst ein Foto hochladen."
 msgstr "Carichi prima una foto."
+
+# Welle V1.9.20 "Öffentliche Seiten"
+msgid "Ihre Kurzvorstellung wird auf den öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel auf den Seiten Vorstand und Politiker sowie im Einbettungs-Feed der Website. Sie können die Freigabe jederzeit widerrufen; der Text ist dann mit der nächsten Abfrage nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "La sua breve presentazione viene mostrata sui siti web pubblici di questa organizzazione, ad esempio nelle pagine del consiglio direttivo e dei politici e nel feed incorporato del sito. Può revocare il consenso in qualsiasi momento; il testo non sarà più disponibile già dalla richiesta successiva. Non possiamo recuperare le copie che terzi hanno già realizzato."
+
+msgid "Kurzvorstellung"
+msgstr "Breve presentazione"
+
+msgid "Kurzvorstellung speichern"
+msgstr "Salva breve presentazione"
+
+msgid "Kurzvorstellung löschen"
+msgstr "Elimina breve presentazione"
+
+msgid "Kurzvorstellung öffentlich anzeigen"
+msgstr "Mostra la breve presentazione pubblicamente"
+
+msgid "Das Foto ändern Sie in der Foto-Karte oben."
+msgstr "La foto si modifica nella scheda foto qui sopra."
+
+msgid "%1 / %2"
+msgstr "%1 / %2"
+
+msgid "Kurzvorstellung gelöscht."
+msgstr "Breve presentazione eliminata."
+
+msgid "Kurzvorstellung gespeichert."
+msgstr "Breve presentazione salvata."
+
+msgid "Ihre Kurzvorstellung wird endgültig gelöscht."
+msgstr "La sua breve presentazione verrà eliminata definitivamente."
+
+msgid "Kurzvorstellung veröffentlichen"
+msgstr "Pubblica breve presentazione"
+
+msgid "Bitte zuerst speichern."
+msgstr "Salvi prima."
+
+msgid "Ihr Name und Ihre Rolle stehen bereits auf der öffentlichen Seite. Die Kurzvorstellung ist freiwillig und zunächst privat."
+msgstr "Il suo nome e il suo ruolo compaiono già nella pagina pubblica. La breve presentazione è facoltativa e all'inizio è privata."
+
+msgid "Sie sind derzeit weder im Vorstand noch als Politiker gelistet. Ein gespeicherter Text bleibt privat und kann jederzeit gelöscht werden."
+msgstr "Al momento non fa parte del consiglio direttivo né è elencato come politico. Un testo salvato resta privato e può essere eliminato in qualsiasi momento."
+
+msgid "Derzeit nicht öffentlich sichtbar."
+msgstr "Al momento non è visibile pubblicamente."
+
+msgid "Derzeit öffentlich auf: %1"
+msgstr "Attualmente pubblico su: %1"
+
+msgid "Die Kurzvorstellung darf höchstens %1 Zeichen lang sein."
+msgstr "La breve presentazione può contenere al massimo %1 caratteri."
+
+msgid "Bitte höchstens %1 Zeilenumbrüche verwenden."
+msgstr "Usi al massimo %1 interruzioni di riga."
+
+msgid "Der Text enthält unzulässige Zeichen."
+msgstr "Il testo contiene caratteri non consentiti."
+
+msgid "Mein öffentliches Profil"
+msgstr "Il mio profilo pubblico"
+
+msgid "Öffentliche Politiker-Seite"
+msgstr "Pagina pubblica dei politici"
+
+msgid "Das Foto von %1 wird endgültig gelöscht."
+msgstr "La foto di %1 verrà eliminata definitivamente."
+
+msgid "Foto entfernt."
+msgstr "Foto rimossa."
+
+msgid "Kurzvorstellung entfernen"
+msgstr "Rimuovi breve presentazione"
+
+msgid "Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht."
+msgstr "La breve presentazione pubblica di %1 verrà eliminata definitivamente."
+
+msgid "Kurzvorstellung entfernt."
+msgstr "Breve presentazione rimossa."
+
+msgid "Öffentliche Darstellung"
+msgstr "Presentazione pubblica"
+
+msgid "Wappen %1"
+msgstr "Stemma %1"
+
+msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgstr "JPEG o PNG, almeno 64 × 64 pixel, al massimo 2 MB."
+
+msgid "Wappen auswählen"
+msgstr "Scegli lo stemma"
+
+msgid "Wappen ersetzen"
+msgstr "Sostituisci stemma"
+
+msgid "Wappen hochladen"
+msgstr "Carica stemma"
+
+msgid "Wappen gespeichert."
+msgstr "Stemma salvato."
+
+msgid "Wappen entfernen"
+msgstr "Rimuovi stemma"
+
+msgid "Das Wappen von \"%1\" wird endgültig gelöscht."
+msgstr "Lo stemma di \"%1\" verrà eliminato definitivamente."
+
+msgid "Wappen entfernt."
+msgstr "Stemma rimosso."
+
+msgid "Öffentliche Beschreibung"
+msgstr "Descrizione pubblica"
+
+msgid "Beschreibung speichern"
+msgstr "Salva descrizione"
+
+msgid "Beschreibung gespeichert."
+msgstr "Descrizione salvata."
+
+msgid "Die Beschreibung darf höchstens %1 Zeichen lang sein."
+msgstr "La descrizione può contenere al massimo %1 caratteri."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt."
+msgstr "Sono consentite solo immagini JPEG o PNG."
+
+msgid "Die Datei ist größer als 2 MB."
+msgstr "Il file è più grande di 2 MB."
+
+msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
+msgstr "L'immagine è troppo piccola (almeno 64 × 64 pixel)."
+
+msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr "Non è stato possibile caricare lo stemma."
+
+msgid "Bitte zuerst eine Kurzvorstellung speichern."
+msgstr "Salvi prima una breve presentazione."
+
+msgid "Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."
+msgstr "Al momento non è possibile salvare o pubblicare la breve presentazione."
+
+msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
+msgstr "La breve presentazione è troppo lunga o contiene caratteri non consentiti."

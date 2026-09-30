@@ -13,6 +13,11 @@ import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
 import network.lapis.cloud.shared.rpc.MemberPhotoMissingException
 import network.lapis.cloud.shared.rpc.MemberPhotoNotEligibleException
 import network.lapis.cloud.shared.rpc.MemberPhotoRateLimitedException
+import network.lapis.cloud.shared.rpc.MemberPublicBioConsentOutdatedException
+import network.lapis.cloud.shared.rpc.MemberPublicBioMissingException
+import network.lapis.cloud.shared.rpc.MemberPublicBioNotEligibleException
+import network.lapis.cloud.shared.rpc.MemberPublicBioRateLimitedException
+import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -132,6 +137,15 @@ private fun handleGuardedFailure(e: Throwable) {
         is MemberPhotoNotEligibleException -> notifyError(tr("Nur Mitglieder können ein Foto hinterlegen."))
         is MemberPhotoRateLimitedException -> notifyError(tr("Zu viele Versuche. Bitte später erneut versuchen."))
         is MemberPhotoConsentOutdatedException -> notifyError(tr("Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."))
+        // Welle V1.9.20 "Öffentliche Seiten" -- same "typed exception -> fixed toast" discipline for the public short introduction.
+        is MemberPublicBioMissingException -> notifyError(tr("Bitte zuerst eine Kurzvorstellung speichern."))
+        is MemberPublicBioNotEligibleException ->
+            notifyError(
+                tr("Die Kurzvorstellung kann derzeit nicht gespeichert oder veröffentlicht werden."),
+            )
+        is MemberPublicBioValidationException -> notifyError(tr("Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."))
+        is MemberPublicBioRateLimitedException -> notifyError(tr("Zu viele Versuche. Bitte später erneut versuchen."))
+        is MemberPublicBioConsentOutdatedException -> notifyError(tr("Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {
