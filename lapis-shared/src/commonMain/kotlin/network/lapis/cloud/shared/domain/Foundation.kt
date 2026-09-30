@@ -151,6 +151,15 @@ object MemberStatusSets {
     val CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
 
     /**
+     * Welle V1.9.19 "Mitglieder-Foto". Who may upload and publish a profile photo: only a full
+     * [ORGANIZATION_MEMBER] ([MemberStatus.ACTIVE]) -- the same posture as
+     * [CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE] (storage-consuming write; FRIEND is identity-unverified,
+     * GUEST's data belongs on its own home server). The public route additionally re-checks the
+     * CURRENT status on every request, so a member who loses ACTIVE is never served again.
+     */
+    val MEMBER_PHOTO_ELIGIBLE: Set<MemberStatus> = ORGANIZATION_MEMBER
+
+    /**
      * Welle V1.9.5 "Vorstands-Karte" (member map, second attempt). Deliberately just
      * [ORGANIZATION_MEMBER] -- narrower than e.g. [ANNIVERSARY_ELIGIBLE] or
      * [CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE]'s own reasoning would suggest for a "member" concept, but

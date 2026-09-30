@@ -28,13 +28,16 @@ class OrganizationSchemaCatalogTest :
         }
 
         test(
-            "flyway_schema_history and conference_background_image (Welle V1.9.4, private per-member photos, see that " +
-                "object's own KDoc) are the only documented exclusions, and both are genuinely absent from the result",
+            "flyway_schema_history, conference_background_image (Welle V1.9.4) and member_photo (Welle V1.9.19) -- private " +
+                "per-member photos, see that object's own KDoc -- are the only documented exclusions, and all are genuinely " +
+                "absent from the result",
         ) {
-            OrganizationSchemaCatalog.EXCLUDED_TABLES.keys shouldBe setOf("flyway_schema_history", "conference_background_image")
+            OrganizationSchemaCatalog.EXCLUDED_TABLES.keys shouldBe
+                setOf("flyway_schema_history", "conference_background_image", "member_photo")
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false
             ("conference_background_image" in names) shouldBe false
+            ("member_photo" in names) shouldBe false
         }
 
         test("every returned table has at least one primary key column") {

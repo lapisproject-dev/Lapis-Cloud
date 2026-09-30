@@ -370,6 +370,8 @@ identifiable record. What makes this feature DSGVO-relevant is not a new storage
 
 == See also
 
+* `network.lapis.cloud.server.dsgvo.MemberPhotoPersonalData` — hard-delete contributor for `member_photo`, export with
+  the image but never the public token (Welle V1.9.19, xref:member-photo.adoc[member-photo.adoc]).
 * `network.lapis.cloud.server.dsgvo.PersonalDataContributor`/`PersonalDataRegistry`/`DataSubject` — the
   framework itself, in full KDoc detail.
 * `network.lapis.cloud.server.dsgvo.PersonalDataCoverageTest` — the actual enforcement mechanism.

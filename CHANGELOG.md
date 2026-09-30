@@ -67,12 +67,44 @@ All notable changes to this project are documented here. Format follows
 
 ### Not in scope
 
-- **Public website presence / live sync** (planned from V1.9.19): needs answers to open product questions first (one
-  release versus per-tab release for public pages, revocation semantics, who uploads chapter crests) and is not part of
-  this wave. The tier administration (formerly listed here together with it) is V1.9.18, see below; what it still leaves to
-  the product owner -- seed tiers for the pilots, "price change: existing versus future fee lines" -- stays open.
+- **Public website presence / live sync** (public lists, feeds and website widgets, planned for V1.9.20/21): needs answers to
+  open product questions first (one release versus per-tab release for public pages, who uploads chapter crests). V1.9.19
+  delivers only the first building block, the member's own photo with its consent (see below); nothing consumes the public
+  photo URL yet. The tier administration is V1.9.18; what it still leaves to the product owner -- seed tiers for the
+  pilots, "price change: existing versus future fee lines" -- stays open.
+- **V1.9.19 member photo, deliberately not included:** other members do not see photos; no crop tool; no public list feeds
+  or root tabs; no preview for moderators; no moderation screen (only the RPC `moderationRemovePhoto`); photos are not part
+  of the backup and must be uploaded again after a restore; a process crash between writing the file and the commit can
+  leave an unreferenced file (never served, no sweep in this wave).
 
 ### Added
+
+- **V1.9.19 — Member photo (self-service, voluntary, consent to publication).** "Mein Foto" is the first section of
+  "Meine Daten": upload (JPEG/PNG up to 10 MB, at least 400 px on the short edge), replace, remove, and a switch "Show
+  publicly on this organization's websites". The server validates by magic bytes, crops to a square (landscape centered,
+  portrait 25 percent from the top), scales to at most 800 px (never upscaled, so 400-800 px) and re-encodes to a
+  metadata-free JPEG; the photo is private after every upload or replacement. Publishing needs the exact, versioned consent
+  wording (`member-photo-public-v1`, dialog in the client, SHA-256 pinned by a test) and mints a new 256-bit token;
+  withdrawal clears token and consent immediately. The public URL `/public/member-photos/{token}` answers every kind of miss
+  (malformed, unknown, private, withdrawn, rotated token, member not `ACTIVE`, missing file) with the same bare 404, sets
+  `no-store`/`nosniff`/`no-referrer`/CORP/CSP, honours the embed origin allowlist (a foreign `Origin` is 403 before any
+  lookup) and is independent of `LAPIS_EMBED_ENABLED`. A status change away from `ACTIVE` (board action or self-service
+  exit) resets a public photo to private in the same transaction. BOARD/ADMIN can remove a photo via the RPC
+  `moderationRemovePhoto` (idempotent, no existence oracle). Migration `V61__member_photo.sql` (additive, idempotent;
+  `V1` untouched, so **no `flywayRepair` for V1.9.19 itself** -- the repair duty from V1.9.18 stays), audit under
+  `MEMBER` with the optional `MemberChangeSnapshot.memberPhoto` (no token, key or image data), DSGVO contributor (export
+  with image, hard delete of row and file), shared decode budget with the cover pipelines, `CoverUploadSupport` refactored
+  without behaviour change for event and article covers, optional `confirmStyle` for `confirmDialog`.
+  - **Privacy page:** the purposes list names the member photo (Art. 6 (1) (a), private by default, public only with consent).
+  - **Backup:** `member_photo` is excluded from the organization backup (private data, the token is a bearer secret).
+    Photos are not part of the backup and must be uploaded again after a restore.
+  - **Defaults chosen for open questions:** F1 never upscale (output `min(800, short edge)`, minimum 400); F2 only
+    `ACTIVE` members upload/publish, others see a hint; F3 the DSGVO export carries the image; F4 backup exclusion; F5 own
+    `id` primary key plus unique `member_id`; F6 moderation only as RPC, UI with V1.9.20; F7 the public route also works
+    with `LAPIS_EMBED_ENABLED=false` (without any CORS grant); F8 `confirmStyle` parameter on `confirmDialog`.
+  - **OPERATOR NOTE:** files live in `$LAPIS_DOCUMENT_STORAGE_ROOT/member-photos` (override
+    `LAPIS_MEMBER_PHOTO_STORAGE_ROOT`); that volume is already mounted for PdV, ELB and staging, so no compose change is
+    needed. CORS grants for the public route come from `LAPIS_EMBED_ALLOWED_ORIGINS`.
 
 - **V1.9.18 — Membership tier administration (`/membership-tiers`).** A TREASURER/ADMIN screen to create and edit tiers
   (name, description, amount, interval, payment term, "selectable for new assignments"), with the active-member count per

@@ -17135,3 +17135,79 @@ msgstr "Removed from the family. No membership tier is assigned yet -- the oblig
 
 msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
 msgstr "This member has no login account -- a status change does not create one. Without an assigned membership tier, no contributions arise either."
+
+# Welle V1.9.19 "Mitglieder-Foto"
+msgid "Mein Foto"
+msgstr "My photo"
+
+msgid "Ihr Mitgliedsfoto"
+msgstr "Your member photo"
+
+msgid "Noch kein Foto hinterlegt."
+msgstr "No photo uploaded yet."
+
+msgid "Nur Mitglieder können ein Foto hinterlegen."
+msgstr "Only members can upload a photo."
+
+msgid "JPEG oder PNG, mindestens 400 × 400 Pixel, höchstens 10 MB."
+msgstr "JPEG or PNG, at least 400 × 400 pixels, at most 10 MB."
+
+msgid "Foto hochladen"
+msgstr "Upload photo"
+
+msgid "Foto entfernen"
+msgstr "Remove photo"
+
+msgid "Foto auswählen"
+msgstr "Choose photo"
+
+msgid "Foto ersetzen"
+msgstr "Replace photo"
+
+msgid "Öffentlich auf Webseiten dieser Organisation anzeigen"
+msgstr "Show publicly on this organization's websites"
+
+msgid "Ihr Foto ist privat. Andere Mitglieder und der Vorstand sehen es nicht."
+msgstr "Your photo is private. Other members and the board cannot see it."
+
+msgid "Ein neues Foto ist zunächst privat. Geben Sie es bei Bedarf erneut frei."
+msgstr "A new photo is private at first. Release it again if needed."
+
+msgid "Foto wird hochgeladen …"
+msgstr "Uploading photo …"
+
+msgid "Öffentliche Ansicht öffnen"
+msgstr "Open public view"
+
+msgid "Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."
+msgstr "The notice text has been updated. Please confirm again."
+
+msgid "Foto veröffentlichen"
+msgstr "Publish photo"
+
+msgid "Ihr Foto wird auf öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel in Vorstands- oder Mitgliederübersichten. Sie können die Freigabe jederzeit widerrufen; das Foto ist dann sofort nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Your photo will be shown on this organization's public websites, for example in board or member overviews. You can withdraw your consent at any time; the photo will then no longer be retrievable immediately. We cannot retrieve copies that third parties have already made."
+
+msgid "Ihr Foto wird endgültig gelöscht."
+msgstr "Your photo will be deleted permanently."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt. iPhone: Kamera-Einstellung ‚Maximal kompatibel‘ verwenden."
+msgstr "Only JPEG or PNG images are allowed. iPhone: use the camera setting ‘Most Compatible’."
+
+msgid "Die Datei ist größer als 10 MB."
+msgstr "The file is larger than 10 MB."
+
+msgid "Das Bild ist zu klein (mindestens 400 × 400 Pixel)."
+msgstr "The image is too small (at least 400 × 400 pixels)."
+
+msgid "Zu viele Versuche. Bitte später erneut versuchen."
+msgstr "Too many attempts. Please try again later."
+
+msgid "Das Bild ist zu groß (maximal 8000 Pixel Kantenlänge)."
+msgstr "The image is too large (at most 8000 pixels per side)."
+
+msgid "Das Foto konnte nicht hochgeladen werden."
+msgstr "The photo could not be uploaded."
+
+msgid "Bitte zuerst ein Foto hochladen."
+msgstr "Please upload a photo first."

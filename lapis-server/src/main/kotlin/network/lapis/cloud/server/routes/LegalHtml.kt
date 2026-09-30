@@ -361,6 +361,15 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Mitgliedsfoto (freiwillig, sofern hochgeladen) — Art. 6 Abs. 1 lit. a DSGVO. Das Foto ist nach dem " +
+                        "Hochladen privat und nur für das Mitglied selbst sichtbar. Nur wenn das Mitglied ausdrücklich " +
+                        "einwilligt, wird es auf öffentlichen Webseiten dieser Organisation angezeigt; die Einwilligung ist " +
+                        "jederzeit mit Wirkung für die Zukunft widerrufbar, das Foto ist dann sofort nicht mehr abrufbar. " +
+                        "Das Foto wird nicht in das Organisations-Backup einbezogen und bei Löschung unmittelbar entfernt."
+                )
+            }
+            li {
+                +(
                     "Versand von E-Mails (u. a. Passwort-Rücksetzung, E-Mail-Bestätigung, Benachrichtigungen) " +
                         "— Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO."
                 )

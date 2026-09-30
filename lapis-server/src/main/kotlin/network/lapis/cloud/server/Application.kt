@@ -131,6 +131,7 @@ import network.lapis.cloud.server.membermap.MemberMapStartupCheck
 import network.lapis.cloud.server.membermap.PlaceSearchIndex
 import network.lapis.cloud.server.membermap.PmtilesBasemap
 import network.lapis.cloud.server.membermap.PostalCodeCentroidIndex
+import network.lapis.cloud.server.memberphoto.MemberPhotoStorage
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningConfig
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningPoller
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningService
@@ -181,6 +182,7 @@ import network.lapis.cloud.server.routes.registerMcpRoutes
 import network.lapis.cloud.server.routes.registerMemberCardPublicRoutes
 import network.lapis.cloud.server.routes.registerMemberCardRoutes
 import network.lapis.cloud.server.routes.registerMemberMapRoutes
+import network.lapis.cloud.server.routes.registerMemberPhotoRoutes
 import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
@@ -243,6 +245,7 @@ import network.lapis.cloud.server.rpc.MemberAnniversaryService
 import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
 import network.lapis.cloud.server.rpc.MemberHonorService
+import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
@@ -318,6 +321,7 @@ import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
 import network.lapis.cloud.shared.rpc.IMemberHonorService
+import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
@@ -430,6 +434,12 @@ internal fun Application.module(
     val articleCoverStorageRoot =
         File(System.getenv("LAPIS_ARTICLE_COVER_STORAGE_ROOT") ?: documentStorageRoot.resolve("article-covers").path)
     val articleCoverStorage = EventCoverStorage(articleCoverStorageRoot)
+
+    // Welle V1.9.19 "Mitglieder-Foto" -- same durable volume as documentStorageRoot (already mounted
+    // on every real instance, so no compose change), own "member-photos/" subdirectory, own env
+    // override LAPIS_MEMBER_PHOTO_STORAGE_ROOT. MemberPhotoStorage.fromEnvironment() is the ONLY
+    // place that derives this root -- the DSGVO contributor calls the same function.
+    val memberPhotoStorage = MemberPhotoStorage.fromEnvironment()
 
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's
@@ -1205,6 +1215,13 @@ internal fun Application.module(
     // read paths).
     val eventCoverWriteRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 10.minutes)
     val eventCoverReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.9.19 "Mitglieder-Foto" -- member-keyed write-side budgets, a member-keyed budget for the
+    // private preview and a per-IP (bounded key count) budget for the anonymous public delivery route.
+    val memberPhotoUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
+    val memberPhotoVisibilityRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes)
+    val memberPhotoModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 60.minutes)
+    val memberPhotoOwnReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes)
+    val memberPhotoPublicReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as the event-cover
     // pair above (member-keyed write, bounded per-IP read), plus a member-keyed preview budget
     // and an IP-keyed page-read budget for the public /aktuelles/{slug} surface.
@@ -1630,6 +1647,16 @@ internal fun Application.module(
         registerService(
             IConferenceBackgroundService::class,
         ) { call -> ConferenceBackgroundService(call = call, storageRoot = documentStorageRoot) }
+        // Welle V1.9.19 "Mitglieder-Foto" -- RPC companion of the byte-carrying member-photo routes.
+        registerService(IMemberPhotoService::class) { call ->
+            MemberPhotoService(
+                call = call,
+                storage = memberPhotoStorage,
+                visibilityRateLimiter = memberPhotoVisibilityRateLimiter,
+                moderationRateLimiter = memberPhotoModerationRateLimiter,
+                baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            )
+        }
         // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale".
         registerService(IVolunteerAllowanceService::class) { call -> VolunteerAllowanceService(call) }
         registerService(IMemberFinancialHistoryService::class) { call -> MemberFinancialHistoryService(call) }
@@ -2153,6 +2180,18 @@ internal fun Application.module(
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             writeRateLimiter = eventCoverWriteRateLimiter,
             readRateLimiter = eventCoverReadRateLimiter,
+        )
+        // Welle V1.9.19 "Mitglieder-Foto" -- always-on (NOT inside registerEmbedRoutes, which returns
+        // early when LAPIS_EMBED_ENABLED is false), registered before staticFiles. The public delivery
+        // route is independent of LAPIS_EMBED_ENABLED; CORS grants still come from
+        // LAPIS_EMBED_ALLOWED_ORIGINS.
+        registerMemberPhotoRoutes(
+            storage = memberPhotoStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            embedConfig = embedConfig,
+            uploadRateLimiter = memberPhotoUploadRateLimiter,
+            ownReadRateLimiter = memberPhotoOwnReadRateLimiter,
+            publicReadRateLimiter = memberPhotoPublicReadRateLimiter,
         )
         // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- literal routes (/aktuelles/*,
         // /api/articles/*), always-on (NOT gated behind LAPIS_EMBED_ENABLED -- see

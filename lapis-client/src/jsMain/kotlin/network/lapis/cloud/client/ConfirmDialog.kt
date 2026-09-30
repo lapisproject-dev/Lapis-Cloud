@@ -15,11 +15,16 @@ import io.kvision.modal.Modal
  * [onConfirm] runs (and the modal hides) only when the user clicks that button; cancelling or
  * closing the modal runs nothing. [Modal] attaches itself directly to the KVision root (see its
  * own KDoc), so this needs no parent container argument.
+ *
+ * [confirmStyle] (V1.9.19) defaults to [ButtonStyle.DANGER], the style every destructive caller
+ * has always had; a non-destructive confirmation (publishing a photo) passes
+ * [ButtonStyle.PRIMARY]. Existing callers are unchanged.
  */
 fun confirmDialog(
     title: String,
     message: String,
     confirmLabel: String = tr("Bestätigen"),
+    confirmStyle: ButtonStyle = ButtonStyle.DANGER,
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = title)
@@ -30,7 +35,7 @@ fun confirmDialog(
         },
     )
     val once = ConfirmOnce()
-    val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER)
+    val confirmButton = Button(confirmLabel, style = confirmStyle)
     confirmButton.onClick {
         once.run(confirmButton) {
             modal.hide()

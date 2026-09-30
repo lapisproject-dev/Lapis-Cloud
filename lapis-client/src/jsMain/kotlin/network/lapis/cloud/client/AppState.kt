@@ -9,6 +9,10 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
+import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
+import network.lapis.cloud.shared.rpc.MemberPhotoMissingException
+import network.lapis.cloud.shared.rpc.MemberPhotoNotEligibleException
+import network.lapis.cloud.shared.rpc.MemberPhotoRateLimitedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -123,6 +127,11 @@ private fun handleGuardedFailure(e: Throwable) {
         // "typed exception -> fixed German toast" reasoning as every other branch above: Kilua RPC
         // never transmits the server's own message, only the exception TYPE.
         is RateLimitedException -> notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
+        // Welle V1.9.19 "Mitglieder-Foto" -- typed, fixed toasts (Kilua RPC never transmits the server's own message).
+        is MemberPhotoMissingException -> notifyError(tr("Bitte zuerst ein Foto hochladen."))
+        is MemberPhotoNotEligibleException -> notifyError(tr("Nur Mitglieder können ein Foto hinterlegen."))
+        is MemberPhotoRateLimitedException -> notifyError(tr("Zu viele Versuche. Bitte später erneut versuchen."))
+        is MemberPhotoConsentOutdatedException -> notifyError(tr("Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

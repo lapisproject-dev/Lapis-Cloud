@@ -17182,3 +17182,79 @@ msgstr "Wyłączono z rodziny. Nie przypisano jeszcze poziomu członkostwa -- ob
 
 msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
 msgstr "Ten członek nie ma konta logowania -- zmiana statusu go nie tworzy. Bez przypisanego poziomu członkostwa nie powstają też żadne składki."
+
+# Welle V1.9.19 "Mitglieder-Foto"
+msgid "Mein Foto"
+msgstr "Moje zdjęcie"
+
+msgid "Ihr Mitgliedsfoto"
+msgstr "Twoje zdjęcie członka"
+
+msgid "Noch kein Foto hinterlegt."
+msgstr "Nie dodano jeszcze zdjęcia."
+
+msgid "Nur Mitglieder können ein Foto hinterlegen."
+msgstr "Tylko członkowie mogą dodać zdjęcie."
+
+msgid "JPEG oder PNG, mindestens 400 × 400 Pixel, höchstens 10 MB."
+msgstr "JPEG lub PNG, co najmniej 400 × 400 pikseli, najwyżej 10 MB."
+
+msgid "Foto hochladen"
+msgstr "Prześlij zdjęcie"
+
+msgid "Foto entfernen"
+msgstr "Usuń zdjęcie"
+
+msgid "Foto auswählen"
+msgstr "Wybierz zdjęcie"
+
+msgid "Foto ersetzen"
+msgstr "Zastąp zdjęcie"
+
+msgid "Öffentlich auf Webseiten dieser Organisation anzeigen"
+msgstr "Pokazuj publicznie na stronach internetowych tej organizacji"
+
+msgid "Ihr Foto ist privat. Andere Mitglieder und der Vorstand sehen es nicht."
+msgstr "Twoje zdjęcie jest prywatne. Inni członkowie i zarząd go nie widzą."
+
+msgid "Ein neues Foto ist zunächst privat. Geben Sie es bei Bedarf erneut frei."
+msgstr "Nowe zdjęcie jest najpierw prywatne. W razie potrzeby udostępnij je ponownie."
+
+msgid "Foto wird hochgeladen …"
+msgstr "Przesyłanie zdjęcia …"
+
+msgid "Öffentliche Ansicht öffnen"
+msgstr "Otwórz widok publiczny"
+
+msgid "Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."
+msgstr "Tekst informacyjny został zaktualizowany. Potwierdź ponownie."
+
+msgid "Foto veröffentlichen"
+msgstr "Opublikuj zdjęcie"
+
+msgid "Ihr Foto wird auf öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel in Vorstands- oder Mitgliederübersichten. Sie können die Freigabe jederzeit widerrufen; das Foto ist dann sofort nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Twoje zdjęcie będzie wyświetlane na publicznych stronach internetowych tej organizacji, na przykład w zestawieniach zarządu lub członków. Zgodę można w każdej chwili cofnąć; zdjęcie przestanie wtedy być od razu dostępne. Kopii, które osoby trzecie już wykonały, nie możemy odzyskać."
+
+msgid "Ihr Foto wird endgültig gelöscht."
+msgstr "Twoje zdjęcie zostanie trwale usunięte."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt. iPhone: Kamera-Einstellung ‚Maximal kompatibel‘ verwenden."
+msgstr "Dozwolone są tylko obrazy JPEG lub PNG. iPhone: użyj ustawienia aparatu „Najbardziej zgodne”."
+
+msgid "Die Datei ist größer als 10 MB."
+msgstr "Plik jest większy niż 10 MB."
+
+msgid "Das Bild ist zu klein (mindestens 400 × 400 Pixel)."
+msgstr "Obraz jest za mały (co najmniej 400 × 400 pikseli)."
+
+msgid "Zu viele Versuche. Bitte später erneut versuchen."
+msgstr "Zbyt wiele prób. Spróbuj ponownie później."
+
+msgid "Das Bild ist zu groß (maximal 8000 Pixel Kantenlänge)."
+msgstr "Obraz jest za duży (maksymalnie 8000 pikseli długości boku)."
+
+msgid "Das Foto konnte nicht hochgeladen werden."
+msgstr "Nie udało się przesłać zdjęcia."
+
+msgid "Bitte zuerst ein Foto hochladen."
+msgstr "Najpierw prześlij zdjęcie."

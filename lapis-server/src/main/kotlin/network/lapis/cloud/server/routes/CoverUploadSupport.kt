@@ -24,7 +24,10 @@ import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
-internal const val COVER_UPLOAD_MAX_BYTES_WITH_MULTIPART_OVERHEAD = EventCoverPolicy.MAX_UPLOAD_BYTES + 64 * 1024
+/** Multipart framing allowance on top of a file-size cap -- shared by every upload route. */
+internal fun multipartCap(maxBytes: Long): Long = maxBytes + 64 * 1024
+
+internal val COVER_UPLOAD_MAX_BYTES_WITH_MULTIPART_OVERHEAD = multipartCap(EventCoverPolicy.MAX_UPLOAD_BYTES)
 private const val COVER_SNIFF_BYTES = 8
 
 /** Same `[a-z0-9-]{1,120}` slug pattern used across every route family with a public `{slug}` path segment (events, articles). */
@@ -99,56 +102,22 @@ internal data class ProcessedCoverUpload(
  * immediately in that case, exactly as the pre-extraction inline code did.
  */
 internal suspend fun ApplicationCall.receiveSingleCoverUpload(): ProcessedCoverUpload? {
-    formFieldLimit = COVER_UPLOAD_MAX_BYTES_WITH_MULTIPART_OVERHEAD
-
-    var uploadBytes: ByteArray? = null
-    var tooLarge = false
-    var fileItemCount = 0
-    try {
-        receiveMultipart().forEachPart { part ->
-            when (part) {
-                is PartData.FileItem -> {
-                    fileItemCount++
-                    if (fileItemCount == 1) {
-                        val buffer = ByteArrayOutputStream()
-                        val channel: ByteReadChannel = part.provider()
-                        val chunk = ByteArray(8192)
-                        var total = 0L
-                        while (true) {
-                            val read = channel.readAvailable(chunk)
-                            if (read == -1) break
-                            total += read
-                            if (total > EventCoverPolicy.MAX_UPLOAD_BYTES) {
-                                tooLarge = true
-                                break
-                            }
-                            buffer.write(chunk, 0, read)
-                        }
-                        if (!tooLarge) uploadBytes = buffer.toByteArray()
-                    }
-                    part.release()
-                }
-                else -> part.release()
+    val bytes: ByteArray =
+        when (val received = receiveSingleUploadBytes(EventCoverPolicy.MAX_UPLOAD_BYTES)) {
+            SingleUploadReceive.TooLarge -> {
+                respond(HttpStatusCode.PayloadTooLarge, "Max upload size is ${EventCoverPolicy.MAX_UPLOAD_BYTES} bytes")
+                return null
             }
+            SingleUploadReceive.MultipleParts -> {
+                respond(HttpStatusCode.BadRequest, "Request must contain exactly one file part")
+                return null
+            }
+            SingleUploadReceive.NoFile -> {
+                respond(HttpStatusCode.BadRequest, "No file part in request")
+                return null
+            }
+            is SingleUploadReceive.Ok -> received.bytes
         }
-    } catch (e: Exception) {
-        logger.info(e) { "Cover upload stream failed" }
-        throw e
-    }
-
-    if (tooLarge) {
-        respond(HttpStatusCode.PayloadTooLarge, "Max upload size is ${EventCoverPolicy.MAX_UPLOAD_BYTES} bytes")
-        return null
-    }
-    if (fileItemCount > 1) {
-        respond(HttpStatusCode.BadRequest, "Request must contain exactly one file part")
-        return null
-    }
-    val bytes = uploadBytes
-    if (bytes == null || bytes.isEmpty()) {
-        respond(HttpStatusCode.BadRequest, "No file part in request")
-        return null
-    }
 
     val format = EventCoverImageProcessor.sniff(bytes.copyOfRange(0, minOf(COVER_SNIFF_BYTES, bytes.size)))
     if (format == null) {
@@ -175,4 +144,65 @@ internal suspend fun ApplicationCall.receiveSingleCoverUpload(): ProcessedCoverU
         }
         is CoverProcessingResult.Ok -> return ProcessedCoverUpload(bytes = result.bytes, format = result.format)
     }
+}
+
+/** Outcome of [receiveSingleUploadBytes] -- never responds itself, the caller maps each case. */
+internal sealed interface SingleUploadReceive {
+    class Ok(
+        val bytes: ByteArray,
+    ) : SingleUploadReceive
+
+    data object TooLarge : SingleUploadReceive
+
+    data object MultipleParts : SingleUploadReceive
+
+    data object NoFile : SingleUploadReceive
+}
+
+/**
+ * Streams the single expected file part of the multipart body with a hard [maxBytes] cap
+ * (`formFieldLimit` is lifted to [multipartCap]). NEVER responds on its own.
+ */
+internal suspend fun ApplicationCall.receiveSingleUploadBytes(maxBytes: Long): SingleUploadReceive {
+    formFieldLimit = multipartCap(maxBytes)
+
+    var uploadBytes: ByteArray? = null
+    var tooLarge = false
+    var fileItemCount = 0
+    try {
+        receiveMultipart().forEachPart { part ->
+            when (part) {
+                is PartData.FileItem -> {
+                    fileItemCount++
+                    if (fileItemCount == 1) {
+                        val buffer = ByteArrayOutputStream()
+                        val channel: ByteReadChannel = part.provider()
+                        val chunk = ByteArray(8192)
+                        var total = 0L
+                        while (true) {
+                            val read = channel.readAvailable(chunk)
+                            if (read == -1) break
+                            total += read
+                            if (total > maxBytes) {
+                                tooLarge = true
+                                break
+                            }
+                            buffer.write(chunk, 0, read)
+                        }
+                        if (!tooLarge) uploadBytes = buffer.toByteArray()
+                    }
+                    part.release()
+                }
+                else -> part.release()
+            }
+        }
+    } catch (e: Exception) {
+        logger.info(e) { "Upload stream failed" }
+        throw e
+    }
+    if (tooLarge) return SingleUploadReceive.TooLarge
+    if (fileItemCount > 1) return SingleUploadReceive.MultipleParts
+    val bytes = uploadBytes
+    if (bytes == null || bytes.isEmpty()) return SingleUploadReceive.NoFile
+    return SingleUploadReceive.Ok(bytes)
 }

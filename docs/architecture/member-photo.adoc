@@ -1,0 +1,123 @@
+= Member photo (V1.9.19)
+:toc:
+
+== Purpose
+
+A member may upload ONE profile photo of their own, voluntarily, and may separately consent to its publication on the
+organization's public websites. Everything is self-service: there is no board-side upload, and other members never see
+the photo (this wave ships no consumer of the public URL yet -- public lists and feeds follow in V1.9.20/21).
+
+== Pipeline (`MemberPhotoImageProcessor`)
+
+. Reader chosen by the *sniffed* format (JPEG or PNG magic bytes; the declared content type is never consulted), header
+  dimensions read first.
+. More than 8000 px on the long edge or more than 40 megapixels: rejected from the header, nothing decoded.
+. Shorter edge below 400 px: rejected (`TOO_SMALL`). The shorter edge does not depend on EXIF orientation.
+. Decode with subsampling (the subsampled shorter edge stays at least 800 px), inside the process-wide decode permit
+  shared with the event and article cover pipelines.
+. Apply the EXIF orientation (JPEG only) *before* cropping.
+. Square crop of side `s = min(w, h)`: landscape centered, portrait with 25 percent of the surplus height cut from the top.
+. Scale to `min(800, s)`. A photo is never upscaled, so the stored edge is between 400 and 800 px.
+. Draw onto a fresh `TYPE_INT_RGB` image over a white ground: alpha, EXIF, ICC, XMP, GPS and any polyglot tail are gone.
+. Encode JPEG (quality 0.85) without any metadata.
+
+== Data model
+
+One table `member_photo` (`59-member-photo.kuml.kts`, migration `V61__member_photo.sql`), one row per member
+(unique index on `member_id`). The file lives under `$LAPIS_DOCUMENT_STORAGE_ROOT/member-photos/<uuid>.jpg`
+(override: `LAPIS_MEMBER_PHOTO_STORAGE_ROOT`); the key is a random UUID, never the member id.
+
+[source,kuml,name="member-photo-visibility"]
+----
+stateDiagram(name = "Member photo visibility") {
+    val start = initialState()
+    val noPhoto = state(name = "NoPhoto")
+    val private = state(name = "Private")
+    val public = state(name = "Public")
+
+    transition(source = start, target = noPhoto)
+    transition(source = noPhoto, target = private) { trigger = "upload" }
+    transition(source = private, target = private) { trigger = "replace" }
+    transition(source = private, target = public) {
+        trigger = "publish"
+        guard = "[consent v1, ACTIVE]"
+    }
+    transition(source = public, target = private) { trigger = "unpublish / replace / status loss" }
+    transition(source = private, target = noPhoto) { trigger = "delete / moderation" }
+    transition(source = public, target = noPhoto) { trigger = "delete / moderation" }
+}
+----
+
+The state is a database invariant (`chk_member_photo_public_state`): `PUBLIC` exactly when `public_token`,
+`consent_granted_at` and `consent_text_version` are all set; `PRIVATE` exactly when all three are `NULL`.
+
+== Consent and versioning
+
+The wording shown in the publish dialog is `MEMBER_PHOTO_CONSENT_TEXT` (`MemberPhotoCard.kt`), version
+`member-photo-public-v1`. The server stores the version with every consent and accepts only the current one
+(`MemberPhotoConsentOutdatedException` otherwise). `MemberPhotoConsentTextPinTest` pins the SHA-256 of the wording to the
+version, so a wording change without a new version fails the build.
+
+A replacement upload always resets to `PRIVATE` (consent was given for the old picture). Every publication mints a *new*
+256-bit token; withdrawal clears token and consent at once.
+
+== Public route
+
+`GET /public/member-photos/{publicToken}`, registered always (independent of `LAPIS_EMBED_ENABLED`) and before the static
+files.
+
+* CORS first (`applyEmbedCors`, which sets `Vary: Origin` and `Cache-Control: no-store` once): a foreign `Origin` is
+  rejected with 403 *before* any database access. A request without `Origin` (plain `<img>`) carries no
+  `Access-Control-Allow-Origin`. No credentials header anywhere.
+* Per-IP rate limit, also before any lookup.
+* Defensive headers (`nosniff`, `Referrer-Policy: no-referrer`, CORP `cross-origin`, CSP `default-src 'none'; sandbox`) are set
+  before the existence decision, so a hit and every miss are built identically.
+* *Existence-oracle discipline*: malformed token, unknown token, private photo, withdrawn consent, rotated token, member not
+  `ACTIVE` and missing file are all answered by the same bare 404 from one helper. Visibility and the member's status are
+  evaluated live in every request, so withdrawal and status loss act immediately.
+* No ETag, no listing route, no token in any log.
+
+== Status loss
+
+When a member's status leaves the eligible set (`MemberStatusSets.MEMBER_PHOTO_ELIGIBLE`, only `ACTIVE`),
+`MemberService.updateMemberStatus` and `RegistrationService.leaveMembership` reset a `PUBLIC` photo to `PRIVATE` in the same
+transaction and audit `UNPUBLISHED_BY_STATUS_CHANGE`. The live join in the public route is the primary guard; the reset keeps
+consent from silently reviving after a reactivation, which does *not* make the photo public again.
+
+== Audit
+
+`AuditEntityType.MEMBER` with the optional `MemberChangeSnapshot.memberPhoto` field (no new enum value, no migration of the
+audit table). Actions: `PUBLISHED`, `UNPUBLISHED`, `UNPUBLISHED_BY_REPLACEMENT`, `UNPUBLISHED_BY_STATUS_CHANGE`,
+`DELETED_BY_OWNER` (only when the photo was public), `REMOVED_BY_MODERATION`. The snapshot never contains the token, the storage
+key or image data.
+
+== DSGVO
+
+`MemberPhotoPersonalData`: the export (Art. 15/20) carries metadata and the JPEG as base64, never the token or storage key;
+erasure is a hard delete of row and file in every erasure mode. Both the contributor and `Application` derive the storage root
+only from `MemberPhotoStorage.fromEnvironment()`.
+
+== Backup exclusion
+
+`member_photo` is in `OrganizationSchemaCatalog.EXCLUDED_TABLES` and deliberately not in `OrganizationExportService.BLOB_TABLES`:
+the ADMIN-only backup must not make private photos readable, a public token is a bearer secret, and metadata without the file
+would restore an empty shell. After a restore members upload their photo again.
+
+== Security checklist
+
+[cols="1,3"]
+|===
+| CSRF | `isSameOriginRequest` on the upload (multipart is a CORS simple request).
+| IDOR | No member-id parameter except `moderationRemovePhoto` (BOARD/ADMIN).
+| DoS | `Content-Length` pre-check, streamed 10 MB cap, header dimensions before decode, subsampling, shared decode permit with a wait limit (`BUSY`), bounded rate limiters, no list route.
+| Content | Magic-byte sniffing only, full re-encode to JPEG, `nosniff`, sandbox CSP, never SVG.
+| Metadata | Fresh RGB image, JPEG writer without metadata; a test asserts no APP1-APP15 segment.
+| Enumeration | 256-bit token per publication, one 404 for every miss.
+| Files | Atomic write, old file deleted only after commit, canonical-path and key-format check.
+|===
+
+== Not in scope
+
+Other members viewing photos, a crop tool, public list feeds and website widgets (V1.9.20/21), a preview for moderators, a
+moderation screen (only the RPC exists), photos in the backup, and a sweep for orphaned files after a crash between writing the
+file and committing (such a file is never served).

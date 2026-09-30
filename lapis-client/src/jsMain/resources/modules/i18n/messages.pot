@@ -16262,3 +16262,79 @@ msgstr ""
 
 msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
 msgstr ""
+
+# Welle V1.9.19 "Mitglieder-Foto"
+msgid "Mein Foto"
+msgstr ""
+
+msgid "Ihr Mitgliedsfoto"
+msgstr ""
+
+msgid "Noch kein Foto hinterlegt."
+msgstr ""
+
+msgid "Nur Mitglieder können ein Foto hinterlegen."
+msgstr ""
+
+msgid "JPEG oder PNG, mindestens 400 × 400 Pixel, höchstens 10 MB."
+msgstr ""
+
+msgid "Foto hochladen"
+msgstr ""
+
+msgid "Foto entfernen"
+msgstr ""
+
+msgid "Foto auswählen"
+msgstr ""
+
+msgid "Foto ersetzen"
+msgstr ""
+
+msgid "Öffentlich auf Webseiten dieser Organisation anzeigen"
+msgstr ""
+
+msgid "Ihr Foto ist privat. Andere Mitglieder und der Vorstand sehen es nicht."
+msgstr ""
+
+msgid "Ein neues Foto ist zunächst privat. Geben Sie es bei Bedarf erneut frei."
+msgstr ""
+
+msgid "Foto wird hochgeladen …"
+msgstr ""
+
+msgid "Öffentliche Ansicht öffnen"
+msgstr ""
+
+msgid "Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."
+msgstr ""
+
+msgid "Foto veröffentlichen"
+msgstr ""
+
+msgid "Ihr Foto wird auf öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel in Vorstands- oder Mitgliederübersichten. Sie können die Freigabe jederzeit widerrufen; das Foto ist dann sofort nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr ""
+
+msgid "Ihr Foto wird endgültig gelöscht."
+msgstr ""
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt. iPhone: Kamera-Einstellung ‚Maximal kompatibel‘ verwenden."
+msgstr ""
+
+msgid "Die Datei ist größer als 10 MB."
+msgstr ""
+
+msgid "Das Bild ist zu klein (mindestens 400 × 400 Pixel)."
+msgstr ""
+
+msgid "Zu viele Versuche. Bitte später erneut versuchen."
+msgstr ""
+
+msgid "Das Bild ist zu groß (maximal 8000 Pixel Kantenlänge)."
+msgstr ""
+
+msgid "Das Foto konnte nicht hochgeladen werden."
+msgstr ""
+
+msgid "Bitte zuerst ein Foto hochladen."
+msgstr ""

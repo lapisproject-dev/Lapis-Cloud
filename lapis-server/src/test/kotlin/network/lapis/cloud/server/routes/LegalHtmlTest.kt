@@ -325,6 +325,7 @@ class LegalHtmlTest :
                     "oidc_guest_federation" to "Föderierter Gastzugang",
                     "conference" to "Videokonferenzen",
                     "conferenceBackgrounds" to "eigener Hintergrundbilder",
+                    "memberPhoto" to "Mitgliedsfoto",
                     "social_network" to "sozialen Netzwerk",
                     "payments" to "Zahlungsverkehr",
                     "crm" to "(CRM)",

@@ -99,6 +99,49 @@ internal object EventCoverImageProcessor {
 
     private val concurrency = Semaphore(2)
 
+    /**
+     * Process-wide decode budget shared by every image pipeline (event/article covers and member
+     * photos) so several simultaneous large uploads cannot spike the heap together.
+     */
+    internal suspend fun <T> withDecodePermit(block: suspend () -> T): T = concurrency.withPermit { block() }
+
+    /** Like [withDecodePermit], but gives up after [waitMillis] without running [block] and returns `null` ("server busy"). */
+    internal suspend fun <T : Any> withDecodePermitOrNull(
+        waitMillis: Long,
+        block: suspend () -> T,
+    ): T? {
+        val acquired = kotlinx.coroutines.withTimeoutOrNull(waitMillis) { concurrency.acquire() } != null
+        if (!acquired) return null
+        try {
+            return block()
+        } finally {
+            concurrency.release()
+        }
+    }
+
+    /** Explicit-quality JPEG encode of [image] WITHOUT any metadata (`IIOImage(img, null, null)`). */
+    internal fun encodeJpeg(
+        image: BufferedImage,
+        quality: Float,
+    ): ByteArray {
+        val out = ByteArrayOutputStream()
+        val writer = ImageIO.getImageWritersByFormatName("jpeg").next()
+        try {
+            val ios = javax.imageio.stream.MemoryCacheImageOutputStream(out)
+            writer.output = ios
+            val param =
+                writer.defaultWriteParam.apply {
+                    compressionMode = ImageWriteParam.MODE_EXPLICIT
+                    compressionQuality = quality
+                }
+            writer.write(null, IIOImage(image, null, null), param)
+            ios.flush()
+        } finally {
+            writer.dispose()
+        }
+        return out.toByteArray()
+    }
+
     /** Magic-byte sniff, same posture as `TravelExpenseReceiptRoutes.sniffMimeType` -- the client-declared `Content-Type` is never consulted anywhere in this pipeline. */
     fun sniff(head: ByteArray): CoverImageFormat? =
         when {
@@ -188,7 +231,7 @@ internal object EventCoverImageProcessor {
      * guarantees the output's long edge is always precisely [targetLongEdge] (unless the source was
      * already smaller, per the `<=` guard below).
      */
-    private fun downscaleToTarget(
+    internal fun downscaleToTarget(
         source: BufferedImage,
         targetLongEdge: Int,
     ): BufferedImage {
@@ -207,7 +250,7 @@ internal object EventCoverImageProcessor {
         return bilinearResize(source = current, newWidth = newWidth, newHeight = newHeight)
     }
 
-    private fun bilinearResize(
+    internal fun bilinearResize(
         source: BufferedImage,
         newWidth: Int,
         newHeight: Int,
@@ -274,7 +317,7 @@ internal object EventCoverImageProcessor {
         return out.toByteArray()
     }
 
-    private fun applyOrientation(
+    internal fun applyOrientation(
         image: BufferedImage,
         orientation: Int,
     ): BufferedImage {

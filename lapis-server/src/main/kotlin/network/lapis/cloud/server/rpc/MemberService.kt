@@ -20,6 +20,7 @@ import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.MemberCardIssuance
+import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
@@ -747,6 +748,17 @@ class MemberService(
                         actorRole = current.role,
                     )
                 }
+
+                // Welle V1.9.19 -- a member who leaves the eligible status set must not keep a
+                // PUBLISHED photo: reset to PRIVATE in the SAME transaction (the public route's live
+                // status join is the primary guard, this keeps consent from reviving on reactivation).
+                MemberPhotoStore.revokePublicationOnStatusLoss(
+                    memberId = targetId,
+                    newStatus = newStatus,
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    now = now,
+                )
 
                 // Welle V1.3.2 "Webhooks" (ausgehend), D8/S24 -- fires ONLY on a genuine transition
                 // INTO ACTIVE (the no-op guard above already returned early for newStatus ==

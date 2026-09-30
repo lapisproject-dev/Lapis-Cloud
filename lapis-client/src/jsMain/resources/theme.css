@@ -2059,6 +2059,27 @@ html .form-select.is-invalid:focus {
   transition: opacity 0.15s;
 }
 
+/* Welle V1.9.19 "Mitglieder-Foto": fixed-size square preview on "Meine Daten". No colour literals. */
+.member-photo-preview {
+  width: 160px;
+  height: 160px;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  color: var(--lapis-muted);
+  background-color: var(--lapis-surface-sunken);
+}
+
+.member-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

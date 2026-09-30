@@ -17183,3 +17183,79 @@ msgstr "Uit het gezin gehaald. Er is nog geen lidmaatschapsniveau toegewezen -- 
 
 msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
 msgstr "Dit lid heeft geen inlogaccount -- een statuswijziging maakt er geen aan. Zonder toegewezen lidmaatschapsniveau ontstaan er ook geen bijdragen."
+
+# Welle V1.9.19 "Mitglieder-Foto"
+msgid "Mein Foto"
+msgstr "Mijn foto"
+
+msgid "Ihr Mitgliedsfoto"
+msgstr "Uw foto als lid"
+
+msgid "Noch kein Foto hinterlegt."
+msgstr "Nog geen foto geüpload."
+
+msgid "Nur Mitglieder können ein Foto hinterlegen."
+msgstr "Alleen leden kunnen een foto uploaden."
+
+msgid "JPEG oder PNG, mindestens 400 × 400 Pixel, höchstens 10 MB."
+msgstr "JPEG of PNG, minimaal 400 × 400 pixels, maximaal 10 MB."
+
+msgid "Foto hochladen"
+msgstr "Foto uploaden"
+
+msgid "Foto entfernen"
+msgstr "Foto verwijderen"
+
+msgid "Foto auswählen"
+msgstr "Foto kiezen"
+
+msgid "Foto ersetzen"
+msgstr "Foto vervangen"
+
+msgid "Öffentlich auf Webseiten dieser Organisation anzeigen"
+msgstr "Openbaar tonen op de websites van deze organisatie"
+
+msgid "Ihr Foto ist privat. Andere Mitglieder und der Vorstand sehen es nicht."
+msgstr "Uw foto is privé. Andere leden en het bestuur zien haar niet."
+
+msgid "Ein neues Foto ist zunächst privat. Geben Sie es bei Bedarf erneut frei."
+msgstr "Een nieuwe foto is eerst privé. Geef haar zo nodig opnieuw vrij."
+
+msgid "Foto wird hochgeladen …"
+msgstr "Foto wordt geüpload …"
+
+msgid "Öffentliche Ansicht öffnen"
+msgstr "Openbare weergave openen"
+
+msgid "Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."
+msgstr "De informatietekst is bijgewerkt. Bevestig opnieuw."
+
+msgid "Foto veröffentlichen"
+msgstr "Foto publiceren"
+
+msgid "Ihr Foto wird auf öffentlichen Webseiten dieser Organisation angezeigt, zum Beispiel in Vorstands- oder Mitgliederübersichten. Sie können die Freigabe jederzeit widerrufen; das Foto ist dann sofort nicht mehr abrufbar. Kopien, die Dritte bereits angefertigt haben, können wir nicht zurückholen."
+msgstr "Uw foto wordt getoond op de openbare websites van deze organisatie, bijvoorbeeld in overzichten van het bestuur of van de leden. U kunt uw toestemming op elk moment intrekken; de foto is dan direct niet meer opvraagbaar. Kopieën die derden al hebben gemaakt, kunnen wij niet terughalen."
+
+msgid "Ihr Foto wird endgültig gelöscht."
+msgstr "Uw foto wordt definitief verwijderd."
+
+msgid "Nur JPEG- oder PNG-Bilder sind erlaubt. iPhone: Kamera-Einstellung ‚Maximal kompatibel‘ verwenden."
+msgstr "Alleen JPEG- of PNG-afbeeldingen zijn toegestaan. iPhone: gebruik de camera-instelling ‘Meest compatibel’."
+
+msgid "Die Datei ist größer als 10 MB."
+msgstr "Het bestand is groter dan 10 MB."
+
+msgid "Das Bild ist zu klein (mindestens 400 × 400 Pixel)."
+msgstr "De afbeelding is te klein (minimaal 400 × 400 pixels)."
+
+msgid "Zu viele Versuche. Bitte später erneut versuchen."
+msgstr "Te veel pogingen. Probeer het later opnieuw."
+
+msgid "Das Bild ist zu groß (maximal 8000 Pixel Kantenlänge)."
+msgstr "De afbeelding is te groot (maximaal 8000 pixels per zijde)."
+
+msgid "Das Foto konnte nicht hochgeladen werden."
+msgstr "De foto kon niet worden geüpload."
+
+msgid "Bitte zuerst ein Foto hochladen."
+msgstr "Upload eerst een foto."

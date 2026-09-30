@@ -749,7 +749,34 @@ data class MemberChangeSnapshot(
      * (no new entity type, so no schema/CHECK migration). Default `null`: older rows decode unchanged.
      */
     val mailingTrackingConsent: MailingTrackingConsentSnapshot? = null,
+    /**
+     * Welle V1.9.19 "Mitglieder-Foto" -- set ONLY by the member-photo publication lifecycle
+     * (publish/unpublish/replace/status-loss/delete/moderation). Carries NEVER the public token,
+     * the storage key or any image data -- only the action, the visibility and the consent version.
+     * Logged under [AuditEntityType.MEMBER] (no new entity type, no migration). Default `null`:
+     * older rows decode unchanged.
+     */
+    val memberPhoto: MemberPhotoAuditSnapshot? = null,
 )
+
+/** Welle V1.9.19 -- what happened to a member's photo publication. No PII, no token. */
+@Serializable
+data class MemberPhotoAuditSnapshot(
+    val action: MemberPhotoAuditAction,
+    val visibility: MemberPhotoVisibility,
+    val consentTextVersion: String?,
+)
+
+/** Welle V1.9.19 -- see [MemberPhotoAuditSnapshot]. */
+@Serializable
+enum class MemberPhotoAuditAction {
+    PUBLISHED,
+    UNPUBLISHED,
+    UNPUBLISHED_BY_REPLACEMENT,
+    UNPUBLISHED_BY_STATUS_CHANGE,
+    DELETED_BY_OWNER,
+    REMOVED_BY_MODERATION,
+}
 
 /** Welle V1.9.15 -- the consent state AFTER a change (before: the same shape in the `before` snapshot). */
 @Serializable

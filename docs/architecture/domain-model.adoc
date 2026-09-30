@@ -1652,3 +1652,18 @@ Export carries id/width/height/sizeBytes/createdAt only, never the storage keys 
 readable through the ADMIN-only whole-organization backup ZIP -- and deliberately NOT in
 `OrganizationExportService.BLOB_TABLES` either (a metadata-only restore without the file bytes would
 leave a row with nothing behind it, still counting against the 3-image-per-member cap).
+
+== V1.9.19 -- Member photo
+
+One new table, model in `59-member-photo.kuml.kts`, migration `V61__member_photo.sql`, hand-written `MemberPhotoTable`; see
+xref:member-photo.adoc[member-photo.adoc] for the pipeline, consent and public-route design.
+
+* **`member_photo`** -- at most one row per member (unique index `uq_member_photo_member`; own `id` primary key, like
+  `ai_member_opt_in`). `storage_key` (random UUID file name), `content_type` (always `image/jpeg`), `width_px`/`height_px`/
+  `size_bytes`, `uploaded_at`, `visibility` (`PRIVATE`/`PUBLIC`), `public_token` (unique, NULL unless public),
+  `consent_granted_at`, `consent_text_version`. `chk_member_photo_public_state` makes any mix of public state and missing
+  consent data unrepresentable. No CASCADE on the member FK -- the application layer deletes the file.
+
+**DSGVO**: `MemberPhotoPersonalData` -- export with the image, never the token; hard delete of row and file.
+
+**Admin backup**: `member_photo` is in `OrganizationSchemaCatalog.EXCLUDED_TABLES`, not in `BLOB_TABLES`.

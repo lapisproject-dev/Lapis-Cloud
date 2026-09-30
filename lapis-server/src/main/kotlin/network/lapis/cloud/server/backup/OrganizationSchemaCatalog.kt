@@ -41,6 +41,14 @@ object OrganizationSchemaCatalog {
                 "BLOB_TABLES -- restoring only the metadata row without the file bytes would " +
                 "leave a row with no file behind it, which would still count against " +
                 "ConferenceBackgroundRules.MAX_PER_MEMBER and whose thumbnail would 404 forever.",
+            "member_photo" to
+                "Welle V1.9.19. Private-by-default profile photo plus its public-token/consent state -- " +
+                "the ADMIN-only whole-organization backup must not become a way to read a member's " +
+                "PRIVATE photo, and a public token is a bearer secret that must not sit in a backup. " +
+                "Deliberately also NOT in OrganizationExportService.BLOB_TABLES -- the metadata row " +
+                "without the file would restore a row with nothing behind it. Restore targets an empty " +
+                "database, so the table simply stays empty and members upload their photo again (see " +
+                "docs/architecture/member-photo.adoc, \"Backup exclusion\").",
         )
 
     data class ColumnMetadata(

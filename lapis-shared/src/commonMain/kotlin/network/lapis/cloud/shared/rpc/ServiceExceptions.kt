@@ -403,3 +403,37 @@ class MembershipTierIntervalLockedException(
 class MembershipTierClosedException(
     override val message: String = "This membership tier is closed for new assignments",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.9.19 "Mitglieder-Foto" -- distinct type, see [MemberEmailInUseException] (Kilua RPC
+ * transmits only the subclass discriminator). Thrown by `MemberPhotoService.setOwnPhotoVisibility`
+ * when a publication is requested but the member has no photo.
+ */
+@RpcServiceException
+class MemberPhotoMissingException(
+    override val message: String = "No member photo uploaded",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.19 -- distinct type. Thrown when the consent text version sent with a publication
+ * request differs from [network.lapis.cloud.shared.domain.MemberPhotoRules.CONSENT_TEXT_VERSION].
+ */
+@RpcServiceException
+class MemberPhotoConsentOutdatedException(
+    override val message: String = "The consent text has changed -- please confirm again",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.19 -- distinct type. Thrown when the caller's member status is not in
+ * [network.lapis.cloud.shared.domain.MemberStatusSets.MEMBER_PHOTO_ELIGIBLE].
+ */
+@RpcServiceException
+class MemberPhotoNotEligibleException(
+    override val message: String = "Member status does not allow a member photo",
+) : AbstractServiceException()
+
+/** Welle V1.9.19 -- distinct type, thrown when a member photo action exceeds its per-member rate limit. */
+@RpcServiceException
+class MemberPhotoRateLimitedException(
+    override val message: String = "Too many member photo actions",
+) : AbstractServiceException()

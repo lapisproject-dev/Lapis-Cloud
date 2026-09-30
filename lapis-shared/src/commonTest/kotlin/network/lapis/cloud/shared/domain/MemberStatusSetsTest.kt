@@ -50,6 +50,15 @@ class MemberStatusSetsTest {
         assertFalse(MemberStatus.GUEST in MemberStatusSets.CUSTOM_BACKGROUND_UPLOAD_ELIGIBLE)
     }
 
+    /** Welle V1.9.19 -- only a full organization member may upload/publish a profile photo. */
+    @Test
+    fun memberPhotoEligible_isExactlyOrganizationMember() {
+        assertEquals(setOf(MemberStatus.ACTIVE), MemberStatusSets.MEMBER_PHOTO_ELIGIBLE)
+        assertFalse(MemberStatus.FRIEND in MemberStatusSets.MEMBER_PHOTO_ELIGIBLE)
+        assertFalse(MemberStatus.GUEST in MemberStatusSets.MEMBER_PHOTO_ELIGIBLE)
+        assertFalse(MemberStatus.APPLICATION in MemberStatusSets.MEMBER_PHOTO_ELIGIBLE)
+    }
+
     /**
      * V1.2.11 (PdV-CSV-Import): widened from two to four elements -- DECEASED (terminal) and DONOR
      * (no account row is ever created for one, see `MemberCsvImport` KDoc) join WITHDRAWN/REJECTED.

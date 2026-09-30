@@ -196,6 +196,9 @@ The check above needs a term that is a distinct whole word. These terms are fixe
 | Soll / Haben
 | Debit / Credit (en), Debe / Haber (es), Débit / Crédit (fr), Dare / Avere (it), Debet / Credit (nl), Winien / Ma (pl), Дебет / Кредит (ru). "Soll" and "Haben" are also ordinary verbs, so a whole-word check would fire on prose.
 
+| Mitgliedsfoto / Foto
+| Member photo (en), foto de socio (es), photo de membre (fr), foto di socio (it), foto als lid (nl), zdjęcie członka (pl), фото участника (ru) -- V1.9.19, the member's own voluntary profile photo.
+
 | Storno / Stornieren
 | Reverse (en), Anular (es), Contrepasser (fr), Storna (it), Terugdraaien (nl), Storno (pl), Сторнировать (ru) -- the ACCOUNTING meaning (reverse a posting).
 

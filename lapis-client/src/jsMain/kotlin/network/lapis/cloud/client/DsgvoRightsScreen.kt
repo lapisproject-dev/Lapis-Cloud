@@ -107,6 +107,10 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     // `AppState.session` is always non-null by the time this screen renders -- see Routing.kt.
     val myMemberId = AppState.session?.memberId ?: return
 
+    // Welle V1.9.19 "Mitglieder-Foto" -- the FIRST section: a member-controlled, voluntary profile photo.
+    root.h2(tr("Mein Foto")) { addCssClass("h5") }
+    renderMemberPhotoSection(root)
+
     root.h2(tr("Auskunft")) { addCssClass("h5") }
     root.div(
         tr(
