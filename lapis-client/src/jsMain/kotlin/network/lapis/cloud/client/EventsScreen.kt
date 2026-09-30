@@ -92,7 +92,14 @@ fun renderEventsScreen(container: SimplePanel) {
 
     var allRooms: List<EventRoomDto> = emptyList()
 
+    // Several triggers fire refreshList() almost at once (initial subscribe callbacks, room load,
+    // post-create). Each run clears the panel synchronously but appends asynchronously, so without
+    // this guard every run appends its own copy of the rows (event shown N times). Only the
+    // newest run may render.
+    var refreshGeneration = 0
+
     fun refreshList() {
+        val generation = ++refreshGeneration
         listPanel.removeAll()
         AppScope.launch {
             val status = statusFilterSelect.value?.takeIf { it.isNotBlank() }?.let { runCatching { EventStatus.valueOf(it) }.getOrNull() }
@@ -102,6 +109,7 @@ fun renderEventsScreen(container: SimplePanel) {
                         EventQuery(status = status, includePast = includePastCheck.value, limit = 200),
                     )
                 } ?: return@launch
+            if (generation != refreshGeneration) return@launch
             if (page.rows.isEmpty()) {
                 listPanel.p(tr("Keine Veranstaltungen gefunden."))
                 return@launch
