@@ -93,11 +93,15 @@ private fun renderRegionalChaptersBody(
         root.p(tr("In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern.")) { addCssClass("text-muted") }
     }
 
-    root.p(tr("Landesverband anlegen")) { addCssClasses("fw-bold mt-2") }
-    renderChapterCreationForm(root, overview, onChanged)
+    // BOARD reaches this screen for the crest and the public description only (server: create/rename/delete/officers ADMIN-only).
+    val structure = NavVisibility.showsRegionalChapterStructure(AppState.session?.role)
+    if (structure) {
+        root.p(tr("Landesverband anlegen")) { addCssClasses("fw-bold mt-2") }
+        renderChapterCreationForm(root, overview, onChanged)
+    }
 
     val cardsPanel = root.vPanel(spacing = 8) { addCssClass("mt-3") }
-    overview.chapters.forEach { chapter -> renderChapterCard(cardsPanel, chapter, onChanged) }
+    overview.chapters.forEach { chapter -> renderChapterCard(cardsPanel, chapter, structure, onChanged) }
 }
 
 private fun renderChapterCreationForm(
@@ -141,12 +145,27 @@ private fun renderChapterCreationForm(
 private fun renderChapterCard(
     panel: SimplePanel,
     chapter: RegionalChapterDto,
+    structure: Boolean,
     onChanged: () -> Unit,
 ) {
     val card = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     card.untrustedCardTitle(chapter.name)
     card.p(chapterCountsLine(chapter)) { addCssClasses("text-muted small mb-1") }
 
+    if (structure) renderChapterStructureControls(card, chapter, onChanged)
+    // ── Öffentliche Darstellung (Wappen + Beschreibung), Welle V1.9.20 ──
+    renderChapterPublicSection(card, chapter, onChanged)
+}
+
+/**
+ * ADMIN-only structural controls of a chapter card (rename, officers, delete) -- split out so a BOARD session, which reaches
+ * this screen for the crest and the public description only, never builds them.
+ */
+private fun renderChapterStructureControls(
+    card: SimplePanel,
+    chapter: RegionalChapterDto,
+    onChanged: () -> Unit,
+) {
     val actionsRow = card.hPanel(spacing = 8) { addCssClass("flex-wrap") }
 
     // ── Umbenennen ──
@@ -194,8 +213,6 @@ private fun renderChapterCard(
     if (blockReason != null) {
         card.p(blockReason) { addCssClasses("text-muted small mb-0") }
     }
-    // ── Öffentliche Darstellung (Wappen + Beschreibung), Welle V1.9.20 ──
-    renderChapterPublicSection(card, chapter, onChanged)
 
     deleteButton.onClick {
         confirmDialog(

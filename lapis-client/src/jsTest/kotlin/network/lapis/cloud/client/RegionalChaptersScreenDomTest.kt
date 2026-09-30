@@ -3,10 +3,16 @@ package network.lapis.cloud.client
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.promise
+import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.RegionalChapterDto
 import network.lapis.cloud.shared.domain.RegionalChapterOverviewDto
+import network.lapis.cloud.shared.domain.SessionInfoDto
 import org.w3c.dom.HTMLElement
 import kotlin.js.Promise
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -25,8 +31,12 @@ class RegionalChaptersScreenDomTest {
                 block()
             } finally {
                 closeOpenModals()
+                AppState.setSession(null)
             }
         }
+
+    private fun sessionOf(role: AccountRole) =
+        SessionInfoDto(memberId = "m-1", displayName = "Testperson", role = role, expiresAt = LocalDateTime(2099, 1, 1, 0, 0))
 
     private fun HTMLElement.all(selector: String): List<HTMLElement> =
         (0 until querySelectorAll(selector).length).map { querySelectorAll(selector).item(it) as HTMLElement }
@@ -41,6 +51,7 @@ class RegionalChaptersScreenDomTest {
     @Test
     fun noChaptersAndNoUnassignedMember_stillShowsTheCreationForm(): Promise<Unit> =
         test {
+            AppState.setSession(sessionOf(AccountRole.ADMIN))
             val respond: (RecordedRequest) -> StubResponse = { request ->
                 if (!request.isRpc) StubResponse() else rpcResult(request.json.id as Int, overviewJson(unassignedCount = 0))
             }
@@ -63,6 +74,7 @@ class RegionalChaptersScreenDomTest {
     @Test
     fun unassignedMembersButNoChapters_stillShowsBothTheHintAndTheCreationForm(): Promise<Unit> =
         test {
+            AppState.setSession(sessionOf(AccountRole.ADMIN))
             val respond: (RecordedRequest) -> StubResponse = { request ->
                 if (!request.isRpc) StubResponse() else rpcResult(request.json.id as Int, overviewJson(unassignedCount = 3))
             }
@@ -74,6 +86,63 @@ class RegionalChaptersScreenDomTest {
                     // regress the ALREADY-working "unassigned members exist" branch.
                     assertTrue(element().textContent.orEmpty().contains("3 Mitglieder ohne Landesverband"))
                     assertTrue(element().all("button").any { it.textContent?.trim() == "Landesverband anlegen" })
+                }
+            }
+        }
+
+    private fun oneChapterJson(): String {
+        val chapter =
+            RegionalChapterDto(
+                id = "c1",
+                name = "Landesverband Nord",
+                activeMemberCount = 0,
+                assignedMemberCount = 0,
+                activeOfficerCount = 0,
+            )
+        return jsonOf(RegionalChapterOverviewDto.serializer(), RegionalChapterOverviewDto(chapters = listOf(chapter), unassignedCount = 0))
+    }
+
+    private fun structuralButtons(element: HTMLElement): List<String> =
+        element
+            .all("button")
+            .map { it.textContent?.trim().orEmpty() }
+            .filter { it in setOf("Landesverband anlegen", "Umbenennen", "Landesvorstand verwalten", "Löschen") }
+
+    @Test
+    fun aBoardSession_seesTheCrestAndDescription_butNoStructuralControls(): Promise<Unit> =
+        test {
+            AppState.setSession(sessionOf(AccountRole.BOARD))
+            withFetchStub(respond = { request ->
+                if (!request.isRpc) StubResponse() else rpcResult(request.json.id as Int, oneChapterJson())
+            }) {
+                withMountedRoot("body-regional-chapters-board") { root, element ->
+                    renderRegionalChaptersScreen(root)
+                    awaitUntil("the chapter card") { element().textContent.orEmpty().contains("Öffentliche Darstellung") }
+                    assertTrue(
+                        element().all("button").any { it.textContent.orEmpty().startsWith("Wappen ") },
+                        "BOARD keeps the crest controls",
+                    )
+                    assertEquals(emptyList(), structuralButtons(element()), "create/rename/officers/delete are ADMIN-only on the server")
+                    assertFalse(element().textContent.orEmpty().contains("Landesverband anlegen"))
+                }
+            }
+        }
+
+    @Test
+    fun anAdminSession_seesTheStructuralControls_andTheCrest(): Promise<Unit> =
+        test {
+            AppState.setSession(sessionOf(AccountRole.ADMIN))
+            withFetchStub(respond = { request ->
+                if (!request.isRpc) StubResponse() else rpcResult(request.json.id as Int, oneChapterJson())
+            }) {
+                withMountedRoot("body-regional-chapters-admin") { root, element ->
+                    renderRegionalChaptersScreen(root)
+                    awaitUntil("the chapter card") { element().textContent.orEmpty().contains("Öffentliche Darstellung") }
+                    assertEquals(
+                        setOf("Landesverband anlegen", "Umbenennen", "Landesvorstand verwalten", "Löschen"),
+                        structuralButtons(element()).toSet(),
+                    )
+                    assertTrue(element().all("button").any { it.textContent.orEmpty().startsWith("Wappen ") })
                 }
             }
         }

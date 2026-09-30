@@ -49,6 +49,15 @@ All notable changes to this project are documented here. Format follows
   the fresh re-encode, unknown chapter is a 404 only AFTER the role check, old file deleted only after the commit.
 - Public pages escape every user text; image URLs are built only from pattern-checked tokens; CSP `img-src 'self'`.
 
+### Fixed -- V1.9.20 follow-up
+
+- **BOARD can now reach the chapter screen for the crest and the public description.** The server always allowed BOARD for
+  `listChapters`, `updateChapterDescription` and the crest upload/removal, but the route and the sidebar entry were
+  ADMIN-only, so a board member could not use what the server permitted. `Routes.REGIONAL_CHAPTERS` and the sidebar entry are
+  now BOARD/ADMIN (`NavVisibility.showsRegionalChapterAdmin`); the structural controls (create, rename, delete, officers)
+  stay ADMIN-only on the server and are hidden for BOARD (`NavVisibility.showsRegionalChapterStructure`). Tests:
+  `RegionalChaptersScreenDomTest` (BOARD versus ADMIN), `NavVisibilityTest`, `SidebarStructureTest`.
+
 ### Deliberately not implemented -- V1.9.20
 
 - Sorting politicians by trust (no consent for it); chapter chairs on the chapter page (no release path); detail pages per

@@ -287,9 +287,9 @@ class SidebarStructureTest {
     }
 
     @Test
-    fun administrationGroup_showsRegionalChaptersEntry_onlyForAdmin() {
+    fun administrationGroup_showsRegionalChaptersEntry_onlyForBoardAndAdmin() {
         assertTrue(sidebarLinkUrls(adminSession).contains("#${Routes.REGIONAL_CHAPTERS}"))
-        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.BOARD)).contains("#${Routes.REGIONAL_CHAPTERS}"))
+        assertTrue(sidebarLinkUrls(adminSession.copy(role = AccountRole.BOARD)).contains("#${Routes.REGIONAL_CHAPTERS}"))
         assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.TREASURER)).contains("#${Routes.REGIONAL_CHAPTERS}"))
     }
 

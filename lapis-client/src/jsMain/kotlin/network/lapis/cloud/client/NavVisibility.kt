@@ -74,14 +74,21 @@ object NavVisibility {
 
     /**
      * V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- the "Gliederungsverwaltung"
-     * sidebar entry (ADMINISTRATION group) and its route (`Routes.REGIONAL_CHAPTERS`). Mirrors
-     * `RegionalChapterService.kt`'s own gate: `listChapters`/`createChapter`/`renameChapter`/
-     * `deleteChapter`/`listOfficers`/`grantOfficer`/`revokeOfficer` are all ADMIN-only (the single
+     * sidebar entry (ADMINISTRATION group) and its route (`Routes.REGIONAL_CHAPTERS`), BOARD or ADMIN
+     * (`listChapters` and the public crest/description are BOARD/ADMIN; `createChapter`/`renameChapter`/
+     * `deleteChapter`/`listOfficers`/`grantOfficer`/`revokeOfficer` stay ADMIN-only, see [showsRegionalChapterStructure]) (the single
      * exception, `assignMemberToChapter`, is BOARD/ADMIN but lives on `MemberAdministrationScreen.kt`
      * instead -- this predicate only gates the standalone chapter-management screen itself, which
      * needs the FULL surface, not just assignment).
      */
-    fun showsRegionalChapterAdmin(role: AccountRole?): Boolean = role == AccountRole.ADMIN
+    fun showsRegionalChapterAdmin(role: AccountRole?): Boolean = role == AccountRole.BOARD || role == AccountRole.ADMIN
+
+    /**
+     * V1.9.20 follow-up -- the structural actions of the chapter screen (create, rename, delete, officers) are ADMIN-only on
+     * the server; BOARD reaches the screen only for the crest and the public description (`updateChapterDescription`,
+     * crest upload/removal are BOARD/ADMIN) and sees those sections alone.
+     */
+    fun showsRegionalChapterStructure(role: AccountRole?): Boolean = role == AccountRole.ADMIN
 
     /**
      * V1.9.14 -- the "Mein Landesverband" sidebar entry (MEMBERSHIP group) and its route

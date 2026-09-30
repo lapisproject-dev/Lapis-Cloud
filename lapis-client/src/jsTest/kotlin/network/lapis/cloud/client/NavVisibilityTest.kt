@@ -106,12 +106,21 @@ class NavVisibilityTest {
 
     // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche".
     @Test
-    fun showsRegionalChapterAdmin_isTrueOnlyForAdmin() {
+    fun showsRegionalChapterAdmin_isTrueForBoardAndAdmin() {
         assertTrue(NavVisibility.showsRegionalChapterAdmin(AccountRole.ADMIN))
+        assertTrue(NavVisibility.showsRegionalChapterAdmin(AccountRole.BOARD))
         assertFalse(NavVisibility.showsRegionalChapterAdmin(null))
         assertFalse(NavVisibility.showsRegionalChapterAdmin(AccountRole.MEMBER))
         assertFalse(NavVisibility.showsRegionalChapterAdmin(AccountRole.TREASURER))
-        assertFalse(NavVisibility.showsRegionalChapterAdmin(AccountRole.BOARD))
+    }
+
+    @Test
+    fun showsRegionalChapterStructure_isTrueOnlyForAdmin() {
+        assertTrue(NavVisibility.showsRegionalChapterStructure(AccountRole.ADMIN))
+        assertFalse(NavVisibility.showsRegionalChapterStructure(AccountRole.BOARD))
+        assertFalse(NavVisibility.showsRegionalChapterStructure(null))
+        assertFalse(NavVisibility.showsRegionalChapterStructure(AccountRole.MEMBER))
+        assertFalse(NavVisibility.showsRegionalChapterStructure(AccountRole.TREASURER))
     }
 
     @Test

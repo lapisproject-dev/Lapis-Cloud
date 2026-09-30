@@ -541,7 +541,7 @@ fun buildSidebar(
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)) {
         nav.sidebarGroup(SidebarGroupId.ADMINISTRATION, tr("Verwaltung"), "fas fa-user-gear") { toggle ->
             sidebarLink(Routes.MEMBERS, tr("Mitgliederverwaltung"), "fas fa-users-gear", toggle)
-            // Welle V1.9.14 -- ADMIN-only (NavVisibility.showsRegionalChapterAdmin), enger als der
+            // Welle V1.9.14 -- BOARD/ADMIN (NavVisibility.showsRegionalChapterAdmin), enger als der
             // TREASURER/BOARD/ADMIN-Gruppen-Header selbst.
             if (NavVisibility.showsRegionalChapterAdmin(session.role)) {
                 sidebarLink(Routes.REGIONAL_CHAPTERS, tr("Gliederungsverwaltung"), "fas fa-sitemap", toggle)

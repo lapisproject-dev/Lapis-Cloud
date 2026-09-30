@@ -697,7 +697,7 @@ fun initRouting(pageContainer: SimplePanel) {
         }
     }
     routing.kvOn(Routes.REGIONAL_CHAPTERS) {
-        requireRole(routing, AccountRole.ADMIN) { show(Routes.REGIONAL_CHAPTERS, ::renderRegionalChaptersScreen) }
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) { show(Routes.REGIONAL_CHAPTERS, ::renderRegionalChaptersScreen) }
     }
     routing.kvOn(Routes.MY_CHAPTER) {
         // No toast/redirect-with-message: a caller without an active officer grant simply never sees
