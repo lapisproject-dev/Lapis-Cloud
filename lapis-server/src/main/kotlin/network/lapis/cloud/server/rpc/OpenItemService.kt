@@ -1551,7 +1551,9 @@ private fun paymentAccountMappingOf(settingsRow: ResultRow?): PaymentAccountMapp
  * id is folded into it instead of raising [NotFoundException]. Only
  * [PaymentCapableAccounts.SERVER_ENFORCED] rejections are refused; a merely unusual account class is
  * logged and accepted -- see that property's KDoc for why (existing organizations, and this repo's
- * own test fixtures, run on `accountClass = 0` accounts).
+ * own test fixtures, run on `accountClass = 0` accounts). This is a documented, deliberate deviation
+ * (CHANGELOG V1.9.17 "Known deviation"): hard enforcement needs a per-instance data check first, and
+ * `OpenItemServiceTest` pins the WARN (`event=payment_account_unusual_class`) so it is not lost.
  *
  * Applied to the EFFECTIVE account (explicit argument or the configured default): a default mapping
  * pointing at the receivables account is exactly as wrong as an explicit one, and

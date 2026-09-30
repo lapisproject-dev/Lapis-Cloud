@@ -1,0 +1,97 @@
+= Typed Errors over Kilua RPC: one type per error, or one coded type?
+:description: Decision note (V1.9.17) on how the client tells apart several causes of the same kind of server error, backed by two tests that pin what actually crosses the Kilua RPC wire.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+== Status
+
+Proposed. Nothing in production changes with this note; it records what was measured in V1.9.17 and the
+options for a follow-up wave. `AppState.kt` (`handleGuardedFailure`) stays as it is.
+
+== Context
+
+The client shows a fixed, type-appropriate toast per failure (`handleGuardedFailure`). Several server
+errors of the same _kind_ -- "a conflict" -- have different causes that need different texts ("e-mail
+already taken", "reason too short", "illegal status transition"). Today each cause is its own
+`@RpcServiceException` class (`WeakPasswordException`, `RateLimitedException`,
+`PaymentAccountNotPaymentCapableException`, ...), because the client historically learned only the
+exception _type_.
+
+A first idea for this wave was a subclass of `ConflictException` per cause. That is not possible as
+stated: `ConflictException` is a `final` class (`ServiceExceptions.kt`), and opening it would change how
+every existing catch clause behaves. The claim that "an own type arrives as an own type" is already
+established (V1.2.12, and `OpenItemRpcWireTest`). The open question is a different one: does a
+_non-message field_ of an exception -- an enum-like `code` -- cross the wire? If yes, one single coded
+type could replace many classes.
+
+== What was measured
+
+[cols="2,3,3",options="header"]
+|===
+| Test | Side | Finding
+
+| `CodedExceptionWireTest` (server module)
+| Encoding with `RpcSerialization.getJson()`, exactly like the JSON-RPC handler, for `ProbeCodedConflictException(message, code)`
+| The encoded exception is `{"type":"...ProbeCodedConflictException","message":"m","code":"IBAN_TAKEN"}`. The `code` field is part of it and comes back on decoding. A field equal to its constructor default is _not_ encoded (`encodeDefaults = false`).
+
+| `RpcExceptionCodeWireTest` (client module, real Chrome)
+| Decoding on the real client path (`CallAgent`) of an exception JSON that carries `code`
+| The caught exception is a `ProbeCodedConflictException`, its `code` is `"IBAN_TAKEN"`, and a non-default `message` that is in the JSON arrives as well.
+|===
+
+The probe class lives in `commonMain` only because Kilua RPC's KSP step registers `@RpcServiceException`
+classes of the main source set. It is never thrown by production code; a source scan in
+`CodedExceptionWireTest` fails if `lapis-server/src/main` ever constructs it.
+
+=== What this does not prove
+
+No production service throws the probe, so it was not sent over a generated `/rpc/route...` of the full
+server. Both halves of the codec are proven separately (server-side encoding, client-side decoding); the
+glue between them is Kilua RPC's own code. Whoever implements option B should add one end-to-end test
+through a real service method.
+
+=== A correction to an old assumption
+
+`AppState.guarded` documents that the server's own message "never survives" the wire. The measurements
+above suggest the reason: every existing exception is thrown with its _default_ message, and a value equal
+to its default is not encoded. A message that differs from the default does arrive. The client still must
+not parse messages (they are German server text and change), but the wire is less restrictive than the old
+comment says.
+
+== Options
+
+=== A -- one exception type per error (status quo)
+
+* Proven, used everywhere, catch clauses read well.
+* Every new cause is a new class in `lapis-shared`, a new KSP registration, a new `when` branch in the
+  client, and a new row in the wire tests. Dozens of classes for what is conceptually one error family.
+
+=== B -- one coded exception with an enum
+
+[source,kotlin]
+----
+@RpcServiceException
+class CodedConflictException(
+    override val message: String = "",
+    val code: ConflictCode,
+) : AbstractServiceException()
+----
+
+* One class, one registration; a new cause is a new enum entry, and the client maps `code` to its text
+  with an exhaustive `when` (the compiler finds a forgotten case).
+* `code` is an enum serialized by name: renaming an entry is a wire-breaking change between a newly
+  deployed server and a still-open browser tab -- entries are append-only, and the client must have a
+  fallback branch for an unknown name (`ClientVersionWatcher` already nudges stale tabs to reload).
+* The code must never carry personal data; it is a fixed vocabulary.
+
+== Recommendation
+
+Keep option A for the existing classes (no churn for a working mechanism). Introduce option B for _new_
+families only, starting with the next wave that would otherwise add a third class to the same family,
+after adding the end-to-end test named above. Decide the `ConflictCode` naming in that wave's plan.
+
+== Follow-up
+
+* Open question for that wave: does the client want the code in `guarded`'s generic mapping, or only in
+  dedicated per-screen guards (as `openItemGuarded` does today)?

@@ -41,6 +41,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IAuthService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
@@ -495,7 +496,7 @@ class App : Application() {
  * (language switcher, account dropdown) -- see [App.start] for the live-DOM verification that
  * found this (0 matches for `.lapis-sidebar-toggle`/`fa-bars`) and the previous, dead code.
  */
-private fun refreshNavbar(
+internal fun refreshNavbar(
     navbar: Navbar,
     sidebar: Offcanvas,
     onLanguageChange: () -> Unit,
@@ -553,65 +554,86 @@ private fun refreshNavbar(
         return
     }
 
-    val accountLabel =
-        if (session.isGuest && session.homeserverUrl != null) {
-            gettext("%1 (Gast)", session.displayName)
-        } else {
-            gettext("%1 (%2)", session.displayName, session.role)
-        }
-    rightNav.dropDown(accountLabel, icon = "fas fa-user", forNavbar = true) {
-        // V0.8.4 Guest Badge, moved here from the old disabled navbar span (Vertical-Sidebar-
-        // Umbau, 2026-09-08): the dropdown's own trigger stays plain text (no icon widget in a
-        // `DropDown`'s button label slot, see `DropDown.text`/`DropDownButton` -- only a `String`
-        // is accepted there), so the badge -- and the popover interaction it carries -- moves into
-        // the dropdown BODY as a non-interactive first item instead. `dropdown-item-text` is
-        // Bootstrap's own class for exactly this ("content row that isn't itself a clickable
-        // `.dropdown-item`"). `homeserverUrl != null` defensive guard -- see `GuestBadge.kt`
-        // `guestBadge` KDoc.
-        if (session.isGuest && session.homeserverUrl != null) {
-            span(className = "dropdown-item-text d-flex align-items-center gap-2") {
-                guestBadge(session.homeserverUrl!!)
-                span(gettext("Gast von %1", session.homeserverUrl!!))
-            }
+    // V1.9.17 (design team decision): the navbar trigger shows ONLY the (truncated) name -- "Name (Rolle)" in the
+    // trigger pushed the bar into a second line on narrow widths. The role moves to the first menu row and into the
+    // trigger's accessible name/tooltip, so nothing is lost.
+    val account =
+        rightNav.dropDown(accountTriggerLabel(session), icon = "fas fa-user", forNavbar = true) {
+            // V0.8.4 Guest Badge, moved here from the old disabled navbar span (Vertical-Sidebar-
+            // Umbau, 2026-09-08): the dropdown's own trigger stays plain text (no icon widget in a
+            // `DropDown`'s button label slot, see `DropDown.text`/`DropDownButton` -- only a `String`
+            // is accepted there), so the badge -- and the popover interaction it carries -- moves into
+            // the dropdown BODY as a non-interactive first item instead. `dropdown-item-text` is
+            // Bootstrap's own class for exactly this ("content row that isn't itself a clickable
+            // `.dropdown-item`"). `homeserverUrl != null` defensive guard -- see `GuestBadge.kt`
+            // `guestBadge` KDoc.
+            val identityRow = span(className = "dropdown-item-text fw-semibold text-break")
+            untrustedContent(identityRow, accountMenuIdentityLine(session))
             separator()
-        }
-        // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- a second, small
-        // identity marker for a "Landesvorstand" (regional-chapter officer) session, same
-        // `dropdown-item-text` non-interactive-row idiom as the guest badge above. Updates
-        // automatically on the next `refreshShell` (every `AppState.setSession` call rebuilds the
-        // whole navbar, see `RegionalChaptersScreen.refreshSessionFromServer` KDoc) -- no separate
-        // wiring needed here.
-        session.chapterScope?.let { scope ->
-            val row = span(className = "dropdown-item-text")
-            untrustedContent(row, gettext("Landesvorstand · %1", scope.name))
+            if (session.isGuest && session.homeserverUrl != null) {
+                span(className = "dropdown-item-text d-flex align-items-center gap-2") {
+                    guestBadge(session.homeserverUrl!!)
+                    span(gettext("Gast von %1", session.homeserverUrl!!))
+                }
+                separator()
+            }
+            // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- a second, small
+            // identity marker for a "Landesvorstand" (regional-chapter officer) session, same
+            // `dropdown-item-text` non-interactive-row idiom as the guest badge above. Updates
+            // automatically on the next `refreshShell` (every `AppState.setSession` call rebuilds the
+            // whole navbar, see `RegionalChaptersScreen.refreshSessionFromServer` KDoc) -- no separate
+            // wiring needed here.
+            session.chapterScope?.let { scope ->
+                val row = span(className = "dropdown-item-text")
+                untrustedContent(row, gettext("Landesvorstand · %1", scope.name))
+                separator()
+            }
+            // Deliberately plain `ddLink`, NOT [NavHighlight]-registered -- see this function's own
+            // KDoc "Jobs' review call".
+            ddLink(tr("Mein Konto"), url = "#${Routes.DASHBOARD}")
+            ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}")
             separator()
-        }
-        // Deliberately plain `ddLink`, NOT [NavHighlight]-registered -- see this function's own
-        // KDoc "Jobs' review call".
-        ddLink(tr("Mein Konto"), url = "#${Routes.DASHBOARD}")
-        ddLink(tr("Meine Daten"), url = "#${Routes.DSGVO_RIGHTS}")
-        separator()
-        // dataNavigo = false: rein lokaler Klick-Handler (kein Ziel-Route) -- ohne dieses Opt-out
-        // feuert navigo (globales Link.useDataNavigoForLinks = true, siehe main()) auf demselben
-        // Klick zusaetzlich seinen notFound-Handler und navigiert; funktioniert bisher nur
-        // zufaellig, weil AuthHttp.logout() ohnehin bei Routes.LOGIN landet (V1.2.4-Audit,
-        // dataNavigo-Sweep).
-        val logoutLink =
-            ddLink(
-                tr("Abmelden"),
-                url = "javascript:void(0)",
-                icon = "fas fa-right-from-bracket",
-                dataNavigo = false,
-            )
-        logoutLink.onClick {
-            AppScope.launch {
-                AuthHttp.logout()
-                AppState.setSession(null)
-                navigateTo(Routes.LOGIN)
+            // dataNavigo = false: rein lokaler Klick-Handler (kein Ziel-Route) -- ohne dieses Opt-out
+            // feuert navigo (globales Link.useDataNavigoForLinks = true, siehe main()) auf demselben
+            // Klick zusaetzlich seinen notFound-Handler und navigiert; funktioniert bisher nur
+            // zufaellig, weil AuthHttp.logout() ohnehin bei Routes.LOGIN landet (V1.2.4-Audit,
+            // dataNavigo-Sweep).
+            val logoutLink =
+                ddLink(
+                    tr("Abmelden"),
+                    url = "javascript:void(0)",
+                    icon = "fas fa-right-from-bracket",
+                    dataNavigo = false,
+                )
+            logoutLink.onClick {
+                AppScope.launch {
+                    AuthHttp.logout()
+                    AppState.setSession(null)
+                    navigateTo(Routes.LOGIN)
+                }
             }
         }
-    }
+    account.button.addCssClass("lapis-account-toggle")
+    // `setAttribute`/`title` with an already resolved, sanitized text (gettext sanitizes its arguments): the full
+    // "Name (Rolle)" stays available to screen readers and as a tooltip while the trigger truncates the name.
+    val fullIdentity = accountMenuIdentityLine(session)
+    account.button.setAttribute("aria-label", fullIdentity)
+    account.button.title = fullIdentity
 }
+
+/** The text of the navbar account trigger: the sanitized display name only (see [refreshNavbar]). */
+internal fun accountTriggerLabel(session: SessionInfoDto): String = sanitizeUntrustedI18nText(session.displayName)
+
+/**
+ * The first row of the account menu and the accessible name of the trigger: "Name (Rolle)", or "Name (Gast)" for a
+ * federated guest. `gettext` sanitizes its string arguments, so a forged i18n marker in the display name stays inert.
+ */
+internal fun accountMenuIdentityLine(session: SessionInfoDto): String =
+    if (session.isGuest && session.homeserverUrl != null) {
+        gettext("%1 (Gast)", session.displayName)
+    } else {
+        gettext("%1 (%2)", session.displayName, session.role)
+    }
 
 /**
  * Sprachumschalter-Feature 2026-08-14: a compact `fas fa-globe` dropdown showing every supported
@@ -628,24 +650,27 @@ private fun addLanguageSwitcher(
     onLanguageChange: () -> Unit,
 ) {
     val current = SUPPORTED_LANGUAGES.firstOrNull { it.first == I18n.language } ?: SUPPORTED_LANGUAGES.first()
-    rightNav.dropDown(current.first.uppercase(), icon = "fas fa-globe", forNavbar = true) {
-        SUPPORTED_LANGUAGES.forEach { (code, nativeName) ->
-            // dataNavigo = false: rein lokaler Klick-Handler, keine Route (V1.2.4-Audit,
-            // dataNavigo-Sweep) -- siehe Kommentar bei "Abmelden" oben.
-            val link = ddLink(nativeName, url = "javascript:void(0)", dataNavigo = false)
-            if (code == current.first) {
-                link.addCssClass("active")
-            }
-            // Audit fix B2: while a video conference is live the switch asks first (it would end the call) -- see LanguageChange.kt.
-            link.onClick {
-                requestLanguageChange(code) {
-                    setLanguage(code)
-                    PageTitle.apply() // `document.title` is outside the KVision tree: the root restart does not translate it
-                    onLanguageChange()
+    val languageMenu =
+        rightNav.dropDown(current.first.uppercase(), icon = "fas fa-globe", forNavbar = true) {
+            SUPPORTED_LANGUAGES.forEach { (code, nativeName) ->
+                // dataNavigo = false: rein lokaler Klick-Handler, keine Route (V1.2.4-Audit,
+                // dataNavigo-Sweep) -- siehe Kommentar bei "Abmelden" oben.
+                val link = ddLink(nativeName, url = "javascript:void(0)", dataNavigo = false)
+                if (code == current.first) {
+                    link.addCssClass("active")
+                }
+                // Audit fix B2: while a video conference is live the switch asks first (it would end the call) -- see LanguageChange.kt.
+                link.onClick {
+                    requestLanguageChange(code) {
+                        setLanguage(code)
+                        PageTitle.apply() // `document.title` is outside the KVision tree: the root restart does not translate it
+                        onLanguageChange()
+                    }
                 }
             }
         }
-    }
+    // V1.9.17: the language code stays readable on narrow widths (see the `theme.css` navbar rule) -- it is two letters.
+    languageMenu.button.addCssClass("lapis-language-toggle")
 }
 
 fun main() {

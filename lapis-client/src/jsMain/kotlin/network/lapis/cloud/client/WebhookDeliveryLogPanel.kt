@@ -80,10 +80,10 @@ private fun renderWebhookDeliveryTable(
         )
     items.forEach { item ->
         table.row {
-            cell(formatTimestamp(item.occurredAt))
+            textCell(formatTimestamp(item.occurredAt))
             cell { webhookEventTypeBadge(item.eventType) }
-            cell("${item.attemptCount}/${item.maxAttempts}")
-            cell(item.lastHttpStatus?.toString() ?: "–")
+            textCell("${item.attemptCount}/${item.maxAttempts}")
+            textCell(item.lastHttpStatus?.toString() ?: "–")
             cell {
                 webhookDeliveryStatusBadge(item.status)
                 val errorCode = item.lastErrorCode
@@ -91,7 +91,8 @@ private fun renderWebhookDeliveryTable(
                     div(webhookFailureReasonLabel(errorCode)) { addCssClasses("small text-muted mt-1") }
                 }
             }
-            cell(item.nextAttemptAt?.let { formatWebhookRelativeFuture(it) } ?: "–")
+            // Trusted: the relative text is built from `tr(...)`/`gettext(...)` and numbers only (no foreign field).
+            textCell(item.nextAttemptAt?.let { trusted(formatWebhookRelativeFuture(it)) } ?: "–")
         }
     }
 }

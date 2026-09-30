@@ -333,7 +333,7 @@ private fun dunningCaseColumns(): List<DataColumn<DunningCaseDto>> =
             title = tr("Stufe"),
             numeric = true,
             cell = { container, case ->
-                container.div(case.highestLevelNumber?.toString() ?: "–")
+                container.cellText(case.highestLevelNumber?.toString() ?: "–")
                 container.div(gettext("Zyklus %1", case.currentCycleNumber)) { addCssClasses("text-muted small") }
             },
         ),

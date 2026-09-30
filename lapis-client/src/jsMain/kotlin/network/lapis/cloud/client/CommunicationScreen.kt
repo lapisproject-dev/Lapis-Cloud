@@ -14,7 +14,6 @@ import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.table.cell
 import io.kvision.table.row
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
@@ -638,7 +637,7 @@ internal fun renderMailingStatsPanel(
         stats.links.forEach { link ->
             table.row {
                 // The target URL is message content typed by a board member: never as raw widget content.
-                cell(sanitizeUntrustedI18nText(link.targetUrl)) { addCssClass("text-break") }
+                textCell(link.targetUrl) { addCssClass("text-break") }
                 numCell((link.uniqueRecipients ?: 0).toString())
                 numCell((link.totalClicks ?: 0).toString())
             }

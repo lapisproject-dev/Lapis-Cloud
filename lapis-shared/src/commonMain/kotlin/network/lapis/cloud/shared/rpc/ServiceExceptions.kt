@@ -354,3 +354,17 @@ class RegionalChapterRequiredException(
 class RegionalChapterOfficerIneligibleException(
     override val message: String = "Member is not eligible for a regional-chapter-officer grant",
 ) : AbstractServiceException()
+
+/**
+ * V1.9.17 **probe only -- never thrown by production code** (a source-scan test in the server module fails if
+ * `lapis-server/src/main` ever constructs it). It lives in `commonMain` because Kilua RPC's KSP step only registers
+ * `@RpcServiceException` classes of the main source set. Its only job is to answer, by test, whether a NON-message
+ * field of an exception (here [code]) survives the Kilua RPC wire -- the precondition for replacing "one exception
+ * type per error" with a single coded type (see `docs/architecture/typed-conflict-errors.adoc`). Proven by
+ * `CodedExceptionWireTest` (server, serialization side) and `RpcExceptionCodeWireTest` (client, decoding side).
+ */
+@RpcServiceException
+class ProbeCodedConflictException(
+    override val message: String = "",
+    val code: String = "",
+) : AbstractServiceException()

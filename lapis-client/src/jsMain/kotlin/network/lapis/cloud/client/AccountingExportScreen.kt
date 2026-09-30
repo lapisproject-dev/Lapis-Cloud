@@ -437,12 +437,12 @@ private fun renderPreviewBody(
             )
         preview.sampleLines.forEach { line ->
             table.row {
-                cell(formatDate(line.entryDate))
-                cell(line.voucherNumber)
-                cell(if (line.direction == AccountingExportDirection.INCOME) tr("Einnahme") else tr("Ausgabe"))
-                cell(line.categoryName ?: tr("(keine Zuordnung)"))
-                cell(formatMoney(line.grossAmount))
-                cell(if (line.alreadyExported) tr("bereits übertragen") else tr("wird gesendet"))
+                textCell(formatDate(line.entryDate))
+                textCell(line.voucherNumber)
+                textCell(trusted(if (line.direction == AccountingExportDirection.INCOME) tr("Einnahme") else tr("Ausgabe")))
+                textCell(line.categoryName ?: trusted(tr("(keine Zuordnung)")))
+                textCell(formatMoney(line.grossAmount))
+                textCell(trusted(if (line.alreadyExported) tr("bereits übertragen") else tr("wird gesendet")))
             }
         }
         if (preview.totalLineCount > preview.sampleLines.size) {
@@ -508,10 +508,10 @@ private fun renderUnknownItemsSection(
                 )
             items.forEach { item ->
                 table.row {
-                    cell(formatDate(item.entryDate))
-                    cell(item.voucherNumber)
-                    cell(formatMoney(item.grossAmount))
-                    cell(
+                    textCell(formatDate(item.entryDate))
+                    textCell(item.voucherNumber)
+                    textCell(formatMoney(item.grossAmount))
+                    textCell(
                         gettext("Status unklar -- bitte in %1 unter Belegnummer %2 prüfen.", provider.displayName, item.voucherNumber),
                     ) { addCssClasses("text-muted small") }
                     cell { renderResolveUnknownActions(provider, item) { reload() } }
@@ -581,10 +581,10 @@ private fun renderRunSection(
                 )
             items.forEach { item ->
                 table.row {
-                    cell(item.voucherNumber)
-                    cell(formatMoney(item.grossAmount))
+                    textCell(item.voucherNumber)
+                    textCell(formatMoney(item.grossAmount))
                     cell { accountingExportItemStatusBadge(item.status) }
-                    cell(
+                    textCell(
                         when (item.status) {
                             AccountingExportItemStatus.UNKNOWN ->
                                 gettext(

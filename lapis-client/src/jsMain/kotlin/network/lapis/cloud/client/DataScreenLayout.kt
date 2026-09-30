@@ -4,6 +4,7 @@ import io.kvision.core.Container
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
+import io.kvision.html.Span
 import io.kvision.html.TAG
 import io.kvision.html.Tag
 import io.kvision.html.button
@@ -294,17 +295,62 @@ internal fun plainHeaderCell(header: TableHeader): HeaderCell =
 internal const val NUMERIC_CELL_CLASS = "lapis-num"
 
 /**
- * A numeric table cell: right-aligned, tabular figures. [content] as plain text, or build the content
- * in [init] (e.g. `moneySpan(amount)`).
+ * Resolves the text of a table cell to the string that becomes widget content -- the ONE trust decision of every
+ * table cell (V1.9.17). Same contract as [textColumn] and [trFormat] arguments: a plain [String] is ALWAYS
+ * foreign data and run through [sanitizeUntrustedI18nText] (never decided by its content), a [TrArg] (the direct
+ * result of [trusted] around this app's own `tr(...)`/token helpers) is used as-is, `null` is empty.
+ *
+ * Why this exists: KVision's `Cell`, `HeaderCell` and `Row` are `Tag`s, and `Tag.render` runs every content string
+ * through `Widget.translate` -> `I18n.trans`, which resolves a leading `###KvI18nS###` (gettext) and a
+ * `###KvI18nP###a###KvI18nP###b###KvI18nP###n` payload (ngettext) on its own. A raw cell value (a voucher number,
+ * a dunning-level name) that starts with such a marker is therefore replaced by an arbitrary catalog text: text
+ * spoofing (a forged status or amount), not script execution -- HTML is only interpreted for `rich = true`.
  */
-fun Row.numCell(
-    content: String? = null,
+internal fun resolveCellText(raw: Any?): String? =
+    when (raw) {
+        null -> null
+        is TrArg -> raw.raw
+        is String -> sanitizeUntrustedI18nText(raw)
+        else -> error("a table cell text must be a String or a TrArg (trusted(tr(...))), was $raw")
+    }
+
+/**
+ * The only allowed way to write text into a table cell (Tripwire T-R1: a `cell(<text>)` outside this file fails
+ * the build). [value]: a `String` is sanitized, a [TrArg] is trusted -- see [resolveCellText]. Build richer
+ * content in [init] (badges, buttons) with `cell { ... }` or pass a blank value and fill the cell there.
+ */
+internal fun Row.textCell(
+    value: Any?,
     init: (Cell.() -> Unit)? = null,
 ): Cell =
-    cell(content = content) {
+    cell(content = resolveCellText(value)) {
+        init?.invoke(this)
+    }
+
+/**
+ * A numeric table cell: right-aligned, tabular figures. [value] as plain text (see [textCell] for the trust
+ * rule -- a `String` is sanitized, a [TrArg] is trusted), or build the content in [init] (e.g. `moneySpan(amount)`).
+ * There is deliberately no `String?`-typed overload any more: the signature changed in V1.9.17 so the compiler
+ * finds every caller.
+ */
+fun Row.numCell(
+    value: Any? = null,
+    init: (Cell.() -> Unit)? = null,
+): Cell =
+    cell(content = resolveCellText(value)) {
         addCssClass(NUMERIC_CELL_CLASS)
         init?.invoke(this)
     }
+
+/**
+ * The text of a [DataColumn] cell lambda or a card (`cell = { container, row -> container.cellText(row.name) }`):
+ * a [Span] whose content is [value] resolved by [resolveCellText]. [cssClasses] (e.g. `text-muted small`) is the
+ * de-emphasis of the value. Free `span(x)`/`div(x)` inside a column lambda is rejected by tripwire T-R5.
+ */
+internal fun Container.cellText(
+    value: Any?,
+    cssClasses: String? = null,
+): Span = span(resolveCellText(value).orEmpty()) { cssClasses?.let { addCssClasses(it) } }
 
 // ============================================================================================
 // Report grammar (Welle V1.4.27, W3 "Pseudo-Tabellen ablösen")

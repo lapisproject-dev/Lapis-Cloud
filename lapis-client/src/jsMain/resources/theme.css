@@ -465,11 +465,20 @@ body {
    Platz, volle Beschriftung bleibt. `.lapis-brand-mark`/`.lapis-brand-logo` bekommen ihre
    font-size ebenfalls zurück, da `vertical-align: middle` sonst von der (auf 0 kollabierten)
    Zeilenhöhe des Elternelements abhinge. */
-@media (max-width: 575.98px) {
+/* V1.9.17 (Kopfleiste): the icon-only threshold moves from 575.98px to 767.98px -- a long display name
+   ("Maximilian-Alexander von Hohenzollern-Sigmaringen") pushed the bar into a second line between 576 and 767px.
+   Exactly one exception stays readable there: the two-letter language code (`.lapis-language-toggle`, set in
+   `App.kt`). The account trigger shows the name only at >= 768px, truncated (see `.lapis-account-toggle` below);
+   below that it is icon-only with `aria-label`/`title` carrying "Name (Rolle)". */
+@media (max-width: 767.98px) {
   .lapis-navbar .lapis-brand-text,
   .lapis-navbar .dropdown-toggle,
   .lapis-navbar .nav-link {
     font-size: 0;
+  }
+
+  .lapis-navbar .dropdown-toggle.lapis-language-toggle {
+    font-size: 0.875rem;
   }
 
   .lapis-navbar .lapis-brand-mark,
@@ -477,6 +486,34 @@ body {
   .lapis-navbar .dropdown-toggle i,
   .lapis-navbar .nav-link i {
     font-size: 1rem;
+  }
+}
+
+/* V1.9.17: the navbar never wraps into a second line; the rows of its right-hand nav may shrink instead. */
+.navbar.lapis-navbar {
+  flex-wrap: nowrap;
+}
+
+.lapis-navbar .navbar-nav {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+/* The account trigger (name only): one line, truncated with an ellipsis; the full "Name (Rolle)" is in its
+   `title` and `aria-label`. `min-width: 0` lets the flex item shrink below its content width. */
+.lapis-navbar .dropdown-toggle.lapis-account-toggle {
+  display: inline-block;
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+@media (min-width: 1200px) {
+  .lapis-navbar .dropdown-toggle.lapis-account-toggle {
+    max-width: 18rem;
   }
 }
 
@@ -2015,13 +2052,21 @@ html .form-select.is-invalid:focus {
   .lapis-ssel-button { min-height: 44px; min-width: 44px; }
 }
 
-/* Bewegungsreduktion -- EIN Block am Dateiende fuer alle drei `transition:`-Deklarationen dieser
-   Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau). Wer eine neue Transition ergaenzt,
-   ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
+/* V1.9.17: a list that is being refetched in place (open items after an action / "Aktualisieren") stays on screen,
+   dimmed, instead of flashing a loading placeholder; `aria-busy="true"` is set on the same element. */
+.lapis-busy {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+/* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
+   Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
+   Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
 @media (prefers-reduced-motion: reduce) {
   body,
   .lapis-conference-controls-row,
-  .lapis-conference-background-preview {
+  .lapis-conference-background-preview,
+  .lapis-busy {
     transition: none;
   }
 }

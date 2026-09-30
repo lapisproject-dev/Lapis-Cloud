@@ -556,7 +556,7 @@ private fun rosterColumns(showChapter: Boolean): List<DataColumn<MemberAdminRowD
                 title = tr("Beitritt"),
                 numeric = true,
                 sortKey = ROSTER_SORT_JOINED,
-                cell = { container, row -> container.span(row.joinedAt.toString()) },
+                cell = { container, row -> container.cellText(row.joinedAt.toString()) },
             ),
         )
 
@@ -595,7 +595,7 @@ internal fun SortState.toMemberAdminSort(): MemberAdminSort {
 
 /** Name column: display name plus the (BOARD/ADMIN-only) family badge -- also the title of the narrow card. */
 private fun Container.renderRosterName(row: MemberAdminRowDto) {
-    span(row.displayName)
+    untrustedSpan(row.displayName)
     // Welle V1.4.4.4 "Familienmitgliedschaften" -- unaufdringliches Badge, NUR wenn eine
     // Familienverknüpfung existiert (kein Pixel für ein Mitglied ohne Familie). Kein
     // eigener Knopf/Schalter -- der Badge selbst öffnet die gefilterte Familienansicht.

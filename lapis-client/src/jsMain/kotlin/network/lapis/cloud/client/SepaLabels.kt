@@ -146,5 +146,5 @@ fun Container.sepaReturnReasonBadge(reason: SepaReturnReason): Span =
     span {
         addCssClasses("d-inline-flex align-items-center gap-1")
         typeBadge(sepaReturnReasonLabel(reason), sepaReturnReasonColor(reason))
-        span(reason.name) { addCssClasses("text-muted small font-monospace") }
+        untrustedSpan(reason.name) { addCssClasses("text-muted small font-monospace") }
     }

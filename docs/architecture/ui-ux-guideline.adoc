@@ -1332,6 +1332,29 @@ receiver is implicit `this`), used for legal disclaimer/terms/agreement full-tex
 `BankAccountsScreen.kt` (`disclaimer.text`), `FriendRegistrationScreen.kt` (`terms.text`), `RegistrationScreen.kt`
 (`agreement.text`).
 
+=== Table cells are an i18n sink too (V1.9.17)
+
+KVision's `Cell`, `HeaderCell` and `Row` are `Tag`s; `Tag.render` hands every content string to `Widget.translate`
+-> `I18n.trans`, which resolves a leading `###KvI18nS###` (gettext) and a `###KvI18nP###...` payload (ngettext) by
+itself -- so a raw cell value is replaced by catalog text (text spoofing; HTML stays text). `TableCellI18nMarkerDomTest`
+proves this against KVision in a real browser. **Rule: text goes into a table cell only through `textCell(...)`,
+`numCell(...)` or (inside a `DataColumn` lambda or a card) `cellText(...)`** (`DataScreenLayout.kt`). They share
+one trust rule with `textColumn`: a `String` is always sanitised, `trusted(tr(...))` is used as it is. Report rows
+sanitise foreign values where the row is built (`untrustedText` in `ReportRows.kt`). Tripwires T-R1..T-R5 in
+`ClientUntrustedWidgetTextTripwireTest` enforce it (raw `cell(<text>)`, `Cell(...)`, a `dropDown` label that is a bare
+variable, any Tabulator import, unsafe `span/div/p/.content =` inside a `DataColumn` block); there is no ignore list.
+Tabulator is not used anywhere; its cell formatters are a separate sink and need their own review before first use.
+
+=== Navbar limits (V1.9.17)
+
+The account trigger shows the sanitised name only, truncated (`max-width` 12 rem, 18 rem from 1200 px); "Name (Rolle)" is
+the first row of the menu and the trigger's `aria-label`/`title`. Below 768 px (was 576 px) the navbar is icon-only;
+the two-letter language code stays readable (`.lapis-language-toggle`). The navbar never wraps (`flex-wrap: nowrap`).
+Measured in a real browser (V1.9.17, local dev instance, a 50-character display name set on the trigger, all eight
+languages): 375, 620, 768, 1024 and 1280 px on the dashboard and the open items, and 375/620 px on the anonymous login
+page -- no horizontal page scroll anywhere, one row everywhere (59 px from 768 px up, 61 px icon-only below), the
+trigger at 192 px (18 rem = 288 px from 1200 px up, icon only at 36 px below 768 px).
+
 == Wave W6c "W4d form migration" (feature/w4d-remaining-screens)
 
 Closes the W4d form migration W6b explicitly deferred (see its "Not done in this wave"): the eight screens of the

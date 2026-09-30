@@ -219,10 +219,10 @@ private fun renderReceivableLevelRow(
     onChanged: () -> Unit,
 ) {
     table.row {
-        cell(level.levelNumber.toString())
-        cell(level.name)
-        cell(gettext("%1 Tage", level.graceDays))
-        cell(gettext("%1 Tage", level.responseDays))
+        textCell(level.levelNumber.toString())
+        textCell(level.name)
+        textCell(gettext("%1 Tage", level.graceDays))
+        textCell(gettext("%1 Tage", level.responseDays))
         cell { level.feeAmount?.let { moneySpan(it) } ?: div("–") }
         val activeCell = cell()
         activeCell.activeStatusBadge(level.active)

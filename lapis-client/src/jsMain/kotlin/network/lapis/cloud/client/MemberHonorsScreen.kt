@@ -10,7 +10,6 @@ import io.kvision.html.div
 import io.kvision.html.icon
 import io.kvision.html.link
 import io.kvision.html.p
-import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -275,7 +274,7 @@ private fun memberHonorColumns(showMemberColumn: Boolean): List<DataColumn<Membe
                 primary = !showMemberColumn,
                 cell = { container, honor ->
                     container.icon(memberHonorCategoryIcon(honor.category))
-                    container.span(" ${honor.title} ")
+                    container.untrustedSpan(" ${honor.title} ")
                     container.typeBadge(memberHonorCategoryLabel(honor.category), memberHonorCategoryColor(honor.category))
                 },
             ),

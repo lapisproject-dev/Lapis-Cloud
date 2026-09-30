@@ -1434,10 +1434,10 @@ class ClientUiGuidelineTripwireTest :
             reducedMotionViolations(THEME_CSS.readText()) shouldBe emptyList()
         }
 
-        test("R54 names exactly the three known transitions today") {
+        test("R54 names exactly the four known transitions today") {
             val css = THEME_CSS.readText()
             val reduced = parseCssRules(css).filter { REDUCED_MOTION in it.atRules }.flatMap { selectorsOf(it) }.toSet()
-            reduced shouldBe setOf("body", ".lapis-conference-controls-row", ".lapis-conference-background-preview")
+            reduced shouldBe setOf("body", ".lapis-conference-controls-row", ".lapis-conference-background-preview", ".lapis-busy")
         }
 
         test("the 44 px touch-target rule under pointer: coarse leaves an inline btn-link alone") {

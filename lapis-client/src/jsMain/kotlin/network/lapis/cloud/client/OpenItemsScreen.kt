@@ -48,10 +48,10 @@ import network.lapis.cloud.shared.rpc.ICrmService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IReceivableDunningService
+import org.w3c.dom.HTMLElement
 
-/** S8: hart gedeckelte "Mehr laden"-Kette -- höchstens 20 Ladevorgänge je Filterzustand (bei
- *  Seitengröße 200 also 4.000 Zeilen), danach nur noch der Hinweis, den Filter einzuschränken. */
-private const val OPEN_ITEMS_MAX_LOADS = 20
+// S8: the "Mehr laden" chain is capped at OPEN_ITEMS_MAX_LOADS loads per filter state (OpenItemsRefetch.kt; with page
+// size 200 that is 4,000 rows), after that only the hint to narrow the filter remains.
 private const val OPEN_ITEMS_SEARCH_DEBOUNCE_MS = 250
 private const val OPEN_ITEMS_PREFILL_DEBOUNCE_MS = 500
 private const val OPEN_ITEMS_DEFAULT_DUE_DAYS = 14
@@ -134,7 +134,9 @@ fun renderOpenItemsScreen(
     val actionRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val formHost = root.vPanel(spacing = 8)
 
-    root.h2(tr("Posten")) { addCssClass("h5") }
+    val listHeading = root.h2(tr("Posten")) { addCssClass("h5") }
+    // Focus target of the detail-closing refetch (see `followSelection`): programmatically focusable, not in the tab order.
+    listHeading.setAttribute("tabindex", "-1")
     val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
     val statusChecks: Map<OpenItemStatus, CheckBox> =
         OpenItemStatus.entries.associateWith { status ->
@@ -270,7 +272,7 @@ fun renderOpenItemsScreen(
                 )
             buckets.forEach { bucket ->
                 table.row {
-                    cell(openItemAgingBucketLabel(bucket.bucket))
+                    textCell(openItemAgingBucketLabel(bucket.bucket))
                     numCell(bucket.count.toString())
                     numCell { moneySpan(bucket.totalAmount) }
                 }
@@ -332,7 +334,9 @@ fun renderOpenItemsScreen(
         val visibleItems = applyOpenItemFilter(state.loaded, state.filter)
         val countsText = gettext("%1 von %2 geladenen Posten angezeigt", visibleItems.size, state.loaded.size)
         val tileHint = gettext("Kacheln zählen alle Posten, die Liste nur die geladenen.")
-        val moreHint = tr("Weitere Posten liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen.")
+        // `gettext`, not `tr`: the hint is joined into a longer string, and a `tr()` marker in the MIDDLE of a string is
+        // never resolved -- the raw `###KvI18nS###` showed up in the counts line whenever more rows were on the server.
+        val moreHint = gettext("Weitere Posten liegen noch auf dem Server; Filter und Suche wirken nur auf die geladenen Zeilen.")
         countsLabel.content =
             when {
                 state.loaded.isEmpty() -> ""
@@ -387,9 +391,121 @@ fun renderOpenItemsScreen(
     }
     renderListFn = ::renderList
 
-    fun loadPage(reset: Boolean) {
+    /** What a reload does: a refetch to the current depth, or -- when nothing is loaded yet (first load, error state) -- a reset. */
+    fun reloadMode(detail: RefetchDetail = RefetchDetail.FOLLOW_SELECTION): LoadMode =
+        if (state.loadCount == 0) {
+            LoadMode.Reset
+        } else {
+            LoadMode.Refetch(depth = maxOf(state.loaded.size, state.pageSize), detail = detail)
+        }
+
+    fun closeDetail() {
+        state.selectedId = null
+        shownDetail = null
+        shownDunningContext = null
+        detailPanel.removeAll()
+        detailPanel.p(tr("Posten oben auswählen, um Details zu sehen.")) { addCssClasses("text-muted small") }
+    }
+
+    /** After a refetch: re-read the selected item, or -- when it dropped out of the list -- close the detail and keep the focus nearby. */
+    fun followSelection(previousIndex: Int) {
+        val id = state.selectedId ?: return
+        val visible = applyOpenItemFilter(state.loaded, state.filter)
+        // `previousIndex < 0`: the item was never a row of the list (deep link to a closed item) -- nothing dropped out.
+        if (previousIndex < 0 || visible.any { it.id == id }) {
+            openDetail(id)
+            return
+        }
+        closeDetail()
+        val rows = listPanel.getElement()?.querySelectorAll("tr[data-item-id]")
+        val target = minOf(previousIndex, visible.size - 1)
+        val row = if (rows != null && target >= 0) rows.item(target) as? HTMLElement else null
+        if (row != null) row.focus() else listHeading.focus()
+    }
+
+    /**
+     * [LoadMode.Refetch]: loads the same data set again, as deep as it was, and swaps the list in only when ALL calls
+     * succeeded -- so the list neither flashes the "Wird geladen" placeholder nor jumps back to page 1, and a failing call
+     * keeps the old rows. The calls are chunked by [planRefetchLimits] (the server caps one call at [MAX_OPEN_ITEMS_LIMIT]).
+     */
+    fun refetchPage(mode: LoadMode.Refetch) {
+        state.generation++
+        val generation = state.generation
+        val includeClosed = state.filter.requiresClosedRows()
+        val previousVisible = applyOpenItemFilter(state.loaded, state.filter)
+        val previousIndex = state.selectedId?.let { id -> previousVisible.indexOfFirst { it.id == id } } ?: -1
+        val scrollY = window.scrollY
+        listPanel.setAttribute("aria-busy", "true")
+        listPanel.addCssClass("lapis-busy")
+        loadMoreButton.disabled = true
+
+        fun settle() {
+            listPanel.removeAttribute("aria-busy")
+            listPanel.removeCssClass("lapis-busy")
+            loadMoreButton.disabled = false
+        }
+        AppScope.launch {
+            val collected = mutableListOf<OpenItemDto>()
+            var lastBatchSize = 0
+            var lastLimit = 0
+            var cursorDate: LocalDate? = null
+            var cursorId: String? = null
+            for (limit in planRefetchLimits(mode.depth, pageSize = state.pageSize)) {
+                val batch =
+                    guarded {
+                        rpcService<IOpenItemService>().listOpenItems(
+                            direction = state.segment.toDirection(),
+                            onlyOpen = !includeClosed,
+                            limit = limit,
+                            afterDueDate = cursorDate,
+                            afterOpenItemId = cursorId,
+                        )
+                    }
+                if (generation != state.generation) return@launch // a newer load has taken over
+                if (batch == null) {
+                    // guarded() has shown the toast; the old rows stay, and so does the detail the user was reading.
+                    settle()
+                    if (mode.detail == RefetchDetail.FOLLOW_SELECTION) state.selectedId?.let { openDetail(it) }
+                    return@launch
+                }
+                collected += batch
+                lastBatchSize = batch.size
+                lastLimit = limit
+                batch.lastOrNull()?.let {
+                    cursorDate = it.dueDate
+                    cursorId = it.id
+                }
+                if (batch.size < limit) break
+            }
+            state.loadedIncludesClosed = includeClosed
+            state.loaded.clear()
+            state.loaded.addAll(collected)
+            state.cursorDueDate = cursorDate
+            state.cursorItemId = cursorId
+            state.loadCount = loadCountForDepth(mode.depth, state.pageSize)
+            // `hasMore` only from the LAST batch (never derived from the depth): it was full, so there may be more.
+            state.hasMore = lastBatchSize == lastLimit
+            val capped = state.hasMore && state.loadCount >= OPEN_ITEMS_MAX_LOADS
+            if (state.hasMore && !capped) loadMoreButton.show() else loadMoreButton.hide()
+            if (capped) capHint.show() else capHint.hide()
+            renderList()
+            window.scrollTo(0.0, scrollY)
+            settle()
+            if (mode.detail == RefetchDetail.FOLLOW_SELECTION) followSelection(previousIndex)
+        }
+    }
+
+    fun loadPage(mode: LoadMode) {
+        if (mode is LoadMode.Refetch) {
+            refetchPage(mode)
+            return
+        }
+        val reset = mode is LoadMode.Reset
         if (reset) {
             state.generation++
+            // A superseded refetch returns without settle(): clear its busy markers here, the panel itself survives removeAll().
+            listPanel.removeAttribute("aria-busy")
+            listPanel.removeCssClass("lapis-busy")
             state.loaded.clear()
             state.cursorDueDate = null
             state.cursorItemId = null
@@ -427,7 +543,7 @@ fun renderOpenItemsScreen(
                     listPanel.removeAll()
                     countsLabel.content = ""
                     loadMoreButton.hide()
-                    listPanel.dataErrorState(onRetry = { loadPage(reset = true) })
+                    listPanel.dataErrorState(onRetry = { loadPage(LoadMode.Reset) })
                 }
                 return@launch
             }
@@ -464,7 +580,8 @@ fun renderOpenItemsScreen(
             onChanged = { changed ->
                 showDetail(changed)
                 refreshSummary()
-                loadPage(reset = true)
+                // The detail was just replaced by the fresh result: the list refetches to its depth, the detail stays.
+                loadPage(reloadMode(detail = RefetchDetail.KEEP))
             },
             onReloadNeeded = { reloadAll() },
         )
@@ -524,8 +641,10 @@ fun renderOpenItemsScreen(
         // in einem anderen Tab gerade erst gesetzt haben, und ohne diesen Abruf bliebe der
         // Ausgleichen-Dialog bis zum Seiten-Neuladen bei "kein Standard-Bankkonto hinterlegt".
         loadPaymentMappingFn()
-        loadPage(reset = true)
-        state.selectedId?.let { openDetail(it) }
+        val mode = reloadMode()
+        loadPage(mode)
+        // A refetch re-reads (or closes) the detail itself once the list is back; only a reset leaves it to us.
+        if (mode !is LoadMode.Refetch) state.selectedId?.let { openDetail(it) }
     }
 
     // ── Steuerelemente verdrahten ────────────────────────────────────────────────────────────────
@@ -537,7 +656,7 @@ fun renderOpenItemsScreen(
         state.segment = segment
         renderTiles()
         renderAging()
-        loadPage(reset = true)
+        loadPage(LoadMode.Reset)
     }
 
     agingToggle.onClick {
@@ -558,7 +677,7 @@ fun renderOpenItemsScreen(
             applyFilterFromControls()
             val nowClosed = state.filter.requiresClosedRows()
             // Nur wenn erstmals geschlossene Zeilen gebraucht werden, ist ein neuer Server-Abruf nötig.
-            if (nowClosed && !wasClosed && !state.loadedIncludesClosed) loadPage(reset = true) else renderList()
+            if (nowClosed && !wasClosed && !state.loadedIncludesClosed) loadPage(LoadMode.Reset) else renderList()
         }
     }
     overdueCheck.subscribe {
@@ -593,10 +712,10 @@ fun renderOpenItemsScreen(
             return@subscribe
         }
         applyFilterFromControls()
-        loadPage(reset = true)
+        loadPage(LoadMode.Reset)
     }
     refreshButton.onClick { reloadAll() }
-    loadMoreButton.onClick { loadPage(reset = false) }
+    loadMoreButton.onClick { loadPage(LoadMode.More) }
 
     // ── Aktionsleiste (nur TREASURER/ADMIN) ──────────────────────────────────────────────────────
     if (canWrite) {
@@ -645,7 +764,7 @@ fun renderOpenItemsScreen(
                     notifyCreatedOutcome(created.item)
                     showDetail(created)
                     refreshSummary()
-                    loadPage(reset = true)
+                    loadPage(reloadMode(detail = RefetchDetail.KEEP))
                 },
                 onCancel = {
                     onAccountsLoaded = null
@@ -664,7 +783,7 @@ fun renderOpenItemsScreen(
 
     refreshSummary()
     refreshDunningContext()
-    loadPage(reset = true)
+    loadPage(LoadMode.Reset)
     state.selectedId?.let { openDetail(it) }
 }
 
@@ -715,10 +834,13 @@ private fun appendOpenItemRow(
 ) {
     table.row {
         if (selected) addCssClass("table-active")
+        // Focus target after a refetch closed the detail (`followSelection` in `renderOpenItemsScreen`).
+        setAttribute("data-item-id", item.id)
+        setAttribute("tabindex", "-1")
         val nameCell = cell()
         nameCell.untrustedSpan(item.counterpartyName)
         nameCell.typeBadge(openItemDirectionLabel(item.direction), openItemDirectionColor(item.direction)).addCssClass("ms-2")
-        cell(item.reference.orEmpty())
+        textCell(item.reference.orEmpty())
         val dueCell = numCell()
         dueCell.dateSpan(item.dueDate)
         if (item.daysOverdue > 0 && item.status in OpenItemStatusSets.SETTLEABLE) {
@@ -734,7 +856,15 @@ private fun appendOpenItemRow(
             statusCell.typeBadge(tr("Nicht gebucht"), "warning")
         }
         if (showLevelColumn) {
-            cell(if (item.direction == OpenItemDirection.RECEIVABLE) receivableDunningLevelLabel(item.highestDunningLevelNumber) else "–")
+            textCell(
+                if (item.direction ==
+                    OpenItemDirection.RECEIVABLE
+                ) {
+                    receivableDunningLevelLabel(item.highestDunningLevelNumber)
+                } else {
+                    "–"
+                },
+            )
         }
         val actionsCell = cell()
         val actions = actionsCell.tableActionGroup()
@@ -894,7 +1024,7 @@ private fun renderSettlementsSection(
         )
     detail.settlements.sortedBy { it.createdAt }.forEach { settlement ->
         table.row {
-            cell(openItemSettlementKindLabel(settlement.kind))
+            textCell(openItemSettlementKindLabel(settlement.kind))
             numCell { moneySpan(settlement.amount) }
             numCell { dateSpan(settlement.settledOn) }
             val statusCell = cell()
@@ -902,11 +1032,11 @@ private fun renderSettlementsSection(
             when {
                 settlement.reversedAt != null -> {
                     statusCell.statusBadge(tr("Storniert"), "dark")
-                    settlement.reversalReason?.let { statusCell.div(it) { addCssClasses("text-muted small") } }
+                    settlement.reversalReason?.let { statusCell.untrustedDiv(it, className = "text-muted small") }
                 }
                 postingError != null -> {
                     statusCell.statusBadge(tr("Nicht gebucht"), "warning")
-                    statusCell.div(openItemPostingErrorMessage(postingError) ?: postingError) { addCssClasses("text-muted small") }
+                    statusCell.untrustedDiv(openItemPostingErrorMessage(postingError) ?: postingError, className = "text-muted small")
                 }
                 else -> statusCell.statusBadge(tr("Gebucht"), "success")
             }
@@ -1024,13 +1154,13 @@ private fun renderNoticeRow(
 ) {
     table.row {
         numCell(notice.levelNumber.toString())
-        cell(notice.levelName)
+        textCell(notice.levelName)
         val statusCell = cell()
         statusCell.statusBadge(receivableDunningNoticeStatusLabel(notice.status), receivableDunningNoticeStatusColor(notice.status))
         numCell { dateTimeSpan(notice.issuedAt) }
         numCell { dateSpan(notice.respondBy) }
         numCell { notice.feeAmount?.let { moneySpan(it) } ?: div("–") }
-        cell(notice.cancellationReason.orEmpty())
+        textCell(notice.cancellationReason.orEmpty())
         val actionsCell = cell()
         if (OpenItemAuthzUi.canCancelDunningNotice(role, notice.status)) {
             val cancel = actionsCell.tableActionButton("fas fa-rotate-left", gettext("Stornieren"), ButtonStyle.OUTLINEDANGER)

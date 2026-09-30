@@ -326,7 +326,30 @@ Known gaps after V1.4.21:
 * **Amounts are shown in the app-wide format** (`formatMoney`, e.g. "1234.5 €" -- a house rule from
   earlier waves, unchanged here) while input accepts the German "1234,56". Input is additionally
   capped at 1.000.000.000,00 € on both sides, because `open_item.amount` is `numeric(12,2)`.
-* **Every action reloads the list from page one.** After a settle/cancel/netting/dunning action the
-  screen calls `loadPage(reset = true)`, so an operator who had clicked "Mehr laden" several times
-  loses that chain and has to click through again. Keeping the loaded pages would mean re-fetching
-  each page (the keyset cursor is per page), which this wave did not build.
+* **Every action reloads the list from page one.** *Closed in V1.9.17, see "Reload behaviour" below.*
+
+== Reload behaviour (V1.9.17)
+
+After a settle/cancel/netting/dunning action, "Aktualisieren" or a reload request from the detail
+view, the list is refetched **in place to the depth the user had loaded** (`LoadMode.Refetch`,
+`OpenItemsRefetch.kt`) instead of starting over from page one.
+
+* **Chunked by the server cap.** `planRefetchLimits(depth)` splits the depth into calls of at most
+  `MAX_OPEN_ITEMS_LIMIT = 200` rows (`planRefetchLimits(150) == [150]`,
+  `planRefetchLimits(450) == [200, 200, 50]`), continuing with the cursor of the last row. The client
+  constant is pinned against the server's `MAX_LIST_RESULTS` by a source-scan test. The depth is clamped
+  to `OPEN_ITEMS_MAX_LOADS x 200` (4,000 rows), the same bound the "Mehr laden" chain has, so the loop
+  cannot grow without limit.
+* **`hasMore` comes from the last batch only** (it was full: there may be more), never from the depth.
+* **The list swaps only on full success.** While loading the old rows stay, dimmed (`.lapis-busy`,
+  `aria-busy="true"`), the scroll position is restored afterwards, a stale answer (an older generation)
+  is dropped, and a failing call keeps the old rows and shows no error state -- only the toast from
+  `guarded`.
+* **Filter, segment and page size are not touched.** Changing any of them is a different data set and
+  still starts from page one (`LoadMode.Reset`); so does a reload while nothing is loaded yet (first
+  load, error state).
+* **Detail and focus.** After a refetch triggered from outside the detail view, the selected item is
+  re-read if it is still in the filtered list. If it dropped out (e.g. it was settled and "open only"
+  is on), the detail closes and the focus moves to the row that took its index, else the previous one,
+  else the "Posten" heading. A detail the caller has just replaced itself (after a settlement in the
+  detail view) is left alone (`RefetchDetail.KEEP`).

@@ -126,6 +126,14 @@ private val BLANK = ReportCell.Blank
 
 private fun text(value: String) = ReportCell.Text(value)
 
+/**
+ * A report text cell whose value is FOREIGN data (a donor name, a booking description, a voucher reference).
+ * `paintReportCell` hands [ReportCell.Text.text] to a KVision `span`, which resolves a leading `###KvI18nS###` /
+ * `###KvI18nP###` through the catalog -- so a foreign value is sanitized here, at the row-building seam. [text] stays
+ * for developer-written `tr(...)`/`gettext(...)` results, which must keep their marker (V1.9.17).
+ */
+private fun untrustedText(value: String) = ReportCell.Text(sanitizeUntrustedI18nText(value))
+
 private fun money(
     amount: Decimal,
     warn: Boolean = false,
@@ -358,7 +366,7 @@ fun donorDutyRows(duties: List<DonorDutyDto>): List<ReportRow> =
             }
         row(
             ReportRowKind.DATA,
-            text(duty.donorDisplayName),
+            untrustedText(duty.donorDisplayName),
             ReportCell.Badge(donorTypeLabel(duty.donorType), donorTypeColor(duty.donorType)),
             ReportCell.Badge(donorCategoryLabel(duty.donorCategory), donorCategoryColor(duty.donorCategory)),
             money(duty.annualTotal),
@@ -399,7 +407,7 @@ fun generalLedgerRows(dto: GeneralLedgerDto): List<ReportRow> =
                 row(
                     ReportRowKind.DATA,
                     text(line.entryDate.toString()),
-                    text(line.description),
+                    untrustedText(line.description),
                     if (line.side == PostingSide.DEBIT) money(line.amount) else BLANK,
                     if (line.side == PostingSide.CREDIT) money(line.amount) else BLANK,
                     money(line.runningBalance),
@@ -431,8 +439,8 @@ fun kassenbuchRows(dto: KassenbuchDto): List<ReportRow> =
                     ReportRowKind.DATA,
                     text(line.kassenbuchNumber.toString()),
                     text(line.entryDate.toString()),
-                    text(line.description),
-                    text(line.voucherReference ?: "--"),
+                    untrustedText(line.description),
+                    untrustedText(line.voucherReference ?: "--"),
                     if (line.amountIn.toDouble() != 0.0) money(line.amountIn) else BLANK,
                     if (line.amountOut.toDouble() != 0.0) money(line.amountOut) else BLANK,
                     money(line.runningBalance),

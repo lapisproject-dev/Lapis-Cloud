@@ -194,6 +194,224 @@ private const val KNOWN_UNSANITIZED_WIDGET_TEXT_ASSIGNMENTS = 1
  */
 private const val KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS = 1
 
+// ============================================================================================================
+// V1.9.17: table cells, dropDown labels, Tabulator (rules T-R1 .. T-R5)
+// ============================================================================================================
+
+/**
+ * V1.9.17: KVision's `Cell`/`HeaderCell`/`Row` are `Tag`s -- `Tag.render` resolves a leading `###KvI18nS###` /
+ * `###KvI18nP###` marker of ANY content string through `I18n.trans` (proved by `TableCellI18nMarkerDomTest`). The
+ * rules below make `textCell`/`numCell`/`cellText` (`DataScreenLayout.kt`) the only way to put text into a table cell.
+ * None of them has an ignore list: a new justified exception needs a new rule, not a softer regex.
+ */
+private fun tableCellScannedFiles(files: List<File>): List<File> =
+    files.filter {
+        it.name != "DataScreenLayout.kt" &&
+            it.name != "DataTable.kt"
+    }
+
+/** T-R1: `cell(<anything>)` / `cell(content = ...)`. `cell()` and `cell { ... }` stay legal; `x.cell(...)` is a property call, not KVision's. */
+private val RAW_CELL_TEXT_CALL = Regex("""(?<![\w.])cell\(\s*(?:content\s*=\s*)?[^)\s]""")
+
+/** T-R2: a `Cell(...)` constructor call (not `HeaderCell(`): the other way to hand text to a cell. */
+private val CELL_CONSTRUCTOR_CALL = Regex("""(?<![\w.])Cell\(""")
+
+/** T-R3: `dropDown(variable, ...)` / `dropDown(a.b, ...)` -- a label that is a bare variable or field, not a call. */
+private val DROPDOWN_VARIABLE_LABEL = Regex("""\bdropDown\(\s*[a-zA-Z_][\w.]*\s*[,)]""")
+
+/** What makes a dropDown label variable acceptable within three lines: sanitized, or a resolved tr/gettext text. */
+private val DROPDOWN_LABEL_SAFE = Regex("""sanitizeUntrustedI18nText\(|\btr\(|\bgettext\(""")
+
+/** T-R4: any Tabulator import (no Tabulator use exists; its cell formatters are a separate sink that needs its own review). */
+private val TABULATOR_IMPORT = Regex("""^\s*import\s+io\.kvision\.tabulator""", RegexOption.MULTILINE)
+
+/** T-R5: sinks inside a `DataColumn(...)` block: `span(`/`div(`/`p(` (any receiver) and `.content =`. */
+private val COLUMN_TEXT_SINK = Regex("""(?<![\w])(?:span|div|p)\(""")
+private val COLUMN_CONTENT_ASSIGNMENT = Regex("""\.content\s*=\s*([^\n]*)""")
+private val DATA_COLUMN_CALL = Regex("""(?<![\w.])DataColumn(?:<[^>]*>)?\(""")
+
+/**
+ * An argument of a `span(`/`div(`/`p(` call inside a `DataColumn` that is allowed: a plain string literal without a
+ * template, or anything that runs through a text helper -- `tr`/`gettext`/`ngettext`/`trFormat`/`trusted`/
+ * `sanitizeUntrustedI18nText`/`cellText`/`untrusted*`, or a developer formatter by naming convention
+ * (`format*`, `*Token`, `*Label*`) whose result is built by `gettext` (which sanitizes its string arguments) or
+ * `tr`. A bare field, a variable or a `.toString()` of one is not.
+ */
+private val COLUMN_TEXT_SAFE =
+    Regex(
+        """\b(?:tr|gettext|ngettext|trusted|trFormat|sanitizeUntrustedI18nText|cellText|untrusted\w*)\(""" +
+            """|\b(?:format[A-Z]\w*|\w+Token|\w+Label\w*)\(""",
+    )
+
+/** Index of the `)` matching the `(` at [open], skipping string/char literals; -1 if unbalanced. */
+private fun matchingParen(
+    text: String,
+    open: Int,
+): Int {
+    var depth = 0
+    var i = open
+    while (i < text.length) {
+        val c = text[i]
+        when {
+            text.startsWith("\"\"\"", i) -> {
+                val end = text.indexOf("\"\"\"", i + 3)
+                if (end < 0) return -1
+                i = end + 2
+            }
+            c == '"' -> {
+                i++
+                while (i < text.length && text[i] != '"') {
+                    if (text[i] == '\\') i++
+                    i++
+                }
+            }
+            c == '\'' -> {
+                i++
+                while (i < text.length && text[i] != '\'') {
+                    if (text[i] == '\\') i++
+                    i++
+                }
+            }
+            c == '(' -> depth++
+            c == ')' -> {
+                depth--
+                if (depth == 0) return i
+            }
+        }
+        i++
+    }
+    return -1
+}
+
+private fun stripCommentLines(text: String): String = text.lines().joinToString("\n") { if (isWidgetTextCommentLine(it)) "" else it }
+
+private fun rawCellTextCalls(text: String): List<String> =
+    stripCommentLines(text).lines().filter { RAW_CELL_TEXT_CALL.containsMatchIn(it) }.map { it.trim() }
+
+private fun cellConstructorCalls(text: String): List<String> =
+    stripCommentLines(text).lines().filter { CELL_CONSTRUCTOR_CALL.containsMatchIn(it) }.map { it.trim() }
+
+private fun unsafeDropDownLabels(text: String): List<String> {
+    val lines = stripCommentLines(text).lines()
+    return lines
+        .withIndex()
+        .filter { (index, line) ->
+            DROPDOWN_VARIABLE_LABEL.containsMatchIn(line) &&
+                (maxOf(0, index - 3)..minOf(lines.lastIndex, index + 3)).none { DROPDOWN_LABEL_SAFE.containsMatchIn(lines[it]) }
+        }.map { it.value.trim() }
+}
+
+private fun unsafeDataColumnTexts(text: String): List<String> {
+    val source = stripCommentLines(text)
+    val findings = mutableListOf<String>()
+    DATA_COLUMN_CALL.findAll(source).forEach { column ->
+        val open = column.range.last
+        val close = matchingParen(text = source, open = open)
+        if (close < 0) return@forEach
+        val block = source.substring(open, close + 1)
+        COLUMN_TEXT_SINK.findAll(block).forEach { sink ->
+            val argOpen = sink.range.last
+            val argClose = matchingParen(text = block, open = argOpen)
+            if (argClose < 0) return@forEach
+            val argument = block.substring(argOpen + 1, argClose).trim()
+            val namedNonContent = Regex("""^\w+\s*=""").containsMatchIn(argument) && !argument.startsWith("content")
+            val literal = argument.startsWith("\"") && !argument.contains("\${") && argument.indexOf('"', 1) == argument.length - 1
+            val safe = COLUMN_TEXT_SAFE.containsMatchIn(argument)
+            if (argument.isNotEmpty() &&
+                !namedNonContent &&
+                !literal &&
+                !safe
+            ) {
+                findings += block.substring(sink.range.first, argClose + 1).replace(Regex("\\s+"), " ")
+            }
+        }
+        COLUMN_CONTENT_ASSIGNMENT.findAll(block).forEach { assignment ->
+            if (!COLUMN_TEXT_SAFE.containsMatchIn(assignment.groupValues[1])) findings += assignment.value.trim()
+        }
+    }
+    return findings
+}
+
+/**
+ * T-R6 (review round): receiver-LESS `span(x.y)` / `div(x.y ?: "-")` inside a `Container.` extension or a `cell { }` /
+ * `table.row { }` lambda. [RAW_DOTTED_WIDGET_TEXT_CALL] needs a `.` before the tag name and therefore never saw these.
+ * The first argument is a dotted field access, optionally followed by an elvis fallback.
+ */
+private val RAW_RECEIVERLESS_DOTTED_CALL =
+    Regex("""(?<![\w.])(?:span|div|p|h2|h3|h4|h5|h6)\(\s*[a-zA-Z_]\w*(?:\??\.[a-zA-Z_]\w*)+\s*(?:\?:[^)\n]*)?[,)]""")
+
+private fun rawReceiverlessDottedCalls(text: String): List<String> =
+    stripCommentLines(text)
+        .lines()
+        .filter { RAW_RECEIVERLESS_DOTTED_CALL.containsMatchIn(it) && !ALREADY_SAFE.containsMatchIn(it) }
+        .map { it.trim() }
+
+private val CELL_BLOCK_CALL = Regex("""(?<![\w])cell\s*\{""")
+
+/** Index of the `}` matching the `{` at [open], skipping string/char literals; -1 if unbalanced. */
+private fun matchingBrace(
+    text: String,
+    open: Int,
+): Int {
+    var depth = 0
+    var i = open
+    while (i < text.length) {
+        val c = text[i]
+        when {
+            text.startsWith("\"\"\"", i) -> {
+                val end = text.indexOf("\"\"\"", i + 3)
+                if (end < 0) return -1
+                i = end + 2
+            }
+            c == '"' -> {
+                i++
+                while (i < text.length && text[i] != '"') {
+                    if (text[i] == '\\') i++
+                    i++
+                }
+            }
+            c == '\'' -> {
+                i++
+                while (i < text.length && text[i] != '\'') {
+                    if (text[i] == '\\') i++
+                    i++
+                }
+            }
+            c == '{' -> depth++
+            c == '}' -> {
+                depth--
+                if (depth == 0) return i
+            }
+        }
+        i++
+    }
+    return -1
+}
+
+/** T-R7: the same sink rule as T-R5, applied to the body of every `cell { ... }` block (manually built table cells). */
+private fun unsafeCellBlockTexts(text: String): List<String> {
+    val source = stripCommentLines(text)
+    val findings = mutableListOf<String>()
+    CELL_BLOCK_CALL.findAll(source).forEach { cell ->
+        val open = cell.range.last
+        val close = matchingBrace(text = source, open = open)
+        if (close < 0) return@forEach
+        val block = source.substring(open, close + 1)
+        COLUMN_TEXT_SINK.findAll(block).forEach { sink ->
+            val argOpen = sink.range.last
+            val argClose = matchingParen(text = block, open = argOpen)
+            if (argClose < 0) return@forEach
+            val argument = block.substring(argOpen + 1, argClose).trim()
+            val namedNonContent = Regex("""^\w+\s*=""").containsMatchIn(argument) && !argument.startsWith("content")
+            val literal = argument.startsWith("\"") && !argument.contains("\${") && argument.indexOf('"', 1) == argument.length - 1
+            if (argument.isNotEmpty() && !namedNonContent && !literal && !COLUMN_TEXT_SAFE.containsMatchIn(argument)) {
+                findings += block.substring(sink.range.first, argClose + 1).replace(Regex("\\s+"), " ")
+            }
+        }
+    }
+    return findings
+}
+
 class ClientUntrustedWidgetTextTripwireTest :
     FunSpec({
         val files = WIDGET_TEXT_SOURCES.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
@@ -352,5 +570,110 @@ class ClientUntrustedWidgetTextTripwireTest :
                     },
                 ).size
             ) shouldBe 1
+        }
+        test("V1.9.17 T-R1: no raw cell(<text>) outside DataScreenLayout.kt -- text goes through textCell/numCell") {
+            val findings = tableCellScannedFiles(files).flatMap { f -> rawCellTextCalls(f.readText()).map { "${f.name}: $it" } }
+            findings shouldBe emptyList()
+        }
+
+        test("V1.9.17 T-R1 self-test: the detector fires on raw cell text, not on cell() / cell { } / textCell(...)") {
+            rawCellTextCalls("""cell(line.voucherNumber)""").size shouldBe 1
+            rawCellTextCalls("""    cell(content = level.name) { addCssClass("x") }""").size shouldBe 1
+            rawCellTextCalls("""cell("x")""").size shouldBe 1
+            rawCellTextCalls("""val c = cell()""").size shouldBe 0
+            rawCellTextCalls("""cell { span("x") }""").size shouldBe 0
+            rawCellTextCalls("""textCell(line.voucherNumber)""").size shouldBe 0
+            rawCellTextCalls("""headerCell(tr("Konto"), required = true)""").size shouldBe 0
+            rawCellTextCalls("""// cell(line.voucherNumber)""").size shouldBe 0
+        }
+
+        test("V1.9.17 T-R2: no Cell(...) constructor outside the helper -- the other way to hand text to a cell") {
+            val findings = tableCellScannedFiles(files).flatMap { f -> cellConstructorCalls(f.readText()).map { "${f.name}: $it" } }
+            findings shouldBe emptyList()
+            cellConstructorCalls("""val c = Cell(content = x)""").size shouldBe 1
+            cellConstructorCalls("""val h = HeaderCell(content = x)""").size shouldBe 0
+        }
+
+        test("V1.9.17 T-R3: a dropDown label that is a bare variable must be sanitized or a tr/gettext text nearby") {
+            val findings = files.flatMap { f -> unsafeDropDownLabels(f.readText()).map { "${f.name}: $it" } }
+            findings shouldBe emptyList()
+            unsafeDropDownLabels("""rightNav.dropDown(accountLabel, icon = "fas fa-user", forNavbar = true) {""").size shouldBe 1
+            unsafeDropDownLabels("""rightNav.dropDown(session.displayName, forNavbar = true) {""").size shouldBe 1
+            unsafeDropDownLabels("""rightNav.dropDown(accountTriggerLabel(session), forNavbar = true) {""").size shouldBe 0
+            unsafeDropDownLabels("""rightNav.dropDown(current.first.uppercase(), forNavbar = true) {""").size shouldBe 0
+            unsafeDropDownLabels("val label = sanitizeUntrustedI18nText(name)\nx.dropDown(label) {}").size shouldBe 0
+        }
+
+        test("V1.9.17 T-R4: no Tabulator import -- its use needs its own security review") {
+            val findings = files.filter { TABULATOR_IMPORT.containsMatchIn(it.readText()) }.map { it.name }
+            // "Tabulator-Einsatz braucht eigenen Security-Review (V1.9.17)"
+            findings shouldBe emptyList()
+            TABULATOR_IMPORT.containsMatchIn("import io.kvision.tabulator.Tabulator\n") shouldBe true
+            TABULATOR_IMPORT.containsMatchIn("// import io.kvision.tabulator.Tabulator\n") shouldBe false
+        }
+
+        test("V1.9.17 T-R5: text sinks inside a DataColumn block are sanitized helpers, literals or resolved tr/gettext texts") {
+            val findings =
+                files
+                    .filter { it.name != "DataTableState.kt" && it.name != "DataTable.kt" }
+                    .flatMap { f -> unsafeDataColumnTexts(f.readText()).map { "${f.name}: $it" } }
+            findings shouldBe emptyList()
+        }
+
+        test("V1.9.17 T-R5 self-test: fires on raw fields, toString and templates; not on helpers, literals, tr/gettext") {
+            fun column(body: String) = "DataColumn(title = tr(\"X\"), cell = { container, row -> $body })"
+            unsafeDataColumnTexts(column("container.span(row.name)")).size shouldBe 1
+            unsafeDataColumnTexts(column("container.div(row.count.toString())")).size shouldBe 1
+            unsafeDataColumnTexts(column("container.span(\" \${row.title} \")")).size shouldBe 1
+            unsafeDataColumnTexts(column("container.span(row.name) { addCssClass(\"fw-bold\") }")).size shouldBe 1
+            unsafeDataColumnTexts(column("container.cell.content = row.name")).size shouldBe 1
+            unsafeDataColumnTexts(column("container.span(\n row.name\n)")).size shouldBe 1
+            unsafeDataColumnTexts(column("container.span(\"–\")")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.span(tr(\"Ja\"))")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.div(gettext(\"%1 · %2\", row.a, row.b))")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.span(formatDate(row.date))")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.cellText(row.name)")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.untrustedSpan(row.name)")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.div(className = \"x\")")).size shouldBe 0
+            unsafeDataColumnTexts(column("container.span(costCenterLabel(row))")).size shouldBe 0
+            // A paren inside a string literal must not derail the block scan.
+            unsafeDataColumnTexts(column("container.span(\"(keine Zuordnung)\"); container.span(row.name)")).size shouldBe 1
+            // Outside a DataColumn block the rule does not apply.
+            unsafeDataColumnTexts("""container.span(row.name)""").size shouldBe 0
+        }
+
+        test("V1.9.17 T-R6: no receiver-less span/div/p(x.y) with a dotted field anywhere in the client") {
+            // DataScreenLayout.kt is exempt (like T-R1): ReportCell.Text carries developer i18n marker texts that MUST be resolved.
+            val findings =
+                files
+                    .filter { it.name != "DataScreenLayout.kt" }
+                    .flatMap { f -> rawReceiverlessDottedCalls(f.readText()).map { "${f.name}: $it" } }
+            findings shouldBe emptyList()
+        }
+
+        test("V1.9.17 T-R6 self-test: fires on receiver-less dotted args incl. elvis, not on helpers/literals/locals") {
+            rawReceiverlessDottedCalls("""span(row.displayName)""").size shouldBe 1
+            rawReceiverlessDottedCalls("""div(line.counterpartyName ?: "—")""").size shouldBe 1
+            rawReceiverlessDottedCalls("""div(line.counterpartyName ?: "—") { addCssClass("x") }""").size shouldBe 1
+            rawReceiverlessDottedCalls("""untrustedSpan(row.displayName)""").size shouldBe 0
+            rawReceiverlessDottedCalls("""x.untrustedDiv(line.counterpartyName ?: "—")""").size shouldBe 0
+            rawReceiverlessDottedCalls("""span(tr("Ja"))""").size shouldBe 0
+            rawReceiverlessDottedCalls("""span(label)""").size shouldBe 0
+            rawReceiverlessDottedCalls("""// span(row.displayName)""").size shouldBe 0
+        }
+
+        test("V1.9.17 T-R7: text sinks inside a cell { } block are sanitized helpers, literals or resolved tr/gettext texts") {
+            val findings =
+                files
+                    .filter { it.name != "DataTableState.kt" && it.name != "DataTable.kt" && it.name != "DataScreenLayout.kt" }
+                    .flatMap { f -> unsafeCellBlockTexts(f.readText()).map { "${f.name}: $it" } }
+            findings shouldBe emptyList()
+        }
+
+        test("V1.9.17 T-R7 self-test: fires on raw text in a cell block, not on helpers, literals or tr") {
+            unsafeCellBlockTexts("""table.row { cell { div(line.name ?: "—") } }""").size shouldBe 1
+            unsafeCellBlockTexts("""cell { span(name) }""").size shouldBe 1
+            unsafeCellBlockTexts("""cell { untrustedDiv(line.name ?: "—"); div(tr("x")); span("–") }""").size shouldBe 0
+            unsafeCellBlockTexts("""div(line.name)""").size shouldBe 0
         }
     })

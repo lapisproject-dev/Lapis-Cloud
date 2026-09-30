@@ -452,14 +452,14 @@ private fun renderLineRow(
     onEdit: () -> Unit,
 ) {
     table.row {
-        cell(line.bookingDate.toString())
-        cell(formatMoney(line.amount))
+        textCell(line.bookingDate.toString())
+        textCell(formatMoney(line.amount))
         cell {
-            div(line.counterpartyName ?: "—")
-            line.counterpartyIbanMasked?.let { masked -> div(masked) { addCssClasses("text-muted small") } }
+            untrustedDiv(line.counterpartyName ?: "—")
+            line.counterpartyIbanMasked?.let { masked -> untrustedDiv(masked) { addCssClasses("text-muted small") } }
         }
         cell {
-            div(line.purpose.orEmpty())
+            untrustedDiv(line.purpose.orEmpty())
             // Known gap, NOT part of this wave's i18n coverage (Review finding, Welle V1.4.5.1.1
             // Runde 2, see README.adoc "Bank Statement Import" > "What doesn't work yet"):
             // `matchExplanation` embeds per-line dynamic data (member names, amounts, dates,
@@ -468,7 +468,7 @@ private fun renderLineRow(
             // strings, a structured/translatable replacement needs its own DB migration
             // (code + params, not a plain string column) and is deliberately deferred to a
             // follow-up wave rather than rushed into this fix.
-            line.matchExplanation?.let { explanation -> div(explanation) { addCssClasses("text-muted small") } }
+            line.matchExplanation?.let { explanation -> untrustedDiv(explanation) { addCssClasses("text-muted small") } }
         }
         cell { statusBadge(bankStatementLineStatusLabel(line.status), bankStatementLineStatusColor(line.status)) }
         if (canWrite) {

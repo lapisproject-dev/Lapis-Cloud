@@ -622,6 +622,64 @@ class OpenItemServiceTest :
             }
         }
 
+        /**
+         * V1.9.17 "Known deviation": the rule "a payment account is SKR42 class 1" stays CLIENT-side; the server only WARNs
+         * (machine-parseable `event=payment_account_unusual_class`), because instances with imported `accountClass = 0` bank
+         * accounts would otherwise lose the ability to settle open items. Pinned here so the WARN is not lost by accident: it is
+         * the only server-side trace of a settlement against an unusual account, and it must neither fire for a class-1 account
+         * nor carry personal data.
+         */
+        test(
+            "settleOpenItem against a class-0 asset account succeeds and logs exactly one payment_account_unusual_class WARN, without names",
+        ) {
+            val root = org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as ch.qos.logback.classic.Logger
+            val appender =
+                ch.qos.logback.core.read
+                    .ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+            appender.start()
+            root.addAppender(appender)
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) { installOpenItemTestExceptionHandlers() }
+                        routing { registerOpenItemTestRoutes() }
+                    }
+                    val treasurer = newMember(AccountRole.TREASURER)
+                    val expense = newLedgerAccount(LedgerAccountType.EXPENSE)
+                    val payables = newLedgerAccount(LedgerAccountType.LIABILITY)
+                    val classZeroBank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 0)
+                    val classOneBank = newLedgerAccount(LedgerAccountType.ASSET, ledgerAccountClass = 1)
+                    setMapping(receivablesAccountId = null, payablesAccountId = payables, bankAccountId = null)
+                    val detail = client.createItem(treasurer, OpenItemDirection.PAYABLE, expense)
+
+                    fun unusualWarnings() =
+                        appender.list.filter {
+                            it.level == ch.qos.logback.classic.Level.WARN &&
+                                it.formattedMessage.contains("event=payment_account_unusual_class")
+                        }
+
+                    client
+                        .post("/test/openitem/${detail.item.id}/settle?amount=100.00&settledOn=2026-01-15&bankAccountId=$classOneBank") {
+                            header("X-Member-Id", treasurer.toString())
+                        }.status shouldBe HttpStatusCode.OK
+                    unusualWarnings().size shouldBe 0
+
+                    client
+                        .post("/test/openitem/${detail.item.id}/settle?amount=140.00&settledOn=2026-01-16&bankAccountId=$classZeroBank") {
+                            header("X-Member-Id", treasurer.toString())
+                        }.status shouldBe HttpStatusCode.OK
+                    val warnings = unusualWarnings()
+                    warnings.size shouldBe 1
+                    val message = warnings.single().formattedMessage
+                    message.contains("accountClass=0") shouldBe true
+                    message.contains("ledgerAccountId=$classZeroBank") shouldBe true
+                    message.contains(treasurer.toString()) shouldBe false
+                }
+            } finally {
+                root.detachAppender(appender)
+            }
+        }
+
         test("the three actionable settlement conflicts are distinct exception types, not one generic ConflictException") {
             testApplication {
                 application {

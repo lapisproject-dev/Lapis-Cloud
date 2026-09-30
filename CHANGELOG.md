@@ -6,6 +6,72 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Security
+
+- **V1.9.17 — Table cells: the open v0.25.0 item is closed. Verified exploitable (text spoofing), fixed centrally.**
+  KVision's `Cell`, `HeaderCell` and `Row` are `Tag`s, and `Tag.render` runs every content string through
+  `Widget.translate` -> `I18n.trans`, which resolves a leading `###KvI18nS###` (gettext) and a
+  `###KvI18nP###a###KvI18nP###b###KvI18nP###n` payload (ngettext) on its own. A raw cell value starting with such a
+  marker was replaced by catalog text -- a forged status or amount, not script execution (HTML is only interpreted for
+  `rich = true`, which is nowhere set). Proven against KVision itself by `TableCellI18nMarkerDomTest` (real Chrome).
+  Raw cells found: `AccountingExportScreen` (voucher numbers, category, status text), `DunningSettingsScreen` and
+  `ReceivableDunningSettingsScreen` (level name), `OpenItemsScreen` (reference, level name, cancellation reason,
+  settlement reason), `BankStatementImportScreen`, `WebhookDeliveryLogPanel`, and in the report grammar four foreign
+  values (`ReportRows`: donor name, booking description, voucher reference).
+  - **Fix:** `textCell`/`numCell`/`cellText` (`DataScreenLayout.kt`) are the only way to put text into a table cell;
+    they share one trust rule with `textColumn` and `trFormat` (`resolveCellText`: a `String` is always sanitised, a
+    `TrArg` from `trusted(tr(...))` is trusted). `numCell(content: String?)` was replaced, not overloaded, so the
+    compiler found every caller. Report rows sanitise foreign values at the row-building seam (`untrustedText`).
+  - **Tripwires** (`ClientUntrustedWidgetTextTripwireTest`, each with a self-test and no ignore list): T-R1 no
+    `cell(<text>)` outside the helper file, T-R2 no `Cell(...)` constructor, T-R3 a `dropDown` label that is a bare
+    variable must be sanitised or `tr`/`gettext`, T-R4 no `io.kvision.tabulator` import (Tabulator is not used anywhere
+    and has its own cell-formatter sink: it needs its own review before first use), T-R5 text sinks inside
+    `DataColumn` blocks must be literals, helpers or `tr`/`gettext`.
+  - **Navbar label:** `gettext` already sanitises its string arguments, so `"%1 (%2)"` with a display name was safe;
+    the label is now additionally built from `sanitizeUntrustedI18nText` (see Fixed).
+
+### Fixed
+
+- **V1.9.17 — Navbar account menu.** The trigger shows only the (sanitised, truncated) name; "Name (Rolle)" moved to
+  the first row of the menu and into the trigger's `aria-label`/`title`. The icon-only threshold moved from 576 to
+  768 px, the two-letter language code stays readable there, and the bar never wraps (a long name used to push it into a
+  second line between 576 and 767 px).
+- **V1.9.17 — Open items keep their place.** After an action or "Aktualisieren" the list refetches in place to the
+  depth the user had loaded (one call of up to 200 rows per chunk, matching the server cap) instead of jumping back to
+  the first page. It dims while loading (`aria-busy`), keeps the scroll position, swaps the rows in only when every call
+  succeeded (an error keeps the old list and shows no error state), and discards a stale answer. If the selected item
+  dropped out of the filtered list (e.g. fully settled), the detail closes and the focus moves to the row that took its
+  place. Filter, segment and page size are untouched by a refetch; changing any of them still starts from page 1.
+- **V1.9.17 — Browser check of the navbar** (local dev instance, a 50-character name on the trigger, eight languages):
+  375/620/768/1024/1280 px on the dashboard and the open items, 375/620 px on the anonymous login page: no horizontal page
+  scroll, one row everywhere (59 px from 768 px up, 61 px icon-only below). A forged level name (`###KvI18nS###Nein`)
+  typed into the receivable-dunning form shows as plain "Nein" in the English UI (before the fix KVision resolved the marker, see `TableCellI18nMarkerDomTest`).
+- **V1.9.17 — Raw `###KvI18nS###` in the open-items counts line** whenever more rows were on the server (a `tr()` marker in
+  the middle of a joined string is never resolved; the hint now uses `gettext`).
+
+### Known deviation
+
+- **V1.9.17 — Payment accounts and SKR42 class 1.** The rule "a payment account is an account of class 1" stays
+  client-side (the offer list); the server only logs `event=payment_account_unusual_class` and accepts. Reason:
+  instances with imported `accountClass = 0` bank accounts would otherwise lose the ability to settle open items
+  (a regression against V1.4.15). Hard enforcement needs a per-instance data check first. The WARN is pinned by
+  `OpenItemServiceTest` (fires once for a class-0 account, never for class 1, carries no member data).
+
+### Notes
+
+- **V1.9.17 — What crosses the Kilua RPC wire.** New decision note `docs/architecture/typed-conflict-errors.adoc`, with
+  two tests: a non-message field (`code`) of an exception is encoded by the server codec and decoded by the client; an
+  own type arrives as its own type (known since V1.2.12). `ProbeCodedConflictException` exists only for that proof and
+  is never thrown in production (a source scan enforces it). `ConflictException` is `final`, so "subclass it per cause"
+  was not an option. No production change; the decision between one class per error and one coded class is deferred.
+
+### Not in scope
+
+- **Membership tiers without a UI** (planned V1.9.18) and **public website presence / live sync** (planned from V1.9.19):
+  both need answers to open product questions first (price changes for existing versus future fee lines, archiving
+  versus deleting tiers, seed tiers for the pilots, one release versus per-tab release for public pages, revocation
+  semantics, who uploads chapter crests) and are not part of this wave.
+
 ### Added
 
 - **V1.9.16 — Searchable person select and name filter for people lists (client only).** Picking a member

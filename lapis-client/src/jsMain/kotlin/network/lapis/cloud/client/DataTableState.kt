@@ -198,7 +198,7 @@ fun <R> textColumn(
         sortKey = sortKey,
         cell = { container, row ->
             val raw = text(row)
-            val value = if (raw is TrArg) raw.raw else sanitizeUntrustedI18nText(raw as String)
+            val value = resolveCellText(raw).orEmpty()
             // A blank value adds nothing, so the card list can drop the empty term/definition pair.
             if (value.isNotBlank()) container.span(value) { cssClasses?.let { addCssClasses(it) } }
         },

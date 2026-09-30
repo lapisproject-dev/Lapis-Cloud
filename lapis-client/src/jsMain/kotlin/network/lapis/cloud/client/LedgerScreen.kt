@@ -1303,7 +1303,7 @@ private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
         ),
         DataColumn(
             title = tr("Details"),
-            cell = { container, entry -> container.span(journalEntryMetaText(entry)) { addCssClasses("text-muted small") } },
+            cell = { container, entry -> container.cellText(journalEntryMetaText(entry), "text-muted small") },
         ),
     )
 
