@@ -17344,8 +17344,8 @@ msgstr "Prezentacja publiczna"
 msgid "Wappen %1"
 msgstr "Herb %1"
 
-msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
-msgstr "JPEG lub PNG, co najmniej 64 × 64 pikseli, najwyżej 2 MB."
+msgid "JPEG oder PNG (mindestens 64 × 64 Pixel, höchstens 2 MB) oder SVG (höchstens 256 KB)."
+msgstr "JPEG lub PNG (co najmniej 64 × 64 piksele, najwyżej 2 MB) albo SVG (najwyżej 256 KB)."
 
 msgid "Wappen auswählen"
 msgstr "Wybierz herb"
@@ -17391,6 +17391,36 @@ msgstr "Obraz jest za mały (co najmniej 64 × 64 pikseli)."
 
 msgid "Das Wappen konnte nicht hochgeladen werden."
 msgstr "Nie udało się przesłać herbu."
+
+msgid "Nur JPEG-, PNG- oder SVG-Dateien sind erlaubt."
+msgstr "Dozwolone są tylko pliki JPEG, PNG lub SVG."
+
+msgid "Die SVG-Datei ist größer als 256 KB."
+msgstr "Plik SVG jest większy niż 256 KB."
+
+msgid "Die SVG-Datei ist beschädigt oder kein gültiges SVG."
+msgstr "Plik SVG jest uszkodzony lub nie jest prawidłowym plikiem SVG."
+
+msgid "Die Zeichenfläche (viewBox) der SVG-Datei ist ungültig oder zu schmal bzw. zu hoch (Seitenverhältnis höchstens 4:1)."
+msgstr "Obszar rysunku (viewBox) pliku SVG jest nieprawidłowy albo zbyt wąski lub zbyt wysoki (proporcje najwyżej 4:1)."
+
+msgid "Die SVG-Datei enthält Skripte oder Animationen und wird nicht akzeptiert."
+msgstr "Plik SVG zawiera skrypty lub animacje i nie jest akceptowany."
+
+msgid "Die SVG-Datei verweist auf externe Inhalte. Bitte betten Sie alle Inhalte in die Datei ein."
+msgstr "Plik SVG odwołuje się do treści zewnętrznych. Proszę osadzić całą zawartość w pliku."
+
+msgid "Die SVG-Datei enthält Text. Bitte wandeln Sie den Text in Pfade (Kurven) um."
+msgstr "Plik SVG zawiera tekst. Proszę zamienić tekst na ścieżki (krzywe)."
+
+msgid "Der SVG-Datei fehlt die Angabe der Zeichenfläche (viewBox)."
+msgstr "W pliku SVG brakuje obszaru rysunku (viewBox)."
+
+msgid "Die SVG-Datei ist zu komplex. Bitte vereinfachen Sie die Zeichnung."
+msgstr "Plik SVG jest zbyt złożony. Proszę uprościć rysunek."
+
+msgid "Die SVG-Datei enthält Elemente oder Eigenschaften, die nicht unterstützt werden (zum Beispiel Filter, Stile oder Muster)."
+msgstr "Plik SVG zawiera elementy lub właściwości, które nie są obsługiwane (na przykład filtry, style lub wzory)."
 
 msgid "Bitte zuerst eine Kurzvorstellung speichern."
 msgstr "Najpierw zapisz krótkie przedstawienie."

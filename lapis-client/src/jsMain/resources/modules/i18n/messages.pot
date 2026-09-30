@@ -16424,7 +16424,7 @@ msgstr ""
 msgid "Wappen %1"
 msgstr ""
 
-msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+msgid "JPEG oder PNG (mindestens 64 × 64 Pixel, höchstens 2 MB) oder SVG (höchstens 256 KB)."
 msgstr ""
 
 msgid "Wappen auswählen"
@@ -16470,6 +16470,36 @@ msgid "Das Bild ist zu klein (mindestens 64 × 64 Pixel)."
 msgstr ""
 
 msgid "Das Wappen konnte nicht hochgeladen werden."
+msgstr ""
+
+msgid "Nur JPEG-, PNG- oder SVG-Dateien sind erlaubt."
+msgstr ""
+
+msgid "Die SVG-Datei ist größer als 256 KB."
+msgstr ""
+
+msgid "Die SVG-Datei ist beschädigt oder kein gültiges SVG."
+msgstr ""
+
+msgid "Die Zeichenfläche (viewBox) der SVG-Datei ist ungültig oder zu schmal bzw. zu hoch (Seitenverhältnis höchstens 4:1)."
+msgstr ""
+
+msgid "Die SVG-Datei enthält Skripte oder Animationen und wird nicht akzeptiert."
+msgstr ""
+
+msgid "Die SVG-Datei verweist auf externe Inhalte. Bitte betten Sie alle Inhalte in die Datei ein."
+msgstr ""
+
+msgid "Die SVG-Datei enthält Text. Bitte wandeln Sie den Text in Pfade (Kurven) um."
+msgstr ""
+
+msgid "Der SVG-Datei fehlt die Angabe der Zeichenfläche (viewBox)."
+msgstr ""
+
+msgid "Die SVG-Datei ist zu komplex. Bitte vereinfachen Sie die Zeichnung."
+msgstr ""
+
+msgid "Die SVG-Datei enthält Elemente oder Eigenschaften, die nicht unterstützt werden (zum Beispiel Filter, Stile oder Muster)."
 msgstr ""
 
 msgid "Bitte zuerst eine Kurzvorstellung speichern."

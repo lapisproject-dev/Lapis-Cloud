@@ -245,6 +245,28 @@ class ArticleCoverRoutesTest :
             }
         }
 
+        test("a perfectly valid SVG is still 415 (V1.9.21: SVG is accepted for the chapter crest ONLY)") {
+            testApplication {
+                application { module() }
+                val author = createMember("article-cover-svg-${Uuid.random()}@example.org")
+                val articleId = createArticle(authorId = author)
+                val response =
+                    client.post("/api/articles/$articleId/cover") {
+                        header(HttpHeaders.Origin, TEST_ORIGIN)
+                        header("X-Member-Id", author.toString())
+                        setBody(
+                            MultiPartFormDataContent(
+                                uploadFormData(
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#c00\"/></svg>"
+                                        .toByteArray(),
+                                ),
+                            ),
+                        )
+                    }
+                response.status shouldBe HttpStatusCode.UnsupportedMediaType
+            }
+        }
+
         test("too small (below MIN_LONG_EDGE_PX/MIN_SHORT_EDGE_PX) -> 422") {
             testApplication {
                 application { module() }

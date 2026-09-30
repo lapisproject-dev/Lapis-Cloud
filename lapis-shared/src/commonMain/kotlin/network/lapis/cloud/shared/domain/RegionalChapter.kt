@@ -117,6 +117,9 @@ object RegionalChapterPublicRules {
     const val DESCRIPTION_MAX_LINE_BREAKS = 4
     const val CREST_MAX_UPLOAD_BYTES = 2L * 1024 * 1024
     const val CREST_TARGET_LONG_EDGE_PX = 1024
+
+    /** V1.9.21: an SVG crest is vector-only and sanitized server-side; 256 KB is generous for a crest. */
+    const val CREST_SVG_MAX_UPLOAD_BYTES = 256L * 1024
     const val CREST_MIN_EDGE_PX = 64
 }
 
@@ -133,6 +136,14 @@ enum class ChapterCrestUploadError {
     NOT_FOUND,
     INVALID_REQUEST,
     BUSY,
+
+    // V1.9.21 (SVG crest) -- appended at the END; the enum is serialized by name, so older clients are unaffected.
+    SVG_SCRIPT,
+    SVG_EXTERNAL_REFERENCE,
+    SVG_TEXT_NOT_SUPPORTED,
+    SVG_NO_DIMENSIONS,
+    SVG_TOO_COMPLEX,
+    SVG_UNSUPPORTED_CONTENT,
 }
 
 /** JSON body of every crest upload response; [error] is `null` on success. */

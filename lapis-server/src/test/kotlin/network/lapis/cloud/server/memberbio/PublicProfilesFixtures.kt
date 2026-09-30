@@ -2,7 +2,9 @@ package network.lapis.cloud.server.memberbio
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.chapters.ChapterCrestFormat
 import network.lapis.cloud.server.chapters.ChapterCrestPolicy
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.chapters.ChapterCrestStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -15,8 +17,6 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
-import network.lapis.cloud.server.events.CoverImageFormat
-import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.memberphoto.MemberPhotoFixtures
 import network.lapis.cloud.server.memberphoto.MemberPhotoStorage
 import network.lapis.cloud.server.memberphoto.MemberPhotoTestImages
@@ -40,11 +40,17 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
+// A minimal, already-sanitized SVG crest (what the sanitizer would store).
+internal const val SAMPLE_SVG_CREST =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" width=\"100\" height=\"100\">\n" +
+        "<circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"#c00\"/></svg>"
+
 /**
  * Welle V1.9.20 "Öffentliche Seiten" -- members, board seats, politician profiles, bios, consents,
  * photos and chapters shared by the public-profile specs. One instance per spec; [cleanup] removes
  * everything created through it (children first -- every FK here is non-cascading).
  */
+
 internal class PublicProfilesFixtures {
     private val memberIds = mutableListOf<Uuid>()
     private val committeeIds = mutableListOf<Uuid>()
@@ -201,14 +207,19 @@ internal class PublicProfilesFixtures {
         return id
     }
 
-    /** Writes a real PNG/JPEG file and points the chapter at it; returns the public token. */
+    /** Writes a real PNG/JPEG/SVG file and points the chapter at it; returns the public token. */
     fun seedCrest(
-        storage: EventCoverStorage,
+        storage: ChapterCrestStorage,
         chapterId: Uuid,
-        format: CoverImageFormat = CoverImageFormat.PNG,
+        format: ChapterCrestFormat = ChapterCrestFormat.PNG,
     ): String {
         val image = MemberPhotoTestImages.solid(width = 128, height = 128)
-        val bytes = if (format == CoverImageFormat.PNG) MemberPhotoTestImages.png(image) else MemberPhotoTestImages.jpeg(image)
+        val bytes =
+            when (format) {
+                ChapterCrestFormat.PNG -> MemberPhotoTestImages.png(image)
+                ChapterCrestFormat.JPEG -> MemberPhotoTestImages.jpeg(image)
+                ChapterCrestFormat.SVG -> SAMPLE_SVG_CREST.toByteArray()
+            }
         val imageId = Uuid.random()
         storage.write(id = imageId, format = format, bytes = bytes)
         val token = ChapterCrestStore.newPublicToken()
@@ -245,7 +256,7 @@ internal class PublicProfilesFixtures {
 
     fun cleanup(
         photoStorage: MemberPhotoStorage? = null,
-        crestStorage: EventCoverStorage? = null,
+        crestStorage: ChapterCrestStorage? = null,
     ) {
         if (crestStorage != null && chapterIds.isNotEmpty()) {
             val imageIds =

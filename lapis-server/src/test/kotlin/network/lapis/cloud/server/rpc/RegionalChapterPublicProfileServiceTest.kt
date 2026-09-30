@@ -23,11 +23,12 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.chapters.ChapterCrestFormat
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
-import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.memberbio.PublicProfilesFixtures
 import network.lapis.cloud.server.memberphoto.MemberPhotoFixtures
 import network.lapis.cloud.shared.domain.AccountRole
@@ -51,7 +52,7 @@ class RegionalChapterPublicProfileServiceTest :
     FunSpec({
         val fixtures = PublicProfilesFixtures()
         val root = MemberPhotoFixtures.freshRoot("chapter-service-crests")
-        val storage = EventCoverStorage(root)
+        val storage = ChapterCrestStorage(root)
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -284,6 +285,43 @@ class RegionalChapterPublicProfileServiceTest :
 
                 client.op(admin, "delete", keep).bodyAsText() shouldBe "ok"
                 (MemberPhotoFixtures.filesIn(root).any { it.name.startsWith(keepImage.toString()) }) shouldBe false
+            }
+        }
+
+        test("V1.9.21: removeChapterCrest and deleteChapter delete an SVG crest FILE too (.svg is a known extension of the storage)") {
+            testApplication {
+                application(routes())
+                val board = fixtures.newMember(role = AccountRole.BOARD)
+                val admin = fixtures.newMember(role = AccountRole.ADMIN)
+
+                fun svgFilesOf(chapter: Uuid): List<String> {
+                    val imageId =
+                        transaction {
+                            RegionalChapterTable
+                                .selectAll()
+                                .where { RegionalChapterTable.id eq chapter }
+                                .single()[RegionalChapterTable.crestImageId]
+                        }!!
+                    return MemberPhotoFixtures.filesIn(root).map { it.name }.filter { it == "$imageId.svg" }
+                }
+                val removed = fixtures.newChapter()
+                fixtures.seedCrest(storage = storage, chapterId = removed, format = ChapterCrestFormat.SVG)
+                svgFilesOf(removed).size shouldBe 1
+                val imageId =
+                    transaction {
+                        RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq removed }.single()
+                    }[RegionalChapterTable.crestImageId]!!
+                client.op(board, "remove-crest", removed).chapter().hasCrest shouldBe false
+                MemberPhotoFixtures.filesIn(root).any { it.name == "$imageId.svg" } shouldBe false
+
+                val deleted = fixtures.newChapter()
+                fixtures.seedCrest(storage = storage, chapterId = deleted, format = ChapterCrestFormat.SVG)
+                val deletedImage =
+                    transaction {
+                        RegionalChapterTable.selectAll().where { RegionalChapterTable.id eq deleted }.single()
+                    }[RegionalChapterTable.crestImageId]!!
+                client.op(admin, "delete", deleted).bodyAsText() shouldBe "ok"
+                MemberPhotoFixtures.filesIn(root).any { it.name == "$deletedImage.svg" } shouldBe false
             }
         }
     })

@@ -25,18 +25,24 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import network.lapis.cloud.server.chapters.ChapterCrestFormat
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
-import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.images.SvgCrestSanitizer
+import network.lapis.cloud.server.images.SvgSanitizeResult
 import network.lapis.cloud.server.memberbio.PublicProfilesFixtures
+import network.lapis.cloud.server.memberbio.SAMPLE_SVG_CREST
 import network.lapis.cloud.server.memberphoto.MemberPhotoFixtures
 import network.lapis.cloud.server.memberphoto.MemberPhotoTestImages
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.RegionalChapterPublicRules
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.awt.Color
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
@@ -60,6 +66,11 @@ private fun multipart(
             )
         },
     )
+
+private fun readSvgFixture(name: String): ByteArray =
+    ChapterCrestRoutesTest::class.java
+        .getResourceAsStream("/svg-crest/$name")!!
+        .readBytes()
 
 private fun errorCodeOf(body: String): String? =
     Json
@@ -120,7 +131,7 @@ class ChapterCrestRoutesTest :
             }
 
         fun io.ktor.server.routing.Routing.install(
-            storage: EventCoverStorage,
+            storage: ChapterCrestStorage,
             uploadLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
             readLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
         ) {
@@ -141,7 +152,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter(name = "LV Alpha")
@@ -171,7 +182,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val admin = fixtures.newMember(role = AccountRole.ADMIN)
                 val chapter = fixtures.newChapter()
@@ -196,7 +207,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
@@ -213,7 +224,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
@@ -231,26 +242,26 @@ class ChapterCrestRoutesTest :
             }
         }
 
-        test("rejected formats: SVG, GIF, WebP and garbage with a PNG signature never store anything") {
+        test("rejected formats: GIF, WebP, non-XML text and garbage with a PNG signature never store anything") {
             val root = newRoot()
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
-                val svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".toByteArray()
+                val notXml = "just some text, definitely no markup".toByteArray()
                 val gif = "GIF89a".toByteArray() + ByteArray(64)
                 val webp = "RIFF".toByteArray() + byteArrayOf(0x24, 0, 0, 0) + "WEBPVP8 ".toByteArray() + ByteArray(64)
                 for (
                 (name, bytes, contentType) in
                 listOf(
-                    Triple("svg", svg, "image/svg+xml"),
+                    Triple("text", notXml, "image/svg+xml"),
                     Triple("gif", gif, "image/gif"),
                     Triple("webp", webp, "image/webp"),
                     // The client-declared type is never consulted -- a lie about it changes nothing.
-                    Triple("svg-as-png", svg, "image/png"),
+                    Triple("text-as-png", notXml, "image/png"),
                 )
                 ) {
                     val response =
@@ -276,7 +287,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
@@ -297,7 +308,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
@@ -325,7 +336,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
@@ -342,7 +353,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
                 val chapter = fixtures.newChapter()
@@ -392,7 +403,7 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     install(ContentNegotiation) { json() }
-                    routing { install(EventCoverStorage(root)) }
+                    routing { install(ChapterCrestStorage(root)) }
                 }
                 val chapter = fixtures.newChapter()
                 val member = fixtures.newMember(role = AccountRole.MEMBER)
@@ -420,7 +431,7 @@ class ChapterCrestRoutesTest :
                 application {
                     install(ContentNegotiation) { json() }
                     routing {
-                        install(EventCoverStorage(root), uploadLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
+                        install(ChapterCrestStorage(root), uploadLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
                     }
                 }
                 val board = fixtures.newMember(role = AccountRole.BOARD)
@@ -437,7 +448,7 @@ class ChapterCrestRoutesTest :
 
         test("delivery: 200 with the exact defensive headers, the stored content type, Cache-Control exactly once -- and NO CORS") {
             val root = newRoot()
-            val storage = EventCoverStorage(root)
+            val storage = ChapterCrestStorage(root)
             testApplication {
                 application { routing { install(storage) } }
                 val chapter = fixtures.newChapter()
@@ -446,7 +457,7 @@ class ChapterCrestRoutesTest :
                 response.status shouldBe HttpStatusCode.OK
                 response.headers[HttpHeaders.ContentType] shouldBe "image/png"
                 response.headers["X-Content-Type-Options"] shouldBe "nosniff"
-                response.headers[HttpHeaders.ContentDisposition] shouldBe "inline"
+                response.headers[HttpHeaders.ContentDisposition] shouldBe "inline; filename=\"crest.png\""
                 response.headers["Content-Security-Policy"] shouldBe "default-src 'none'; sandbox"
                 response.headers["Cross-Origin-Resource-Policy"] shouldBe "cross-origin"
                 response.headers["Referrer-Policy"] shouldBe "no-referrer"
@@ -458,7 +469,7 @@ class ChapterCrestRoutesTest :
 
         test("delivery: every kind of miss is the SAME bare 404 with the same defensive headers") {
             val root = newRoot()
-            val storage = EventCoverStorage(root)
+            val storage = ChapterCrestStorage(root)
             testApplication {
                 application { routing { install(storage) } }
                 val chapter = fixtures.newChapter()
@@ -496,7 +507,7 @@ class ChapterCrestRoutesTest :
 
         test("delivery: the crest is gone the moment it is removed (row cleared -> 404 for the old token)") {
             val root = newRoot()
-            val storage = EventCoverStorage(root)
+            val storage = ChapterCrestStorage(root)
             testApplication {
                 application { routing { install(storage) } }
                 val chapter = fixtures.newChapter()
@@ -515,11 +526,202 @@ class ChapterCrestRoutesTest :
             testApplication {
                 application {
                     routing {
-                        install(EventCoverStorage(root), readLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
+                        install(ChapterCrestStorage(root), readLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
                     }
                 }
                 client.get("/public/chapter-crests/garbage").status shouldBe HttpStatusCode.NotFound
                 client.get("/public/chapter-crests/garbage").status shouldBe HttpStatusCode.TooManyRequests
+            }
+        }
+
+        // ── V1.9.21: SVG crest ────────────────────────────────────────────────────
+
+        fun svgUpload(bytes: ByteArray) = multipart(bytes = bytes, contentType = "image/svg+xml", fileName = "wappen.svg")
+
+        val inkscape = readSvgFixture("inkscape-crest.svg")
+
+        test("SVG happy path: BOARD and ADMIN, the stored file is the sanitizer's fresh serialization, never the upload") {
+            val root = newRoot()
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    routing { install(ChapterCrestStorage(root)) }
+                }
+                val chapter = fixtures.newChapter(name = "LV Svg")
+                for (role in listOf(AccountRole.BOARD, AccountRole.ADMIN)) {
+                    val actor = fixtures.newMember(role = role)
+                    val response = client.upload(actor, chapter.toString(), svgUpload(inkscape))
+                    response.status shouldBe HttpStatusCode.OK
+                    response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+                    val row = rowOf(chapter)
+                    row[RegionalChapterTable.crestContentType] shouldBe "image/svg+xml"
+                    val files = MemberPhotoFixtures.filesIn(root)
+                    files.map { it.name } shouldBe listOf("${row[RegionalChapterTable.crestImageId]}.svg")
+                    val stored = files.single().readBytes()
+                    val expected = (SvgCrestSanitizer.sanitize(inkscape) as SvgSanitizeResult.Accepted).bytes
+                    stored.toList() shouldBe expected.toList()
+                    (stored.toList() == inkscape.toList()) shouldBe false
+                    stored.toString(Charsets.UTF_8) shouldNotContain "sodipodi"
+                    stored.toString(Charsets.UTF_8) shouldNotContain "style="
+                }
+                fixtures.chapterAuditAfterSnapshots(chapter).last() shouldContain "\"crestPresent\":true"
+            }
+        }
+
+        test("SVG roles: MEMBER and TREASURER are 403 (also for an unknown chapter id), the rate limit answers 429") {
+            val root = newRoot()
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    routing {
+                        install(ChapterCrestStorage(root), uploadLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes))
+                    }
+                }
+                val chapter = fixtures.newChapter()
+                val member = fixtures.newMember(role = AccountRole.MEMBER)
+                val treasurer = fixtures.newMember(role = AccountRole.TREASURER)
+                client.upload(member, chapter.toString(), svgUpload(inkscape)).status shouldBe HttpStatusCode.Forbidden
+                client.upload(treasurer, Uuid.random().toString(), svgUpload(inkscape)).status shouldBe HttpStatusCode.Forbidden
+                val board = fixtures.newMember(role = AccountRole.BOARD)
+                client.upload(board, chapter.toString(), svgUpload(inkscape)).status shouldBe HttpStatusCode.OK
+                val second = client.upload(board, chapter.toString(), svgUpload(inkscape))
+                second.status shouldBe HttpStatusCode.TooManyRequests
+                errorCodeOf(second.bodyAsText()) shouldBe "RATE_LIMITED"
+            }
+        }
+
+        test("SVG size: 256 KB + 1 byte is 413 FILE_TOO_LARGE BEFORE any parsing (garbage of that size would be UNDECODABLE)") {
+            val root = newRoot()
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    routing { install(ChapterCrestStorage(root)) }
+                }
+                val board = fixtures.newMember(role = AccountRole.BOARD)
+                val chapter = fixtures.newChapter()
+                val limit = RegionalChapterPublicRules.CREST_SVG_MAX_UPLOAD_BYTES.toInt()
+                val tooBig = "<".toByteArray() + ByteArray(limit) { 'x'.code.toByte() }
+                val response = client.upload(board, chapter.toString(), svgUpload(tooBig))
+                response.status shouldBe HttpStatusCode.PayloadTooLarge
+                errorCodeOf(response.bodyAsText()) shouldBe "FILE_TOO_LARGE"
+                // exactly at the limit the document IS parsed (and fails as malformed XML, not as too large)
+                val atLimit = "<".toByteArray() + ByteArray(limit - 1) { 'x'.code.toByte() }
+                errorCodeOf(client.upload(board, chapter.toString(), svgUpload(atLimit)).bodyAsText()) shouldBe "UNDECODABLE"
+                MemberPhotoFixtures.filesIn(root).size shouldBe 0
+            }
+        }
+
+        test("SVG rejections: UTF-16 is 415, every other reason is 422 with its own enum code, nothing is stored") {
+            val root = newRoot()
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    routing { install(ChapterCrestStorage(root)) }
+                }
+                val board = fixtures.newMember(role = AccountRole.BOARD)
+                val chapter = fixtures.newChapter()
+                val ns = "xmlns=\"http://www.w3.org/2000/svg\""
+                val utf16 = byteArrayOf(0xFF.toByte(), 0xFE.toByte()) + "<svg $ns viewBox=\"0 0 1 1\"/>".toByteArray(Charsets.UTF_16LE)
+                client.upload(board, chapter.toString(), svgUpload(utf16)).let {
+                    it.status shouldBe HttpStatusCode.UnsupportedMediaType
+                    errorCodeOf(it.bodyAsText()) shouldBe "UNSUPPORTED_FORMAT"
+                }
+                val cases =
+                    listOf(
+                        "<svg $ns viewBox=\"0 0 1 1\"><script>alert(1)</script></svg>" to "SVG_SCRIPT",
+                        "<svg $ns viewBox=\"0 0 1 1\"><image href=\"http://e.example/x.png\"/></svg>" to "SVG_EXTERNAL_REFERENCE",
+                        "<svg $ns viewBox=\"0 0 1 1\"><text>Hi</text></svg>" to "SVG_TEXT_NOT_SUPPORTED",
+                        "<svg $ns width=\"1\" height=\"1\"/>" to "SVG_NO_DIMENSIONS",
+                        "<svg $ns viewBox=\"0 0 1 1\">${"<g>".repeat(30)}</svg>" to "SVG_TOO_COMPLEX",
+                        "<svg $ns viewBox=\"0 0 1 1\"><filter id=\"f\"/></svg>" to "SVG_UNSUPPORTED_CONTENT",
+                        "<svg $ns viewBox=\"0 0 1 100\"/>" to "DIMENSIONS_TOO_LARGE",
+                        "<svg $ns viewBox=\"0 0 1 1\"><g></svg>" to "UNDECODABLE",
+                        // the client-declared type is irrelevant: a hostile SVG labelled as a PNG is refused the same way
+                        "<svg $ns viewBox=\"0 0 1 1\"><script>alert(1)</script></svg>" to "SVG_SCRIPT",
+                    )
+                for ((xml, code) in cases) {
+                    val response = client.upload(board, chapter.toString(), multipart(bytes = xml.toByteArray()))
+                    response.status shouldBe HttpStatusCode.UnprocessableEntity
+                    errorCodeOf(response.bodyAsText()) shouldBe code
+                    response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+                }
+                MemberPhotoFixtures.filesIn(root).size shouldBe 0
+                rowOf(chapter)[RegionalChapterTable.crestImageId] shouldBe null
+            }
+        }
+
+        test("replacing PNG by SVG and SVG by PNG deletes the old file and mints a new token") {
+            val root = newRoot()
+            testApplication {
+                application {
+                    install(ContentNegotiation) { json() }
+                    routing { install(ChapterCrestStorage(root)) }
+                }
+                val board = fixtures.newMember(role = AccountRole.BOARD)
+                val chapter = fixtures.newChapter()
+                client.upload(board, chapter.toString(), multipart(bytes = solidPng())).status shouldBe HttpStatusCode.OK
+                val pngToken = rowOf(chapter)[RegionalChapterTable.crestPublicToken]!!
+                client.upload(board, chapter.toString(), svgUpload(inkscape)).status shouldBe HttpStatusCode.OK
+                val svgToken = rowOf(chapter)[RegionalChapterTable.crestPublicToken]!!
+                (svgToken == pngToken) shouldBe false
+                MemberPhotoFixtures.filesIn(root).map { it.extension } shouldBe listOf("svg")
+                client.get("/public/chapter-crests/$pngToken").status shouldBe HttpStatusCode.NotFound
+                client.upload(board, chapter.toString(), multipart(bytes = solidPng())).status shouldBe HttpStatusCode.OK
+                MemberPhotoFixtures.filesIn(root).map { it.extension } shouldBe listOf("png")
+                client.get("/public/chapter-crests/$svgToken").status shouldBe HttpStatusCode.NotFound
+            }
+        }
+
+        test("SVG delivery: exact headers, the sanitized body, Cache-Control once, no CORS") {
+            val root = newRoot()
+            val storage = ChapterCrestStorage(root)
+            testApplication {
+                application { routing { install(storage) } }
+                val chapter = fixtures.newChapter()
+                val token = fixtures.seedCrest(storage = storage, chapterId = chapter, format = ChapterCrestFormat.SVG)
+                val response = client.get("/public/chapter-crests/$token") { header(HttpHeaders.Origin, "https://partei.example") }
+                response.status shouldBe HttpStatusCode.OK
+                response.headers[HttpHeaders.ContentType] shouldBe "image/svg+xml; charset=utf-8"
+                response.headers["Content-Security-Policy"] shouldBe "default-src 'none'; sandbox"
+                response.headers["X-Content-Type-Options"] shouldBe "nosniff"
+                response.headers["Referrer-Policy"] shouldBe "no-referrer"
+                response.headers["Cross-Origin-Resource-Policy"] shouldBe "cross-origin"
+                response.headers[HttpHeaders.ContentDisposition] shouldBe "inline; filename=\"crest.svg\""
+                response.headers.getAll(HttpHeaders.CacheControl) shouldBe listOf("public, max-age=300")
+                response.headers[HttpHeaders.AccessControlAllowOrigin] shouldBe null
+                response.bodyAsText() shouldBe SAMPLE_SVG_CREST
+            }
+        }
+
+        test("JPEG delivery carries the fixed file name crest.jpg") {
+            val root = newRoot()
+            val storage = ChapterCrestStorage(root)
+            testApplication {
+                application { routing { install(storage) } }
+                val chapter = fixtures.newChapter()
+                val token = fixtures.seedCrest(storage = storage, chapterId = chapter, format = ChapterCrestFormat.JPEG)
+                val response = client.get("/public/chapter-crests/$token")
+                response.headers[HttpHeaders.ContentType] shouldBe "image/jpeg"
+                response.headers[HttpHeaders.ContentDisposition] shouldBe "inline; filename=\"crest.jpg\""
+            }
+        }
+
+        test("delivery: a format in the database that does not match the file on disk is the same bare 404") {
+            val root = newRoot()
+            val storage = ChapterCrestStorage(root)
+            testApplication {
+                application { routing { install(storage) } }
+                val chapter = fixtures.newChapter()
+                val token = fixtures.seedCrest(storage = storage, chapterId = chapter, format = ChapterCrestFormat.SVG)
+                client.get("/public/chapter-crests/$token").status shouldBe HttpStatusCode.OK
+                transaction {
+                    RegionalChapterTable.update({ RegionalChapterTable.id eq chapter }) { it[crestContentType] = "image/png" }
+                }
+                val miss = client.get("/public/chapter-crests/$token")
+                miss.status shouldBe HttpStatusCode.NotFound
+                miss.bodyAsText() shouldBe ""
+                miss.headers["Content-Security-Policy"] shouldBe "default-src 'none'; sandbox"
+                miss.headers[HttpHeaders.CacheControl] shouldBe null
             }
         }
     })

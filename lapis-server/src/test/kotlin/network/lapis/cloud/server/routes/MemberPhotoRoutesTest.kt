@@ -346,6 +346,8 @@ class MemberPhotoRoutesTest :
                 val samples =
                     listOf(
                         "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".toByteArray(),
+                        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#c00\"/></svg>"
+                            .toByteArray(),
                         "GIF89a".toByteArray() + ByteArray(64),
                         "RIFF".toByteArray() + byteArrayOf(0, 0, 0, 0) + "WEBPVP8 ".toByteArray() + ByteArray(32),
                         byteArrayOf(0, 0, 0, 0x18) + "ftypheic".toByteArray() + ByteArray(32),

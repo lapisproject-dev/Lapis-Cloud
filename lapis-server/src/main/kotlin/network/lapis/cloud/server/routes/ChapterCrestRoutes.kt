@@ -12,15 +12,19 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import network.lapis.cloud.server.chapters.ChapterCrestFormat
 import network.lapis.cloud.server.chapters.ChapterCrestPolicy
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.chapters.ChapterCrestStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.events.CoverImageLimits
 import network.lapis.cloud.server.events.CoverProcessingResult
 import network.lapis.cloud.server.events.EventCoverImageProcessor
-import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.images.SvgCrestSanitizer
+import network.lapis.cloud.server.images.SvgRejection
+import network.lapis.cloud.server.images.SvgSanitizeResult
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -44,24 +48,27 @@ private const val CREST_SNIFF_BYTES = 8
  * 1. `POST /api/regional-chapters/{chapterId}/crest` -- BOARD/ADMIN upload. Order of checks:
  *    same-origin (the only CSRF defense -- multipart is a CORS "simple request") -> authenticated
  *    member -> role -> per-actor rate limit -> `Content-Length` cap -> streamed single-file receive
- *    with the same cap -> magic-byte sniff (JPEG/PNG only -- SVG, GIF, WebP are rejected) ->
+ *    with the same cap -> magic-byte sniff: JPEG/PNG go to
  *    [EventCoverImageProcessor.process] with [CoverImageLimits.CHAPTER_CREST] (header-dimension and
  *    decompression-bomb guards BEFORE decoding, then a fresh, metadata-free re-encode that also
- *    neutralizes polyglot payloads; PNG keeps its alpha channel) -> chapter lock (an unknown id is a
+ *    neutralizes polyglot payloads; PNG keeps its alpha channel). V1.9.21: a non-raster upload that looks
+ *    like XML is size-checked (256 KB) BEFORE parsing and then run through [SvgCrestSanitizer] (allowlist,
+ *    reject over repair; the stored bytes are a fresh serialization, never the upload); GIF, WebP and
+ *    everything else stay 415 -> chapter lock (an unknown id is a
  *    404, decided only AFTER the role check, so the status code reveals nothing to a non-officer)
  *    -> write the file, commit the new token, THEN delete the previous file (a failed commit deletes
  *    the new file instead). Every answer is JSON with an enum code only, never free text.
  * 2. `GET /public/chapter-crests/{token}` -- public delivery. Existence-oracle discipline: rate
  *    limit per IP first, then the token pattern, then the database; unknown token, malformed token,
  *    removed crest and missing file are ALL the same bare 404 with the same headers. Headers:
- *    `nosniff`, `Content-Disposition: inline`, `CSP default-src 'none'; sandbox`,
+ *    `nosniff`, `Content-Disposition: inline; filename="crest.<ext>"` (fixed name), `CSP default-src 'none'; sandbox`,
  *    `Cross-Origin-Resource-Policy: cross-origin`, `Referrer-Policy: no-referrer`, and (hit only)
  *    `Cache-Control: public, max-age=300`. Deliberately NO `applyEmbedCors`: a crest is an `<img>`
  *    source and needs no CORS -- and a CORS grant for organization data is exactly what the allowlist
  *    is not for. The token is new on every upload, so a replaced crest's URL changes.
  */
 internal fun Route.registerChapterCrestRoutes(
-    storage: EventCoverStorage,
+    storage: ChapterCrestStorage,
     baseUrl: String,
     uploadRateLimiter: FederationInboxRateLimiter,
     publicReadRateLimiter: FederationInboxRateLimiter,
@@ -112,33 +119,68 @@ internal fun Route.registerChapterCrestRoutes(
                 }
                 is SingleUploadReceive.Ok -> received.bytes
             }
-        val format = EventCoverImageProcessor.sniff(bytes.copyOfRange(0, minOf(CREST_SNIFF_BYTES, bytes.size)))
-        if (format == null) {
-            call.respondCrestError(status = HttpStatusCode.UnsupportedMediaType, error = ChapterCrestUploadError.UNSUPPORTED_FORMAT)
-            return@post
-        }
-        val processed =
-            when (val outcome = EventCoverImageProcessor.process(bytes = bytes, format = format, limits = CoverImageLimits.CHAPTER_CREST)) {
-                CoverProcessingResult.DimensionsTooSmall -> {
-                    call.respondCrestError(status = HttpStatusCode.UnprocessableEntity, error = ChapterCrestUploadError.TOO_SMALL)
-                    return@post
+        val rasterFormat = EventCoverImageProcessor.sniff(bytes.copyOfRange(0, minOf(CREST_SNIFF_BYTES, bytes.size)))
+        val storedFormat: ChapterCrestFormat
+        val storedBytes: ByteArray
+        if (rasterFormat != null) {
+            val processed =
+                when (
+                    val outcome =
+                        EventCoverImageProcessor.process(
+                            bytes = bytes,
+                            format = rasterFormat,
+                            limits = CoverImageLimits.CHAPTER_CREST,
+                        )
+                ) {
+                    CoverProcessingResult.DimensionsTooSmall -> {
+                        call.respondCrestError(status = HttpStatusCode.UnprocessableEntity, error = ChapterCrestUploadError.TOO_SMALL)
+                        return@post
+                    }
+                    CoverProcessingResult.DimensionsTooLarge -> {
+                        call.respondCrestError(
+                            status = HttpStatusCode.UnprocessableEntity,
+                            error = ChapterCrestUploadError.DIMENSIONS_TOO_LARGE,
+                        )
+                        return@post
+                    }
+                    CoverProcessingResult.Undecodable -> {
+                        call.respondCrestError(status = HttpStatusCode.UnprocessableEntity, error = ChapterCrestUploadError.UNDECODABLE)
+                        return@post
+                    }
+                    is CoverProcessingResult.Ok -> outcome
                 }
-                CoverProcessingResult.DimensionsTooLarge -> {
-                    call.respondCrestError(
-                        status = HttpStatusCode.UnprocessableEntity,
-                        error = ChapterCrestUploadError.DIMENSIONS_TOO_LARGE,
-                    )
-                    return@post
-                }
-                CoverProcessingResult.Undecodable -> {
-                    call.respondCrestError(status = HttpStatusCode.UnprocessableEntity, error = ChapterCrestUploadError.UNDECODABLE)
-                    return@post
-                }
-                is CoverProcessingResult.Ok -> outcome
+            storedFormat = ChapterCrestFormat.fromRaster(processed.format)
+            storedBytes = processed.bytes
+        } else {
+            if (!SvgCrestSanitizer.isCandidate(bytes)) {
+                call.respondCrestError(status = HttpStatusCode.UnsupportedMediaType, error = ChapterCrestUploadError.UNSUPPORTED_FORMAT)
+                return@post
             }
+            // The size is decided BEFORE any parsing.
+            if (bytes.size > RegionalChapterPublicRules.CREST_SVG_MAX_UPLOAD_BYTES) {
+                call.respondCrestError(status = HttpStatusCode.PayloadTooLarge, error = ChapterCrestUploadError.FILE_TOO_LARGE)
+                return@post
+            }
+            // CPU-bound parse shares the process-wide decode budget of the image pipelines.
+            when (val sanitized = EventCoverImageProcessor.withDecodePermit { SvgCrestSanitizer.sanitize(bytes) }) {
+                is SvgSanitizeResult.Rejected -> {
+                    logger.info {
+                        "Chapter crest SVG rejected: chapterId=$chapterId actor=${current.memberId} " +
+                            "reason=${sanitized.reason} bytes=${bytes.size}"
+                    }
+                    val (status, error) = sanitized.reason.toUploadError()
+                    call.respondCrestError(status = status, error = error)
+                    return@post
+                }
+                is SvgSanitizeResult.Accepted -> {
+                    storedFormat = ChapterCrestFormat.SVG
+                    storedBytes = sanitized.bytes
+                }
+            }
+        }
 
         val imageId = Uuid.random()
-        storage.write(id = imageId, format = processed.format, bytes = processed.bytes)
+        storage.write(id = imageId, format = storedFormat, bytes = storedBytes)
         val token = ChapterCrestStore.newPublicToken()
         val now = DbClock.nowLocalDateTime()
         val result: CrestCommit =
@@ -148,7 +190,7 @@ internal fun Route.registerChapterCrestRoutes(
                     val hadCrest = row[RegionalChapterTable.crestImageId] != null
                     val hasDescription = !row[RegionalChapterTable.description].isNullOrBlank()
                     val previous =
-                        ChapterCrestStore.setCrest(chapterId = chapterId, imageId = imageId, format = processed.format, token = token)
+                        ChapterCrestStore.setCrest(chapterId = chapterId, imageId = imageId, format = storedFormat, token = token)
                     ChapterCrestStore.recordAudit(
                         actorMemberId = current.memberId,
                         actorRole = current.role,
@@ -172,7 +214,7 @@ internal fun Route.registerChapterCrestRoutes(
             }
             is CrestCommit.Stored -> result.previousImageId?.let { storage.delete(it) }
         }
-        logger.info { "Chapter crest stored: chapterId=$chapterId actor=${current.memberId} bytes=${processed.bytes.size}" }
+        logger.info { "Chapter crest stored: chapterId=$chapterId actor=${current.memberId} bytes=${storedBytes.size}" }
         call.response.header(HttpHeaders.CacheControl, "no-store")
         call.respond(HttpStatusCode.OK, ChapterCrestUploadResultDto())
     }
@@ -197,15 +239,16 @@ internal fun Route.registerChapterCrestRoutes(
         }
         val servable = transaction { ChapterCrestStore.findServable(token) }
         val resolved = servable?.let { (imageId, _) -> storage.resolve(imageId) }
-        if (resolved == null) {
+        // The format recorded in the database must match the file on disk -- otherwise the same bare 404.
+        if (resolved == null || resolved.second != servable.second) {
             call.respondChapterCrestNotFound()
             return@get
         }
         val (file, format) = resolved
-        call.response.header(HttpHeaders.ContentDisposition, "inline")
+        call.response.header(HttpHeaders.ContentDisposition, "inline; filename=\"${format.downloadFileName}\"")
         // Set exactly once, here -- `response.header` APPENDS.
         call.response.header(HttpHeaders.CacheControl, "public, max-age=300")
-        call.respond(LocalFileContent(file, format.contentType))
+        call.respond(LocalFileContent(file, format.deliveryContentType))
     }
 }
 
@@ -221,6 +264,21 @@ private suspend fun ApplicationCall.respondCrestError(
     response.header(HttpHeaders.CacheControl, "no-store")
     respond(status, ChapterCrestUploadResultDto(error = error))
 }
+
+/** HTTP status and machine code of a rejected SVG -- enum codes only, never parser text. */
+private fun SvgRejection.toUploadError(): Pair<HttpStatusCode, ChapterCrestUploadError> =
+    when (this) {
+        SvgRejection.FILE_TOO_LARGE -> HttpStatusCode.PayloadTooLarge to ChapterCrestUploadError.FILE_TOO_LARGE
+        SvgRejection.UNSUPPORTED_FORMAT -> HttpStatusCode.UnsupportedMediaType to ChapterCrestUploadError.UNSUPPORTED_FORMAT
+        SvgRejection.UNDECODABLE -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.UNDECODABLE
+        SvgRejection.DIMENSIONS_TOO_LARGE -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.DIMENSIONS_TOO_LARGE
+        SvgRejection.SCRIPT -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.SVG_SCRIPT
+        SvgRejection.EXTERNAL_REFERENCE -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.SVG_EXTERNAL_REFERENCE
+        SvgRejection.TEXT_NOT_SUPPORTED -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.SVG_TEXT_NOT_SUPPORTED
+        SvgRejection.NO_DIMENSIONS -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.SVG_NO_DIMENSIONS
+        SvgRejection.TOO_COMPLEX -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.SVG_TOO_COMPLEX
+        SvgRejection.UNSUPPORTED_CONTENT -> HttpStatusCode.UnprocessableEntity to ChapterCrestUploadError.SVG_UNSUPPORTED_CONTENT
+    }
 
 private sealed interface CrestCommit {
     data object ChapterGone : CrestCommit

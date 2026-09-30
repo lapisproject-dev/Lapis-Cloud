@@ -16,7 +16,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import network.lapis.cloud.shared.domain.ChapterCrestUploadError
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -256,13 +255,15 @@ private fun renderChapterPublicSection(
     } else {
         tile.icon("fas fa-shield-halved").setAttribute("aria-hidden", "true")
     }
-    section.p(tr("JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB.")) { addCssClasses("text-muted small mb-0") }
+    section.p(tr("JPEG oder PNG (mindestens 64 × 64 Pixel, höchstens 2 MB) oder SVG (höchstens 256 KB).")) {
+        addCssClasses("text-muted small mb-0")
+    }
     val errorBox = section.div("") { addCssClasses("alert alert-danger small mb-0") }
     errorBox.setAttribute("role", "alert")
     errorBox.hide()
 
     val uploadForm = section.lapisForm()
-    val fileUpload = uploadForm.panel.upload(label = tr("Wappen auswählen"))
+    val fileUpload = uploadForm.panel.upload(label = tr("Wappen auswählen"), accept = CREST_ACCEPT)
     val fileField =
         uploadForm.register(
             fileUpload,
@@ -276,19 +277,16 @@ private fun renderChapterPublicSection(
         uploadForm.submit(uploadButton) {
             val nativeFile = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) } ?: return@submit
             errorBox.hide()
+            val kind = crestFileKindOf(type = nativeFile.type, name = nativeFile.name)
             val failure =
-                when {
-                    nativeFile.type !in setOf("image/jpeg", "image/png") -> ChapterCrestUploadError.UNSUPPORTED_FORMAT
-                    nativeFile.size.toDouble() > RegionalChapterPublicRules.CREST_MAX_UPLOAD_BYTES -> ChapterCrestUploadError.FILE_TOO_LARGE
-                    else ->
-                        when (val result = ChapterCrestHttp.upload(chapterId = chapter.id, file = nativeFile)) {
-                            ChapterCrestHttp.Result.Ok -> null
-                            is ChapterCrestHttp.Result.Error -> result.code
-                        }
-                }
+                crestPrecheck(type = nativeFile.type, name = nativeFile.name, size = nativeFile.size.toDouble())
+                    ?: when (val result = ChapterCrestHttp.upload(chapterId = chapter.id, file = nativeFile)) {
+                        ChapterCrestHttp.Result.Ok -> null
+                        is ChapterCrestHttp.Result.Error -> result.code
+                    }
             fileField.reset()
             if (failure != null) {
-                errorBox.content = chapterCrestUploadErrorMessage(failure)
+                errorBox.content = chapterCrestUploadErrorMessage(code = failure, kind = kind)
                 errorBox.show()
             } else {
                 notifySuccess(tr("Wappen gespeichert."))

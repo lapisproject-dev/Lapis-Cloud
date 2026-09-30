@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <title>Landesverband Test</title>
+  <path d="M60 5 L115 30 L115 70 Q60 110 5 70 L5 30 Z" fill="#1d2968" stroke="#ffed00" stroke-width="4"/>
+  <circle cx="60" cy="50" r="22" fill="rgb(250, 181, 0)" fill-opacity="0.9"/>
+  <rect x="50" y="40" width="20" height="20" rx="3" fill="white" transform="rotate(45 60 50)"/>
+  <polygon points="10,10 20,10 15,20" fill="red"/>
+</svg>

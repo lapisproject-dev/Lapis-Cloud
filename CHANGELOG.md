@@ -6,6 +6,67 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.21 "SVG crest for regional chapters"
+
+- **A regional chapter crest may now be uploaded as SVG** (vector logos of the Landesverbände), next to JPEG and PNG.
+  The file dialog offers `image/svg+xml`/`.svg`; the limit for SVG is 256 KB (raster stays 2 MB / min. 64 px). Only the
+  chapter crest accepts SVG: event covers, article covers and member photos stay raster-only (`CoverImageFormat` is unchanged,
+  a tripwire test pins it).
+- **Sanitizing instead of trusting**: the upload is parsed by a new, isolated sanitizer (`network.lapis.cloud.server.images`,
+  no Ktor/database dependency) and the stored file is a FRESH serialization of what was understood, never the upload.
+  Editor ballast (Inkscape/sodipodi/RDF metadata, comments, `xml:space`, `-inkscape-*` style properties, `<title>`/`<desc>`)
+  is removed silently, `style` is converted into presentation attributes, `width`/`height` are recomputed from the `viewBox`.
+  Sanitizing the output again yields identical bytes (idempotent, deterministic).
+- **Six new machine codes** in `ChapterCrestUploadError` (`SVG_SCRIPT`, `SVG_EXTERNAL_REFERENCE`, `SVG_TEXT_NOT_SUPPORTED`,
+  `SVG_NO_DIMENSIONS`, `SVG_TOO_COMPLEX`, `SVG_UNSUPPORTED_CONTENT`), each with a fixed, translated client message (8
+  languages) and SVG-specific wording for "too large", "damaged" and "wrong drawing area".
+
+### Changed -- V1.9.21
+
+- Crest delivery sends `Content-Disposition: inline; filename="crest.<ext>"` with a fixed, server-chosen name (also for
+  JPEG/PNG) and `Content-Type: image/svg+xml; charset=utf-8` for an SVG.
+- The crest hint text now names the SVG limit; the old msgid was removed from all eight catalogs.
+- `ChapterCrestStorage` (new, same semantics as `EventCoverStorage`) knows the `.svg` extension -- without it a replaced or
+  deleted SVG crest would stay on disk. `RegionalChapterService` and `Application` use it.
+
+### Fixed -- V1.9.21 (review)
+
+- SVG crest: `color` is validated as a colour and kept (it is the value of `currentColor`) instead of being dropped, so a crest
+  using `fill="currentColor"` keeps its colour; `mix-blend-mode` is dropped only as `normal`, other values are rejected.
+  Intrinsic size of a tiny viewBox: long edge at least 256.
+- SVG crest: `style` now overrides a presentation attribute of the same property (as in browsers), so recoloured editor exports keep
+  their colour; `paint-order` and `vector-effect` are dropped only when neutral, other values are rejected.
+
+### Security -- V1.9.21
+
+- **Allowlist, reject over repair**: elements `svg g path rect circle ellipse line polyline polygon defs linearGradient
+  radialGradient stop clipPath use`; everything else (script, animation, `a`, `foreignObject`, `image`, `style`, filters,
+  masks, patterns, markers, text, unknown) is rejected with a precise code. Attributes and values follow fixed grammars
+  (paint, numbers bounded to +-1e6, path data, transform, enums); `on*` attributes, `javascript:`/`data:`/`vbscript:`,
+  CSS escapes, `@import`, `expression(` and any `url(...)` that is not `url(#id)` are refused. References are typed and
+  resolved among kept elements only (`use` only to shapes/groups, bounded count and expansion, cycle-free; gradient
+  `href` chains at most 4).
+- **Parser**: JDK StAX only (`XMLInputFactory.newDefaultFactory()`, no new dependency), DTD/entities/processing
+  instructions refused before and inside the parser, external access disabled, strict UTF-8 (UTF-16/32, other encodings,
+  control characters refused), elements classified by namespace URI + local name never by prefix, limits also inside
+  dropped subtrees (2000 elements, depth 24, 20 attributes on kept elements and 100 on dropped foreign-namespace elements,
+  64 KB path data), output limit 128 KB. The size (256 KB) is
+  decided BEFORE parsing; parsing shares the process-wide decode permit of the image pipelines.
+- **Delivery**: still `<img>`-only (public pages, embed feed and the client tile never embed it inline), and every crest
+  response carries `Content-Security-Policy: default-src 'none'; sandbox`, `nosniff`, `no-referrer`, CORP `cross-origin`,
+  no CORS; a format in the database that does not match the file on disk is the same bare 404 as every other miss.
+- Residual risk: a rendering bug of the browser while drawing a hostile-but-sanitized vector image; mitigated by the
+  `<img>` context (no script, no subresources) and the sandbox CSP.
+
+### Operations -- V1.9.21
+
+- Migration `V63__chapter_crest_svg.sql` widens `chk_regional_chapter_crest_content_type` to `image/svg+xml`. Additive, no
+  data change, no downtime (short lock on a very small table). No existing migration was edited, so no `flywayRepair`.
+- Rollback of the schema: restore the old CHECK, but only if
+  `SELECT count(*) FROM regional_chapter WHERE crest_content_type = 'image/svg+xml'` is 0. Rolling the CODE back to V1.9.20
+  while SVG rows exist is safe (an unknown stored type resolves to no format and the route answers 404); Flyway then
+  reports V63 as applied-but-unresolved, which is tolerated unless `ignoreMigrationPatterns` is tightened.
+
 ### Added -- V1.9.20 "Public pages: board, politicians, regional chapters"
 
 - **Three public, server-rendered pages** `GET /vorstand`, `GET /politiker`, `GET /landesverbaende`, each with an optional

@@ -74,7 +74,7 @@ class PublicProfilesMigrationTest :
         }
 
         test(
-            "regional_chapter crest: the three crest columns are all NULL or all set; only image/jpeg and image/png; tokens are unique, NULLs are not",
+            "regional_chapter crest: the three crest columns are all NULL or all set; only image/jpeg, image/png and (V63) image/svg+xml; tokens are unique, NULLs are not",
         ) {
             val first = fixtures.newChapter()
             val second = fixtures.newChapter()
@@ -86,14 +86,16 @@ class PublicProfilesMigrationTest :
             // partial states violate chk_regional_chapter_crest_state
             shouldThrow<Exception> { updateChapterCrest(second, imageId = Uuid.random(), token = null, contentType = "image/png") }
             shouldThrow<Exception> { updateChapterCrest(second, imageId = null, token = "U".repeat(43), contentType = null) }
-            // foreign content types violate chk_regional_chapter_crest_content_type
-            shouldThrow<Exception> {
-                updateChapterCrest(
-                    second,
-                    imageId = Uuid.random(),
-                    token = "V".repeat(43),
-                    contentType = "image/svg+xml",
-                )
+            // foreign content types violate chk_regional_chapter_crest_content_type (widened by V63 for SVG only)
+            for (foreign in listOf("image/svg", "text/html", "image/SVG+XML", "image/svg+xml; charset=utf-8")) {
+                shouldThrow<Exception> {
+                    updateChapterCrest(
+                        second,
+                        imageId = Uuid.random(),
+                        token = "V".repeat(43),
+                        contentType = foreign,
+                    )
+                }
             }
             shouldThrow<Exception> {
                 updateChapterCrest(
@@ -113,6 +115,9 @@ class PublicProfilesMigrationTest :
                 )
             }
             updateChapterCrest(third, imageId = Uuid.random(), token = "W".repeat(43), contentType = "image/jpeg")
+            // V63: a sanitized SVG may be stored, and the state CHECK stays effective for it
+            updateChapterCrest(second, imageId = Uuid.random(), token = "S".repeat(43), contentType = "image/svg+xml")
+            shouldThrow<Exception> { updateChapterCrest(second, imageId = null, token = "S".repeat(43), contentType = "image/svg+xml") }
         }
 
         test(

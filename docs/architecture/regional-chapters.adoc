@@ -222,6 +222,123 @@ erasure, both appear in the export (`officerGrantsIssued`). See `docs/architectu
   change after the next `refreshSessionFromServer()` call (a login, or an action on
   `RegionalChaptersScreen.kt`), not live/immediately in another already-open browser tab.
 
+[[crest-svg]]
+== Crest: SVG policy (V1.9.21)
+
+A chapter crest may be uploaded as SVG. The SVG path is deliberately separate from the raster pipeline: `ChapterCrestFormat`
+(`JPEG`, `PNG`, `SVG`) is used by the crest only; `CoverImageFormat` (event covers, article covers, member photos) stays
+raster-only. Policy: *allowlist, reject over repair*. The stored file is a fresh, deterministic serialization of what the
+sanitizer understood (`SvgCrestSanitizer`, package `network.lapis.cloud.server.images`), never the upload; sanitizing the
+result again yields identical bytes. Migration `V63` widens the content-type CHECK.
+
+=== Upload pipeline
+
+Same-origin, role, rate limit, `Content-Length`, receive, then: magic bytes say raster -> the existing raster pipeline.
+Otherwise a cheap `isCandidate` check (optional UTF-8 BOM, whitespace, `<`; UTF-16/32 is not a candidate -> 415), the 256 KB
+size check BEFORE parsing (413), the sanitizer under the shared decode permit (422 with a code, or accepted), then the
+usual lock, write, commit, delete-previous steps.
+
+=== Elements
+
+[cols="1,3", options="header"]
+|===
+| Treatment | Elements
+| Allowed | `svg` (root only), `g`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `defs`, `linearGradient`, `radialGradient`, `stop`, `clipPath`, `use`
+| Dropped silently (subtree) | `title`, `desc`, `metadata`; elements of the namespaces sodipodi, inkscape, rdf, cc, dc and other foreign namespaces
+| Rejected `SVG_SCRIPT` | `script`, `animate`, `animateTransform`, `animateMotion`, `animateColor`, `set`, `foreignObject`, `iframe`, `object`, `embed`, `a`; XHTML `script`
+| Rejected `SVG_EXTERNAL_REFERENCE` | `image`, `feImage`
+| Rejected `SVG_TEXT_NOT_SUPPORTED` | `text`, `tspan`, `textPath`, fonts and glyph elements
+| Rejected `SVG_UNSUPPORTED_CONTENT` | everything else (`style`, `filter`, `fe*`, `mask`, `pattern`, `marker`, `symbol`, `switch`, `cursor`, `view`, nested `svg`, XHTML/MathML/empty-namespace elements, unknown elements, wrong parent/child combinations)
+|===
+
+Elements are classified by namespace URI and local name, never by prefix. The root must be `svg` in the SVG namespace
+(`UNSUPPORTED_FORMAT` otherwise).
+
+=== Attributes and values
+
+[cols="2,3", options="header"]
+|===
+| Attribute | Grammar
+| `fill`, `stroke` | keyword (`none`, `currentColor`, `transparent`, CSS colour names), `#rgb[a]`/`#rrggbb[aa]`, `rgb()`/`rgba()`, `url(#id)` (quotes normalized, no fallback)
+| `stop-color`, `color` | colours only (`color` is what `currentColor` resolves to, so it is kept and validated, never dropped)
+| `stroke-width`, `stroke-dashoffset` | number with optional `px`
+| `x y width height cx cy r rx ry x1 y1 x2 y2 fx fy fr` | number with optional `px` or `%` (attribute only, never inside `style`)
+| `opacity`, `fill-opacity`, `stroke-opacity`, `stop-opacity`, `offset` | 0..1 (or percent as attribute)
+| `d`, `points` | fixed character set, every number at most 1e6 in magnitude, whitespace normalized, at most 64 KB per attribute and in total
+| `transform`, `gradientTransform` | `matrix translate scale rotate skewX skewY` with the right argument counts, re-serialized canonically
+| `stroke-dasharray` | `none` or non-negative numbers
+| `fill-rule clip-rule stroke-linecap stroke-linejoin gradientUnits clipPathUnits spreadMethod display visibility` | fixed keyword sets
+| `clip-path` | `none` or `url(#id)`
+| `id` | `[A-Za-z_][A-Za-z0-9_.-]*`, at most 64 characters, unique
+| `href` / `xlink:href` | only on `use`, `linearGradient`, `radialGradient`; exactly `#id`; always written as `xlink:href`
+| `viewBox` (root) | required, four numbers, width/height 0..1e5, aspect ratio between 1:4 and 4:1
+| `preserveAspectRatio` (root) | specification grammar
+| `width`, `height` (root) | screened, then dropped and recomputed from the `viewBox`; the long edge is at least 256 (`SvgCrestWriter.MIN_INTRINSIC_EDGE`), aspect ratio kept
+|===
+
+Dropped silently: `class`, `xml:space`, `xml:lang`, `version`, `baseProfile`, namespaced editor attributes,
+`-inkscape-*` style properties, and the rendering-only properties written by Illustrator and older Inkscape (`enable-background`,
+`isolation`, `marker`, `solid-color`, `solid-opacity`, `color-interpolation`,
+`color-interpolation-filters`, `color-rendering`, `shape-rendering`, `image-rendering`, `text-rendering`, `overflow`) as
+attribute or in `style`; `mix-blend-mode` (`normal`), `paint-order` (`normal`, `fill`, `fill stroke`, `fill stroke markers`) and `vector-effect`
+(`none`) are dropped only with those neutral values (any other value changes the picture and is rejected). `on*` in any spelling -> `SVG_SCRIPT`; `xml:base` and any non-`#` reference ->
+`SVG_EXTERNAL_REFERENCE`; any other attribute -> `SVG_UNSUPPORTED_CONTENT`.
+
+=== `style`
+
+The `style` attribute is split at `;` (and each declaration at the first `:`), every property is validated with the grammar of
+the matching presentation attribute and written as an attribute; the `style` attribute itself is never written. `style` wins over a presentation
+attribute of the same property (CSS cascade). `@`, `\`, `/*`, `expression` -> `SVG_UNSUPPORTED_CONTENT`; external `url(` ->
+`SVG_EXTERNAL_REFERENCE`; any property outside the list and outside the silently dropped properties above -> `SVG_UNSUPPORTED_CONTENT`.
+
+=== Limits
+
+[cols="2,1", options="header"]
+|===
+| Limit | Value
+| Input size | 256 KB (413 `FILE_TOO_LARGE`; the parser itself also refuses more than 256 KB)
+| Output size | 128 KB (`SVG_TOO_COMPLEX`)
+| Elements (dropped subtrees included) | 2000
+| Depth | 24
+| Attributes per kept element | 20 (dropped foreign-namespace elements may carry up to 100, `MAX_SKIPPED_ATTRIBUTES_PER_ELEMENT`)
+| Plain attribute value | 1024 characters
+| Path data | 64 KB per attribute and in total
+| `use` elements | 32; expanded element count at most 10000; target must not contain or be an ancestor of a `use`
+| Gradient `href` chain | 4, cycle-free
+|===
+
+=== Error codes
+
+[cols="2,1,2", options="header"]
+|===
+| Reason | HTTP | Code
+| Input over 256 KB | 413 | `FILE_TOO_LARGE`
+| Not XML, UTF-16/32, other encoding, control characters, wrong root | 415 | `UNSUPPORTED_FORMAT`
+| Malformed XML | 422 | `UNDECODABLE`
+| viewBox size or aspect ratio | 422 | `DIMENSIONS_TOO_LARGE`
+| Script or interaction | 422 | `SVG_SCRIPT`
+| External or unresolved reference | 422 | `SVG_EXTERNAL_REFERENCE`
+| Text | 422 | `SVG_TEXT_NOT_SUPPORTED`
+| No viewBox | 422 | `SVG_NO_DIMENSIONS`
+| Limits exceeded | 422 | `SVG_TOO_COMPLEX`
+| Anything else not on the allowlist | 422 | `SVG_UNSUPPORTED_CONTENT`
+|===
+
+Only enum codes reach the client; parser messages and file contents are never returned or logged.
+
+=== Display
+
+The crest is only ever shown through an `<img>` (public pages, embed feed `crestUrl`, management tile), never inline, `object`,
+`embed` or `iframe`. Delivery answers `Content-Type: image/svg+xml; charset=utf-8`, `Content-Security-Policy: default-src 'none';
+sandbox`, `nosniff`, `Referrer-Policy: no-referrer`, CORP `cross-origin`, `Content-Disposition: inline; filename="crest.svg"`, and
+no CORS.
+
+=== Operations
+
+Migration `V63` is additive (short lock on a very small table, no downtime). Rollback of the schema is possible only while
+`SELECT count(*) FROM regional_chapter WHERE crest_content_type = 'image/svg+xml'` is 0. A code rollback to V1.9.20 with SVG rows
+stays safe: the old code resolves the unknown stored type to no format and answers 404.
+
 == V1.9.20 cross-reference
 
 See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).

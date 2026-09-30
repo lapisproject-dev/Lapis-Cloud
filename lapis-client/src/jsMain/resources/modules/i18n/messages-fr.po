@@ -17408,8 +17408,8 @@ msgstr "Présentation publique"
 msgid "Wappen %1"
 msgstr "Blason %1"
 
-msgid "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
-msgstr "JPEG ou PNG, au moins 64 × 64 pixels, 2 Mo au maximum."
+msgid "JPEG oder PNG (mindestens 64 × 64 Pixel, höchstens 2 MB) oder SVG (höchstens 256 KB)."
+msgstr "JPEG ou PNG (au moins 64 × 64 pixels, 2 Mo au maximum) ou SVG (256 Ko au maximum)."
 
 msgid "Wappen auswählen"
 msgstr "Choisir le blason"
@@ -17455,6 +17455,36 @@ msgstr "L'image est trop petite (au moins 64 × 64 pixels)."
 
 msgid "Das Wappen konnte nicht hochgeladen werden."
 msgstr "Le blason n'a pas pu être téléversé."
+
+msgid "Nur JPEG-, PNG- oder SVG-Dateien sind erlaubt."
+msgstr "Seuls les fichiers JPEG, PNG ou SVG sont autorisés."
+
+msgid "Die SVG-Datei ist größer als 256 KB."
+msgstr "Le fichier SVG dépasse 256 Ko."
+
+msgid "Die SVG-Datei ist beschädigt oder kein gültiges SVG."
+msgstr "Le fichier SVG est endommagé ou n'est pas un SVG valide."
+
+msgid "Die Zeichenfläche (viewBox) der SVG-Datei ist ungültig oder zu schmal bzw. zu hoch (Seitenverhältnis höchstens 4:1)."
+msgstr "La zone de dessin (viewBox) du fichier SVG est invalide ou trop étroite ou trop haute (rapport d'aspect de 4:1 au maximum)."
+
+msgid "Die SVG-Datei enthält Skripte oder Animationen und wird nicht akzeptiert."
+msgstr "Le fichier SVG contient des scripts ou des animations et n'est pas accepté."
+
+msgid "Die SVG-Datei verweist auf externe Inhalte. Bitte betten Sie alle Inhalte in die Datei ein."
+msgstr "Le fichier SVG fait référence à du contenu externe. Veuillez intégrer tout le contenu dans le fichier."
+
+msgid "Die SVG-Datei enthält Text. Bitte wandeln Sie den Text in Pfade (Kurven) um."
+msgstr "Le fichier SVG contient du texte. Veuillez convertir le texte en tracés (courbes)."
+
+msgid "Der SVG-Datei fehlt die Angabe der Zeichenfläche (viewBox)."
+msgstr "Le fichier SVG n'indique pas de zone de dessin (viewBox)."
+
+msgid "Die SVG-Datei ist zu komplex. Bitte vereinfachen Sie die Zeichnung."
+msgstr "Le fichier SVG est trop complexe. Veuillez simplifier le dessin."
+
+msgid "Die SVG-Datei enthält Elemente oder Eigenschaften, die nicht unterstützt werden (zum Beispiel Filter, Stile oder Muster)."
+msgstr "Le fichier SVG contient des éléments ou des propriétés non pris en charge (par exemple des filtres, des styles ou des motifs)."
 
 msgid "Bitte zuerst eine Kurzvorstellung speichern."
 msgstr "Veuillez d'abord enregistrer une courte présentation."

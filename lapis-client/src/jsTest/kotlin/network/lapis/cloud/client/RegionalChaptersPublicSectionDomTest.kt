@@ -85,6 +85,34 @@ class RegionalChaptersPublicSectionDomTest {
         }
 
     @Test
+    fun theUploadBlock_offersSvgInTheFileDialogAndTheHint_andTheTileHoldsOnlyAnImg(): Promise<Unit> =
+        test {
+            val (listRoute, _, _) = routes()
+            val overview =
+                overviewOf(chapter("c1", "Landesverband Nord", crestUrl = "https://lapis.example/public/chapter-crests/TOKEN.svg"))
+            withFetchStub(respond = { request ->
+                if (request.isRpc && request.rpcRoute == listRoute) rpcResult(request.json.id as Int, overview) else StubResponse()
+            }) {
+                mountedForm("chapter-public-crest-svg") { root, element ->
+                    renderRegionalChaptersScreen(root)
+                    awaitUntil("the chapter card") { element().allOf(".lapis-crest-tile").size == 1 }
+                    val accept = assertNotNull(element().querySelector("input[type=file]")).getAttribute("accept").orEmpty()
+                    assertTrue(accept.contains("image/svg+xml"), "accept: $accept")
+                    assertTrue(accept.contains(".svg"), "accept: $accept")
+                    assertTrue(
+                        element().textContent.orEmpty().contains("oder SVG (höchstens 256 KB)"),
+                        "the hint names the SVG limit",
+                    )
+                    val tile = element().allOf(".lapis-crest-tile").single()
+                    assertEquals("img", tile.firstElementChild?.tagName?.lowercase())
+                    for (forbidden in listOf("object", "embed", "iframe", "svg")) {
+                        assertNull(tile.querySelector(forbidden), "tile must not contain <$forbidden>")
+                    }
+                }
+            }
+        }
+
+    @Test
     fun removingACrest_needsTheConfirmationDialog_andThenCallsTheRpcWithTheChapterId(): Promise<Unit> =
         test {
             val (listRoute, removeRoute, _) = routes()

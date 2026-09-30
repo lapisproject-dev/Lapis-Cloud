@@ -73,11 +73,11 @@ entry was withdrawn and then leads to an empty state (HTTP 200), never to person
 == Chapter crest
 
 Upload `POST /api/regional-chapters/{chapterId}/crest`: same-origin, BOARD/ADMIN, per-actor limit, `Content-Length` cap, streamed
-2 MB cap, magic-byte sniff (JPEG/PNG only), `EventCoverImageProcessor.process` with `CoverImageLimits.CHAPTER_CREST`
+2 MB cap, magic-byte sniff (JPEG/PNG; since V1.9.21 also SVG, see xref:regional-chapters.adoc#crest-svg[Crest: SVG policy]), `EventCoverImageProcessor.process` with `CoverImageLimits.CHAPTER_CREST`
 (minimum 64 px, target 1024 px, header and bomb guards first, fresh metadata-free re-encode, PNG keeps alpha), chapter lock
 (unknown id = 404 only after the role check), file written, token committed, old file deleted after commit. The database stores
 the server UUID (file name key), never a path. Delivery `GET /public/chapter-crests/{token}`: per-IP limit first, token pattern,
-database; every miss is one bare 404; headers `nosniff`, `Content-Disposition: inline`, sandbox CSP, CORP `cross-origin`,
+database; every miss is one bare 404; headers `nosniff`, `Content-Disposition: inline; filename="crest.<ext>"` (fixed name), `Content-Type` `image/png`, `image/jpeg` or `image/svg+xml; charset=utf-8`, sandbox CSP, CORP `cross-origin`,
 `Cache-Control: public, max-age=300` once. No CORS on purpose (an `<img>` needs none).
 
 == Embed feeds

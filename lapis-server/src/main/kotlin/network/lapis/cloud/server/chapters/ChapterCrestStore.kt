@@ -4,7 +4,6 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
-import network.lapis.cloud.server.events.CoverImageFormat
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -27,19 +26,11 @@ internal object ChapterCrestPolicy {
 
     const val CONTENT_TYPE_JPEG = "image/jpeg"
     const val CONTENT_TYPE_PNG = "image/png"
+    const val CONTENT_TYPE_SVG = "image/svg+xml"
 
-    fun contentTypeOf(format: CoverImageFormat): String =
-        when (format) {
-            CoverImageFormat.JPEG -> CONTENT_TYPE_JPEG
-            CoverImageFormat.PNG -> CONTENT_TYPE_PNG
-        }
+    fun contentTypeOf(format: ChapterCrestFormat): String = format.storedContentType
 
-    fun formatOf(contentType: String): CoverImageFormat? =
-        when (contentType) {
-            CONTENT_TYPE_JPEG -> CoverImageFormat.JPEG
-            CONTENT_TYPE_PNG -> CoverImageFormat.PNG
-            else -> null
-        }
+    fun formatOf(contentType: String): ChapterCrestFormat? = ChapterCrestFormat.fromStoredContentType(contentType)
 }
 
 /**
@@ -74,7 +65,7 @@ internal object ChapterCrestStore {
     fun setCrest(
         chapterId: Uuid,
         imageId: Uuid,
-        format: CoverImageFormat,
+        format: ChapterCrestFormat,
         token: String,
     ): Uuid? {
         val previous = selectCrestImageId(chapterId)
@@ -98,7 +89,7 @@ internal object ChapterCrestStore {
     }
 
     /** The image id and format behind [token] -- every "no" (unknown token, removed crest, corrupt row) is the same `null`. */
-    fun findServable(token: String): Pair<Uuid, CoverImageFormat>? {
+    fun findServable(token: String): Pair<Uuid, ChapterCrestFormat>? {
         val row =
             RegionalChapterTable
                 .selectAll()

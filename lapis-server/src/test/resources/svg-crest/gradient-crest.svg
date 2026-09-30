@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffed00"/>
+      <stop offset="100%" stop-color="#fab500"/>
+    </linearGradient>
+    <linearGradient id="derived" xlink:href="#base" gradientTransform="rotate(90)"/>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="url(#derived)" stroke="url('#base')" stroke-width="2"/>
+</svg>

@@ -5,6 +5,7 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.chapters.ChapterCrestStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -12,7 +13,6 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
-import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
@@ -77,7 +77,7 @@ class RegionalChapterService internal constructor(
      * Welle V1.9.20 -- where crest files live (delete-after-commit on chapter deletion / crest
      * removal). `null` in tests that never touch crests; `Application` always passes the real one.
      */
-    private val crestStorage: EventCoverStorage?,
+    private val crestStorage: ChapterCrestStorage?,
     private val baseUrl: String,
 ) : IRegionalChapterService {
     /** Public constructor for callers without crest storage (tests); `Application` uses the internal one above. */

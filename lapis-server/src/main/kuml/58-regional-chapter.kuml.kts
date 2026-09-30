@@ -91,8 +91,8 @@ classDiagram(name = "RegionalChapter") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "crest_public_token"; "sqlType" to "VARCHAR(64)" }
             }
-            // 'image/jpeg' | 'image/png'. The three crest_* columns are all NULL or all set
-            // (chk_regional_chapter_crest_state, plain SQL CHECK in V62).
+            // 'image/jpeg' | 'image/png' | 'image/svg+xml' (V63). The three crest_* columns are all NULL or all set
+            // (chk_regional_chapter_crest_state, plain SQL CHECK in V62; the content type CHECK was widened in V63).
             attribute(name = "crestContentType", type = "String") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "crest_content_type"; "sqlType" to "VARCHAR(32)" }

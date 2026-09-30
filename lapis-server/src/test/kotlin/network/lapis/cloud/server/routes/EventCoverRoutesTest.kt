@@ -308,6 +308,28 @@ class EventCoverRoutesTest :
             }
         }
 
+        test("upload: a perfectly valid SVG is still 415 (V1.9.21: SVG is accepted for the chapter crest ONLY)") {
+            testApplication {
+                application { module() }
+                val (_, slug) = createEvent()
+                val board = createMember("event-cover-board-svg-${Uuid.random()}@example.org", AccountRole.BOARD)
+                val response =
+                    client.post("/api/embed/v1/event/$slug/cover") {
+                        header(HttpHeaders.Origin, TEST_ORIGIN)
+                        header("X-Member-Id", board.toString())
+                        setBody(
+                            MultiPartFormDataContent(
+                                uploadFormData(
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#c00\"/></svg>"
+                                        .toByteArray(),
+                                ),
+                            ),
+                        )
+                    }
+                response.status shouldBe HttpStatusCode.UnsupportedMediaType
+            }
+        }
+
         test("upload: image below the minimum size (799x600) -> 422") {
             testApplication {
                 application { module() }

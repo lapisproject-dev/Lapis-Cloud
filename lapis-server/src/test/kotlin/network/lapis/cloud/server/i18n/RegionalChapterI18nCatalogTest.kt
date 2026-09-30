@@ -25,6 +25,7 @@ class RegionalChapterI18nCatalogTest :
         val waveSourceFiles =
             listOf(
                 "RegionalChaptersScreen.kt",
+                "ChapterCrestHttp.kt",
                 "ChapterRosterScreen.kt",
                 "MemberAdministrationScreen.kt",
                 "RegistrationScreen.kt",
@@ -171,5 +172,26 @@ class RegionalChapterI18nCatalogTest :
 
         test("sanity: die Welle hat ueberhaupt Textstrings gefunden (Extraktion ist nicht kaputt)") {
             (uniqueMsgids.size > 12) shouldBe true
+        }
+
+        test("V1.9.21: SVG crest texts are present and translated everywhere, free of gender marks, and the obsolete hint is gone") {
+            val svgMsgids = uniqueMsgids.filter { "SVG" in it }
+            (svgMsgids.size >= 11) shouldBe true
+            val genderMark = Regex("""\w(\*|:|_|/)innen\b|\w(\*|:|_)in\b|Innen\b""")
+            val offenders =
+                languages.flatMap { lang ->
+                    val catalog = catalogs.getValue(lang)
+                    svgMsgids
+                        .filter {
+                            genderMark.containsMatchIn(
+                                it,
+                            ) ||
+                                genderMark.containsMatchIn(catalog[it].orEmpty())
+                        }.map { "$lang: \"$it\"" }
+                }
+            offenders.shouldBeEmpty()
+            val obsolete = "JPEG oder PNG, mindestens 64 × 64 Pixel, höchstens 2 MB."
+            languages.filter { catalogs.getValue(it).containsKey(obsolete) }.shouldBeEmpty()
+            File(i18nDir, "messages.pot").readText().contains("msgid \"$obsolete\"") shouldBe false
         }
     })

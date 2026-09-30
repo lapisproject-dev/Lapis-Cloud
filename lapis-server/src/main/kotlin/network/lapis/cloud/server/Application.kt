@@ -54,6 +54,7 @@ import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
@@ -449,11 +450,11 @@ internal fun Application.module(
 
     // Welle V1.9.20 "Öffentliche Seiten" -- regional chapter crest images. Same durable volume as
     // documentStorageRoot, own "chapter-crests/" subdirectory, own env override
-    // LAPIS_CHAPTER_CREST_STORAGE_ROOT. Reuses EventCoverStorage 1:1 (file name = server UUID + fixed
-    // format enum, never client input), exactly like the event/article covers above.
+    // LAPIS_CHAPTER_CREST_STORAGE_ROOT. Uses ChapterCrestStorage (same semantics as EventCoverStorage, plus
+    // the .svg extension of V1.9.21); file name = server UUID + fixed format enum, never client input.
     val chapterCrestStorageRoot =
         File(System.getenv("LAPIS_CHAPTER_CREST_STORAGE_ROOT") ?: documentStorageRoot.resolve("chapter-crests").path)
-    val chapterCrestStorage = EventCoverStorage(chapterCrestStorageRoot)
+    val chapterCrestStorage = ChapterCrestStorage(chapterCrestStorageRoot)
 
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's

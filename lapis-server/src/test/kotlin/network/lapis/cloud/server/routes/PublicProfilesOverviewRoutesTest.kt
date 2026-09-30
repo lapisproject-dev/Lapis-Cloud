@@ -16,6 +16,8 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.chapters.ChapterCrestFormat
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -357,9 +359,7 @@ class PublicProfilesOverviewRoutesTest :
             val withCrest = fixtures.newChapter(name = "Landesverband Nord", description = "Zustaendig fuer den Norden.")
             val token =
                 fixtures.seedCrest(
-                    storage =
-                        network.lapis.cloud.server.events
-                            .EventCoverStorage(MemberPhotoFixtures.freshRoot("crest-page")),
+                    storage = ChapterCrestStorage(MemberPhotoFixtures.freshRoot("crest-page")),
                     chapterId = withCrest,
                 )
             fixtures.newChapter(name = "Landesverband Sued")
@@ -379,12 +379,30 @@ class PublicProfilesOverviewRoutesTest :
             }
         }
 
+        test(
+            "/landesverbaende: an SVG crest is referenced ONLY through an img tag with the token URL (no object/embed/iframe/inline svg)",
+        ) {
+            val id = fixtures.newChapter(name = "Landesverband Vektor")
+            val token =
+                fixtures.seedCrest(
+                    storage = ChapterCrestStorage(MemberPhotoFixtures.freshRoot("crest-svg-page")),
+                    chapterId = id,
+                    format = ChapterCrestFormat.SVG,
+                )
+            testApp {
+                val body = client.get("/landesverbaende").bodyAsText()
+                body shouldContain
+                    "<img alt=\"Wappen Landesverband Vektor\" src=\"$BASE/public/chapter-crests/$token\" class=\"crest-image\""
+                val at = body.indexOf("Wappen Landesverband Vektor")
+                val tile = body.substring(body.lastIndexOf("<li", at), body.indexOf("</li>", at))
+                for (forbidden in listOf("<object", "<embed", "<iframe", "<svg")) tile shouldNotContain forbidden
+            }
+        }
+
         test("/landesverbaende: name and description are escaped, also inside the crest alt text") {
             val id = fixtures.newChapter(name = "LV <b>x</b> \"q\"", description = "<script>1</script>")
             fixtures.seedCrest(
-                storage =
-                    network.lapis.cloud.server.events
-                        .EventCoverStorage(MemberPhotoFixtures.freshRoot("crest-escape")),
+                storage = ChapterCrestStorage(MemberPhotoFixtures.freshRoot("crest-escape")),
                 chapterId = id,
             )
             testApp {

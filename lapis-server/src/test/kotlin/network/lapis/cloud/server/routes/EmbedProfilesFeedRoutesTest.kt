@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -24,11 +25,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import network.lapis.cloud.server.chapters.ChapterCrestFormat
+import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
-import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
@@ -54,7 +56,7 @@ class EmbedProfilesFeedRoutesTest :
     FunSpec({
         val fixtures = PublicProfilesFixtures()
         val photoStorage = MemberPhotoStorage(MemberPhotoFixtures.freshRoot("embed-profiles-feed"))
-        val crestStorage = EventCoverStorage(MemberPhotoFixtures.freshRoot("embed-profiles-crest"))
+        val crestStorage = ChapterCrestStorage(MemberPhotoFixtures.freshRoot("embed-profiles-crest"))
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -256,6 +258,23 @@ class EmbedProfilesFeedRoutesTest :
         }
 
         // ── chapters ──────────────────────────────────────────────────────────────
+
+        test("chapters: an SVG crest is exposed as the same extension-less token URL, never inline or as a data URI") {
+            val svg = fixtures.newChapter(name = "Landesverband Vektor")
+            fixtures.seedCrest(storage = crestStorage, chapterId = svg, format = ChapterCrestFormat.SVG)
+            testApp {
+                val raw = feed("/api/embed/v1/chapters").bodyAsText()
+                val vektor =
+                    itemsOf(raw, "chapters").map { it.jsonObject }.single {
+                        it.getValue("name").jsonPrimitive.content ==
+                            "Landesverband Vektor"
+                    }
+                vektor.getValue("crestUrl").jsonPrimitive.content shouldMatch
+                    Regex("^" + Regex.escape(BASE) + "/public/chapter-crests/[A-Za-z0-9_-]{43}$")
+                raw shouldNotContain "data:"
+                raw shouldNotContain "<svg"
+            }
+        }
 
         test("chapters: exact key set -- name, crestUrl, description -- and a chapter without crest/description has only its name") {
             val full = fixtures.newChapter(name = "Landesverband Nord", description = "Beschreibung Nord")
