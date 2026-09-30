@@ -46,8 +46,8 @@ import kotlin.time.Clock
  * see the org-wide table (mirrors `listContributions`'s own `isPrivileged || TREASURER`
  * authorization, see that method's KDoc), with "als bezahlt markieren" limited to TREASURER/ADMIN
  * and "als erlassen markieren" limited to BOARD/ADMIN (TREASURER may pay but not waive, per
- * `markContributionWaived`'s own role check) -- the tier-administration sub-panel
- * (`generateContributionsForPeriod`) is TREASURER/ADMIN only, matching `createMembershipTier`'s
+ * `markContributionWaived`'s own role check) -- the link to the tier administration
+ * (V1.9.18, [renderMembershipTiersScreen]) is TREASURER/ADMIN only, matching `createMembershipTier`'s
  * own role check.
  *
  * Mail-merge/Postal-Dispatch UI wave, design decision D3: [renderContributionRow] additionally
@@ -107,7 +107,7 @@ fun renderContributionsScreen(container: SimplePanel) {
     reloadOwnSections()
 
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)) {
-        renderTierAdministration(root)
+        renderTierAdministrationLink(root)
     }
     if (AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN, AccountRole.BOARD)) {
         renderOrgWideContributions(root)
@@ -525,51 +525,14 @@ fun SimplePanel.reliefStepTracker(request: ContributionReliefRequestDto) {
     pill(tr("Ausgeführt"), states[2], "success")
 }
 
-private fun renderTierAdministration(root: SimplePanel) {
-    root.h2(tr("Beitragssätze und Beitragsgenerierung")) { addCssClass("h5") }
-    val tiersPanel = root.vPanel(spacing = 4)
-    val formPanel = root.vPanel(spacing = 6)
-
-    AppScope.launch {
-        val tiers = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: return@launch
-        if (tiers.isEmpty()) {
-            tiersPanel.p(tr("Keine Beitragssätze vorhanden."))
-            return@launch
-        }
-        tiers.forEach { tier ->
-            val activeLabel = if (tier.active) gettext("aktiv") else gettext("inaktiv")
-            tiersPanel.div(gettext("%1: %2 (%3, %4)", tier.name, formatMoney(tier.contributionAmount), tier.billingInterval, activeLabel))
-        }
-
-        val tierOptions = untrustedOptions(tiers.map { it.id to it.name })
-        val tierSelect = formPanel.select(options = tierOptions, value = tierOptions.firstOrNull()?.first, label = tr("Beitragssatz"))
-        val periodStartInput = formPanel.text(label = tr("Periodenbeginn (JJJJ-MM-TT)"))
-        val periodEndInput = formPanel.text(label = tr("Periodenende (JJJJ-MM-TT)"))
-        val errorBox =
-            formPanel.div().apply {
-                addCssClass("text-danger")
-                hide()
-            }
-
-        val generateButton = formPanel.button(tr("Beiträge generieren"), style = ButtonStyle.PRIMARY)
-        generateButton.onClick {
-            errorBox.hide()
-            val tierId = tierSelect.value
-            val periodStart = runCatching { LocalDate.parse(periodStartInput.value.orEmpty().trim()) }.getOrNull()
-            val periodEnd = runCatching { LocalDate.parse(periodEndInput.value.orEmpty().trim()) }.getOrNull()
-            if (tierId == null || periodStart == null || periodEnd == null) {
-                errorBox.content = tr("Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben.")
-                errorBox.show()
-                return@onClick
-            }
-            generateButton.disabled = true
-            AppScope.launch {
-                val created = guarded { rpcService<IContributionService>().generateContributionsForPeriod(tierId, periodStart, periodEnd) }
-                generateButton.disabled = false
-                if (created != null) notifySuccess(gettext("%1 neue Beiträge erzeugt (bereits vorhandene wurden übersprungen).", created))
-            }
-        }
-    }
+/**
+ * Welle V1.9.18: the tier list and the free-text period form that used to live here moved to their own screen
+ * ([renderMembershipTiersScreen], `Routes.MEMBERSHIP_TIERS`) -- a read-only list with no way to edit a tier and a
+ * date form typed as "JJJJ-MM-TT" was the whole of the administration. One pointer stays, for the roles that can
+ * use the new screen.
+ */
+private fun renderTierAdministrationLink(root: SimplePanel) {
+    root.p { link(tr("Mitgliedschaftsstufen verwalten"), url = "#${Routes.MEMBERSHIP_TIERS}") }
 }
 
 private fun renderOrgWideContributions(root: SimplePanel) {

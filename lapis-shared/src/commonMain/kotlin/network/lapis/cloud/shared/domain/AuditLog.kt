@@ -347,6 +347,18 @@ enum class AuditEntityType {
      * `REGIONAL_CHAPTER`, additive only.
      */
     REGIONAL_CHAPTER_OFFICER,
+
+    /**
+     * Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- `network.lapis.cloud.server.rpc
+     * .ContributionService`'s `createMembershipTier`/`updateMembershipTier` write `CREATE`/`UPDATE`,
+     * `entityId` = the `membership_tier` row's id, [MembershipTierSnapshot] before/after (an update
+     * that changes nothing writes no entry). A tier's contribution amount is bookkeeping-relevant:
+     * it decides what every member of the tier is invoiced, so a change to it must be traceable.
+     * A member's own tier *assignment* is logged as `entityType = MEMBER` instead
+     * ([MemberMembershipTierSnapshot]). 15 chars, well under the `audit_log_entry.entity_type`
+     * `VARCHAR(29)` width limit. Appended LAST, after `REGIONAL_CHAPTER_OFFICER`, additive only.
+     */
+    MEMBERSHIP_TIER,
 }
 
 /**
@@ -939,6 +951,22 @@ data class TravelExpenseRatesSnapshot(
 @Serializable
 data class RegionalChapterSnapshot(
     val name: String,
+)
+
+/**
+ * Structured `before`/`after` payload for an [AuditEntityType.MEMBERSHIP_TIER] audit entry (Welle
+ * V1.9.18). [contributionAmount] is carried as a plain string (`BigDecimal.toPlainString()`) so the
+ * hash-chained audit payload never depends on a serializer's number formatting. Name and
+ * description are organizational labels chosen by a treasurer, not personal data.
+ */
+@Serializable
+data class MembershipTierSnapshot(
+    val name: String,
+    val description: String,
+    val contributionAmount: String,
+    val billingInterval: BillingInterval,
+    val active: Boolean,
+    val paymentTermDays: Int,
 )
 
 /**

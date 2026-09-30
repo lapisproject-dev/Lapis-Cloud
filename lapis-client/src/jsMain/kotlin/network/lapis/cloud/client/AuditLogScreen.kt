@@ -552,6 +552,11 @@ fun decodeAuditSnapshot(
             // DOCUMENT/ARTICLE above already establish) -- falls through to the raw-text display.
             AuditEntityType.REGIONAL_CHAPTER -> null
             AuditEntityType.REGIONAL_CHAPTER_OFFICER -> null
+            // Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- ContributionService writes
+            // MembershipTierSnapshot (see AuditLog.kt), but this client-side decode/render pair is deliberately
+            // not extended for it (same posture the entries above establish) -- falls through to the raw-text
+            // display, which already shows the before/after JSON of the changed tier.
+            AuditEntityType.MEMBERSHIP_TIER -> null
         }
     }.getOrNull()
 

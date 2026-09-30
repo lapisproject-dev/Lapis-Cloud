@@ -368,3 +368,38 @@ class ProbeCodedConflictException(
     override val message: String = "",
     val code: String = "",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- see [MemberEmailInUseException] KDoc for
+ * why this is a distinct type rather than a `ConflictException` message (Kilua RPC transmits only
+ * the subclass discriminator). Thrown by `ContributionService.createMembershipTier`/
+ * `updateMembershipTier` when the normalized `name_key` already belongs to another tier
+ * (case-insensitively) -- both for the pre-check and for the concurrent-write race backstop.
+ */
+@RpcServiceException
+class MembershipTierNameTakenException(
+    override val message: String = "A membership tier with this name already exists",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.18 -- distinct type, see [MembershipTierNameTakenException]. Thrown by
+ * `ContributionService.updateMembershipTier` when the billing interval would change while members
+ * are still assigned to the tier: their already-generated contribution periods and any
+ * SEPA mandate schedule are built on the old interval, so the remedy is a NEW tier, never an
+ * in-place switch.
+ */
+@RpcServiceException
+class MembershipTierIntervalLockedException(
+    override val message: String = "The billing interval cannot be changed while members are assigned to this tier",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.18 -- distinct type, see [MembershipTierNameTakenException]. Thrown by
+ * `MembershipTierAssignment.apply` (and therefore by every path that assigns a tier: the manual
+ * assignment, the family paths and the relief execution) when the target tier is closed
+ * (`active = false`). Keeping the tier, or removing it, stays allowed.
+ */
+@RpcServiceException
+class MembershipTierClosedException(
+    override val message: String = "This membership tier is closed for new assignments",
+) : AbstractServiceException()

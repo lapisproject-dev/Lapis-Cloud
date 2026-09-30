@@ -73,6 +73,7 @@ class OrganizationBackupRoundTripTest :
             transaction(sourceDb) {
                 MembershipTierTable.insert {
                     it[id] = memberTierId
+                    it[nameKey] = memberTierId.toString()
                     it[name] = "Roundtrip-Testbeitrag"
                     it[description] = "Nur fuer OrganizationBackupRoundTripTest."
                     it[contributionAmount] = BigDecimal("12.34")

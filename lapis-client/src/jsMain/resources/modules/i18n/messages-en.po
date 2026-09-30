@@ -1255,10 +1255,6 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:541
-msgid "%1: %2 (%3, %4)"
-msgstr "%1: %2 (%3, %4)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:540
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 anonymized, %3 deleted, %4 retained"
@@ -1703,10 +1699,6 @@ msgstr "Select all"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:576
 msgid "Alle Beiträge"
 msgstr "All contributions"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:354
-msgid "Alle Beitragssätze"
-msgstr "All contribution rates"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:87
 msgid "Alle Entitätstypen"
@@ -2597,10 +2589,6 @@ msgstr "Post: %1"
 msgid "Beiträge"
 msgstr "Contributions"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:554
-msgid "Beiträge generieren"
-msgstr "Generate contributions"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:790
 msgid "Beitrags-Boost"
 msgstr "Post boost"
@@ -2628,15 +2616,6 @@ msgstr "Contribution invoice %1–%2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:654
 msgid "Beitragsrechnung per Post versenden"
 msgstr "Send contribution invoice by post"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:545
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:347
-msgid "Beitragssatz"
-msgstr "Contribution rate"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:529
-msgid "Beitragssätze und Beitragsgenerierung"
-msgstr "Contribution rates and contribution generation"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:87
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:65
@@ -3027,13 +3006,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:745
 msgid "Bitte bei \"Vertreten\" angeben, durch wen."
 msgstr "For \"Represented\", please specify by whom."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:561
-msgid ""
-"Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
-msgstr ""
-"Please provide a contribution rate as well as a valid start/end date (YYYY-"
-"MM-DD)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:116
 msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
@@ -5820,10 +5792,6 @@ msgstr "No attendance recorded."
 msgid "Keine Beiträge vorhanden."
 msgstr "No contributions available."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:536
-msgid "Keine Beitragssätze vorhanden."
-msgstr "No contribution rates available."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:707
 msgid "Keine berechtigten Mitglieder gefunden."
@@ -7582,14 +7550,6 @@ msgstr "Peg: units of the anchor asset per LTR"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:508
 msgid "Per Post versenden"
 msgstr "Send by mail"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:546
-msgid "Periodenbeginn (JJJJ-MM-TT)"
-msgstr "Period start (YYYY-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:547
-msgid "Periodenende (JJJJ-MM-TT)"
-msgstr "Period end (YYYY-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4851
 msgid "Person (nur bei \"Einzelne Person\")"
@@ -13335,60 +13295,12 @@ msgstr "Change role"
 msgid "Rolle geändert."
 msgstr "Role changed."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:49
-msgid "Beitragstarif"
-msgstr "Contribution tariff"
-
 msgid "Ab der nächsten Beitragserzeugung entsteht für dieses Mitglied eine Forderung. Bereits erzeugte Beiträge werden nicht rückwirkend berührt."
 msgstr "From the next contribution run, a receivable arises for this member. Contributions already generated are not affected retroactively."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:285
-msgid "Tarif"
-msgstr "Tariff"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
-msgid "— beitragsfrei / kein Tarif —"
-msgstr "— contribution-free / no tariff —"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:841
-msgid "Tarif speichern"
-msgstr "Save tariff"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:850
-msgid "Beitragstarif gespeichert."
-msgstr "Contribution tariff saved."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:863
-msgid "Aktueller Tarif: %1"
-msgstr "Current tariff: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
 msgid "beitragsfrei"
 msgstr "contribution-free"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:866
-msgid "Neuer Tarif"
-msgstr "New tariff"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:869
-msgid "Bitte einen Tarif auswählen."
-msgstr "Please select a tariff."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:880
-msgid "Tarif zuweisen"
-msgstr "Assign tariff"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
-msgid "Beitragstarif zugewiesen."
-msgstr "Contribution tariff assigned."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:495
-msgid "Tarif entfernen"
-msgstr "Remove tariff"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:906
-msgid "Beitragstarif entfernt."
-msgstr "Contribution tariff removed."
 
 msgid "Legt für dieses Mitglied ein Login-Konto an. Das vorläufige Passwort wird NICHT per E-Mail versendet -- geben Sie es der Person persönlich weiter; sie kann es danach selbst ändern."
 msgstr "Creates a login account for this member. The temporary password is NOT sent by e-mail -- pass it on to the person in person; they can change it afterwards."
@@ -13437,9 +13349,6 @@ msgstr "All sessions are ended immediately, open committee memberships are ended
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
 msgid "Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."
 msgstr "Login is blocked. No contribution, no governance rights."
-
-msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordneten Beitragstarif entstehen außerdem keine Beiträge."
-msgstr "This member has no login account -- a status change does not create one. Without an assigned contribution tariff, no contributions arise either."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1259
 msgid "Status wird von %1 auf %2 geändert."
@@ -13848,10 +13757,6 @@ msgstr "Search cost center (code or name)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:522
 msgid "Lauf abbrechen"
 msgstr "Abort run"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:345
-msgid "Leer = alle Beitragssätze."
-msgstr "Empty = all contribution rates."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:517
 msgid "Letzter Lauf"
@@ -14950,16 +14855,8 @@ msgid "Aus Familie lösen"
 msgstr "Remove from family"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "%1 aus %2 lösen? Es ist danach kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin einen Tarif zuweist."
-msgstr "Remove %1 from %2? No contribution tier is assigned afterwards -- the obligation to pay contributions only arises once a treasurer/admin assigns a tier."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Lösen"
 msgstr "Detach"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "Aus der Familie gelöst. Es ist noch kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister einen Tarif zuweist."
-msgstr "Removed from the family. No contribution tier is assigned yet -- the obligation to pay contributions only arises once the treasurer assigns a tier."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Familie"
@@ -17097,3 +16994,144 @@ msgstr "Show text version"
 
 msgid "Textversion ausblenden"
 msgstr "Hide text version"
+
+msgid "Mitgliedschaftsstufen"
+msgstr "Membership tiers"
+
+msgid "Mitgliedschaftsstufe"
+msgstr "Membership tier"
+
+msgid "Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."
+msgstr "Contribution, interval and payment term per tier. A tier is not deleted but closed."
+
+msgid "Mitgliedschaftsstufe anlegen"
+msgstr "Create membership tier"
+
+msgid "Mitgliedschaftsstufe bearbeiten"
+msgstr "Edit membership tier"
+
+msgid "Noch keine Mitgliedschaftsstufe angelegt."
+msgstr "No membership tier has been created yet."
+
+msgid "Aktive Mitglieder ohne Mitgliedschaftsstufe: %1. Für sie wird bei der Beitragserzeugung keine Rechnung erstellt."
+msgstr "Active members without a membership tier: %1. No invoice is created for them when contributions are generated."
+
+msgid "Zahlungsziel (Tage)"
+msgstr "Payment term (days)"
+
+msgid "Aktive Mitglieder"
+msgstr "Active members"
+
+msgid "Monatlich"
+msgstr "Monthly"
+
+msgid "Vierteljährlich"
+msgstr "Quarterly"
+
+msgid "Jährlich"
+msgstr "Yearly"
+
+msgid "Wählbar"
+msgstr "Selectable"
+
+msgid "Beiträge erzeugen"
+msgstr "Generate contributions"
+
+msgid "Das Intervall ist gesperrt, solange aktive Mitglieder zugeordnet sind (%1). Legen Sie stattdessen eine neue Stufe an."
+msgstr "The interval is locked as long as active members are assigned (%1). Create a new tier instead."
+
+msgid "Tage bis zur Fälligkeit, gerechnet ab Periodenbeginn."
+msgstr "Days until the due date, counted from the start of the period."
+
+msgid "Für neue Zuordnungen wählbar"
+msgstr "Selectable for new assignments"
+
+msgid "Geschlossene Stufen bleiben für bestehende Mitglieder gültig und erzeugen weiter Beiträge."
+msgstr "Closed tiers stay valid for existing members and keep generating contributions."
+
+msgid "Bei einem Betrag von 0 werden keine Beiträge erzeugt."
+msgstr "With an amount of 0, no contributions are generated."
+
+msgid "Die Änderung gilt für künftig erzeugte Beiträge von %1 aktiven Mitgliedern. Bereits erzeugte Beiträge bleiben unverändert."
+msgstr "The change applies to contributions generated in future for %1 active members. Contributions already generated remain unchanged."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde angelegt."
+msgstr "Membership tier \"%1\" was created."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde gespeichert."
+msgstr "Membership tier \"%1\" was saved."
+
+msgid "Eine Mitgliedschaftsstufe mit diesem Namen existiert bereits."
+msgstr "A membership tier with this name already exists."
+
+msgid "Das Intervall kann nicht geändert werden, solange aktive Mitglieder zugeordnet sind. Legen Sie stattdessen eine neue Stufe an."
+msgstr "The interval cannot be changed as long as active members are assigned. Create a new tier instead."
+
+msgid "Diese Mitgliedschaftsstufe ist geschlossen und kann nicht mehr zugewiesen werden."
+msgstr "This membership tier is closed and can no longer be assigned."
+
+msgid "Die Mitgliedschaftsstufe konnte nicht gespeichert werden."
+msgstr "The membership tier could not be saved."
+
+msgid "Beiträge erzeugen: %1"
+msgstr "Generate contributions: %1"
+
+msgid "Erzeugt für alle aktiven Mitglieder dieser Stufe eine Beitragsforderung für den Zeitraum. Bereits vorhandene Forderungen werden übersprungen."
+msgstr "Creates a contribution claim for the period for every active member of this tier. Claims that already exist are skipped."
+
+msgid "Die Beiträge konnten nicht erzeugt werden."
+msgstr "The contributions could not be generated."
+
+msgid "Der Betrag darf nicht negativ sein."
+msgstr "The amount must not be negative."
+
+msgid "Mitgliedschaftsstufen verwalten"
+msgstr "Manage membership tiers"
+
+msgid "%1 (geschlossen)"
+msgstr "%1 (closed)"
+
+msgid "— beitragsfrei / keine Mitgliedschaftsstufe —"
+msgstr "— free of charge / no membership tier —"
+
+msgid "Mitgliedschaftsstufe speichern"
+msgstr "Save membership tier"
+
+msgid "Mitgliedschaftsstufe gespeichert."
+msgstr "Membership tier saved."
+
+msgid "Aktuelle Mitgliedschaftsstufe: %1"
+msgstr "Current membership tier: %1"
+
+msgid "Neue Mitgliedschaftsstufe"
+msgstr "New membership tier"
+
+msgid "Bitte eine Mitgliedschaftsstufe auswählen."
+msgstr "Please select a membership tier."
+
+msgid "Mitgliedschaftsstufe zuweisen"
+msgstr "Assign membership tier"
+
+msgid "Mitgliedschaftsstufe zugewiesen."
+msgstr "Membership tier assigned."
+
+msgid "Mitgliedschaftsstufe entfernen"
+msgstr "Remove membership tier"
+
+msgid "Mitgliedschaftsstufe entfernt."
+msgstr "Membership tier removed."
+
+msgid "Leer = alle Mitgliedschaftsstufen."
+msgstr "Empty = all membership tiers."
+
+msgid "Alle Mitgliedschaftsstufen"
+msgstr "All membership tiers"
+
+msgid "%1 aus %2 lösen? Es ist danach keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin eine Mitgliedschaftsstufe zuweist."
+msgstr "Remove %1 from %2? No membership tier is assigned afterwards -- the obligation to pay contributions only arises once a treasurer/admin assigns a membership tier."
+
+msgid "Aus der Familie gelöst. Es ist noch keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister eine Mitgliedschaftsstufe zuweist."
+msgstr "Removed from the family. No membership tier is assigned yet -- the obligation to pay contributions only arises once the treasurer assigns a membership tier."
+
+msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
+msgstr "This member has no login account -- a status change does not create one. Without an assigned membership tier, no contributions arise either."

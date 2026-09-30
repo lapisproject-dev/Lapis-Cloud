@@ -1,0 +1,183 @@
+= Membership Tiers ("Mitgliedschaftsstufen")
+:description: Administration of the membership tiers (amount, interval, payment term): roles, validation, the closed-tier rule, the interval lock, the zero-amount rule, uniqueness, migration V60 and the audit trail.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: **Implementation status.** V1.9.18 built the administration screen (`MembershipTiersScreen.kt`, route
+`/membership-tiers`), the server-side validation and audit trail in `ContributionService`, the closed-tier guard in
+`MembershipTierAssignment`, and migration `V60__membership_tier_admin.sql`. Before, the tier list was read-only and a
+free-text period form ("JJJJ-MM-TT") inside the contributions screen was the only way to generate contributions.
+
+[[vocabulary]]
+== Vocabulary
+
+One word for the tier: *Mitgliedschaftsstufe* (en "membership tier", see `i18n-glossary.adoc`, enforced by
+`I18nGlossaryConsistencyTest`). It replaces the former "Tarif" (roster dialog, member families) and "Beitragssatz"
+(SEPA batch filter). Deliberately left as they are, each with its reason in the CHANGELOG:
+
+* "Beitragsstufe" of the relief request (target tier) -- a different feature, renaming it is a separate decision;
+* "Neuer Beitragssatz: %1" of a reduction request -- the value shown is the tier *with* its amount;
+* "Mitgliedsname oder Beitragssatz" of the statement-import search -- the server only matches the member name there
+  (a finding, not a tier reference), and the string is pinned by a UI-guideline tripwire.
+
+== Roles
+
+[cols="3,2",options="header"]
+|===
+| Operation | Roles
+
+| `createMembershipTier`, `updateMembershipTier`, `listMembershipTierOverview`, `generateContributionsForPeriod`
+| TREASURER, ADMIN -- *not* BOARD
+
+| `listMembershipTiers`
+| any authenticated caller (the member-facing relief form reads it), but no longer without a session
+|===
+
+The route `/membership-tiers` is therefore narrower than its FINANCE neighbours (which admit BOARD). The overview is a
+*separate* endpoint instead of extra fields on `listMembershipTiers` exactly because of that: the per-tier member counts are
+membership figures that a plain member or BOARD has no business reading. Gating is server-side; the client gate is
+convenience only.
+
+== Rules
+
+Validation is server-authoritative (`MembershipTierRules` in `lapis-shared` is the single source of the limits; the client
+pre-checks the same constants):
+
+* **Name**: trimmed, inner whitespace collapsed, 1..100 characters, no control characters, unique case-insensitively
+  (see <<uniqueness,Uniqueness>>).
+* **Description**: trimmed, at most 1000 characters.
+* **Amount**: 0..100000.00, at most two decimal places (`stripTrailingZeros().scale() <= 2`; `DECIMAL(12,2)` would
+  otherwise round a third decimal silently). The stored value always has scale 2.
+* **Payment term**: 0..365 days. `dueDate = periodStart + paymentTermDays`.
+
+Every violation is a `BadRequestException`. The client shows a field message for each of them before the call, so reaching
+the server with one means a stale or hand-made request. Only three conditions have their own exception type, because
+Kilua RPC transmits only the *type* of an exception to the browser (see `typed-conflict-errors.adoc`):
+`MembershipTierNameTakenException`, `MembershipTierIntervalLockedException`, `MembershipTierClosedException`.
+
+=== No delete -- tiers are closed
+
+A tier is referenced by contributions, SEPA batches, relief requests and the audit trail, so there is no delete. A tier is
+*closed* (`active = false`, "Geschlossen" in the UI). Closing means exactly one thing: **no new assignments**.
+
+* `MembershipTierAssignment.apply` -- the one write path for `member.membership_tier_id` -- refuses to *move* a member
+  onto a closed tier (`MembershipTierClosedException`), for every caller: the manual assignment, the family paths and the
+  relief execution. The check sits after the no-op return, so keeping a since-closed tier (or saving an unchanged
+  assignment) is never an error, and removing a tier is always allowed. The relief execution already refused a closed
+  target itself (`target_tier_not_active`); the central check does not change its behaviour.
+* `generateContributionsForPeriod` keeps invoicing members who are already on a closed tier. They still owe their
+  contribution.
+* The roster dialog offers a closed tier only as the member's *current* one, marked "(geschlossen)".
+
+=== Billing interval lock
+
+The interval of a tier cannot change while **active** members are assigned (`MembershipTierIntervalLockedException`;
+"create a new tier instead"). Their already-generated periods, and a SEPA schedule built on them, sit on the old interval.
+"Active" is deliberate: it is the set `generateContributionsForPeriod` invoices, and the same figure the overview shows per
+tier, so the disabled select in the dialog and the server check always agree. Members who are not active (applicants,
+withdrawn) do not lock a tier; an applicant who is later activated simply gets their first contribution on the new interval.
+The dialog sends the *original* interval when the select is disabled (a disabled control is not submitted).
+
+=== Zero amount
+
+A tier with amount `0` generates no contribution lines (`generateContributionsForPeriod` returns 0). A line of 0.00 would
+otherwise run through dunning, SEPA and the payment-reference allocator for nothing. The UI says so while typing and hides
+the "Beiträge erzeugen" action for such a tier.
+
+=== Amount changes never touch existing lines
+
+Changing the amount affects contributions generated *afterwards*. An already-generated contribution is a bookkeeping fact
+(it stores `amount_due`); a correction goes through the regular storno path. The dialog says so, naming the number of
+active members, when the amount of a tier with members changes.
+
+[[uniqueness]]
+== Uniqueness and migration V60
+
+H2 cannot index an expression (`lower(name)`) and has no `DO` blocks, so uniqueness lives on a service-maintained column,
+`membership_tier.name_key` (`MembershipTierRules.nameKey(normalizeName(name))`), exactly like `regional_chapter.name_key`.
+`uq_membership_tier_name_key` is the actual guard; the service pre-checks for a friendly error and maps a violation of
+*that* index (and only that one) to `MembershipTierNameTakenException` for the concurrent-write race.
+
+`V60__membership_tier_admin.sql` (idempotent, H2 and Postgres):
+
+. `ADD COLUMN IF NOT EXISTS name_key`, backfilled with `SUBSTRING(LOWER(TRIM(name)), 1, 100)`.
+. **De-duplication before the index.** A self-hosted instance may already hold two tiers that differ only in case; the
+  unique index would then fail and the server would not start. The tier with the smallest id keeps the plain key, every
+  other one gets `'#<id>'` appended (63 + 1 + 36 = 100 characters). The displayed name is untouched. `MIN` runs over
+  `CAST(id AS VARCHAR(36))` because Postgres before 18 has no `MIN(uuid)`. The statement does not depend on row order.
+. `SET NOT NULL`, then `CREATE UNIQUE INDEX IF NOT EXISTS`.
+. The named `chk_audit_log_entry_entity_type` constraint is dropped and re-added with `'MEMBERSHIP_TIER'`.
+
+`MembershipTierMigrationTest` runs V60 verbatim against a hand-built pre-V60 shape (three case-variant duplicates, a clean
+table, an empty table) and a second time.
+
+CAUTION: **Operator note -- `flywayRepair`, and why `V1__baseline.sql` was edited.** `audit_log_entry` still carries the
+*unnamed* inline `CHECK (entity_type IN (...))` of the baseline, which H2 enforces independently of the named constraint.
+Every earlier widening of `AuditEntityType` therefore edited V1 in place as well (most recently `REGIONAL_CHAPTER*` in V59),
+and V1.9.18 follows that established pattern instead of inventing a second one: `MEMBERSHIP_TIER` was appended in place in
+V1, so Flyway sees a checksum mismatch on an already-applied V1. **Before deploying on PdV, ELB and staging, run
+`./gradlew :lapis-server:flywayRepair`** (same as for V59). The alternative -- a Java migration that looks the generated
+constraint name up in `INFORMATION_SCHEMA` and drops it -- would end the V1 pattern for good, but it is a new migration type
+and out of scope for this wave; it stays a follow-up.
+
+== Audit trail
+
+`AuditEntityType.MEMBERSHIP_TIER` (15 characters, `VARCHAR(29)`): one `CREATE` entry per new tier, one `UPDATE` entry with a
+before/after `MembershipTierSnapshot` per changing update. An update that changes nothing writes no entry. The amount is
+carried as a plain string (`BigDecimal.toPlainString()`), so the hash-chained payload never depends on a number
+formatter. The entry is written inside the same transaction; lock order is the tier row first, then the audit chain state
+(inside `AuditLogRecorder.record`), never the other way round.
+
+A tier *assignment* stays logged as `MEMBER`/`UPDATE` (`MemberMembershipTierSnapshot`), as before.
+
+== Screen
+
+[cols="2,5",options="header"]
+|===
+| Part | Behaviour
+
+| Page header
+| Title, one-line subtitle, the primary action "Mitgliedschaftsstufe anlegen".
+
+| Hint
+| "Aktive Mitglieder ohne Mitgliedschaftsstufe: n" -- those members are never invoiced. Shown even when no tier exists.
+
+| Table (card list below 768 px)
+| Name (+ description), Beitrag, Intervall, Zahlungsziel (Tage), Aktive Mitglieder, Status ("Wählbar" / "Geschlossen").
+  Open tiers first, closed last, each alphabetical by the browser locale. Actions: Bearbeiten, Beiträge erzeugen (amount > 0).
+
+| Create/edit dialog
+| Form grammar (`lapisForm`): field rules before any request, the amount rule is a wrapper around the shared parser (0 is valid
+  here, a minus sign has its own sentence), duplicate name checked against the loaded list (read at validation time, so a
+  list that arrives after the dialog opened still counts), interval select disabled with the reason and remedy when active
+  members exist, notices for a zero amount and for a changed amount. Double click sends one request.
+
+| "Beiträge erzeugen" dialog
+| Replaces the free-text date form of the contributions screen: two native date inputs, both required, one cross-field rule
+  (end not before start). The contributions screen keeps a single link for TREASURER/ADMIN.
+|===
+
+Name and description are treasurer-written text that other people read: table cells go through `cellText`, the modal caption
+through `sanitizeUntrustedI18nText`, the roster dropdown through `untrustedOptions`; never a `tr()`/`gettext()`
+concatenation with a tier name.
+
+== Design decisions
+
+The screen was specified by the standing UI/UX team of the vault (see the vault's "Legendäre UI-Designer" note) before
+implementation; the decisions below are the ones that shaped the code. Deviations from that specification are listed in the
+CHANGELOG of V1.9.18 (they were decided while implementing, not by the team).
+
+* *Close, never delete*: an irreversible action on a record that other records reference has no place on a treasurer's screen.
+* *The free-text date form becomes a dialog with native date inputs*: the machine parses the date, not the person.
+* *A locked control says why and what to do instead*, next to the disabled control (interval lock).
+* *One word for the tier everywhere* (see <<vocabulary>>).
+* *Cuts*: no search field (a club has a handful of tiers; the UI guideline asks for one from 20 rows), no sort headers, no
+  "archived" state beyond closed.
+
+== Not done
+
+* No search/sort on the list (see above), no per-tier contribution history.
+* The audit-log screen shows the tier entry as raw before/after JSON (same posture as the other backend-first entity types);
+  a rendered diff is a follow-up.
+* Seed tiers for the pilots and the question "price change: existing versus future fee lines" stay with the product owner.

@@ -270,7 +270,7 @@ class FormSubmitBodyPart2DomTest {
 
                     // Beitragstarif (ADMIN): no tier chosen = remove, with the SECOND "Begründung" of the modal
                     modal.type("Begründung", "  Tarif entfällt  ", nth = 1)
-                    modal.button("Tarif speichern").click()
+                    modal.button("Mitgliedschaftsstufe speichern").click()
                     awaitUntil("updateMemberMembershipTier", timeoutMs = 600) { calls.toRoute(r.tier).isNotEmpty() }
                     val tier = calls.singleCall(r.tier)
                     assertEquals("member-5", tier.rpcParam(0) as String)

@@ -126,6 +126,7 @@ class BankStatementStoreTest :
                 }
                 MembershipTierTable.insert {
                     it[id] = tierId
+                    it[nameKey] = tierId.toString()
                     it[name] = "Standard"
                     it[description] = "Standard"
                     it[contributionAmount] = amountDue

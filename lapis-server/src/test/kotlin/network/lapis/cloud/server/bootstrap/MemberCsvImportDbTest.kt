@@ -224,6 +224,7 @@ class MemberCsvImportDbTest :
                     val id = Uuid.random()
                     MembershipTierTable.insert {
                         it[MembershipTierTable.id] = id
+                        it[nameKey] = id.toString()
                         it[name] = "Standardbeitrag"
                         it[description] = "Test-Tarif"
                         it[contributionAmount] = BigDecimal("10.00")

@@ -173,6 +173,16 @@ for every German msgid that contains a core term as a whole word (or one of its 
 | mandat
 | мандат
 | HOMONYM: a SEPA direct-debit mandate (nl "machtiging") and a board mandate. Both stems are accepted for nl.
+
+| Mitgliedschaftsstufe, Mitgliedschaftsstufen
+| tier
+| nivel
+| niveau
+| livell
+| niveau
+| poziom
+| уровен, уровн
+| V1.9.18: the `MembershipTier` (amount, interval, payment term). Renders as "membership tier" / "nivel de membresía" / "niveau d'adhésion" / "livello di iscrizione" / "lidmaatschapsniveau" / "poziom członkostwa" / "уровень членства". Replaces the former "Tarif" and "Beitragssatz" wherever the tier itself is meant (roster dialog, families, SEPA filter, tier administration). "Beitragsstufe" (relief request, target tier) and the amount-only "Beitragssatz" of the statement import search are NOT covered by this entry.
 |===
 
 == Terms with an entry in the catalogs but without an automatic check

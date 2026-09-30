@@ -118,6 +118,7 @@ class BankStatementMatcherTest :
                 }
                 MembershipTierTable.insert {
                     it[id] = tierId
+                    it[nameKey] = tierId.toString()
                     it[name] = "Standard"
                     it[description] = "Standardbeitrag"
                     it[contributionAmount] = amountDue
@@ -377,6 +378,7 @@ class BankStatementMatcherTest :
             transaction {
                 MembershipTierTable.insert {
                     it[id] = secondTierId
+                    it[nameKey] = secondTierId.toString()
                     it[name] = "Zweiter Standard"
                     it[description] = "Zweiter Standardbeitrag, selber Betrag"
                     it[contributionAmount] = BigDecimal("48.00")

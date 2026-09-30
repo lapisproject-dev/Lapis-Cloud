@@ -13,6 +13,7 @@ import network.lapis.cloud.shared.domain.MemberMembershipTierSnapshot
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.MembershipTierClosedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -52,6 +53,8 @@ internal object MembershipTierAssignment {
      * @throws NotFoundException if [targetMemberId] does not resolve to an existing member.
      * @throws BadRequestException if [newTierId] is non-null and does not resolve to an existing
      *   `membership_tier` row.
+     * @throws MembershipTierClosedException if [newTierId] is non-null, differs from the member's current
+     *   tier, and the target tier is closed (`active = false`) -- V1.9.18.
      */
     fun apply(
         targetMemberId: Uuid,
@@ -88,8 +91,15 @@ internal object MembershipTierAssignment {
                     "Cannot assign a membership tier to a member whose membership has ended (status=${row[MemberTable.status]})",
                 )
             }
-            val tierExists = MembershipTierTable.selectAll().where { MembershipTierTable.id eq newTierId }.count() > 0
-            if (!tierExists) throw BadRequestException("MembershipTier $newTierId not found")
+            val tierRow =
+                MembershipTierTable.selectAll().where { MembershipTierTable.id eq newTierId }.singleOrNull()
+                    ?: throw BadRequestException("MembershipTier $newTierId not found")
+            // V1.9.18 -- a CLOSED tier (`active = false`) takes no NEW assignments, on EVERY path through this one
+            // function (manual assignment, family paths, relief execution). Placed AFTER the no-op return above on
+            // purpose: a member who is already on a since-closed tier keeps it without any error (and a save of
+            // their unchanged assignment stays a silent no-op); only MOVING a member onto a closed tier is refused.
+            // Removing a tier (newTierId == null) never reaches this block at all.
+            if (!tierRow[MembershipTierTable.active]) throw MembershipTierClosedException()
         }
 
         MemberTable.update({ MemberTable.id eq targetMemberId }) { it[membershipTierId] = newTierId }

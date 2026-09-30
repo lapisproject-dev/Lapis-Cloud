@@ -86,6 +86,7 @@ class ContributionReliefRequestTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Relief-Testtarif-$id"
                     it[description] = "Nur fuer ContributionReliefRequestTest"
                     it[contributionAmount] = amount

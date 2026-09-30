@@ -54,7 +54,7 @@ import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
  * [renderMemberRoster]), and direct member creation.
  *
  * **Welle V1.4.4.4 "Familienmitgliedschaften" widened this to also admit TREASURER** -- but only
- * for the roster, and only so a Schatzmeister can reach the "Beitragstarif" section of
+ * for the roster, and only so a Schatzmeister can reach the "Mitgliedschaftsstufe" section of
  * [openMemberEditorDialog] ([canEditMembershipTierOf] KDoc has the full Rollen-Asymmetrie). The
  * other two sections stay BOARD/ADMIN-exclusive, both server-side (`IRegistrationService
  * .listPendingApplications`/`createMemberDirect` both `requireRole(BOARD, ADMIN)`) and here on the
@@ -332,7 +332,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
  * keine privilegierte Leseschnittstelle") is, as of this wave, no longer true:
  * `IMemberService.listMembersForAdministration` is exactly that interface. BOARD/ADMIN/TREASURER
  * (Welle V1.4.4.4 widened `listMembersForAdministration`'s own server-side gate from `isPrivileged`
- * to also admit TREASURER, purely so a Schatzmeister can reach the "Beitragstarif" section --
+ * to also admit TREASURER, purely so a Schatzmeister can reach the "Mitgliedschaftsstufe" section --
  * see this file's class KDoc and [canEditMembershipTierOf]) -- server-side re-enforces this
  * independently, this is not the only gate.
  */
@@ -681,7 +681,7 @@ private fun renderRosterActions(
         // target (TREASURER/BOARD/ADMIN, including their own row) with a removable tier
         // (`row.membershipTierId != null`) has all four OTHER predicates false, so the button
         // was wrongly disabled even though `canEditMembershipTierOf` alone would allow the
-        // "Tarif entfernen" action -- see [canEditMembershipTierOf] KDoc.
+        // "Mitgliedschaftsstufe entfernen" action -- see [canEditMembershipTierOf] KDoc.
         editButton.disabled = true
         editButton.tableActionTooltip(
             tr(
@@ -1002,10 +1002,10 @@ internal fun openMemberEditorDialog(
         }
     }
 
-    // ── Beitragstarif (Welle V1.4.4.4) ──
+    // ── Mitgliedschaftsstufe (Welle V1.4.4.4, umbenannt V1.9.18 von "Beitragstarif") ──
     if (canEditMembershipTierOf(callerRole, callerMemberId, row)) {
         modal.div { addCssClass("mt-3") }
-        modal.h2(tr("Beitragstarif")) { addCssClass("h6") }
+        modal.h2(tr("Mitgliedschaftsstufe")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)
         val tierWarning =
             form.panel.div {
@@ -1029,21 +1029,22 @@ internal fun openMemberEditorDialog(
         if (callerRole == AccountRole.ADMIN) {
             val tierField =
                 form.selectField(
-                    label = tr("Tarif"),
-                    options = listOf("" to tr("— beitragsfrei / kein Tarif —")),
+                    label = tr("Mitgliedschaftsstufe"),
+                    options = listOf("" to tr("— beitragsfrei / keine Mitgliedschaftsstufe —")),
                     value = row.membershipTierId ?: "",
                 )
             val tierSelect = tierField.control as Select
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
-                tierSelect.options = listOf("" to tr("— beitragsfrei / kein Tarif —")) + untrustedOptions(tiers.map { it.id to it.name })
+                tierSelect.options =
+                    listOf("" to tr("— beitragsfrei / keine Mitgliedschaftsstufe —")) + tierSelectOptions(tiers, row.membershipTierId)
                 // Über das Feld (Select-fähiges `setValue`), dann `validate(force = false)`: ein Fehler kann hier noch nicht stehen.
                 tierField.setValue(row.membershipTierId ?: "")
                 tierField.validate(force = false)
             }
             tierField.subscribe { value -> showTierConsequence(value.isNotBlank()) }
             val tierReasonField = memberReasonField(form)
-            val saveTierButton = Button(tr("Tarif speichern"), style = ButtonStyle.PRIMARY)
+            val saveTierButton = Button(tr("Mitgliedschaftsstufe speichern"), style = ButtonStyle.PRIMARY)
             form.buttons(primary = saveTierButton)
             saveTierButton.onClick {
                 form.submit(saveTierButton) {
@@ -1052,7 +1053,7 @@ internal fun openMemberEditorDialog(
                     val result =
                         memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, chosenTierId, reason) }
                     if (result != null) {
-                        notifySuccess(tr("Beitragstarif gespeichert."))
+                        notifySuccess(tr("Mitgliedschaftsstufe gespeichert."))
                         modal.hide()
                         onChanged()
                     }
@@ -1060,29 +1061,30 @@ internal fun openMemberEditorDialog(
             }
         } else if (callerRole == AccountRole.TREASURER) {
             // TREASURER (Welle V1.4.4.4 review fix, MAJOR finding): nur die Zuweisung eines ECHTEN
-            // Tarifs -- KEIN "— beitragsfrei / kein Tarif —"-Eintrag, weil der Server
+            // Tarifs -- KEIN "— beitragsfrei / keine Mitgliedschaftsstufe —"-Eintrag, weil der Server
             // (`updateMemberMembershipTier`, `membershipTierId == null`-Zweig) das Entfernen einem
             // TREASURER-Aufrufer verweigert (nur `isPrivileged`, also BOARD/ADMIN) -- siehe
             // [canEditMembershipTierOf] KDoc. Anders als beim ADMIN-Zweig oben ist die Select-Liste
             // deshalb NIE leer wählbar; ein Absenden ohne geladene Tarife meldet der Feldfehler.
-            form.panel.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
+            form.panel.p(gettext("Aktuelle Mitgliedschaftsstufe: %1", row.membershipTierName ?: gettext("beitragsfrei")))
             val tierField =
                 form.selectField(
-                    label = tr("Neuer Tarif"),
+                    label = tr("Neue Mitgliedschaftsstufe"),
                     options = emptyList(),
                     required = true,
-                    requiredMessage = gettext("Bitte einen Tarif auswählen."),
+                    requiredMessage = gettext("Bitte eine Mitgliedschaftsstufe auswählen."),
                 )
             val tierSelect = tierField.control as Select
             AppScope.launch {
                 val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: emptyList()
-                tierSelect.options = untrustedOptions(tiers.map { it.id to it.name })
-                tierField.setValue(row.membershipTierId ?: tiers.firstOrNull()?.id)
+                val offered = tierSelectOptions(tiers, row.membershipTierId)
+                tierSelect.options = offered
+                tierField.setValue(row.membershipTierId ?: offered.firstOrNull()?.first)
                 tierField.validate(force = false)
             }
             tierField.subscribe { value -> showTierConsequence(value.isNotBlank()) }
             val tierReasonField = memberReasonField(form)
-            val saveTierButton = Button(tr("Tarif zuweisen"), style = ButtonStyle.PRIMARY)
+            val saveTierButton = Button(tr("Mitgliedschaftsstufe zuweisen"), style = ButtonStyle.PRIMARY)
             form.buttons(primary = saveTierButton)
             saveTierButton.onClick {
                 form.submit(saveTierButton) {
@@ -1091,24 +1093,24 @@ internal fun openMemberEditorDialog(
                     val result =
                         memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, chosenTierId, reason) }
                     if (result != null) {
-                        notifySuccess(tr("Beitragstarif zugewiesen."))
+                        notifySuccess(tr("Mitgliedschaftsstufe zugewiesen."))
                         modal.hide()
                         onChanged()
                     }
                 }
             }
         } else {
-            // BOARD: nur die Schaltfläche "Tarif entfernen" -- siehe canEditMembershipTierOf KDoc.
-            form.panel.p(gettext("Aktueller Tarif: %1", row.membershipTierName ?: gettext("beitragsfrei")))
+            // BOARD: nur die Schaltfläche "Mitgliedschaftsstufe entfernen" -- siehe canEditMembershipTierOf KDoc.
+            form.panel.p(gettext("Aktuelle Mitgliedschaftsstufe: %1", row.membershipTierName ?: gettext("beitragsfrei")))
             val tierReasonField = memberReasonField(form)
-            val removeTierButton = Button(tr("Tarif entfernen"), style = ButtonStyle.WARNING)
+            val removeTierButton = Button(tr("Mitgliedschaftsstufe entfernen"), style = ButtonStyle.WARNING)
             form.buttons(primary = removeTierButton)
             removeTierButton.onClick {
                 form.submit(removeTierButton) {
                     val reason = tierReasonField.value.trim()
                     val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberMembershipTier(row.id, null, reason) }
                     if (result != null) {
-                        notifySuccess(tr("Beitragstarif entfernt."))
+                        notifySuccess(tr("Mitgliedschaftsstufe entfernt."))
                         modal.hide()
                         onChanged()
                     }
@@ -1270,8 +1272,8 @@ fun canEditCoreDataOf(
  * Review fix (Welle V1.4.4.4, MAJOR finding): `canEditMembershipTierOf` was originally left OUT of
  * this OR-chain, so a BOARD caller on an escalated-role target (TREASURER/BOARD/ADMIN, including
  * their own row) with a removable tier (`row.membershipTierId != null`) saw a disabled "Bearbeiten"
- * button even though `canEditMembershipTierOf` alone would have allowed the "Tarif entfernen"
- * action -- the newly added "Beitragstarif" section was, for exactly the rows it was built for,
+ * button even though `canEditMembershipTierOf` alone would have allowed the "Mitgliedschaftsstufe entfernen"
+ * action -- the newly added "Mitgliedschaftsstufe" section was, for exactly the rows it was built for,
  * unreachable.
  *
  * Security fix (Welle V1.4.4.4 review, MAJOR finding, follow-up): `canEditMembershipTierOf` itself
@@ -1368,7 +1370,7 @@ internal fun renderChapterAssignmentSection(
 }
 
 /**
- * Welle V1.4.4.4 "Familienmitgliedschaften" -- ob der Abschnitt "Beitragstarif" in
+ * Welle V1.4.4.4 "Familienmitgliedschaften" -- ob der Abschnitt "Mitgliedschaftsstufe" in
  * [openMemberEditorDialog] erscheint, gespiegelt an `IMemberService.updateMemberMembershipTier`s
  * eigener Rollen-Asymmetrie (siehe dessen KDoc/`MemberService`-Implementierung): Zuweisen eines
  * ECHTEN Tarifs braucht TREASURER/ADMIN, Entfernen (Tarif = `null`) braucht nur `isPrivileged`
@@ -1542,8 +1544,8 @@ fun statusChangeConsequence(
         to == MemberStatus.DONOR -> tr("Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte.")
         to == MemberStatus.ACTIVE && !hasAccount ->
             tr(
-                "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordneten " +
-                    "Beitragstarif entstehen außerdem keine Beiträge.",
+                "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete " +
+                    "Mitgliedschaftsstufe entstehen außerdem keine Beiträge.",
             )
         else -> gettext("Status wird von %1 auf %2 geändert.", memberStatusLabel(from), memberStatusLabel(to))
     }
@@ -1782,3 +1784,20 @@ private fun renderPublicMemberCountToggle(
  * "never silently drop/reset a field" contract directly.
  */
 internal fun OrganizationSettingsDto.toInputWithShowPublicMemberCount(newValue: Boolean) = toInput().copy(showPublicMemberCount = newValue)
+
+/**
+ * The options of the tier select of the roster dialog (V1.9.18). A CLOSED tier (`active = false`) takes no new
+ * assignments -- the server refuses it ([network.lapis.cloud.shared.rpc.MembershipTierClosedException]) -- so it is
+ * offered ONLY when it is the member's current one, marked "(geschlossen)", so that the select can still show
+ * where the member stands. The label goes through [untrustedOptions]: a tier name is treasurer-written text, and
+ * `gettext` with a `%1` is fine, a `tr()`/string concatenation would not be.
+ */
+internal fun tierSelectOptions(
+    tiers: List<MembershipTierDto>,
+    currentTierId: String?,
+): List<Pair<String, String>> =
+    untrustedOptions(
+        tiers
+            .filter { it.active || it.id == currentTierId }
+            .map { tier -> tier.id to if (tier.active) tier.name else gettext("%1 (geschlossen)", tier.name) },
+    )

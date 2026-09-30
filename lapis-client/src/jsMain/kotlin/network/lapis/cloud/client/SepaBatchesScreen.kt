@@ -344,14 +344,15 @@ internal fun renderNewBatchSection(
         )
     val tierField =
         form.selectField(
-            label = tr("Beitragssatz"),
+            label = tr("Mitgliedschaftsstufe"),
             options = emptyList(),
             value = null,
-            hint = tr("Leer = alle Beitragssätze."),
+            hint = tr("Leer = alle Mitgliedschaftsstufen."),
         )
     AppScope.launch {
         val tiers = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: return@launch
-        (tierField.control as Select).options = listOf("" to tr("Alle Beitragssätze")) + untrustedOptions(tiers.map { it.id to it.name })
+        (tierField.control as Select).options =
+            listOf("" to tr("Alle Mitgliedschaftsstufen")) + untrustedOptions(tiers.map { it.id to it.name })
         tierField.setValue("")
     }
     val previewButton = Button(tr("Vorschau berechnen"), style = ButtonStyle.OUTLINEPRIMARY)

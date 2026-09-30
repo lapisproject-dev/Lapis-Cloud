@@ -182,6 +182,18 @@ class SidebarStructureTest {
             .toSet()
     }
 
+    private fun orderedSidebarLinkUrls(session: SessionInfoDto): List<String> {
+        AppState.setSession(session)
+        val body = SimplePanel()
+        buildSidebar(body, session, activeRoute = null) {}
+        return (body.getChildren().single() as Nav)
+            .getChildren()
+            .filterIsInstance<Nav>()
+            .flatMap { it.getChildren() }
+            .filterIsInstance<Link>()
+            .mapNotNull { it.url }
+    }
+
     @Test
     fun financeGroup_showsOpenItemsEntry_forTreasurerBoardAndAdmin() {
         listOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN).forEach { role ->
@@ -224,6 +236,47 @@ class SidebarStructureTest {
             hasStatuteQaLink(adminSession.copy(aiAssistantEnabled = true, status = MemberStatus.FRIEND)),
             "a FRIEND has no membership group and the server refuses the feature for non-members",
         )
+    }
+
+    // Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen": TREASURER/ADMIN only -- NARROWER than the rest of the FINANCE group.
+    @Test
+    fun financeGroup_showsMembershipTiersEntry_forTreasurerAndAdmin_notBoardNorMember() {
+        assertTrue(sidebarLinkUrls(adminSession).contains("#${Routes.MEMBERSHIP_TIERS}"), "ADMIN")
+        assertTrue(sidebarLinkUrls(adminSession.copy(role = AccountRole.TREASURER)).contains("#${Routes.MEMBERSHIP_TIERS}"), "TREASURER")
+        assertFalse(sidebarLinkUrls(adminSession.copy(role = AccountRole.BOARD)).contains("#${Routes.MEMBERSHIP_TIERS}"), "BOARD must not")
+        assertFalse(
+            sidebarLinkUrls(adminSession.copy(role = AccountRole.MEMBER)).contains("#${Routes.MEMBERSHIP_TIERS}"),
+            "MEMBER must not",
+        )
+    }
+
+    @Test
+    fun financeGroup_membershipTiersEntry_sitsBetweenBankImportAndContributionRelief() {
+        val urls = orderedSidebarLinkUrls(adminSession)
+        val bankImport = urls.indexOf("#${Routes.BANK_IMPORT}")
+        assertTrue(bankImport >= 0)
+        assertEquals(bankImport + 1, urls.indexOf("#${Routes.MEMBERSHIP_TIERS}"))
+        assertEquals(bankImport + 2, urls.indexOf("#${Routes.CONTRIBUTION_RELIEF}"))
+    }
+
+    @Test
+    fun membershipTiersRoute_belongsToTheFinanceGroup_soItsGroupIsHighlighted() {
+        assertEquals(SidebarGroupId.FINANCE, sidebarGroupForRoute(Routes.MEMBERSHIP_TIERS))
+    }
+
+    @Test
+    fun membershipTiersEntry_carriesTheGlossaryLabel() {
+        AppState.setSession(adminSession)
+        val body = SimplePanel()
+        buildSidebar(body, adminSession, activeRoute = null) {}
+        val link =
+            (body.getChildren().single() as Nav)
+                .getChildren()
+                .filterIsInstance<Nav>()
+                .flatMap { it.getChildren() }
+                .filterIsInstance<Link>()
+                .single { it.url == "#${Routes.MEMBERSHIP_TIERS}" }
+        assertEquals("Mitgliedschaftsstufen", link.label.removePrefix("###KvI18nS###"))
     }
 
     // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche".

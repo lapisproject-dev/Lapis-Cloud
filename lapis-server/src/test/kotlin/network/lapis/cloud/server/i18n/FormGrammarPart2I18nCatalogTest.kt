@@ -67,8 +67,8 @@ class FormGrammarPart2I18nCatalogTest :
                 "Bitte einen gültigen Termin angeben.",
                 "Bitte eine ganze Zahl eingeben.",
                 "Bitte eine ganze Zahl von %1 oder größer eingeben.",
-                "Aktueller Tarif: %1",
-                "Bitte einen Tarif auswählen.",
+                "Aktuelle Mitgliedschaftsstufe: %1",
+                "Bitte eine Mitgliedschaftsstufe auswählen.",
             )
 
         data class WaveMessage(
@@ -305,7 +305,7 @@ class FormGrammarPart2I18nCatalogTest :
                 "Beispiel: 2026-03-14.",
                 "Ticket-Code",
                 "Code unbekannt.",
-                "Beitragstarif",
+                "Mitgliedschaftsstufe",
             ).forEach { (it in ids) shouldBe true }
         }
 

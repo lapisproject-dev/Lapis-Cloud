@@ -61,6 +61,7 @@ class ContributionReliefExemptionFilterTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Exemption-Filter-Testtarif-$id"
                     it[description] = "Nur fuer ContributionReliefExemptionFilterTest"
                     it[contributionAmount] = BigDecimal("10.00")

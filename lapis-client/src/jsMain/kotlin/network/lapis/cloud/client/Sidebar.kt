@@ -151,6 +151,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DUNNING_CASES,
                 Routes.PAYMENT_TRANSACTIONS,
                 Routes.BANK_IMPORT,
+                Routes.MEMBERSHIP_TIERS,
                 Routes.CONTRIBUTION_RELIEF,
                 Routes.TRAVEL_EXPENSE_APPROVALS,
                 Routes.VOLUNTEER_ALLOWANCE_APPROVALS,
@@ -461,6 +462,11 @@ fun buildSidebar(
             // TREASURER/BOARD/ADMIN-Rollenstufe teilen und fachlich zusammengehoeren.
             sidebarLink(Routes.BANK_ACCOUNTS, tr("Bankkonten"), "fas fa-piggy-bank", toggle)
             sidebarLink(Routes.BANK_IMPORT, tr("Kontoauszüge"), "fas fa-building-columns", toggle)
+            // Welle V1.9.18 -- enger gegatet als der Rest der FINANCE-Gruppe (TREASURER/ADMIN, NICHT BOARD), siehe
+            // `Routes.MEMBERSHIP_TIERS` KDoc. `fas fa-layer-group` ist frei (verifiziert per grep).
+            if (AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)) {
+                sidebarLink(Routes.MEMBERSHIP_TIERS, tr("Mitgliedschaftsstufen"), "fas fa-layer-group", toggle)
+            }
             // Welle V1.4.10.1: enger gegatet als der Rest der FINANCE-Gruppe (BOARD/ADMIN, NICHT
             // TREASURER) -- verifiziert gegen `IContributionReliefService.listReliefRequests`s
             // eigenen Rollen-Check, siehe `Routes.CONTRIBUTION_RELIEF` KDoc. Gleiches

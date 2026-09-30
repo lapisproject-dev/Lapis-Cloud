@@ -205,6 +205,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "ARTICLE") // Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" -- ArticleService.submitArticle/approveArticle/rejectArticle/unpublishArticle writes; 7 chars, fits within VARCHAR(29)
         literal(name = "REGIONAL_CHAPTER") // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- RegionalChapterService.createChapter/renameChapter/deleteChapter writes (deleteChapter uses action=VOID); 16 chars, fits within VARCHAR(29)
         literal(name = "REGIONAL_CHAPTER_OFFICER") // Welle V1.9.13 -- RegionalChapterService.grantOfficer/revokeOfficer writes; 24 chars, fits within VARCHAR(29)
+        literal(name = "MEMBERSHIP_TIER") // Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- ContributionService.createMembershipTier/updateMembershipTier writes; 15 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

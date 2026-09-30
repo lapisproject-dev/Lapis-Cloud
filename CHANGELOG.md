@@ -67,13 +67,63 @@ All notable changes to this project are documented here. Format follows
 
 ### Not in scope
 
-- **Membership tiers without a UI** (planned V1.9.18) and **public website presence / live sync** (planned from V1.9.19):
-  both need answers to open product questions first (price changes for existing versus future fee lines, archiving
-  versus deleting tiers, seed tiers for the pilots, one release versus per-tab release for public pages, revocation
-  semantics, who uploads chapter crests) and are not part of this wave.
+- **Public website presence / live sync** (planned from V1.9.19): needs answers to open product questions first (one
+  release versus per-tab release for public pages, revocation semantics, who uploads chapter crests) and is not part of
+  this wave. The tier administration (formerly listed here together with it) is V1.9.18, see below; what it still leaves to
+  the product owner -- seed tiers for the pilots, "price change: existing versus future fee lines" -- stays open.
 
 ### Added
 
+- **V1.9.18 — Membership tier administration (`/membership-tiers`).** A TREASURER/ADMIN screen to create and edit tiers
+  (name, description, amount, interval, payment term, "selectable for new assignments"), with the active-member count per
+  tier and "Beiträge erzeugen" as a dialog instead of the free-text "JJJJ-MM-TT" form that used to sit in the contributions
+  screen (which now keeps one link for TREASURER/ADMIN). Design: `docs/architecture/membership-tiers.adoc`.
+  - **Server validation** (`MembershipTierRules`, shared with the client): name trimmed and whitespace-collapsed, 1..100
+    characters, unique case-insensitively; description <= 1000; amount 0..100000.00 with at most two decimals (scale is
+    enforced server-side); payment term 0..365. `createMembershipTier`/`updateMembershipTier` had no validation at all.
+  - **Audit**: new `AuditEntityType.MEMBERSHIP_TIER`, one `CREATE` and one `UPDATE` entry (before/after
+    `MembershipTierSnapshot`, amount as plain string); a no-op update writes none. A tier's amount decides what members are
+    invoiced, so a change to it was the one bookkeeping-relevant write without a trace.
+  - **New read model** `listMembershipTierOverview` (TREASURER/ADMIN): tiers + ACTIVE members per tier + ACTIVE members
+    without a tier, one aggregate query. `listMembershipTiers` stays open to authenticated callers (the relief form reads
+    it); it now *requires a session* (before, it answered anyone).
+  - **Rules**: a tier is *closed* (`active = false`), never deleted -- closing stops **new assignments only**
+    (`MembershipTierAssignment`, so also the family and relief paths; keeping or removing a tier stays allowed) and keeps
+    invoicing members already on it; the billing interval cannot change while ACTIVE members are assigned; a tier with
+    amount 0 generates no contribution lines; `generateContributionsForPeriod` rejects `periodStart` after `periodEnd`;
+    changing an amount never rewrites an existing contribution. Three new typed exceptions
+    (`MembershipTierNameTakenException`, `MembershipTierIntervalLockedException`, `MembershipTierClosedException`),
+    because only the type reaches the browser.
+  - **Migration `V60__membership_tier_admin.sql`**: `membership_tier.name_key` (NOT NULL, `uq_membership_tier_name_key`),
+    backfilled, with a **de-duplication of case-variant names before the index** (lowest id keeps the plain key, others get
+    `#<id>`; display names untouched) so an instance that already holds such a pair still starts. Generated
+    `MembershipTierTable` and `01-contribution.kuml.kts` carry the column; `ContributionSchemaDriftTest` stays green.
+  - **OPERATOR NOTE -- run `./gradlew :lapis-server:flywayRepair` before deploying on PdV, ELB and staging.**
+    `V1__baseline.sql` was edited in place (`'MEMBERSHIP_TIER'` appended to the still-unnamed inline `CHECK` of
+    `audit_log_entry.entity_type`, which H2 enforces independently of the named constraint), exactly like every earlier
+    widening of `AuditEntityType` (V59: `REGIONAL_CHAPTER*`) -- Flyway sees a checksum mismatch on the already-applied V1.
+    The task brief asked to leave V1 untouched; that cannot be combined with an audit entry without a Java migration that
+    drops the generated constraint by name, which is a new migration type and was judged out of scope (recorded as a
+    follow-up in `membership-tiers.adoc`).
+  - **Vocabulary**: "Mitgliedschaftsstufe" replaces "Tarif"/"Beitragstarif" (roster dialog and member families: 15 msgids) and
+    "Beitragssatz" (SEPA batch filter: 3) wherever the tier is meant; each occurrence was decided on its own. Left alone on
+    purpose: "Beitragsstufe" of the relief request, "Neuer Beitragssatz: %1" of a reduction request (shows the tier *with*
+    its amount), and "Mitgliedsname oder Beitragssatz" of the statement-import search (a finding: the server only matches
+    the member name, so the label promises a search that does not exist; the string is pinned by a UI-guideline tripwire).
+    Glossary row added; 47 msgids new, 25 obsolete ones removed in all eight catalogs.
+  - **Deliberate deviations from the brief**: no delete (close instead); the interval lock counts ACTIVE members only (the
+    brief's own UI text said "active", an earlier draft said "all assigned"); the lock and the overview share that one figure.
+  - Roster tier dialog: a closed tier is offered only as the member's current one, marked "(geschlossen)"; the server's
+    refusal has its own toast.
+  - Audit screen and compliance labels know the new entity type ("Mitgliedschaftsstufe"); the entry is shown as raw
+    before/after JSON like the other backend-first types.
+  - Tests: `MembershipTierAdminAuthzTest`, `MembershipTierValidationTest` (validation, uniqueness incl. the index itself,
+    interval lock, overview counts, audit incl. hash chain, 0-amount, closed tier, assignment guard),
+    `MembershipTierMigrationTest`, `MembershipTierTermTest`; client `MembershipTiersScreenDomTest`,
+    `MembershipTierLabelsTest`, `MembershipTierRosterAndLinkDomTest`, sidebar tests. About 30 server fixtures that insert
+    tiers directly now set `name_key` (their names repeat across tests, so the key is the id).
+  - Not done: search/sort on the list (a club has a handful of tiers), a rendered diff in the audit screen, a Java migration
+    instead of the in-place V1 edit, the per-tier contribution history.
 - **V1.9.16 — Searchable person select and name filter for people lists (client only).** Picking a member
   from a native dropdown is unusable with hundreds of members; now you can type.
   - **`SearchableSelect`** (ARIA combobox, a `Text` control, so it runs through the normal form grammar as

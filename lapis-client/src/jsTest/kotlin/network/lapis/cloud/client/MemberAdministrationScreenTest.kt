@@ -346,7 +346,7 @@ class MemberAdministrationScreenTest {
     fun statusChangeConsequence_toActiveWithoutAccount_warnsNoLoginAndNoContribution() {
         val text = statusChangeConsequence(MemberStatus.DONOR, MemberStatus.ACTIVE, hasAccount = false)
         assertTrue(text.contains("kein Login-Konto"))
-        assertTrue(text.contains("Beitragstarif"))
+        assertTrue(text.contains("Mitgliedschaftsstufe"))
     }
 
     @Test

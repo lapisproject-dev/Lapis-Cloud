@@ -1262,10 +1262,6 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:541
-msgid "%1: %2 (%3, %4)"
-msgstr "%1: %2 (%3, %4)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:540
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 geanonimiseerd, %3 verwijderd, %4 behouden"
@@ -1711,10 +1707,6 @@ msgstr "Alles selecteren"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:576
 msgid "Alle Beiträge"
 msgstr "Alle bijdragen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:354
-msgid "Alle Beitragssätze"
-msgstr "Alle contributietarieven"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:87
 msgid "Alle Entitätstypen"
@@ -2602,10 +2594,6 @@ msgstr "Post: %1"
 msgid "Beiträge"
 msgstr "Bijdragen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:554
-msgid "Beiträge generieren"
-msgstr "Bijdragen genereren"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:790
 msgid "Beitrags-Boost"
 msgstr "Berichtboost"
@@ -2633,15 +2621,6 @@ msgstr "Bijdragefactuur %1–%2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:654
 msgid "Beitragsrechnung per Post versenden"
 msgstr "Bijdragefactuur per post versturen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:545
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:347
-msgid "Beitragssatz"
-msgstr "Bijdragetarief"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:529
-msgid "Beitragssätze und Beitragsgenerierung"
-msgstr "Bijdragetarieven en bijdragegeneratie"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:87
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:65
@@ -3035,12 +3014,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:745
 msgid "Bitte bei \"Vertreten\" angeben, durch wen."
 msgstr "Geef bij \"Vertegenwoordigd\" aan door wie."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:561
-msgid ""
-"Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
-msgstr ""
-"Geef het bijdragetarief en een geldige begin-/einddatum (JJJJ-MM-DD) op."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:116
 msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
@@ -5845,10 +5818,6 @@ msgstr "Geen aanwezigheid geregistreerd."
 msgid "Keine Beiträge vorhanden."
 msgstr "Geen contributies aanwezig."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:536
-msgid "Keine Beitragssätze vorhanden."
-msgstr "Geen contributietarieven aanwezig."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:707
 msgid "Keine berechtigten Mitglieder gefunden."
@@ -7613,14 +7582,6 @@ msgstr "Peg: eenheden van het ankeractief per LTR"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:508
 msgid "Per Post versenden"
 msgstr "Per post verzenden"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:546
-msgid "Periodenbeginn (JJJJ-MM-TT)"
-msgstr "Periodebegin (JJJJ-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:547
-msgid "Periodenende (JJJJ-MM-TT)"
-msgstr "Periode-einde (JJJJ-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4851
 msgid "Person (nur bei \"Einzelne Person\")"
@@ -13382,60 +13343,12 @@ msgstr "Rol wijzigen"
 msgid "Rolle geändert."
 msgstr "Rol gewijzigd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:49
-msgid "Beitragstarif"
-msgstr "Contributietarief"
-
 msgid "Ab der nächsten Beitragserzeugung entsteht für dieses Mitglied eine Forderung. Bereits erzeugte Beiträge werden nicht rückwirkend berührt."
 msgstr "Vanaf de volgende contributiegeneratie ontstaat er voor dit lid een vordering. Reeds gegenereerde contributies worden niet met terugwerkende kracht aangepast."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:285
-msgid "Tarif"
-msgstr "Tarief"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
-msgid "— beitragsfrei / kein Tarif —"
-msgstr "— contributievrij / geen tarief —"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:841
-msgid "Tarif speichern"
-msgstr "Tarief opslaan"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:850
-msgid "Beitragstarif gespeichert."
-msgstr "Contributietarief opgeslagen."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:863
-msgid "Aktueller Tarif: %1"
-msgstr "Huidig tarief: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
 msgid "beitragsfrei"
 msgstr "contributievrij"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:866
-msgid "Neuer Tarif"
-msgstr "Nieuw tarief"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:869
-msgid "Bitte einen Tarif auswählen."
-msgstr "Selecteer een tarief."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:880
-msgid "Tarif zuweisen"
-msgstr "Tarief toewijzen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
-msgid "Beitragstarif zugewiesen."
-msgstr "Contributietarief toegewezen."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:495
-msgid "Tarif entfernen"
-msgstr "Tarief verwijderen"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:906
-msgid "Beitragstarif entfernt."
-msgstr "Contributietarief verwijderd."
 
 msgid "Legt für dieses Mitglied ein Login-Konto an. Das vorläufige Passwort wird NICHT per E-Mail versendet -- geben Sie es der Person persönlich weiter; sie kann es danach selbst ändern."
 msgstr "Maakt een inlogaccount aan voor dit lid. Het tijdelijke wachtwoord wordt NIET per e-mail verzonden -- geef het persoonlijk aan de betrokkene door; die kan het daarna zelf wijzigen."
@@ -13484,9 +13397,6 @@ msgstr "Alle sessies worden onmiddellijk beëindigd, openstaande orgaanlidmaatsc
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
 msgid "Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."
 msgstr "Inloggen wordt geblokkeerd. Geen contributie, geen bestuursrechten."
-
-msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordneten Beitragstarif entstehen außerdem keine Beiträge."
-msgstr "Dit lid heeft geen inlogaccount -- een statuswijziging maakt er geen aan. Zonder toegewezen contributietarief ontstaan er ook geen contributies."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1259
 msgid "Status wird von %1 auf %2 geändert."
@@ -13895,10 +13805,6 @@ msgstr "Kostenplaats zoeken (code of naam)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:522
 msgid "Lauf abbrechen"
 msgstr "Run afbreken"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:345
-msgid "Leer = alle Beitragssätze."
-msgstr "Leeg = alle bijdragetarieven."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:517
 msgid "Letzter Lauf"
@@ -14997,16 +14903,8 @@ msgid "Aus Familie lösen"
 msgstr "Uit gezin halen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "%1 aus %2 lösen? Es ist danach kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin einen Tarif zuweist."
-msgstr "%1 uit %2 halen? Daarna is geen bijdragetarief toegewezen -- de bijdrageplicht ontstaat pas wanneer een penningmeester/beheerder een tarief toewijst."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Lösen"
 msgstr "Losmaken"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "Aus der Familie gelöst. Es ist noch kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister einen Tarif zuweist."
-msgstr "Uit het gezin gehaald. Er is nog geen bijdragetarief toegewezen -- de bijdrageplicht ontstaat pas wanneer de penningmeester een tarief toewijst."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Familie"
@@ -17144,3 +17042,144 @@ msgstr "Tekstversie tonen"
 
 msgid "Textversion ausblenden"
 msgstr "Tekstversie verbergen"
+
+msgid "Mitgliedschaftsstufen"
+msgstr "Lidmaatschapsniveaus"
+
+msgid "Mitgliedschaftsstufe"
+msgstr "Lidmaatschapsniveau"
+
+msgid "Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."
+msgstr "Bijdrage, interval en betalingstermijn per niveau. Een niveau wordt niet verwijderd, maar gesloten."
+
+msgid "Mitgliedschaftsstufe anlegen"
+msgstr "Lidmaatschapsniveau aanmaken"
+
+msgid "Mitgliedschaftsstufe bearbeiten"
+msgstr "Lidmaatschapsniveau bewerken"
+
+msgid "Noch keine Mitgliedschaftsstufe angelegt."
+msgstr "Er is nog geen lidmaatschapsniveau aangemaakt."
+
+msgid "Aktive Mitglieder ohne Mitgliedschaftsstufe: %1. Für sie wird bei der Beitragserzeugung keine Rechnung erstellt."
+msgstr "Actieve leden zonder lidmaatschapsniveau: %1. Voor hen wordt bij het genereren van bijdragen geen factuur aangemaakt."
+
+msgid "Zahlungsziel (Tage)"
+msgstr "Betalingstermijn (dagen)"
+
+msgid "Aktive Mitglieder"
+msgstr "Actieve leden"
+
+msgid "Monatlich"
+msgstr "Maandelijks"
+
+msgid "Vierteljährlich"
+msgstr "Driemaandelijks"
+
+msgid "Jährlich"
+msgstr "Jaarlijks"
+
+msgid "Wählbar"
+msgstr "Selecteerbaar"
+
+msgid "Beiträge erzeugen"
+msgstr "Bijdragen genereren"
+
+msgid "Das Intervall ist gesperrt, solange aktive Mitglieder zugeordnet sind (%1). Legen Sie stattdessen eine neue Stufe an."
+msgstr "Het interval is vergrendeld zolang er actieve leden aan zijn toegewezen (%1). Maak in plaats daarvan een nieuw niveau aan."
+
+msgid "Tage bis zur Fälligkeit, gerechnet ab Periodenbeginn."
+msgstr "Dagen tot de vervaldatum, gerekend vanaf het begin van de periode."
+
+msgid "Für neue Zuordnungen wählbar"
+msgstr "Selecteerbaar voor nieuwe toewijzingen"
+
+msgid "Geschlossene Stufen bleiben für bestehende Mitglieder gültig und erzeugen weiter Beiträge."
+msgstr "Gesloten niveaus blijven geldig voor bestaande leden en blijven bijdragen genereren."
+
+msgid "Bei einem Betrag von 0 werden keine Beiträge erzeugt."
+msgstr "Bij een bedrag van 0 worden geen bijdragen gegenereerd."
+
+msgid "Die Änderung gilt für künftig erzeugte Beiträge von %1 aktiven Mitgliedern. Bereits erzeugte Beiträge bleiben unverändert."
+msgstr "De wijziging geldt voor bijdragen die in de toekomst worden gegenereerd voor %1 actieve leden. Reeds gegenereerde bijdragen blijven ongewijzigd."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde angelegt."
+msgstr "Lidmaatschapsniveau \"%1\" is aangemaakt."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde gespeichert."
+msgstr "Lidmaatschapsniveau \"%1\" is opgeslagen."
+
+msgid "Eine Mitgliedschaftsstufe mit diesem Namen existiert bereits."
+msgstr "Er bestaat al een lidmaatschapsniveau met deze naam."
+
+msgid "Das Intervall kann nicht geändert werden, solange aktive Mitglieder zugeordnet sind. Legen Sie stattdessen eine neue Stufe an."
+msgstr "Het interval kan niet worden gewijzigd zolang er actieve leden aan zijn toegewezen. Maak in plaats daarvan een nieuw niveau aan."
+
+msgid "Diese Mitgliedschaftsstufe ist geschlossen und kann nicht mehr zugewiesen werden."
+msgstr "Dit lidmaatschapsniveau is gesloten en kan niet meer worden toegewezen."
+
+msgid "Die Mitgliedschaftsstufe konnte nicht gespeichert werden."
+msgstr "Het lidmaatschapsniveau kon niet worden opgeslagen."
+
+msgid "Beiträge erzeugen: %1"
+msgstr "Bijdragen genereren: %1"
+
+msgid "Erzeugt für alle aktiven Mitglieder dieser Stufe eine Beitragsforderung für den Zeitraum. Bereits vorhandene Forderungen werden übersprungen."
+msgstr "Maakt voor de periode een bijdragevordering aan voor elk actief lid van dit niveau. Reeds bestaande vorderingen worden overgeslagen."
+
+msgid "Die Beiträge konnten nicht erzeugt werden."
+msgstr "De bijdragen konden niet worden gegenereerd."
+
+msgid "Der Betrag darf nicht negativ sein."
+msgstr "Het bedrag mag niet negatief zijn."
+
+msgid "Mitgliedschaftsstufen verwalten"
+msgstr "Lidmaatschapsniveaus beheren"
+
+msgid "%1 (geschlossen)"
+msgstr "%1 (gesloten)"
+
+msgid "— beitragsfrei / keine Mitgliedschaftsstufe —"
+msgstr "— bijdragevrij / geen lidmaatschapsniveau —"
+
+msgid "Mitgliedschaftsstufe speichern"
+msgstr "Lidmaatschapsniveau opslaan"
+
+msgid "Mitgliedschaftsstufe gespeichert."
+msgstr "Lidmaatschapsniveau opgeslagen."
+
+msgid "Aktuelle Mitgliedschaftsstufe: %1"
+msgstr "Huidig lidmaatschapsniveau: %1"
+
+msgid "Neue Mitgliedschaftsstufe"
+msgstr "Nieuw lidmaatschapsniveau"
+
+msgid "Bitte eine Mitgliedschaftsstufe auswählen."
+msgstr "Selecteer een lidmaatschapsniveau."
+
+msgid "Mitgliedschaftsstufe zuweisen"
+msgstr "Lidmaatschapsniveau toewijzen"
+
+msgid "Mitgliedschaftsstufe zugewiesen."
+msgstr "Lidmaatschapsniveau toegewezen."
+
+msgid "Mitgliedschaftsstufe entfernen"
+msgstr "Lidmaatschapsniveau verwijderen"
+
+msgid "Mitgliedschaftsstufe entfernt."
+msgstr "Lidmaatschapsniveau verwijderd."
+
+msgid "Leer = alle Mitgliedschaftsstufen."
+msgstr "Leeg = alle lidmaatschapsniveaus."
+
+msgid "Alle Mitgliedschaftsstufen"
+msgstr "Alle lidmaatschapsniveaus"
+
+msgid "%1 aus %2 lösen? Es ist danach keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin eine Mitgliedschaftsstufe zuweist."
+msgstr "%1 uit %2 halen? Daarna is geen lidmaatschapsniveau toegewezen -- de bijdrageplicht ontstaat pas wanneer een penningmeester/beheerder een lidmaatschapsniveau toewijst."
+
+msgid "Aus der Familie gelöst. Es ist noch keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister eine Mitgliedschaftsstufe zuweist."
+msgstr "Uit het gezin gehaald. Er is nog geen lidmaatschapsniveau toegewezen -- de bijdrageplicht ontstaat pas wanneer de penningmeester een lidmaatschapsniveau toewijst."
+
+msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
+msgstr "Dit lid heeft geen inlogaccount -- een statuswijziging maakt er geen aan. Zonder toegewezen lidmaatschapsniveau ontstaan er ook geen bijdragen."

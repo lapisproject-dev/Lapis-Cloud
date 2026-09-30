@@ -98,6 +98,62 @@ data class MembershipTierInput(
     val paymentTermDays: Int = 14,
 )
 
+/**
+ * Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- the read model of the tier administration
+ * screen (`IContributionService.listMembershipTierOverview`, TREASURER/ADMIN only).
+ *
+ * [memberCounts] maps a tier id to the number of **ACTIVE** members currently assigned to it (a tier
+ * without any active member has no entry at all -- read it with `getOrElse(id) { 0 }`).
+ * [activeMembersWithoutTier] counts ACTIVE members with `membership_tier_id IS NULL`: they are never
+ * invoiced by `generateContributionsForPeriod`, which is exactly what the screen's hint is for.
+ */
+@Serializable
+data class MembershipTierOverviewDto(
+    val tiers: List<MembershipTierDto>,
+    val memberCounts: Map<String, Int>,
+    val activeMembersWithoutTier: Int,
+)
+
+/**
+ * Welle V1.9.18 -- the ONE place the membership-tier input limits live (server validation in
+ * `ContributionService` and client pre-check in `MembershipTiersScreen` both read it, so the two
+ * can never drift). Amounts are compared in `Decimal` terms by each side (`commonMain` has no
+ * `BigDecimal`), hence the textual/`Double` constants.
+ */
+object MembershipTierRules {
+    const val NAME_MAX_LENGTH = 100
+    const val DESCRIPTION_MAX_LENGTH = 1000
+    const val MAX_PAYMENT_TERM_DAYS = 365
+    const val MAX_AMOUNT_SCALE = 2
+
+    /** Upper bound of [MembershipTierInput.contributionAmount], as text (server parses it into a `BigDecimal`). */
+    const val MAX_CONTRIBUTION_AMOUNT_TEXT = "100000.00"
+
+    /** The same bound as a `Double`, for the client's pre-check. */
+    const val MAX_CONTRIBUTION_AMOUNT = 100_000.0
+
+    /** Trims and collapses inner whitespace runs to a single space. */
+    fun normalizeName(raw: String): String = raw.trim().replace(Regex("\\s+"), " ")
+
+    /**
+     * H2 cannot index an expression (`lower(name)`) -- this column-level key is what
+     * `uq_membership_tier_name_key` enforces uniqueness on. `Locale.ROOT`-equivalent: Kotlin's
+     * `lowercase()` has no platform-default-locale dependency on JVM or JS.
+     */
+    fun nameKey(normalized: String): String = normalized.lowercase()
+
+    /**
+     * Length and content check for an already [normalizeName]d name. The [nameKey] length check
+     * guards against a `lowercase()` expansion (U+0130 lowercases to two characters) overflowing
+     * the `name_key` column -- same reasoning as `RegionalChapterRules.isValidName`.
+     */
+    fun isValidName(normalized: String): Boolean =
+        normalized.isNotEmpty() &&
+            normalized.length <= NAME_MAX_LENGTH &&
+            normalized.none { it.isISOControl() } &&
+            nameKey(normalized).length <= NAME_MAX_LENGTH
+}
+
 @Serializable
 data class ContributionDto(
     val id: String,

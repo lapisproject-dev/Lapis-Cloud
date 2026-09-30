@@ -1259,10 +1259,6 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:541
-msgid "%1: %2 (%3, %4)"
-msgstr "%1: %2 (%3, %4)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:540
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 zanonimizowano, %3 usunięto, %4 zachowano"
@@ -1707,10 +1703,6 @@ msgstr "Zaznacz wszystkie"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:576
 msgid "Alle Beiträge"
 msgstr "Wszystkie wpisy"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:354
-msgid "Alle Beitragssätze"
-msgstr "Wszystkie stawki składek"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:87
 msgid "Alle Entitätstypen"
@@ -2600,10 +2592,6 @@ msgstr "Post: %1"
 msgid "Beiträge"
 msgstr "Składki"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:554
-msgid "Beiträge generieren"
-msgstr "Generuj składki"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:790
 msgid "Beitrags-Boost"
 msgstr "Podbicie wpisu"
@@ -2631,15 +2619,6 @@ msgstr "Rachunek składkowy %1–%2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:654
 msgid "Beitragsrechnung per Post versenden"
 msgstr "Wyślij rachunek składkowy pocztą"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:545
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:347
-msgid "Beitragssatz"
-msgstr "Stawka składki"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:529
-msgid "Beitragssätze und Beitragsgenerierung"
-msgstr "Stawki składek i generowanie składek"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:87
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:65
@@ -3034,12 +3013,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:745
 msgid "Bitte bei \"Vertreten\" angeben, durch wen."
 msgstr "Przy \"Reprezentowany\" podaj, przez kogo."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:561
-msgid ""
-"Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
-msgstr ""
-"Podaj stawkę składki oraz prawidłową datę początkową/końcową (RRRR-MM-DD)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:116
 msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
@@ -5834,10 +5807,6 @@ msgstr "Nie zarejestrowano obecności."
 msgid "Keine Beiträge vorhanden."
 msgstr "Brak składek."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:536
-msgid "Keine Beitragssätze vorhanden."
-msgstr "Brak stawek składek."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:707
 msgid "Keine berechtigten Mitglieder gefunden."
@@ -7608,14 +7577,6 @@ msgstr "Peg: jednostki aktywa referencyjnego na LTR"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:508
 msgid "Per Post versenden"
 msgstr "Wyślij pocztą"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:546
-msgid "Periodenbeginn (JJJJ-MM-TT)"
-msgstr "Początek okresu (RRRR-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:547
-msgid "Periodenende (JJJJ-MM-TT)"
-msgstr "Koniec okresu (RRRR-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4851
 msgid "Person (nur bei \"Einzelne Person\")"
@@ -13380,60 +13341,12 @@ msgstr "Zmień rolę"
 msgid "Rolle geändert."
 msgstr "Rola zmieniona."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:49
-msgid "Beitragstarif"
-msgstr "Taryfa składek"
-
 msgid "Ab der nächsten Beitragserzeugung entsteht für dieses Mitglied eine Forderung. Bereits erzeugte Beiträge werden nicht rückwirkend berührt."
 msgstr "Od następnego naliczania składek dla tego członka powstanie należność. Już naliczone składki nie są zmieniane z mocą wsteczną."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:285
-msgid "Tarif"
-msgstr "Taryfa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
-msgid "— beitragsfrei / kein Tarif —"
-msgstr "— bez składek / brak taryfy —"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:841
-msgid "Tarif speichern"
-msgstr "Zapisz taryfę"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:850
-msgid "Beitragstarif gespeichert."
-msgstr "Taryfa składek zapisana."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:863
-msgid "Aktueller Tarif: %1"
-msgstr "Obecna taryfa: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
 msgid "beitragsfrei"
 msgstr "bez składek"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:866
-msgid "Neuer Tarif"
-msgstr "Nowa taryfa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:869
-msgid "Bitte einen Tarif auswählen."
-msgstr "Wybierz taryfę."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:880
-msgid "Tarif zuweisen"
-msgstr "Przypisz taryfę"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
-msgid "Beitragstarif zugewiesen."
-msgstr "Taryfa składek przypisana."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:495
-msgid "Tarif entfernen"
-msgstr "Usuń taryfę"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:906
-msgid "Beitragstarif entfernt."
-msgstr "Taryfa składek usunięta."
 
 msgid "Legt für dieses Mitglied ein Login-Konto an. Das vorläufige Passwort wird NICHT per E-Mail versendet -- geben Sie es der Person persönlich weiter; sie kann es danach selbst ändern."
 msgstr "Tworzy konto logowania dla tego członka. Hasło tymczasowe NIE jest wysyłane e-mailem -- przekaż je osobiście; osoba ta może je potem sama zmienić."
@@ -13482,9 +13395,6 @@ msgstr "Wszystkie sesje zostają natychmiast zakończone, otwarte członkostwa w
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
 msgid "Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."
 msgstr "Logowanie zostaje zablokowane. Brak składek, brak uprawnień w zakresie zarządzania."
-
-msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordneten Beitragstarif entstehen außerdem keine Beiträge."
-msgstr "Ten członek nie ma konta logowania -- zmiana statusu go nie tworzy. Bez przypisanej taryfy składek nie powstają też żadne składki."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1259
 msgid "Status wird von %1 auf %2 geändert."
@@ -13893,10 +13803,6 @@ msgstr "Szukaj miejsca powstawania kosztów (kod lub nazwa)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:522
 msgid "Lauf abbrechen"
 msgstr "Przerwij przebieg"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:345
-msgid "Leer = alle Beitragssätze."
-msgstr "Puste = wszystkie stawki składek."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:517
 msgid "Letzter Lauf"
@@ -14995,16 +14901,8 @@ msgid "Aus Familie lösen"
 msgstr "Wyłącz z rodziny"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "%1 aus %2 lösen? Es ist danach kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin einen Tarif zuweist."
-msgstr "Wyłączyć %1 z %2? Potem nie będzie przypisana żadna taryfa składki -- obowiązek płacenia składek powstanie dopiero po przypisaniu taryfy przez skarbnika/administratora."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Lösen"
 msgstr "Wyłącz"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "Aus der Familie gelöst. Es ist noch kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister einen Tarif zuweist."
-msgstr "Wyłączono z rodziny. Nie przypisano jeszcze taryfy składki -- obowiązek płacenia składek powstanie dopiero po przypisaniu taryfy przez skarbnika."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Familie"
@@ -17143,3 +17041,144 @@ msgstr "Pokaż wersję tekstową"
 
 msgid "Textversion ausblenden"
 msgstr "Ukryj wersję tekstową"
+
+msgid "Mitgliedschaftsstufen"
+msgstr "Poziomy członkostwa"
+
+msgid "Mitgliedschaftsstufe"
+msgstr "Poziom członkostwa"
+
+msgid "Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."
+msgstr "Składka, interwał i termin płatności dla każdego poziomu. Poziom nie jest usuwany, lecz zamykany."
+
+msgid "Mitgliedschaftsstufe anlegen"
+msgstr "Utwórz poziom członkostwa"
+
+msgid "Mitgliedschaftsstufe bearbeiten"
+msgstr "Edytuj poziom członkostwa"
+
+msgid "Noch keine Mitgliedschaftsstufe angelegt."
+msgstr "Nie utworzono jeszcze żadnego poziomu członkostwa."
+
+msgid "Aktive Mitglieder ohne Mitgliedschaftsstufe: %1. Für sie wird bei der Beitragserzeugung keine Rechnung erstellt."
+msgstr "Aktywni członkowie bez poziomu członkostwa: %1. Przy generowaniu składek nie zostanie dla nich wystawiona faktura."
+
+msgid "Zahlungsziel (Tage)"
+msgstr "Termin płatności (dni)"
+
+msgid "Aktive Mitglieder"
+msgstr "Aktywni członkowie"
+
+msgid "Monatlich"
+msgstr "Miesięcznie"
+
+msgid "Vierteljährlich"
+msgstr "Kwartalnie"
+
+msgid "Jährlich"
+msgstr "Rocznie"
+
+msgid "Wählbar"
+msgstr "Do wyboru"
+
+msgid "Beiträge erzeugen"
+msgstr "Generuj składki"
+
+msgid "Das Intervall ist gesperrt, solange aktive Mitglieder zugeordnet sind (%1). Legen Sie stattdessen eine neue Stufe an."
+msgstr "Interwał jest zablokowany, dopóki przypisani są aktywni członkowie (%1). Utwórz zamiast tego nowy poziom."
+
+msgid "Tage bis zur Fälligkeit, gerechnet ab Periodenbeginn."
+msgstr "Liczba dni do terminu płatności, licząc od początku okresu."
+
+msgid "Für neue Zuordnungen wählbar"
+msgstr "Dostępny dla nowych przypisań"
+
+msgid "Geschlossene Stufen bleiben für bestehende Mitglieder gültig und erzeugen weiter Beiträge."
+msgstr "Zamknięte poziomy pozostają ważne dla istniejących członków i nadal generują składki."
+
+msgid "Bei einem Betrag von 0 werden keine Beiträge erzeugt."
+msgstr "Przy kwocie 0 składki nie są generowane."
+
+msgid "Die Änderung gilt für künftig erzeugte Beiträge von %1 aktiven Mitgliedern. Bereits erzeugte Beiträge bleiben unverändert."
+msgstr "Zmiana dotyczy składek generowanych w przyszłości dla %1 aktywnych członków. Już wygenerowane składki pozostają bez zmian."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde angelegt."
+msgstr "Utworzono poziom członkostwa \"%1\"."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde gespeichert."
+msgstr "Zapisano poziom członkostwa \"%1\"."
+
+msgid "Eine Mitgliedschaftsstufe mit diesem Namen existiert bereits."
+msgstr "Poziom członkostwa o tej nazwie już istnieje."
+
+msgid "Das Intervall kann nicht geändert werden, solange aktive Mitglieder zugeordnet sind. Legen Sie stattdessen eine neue Stufe an."
+msgstr "Interwału nie można zmienić, dopóki przypisani są aktywni członkowie. Utwórz zamiast tego nowy poziom."
+
+msgid "Diese Mitgliedschaftsstufe ist geschlossen und kann nicht mehr zugewiesen werden."
+msgstr "Ten poziom członkostwa jest zamknięty i nie można go już przypisać."
+
+msgid "Die Mitgliedschaftsstufe konnte nicht gespeichert werden."
+msgstr "Nie udało się zapisać poziomu członkostwa."
+
+msgid "Beiträge erzeugen: %1"
+msgstr "Generuj składki: %1"
+
+msgid "Erzeugt für alle aktiven Mitglieder dieser Stufe eine Beitragsforderung für den Zeitraum. Bereits vorhandene Forderungen werden übersprungen."
+msgstr "Tworzy należność z tytułu składki za dany okres dla każdego aktywnego członka tego poziomu. Istniejące już należności są pomijane."
+
+msgid "Die Beiträge konnten nicht erzeugt werden."
+msgstr "Nie udało się wygenerować składek."
+
+msgid "Der Betrag darf nicht negativ sein."
+msgstr "Kwota nie może być ujemna."
+
+msgid "Mitgliedschaftsstufen verwalten"
+msgstr "Zarządzaj poziomami członkostwa"
+
+msgid "%1 (geschlossen)"
+msgstr "%1 (zamknięty)"
+
+msgid "— beitragsfrei / keine Mitgliedschaftsstufe —"
+msgstr "— bez składki / brak poziomu członkostwa —"
+
+msgid "Mitgliedschaftsstufe speichern"
+msgstr "Zapisz poziom członkostwa"
+
+msgid "Mitgliedschaftsstufe gespeichert."
+msgstr "Poziom członkostwa zapisany."
+
+msgid "Aktuelle Mitgliedschaftsstufe: %1"
+msgstr "Bieżący poziom członkostwa: %1"
+
+msgid "Neue Mitgliedschaftsstufe"
+msgstr "Nowy poziom członkostwa"
+
+msgid "Bitte eine Mitgliedschaftsstufe auswählen."
+msgstr "Wybierz poziom członkostwa."
+
+msgid "Mitgliedschaftsstufe zuweisen"
+msgstr "Przypisz poziom członkostwa"
+
+msgid "Mitgliedschaftsstufe zugewiesen."
+msgstr "Poziom członkostwa przypisany."
+
+msgid "Mitgliedschaftsstufe entfernen"
+msgstr "Usuń poziom członkostwa"
+
+msgid "Mitgliedschaftsstufe entfernt."
+msgstr "Poziom członkostwa usunięty."
+
+msgid "Leer = alle Mitgliedschaftsstufen."
+msgstr "Puste = wszystkie poziomy członkostwa."
+
+msgid "Alle Mitgliedschaftsstufen"
+msgstr "Wszystkie poziomy członkostwa"
+
+msgid "%1 aus %2 lösen? Es ist danach keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin eine Mitgliedschaftsstufe zuweist."
+msgstr "Wyłączyć %1 z %2? Potem nie będzie przypisany żaden poziom członkostwa -- obowiązek płacenia składek powstanie dopiero po przypisaniu poziomu członkostwa przez skarbnika/administratora."
+
+msgid "Aus der Familie gelöst. Es ist noch keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister eine Mitgliedschaftsstufe zuweist."
+msgstr "Wyłączono z rodziny. Nie przypisano jeszcze poziomu członkostwa -- obowiązek płacenia składek powstanie dopiero po przypisaniu poziomu członkostwa przez skarbnika."
+
+msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
+msgstr "Ten członek nie ma konta logowania -- zmiana statusu go nie tworzy. Bez przypisanego poziomu członkostwa nie powstają też żadne składki."

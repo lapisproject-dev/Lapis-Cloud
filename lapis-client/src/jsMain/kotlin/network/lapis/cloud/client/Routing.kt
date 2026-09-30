@@ -533,6 +533,17 @@ object Routes {
     const val CONTRIBUTION_RELIEF = "/contribution-relief"
 
     /**
+     * Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- TREASURER/ADMIN on the route level, verified
+     * against `ContributionService.kt`'s `TREASURY_ROLES`, which `createMembershipTier`/`updateMembershipTier`/
+     * `listMembershipTierOverview`/`generateContributionsForPeriod` all gate on. **Narrower than its FINANCE
+     * neighbours** ([LEDGER]/[SEPA_MANDATES]/[DUNNING_CASES]/[PAYMENT_TRANSACTIONS]/[BANK_IMPORT] admit BOARD
+     * too) -- BOARD neither maintains tiers nor may see the per-tier member counts; a copy-paste from a
+     * neighbouring route would take over the wrong, too wide gate (same trap as [CONTRIBUTION_RELIEF], just in
+     * the other direction).
+     */
+    const val MEMBERSHIP_TIERS = "/membership-tiers"
+
+    /**
      * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" -- Selbstbedienung,
      * `requireAuth` (jedes authentifizierte Mitglied). "Vorstand und Funktionsträger" ist der
      * reale Nutzungsfall, KEINE technische Schranke -- jedes Mitglied kann für sich selbst einen
@@ -676,7 +687,7 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.MEMBERS) {
         // Welle V1.4.4.4 review fix (MAJOR finding): TREASURER added alongside BOARD/ADMIN so a
-        // Schatzmeister can reach the roster's "Beitragstarif" section (assign a real tier --
+        // Schatzmeister can reach the roster's "Mitgliedschaftsstufe" section (assign a real tier --
         // `MemberService.updateMemberMembershipTier` already requires TREASURER/ADMIN for that
         // action). `renderMemberAdministrationScreen` itself hides the two BOARD/ADMIN-exclusive
         // sections (pending applications, direct member creation) from a TREASURER caller -- see
@@ -988,6 +999,12 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.BANK_ACCOUNTS) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.BANK_ACCOUNTS, ::renderBankAccountsScreen)
+        }
+    }
+    routing.kvOn(Routes.MEMBERSHIP_TIERS) {
+        // TREASURER/ADMIN only -- NOT the TREASURER/BOARD/ADMIN of the neighbouring FINANCE routes, see Routes.MEMBERSHIP_TIERS KDoc.
+        requireRole(routing, AccountRole.TREASURER, AccountRole.ADMIN) {
+            show(Routes.MEMBERSHIP_TIERS, ::renderMembershipTiersScreen)
         }
     }
     routing.kvOn(Routes.CONTRIBUTION_RELIEF) {

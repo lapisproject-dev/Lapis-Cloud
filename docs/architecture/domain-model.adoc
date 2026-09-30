@@ -1380,6 +1380,9 @@ side effect). Never a second implementation. Writes exactly one conditional `Aud
 audit entry (`MemberMembershipTierSnapshot`) per actual change -- a no-op call writes nothing.
 Never rewrites or deletes an already-generated `contribution` row -- an existing charge is a
 bookkeeping fact corrected only through the regular storno path.
+Since V1.9.18 it also refuses to move a member onto a *closed* tier (`active = false`) -- see
+xref:membership-tiers.adoc[membership-tiers.adoc] for the tier administration (validation, closed-tier rule, interval lock,
+zero-amount rule, `membership_tier.name_key`, migration V60, audit trail).
 
 **No feature flag**: unlike `auctionEnabled`/`dunningEnabled`/`sepaDebitEnabled` (each gated behind
 a Vorstandsbestätigung compliance disclaimer), a family link has no comparable Rechtsfolge. The

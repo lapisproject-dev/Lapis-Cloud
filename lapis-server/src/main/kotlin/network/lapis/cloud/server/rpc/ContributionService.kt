@@ -1,10 +1,13 @@
 package network.lapis.cloud.server.rpc
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -14,6 +17,8 @@ import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
@@ -22,14 +27,21 @@ import network.lapis.cloud.shared.domain.MemberContributionSummaryDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.MembershipTierInput
+import network.lapis.cloud.shared.domain.MembershipTierOverviewDto
+import network.lapis.cloud.shared.domain.MembershipTierRules
+import network.lapis.cloud.shared.domain.MembershipTierSnapshot
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IContributionService
+import network.lapis.cloud.shared.rpc.MembershipTierIntervalLockedException
+import network.lapis.cloud.shared.rpc.MembershipTierNameTakenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
@@ -37,15 +49,20 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
+
+private val logger = KotlinLogging.logger {}
 
 private val TREASURY_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -53,30 +70,73 @@ private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 class ContributionService(
     private val call: ApplicationCall,
 ) : IContributionService {
-    override suspend fun listMembershipTiers(): List<MembershipTierDto> =
-        transaction {
-            MembershipTierTable.selectAll().map { it.toMembershipTierDto() }
+    override suspend fun listMembershipTiers(): List<MembershipTierDto> {
+        // V1.9.18: any authenticated caller, no role gate (the member-facing relief form reads this list) -- but no
+        // longer reachable without a session at all, which the fee schedule never needed to be.
+        resolveCurrentMember(call)
+        return transaction {
+            MembershipTierTable.selectAll().orderBy(MembershipTierTable.name).map { it.toMembershipTierDto() }
         }
+    }
+
+    override suspend fun listMembershipTierOverview(): MembershipTierOverviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TREASURY_ROLES)
+        return transaction {
+            val tiers = MembershipTierTable.selectAll().orderBy(MembershipTierTable.name).map { it.toMembershipTierDto() }
+            // ONE aggregate query for every tier (never one count per tier). ACTIVE only: those are the
+            // members generateContributionsForPeriod invoices. The group whose tier id is NULL is the
+            // "active members without a tier" figure the screen's hint is built on.
+            val memberCount = MemberTable.id.count()
+            val counts =
+                MemberTable
+                    .select(MemberTable.membershipTierId, memberCount)
+                    .where { MemberTable.status eq MemberStatus.ACTIVE }
+                    .groupBy(MemberTable.membershipTierId)
+                    .associate { it[MemberTable.membershipTierId] to it[memberCount].toInt() }
+            MembershipTierOverviewDto(
+                tiers = tiers,
+                memberCounts = counts.entries.mapNotNull { (tierId, n) -> tierId?.let { it.toString() to n } }.toMap(),
+                activeMembersWithoutTier = counts[null] ?: 0,
+            )
+        }
+    }
 
     override suspend fun createMembershipTier(input: MembershipTierInput): MembershipTierDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
+        val normalized = normalizeTierInput(input)
+        val now = DbClock.nowLocalDateTime()
         return transaction {
+            if (nameKeyTaken(nameKey = normalized.nameKey, excludeId = null)) throw MembershipTierNameTakenException()
             val id = Uuid.random()
-            MembershipTierTable.insert {
-                it[MembershipTierTable.id] = id
-                it[name] = input.name
-                it[description] = input.description
-                it[contributionAmount] = input.contributionAmount
-                it[billingInterval] = input.billingInterval
-                it[active] = input.active
-                it[paymentTermDays] = input.paymentTermDays
+            try {
+                MembershipTierTable.insert {
+                    it[MembershipTierTable.id] = id
+                    it[name] = normalized.name
+                    it[nameKey] = normalized.nameKey
+                    it[description] = normalized.description
+                    it[contributionAmount] = normalized.amount
+                    it[billingInterval] = input.billingInterval
+                    it[active] = input.active
+                    it[paymentTermDays] = input.paymentTermDays
+                }
+            } catch (e: ExposedSQLException) {
+                throw e.asNameTakenOrSelf()
             }
-            MembershipTierTable
-                .selectAll()
-                .where { MembershipTierTable.id eq id }
-                .single()
-                .toMembershipTierDto()
+            val created = MembershipTierTable.selectAll().where { MembershipTierTable.id eq id }.single()
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBERSHIP_TIER,
+                entityId = id,
+                action = AuditAction.CREATE,
+                before = null,
+                after = Json.encodeToString(MembershipTierSnapshot.serializer(), created.toTierSnapshot()),
+                occurredAt = now,
+            )
+            logger.info { "membership tier created: actor=${current.memberId} actorRole=${current.role} tierId=$id" }
+            created.toMembershipTierDto()
         }
     }
 
@@ -87,22 +147,59 @@ class ContributionService(
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         val tierId = id.toTierUuid()
+        val normalized = normalizeTierInput(input)
+        val now = DbClock.nowLocalDateTime()
         return transaction {
-            val updated =
+            // Lock order: the tier row FIRST, then (inside AuditLogRecorder.record) the audit chain state.
+            val row =
+                MembershipTierTable
+                    .selectAll()
+                    .where { MembershipTierTable.id eq tierId }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("MembershipTier $id not found")
+            if (nameKeyTaken(nameKey = normalized.nameKey, excludeId = tierId)) throw MembershipTierNameTakenException()
+            if (row[MembershipTierTable.billingInterval] != input.billingInterval) {
+                // ACTIVE members only: they are the ones generateContributionsForPeriod invoices, so they are the
+                // ones whose already-generated periods and SEPA schedule sit on the old interval. The overview's
+                // per-tier count is the same figure, so the client's disabled select and this check agree.
+                val activeAssigned =
+                    MemberTable
+                        .selectAll()
+                        .where { (MemberTable.membershipTierId eq tierId) and (MemberTable.status eq MemberStatus.ACTIVE) }
+                        .count()
+                if (activeAssigned > 0) throw MembershipTierIntervalLockedException()
+            }
+            val before = row.toTierSnapshot()
+            try {
                 MembershipTierTable.update({ MembershipTierTable.id eq tierId }) {
-                    it[name] = input.name
-                    it[description] = input.description
-                    it[contributionAmount] = input.contributionAmount
+                    it[name] = normalized.name
+                    it[nameKey] = normalized.nameKey
+                    it[description] = normalized.description
+                    it[contributionAmount] = normalized.amount
                     it[billingInterval] = input.billingInterval
                     it[active] = input.active
                     it[paymentTermDays] = input.paymentTermDays
                 }
-            if (updated == 0) throw NotFoundException("MembershipTier $id not found")
-            MembershipTierTable
-                .selectAll()
-                .where { MembershipTierTable.id eq tierId }
-                .single()
-                .toMembershipTierDto()
+            } catch (e: ExposedSQLException) {
+                throw e.asNameTakenOrSelf()
+            }
+            val updated = MembershipTierTable.selectAll().where { MembershipTierTable.id eq tierId }.single()
+            val after = updated.toTierSnapshot()
+            // A no-op save (nothing changed) writes no audit entry -- same idiom MembershipTierAssignment.apply uses.
+            if (after != before) {
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.MEMBERSHIP_TIER,
+                    entityId = tierId,
+                    action = AuditAction.UPDATE,
+                    before = Json.encodeToString(MembershipTierSnapshot.serializer(), before),
+                    after = Json.encodeToString(MembershipTierSnapshot.serializer(), after),
+                    occurredAt = now,
+                )
+                logger.info { "membership tier updated: actor=${current.memberId} actorRole=${current.role} tierId=$tierId" }
+            }
+            updated.toMembershipTierDto()
         }
     }
 
@@ -114,12 +211,18 @@ class ContributionService(
         val current = resolveCurrentMember(call)
         current.requireRole(*TREASURY_ROLES)
         val tierId = membershipTierId.toTierUuid()
+        if (periodStart > periodEnd) throw BadRequestException("periodStart must not be after periodEnd")
         val now = DbClock.nowLocalDateTime()
         return transaction {
             val tierRow =
                 MembershipTierTable.selectAll().where { MembershipTierTable.id eq tierId }.singleOrNull()
                     ?: throw NotFoundException("MembershipTier $membershipTierId not found")
             val amountDue = tierRow[MembershipTierTable.contributionAmount]
+            // V1.9.18: a free tier (amount 0) is never invoiced -- a contribution line of 0.00 would otherwise
+            // run through dunning, SEPA and the payment-reference allocator for nothing. A CLOSED tier
+            // (active = false) deliberately keeps generating: closing only stops NEW assignments, the members
+            // already on the tier still owe their contribution.
+            if (amountDue.signum() == 0) return@transaction 0
             // V1.2.1: "Zahlungsziel" -- see 01-contribution.kuml.kts file header "Welle V1.2.1".
             // Deliberately periodStart-relative (not periodEnd/createdAt-relative): due_date is the
             // moment the OBLIGATION for this period starts running, independent of when the line
@@ -434,4 +537,87 @@ private fun ResultRow.toContributionDto(): ContributionDto =
         dueDate = this[ContributionTable.dueDate],
         paymentMethod = this[ContributionTable.paymentMethod],
         paymentReference = this[ContributionTable.paymentReference],
+    )
+
+/** The validated, normalized form of a [MembershipTierInput]: what is actually written. */
+private class NormalizedTierInput(
+    val name: String,
+    val nameKey: String,
+    val description: String,
+    val amount: BigDecimal,
+)
+
+private val MAX_TIER_AMOUNT = BigDecimal(MembershipTierRules.MAX_CONTRIBUTION_AMOUNT_TEXT)
+
+/**
+ * Server-authoritative validation of a tier input (the client pre-checks the same
+ * [MembershipTierRules], but only the server is trusted). Every failure is a [BadRequestException]:
+ * the client shows a field-level message for each of these BEFORE the call, so reaching the server
+ * with one means a stale/hand-made request. The one validation that genuinely needs a typed answer --
+ * the duplicate name -- is [MembershipTierNameTakenException], thrown by the callers.
+ */
+private fun normalizeTierInput(input: MembershipTierInput): NormalizedTierInput {
+    val name = MembershipTierRules.normalizeName(input.name)
+    if (!MembershipTierRules.isValidName(name)) {
+        throw BadRequestException("name must be 1-${MembershipTierRules.NAME_MAX_LENGTH} characters, no control characters")
+    }
+    val description = input.description.trim()
+    if (description.length > MembershipTierRules.DESCRIPTION_MAX_LENGTH) {
+        throw BadRequestException("description must be at most ${MembershipTierRules.DESCRIPTION_MAX_LENGTH} characters")
+    }
+    val amount: BigDecimal = input.contributionAmount
+    if (amount.signum() < 0 || amount > MAX_TIER_AMOUNT) {
+        throw BadRequestException("contributionAmount must be between 0 and ${MembershipTierRules.MAX_CONTRIBUTION_AMOUNT_TEXT}")
+    }
+    // Scale is enforced here, not only in the client: DECIMAL(12,2) would silently round a third decimal.
+    if (amount.stripTrailingZeros().scale() > MembershipTierRules.MAX_AMOUNT_SCALE) {
+        throw BadRequestException("contributionAmount must have at most ${MembershipTierRules.MAX_AMOUNT_SCALE} decimal places")
+    }
+    if (input.paymentTermDays !in 0..MembershipTierRules.MAX_PAYMENT_TERM_DAYS) {
+        throw BadRequestException("paymentTermDays must be between 0 and ${MembershipTierRules.MAX_PAYMENT_TERM_DAYS}")
+    }
+    return NormalizedTierInput(
+        name = name,
+        nameKey = MembershipTierRules.nameKey(name),
+        description = description,
+        amount = amount.setScale(MembershipTierRules.MAX_AMOUNT_SCALE),
+    )
+}
+
+private fun nameKeyTaken(
+    nameKey: String,
+    excludeId: Uuid?,
+): Boolean =
+    MembershipTierTable
+        .selectAll()
+        .where {
+            if (excludeId == null) {
+                MembershipTierTable.nameKey eq nameKey
+            } else {
+                (MembershipTierTable.nameKey eq nameKey) and (MembershipTierTable.id neq excludeId)
+            }
+        }.count() > 0
+
+/**
+ * Race backstop for the pre-check in [nameKeyTaken]: the UNIQUE index `uq_membership_tier_name_key` is the
+ * actual guard. Only a violation of THAT index becomes [MembershipTierNameTakenException]; any other SQL
+ * failure is rethrown unchanged, never misreported as a duplicate name (the constraint name is matched
+ * case-insensitively -- H2 reports it in upper case).
+ */
+private fun ExposedSQLException.asNameTakenOrSelf(): Exception =
+    if (message?.contains("uq_membership_tier_name_key", ignoreCase = true) == true) {
+        logger.warn { "membership tier write hit uq_membership_tier_name_key" }
+        MembershipTierNameTakenException()
+    } else {
+        this
+    }
+
+private fun ResultRow.toTierSnapshot(): MembershipTierSnapshot =
+    MembershipTierSnapshot(
+        name = this[MembershipTierTable.name],
+        description = this[MembershipTierTable.description],
+        contributionAmount = this[MembershipTierTable.contributionAmount].toPlainString(),
+        billingInterval = this[MembershipTierTable.billingInterval],
+        active = this[MembershipTierTable.active],
+        paymentTermDays = this[MembershipTierTable.paymentTermDays],
     )

@@ -118,6 +118,7 @@ class DsgvoServiceTest :
             transaction {
                 MembershipTierTable.insert {
                     it[id] = dsgvoTestTierId
+                    it[nameKey] = dsgvoTestTierId.toString()
                     it[name] = "DSGVO-Testbeitrag"
                     it[description] = "Nur fuer DsgvoServiceTest -- nie in ServiceIntegrationTest sichtbar."
                     it[contributionAmount] = BigDecimal("10.00")

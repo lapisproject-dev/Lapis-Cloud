@@ -164,6 +164,7 @@ class PostalMailServiceTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Postal-Tarif"
                     it[description] = "Testtarif"
                     it[contributionAmount] = java.math.BigDecimal("30.00")

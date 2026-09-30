@@ -140,6 +140,7 @@ class MailmergeRoutesTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Mailmerge-Tarif"
                     it[description] = "Testtarif"
                     it[contributionAmount] = BigDecimal("30.00")

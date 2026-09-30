@@ -270,8 +270,8 @@ private fun renderMajoritySection(
                 title = tr("Aus Familie lösen"),
                 message =
                     gettext(
-                        "%1 aus %2 lösen? Es ist danach kein Beitragstarif zugeordnet -- die Beitragspflicht " +
-                            "entsteht erst, wenn ein Schatzmeister/Admin einen Tarif zuweist.",
+                        "%1 aus %2 lösen? Es ist danach keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht " +
+                            "entsteht erst, wenn ein Schatzmeister/Admin eine Mitgliedschaftsstufe zuweist.",
                         entry.memberDisplayName,
                         entry.familyName,
                     ),
@@ -282,8 +282,8 @@ private fun renderMajoritySection(
                         if (result != null) {
                             notifySuccess(
                                 tr(
-                                    "Aus der Familie gelöst. Es ist noch kein Beitragstarif zugeordnet -- die " +
-                                        "Beitragspflicht entsteht erst, wenn der Schatzmeister einen Tarif zuweist.",
+                                    "Aus der Familie gelöst. Es ist noch keine Mitgliedschaftsstufe zugeordnet -- die " +
+                                        "Beitragspflicht entsteht erst, wenn der Schatzmeister eine Mitgliedschaftsstufe zuweist.",
                                 ),
                             )
                             onAction(null)
@@ -328,7 +328,9 @@ private fun familyLinkColumns(): List<DataColumn<MemberFamilyLinkDto>> =
         ),
         // Security audit W6b, round 7 (major finding 2): trusted(...) on the fallback keeps it live-translatable;
         // the DTO field itself stays a plain String and is sanitized as always.
-        textColumn(title = tr("Tarif")) { link: MemberFamilyLinkDto -> link.membershipTierName ?: trusted(tr("beitragsfrei")) },
+        textColumn(
+            title = tr("Mitgliedschaftsstufe"),
+        ) { link: MemberFamilyLinkDto -> link.membershipTierName ?: trusted(tr("beitragsfrei")) },
     )
 
 private fun openCreateFamilyDialog(onSaved: () -> Unit) {

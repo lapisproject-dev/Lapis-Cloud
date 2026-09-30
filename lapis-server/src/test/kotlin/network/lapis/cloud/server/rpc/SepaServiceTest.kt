@@ -295,6 +295,7 @@ class SepaServiceTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Sepa-Fixture Tarif ${id.toString().take(6)}"
                     it[description] = "Test-Tarif"
                     it[contributionAmount] = BigDecimal("50.00")

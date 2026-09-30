@@ -11,6 +11,7 @@ import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
+import network.lapis.cloud.shared.rpc.MembershipTierClosedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RegionalChapterInUseException
 import network.lapis.cloud.shared.rpc.RegionalChapterLimitReachedException
@@ -156,6 +157,12 @@ private suspend fun <T> handleMemberAdminFailure(e: Throwable): T? =
         }
         is MemberAlreadyHasAccountException -> {
             notifyError(tr("Dieses Mitglied hat bereits ein Login-Konto -- bitte Ansicht aktualisieren."))
+            null
+        }
+        is MembershipTierClosedException -> {
+            // Welle V1.9.18: `updateMemberMembershipTier` (roster dialog) refuses a CLOSED tier -- see
+            // MembershipTierAssignment.apply. Only the type reaches the client, so the sentence is fixed here.
+            notifyError(tr("Diese Mitgliedschaftsstufe ist geschlossen und kann nicht mehr zugewiesen werden."))
             null
         }
         is LastAdminException -> {

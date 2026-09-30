@@ -275,6 +275,7 @@ object DevSeedData {
 
             MembershipTierTable.insert {
                 it[id] = standardTierId
+                it[nameKey] = "standardbeitrag"
                 it[name] = "Standardbeitrag"
                 it[description] = "Regulaerer Mitgliedsbeitrag, monatlich."
                 it[contributionAmount] = BigDecimal("10.00")

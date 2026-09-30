@@ -77,6 +77,7 @@ class ContributionReliefAuthzTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Authz-Testtarif-$id"
                     it[description] = "Nur fuer ContributionReliefAuthzTest"
                     it[contributionAmount] = BigDecimal("100.00")

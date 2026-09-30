@@ -50,6 +50,12 @@
 // entity in `44-contribution-relief.kuml.kts`, which carries its own id-only Contribution stub
 // for `deferral_contribution_id`'s FK target. See that file's own header for the full model.
 //
+// **Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen"** adds exactly one column:
+// `membership_tier.nameKey` (NOT NULL, UNIQUE via a class-level «Index» named
+// `uq_membership_tier_name_key`) -- the case-insensitive uniqueness guard for the tier name, see the
+// attribute's own comment. Added by `V60__membership_tier_admin.sql`, which backfills and de-duplicates
+// existing rows before creating the index.
+//
 // **Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)"** adds exactly one column:
 // `contribution.paymentReference` (nullable, UNIQUE via a class-level «Index» -- «Column».unique is
 // single-column-only, but this is already single-column, the class-level form is used purely for a
@@ -123,6 +129,7 @@ classDiagram(name = "Contribution") {
 
     val membershipTier = classOf(name = "MembershipTier") {
         stereotype("Entity") { "tableName" to "membership_tier"; "kotlinObjectName" to "MembershipTierTable" }
+        stereotype("Index") { "columns" to listOf("name_key"); "unique" to true; "name" to "uq_membership_tier_name_key" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -151,6 +158,13 @@ classDiagram(name = "Contribution") {
         attribute(name = "paymentTermDays", type = "Int") {
             defaultValue = "14"
             stereotype("Column") { "columnName" to "payment_term_days" }
+        }
+        // V1.9.18 (see file header "Welle V1.9.18"). Kept in sync with `name` by
+        // `MembershipTierRules.nameKey` in `ContributionService`, never independently editable --
+        // H2 cannot index an expression (`lower(name)`), so uniqueness lives on this column
+        // (`uq_membership_tier_name_key`, created in V60, same idiom as regional_chapter.name_key).
+        attribute(name = "nameKey", type = "String") {
+            stereotype("Column") { "columnName" to "name_key"; "sqlType" to "VARCHAR(100)" }
         }
     }
 

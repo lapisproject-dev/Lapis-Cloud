@@ -1262,10 +1262,6 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:541
-msgid "%1: %2 (%3, %4)"
-msgstr "%1: %2 (%3, %4)"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:540
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 anonimizado(s), %3 eliminado(s), %4 conservado(s)"
@@ -1710,10 +1706,6 @@ msgstr "Seleccionar todo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:576
 msgid "Alle Beiträge"
-msgstr "Todas las cuotas"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:354
-msgid "Alle Beitragssätze"
 msgstr "Todas las cuotas"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:87
@@ -2608,10 +2600,6 @@ msgstr "Publicación: %1"
 msgid "Beiträge"
 msgstr "Cuotas"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:554
-msgid "Beiträge generieren"
-msgstr "Generar cuotas"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:790
 msgid "Beitrags-Boost"
 msgstr "Impulso de publicación"
@@ -2639,15 +2627,6 @@ msgstr "Factura de cuota %1–%2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:654
 msgid "Beitragsrechnung per Post versenden"
 msgstr "Enviar factura de cuota por correo postal"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:545
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:347
-msgid "Beitragssatz"
-msgstr "Tarifa de cuota"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:529
-msgid "Beitragssätze und Beitragsgenerierung"
-msgstr "Tarifas de cuota y generación de cuotas"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:87
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:65
@@ -3041,12 +3020,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:745
 msgid "Bitte bei \"Vertreten\" angeben, durch wen."
 msgstr "Indique en \"Representado por\" por quién."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:561
-msgid ""
-"Bitte Beitragssatz sowie gültiges Beginn-/Enddatum (JJJJ-MM-TT) angeben."
-msgstr ""
-"Indique la tarifa de cuota y una fecha de inicio/fin válida (AAAA-MM-DD)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:116
 msgid "Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."
@@ -5865,10 +5838,6 @@ msgstr "No se ha registrado ninguna asistencia."
 msgid "Keine Beiträge vorhanden."
 msgstr "No hay cuotas disponibles."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:536
-msgid "Keine Beitragssätze vorhanden."
-msgstr "No hay tarifas de cuotas disponibles."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:430
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:707
 msgid "Keine berechtigten Mitglieder gefunden."
@@ -7640,14 +7609,6 @@ msgstr "Anclaje: unidades del activo de referencia por LTR"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:508
 msgid "Per Post versenden"
 msgstr "Enviar por correo postal"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:546
-msgid "Periodenbeginn (JJJJ-MM-TT)"
-msgstr "Inicio del período (AAAA-MM-DD)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:547
-msgid "Periodenende (JJJJ-MM-TT)"
-msgstr "Fin del período (AAAA-MM-DD)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4851
 msgid "Person (nur bei \"Einzelne Person\")"
@@ -13405,60 +13366,12 @@ msgstr "Cambiar rol"
 msgid "Rolle geändert."
 msgstr "Rol modificado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:49
-msgid "Beitragstarif"
-msgstr "Tarifa de cuota"
-
 msgid "Ab der nächsten Beitragserzeugung entsteht für dieses Mitglied eine Forderung. Bereits erzeugte Beiträge werden nicht rückwirkend berührt."
 msgstr "A partir de la próxima generación de cuotas surge un crédito para este miembro. Las cuotas ya generadas no se modifican con carácter retroactivo."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt:285
-msgid "Tarif"
-msgstr "Tarifa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
-msgid "— beitragsfrei / kein Tarif —"
-msgstr "— exento de cuota / sin tarifa —"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:841
-msgid "Tarif speichern"
-msgstr "Guardar tarifa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:850
-msgid "Beitragstarif gespeichert."
-msgstr "Tarifa de cuota guardada."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:863
-msgid "Aktueller Tarif: %1"
-msgstr "Tarifa actual: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:828
 msgid "beitragsfrei"
 msgstr "exento de cuota"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:866
-msgid "Neuer Tarif"
-msgstr "Nueva tarifa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:869
-msgid "Bitte einen Tarif auswählen."
-msgstr "Seleccione una tarifa."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:880
-msgid "Tarif zuweisen"
-msgstr "Asignar tarifa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
-msgid "Beitragstarif zugewiesen."
-msgstr "Tarifa de cuota asignada."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:495
-msgid "Tarif entfernen"
-msgstr "Quitar tarifa"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:906
-msgid "Beitragstarif entfernt."
-msgstr "Tarifa de cuota retirada."
 
 msgid "Legt für dieses Mitglied ein Login-Konto an. Das vorläufige Passwort wird NICHT per E-Mail versendet -- geben Sie es der Person persönlich weiter; sie kann es danach selbst ändern."
 msgstr "Crea una cuenta de acceso para este miembro. La contraseña provisional NO se envía por correo electrónico -- entréguela personalmente a la persona; después podrá cambiarla ella misma."
@@ -13507,9 +13420,6 @@ msgstr "Todas las sesiones se cierran de inmediato, se terminan las pertenencias
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
 msgid "Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."
 msgstr "Se bloquea el acceso. Sin cuota ni derechos de gobernanza."
-
-msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordneten Beitragstarif entstehen außerdem keine Beiträge."
-msgstr "Este miembro no tiene cuenta de acceso -- un cambio de estado no crea ninguna. Sin una tarifa de cuota asignada tampoco se generan cuotas."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1259
 msgid "Status wird von %1 auf %2 geändert."
@@ -13918,10 +13828,6 @@ msgstr "Buscar centro de coste (código o nombre)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:522
 msgid "Lauf abbrechen"
 msgstr "Cancelar ejecución"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:345
-msgid "Leer = alle Beitragssätze."
-msgstr "Vacío = todas las tarifas de cuota."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:517
 msgid "Letzter Lauf"
@@ -15020,16 +14926,8 @@ msgid "Aus Familie lösen"
 msgstr "Separar de la familia"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "%1 aus %2 lösen? Es ist danach kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin einen Tarif zuweist."
-msgstr "¿Separar a %1 de %2? Después no tendrá ninguna tarifa de cuota asignada: la obligación de pagar cuotas solo surge cuando un tesorero o administrador asigne una tarifa."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Lösen"
 msgstr "Separar"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
-msgid "Aus der Familie gelöst. Es ist noch kein Beitragstarif zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister einen Tarif zuweist."
-msgstr "Separado de la familia. Todavía no tiene ninguna tarifa de cuota asignada: la obligación de pagar cuotas solo surge cuando el tesorero asigne una tarifa."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:1
 msgid "Familie"
@@ -17167,3 +17065,144 @@ msgstr "Mostrar versión de texto"
 
 msgid "Textversion ausblenden"
 msgstr "Ocultar versión de texto"
+
+msgid "Mitgliedschaftsstufen"
+msgstr "Niveles de membresía"
+
+msgid "Mitgliedschaftsstufe"
+msgstr "Nivel de membresía"
+
+msgid "Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."
+msgstr "Cuota, intervalo y plazo de pago por nivel. Un nivel no se elimina, se cierra."
+
+msgid "Mitgliedschaftsstufe anlegen"
+msgstr "Crear nivel de membresía"
+
+msgid "Mitgliedschaftsstufe bearbeiten"
+msgstr "Editar nivel de membresía"
+
+msgid "Noch keine Mitgliedschaftsstufe angelegt."
+msgstr "Aún no se ha creado ningún nivel de membresía."
+
+msgid "Aktive Mitglieder ohne Mitgliedschaftsstufe: %1. Für sie wird bei der Beitragserzeugung keine Rechnung erstellt."
+msgstr "Miembros activos sin nivel de membresía: %1. No se les emite ninguna factura al generar las cuotas."
+
+msgid "Zahlungsziel (Tage)"
+msgstr "Plazo de pago (días)"
+
+msgid "Aktive Mitglieder"
+msgstr "Miembros activos"
+
+msgid "Monatlich"
+msgstr "Mensual"
+
+msgid "Vierteljährlich"
+msgstr "Trimestral"
+
+msgid "Jährlich"
+msgstr "Anual"
+
+msgid "Wählbar"
+msgstr "Seleccionable"
+
+msgid "Beiträge erzeugen"
+msgstr "Generar cuotas"
+
+msgid "Das Intervall ist gesperrt, solange aktive Mitglieder zugeordnet sind (%1). Legen Sie stattdessen eine neue Stufe an."
+msgstr "El intervalo está bloqueado mientras haya miembros activos asignados (%1). Cree un nivel nuevo en su lugar."
+
+msgid "Tage bis zur Fälligkeit, gerechnet ab Periodenbeginn."
+msgstr "Días hasta el vencimiento, contados desde el inicio del periodo."
+
+msgid "Für neue Zuordnungen wählbar"
+msgstr "Seleccionable para nuevas asignaciones"
+
+msgid "Geschlossene Stufen bleiben für bestehende Mitglieder gültig und erzeugen weiter Beiträge."
+msgstr "Los niveles cerrados siguen vigentes para los miembros existentes y siguen generando cuotas."
+
+msgid "Bei einem Betrag von 0 werden keine Beiträge erzeugt."
+msgstr "Con un importe de 0 no se generan cuotas."
+
+msgid "Die Änderung gilt für künftig erzeugte Beiträge von %1 aktiven Mitgliedern. Bereits erzeugte Beiträge bleiben unverändert."
+msgstr "El cambio se aplica a las cuotas que se generen en el futuro para %1 miembros activos. Las cuotas ya generadas no se modifican."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde angelegt."
+msgstr "Se creó el nivel de membresía \"%1\"."
+
+msgid "Mitgliedschaftsstufe \"%1\" wurde gespeichert."
+msgstr "Se guardó el nivel de membresía \"%1\"."
+
+msgid "Eine Mitgliedschaftsstufe mit diesem Namen existiert bereits."
+msgstr "Ya existe un nivel de membresía con este nombre."
+
+msgid "Das Intervall kann nicht geändert werden, solange aktive Mitglieder zugeordnet sind. Legen Sie stattdessen eine neue Stufe an."
+msgstr "El intervalo no se puede cambiar mientras haya miembros activos asignados. Cree un nivel nuevo en su lugar."
+
+msgid "Diese Mitgliedschaftsstufe ist geschlossen und kann nicht mehr zugewiesen werden."
+msgstr "Este nivel de membresía está cerrado y ya no se puede asignar."
+
+msgid "Die Mitgliedschaftsstufe konnte nicht gespeichert werden."
+msgstr "No se pudo guardar el nivel de membresía."
+
+msgid "Beiträge erzeugen: %1"
+msgstr "Generar cuotas: %1"
+
+msgid "Erzeugt für alle aktiven Mitglieder dieser Stufe eine Beitragsforderung für den Zeitraum. Bereits vorhandene Forderungen werden übersprungen."
+msgstr "Crea para el periodo una cuota a cobrar por cada miembro activo de este nivel. Las ya existentes se omiten."
+
+msgid "Die Beiträge konnten nicht erzeugt werden."
+msgstr "No se pudieron generar las cuotas."
+
+msgid "Der Betrag darf nicht negativ sein."
+msgstr "El importe no puede ser negativo."
+
+msgid "Mitgliedschaftsstufen verwalten"
+msgstr "Gestionar niveles de membresía"
+
+msgid "%1 (geschlossen)"
+msgstr "%1 (cerrado)"
+
+msgid "— beitragsfrei / keine Mitgliedschaftsstufe —"
+msgstr "— sin cuota / sin nivel de membresía —"
+
+msgid "Mitgliedschaftsstufe speichern"
+msgstr "Guardar nivel de membresía"
+
+msgid "Mitgliedschaftsstufe gespeichert."
+msgstr "Nivel de membresía guardado."
+
+msgid "Aktuelle Mitgliedschaftsstufe: %1"
+msgstr "Nivel de membresía actual: %1"
+
+msgid "Neue Mitgliedschaftsstufe"
+msgstr "Nuevo nivel de membresía"
+
+msgid "Bitte eine Mitgliedschaftsstufe auswählen."
+msgstr "Seleccione un nivel de membresía."
+
+msgid "Mitgliedschaftsstufe zuweisen"
+msgstr "Asignar nivel de membresía"
+
+msgid "Mitgliedschaftsstufe zugewiesen."
+msgstr "Nivel de membresía asignado."
+
+msgid "Mitgliedschaftsstufe entfernen"
+msgstr "Quitar nivel de membresía"
+
+msgid "Mitgliedschaftsstufe entfernt."
+msgstr "Nivel de membresía quitado."
+
+msgid "Leer = alle Mitgliedschaftsstufen."
+msgstr "Vacío = todos los niveles de membresía."
+
+msgid "Alle Mitgliedschaftsstufen"
+msgstr "Todos los niveles de membresía"
+
+msgid "%1 aus %2 lösen? Es ist danach keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn ein Schatzmeister/Admin eine Mitgliedschaftsstufe zuweist."
+msgstr "¿Separar a %1 de %2? Después no tendrá ningún nivel de membresía asignado: la obligación de pagar cuotas solo surge cuando un tesorero o administrador asigne un nivel de membresía."
+
+msgid "Aus der Familie gelöst. Es ist noch keine Mitgliedschaftsstufe zugeordnet -- die Beitragspflicht entsteht erst, wenn der Schatzmeister eine Mitgliedschaftsstufe zuweist."
+msgstr "Separado de la familia. Todavía no tiene ningún nivel de membresía asignado: la obligación de pagar cuotas solo surge cuando el tesorero asigne un nivel de membresía."
+
+msgid "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete Mitgliedschaftsstufe entstehen außerdem keine Beiträge."
+msgstr "Este miembro no tiene cuenta de acceso -- un cambio de estado no crea ninguna. Sin un nivel de membresía asignado tampoco se generan cuotas."

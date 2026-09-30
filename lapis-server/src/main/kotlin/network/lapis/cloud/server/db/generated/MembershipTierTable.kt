@@ -19,6 +19,11 @@ public object MembershipTierTable : Table("membership_tier") {
     public val paymentTermDays: Column<Int> = integer("payment_term_days")
     // TODO default = "14"
 
+    // V1.9.18 -- kept in sync with `name` by MembershipTierRules.nameKey in ContributionService; H2
+    // cannot index an expression (lower(name)), so uniqueness is enforced on this separate column
+    // (uq_membership_tier_name_key, created in V60).
+    public val nameKey: Column<String> = varchar("name_key", 100).uniqueIndex()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 1 check constraint(s) declared on this entity are not

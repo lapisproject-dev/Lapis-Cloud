@@ -69,6 +69,7 @@ class ContributionServiceDeceasedFilterTest :
             transaction {
                 MembershipTierTable.insert {
                     it[MembershipTierTable.id] = id
+                    it[nameKey] = id.toString()
                     it[name] = "Deceased-Filter-Testtarif"
                     it[description] = "Nur fuer ContributionServiceDeceasedFilterTest"
                     it[contributionAmount] = BigDecimal("10.00")

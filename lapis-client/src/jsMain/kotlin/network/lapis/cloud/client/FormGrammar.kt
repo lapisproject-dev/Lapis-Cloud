@@ -324,7 +324,7 @@ class LapisForm internal constructor(
      * einen Nachkommen (W4a-Audit-Befund). Steht das Auswahlfeld in einer Flex-Zeile ([host], z. B. neben einem Knopf), gehört
      * [slotHost] auf den Container UNTER der Zeile: `.invalid-feedback` hat `width: 100%` und quetschte sonst Feld und Knopf
      * zusammen. [required] verlangt einen nicht-leeren Wert (ein `""`-Eintrag wie
-     * "— kein Tarif —" gilt als leer).
+     * "— keine Mitgliedschaftsstufe —" gilt als leer).
      */
     fun selectField(
         label: String,
