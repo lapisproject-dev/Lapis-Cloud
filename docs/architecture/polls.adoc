@@ -1,0 +1,191 @@
+= Opinion polls on an LTR basis, server (V1.9.30)
+:toc:
+
+== Purpose
+
+A poll is a *non-binding opinion poll* (Stimmungsbild) that a committee leader or the board puts to the active members. It is
+deliberately separate from the elections (`ElectionService`) and the meritocratic votes (`GovernanceService`): a poll is never a
+resolution (`PollDto.binding` is always `false`), is bound to no motion and no meeting, and moves *no LTR*. The responder's free LTR
+balance is only read and stored as a weight snapshot, so the result can be shown twice: by head count and weighted by LTR.
+
+This wave is server only (`IPollService`, `V65__polls.sql`, `PollService`). The UI follows in V1.9.31; the RPC is unused on the client
+until then. The only client change is the labelling of the new audit entity type.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Roles
+
+[cols="2,4", options="header"]
+|===
+| Action | Who
+| Create | ADMIN/BOARD, or a holder of a recording seat (`CHAIR`, `DEPUTY_CHAIR`, `GENERAL_SECRETARY`, `SECRETARY`, `MANAGING_DIRECTOR` -- the set of `COMMITTEE_RECORDING_ROLES`) in *any* active committee as of today, who is an ACTIVE member
+| Close / abort | The creator while still creator-capable, or ADMIN/BOARD. The chair of another committee may not close somebody else's poll.
+| Respond | ACTIVE members only. GUEST, FRIEND, federated guests, APPLICATION, WITHDRAWN and REJECTED are refused with `ForbiddenException` *before* the poll is looked up.
+| Read | ACTIVE members, or creator-capable callers
+|===
+
+Authorization is always checked before existence, so a refused caller cannot probe which poll ids exist. Error messages never contain
+member ids.
+
+== Lifecycle and lazy expiry
+
+[source,kuml,name="polls-lifecycle"]
+----
+stateDiagram(name = "Poll, effective status") {
+    val start = initialState()
+    val open = state(name = "OPEN")
+    val closed = state(name = "CLOSED")
+    val aborted = state(name = "ABORTED")
+
+    transition(source = start, target = open) {
+        trigger = "createPoll"
+        guard = "[creator-capable, fewer than 20 open polls]"
+    }
+    transition(source = open, target = closed) { trigger = "closePoll (manual)" }
+    transition(source = open, target = closed) {
+        trigger = "deadline passed (read-only, never written)"
+        guard = "[closes_at <= now]"
+    }
+    transition(source = open, target = aborted) { trigger = "abortPoll" }
+}
+----
+
+`poll.status` stores only the *manual* states. A poll whose deadline has passed keeps the stored status `OPEN` and is reported as
+`CLOSED` to every reader (`PollLifecycle.effectiveStatus`). It is never written back: there is no background job, no "system actor" in the
+audit log, and a read path never writes or takes the audit lock. The deadline is already in the audit entry written at creation, so the
+expiry produces no entry of its own. Every status filter, the open-poll cap and `canRespond` therefore use the *effective* status
+(`effectiveOpenPredicate` in SQL). An expired poll can neither be answered nor closed nor aborted (`ConflictException`).
+
+The deadline must lie between 15 minutes and 365 days in the future; that catches a typo with an already-past deadline and "eternal" polls.
+
+== Anonymity model
+
+[source,kuml,name="polls-model"]
+----
+classDiagram(name = "Polls -- Data model") {
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+    }
+    val poll = classOf(name = "Poll") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "question", type = "String")
+        attribute(name = "status", type = "PollStatus")
+        attribute(name = "createdBy", type = "UUID")
+        attribute(name = "closesAt", type = "LocalDateTime", isReadOnly = true)
+        attribute(name = "closedAt", type = "LocalDateTime", isReadOnly = true)
+    }
+    val option = classOf(name = "PollOption") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "position", type = "Int")
+        attribute(name = "text", type = "String")
+    }
+    val participation = classOf(name = "PollParticipation") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+    }
+    val response = classOf(name = "PollResponse") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "weightLtr", type = "BigDecimal")
+    }
+
+    association(source = poll, target = option) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "2..10"); role = "options" }
+    }
+    association(source = poll, target = participation) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "participations" }
+    }
+    association(source = poll, target = response) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "responses" }
+    }
+    association(source = option, target = response) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "chosenBy" }
+    }
+    association(source = member, target = participation) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "participations" }
+    }
+}
+----
+
+NOTE: The diagram shows *no* connection between `PollParticipation` and `PollResponse`, and none between `Member` and `PollResponse`.
+That is the design, not an omission.
+
+* `poll_participation` says *who* answered, `poll_response` says *what* was answered. The two tables share no key.
+* `poll_response` has no `member_id` and no time column; `poll_participation` has no time column. A constant time column (as the secret
+  elections use since V1.9.23) would carry no information; an omitted one is stricter and spares the question of what to put into it.
+* Both tables use random UUIDv4 ids, the application never orders responses by id, and the poll row lock (see below) means participation
+  and response of one cast are written in the same step.
+* `poll_response.weight_ltr` is the LTR balance of the responder as of the poll's creation instant (`LtrBalanceProvider.balanceAsOf(memberId, poll.created_at)`, the ledger sum with `created_at <= poll.created_at`, i.e. the balance
+  the member sees as "my balance"; staked or bound LTR is already booked off and does not count), clamped to `>= 0`, scale 2.
+* Single responses never leave the database layer. `getPollResult` reads `GROUP BY option_id` aggregates only, and the result computation
+  (`PollTally`) is a pure function over those aggregates.
+* Responses are *never* audited. The audit trail records `CREATE` / `UPDATE` (close) / `VOID` (abort) of the poll itself, with a snapshot
+  of the question, the options, the status and the two instants. No counters, no weights, no respondents.
+* The response count (`responseCount`) is `null` while a poll is open and for an aborted poll, so an observer who watches a counter cannot
+  tie a click to a participation. An aborted poll keeps its responses but never discloses them.
+
+=== Disclosure rules
+
+LTR balances are practically public (movements are public; treasurer, board and admin can read any balance). A weighted share that rests
+on one or two votes would therefore identify a person. The result is limited accordingly:
+
+[cols="2,5", options="header"]
+|===
+| Result | Disclosed only if
+| Head count | at least 5 responses (a unanimous result of 3 would reveal all three answers to anybody who knows the participants)
+| Weighted result | at least 5 responses, a positive total weight, at least 5 responses with weight > 0, *and* every option with any weighted vote has at least 3 of them
+|===
+
+The weighted result consists of *whole-percent shares* only, never absolute LTR sums, computed by the largest-remainder method on exact
+integer arithmetic (ties go to the lower option position), so the shares sum to exactly 100. If any rule fails, the weighted result is
+withheld *entirely* with a reason (`TOO_FEW_RESPONSES`, `ZERO_TOTAL_WEIGHT`, `TOO_FEW_WEIGHTED_RESPONSES`, `SMALL_WEIGHTED_GROUP`),
+never one suppressed share: a single missing share could be recomputed as "100 minus the rest". A weight of 0 counts fully in the head
+count and not at all in the weighted result. The consequence is that small polls often show no weighted result.
+
+== Locking and the open-poll cap
+
+Every transaction takes its locks in one order, so no two of them can wait for each other in a cycle:
+
+[cols="1,3,3", options="header"]
+|===
+| Step | Lock | Taken by
+| 1 | `organization_settings` row, `FOR UPDATE` | `createPoll` only -- the global mutex for the cap of 20 effectively open polls
+| 2 | `poll` row, `FOR UPDATE` | `castPollResponse`, `closePoll`, `abortPoll`
+| 3 | audit log chain | `createPoll`, `closePoll`, `abortPoll`; always the last write (`AuditLogRecorder`)
+|===
+
+* `castPollResponse` and `closePoll`/`abortPoll` exclude each other through the poll row lock; "now" is read *after* the lock, so no
+  response can land after the poll closed. Concurrent casts of one member serialise on the same lock, and the `UNIQUE (poll_id, member_id)`
+  index is the backstop behind the application-level check; an `ExposedSQLException` is translated into a `ConflictException` inside the
+  transaction.
+* The cap is counted under the settings lock, because without it two concurrent creations both read "19 open" and both insert.
+* Casting writes no ledger entry and takes no `lockForDebit`: the weight is a read-only snapshot.
+
+== Data protection
+
+`PollPersonalData` covers `poll` (`created_by`, `closed_by`) and `poll_participation` (`member_id`). The export lists the polls a member
+created, closed or aborted and the ids of the polls he took part in -- never an answer, which cannot be attributed to him. Erasure
+hard-deletes the member's participations (an erased member is not ACTIVE any more and can never answer again) and retains
+`created_by` / `closed_by` as accountability for an organisation-wide question (precedent: `ElectionPersonalData`). `poll_option` and
+`poll_response` carry no member reference and are in the `noPersonalDataAllowlist` with that reason.
+
+== Known limitations
+
+* The weight is bound to the cut-off `poll.created_at`, so LTR transferred or minted after the poll opened does not raise the recipient's
+  weight and cannot be passed around to be counted several times. Remaining caveat: LTR held at the cut-off is not locked, so a member can
+  still answer and then transfer the same LTR onward (only the answering member's weight counts; the recipient's cut-off balance does not
+  grow). Ledger entries with a back-dated `created_at` would still count.
+* Polls are limited per creator (5 open polls, 10 created per 24 hours, aborted ones count) in addition to the global cap of 20 open polls.
+* Residual risk, stated plainly: whoever can read the database or its backups (an operator or administrator with access) sees option and
+  weight per response and can try to match the weights against the public LTR ledger. The countermeasures (random ids, no time columns, no
+  member column, no ordering by id) reduce this; they do not prevent it. There is no cryptography: the separation is a table separation,
+  like the secret elections.
+* The physical insertion order (Postgres heap, WAL) may still correlate a participation with its response; the poll row lock only makes
+  the two inserts of one cast adjacent.
+* There is no participation rate: eligibility is evaluated live when a member answers, no snapshot of the entitled members is taken.
+* The concurrency tests run on H2 only; lock behaviour on Postgres is argued from the lock order, not measured.
+* No UI yet (V1.9.31).

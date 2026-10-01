@@ -557,6 +557,9 @@ fun decodeAuditSnapshot(
             // not extended for it (same posture the entries above establish) -- falls through to the raw-text
             // display, which already shows the before/after JSON of the changed tier.
             AuditEntityType.MEMBERSHIP_TIER -> null
+            // Welle V1.9.30 "Umfragen" -- PollService writes PollSnapshot (see AuditLog.kt), no client-side
+            // decode/render pair (same posture as above) -- falls through to the raw-text display.
+            AuditEntityType.POLL -> null
         }
     }.getOrNull()
 

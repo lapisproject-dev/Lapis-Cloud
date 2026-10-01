@@ -359,7 +359,32 @@ enum class AuditEntityType {
      * `VARCHAR(29)` width limit. Appended LAST, after `REGIONAL_CHAPTER_OFFICER`, additive only.
      */
     MEMBERSHIP_TIER,
+
+    /**
+     * Welle V1.9.30 "Umfragen auf LTR-Basis" (Server) -- `network.lapis.cloud.server.rpc.PollService`'s
+     * `createPoll`/`closePoll`/`abortPoll` write `CREATE`/`UPDATE`/`VOID`, `entityId` = the `poll` row's
+     * id, [PollSnapshot] before/after. Individual RESPONSES are deliberately NEVER audited (that would
+     * link a member to a moment in the poll's lifecycle and defeat the anonymity of `poll_response`), and
+     * a deadline expiring is a pure read-state, not an event, so it writes no entry either. 4 chars,
+     * well under the `audit_log_entry.entity_type` `VARCHAR(29)` width limit. Appended LAST, after
+     * `MEMBERSHIP_TIER`, additive only.
+     */
+    POLL,
 }
+
+/**
+ * V1.9.30 -- before/after snapshot of a poll's lifecycle audit entries ([AuditEntityType.POLL]). Carries
+ * the question, the option texts, the status and the two instants. Deliberately NO counters, NO weights,
+ * NO respondents: the append-only hash chain must never carry any information about who answered what.
+ */
+@Serializable
+data class PollSnapshot(
+    val question: String,
+    val options: List<String>,
+    val status: String,
+    val closesAt: LocalDateTime?,
+    val closedAt: LocalDateTime?,
+)
 
 /**
  * One immutable, hash-chained audit-log row -- see `AuditLogRecorder`/`AuditLogService` KDoc.

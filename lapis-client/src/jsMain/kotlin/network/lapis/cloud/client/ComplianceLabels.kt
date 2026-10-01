@@ -161,6 +161,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.REGIONAL_CHAPTER_OFFICER -> gettext("Landesvorstand-Zugriff")
         // Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen"
         AuditEntityType.MEMBERSHIP_TIER -> gettext("Mitgliedschaftsstufe")
+        // Welle V1.9.30 "Umfragen auf LTR-Basis"
+        AuditEntityType.POLL -> gettext("Umfrage")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -258,6 +260,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.REGIONAL_CHAPTER_OFFICER -> "warning"
         // Welle V1.9.18 -- a change to what members are invoiced: folgenreich, same tier as MEMBER/REGIONAL_CHAPTER.
         AuditEntityType.MEMBERSHIP_TIER -> "warning"
+        // Welle V1.9.30 -- a non-binding opinion poll: informational, no money or access rights involved.
+        AuditEntityType.POLL -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

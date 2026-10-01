@@ -6,6 +6,51 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.30 opinion polls (server)
+
+- **Non-binding opinion polls (Stimmungsbilder) on an LTR basis**, server side: `IPollService` with `createPoll`, `closePoll`, `abortPoll`, `getPoll`, `listPolls`,
+  `getPollResult`, `getPollParticipation`, `listPollParticipations` and `castPollResponse`, implemented by `PollService`. A poll has a question, an optional
+  description, 2..10 options and an optional deadline (15 minutes to 365 days ahead). It is never a resolution (`binding` is always `false`), is bound to
+  no motion or meeting, and moves no LTR: the responder's free balance is only read and stored as a weight snapshot.
+- **Two results**: by head count, and weighted by LTR (as whole-percent shares, summing to exactly 100 by the largest-remainder method). Both are shown only
+  for a closed poll and only above the thresholds listed under "Security".
+- **Roles**: ADMIN/BOARD or a recording seat (`CHAIR`, `DEPUTY_CHAIR`, `GENERAL_SECRETARY`, `SECRETARY`, `MANAGING_DIRECTOR`) in any active committee may create;
+  the creator (while still entitled) or ADMIN/BOARD may close or abort; every ACTIVE member may respond and read. At most 20 polls may be open at once.
+- **Lazy deadline**: a poll whose deadline passed is `CLOSED` for every reader; the stored row is never rewritten (no background job, no audit entry).
+- `V65__polls.sql` (additive, idempotent): `poll`, `poll_option`, `poll_participation`, `poll_response`; new audit entity type `POLL` (poll create, close and
+  abort are audited, individual responses never). kUML model `61-poll.kuml.kts`, four Exposed tables, `PollPersonalData` (export and erasure).
+- Client: only the audit-log label "Umfrage" for the new entity type (`AuditLogScreen`, `ComplianceLabels`, eight message catalogs). No poll UI yet (V1.9.31).
+- The privacy page's purposes list (`LegalHtml`) names the polls and what is stored for them (`LegalHtmlTest` H12 requires every personal-data contributor to be described).
+- `docs/architecture/polls.adoc` added (with the lifecycle and data model diagrams).
+
+### Security -- V1.9.30
+
+- **Anonymous answers by table separation**: `poll_participation` (who) and `poll_response` (what, with the weight snapshot) share no key; `poll_response` has
+  no member column and no time column, `poll_participation` has no time column; both use random UUIDv4 ids. Single responses never leave the database layer:
+  the result is computed from `GROUP BY option_id` aggregates, and no DTO carries a weight, an LTR amount, a respondent or a response time (pinned by
+  `PollAnonymityLeakTest`, including a field allowlist).
+- **Disclosure thresholds** (LTR balances are practically public, so small groups would identify people): the head count needs at least 5 responses; the
+  weighted result additionally needs a positive total weight, at least 5 responses with weight > 0, and at least 3 weighted responses for EVERY option that
+  has any. If a rule fails the weighted result is withheld entirely with a reason, never a single suppressed share. No absolute LTR sums are ever shown.
+- `responseCount` stays `null` while a poll is open and for an aborted poll (no live counter); an aborted poll keeps its responses but never discloses them.
+- Authorization before existence: a GUEST, FRIEND, federated guest or non-active member gets `ForbiddenException` even for a poll id that does not exist;
+  messages never contain member ids; the participation batch returns only the caller's own rows (at most 100 ids).
+- Concurrency: the poll row lock makes cast and close/abort mutually exclusive (the clock is read after the lock), `UNIQUE (poll_id, member_id)` backs up the
+  one-answer rule, the cap of 20 open polls is counted under the organization-settings row lock. Lock order: settings, poll row, audit chain last.
+- Casting writes no ledger entry and takes no `lockForDebit`; negative balances are clamped to weight 0.
+
+### Known limitations -- V1.9.30
+
+- No poll UI yet (V1.9.31); the RPC is unused on the client.
+- Residual risk: whoever can read the database or its backups sees option and weight per response and can try to match the weights against the public LTR
+  ledger; the physical insertion order may correlate a participation with its response. This is a table separation, not cryptography.
+- The concurrency tests run on H2 only; lock behaviour on Postgres is argued from the lock order, not measured.
+- There is no participation rate (no snapshot of the entitled members); eligibility is checked live when a member answers.
+- Weighted results are withheld for small polls by design (see "Security").
+- **Operator note: migration V65. `V1__baseline.sql`'s inline CHECK on `audit_log_entry.entity_type` was widened in place by `'POLL'` (the precedent of every
+  earlier audit type), so Flyway reports a checksum mismatch for V1 on an already-migrated instance: take a backup and run
+  `./gradlew :lapis-server:flywayRepair` BEFORE deploying this version on PdV, ELB and Staging.**
+
 ### Added -- V1.9.29 member MCP access card ("KI-Zugang")
 
 - **The "KI-Zugang" card** on "Meine Daten", below the public profile card: the switch "KI-Agenten dürfen sich mit meinem Konto verbinden", the

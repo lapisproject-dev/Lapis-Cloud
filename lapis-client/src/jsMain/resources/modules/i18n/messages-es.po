@@ -18763,3 +18763,6 @@ msgstr "Revocar conexión"
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr "Este agente pierde de inmediato el acceso a su cuenta."
+
+msgid "Umfrage"
+msgstr "Encuesta"

@@ -309,6 +309,7 @@ class LegalHtmlTest :
                     "documents" to "Dokumentenablage",
                     "communication" to "interne Kommunikation",
                     "carpool" to "Mitfahrerzentrale",
+                    "polls" to "Umfragen",
                     "governance" to "Gremien",
                     "elections" to "Wahlen",
                     "systemic_consensus" to "Abstimmungsverfahren",

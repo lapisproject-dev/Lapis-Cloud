@@ -17820,3 +17820,6 @@ msgstr ""
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr ""
+
+msgid "Umfrage"
+msgstr ""

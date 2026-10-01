@@ -18784,3 +18784,6 @@ msgstr "Revoca collegamento"
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr "Questo agente perde subito l'accesso al suo account."
+
+msgid "Umfrage"
+msgstr "Sondaggio"

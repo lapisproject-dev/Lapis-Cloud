@@ -18802,3 +18802,6 @@ msgstr "Révoquer la connexion"
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr "Cet agent perd immédiatement l'accès à votre compte."
+
+msgid "Umfrage"
+msgstr "Sondage"

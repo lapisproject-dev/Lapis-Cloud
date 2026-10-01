@@ -45,6 +45,7 @@ import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PeerTransferInput
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
+import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -287,6 +288,21 @@ class FriendDeniedEverywhereElseTest :
             }
         }
 
+        test("Welle V1.9.30: FRIEND is refused by castPollResponse -- FRIEND may hold LTR, but opinion polls stay ACTIVE-only") {
+            testApplication {
+                application {
+                    install(StatusPages) { installDeniedExceptionHandlers() }
+                    routing { registerDeniedPollTestRoutes() }
+                }
+                val friend = createFriendMember("denied-poll@example.org")
+
+                // A non-existent poll id on purpose: the status gate runs BEFORE the poll is looked up, so a
+                // FRIEND gets Forbidden (never NotFound) and cannot probe which polls exist.
+                client.post("/test/cast-poll-response") { header("X-Member-Id", friend.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
+            }
+        }
+
         test(
             "canAccessDocumentAtLevel(PUBLIC_MEMBERS) end to end: a PUBLIC_MEMBERS document is invisible to listDocuments for a FRIEND caller",
         ) {
@@ -425,6 +441,13 @@ private fun Route.registerDeniedLtrTestRoutes() {
                 purpose = null,
             ),
         )
+        call.respondText("ok")
+    }
+}
+
+private fun Route.registerDeniedPollTestRoutes() {
+    post("/test/cast-poll-response") {
+        PollService(call = call).castPollResponse(PollResponseInput(pollId = Uuid.random().toString(), optionId = Uuid.random().toString()))
         call.respondText("ok")
     }
 }

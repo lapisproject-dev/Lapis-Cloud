@@ -333,6 +333,14 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Umfragen (nicht bindende Stimmungsbilder) — Art. 6 Abs. 1 lit. f DSGVO. Gespeichert wird, dass " +
+                        "ein Mitglied teilgenommen hat, getrennt davon und ohne Bezug zum Mitglied die gegebene " +
+                        "Antwort samt dem LTR-Saldo zum Antwortzeitpunkt als Gewicht; Ergebnisse werden nur " +
+                        "zusammengefasst und erst ab einer Mindestbeteiligung angezeigt."
+                )
+            }
+            li {
+                +(
                     "Öffentlich einsehbare Beiträge im integrierten sozialen Netzwerk (sofern aktiv genutzt) — " +
                         "Art. 6 Abs. 1 lit. b DSGVO; die Veröffentlichung erfolgt durch das Mitglied selbst."
                 )

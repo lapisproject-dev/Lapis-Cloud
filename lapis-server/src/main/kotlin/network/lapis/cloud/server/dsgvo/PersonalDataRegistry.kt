@@ -69,6 +69,7 @@ object PersonalDataRegistry {
             RegionalChapterPersonalData,
             MemberPhotoPersonalData,
             MemberPublicBioPersonalData,
+            PollPersonalData,
         )
 
     /**
@@ -205,6 +206,15 @@ object PersonalDataRegistry {
                 "sowie SecretBox-versiegelte fints_user_id_ciphertext/fints_pin_ciphertext -- ein " +
                 "SecretBox-versiegeltes Organisations-Credential, kein Mitglieds-PII, gleiche " +
                 "Einstufung wie accounting_export_connection.token_ciphertext.",
+            "poll_option" to
+                "Welle V1.9.30 Umfragen. Der Antwortoption-Text hat keinen Mitglieds-FK -- nur " +
+                "poll/poll_participation (siehe PollPersonalData) tragen Personenbezug.",
+            "poll_response" to
+                "Welle V1.9.30 Umfragen. BEWUSST ohne Mitglieds-FK und ohne Zeitspalte: die Antwort ist " +
+                "anonym, sie ist von poll_participation (WER hat geantwortet) durch Tabellentrennung " +
+                "entkoppelt -- eine Zuordnung zu einem Mitglied ist weder moeglich noch gewollt, ein " +
+                "Export/Loeschpfad pro Mitglied existiert daher nicht (siehe 61-poll.kuml.kts und " +
+                "docs/architecture/polls.adoc).",
         )
 
     init {

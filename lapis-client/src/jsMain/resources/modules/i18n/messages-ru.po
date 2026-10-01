@@ -18729,3 +18729,6 @@ msgstr "Отозвать подключение"
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr "Этот агент немедленно теряет доступ к вашей учётной записи."
+
+msgid "Umfrage"
+msgstr "Опрос"

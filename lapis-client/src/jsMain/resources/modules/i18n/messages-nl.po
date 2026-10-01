@@ -18739,3 +18739,6 @@ msgstr "Verbinding intrekken"
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr "Deze agent verliest onmiddellijk de toegang tot uw account."
+
+msgid "Umfrage"
+msgstr "Peiling"

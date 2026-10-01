@@ -18738,3 +18738,6 @@ msgstr "Cofnij połączenie"
 
 msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
 msgstr "Ten agent natychmiast traci dostęp do Twojego konta."
+
+msgid "Umfrage"
+msgstr "Ankieta"

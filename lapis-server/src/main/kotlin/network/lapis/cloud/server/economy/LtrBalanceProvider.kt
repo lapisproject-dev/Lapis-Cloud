@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.economy
 
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
@@ -10,6 +11,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -32,6 +34,16 @@ import kotlin.uuid.Uuid
 interface LtrBalanceProvider {
     /** The member's current free LTR balance, or [BigDecimal.ZERO] if the member has none. */
     fun freeBalance(memberId: Uuid): BigDecimal
+
+    /**
+     * The member's LTR balance as of [asOf]: the sum of all ledger entries with `created_at <= asOf`.
+     * Read-only. Used by polls, whose weight is bound to a cut-off (the poll's creation instant), so that
+     * LTR transferred after the poll opened cannot be counted again by the recipient.
+     */
+    fun balanceAsOf(
+        memberId: Uuid,
+        asOf: LocalDateTime,
+    ): BigDecimal
 
     /**
      * Batched free-balance read for N members in one query -- introduced for V0.6.4
@@ -94,6 +106,20 @@ class LedgerBackedLtrBalanceProvider : LtrBalanceProvider {
         return LtrLedgerEntryTable
             .select(total)
             .where { LtrLedgerEntryTable.memberId eq memberId }
+            .singleOrNull()
+            ?.get(total)
+            ?.setScale(2)
+            ?: BigDecimal.ZERO.setScale(2)
+    }
+
+    override fun balanceAsOf(
+        memberId: Uuid,
+        asOf: LocalDateTime,
+    ): BigDecimal {
+        val total = LtrLedgerEntryTable.amountLtr.sum()
+        return LtrLedgerEntryTable
+            .select(total)
+            .where { (LtrLedgerEntryTable.memberId eq memberId) and (LtrLedgerEntryTable.createdAt lessEq asOf) }
             .singleOrNull()
             ?.get(total)
             ?.setScale(2)

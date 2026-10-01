@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 61 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 62 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -63,8 +63,9 @@ class DomainModelMergerTest :
             // "Gliederungsverwaltung (Landesverbände)" -- was 58, now 59 with the addition of
             // 58-regional-chapter.kuml.kts. Welle V1.9.19 "Mitglieder-Foto" -- was 59, now 60 with
             // the addition of 59-member-photo.kuml.kts. Welle V1.9.20 "Öffentliche Seiten" -- was 60,
-            // now 61 with the addition of 60-member-public-bio.kuml.kts.
-            scriptFiles shouldHaveSize 61
+            // now 61 with the addition of 60-member-public-bio.kuml.kts. Welle V1.9.30 "Umfragen auf
+            // LTR-Basis" -- was 61, now 62 with the addition of 61-poll.kuml.kts.
+            scriptFiles shouldHaveSize 62
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -504,7 +505,11 @@ class DomainModelMergerTest :
             // table (member_public_bio), WITH its own cross-domain Member stub (dedups into the
             // already-real member entity, +1 drop) -- net +1 distinct table name (172 -> 173).
             // The new regional_chapter columns and the widened ranking_kind column add no table.
-            val distinctTableNames = 173
+            // Welle V1.9.30 "Umfragen auf LTR-Basis" adds 61-poll.kuml.kts's FOUR new real tables
+            // (poll, poll_option, poll_participation, poll_response), WITH its own cross-domain
+            // Member stub (dedups into the already-real member entity, +1 drop) -- net +4 distinct
+            // table names (173 -> 177).
+            val distinctTableNames = 177
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -810,6 +815,13 @@ class DomainModelMergerTest :
                     // new Table file for it.
                     "MemberPhotoTable.kt",
                     "MemberPublicBioTable.kt",
+                    // Welle V1.9.30 "Umfragen auf LTR-Basis" -- FOUR new real tables; the Member
+                    // cross-domain stub dedups into the already-real member entity, no new Table
+                    // file for it.
+                    "PollTable.kt",
+                    "PollOptionTable.kt",
+                    "PollParticipationTable.kt",
+                    "PollResponseTable.kt",
                     // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- TWO new real
                     // tables (regional_chapter, regional_chapter_officer); the Member cross-domain
                     // stub in 58-regional-chapter.kuml.kts AND the RegionalChapter cross-domain
