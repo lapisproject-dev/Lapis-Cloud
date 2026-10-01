@@ -6,6 +6,43 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-10-01
+
+Release summary (the detail is in the sections below, grouped by wave V1.9.15 -- V1.9.23):
+
+- **Democratic elections are usable in the web client** (V1.9.22) -- election list and detail, opening an election from a motion,
+  election committee, candidacies, a voting booth with a one-time receipt, count approvals, result and receipt check -- and the
+  server side was hardened in the same release (V1.9.23): the four ways to decide a motion exclude each other, a tally can no
+  longer overwrite a decision, majorities are exact fractions (two thirds, three quarters), and secret ballots carry no time.
+- **Public pages and profiles** (V1.9.19 -- V1.9.21): active members can upload a voluntary photo, and board members and listed politicians a short
+  introduction (each with its own versioned consent, withdrawable at any moment), and the public site gains `/vorstand`, `/politiker` and `/landesverbaende` with
+  matching embed feeds; regional chapters get a crest (JPEG, PNG or a strictly sanitized SVG) and a description.
+- **SuperMailer** (V1.9.15): HTML mailings with a rich-text editor, opt-in click and open tracking with consent, statistics with a
+  minimum cohort of five, retention and DSGVO coverage.
+- **Membership tier administration** (V1.9.18), **searchable person pickers and list filters** (V1.9.16), table-cell and other
+  UI hardening plus small open-items and navbar fixes (V1.9.17).
+- **Operator actions before or after the upgrade**: `flywayRepair` once on every instance (V1.9.18 edited `V1__baseline.sql` in
+  place), the four SQL pre-checks of V1.9.23, `LAPIS_MAILING_TRACKING_KEY` when `LAPIS_MAILING_DELIVERY=smtp`, and the forwarding
+  of the `LAPIS_MAILING_*` variables in your compose file (see "Fixed -- release housekeeping" below). Migrations `V60` to `V64`.
+
+### Fixed -- release housekeeping
+
+- **Event list shown several times (race in `EventsScreen`)**: `refreshList()` cleared the panel synchronously but appended
+  rows after an asynchronous fetch, and several triggers (the two filter subscribers firing on mount, the room load and the
+  refresh after creating an event) each appended their own copy. Only the newest run renders now.
+- **Carpool card showed the raw `###KvI18nS###` marker** in the date line of an entry without a departure time
+  (`formatDate(...) + tr(...)` put a marker token behind plain text, where KVision does not resolve it); the suffix now comes from
+  `gettext`, with a regression test (`carpoolDepartureTimeSuffix`).
+- **`LAPIS_MAILING_*` was never forwarded into the compose environment.** `LAPIS_MAILING_DELIVERY`, `LAPIS_MAILING_SEND_DELAY_MS`
+  and (new) `LAPIS_MAILING_TRACKING_KEY` were documented in `.env.example` but missing from `deploy/example/docker-compose.yml`, so every
+  instance silently stayed in `log` delivery mode and real SuperMailer sending (V1.9.7) could not be switched on. Add the three lines
+  to your own compose file if it was derived from the example (the example now has them).
+- **Build**: the Kotlin daemon heap is raised to 3 GB (`kotlin.daemon.jvmargs`); `clean check` ran out of heap in the client test
+  source set at the inherited 2 GB. The new `ktlint` rule `chain-method-continuation` is satisfied in the dunning tests, and the
+  dunning tests no longer leak temporary document storage directories.
+- **`build.gradle.kts` version** is `0.26.0` (the `0.25.0` release commit had left it at `0.24.0`).
+
+
 ### Security -- V1.9.23 "Server integrity of the democratic elections"
 
 Closes the "Known limitations" of V1.9.22. One additive migration, `V64__election_integrity.sql`; `V1__baseline.sql` is untouched.

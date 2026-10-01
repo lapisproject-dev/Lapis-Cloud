@@ -177,7 +177,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Fourteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Sixteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -475,6 +475,27 @@ sweep** closes the remaining gaps in the app-wide "W6b security-härtung" XSS-cl
 and a **production build fix** raises the client webpack step's Node heap cap after the bundle grew
 past the old ceiling -- see `CHANGELOG.md` `[0.25.0]` for both.
 
+**`v0.26.0`** spans nine numbered waves (V1.9.15 through V1.9.23) plus small fixes; see `CHANGELOG.md`
+`[0.26.0]` for the wave-by-wave detail. **Democratic elections finally have a web client** (V1.9.22,
+see "Democratic elections" below): the list and detail screen, opening an election from a scheduled
+motion, the election committee, candidacies, a voting booth with a one-time receipt for secret
+ballots, count approvals, the result and a receipt check. The same release **hardens the server**
+(V1.9.23): the four ways to decide a motion -- election, meritocratic vote, systemic consensus and
+the quorum resolution -- now exclude each other, a tally can no longer overwrite a decision,
+required majorities are exact fractions (two thirds, three quarters), and a secret ballot no longer
+carries a time. **Active members can add a voluntary photo, and board members and listed politicians a short
+introduction**, each with its own versioned consent that is withdrawn immediately and everywhere
+(V1.9.19/V1.9.20), and the public
+site gains `/vorstand`, `/politiker` and `/landesverbaende` with matching embed feeds (see "Member
+photo and public profiles" below). **Regional-chapter crests** may be JPEG, PNG or a strictly
+sanitized SVG (V1.9.21). **SuperMailer** gets its rich-text editor and opt-in click/open tracking
+with consent (V1.9.15). A **membership tier administration** screen replaces the missing UI for
+a backend that had been complete for a long time (V1.9.18), **searchable person pickers and list
+filters** replace plain dropdowns (V1.9.16), and V1.9.17 closes the table-cell text-spoofing gap
+and several small UI issues. Operators: this release edits `V1__baseline.sql` once more (run
+`flywayRepair`), adds migrations `V60` to `V64`, and needs the `LAPIS_MAILING_*` variables forwarded
+in the compose file -- they never were; see `CHANGELOG.md` `[0.26.0]` "Operator actions" and "Operator notes -- V1.9.23".
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -494,8 +515,9 @@ legal counsel — not something this project can decide once for everyone. See `
   real message via Jakarta Mail/Eclipse Angus whenever `LAPIS_SMTP_*` is configured
   (`deploy/example/README.adoc` "E-Mail-Versand (SMTP, optional)"), and falls back to the same
   honestly-disclosed `NoOpMailTransport` log-only stub `MailingService.sendMailingMessage` has had
-  since V0.4/V0.1.5 when it is not. `MailingService.sendMailingMessage`'s own bulk-mailing simulation
-  is unaffected — this wave only wires up the two single-recipient transactional mailers.
+  since V0.4/V0.1.5 when it is not. Bulk mailings are a separate switch: since V1.9.7 they are sent for
+  real when `LAPIS_MAILING_DELIVERY=smtp` is set (see "SuperMailer" below), otherwise they stay in the
+  log-only mode; this wave only wired up the two single-recipient transactional mailers.
   **Verify outbound connectivity before relying on this in production**: some hosting providers
   silently drop outbound connections on SMTP ports (25/465/587) regardless of local firewall
   configuration — a correct `LAPIS_SMTP_*` configuration and a genuinely reachable relay are two
@@ -518,12 +540,13 @@ legal counsel — not something this project can decide once for everyone. See `
   member DSGVO rights (`/dsgvo-compliance`, `/dsgvo-rights`), §20 GwG Transparenzregister
   (`/board-membership`), §25 PartG donation duty (`/donors`) — as well as the postal-dispatch audit
   trail (`/postal-mail`) and all four original LTR economy domains (`/crowdfunding`, `/auction`,
-  peer transfer on `/ltr-ledger`, `/politicians`). Three domains are genuinely still reachable only
-  via Kilua RPC / raw HTTP: **elections** (`IElectionService`), **systemisches Konsensieren**
-  (`ISystemicConsensusService`), and **federation/trust-anchor administration**
-  (`IFederationService`/`ITrustAnchorService`) — verified against `Routing.kt` (no route, no screen,
-  no client reference at all). These are lower day-to-day usage frequency per the pilots' own
-  prioritization and are not yet scheduled as numbered waves.
+  peer transfer on `/ltr-ledger`, `/politicians`). **Democratic elections** gained their client in
+  V1.9.22 (`/elections`, see "Democratic elections" below). Two domains are genuinely still reachable
+  only via Kilua RPC / raw HTTP: **systemisches Konsensieren** (`ISystemicConsensusService`) and
+  **federation/trust-anchor administration** (`IFederationService`/`ITrustAnchorService`) -- verified
+  against `Routing.kt` (no route, no screen, no client reference at all). The member-facing screen of
+  the MCP access switch (`IMcpAccessService`) is missing as well. These are lower day-to-day usage
+  frequency per the pilots' own prioritization and are not yet scheduled as numbered waves.
 * **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
   layer; no existing content type (crowdfunding projects, politician profiles, governance
   resolutions, or the Soziales Netzwerk posts added in V1.1) is wired into outbound federation. A
@@ -1287,7 +1310,7 @@ postal-code centroid lookup (place names + coordinates) ships bundled with `lapi
 * Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL
   (via a https://protomaps.com[Protomaps] build, BSD-3-Clause build tooling).
 
-== SuperMailer (V1.9.7)
+== SuperMailer (V1.9.7/V1.9.15)
 
 HTML-authored mailing content and a real asynchronous send path for the newsletter/mailing-list
 feature, plus the data-model foundation for open-/click-tracking (built this wave, not yet
@@ -1308,13 +1331,28 @@ existing plain-text one, backed by an allowlist-based sanitizer (`MailingHtmlSan
 a shared render path (`MailingMailRenderer`) that both the async send and the preview RPCs go
 through, so a preview can never drift from what actually gets sent.
 
-=== What doesn't work yet (this wave)
+V1.9.15 added the parts the original plan left open. The compose screen's textarea became a
+`contenteditable` rich-text editor (no new dependency: paste is plain text only and the server
+sanitizer stays the authority). **Tracking is strictly opt-in**, per member and per list, default
+off, with a consent timestamp and a snapshot taken for every delivery at send time: a click URL
+`/m/c/{token}` answers a 302 to a target that is read only from the database, and an open pixel
+`/m/o/{token}.gif` counts opens; both use HMAC-signed tokens (`LAPIS_MAILING_TRACKING_KEY`, **required**
+when `LAPIS_MAILING_DELIVERY=smtp`), re-check the consent on every hit, never count `HEAD` requests
+(link scanners) and are rate limited. Statistics (`mailingMessageStats`) are aggregates only with a
+minimum cohort of five; raw events are erased after 180 days, and withdrawing consent erases what
+was already collected. See `docs/architecture/mailing-newsletter.adoc`.
 
-The compose screen still uses a plain textarea, not a rich contenteditable editor -- HTML content
-must currently be authored as raw HTML in that textarea; `createDraftMessageHtml` itself is real
-and tested. Open-/click-tracking (Teil B/C of the original plan) are follow-up waves: the schema
-already carries the columns and two new tables they will need, but no tracking pixel, click-rewrite,
-consent RPC/UI toggle, or DSGVO tracking-data contributor exists yet.
+**Operator note:** `LAPIS_MAILING_DELIVERY`, `LAPIS_MAILING_SEND_DELAY_MS` and
+`LAPIS_MAILING_TRACKING_KEY` must be forwarded in your compose file (the example now does); until
+then an instance stays in `log` mode and mailings never leave the server. Real sending needs
+`LAPIS_MAILING_DELIVERY=smtp`, `LAPIS_MAILING_TRACKING_KEY` **and** a complete `LAPIS_SMTP_*`
+configuration -- the server refuses to start in `smtp` mode otherwise.
+
+=== What doesn't work yet
+
+Click and open counting has not yet been exercised end to end with a real delivered mail. Already saved drafts are not editable (no update RPC). The 200-link limit counts all links, not
+distinct ones. The public 404/429 page of the click route is German only, like every public server
+page. A privacy-statement and footer notice for the counting is left to each organization.
 
 == Public member count toggle (V1.9.10)
 
@@ -1400,6 +1438,49 @@ behavioral server-side test yet covers query-parameter manipulation by a chapter
 attempting to widen their own visibility -- the existing allowlist-scan/visibility tests are the
 current coverage. See `docs/architecture/regional-chapters.adoc`'s "Deferred" section for the full
 list.
+
+== Membership tiers (V1.9.18)
+
+A TREASURER/ADMIN screen (`/membership-tiers`) to create and edit tiers -- name, description,
+amount, interval, payment term and "selectable for new assignments" -- with the number of active
+members per tier. The server validates (name unique case-insensitively, amount with at most two
+decimals) and every change leaves an audit entry, because a tier's amount decides what members are
+invoiced. A tier is *closed*, never deleted: closing stops new assignments only and keeps invoicing
+the members already on it. Changing an amount never rewrites an existing contribution. No tier exists
+on a fresh instance; the treasurer creates them. See `docs/architecture/membership-tiers.adoc`.
+
+== Member photo and public profiles (V1.9.19-V1.9.21)
+
+Every active member can upload a **voluntary photo** (JPEG/PNG, cropped square, scaled, all metadata
+removed); board members and appointed (listed) politicians can additionally write a **short
+introduction**. Both are private until the person gives a versioned consent for publication, and
+withdrawing it takes effect immediately (the public URL answers 404). The public
+site gains `/vorstand`, `/politiker` and `/landesverbaende` with matching embed feeds
+(`/api/embed/v1/board|politicians|chapters`, behind `LAPIS_EMBED_ENABLED` and the origin allowlist):
+only explicitly allow-listed fields, never ids or e-mail addresses. Regional chapters get a crest --
+JPEG, PNG or a strictly sanitized SVG (element and attribute allowlist, the stored file is a fresh
+serialization) -- and a description. Photos and crests are **not** part of the organization backup
+and must be uploaded again after a restore. See `docs/architecture/member-photo.adoc`,
+`docs/architecture/public-profiles.adoc` and `docs/architecture/regional-chapters.adoc`.
+
+== Democratic elections (V1.9.22/V1.9.23)
+
+The `/elections` screen drives the whole election lifecycle that `IElectionService` has offered since
+V0.2.4: opening an election from a scheduled motion (yes/no, single or multiple choice; secret or
+open; an exact required majority such as two thirds), the election committee (at least three
+members, never members of the target executive board), candidacies, the voting booth (review before
+casting, exactly one request however often the button is clicked), a one-time receipt for secret
+ballots, the four-eyes count approval (only real committee members, no admin bypass), the result and
+a receipt check. V1.9.23 hardened the server: the four ways to decide a motion exclude each other
+(`MotionDecisionLock`), a tally requires the motion to still be scheduled, and the ballot of a secret
+election carries no time and no order. See `docs/architecture/elections-ui.adoc` and
+`docs/architecture/elections-integrity.adoc`.
+
+=== What doesn't work yet
+
+A real end-to-end election run with several accounts on Staging is still outstanding. Concurrency tests run on H2 only (no Postgres test infrastructure yet). List and ranked-choice
+elections are rejected by the server. Who approved a tally is visible only as a count.
+`castVoteBallot` and `castResistanceBallot` have their own races against closing.
 
 == Documentation Convention
 
