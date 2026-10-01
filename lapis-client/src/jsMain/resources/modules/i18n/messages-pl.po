@@ -18741,3 +18741,243 @@ msgstr "Ten agent natychmiast traci dostęp do Twojego konta."
 
 msgid "Umfrage"
 msgstr "Ankieta"
+
+msgid "Antwort prüfen"
+msgstr "Sprawdź swoją odpowiedź"
+
+msgid "Sie haben „%1“ gewählt."
+msgstr "Wybrano „%1”."
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr "Twoja odpowiedź jest ostateczna: jednorazowa, niezmienna i anonimowa. Twój stan LTR jest zapisywany na potrzeby oceny ważonej, ale nigdzie nie jest wyświetlany."
+
+msgid "Keine Berechtigung"
+msgstr "Brak uprawnień"
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr "Odpowiadać mogą tylko aktywni członkowie."
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr "Twoja odpowiedź została zapisana."
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr "Potwierdzenie nie dotarło z powodu przerwania połączenia."
+
+msgid "Bereits geantwortet"
+msgstr "Już odpowiedziano"
+
+msgid "Umfrage beendet"
+msgstr "Ankieta zakończona"
+
+msgid "Die Umfrage ist beendet."
+msgstr "Ankieta została zakończona."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Połączenie zostało przerwane. Nie udało się sprawdzić, czy Twoja odpowiedź została zapisana. Odśwież stronę."
+
+msgid "Zurück zur Umfrage"
+msgstr "Wróć do ankiety"
+
+msgid "Danke"
+msgstr "Dziękujemy"
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr "Wpisz pytanie."
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr "Pytanie jest zbyt długie (maksymalnie %1 znaków)."
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr "Opis jest zbyt długi (maksymalnie %1 znaków)."
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr "Podaj co najmniej %1 opcje."
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr "Możliwych jest maksymalnie %1 opcji."
+
+msgid "Option %1 ist leer."
+msgstr "Opcja %1 jest pusta."
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "Opcja %1 jest zbyt długa (maksymalnie %2 znaków)."
+
+msgid "Option %1 gibt es schon."
+msgstr "Opcja %1 już istnieje."
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr "Podaj prawidłową datę i godzinę terminu."
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr "Termin musi przypadać co najmniej %1 minut w przyszłości."
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr "Termin może przypadać najwyżej %1 dni w przyszłości."
+
+msgid "Umfrage erstellen"
+msgstr "Utwórz ankietę"
+
+msgid "Frage"
+msgstr "Pytanie"
+
+msgid "Beschreibung (optional)"
+msgstr "Opis (opcjonalnie)"
+
+msgid "Umfrage starten"
+msgstr "Rozpocznij ankietę"
+
+msgid "Frist"
+msgstr "Termin"
+
+msgid "24 Stunden"
+msgstr "24 godziny"
+
+msgid "3 Tage"
+msgstr "3 dni"
+
+msgid "14 Tage"
+msgstr "14 dni"
+
+msgid "Eigenes Datum"
+msgstr "Własna data"
+
+msgid "Ohne Frist"
+msgstr "Bez terminu"
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr "Data i godzina terminu"
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr "Ankietę trzeba będzie wtedy zamknąć samodzielnie."
+
+msgid "%1/%2"
+msgstr "%1/%2"
+
+msgid "Option %1"
+msgstr "Opcja %1"
+
+msgid "Option %1 entfernen"
+msgstr "Usuń opcję %1"
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr "Opcja jest zbyt długa (maksymalnie %1 znaków)."
+
+msgid "Diese Option gibt es schon."
+msgstr "Ta opcja już istnieje."
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr "Ankieta niewiążąca – obraz nastrojów, a nie uchwała. Odpowiedzi są anonimowe; wynik jest widoczny dopiero po zakończeniu."
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr "Obecnie nie możesz rozpocząć kolejnej ankiety – zbyt wiele jest otwartych lub rozpoczętych niedawno. Spróbuj ponownie później."
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr "Sprawdź dane, zwłaszcza termin."
+
+msgid "Gestartet von %1 am %2"
+msgstr "Rozpoczęta przez %1 dnia %2"
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr "Niewiążąca – obraz nastrojów, a nie uchwała."
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr "Ta ankieta została przerwana. Odpowiedzi nigdy nie zostaną ocenione."
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr "Wzięto udział w tej ankiecie."
+
+msgid "Umfrage schließen"
+msgstr "Zamknij ankietę"
+
+msgid "Umfrage schließen?"
+msgstr "Zamknąć ankietę?"
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr "Potem nie będzie można już odpowiadać. Wynik stanie się widoczny, o ile zebrano wystarczająco dużo odpowiedzi."
+
+msgid "Der Stand hat sich geändert."
+msgstr "Stan uległ zmianie."
+
+msgid "Umfrage abbrechen"
+msgstr "Przerwij ankietę"
+
+msgid "Umfrage abbrechen?"
+msgstr "Przerwać ankietę?"
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr "Odpowiedzi nigdy nie zostaną ocenione. Tego nie można cofnąć."
+
+msgid "ABBRECHEN"
+msgstr "ANULUJ"
+
+msgid "Umfrage endgültig abbrechen"
+msgstr "Przerwij ankietę ostatecznie"
+
+msgid "endet am %1"
+msgstr "kończy się %1"
+
+msgid "ohne Frist"
+msgstr "bez terminu"
+
+msgid "1 Antwort"
+msgstr "1 odpowiedź"
+
+msgid "%1 Antworten"
+msgstr "%1 odpowiedzi"
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr "Zbyt mało odpowiedzi do anonimowej oceny (co najmniej %1)."
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr "Żadna z odpowiedzi nie miała wagi LTR – ocena ważona nie jest możliwa."
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr "Zbyt mało odpowiedzi z wagą LTR do anonimowej oceny ważonej (co najmniej %1)."
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr "Ocena ważona jest wstrzymana, aby żadna pojedyncza odpowiedź nie była rozpoznawalna."
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr "Ocena ważona jest niedostępna."
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr "Obecnie brak otwartych ankiet."
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr "Nie ma jeszcze zamkniętych ankiet."
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr "Brak przerwanych ankiet."
+
+msgid "Beantwortet"
+msgstr "Odpowiedziano"
+
+msgid "Umfrage öffnen"
+msgstr "Otwórz ankietę"
+
+msgid "Anzahl der Antworten"
+msgstr "Liczba odpowiedzi"
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr "Niewiążący obraz nastrojów · 1 odpowiedź"
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr "Niewiążący obraz nastrojów · %1 odpowiedzi"
+
+msgid "Nach Köpfen"
+msgstr "Według liczby osób"
+
+msgid "%1 % · %2"
+msgstr "%1 % · %2"
+
+msgid "Nach LTR-Gewicht"
+msgstr "Według wagi LTR"
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr "Każda odpowiedź liczy się ze stanem LTR, jaki dana osoba miała w chwili odpowiadania – kto wniósł więcej, liczy się bardziej. Dlatego ten obraz może różnić się od wyniku według liczby osób."
+
+msgid "%1 %"
+msgstr "%1 %"
+
+msgid "Umfragen"
+msgstr "Ankiety"

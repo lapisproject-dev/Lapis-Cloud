@@ -17823,3 +17823,243 @@ msgstr ""
 
 msgid "Umfrage"
 msgstr ""
+
+msgid "Antwort prüfen"
+msgstr ""
+
+msgid "Sie haben „%1“ gewählt."
+msgstr ""
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr ""
+
+msgid "Keine Berechtigung"
+msgstr ""
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr ""
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr ""
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr ""
+
+msgid "Bereits geantwortet"
+msgstr ""
+
+msgid "Umfrage beendet"
+msgstr ""
+
+msgid "Die Umfrage ist beendet."
+msgstr ""
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr ""
+
+msgid "Zurück zur Umfrage"
+msgstr ""
+
+msgid "Danke"
+msgstr ""
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr ""
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr ""
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr ""
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr ""
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr ""
+
+msgid "Option %1 ist leer."
+msgstr ""
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr ""
+
+msgid "Option %1 gibt es schon."
+msgstr ""
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr ""
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr ""
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr ""
+
+msgid "Umfrage erstellen"
+msgstr ""
+
+msgid "Frage"
+msgstr ""
+
+msgid "Beschreibung (optional)"
+msgstr ""
+
+msgid "Umfrage starten"
+msgstr ""
+
+msgid "Frist"
+msgstr ""
+
+msgid "24 Stunden"
+msgstr ""
+
+msgid "3 Tage"
+msgstr ""
+
+msgid "14 Tage"
+msgstr ""
+
+msgid "Eigenes Datum"
+msgstr ""
+
+msgid "Ohne Frist"
+msgstr ""
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr ""
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr ""
+
+msgid "%1/%2"
+msgstr ""
+
+msgid "Option %1"
+msgstr ""
+
+msgid "Option %1 entfernen"
+msgstr ""
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr ""
+
+msgid "Diese Option gibt es schon."
+msgstr ""
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr ""
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr ""
+
+msgid "Gestartet von %1 am %2"
+msgstr ""
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr ""
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr ""
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr ""
+
+msgid "Umfrage schließen"
+msgstr ""
+
+msgid "Umfrage schließen?"
+msgstr ""
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr ""
+
+msgid "Der Stand hat sich geändert."
+msgstr ""
+
+msgid "Umfrage abbrechen"
+msgstr ""
+
+msgid "Umfrage abbrechen?"
+msgstr ""
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr ""
+
+msgid "ABBRECHEN"
+msgstr ""
+
+msgid "Umfrage endgültig abbrechen"
+msgstr ""
+
+msgid "endet am %1"
+msgstr ""
+
+msgid "ohne Frist"
+msgstr ""
+
+msgid "1 Antwort"
+msgstr ""
+
+msgid "%1 Antworten"
+msgstr ""
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr ""
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr ""
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr ""
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr ""
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr ""
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr ""
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr ""
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr ""
+
+msgid "Beantwortet"
+msgstr ""
+
+msgid "Umfrage öffnen"
+msgstr ""
+
+msgid "Anzahl der Antworten"
+msgstr ""
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr ""
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr ""
+
+msgid "Nach Köpfen"
+msgstr ""
+
+msgid "%1 % · %2"
+msgstr ""
+
+msgid "Nach LTR-Gewicht"
+msgstr ""
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr ""
+
+msgid "%1 %"
+msgstr ""
+
+msgid "Umfragen"
+msgstr ""

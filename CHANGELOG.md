@@ -6,6 +6,45 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.31 opinion polls (web UI)
+
+- **The polls get their screens** (`/polls`, `/polls/:id`; navigation entry "Umfragen" directly after "Konsensieren", ACTIVE members only). List with a
+  status filter ("Offen", "Geschlossen", "Abgebrochen"), the viewer's own state per poll ("Offen für Sie", "Beantwortet"), the number of answers for closed
+  polls only, and "Mehr laden" (pages of 50, own states in batches of 100).
+- **"Umfrage erstellen"** for those who may start polls: question, description, 2..10 option fields that are added and removed at run time, deadline
+  presets (24 hours, 3, 7 default, 14, 30 days, own date, none), a box that says the poll is non-binding and anonymous, and local validation that mirrors
+  `PollRules` (the start button stays disabled with the first reason shown). One fixed sentence covers every server limit.
+- **Answer booth** with three steps (choose, check, submit) and an end state that explains itself; **detail view** with close (confirmation) and abort
+  (typed keyword "ABBRECHEN", translated per language); **result view** with two blocks side by side (by head count, by LTR weight), options in the order
+  of the poll, no rank, no winner marker, whole percents by the largest-remainder method, and a sentence where the server withholds a block.
+- **`IPollService.canCreatePolls()`** (additive, read-only, no migration): the caller's own capability, `false` for GUEST/FRIEND/federated guests/non-ACTIVE
+  members and never a `ForbiddenException`; a UI hint, `createPoll` checks again. `PollCanCreateTest` covers every role.
+- `ConfirmDialog.kt`: `confirmWithTypedConfirmationDialog` has a new optional `cancelLabel` (default unchanged "Abbrechen"), so a dialog whose expected word
+  is itself "ABBRECHEN" does not offer a second "Abbrechen" button with the opposite meaning.
+- 80 new sentences in `messages.pot` and the seven catalogs (en, es, fr, it, nl, pl, ru). Docs: `docs/architecture/polls.adoc` (section "Web UI (V1.9.31)"
+  with the booth state diagram) and the new `docs/architecture/polls-staging-test.adoc`.
+
+### Security -- V1.9.31
+
+- **The chosen option is treated like a secret ballot**: it lives only in the booth's private `chosenIndex` and the radio buttons' checked *state*, is restored
+  as a DOM property and never as an attribute (stricter than the consensus booth), is emptied in every end state, and never appears in an attribute, a `value`,
+  a `data-*`, an id, storage, the console, the address or a toast.
+- New tripwire `PollSecrecyTripwireTest` (source scan with a detector self-test) and the Karma tests `PollBoothDomTest`, `PollMaliciousTextDomTest` and friends.
+- Text a member typed (question, description, option, creator name) is sanitised everywhere it is shown, including legend/label content and placeholder
+  arguments (a forged i18n marker renders as literal text).
+- No server message is ever shown (Kilua RPC transmits only the exception type, `e.message` is never read); a refused reader (`ForbiddenException`) is sent
+  to the dashboard silently -- no toast, no existence oracle. `canCreatePolls()` describes only the caller's own capability.
+- DoS: own states in blocks of 100, pages of 50 (+1 to detect a next page), offset clamped to `PollRules.MAX_LIST_OFFSET`, no polling loop; every write is
+  single-shot (`runBusy`/`runGuardedAction`) and a conflict ends in a re-read instead of a second send.
+
+### Known limitations -- V1.9.31
+
+- The chosen option is in the DOM during the check step (on purpose: only then does a member really check what is about to be sent); it is gone after the submit.
+- The staging test plan `docs/architecture/polls-staging-test.adoc` was **not executed**: nothing was deployed in this wave.
+- The deadline is entered in the browser's local time while the server calculates in its own zone; a browser in another zone shifts the presets, and a custom
+  deadline near the 15-minute limit can be refused by the server (the form then asks to check the details, especially the deadline).
+- Aborting asks for the keyword "ABBRECHEN" (translated per language) instead of the poll's title, because a question can be 500 characters long.
+
 ### Added -- V1.9.30 opinion polls (server)
 
 - **Non-binding opinion polls (Stimmungsbilder) on an LTR basis**, server side: `IPollService` with `createPoll`, `closePoll`, `abortPoll`, `getPoll`, `listPolls`,
@@ -19,7 +58,7 @@ All notable changes to this project are documented here. Format follows
 - **Lazy deadline**: a poll whose deadline passed is `CLOSED` for every reader; the stored row is never rewritten (no background job, no audit entry).
 - `V65__polls.sql` (additive, idempotent): `poll`, `poll_option`, `poll_participation`, `poll_response`; new audit entity type `POLL` (poll create, close and
   abort are audited, individual responses never). kUML model `61-poll.kuml.kts`, four Exposed tables, `PollPersonalData` (export and erasure).
-- Client: only the audit-log label "Umfrage" for the new entity type (`AuditLogScreen`, `ComplianceLabels`, eight message catalogs). No poll UI yet (V1.9.31).
+- Client: only the audit-log label "Umfrage" for the new entity type (`AuditLogScreen`, `ComplianceLabels`, eight message catalogs). The poll UI follows in V1.9.31.
 - The privacy page's purposes list (`LegalHtml`) names the polls and what is stored for them (`LegalHtmlTest` H12 requires every personal-data contributor to be described).
 - `docs/architecture/polls.adoc` added (with the lifecycle and data model diagrams).
 
@@ -41,7 +80,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations -- V1.9.30
 
-- No poll UI yet (V1.9.31); the RPC is unused on the client.
+- No poll UI in this wave (it follows in V1.9.31); the RPC is unused on the client.
 - Residual risk: whoever can read the database or its backups sees option and weight per response and can try to match the weights against the public LTR
   ledger; the physical insertion order may correlate a participation with its response. This is a table separation, not cryptography.
 - The concurrency tests run on H2 only; lock behaviour on Postgres is argued from the lock order, not measured.

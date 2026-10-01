@@ -1,4 +1,4 @@
-= Opinion polls on an LTR basis, server (V1.9.30)
+= Opinion polls on an LTR basis, server and web UI (V1.9.30, V1.9.31)
 :toc:
 
 == Purpose
@@ -8,8 +8,8 @@ deliberately separate from the elections (`ElectionService`) and the meritocrati
 resolution (`PollDto.binding` is always `false`), is bound to no motion and no meeting, and moves *no LTR*. The responder's free LTR
 balance is only read and stored as a weight snapshot, so the result can be shown twice: by head count and weighted by LTR.
 
-This wave is server only (`IPollService`, `V65__polls.sql`, `PollService`). The UI follows in V1.9.31; the RPC is unused on the client
-until then. The only client change is the labelling of the new audit entity type.
+V1.9.30 is the server (`IPollService`, `V65__polls.sql`, `PollService`); V1.9.31 adds the web UI (see "Web UI (V1.9.31)") and the one
+read-only RPC `canCreatePolls()` it needs, without a migration.
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
@@ -22,6 +22,7 @@ NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-r
 | Close / abort | The creator while still creator-capable, or ADMIN/BOARD. The chair of another committee may not close somebody else's poll.
 | Respond | ACTIVE members only. GUEST, FRIEND, federated guests, APPLICATION, WITHDRAWN and REJECTED are refused with `ForbiddenException` *before* the poll is looked up.
 | Read | ACTIVE members, or creator-capable callers
+| Ask "may I create?" | Every authenticated caller, through `canCreatePolls()` (V1.9.31): it returns `true`/`false` for the caller's own capability and never throws `ForbiddenException`, so it is no existence oracle. It is a UI hint only; `createPoll` checks again.
 |===
 
 Authorization is always checked before existence, so a refused caller cannot probe which poll ids exist. Error messages never contain
@@ -173,6 +174,94 @@ hard-deletes the member's participations (an erased member is not ACTIVE any mor
 `created_by` / `closed_by` as accountability for an organisation-wide question (precedent: `ElectionPersonalData`). `poll_option` and
 `poll_response` carry no member reference and are in the `noPersonalDataAllowlist` with that reason.
 
+== Web UI (V1.9.31)
+
+Routes: `/polls` (list) and `/polls/:id` (detail), in the navigation group "Selbstverwaltung" directly after "Konsensieren"
+(`NavVisibility.showsPolls`: ACTIVE members only, like the rest of the group). A GUEST or FRIEND who types the address gets the silent
+redirect described below; the server refuses them anyway.
+
+*List.* A status filter ("Offen", "Geschlossen", "Abgebrochen"; open by default, kept only in a local variable -- no storage, no URL), one row per
+poll with the status, the deadline, the viewer's own state ("Offen für Sie" as a badge, "Beantwortet" as quiet text) and -- for closed polls
+only -- the number of answers. "Mehr laden" asks for the next page of 50 (the screen requests 51 rows to know whether a next page exists and
+cuts the extra one off; the offset is clamped to `PollRules.MAX_LIST_OFFSET`). The viewer's own states come in batches of
+`PollRules.MAX_PARTICIPATION_BATCH`, never one call per row. "Umfrage erstellen" appears only if `canCreatePolls()` is `true`.
+
+*Create form.* A `lapisForm`; the option fields are real form fields that are added (up to 10) and removed (from the third on) at run
+time. The draft is validated with the constants of `PollRules` (question 500, description 2000, option 200 characters, 2..10 options,
+duplicates by `PollRules.optionKey` of the normalised text, deadline between 15 minutes and 365 days); "Umfrage starten" stays disabled
+while the draft is invalid and the first reason is shown under it. Deadline presets: 24 hours, 3, *7 (default)*, 14, 30 days, "Eigenes
+Datum" or "Ohne Frist". The form says in a box that the poll is non-binding, the answers are anonymous and the result is visible only
+after the end. A conflict from the server is shown as ONE fixed sentence that covers all three server limits (20 open polls, 5 per
+creator, 10 per 24 hours) -- the server's own text is never shown.
+
+*Detail.* Question, description (preformatted, sanitised), creator and date, deadline, and always the box "Unverbindlich -- ein Stimmungsbild,
+kein Beschluss." While the poll is open and the server says the viewer may still answer, the answer booth is shown; after the poll was
+closed the result; for an aborted poll the sentence that its answers are never evaluated. Whoever manages the poll sees "Umfrage
+schließen" (a confirmation dialog) and "Umfrage abbrechen" (the viewer has to type the word "ABBRECHEN"; the dialog's close button is
+labelled "Zurück" so that no second button says "Abbrechen" with the opposite meaning). Both actions are hidden while the check step of the
+booth is open, and every successful write reloads the whole detail.
+
+*Answer booth.* An answer is irreversible and anonymous, so the booth is its own mode with three steps and an end state that explains itself:
+
+[source,kuml,name="polls-ui-flow"]
+----
+stateDiagram(name = "Answer booth") {
+    val start = initialState()
+    val select = state(name = "Choose")
+    val review = state(name = "Check")
+    val submitting = state(name = "Submitting")
+    val saved = state(name = "Saved")
+    val explained = state(name = "Explained by reading the state")
+
+    transition(source = start, target = select) { trigger = "canRespond" }
+    transition(source = select, target = review) { trigger = "Weiter" }
+    transition(source = review, target = select) { trigger = "Zurueck" }
+    transition(source = review, target = submitting) { trigger = "Endgueltig abgeben" }
+    transition(source = submitting, target = saved) { trigger = "answer stored" }
+    transition(source = submitting, target = explained) {
+        trigger = "conflict, refusal or lost connection"
+        guard = "[the participation and the poll are read again]"
+    }
+    transition(source = explained, target = review) {
+        trigger = "still open and not answered"
+        guard = "[choice kept, nothing is resent by itself]"
+    }
+}
+----
+
+The secrecy model of the client, enforced by `PollSecrecyTripwireTest` and the Karma tests `PollBoothDomTest`/`PollMaliciousTextDomTest`:
+
+* The choice lives in exactly one place: the private `chosenIndex` of the booth (an index into the poll's options) and the radio buttons' own
+  checked *state*. It is restored when the member steps back from the check step as a DOM *property* only (`checked = true`), never as an
+  attribute, because attributes end up in `outerHTML`. (This is stricter than the consensus booth, which sets the attribute.)
+* The radio buttons carry one constant group name and a running index as id; no `value`, no `data-*`, no option id in any attribute.
+* `chosenIndex` is emptied in every end state; no toast, no console, no storage, no URL ever carries the answer, and the error texts are
+  fixed sentences (Kilua RPC transmits only the exception type, and `e.message` is never read).
+* The check step names the chosen option on screen on purpose -- only then does a member really check what is about to be sent. That
+  single text node is discarded with the step.
+* After a refusal or a lost connection the booth reads the participation and the poll again and says only what is known ("Ihre Antwort ist
+  gespeichert.", "Die Umfrage ist beendet.", or -- when nothing could be read -- that the connection was interrupted and the page should
+  be reloaded).
+* Text a member typed (question, description, option, the creator's name) is sanitised before it is shown, including as placeholder
+  arguments and as legend/label content.
+* A refused read (`ForbiddenException`) is silent: no toast, no server text, the screen goes back to the dashboard.
+
+*Result.* Two blocks side by side from 900 px on ("Nach Köpfen", "Nach LTR-Gewicht"), one column below. Each option appears once in the
+order of the poll -- *never sorted by rank, no winner marker*: a poll is a mood picture, never a resolution. The head block shows whole
+percents (largest-remainder method on the head counts, the same method the server uses for the weights) and the number of answers; the
+weighted block shows whole percents only, always with the sentence that explains why it can differ from the head count. A block the
+server withholds shows the reason in a sentence instead of partial numbers; a withheld head result shows the sentence in both blocks.
+
+=== Known limitations of the UI
+
+* The chosen option is in the DOM during the check step (on purpose, see above).
+* The deadline is entered in the browser's local time while the server calculates in its own zone. A browser in another zone shifts the
+  presets by the difference, and a custom deadline close to the 15-minute limit can be refused by the server (the form then asks to check
+  the details, especially the deadline). The client uses the same 15-minute and 365-day limits as the server and adds no safety margin.
+* "Abbrechen" asks for the keyword "ABBRECHEN" (translated per language) instead of the poll's title, because a question can be 500
+  characters long.
+* The staging test plan (`polls-staging-test.adoc`) was not executed in this wave: nothing was deployed.
+
 == Known limitations
 
 * The weight is bound to the cut-off `poll.created_at`, so LTR transferred or minted after the poll opened does not raise the recipient's
@@ -188,4 +277,4 @@ hard-deletes the member's participations (an erased member is not ACTIVE any mor
   the two inserts of one cast adjacent.
 * There is no participation rate: eligibility is evaluated live when a member answers, no snapshot of the entitled members is taken.
 * The concurrency tests run on H2 only; lock behaviour on Postgres is argued from the lock order, not measured.
-* No UI yet (V1.9.31).
+* The web UI (V1.9.31) is described in the next section; its known limits are listed there.

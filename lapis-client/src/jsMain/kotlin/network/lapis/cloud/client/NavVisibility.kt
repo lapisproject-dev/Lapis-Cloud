@@ -35,6 +35,9 @@ object NavVisibility {
      */
     fun showsConsensus(status: MemberStatus): Boolean = showsSelfGovernance(status)
 
+    /** "Umfragen" (V1.9.31) -- the audience of the server's read gate for ordinary members: ACTIVE only (the same set as [showsSelfGovernance]). */
+    fun showsPolls(status: MemberStatus): Boolean = showsSelfGovernance(status)
+
     /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Kommunikation/Meine Daten). */
     fun showsMembershipSection(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 

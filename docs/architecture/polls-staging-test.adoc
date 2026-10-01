@@ -1,0 +1,46 @@
+= Staging test plan: opinion polls in the web client (V1.9.31)
+:toc:
+
+== Purpose
+
+Everything in V1.9.31 is covered by unit, DOM and tripwire tests against stubbed servers. What only a real server can show: the anonymity of a
+real answer (database rows), the open-poll limits against real data, the lazy deadline, and the behaviour on two devices at once. This plan is
+the mandatory part of the wave's acceptance. It was **not executed** by the author of the wave: nothing was deployed (access data and the
+staging server belong to the operator), so every row of "Actual results" below is still open.
+
+== Set-up
+
+. Accounts: one ADMIN, one BOARD, one committee CHAIR (active seat in an active committee), one ACTIVE member without any seat, one FRIEND, one guest.
+. Two ACTIVE members who can be logged in on two devices (or two browser profiles) at the same time.
+. Browser language German for the first pass, English for step 18.
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | As ACTIVE member without a seat open "Umfragen" | the list shows "Zurzeit keine offenen Umfragen." or the open polls; there is no button "Umfrage erstellen"
+| 2 | As ADMIN, BOARD and CHAIR in turn open "Umfragen" | each sees "Umfrage erstellen"
+| 3 | As CHAIR: create a poll with the defaults (question, two options) | the poll opens; the deadline is 7 days ahead; the page shows the box "Unverbindlich -- ein Stimmungsbild, kein Beschluss."
+| 4 | In the form: leave the question empty, use a 501 character question, enter the same option twice (also with other case and spaces), add options up to ten | the start button stays disabled and the first reason is shown under it; a duplicate is named at the second field; the eleventh option cannot be added
+| 5 | Create one poll with "Ohne Frist" and one with "Eigenes Datum" 10 minutes ahead | "Sie müssen die Umfrage dann selbst schließen." for the first; the second is refused by the form
+| 6 | Create polls until the limits are hit (5 open polls of one creator, then 10 within 24 hours) | after the limit, one fixed sentence ("Zurzeit können Sie keine weitere Umfrage starten ...") and no server text
+| 7 | Open a poll as the two members on two devices | each sees the booth, nothing is preselected, "Weiter" is disabled until a choice is made
+| 8 | Member 1: choose, "Weiter", read the check step, "Zurück", "Weiter", "Endgültig abgeben" -- double-click the last button | exactly one answer; "Ihre Antwort ist gespeichert."; the option text is nowhere on the page afterwards
+| 9 | Member 1 reloads the detail | "Sie haben an dieser Umfrage teilgenommen."; no booth; no count
+| 10 | While the poll is open run in the database: `SELECT option_id FROM poll_response` and `SELECT member_id FROM poll_participation` | the two tables share no key; no member is next to an option; no time column
+| 11 | As the creator open the detail | "Umfrage schließen" and "Umfrage abbrechen" are shown below the booth area; as another CHAIR they are not
+| 12 | Close the poll with fewer than 5 answers | the result shows, in both blocks, "Zu wenige Antworten für eine anonyme Auswertung (mindestens 5)."; no numbers
+| 13 | Run a poll to exactly 4 and exactly 5 answers (all different members) and close both | 4: withheld; 5: head block with percents and counts, weighted block either numbers or one of the four reasons
+| 14 | Close a poll with weighted result available | two blocks side by side at 900 px and wider, one column below; options in the order of the poll, no winner highlighted, no bold; the explaining sentence is under "Nach LTR-Gewicht"
+| 15 | Abort a poll: type a wrong word, then "ABBRECHEN" | the confirm button stays disabled until the exact word; the close button reads "Zurück"; afterwards "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+| 16 | Let the deadline of an open poll pass while the detail is open on a device, then answer | no error toast; the booth says "Die Umfrage ist beendet."
+| 17 | As FRIEND and as guest open `/polls` and `/polls/<an id>` directly | silent redirect to the start page, no toast, no server text; the navigation has no "Umfragen" entry
+| 18 | Switch to English and walk through steps 3, 8, 12, 15 | every text is English; the typed keyword is the English one ("ABORT")
+| 19 | A poll whose question, option and creator name contain `###KvI18nS###` and `<img ...>` | shown as plain text in the list, the detail, the booth, the check step and the result
+| 20 | Phone width (below 900 px) | the list is a card list, the result is one column, nothing scrolls sideways
+|===
+
+== Actual results
+
+(to be filled in when the plan is run)

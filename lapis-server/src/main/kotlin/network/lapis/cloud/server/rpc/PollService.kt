@@ -278,6 +278,12 @@ class PollService(
         }
     }
 
+    override suspend fun canCreatePolls(): Boolean {
+        val current = resolveCurrentMember(call)
+        // Read-only and no audit entry. A federated guest is a GUEST row of MemberTable, so isActiveMemberNow() is false for it.
+        return transaction { current.canCreatePolls() }
+    }
+
     override suspend fun getPollParticipation(pollId: String): PollParticipationDto {
         val current = resolveCurrentMember(call)
         return transaction {

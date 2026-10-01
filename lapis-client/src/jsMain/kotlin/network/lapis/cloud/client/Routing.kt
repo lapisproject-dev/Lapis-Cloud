@@ -62,6 +62,10 @@ object Routes {
     const val CONSENSUS = "/consensus"
     const val CONSENSUS_DETAIL = "/consensus/:id"
 
+    /** V1.9.31 "Umfragen" (non-binding opinion polls): list and detail. The id in the path is not a secret; an answer never appears in a URL. */
+    const val POLLS = "/polls"
+    const val POLL_DETAIL = "/polls/:id"
+
     // Accounting UI wave: unlike Governance, every single `IAccountingService` method requires at
     // least TREASURER/BOARD/ADMIN server-side (see that interface's own class KDoc) -- there is no
     // plain-MEMBER-readable Accounting RPC at all. This route therefore gates at the route level
@@ -786,6 +790,19 @@ fun initRouting(pageContainer: SimplePanel) {
                 routing.navigate(Routes.CONSENSUS)
             } else {
                 show(Routes.CONSENSUS_DETAIL) { container -> renderConsensusScreen(container, id) }
+            }
+        }
+    }
+    routing.kvOn(Routes.POLLS) {
+        requireAuth(routing) { show(Routes.POLLS) { container -> renderPollScreen(container) } }
+    }
+    routing.kvOn(Routes.POLL_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.POLLS)
+            } else {
+                show(Routes.POLL_DETAIL) { container -> renderPollScreen(container, id) }
             }
         }
     }

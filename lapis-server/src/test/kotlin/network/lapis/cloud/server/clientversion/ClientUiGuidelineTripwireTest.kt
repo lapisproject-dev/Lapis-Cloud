@@ -636,6 +636,16 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "ConsensusReceipt.kt",
         "ConsensusResultView.kt",
         "ConsensusOpenForm.kt",
+        // V1.9.31 "Umfragen": strict from day one -- the create form is a `lapisForm`, every write goes through `runBusy`/`runGuardedAction`.
+        "PollScreen.kt",
+        "PollListView.kt",
+        "PollCreateForm.kt",
+        "PollAuthzUi.kt",
+        "PollLabels.kt",
+        "PollDetail.kt",
+        "PollBooth.kt",
+        "PollResultView.kt",
+        "PollGuard.kt",
         // V1.9.29 "KI-Zugang": no form at all -- one immediate switch (a `CheckBox` constructor, saved by itself, confirmed by a dialog when turned
         // off) and a revoke button per connection; every write goes through `runGuardedAction`, so R29 does not rise.
         "McpAccessCard.kt",

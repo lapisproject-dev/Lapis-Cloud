@@ -18732,3 +18732,243 @@ msgstr "Этот агент немедленно теряет доступ к в
 
 msgid "Umfrage"
 msgstr "Опрос"
+
+msgid "Antwort prüfen"
+msgstr "Проверьте свой ответ"
+
+msgid "Sie haben „%1“ gewählt."
+msgstr "Вы выбрали «%1»."
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr "Ваш ответ окончательный: он даётся один раз, не может быть изменён и анонимен. Ваш баланс LTR фиксируется для взвешенной оценки, но нигде не отображается."
+
+msgid "Keine Berechtigung"
+msgstr "Нет прав"
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr "Отвечать могут только активные участники."
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr "Ваш ответ сохранён."
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr "Подтверждение не дошло из-за обрыва соединения."
+
+msgid "Bereits geantwortet"
+msgstr "Уже отвечено"
+
+msgid "Umfrage beendet"
+msgstr "Опрос завершён"
+
+msgid "Die Umfrage ist beendet."
+msgstr "Опрос завершён."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Соединение было прервано. Не удалось проверить, сохранён ли ваш ответ. Пожалуйста, перезагрузите страницу."
+
+msgid "Zurück zur Umfrage"
+msgstr "Назад к опросу"
+
+msgid "Danke"
+msgstr "Спасибо"
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr "Пожалуйста, введите вопрос."
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr "Вопрос слишком длинный (не более %1 символов)."
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr "Описание слишком длинное (не более %1 символов)."
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr "Укажите не менее %1 вариантов."
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr "Возможно не более %1 вариантов."
+
+msgid "Option %1 ist leer."
+msgstr "Вариант %1 пуст."
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "Вариант %1 слишком длинный (не более %2 символов)."
+
+msgid "Option %1 gibt es schon."
+msgstr "Вариант %1 уже есть."
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr "Укажите для срока допустимые дату и время."
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr "Срок должен быть не раньше чем через %1 минут."
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr "Срок может быть не позже чем через %1 дней."
+
+msgid "Umfrage erstellen"
+msgstr "Создать опрос"
+
+msgid "Frage"
+msgstr "Вопрос"
+
+msgid "Beschreibung (optional)"
+msgstr "Описание (необязательно)"
+
+msgid "Umfrage starten"
+msgstr "Запустить опрос"
+
+msgid "Frist"
+msgstr "Срок"
+
+msgid "24 Stunden"
+msgstr "24 часа"
+
+msgid "3 Tage"
+msgstr "3 дня"
+
+msgid "14 Tage"
+msgstr "14 дней"
+
+msgid "Eigenes Datum"
+msgstr "Своя дата"
+
+msgid "Ohne Frist"
+msgstr "Без срока"
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr "Дата и время срока"
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr "Тогда вам придётся закрыть опрос самостоятельно."
+
+msgid "%1/%2"
+msgstr "%1/%2"
+
+msgid "Option %1"
+msgstr "Вариант %1"
+
+msgid "Option %1 entfernen"
+msgstr "Удалить вариант %1"
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr "Вариант слишком длинный (не более %1 символов)."
+
+msgid "Diese Option gibt es schon."
+msgstr "Такой вариант уже есть."
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr "Необязательный опрос – срез мнений, а не решение. Ответы анонимны; результат виден только после завершения."
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr "Сейчас вы не можете запустить ещё один опрос: слишком много опросов открыто или запущено недавно. Повторите попытку позже."
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr "Проверьте данные, особенно срок."
+
+msgid "Gestartet von %1 am %2"
+msgstr "Запущен: %1, %2"
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr "Необязательный – срез мнений, а не решение."
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr "Этот опрос был отменён. Ответы никогда не будут оценены."
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr "Вы приняли участие в этом опросе."
+
+msgid "Umfrage schließen"
+msgstr "Закрыть опрос"
+
+msgid "Umfrage schließen?"
+msgstr "Закрыть опрос?"
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr "После этого ответы будут невозможны. Результат станет виден, если наберётся достаточно ответов."
+
+msgid "Der Stand hat sich geändert."
+msgstr "Состояние изменилось."
+
+msgid "Umfrage abbrechen"
+msgstr "Отменить опрос"
+
+msgid "Umfrage abbrechen?"
+msgstr "Отменить опрос?"
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr "Ответы никогда не будут оценены. Это нельзя отменить."
+
+msgid "ABBRECHEN"
+msgstr "ОТМЕНИТЬ"
+
+msgid "Umfrage endgültig abbrechen"
+msgstr "Окончательно отменить опрос"
+
+msgid "endet am %1"
+msgstr "заканчивается %1"
+
+msgid "ohne Frist"
+msgstr "без срока"
+
+msgid "1 Antwort"
+msgstr "1 ответ"
+
+msgid "%1 Antworten"
+msgstr "%1 ответов"
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr "Слишком мало ответов для анонимной оценки (минимум %1)."
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr "Ни один ответ не имел веса LTR – взвешенная оценка невозможна."
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr "Слишком мало ответов с весом LTR для анонимной взвешенной оценки (минимум %1)."
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr "Взвешенная оценка скрыта, чтобы нельзя было узнать отдельный ответ."
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr "Взвешенная оценка недоступна."
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr "Сейчас нет открытых опросов."
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr "Закрытых опросов пока нет."
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr "Отменённых опросов нет."
+
+msgid "Beantwortet"
+msgstr "Отвечено"
+
+msgid "Umfrage öffnen"
+msgstr "Открыть опрос"
+
+msgid "Anzahl der Antworten"
+msgstr "Количество ответов"
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr "Необязательный срез мнений · 1 ответ"
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr "Необязательный срез мнений · %1 ответов"
+
+msgid "Nach Köpfen"
+msgstr "По числу голосов"
+
+msgid "%1 % · %2"
+msgstr "%1 % · %2"
+
+msgid "Nach LTR-Gewicht"
+msgstr "По весу LTR"
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr "Каждый ответ учитывается с тем балансом LTR, который был у человека при ответе: кто внёс больше, тот весит больше. Поэтому эта картина может отличаться от результата по числу голосов."
+
+msgid "%1 %"
+msgstr "%1 %"
+
+msgid "Umfragen"
+msgstr "Опросы"

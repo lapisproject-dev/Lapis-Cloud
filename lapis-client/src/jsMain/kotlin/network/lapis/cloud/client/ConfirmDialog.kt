@@ -206,6 +206,9 @@ fun confirmWithTypedConfirmationDialog(
     message: String,
     expectedText: String,
     confirmLabel: String = tr("Endgültig löschen"),
+    // V1.9.31 -- additive: the close button's label. A caller whose expected word is itself "ABBRECHEN" must not offer a second
+    // "Abbrechen" button that means the opposite; the default keeps every existing caller unchanged.
+    cancelLabel: String = tr("Abbrechen"),
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = title)
@@ -213,7 +216,7 @@ fun confirmWithTypedConfirmationDialog(
     modal.div(gettext("Zum Bestätigen bitte \"%1\" eingeben:", expectedText)) { addCssClasses("fw-bold") }
     val typedInput = modal.text()
 
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = Button(cancelLabel, style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val once = ConfirmOnce()
     val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER).apply { disabled = true }
     confirmButton.onClick {

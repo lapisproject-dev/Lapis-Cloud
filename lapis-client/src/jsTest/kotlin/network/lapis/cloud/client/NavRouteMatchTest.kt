@@ -21,6 +21,15 @@ class NavRouteMatchTest {
     }
 
     @Test
+    fun pollDetailRoute_activatesThePollsLink_butNotAnotherLink() {
+        // V1.9.31: /polls/<id> keeps "Umfragen" highlighted; /polls does not light up an unrelated "/poll" prefix link.
+        assertTrue(NavRouteMatch.isActive("/polls/4711", Routes.POLLS))
+        assertTrue(NavRouteMatch.isActive(Routes.POLLS, Routes.POLLS))
+        assertFalse(NavRouteMatch.isActive("/polls", "/poll"))
+        assertFalse(NavRouteMatch.isActive("/consensus/4711", Routes.POLLS))
+    }
+
+    @Test
     fun groupRoute_doesNotActivateItsOwnDescendantLink() {
         assertFalse(NavRouteMatch.isActive("/social-network", "/social-network/post/:id"))
     }

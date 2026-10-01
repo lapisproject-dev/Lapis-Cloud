@@ -49,6 +49,18 @@ class NavVisibilityTest {
     }
 
     @Test
+    fun polls_followSelfGovernance_forEveryStatus() {
+        // V1.9.31: "Umfragen" is decided exactly like "Wahlen"/"Konsensieren": ACTIVE members only.
+        MemberStatus.entries.forEach { status ->
+            assertEquals(NavVisibility.showsSelfGovernance(status), NavVisibility.showsPolls(status), "showsPolls for $status")
+        }
+        assertTrue(NavVisibility.showsPolls(MemberStatus.ACTIVE))
+        listOf(MemberStatus.FRIEND, MemberStatus.GUEST, MemberStatus.APPLICATION, MemberStatus.WITHDRAWN).forEach { status ->
+            assertFalse(NavVisibility.showsPolls(status), "showsPolls for $status")
+        }
+    }
+
+    @Test
     fun consensus_followSelfGovernance_forEveryStatus() {
         // V1.9.28: "Konsensieren" is decided exactly like "Wahlen" and the rest of "Selbstverwaltung".
         MemberStatus.entries.forEach { status ->

@@ -78,4 +78,12 @@ interface IPollService {
      * caller already responded; [BadRequestException] if the option does not belong to the poll.
      */
     suspend fun castPollResponse(input: PollResponseInput): PollParticipationDto
+
+    /**
+     * V1.9.31: whether the CALLER may create polls right now (ADMIN/BOARD or a committee-leadership seat in an active
+     * committee, see `PollAuthorization.canCreatePolls`). A UI hint only -- [createPoll] re-checks. Never throws
+     * [ForbiddenException] for an authenticated caller: GUEST/FRIEND/federated guests/non-ACTIVE members simply get `false`
+     * (it describes the caller's own capability, so it is no existence oracle). [UnauthenticatedException] without a session.
+     */
+    suspend fun canCreatePolls(): Boolean
 }

@@ -2450,6 +2450,52 @@ html .form-select.is-invalid:focus {
   font-size: 0.8125rem;
 }
 
+/* V1.9.31 Umfragen: Ergebnis als zwei Bloecke nebeneinander (ab 900 px), Balken ohne Rang- oder Siegerhervorhebung. */
+.lapis-poll-results {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .lapis-poll-results {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.lapis-poll-block {
+  padding: 10px 12px;
+  border: 1px solid var(--lapis-border);
+  border-radius: 6px;
+  background-color: var(--lapis-surface);
+}
+
+.lapis-poll-row {
+  margin-bottom: 10px;
+}
+
+.lapis-poll-bar {
+  height: 10px;
+  margin: 4px 0;
+  border-radius: 5px;
+  background-color: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border);
+  overflow: hidden;
+}
+
+.lapis-poll-bar__fill {
+  height: 100%;
+  background-color: var(--lapis-accent);
+}
+
+.lapis-poll-bar__fill--weighted {
+  opacity: 0.55;
+}
+
+.lapis-poll-description {
+  white-space: pre-wrap;
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

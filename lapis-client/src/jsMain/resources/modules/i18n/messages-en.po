@@ -18694,3 +18694,243 @@ msgstr "This agent immediately loses access to your account."
 
 msgid "Umfrage"
 msgstr "Poll"
+
+msgid "Antwort prüfen"
+msgstr "Check your answer"
+
+msgid "Sie haben „%1“ gewählt."
+msgstr "You have chosen “%1”."
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr "Your answer is final: given once, not changeable and anonymous. Your LTR balance is recorded for the weighted evaluation but is never shown anywhere."
+
+msgid "Keine Berechtigung"
+msgstr "No permission"
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr "Only active members can answer."
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr "Your answer has been saved."
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr "The confirmation did not arrive because the connection was interrupted."
+
+msgid "Bereits geantwortet"
+msgstr "Already answered"
+
+msgid "Umfrage beendet"
+msgstr "Poll ended"
+
+msgid "Die Umfrage ist beendet."
+msgstr "The poll has ended."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "The connection was interrupted. It could not be checked whether your answer was saved. Please reload the page."
+
+msgid "Zurück zur Umfrage"
+msgstr "Back to the poll"
+
+msgid "Danke"
+msgstr "Thank you"
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr "Please enter a question."
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr "The question is too long (at most %1 characters)."
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr "The description is too long (at most %1 characters)."
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr "Please enter at least %1 options."
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr "At most %1 options are possible."
+
+msgid "Option %1 ist leer."
+msgstr "Option %1 is empty."
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "Option %1 is too long (at most %2 characters)."
+
+msgid "Option %1 gibt es schon."
+msgstr "Option %1 already exists."
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr "Please enter a valid date and time for the deadline."
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr "The deadline must be at least %1 minutes in the future."
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr "The deadline may be at most %1 days in the future."
+
+msgid "Umfrage erstellen"
+msgstr "Create poll"
+
+msgid "Frage"
+msgstr "Question"
+
+msgid "Beschreibung (optional)"
+msgstr "Description (optional)"
+
+msgid "Umfrage starten"
+msgstr "Start poll"
+
+msgid "Frist"
+msgstr "Deadline"
+
+msgid "24 Stunden"
+msgstr "24 hours"
+
+msgid "3 Tage"
+msgstr "3 days"
+
+msgid "14 Tage"
+msgstr "14 days"
+
+msgid "Eigenes Datum"
+msgstr "Own date"
+
+msgid "Ohne Frist"
+msgstr "No deadline"
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr "Date and time of the deadline"
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr "You will then have to close the poll yourself."
+
+msgid "%1/%2"
+msgstr "%1/%2"
+
+msgid "Option %1"
+msgstr "Option %1"
+
+msgid "Option %1 entfernen"
+msgstr "Remove option %1"
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr "The option is too long (at most %1 characters)."
+
+msgid "Diese Option gibt es schon."
+msgstr "This option already exists."
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr "Non-binding poll – a mood picture, not a decision. Answers are anonymous; the result is only visible after the end."
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr "You cannot start another poll at the moment – too many are open or were started recently. Please try again later."
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr "Please check your entries, especially the deadline."
+
+msgid "Gestartet von %1 am %2"
+msgstr "Started by %1 on %2"
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr "Non-binding – a mood picture, not a decision."
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr "This poll was aborted. The answers will never be evaluated."
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr "You have taken part in this poll."
+
+msgid "Umfrage schließen"
+msgstr "Close poll"
+
+msgid "Umfrage schließen?"
+msgstr "Close poll?"
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr "After that no more answers are possible. The result becomes visible if enough answers have been received."
+
+msgid "Der Stand hat sich geändert."
+msgstr "The state has changed."
+
+msgid "Umfrage abbrechen"
+msgstr "Abort poll"
+
+msgid "Umfrage abbrechen?"
+msgstr "Abort poll?"
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr "The answers will never be evaluated. This cannot be undone."
+
+msgid "ABBRECHEN"
+msgstr "ABORT"
+
+msgid "Umfrage endgültig abbrechen"
+msgstr "Abort poll for good"
+
+msgid "endet am %1"
+msgstr "ends on %1"
+
+msgid "ohne Frist"
+msgstr "no deadline"
+
+msgid "1 Antwort"
+msgstr "1 answer"
+
+msgid "%1 Antworten"
+msgstr "%1 answers"
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr "Too few answers for an anonymous evaluation (at least %1)."
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr "None of the answers had LTR weight – a weighted evaluation is not possible."
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr "Too few answers with LTR weight for an anonymous weighted evaluation (at least %1)."
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr "The weighted evaluation is withheld so that no single answer can be identified."
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr "The weighted evaluation is not available."
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr "No open polls at the moment."
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr "No closed polls yet."
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr "No aborted polls."
+
+msgid "Beantwortet"
+msgstr "Answered"
+
+msgid "Umfrage öffnen"
+msgstr "Open poll"
+
+msgid "Anzahl der Antworten"
+msgstr "Number of answers"
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr "Non-binding mood picture · 1 answer"
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr "Non-binding mood picture · %1 answers"
+
+msgid "Nach Köpfen"
+msgstr "By head count"
+
+msgid "%1 % · %2"
+msgstr "%1 % · %2"
+
+msgid "Nach LTR-Gewicht"
+msgstr "By LTR weight"
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr "Each answer counts with the LTR balance the person had when answering – whoever has contributed more counts for more. That is why this picture can differ from the result by head count."
+
+msgid "%1 %"
+msgstr "%1 %"
+
+msgid "Umfragen"
+msgstr "Polls"

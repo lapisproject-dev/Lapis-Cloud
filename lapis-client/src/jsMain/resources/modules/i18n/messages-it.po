@@ -18787,3 +18787,243 @@ msgstr "Questo agente perde subito l'accesso al suo account."
 
 msgid "Umfrage"
 msgstr "Sondaggio"
+
+msgid "Antwort prüfen"
+msgstr "Controlli la sua risposta"
+
+msgid "Sie haben „%1“ gewählt."
+msgstr "Ha scelto «%1»."
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr "La sua risposta è definitiva: unica, non modificabile e anonima. Il suo saldo LTR viene registrato per la valutazione ponderata, ma non viene mostrato da nessuna parte."
+
+msgid "Keine Berechtigung"
+msgstr "Nessuna autorizzazione"
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr "Solo i membri attivi possono rispondere."
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr "La sua risposta è stata salvata."
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr "La conferma non è arrivata a causa di un'interruzione della connessione."
+
+msgid "Bereits geantwortet"
+msgstr "Ha già risposto"
+
+msgid "Umfrage beendet"
+msgstr "Sondaggio terminato"
+
+msgid "Die Umfrage ist beendet."
+msgstr "Il sondaggio è terminato."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "La connessione è stata interrotta. Non è stato possibile verificare se la sua risposta sia stata salvata. Ricarichi la pagina."
+
+msgid "Zurück zur Umfrage"
+msgstr "Torna al sondaggio"
+
+msgid "Danke"
+msgstr "Grazie"
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr "Inserisca una domanda."
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr "La domanda è troppo lunga (al massimo %1 caratteri)."
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr "La descrizione è troppo lunga (al massimo %1 caratteri)."
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr "Indichi almeno %1 opzioni."
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr "Sono possibili al massimo %1 opzioni."
+
+msgid "Option %1 ist leer."
+msgstr "L'opzione %1 è vuota."
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "L'opzione %1 è troppo lunga (al massimo %2 caratteri)."
+
+msgid "Option %1 gibt es schon."
+msgstr "L'opzione %1 esiste già."
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr "Indichi una data e un'ora valide per la scadenza."
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr "La scadenza deve essere almeno %1 minuti nel futuro."
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr "La scadenza può essere al massimo %1 giorni nel futuro."
+
+msgid "Umfrage erstellen"
+msgstr "Crea sondaggio"
+
+msgid "Frage"
+msgstr "Domanda"
+
+msgid "Beschreibung (optional)"
+msgstr "Descrizione (facoltativa)"
+
+msgid "Umfrage starten"
+msgstr "Avvia sondaggio"
+
+msgid "Frist"
+msgstr "Scadenza"
+
+msgid "24 Stunden"
+msgstr "24 ore"
+
+msgid "3 Tage"
+msgstr "3 giorni"
+
+msgid "14 Tage"
+msgstr "14 giorni"
+
+msgid "Eigenes Datum"
+msgstr "Data personalizzata"
+
+msgid "Ohne Frist"
+msgstr "Senza scadenza"
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr "Data e ora della scadenza"
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr "Dovrà quindi chiudere il sondaggio personalmente."
+
+msgid "%1/%2"
+msgstr "%1/%2"
+
+msgid "Option %1"
+msgstr "Opzione %1"
+
+msgid "Option %1 entfernen"
+msgstr "Rimuovi l'opzione %1"
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr "L'opzione è troppo lunga (al massimo %1 caratteri)."
+
+msgid "Diese Option gibt es schon."
+msgstr "Questa opzione esiste già."
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr "Sondaggio non vincolante: un quadro degli umori, non una decisione. Le risposte sono anonime; il risultato è visibile solo dopo la chiusura."
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr "Al momento non può avviare un altro sondaggio: ce ne sono troppi aperti o avviati di recente. Riprovi più tardi."
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr "Controlli i dati, in particolare la scadenza."
+
+msgid "Gestartet von %1 am %2"
+msgstr "Avviato da %1 il %2"
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr "Non vincolante: un quadro degli umori, non una decisione."
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr "Questo sondaggio è stato annullato. Le risposte non verranno mai valutate."
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr "Ha partecipato a questo sondaggio."
+
+msgid "Umfrage schließen"
+msgstr "Chiudi sondaggio"
+
+msgid "Umfrage schließen?"
+msgstr "Chiudere il sondaggio?"
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr "Dopo non sarà più possibile rispondere. Il risultato diventa visibile se ci sono abbastanza risposte."
+
+msgid "Der Stand hat sich geändert."
+msgstr "Lo stato è cambiato."
+
+msgid "Umfrage abbrechen"
+msgstr "Annulla sondaggio"
+
+msgid "Umfrage abbrechen?"
+msgstr "Annullare il sondaggio?"
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr "Le risposte non verranno mai valutate. L'operazione non può essere annullata."
+
+msgid "ABBRECHEN"
+msgstr "ANNULLA"
+
+msgid "Umfrage endgültig abbrechen"
+msgstr "Annulla il sondaggio definitivamente"
+
+msgid "endet am %1"
+msgstr "termina il %1"
+
+msgid "ohne Frist"
+msgstr "senza scadenza"
+
+msgid "1 Antwort"
+msgstr "1 risposta"
+
+msgid "%1 Antworten"
+msgstr "%1 risposte"
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr "Troppe poche risposte per una valutazione anonima (almeno %1)."
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr "Nessuna delle risposte aveva peso LTR: una valutazione ponderata non è possibile."
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr "Troppe poche risposte con peso LTR per una valutazione ponderata anonima (almeno %1)."
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr "La valutazione ponderata viene trattenuta affinché nessuna singola risposta sia riconoscibile."
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr "La valutazione ponderata non è disponibile."
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr "Al momento nessun sondaggio aperto."
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr "Ancora nessun sondaggio chiuso."
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr "Nessun sondaggio annullato."
+
+msgid "Beantwortet"
+msgstr "Risposto"
+
+msgid "Umfrage öffnen"
+msgstr "Apri sondaggio"
+
+msgid "Anzahl der Antworten"
+msgstr "Numero di risposte"
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr "Quadro degli umori non vincolante · 1 risposta"
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr "Quadro degli umori non vincolante · %1 risposte"
+
+msgid "Nach Köpfen"
+msgstr "Per numero di persone"
+
+msgid "%1 % · %2"
+msgstr "%1 % · %2"
+
+msgid "Nach LTR-Gewicht"
+msgstr "Per peso LTR"
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr "Ogni risposta conta con il saldo LTR che la persona aveva al momento della risposta: chi ha contribuito di più conta di più. Per questo motivo questo quadro può differire dal risultato per numero di persone."
+
+msgid "%1 %"
+msgstr "%1 %"
+
+msgid "Umfragen"
+msgstr "Sondaggi"

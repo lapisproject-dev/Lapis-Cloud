@@ -18742,3 +18742,243 @@ msgstr "Deze agent verliest onmiddellijk de toegang tot uw account."
 
 msgid "Umfrage"
 msgstr "Peiling"
+
+msgid "Antwort prüfen"
+msgstr "Uw antwoord controleren"
+
+msgid "Sie haben „%1“ gewählt."
+msgstr "U heeft “%1” gekozen."
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr "Uw antwoord is definitief: eenmalig, niet te wijzigen en anoniem. Uw LTR-stand wordt voor de gewogen evaluatie vastgelegd, maar nergens getoond."
+
+msgid "Keine Berechtigung"
+msgstr "Geen toestemming"
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr "Alleen actieve leden kunnen antwoorden."
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr "Uw antwoord is opgeslagen."
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr "De bevestiging is niet aangekomen doordat de verbinding werd verbroken."
+
+msgid "Bereits geantwortet"
+msgstr "Al beantwoord"
+
+msgid "Umfrage beendet"
+msgstr "Peiling beëindigd"
+
+msgid "Die Umfrage ist beendet."
+msgstr "De peiling is afgelopen."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "De verbinding is verbroken. Er kon niet worden gecontroleerd of uw antwoord is opgeslagen. Laad de pagina opnieuw."
+
+msgid "Zurück zur Umfrage"
+msgstr "Terug naar de peiling"
+
+msgid "Danke"
+msgstr "Dank u"
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr "Voer een vraag in."
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr "De vraag is te lang (maximaal %1 tekens)."
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr "De beschrijving is te lang (maximaal %1 tekens)."
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr "Geef minstens %1 opties op."
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr "Er zijn maximaal %1 opties mogelijk."
+
+msgid "Option %1 ist leer."
+msgstr "Optie %1 is leeg."
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "Optie %1 is te lang (maximaal %2 tekens)."
+
+msgid "Option %1 gibt es schon."
+msgstr "Optie %1 bestaat al."
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr "Geef een geldige datum en tijd voor de deadline op."
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr "De deadline moet minstens %1 minuten in de toekomst liggen."
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr "De deadline mag hoogstens %1 dagen in de toekomst liggen."
+
+msgid "Umfrage erstellen"
+msgstr "Peiling maken"
+
+msgid "Frage"
+msgstr "Vraag"
+
+msgid "Beschreibung (optional)"
+msgstr "Beschrijving (optioneel)"
+
+msgid "Umfrage starten"
+msgstr "Peiling starten"
+
+msgid "Frist"
+msgstr "Deadline"
+
+msgid "24 Stunden"
+msgstr "24 uur"
+
+msgid "3 Tage"
+msgstr "3 dagen"
+
+msgid "14 Tage"
+msgstr "14 dagen"
+
+msgid "Eigenes Datum"
+msgstr "Eigen datum"
+
+msgid "Ohne Frist"
+msgstr "Geen deadline"
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr "Datum en tijd van de deadline"
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr "U moet de peiling dan zelf sluiten."
+
+msgid "%1/%2"
+msgstr "%1/%2"
+
+msgid "Option %1"
+msgstr "Optie %1"
+
+msgid "Option %1 entfernen"
+msgstr "Optie %1 verwijderen"
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr "De optie is te lang (maximaal %1 tekens)."
+
+msgid "Diese Option gibt es schon."
+msgstr "Deze optie bestaat al."
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr "Vrijblijvende peiling – een stemmingsbeeld, geen besluit. Antwoorden zijn anoniem; de uitslag is pas na afloop zichtbaar."
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr "U kunt op dit moment geen nieuwe peiling starten – er zijn er te veel open of onlangs gestart. Probeer het later opnieuw."
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr "Controleer de gegevens, met name de deadline."
+
+msgid "Gestartet von %1 am %2"
+msgstr "Gestart door %1 op %2"
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr "Vrijblijvend – een stemmingsbeeld, geen besluit."
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr "Deze peiling is afgebroken. De antwoorden worden nooit geëvalueerd."
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr "U heeft aan deze peiling deelgenomen."
+
+msgid "Umfrage schließen"
+msgstr "Peiling sluiten"
+
+msgid "Umfrage schließen?"
+msgstr "Peiling sluiten?"
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr "Daarna zijn er geen antwoorden meer mogelijk. De uitslag wordt zichtbaar als er genoeg antwoorden zijn."
+
+msgid "Der Stand hat sich geändert."
+msgstr "De stand van zaken is gewijzigd."
+
+msgid "Umfrage abbrechen"
+msgstr "Peiling afbreken"
+
+msgid "Umfrage abbrechen?"
+msgstr "Peiling afbreken?"
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr "De antwoorden worden nooit geëvalueerd. Dit kan niet ongedaan worden gemaakt."
+
+msgid "ABBRECHEN"
+msgstr "ANNULEREN"
+
+msgid "Umfrage endgültig abbrechen"
+msgstr "Peiling definitief afbreken"
+
+msgid "endet am %1"
+msgstr "eindigt op %1"
+
+msgid "ohne Frist"
+msgstr "zonder deadline"
+
+msgid "1 Antwort"
+msgstr "1 antwoord"
+
+msgid "%1 Antworten"
+msgstr "%1 antwoorden"
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr "Te weinig antwoorden voor een anonieme evaluatie (minstens %1)."
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr "Geen van de antwoorden had LTR-gewicht – een gewogen evaluatie is niet mogelijk."
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr "Te weinig antwoorden met LTR-gewicht voor een anonieme gewogen evaluatie (minstens %1)."
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr "De gewogen evaluatie wordt achtergehouden zodat geen enkel afzonderlijk antwoord herkenbaar wordt."
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr "De gewogen evaluatie is niet beschikbaar."
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr "Op dit moment geen open peilingen."
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr "Nog geen gesloten peilingen."
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr "Geen afgebroken peilingen."
+
+msgid "Beantwortet"
+msgstr "Beantwoord"
+
+msgid "Umfrage öffnen"
+msgstr "Peiling openen"
+
+msgid "Anzahl der Antworten"
+msgstr "Aantal antwoorden"
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr "Vrijblijvend stemmingsbeeld · 1 antwoord"
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr "Vrijblijvend stemmingsbeeld · %1 antwoorden"
+
+msgid "Nach Köpfen"
+msgstr "Naar aantal personen"
+
+msgid "%1 % · %2"
+msgstr "%1 % · %2"
+
+msgid "Nach LTR-Gewicht"
+msgstr "Naar LTR-gewicht"
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr "Elk antwoord telt mee met de LTR-stand die de persoon had bij het antwoorden – wie meer heeft bijgedragen, telt zwaarder. Daarom kan dit beeld afwijken van de uitslag naar aantal personen."
+
+msgid "%1 %"
+msgstr "%1 %"
+
+msgid "Umfragen"
+msgstr "Peilingen"

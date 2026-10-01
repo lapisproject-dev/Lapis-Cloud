@@ -18766,3 +18766,243 @@ msgstr "Este agente pierde de inmediato el acceso a su cuenta."
 
 msgid "Umfrage"
 msgstr "Encuesta"
+
+msgid "Antwort prüfen"
+msgstr "Revisar su respuesta"
+
+msgid "Sie haben „%1“ gewählt."
+msgstr "Ha elegido «%1»."
+
+msgid "Ihre Antwort ist endgültig: einmalig, nicht änderbar und anonym. Ihr LTR-Stand wird für die gewichtete Auswertung festgehalten, aber nirgends angezeigt."
+msgstr "Su respuesta es definitiva: única, no modificable y anónima. Su saldo de LTR se registra para la evaluación ponderada, pero no se muestra en ningún sitio."
+
+msgid "Keine Berechtigung"
+msgstr "Sin permiso"
+
+msgid "Nur aktive Mitglieder können antworten."
+msgstr "Solo los miembros activos pueden responder."
+
+msgid "Ihre Antwort ist gespeichert."
+msgstr "Su respuesta se ha guardado."
+
+msgid "Die Bestätigung ist wegen eines Verbindungsabbruchs nicht angekommen."
+msgstr "La confirmación no llegó porque se interrumpió la conexión."
+
+msgid "Bereits geantwortet"
+msgstr "Ya ha respondido"
+
+msgid "Umfrage beendet"
+msgstr "Encuesta finalizada"
+
+msgid "Die Umfrage ist beendet."
+msgstr "La encuesta ha finalizado."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Antwort gespeichert wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Se interrumpió la conexión. No se pudo comprobar si su respuesta se guardó. Por favor, recargue la página."
+
+msgid "Zurück zur Umfrage"
+msgstr "Volver a la encuesta"
+
+msgid "Danke"
+msgstr "Gracias"
+
+msgid "Bitte geben Sie eine Frage ein."
+msgstr "Por favor, introduzca una pregunta."
+
+msgid "Die Frage ist zu lang (höchstens %1 Zeichen)."
+msgstr "La pregunta es demasiado larga (como máximo %1 caracteres)."
+
+msgid "Die Beschreibung ist zu lang (höchstens %1 Zeichen)."
+msgstr "La descripción es demasiado larga (como máximo %1 caracteres)."
+
+msgid "Bitte geben Sie mindestens %1 Optionen an."
+msgstr "Por favor, indique al menos %1 opciones."
+
+msgid "Es sind höchstens %1 Optionen möglich."
+msgstr "Se permiten como máximo %1 opciones."
+
+msgid "Option %1 ist leer."
+msgstr "La opción %1 está vacía."
+
+msgid "Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "La opción %1 es demasiado larga (como máximo %2 caracteres)."
+
+msgid "Option %1 gibt es schon."
+msgstr "La opción %1 ya existe."
+
+msgid "Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."
+msgstr "Por favor, indique una fecha y hora válidas para el plazo."
+
+msgid "Die Frist muss mindestens %1 Minuten in der Zukunft liegen."
+msgstr "El plazo debe estar al menos %1 minutos en el futuro."
+
+msgid "Die Frist darf höchstens %1 Tage in der Zukunft liegen."
+msgstr "El plazo puede estar como máximo %1 días en el futuro."
+
+msgid "Umfrage erstellen"
+msgstr "Crear encuesta"
+
+msgid "Frage"
+msgstr "Pregunta"
+
+msgid "Beschreibung (optional)"
+msgstr "Descripción (opcional)"
+
+msgid "Umfrage starten"
+msgstr "Iniciar encuesta"
+
+msgid "Frist"
+msgstr "Plazo"
+
+msgid "24 Stunden"
+msgstr "24 horas"
+
+msgid "3 Tage"
+msgstr "3 días"
+
+msgid "14 Tage"
+msgstr "14 días"
+
+msgid "Eigenes Datum"
+msgstr "Fecha propia"
+
+msgid "Ohne Frist"
+msgstr "Sin plazo"
+
+msgid "Datum und Uhrzeit der Frist"
+msgstr "Fecha y hora del plazo"
+
+msgid "Sie müssen die Umfrage dann selbst schließen."
+msgstr "Entonces deberá cerrar la encuesta usted mismo."
+
+msgid "%1/%2"
+msgstr "%1/%2"
+
+msgid "Option %1"
+msgstr "Opción %1"
+
+msgid "Option %1 entfernen"
+msgstr "Quitar la opción %1"
+
+msgid "Die Option ist zu lang (höchstens %1 Zeichen)."
+msgstr "La opción es demasiado larga (como máximo %1 caracteres)."
+
+msgid "Diese Option gibt es schon."
+msgstr "Esta opción ya existe."
+
+msgid "Unverbindliche Umfrage – ein Stimmungsbild, kein Beschluss. Antworten sind anonym; das Ergebnis ist erst nach dem Ende sichtbar."
+msgstr "Encuesta no vinculante: una imagen del ambiente, no una resolución. Las respuestas son anónimas; el resultado solo es visible tras el cierre."
+
+msgid "Zurzeit können Sie keine weitere Umfrage starten – zu viele sind offen oder wurden kürzlich gestartet. Bitte versuchen Sie es später erneut."
+msgstr "Por ahora no puede iniciar otra encuesta: hay demasiadas abiertas o se iniciaron hace poco. Inténtelo de nuevo más tarde."
+
+msgid "Bitte prüfen Sie die Angaben, insbesondere die Frist."
+msgstr "Por favor, revise los datos, en especial el plazo."
+
+msgid "Gestartet von %1 am %2"
+msgstr "Iniciada por %1 el %2"
+
+msgid "Unverbindlich – ein Stimmungsbild, kein Beschluss."
+msgstr "No vinculante: una imagen del ambiente, no una resolución."
+
+msgid "Diese Umfrage wurde abgebrochen. Die Antworten werden nie ausgewertet."
+msgstr "Esta encuesta se canceló. Las respuestas nunca se evaluarán."
+
+msgid "Sie haben an dieser Umfrage teilgenommen."
+msgstr "Ha participado en esta encuesta."
+
+msgid "Umfrage schließen"
+msgstr "Cerrar encuesta"
+
+msgid "Umfrage schließen?"
+msgstr "¿Cerrar la encuesta?"
+
+msgid "Danach sind keine Antworten mehr möglich. Das Ergebnis wird sichtbar, sofern genug Antworten vorliegen."
+msgstr "Después ya no será posible responder. El resultado será visible si hay suficientes respuestas."
+
+msgid "Der Stand hat sich geändert."
+msgstr "El estado ha cambiado."
+
+msgid "Umfrage abbrechen"
+msgstr "Cancelar encuesta"
+
+msgid "Umfrage abbrechen?"
+msgstr "¿Cancelar la encuesta?"
+
+msgid "Die Antworten werden nie ausgewertet. Das lässt sich nicht rückgängig machen."
+msgstr "Las respuestas nunca se evaluarán. Esto no se puede deshacer."
+
+msgid "ABBRECHEN"
+msgstr "CANCELAR"
+
+msgid "Umfrage endgültig abbrechen"
+msgstr "Cancelar la encuesta definitivamente"
+
+msgid "endet am %1"
+msgstr "termina el %1"
+
+msgid "ohne Frist"
+msgstr "sin plazo"
+
+msgid "1 Antwort"
+msgstr "1 respuesta"
+
+msgid "%1 Antworten"
+msgstr "%1 respuestas"
+
+msgid "Zu wenige Antworten für eine anonyme Auswertung (mindestens %1)."
+msgstr "Muy pocas respuestas para una evaluación anónima (al menos %1)."
+
+msgid "Keine der Antworten hatte LTR-Gewicht – eine gewichtete Auswertung ist nicht möglich."
+msgstr "Ninguna de las respuestas tenía peso LTR: no es posible una evaluación ponderada."
+
+msgid "Zu wenige Antworten mit LTR-Gewicht für eine anonyme gewichtete Auswertung (mindestens %1)."
+msgstr "Muy pocas respuestas con peso LTR para una evaluación ponderada anónima (al menos %1)."
+
+msgid "Die gewichtete Auswertung wird zurückgehalten, damit keine einzelne Antwort erkennbar wird."
+msgstr "La evaluación ponderada se retiene para que no se pueda reconocer ninguna respuesta individual."
+
+msgid "Die gewichtete Auswertung ist nicht verfügbar."
+msgstr "La evaluación ponderada no está disponible."
+
+msgid "Zurzeit keine offenen Umfragen."
+msgstr "Por ahora no hay encuestas abiertas."
+
+msgid "Noch keine geschlossenen Umfragen."
+msgstr "Todavía no hay encuestas cerradas."
+
+msgid "Keine abgebrochenen Umfragen."
+msgstr "No hay encuestas canceladas."
+
+msgid "Beantwortet"
+msgstr "Respondida"
+
+msgid "Umfrage öffnen"
+msgstr "Abrir encuesta"
+
+msgid "Anzahl der Antworten"
+msgstr "Número de respuestas"
+
+msgid "Unverbindliches Stimmungsbild · 1 Antwort"
+msgstr "Imagen del ambiente no vinculante · 1 respuesta"
+
+msgid "Unverbindliches Stimmungsbild · %1 Antworten"
+msgstr "Imagen del ambiente no vinculante · %1 respuestas"
+
+msgid "Nach Köpfen"
+msgstr "Por número de personas"
+
+msgid "%1 % · %2"
+msgstr "%1 % · %2"
+
+msgid "Nach LTR-Gewicht"
+msgstr "Por peso LTR"
+
+msgid "Jede Antwort zählt mit dem LTR-Stand, den die Person beim Antworten hatte – wer mehr beigetragen hat, zählt mehr. Deshalb kann dieses Bild vom Ergebnis nach Köpfen abweichen."
+msgstr "Cada respuesta cuenta con el saldo de LTR que tenía la persona al responder: quien ha aportado más, cuenta más. Por eso esta imagen puede diferir del resultado por número de personas."
+
+msgid "%1 %"
+msgstr "%1 %"
+
+msgid "Umfragen"
+msgstr "Encuestas"

@@ -221,6 +221,21 @@ class SidebarStructureTest {
     }
 
     @Test
+    fun selfGovernanceGroup_showsPollsEntry_rightAfterConsensus_forMembers_notForFriendsOrGuests() {
+        // V1.9.31 "Umfragen": the entry sits in "Selbstverwaltung", directly after "Konsensieren".
+        val urls = orderedSidebarLinkUrls(adminSession)
+        val consensus = urls.indexOf("#${Routes.CONSENSUS}")
+        assertTrue(consensus >= 0, "the Konsensieren entry must exist")
+        assertEquals("#${Routes.POLLS}", urls[consensus + 1], "Umfragen must follow Konsensieren directly")
+        listOf(MemberStatus.FRIEND, MemberStatus.GUEST).forEach { status ->
+            assertFalse(
+                sidebarLinkUrls(adminSession.copy(status = status)).contains("#${Routes.POLLS}"),
+                "a $status must not see the Umfragen entry",
+            )
+        }
+    }
+
+    @Test
     fun financeGroup_showsOpenItemsEntry_forTreasurerBoardAndAdmin() {
         listOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN).forEach { role ->
             assertTrue(
