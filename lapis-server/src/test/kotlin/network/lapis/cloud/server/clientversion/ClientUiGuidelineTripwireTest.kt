@@ -613,6 +613,13 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // V1.9.6 "Vorstands-Karte, Client-Hälfte": only the PLZ/Ort search filter (justified below,
         // FILTER_IS_NOT_A_FORM) -- no form to build.
         "MemberMapScreen.kt",
+        // V1.9.22 "Wahlen": born on the form grammar -- every form goes through `lapisForm`, every write through
+        // `form.submit`/`runGuardedAction`. The status filter of the list is justified below (FILTER_IS_NOT_A_FORM).
+        "ElectionsScreen.kt",
+        "ElectionBoardUi.kt",
+        "ElectionResultUi.kt",
+        "ElectionBooth.kt",
+        "ElectionOpenForm.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -745,6 +752,8 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         "ReceivableDunningSettingsScreen.kt" to
             listOf("val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Stufen anzeigen\"))"),
         "BoardMembershipScreen.kt" to listOf("val includeResolvedCheck = reminderFilterRow.checkBox(label = tr(\"Erledigte anzeigen\"))"),
+        // V1.9.22: the status filter of the elections list (a multi-line `select(` call, fingerprinted by its label literal).
+        "ElectionsScreen.kt" to listOf("filterRow.select( [label \"Status\"]"),
         "CommitteesScreen.kt" to
             listOf(
                 "val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Gremien anzeigen\"))",

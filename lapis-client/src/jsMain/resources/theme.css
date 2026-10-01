@@ -2156,6 +2156,139 @@ html .form-select.is-invalid:focus {
   overflow-wrap: anywhere;
 }
 
+/* V1.9.22 Wahlen -- Ablaufleiste, Balken, Wahlkabine, Quittung. Nur Tokens, keine festen Farben, kein !important. */
+.lapis-election-phase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: lapis-phase;
+}
+
+.lapis-election-phase__item {
+  counter-increment: lapis-phase;
+  flex: 1 1 0;
+  min-width: 110px;
+  padding: 6px 10px;
+  border-bottom: 3px solid var(--lapis-border-strong);
+  color: var(--lapis-muted);
+  font-size: 0.875rem;
+}
+
+.lapis-election-phase__item::before {
+  content: counter(lapis-phase) ". ";
+}
+
+.lapis-election-phase__item--done {
+  border-bottom-color: var(--lapis-accent);
+  color: var(--lapis-text);
+}
+
+.lapis-election-phase__item--current {
+  border-bottom-color: var(--lapis-accent-strong);
+  color: var(--lapis-text);
+  font-weight: 700;
+}
+
+@media (max-width: 575.98px) {
+  .lapis-election-phase {
+    flex-direction: column;
+  }
+
+  .lapis-election-phase__item {
+    border-bottom: 0;
+    border-left: 3px solid var(--lapis-border-strong);
+  }
+
+  .lapis-election-phase__item--done {
+    border-left-color: var(--lapis-accent);
+  }
+
+  .lapis-election-phase__item--current {
+    border-left-color: var(--lapis-accent-strong);
+  }
+}
+
+.lapis-election-bar {
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border);
+  overflow: hidden;
+}
+
+.lapis-election-bar__fill {
+  height: 100%;
+  background-color: var(--lapis-accent);
+}
+
+/* Wahlkabine: grosse Auswahlkacheln (mindestens 48 px hoch), sichtbarer Fokusring. */
+.lapis-booth-tiles .form-check {
+  min-height: 48px;
+  margin-bottom: 8px;
+  padding: 12px 12px 12px 2.25rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 6px;
+  background-color: var(--lapis-surface);
+}
+
+.lapis-booth-tiles .form-check:focus-within {
+  outline: 3px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+.lapis-booth-tiles .form-check-label {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.lapis-booth-review {
+  padding: 10px 12px;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 6px;
+  background-color: var(--lapis-surface-sunken);
+}
+
+/* Quittungscode: Festbreitenschrift, Vierergruppen ueber den Abstand (kein Leerzeichen-Zeichen im Code). */
+.lapis-receipt-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.5rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.lapis-receipt-code > span + span {
+  margin-left: 0.5ch;
+}
+
+/* Der Druck-Zwilling der Quittung: auf dem Bildschirm unsichtbar, beim Drucken das Einzige, was zu sehen ist. */
+.lapis-receipt-print {
+  display: none;
+}
+
+@media print {
+  body.lapis-printing-receipt * {
+    visibility: hidden;
+  }
+
+  body.lapis-printing-receipt .lapis-receipt-print,
+  body.lapis-printing-receipt .lapis-receipt-print * {
+    visibility: visible;
+  }
+
+  body.lapis-printing-receipt .lapis-receipt-print {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

@@ -17494,3 +17494,510 @@ msgstr "La courte présentation ne peut pas être enregistrée ni publiée pour 
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr "La courte présentation est trop longue ou contient des caractères non autorisés."
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr "Il faut d'abord nommer une commission électorale."
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr "La commission électorale doit compter au moins %1 membres, elle en compte %2."
+
+msgid "Noch 1 Freigabe nötig."
+msgstr "Encore 1 validation nécessaire."
+
+msgid "Noch %1 Freigaben nötig."
+msgstr "Encore %1 validations nécessaires."
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr "Il n'y a pas encore de candidature active."
+
+msgid "Wahlausschuss"
+msgstr "Commission électorale"
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr "Aucune commission électorale n'a encore été nommée."
+
+msgid "Bestellt am"
+msgstr "Nommé le"
+
+msgid "Wahlausschuss bestellen"
+msgstr "Nommer la commission électorale"
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr "La nomination remplace entièrement la commission actuelle. Elle se compose de 3 à 25 membres."
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr "Sélectionnés : %1 (3 à 25 membres sont autorisés)."
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr "La commission est plus petite que le nombre requis de %1 validations. Le vote ne peut pas être ouvert ainsi."
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr "Également inscrits comme candidature : %1."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr "Les membres de l'organe du conseil d'administration ne peuvent pas siéger à la commission électorale : %1."
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr "La commission électorale doit compter de 3 à 25 membres."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr "Les membres de l'organe du conseil d'administration ne peuvent pas siéger à la commission électorale."
+
+msgid "Wahlausschuss speichern"
+msgstr "Enregistrer la commission électorale"
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr "La commission n'a pas pu être enregistrée : le statut a changé ou un membre siège à l'organe du conseil d'administration."
+
+msgid "Wahlausschuss gespeichert."
+msgstr "Commission électorale enregistrée."
+
+msgid "Kandidaturen"
+msgstr "Candidatures"
+
+msgid "Noch keine Kandidaturen."
+msgstr "Aucune candidature pour l'instant."
+
+msgid "Motivation"
+msgstr "Motivation"
+
+msgid "Eingereicht am"
+msgstr "Déposée le"
+
+msgid "Kandidatur zurückziehen"
+msgstr "Retirer la candidature"
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr "Retirer vraiment la candidature de %1 ?"
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr "La candidature n'a pas pu être retirée. Veuillez actualiser l'affichage."
+
+msgid "Kandidatur zurückgezogen."
+msgstr "Candidature retirée."
+
+msgid "mehr"
+msgstr "plus"
+
+msgid "weniger"
+msgstr "moins"
+
+msgid "Ich kandidiere"
+msgstr "Poser ma candidature"
+
+msgid "Motivation (optional)"
+msgstr "Motivation (facultatif)"
+
+msgid "Kandidatur einreichen"
+msgstr "Déposer la candidature"
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr "La candidature n'a pas pu être déposée. Veuillez actualiser l'affichage."
+
+msgid "Kandidatur eingereicht."
+msgstr "Candidature déposée."
+
+msgid "Stimmabgabe"
+msgstr "Dépôt du vote"
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr "Votre vote est secret : il est enregistré que vous avez voté, mais pas comment."
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr "Cette élection est ouverte : votre vote est enregistré avec votre nom."
+
+msgid "Ihre Stimme"
+msgstr "Votre vote"
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr "Veuillez faire un choix."
+
+msgid "Ihre Auswahl"
+msgstr "Votre sélection"
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr "%1 sur %2 au maximum sélectionnés. Les autres options sont verrouillées."
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr "%1 sur %2 au maximum sélectionnés"
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr "Veuillez choisir au moins une et au plus %1 options."
+
+msgid "Weiter zur Prüfung"
+msgstr "Continuer vers la vérification"
+
+msgid "Auswahl prüfen"
+msgstr "Vérifier la sélection"
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr "Une fois déposé, votre vote ne peut plus être modifié."
+
+msgid "Stimme endgültig abgeben"
+msgstr "Déposer définitivement le vote"
+
+msgid "Keine Stimmberechtigung"
+msgstr "Pas de droit de vote"
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr "Vous ne figurez pas sur la liste électorale de cette élection et ne pouvez pas voter."
+
+msgid "Bereits abgestimmt"
+msgstr "Déjà voté"
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Votre vote a été compté. La confirmation ne vous est pas parvenue à cause d'une interruption de la connexion."
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr "Vous avez déjà voté. Votre vote a été compté."
+
+msgid "Keine Verbindung"
+msgstr "Pas de connexion"
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "La connexion a été interrompue. Il n'a pas été possible de vérifier si votre vote a été compté. Veuillez recharger la page."
+
+msgid "Abstimmung beendet"
+msgstr "Vote terminé"
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr "Le vote n'est plus ouvert."
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr "Vote momentanément impossible"
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr "Le vote est momentanément impossible, par exemple parce qu'une diffusion est encore en cours de mise en pause. Veuillez patienter un instant et réessayer."
+
+msgid "Zurück zur Wahl"
+msgstr "Retour à l'élection"
+
+msgid "Erneut abstimmen"
+msgstr "Voter à nouveau"
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr "Votre vote a été compté"
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr "Merci. Votre vote a été enregistré avec votre nom."
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr "Le reçu n'a pas pu être affiché. Votre vote a malgré tout été compté."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr "Voici votre reçu. Il n'est affiché que maintenant et n'est enregistré nulle part. Notez-le ou imprimez-le si vous souhaitez vérifier plus tard que votre vote a été compté."
+
+msgid "Quittung"
+msgstr "Reçu"
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr "La copie est impossible. Veuillez noter le code."
+
+msgid "Kopiert."
+msgstr "Copié."
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr "J'ai noté le reçu."
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr "Veuillez confirmer que vous avez noté le reçu."
+
+msgid "Ja/Nein-Wahl"
+msgstr "Élection oui/non"
+
+msgid "Einzelwahl"
+msgstr "Élection individuelle"
+
+msgid "Mehrfachwahl"
+msgstr "Élection multiple"
+
+msgid "Listenwahl"
+msgstr "Élection de liste"
+
+msgid "Rangfolgewahl"
+msgstr "Élection par ordre de préférence"
+
+msgid "In Vorbereitung"
+msgstr "En préparation"
+
+msgid "Kandidatenliste freigegeben"
+msgstr "Liste des candidats publiée"
+
+msgid "Abstimmung läuft"
+msgstr "Vote en cours"
+
+msgid "Ausgezählt"
+msgstr "Dépouillé"
+
+msgid "Enthaltung"
+msgstr "Abstention"
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr "Exemple : avec %1 voix oui et non, au moins %2 doivent être oui. Les abstentions ne comptent pas."
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr "En cas d'égalité des voix, rien n'est décidé et la motion est reportée."
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr "Exemple : avec %1 voix exprimées, la personne élue doit en obtenir au moins %2."
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr "S'il n'y a qu'une seule personne sans candidature adverse, aucune majorité n'est vérifiée."
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr "Dans une élection multiple, les candidats ayant le plus de voix l'emportent. Une égalité à la limite des sièges ne décide rien."
+
+msgid "Wahl eröffnen"
+msgstr "Ouvrir l'élection"
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr "Une élection tranche la motion avec une voix par membre électeur, sous forme d'élection oui/non ou d'élection de personnes."
+
+msgid "Wahlart"
+msgstr "Type d'élection"
+
+msgid "Geheime Wahl"
+msgstr "Élection secrète"
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "Dans une élection ouverte, les voix sont enregistrées avec les noms et visibles par tous les membres."
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr "L'organe dans lequel les personnes élues sont admises."
+
+msgid "Rolle im Zielgremium"
+msgstr "Rôle dans l'organe cible"
+
+msgid "Zu besetzende Sitze: 1"
+msgstr "Sièges à pourvoir : 1"
+
+msgid "Sitze"
+msgstr "Sièges"
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr "Part requise en pourcentage"
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr "Validations requises du dépouillement"
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr "Autant de membres de la commission électorale doivent valider le dépouillement (au moins 2)."
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr "Veuillez choisir un organe cible."
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr "L'élection n'a pas pu être ouverte. Veuillez actualiser l'affichage."
+
+msgid "Wahl eröffnet."
+msgstr "Élection ouverte."
+
+msgid "Vorbereitung"
+msgstr "Préparation"
+
+msgid "Kandidatenliste"
+msgstr "Liste des candidats"
+
+msgid "Ablauf der Wahl"
+msgstr "Déroulement de l'élection"
+
+msgid "Freigaben der Auszählung"
+msgstr "Validations du dépouillement"
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr "%1 validations sur %2 requises accordées"
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr "Les personnes ayant validé ne sont pas affichées nominativement."
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr "Égalité ou aucune voix décisive : la motion a été reportée."
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr "La majorité requise a été atteinte."
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr "La majorité requise n'a pas été atteinte."
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr "Personne n'a été élu : égalité à la limite des sièges ou majorité requise manquée. La motion a été reportée."
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr "Participation : %1 sur %2 électeurs"
+
+msgid "Beschluss im Beschlussbuch"
+msgstr "Décision dans le registre des décisions"
+
+msgid "Gewählt"
+msgstr "Élu"
+
+msgid "Stimmzettel"
+msgstr "Bulletins de vote"
+
+msgid "1 Stimmzettel abgegeben."
+msgstr "1 bulletin déposé."
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr "%1 bulletins déposés."
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr "Aucun bulletin n'a été déposé."
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr "Dans une élection secrète, les bulletins sont affichés sans noms et sans heure."
+
+msgid "Auswahl"
+msgstr "Sélection"
+
+msgid "Zeit"
+msgstr "Heure"
+
+msgid "Quittung prüfen"
+msgstr "Vérifier le reçu"
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr "Avec votre reçu, vous pouvez vérifier que votre vote a été compté sans que personne ne sache comment vous avez voté."
+
+msgid "Quittungscode"
+msgstr "Code du reçu"
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr "Aucun vote n'a été trouvé pour ce code."
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr "Votre vote est enregistré. La sélection n'est affichée qu'après le dépouillement."
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr "Votre vote est enregistré et indique : %1"
+
+msgid "Wahlen"
+msgstr "Élections"
+
+msgid "Zur Wahlübersicht"
+msgstr "Vers la liste des élections"
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Il n'y a pas encore d'élection. Une élection est ouverte à partir d'une motion programmée."
+
+msgid "Zu den Anträgen"
+msgstr "Vers les motions"
+
+msgid "Geheim"
+msgstr "Secrète"
+
+msgid "Eröffnet am"
+msgstr "Ouverte le"
+
+msgid "Wahl öffnen"
+msgstr "Afficher l'élection"
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr "L'élection n'a pas pu être chargée."
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr "Une personne, une voix : chaque membre électeur a exactement une voix."
+
+msgid "Eröffnet von %1 am %2"
+msgstr "Ouverte par %1 le %2"
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr "Organe cible : %1, rôle : %2"
+
+msgid "Zu besetzende Sitze: %1"
+msgstr "Sièges à pourvoir : %1"
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr "Part requise : %1 pour cent"
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr "Validations requises du dépouillement : %1"
+
+msgid "Zum Antrag"
+msgstr "Vers la motion"
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr "Vous avez validé le dépouillement."
+
+msgid "Zur Stimmabgabe"
+msgstr "Vers le vote"
+
+msgid "Abstimmung öffnen"
+msgstr "Ouvrir le vote"
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr "Le vote n'a pas pu être ouvert. Veuillez actualiser l'affichage."
+
+msgid "Abstimmung geöffnet."
+msgstr "Vote ouvert."
+
+msgid "Abstimmung beenden"
+msgstr "Terminer le vote"
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr "Une fois terminé, plus aucune voix ne peut être déposée. La validation du dépouillement suit."
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr "Le vote n'a pas pu être terminé. Veuillez actualiser l'affichage."
+
+msgid "Abstimmung beendet."
+msgstr "Vote terminé."
+
+msgid "Auszählung freigeben"
+msgstr "Valider le dépouillement"
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "La validation n'a pas été possible. Veuillez actualiser l'affichage."
+
+msgid "Auszählung freigegeben."
+msgstr "Dépouillement validé."
+
+msgid "Auszählen"
+msgstr "Dépouiller"
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "Le dépouillement n'a pas été possible. Veuillez actualiser l'affichage."
+
+msgid "Wahl ausgezählt."
+msgstr "Élection dépouillée."
+
+msgid "Kandidatenliste freigeben"
+msgstr "Publier la liste des candidats"
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "La liste des candidats avec 1 candidature va être publiée. Ensuite, plus aucune candidature ne pourra être déposée."
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "La liste des candidats avec %1 candidatures va être publiée. Ensuite, plus aucune candidature ne pourra être déposée."
+
+msgid "Freigeben"
+msgstr "Publier"
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr "La liste des candidats n'a pas pu être publiée. Veuillez actualiser l'affichage."
+
+msgid "Kandidatenliste freigegeben."
+msgstr "Liste des candidats publiée."
+
+msgid "Sie haben bereits abgestimmt."
+msgstr "Vous avez déjà voté."
+
+msgid "Wahl abbrechen"
+msgstr "Annuler l'élection"
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "L'élection n'a pas pu être annulée. Veuillez actualiser l'affichage."
+
+msgid "Wahl abgebrochen."
+msgstr "Élection annulée."
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr "Une élection en cours est annulée définitivement. Toutes les voix déjà déposées sont perdues."
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr "L'élection sera annulée. Une nouvelle élection pourra ensuite être ouverte pour cette motion."
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr "Une élection est en cours pour cette motion."
+
+msgid "Zur Wahl"
+msgstr "Vers l'élection"

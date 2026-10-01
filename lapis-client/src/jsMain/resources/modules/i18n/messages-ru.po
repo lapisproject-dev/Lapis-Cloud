@@ -17421,3 +17421,510 @@ msgstr "Краткое представление сейчас нельзя со
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr "Краткое представление слишком длинное или содержит недопустимые символы."
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr "Сначала необходимо назначить избирательную комиссию."
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr "Избирательной комиссии нужно не менее %1 членов, сейчас их %2."
+
+msgid "Noch 1 Freigabe nötig."
+msgstr "Нужно ещё 1 подтверждение."
+
+msgid "Noch %1 Freigaben nötig."
+msgstr "Нужно ещё подтверждений: %1."
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr "Активных кандидатур пока нет."
+
+msgid "Wahlausschuss"
+msgstr "Избирательная комиссия"
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr "Избирательная комиссия ещё не назначена."
+
+msgid "Bestellt am"
+msgstr "Назначен"
+
+msgid "Wahlausschuss bestellen"
+msgstr "Назначить избирательную комиссию"
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr "Назначение полностью заменяет прежний состав. Комиссия состоит из 3–25 членов."
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr "Выбрано: %1 (допускается от 3 до 25 членов)."
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr "Комиссия меньше требуемого числа подтверждений (%1). В таком составе голосование открыть нельзя."
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr "Одновременно зарегистрированы как кандидатура: %1."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr "Члены органа правления не могут входить в избирательную комиссию: %1."
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr "Избирательной комиссии нужно от 3 до 25 членов."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr "Члены органа правления не могут входить в избирательную комиссию."
+
+msgid "Wahlausschuss speichern"
+msgstr "Сохранить избирательную комиссию"
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr "Не удалось сохранить комиссию: статус изменился или один из членов входит в орган правления."
+
+msgid "Wahlausschuss gespeichert."
+msgstr "Избирательная комиссия сохранена."
+
+msgid "Kandidaturen"
+msgstr "Кандидатуры"
+
+msgid "Noch keine Kandidaturen."
+msgstr "Кандидатур пока нет."
+
+msgid "Motivation"
+msgstr "Мотивация"
+
+msgid "Eingereicht am"
+msgstr "Подана"
+
+msgid "Kandidatur zurückziehen"
+msgstr "Отозвать кандидатуру"
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr "Действительно отозвать кандидатуру: %1?"
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось отозвать кандидатуру. Обновите страницу."
+
+msgid "Kandidatur zurückgezogen."
+msgstr "Кандидатура отозвана."
+
+msgid "mehr"
+msgstr "ещё"
+
+msgid "weniger"
+msgstr "меньше"
+
+msgid "Ich kandidiere"
+msgstr "Я выдвигаю свою кандидатуру"
+
+msgid "Motivation (optional)"
+msgstr "Мотивация (необязательно)"
+
+msgid "Kandidatur einreichen"
+msgstr "Подать кандидатуру"
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось подать кандидатуру. Обновите страницу."
+
+msgid "Kandidatur eingereicht."
+msgstr "Кандидатура подана."
+
+msgid "Stimmabgabe"
+msgstr "Подача голоса"
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr "Ваш голос тайный: сохраняется, что вы проголосовали, но не как."
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr "Эти выборы открытые: ваш голос сохраняется с вашим именем."
+
+msgid "Ihre Stimme"
+msgstr "Ваш голос"
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr "Сделайте выбор."
+
+msgid "Ihre Auswahl"
+msgstr "Ваш выбор"
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr "Выбрано %1 из максимум %2. Остальные варианты заблокированы."
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr "Выбрано %1 из максимум %2"
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr "Выберите не менее одного и не более %1 вариантов."
+
+msgid "Weiter zur Prüfung"
+msgstr "Перейти к проверке"
+
+msgid "Auswahl prüfen"
+msgstr "Проверьте выбор"
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr "После подачи ваш голос изменить нельзя."
+
+msgid "Stimme endgültig abgeben"
+msgstr "Подать голос окончательно"
+
+msgid "Keine Stimmberechtigung"
+msgstr "Нет права голоса"
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr "Вас нет в списке избирателей этих выборов, поэтому вы не можете голосовать."
+
+msgid "Bereits abgestimmt"
+msgstr "Уже проголосовали"
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Ваш голос засчитан. Подтверждение не дошло до вас из-за обрыва соединения."
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr "Вы уже проголосовали. Ваш голос засчитан."
+
+msgid "Keine Verbindung"
+msgstr "Нет соединения"
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Соединение прервано. Не удалось проверить, засчитан ли ваш голос. Перезагрузите страницу."
+
+msgid "Abstimmung beendet"
+msgstr "Голосование завершено"
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr "Голосование больше не открыто."
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr "Сейчас голосовать невозможно"
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr "Сейчас голосовать нельзя, например потому, что трансляция ещё приостанавливается. Подождите немного и повторите попытку."
+
+msgid "Zurück zur Wahl"
+msgstr "Назад к выборам"
+
+msgid "Erneut abstimmen"
+msgstr "Проголосовать снова"
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr "Ваш голос засчитан"
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr "Спасибо. Ваш голос сохранён с вашим именем."
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr "Не удалось показать квитанцию. Ваш голос всё равно засчитан."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr "Это ваша квитанция. Она показывается только сейчас и нигде не сохраняется. Запишите или распечатайте её, если позже захотите проверить, что ваш голос засчитан."
+
+msgid "Quittung"
+msgstr "Квитанция"
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr "Копирование невозможно. Перепишите код."
+
+msgid "Kopiert."
+msgstr "Скопировано."
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr "Квитанция записана."
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr "Подтвердите, что вы записали квитанцию."
+
+msgid "Ja/Nein-Wahl"
+msgstr "Выборы «да/нет»"
+
+msgid "Einzelwahl"
+msgstr "Выбор одного кандидата"
+
+msgid "Mehrfachwahl"
+msgstr "Выбор нескольких кандидатов"
+
+msgid "Listenwahl"
+msgstr "Выбор по спискам"
+
+msgid "Rangfolgewahl"
+msgstr "Выбор с ранжированием"
+
+msgid "In Vorbereitung"
+msgstr "Готовится"
+
+msgid "Kandidatenliste freigegeben"
+msgstr "Список кандидатов опубликован"
+
+msgid "Abstimmung läuft"
+msgstr "Голосование идёт"
+
+msgid "Ausgezählt"
+msgstr "Подсчитано"
+
+msgid "Enthaltung"
+msgstr "Воздержался"
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr "Пример: при %1 голосах «да» и «нет» не менее %2 из них должны быть «да». Воздержавшиеся не учитываются."
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr "При равенстве голосов ничего не решено, заявка откладывается."
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr "Пример: при %1 поданных голосах избранному нужно получить не менее %2 из них."
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr "Если есть только один кандидат без соперников, большинство не проверяется."
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr "При выборе нескольких кандидатов побеждают набравшие больше всего голосов. Равенство на границе мест ничего не решает."
+
+msgid "Wahl eröffnen"
+msgstr "Открыть выборы"
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr "Выборы решают судьбу заявки: один голос на каждого имеющего право голоса участника, как выборы «да/нет» или выборы людей."
+
+msgid "Wahlart"
+msgstr "Вид выборов"
+
+msgid "Geheime Wahl"
+msgstr "Тайные выборы"
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "На открытых выборах голоса сохраняются с именами и видны всем участникам."
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr "Орган, в который войдут избранные."
+
+msgid "Rolle im Zielgremium"
+msgstr "Роль в целевом органе"
+
+msgid "Zu besetzende Sitze: 1"
+msgstr "Мест для замещения: 1"
+
+msgid "Sitze"
+msgstr "Места"
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr "Требуемая доля в процентах"
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr "Требуемые подтверждения подсчёта"
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr "Столько членов избирательной комиссии должны подтвердить подсчёт (не менее 2)."
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr "Выберите целевой орган."
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось открыть выборы. Обновите страницу."
+
+msgid "Wahl eröffnet."
+msgstr "Выборы открыты."
+
+msgid "Vorbereitung"
+msgstr "Подготовка"
+
+msgid "Kandidatenliste"
+msgstr "Список кандидатов"
+
+msgid "Ablauf der Wahl"
+msgstr "Ход выборов"
+
+msgid "Freigaben der Auszählung"
+msgstr "Подтверждения подсчёта"
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr "Дано %1 из %2 требуемых подтверждений"
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr "Кто подтвердил, по имени не показывается."
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr "Равенство или нет решающих голосов: заявка отложена."
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr "Требуемое большинство достигнуто."
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr "Требуемое большинство не достигнуто."
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr "Никто не избран: равенство на границе мест или не набрано требуемое большинство. Заявка отложена."
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr "Участие: %1 из %2 имеющих право голоса"
+
+msgid "Beschluss im Beschlussbuch"
+msgstr "Решение в книге решений"
+
+msgid "Gewählt"
+msgstr "Избран"
+
+msgid "Stimmzettel"
+msgstr "Бюллетени"
+
+msgid "1 Stimmzettel abgegeben."
+msgstr "Подан 1 бюллетень."
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr "Подано бюллетеней: %1."
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr "Бюллетени не подавались."
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr "На тайных выборах бюллетени показываются без имён и без времени."
+
+msgid "Auswahl"
+msgstr "Выбор"
+
+msgid "Zeit"
+msgstr "Время"
+
+msgid "Quittung prüfen"
+msgstr "Проверить квитанцию"
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr "С помощью квитанции вы можете проверить, что ваш голос засчитан, и никто не узнает, как вы голосовали."
+
+msgid "Quittungscode"
+msgstr "Код квитанции"
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr "Для этого кода голос не найден."
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr "Ваш голос сохранён. Выбор будет показан только после подсчёта."
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr "Ваш голос сохранён и выглядит так: %1"
+
+msgid "Wahlen"
+msgstr "Выборы"
+
+msgid "Zur Wahlübersicht"
+msgstr "К списку выборов"
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Выборов пока нет. Выборы открываются из назначенной заявки."
+
+msgid "Zu den Anträgen"
+msgstr "К заявкам"
+
+msgid "Geheim"
+msgstr "Тайные"
+
+msgid "Eröffnet am"
+msgstr "Открыты"
+
+msgid "Wahl öffnen"
+msgstr "Показать выборы"
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr "Не удалось загрузить выборы."
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr "Один человек — один голос: у каждого имеющего право голоса участника ровно один голос."
+
+msgid "Eröffnet von %1 am %2"
+msgstr "Открыто пользователем %1, %2"
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr "Целевой орган: %1, роль: %2"
+
+msgid "Zu besetzende Sitze: %1"
+msgstr "Мест для замещения: %1"
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr "Требуемая доля: %1 процентов"
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr "Требуемые подтверждения подсчёта: %1"
+
+msgid "Zum Antrag"
+msgstr "К заявке"
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr "Вы подтвердили подсчёт."
+
+msgid "Zur Stimmabgabe"
+msgstr "К голосованию"
+
+msgid "Abstimmung öffnen"
+msgstr "Открыть голосование"
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось открыть голосование. Обновите страницу."
+
+msgid "Abstimmung geöffnet."
+msgstr "Голосование открыто."
+
+msgid "Abstimmung beenden"
+msgstr "Завершить голосование"
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr "После завершения голоса больше подавать нельзя. Затем следует подтверждение подсчёта."
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось завершить голосование. Обновите страницу."
+
+msgid "Abstimmung beendet."
+msgstr "Голосование завершено."
+
+msgid "Auszählung freigeben"
+msgstr "Подтвердить подсчёт"
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "Подтверждение не удалось. Обновите страницу."
+
+msgid "Auszählung freigegeben."
+msgstr "Подсчёт подтверждён."
+
+msgid "Auszählen"
+msgstr "Подсчитать голоса"
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "Подсчёт не удался. Обновите страницу."
+
+msgid "Wahl ausgezählt."
+msgstr "Выборы подсчитаны."
+
+msgid "Kandidatenliste freigeben"
+msgstr "Опубликовать список кандидатов"
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "Список кандидатов с 1 кандидатурой будет опубликован. После этого подавать кандидатуры будет нельзя."
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "Список кандидатов (кандидатур: %1) будет опубликован. После этого подавать кандидатуры будет нельзя."
+
+msgid "Freigeben"
+msgstr "Опубликовать"
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось опубликовать список кандидатов. Обновите страницу."
+
+msgid "Kandidatenliste freigegeben."
+msgstr "Список кандидатов опубликован."
+
+msgid "Sie haben bereits abgestimmt."
+msgstr "Вы уже проголосовали."
+
+msgid "Wahl abbrechen"
+msgstr "Прервать выборы"
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "Не удалось прервать выборы. Обновите страницу."
+
+msgid "Wahl abgebrochen."
+msgstr "Выборы прерваны."
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr "Идущие выборы будут окончательно прерваны. Все уже поданные голоса аннулируются."
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr "Выборы будут прерваны. После этого для этой заявки можно будет открыть новые выборы."
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr "По этой заявке идут выборы."
+
+msgid "Zur Wahl"
+msgstr "К выборам"

@@ -6,6 +6,55 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.22 "Democratic elections in the web client"
+
+- **"Wahlen" screen** (`/elections`, `/elections/:id`, sidebar group "Selbstverwaltung" right after "Anträge"): the list with a
+  status filter and the detail of one election -- phase bar, roles, election committee, candidacies, count approvals, result,
+  ballots, receipt check. `IElectionService` (V0.2.4) could always do all of this; no screen could reach it.
+- **"Wahl eröffnen" in the motion** (resolution section of a scheduled motion, next to "Committee-Quorum entscheiden" and
+  "Meritokratische Vote eröffnen"): election type (yes/no, single choice, multiple choice), secret or open, target committee and
+  role, seats, required share with a live plain-language explanation (exact integer arithmetic of the server), required approvals.
+  A motion that already has an election that is not aborted offers only "Zur Wahl" -- the other two ways would race it.
+  New routes `/elections/:id` and `/motions/:id` for the links between motion and election.
+- **Voting booth**: choose, review, cast for good -- one request however often the button is clicked; the outcome of a conflict or
+  a lost connection is found out by reading the state again (voted / closed / not possible right now), never from an error text.
+- **Receipt of a secret ballot**: shown once in groups of four, copy and print, "Fertig" only after "I have noted it", not stored
+  anywhere (no storage, no URL, no state), leave guard while it is shown; "Quittung prüfen" checks a receipt later.
+- **Election committee form** with live count, duplicate-free picker, warnings (smaller than the threshold, also a candidate) and
+  a blocking marker for members of the target executive board; candidacy form (motivation up to 1000 characters) and release of
+  the candidate list with confirmation; aborting a running election needs the title typed.
+- i18n: about 170 new texts in all eight catalogs; glossary terms "Wahlausschuss" (election committee, never "board"),
+  "Quittung", "Wahlkabine", "Wählerverzeichnis", "Freigabe der Auszählung", "Kandidatur".
+- Documentation: `docs/architecture/elections-ui.adoc`; a section on irreversible single-shot actions in `ui-ux-guideline.adoc`.
+
+#### Server additions (no migration)
+
+- `IElectionService.getElectionParticipation(electionId)`: the caller's own state plus public counters; never a selection, a
+  receipt code or a time.
+- `IElectionService.getElectionResult(electionId)`: the outcome of a `TALLIED` election, computed by the same pure function as
+  `tally()` (`computeOutcome`, extracted unchanged).
+- `openVoting` refuses an election committee smaller than 3 or smaller than the tally threshold (an election that could never be
+  tallied); nothing is written on refusal.
+- `submitCandidacy` refuses a motivation longer than 1000 characters (the column is `VARCHAR(1000)`).
+
+### Security -- V1.9.22
+
+- No election client code logs, stores (`localStorage`/`sessionStorage`), routes (`pushState`) or toasts a ballot, a selection or a
+  receipt, and none shows an exception message (Kilua RPC does not transmit it and the server's text can contain member UUIDs);
+  `ElectionSecrecyTripwireTest` guards this.
+- A secret election's ballot table is reduced to the selection before rendering (no id, time or name, even if the server sent
+  one). The receipt code is validated against the exact Base64url alphabet before it is drawn.
+
+### Known limitations and follow-ups -- V1.9.22
+
+- **Integrity (server, not fixed here)**: `openVote`/`resolveMotion` still work while an election exists, `openElection` does not
+  check for an open meritocratic vote, and `tally()` does not check that the motion is still `SCHEDULED` -- a tally after a
+  quorum decision would overwrite the motion's status and resolution. The client closes the UI paths; the server guards are an
+  open follow-up.
+- `MIN_TALLY_THRESHOLD` stays 1 on the server (the form asks for at least 2); two thirds cannot be expressed exactly with an
+  integer percentage; who approved the tally is visible only as a count; `castAt` of a secret ballot is stored with day precision,
+  so a ballot can still be attributed to a day when only one member voted that day.
+
 ### Added -- V1.9.21 "SVG crest for regional chapters"
 
 - **A regional chapter crest may now be uploaded as SVG** (vector logos of the Landesverbände), next to JPEG and PNG.

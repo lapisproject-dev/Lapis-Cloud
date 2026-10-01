@@ -34,6 +34,21 @@ class NavVisibilityTest {
     }
 
     @Test
+    fun elections_followSelfGovernance_forEveryStatus() {
+        // V1.9.22: the "Wahlen" entry is its own predicate, but decided exactly like the rest of "Selbstverwaltung".
+        MemberStatus.entries.forEach { status ->
+            assertEquals(
+                NavVisibility.showsSelfGovernance(status),
+                NavVisibility.showsElections(status),
+                "showsElections must equal showsSelfGovernance for $status",
+            )
+        }
+        assertTrue(NavVisibility.showsElections(MemberStatus.ACTIVE))
+        assertFalse(NavVisibility.showsElections(MemberStatus.FRIEND))
+        assertFalse(NavVisibility.showsElections(MemberStatus.GUEST))
+    }
+
+    @Test
     fun active_seesEverything() {
         assertTrue(NavVisibility.showsMembershipSection(MemberStatus.ACTIVE))
         assertTrue(NavVisibility.showsSelfGovernance(MemberStatus.ACTIVE))

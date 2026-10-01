@@ -9,6 +9,7 @@ import network.lapis.cloud.shared.domain.ElectionBallotInput
 import network.lapis.cloud.shared.domain.ElectionBoardMemberDto
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionOpenInput
+import network.lapis.cloud.shared.domain.ElectionParticipationDto
 import network.lapis.cloud.shared.domain.ElectionResultDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ReceiptVerificationDto
@@ -90,7 +91,10 @@ interface IElectionService {
 
     /**
      * Role: election board member or BOARD/ADMIN. Snapshots eligibility (frozen at this moment, not
-     * re-evaluated per ballot) into the Election's electorate and opens voting.
+     * re-evaluated per ballot) into the Election's electorate and opens voting. Rejects with
+     * [ConflictException] an election whose appointed election board is smaller than 3 members or
+     * smaller than [network.lapis.cloud.shared.domain.ElectionDto.tallyThreshold] -- an election
+     * that could never be tallied (V1.9.22).
      */
     suspend fun openVoting(electionId: String): ElectionDto
 
@@ -151,4 +155,17 @@ interface IElectionService {
         electionId: String,
         receiptCode: String,
     ): ReceiptVerificationDto
+
+    /**
+     * Role: any authenticated member. The caller's own participation state plus public counters
+     * (V1.9.22) -- see [ElectionParticipationDto]. Never exposes a selection, receipt code or time.
+     */
+    suspend fun getElectionParticipation(electionId: String): ElectionParticipationDto
+
+    /**
+     * Role: any authenticated member. Recomputes the outcome of an Election that is already
+     * [ElectionStatus.TALLIED] with exactly the same pure calculation [tally] used (V1.9.22);
+     * [ConflictException] otherwise.
+     */
+    suspend fun getElectionResult(electionId: String): ElectionResultDto
 }

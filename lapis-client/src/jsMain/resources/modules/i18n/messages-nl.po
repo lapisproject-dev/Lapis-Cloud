@@ -17431,3 +17431,510 @@ msgstr "De korte voorstelling kan momenteel niet worden opgeslagen of gepublicee
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr "De korte voorstelling is te lang of bevat ongeldige tekens."
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr "Eerst moet een verkiezingscommissie worden benoemd."
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr "De verkiezingscommissie heeft minstens %1 leden nodig, er zijn er %2."
+
+msgid "Noch 1 Freigabe nötig."
+msgstr "Nog 1 goedkeuring nodig."
+
+msgid "Noch %1 Freigaben nötig."
+msgstr "Nog %1 goedkeuringen nodig."
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr "Er is nog geen actieve kandidatuur."
+
+msgid "Wahlausschuss"
+msgstr "Verkiezingscommissie"
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr "Er is nog geen verkiezingscommissie benoemd."
+
+msgid "Bestellt am"
+msgstr "Benoemd op"
+
+msgid "Wahlausschuss bestellen"
+msgstr "Verkiezingscommissie benoemen"
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr "Benoemen vervangt de huidige commissie volledig. De commissie bestaat uit 3 tot 25 leden."
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr "Geselecteerd: %1 (3 tot 25 leden zijn toegestaan)."
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr "De commissie is kleiner dan het vereiste aantal van %1 goedkeuringen. De stemming kan zo niet worden geopend."
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr "Tevens ingeschreven als kandidatuur: %1."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr "Leden van het orgaan van het bestuur mogen niet in de verkiezingscommissie zitten: %1."
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr "De verkiezingscommissie heeft 3 tot 25 leden nodig."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr "Leden van het orgaan van het bestuur mogen niet in de verkiezingscommissie zitten."
+
+msgid "Wahlausschuss speichern"
+msgstr "Verkiezingscommissie opslaan"
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr "De commissie kon niet worden opgeslagen: de status is gewijzigd of een lid zit in het orgaan van het bestuur."
+
+msgid "Wahlausschuss gespeichert."
+msgstr "Verkiezingscommissie opgeslagen."
+
+msgid "Kandidaturen"
+msgstr "Kandidaturen"
+
+msgid "Noch keine Kandidaturen."
+msgstr "Nog geen kandidaturen."
+
+msgid "Motivation"
+msgstr "Motivatie"
+
+msgid "Eingereicht am"
+msgstr "Ingediend op"
+
+msgid "Kandidatur zurückziehen"
+msgstr "Kandidatuur intrekken"
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr "De kandidatuur van %1 echt intrekken?"
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr "De kandidatuur kon niet worden ingetrokken. Ververs de weergave."
+
+msgid "Kandidatur zurückgezogen."
+msgstr "Kandidatuur ingetrokken."
+
+msgid "mehr"
+msgstr "meer"
+
+msgid "weniger"
+msgstr "minder"
+
+msgid "Ich kandidiere"
+msgstr "Ik stel mij kandidaat"
+
+msgid "Motivation (optional)"
+msgstr "Motivatie (optioneel)"
+
+msgid "Kandidatur einreichen"
+msgstr "Kandidatuur indienen"
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr "De kandidatuur kon niet worden ingediend. Ververs de weergave."
+
+msgid "Kandidatur eingereicht."
+msgstr "Kandidatuur ingediend."
+
+msgid "Stimmabgabe"
+msgstr "Stem uitbrengen"
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr "Uw stem is geheim: er wordt opgeslagen dat u hebt gestemd, maar niet hoe."
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr "Deze verkiezing is openbaar: uw stem wordt met uw naam opgeslagen."
+
+msgid "Ihre Stimme"
+msgstr "Uw stem"
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr "Maak een keuze."
+
+msgid "Ihre Auswahl"
+msgstr "Uw keuze"
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr "%1 van maximaal %2 gekozen. De overige opties zijn geblokkeerd."
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr "%1 van maximaal %2 gekozen"
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr "Kies minstens één en hooguit %1 opties."
+
+msgid "Weiter zur Prüfung"
+msgstr "Verder naar controle"
+
+msgid "Auswahl prüfen"
+msgstr "Keuze controleren"
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr "Na het uitbrengen kan uw stem niet meer worden gewijzigd."
+
+msgid "Stimme endgültig abgeben"
+msgstr "Stem definitief uitbrengen"
+
+msgid "Keine Stimmberechtigung"
+msgstr "Geen stemrecht"
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr "U staat niet in het kiezersregister van deze verkiezing en kunt niet stemmen."
+
+msgid "Bereits abgestimmt"
+msgstr "Al gestemd"
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Uw stem is geteld. De bevestiging heeft u niet bereikt doordat de verbinding werd verbroken."
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr "U hebt al gestemd. Uw stem is geteld."
+
+msgid "Keine Verbindung"
+msgstr "Geen verbinding"
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "De verbinding is verbroken. Er kon niet worden gecontroleerd of uw stem is geteld. Laad de pagina opnieuw."
+
+msgid "Abstimmung beendet"
+msgstr "Stemming beëindigd"
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr "De stemming is niet meer open."
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr "Stemmen is nu niet mogelijk"
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr "Stemmen is nu niet mogelijk, bijvoorbeeld omdat een uitzending nog wordt gepauzeerd. Wacht even en probeer het opnieuw."
+
+msgid "Zurück zur Wahl"
+msgstr "Terug naar de verkiezing"
+
+msgid "Erneut abstimmen"
+msgstr "Opnieuw stemmen"
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr "Uw stem is geteld"
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr "Hartelijk dank. Uw stem is met uw naam opgeslagen."
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr "Het bewijs kon niet worden getoond. Uw stem is toch geteld."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr "Dit is uw bewijs. Het wordt alleen nu getoond en nergens opgeslagen. Noteer of print het als u later wilt controleren of uw stem is geteld."
+
+msgid "Quittung"
+msgstr "Bewijs"
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr "Kopiëren is niet mogelijk. Schrijf de code over."
+
+msgid "Kopiert."
+msgstr "Gekopieerd."
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr "Ik heb het bewijs genoteerd."
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr "Bevestig dat u het bewijs hebt genoteerd."
+
+msgid "Ja/Nein-Wahl"
+msgstr "Ja/nee-verkiezing"
+
+msgid "Einzelwahl"
+msgstr "Enkelvoudige verkiezing"
+
+msgid "Mehrfachwahl"
+msgstr "Meervoudige verkiezing"
+
+msgid "Listenwahl"
+msgstr "Lijstverkiezing"
+
+msgid "Rangfolgewahl"
+msgstr "Voorkeurverkiezing"
+
+msgid "In Vorbereitung"
+msgstr "In voorbereiding"
+
+msgid "Kandidatenliste freigegeben"
+msgstr "Kandidatenlijst vrijgegeven"
+
+msgid "Abstimmung läuft"
+msgstr "Stemming loopt"
+
+msgid "Ausgezählt"
+msgstr "Geteld"
+
+msgid "Enthaltung"
+msgstr "Onthouding"
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr "Voorbeeld: bij %1 ja- en nee-stemmen moeten er minstens %2 ja zijn. Onthoudingen tellen niet mee."
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr "Bij staking van stemmen is niets beslist en wordt het voorstel aangehouden."
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr "Voorbeeld: bij %1 uitgebrachte stemmen heeft de gekozen persoon er minstens %2 nodig."
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr "Als er slechts één persoon is zonder tegenkandidaat, wordt er geen meerderheid getoetst."
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr "Bij een meervoudige verkiezing winnen de kandidaten met de meeste stemmen. Een gelijke stand bij de zetelgrens beslist niets."
+
+msgid "Wahl eröffnen"
+msgstr "Verkiezing openen"
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr "Een verkiezing beslist het voorstel met één stem per stemgerechtigd lid, als ja/nee-verkiezing of als verkiezing van personen."
+
+msgid "Wahlart"
+msgstr "Soort verkiezing"
+
+msgid "Geheime Wahl"
+msgstr "Geheime verkiezing"
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "Bij een openbare verkiezing worden de stemmen met naam opgeslagen en zijn ze zichtbaar voor alle leden."
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr "Het orgaan waarin de gekozen personen worden opgenomen."
+
+msgid "Rolle im Zielgremium"
+msgstr "Rol in het doelorgaan"
+
+msgid "Zu besetzende Sitze: 1"
+msgstr "Te vervullen zetels: 1"
+
+msgid "Sitze"
+msgstr "Zetels"
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr "Vereist aandeel in procenten"
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr "Vereiste goedkeuringen van de telling"
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr "Zoveel leden van de verkiezingscommissie moeten de telling goedkeuren (minstens 2)."
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr "Kies een doelorgaan."
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr "De verkiezing kon niet worden geopend. Ververs de weergave."
+
+msgid "Wahl eröffnet."
+msgstr "Verkiezing geopend."
+
+msgid "Vorbereitung"
+msgstr "Voorbereiding"
+
+msgid "Kandidatenliste"
+msgstr "Kandidatenlijst"
+
+msgid "Ablauf der Wahl"
+msgstr "Verloop van de verkiezing"
+
+msgid "Freigaben der Auszählung"
+msgstr "Goedkeuringen van de telling"
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr "%1 van %2 vereiste goedkeuringen gegeven"
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr "Wie heeft goedgekeurd, wordt niet met naam getoond."
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr "Gelijke stand of geen beslissende stemmen: het voorstel is aangehouden."
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr "De vereiste meerderheid is behaald."
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr "De vereiste meerderheid is niet behaald."
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr "Er is niemand gekozen: gelijke stand bij de zetelgrens of de vereiste meerderheid is niet gehaald. Het voorstel is aangehouden."
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr "Opkomst: %1 van %2 stemgerechtigden"
+
+msgid "Beschluss im Beschlussbuch"
+msgstr "Besluit in het besluitenboek"
+
+msgid "Gewählt"
+msgstr "Gekozen"
+
+msgid "Stimmzettel"
+msgstr "Stembiljetten"
+
+msgid "1 Stimmzettel abgegeben."
+msgstr "1 stembiljet uitgebracht."
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr "%1 stembiljetten uitgebracht."
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr "Er zijn geen stembiljetten uitgebracht."
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr "Bij een geheime verkiezing worden de stembiljetten zonder namen en zonder tijdstip getoond."
+
+msgid "Auswahl"
+msgstr "Keuze"
+
+msgid "Zeit"
+msgstr "Tijd"
+
+msgid "Quittung prüfen"
+msgstr "Bewijs controleren"
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr "Met uw bewijs kunt u controleren of uw stem is geteld, zonder dat iemand te weten komt hoe u hebt gestemd."
+
+msgid "Quittungscode"
+msgstr "Bewijscode"
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr "Voor deze code is geen stem gevonden."
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr "Uw stem is opgeslagen. De keuze wordt pas na de telling getoond."
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr "Uw stem is opgeslagen en luidt: %1"
+
+msgid "Wahlen"
+msgstr "Verkiezingen"
+
+msgid "Zur Wahlübersicht"
+msgstr "Naar het verkiezingsoverzicht"
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Er zijn nog geen verkiezingen. Een verkiezing wordt geopend vanuit een ingepland voorstel."
+
+msgid "Zu den Anträgen"
+msgstr "Naar de voorstellen"
+
+msgid "Geheim"
+msgstr "Geheim"
+
+msgid "Eröffnet am"
+msgstr "Geopend op"
+
+msgid "Wahl öffnen"
+msgstr "Verkiezing tonen"
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr "De verkiezing kon niet worden geladen."
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr "Eén persoon, één stem: elk stemgerechtigd lid heeft precies één stem."
+
+msgid "Eröffnet von %1 am %2"
+msgstr "Geopend door %1 op %2"
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr "Doelorgaan: %1, rol: %2"
+
+msgid "Zu besetzende Sitze: %1"
+msgstr "Te vervullen zetels: %1"
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr "Vereist aandeel: %1 procent"
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr "Vereiste goedkeuringen van de telling: %1"
+
+msgid "Zum Antrag"
+msgstr "Naar het voorstel"
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr "U hebt de telling goedgekeurd."
+
+msgid "Zur Stimmabgabe"
+msgstr "Naar het stemmen"
+
+msgid "Abstimmung öffnen"
+msgstr "Stemming openen"
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr "De stemming kon niet worden geopend. Ververs de weergave."
+
+msgid "Abstimmung geöffnet."
+msgstr "Stemming geopend."
+
+msgid "Abstimmung beenden"
+msgstr "Stemming beëindigen"
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr "Na het beëindigen kunnen er geen stemmen meer worden uitgebracht. Daarna volgt de goedkeuring van de telling."
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr "De stemming kon niet worden beëindigd. Ververs de weergave."
+
+msgid "Abstimmung beendet."
+msgstr "Stemming beëindigd."
+
+msgid "Auszählung freigeben"
+msgstr "Telling goedkeuren"
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "De goedkeuring was niet mogelijk. Ververs de weergave."
+
+msgid "Auszählung freigegeben."
+msgstr "Telling goedgekeurd."
+
+msgid "Auszählen"
+msgstr "Tellen"
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "De telling was niet mogelijk. Ververs de weergave."
+
+msgid "Wahl ausgezählt."
+msgstr "Verkiezing geteld."
+
+msgid "Kandidatenliste freigeben"
+msgstr "Kandidatenlijst vrijgeven"
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "De kandidatenlijst met 1 kandidatuur wordt vrijgegeven. Daarna kunnen er geen kandidaturen meer worden ingediend."
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "De kandidatenlijst met %1 kandidaturen wordt vrijgegeven. Daarna kunnen er geen kandidaturen meer worden ingediend."
+
+msgid "Freigeben"
+msgstr "Vrijgeven"
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr "De kandidatenlijst kon niet worden vrijgegeven. Ververs de weergave."
+
+msgid "Kandidatenliste freigegeben."
+msgstr "Kandidatenlijst vrijgegeven."
+
+msgid "Sie haben bereits abgestimmt."
+msgstr "U hebt al gestemd."
+
+msgid "Wahl abbrechen"
+msgstr "Verkiezing annuleren"
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "De verkiezing kon niet worden geannuleerd. Ververs de weergave."
+
+msgid "Wahl abgebrochen."
+msgstr "Verkiezing geannuleerd."
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr "Een lopende verkiezing wordt definitief geannuleerd. Alle reeds uitgebrachte stemmen vervallen."
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr "De verkiezing wordt geannuleerd. Daarna kan voor dit voorstel een nieuwe verkiezing worden geopend."
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr "Voor dit voorstel loopt een verkiezing."
+
+msgid "Zur Wahl"
+msgstr "Naar de verkiezing"

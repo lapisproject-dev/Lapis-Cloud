@@ -107,6 +107,7 @@ class ElectionServiceTest :
         fun createTestMember(
             email: String,
             status: MemberStatus = MemberStatus.ACTIVE,
+            role: AccountRole = AccountRole.MEMBER,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -121,7 +122,7 @@ class ElectionServiceTest :
                 AccountTable.insert {
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
-                    it[AccountTable.role] = AccountRole.MEMBER
+                    it[AccountTable.role] = role
                 }
             }
             createdMemberIds += id
@@ -365,6 +366,11 @@ class ElectionServiceTest :
                         .bodyAsText()
                 // Only 2 non-withdrawn candidacies (A, B) become options.
                 freigegeben shouldBe "${ElectionStatus.CANDIDATE_LIST_RELEASED}:2"
+
+                // After the candidate list is released a withdrawal would change nothing on the ballot: even a manager is refused.
+                client
+                    .post("/test/withdraw-candidacy/$candidacyA") { header("X-Member-Id", chair.toString()) }
+                    .status shouldBe io.ktor.http.HttpStatusCode.Conflict
 
                 client.post("/test/open-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
 
@@ -1230,6 +1236,173 @@ class ElectionServiceTest :
                 activeRole shouldBe CommitteeRole.CHAIR
             }
         }
+
+        test(
+            "V1.9.22 B3: openVoting refuses an election board that is too small or smaller than the tally threshold, writing no snapshot",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+                val committeeId = createTestCommittee("B3 Guard Committee")
+                val chair = createTestMember("election-b3-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val voter = createTestMember("election-b3-voter@example.org")
+                addMember(committeeId, voter, CommitteeRole.MEMBER)
+                val board = (1..3).map { createTestMember("election-b3-wv$it@example.org") }
+                val admin = createTestMember("election-b3-admin@example.org", role = AccountRole.ADMIN)
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 6, 1, 18, 0))
+
+                // (a) no election board at all
+                val motionA = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionA =
+                    client
+                        .post("/test/open-election/$motionA/YES_NO?secret=false") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/open-voting/$electionA") { header("X-Member-Id", admin.toString()) }.status shouldBe
+                    HttpStatusCode.Conflict
+
+                // (b) board of 3 but tallyThreshold 4 -> could never be tallied
+                val motionB = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionB =
+                    client
+                        .post("/test/open-election/$motionB/YES_NO?secret=false&tallyThreshold=4") {
+                            header("X-Member-Id", chair.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/appoint-election-board/$electionB?memberIds=${board.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+                client.post("/test/open-voting/$electionB") { header("X-Member-Id", board[0].toString()) }.status shouldBe
+                    HttpStatusCode.Conflict
+                transaction {
+                    ElectionEligibleVoterTable.selectAll().where { ElectionEligibleVoterTable.electionId eq Uuid.parse(electionB) }.count()
+                } shouldBe 0L
+                transaction {
+                    ElectionTable.selectAll().where { ElectionTable.id eq Uuid.parse(electionB) }.single()[ElectionTable.status]
+                } shouldBe ElectionStatus.PREPARATION
+
+                // (c) board of 3, threshold 2 -> opens
+                val motionC = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionC =
+                    client
+                        .post("/test/open-election/$motionC/YES_NO?secret=false") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/appoint-election-board/$electionC?memberIds=${board.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+                client.post("/test/open-voting/$electionC") { header("X-Member-Id", board[0].toString()) }.bodyAsText() shouldBe
+                    ElectionStatus.OPEN.name
+            }
+        }
+
+        test("V1.9.22 B4: a candidacy motivation of 1001 characters is rejected, 1000 is accepted") {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+                val host = createTestCommittee("B4 Host", CommitteeType.GENERAL_ASSEMBLY)
+                val target = createTestCommittee("B4 Target")
+                val chair = createTestMember("election-b4-chair@example.org")
+                addMember(host, chair, CommitteeRole.CHAIR)
+                val cand = createTestMember("election-b4-cand@example.org")
+                val meetingId = createTestMeeting(host, LocalDateTime(2026, 6, 2, 18, 0))
+                val motionId = createTerminierterMotion(host, meetingId, chair)
+                val electionId =
+                    client
+                        .post("/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$target") {
+                            header("X-Member-Id", chair.toString())
+                        }.bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/submit-candidacy-len/$electionId?len=1001") { header("X-Member-Id", cand.toString()) }.status shouldBe
+                    HttpStatusCode.Conflict
+                client.post("/test/submit-candidacy-len/$electionId?len=1000") { header("X-Member-Id", cand.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "V1.9.22 B1+B2: participation counters expose only the caller's own state, and getElectionResult equals tally()",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installElectionExceptionHandlers() }
+                    routing { registerElectionTestRoutes() }
+                }
+                val committeeId = createTestCommittee("B1B2 Committee")
+                val chair = createTestMember("election-b1-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val voter1 = createTestMember("election-b1-v1@example.org")
+                val voter2 = createTestMember("election-b1-v2@example.org")
+                val outsider = createTestMember("election-b1-out@example.org")
+                addMember(committeeId, voter1, CommitteeRole.MEMBER)
+                addMember(committeeId, voter2, CommitteeRole.MEMBER)
+                val board = (1..3).map { createTestMember("election-b1-wv$it@example.org") }
+                val meetingId = createTestMeeting(committeeId, LocalDateTime(2026, 6, 3, 18, 0))
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                val electionId =
+                    client
+                        .post("/test/open-election/$motionId/YES_NO?secret=true") { header("X-Member-Id", chair.toString()) }
+                        .bodyAsText()
+                        .substringBefore(":")
+                client.post("/test/appoint-election-board/$electionId?memberIds=${board.joinToString(",")}") {
+                    header("X-Member-Id", chair.toString())
+                }
+
+                // Before OPEN: no snapshot -> eligible/eligibleCount are null; the board counters are public.
+                client.get("/test/participation/$electionId") { header("X-Member-Id", board[0].toString()) }.bodyAsText() shouldBe
+                    "null:false:true:false:0:2:3:null:0"
+                client.get("/test/participation/$electionId") { header("X-Member-Id", outsider.toString()) }.bodyAsText() shouldBe
+                    "null:false:false:false:0:2:3:null:0"
+                client.get("/test/election-result/$electionId") { header("X-Member-Id", chair.toString()) }.status shouldBe
+                    HttpStatusCode.Conflict
+
+                client.post("/test/open-voting/$electionId") { header("X-Member-Id", board[0].toString()) }
+                client.post("/test/cast-election-ballot/$electionId?answer=YES") { header("X-Member-Id", voter1.toString()) }
+
+                // Secret election: voter1 sees own hasVoted, voter2 does not; outsider is not in the snapshot.
+                val v1 = client.get("/test/participation/$electionId") { header("X-Member-Id", voter1.toString()) }.bodyAsText().split(":")
+                v1[0] shouldBe "true"
+                v1[1] shouldBe "true"
+                v1[8] shouldBe "1"
+                val v2 = client.get("/test/participation/$electionId") { header("X-Member-Id", voter2.toString()) }.bodyAsText().split(":")
+                v2[0] shouldBe "true"
+                v2[1] shouldBe "false"
+                client
+                    .get(
+                        "/test/participation/$electionId",
+                    ) { header("X-Member-Id", outsider.toString()) }
+                    .bodyAsText()
+                    .split(":")[0] shouldBe
+                    "false"
+
+                client.post("/test/cast-election-ballot/$electionId?answer=NO") { header("X-Member-Id", voter2.toString()) }
+                client.post("/test/close-voting/$electionId") { header("X-Member-Id", board[0].toString()) }
+                client.post("/test/release-tally/$electionId") { header("X-Member-Id", board[0].toString()) }
+                client.get("/test/participation/$electionId") { header("X-Member-Id", board[0].toString()) }.bodyAsText().split(":").let {
+                    it[3] shouldBe "true"
+                    it[4] shouldBe "1"
+                }
+                client
+                    .get(
+                        "/test/participation/$electionId",
+                    ) { header("X-Member-Id", chair.toString()) }
+                    .bodyAsText()
+                    .split(":")[3] shouldBe
+                    "false"
+                client.post("/test/release-tally/$electionId") { header("X-Member-Id", board[1].toString()) }
+                val tallied =
+                    client.post("/test/tally/$electionId") { header("X-Member-Id", board[0].toString()) }.bodyAsText()
+                val read = client.get("/test/election-result/$electionId") { header("X-Member-Id", outsider.toString()) }.bodyAsText()
+                // 1 YES vs 1 NO -> tie; the result read equals the tally() return value (plus the per-option votes suffix).
+                read.substringBeforeLast(":") shouldBe tallied
+                tallied.split(":")[1] shouldBe "true"
+            }
+        }
     })
 
 private fun StatusPagesConfig.installElectionExceptionHandlers() {
@@ -1325,6 +1498,40 @@ private fun Route.registerElectionTestRoutes() {
         val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val e = service.tally(call.parameters["electionId"]!!)
         call.respondText("${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}")
+    }
+    get("/test/election-result/{electionId}") {
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val e = service.getElectionResult(call.parameters["electionId"]!!)
+        call.respondText(
+            "${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}:${e.perOptionVotes.values.sorted().joinToString("|")}",
+        )
+    }
+    get("/test/participation/{electionId}") {
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val p = service.getElectionParticipation(call.parameters["electionId"]!!)
+        call.respondText(
+            listOf(
+                p.eligible,
+                p.hasVoted,
+                p.isElectionBoardMember,
+                p.hasApprovedTally,
+                p.tallyApprovalCount,
+                p.tallyThreshold,
+                p.electionBoardSize,
+                p.eligibleCount,
+                p.ballotCount,
+            ).joinToString(":"),
+        )
+    }
+    post("/test/submit-candidacy-len/{electionId}") {
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val len = call.request.queryParameters["len"]!!.toInt()
+        val k =
+            service.submitCandidacy(
+                electionId = call.parameters["electionId"]!!,
+                input = CandidacyInput(motivationText = "x".repeat(len)),
+            )
+        call.respondText(k.id)
     }
     post("/test/abort-election/{electionId}") {
         val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)

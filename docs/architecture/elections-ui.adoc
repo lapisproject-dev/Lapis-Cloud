@@ -1,0 +1,163 @@
+= Democratic elections, web client (V1.9.22)
+:toc:
+
+== Purpose
+
+`IElectionService` (V0.2.4) has been able to hold democratic elections for a long time: one person, one vote, yes/no questions and
+the election of people, an election committee, a candidate list, a secret ballot with a receipt and a four-eyes release of the
+count. Until V1.9.22 no screen could reach it. This wave adds the web client -- the "Wahlen" screen in the sidebar group
+"Selbstverwaltung", an entry in the resolution section of a scheduled motion, and the voting booth -- plus the four small server
+additions the client needed (below). It deliberately does not change how an election is decided.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Lifecycle
+
+An election is never created on the elections screen. It is opened from a motion in the status `SCHEDULED`, exactly like a
+meritocratic vote, and its tally is written into the same resolution book.
+
+[source,kuml,name="elections-lifecycle"]
+----
+stateDiagram(name = "Election lifecycle") {
+    val start = initialState()
+    val preparation = state(name = "PREPARATION")
+    val released = state(name = "CANDIDATE_LIST_RELEASED")
+    val open = state(name = "OPEN")
+    val closed = state(name = "CLOSED")
+    val tallied = state(name = "TALLIED")
+    val aborted = state(name = "ABORTED")
+
+    transition(source = start, target = preparation) { trigger = "openElection" }
+    transition(source = preparation, target = released) { trigger = "releaseCandidateList (people only)" }
+    transition(source = preparation, target = open) {
+        trigger = "openVoting (yes/no)"
+        guard = "[committee >= max(3, threshold)]"
+    }
+    transition(source = released, target = open) {
+        trigger = "openVoting (people)"
+        guard = "[committee >= max(3, threshold)]"
+    }
+    transition(source = open, target = closed) { trigger = "closeVoting" }
+    transition(source = closed, target = tallied) {
+        trigger = "tally"
+        guard = "[approvals >= threshold]"
+    }
+    transition(source = preparation, target = aborted) { trigger = "abortElection" }
+    transition(source = released, target = aborted) { trigger = "abortElection" }
+    transition(source = open, target = aborted) { trigger = "abortElection" }
+    transition(source = closed, target = aborted) { trigger = "abortElection" }
+}
+----
+
+== Roles
+
+The client mirrors the server's rules in `ElectionAuthzUi.kt` (pure, unit-tested). Three roles are kept apart because the server
+keeps them apart:
+
+[cols="2,3,3", options="header"]
+|===
+| Role | Who | May
+| manager | leadership (chair, deputy chair, secretary) of the *motion's own* committee, or BOARD/ADMIN
+| open an election, appoint the election committee, release the candidate list, abort, withdraw foreign candidacies
+| operator | an appointed election committee member, or BOARD/ADMIN
+| open voting, close voting, tally
+| committee member (strict) | an appointed election committee member -- *no* BOARD/ADMIN bypass
+| approve the tally (the N-of-M four-eyes count must reflect distinct named members)
+|===
+
+Every action is a pure function of the election, the caller's participation state and these roles, returning hidden, enabled or
+disabled-with-reason (`Gate`). A disabled action shows its reason as visible text, not only as a tooltip.
+
+== Server additions (no migration)
+
+[cols="2,5", options="header"]
+|===
+| Addition | Why
+| `getElectionParticipation(electionId)` | The caller's own state (`eligible`, `hasVoted`, committee membership, own approval) plus public counters (approvals, committee size, electorate size, number of ballots). Never a selection, a receipt code or a time.
+| `getElectionResult(electionId)` | The outcome of a `TALLIED` election, recomputed by the *same* pure function `tally()` uses (`computeOutcome`), so the display can never drift from what was written to the resolution book.
+| guard in `openVoting` | A committee smaller than 3, or smaller than the tally threshold, can never tally -- voting would open on an election that cannot finish. Checked before the electorate snapshot, so a rejection writes nothing.
+| length check in `submitCandidacy` | `election_candidacy.motivation_text` is `VARCHAR(1000)`; a longer text used to end in an unspecific database error.
+|===
+
+== Why the client reloads instead of reading errors
+
+Kilua RPC transmits only the exception *type*. "Already voted", "stream not paused yet", "status changed" and "member sits on the
+executive board" are all `ConflictException`, and the server may still put a message on the wire -- one that can contain member
+UUIDs ("Member <uuid> already voted ..."). So no elections code ever shows `e.message` (`ElectionSecrecyTripwireTest`). What a
+conflict means is found out by *reading the state again*: after a failed ballot the booth reloads the participation state and
+the election and says what really happened. New typed exceptions (`typed-conflict-errors.adoc`, option B) would have required
+rewriting every existing `ConflictException` check; reloading needs nothing new.
+
+== The voting booth
+
+The booth is an irreversible single-shot action, so it is its own mode: it replaces the whole detail view (the URL does not
+change), has exactly three steps and ends in a state that explains itself.
+
+[source,kuml,name="election-booth-flow"]
+----
+sequenceDiagram(name = "Voting booth") {
+    val member = lifeline(name = "Member")
+    val booth = lifeline(name = "Booth (client)")
+    val server = lifeline(name = "ElectionService")
+
+    message(from = member, to = booth, label = "choose (yes/no tile, one candidate, or up to seatCount candidates)")
+    message(from = member, to = booth, label = "continue to review")
+    message(from = booth, to = member, label = "review: the choice as plain sentences, 'cannot be changed afterwards'")
+    message(from = member, to = booth, label = "cast for good (once: the button locks, a second click is ignored)")
+    message(from = booth, to = server, label = "castElectionBallot(answer | selectedOptionIds)")
+    message(from = server, to = booth, label = "ok + receiptCode (secret) | ok | Conflict | Forbidden | network failure")
+    message(from = booth, to = server, label = "on Conflict / failure: getElectionParticipation + getElection (no toast, no message read)")
+    message(from = server, to = booth, label = "hasVoted? status still OPEN?")
+    message(from = booth, to = member, label = "receipt in groups of four | already voted | voting closed | not possible right now")
+}
+----
+
+The outcomes:
+
+[cols="2,5", options="header"]
+|===
+| Outcome | The booth says
+| ok with a receipt code (secret election) | the receipt, shown once; "Fertig" is disabled until the member ticks "I have noted the receipt"
+| ok without a code (open election) | a thank-you; the vote is stored with the member's name
+| `Forbidden` | not on the electoral roll
+| `Conflict`, then `hasVoted` | already voted (the vote was counted)
+| `Conflict`, status no longer `OPEN` | voting is no longer open
+| `Conflict`, status `OPEN`, not voted | not possible right now (for example, a stream is still being paused); try again
+| network failure, then `hasVoted` | the vote was counted, only the confirmation did not arrive
+| network failure, unknown | the connection was interrupted; reload the page to find out
+|===
+
+== Receipt handling
+
+The receipt code is 20 random bytes as unpadded Base64url: exactly 27 characters of `[A-Za-z0-9_-]`.
+
+* It is checked against that exact alphabet before it is drawn. A code that does not match is never drawn.
+* It is drawn character by character, in groups of four spans (no space characters in the code), *without* the untrusted-text
+  sanitizer: the sanitizer could change characters of a code the member copies, and the Base64url alphabet cannot contain the
+  i18n marker, so there is nothing for it to do. (The code is assigned from local variables, so the widget-text tripwire's
+  ledger does not grow.)
+* It exists in exactly two DOM nodes (the screen node and a print twin that is hidden on screen) and in the closure of the
+  "copy" button. Not in `localStorage`/`sessionStorage`, not in the URL, not in `AppState`, not in a toast, not in the console.
+* While it is shown, a `beforeunload` guard asks before the page is left. "Fertig" removes the panel (and so the code) from the
+  DOM and the guard with it; the guard is also removed when the panel is destroyed.
+* Printing sets a class on `body` and prints only the print twin (`theme.css`, `lapis-printing-receipt`).
+
+== Secrecy rules of the displays
+
+* A secret election's ballot table shows the selection and nothing else -- no id, no time, no name. The DTO is reduced to a
+  private row type *before* it is rendered, so the id and the cast time never reach a table state or a sort key, and a hostile
+  server cannot make a name appear.
+* `castAt` of a secret election is stored with day precision (the server already coarsens it), which breaks the one-to-one join
+  with the participation row's full-precision `voted_at`. Remaining risk: a ballot can still be attributed to a *day* if only
+  one member voted that day.
+* Before the tally only the number of ballots is shown. Option vote counts stay `0` until `TALLIED` (server rule).
+
+== Known limitations and follow-ups
+
+* `MIN_TALLY_THRESHOLD` stays `1` on the server; the form asks for at least 2 (four eyes).
+* Two thirds cannot be expressed exactly with an integer percentage.
+* Who approved the tally is not visible by name, only the count.
+* Two decision paths for one motion are not guarded against each other *on the server*: `openVote`/`resolveMotion` still work
+  while an election exists, `openElection` does not check for an open meritocratic vote, and `tally()` does not check that the
+  motion is still `SCHEDULED`. The client closes this in the UI (a motion with a running election offers no other way to decide
+  it) but the server rule is an open integrity follow-up.

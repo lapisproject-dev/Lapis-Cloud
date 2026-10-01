@@ -195,6 +195,19 @@ class SidebarStructureTest {
     }
 
     @Test
+    fun selfGovernanceGroup_showsElectionsEntry_rightAfterMotions_forMembers_notForFriends() {
+        // V1.9.22 "Wahlen": the new entry sits in "Selbstverwaltung", directly after "Anträge" (no new top-level group).
+        val urls = orderedSidebarLinkUrls(adminSession)
+        val motions = urls.indexOf("#${Routes.MOTIONS}")
+        assertTrue(motions >= 0, "the Anträge entry must exist")
+        assertEquals("#${Routes.ELECTIONS}", urls[motions + 1], "Wahlen must follow Anträge directly")
+        assertFalse(
+            sidebarLinkUrls(adminSession.copy(status = MemberStatus.FRIEND)).contains("#${Routes.ELECTIONS}"),
+            "a FRIEND must not see the Wahlen entry",
+        )
+    }
+
+    @Test
     fun financeGroup_showsOpenItemsEntry_forTreasurerBoardAndAdmin() {
         listOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN).forEach { role ->
             assertTrue(

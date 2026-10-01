@@ -22,6 +22,12 @@ object NavVisibility {
     /** "Selbstverwaltung" (Gremien/Sitzungen/Anträge) -- unverändert ORGANIZATION_MEMBER-exklusiv. */
     fun showsSelfGovernance(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 
+    /**
+     * "Wahlen" (V1.9.22) -- derselbe Personenkreis wie die übrige Selbstverwaltung: jede Wahl gehört zu einem Antrag eines Gremiums,
+     * und `IElectionService` gilt serverseitig nur für Mitglieder. Als eigene Funktion, damit der Eintrag einzeln prüfbar ist.
+     */
+    fun showsElections(status: MemberStatus): Boolean = showsSelfGovernance(status)
+
     /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Kommunikation/Meine Daten). */
     fun showsMembershipSection(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 

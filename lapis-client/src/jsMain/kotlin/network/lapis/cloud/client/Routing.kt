@@ -45,6 +45,16 @@ object Routes {
     const val MEETINGS = "/meetings"
     const val MOTIONS = "/motions"
 
+    /**
+     * Welle V1.9.22 "Wahlen" -- `requireAuth`, same posture as [COMMITTEES]/[MEETINGS]/[MOTIONS]: every read of `IElectionService`
+     * is open to any authenticated member, the privileged actions are gated inside the screen. [ELECTION_DETAIL] and
+     * [MOTION_DETAIL] carry an id in the path (`:id` via `Match.data`, like [SOCIAL_NETWORK_POST]); an election id is not a secret.
+     * The voting booth never changes the URL.
+     */
+    const val ELECTIONS = "/elections"
+    const val ELECTION_DETAIL = "/elections/:id"
+    const val MOTION_DETAIL = "/motions/:id"
+
     // Accounting UI wave: unlike Governance, every single `IAccountingService` method requires at
     // least TREASURER/BOARD/ADMIN server-side (see that interface's own class KDoc) -- there is no
     // plain-MEMBER-readable Accounting RPC at all. This route therefore gates at the route level
@@ -734,7 +744,30 @@ fun initRouting(pageContainer: SimplePanel) {
         requireAuth(routing) { show(Routes.MEETINGS, ::renderMeetingsScreen) }
     }
     routing.kvOn(Routes.MOTIONS) {
-        requireAuth(routing) { show(Routes.MOTIONS, ::renderMotionsScreen) }
+        requireAuth(routing) { show(Routes.MOTIONS) { container -> renderMotionsScreen(container) } }
+    }
+    routing.kvOn(Routes.MOTION_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.MOTIONS)
+            } else {
+                show(Routes.MOTION_DETAIL) { container -> renderMotionsScreen(container, id) }
+            }
+        }
+    }
+    routing.kvOn(Routes.ELECTIONS) {
+        requireAuth(routing) { show(Routes.ELECTIONS) { container -> renderElectionsScreen(container) } }
+    }
+    routing.kvOn(Routes.ELECTION_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.ELECTIONS)
+            } else {
+                show(Routes.ELECTION_DETAIL) { container -> renderElectionsScreen(container, id) }
+            }
+        }
     }
     routing.kvOn(Routes.LEDGER) {
         requireRole(routing, AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN) {

@@ -1714,6 +1714,25 @@ Person lists WITHOUT a new client filter, with the reason: `CrmContactsScreen` a
 select on purpose; only its missing sanitising was fixed), `SepaMandatesScreen`, `MemberHonorsScreen`, `DonorsScreen`,
 `MemberAnniversariesScreen`, `ChapterRosterScreen`, `EventCheckInScreen` (already have a search field).
 
+== Irreversible single-shot actions (V1.9.22, the ballot)
+
+An action that cannot be undone and must happen exactly once -- casting a ballot is the first -- gets its own mode instead of a
+button in a list:
+
+* It *replaces* the surrounding view (no route change, nothing else to click), with exactly three steps: choose, review, confirm.
+  The review step states the choice in plain sentences and says that it cannot be changed afterwards.
+* The final button locks on the first click (`runGuardedAction` plus a local in-flight flag); a double click, a repeated
+  `Enter` or a slow answer produce exactly one request.
+* The outcome is never guessed. After a conflict or a lost connection the screen reads the state again and says what really
+  happened (voted, closed, not possible right now); it never shows a server message, because Kilua RPC does not transmit one and
+  the server's text can contain identifiers.
+* Anything the member must keep (a receipt code) is shown once, is not stored anywhere (no storage, no URL, no state object, no
+  console, no toast), and the way out is blocked until the member confirms having noted it.
+* Selection tiles are at least 48 px high with a visible focus ring; a choice with a limit shows a live counter in a polite live
+  region and *locks* (disables, does not hide) the remaining options at the limit.
+
+See `elections-ui.adoc` for the worked example.
+
 == Known gaps
 
 * W6b security round 5: the bare in-builder-lambda `content = dtoField.field` assignment shape (no receiver

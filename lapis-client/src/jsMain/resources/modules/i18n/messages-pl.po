@@ -17430,3 +17430,510 @@ msgstr "Krótkiego przedstawienia nie można obecnie zapisać ani opublikować."
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr "Krótkie przedstawienie jest za długie lub zawiera niedozwolone znaki."
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr "Najpierw należy powołać komisję wyborczą."
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr "Komisja wyborcza potrzebuje co najmniej %1 członków, a ma ich %2."
+
+msgid "Noch 1 Freigabe nötig."
+msgstr "Brakuje jeszcze 1 zatwierdzenia."
+
+msgid "Noch %1 Freigaben nötig."
+msgstr "Brakuje jeszcze %1 zatwierdzeń."
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr "Brak jeszcze aktywnej kandydatury."
+
+msgid "Wahlausschuss"
+msgstr "Komisja wyborcza"
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr "Nie powołano jeszcze komisji wyborczej."
+
+msgid "Bestellt am"
+msgstr "Powołano"
+
+msgid "Wahlausschuss bestellen"
+msgstr "Powołaj komisję wyborczą"
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr "Powołanie w całości zastępuje dotychczasowy skład. Komisja składa się z 3 do 25 członków."
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr "Wybrano: %1 (dozwolone jest od 3 do 25 członków)."
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr "Komisja jest mniejsza niż wymagana liczba %1 zatwierdzeń. W takim składzie nie można otworzyć głosowania."
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr "Jednocześnie zgłoszeni jako kandydatura: %1."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr "Członkowie gremium zarządu nie mogą zasiadać w komisji wyborczej: %1."
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr "Komisja wyborcza potrzebuje od 3 do 25 członków."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr "Członkowie gremium zarządu nie mogą zasiadać w komisji wyborczej."
+
+msgid "Wahlausschuss speichern"
+msgstr "Zapisz komisję wyborczą"
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr "Nie udało się zapisać komisji: zmienił się status albo jeden z członków zasiada w gremium zarządu."
+
+msgid "Wahlausschuss gespeichert."
+msgstr "Zapisano komisję wyborczą."
+
+msgid "Kandidaturen"
+msgstr "Kandydatury"
+
+msgid "Noch keine Kandidaturen."
+msgstr "Brak jeszcze kandydatur."
+
+msgid "Motivation"
+msgstr "Motywacja"
+
+msgid "Eingereicht am"
+msgstr "Złożono"
+
+msgid "Kandidatur zurückziehen"
+msgstr "Wycofaj kandydaturę"
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr "Czy na pewno wycofać kandydaturę: %1?"
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się wycofać kandydatury. Odśwież widok."
+
+msgid "Kandidatur zurückgezogen."
+msgstr "Kandydatura wycofana."
+
+msgid "mehr"
+msgstr "więcej"
+
+msgid "weniger"
+msgstr "mniej"
+
+msgid "Ich kandidiere"
+msgstr "Kandyduję"
+
+msgid "Motivation (optional)"
+msgstr "Motywacja (opcjonalnie)"
+
+msgid "Kandidatur einreichen"
+msgstr "Złóż kandydaturę"
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się złożyć kandydatury. Odśwież widok."
+
+msgid "Kandidatur eingereicht."
+msgstr "Kandydatura złożona."
+
+msgid "Stimmabgabe"
+msgstr "Oddanie głosu"
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr "Twój głos jest tajny: zapisywane jest, że oddano głos, ale nie to, jak."
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr "Te wybory są jawne: Twój głos jest zapisywany wraz z Twoim imieniem i nazwiskiem."
+
+msgid "Ihre Stimme"
+msgstr "Twój głos"
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr "Dokonaj wyboru."
+
+msgid "Ihre Auswahl"
+msgstr "Twój wybór"
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr "Wybrano %1 z maksymalnie %2. Pozostałe opcje są zablokowane."
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr "Wybrano %1 z maksymalnie %2"
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr "Wybierz co najmniej jedną i najwyżej %1 opcji."
+
+msgid "Weiter zur Prüfung"
+msgstr "Dalej do sprawdzenia"
+
+msgid "Auswahl prüfen"
+msgstr "Sprawdź wybór"
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr "Po oddaniu Twojego głosu nie można już zmienić."
+
+msgid "Stimme endgültig abgeben"
+msgstr "Oddaj głos ostatecznie"
+
+msgid "Keine Stimmberechtigung"
+msgstr "Brak prawa głosu"
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr "Nie ma Cię w spisie wyborców tych wyborów i nie możesz głosować."
+
+msgid "Bereits abgestimmt"
+msgstr "Już zagłosowano"
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Twój głos został policzony. Potwierdzenie nie dotarło do Ciebie z powodu przerwania połączenia."
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr "Głos został już oddany i policzony."
+
+msgid "Keine Verbindung"
+msgstr "Brak połączenia"
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Połączenie zostało przerwane. Nie udało się sprawdzić, czy Twój głos został policzony. Załaduj stronę ponownie."
+
+msgid "Abstimmung beendet"
+msgstr "Głosowanie zakończone"
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr "Głosowanie nie jest już otwarte."
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr "Oddanie głosu chwilowo niemożliwe"
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr "Oddanie głosu jest chwilowo niemożliwe, na przykład dlatego, że transmisja jest jeszcze wstrzymywana. Poczekaj chwilę i spróbuj ponownie."
+
+msgid "Zurück zur Wahl"
+msgstr "Wróć do wyborów"
+
+msgid "Erneut abstimmen"
+msgstr "Zagłosuj ponownie"
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr "Twój głos został policzony"
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr "Dziękujemy. Twój głos został zapisany wraz z Twoim imieniem i nazwiskiem."
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr "Nie udało się wyświetlić potwierdzenia. Twój głos mimo to został policzony."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr "To jest Twoje potwierdzenie. Wyświetla się tylko teraz i nigdzie nie jest zapisywane. Zapisz je lub wydrukuj, jeśli chcesz później sprawdzić, czy Twój głos został policzony."
+
+msgid "Quittung"
+msgstr "Potwierdzenie"
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr "Kopiowanie nie jest możliwe. Przepisz kod."
+
+msgid "Kopiert."
+msgstr "Skopiowano."
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr "Mam zapisane potwierdzenie."
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr "Potwierdź, że masz zapisane potwierdzenie."
+
+msgid "Ja/Nein-Wahl"
+msgstr "Wybory tak/nie"
+
+msgid "Einzelwahl"
+msgstr "Wybór jednej osoby"
+
+msgid "Mehrfachwahl"
+msgstr "Wybór wielu osób"
+
+msgid "Listenwahl"
+msgstr "Wybór listy"
+
+msgid "Rangfolgewahl"
+msgstr "Wybór z rangowaniem"
+
+msgid "In Vorbereitung"
+msgstr "W przygotowaniu"
+
+msgid "Kandidatenliste freigegeben"
+msgstr "Lista kandydatów opublikowana"
+
+msgid "Abstimmung läuft"
+msgstr "Głosowanie trwa"
+
+msgid "Ausgezählt"
+msgstr "Przeliczone"
+
+msgid "Enthaltung"
+msgstr "Wstrzymanie się"
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr "Przykład: przy %1 głosach „tak” i „nie” co najmniej %2 z nich musi być na „tak”. Wstrzymania się nie liczą się."
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr "W razie równości głosów nic nie jest rozstrzygnięte, a wniosek zostaje odroczony."
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr "Przykład: przy %1 oddanych głosach wybrana osoba potrzebuje co najmniej %2 z nich."
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr "Jeśli jest tylko jedna osoba bez kontrkandydata, większość nie jest sprawdzana."
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr "W wyborach wielu osób wygrywają kandydaci z największą liczbą głosów. Remis na granicy miejsc niczego nie rozstrzyga."
+
+msgid "Wahl eröffnen"
+msgstr "Otwórz wybory"
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr "Wybory rozstrzygają wniosek jednym głosem na każdego uprawnionego członka – jako wybory tak/nie albo wybory osób."
+
+msgid "Wahlart"
+msgstr "Rodzaj wyborów"
+
+msgid "Geheime Wahl"
+msgstr "Wybory tajne"
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "W wyborach jawnych głosy są zapisywane z imieniem i nazwiskiem i widoczne dla wszystkich członków."
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr "Gremium, do którego trafią wybrane osoby."
+
+msgid "Rolle im Zielgremium"
+msgstr "Rola w gremium docelowym"
+
+msgid "Zu besetzende Sitze: 1"
+msgstr "Miejsca do obsadzenia: 1"
+
+msgid "Sitze"
+msgstr "Miejsca"
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr "Wymagany udział w procentach"
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr "Wymagane zatwierdzenia przeliczenia"
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr "Tylu członków komisji wyborczej musi zatwierdzić przeliczenie (co najmniej 2)."
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr "Wybierz gremium docelowe."
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się otworzyć wyborów. Odśwież widok."
+
+msgid "Wahl eröffnet."
+msgstr "Wybory otwarte."
+
+msgid "Vorbereitung"
+msgstr "Przygotowanie"
+
+msgid "Kandidatenliste"
+msgstr "Lista kandydatów"
+
+msgid "Ablauf der Wahl"
+msgstr "Przebieg wyborów"
+
+msgid "Freigaben der Auszählung"
+msgstr "Zatwierdzenia przeliczenia"
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr "Udzielono %1 z %2 wymaganych zatwierdzeń"
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr "Osoby, które zatwierdziły, nie są wyświetlane z nazwiska."
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr "Remis lub brak głosów rozstrzygających: wniosek został odroczony."
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr "Wymagana większość została osiągnięta."
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr "Wymagana większość nie została osiągnięta."
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr "Nikt nie został wybrany: remis na granicy miejsc albo nie osiągnięto wymaganej większości. Wniosek został odroczony."
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr "Frekwencja: %1 z %2 uprawnionych"
+
+msgid "Beschluss im Beschlussbuch"
+msgstr "Uchwała w księdze uchwał"
+
+msgid "Gewählt"
+msgstr "Wybrany"
+
+msgid "Stimmzettel"
+msgstr "Karty do głosowania"
+
+msgid "1 Stimmzettel abgegeben."
+msgstr "Oddano 1 kartę do głosowania."
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr "Oddano kart do głosowania: %1."
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr "Nie oddano żadnych kart do głosowania."
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr "W wyborach tajnych karty do głosowania są wyświetlane bez nazwisk i bez godziny."
+
+msgid "Auswahl"
+msgstr "Wybór"
+
+msgid "Zeit"
+msgstr "Godzina"
+
+msgid "Quittung prüfen"
+msgstr "Sprawdź potwierdzenie"
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr "Dzięki potwierdzeniu możesz sprawdzić, że Twój głos został policzony, a nikt nie dowie się, jak głosowałeś."
+
+msgid "Quittungscode"
+msgstr "Kod potwierdzenia"
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr "Dla tego kodu nie znaleziono głosu."
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr "Twój głos jest zapisany. Wybór zostanie wyświetlony dopiero po przeliczeniu."
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr "Twój głos jest zapisany i brzmi: %1"
+
+msgid "Wahlen"
+msgstr "Wybory"
+
+msgid "Zur Wahlübersicht"
+msgstr "Do przeglądu wyborów"
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Nie ma jeszcze wyborów. Wybory otwiera się z poziomu zaplanowanego wniosku."
+
+msgid "Zu den Anträgen"
+msgstr "Do wniosków"
+
+msgid "Geheim"
+msgstr "Tajne"
+
+msgid "Eröffnet am"
+msgstr "Otwarto"
+
+msgid "Wahl öffnen"
+msgstr "Pokaż wybory"
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr "Nie udało się wczytać wyborów."
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr "Jedna osoba, jeden głos: każdy uprawniony członek ma dokładnie jeden głos."
+
+msgid "Eröffnet von %1 am %2"
+msgstr "Otwarte przez: %1, dnia %2"
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr "Gremium docelowe: %1, rola: %2"
+
+msgid "Zu besetzende Sitze: %1"
+msgstr "Miejsca do obsadzenia: %1"
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr "Wymagany udział: %1 procent"
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr "Wymagane zatwierdzenia przeliczenia: %1"
+
+msgid "Zum Antrag"
+msgstr "Do wniosku"
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr "Przeliczenie zostało przez Ciebie zatwierdzone."
+
+msgid "Zur Stimmabgabe"
+msgstr "Do głosowania"
+
+msgid "Abstimmung öffnen"
+msgstr "Otwórz głosowanie"
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się otworzyć głosowania. Odśwież widok."
+
+msgid "Abstimmung geöffnet."
+msgstr "Głosowanie otwarte."
+
+msgid "Abstimmung beenden"
+msgstr "Zakończ głosowanie"
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr "Po zakończeniu nie można już oddawać głosów. Następnie następuje zatwierdzenie przeliczenia."
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się zakończyć głosowania. Odśwież widok."
+
+msgid "Abstimmung beendet."
+msgstr "Głosowanie zakończone."
+
+msgid "Auszählung freigeben"
+msgstr "Zatwierdź przeliczenie"
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "Zatwierdzenie nie było możliwe. Odśwież widok."
+
+msgid "Auszählung freigegeben."
+msgstr "Przeliczenie zatwierdzone."
+
+msgid "Auszählen"
+msgstr "Przelicz głosy"
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "Przeliczenie nie było możliwe. Odśwież widok."
+
+msgid "Wahl ausgezählt."
+msgstr "Wybory przeliczone."
+
+msgid "Kandidatenliste freigeben"
+msgstr "Opublikuj listę kandydatów"
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "Lista kandydatów z 1 kandydaturą zostanie opublikowana. Potem nie będzie można składać kolejnych kandydatur."
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "Lista kandydatów z liczbą kandydatur: %1 zostanie opublikowana. Potem nie będzie można składać kolejnych kandydatur."
+
+msgid "Freigeben"
+msgstr "Opublikuj"
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się opublikować listy kandydatów. Odśwież widok."
+
+msgid "Kandidatenliste freigegeben."
+msgstr "Lista kandydatów opublikowana."
+
+msgid "Sie haben bereits abgestimmt."
+msgstr "Głos został już oddany."
+
+msgid "Wahl abbrechen"
+msgstr "Przerwij wybory"
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "Nie udało się przerwać wyborów. Odśwież widok."
+
+msgid "Wahl abgebrochen."
+msgstr "Wybory przerwane."
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr "Trwające wybory zostaną ostatecznie przerwane. Wszystkie dotychczas oddane głosy przepadają."
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr "Wybory zostaną przerwane. Następnie dla tego wniosku będzie można otworzyć nowe wybory."
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr "Dla tego wniosku trwają wybory."
+
+msgid "Zur Wahl"
+msgstr "Do wyborów"

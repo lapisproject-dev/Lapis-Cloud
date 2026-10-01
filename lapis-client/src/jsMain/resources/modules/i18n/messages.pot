@@ -16510,3 +16510,510 @@ msgstr ""
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr ""
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr ""
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr ""
+
+msgid "Noch 1 Freigabe nötig."
+msgstr ""
+
+msgid "Noch %1 Freigaben nötig."
+msgstr ""
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr ""
+
+msgid "Wahlausschuss"
+msgstr ""
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr ""
+
+msgid "Bestellt am"
+msgstr ""
+
+msgid "Wahlausschuss bestellen"
+msgstr ""
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr ""
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr ""
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr ""
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr ""
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr ""
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr ""
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr ""
+
+msgid "Wahlausschuss speichern"
+msgstr ""
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr ""
+
+msgid "Wahlausschuss gespeichert."
+msgstr ""
+
+msgid "Kandidaturen"
+msgstr ""
+
+msgid "Noch keine Kandidaturen."
+msgstr ""
+
+msgid "Motivation"
+msgstr ""
+
+msgid "Eingereicht am"
+msgstr ""
+
+msgid "Kandidatur zurückziehen"
+msgstr ""
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr ""
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Kandidatur zurückgezogen."
+msgstr ""
+
+msgid "mehr"
+msgstr ""
+
+msgid "weniger"
+msgstr ""
+
+msgid "Ich kandidiere"
+msgstr ""
+
+msgid "Motivation (optional)"
+msgstr ""
+
+msgid "Kandidatur einreichen"
+msgstr ""
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Kandidatur eingereicht."
+msgstr ""
+
+msgid "Stimmabgabe"
+msgstr ""
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr ""
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr ""
+
+msgid "Ihre Stimme"
+msgstr ""
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr ""
+
+msgid "Ihre Auswahl"
+msgstr ""
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr ""
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr ""
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr ""
+
+msgid "Weiter zur Prüfung"
+msgstr ""
+
+msgid "Auswahl prüfen"
+msgstr ""
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr ""
+
+msgid "Stimme endgültig abgeben"
+msgstr ""
+
+msgid "Keine Stimmberechtigung"
+msgstr ""
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr ""
+
+msgid "Bereits abgestimmt"
+msgstr ""
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr ""
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr ""
+
+msgid "Keine Verbindung"
+msgstr ""
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr ""
+
+msgid "Abstimmung beendet"
+msgstr ""
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr ""
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr ""
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr ""
+
+msgid "Zurück zur Wahl"
+msgstr ""
+
+msgid "Erneut abstimmen"
+msgstr ""
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr ""
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr ""
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr ""
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr ""
+
+msgid "Quittung"
+msgstr ""
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr ""
+
+msgid "Kopiert."
+msgstr ""
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr ""
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr ""
+
+msgid "Ja/Nein-Wahl"
+msgstr ""
+
+msgid "Einzelwahl"
+msgstr ""
+
+msgid "Mehrfachwahl"
+msgstr ""
+
+msgid "Listenwahl"
+msgstr ""
+
+msgid "Rangfolgewahl"
+msgstr ""
+
+msgid "In Vorbereitung"
+msgstr ""
+
+msgid "Kandidatenliste freigegeben"
+msgstr ""
+
+msgid "Abstimmung läuft"
+msgstr ""
+
+msgid "Ausgezählt"
+msgstr ""
+
+msgid "Enthaltung"
+msgstr ""
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr ""
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr ""
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr ""
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr ""
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr ""
+
+msgid "Wahl eröffnen"
+msgstr ""
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr ""
+
+msgid "Wahlart"
+msgstr ""
+
+msgid "Geheime Wahl"
+msgstr ""
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr ""
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr ""
+
+msgid "Rolle im Zielgremium"
+msgstr ""
+
+msgid "Zu besetzende Sitze: 1"
+msgstr ""
+
+msgid "Sitze"
+msgstr ""
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr ""
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr ""
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr ""
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr ""
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Wahl eröffnet."
+msgstr ""
+
+msgid "Vorbereitung"
+msgstr ""
+
+msgid "Kandidatenliste"
+msgstr ""
+
+msgid "Ablauf der Wahl"
+msgstr ""
+
+msgid "Freigaben der Auszählung"
+msgstr ""
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr ""
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr ""
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr ""
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr ""
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr ""
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr ""
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr ""
+
+msgid "Beschluss im Beschlussbuch"
+msgstr ""
+
+msgid "Gewählt"
+msgstr ""
+
+msgid "Stimmzettel"
+msgstr ""
+
+msgid "1 Stimmzettel abgegeben."
+msgstr ""
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr ""
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr ""
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr ""
+
+msgid "Auswahl"
+msgstr ""
+
+msgid "Zeit"
+msgstr ""
+
+msgid "Quittung prüfen"
+msgstr ""
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr ""
+
+msgid "Quittungscode"
+msgstr ""
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr ""
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr ""
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr ""
+
+msgid "Wahlen"
+msgstr ""
+
+msgid "Zur Wahlübersicht"
+msgstr ""
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr ""
+
+msgid "Zu den Anträgen"
+msgstr ""
+
+msgid "Geheim"
+msgstr ""
+
+msgid "Eröffnet am"
+msgstr ""
+
+msgid "Wahl öffnen"
+msgstr ""
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr ""
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr ""
+
+msgid "Eröffnet von %1 am %2"
+msgstr ""
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr ""
+
+msgid "Zu besetzende Sitze: %1"
+msgstr ""
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr ""
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr ""
+
+msgid "Zum Antrag"
+msgstr ""
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr ""
+
+msgid "Zur Stimmabgabe"
+msgstr ""
+
+msgid "Abstimmung öffnen"
+msgstr ""
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Abstimmung geöffnet."
+msgstr ""
+
+msgid "Abstimmung beenden"
+msgstr ""
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr ""
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Abstimmung beendet."
+msgstr ""
+
+msgid "Auszählung freigeben"
+msgstr ""
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Auszählung freigegeben."
+msgstr ""
+
+msgid "Auszählen"
+msgstr ""
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Wahl ausgezählt."
+msgstr ""
+
+msgid "Kandidatenliste freigeben"
+msgstr ""
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr ""
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr ""
+
+msgid "Freigeben"
+msgstr ""
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Kandidatenliste freigegeben."
+msgstr ""
+
+msgid "Sie haben bereits abgestimmt."
+msgstr ""
+
+msgid "Wahl abbrechen"
+msgstr ""
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr ""
+
+msgid "Wahl abgebrochen."
+msgstr ""
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr ""
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr ""
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr ""
+
+msgid "Zur Wahl"
+msgstr ""

@@ -197,3 +197,25 @@ data class ReceiptVerificationDto(
     val found: Boolean,
     val optionLabel: String?,
 )
+
+/**
+ * The calling member's own participation state plus public counters for one Election (V1.9.22).
+ * Never contains a ballot selection, a receipt code or a timestamp -- the only personal parts are
+ * [eligible], [hasVoted], [isElectionBoardMember] and [hasApprovedTally], all about the caller.
+ *
+ * [eligible] and [eligibleCount] are `null` while `votingOpenedAt == null` (no electorate snapshot
+ * exists yet). [isElectionBoardMember] is strict: no BOARD/ADMIN bypass, mirroring `approveTally`.
+ */
+@Serializable
+data class ElectionParticipationDto(
+    val electionId: String,
+    val eligible: Boolean?,
+    val hasVoted: Boolean,
+    val isElectionBoardMember: Boolean,
+    val hasApprovedTally: Boolean,
+    val tallyApprovalCount: Int,
+    val tallyThreshold: Int,
+    val electionBoardSize: Int,
+    val eligibleCount: Int?,
+    val ballotCount: Int,
+)

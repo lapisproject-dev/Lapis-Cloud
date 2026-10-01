@@ -39,6 +39,7 @@ import network.lapis.cloud.shared.domain.ElectionBoardMemberDto
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionOpenInput
 import network.lapis.cloud.shared.domain.ElectionOptionDto
+import network.lapis.cloud.shared.domain.ElectionParticipationDto
 import network.lapis.cloud.shared.domain.ElectionResultDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
@@ -73,6 +74,9 @@ import kotlin.uuid.Uuid
 /** Server-side floor on [ElectionOpenInput.tallyThreshold] -- at least one named Vier-Augen approval must be required. */
 private const val MIN_TALLY_THRESHOLD = 1
 private const val MIN_ELECTION_BOARD_SIZE = 3
+
+/** Mirrors the `VARCHAR(1000)` of `election_candidacy.motivation_text` (V1__baseline.sql). */
+private const val MAX_MOTIVATION_LENGTH = 1000
 private const val MAX_ELECTION_BOARD_SIZE = 25
 private const val RECEIPT_CODE_BYTES = 20 // 160 bits, comfortably above the >=128-bit KDoc floor.
 private const val RECEIPT_CODE_MAX_ATTEMPTS = 5
@@ -91,6 +95,16 @@ private data class SeatedBoardMembership(
     val memberId: Uuid,
     val role: CommitteeRole,
     val startedAt: LocalDate,
+)
+
+/** Result of [ElectionService.computeOutcome]: everything [ElectionService.tally] persists plus the option rows it seats from. */
+private data class ComputedOutcome(
+    val result: ElectionResultDto,
+    val resolutionStatus: ResolutionStatus,
+    val votesYes: Int,
+    val votesNo: Int,
+    val votesAbstain: Int,
+    val optionRows: List<ResultRow>,
 )
 
 /**
@@ -323,6 +337,10 @@ class ElectionService(
             if (electionType != ElectionType.SINGLE_CHOICE && electionType != ElectionType.MULTI_CHOICE) {
                 throw ConflictException("Election $electionId is $electionType, Candidacies only apply to SINGLE_CHOICE/MULTI_CHOICE")
             }
+            val motivation = input.motivationText
+            if (motivation != null && motivation.length > MAX_MOTIVATION_LENGTH) {
+                throw ConflictException("motivationText must not exceed $MAX_MOTIVATION_LENGTH characters, got ${motivation.length}")
+            }
             val hasActiveCandidacy =
                 ElectionCandidacyTable
                     .selectAll()
@@ -362,6 +380,11 @@ class ElectionService(
             val selfWhileVorbereitung = current.memberId == candidateId && electionRow[ElectionTable.status] == ElectionStatus.PREPARATION
             val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
             if (!selfWhileVorbereitung && !current.canManageElection(committeeId)) throw ForbiddenException()
+            if (electionRow[ElectionTable.status] != ElectionStatus.PREPARATION) {
+                throw ConflictException(
+                    "Election $wId is ${electionRow[ElectionTable.status]}, a Candidacy can only be withdrawn in PREPARATION",
+                )
+            }
             if (row[ElectionCandidacyTable.withdrawnAt] != null) throw ConflictException("Candidacy $id already withdrawn")
             ElectionCandidacyTable.update({ ElectionCandidacyTable.id eq kId }) {
                 it[withdrawnAt] = nowLocalDateTime()
@@ -440,6 +463,17 @@ class ElectionService(
                     }
                 if (electionRow[ElectionTable.status] != expectedStatus) {
                     throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected $expectedStatus")
+                }
+                // V1.9.22 guard: an election whose appointed board is smaller than the minimum or smaller
+                // than the required number of tally approvals could never be tallied. Checked BEFORE the
+                // electorate snapshot below so a rejection writes nothing.
+                val boardSize = ElectionBoardMemberTable.selectAll().where { ElectionBoardMemberTable.electionId eq wId }.count()
+                val requiredApprovals = electionRow[ElectionTable.tallyThreshold]
+                if (boardSize < MIN_ELECTION_BOARD_SIZE || boardSize < requiredApprovals) {
+                    throw ConflictException(
+                        "Election $electionId has an election board of $boardSize, needs at least " +
+                            "${maxOf(MIN_ELECTION_BOARD_SIZE, requiredApprovals)} before voting can open",
+                    )
                 }
                 val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
                 val meetingId = electionRow[ElectionTable.meetingId]
@@ -714,127 +748,21 @@ class ElectionService(
                     .single()
             if (electionMotionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(electionMotionRow[MotionTable.id])
 
-            val optionRows =
-                ElectionOptionTable
-                    .selectAll()
-                    .where { ElectionOptionTable.electionId eq wId }
-                    .orderBy(ElectionOptionTable.position)
-                    .toList()
-            val optionIds = optionRows.map { it[ElectionOptionTable.id] }
-            val labelByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.label] }
-            val auselectionRows =
-                (ElectionBallotSelectionTable innerJoin ElectionBallotTable)
-                    .selectAll()
-                    .where { ElectionBallotTable.electionId eq wId }
-                    .toList()
-            val selectionsByBallot =
-                auselectionRows
-                    .groupBy({ it[ElectionBallotSelectionTable.ballotId] }, { it[ElectionBallotSelectionTable.optionId] })
-
+            val outcome = computeOutcome(electionRow = electionRow, electionId = electionId)
+            val ergebnis = outcome.result
+            val resolutionStatus = outcome.resolutionStatus
+            val votesYes = outcome.votesYes
+            val votesNo = outcome.votesNo
+            val votesAbstain = outcome.votesAbstain
+            val optionRows = outcome.optionRows
             val electionType = electionRow[ElectionTable.electionType]
-            val ergebnis: ElectionResultDto
-            val resolutionStatus: ResolutionStatus
-            val votesYes: Int
-            val votesNo: Int
-            val votesAbstain: Int
+            val effectiveTie = ergebnis.tie
+            val effectiveWinnerOptionIds = ergebnis.winnerOptionIds.map { Uuid.parse(it) }
             // V0.5.3 GoBD audit log: collected here, audited only at the very end of the
             // transaction -- see SeatedBoardMembership KDoc.
             val seatedBoardMemberships = mutableListOf<SeatedBoardMembership>()
 
-            if (electionType == ElectionType.YES_NO) {
-                val ballots =
-                    selectionsByBallot.values.map { selectedIds ->
-                        ElectionAnswer.valueOf(labelByOptionId.getValue(selectedIds.single()))
-                    }
-                val jaNein =
-                    computeJaNeinErgebnis(ballots = ballots, requiredMajorityPercent = electionRow[ElectionTable.requiredMajorityPercent])
-                val jaOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.YES.name }[ElectionOptionTable.id]
-                val neinOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.NO.name }[ElectionOptionTable.id]
-                val enthaltungOptionId =
-                    optionRows.single {
-                        it[ElectionOptionTable.label] == ElectionAnswer.ABSTAIN.name
-                    }[ElectionOptionTable.id]
-                val winnerOptionIds =
-                    if (jaNein.tie) {
-                        emptyList()
-                    } else if (jaNein.majorityMet) {
-                        listOf(jaOptionId.toString())
-                    } else {
-                        listOf(neinOptionId.toString())
-                    }
-                ergebnis =
-                    ElectionResultDto(
-                        electionId = electionId,
-                        winnerOptionIds = winnerOptionIds,
-                        tie = jaNein.tie,
-                        majorityMet = jaNein.majorityMet,
-                        perOptionVotes =
-                            mapOf(
-                                jaOptionId.toString() to jaNein.ja,
-                                neinOptionId.toString() to jaNein.nein,
-                                enthaltungOptionId.toString() to jaNein.enthaltung,
-                            ),
-                    )
-                resolutionStatus =
-                    if (jaNein.tie) {
-                        ResolutionStatus.POSTPONED
-                    } else if (jaNein.majorityMet) {
-                        ResolutionStatus.ADOPTED
-                    } else {
-                        ResolutionStatus.REJECTED
-                    }
-                votesYes = jaNein.ja
-                votesNo = jaNein.nein
-                votesAbstain = jaNein.enthaltung
-            } else {
-                val ballots = selectionsByBallot.values.map { ElectionBallotData(optionIds = it) }
-                val personenelection =
-                    computePersonnelElectionErgebnis(
-                        ballots = ballots,
-                        optionIds = optionIds,
-                        seatCount = electionRow[ElectionTable.seatCount],
-                    )
-                // SINGLE_CHOICE requires an absolute majority of the votes cast, not merely a
-                // plurality -- see `03 Bereiche/Lapis Cloud/Demokratische Electionen.md` Electiontypen
-                // table ("Absolute Mehrheit, ggf. Stichelection"). computePersonnelElectionErgebnis alone
-                // implements top-n-by-plurality (correct for MULTI_CHOICE, insufficient for
-                // SINGLE_CHOICE on its own), so the majority check is layered on top here, reusing
-                // the same requiredMajorityPercent field the YES_NO branch above already applies.
-                // Only meaningful in the genuinely *contested* case (more candidates than seats) --
-                // the undersubscribed single-candidate case is left to computePersonnelElectionErgebnis's
-                // own documented "uncontested seat needs no ballot" convention. A winner who fails
-                // the majority requirement resolves the whole Election to POSTPONED (no winner seated),
-                // signalling that a Stichelection (runoff) is required -- same "tie is the safe,
-                // non-manipulable default" philosophy as a seat-cutoff tie.
-                val contested = optionIds.size > electionRow[ElectionTable.seatCount]
-                val einzelelectionMajorityMet =
-                    if (electionType == ElectionType.SINGLE_CHOICE &&
-                        contested &&
-                        !personenelection.tie &&
-                        personenelection.winnerOptionIds.isNotEmpty()
-                    ) {
-                        val totalVotes = personenelection.voteCounts.values.sum()
-                        val winnerVotes = personenelection.voteCounts.getValue(personenelection.winnerOptionIds.single())
-                        val requiredPercent = electionRow[ElectionTable.requiredMajorityPercent]
-                        totalVotes > 0 && winnerVotes.toLong() * 100 >= requiredPercent.toLong() * totalVotes
-                    } else {
-                        true
-                    }
-                val effectiveTie = personenelection.tie || !einzelelectionMajorityMet
-                val effectiveWinnerOptionIds = if (effectiveTie) emptyList() else personenelection.winnerOptionIds
-                ergebnis =
-                    ElectionResultDto(
-                        electionId = electionId,
-                        winnerOptionIds = effectiveWinnerOptionIds.map { it.toString() },
-                        tie = effectiveTie,
-                        majorityMet = null,
-                        perOptionVotes = personenelection.voteCounts.mapKeys { (optionId, _) -> optionId.toString() },
-                    )
-                resolutionStatus = if (effectiveTie) ResolutionStatus.POSTPONED else ResolutionStatus.ADOPTED
-                votesYes = 0
-                votesNo = 0
-                votesAbstain = 0
-
+            if (electionType != ElectionType.YES_NO) {
                 if (!effectiveTie && effectiveWinnerOptionIds.isNotEmpty()) {
                     val targetCommitteeId =
                         electionRow[ElectionTable.targetCommitteeId]
@@ -1083,6 +1011,224 @@ class ElectionService(
                 }
             ReceiptVerificationDto(found = true, optionLabel = optionLabel)
         }
+    }
+
+    override suspend fun getElectionParticipation(electionId: String): ElectionParticipationDto {
+        val current = resolveCurrentMember(call)
+        val wId = electionId.toUuidOrNotFound("Election")
+        return transaction {
+            val electionRow = requireElectionRow(wId)
+            val secret = electionRow[ElectionTable.secret]
+            val hasVoted =
+                if (secret) {
+                    ElectionParticipationTable
+                        .selectAll()
+                        .where {
+                            (ElectionParticipationTable.electionId eq wId) and
+                                (ElectionParticipationTable.memberId eq current.memberId)
+                        }.count() > 0
+                } else {
+                    ElectionBallotTable
+                        .selectAll()
+                        .where { (ElectionBallotTable.electionId eq wId) and (ElectionBallotTable.memberId eq current.memberId) }
+                        .count() > 0
+                }
+            val snapshotTaken = electionRow[ElectionTable.votingOpenedAt] != null
+            val eligible =
+                if (snapshotTaken) {
+                    ElectionEligibleVoterTable
+                        .selectAll()
+                        .where {
+                            (ElectionEligibleVoterTable.electionId eq wId) and
+                                (ElectionEligibleVoterTable.memberId eq current.memberId)
+                        }.count() > 0
+                } else {
+                    null
+                }
+            val eligibleCount =
+                if (snapshotTaken) {
+                    ElectionEligibleVoterTable
+                        .selectAll()
+                        .where { ElectionEligibleVoterTable.electionId eq wId }
+                        .count()
+                        .toInt()
+                } else {
+                    null
+                }
+            val approvals = ElectionTallyApprovalTable.selectAll().where { ElectionTallyApprovalTable.electionId eq wId }
+            ElectionParticipationDto(
+                electionId = electionId,
+                eligible = eligible,
+                hasVoted = hasVoted,
+                isElectionBoardMember = current.isElectionBoardMember(wId),
+                hasApprovedTally = approvals.count { it[ElectionTallyApprovalTable.memberId] == current.memberId } > 0,
+                tallyApprovalCount = approvals.count().toInt(),
+                tallyThreshold = electionRow[ElectionTable.tallyThreshold],
+                electionBoardSize =
+                    ElectionBoardMemberTable
+                        .selectAll()
+                        .where { ElectionBoardMemberTable.electionId eq wId }
+                        .count()
+                        .toInt(),
+                eligibleCount = eligibleCount,
+                ballotCount =
+                    ElectionBallotTable
+                        .selectAll()
+                        .where { ElectionBallotTable.electionId eq wId }
+                        .count()
+                        .toInt(),
+            )
+        }
+    }
+
+    override suspend fun getElectionResult(electionId: String): ElectionResultDto {
+        resolveCurrentMember(call)
+        val wId = electionId.toUuidOrNotFound("Election")
+        return transaction {
+            val electionRow = requireElectionRow(wId)
+            if (electionRow[ElectionTable.status] != ElectionStatus.TALLIED) {
+                throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected TALLIED")
+            }
+            computeOutcome(electionRow = electionRow, electionId = electionId).result
+        }
+    }
+
+    /**
+     * The pure outcome calculation shared by [tally] (which then persists it) and [getElectionResult]
+     * (which only reads it): V1.9.22 extracted it unchanged so the displayed result can never drift
+     * from what was written to the resolution book.
+     */
+    private fun computeOutcome(
+        electionRow: ResultRow,
+        electionId: String,
+    ): ComputedOutcome {
+        val wId = electionRow[ElectionTable.id]
+        val optionRows =
+            ElectionOptionTable
+                .selectAll()
+                .where { ElectionOptionTable.electionId eq wId }
+                .orderBy(ElectionOptionTable.position)
+                .toList()
+        val optionIds = optionRows.map { it[ElectionOptionTable.id] }
+        val labelByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.label] }
+        val auselectionRows =
+            (ElectionBallotSelectionTable innerJoin ElectionBallotTable)
+                .selectAll()
+                .where { ElectionBallotTable.electionId eq wId }
+                .toList()
+        val selectionsByBallot =
+            auselectionRows
+                .groupBy({ it[ElectionBallotSelectionTable.ballotId] }, { it[ElectionBallotSelectionTable.optionId] })
+
+        val electionType = electionRow[ElectionTable.electionType]
+        val ergebnis: ElectionResultDto
+        val resolutionStatus: ResolutionStatus
+        val votesYes: Int
+        val votesNo: Int
+        val votesAbstain: Int
+
+        if (electionType == ElectionType.YES_NO) {
+            val ballots =
+                selectionsByBallot.values.map { selectedIds ->
+                    ElectionAnswer.valueOf(labelByOptionId.getValue(selectedIds.single()))
+                }
+            val jaNein =
+                computeJaNeinErgebnis(ballots = ballots, requiredMajorityPercent = electionRow[ElectionTable.requiredMajorityPercent])
+            val jaOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.YES.name }[ElectionOptionTable.id]
+            val neinOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.NO.name }[ElectionOptionTable.id]
+            val enthaltungOptionId =
+                optionRows.single {
+                    it[ElectionOptionTable.label] == ElectionAnswer.ABSTAIN.name
+                }[ElectionOptionTable.id]
+            val winnerOptionIds =
+                if (jaNein.tie) {
+                    emptyList()
+                } else if (jaNein.majorityMet) {
+                    listOf(jaOptionId.toString())
+                } else {
+                    listOf(neinOptionId.toString())
+                }
+            ergebnis =
+                ElectionResultDto(
+                    electionId = electionId,
+                    winnerOptionIds = winnerOptionIds,
+                    tie = jaNein.tie,
+                    majorityMet = jaNein.majorityMet,
+                    perOptionVotes =
+                        mapOf(
+                            jaOptionId.toString() to jaNein.ja,
+                            neinOptionId.toString() to jaNein.nein,
+                            enthaltungOptionId.toString() to jaNein.enthaltung,
+                        ),
+                )
+            resolutionStatus =
+                if (jaNein.tie) {
+                    ResolutionStatus.POSTPONED
+                } else if (jaNein.majorityMet) {
+                    ResolutionStatus.ADOPTED
+                } else {
+                    ResolutionStatus.REJECTED
+                }
+            votesYes = jaNein.ja
+            votesNo = jaNein.nein
+            votesAbstain = jaNein.enthaltung
+        } else {
+            val ballots = selectionsByBallot.values.map { ElectionBallotData(optionIds = it) }
+            val personenelection =
+                computePersonnelElectionErgebnis(
+                    ballots = ballots,
+                    optionIds = optionIds,
+                    seatCount = electionRow[ElectionTable.seatCount],
+                )
+            // SINGLE_CHOICE requires an absolute majority of the votes cast, not merely a
+            // plurality -- see `03 Bereiche/Lapis Cloud/Demokratische Electionen.md` Electiontypen
+            // table ("Absolute Mehrheit, ggf. Stichelection"). computePersonnelElectionErgebnis alone
+            // implements top-n-by-plurality (correct for MULTI_CHOICE, insufficient for
+            // SINGLE_CHOICE on its own), so the majority check is layered on top here, reusing
+            // the same requiredMajorityPercent field the YES_NO branch above already applies.
+            // Only meaningful in the genuinely *contested* case (more candidates than seats) --
+            // the undersubscribed single-candidate case is left to computePersonnelElectionErgebnis's
+            // own documented "uncontested seat needs no ballot" convention. A winner who fails
+            // the majority requirement resolves the whole Election to POSTPONED (no winner seated),
+            // signalling that a Stichelection (runoff) is required -- same "tie is the safe,
+            // non-manipulable default" philosophy as a seat-cutoff tie.
+            val contested = optionIds.size > electionRow[ElectionTable.seatCount]
+            val einzelelectionMajorityMet =
+                if (electionType == ElectionType.SINGLE_CHOICE &&
+                    contested &&
+                    !personenelection.tie &&
+                    personenelection.winnerOptionIds.isNotEmpty()
+                ) {
+                    val totalVotes = personenelection.voteCounts.values.sum()
+                    val winnerVotes = personenelection.voteCounts.getValue(personenelection.winnerOptionIds.single())
+                    val requiredPercent = electionRow[ElectionTable.requiredMajorityPercent]
+                    totalVotes > 0 && winnerVotes.toLong() * 100 >= requiredPercent.toLong() * totalVotes
+                } else {
+                    true
+                }
+            val effectiveTie = personenelection.tie || !einzelelectionMajorityMet
+            val effectiveWinnerOptionIds = if (effectiveTie) emptyList() else personenelection.winnerOptionIds
+            ergebnis =
+                ElectionResultDto(
+                    electionId = electionId,
+                    winnerOptionIds = effectiveWinnerOptionIds.map { it.toString() },
+                    tie = effectiveTie,
+                    majorityMet = null,
+                    perOptionVotes = personenelection.voteCounts.mapKeys { (optionId, _) -> optionId.toString() },
+                )
+            resolutionStatus = if (effectiveTie) ResolutionStatus.POSTPONED else ResolutionStatus.ADOPTED
+            votesYes = 0
+            votesNo = 0
+            votesAbstain = 0
+        }
+        return ComputedOutcome(
+            result = ergebnis,
+            resolutionStatus = resolutionStatus,
+            votesYes = votesYes,
+            votesNo = votesNo,
+            votesAbstain = votesAbstain,
+            optionRows = optionRows,
+        )
     }
 
     private fun requireElectionRow(electionId: Uuid): ResultRow =

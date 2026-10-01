@@ -164,6 +164,16 @@ for every German msgid that contains a core term as a whole word (or one of its 
 | выбор
 | An election (Governance).
 
+| Wahlausschuss
+| election committee
+| comité electoral
+| commission électorale
+| commissione elettorale
+| verkiezingscommissie
+| komisj
+| избирательн
+| V1.9.22: the appointed body that opens and closes a vote, approves the count and tallies it (`ElectionBoard`). Deliberately "committee", never "board": "board" is the Vorstand. The election committee is a separate body from the committee (Gremium) that receives the winners.
+
 | Mandat, Mandate, Mandats
 | mandate
 | mandato
@@ -212,6 +222,21 @@ The check above needs a term that is a distinct whole word. These terms are fixe
 | KI-unterstützt
 | AI-assisted (en), asistido por IA (es), assisté par IA (fr), assistito dall'IA (it), AI-ondersteund (nl), wspomagane przez AI (pl), с помощью ИИ (ru) --
   the permanent post-release badge on a released draft (`SocialPostDto.aiAssisted`), never reset.
+
+| Quittung / Quittungscode
+| Receipt / receipt code (en), recibo / código del recibo (es), reçu / code du reçu (fr), ricevuta / codice della ricevuta (it), bewijs / bewijscode (nl), potwierdzenie / kod potwierdzenia (pl), квитанция / код квитанции (ru) -- V1.9.22, the code a member of a SECRET election gets once, to check later that the ballot was counted. Not "Beleg" or "Bon".
+
+| Wahlkabine
+| Voting booth (en), cabina de votación (es), isoloir (fr), cabina elettorale (it), stemhokje (nl), kabina do głosowania (pl), кабина для голосования (ru) -- V1.9.22. In the client the booth is the single-shot voting mode; its visible heading is "Stimmabgabe".
+
+| Wählerverzeichnis
+| Electoral roll (en), censo electoral (es), liste électorale (fr), elenco degli elettori (it), kiezersregister (nl), spis wyborców (pl), список избирателей (ru) -- V1.9.22, the snapshot of eligible members taken when voting opens.
+
+| Freigabe (der Auszählung)
+| Approval of the count (en), aprobación del escrutinio (es), validation du dépouillement (fr), approvazione dello scrutinio (it), goedkeuring van de telling (nl), zatwierdzenie przeliczenia (pl), подтверждение подсчёта (ru) -- V1.9.22, one of the N-of-M four-eyes approvals by election committee members. "Freigeben" of the CANDIDATE LIST is a different action and reads "release/publish" (en), "publicar" (es), "publier" (fr), "pubblica" (it), "vrijgeven" (nl), "opublikuj" (pl), "опубликовать" (ru).
+
+| Kandidatur
+| Candidacy (en), candidatura (es), candidature (fr), candidatura (it), kandidatuur (nl), kandydatura (pl), кандидатура (ru) -- V1.9.22, a member's self-nomination in an election of people.
 |===
 
 == Known gaps

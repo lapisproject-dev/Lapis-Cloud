@@ -17383,3 +17383,510 @@ msgstr "The short introduction cannot be saved or published at the moment."
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr "The short introduction is too long or contains invalid characters."
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr "An election committee must be appointed first."
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr "The election committee needs at least %1 members, it has %2."
+
+msgid "Noch 1 Freigabe nötig."
+msgstr "1 more approval needed."
+
+msgid "Noch %1 Freigaben nötig."
+msgstr "%1 more approvals needed."
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr "There is no active candidacy yet."
+
+msgid "Wahlausschuss"
+msgstr "Election committee"
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr "No election committee has been appointed yet."
+
+msgid "Bestellt am"
+msgstr "Appointed on"
+
+msgid "Wahlausschuss bestellen"
+msgstr "Appoint election committee"
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr "Appointing replaces the current committee completely. The committee consists of 3 to 25 members."
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr "Selected: %1 (3 to 25 members are allowed)."
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr "The committee is smaller than the required number of %1 approvals. Voting cannot be opened like this."
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr "Also registered as a candidacy: %1."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr "Members of the board committee must not sit on the election committee: %1."
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr "The election committee needs 3 to 25 members."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr "Members of the board committee must not sit on the election committee."
+
+msgid "Wahlausschuss speichern"
+msgstr "Save election committee"
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr "The committee could not be saved: the status has changed or a member sits on the board committee."
+
+msgid "Wahlausschuss gespeichert."
+msgstr "Election committee saved."
+
+msgid "Kandidaturen"
+msgstr "Candidacies"
+
+msgid "Noch keine Kandidaturen."
+msgstr "No candidacies yet."
+
+msgid "Motivation"
+msgstr "Motivation"
+
+msgid "Eingereicht am"
+msgstr "Submitted on"
+
+msgid "Kandidatur zurückziehen"
+msgstr "Withdraw candidacy"
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr "Really withdraw the candidacy of %1?"
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr "The candidacy could not be withdrawn. Please refresh the view."
+
+msgid "Kandidatur zurückgezogen."
+msgstr "Candidacy withdrawn."
+
+msgid "mehr"
+msgstr "more"
+
+msgid "weniger"
+msgstr "less"
+
+msgid "Ich kandidiere"
+msgstr "I am standing as a candidate"
+
+msgid "Motivation (optional)"
+msgstr "Motivation (optional)"
+
+msgid "Kandidatur einreichen"
+msgstr "Submit candidacy"
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr "The candidacy could not be submitted. Please refresh the view."
+
+msgid "Kandidatur eingereicht."
+msgstr "Candidacy submitted."
+
+msgid "Stimmabgabe"
+msgstr "Casting your vote"
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr "Your vote is secret: it is recorded that you voted, but not how."
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr "This election is open: your vote is stored with your name."
+
+msgid "Ihre Stimme"
+msgstr "Your vote"
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr "Please make a selection."
+
+msgid "Ihre Auswahl"
+msgstr "Your selection"
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr "%1 of at most %2 selected. The remaining options are locked."
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr "%1 of at most %2 selected"
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr "Please choose at least one and at most %1 options."
+
+msgid "Weiter zur Prüfung"
+msgstr "Continue to review"
+
+msgid "Auswahl prüfen"
+msgstr "Check your selection"
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr "Once cast, your vote can no longer be changed."
+
+msgid "Stimme endgültig abgeben"
+msgstr "Cast vote for good"
+
+msgid "Keine Stimmberechtigung"
+msgstr "No right to vote"
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr "You are not on the electoral roll of this election and cannot vote."
+
+msgid "Bereits abgestimmt"
+msgstr "Already voted"
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Your vote was counted. The confirmation did not reach you because the connection was interrupted."
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr "You have already voted. Your vote was counted."
+
+msgid "Keine Verbindung"
+msgstr "No connection"
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "The connection was interrupted. It could not be checked whether your vote was counted. Please reload the page."
+
+msgid "Abstimmung beendet"
+msgstr "Voting ended"
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr "Voting is no longer open."
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr "Voting not possible right now"
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr "Voting is not possible right now, for example because a broadcast is still being paused. Please wait a moment and try again."
+
+msgid "Zurück zur Wahl"
+msgstr "Back to the election"
+
+msgid "Erneut abstimmen"
+msgstr "Vote again"
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr "Your vote was counted"
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr "Thank you. Your vote was stored with your name."
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr "The receipt could not be displayed. Your vote has been counted anyway."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr "This is your receipt. It is shown only now and stored nowhere. Write it down or print it if you want to check later that your vote was counted."
+
+msgid "Quittung"
+msgstr "Receipt"
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr "Copying is not possible. Please write the code down."
+
+msgid "Kopiert."
+msgstr "Copied."
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr "I have noted down the receipt."
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr "Please confirm that you have noted down the receipt."
+
+msgid "Ja/Nein-Wahl"
+msgstr "Yes/no election"
+
+msgid "Einzelwahl"
+msgstr "Single-choice election"
+
+msgid "Mehrfachwahl"
+msgstr "Multiple-choice election"
+
+msgid "Listenwahl"
+msgstr "List election"
+
+msgid "Rangfolgewahl"
+msgstr "Ranked-choice election"
+
+msgid "In Vorbereitung"
+msgstr "In preparation"
+
+msgid "Kandidatenliste freigegeben"
+msgstr "Candidate list released"
+
+msgid "Abstimmung läuft"
+msgstr "Voting in progress"
+
+msgid "Ausgezählt"
+msgstr "Counted"
+
+msgid "Enthaltung"
+msgstr "Abstention"
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr "Example: with %1 yes and no votes, at least %2 of them must be yes. Abstentions do not count."
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr "In a tie nothing is decided and the motion is postponed."
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr "Example: with %1 votes cast, the elected person needs at least %2 of them."
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr "If there is only one person with no opposing candidate, no majority is checked."
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr "In a multiple-choice election the candidates with the most votes win. A tie at the seat limit decides nothing."
+
+msgid "Wahl eröffnen"
+msgstr "Open election"
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr "An election decides the motion with one vote per eligible member, as a yes/no election or as an election of people."
+
+msgid "Wahlart"
+msgstr "Type of election"
+
+msgid "Geheime Wahl"
+msgstr "Secret election"
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "In an open election the votes are stored with names and are visible to all members."
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr "The committee the elected persons join."
+
+msgid "Rolle im Zielgremium"
+msgstr "Role in the target committee"
+
+msgid "Zu besetzende Sitze: 1"
+msgstr "Seats to fill: 1"
+
+msgid "Sitze"
+msgstr "Seats"
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr "Required share in percent"
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr "Required approvals of the count"
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr "This many members of the election committee must approve the count (at least 2)."
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr "Please choose a target committee."
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr "The election could not be opened. Please refresh the view."
+
+msgid "Wahl eröffnet."
+msgstr "Election opened."
+
+msgid "Vorbereitung"
+msgstr "Preparation"
+
+msgid "Kandidatenliste"
+msgstr "Candidate list"
+
+msgid "Ablauf der Wahl"
+msgstr "Course of the election"
+
+msgid "Freigaben der Auszählung"
+msgstr "Approvals of the count"
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr "%1 of %2 required approvals given"
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr "Who has approved is not shown by name."
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr "Tie or no decisive votes: the motion was postponed."
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr "The required majority was reached."
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr "The required majority was not reached."
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr "Nobody was elected: a tie at the seat limit or the required majority was missed. The motion was postponed."
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr "Turnout: %1 of %2 eligible voters"
+
+msgid "Beschluss im Beschlussbuch"
+msgstr "Resolution in the resolution book"
+
+msgid "Gewählt"
+msgstr "Elected"
+
+msgid "Stimmzettel"
+msgstr "Ballots"
+
+msgid "1 Stimmzettel abgegeben."
+msgstr "1 ballot cast."
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr "%1 ballots cast."
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr "No ballots were cast."
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr "In a secret election the ballots are shown without names and without times."
+
+msgid "Auswahl"
+msgstr "Selection"
+
+msgid "Zeit"
+msgstr "Time"
+
+msgid "Quittung prüfen"
+msgstr "Check receipt"
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr "With your receipt you can check that your vote was counted without anyone learning how you voted."
+
+msgid "Quittungscode"
+msgstr "Receipt code"
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr "No vote was found for this code."
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr "Your vote is stored. The selection is only shown after the count."
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr "Your vote is stored and reads: %1"
+
+msgid "Wahlen"
+msgstr "Elections"
+
+msgid "Zur Wahlübersicht"
+msgstr "To the overview of elections"
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "There are no elections yet. An election is opened from a scheduled motion."
+
+msgid "Zu den Anträgen"
+msgstr "To the motions"
+
+msgid "Geheim"
+msgstr "Secret"
+
+msgid "Eröffnet am"
+msgstr "Opened on"
+
+msgid "Wahl öffnen"
+msgstr "Show election"
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr "The election could not be loaded."
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr "One person, one vote: every eligible member has exactly one vote."
+
+msgid "Eröffnet von %1 am %2"
+msgstr "Opened by %1 on %2"
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr "Target committee: %1, role: %2"
+
+msgid "Zu besetzende Sitze: %1"
+msgstr "Seats to fill: %1"
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr "Required share: %1 percent"
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr "Required approvals of the count: %1"
+
+msgid "Zum Antrag"
+msgstr "To the motion"
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr "You have approved the count."
+
+msgid "Zur Stimmabgabe"
+msgstr "To voting"
+
+msgid "Abstimmung öffnen"
+msgstr "Open voting"
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr "Voting could not be opened. Please refresh the view."
+
+msgid "Abstimmung geöffnet."
+msgstr "Voting opened."
+
+msgid "Abstimmung beenden"
+msgstr "End voting"
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr "Once ended, no more votes can be cast. The approval of the count follows."
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr "Voting could not be ended. Please refresh the view."
+
+msgid "Abstimmung beendet."
+msgstr "Voting ended."
+
+msgid "Auszählung freigeben"
+msgstr "Approve the count"
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "The approval was not possible. Please refresh the view."
+
+msgid "Auszählung freigegeben."
+msgstr "Count approved."
+
+msgid "Auszählen"
+msgstr "Count the votes"
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "The count was not possible. Please refresh the view."
+
+msgid "Wahl ausgezählt."
+msgstr "Election counted."
+
+msgid "Kandidatenliste freigeben"
+msgstr "Release the candidate list"
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "The candidate list with 1 candidacy will be released. After that no more candidacies can be submitted."
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "The candidate list with %1 candidacies will be released. After that no more candidacies can be submitted."
+
+msgid "Freigeben"
+msgstr "Release"
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr "The candidate list could not be released. Please refresh the view."
+
+msgid "Kandidatenliste freigegeben."
+msgstr "Candidate list released."
+
+msgid "Sie haben bereits abgestimmt."
+msgstr "You have already voted."
+
+msgid "Wahl abbrechen"
+msgstr "Cancel election"
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "The election could not be cancelled. Please refresh the view."
+
+msgid "Wahl abgebrochen."
+msgstr "Election cancelled."
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr "A running election is cancelled for good. All votes already cast are void."
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr "The election will be cancelled. A new election can then be opened for this motion."
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr "An election is running for this motion."
+
+msgid "Zur Wahl"
+msgstr "To the election"

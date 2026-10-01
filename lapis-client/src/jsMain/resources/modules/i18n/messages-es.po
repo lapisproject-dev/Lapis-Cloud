@@ -17454,3 +17454,510 @@ msgstr "La breve presentación no se puede guardar ni publicar en este momento."
 
 msgid "Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."
 msgstr "La breve presentación es demasiado larga o contiene caracteres no permitidos."
+
+msgid "Zuerst muss ein Wahlausschuss bestellt werden."
+msgstr "Primero hay que nombrar un comité electoral."
+
+msgid "Der Wahlausschuss braucht mindestens %1 Mitglieder, es sind %2."
+msgstr "El comité electoral necesita al menos %1 miembros, tiene %2."
+
+msgid "Noch 1 Freigabe nötig."
+msgstr "Falta 1 aprobación."
+
+msgid "Noch %1 Freigaben nötig."
+msgstr "Faltan %1 aprobaciones."
+
+msgid "Es gibt noch keine aktive Kandidatur."
+msgstr "Todavía no hay ninguna candidatura activa."
+
+msgid "Wahlausschuss"
+msgstr "Comité electoral"
+
+msgid "Noch kein Wahlausschuss bestellt."
+msgstr "Todavía no se ha nombrado ningún comité electoral."
+
+msgid "Bestellt am"
+msgstr "Nombrado el"
+
+msgid "Wahlausschuss bestellen"
+msgstr "Nombrar comité electoral"
+
+msgid "Das Bestellen ersetzt den bisherigen Ausschuss vollständig. Der Ausschuss besteht aus 3 bis 25 Mitgliedern."
+msgstr "El nombramiento sustituye por completo al comité actual. El comité se compone de 3 a 25 miembros."
+
+msgid "Ausgewählt: %1 (erlaubt sind 3 bis 25 Mitglieder)."
+msgstr "Seleccionados: %1 (se permiten de 3 a 25 miembros)."
+
+msgid "Der Ausschuss ist kleiner als die erforderliche Zahl von %1 Freigaben. Die Abstimmung kann so nicht geöffnet werden."
+msgstr "El comité es más pequeño que el número exigido de %1 aprobaciones. Así no se puede abrir la votación."
+
+msgid "Zugleich als Kandidatur eingetragen: %1."
+msgstr "También inscritos como candidatura: %1."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen: %1."
+msgstr "Los miembros del órgano de la junta directiva no pueden formar parte del comité electoral: %1."
+
+msgid "Der Wahlausschuss braucht 3 bis 25 Mitglieder."
+msgstr "El comité electoral necesita de 3 a 25 miembros."
+
+msgid "Mitglieder des Vorstands-Gremiums dürfen nicht im Wahlausschuss sitzen."
+msgstr "Los miembros del órgano de la junta directiva no pueden formar parte del comité electoral."
+
+msgid "Wahlausschuss speichern"
+msgstr "Guardar comité electoral"
+
+msgid "Der Ausschuss konnte nicht gespeichert werden: Der Status hat sich geändert oder ein Mitglied sitzt im Vorstands-Gremium."
+msgstr "No se pudo guardar el comité: el estado ha cambiado o un miembro pertenece al órgano de la junta directiva."
+
+msgid "Wahlausschuss gespeichert."
+msgstr "Comité electoral guardado."
+
+msgid "Kandidaturen"
+msgstr "Candidaturas"
+
+msgid "Noch keine Kandidaturen."
+msgstr "Todavía no hay candidaturas."
+
+msgid "Motivation"
+msgstr "Motivación"
+
+msgid "Eingereicht am"
+msgstr "Presentada el"
+
+msgid "Kandidatur zurückziehen"
+msgstr "Retirar candidatura"
+
+msgid "Die Kandidatur von %1 wirklich zurückziehen?"
+msgstr "¿Retirar realmente la candidatura de %1?"
+
+msgid "Die Kandidatur konnte nicht zurückgezogen werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo retirar la candidatura. Actualice la vista."
+
+msgid "Kandidatur zurückgezogen."
+msgstr "Candidatura retirada."
+
+msgid "mehr"
+msgstr "más"
+
+msgid "weniger"
+msgstr "menos"
+
+msgid "Ich kandidiere"
+msgstr "Presentar mi candidatura"
+
+msgid "Motivation (optional)"
+msgstr "Motivación (opcional)"
+
+msgid "Kandidatur einreichen"
+msgstr "Presentar candidatura"
+
+msgid "Die Kandidatur konnte nicht eingereicht werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo presentar la candidatura. Actualice la vista."
+
+msgid "Kandidatur eingereicht."
+msgstr "Candidatura presentada."
+
+msgid "Stimmabgabe"
+msgstr "Emisión del voto"
+
+msgid "Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie."
+msgstr "Su voto es secreto: se registra que ha votado, pero no cómo."
+
+msgid "Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert."
+msgstr "Esta elección es abierta: su voto se guarda con su nombre."
+
+msgid "Ihre Stimme"
+msgstr "Su voto"
+
+msgid "Bitte treffen Sie eine Auswahl."
+msgstr "Haga una selección."
+
+msgid "Ihre Auswahl"
+msgstr "Su selección"
+
+msgid "%1 von höchstens %2 gewählt. Die übrigen Optionen sind gesperrt."
+msgstr "%1 de un máximo de %2 seleccionados. Las demás opciones están bloqueadas."
+
+msgid "%1 von höchstens %2 gewählt"
+msgstr "%1 de un máximo de %2 seleccionados"
+
+msgid "Bitte wählen Sie mindestens eine und höchstens %1 Optionen."
+msgstr "Elija al menos una y como máximo %1 opciones."
+
+msgid "Weiter zur Prüfung"
+msgstr "Continuar a la revisión"
+
+msgid "Auswahl prüfen"
+msgstr "Revisar la selección"
+
+msgid "Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden."
+msgstr "Una vez emitido, su voto ya no se puede modificar."
+
+msgid "Stimme endgültig abgeben"
+msgstr "Emitir el voto definitivamente"
+
+msgid "Keine Stimmberechtigung"
+msgstr "Sin derecho a voto"
+
+msgid "Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."
+msgstr "No figura en el censo electoral de esta elección y no puede votar."
+
+msgid "Bereits abgestimmt"
+msgstr "Ya ha votado"
+
+msgid "Ihre Stimme wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Su voto se ha contado. La confirmación no le llegó porque se interrumpió la conexión."
+
+msgid "Sie haben bereits abgestimmt. Ihre Stimme wurde gezählt."
+msgstr "Ya ha votado. Su voto se ha contado."
+
+msgid "Keine Verbindung"
+msgstr "Sin conexión"
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Stimme gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Se interrumpió la conexión. No se pudo comprobar si su voto se contó. Vuelva a cargar la página."
+
+msgid "Abstimmung beendet"
+msgstr "Votación finalizada"
+
+msgid "Die Abstimmung ist nicht mehr offen."
+msgstr "La votación ya no está abierta."
+
+msgid "Stimmabgabe gerade nicht möglich"
+msgstr "Ahora no es posible votar"
+
+msgid "Die Stimmabgabe ist gerade nicht möglich, etwa weil eine Übertragung noch pausiert wird. Bitte warten Sie kurz und versuchen Sie es erneut."
+msgstr "Ahora no es posible votar, por ejemplo porque una transmisión todavía se está pausando. Espere un momento e inténtelo de nuevo."
+
+msgid "Zurück zur Wahl"
+msgstr "Volver a la elección"
+
+msgid "Erneut abstimmen"
+msgstr "Votar de nuevo"
+
+msgid "Ihre Stimme wurde gezählt"
+msgstr "Su voto se ha contado"
+
+msgid "Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."
+msgstr "Gracias. Su voto se ha guardado con su nombre."
+
+msgid "Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."
+msgstr "No se pudo mostrar el recibo. Su voto se ha contado de todos modos."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde."
+msgstr "Este es su recibo. Solo se muestra ahora y no se guarda en ninguna parte. Anótelo o imprímalo si más adelante quiere comprobar que su voto se contó."
+
+msgid "Quittung"
+msgstr "Recibo"
+
+msgid "Kopieren nicht möglich. Bitte schreiben Sie den Code ab."
+msgstr "No se puede copiar. Anote el código."
+
+msgid "Kopiert."
+msgstr "Copiado."
+
+msgid "Ich habe mir die Quittung notiert."
+msgstr "He anotado el recibo."
+
+msgid "Bitte bestätigen Sie, dass Sie die Quittung notiert haben."
+msgstr "Confirme que ha anotado el recibo."
+
+msgid "Ja/Nein-Wahl"
+msgstr "Elección de sí/no"
+
+msgid "Einzelwahl"
+msgstr "Elección individual"
+
+msgid "Mehrfachwahl"
+msgstr "Elección múltiple"
+
+msgid "Listenwahl"
+msgstr "Elección por listas"
+
+msgid "Rangfolgewahl"
+msgstr "Elección por orden de preferencia"
+
+msgid "In Vorbereitung"
+msgstr "En preparación"
+
+msgid "Kandidatenliste freigegeben"
+msgstr "Lista de candidatos publicada"
+
+msgid "Abstimmung läuft"
+msgstr "Votación en curso"
+
+msgid "Ausgezählt"
+msgstr "Escrutado"
+
+msgid "Enthaltung"
+msgstr "Abstención"
+
+msgid "Beispiel: Bei %1 Ja- und Nein-Stimmen sind mindestens %2 davon Ja nötig. Enthaltungen zählen nicht mit."
+msgstr "Ejemplo: con %1 votos de sí y de no, al menos %2 deben ser sí. Las abstenciones no cuentan."
+
+msgid "Bei Stimmengleichheit ist nichts entschieden, der Antrag wird zurückgestellt."
+msgstr "En caso de empate no se decide nada y la moción se aplaza."
+
+msgid "Beispiel: Bei %1 abgegebenen Stimmen braucht die gewählte Person mindestens %2 davon."
+msgstr "Ejemplo: con %1 votos emitidos, la persona elegida necesita al menos %2 de ellos."
+
+msgid "Gibt es nur eine Person ohne Gegenkandidatur, wird keine Mehrheit geprüft."
+msgstr "Si solo hay una persona sin contracandidatura, no se comprueba ninguna mayoría."
+
+msgid "Bei einer Mehrfachwahl gewinnen die Kandidierenden mit den meisten Stimmen. Ein Gleichstand an der Sitzgrenze entscheidet nichts."
+msgstr "En una elección múltiple ganan las candidaturas con más votos. Un empate en el límite de escaños no decide nada."
+
+msgid "Wahl eröffnen"
+msgstr "Abrir elección"
+
+msgid "Eine Wahl entscheidet den Antrag mit einer Stimme je wahlberechtigtem Mitglied, als Ja/Nein-Wahl oder als Wahl von Personen."
+msgstr "Una elección decide la moción con un voto por miembro con derecho a voto, como elección de sí/no o como elección de personas."
+
+msgid "Wahlart"
+msgstr "Tipo de elección"
+
+msgid "Geheime Wahl"
+msgstr "Elección secreta"
+
+msgid "Bei einer offenen Wahl werden die Stimmen mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "En una elección abierta los votos se guardan con nombre y son visibles para todos los miembros."
+
+msgid "Das Gremium, in das die Gewählten aufgenommen werden."
+msgstr "El órgano en el que ingresan las personas elegidas."
+
+msgid "Rolle im Zielgremium"
+msgstr "Función en el órgano de destino"
+
+msgid "Zu besetzende Sitze: 1"
+msgstr "Escaños a cubrir: 1"
+
+msgid "Sitze"
+msgstr "Escaños"
+
+msgid "Erforderlicher Anteil in Prozent"
+msgstr "Porcentaje exigido"
+
+msgid "Erforderliche Freigaben der Auszählung"
+msgstr "Aprobaciones exigidas del escrutinio"
+
+msgid "So viele Mitglieder des Wahlausschusses müssen die Auszählung freigeben (mindestens 2)."
+msgstr "Este número de miembros del comité electoral debe aprobar el escrutinio (al menos 2)."
+
+msgid "Bitte ein Zielgremium wählen."
+msgstr "Elija un órgano de destino."
+
+msgid "Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo abrir la elección. Actualice la vista."
+
+msgid "Wahl eröffnet."
+msgstr "Elección abierta."
+
+msgid "Vorbereitung"
+msgstr "Preparación"
+
+msgid "Kandidatenliste"
+msgstr "Lista de candidatos"
+
+msgid "Ablauf der Wahl"
+msgstr "Desarrollo de la elección"
+
+msgid "Freigaben der Auszählung"
+msgstr "Aprobaciones del escrutinio"
+
+msgid "%1 von %2 erforderlichen Freigaben erteilt"
+msgstr "%1 de %2 aprobaciones exigidas concedidas"
+
+msgid "Wer freigegeben hat, wird nicht namentlich angezeigt."
+msgstr "No se muestra por su nombre quién ha aprobado."
+
+msgid "Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."
+msgstr "Empate o ningún voto decisivo: la moción se ha aplazado."
+
+msgid "Die erforderliche Mehrheit wurde erreicht."
+msgstr "Se alcanzó la mayoría exigida."
+
+msgid "Die erforderliche Mehrheit wurde nicht erreicht."
+msgstr "No se alcanzó la mayoría exigida."
+
+msgid "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. Der Antrag wurde zurückgestellt."
+msgstr "No se eligió a nadie: empate en el límite de escaños o no se alcanzó la mayoría exigida. La moción se ha aplazado."
+
+msgid "Beteiligung: %1 von %2 Wahlberechtigten"
+msgstr "Participación: %1 de %2 votantes con derecho a voto"
+
+msgid "Beschluss im Beschlussbuch"
+msgstr "Acuerdo en el libro de acuerdos"
+
+msgid "Gewählt"
+msgstr "Elegido"
+
+msgid "Stimmzettel"
+msgstr "Papeletas"
+
+msgid "1 Stimmzettel abgegeben."
+msgstr "1 papeleta emitida."
+
+msgid "%1 Stimmzettel abgegeben."
+msgstr "%1 papeletas emitidas."
+
+msgid "Es wurden keine Stimmzettel abgegeben."
+msgstr "No se emitió ninguna papeleta."
+
+msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
+msgstr "En una elección secreta las papeletas se muestran sin nombres y sin hora."
+
+msgid "Auswahl"
+msgstr "Selección"
+
+msgid "Zeit"
+msgstr "Hora"
+
+msgid "Quittung prüfen"
+msgstr "Comprobar recibo"
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."
+msgstr "Con su recibo puede comprobar que su voto se contó sin que nadie sepa cómo votó."
+
+msgid "Quittungscode"
+msgstr "Código del recibo"
+
+msgid "Zu diesem Code wurde keine Stimme gefunden."
+msgstr "No se encontró ningún voto para este código."
+
+msgid "Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt."
+msgstr "Su voto está guardado. La selección solo se muestra después del escrutinio."
+
+msgid "Ihre Stimme ist gespeichert und lautet: %1"
+msgstr "Su voto está guardado y dice: %1"
+
+msgid "Wahlen"
+msgstr "Elecciones"
+
+msgid "Zur Wahlübersicht"
+msgstr "A la lista de elecciones"
+
+msgid "Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Todavía no hay elecciones. Una elección se abre a partir de una moción programada."
+
+msgid "Zu den Anträgen"
+msgstr "A las mociones"
+
+msgid "Geheim"
+msgstr "Secreta"
+
+msgid "Eröffnet am"
+msgstr "Abierta el"
+
+msgid "Wahl öffnen"
+msgstr "Mostrar elección"
+
+msgid "Die Wahl konnte nicht geladen werden."
+msgstr "No se pudo cargar la elección."
+
+msgid "Eine Person, eine Stimme: Jedes wahlberechtigte Mitglied hat genau eine Stimme."
+msgstr "Una persona, un voto: cada miembro con derecho a voto tiene exactamente un voto."
+
+msgid "Eröffnet von %1 am %2"
+msgstr "Abierta por %1 el %2"
+
+msgid "Zielgremium: %1, Rolle: %2"
+msgstr "Órgano de destino: %1, función: %2"
+
+msgid "Zu besetzende Sitze: %1"
+msgstr "Escaños a cubrir: %1"
+
+msgid "Erforderlicher Anteil: %1 Prozent"
+msgstr "Porcentaje exigido: %1 por ciento"
+
+msgid "Erforderliche Freigaben der Auszählung: %1"
+msgstr "Aprobaciones exigidas del escrutinio: %1"
+
+msgid "Zum Antrag"
+msgstr "A la moción"
+
+msgid "Sie haben die Auszählung freigegeben."
+msgstr "Ha aprobado el escrutinio."
+
+msgid "Zur Stimmabgabe"
+msgstr "A la votación"
+
+msgid "Abstimmung öffnen"
+msgstr "Abrir la votación"
+
+msgid "Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo abrir la votación. Actualice la vista."
+
+msgid "Abstimmung geöffnet."
+msgstr "Votación abierta."
+
+msgid "Abstimmung beenden"
+msgstr "Finalizar la votación"
+
+msgid "Nach dem Beenden können keine Stimmen mehr abgegeben werden. Danach folgt die Freigabe der Auszählung."
+msgstr "Una vez finalizada, ya no se pueden emitir votos. A continuación sigue la aprobación del escrutinio."
+
+msgid "Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo finalizar la votación. Actualice la vista."
+
+msgid "Abstimmung beendet."
+msgstr "Votación finalizada."
+
+msgid "Auszählung freigeben"
+msgstr "Aprobar el escrutinio"
+
+msgid "Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "No fue posible la aprobación. Actualice la vista."
+
+msgid "Auszählung freigegeben."
+msgstr "Escrutinio aprobado."
+
+msgid "Auszählen"
+msgstr "Escrutar"
+
+msgid "Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "No fue posible el escrutinio. Actualice la vista."
+
+msgid "Wahl ausgezählt."
+msgstr "Elección escrutada."
+
+msgid "Kandidatenliste freigeben"
+msgstr "Publicar la lista de candidatos"
+
+msgid "Die Kandidatenliste mit 1 Kandidatur wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "Se publicará la lista de candidatos con 1 candidatura. Después ya no se podrán presentar más candidaturas."
+
+msgid "Die Kandidatenliste mit %1 Kandidaturen wird freigegeben. Danach können keine Kandidaturen mehr eingereicht werden."
+msgstr "Se publicará la lista de candidatos con %1 candidaturas. Después ya no se podrán presentar más candidaturas."
+
+msgid "Freigeben"
+msgstr "Publicar"
+
+msgid "Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo publicar la lista de candidatos. Actualice la vista."
+
+msgid "Kandidatenliste freigegeben."
+msgstr "Lista de candidatos publicada."
+
+msgid "Sie haben bereits abgestimmt."
+msgstr "Ya ha votado."
+
+msgid "Wahl abbrechen"
+msgstr "Cancelar la elección"
+
+msgid "Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo cancelar la elección. Actualice la vista."
+
+msgid "Wahl abgebrochen."
+msgstr "Elección cancelada."
+
+msgid "Eine laufende Wahl wird endgültig abgebrochen. Alle bereits abgegebenen Stimmen verfallen."
+msgstr "Una elección en curso se cancela definitivamente. Todos los votos ya emitidos caducan."
+
+msgid "Die Wahl wird abgebrochen. Für diesen Antrag kann danach eine neue Wahl eröffnet werden."
+msgstr "La elección se cancelará. Después se podrá abrir una nueva elección para esta moción."
+
+msgid "Zu diesem Antrag läuft eine Wahl."
+msgstr "Hay una elección en curso para esta moción."
+
+msgid "Zur Wahl"
+msgstr "A la elección"

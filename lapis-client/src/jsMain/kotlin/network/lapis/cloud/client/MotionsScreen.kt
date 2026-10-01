@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeType
+import network.lapis.cloud.shared.domain.ElectionDto
+import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
@@ -95,7 +97,10 @@ import network.lapis.cloud.shared.rpc.IMemberService
  *   list); `closeVote` (a forward/completing transition, mirrors `updateMeetingStatus -> HELD`)
  *   does not.
  */
-fun renderMotionsScreen(container: SimplePanel) {
+fun renderMotionsScreen(
+    container: SimplePanel,
+    initialMotionId: String? = null,
+) {
     val session = AppState.session
     if (session == null) {
         navigateTo(Routes.LOGIN)
@@ -167,6 +172,11 @@ fun renderMotionsScreen(container: SimplePanel) {
         committeeFilterSelect.options = listOf("" to tr("Alle Gremien")) + untrustedOptions(committees.map { it.id to it.name })
         committeeFilterSelect.value = ""
         refreshMotions()
+        // `/motions/:id` (V1.9.22): arriving from an election's "Zum Antrag" link opens that motion's detail right away.
+        if (initialMotionId != null) {
+            selectMotion(initialMotionId)
+            refreshDetail()
+        }
 
         // Which Committees the current member may plausibly submit a Motion to (plan §4's
         // broadest gate) -- BOARD/ADMIN may submit anywhere active; the General Assembly is a
@@ -389,6 +399,7 @@ private fun renderMotionDetail(
             }
         val pendingAmendments = amendments.filter { it.status in NON_TERMINAL_MOTION_STATUSES }
 
+        val elections = loadMotionElections(motion.id)
         val votes = guarded { rpcService<IGovernanceService>().listVotes(motionId = motion.id) } ?: emptyList()
         val activeVote =
             votes.find { it.status == VoteStatus.OPEN } ?: votes.find { it.status == VoteStatus.CLOSED }
@@ -411,7 +422,17 @@ private fun renderMotionDetail(
             MotionStatus.REVIEWED, MotionStatus.POSTPONED ->
                 renderScheduleSection(panel, motion, parent, canManage, onChanged)
             MotionStatus.SCHEDULED ->
-                renderResolutionSection(panel, motion, pendingAmendments, canManage, activeVote, onSelectMotion, onChanged)
+                renderResolutionSection(
+                    panel = panel,
+                    motion = motion,
+                    pendingAmendments = pendingAmendments,
+                    canManage = canManage,
+                    activeVote = activeVote,
+                    onSelectMotion = onSelectMotion,
+                    onChanged = onChanged,
+                    elections = elections,
+                    committees = committees,
+                )
             MotionStatus.RESOLVED, MotionStatus.REJECTED, MotionStatus.REJECTED_PRELIMINARY, MotionStatus.WITHDRAWN ->
                 renderOutcomeSummary(panel, motion)
         }
@@ -701,6 +722,8 @@ internal fun renderResolutionSection(
     activeVote: VoteDto?,
     onSelectMotion: (String) -> Unit,
     onChanged: () -> Unit,
+    elections: List<ElectionDto> = emptyList(),
+    committees: List<CommitteeDto> = emptyList(),
 ) {
     if (!canManage) return
     panel.h2(tr("Entscheidung")) { addCssClass("h5") }
@@ -734,6 +757,10 @@ internal fun renderResolutionSection(
             disabled = true
             title = tr("Zuerst alle Änderungsanträge entscheiden")
         }
+        disabledRow.button(tr("Wahl eröffnen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
+            disabled = true
+            title = tr("Zuerst alle Änderungsanträge entscheiden")
+        }
         return
     }
 
@@ -742,8 +769,18 @@ internal fun renderResolutionSection(
         return
     }
 
+    // V1.9.22: a running or finished election already decides this motion -- the two other ways would race it (the server does not
+    // guard the paths against each other), so none of the three is offered, only the way back to the election.
+    val runningElection = elections.firstOrNull { it.status != ElectionStatus.ABORTED }
+    if (runningElection != null) {
+        panel.p(tr("Zu diesem Antrag läuft eine Wahl.")) { addCssClasses("alert alert-info mb-0") }
+        panel.button(tr("Zur Wahl"), style = ButtonStyle.PRIMARY).onClick { navigateTo("/elections/${runningElection.id}") }
+        return
+    }
+
     renderCommitteeQuorumResolutionForm(panel, motion, onChanged)
     renderOpenVoteForm(panel, motion, onChanged)
+    renderOpenElectionForm(panel, motion, committees) { opened -> navigateTo("/elections/${opened.id}") }
 }
 
 internal fun renderCommitteeQuorumResolutionForm(
