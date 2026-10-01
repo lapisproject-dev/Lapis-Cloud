@@ -1,0 +1,174 @@
+= Systemic consensus, web client (V1.9.28)
+:toc:
+
+== Purpose
+
+`ISystemicConsensusService` (V0.2.5) has been able to run a systemic consensus for a long time: every participant rates *every* option
+with a resistance from 0 ("I can live with it") to 10 ("not acceptable for me"), and the option with the lowest resistance wins. Until
+V1.9.28 no screen could reach it. This wave adds the web client -- the "Konsensieren" screen in the sidebar group "Selbstverwaltung", an
+entry in the resolution section of a scheduled motion, and the resistance booth -- plus four small server additions the client needed.
+It deliberately does not change how a consensus is evaluated or recorded.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Lifecycle
+
+A consensus is never created on the consensus screen. It is opened from a motion in the status `SCHEDULED`, like an election, and --
+only when it is binding -- its result is written into the same resolution book.
+
+[source,kuml,name="consensus-lifecycle"]
+----
+stateDiagram(name = "Consensus lifecycle") {
+    val start = initialState()
+    val collection = state(name = "COLLECTION")
+    val rating = state(name = "RATING")
+    val closed = state(name = "CLOSED")
+    val evaluated = state(name = "EVALUATED")
+    val aborted = state(name = "ABORTED")
+
+    transition(source = start, target = collection) { trigger = "openSystemicConsensus" }
+    transition(source = collection, target = rating) {
+        trigger = "freezeOptions"
+        guard = "[at least one option]"
+    }
+    transition(source = rating, target = closed) { trigger = "closeRating" }
+    transition(source = closed, target = evaluated) { trigger = "evaluate" }
+    transition(source = evaluated, target = rating) {
+        trigger = "reopenRating (advisory only)"
+        guard = "[round < maxRounds]"
+    }
+    transition(source = collection, target = aborted) { trigger = "abortSystemicConsensus" }
+    transition(source = rating, target = aborted) { trigger = "abortSystemicConsensus" }
+    transition(source = closed, target = aborted) { trigger = "abortSystemicConsensus" }
+}
+----
+
+The server also allows `reopenRating` from `CLOSED` (a binding consensus has no resolution yet at that point). The screen never offers
+it: after closing, the only main action is "Auswerten". A revote is offered only after an evaluation, only for an *advisory* consensus (a
+binding one has written its resolution, and the server then refuses a reopen) and only while rounds are left.
+
+== Roles and gates
+
+The client mirrors the server's rules in `ConsensusAuthzUi.kt` (pure, unit-tested). Unlike the elections there is no role arithmetic in
+the client: the server computes the flags in `SystemicConsensusParticipationDto` and the client combines them with the status.
+
+[cols="2,3,3", options="header"]
+|===
+| Flag (server) | Meaning | Mirrors
+| `canManage` | leadership of the *motion's own* committee, or BOARD/ADMIN | `canManageSystemicConsensus`: freeze, close, evaluate, revote, abort
+| `canProposeOptions` | in `COLLECTION`: a privileged account or a live member of the committee's electorate | `addOption`
+| `canRate` | `RATING`, in the frozen snapshot of the current round, not yet rated, active membership | `castResistanceBallot` (including `requireActiveMembership`)
+|===
+
+Every action is a pure function of the consensus, these flags and the result, returning hidden, enabled or disabled-with-reason (`Gate`);
+the revote returns `Hidden`, `Primary` or `Secondary`. A disabled action shows its reason as visible text.
+
+[cols="2,4,3", options="header"]
+|===
+| Status | Main action | Other
+| `COLLECTION` | "Optionen einfrieren" (confirmation names the count, focus on "Abbrechen"); disabled without options | add / remove options, abort
+| `RATING` | "Zur Bewertung" (members), "Bewertung schließen" (managers) | abort; counter "n von m haben bewertet"
+| `CLOSED` | "Auswerten" (a binding consensus asks first and says it cannot be undone) | abort
+| `EVALUATED` | revote, primary when the winner's group conflict is above the warning threshold or there is no winner | "Quittung prüfen" (anonymous)
+| `ABORTED` | none | none
+|===
+
+== Server additions (no migration)
+
+All four read existing tables; `V1__baseline.sql` is unchanged and there is no new migration.
+
+[cols="2,5", options="header"]
+|===
+| Addition | Guarantee
+| `getSystemicConsensusResult(id)` | Only `EVALUATED` (otherwise a conflict). Computed by `computeSystemicConsensusOutcome`, the very function `evaluate` uses (extracted unchanged), so the display can never drift from what was recorded. Results of earlier rounds are not retrievable.
+| `getSystemicConsensusParticipation(id)` | Only the caller's *own* flags plus public counters. Every lookup is filtered to the round of the row, so a rating from round 1 does not survive into round 2.
+| `listSystemicConsensusParticipations(ids)` | The batch variant for the list: at most 100 distinct ids (otherwise a conflict), a constant number of queries, own flags only.
+| `verifySystemicConsensusReceipt(id, code)` | Only for an anonymous consensus (otherwise a conflict). A code that cannot exist (not 27 Base64url characters) is `found = false` without a query. The receipt's resistances are returned only when the consensus is `EVALUATED` *and* the receipt belongs to the current round.
+| length check in `addOption` | The text is trimmed and must be 1..200 characters (the column is `VARCHAR(200)`); otherwise a conflict instead of a database error.
+|===
+
+== The resistance booth
+
+The booth is an irreversible single-shot action, so it is its own mode: it replaces the whole detail view (the URL does not change) and
+has three steps.
+
+[source,kuml,name="consensus-booth-flow"]
+----
+sequenceDiagram(name = "Resistance booth") {
+    val member = lifeline(name = "Member")
+    val booth = lifeline(name = "Booth (client)")
+    val server = lifeline(name = "SystemicConsensusService")
+
+    message(from = member, to = booth, label = "rate every option 0..10 (one radio group per option, nothing preselected)")
+    message(from = member, to = booth, label = "check (enabled only when every option is rated)")
+    message(from = booth, to = member, label = "review: option and rating as plain sentences, 'cannot be changed afterwards'")
+    message(from = member, to = booth, label = "submit for good (once: the button locks)")
+    message(from = booth, to = server, label = "castResistanceBallot(option id -> rating)")
+    message(from = server, to = booth, label = "ok + receiptCode (anonymous) | ok | Conflict | Forbidden | network failure")
+    message(from = booth, to = server, label = "on Conflict / failure: getSystemicConsensusParticipation + getSystemicConsensus (no toast, no message read)")
+    message(from = server, to = booth, label = "hasRated? status still RATING?")
+    message(from = booth, to = member, label = "receipt in groups of four | already rated | rating closed | please wait and retry")
+}
+----
+
+The radio buttons of one option form a group named by a running group index; the buttons carry a running index as id. Neither an option id
+nor the value a button stands for is ever written into an attribute, and there is no `data-*` attribute. The ratings live in one private
+map of the booth (and the buttons' own checked state); the map is emptied when the request has been sent and the form DOM is thrown away.
+
+The status quo option is stored with an English label by the server. The client recognises it by `isStatusQuoOption`, shows it last, translated
+as "Alles bleibt wie bisher (Passivlösung)" everywhere (booth, review, result, receipt check), and never removes it.
+
+[cols="2,5", options="header"]
+|===
+| Outcome | The booth says
+| ok with a receipt code (anonymous) | the receipt, shown once; "Fertig" stays disabled until the member ticks "I have noted the receipt"
+| ok without a code (open), or a code of the wrong shape | a thank-you; a wrong-shaped code is never drawn
+| `Forbidden` | not eligible in this round
+| `Conflict`, then `hasRated` | already rated
+| `Conflict`, status no longer `RATING` | the rating is closed
+| `Conflict`, status `RATING`, not rated | please wait and retry (typically: the conference stream is not paused yet, `SecretBallotStreamLock`); the ratings are kept and nothing is resent automatically
+| network failure, then `hasRated` | counted, only the confirmation did not arrive
+| network failure, unknown | the connection was interrupted; reload to find out
+|===
+
+== Receipt handling
+
+Same rules as the elections' receipt (`elections-ui.adoc`): 27 Base64url characters checked against their exact alphabet, drawn character by
+character in groups of four, present only in the screen node, its hidden print twin and the closure of the "copy" button, never in storage,
+URL, `AppState`, toast or console; a `beforeunload` guard and the hidden "back" button while it is shown; "Fertig" removes everything.
+
+"Quittung prüfen" (anonymous consensus, from `RATING` on) reads the typed code once and clears the field. It says: not found; found but from
+an earlier round and no longer counted; found and stored (values only after the evaluation); found with the values.
+
+== Secrecy rules of the displays
+
+* An anonymous consensus' single ratings are never requested: the result shows only the aggregates per option (mean, group conflict, the
+  distribution). Only an *open* consensus lists who rated what, through `listResistanceBallots`, and only in `ConsensusResultView.kt`.
+* `castAt` is never read by the consensus screens.
+* Everything a member typed (titles, option texts, names) is sanitized before it becomes widget content.
+* No exception message is read: conflicts get fixed texts and the screen reloads. `ConsensusSecrecyTripwireTest` pins all of this.
+
+== Result display
+
+Options are ranked by mean resistance, lowest first. Per option: the mean ("Ø 2,4 von 10"), the group conflict index in words
+(below the viable threshold "Tragfähiger Konsens", up to the warning threshold "Mit Bedenken", above "Warnsignal") with the small number,
+a hint when any single rating was 9 or higher (a mean can hide a strong objection), and a collapsed rating distribution with all eleven
+columns (gaps filled with 0). A tie without a winner and a consensus without ratings say so in words. A binding result says that it was
+recorded as a resolution and, when the status quo option won, that the motion counts as rejected.
+
+== Exclusivity on the motion page
+
+While a consensus is collecting or rating, or a binding one exists, it owns the motion: the resolution section shows "Zu diesem Antrag läuft
+ein Konsensieren." and hides the quorum, vote, election and consensus forms (the server refuses them anyway; the screen offers less than the
+server allows, never more). A finished advisory consensus is only a link to its result; the other ways stay. One non-aborted consensus per
+motion is allowed. Pending amendments disable "Konsensieren eröffnen" with the other three ways. A `CLOSED` or `OPEN` meritocratic vote hides
+the section's forms, like the server's `requireNoOpenVote`.
+
+== Known limitations
+
+* A binding consensus has exactly one round (`evaluate` records the resolution at once; `reopenRating` then refuses). The form says so, the
+  round label reads "Eine Runde (Beschluss)". For a discussion round, run the consensus as a poll first.
+* The results of earlier rounds are not retrievable after a revote.
+* An anonymous consensus has no minimum group size; with a single participant the "anonymous" rating is trivially attributable.
+* The booth is not embedded in the conference room (a later wave).
+* The staging test is written, not executed: `consensus-staging-test.adoc`.

@@ -18211,3 +18211,405 @@ msgstr "Prepared motions"
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "The bid exceeds your available balance."
 
+
+msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
+msgstr "Make proposals: every option listed here will later be rated by everyone."
+
+msgid "Es gibt sehr viele Optionen. Bitte prüfen Sie, ob sich ähnliche Vorschläge zusammenfassen lassen."
+msgstr "There are a lot of options. Please check whether similar proposals can be merged."
+
+msgid "Vorgeschlagen von %1"
+msgstr "Proposed by %1"
+
+msgid "Immer dabei"
+msgstr "Always included"
+
+msgid "Option entfernen"
+msgstr "Remove option"
+
+msgid "Die Option \"%1\" wird entfernt."
+msgstr "The option \"%1\" will be removed."
+
+msgid "Die Option konnte nicht entfernt werden. Bitte Ansicht aktualisieren."
+msgstr "The option could not be removed. Please refresh the view."
+
+msgid "Option entfernt."
+msgstr "Option removed."
+
+msgid "Option hinzufügen"
+msgstr "Add option"
+
+msgid "Neue Option"
+msgstr "New option"
+
+msgid "Was soll bewertet werden? Höchstens 200 Zeichen."
+msgstr "What should be rated? At most 200 characters."
+
+msgid "Bitte geben Sie 1 bis %1 Zeichen ein."
+msgstr "Please enter 1 to %1 characters."
+
+msgid "Die Option konnte nicht hinzugefügt werden. Bitte Ansicht aktualisieren."
+msgstr "The option could not be added. Please refresh the view."
+
+msgid "Option hinzugefügt."
+msgstr "Option added."
+
+msgid "Optionen werden gesammelt"
+msgstr "Collecting options"
+
+msgid "Bewertung läuft"
+msgstr "Rating in progress"
+
+msgid "Bewertung beendet"
+msgstr "Rating closed"
+
+msgid "Ausgewertet"
+msgstr "Evaluated"
+
+msgid "Sondierung"
+msgstr "Advisory poll"
+
+msgid "Eine Runde (Beschluss)"
+msgstr "One round (resolution)"
+
+msgid "Runde %1 von %2"
+msgstr "Round %1 of %2"
+
+msgid "Alles bleibt wie bisher (Passivlösung)"
+msgstr "Everything stays as it is (status quo)"
+
+msgid "Tragfähiger Konsens"
+msgstr "Viable consensus"
+
+msgid "Mit Bedenken"
+msgstr "With reservations"
+
+msgid "Warnsignal"
+msgstr "Warning sign"
+
+msgid "Ø %1 von %2"
+msgstr "Avg. %1 of %2"
+
+msgid "Konsensieren"
+msgstr "Consensus"
+
+msgid "Zur Übersicht"
+msgstr "To the overview"
+
+msgid "Noch kein Konsensieren vorhanden. Ein Konsensieren wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "No consensus process yet. A consensus process is opened from a scheduled motion."
+
+msgid "Offen für Sie"
+msgstr "Open for you"
+
+msgid "Runde"
+msgstr "Round"
+
+msgid "Ihr Stand"
+msgstr "Your status"
+
+msgid "Konsensieren öffnen"
+msgstr "Open consensus"
+
+msgid "Es gibt noch keine Option."
+msgstr "There is no option yet."
+
+msgid "Zu diesem Antrag läuft ein Konsensieren."
+msgstr "A consensus process is running for this motion."
+
+msgid "Zum Konsensieren"
+msgstr "To the consensus"
+
+msgid "Ergebnis der Sondierung ansehen"
+msgstr "View the advisory poll result"
+
+msgid "Konsensieren eröffnen"
+msgstr "Open consensus process"
+
+msgid "Beim Konsensieren bewertet jedes stimmberechtigte Mitglied jede Option mit einem Widerstand. Die Option mit dem geringsten Widerstand liegt vorn."
+msgstr "In a consensus process every eligible member rates every option with a resistance value. The option with the lowest resistance comes first."
+
+msgid "Art der Bewertung"
+msgstr "Kind of rating"
+
+msgid "Verbindlichkeit"
+msgstr "Bindingness"
+
+msgid "Sondierung: Das Ergebnis ist eine Orientierung und entscheidet den Antrag nicht."
+msgstr "Advisory poll: the result is guidance and does not decide the motion."
+
+msgid "Beschluss: Das Ergebnis wird als Beschluss protokolliert und entscheidet den Antrag."
+msgstr "Resolution: the result is recorded as a resolution and decides the motion."
+
+msgid "Gewinnt die Passivlösung, gilt der Antrag als abgelehnt."
+msgstr "If the status quo option wins, the motion counts as rejected."
+
+msgid "Bei einem Beschluss gibt es keine Wiederabstimmung. Für eine Diskussionsrunde zuerst als Sondierung konsensieren."
+msgstr "A resolution has no revote. For a discussion round, run the consensus as an advisory poll first."
+
+msgid "Anonym: Es wird gespeichert, dass jemand bewertet hat, aber nicht, wie."
+msgstr "Anonymous: it is stored that someone has rated, but not how."
+
+msgid "Offen: Bewertungen werden mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "Open: ratings are stored with names and are visible to all members."
+
+msgid "Bitte bestätigen Sie, dass Sie das verstanden haben."
+msgstr "Please confirm that you have understood this."
+
+msgid "Konsensieren eröffnet."
+msgstr "Consensus process opened."
+
+msgid "Das Ergebnis konnte nicht geladen werden."
+msgstr "The result could not be loaded."
+
+msgid "Namentliche Bewertungen"
+msgstr "Ratings by name"
+
+msgid "Es wurden keine Bewertungen abgegeben."
+msgstr "No ratings were submitted."
+
+msgid "Es wurde keine Bewertung abgegeben."
+msgstr "No rating was submitted."
+
+msgid "Gleichstand ohne Entscheidung. Bitte erneut diskutieren."
+msgstr "A tie with no decision. Please discuss again."
+
+msgid "Geringster Widerstand: %1"
+msgstr "Lowest resistance: %1"
+
+msgid "Als Beschluss protokolliert."
+msgstr "Recorded as a resolution."
+
+msgid "Ohne Entscheidung: Der Antrag wurde zurückgestellt."
+msgstr "No decision: the motion was postponed."
+
+msgid "Die Passivlösung hat gewonnen: Der Antrag gilt als abgelehnt."
+msgstr "The status quo option won: the motion counts as rejected."
+
+msgid "Geringster Widerstand"
+msgstr "Lowest resistance"
+
+msgid "Gruppenkonflikt: %1 (%2)"
+msgstr "Group conflict: %1 (%2)"
+
+msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
+msgstr "Highest single value: %1. That is a strong objection."
+
+msgid "Verteilung anzeigen"
+msgstr "Show distribution"
+
+msgid "1 Bewertung"
+msgstr "1 rating"
+
+msgid "%1 Bewertungen"
+msgstr "%1 ratings"
+
+msgid "Verteilung ausblenden"
+msgstr "Hide distribution"
+
+msgid "Bei einem offenen Konsensieren sind die Bewertungen mit Namen sichtbar."
+msgstr "In an open consensus process the ratings are visible with names."
+
+msgid "Bewertung"
+msgstr "Rating"
+
+msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
+msgstr "Rate every option: how strong is your resistance?"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
+msgstr "0 = no resistance, I can live with it · 10 = not acceptable to me."
+
+msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
+msgstr "Your rating is anonymous: it is stored that you have rated, but not how."
+
+msgid "Dieses Konsensieren ist offen: Ihre Bewertung wird mit Ihrem Namen gespeichert."
+msgstr "This consensus process is open: your rating is stored with your name."
+
+msgid "kein"
+msgstr "none"
+
+msgid "deutliche Bedenken"
+msgstr "clear reservations"
+
+msgid "nicht tragbar"
+msgstr "not acceptable"
+
+msgid "%1 von 1 Option bewertet"
+msgstr "%1 of 1 option rated"
+
+msgid "%1 von %2 Optionen bewertet"
+msgstr "%1 of %2 options rated"
+
+msgid "Bewertung prüfen"
+msgstr "Review rating"
+
+msgid "%1: Widerstand %2 von %3"
+msgstr "%1: resistance %2 of %3"
+
+msgid "Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden."
+msgstr "After submitting, your rating can no longer be changed."
+
+msgid "Endgültig abgeben"
+msgstr "Submit for good"
+
+msgid "Sie sind für diese Runde nicht stimmberechtigt."
+msgstr "You are not eligible to vote in this round."
+
+msgid "Bereits bewertet"
+msgstr "Already rated"
+
+msgid "Ihre Bewertung wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Your rating was counted. The confirmation did not reach you because the connection dropped."
+
+msgid "Ihre Bewertung ist bereits eingegangen."
+msgstr "Your rating has already been received."
+
+msgid "Die Bewertung ist geschlossen."
+msgstr "The rating is closed."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Bewertung gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "The connection was interrupted. It could not be checked whether your rating was counted. Please reload the page."
+
+msgid "Der Stand hat sich geändert. Bitte erneut prüfen."
+msgstr "The state has changed. Please check again."
+
+msgid "Bitte kurz warten und erneut versuchen."
+msgstr "Please wait a moment and try again."
+
+msgid "Zurück zum Konsensieren"
+msgstr "Back to the consensus"
+
+msgid "Ihre Bewertung wurde gezählt"
+msgstr "Your rating was counted"
+
+msgid "Danke, Ihre Bewertung ist eingegangen."
+msgstr "Thank you, your rating has been received."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung gezählt wurde."
+msgstr "This is your receipt. It is shown only now and stored nowhere. Write it down or print it if you want to check later that your rating was counted."
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Bewertung gezählt wurde, ohne dass jemand erfährt, wie Sie bewertet haben."
+msgstr "With your receipt you can check that your rating was counted, without anyone learning how you rated."
+
+msgid "Zu diesem Code wurde keine Bewertung gefunden."
+msgstr "No rating was found for this code."
+
+msgid "Diese Bewertung stammt aus Runde %1 und zählt im aktuellen Ergebnis nicht mehr."
+msgstr "This rating is from round %1 and no longer counts in the current result."
+
+msgid "Ihre Bewertung ist gespeichert. Die Werte werden erst nach der Auswertung angezeigt."
+msgstr "Your rating is stored. The values are only shown after the evaluation."
+
+msgid "Ihre Bewertung ist gespeichert und lautet:"
+msgstr "Your rating is stored and reads:"
+
+msgid "Sammeln"
+msgstr "Collect"
+
+msgid "Bewerten"
+msgstr "Rate"
+
+msgid "Auswerten"
+msgstr "Evaluate"
+
+msgid "Ablauf des Konsensierens"
+msgstr "Progress of the consensus process"
+
+msgid "Das Konsensieren konnte nicht geladen werden."
+msgstr "The consensus process could not be loaded."
+
+msgid "Jede Option wird bewertet: 0 heißt kein Widerstand, 10 heißt nicht tragbar. Die Option mit dem geringsten Widerstand liegt vorn."
+msgstr "Every option is rated: 0 means no resistance, 10 means not acceptable. The option with the lowest resistance comes first."
+
+msgid "Anonyme Bewertung: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
+msgstr "Anonymous rating: it is stored that you have rated, but not how."
+
+msgid "Offene Bewertung: Ihre Bewertung wird mit Ihrem Namen gespeichert und ist für alle Mitglieder sichtbar."
+msgstr "Open rating: your rating is stored with your name and is visible to all members."
+
+msgid "%1 von %2 haben bewertet"
+msgstr "%1 of %2 have rated"
+
+msgid "Nur Mitglieder dieses Servers können bewerten."
+msgstr "Only members of this server can rate."
+
+msgid "1 Option wird zur Bewertung freigegeben. Danach kann keine Option mehr ergänzt werden."
+msgstr "1 option will be released for rating. After that no option can be added."
+
+msgid "%1 Optionen werden zur Bewertung freigegeben. Danach kann keine Option mehr ergänzt werden."
+msgstr "%1 options will be released for rating. After that no option can be added."
+
+msgid "Das Ergebnis wird als Beschluss protokolliert und kann danach nicht mehr geändert werden."
+msgstr "The result will be recorded as a resolution and can no longer be changed afterwards."
+
+msgid "Zur Bewertung"
+msgstr "To the rating"
+
+msgid "Optionen einfrieren"
+msgstr "Freeze options"
+
+msgid "Einfrieren"
+msgstr "Freeze"
+
+msgid "Die Optionen konnten nicht eingefroren werden. Bitte Ansicht aktualisieren."
+msgstr "The options could not be frozen. Please refresh the view."
+
+msgid "Optionen eingefroren. Die Bewertung läuft."
+msgstr "Options frozen. The rating is under way."
+
+msgid "Bewertung schließen"
+msgstr "Close rating"
+
+msgid "Nach dem Schließen kann niemand mehr bewerten. Danach folgt die Auswertung."
+msgstr "After closing, nobody can rate any more. The evaluation follows."
+
+msgid "Die Bewertung konnte nicht geschlossen werden. Bitte Ansicht aktualisieren."
+msgstr "The rating could not be closed. Please refresh the view."
+
+msgid "Bewertung geschlossen."
+msgstr "Rating has been closed."
+
+msgid "Die Auswertung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "The evaluation was not possible. Please refresh the view."
+
+msgid "Ausgewertet."
+msgstr "Evaluation complete."
+
+msgid "Das Ergebnis wird als Beschluss protokolliert und entscheidet den Antrag. Das kann nicht rückgängig gemacht werden."
+msgstr "The result will be recorded as a resolution and decides the motion. This cannot be undone."
+
+msgid "Diskutieren und erneut bewerten (Runde %1 von %2)"
+msgstr "Discuss and rate again (round %1 of %2)"
+
+msgid "Neue Runde starten"
+msgstr "Start new round"
+
+msgid "Eine neue Bewertungsrunde beginnt. Das Ergebnis der bisherigen Runde ist danach nicht mehr abrufbar."
+msgstr "A new rating round begins. The result of the previous round can no longer be retrieved afterwards."
+
+msgid "Die neue Runde konnte nicht gestartet werden. Bitte Ansicht aktualisieren."
+msgstr "The new round could not be started. Please refresh the view."
+
+msgid "Neue Bewertungsrunde gestartet."
+msgstr "New rating round started."
+
+msgid "Konsensieren abbrechen"
+msgstr "Cancel consensus process"
+
+msgid "Das Konsensieren konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "The consensus process could not be cancelled. Please refresh the view."
+
+msgid "Konsensieren abgebrochen."
+msgstr "Consensus process was cancelled."
+
+msgid "Ein laufendes Konsensieren wird endgültig abgebrochen. Alle bereits abgegebenen Bewertungen verfallen."
+msgstr "A running consensus process will be cancelled for good. All ratings already submitted are lost."
+
+msgid "Das Konsensieren wird abgebrochen. Für diesen Antrag kann danach ein neues eröffnet werden."
+msgstr "The consensus process will be cancelled. A new one can be opened for this motion afterwards."
+
+msgid "Gleichstand beim kumulierten Widerstand, entschieden durch den geringsten Höchstwert."
+msgstr "Tie in the cumulative resistance, decided by the lowest maximum value."
+
+msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
+msgstr "Tie in the cumulative resistance, decided by the lowest spread."

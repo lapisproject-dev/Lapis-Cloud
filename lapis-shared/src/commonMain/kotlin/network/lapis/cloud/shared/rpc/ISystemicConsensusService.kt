@@ -8,6 +8,8 @@ import network.lapis.cloud.shared.domain.SystemicConsensusDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOpenInput
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionInput
+import network.lapis.cloud.shared.domain.SystemicConsensusParticipationDto
+import network.lapis.cloud.shared.domain.SystemicConsensusReceiptVerificationDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 
@@ -122,4 +124,31 @@ interface ISystemicConsensusService {
      * [SystemicConsensusBallotDto] KDoc.
      */
     suspend fun listResistanceBallots(systemicConsensusId: String): List<SystemicConsensusBallotDto>
+
+    /**
+     * V1.9.28. Role: any authenticated member. The aggregated result of the *current* round, computed by
+     * the very function `evaluate` uses (so what is shown can never differ from what was recorded).
+     * Requires [SystemicConsensusStatus.EVALUATED], otherwise a conflict -- before that nothing about the
+     * ratings is disclosed. Results of earlier rounds are not retrievable.
+     */
+    suspend fun getSystemicConsensusResult(systemicConsensusId: String): SystemicConsensusResultDto
+
+    /** V1.9.28. Role: any authenticated member. Only the caller's OWN participation flags -- see [SystemicConsensusParticipationDto]. */
+    suspend fun getSystemicConsensusParticipation(systemicConsensusId: String): SystemicConsensusParticipationDto
+
+    /**
+     * V1.9.28. Batch variant of [getSystemicConsensusParticipation] for list views: at most 100 distinct ids
+     * (otherwise a conflict), constant number of queries, own flags only.
+     */
+    suspend fun listSystemicConsensusParticipations(systemicConsensusIds: List<String>): List<SystemicConsensusParticipationDto>
+
+    /**
+     * V1.9.28. Role: any authenticated member. Only for a secret Systemic Consensus (otherwise a conflict).
+     * Returns whether the receipt exists and in which round it was issued; the receipt's resistances are
+     * only returned once the consensus is EVALUATED and the receipt belongs to the current round.
+     */
+    suspend fun verifySystemicConsensusReceipt(
+        systemicConsensusId: String,
+        receiptCode: String,
+    ): SystemicConsensusReceiptVerificationDto
 }

@@ -170,7 +170,7 @@ class MotionsOpenElectionDomTest {
                     committees = committees,
                 )
                 assertTrue(element().hasButton("Wahl eröffnen") && element().isButtonDisabled("Wahl eröffnen"))
-                assertEquals(3, element().allOf("button[disabled]").size, "quorum, vote and election are all disabled")
+                assertEquals(4, element().allOf("button[disabled]").size, "quorum, vote, election and consensus are all disabled")
             }
         }
 

@@ -1,0 +1,45 @@
+= Staging test plan: systemic consensus in the web client (V1.9.28)
+:toc:
+
+== Purpose
+
+Everything in V1.9.28 is covered by unit, DOM and tripwire tests against stubbed servers. What only a real server can show: the anonymity
+of a real rating (database rows), the cast lock against a real conference stream, the exclusivity of the decision paths and the binding
+result in the resolution book. This plan is the mandatory part of the wave's acceptance; it was **not executed** by the author of the wave
+(access data and the staging server belong to the operator).
+
+== Set-up
+
+. One account that may manage the committee (CHAIR/DEPUTY_CHAIR/SECRETARY or BOARD/ADMIN), **four** eligible members (A-D), one guest, one
+  account that is not in the committee.
+. Two SCHEDULED motions in one Sitzung: motion 1 for an advisory run, motion 2 for a binding one. No election, vote or other consensus on them.
+. Browser profiles for at least two members at the same time.
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | As the manager open motion 1: "Konsensieren eröffnen", anonymous + Sondierung (the defaults) | the consensus opens; the page shows the collecting phase; the other ways are gone on the motion page ("Zu diesem Antrag läuft ein Konsensieren.")
+| 2 | As A, B and C add two options each; try a blank text and a 201 character text | blank and too long are refused with a message at the field; the others appear, the status quo option stays last without a "Entfernen" button
+| 3 | A removes an own option; B tries to remove A's option | A can; B has no button
+| 4 | The guest opens the consensus link directly | read-only; "Nur Mitglieder dieses Servers können bewerten."; no add form
+| 5 | Manager: "Optionen einfrieren" | the dialog names the number of options; after confirming the phase is "Bewertung läuft"
+| 6 | A, B and C rate everything (one of them with a 9 or 10 somewhere); D does not | the receipt appears once per rater in groups of four; "Fertig" is disabled until the tick; the counter reads "3 von 4 haben bewertet"
+| 7 | A reloads the consensus page | "Ihre Bewertung ist bereits eingegangen."; no booth; the receipt is nowhere
+| 8 | While the rating is open run in the database: `SELECT member_id FROM systemic_consensus_ballot` | all `NULL` for an anonymous consensus; the receipt code of A is not found next to A's id anywhere
+| 9 | With a conference stream running for the Sitzung: rate as D | either it works, or "Bitte kurz warten und erneut versuchen." and the review step with the ratings kept; nothing is resent by itself
+| 10 | Manager: "Bewertung schließen", then "Auswerten" | the result lists the options by mean; group conflict in words; the hint for a rating of 9 or higher; the distribution is collapsed
+| 11 | A enters the receipt under "Quittung prüfen" | the stored values are shown, the status quo option as "Alles bleibt wie bisher (Passivlösung)"
+| 12 | Manager: revote ("Diskutieren und erneut bewerten") | a dialog warns that the old result is gone; round 2; everybody can rate again; A's old receipt now says "stammt aus Runde 1 und zählt ... nicht mehr"
+| 13 | Run to round 3 and evaluate | no revote button any more
+| 14 | Motion 2: open as **Beschluss** | the form shows the warnings and the "Verstanden" tick; without the tick it refuses
+| 15 | Rate so that the status quo option wins, close, evaluate | the dialog says it cannot be undone; the result says "Als Beschluss protokolliert" and "Der Antrag gilt als abgelehnt"; the motion is REJECTED; the resolution book has an entry tagged SYSTEMIC_CONSENSUS; no revote button
+| 16 | Open consensus (anonymous = off) on a third motion, rate, evaluate | the result lists the names with their ratings; the page for an anonymous consensus never does
+| 17 | A malicious motion title (`###KvI18nS###...`, `<img ...>`) | shown as plain text in the list, the detail and the dialogs
+| 18 | Abort a running consensus | the title has to be typed; after aborting a new consensus can be opened for the motion
+|===
+
+== Actual results
+
+(to be filled in when the plan is run)

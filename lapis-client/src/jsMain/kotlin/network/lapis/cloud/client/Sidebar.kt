@@ -125,7 +125,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.TRAVEL_EXPENSES,
                 Routes.MY_VOLUNTEER_SHIFTS,
             ),
-        SidebarGroupId.SELF_GOVERNANCE to listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS, Routes.ELECTIONS),
+        SidebarGroupId.SELF_GOVERNANCE to listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS, Routes.ELECTIONS, Routes.CONSENSUS),
         SidebarGroupId.ECONOMY to
             listOf(
                 Routes.LTR_LEDGER,
@@ -417,6 +417,9 @@ fun buildSidebar(
             sidebarLink(Routes.MOTIONS, tr("Anträge"), "fas fa-file-signature", toggle)
             if (NavVisibility.showsElections(session.status)) {
                 sidebarLink(Routes.ELECTIONS, tr("Wahlen"), "fas fa-check-to-slot", toggle)
+            }
+            if (NavVisibility.showsConsensus(session.status)) {
+                sidebarLink(Routes.CONSENSUS, tr("Konsensieren"), "fas fa-scale-balanced", toggle)
             }
         }
     }

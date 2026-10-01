@@ -29,7 +29,8 @@ import network.lapis.cloud.shared.domain.SystemicConsensusDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOpenInput
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionInput
-import network.lapis.cloud.shared.domain.SystemicConsensusOptionResultDto
+import network.lapis.cloud.shared.domain.SystemicConsensusParticipationDto
+import network.lapis.cloud.shared.domain.SystemicConsensusReceiptVerificationDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -40,7 +41,6 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -61,6 +61,9 @@ private const val MAX_OPTIONS_HARD = 25
 
 /** Security-audit MAJOR-4 fix -- hard ceiling on [SystemicConsensusOpenInput.maxRounds]: each `reopenRating` round is a fresh secret-ballot pause/resume cycle (see [SecretBallotStreamGuard]), so an unbounded value would let a single SystemicConsensus drive an unbounded number of LiveKit StopEgress/restart cycles over the maximum allowed timeout window before `resumeStreamsForMeeting`'s own [DefaultSecretBallotStreamGuard.resumeRateLimiter] budget would even matter. */
 private const val MAX_ROUNDS_HARD_CAP = 10
+
+/** `systemic_consensus_option.label` is VARCHAR(200). */
+private const val MAX_OPTION_LABEL_LENGTH = 200
 
 private const val STATUS_QUO_OPTION_LABEL = "Status quo (no change)"
 private const val RECEIPT_CODE_BYTES = 20 // 160 bits, comfortably above the >=128-bit KDoc floor -- same as ElectionService.
@@ -204,6 +207,11 @@ class SystemicConsensusService(
                     "SystemicConsensus $systemicConsensusId is ${row[SystemicConsensusTable.status]}, expected COLLECTION",
                 )
             }
+            // V1.9.28: the column is VARCHAR(200); an over-long or blank text must be a clean conflict, not a 500.
+            val label = input.label.trim()
+            if (label.isEmpty() || label.length > MAX_OPTION_LABEL_LENGTH) {
+                throw ConflictException("Option text must be between 1 and $MAX_OPTION_LABEL_LENGTH characters")
+            }
             val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
             if (!current.isPrivileged) {
                 val eligible = eligibleMembersOf(committeeId = committeeId, meetingId = row[SystemicConsensusTable.meetingId])
@@ -228,7 +236,7 @@ class SystemicConsensusService(
             SystemicConsensusOptionTable.insert {
                 it[SystemicConsensusOptionTable.id] = id
                 it[SystemicConsensusOptionTable.systemicConsensusId] = kId
-                it[label] = input.label
+                it[SystemicConsensusOptionTable.label] = label
                 it[position] = nextPosition
                 it[isStatusQuoOption] = false
                 it[createdBy] = current.memberId
@@ -524,43 +532,14 @@ class SystemicConsensusService(
                     .where { SystemicConsensusOptionTable.systemicConsensusId eq kId }
                     .orderBy(SystemicConsensusOptionTable.position)
                     .toList()
-            val optionIds = optionRows.map { it[SystemicConsensusOptionTable.id] }
             val passivloesungOptionId =
                 optionRows.firstOrNull { it[SystemicConsensusOptionTable.isStatusQuoOption] }?.get(
                     SystemicConsensusOptionTable.id,
                 )
 
-            val ballotIds =
-                SystemicConsensusBallotTable
-                    .selectAll()
-                    .where { (SystemicConsensusBallotTable.systemicConsensusId eq kId) and (SystemicConsensusBallotTable.round eq round) }
-                    .map { it[SystemicConsensusBallotTable.id] }
-            val resistanceRows =
-                if (ballotIds.isEmpty()) {
-                    emptyList()
-                } else {
-                    SystemicConsensusResistanceTable
-                        .selectAll()
-                        .where { SystemicConsensusResistanceTable.ballotId inList ballotIds }
-                        .toList()
-                }
-            val resistancesByBallot =
-                resistanceRows.groupBy(
-                    { it[SystemicConsensusResistanceTable.ballotId] },
-                    { it[SystemicConsensusResistanceTable.optionId] to it[SystemicConsensusResistanceTable.resistanceValue] },
-                )
-            val ballots = ballotIds.map { szId -> SystemicConsensusBallotData(resistances = resistancesByBallot[szId].orEmpty().toMap()) }
-
-            val ergebnis =
-                computeSystemicConsensusResult(
-                    ballots = ballots,
-                    optionIds = optionIds,
-                    scaleMax = row[SystemicConsensusTable.scaleMax],
-                    aggregation = row[SystemicConsensusTable.aggregation],
-                    tiebreak = row[SystemicConsensusTable.tiebreakRule],
-                    groupConflictViableThreshold = row[SystemicConsensusTable.groupConflictViableThreshold].toDouble(),
-                    groupConflictWarnThreshold = row[SystemicConsensusTable.groupConflictWarnThreshold].toDouble(),
-                )
+            // V1.9.28: the pure calculation lives in computeSystemicConsensusOutcome, shared with the read-only
+            // getSystemicConsensusResult so the displayed result can never differ from the recorded one.
+            val ergebnis = computeSystemicConsensusOutcome(row)
 
             SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
                 it[status] = SystemicConsensusStatus.EVALUATED
@@ -633,7 +612,7 @@ class SystemicConsensusService(
                 auditResolutionCreate(resolution = resolution, current = current)
             }
 
-            toSystemicConsensusResultDto(systemicConsensusId = kId, ergebnis = ergebnis)
+            ergebnis.toSystemicConsensusResultDto(kId)
         }
     }
 
@@ -756,6 +735,37 @@ class SystemicConsensusService(
                 .where { (SystemicConsensusBallotTable.systemicConsensusId eq kId) and (SystemicConsensusBallotTable.round eq round) }
                 .map { it.toSystemicConsensusBallotDto(revealValues) }
         }
+    }
+
+    override suspend fun getSystemicConsensusResult(systemicConsensusId: String): SystemicConsensusResultDto {
+        resolveCurrentMember(call)
+        val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
+        return transaction { SystemicConsensusReads.result(kId) }
+    }
+
+    override suspend fun getSystemicConsensusParticipation(systemicConsensusId: String): SystemicConsensusParticipationDto {
+        val current = resolveCurrentMember(call)
+        val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
+        return transaction { SystemicConsensusReads.participation(kId = kId, current = current) }
+    }
+
+    override suspend fun listSystemicConsensusParticipations(systemicConsensusIds: List<String>): List<SystemicConsensusParticipationDto> {
+        val current = resolveCurrentMember(call)
+        val ids = systemicConsensusIds.distinct()
+        if (ids.size > MAX_PARTICIPATION_BATCH) {
+            throw ConflictException("At most $MAX_PARTICIPATION_BATCH SystemicConsensus ids per request, got ${ids.size}")
+        }
+        val parsed = ids.map { it.toUuidOrNotFound("SystemicConsensus") }
+        return transaction { SystemicConsensusReads.participations(ids = parsed, current = current) }
+    }
+
+    override suspend fun verifySystemicConsensusReceipt(
+        systemicConsensusId: String,
+        receiptCode: String,
+    ): SystemicConsensusReceiptVerificationDto {
+        resolveCurrentMember(call)
+        val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
+        return transaction { SystemicConsensusReads.verifyReceipt(kId = kId, receiptCode = receiptCode) }
     }
 
     private fun requireSystemicConsensusRow(systemicConsensusId: Uuid): ResultRow =
@@ -911,32 +921,6 @@ class SystemicConsensusService(
             round = this[SystemicConsensusBallotTable.round],
         )
     }
-
-    private fun toSystemicConsensusResultDto(
-        systemicConsensusId: Uuid,
-        ergebnis: SkErgebnis,
-    ): SystemicConsensusResultDto =
-        SystemicConsensusResultDto(
-            systemicConsensusId = systemicConsensusId.toString(),
-            optionResults =
-                ergebnis.optionResults.map {
-                    SystemicConsensusOptionResultDto(
-                        optionId = it.optionId.toString(),
-                        cumulativeResistance = it.cumulativeResistance,
-                        meanResistance = it.meanResistance,
-                        maxResistance = it.maxResistance,
-                        standardDeviation = it.standardDeviation,
-                        consensusIndex = it.consensusIndex,
-                        distribution = it.distribution,
-                    )
-                },
-            winnerOptionId = ergebnis.winnerOptionId?.toString(),
-            tie = ergebnis.tie,
-            tiebreakApplied = ergebnis.tiebreakApplied,
-            consensusViable = ergebnis.consensusViable,
-            groupConflictWarning = ergebnis.groupConflictWarning,
-            noRatings = ergebnis.noRatings,
-        )
 
     private fun String.toUuidOrNotFound(kind: String): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid $kind id: $this") }

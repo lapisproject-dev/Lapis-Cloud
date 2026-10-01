@@ -6,6 +6,42 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.28 systemic consensus, web client ("Konsensieren")
+
+- **The "Konsensieren" screen** (sidebar group "Selbstverwaltung", routes `/consensus` and `/consensus/:id`): list with status filter, round and
+  the viewer's own state ("Abgegeben" / "Offen für Sie"), and a detail view per consensus with a phase bar, the actions of the current phase
+  (freeze options, close rating, evaluate, revote, abort -- each with the right confirmation), the options (add, remove, status quo option
+  always last and permanent) and the result.
+- **Resistance booth**: every option is rated 0..10 (a radio group per option, nothing preselected), then a review step, then one irreversible
+  submit. An anonymous consensus shows a receipt once (groups of four, copy, print, "Fertig" only after the tick); "Quittung prüfen" checks it.
+- **Result view**: options ranked by mean resistance, the group conflict in words with the small number, a hint for any single rating of 9 or
+  higher, a collapsed distribution; ties, "no ratings" and a binding result (including "the status quo option won: the motion counts as
+  rejected") are said in words. An open consensus lists the named ratings; an anonymous one never does.
+- **"Konsensieren eröffnen"** in the resolution section of a scheduled motion (anonymous or open, advisory or binding with explicit warnings
+  and a tick). While a consensus owns the motion the other ways are hidden; pending amendments disable the button like the other three ways.
+- **Four additive server reads**: `getSystemicConsensusResult`, `getSystemicConsensusParticipation`, `listSystemicConsensusParticipations`
+  (at most 100 ids) and `verifySystemicConsensusReceipt`. The result is computed by `computeSystemicConsensusOutcome`, extracted unchanged from
+  `evaluate`. No migration. Eight message catalogs updated (132 texts); `docs/architecture/consensus-ui.adoc` and the staging test plan added.
+
+### Security -- V1.9.28
+
+- Participation and batch read only the caller's own rows, filtered to the round of each row; the result is only readable once `EVALUATED`;
+  a receipt's resistances are only returned once `EVALUATED` and for the current round; a receipt of an open consensus is a conflict, a code of
+  the wrong shape is answered without a query.
+- `addOption` validates the text (trimmed, 1..200 characters) -- before, an over-long text ended in a database error (HTTP 500) and a blank one was accepted.
+- No `data-*` attribute, id or name in the booth carries an option id or a rating value; the ratings are emptied from the client when the
+  request has been sent; no console, storage, URL, toast or `AppState` use; no exception message is read. `ConsensusSecrecyTripwireTest` pins this,
+  including that only an open consensus ever calls `listResistanceBallots`.
+- All member-typed text (titles, options, names) is sanitized against forged i18n markers.
+
+### Known limitations -- V1.9.28
+
+- A binding consensus has exactly one round (no revote after the resolution is recorded); the form and the round label say so.
+- The results of earlier rounds are not retrievable after a revote.
+- An anonymous consensus has no minimum group size; with one participant the rating is trivially attributable.
+- The booth is not part of the conference room yet.
+- The staging test is written, **not run**: `consensus-staging-test.adoc`.
+
 ### Added -- V1.9.27 voting in the conference room, wave 4 (meritocratic vote)
 
 - **Meritocratic votes in the room panel.** `getRoomVotingState` now also delivers `VOTE` ballots (`OPEN` -> `OPEN`; `CLOSED` within 12 h ->

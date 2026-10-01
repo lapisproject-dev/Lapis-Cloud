@@ -55,6 +55,13 @@ object Routes {
     const val ELECTION_DETAIL = "/elections/:id"
     const val MOTION_DETAIL = "/motions/:id"
 
+    /**
+     * V1.9.28 "Konsensieren" (systemic consensus): list and detail, same pattern as [ELECTIONS]/[ELECTION_DETAIL]. The id in the path is
+     * not a secret; a rating or a receipt code never appears in a URL.
+     */
+    const val CONSENSUS = "/consensus"
+    const val CONSENSUS_DETAIL = "/consensus/:id"
+
     // Accounting UI wave: unlike Governance, every single `IAccountingService` method requires at
     // least TREASURER/BOARD/ADMIN server-side (see that interface's own class KDoc) -- there is no
     // plain-MEMBER-readable Accounting RPC at all. This route therefore gates at the route level
@@ -766,6 +773,19 @@ fun initRouting(pageContainer: SimplePanel) {
                 routing.navigate(Routes.ELECTIONS)
             } else {
                 show(Routes.ELECTION_DETAIL) { container -> renderElectionsScreen(container, id) }
+            }
+        }
+    }
+    routing.kvOn(Routes.CONSENSUS) {
+        requireAuth(routing) { show(Routes.CONSENSUS) { container -> renderConsensusScreen(container) } }
+    }
+    routing.kvOn(Routes.CONSENSUS_DETAIL) { params ->
+        val id = params.asDynamic().data.id as? String
+        requireAuth(routing) {
+            if (id.isNullOrBlank()) {
+                routing.navigate(Routes.CONSENSUS)
+            } else {
+                show(Routes.CONSENSUS_DETAIL) { container -> renderConsensusScreen(container, id) }
             }
         }
     }

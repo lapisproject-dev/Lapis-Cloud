@@ -18283,3 +18283,405 @@ msgstr "Mociones preparadas"
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "La puja supera su saldo disponible."
 
+
+msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
+msgstr "Haga propuestas: todas las opciones que figuran aquí serán valoradas después por todos."
+
+msgid "Es gibt sehr viele Optionen. Bitte prüfen Sie, ob sich ähnliche Vorschläge zusammenfassen lassen."
+msgstr "Hay muchísimas opciones. Compruebe si se pueden agrupar propuestas parecidas."
+
+msgid "Vorgeschlagen von %1"
+msgstr "Propuesto por %1"
+
+msgid "Immer dabei"
+msgstr "Siempre incluida"
+
+msgid "Option entfernen"
+msgstr "Quitar opción"
+
+msgid "Die Option \"%1\" wird entfernt."
+msgstr "Se quitará la opción «%1»."
+
+msgid "Die Option konnte nicht entfernt werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo quitar la opción. Actualice la vista."
+
+msgid "Option entfernt."
+msgstr "Opción quitada."
+
+msgid "Option hinzufügen"
+msgstr "Añadir opción"
+
+msgid "Neue Option"
+msgstr "Nueva opción"
+
+msgid "Was soll bewertet werden? Höchstens 200 Zeichen."
+msgstr "¿Qué debe valorarse? Máximo 200 caracteres."
+
+msgid "Bitte geben Sie 1 bis %1 Zeichen ein."
+msgstr "Introduzca de 1 a %1 caracteres."
+
+msgid "Die Option konnte nicht hinzugefügt werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo añadir la opción. Actualice la vista."
+
+msgid "Option hinzugefügt."
+msgstr "Opción añadida."
+
+msgid "Optionen werden gesammelt"
+msgstr "Recopilando opciones"
+
+msgid "Bewertung läuft"
+msgstr "Valoración en curso"
+
+msgid "Bewertung beendet"
+msgstr "Valoración finalizada"
+
+msgid "Ausgewertet"
+msgstr "Evaluado"
+
+msgid "Sondierung"
+msgstr "Sondeo"
+
+msgid "Eine Runde (Beschluss)"
+msgstr "Una ronda (resolución)"
+
+msgid "Runde %1 von %2"
+msgstr "Ronda %1 de %2"
+
+msgid "Alles bleibt wie bisher (Passivlösung)"
+msgstr "Todo sigue igual (solución pasiva)"
+
+msgid "Tragfähiger Konsens"
+msgstr "Consenso viable"
+
+msgid "Mit Bedenken"
+msgstr "Con reservas"
+
+msgid "Warnsignal"
+msgstr "Señal de alerta"
+
+msgid "Ø %1 von %2"
+msgstr "Prom. %1 de %2"
+
+msgid "Konsensieren"
+msgstr "Consenso"
+
+msgid "Zur Übersicht"
+msgstr "A la vista general"
+
+msgid "Noch kein Konsensieren vorhanden. Ein Konsensieren wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Aún no hay ningún consenso. Un consenso se abre desde una solicitud programada."
+
+msgid "Offen für Sie"
+msgstr "Pendiente para usted"
+
+msgid "Runde"
+msgstr "Ronda"
+
+msgid "Ihr Stand"
+msgstr "Su estado"
+
+msgid "Konsensieren öffnen"
+msgstr "Abrir consenso"
+
+msgid "Es gibt noch keine Option."
+msgstr "Todavía no hay ninguna opción."
+
+msgid "Zu diesem Antrag läuft ein Konsensieren."
+msgstr "Hay un consenso en curso para esta solicitud."
+
+msgid "Zum Konsensieren"
+msgstr "Al consenso"
+
+msgid "Ergebnis der Sondierung ansehen"
+msgstr "Ver el resultado del sondeo"
+
+msgid "Konsensieren eröffnen"
+msgstr "Abrir consenso"
+
+msgid "Beim Konsensieren bewertet jedes stimmberechtigte Mitglied jede Option mit einem Widerstand. Die Option mit dem geringsten Widerstand liegt vorn."
+msgstr "En un consenso, cada miembro con derecho a voto valora cada opción con un nivel de resistencia. La opción con menor resistencia queda primera."
+
+msgid "Art der Bewertung"
+msgstr "Tipo de valoración"
+
+msgid "Verbindlichkeit"
+msgstr "Carácter vinculante"
+
+msgid "Sondierung: Das Ergebnis ist eine Orientierung und entscheidet den Antrag nicht."
+msgstr "Sondeo: el resultado es una orientación y no decide la solicitud."
+
+msgid "Beschluss: Das Ergebnis wird als Beschluss protokolliert und entscheidet den Antrag."
+msgstr "Resolución: el resultado se registra como resolución y decide la solicitud."
+
+msgid "Gewinnt die Passivlösung, gilt der Antrag als abgelehnt."
+msgstr "Si gana la solución pasiva, la solicitud se considera rechazada."
+
+msgid "Bei einem Beschluss gibt es keine Wiederabstimmung. Für eine Diskussionsrunde zuerst als Sondierung konsensieren."
+msgstr "En una resolución no hay nueva votación. Para una ronda de debate, haga primero el consenso como sondeo."
+
+msgid "Anonym: Es wird gespeichert, dass jemand bewertet hat, aber nicht, wie."
+msgstr "Anónima: se guarda que alguien ha valorado, pero no cómo."
+
+msgid "Offen: Bewertungen werden mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "Abierta: las valoraciones se guardan con nombre y son visibles para todos los miembros."
+
+msgid "Bitte bestätigen Sie, dass Sie das verstanden haben."
+msgstr "Confirme que lo ha entendido."
+
+msgid "Konsensieren eröffnet."
+msgstr "Consenso abierto."
+
+msgid "Das Ergebnis konnte nicht geladen werden."
+msgstr "No se pudo cargar el resultado."
+
+msgid "Namentliche Bewertungen"
+msgstr "Valoraciones por nombre"
+
+msgid "Es wurden keine Bewertungen abgegeben."
+msgstr "No se emitieron valoraciones."
+
+msgid "Es wurde keine Bewertung abgegeben."
+msgstr "No se emitió ninguna valoración."
+
+msgid "Gleichstand ohne Entscheidung. Bitte erneut diskutieren."
+msgstr "Empate sin decisión. Vuelvan a debatir."
+
+msgid "Geringster Widerstand: %1"
+msgstr "Menor resistencia: %1"
+
+msgid "Als Beschluss protokolliert."
+msgstr "Registrado como resolución."
+
+msgid "Ohne Entscheidung: Der Antrag wurde zurückgestellt."
+msgstr "Sin decisión: la solicitud se ha aplazado."
+
+msgid "Die Passivlösung hat gewonnen: Der Antrag gilt als abgelehnt."
+msgstr "Ha ganado la solución pasiva: la solicitud se considera rechazada."
+
+msgid "Geringster Widerstand"
+msgstr "Menor resistencia"
+
+msgid "Gruppenkonflikt: %1 (%2)"
+msgstr "Conflicto de grupo: %1 (%2)"
+
+msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
+msgstr "Valor individual más alto: %1. Es una objeción fuerte."
+
+msgid "Verteilung anzeigen"
+msgstr "Mostrar distribución"
+
+msgid "1 Bewertung"
+msgstr "1 valoración"
+
+msgid "%1 Bewertungen"
+msgstr "%1 valoraciones"
+
+msgid "Verteilung ausblenden"
+msgstr "Ocultar distribución"
+
+msgid "Bei einem offenen Konsensieren sind die Bewertungen mit Namen sichtbar."
+msgstr "En un consenso abierto las valoraciones son visibles con nombre."
+
+msgid "Bewertung"
+msgstr "Valoración"
+
+msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
+msgstr "Valore cada opción: ¿qué tan fuerte es su resistencia?"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
+msgstr "0 = ninguna resistencia, puedo vivir con ello · 10 = inaceptable para mí."
+
+msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
+msgstr "Su valoración es anónima: se guarda que ha valorado, pero no cómo."
+
+msgid "Dieses Konsensieren ist offen: Ihre Bewertung wird mit Ihrem Namen gespeichert."
+msgstr "Este consenso es abierto: su valoración se guarda con su nombre."
+
+msgid "kein"
+msgstr "ninguna"
+
+msgid "deutliche Bedenken"
+msgstr "reservas claras"
+
+msgid "nicht tragbar"
+msgstr "inaceptable"
+
+msgid "%1 von 1 Option bewertet"
+msgstr "%1 de 1 opción valorada"
+
+msgid "%1 von %2 Optionen bewertet"
+msgstr "%1 de %2 opciones valoradas"
+
+msgid "Bewertung prüfen"
+msgstr "Revisar valoración"
+
+msgid "%1: Widerstand %2 von %3"
+msgstr "%1: resistencia %2 de %3"
+
+msgid "Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden."
+msgstr "Una vez enviada, su valoración ya no se puede cambiar."
+
+msgid "Endgültig abgeben"
+msgstr "Enviar definitivamente"
+
+msgid "Sie sind für diese Runde nicht stimmberechtigt."
+msgstr "No tiene derecho a voto en esta ronda."
+
+msgid "Bereits bewertet"
+msgstr "Ya valorado"
+
+msgid "Ihre Bewertung wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Su valoración se ha contado. La confirmación no le ha llegado porque se cortó la conexión."
+
+msgid "Ihre Bewertung ist bereits eingegangen."
+msgstr "Su valoración ya se ha recibido."
+
+msgid "Die Bewertung ist geschlossen."
+msgstr "La valoración está cerrada."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Bewertung gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "Se interrumpió la conexión. No se pudo comprobar si su valoración se contó. Recargue la página."
+
+msgid "Der Stand hat sich geändert. Bitte erneut prüfen."
+msgstr "El estado ha cambiado. Vuelva a comprobarlo."
+
+msgid "Bitte kurz warten und erneut versuchen."
+msgstr "Espere un momento e inténtelo de nuevo."
+
+msgid "Zurück zum Konsensieren"
+msgstr "Volver al consenso"
+
+msgid "Ihre Bewertung wurde gezählt"
+msgstr "Su valoración se ha contado"
+
+msgid "Danke, Ihre Bewertung ist eingegangen."
+msgstr "Gracias, su valoración se ha recibido."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung gezählt wurde."
+msgstr "Este es su comprobante. Solo se muestra ahora y no se guarda en ningún sitio. Anótelo o imprímalo si más tarde quiere comprobar que su valoración se contó."
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Bewertung gezählt wurde, ohne dass jemand erfährt, wie Sie bewertet haben."
+msgstr "Con su comprobante puede verificar que su valoración se contó, sin que nadie sepa cómo valoró."
+
+msgid "Zu diesem Code wurde keine Bewertung gefunden."
+msgstr "No se encontró ninguna valoración para este código."
+
+msgid "Diese Bewertung stammt aus Runde %1 und zählt im aktuellen Ergebnis nicht mehr."
+msgstr "Esta valoración es de la ronda %1 y ya no cuenta en el resultado actual."
+
+msgid "Ihre Bewertung ist gespeichert. Die Werte werden erst nach der Auswertung angezeigt."
+msgstr "Su valoración está guardada. Los valores solo se muestran tras la evaluación."
+
+msgid "Ihre Bewertung ist gespeichert und lautet:"
+msgstr "Su valoración está guardada y dice:"
+
+msgid "Sammeln"
+msgstr "Recopilar"
+
+msgid "Bewerten"
+msgstr "Valorar"
+
+msgid "Auswerten"
+msgstr "Evaluar"
+
+msgid "Ablauf des Konsensierens"
+msgstr "Progreso del consenso"
+
+msgid "Das Konsensieren konnte nicht geladen werden."
+msgstr "No se pudo cargar el consenso."
+
+msgid "Jede Option wird bewertet: 0 heißt kein Widerstand, 10 heißt nicht tragbar. Die Option mit dem geringsten Widerstand liegt vorn."
+msgstr "Se valora cada opción: 0 significa ninguna resistencia, 10 significa inaceptable. La opción con menor resistencia queda primera."
+
+msgid "Anonyme Bewertung: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
+msgstr "Valoración anónima: se guarda que ha valorado, pero no cómo."
+
+msgid "Offene Bewertung: Ihre Bewertung wird mit Ihrem Namen gespeichert und ist für alle Mitglieder sichtbar."
+msgstr "Valoración abierta: su valoración se guarda con su nombre y es visible para todos los miembros."
+
+msgid "%1 von %2 haben bewertet"
+msgstr "%1 de %2 han valorado"
+
+msgid "Nur Mitglieder dieses Servers können bewerten."
+msgstr "Solo los miembros de este servidor pueden valorar."
+
+msgid "1 Option wird zur Bewertung freigegeben. Danach kann keine Option mehr ergänzt werden."
+msgstr "1 opción se liberará para valoración. Después no se podrá añadir ninguna opción."
+
+msgid "%1 Optionen werden zur Bewertung freigegeben. Danach kann keine Option mehr ergänzt werden."
+msgstr "%1 opciones se liberarán para valoración. Después no se podrá añadir ninguna opción."
+
+msgid "Das Ergebnis wird als Beschluss protokolliert und kann danach nicht mehr geändert werden."
+msgstr "El resultado se registrará como resolución y después ya no se podrá modificar."
+
+msgid "Zur Bewertung"
+msgstr "A la valoración"
+
+msgid "Optionen einfrieren"
+msgstr "Congelar opciones"
+
+msgid "Einfrieren"
+msgstr "Congelar"
+
+msgid "Die Optionen konnten nicht eingefroren werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudieron congelar las opciones. Actualice la vista."
+
+msgid "Optionen eingefroren. Die Bewertung läuft."
+msgstr "Opciones congeladas. La valoración está en curso."
+
+msgid "Bewertung schließen"
+msgstr "Cerrar valoración"
+
+msgid "Nach dem Schließen kann niemand mehr bewerten. Danach folgt die Auswertung."
+msgstr "Tras el cierre nadie podrá valorar. A continuación sigue la evaluación."
+
+msgid "Die Bewertung konnte nicht geschlossen werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo cerrar la valoración. Actualice la vista."
+
+msgid "Bewertung geschlossen."
+msgstr "Valoración cerrada con éxito."
+
+msgid "Die Auswertung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "La evaluación no fue posible. Actualice la vista."
+
+msgid "Ausgewertet."
+msgstr "Evaluación completada."
+
+msgid "Das Ergebnis wird als Beschluss protokolliert und entscheidet den Antrag. Das kann nicht rückgängig gemacht werden."
+msgstr "El resultado se registrará como resolución y decide la solicitud. Esto no se puede deshacer."
+
+msgid "Diskutieren und erneut bewerten (Runde %1 von %2)"
+msgstr "Debatir y valorar de nuevo (ronda %1 de %2)"
+
+msgid "Neue Runde starten"
+msgstr "Iniciar nueva ronda"
+
+msgid "Eine neue Bewertungsrunde beginnt. Das Ergebnis der bisherigen Runde ist danach nicht mehr abrufbar."
+msgstr "Comienza una nueva ronda de valoración. El resultado de la ronda anterior ya no se podrá consultar después."
+
+msgid "Die neue Runde konnte nicht gestartet werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo iniciar la nueva ronda. Actualice la vista."
+
+msgid "Neue Bewertungsrunde gestartet."
+msgstr "Nueva ronda de valoración iniciada."
+
+msgid "Konsensieren abbrechen"
+msgstr "Cancelar consenso"
+
+msgid "Das Konsensieren konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "No se pudo cancelar el consenso. Actualice la vista."
+
+msgid "Konsensieren abgebrochen."
+msgstr "El consenso fue cancelado."
+
+msgid "Ein laufendes Konsensieren wird endgültig abgebrochen. Alle bereits abgegebenen Bewertungen verfallen."
+msgstr "Un consenso en curso se cancelará definitivamente. Todas las valoraciones ya enviadas se pierden."
+
+msgid "Das Konsensieren wird abgebrochen. Für diesen Antrag kann danach ein neues eröffnet werden."
+msgstr "Se cancelará el consenso. Después se podrá abrir uno nuevo para esta solicitud."
+
+msgid "Gleichstand beim kumulierten Widerstand, entschieden durch den geringsten Höchstwert."
+msgstr "Empate en la resistencia acumulada, decidido por el valor máximo más bajo."
+
+msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
+msgstr "Empate en la resistencia acumulada, decidido por la menor dispersión."

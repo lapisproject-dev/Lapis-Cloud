@@ -49,6 +49,17 @@ class NavVisibilityTest {
     }
 
     @Test
+    fun consensus_followSelfGovernance_forEveryStatus() {
+        // V1.9.28: "Konsensieren" is decided exactly like "Wahlen" and the rest of "Selbstverwaltung".
+        MemberStatus.entries.forEach { status ->
+            assertEquals(NavVisibility.showsSelfGovernance(status), NavVisibility.showsConsensus(status), "showsConsensus for $status")
+        }
+        assertTrue(NavVisibility.showsConsensus(MemberStatus.ACTIVE))
+        assertFalse(NavVisibility.showsConsensus(MemberStatus.FRIEND))
+        assertFalse(NavVisibility.showsConsensus(MemberStatus.GUEST))
+    }
+
+    @Test
     fun active_seesEverything() {
         assertTrue(NavVisibility.showsMembershipSection(MemberStatus.ACTIVE))
         assertTrue(NavVisibility.showsSelfGovernance(MemberStatus.ACTIVE))

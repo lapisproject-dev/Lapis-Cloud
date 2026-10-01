@@ -28,6 +28,13 @@ object NavVisibility {
      */
     fun showsElections(status: MemberStatus): Boolean = showsSelfGovernance(status)
 
+    /**
+     * "Konsensieren" (V1.9.28, systemic consensus) -- same audience as [showsElections]: every consensus hangs off a motion of a
+     * committee and `ISystemicConsensusService` rates for members only. A guest who arrives through a direct link still gets the page
+     * rendered read-only with a note; only the navigation entry is member-only.
+     */
+    fun showsConsensus(status: MemberStatus): Boolean = showsSelfGovernance(status)
+
     /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Kommunikation/Meine Daten). */
     fun showsMembershipSection(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 

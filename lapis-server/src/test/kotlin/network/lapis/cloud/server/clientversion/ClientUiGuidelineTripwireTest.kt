@@ -627,6 +627,15 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // stream mirror (no widget at all). Every write goes through `runOperatorAction` -> `runGuardedAction`.
         "ConferenceVoteOperatorControls.kt",
         "ConferenceVoteStreamMirror.kt",
+        // V1.9.28 "Konsensieren": born on the form grammar (`lapisForm` for the open form, the option form and the receipt check; the booth
+        // has radio buttons and no text field). The status filter of the list is justified below (FILTER_IS_NOT_A_FORM).
+        "ConsensusScreen.kt",
+        "ConsensusDetail.kt",
+        "ConsensusOptions.kt",
+        "ConsensusBooth.kt",
+        "ConsensusReceipt.kt",
+        "ConsensusResultView.kt",
+        "ConsensusOpenForm.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -761,6 +770,8 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         "BoardMembershipScreen.kt" to listOf("val includeResolvedCheck = reminderFilterRow.checkBox(label = tr(\"Erledigte anzeigen\"))"),
         // V1.9.22: the status filter of the elections list (a multi-line `select(` call, fingerprinted by its label literal).
         "ElectionsScreen.kt" to listOf("filterRow.select( [label \"Status\"]"),
+        // V1.9.28: the status filter of the consensus list.
+        "ConsensusScreen.kt" to listOf("filterRow.select( [label \"Status\"]"),
         "CommitteesScreen.kt" to
             listOf(
                 "val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Gremien anzeigen\"))",

@@ -18322,3 +18322,405 @@ msgstr "Motions préparées"
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "L'offre dépasse votre solde disponible."
 
+
+msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
+msgstr "Faites des propositions : chaque option listée ici sera ensuite évaluée par tous."
+
+msgid "Es gibt sehr viele Optionen. Bitte prüfen Sie, ob sich ähnliche Vorschläge zusammenfassen lassen."
+msgstr "Il y a beaucoup d'options. Vérifiez si des propositions semblables peuvent être regroupées."
+
+msgid "Vorgeschlagen von %1"
+msgstr "Proposé par %1"
+
+msgid "Immer dabei"
+msgstr "Toujours présente"
+
+msgid "Option entfernen"
+msgstr "Retirer l'option"
+
+msgid "Die Option \"%1\" wird entfernt."
+msgstr "L'option « %1 » sera retirée."
+
+msgid "Die Option konnte nicht entfernt werden. Bitte Ansicht aktualisieren."
+msgstr "L'option n'a pas pu être retirée. Veuillez actualiser l'affichage."
+
+msgid "Option entfernt."
+msgstr "Option retirée."
+
+msgid "Option hinzufügen"
+msgstr "Ajouter une option"
+
+msgid "Neue Option"
+msgstr "Nouvelle option"
+
+msgid "Was soll bewertet werden? Höchstens 200 Zeichen."
+msgstr "Que faut-il évaluer ? 200 caractères au maximum."
+
+msgid "Bitte geben Sie 1 bis %1 Zeichen ein."
+msgstr "Veuillez saisir de 1 à %1 caractères."
+
+msgid "Die Option konnte nicht hinzugefügt werden. Bitte Ansicht aktualisieren."
+msgstr "L'option n'a pas pu être ajoutée. Veuillez actualiser l'affichage."
+
+msgid "Option hinzugefügt."
+msgstr "Option ajoutée."
+
+msgid "Optionen werden gesammelt"
+msgstr "Collecte des options"
+
+msgid "Bewertung läuft"
+msgstr "Évaluation en cours"
+
+msgid "Bewertung beendet"
+msgstr "Évaluation terminée"
+
+msgid "Ausgewertet"
+msgstr "Évalué"
+
+msgid "Sondierung"
+msgstr "Sondage"
+
+msgid "Eine Runde (Beschluss)"
+msgstr "Un tour (décision)"
+
+msgid "Runde %1 von %2"
+msgstr "Tour %1 sur %2"
+
+msgid "Alles bleibt wie bisher (Passivlösung)"
+msgstr "Tout reste comme avant (solution passive)"
+
+msgid "Tragfähiger Konsens"
+msgstr "Consensus viable"
+
+msgid "Mit Bedenken"
+msgstr "Avec réserves"
+
+msgid "Warnsignal"
+msgstr "Signal d'alerte"
+
+msgid "Ø %1 von %2"
+msgstr "Moy. %1 sur %2"
+
+msgid "Konsensieren"
+msgstr "Consensus"
+
+msgid "Zur Übersicht"
+msgstr "Vers l'aperçu"
+
+msgid "Noch kein Konsensieren vorhanden. Ein Konsensieren wird aus einem terminierten Antrag heraus eröffnet."
+msgstr "Aucun consensus pour l'instant. Un consensus s'ouvre à partir d'une demande planifiée."
+
+msgid "Offen für Sie"
+msgstr "À faire pour vous"
+
+msgid "Runde"
+msgstr "Tour"
+
+msgid "Ihr Stand"
+msgstr "Votre état"
+
+msgid "Konsensieren öffnen"
+msgstr "Ouvrir le consensus"
+
+msgid "Es gibt noch keine Option."
+msgstr "Il n'y a pas encore d'option."
+
+msgid "Zu diesem Antrag läuft ein Konsensieren."
+msgstr "Un consensus est en cours pour cette demande."
+
+msgid "Zum Konsensieren"
+msgstr "Vers le consensus"
+
+msgid "Ergebnis der Sondierung ansehen"
+msgstr "Voir le résultat du sondage"
+
+msgid "Konsensieren eröffnen"
+msgstr "Ouvrir un consensus"
+
+msgid "Beim Konsensieren bewertet jedes stimmberechtigte Mitglied jede Option mit einem Widerstand. Die Option mit dem geringsten Widerstand liegt vorn."
+msgstr "Lors d'un consensus, chaque membre habilité évalue chaque option par une résistance. L'option avec la plus faible résistance arrive en tête."
+
+msgid "Art der Bewertung"
+msgstr "Type d'évaluation"
+
+msgid "Verbindlichkeit"
+msgstr "Caractère contraignant"
+
+msgid "Sondierung: Das Ergebnis ist eine Orientierung und entscheidet den Antrag nicht."
+msgstr "Sondage : le résultat est une orientation et ne tranche pas la demande."
+
+msgid "Beschluss: Das Ergebnis wird als Beschluss protokolliert und entscheidet den Antrag."
+msgstr "Décision : le résultat est consigné comme décision et tranche la demande."
+
+msgid "Gewinnt die Passivlösung, gilt der Antrag als abgelehnt."
+msgstr "Si la solution passive l'emporte, la demande est considérée comme rejetée."
+
+msgid "Bei einem Beschluss gibt es keine Wiederabstimmung. Für eine Diskussionsrunde zuerst als Sondierung konsensieren."
+msgstr "Une décision ne donne pas lieu à un nouveau vote. Pour un tour de discussion, procédez d'abord à un consensus sous forme de sondage."
+
+msgid "Anonym: Es wird gespeichert, dass jemand bewertet hat, aber nicht, wie."
+msgstr "Anonyme : on enregistre que quelqu'un a évalué, mais pas comment."
+
+msgid "Offen: Bewertungen werden mit Namen gespeichert und sind für alle Mitglieder sichtbar."
+msgstr "Ouverte : les évaluations sont enregistrées avec les noms et visibles par tous les membres."
+
+msgid "Bitte bestätigen Sie, dass Sie das verstanden haben."
+msgstr "Veuillez confirmer que vous avez compris."
+
+msgid "Konsensieren eröffnet."
+msgstr "Consensus ouvert."
+
+msgid "Das Ergebnis konnte nicht geladen werden."
+msgstr "Le résultat n'a pas pu être chargé."
+
+msgid "Namentliche Bewertungen"
+msgstr "Évaluations nominatives"
+
+msgid "Es wurden keine Bewertungen abgegeben."
+msgstr "Aucune évaluation n'a été enregistrée."
+
+msgid "Es wurde keine Bewertung abgegeben."
+msgstr "Aucune évaluation n'a été soumise."
+
+msgid "Gleichstand ohne Entscheidung. Bitte erneut diskutieren."
+msgstr "Égalité sans décision. Veuillez rediscuter."
+
+msgid "Geringster Widerstand: %1"
+msgstr "Résistance la plus faible : %1"
+
+msgid "Als Beschluss protokolliert."
+msgstr "Consigné comme décision."
+
+msgid "Ohne Entscheidung: Der Antrag wurde zurückgestellt."
+msgstr "Sans décision : la demande a été reportée."
+
+msgid "Die Passivlösung hat gewonnen: Der Antrag gilt als abgelehnt."
+msgstr "La solution passive l'a emporté : la demande est considérée comme rejetée."
+
+msgid "Geringster Widerstand"
+msgstr "Résistance la plus faible"
+
+msgid "Gruppenkonflikt: %1 (%2)"
+msgstr "Conflit de groupe : %1 (%2)"
+
+msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
+msgstr "Valeur individuelle la plus haute : %1. C'est une objection forte."
+
+msgid "Verteilung anzeigen"
+msgstr "Afficher la répartition"
+
+msgid "1 Bewertung"
+msgstr "1 évaluation"
+
+msgid "%1 Bewertungen"
+msgstr "%1 évaluations"
+
+msgid "Verteilung ausblenden"
+msgstr "Masquer la répartition"
+
+msgid "Bei einem offenen Konsensieren sind die Bewertungen mit Namen sichtbar."
+msgstr "Dans un consensus ouvert, les évaluations sont visibles avec les noms."
+
+msgid "Bewertung"
+msgstr "Évaluation"
+
+msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
+msgstr "Évaluez chaque option : quelle est la force de votre résistance ?"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
+msgstr "0 = aucune résistance, je peux très bien vivre avec · 10 = inacceptable pour moi."
+
+msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
+msgstr "Votre évaluation est anonyme : on enregistre que vous avez évalué, mais pas comment."
+
+msgid "Dieses Konsensieren ist offen: Ihre Bewertung wird mit Ihrem Namen gespeichert."
+msgstr "Ce consensus est ouvert : votre évaluation est enregistrée avec votre nom."
+
+msgid "kein"
+msgstr "aucune"
+
+msgid "deutliche Bedenken"
+msgstr "réserves nettes"
+
+msgid "nicht tragbar"
+msgstr "inacceptable"
+
+msgid "%1 von 1 Option bewertet"
+msgstr "%1 option sur 1 évaluée"
+
+msgid "%1 von %2 Optionen bewertet"
+msgstr "%1 options sur %2 évaluées"
+
+msgid "Bewertung prüfen"
+msgstr "Vérifier l'évaluation"
+
+msgid "%1: Widerstand %2 von %3"
+msgstr "%1 : résistance %2 sur %3"
+
+msgid "Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden."
+msgstr "Après l'envoi, votre évaluation ne peut plus être modifiée."
+
+msgid "Endgültig abgeben"
+msgstr "Envoyer définitivement"
+
+msgid "Sie sind für diese Runde nicht stimmberechtigt."
+msgstr "Vous n'avez pas le droit de vote pour ce tour."
+
+msgid "Bereits bewertet"
+msgstr "Déjà évalué"
+
+msgid "Ihre Bewertung wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen."
+msgstr "Votre évaluation a été comptée. La confirmation ne vous est pas parvenue à cause d'une coupure de connexion."
+
+msgid "Ihre Bewertung ist bereits eingegangen."
+msgstr "Votre évaluation a déjà été reçue."
+
+msgid "Die Bewertung ist geschlossen."
+msgstr "L'évaluation est clôturée."
+
+msgid "Die Verbindung wurde unterbrochen. Ob Ihre Bewertung gezählt wurde, konnte nicht geprüft werden. Bitte laden Sie die Seite neu."
+msgstr "La connexion a été interrompue. Impossible de vérifier si votre évaluation a été comptée. Veuillez recharger la page."
+
+msgid "Der Stand hat sich geändert. Bitte erneut prüfen."
+msgstr "L'état a changé. Veuillez vérifier à nouveau."
+
+msgid "Bitte kurz warten und erneut versuchen."
+msgstr "Veuillez patienter un instant et réessayer."
+
+msgid "Zurück zum Konsensieren"
+msgstr "Retour au consensus"
+
+msgid "Ihre Bewertung wurde gezählt"
+msgstr "Votre évaluation a été comptée"
+
+msgid "Danke, Ihre Bewertung ist eingegangen."
+msgstr "Merci, votre évaluation a bien été reçue."
+
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung gezählt wurde."
+msgstr "Voici votre reçu. Il n'est affiché qu'à présent et n'est enregistré nulle part. Notez-le ou imprimez-le si vous souhaitez vérifier plus tard que votre évaluation a été comptée."
+
+msgid "Mit Ihrer Quittung können Sie prüfen, dass Ihre Bewertung gezählt wurde, ohne dass jemand erfährt, wie Sie bewertet haben."
+msgstr "Avec votre reçu, vous pouvez vérifier que votre évaluation a été comptée, sans que personne sache comment vous avez évalué."
+
+msgid "Zu diesem Code wurde keine Bewertung gefunden."
+msgstr "Aucune évaluation trouvée pour ce code."
+
+msgid "Diese Bewertung stammt aus Runde %1 und zählt im aktuellen Ergebnis nicht mehr."
+msgstr "Cette évaluation date du tour %1 et ne compte plus dans le résultat actuel."
+
+msgid "Ihre Bewertung ist gespeichert. Die Werte werden erst nach der Auswertung angezeigt."
+msgstr "Votre évaluation est enregistrée. Les valeurs ne sont affichées qu'après l'évaluation."
+
+msgid "Ihre Bewertung ist gespeichert und lautet:"
+msgstr "Votre évaluation est enregistrée et indique :"
+
+msgid "Sammeln"
+msgstr "Collecter"
+
+msgid "Bewerten"
+msgstr "Évaluer"
+
+msgid "Auswerten"
+msgstr "Dépouiller"
+
+msgid "Ablauf des Konsensierens"
+msgstr "Déroulement du consensus"
+
+msgid "Das Konsensieren konnte nicht geladen werden."
+msgstr "Le consensus n'a pas pu être chargé."
+
+msgid "Jede Option wird bewertet: 0 heißt kein Widerstand, 10 heißt nicht tragbar. Die Option mit dem geringsten Widerstand liegt vorn."
+msgstr "Chaque option est évaluée : 0 signifie aucune résistance, 10 signifie inacceptable. L'option avec la plus faible résistance arrive en tête."
+
+msgid "Anonyme Bewertung: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
+msgstr "Évaluation anonyme : on enregistre que vous avez évalué, mais pas comment."
+
+msgid "Offene Bewertung: Ihre Bewertung wird mit Ihrem Namen gespeichert und ist für alle Mitglieder sichtbar."
+msgstr "Évaluation ouverte : votre évaluation est enregistrée avec votre nom et visible par tous les membres."
+
+msgid "%1 von %2 haben bewertet"
+msgstr "%1 sur %2 ont évalué"
+
+msgid "Nur Mitglieder dieses Servers können bewerten."
+msgstr "Seuls les membres de ce serveur peuvent évaluer."
+
+msgid "1 Option wird zur Bewertung freigegeben. Danach kann keine Option mehr ergänzt werden."
+msgstr "1 option sera libérée pour l'évaluation. Ensuite, plus aucune option ne pourra être ajoutée."
+
+msgid "%1 Optionen werden zur Bewertung freigegeben. Danach kann keine Option mehr ergänzt werden."
+msgstr "%1 options seront libérées pour l'évaluation. Ensuite, plus aucune option ne pourra être ajoutée."
+
+msgid "Das Ergebnis wird als Beschluss protokolliert und kann danach nicht mehr geändert werden."
+msgstr "Le résultat sera consigné comme décision et ne pourra plus être modifié ensuite."
+
+msgid "Zur Bewertung"
+msgstr "Vers l'évaluation"
+
+msgid "Optionen einfrieren"
+msgstr "Figer les options"
+
+msgid "Einfrieren"
+msgstr "Figer"
+
+msgid "Die Optionen konnten nicht eingefroren werden. Bitte Ansicht aktualisieren."
+msgstr "Les options n'ont pas pu être figées. Veuillez actualiser l'affichage."
+
+msgid "Optionen eingefroren. Die Bewertung läuft."
+msgstr "Options figées. L'évaluation est en cours."
+
+msgid "Bewertung schließen"
+msgstr "Clôturer l'évaluation"
+
+msgid "Nach dem Schließen kann niemand mehr bewerten. Danach folgt die Auswertung."
+msgstr "Après la clôture, plus personne ne peut évaluer. Le dépouillement suit."
+
+msgid "Die Bewertung konnte nicht geschlossen werden. Bitte Ansicht aktualisieren."
+msgstr "L'évaluation n'a pas pu être clôturée. Veuillez actualiser l'affichage."
+
+msgid "Bewertung geschlossen."
+msgstr "Évaluation clôturée avec succès."
+
+msgid "Die Auswertung war nicht möglich. Bitte Ansicht aktualisieren."
+msgstr "Le dépouillement n'a pas été possible. Veuillez actualiser l'affichage."
+
+msgid "Ausgewertet."
+msgstr "Dépouillement terminé."
+
+msgid "Das Ergebnis wird als Beschluss protokolliert und entscheidet den Antrag. Das kann nicht rückgängig gemacht werden."
+msgstr "Le résultat sera consigné comme décision et tranche la demande. Cette action est irréversible."
+
+msgid "Diskutieren und erneut bewerten (Runde %1 von %2)"
+msgstr "Discuter et réévaluer (tour %1 sur %2)"
+
+msgid "Neue Runde starten"
+msgstr "Démarrer un nouveau tour"
+
+msgid "Eine neue Bewertungsrunde beginnt. Das Ergebnis der bisherigen Runde ist danach nicht mehr abrufbar."
+msgstr "Un nouveau tour d'évaluation commence. Le résultat du tour précédent ne sera plus consultable ensuite."
+
+msgid "Die neue Runde konnte nicht gestartet werden. Bitte Ansicht aktualisieren."
+msgstr "Le nouveau tour n'a pas pu être démarré. Veuillez actualiser l'affichage."
+
+msgid "Neue Bewertungsrunde gestartet."
+msgstr "Nouveau tour d'évaluation démarré."
+
+msgid "Konsensieren abbrechen"
+msgstr "Annuler le consensus"
+
+msgid "Das Konsensieren konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."
+msgstr "Le consensus n'a pas pu être annulé. Veuillez actualiser l'affichage."
+
+msgid "Konsensieren abgebrochen."
+msgstr "Le consensus a été annulé."
+
+msgid "Ein laufendes Konsensieren wird endgültig abgebrochen. Alle bereits abgegebenen Bewertungen verfallen."
+msgstr "Un consensus en cours sera définitivement annulé. Toutes les évaluations déjà soumises sont perdues."
+
+msgid "Das Konsensieren wird abgebrochen. Für diesen Antrag kann danach ein neues eröffnet werden."
+msgstr "Le consensus sera annulé. Un nouveau pourra ensuite être ouvert pour cette demande."
+
+msgid "Gleichstand beim kumulierten Widerstand, entschieden durch den geringsten Höchstwert."
+msgstr "Égalité de la résistance cumulée, tranchée par la valeur maximale la plus faible."
+
+msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
+msgstr "Égalité de la résistance cumulée, tranchée par la dispersion la plus faible."

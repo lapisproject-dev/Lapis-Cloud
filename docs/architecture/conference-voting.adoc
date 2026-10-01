@@ -419,3 +419,7 @@ sequenceDiagram(name = "A first bid and closing the vote from the room") {
 * The room never loads other members' bids; a changed bid, custom options and aborting a vote are on the motion page (new tab).
 * The text "Kein Gewinner, keine Belastung" on the motion page (`renderVoteSection`, tie) is inexact for the same reason; it is outside this wave.
 * The staging test (`conference-voting-staging-test.adoc`) was written but not run: the credentials belong to the operator.
+
+== Related: systemic consensus (V1.9.28)
+
+The systemic consensus ("Konsensieren") has its own screen and booth, not yet embedded in the room: see `consensus-ui.adoc`.

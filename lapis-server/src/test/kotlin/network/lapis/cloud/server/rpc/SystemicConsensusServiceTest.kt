@@ -901,7 +901,7 @@ class SystemicConsensusServiceTest :
         }
     })
 
-private fun StatusPagesConfig.installSystemicConsensusExceptionHandlers() {
+internal fun StatusPagesConfig.installSystemicConsensusExceptionHandlers() {
     exception<UnauthenticatedException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.Unauthorized)
     }
@@ -1018,7 +1018,7 @@ private fun Route.registerSystemicConsensusTestRoutes() {
  * (`systemic_consensus.resolution_id` -> `resolution.id`, `resolution.systemic_consensus_id` ->
  * `systemic_consensus.id`), so both FKs are nulled out before either table's rows are deleted.
  */
-private fun cleanUpSystemicConsensusTestData(
+internal fun cleanUpSystemicConsensusTestData(
     committeeIds: List<Uuid>,
     memberIds: List<Uuid>,
 ) {

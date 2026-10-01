@@ -208,6 +208,19 @@ class SidebarStructureTest {
     }
 
     @Test
+    fun selfGovernanceGroup_showsConsensusEntry_rightAfterElections_forMembers_notForFriends() {
+        // V1.9.28 "Konsensieren": the entry sits in "Selbstverwaltung", directly after "Wahlen".
+        val urls = orderedSidebarLinkUrls(adminSession)
+        val elections = urls.indexOf("#${Routes.ELECTIONS}")
+        assertTrue(elections >= 0, "the Wahlen entry must exist")
+        assertEquals("#${Routes.CONSENSUS}", urls[elections + 1], "Konsensieren must follow Wahlen directly")
+        assertFalse(
+            sidebarLinkUrls(adminSession.copy(status = MemberStatus.FRIEND)).contains("#${Routes.CONSENSUS}"),
+            "a FRIEND must not see the Konsensieren entry",
+        )
+    }
+
+    @Test
     fun financeGroup_showsOpenItemsEntry_forTreasurerBoardAndAdmin() {
         listOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN).forEach { role ->
             assertTrue(

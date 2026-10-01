@@ -28,6 +28,8 @@ import network.lapis.cloud.shared.domain.MotionResolutionInput
 import network.lapis.cloud.shared.domain.MotionReviewDecision
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.domain.SystemicConsensusDto
+import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.domain.VoteDto
 import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteStatus
@@ -398,6 +400,7 @@ private fun renderMotionDetail(
         val pendingAmendments = amendments.filter { it.status in NON_TERMINAL_MOTION_STATUSES }
 
         val elections = loadMotionElections(motion.id)
+        val consensuses = loadMotionConsensuses(motion.id)
         val votes = guarded { rpcService<IGovernanceService>().listVotes(motionId = motion.id) } ?: emptyList()
         val activeVote =
             votes.find { it.status == VoteStatus.OPEN } ?: votes.find { it.status == VoteStatus.CLOSED }
@@ -430,6 +433,7 @@ private fun renderMotionDetail(
                     onChanged = onChanged,
                     elections = elections,
                     committees = committees,
+                    consensuses = consensuses,
                 )
             MotionStatus.RESOLVED, MotionStatus.REJECTED, MotionStatus.REJECTED_PRELIMINARY, MotionStatus.WITHDRAWN ->
                 renderOutcomeSummary(panel, motion)
@@ -722,6 +726,7 @@ internal fun renderResolutionSection(
     onChanged: () -> Unit,
     elections: List<ElectionDto> = emptyList(),
     committees: List<CommitteeDto> = emptyList(),
+    consensuses: List<SystemicConsensusDto> = emptyList(),
 ) {
     if (!canManage) return
     panel.h2(tr("Entscheidung")) { addCssClass("h5") }
@@ -759,10 +764,14 @@ internal fun renderResolutionSection(
             disabled = true
             title = tr("Zuerst alle Änderungsanträge entscheiden")
         }
+        disabledRow.button(tr("Konsensieren eröffnen"), style = ButtonStyle.OUTLINEPRIMARY).apply {
+            disabled = true
+            title = tr("Zuerst alle Änderungsanträge entscheiden")
+        }
         return
     }
 
-    if (activeVote != null && activeVote.status == VoteStatus.OPEN) {
+    if (activeVote != null && (activeVote.status == VoteStatus.OPEN || activeVote.status == VoteStatus.CLOSED)) {
         panel.p(tr("Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."))
         return
     }
@@ -776,9 +785,14 @@ internal fun renderResolutionSection(
         return
     }
 
+    if (renderConsensusDecisionGate(panel, consensuses)) return
+
     renderCommitteeQuorumResolutionForm(panel, motion, onChanged)
     renderOpenVoteForm(panel, motion, onChanged)
     renderOpenElectionForm(panel, motion, committees, onConflict = onChanged) { opened -> navigateTo("/elections/${opened.id}") }
+    if (consensuses.none { it.status != SystemicConsensusStatus.ABORTED }) {
+        renderOpenConsensusForm(panel, motion, onConflict = onChanged) { opened -> navigateTo("/consensus/${opened.id}") }
+    }
 }
 
 internal fun renderCommitteeQuorumResolutionForm(
