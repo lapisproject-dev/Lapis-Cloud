@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -37,25 +38,56 @@ import kotlin.uuid.Uuid
 internal fun eligibleMemberIds(
     committeeRow: ResultRow,
     scheduledDate: LocalDate,
-): Set<Uuid> {
-    val committeeId = committeeRow[CommitteeTable.id]
-    return if (committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY) {
+): Set<Uuid> =
+    if (committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY) {
         MemberTable
             .selectAll()
-            .where { MemberTable.status eq MemberStatus.ACTIVE }
+            .where { generalAssemblyCondition() }
             .map { it[MemberTable.id] }
             .toSet()
     } else {
         CommitteeMembershipTable
             .selectAll()
-            .where {
-                (CommitteeMembershipTable.committeeId eq committeeId) and
-                    (CommitteeMembershipTable.since lessEq scheduledDate) and
-                    (
-                        CommitteeMembershipTable.until.isNull() or
-                            (CommitteeMembershipTable.until greaterEq scheduledDate)
-                    )
-            }.map { it[CommitteeMembershipTable.memberId] }
+            .where { committeeMembershipCondition(committeeId = committeeRow[CommitteeTable.id], scheduledDate = scheduledDate) }
+            .map { it[CommitteeMembershipTable.memberId] }
             .toSet()
     }
-}
+
+/**
+ * V1.9.27 -- point-access twin of [eligibleMemberIds]: is exactly [memberId] part of the eligible set?
+ * Uses the SAME conditions (shared builders below) plus `memberId eq`, so the polling path of the
+ * conference room never loads "all ACTIVE members". A parity test pins both against each other.
+ */
+internal fun isCommitteeEligible(
+    committeeRow: ResultRow,
+    scheduledDate: LocalDate,
+    memberId: Uuid,
+): Boolean =
+    if (committeeRow[CommitteeTable.type] == CommitteeType.GENERAL_ASSEMBLY) {
+        MemberTable
+            .selectAll()
+            .where { generalAssemblyCondition() and (MemberTable.id eq memberId) }
+            .limit(1)
+            .count() > 0
+    } else {
+        CommitteeMembershipTable
+            .selectAll()
+            .where {
+                committeeMembershipCondition(committeeId = committeeRow[CommitteeTable.id], scheduledDate = scheduledDate) and
+                    (CommitteeMembershipTable.memberId eq memberId)
+            }.limit(1)
+            .count() > 0
+    }
+
+private fun generalAssemblyCondition(): Op<Boolean> = MemberTable.status eq MemberStatus.ACTIVE
+
+private fun committeeMembershipCondition(
+    committeeId: Uuid,
+    scheduledDate: LocalDate,
+): Op<Boolean> =
+    (CommitteeMembershipTable.committeeId eq committeeId) and
+        (CommitteeMembershipTable.since lessEq scheduledDate) and
+        (
+            CommitteeMembershipTable.until.isNull() or
+                (CommitteeMembershipTable.until greaterEq scheduledDate)
+        )

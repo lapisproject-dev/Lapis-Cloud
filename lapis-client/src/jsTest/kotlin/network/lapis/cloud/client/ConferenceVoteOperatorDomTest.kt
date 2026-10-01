@@ -66,6 +66,7 @@ class ConferenceVoteOperatorDomTest {
                         onStopStreamRequested = if (context.canModerateRoom) ({ harness.stopRequests++ }) else null,
                         onRefreshRoom = { harness.refreshes++ },
                         scheduler = harness.scheduler,
+                        meritRpc = MeritOperatorRpc(listScheduledMotions = { emptyList() }),
                     )
                 handle.setOpen(open)
                 try {

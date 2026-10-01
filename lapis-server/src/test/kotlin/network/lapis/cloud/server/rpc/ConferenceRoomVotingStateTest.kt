@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
@@ -27,6 +28,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
@@ -35,6 +37,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
@@ -46,9 +49,13 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteOptionTable
+import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ElectionStatus
@@ -60,15 +67,19 @@ import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.math.BigDecimal
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
@@ -98,6 +109,7 @@ class ConferenceRoomVotingStateTest :
         val meetingIds = mutableListOf<Uuid>()
         val motionIds = mutableListOf<Uuid>()
         val electionIds = mutableListOf<Uuid>()
+        val voteIds = mutableListOf<Uuid>()
         val roomIds = mutableListOf<Uuid>()
         val breakoutIds = mutableListOf<Uuid>()
         val json = Json { ignoreUnknownKeys = false }
@@ -116,8 +128,12 @@ class ConferenceRoomVotingStateTest :
                 ElectionParticipationTable.deleteWhere { ElectionParticipationTable.electionId inList electionIds }
                 ElectionEligibleVoterTable.deleteWhere { ElectionEligibleVoterTable.electionId inList electionIds }
                 ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
+                VoteBallotTable.deleteWhere { VoteBallotTable.voteId inList voteIds }
+                VoteOptionTable.deleteWhere { VoteOptionTable.voteId inList voteIds }
+                VoteTable.deleteWhere { VoteTable.id inList voteIds }
                 MotionTable.deleteWhere { MotionTable.id inList motionIds }
                 MeetingTable.deleteWhere { MeetingTable.id inList meetingIds }
+                CommitteeMembershipTable.deleteWhere { CommitteeMembershipTable.committeeId inList committeeIds }
                 CommitteeTable.deleteWhere { CommitteeTable.id inList committeeIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
                 MemberTable.deleteWhere { MemberTable.id inList memberIds }
@@ -155,7 +171,10 @@ class ConferenceRoomVotingStateTest :
             val creator: Uuid,
         )
 
-        fun fixture(tag: String): Fixture {
+        fun fixture(
+            tag: String,
+            type: CommitteeType = CommitteeType.EXECUTIVE_BOARD,
+        ): Fixture {
             val committeeId = Uuid.random()
             val meetingId = Uuid.random()
             val creator = member("$tag-creator")
@@ -163,7 +182,7 @@ class ConferenceRoomVotingStateTest :
                 CommitteeTable.insert {
                     it[id] = committeeId
                     it[name] = "VotingState-$tag"
-                    it[type] = CommitteeType.EXECUTIVE_BOARD
+                    it[CommitteeTable.type] = type
                     it[description] = "VotingState"
                     it[active] = true
                     it[quorumPercent] = 50
@@ -340,6 +359,104 @@ class ConferenceRoomVotingStateTest :
             }
         }
 
+        class SeededVote(
+            val id: Uuid,
+            val optionIds: List<Uuid>,
+        )
+
+        /** Seeds one meritocratic vote (with its own motion and options) directly. [winner] is the index of the winning option. */
+        fun vote(
+            f: Fixture,
+            title: String,
+            status: VoteStatus,
+            labels: List<String> = listOf("YES", "NO"),
+            meetingId: Uuid = f.meetingId,
+            openedAt: LocalDateTime = DbClock.nowLocalDateTime(),
+            closedAt: LocalDateTime? = null,
+            winner: Int? = null,
+            secondPrice: BigDecimal? = null,
+        ): SeededVote {
+            val motionId = Uuid.random()
+            val voteId = Uuid.random()
+            val optionIds = labels.map { Uuid.random() }
+            transaction {
+                MotionTable.insert {
+                    it[id] = motionId
+                    it[targetCommitteeId] = f.committeeId
+                    it[MotionTable.title] = "Antrag zu $title"
+                    it[rationale] = "R"
+                    it[text] = "T"
+                    it[submitterMemberId] = f.creator
+                    it[MotionTable.status] = MotionStatus.SCHEDULED
+                    it[submittedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[reviewedBy] = f.creator
+                    it[reviewedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[reviewNote] = null
+                    it[MotionTable.meetingId] = meetingId
+                    it[agendaItemId] = null
+                    it[resolutionId] = null
+                    it[withdrawnAt] = null
+                }
+                VoteTable.insert {
+                    it[id] = voteId
+                    it[VoteTable.title] = title
+                    it[VoteTable.status] = status
+                    it[openedBy] = f.creator
+                    it[VoteTable.openedAt] = openedAt
+                    it[VoteTable.closedAt] = closedAt
+                    it[winnerOptionId] = winner?.let { index -> optionIds[index] }
+                    it[secondPriceLtr] = secondPrice
+                    it[VoteTable.motionId] = motionId
+                    it[VoteTable.meetingId] = meetingId
+                    it[resolutionId] = null
+                }
+                labels.forEachIndexed { index, label ->
+                    VoteOptionTable.insert {
+                        it[id] = optionIds[index]
+                        it[VoteOptionTable.label] = label
+                        it[position] = index
+                        it[VoteOptionTable.voteId] = voteId
+                    }
+                }
+            }
+            motionIds += motionId
+            voteIds += voteId
+            return SeededVote(voteId, optionIds)
+        }
+
+        fun bid(
+            v: SeededVote,
+            memberId: Uuid,
+            optionIndex: Int = 0,
+            stake: String = "10.00",
+        ) = transaction {
+            VoteBallotTable.insert {
+                it[id] = Uuid.random()
+                it[optionId] = v.optionIds[optionIndex]
+                it[stakeLtr] = BigDecimal(stake)
+                it[settledLtr] = null
+                it[castAt] = DbClock.nowLocalDateTime()
+                it[VoteBallotTable.voteId] = v.id
+                it[VoteBallotTable.memberId] = memberId
+            }
+        }
+
+        fun seat(
+            f: Fixture,
+            memberId: Uuid,
+            since: LocalDate = LocalDate(2026, 1, 1),
+            until: LocalDate? = null,
+        ) = transaction {
+            CommitteeMembershipTable.insert {
+                it[id] = Uuid.random()
+                it[role] = CommitteeRole.MEMBER
+                it[CommitteeMembershipTable.since] = since
+                it[CommitteeMembershipTable.until] = until
+                it[committeeId] = f.committeeId
+                it[CommitteeMembershipTable.memberId] = memberId
+            }
+        }
+
         suspend fun HttpClient.state(
             roomId: String,
             asMember: Uuid,
@@ -469,7 +586,7 @@ class ConferenceRoomVotingStateTest :
                 s.ballots.map { it.title } shouldBe listOf("open", "closed", "tallied-1h")
                 s.ballots.map { it.status } shouldBe
                     listOf(RoomBallotStatus.OPEN, RoomBallotStatus.CLOSED_AWAITING_TALLY, RoomBallotStatus.DECIDED)
-                s.ballots.all { it.kind == RoomBallotKind.ELECTION } shouldBe true
+                s.ballots.all { it.kind == RoomBallotKind.ELECTION || it.kind == RoomBallotKind.VOTE } shouldBe true
                 s.ballots.first().motionTitle shouldBe "Antrag zu open"
             })
         }
@@ -591,6 +708,267 @@ class ConferenceRoomVotingStateTest :
                 body shouldNotContain other.toString()
                 body shouldNotContain me.toString()
                 body shouldNotContain f.meetingId.toString()
+            })
+        }
+
+        test(
+            "V1.9.27 status mapping: OPEN -> OPEN, CLOSED within 12 h -> DECIDED, older CLOSED and every ABORTED absent, foreign Sitzung absent",
+        ) {
+            testApp({
+                val f = fixture("vstatus")
+                val other = fixture("vstatus-other")
+                val r = room(f)
+                val me = member("vstatus-me").also { participate(r, it) }
+                vote(f, "aborted", VoteStatus.ABORTED, closedAt = hoursAgo(1))
+                vote(f, "closed-13h", VoteStatus.CLOSED, closedAt = hoursAgo(13), winner = 0)
+                vote(other, "foreign-open", VoteStatus.OPEN, meetingId = other.meetingId)
+                vote(f, "closed-1h", VoteStatus.CLOSED, closedAt = hoursAgo(1), winner = 1)
+                vote(f, "open", VoteStatus.OPEN)
+
+                val s = client.stateOk(r, me)
+                s.ballots.map { it.title } shouldBe listOf("open", "closed-1h")
+                s.ballots.map { it.status } shouldBe listOf(RoomBallotStatus.OPEN, RoomBallotStatus.DECIDED)
+                s.ballots.all { it.kind == RoomBallotKind.VOTE && !it.secret } shouldBe true
+                s.ballots.first().motionTitle shouldBe "Antrag zu open"
+            })
+        }
+
+        test("V1.9.27 vote content: options ordered by position, the winner only once CLOSED, a tie has no winner") {
+            testApp({
+                val f = fixture("vcontent")
+                val r = room(f)
+                val me = member("vcontent-me").also { participate(r, it) }
+                val open = vote(f, "open", VoteStatus.OPEN, labels = listOf("A", "B", "C"), winner = 2)
+                val won = vote(f, "won", VoteStatus.CLOSED, closedAt = hoursAgo(1), winner = 1, secondPrice = BigDecimal("12.00"))
+                vote(f, "tie", VoteStatus.CLOSED, closedAt = hoursAgo(2), winner = null)
+
+                val s = client.stateOk(r, me)
+                val byTitle = s.ballots.associateBy { it.title }
+                byTitle.getValue("open").options.map { it.label } shouldBe listOf("A", "B", "C")
+                byTitle.getValue("open").options.map { it.position } shouldBe listOf(0, 1, 2)
+                byTitle.getValue("open").options.map { it.id } shouldBe open.optionIds.map { it.toString() }
+                // even a (corrupt) winner on an OPEN row never reaches the client
+                byTitle.getValue("open").winnerOptionId shouldBe null
+                byTitle.getValue("won").winnerOptionId shouldBe won.optionIds[1].toString()
+                byTitle.getValue("tie").winnerOptionId shouldBe null
+                s.ballots.filter { it.kind == RoomBallotKind.ELECTION }.shouldBeEmpty()
+            })
+        }
+
+        test(
+            "V1.9.27 eligibility: General Assembly -> every ACTIVE member; Committee -> only a seated member, by date; non-members never",
+        ) {
+            testApp({
+                val ga = fixture("veligga", type = CommitteeType.GENERAL_ASSEMBLY)
+                val gaRoom = room(ga, allowGuests = true)
+                val gaMember = member("veligga-m").also { participate(gaRoom, it) }
+                val gaFriend = member("veligga-f", MemberStatus.FRIEND).also { participate(gaRoom, it) }
+                val gaGuest = member("veligga-g", MemberStatus.GUEST).also { participate(gaRoom, it) }
+                vote(ga, "ga-vote", VoteStatus.OPEN)
+                client
+                    .stateOk(gaRoom, gaMember)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe true
+                client
+                    .stateOk(gaRoom, gaFriend)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+                client
+                    .stateOk(gaRoom, gaGuest)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+
+                // the Sitzung of the fixture is on 2026-03-01
+                val c = fixture("velicom")
+                val cRoom = room(c)
+                val seated = member("velicom-seated").also { participate(cRoom, it) }
+                val notSeated = member("velicom-not").also { participate(cRoom, it) }
+                val seatedLater = member("velicom-later").also { participate(cRoom, it) }
+                val seatEnded = member("velicom-ended").also { participate(cRoom, it) }
+                seat(c, seated)
+                seat(c, seatedLater, since = LocalDate(2026, 4, 1))
+                seat(c, seatEnded, until = LocalDate(2026, 2, 1))
+                vote(c, "c-vote", VoteStatus.OPEN)
+                client
+                    .stateOk(cRoom, seated)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe true
+                client
+                    .stateOk(cRoom, notSeated)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+                client
+                    .stateOk(cRoom, seatedLater)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+                client
+                    .stateOk(cRoom, seatEnded)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+            })
+        }
+
+        test("V1.9.27 isCommitteeEligible decides exactly like eligibleMemberIds (the room and castVoteBallot cannot drift apart)") {
+            DatabaseConfig.connect()
+            val ga = fixture("parity-ga", type = CommitteeType.GENERAL_ASSEMBLY)
+            val c = fixture("parity-c")
+            val active = member("parity-active")
+            val withdrawn = member("parity-withdrawn", MemberStatus.WITHDRAWN)
+            val friend = member("parity-friend", MemberStatus.FRIEND)
+            val seated = member("parity-seated")
+            val ended = member("parity-ended")
+            seat(c, seated)
+            seat(c, ended, until = LocalDate(2026, 2, 1))
+            val date = LocalDate(2026, 3, 1)
+            transaction {
+                listOf(ga, c).forEach { fx ->
+                    val row = CommitteeTable.selectAll().where { CommitteeTable.id eq fx.committeeId }.single()
+                    val ids = eligibleMemberIds(committeeRow = row, scheduledDate = date)
+                    listOf(active, withdrawn, friend, seated, ended, fx.creator).forEach { m ->
+                        isCommitteeEligible(committeeRow = row, scheduledDate = date, memberId = m) shouldBe (m in ids)
+                    }
+                }
+            }
+        }
+
+        test("V1.9.27 ownHasVoted: only the caller's own bid counts, a foreign bid never") {
+            testApp({
+                val f = fixture("vown")
+                val r = room(f)
+                val bidder = member("vown-bidder").also { participate(r, it) }
+                val bystander = member("vown-by").also { participate(r, it) }
+                seat(f, bidder)
+                seat(f, bystander)
+                val v = vote(f, "own", VoteStatus.OPEN)
+                bid(v, bidder, stake = "42.00")
+                client
+                    .stateOk(r, bidder)
+                    .ballots
+                    .single()
+                    .ownHasVoted shouldBe true
+                client
+                    .stateOk(r, bystander)
+                    .ballots
+                    .single()
+                    .ownHasVoted shouldBe false
+            })
+        }
+
+        test("V1.9.27 field reduction: exact keys, and no amount, no stake, no foreign member id anywhere in the JSON") {
+            testApp({
+                val f = fixture("vfields")
+                val r = room(f)
+                val me = member("vfields-me").also { participate(r, it) }
+                val other = member("vfields-other").also { participate(r, it) }
+                seat(f, me)
+                seat(f, other)
+                val open = vote(f, "offen", VoteStatus.OPEN)
+                bid(open, other, stake = "7777.77")
+                bid(open, me, stake = "3333.33")
+                val closed =
+                    vote(f, "fertig", VoteStatus.CLOSED, closedAt = hoursAgo(1), winner = 0, secondPrice = BigDecimal("4444.44"))
+                bid(closed, other, stake = "8888.88")
+
+                val body = client.state(r.toString(), me).bodyAsText()
+                val ballots =
+                    json
+                        .parseToJsonElement(body)
+                        .jsonObject["ballots"]!!
+                        .jsonArray
+                        .map { it.jsonObject }
+                val allowed =
+                    setOf(
+                        "kind",
+                        "id",
+                        "motionId",
+                        "motionTitle",
+                        "title",
+                        "status",
+                        "secret",
+                        "ownEligible",
+                        "ownHasVoted",
+                        "options",
+                        "winnerOptionId",
+                    )
+                ballots.forEach { (it.keys - allowed) shouldBe emptySet() }
+                ballots.flatMap { it["options"]!!.jsonArray }.forEach { option ->
+                    option.jsonObject.keys shouldBe setOf("id", "label", "position")
+                }
+                listOf("7777", "3333", "8888", "4444", "stake", "settled", "secondPrice", "basketTotal", "castAt", "memberId").forEach {
+                    body shouldNotContain it
+                }
+                body shouldNotContain other.toString()
+                body shouldNotContain me.toString()
+                body shouldNotContain f.meetingId.toString()
+                ballots.first { it["title"]!!.jsonPrimitive.content == "fertig" }.containsKey("winnerOptionId") shouldBe true
+            })
+        }
+
+        test(
+            "V1.9.27 shared cap: 15 open elections + 10 open votes -> 20 delivered and truncated, ended ballots never displace open ones",
+        ) {
+            testApp({
+                val f = fixture("vcap")
+                val r = room(f)
+                val me = member("vcap-me").also { participate(r, it) }
+                repeat(15) { election(f, "open-e-$it", ElectionStatus.OPEN) }
+                repeat(10) { vote(f, "open-v-$it", VoteStatus.OPEN) }
+                val s = client.stateOk(r, me)
+                s.ballots.size shouldBe 20
+                s.truncated shouldBe true
+                s.ballots.all { it.status == RoomBallotStatus.OPEN } shouldBe true
+
+                val f2 = fixture("vcap2")
+                val r2 = room(f2)
+                val me2 = member("vcap2-me").also { participate(r2, it) }
+                repeat(12) { election(f2, "open-e-$it", ElectionStatus.OPEN) }
+                repeat(8) { vote(f2, "open-v-$it", VoteStatus.OPEN) }
+                repeat(5) { vote(f2, "closed-v-$it", VoteStatus.CLOSED, closedAt = hoursAgo(1), winner = 0) }
+                repeat(5) { election(f2, "tallied-e-$it", ElectionStatus.TALLIED, tallyRunAt = hoursAgo(1)) }
+                val s2 = client.stateOk(r2, me2)
+                s2.ballots.size shouldBe 20
+                s2.ballots.all { it.status == RoomBallotStatus.OPEN } shouldBe true
+                s2.truncated shouldBe true
+                s2.ballots.filter { it.kind == RoomBallotKind.ELECTION }.all { it.options.isEmpty() && it.winnerOptionId == null } shouldBe
+                    true
+
+                // with room to spare, ended ballots of both kinds follow the open ones, newest first
+                val f3 = fixture("vcap3")
+                val r3 = room(f3)
+                val me3 = member("vcap3-me").also { participate(r3, it) }
+                election(f3, "open-e", ElectionStatus.OPEN)
+                vote(f3, "open-v", VoteStatus.OPEN)
+                election(f3, "tallied-3h", ElectionStatus.TALLIED, tallyRunAt = hoursAgo(3))
+                vote(f3, "closed-1h", VoteStatus.CLOSED, closedAt = hoursAgo(1), winner = 0)
+                val s3 = client.stateOk(r3, me3)
+                s3.truncated shouldBe false
+                s3.ballots.map { it.title }.takeLast(2) shouldBe listOf("closed-1h", "tallied-3h")
+                s3.ballots.take(2).all { it.status == RoomBallotStatus.OPEN } shouldBe true
+            })
+        }
+
+        test("V1.9.27 an open meritocratic vote is no secret ballot: it never pauses the stream or blocks unbinding the room") {
+            testApp({
+                val f = fixture("vstream")
+                val r = room(f)
+                val me = member("vstream-me").also { participate(r, it) }
+                vote(f, "open", VoteStatus.OPEN)
+                client
+                    .stateOk(r, me)
+                    .ballots
+                    .single()
+                    .secret shouldBe false
+                transaction {
+                    SecretBallotStreamLock.hasOpenSecretBallotForMeeting(f.meetingId) shouldBe false
+                    SecretBallotStreamLock.hasPendingOrOpenSecretBallot(f.meetingId) shouldBe false
+                }
             })
         }
 

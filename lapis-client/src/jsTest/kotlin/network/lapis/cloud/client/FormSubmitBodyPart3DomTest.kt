@@ -860,7 +860,7 @@ class FormSubmitBodyPart3DomTest {
                 }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-ballot") { root, element ->
-                    renderBallotForm(root, vote(), currentOptionId = null, onChanged = {})
+                    renderBallotForm(root, vote().toBallotFormModel(), currentOptionId = null, onChanged = {})
                     element().chooseIn("Option", "opt-c")
                     element().typeInto("Einsatz", "abc")
                     element().buttonNamed("Gebot abgeben").click()
@@ -891,7 +891,7 @@ class FormSubmitBodyPart3DomTest {
                 }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-ballot-current") { root, element ->
-                    renderBallotForm(root, vote(), currentOptionId = "opt-b", onChanged = {})
+                    renderBallotForm(root, vote().toBallotFormModel(), currentOptionId = "opt-b", onChanged = {})
                     element().typeInto("Einsatz", "3")
                     element().buttonNamed("Gebot abgeben").click()
                     awaitUntil("castVoteBallot", timeoutMs = 800) { calls.toRoute(cast).size == 1 }

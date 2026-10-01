@@ -505,4 +505,10 @@ data class VoteBallotInput(
     val voteId: String,
     val optionId: String,
     val stakeLtr: Decimal,
+    /**
+     * V1.9.27: when `true` and the caller already holds a ballot on this vote, the server throws
+     * `ConflictException` instead of treating the call as a recast (option + stake replaced). The
+     * conference room sets it so a stale card can never silently overwrite an existing bid.
+     */
+    val createOnly: Boolean = false,
 )

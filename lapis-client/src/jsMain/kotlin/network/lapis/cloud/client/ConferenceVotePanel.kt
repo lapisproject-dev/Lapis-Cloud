@@ -26,14 +26,18 @@ import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionStatus
+import network.lapis.cloud.shared.domain.LtrLedgerBalanceDto
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotDto
 import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.VoteBallotDto
+import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IElectionService
+import network.lapis.cloud.shared.rpc.IGovernanceService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 import kotlin.js.Date
@@ -56,14 +60,14 @@ internal data class ConferenceVoteRoomState(
     val bound: Boolean? = null,
     val ballots: List<RoomBallotDto> = emptyList(),
     val truncated: Boolean = false,
-    val seenOpenElectionIds: Set<String> = emptySet(),
+    val seenOpenBallotIds: Set<String> = emptySet(),
     val consecutiveFailures: Int = 0,
 )
 
 internal data class ConferenceVoteRoomUpdate(
     val state: ConferenceVoteRoomState,
-    /** Elections that are OPEN now and were not before. Never filled by the FIRST answer: a member who joins a running vote sees the badge, no pop-up. */
-    val newlyOpenedElections: List<RoomBallotDto>,
+    /** Elections and meritocratic votes that are OPEN now and were not before. Never filled by the FIRST answer: a member who joins a running vote sees the badge, no pop-up. */
+    val newlyOpenedBallots: List<RoomBallotDto>,
     val listChanged: Boolean,
 )
 
@@ -71,19 +75,19 @@ internal fun voteRoomReduce(
     prev: ConferenceVoteRoomState,
     dto: RoomVotingStateDto,
 ): ConferenceVoteRoomUpdate {
-    val openElections = dto.ballots.filter { it.kind == RoomBallotKind.ELECTION && it.status == RoomBallotStatus.OPEN }
+    val openBallots = dto.ballots.filter { it.kind.isMemberVotable() && it.status == RoomBallotStatus.OPEN }
     val firstAnswer = prev.bound == null
-    val newlyOpened = if (firstAnswer) emptyList() else openElections.filter { it.id !in prev.seenOpenElectionIds }
+    val newlyOpened = if (firstAnswer) emptyList() else openBallots.filter { it.id !in prev.seenOpenBallotIds }
     val next =
         ConferenceVoteRoomState(
             bound = dto.bound,
             ballots = dto.ballots,
             truncated = dto.truncated,
-            seenOpenElectionIds = prev.seenOpenElectionIds + openElections.map { it.id },
+            seenOpenBallotIds = prev.seenOpenBallotIds + openBallots.map { it.id },
             consecutiveFailures = 0,
         )
     val listChanged = prev.bound != next.bound || prev.ballots != next.ballots || prev.truncated != next.truncated
-    return ConferenceVoteRoomUpdate(state = next, newlyOpenedElections = newlyOpened, listChanged = listChanged)
+    return ConferenceVoteRoomUpdate(state = next, newlyOpenedBallots = newlyOpened, listChanged = listChanged)
 }
 
 /** A failed poll changes nothing but the failure counter: the list the member sees stays as it was. */
@@ -93,10 +97,13 @@ internal fun voteRoomFailure(prev: ConferenceVoteRoomState): ConferenceVoteRoomS
             prev.consecutiveFailures + 1,
     )
 
-/** The number on the toggle button: open elections the member may vote in and has not voted in yet. */
+/** The kinds a member can act on in the room: an election (booth) and, since V1.9.27, a meritocratic vote (bid). */
+private fun RoomBallotKind.isMemberVotable(): Boolean = this == RoomBallotKind.ELECTION || this == RoomBallotKind.VOTE
+
+/** The number on the toggle button: open elections and votes the member may vote in and has not voted in yet. */
 internal fun ConferenceVoteRoomState.badgeCount(): Int =
     ballots.count {
-        it.kind == RoomBallotKind.ELECTION && it.status == RoomBallotStatus.OPEN && it.ownEligible && !it.ownHasVoted
+        it.kind.isMemberVotable() && it.status == RoomBallotStatus.OPEN && it.ownEligible && !it.ownHasVoted
     }
 
 internal fun ConferenceVoteRoomState.anyActive(): Boolean =
@@ -128,10 +135,10 @@ internal const val CONFERENCE_VOTE_NUDGE_MIN_GAP_MS = 1_000
 internal fun conferenceIsVotingMember(session: SessionInfoDto?): Boolean =
     session != null && !session.isGuest && session.status in MemberStatusSets.ORGANIZATION_MEMBER
 
-private val ELECTION_ID_PATTERN = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+internal val ROOM_ID_PATTERN = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 /** The in-app address of an election; `null` unless [id] has the shape of an id this server mints. Never a foreign URL. */
-internal fun conferenceElectionDetailHref(id: String): String? = if (ELECTION_ID_PATTERN.matches(id)) "#/elections/$id" else null
+internal fun conferenceElectionDetailHref(id: String): String? = if (ROOM_ID_PATTERN.matches(id)) "#/elections/$id" else null
 
 // ── the polling controller ───────────────────────────────────────────────────────────────────────────
 
@@ -158,6 +165,9 @@ internal object BrowserVoteScheduler : ConferenceVoteScheduler {
     override fun cancel(handle: Int) = window.clearTimeout(handle)
 }
 
+/** The one place the room's ballots are read: the poll controller and the fresh check before a bid view opens (V1.9.27) share it. */
+internal suspend fun fetchRoomVotingState(roomId: String): RoomVotingStateDto = rpcService<IConferenceService>().getRoomVotingState(roomId)
+
 /**
  * Asks the server for the ballots of the room: every 5 s while something is open, 15 s otherwise, 30 s in a hidden tab, at once when
  * the tab becomes visible and when the data channel nudges. At most ONE request is in flight; whatever arrives meanwhile becomes
@@ -166,7 +176,7 @@ internal object BrowserVoteScheduler : ConferenceVoteScheduler {
  */
 internal class ConferenceVotePollController(
     private val roomId: String,
-    private val fetch: suspend (String) -> RoomVotingStateDto = { id -> rpcService<IConferenceService>().getRoomVotingState(id) },
+    private val fetch: suspend (String) -> RoomVotingStateDto = ::fetchRoomVotingState,
     private val isHidden: () -> Boolean = { document.asDynamic().visibilityState == "hidden" },
     private val scheduler: ConferenceVoteScheduler = BrowserVoteScheduler,
     private val scope: CoroutineScope = AppScope,
@@ -485,7 +495,7 @@ internal fun Container.conferenceVotingToggle(): ConferenceVotingToggle {
     return toggle
 }
 
-private fun Container.votingBadge(
+internal fun Container.votingBadge(
     text: String,
     color: String,
     faIcon: String,
@@ -566,7 +576,7 @@ internal fun renderElectionLiveCard(
     return card
 }
 
-/** A VOTE or CONSENSUS ballot: only its state. There is no way to vote on it in the room yet and no detail route to link to. */
+/** A CONSENSUS ballot (reserved, never delivered yet): only its state. Votes have their own card (`ConferenceMeritVoteCard.kt`). */
 internal fun renderRoomBallotReadOnlyRow(
     parent: Container,
     ballot: RoomBallotDto,
@@ -625,6 +635,10 @@ internal fun renderConferenceVotePanel(
     onRefreshRoom: () -> Unit = {},
     scheduler: ConferenceVoteScheduler = BrowserVoteScheduler,
     onStreamMirrorChanged: (StreamMirrorState) -> Unit = {},
+    meritRpc: MeritOperatorRpc = MeritOperatorRpc(),
+    loadBalance: suspend () -> LtrLedgerBalanceDto? = { defaultLoadBalance() },
+    castVote: suspend (VoteBallotInput) -> VoteBallotDto = { rpcService<IGovernanceService>().castVoteBallot(it) },
+    loadRoomState: suspend () -> RoomVotingStateDto? = { null },
 ): ConferenceVotePanelHandle {
     val liveRegion =
         parent.div("") {
@@ -717,6 +731,7 @@ internal fun renderConferenceVotePanel(
 
     // The overview, the booth and the card buttons call each other; a local function cannot be referenced before it is declared.
     var enterBoothAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
+    var enterMeritAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
     var overviewRenderer: () -> Unit = {}
 
     // V1.9.26 -- the operator side (open, close, count, emergency card). Only for a member of the organization; everything it needs from the
@@ -734,6 +749,7 @@ internal fun renderConferenceVotePanel(
                 showNote = { text -> showNote(text) },
                 isOpen = { panel.visible },
                 requestOverviewRender = { overviewRenderer() },
+                meritRpc = meritRpc,
             )
         }
 
@@ -743,9 +759,18 @@ internal fun renderConferenceVotePanel(
         when {
             roomState.bound == null -> overview.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
             roomState.ballots.isEmpty() -> overview.div(tr("Zurzeit keine Abstimmungen.")) { addCssClasses("text-muted small") }
-            else ->
+            else -> {
+                var meritNoticeShown = false
                 roomState.ballots.forEach { ballot ->
                     when {
+                        ballot.kind == RoomBallotKind.VOTE -> {
+                            if (ballot.status == RoomBallotStatus.OPEN && !meritNoticeShown) {
+                                meritNoticeShown = true
+                                renderMeritOpenNotice(overview)
+                            }
+                            val card = renderMeritVoteLiveCard(overview, ballot) { bid -> enterMeritAction(bid, ballot) }
+                            operator?.merit?.renderForBallot(card, ballot)
+                        }
                         ballot.kind != RoomBallotKind.ELECTION -> renderRoomBallotReadOnlyRow(overview, ballot)
                         operator != null && operator.showsHungCard(ballot) -> operator.renderHungCard(overview, ballot)
                         else -> {
@@ -754,6 +779,7 @@ internal fun renderConferenceVotePanel(
                         }
                     }
                 }
+            }
         }
         if (roomState.truncated) {
             overview.div(tr("Weitere Abstimmungen – alle Details in der Sitzung")) { addCssClasses("text-muted small") }
@@ -846,6 +872,78 @@ internal fun renderConferenceVotePanel(
                 election == null -> showNote(tr("Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."))
                 election.status != ElectionStatus.OPEN -> showNote(tr("Diese Wahl ist nicht mehr offen."))
                 else -> openBooth(election)
+            }
+        }
+    }
+
+    // V1.9.27 -- the bid view of a meritocratic vote lives in the SAME booth host: that is what gives it the close lock, the "no auto-open
+    // while it is open" rule and the unload prompt for free. It never takes the stream lock (a meritocratic vote is never secret) and it
+    // never pauses anything.
+    fun openMeritBid(ballot: RoomBallotDto) {
+        boothOpen = true
+        receiptShown = false
+        boothBusy = false
+        showNote(null)
+        boothNote.hide()
+        overview.hide()
+        boothHost.show()
+        publishLock()
+        renderMeritBidView(
+            host = boothArea,
+            ballot = ballot,
+            loadBalance = loadBalance,
+            cast = castVote,
+            onDone = {
+                // One empty nudge, like every other write of the room: a lost one only costs the others their next poll.
+                AppScope.launch {
+                    try {
+                        sendNudge()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (ignored: Throwable) {
+                        // the data channel may be gone
+                    }
+                }
+                onRefreshRoom()
+                exitBooth()
+            },
+            onConflict = {
+                showNote(gettext("Der Stand hat sich geändert und wurde neu geladen."))
+                onRefreshRoom()
+                exitBooth()
+            },
+            onBusyChanged = { busy ->
+                boothBusy = busy
+                if (busy) castPrompt.install() else castPrompt.uninstall()
+                publishLock()
+            },
+        )
+        focusFirstHeading()
+    }
+
+    enterMeritAction = { bid, ballot ->
+        runGuardedAction(bid) {
+            // A stale card must never open a bid on something that has changed: ask the server again first.
+            val fresh =
+                try {
+                    loadRoomState()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (ignored: Throwable) {
+                    null
+                }
+            val current = fresh?.ballots?.firstOrNull { it.id == ballot.id && it.kind == RoomBallotKind.VOTE }
+            when {
+                fresh == null -> showNote(tr("Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."))
+                current == null || current.status != RoomBallotStatus.OPEN -> {
+                    showNote(tr("Diese Abstimmung ist nicht mehr offen."))
+                    onRefreshRoom()
+                }
+                current.ownHasVoted -> {
+                    showNote(tr("Sie haben bereits geboten."))
+                    onRefreshRoom()
+                }
+                else -> openMeritBid(current)
             }
         }
     }

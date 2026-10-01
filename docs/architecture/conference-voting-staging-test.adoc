@@ -31,6 +31,28 @@ behaviour when a pause hangs. This plan is the mandatory part of the wave's acce
   (a new publish appears in the mediamtx log). Two board members approve ("Freigaben 2 von 3" on the others after at most 5 s), count,
   and the result appears compactly in the panel.
 
+== Meritocratic vote in the room (V1.9.27)
+
+NOTE: Written, **not executed**: the access data and the staging server belong to the operator. Fill the "Actual" column when it is run.
+
+Preparation: a SCHEDULED motion in the Sitzung bound to the room, no election, consensus or other vote on it, no pending amendment; one
+account that may record for the committee (CHAIR/DEPUTY_CHAIR/SECRETARY or BOARD/ADMIN), two eligible members with LTR balance, one
+account that only moderates the room, one guest.
+
+[cols="2,3,2,2", options="header"]
+|===
+| Step | Expected | Actual | Screenshot
+| As the committee chair: open the panel | Under the prepared items "Vorbereitete Anträge" with the motion and "Ja/Nein-Abstimmung eröffnen", plus "Andere Optionen: auf der Antragsseite" (new tab). | |
+| As the room moderator without a committee role | No "Ja/Nein-Abstimmung eröffnen" and no "Abstimmung schließen". | |
+| Open the Yes/No vote | Within about two seconds the member clients show the card "Meritokratische Abstimmung" with "offen – namentlich", the notice appears once, the badge counts it, the panel opens once on a wide screen. The stream is NOT paused. | |
+| As a member with balance: "Gebot abgeben" | The bid view shows "Verfügbar: ..." and the sentence that the stake is bound and not returned yet; "Abstimmen schließen" is disabled. | |
+| Send a bid | One confirmation naming stake and option; after confirming, the list and the badge update, the balance on the LTR account is reduced by the stake. | |
+| Second tab of the same member: bid again from a stale card | A note ("Sie haben bereits geboten." or the neutral "Der Stand hat sich geändert ..."), no overwrite, no second debit. | |
+| As the guest | Only the status line "Abstimmungen laufen – nur Mitglieder können abstimmen"; no card button. | |
+| As the committee chair: "Abstimmung schließen" | Dialog with focus on "Abbrechen"; after confirming the cards show "Ergebnis: YES" (or "NO", or "Unentschieden – kein Gewinner"); a winning "NO" rejects the motion, a winning "YES" adopts it. | |
+| The stream while all this runs | Keeps running; no lock text, no banner. | |
+|===
+
 == Negative cases
 
 [cols="2,3,2,2", options="header"]

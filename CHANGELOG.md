@@ -6,6 +6,42 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.27 voting in the conference room, wave 4 (meritocratic vote)
+
+- **Meritocratic votes in the room panel.** `getRoomVotingState` now also delivers `VOTE` ballots (`OPEN` -> `OPEN`; `CLOSED` within 12 h ->
+  `DECIDED` with `winnerOptionId`, `null` on a tie; `ABORTED` never), with the options of the vote. A new card shows title, kind, state,
+  "offen – namentlich" and your standing; one notice above the open cards says that a vote is saved by name.
+- **First bid from the room:** "Gebot abgeben" opens a bid view in the panel's booth host (balance line, honest explanation, one
+  confirmation) and sends a FIRST bid through the same form as the motion page (`VoteBallotForm.kt`, moved out of `MotionsScreen.kt`). Later
+  changes, custom options and aborting stay on the motion page, one click away in a new tab.
+- **Operator controls:** "Ja/Nein-Abstimmung eröffnen" under the prepared items and "Abstimmung schließen" (with confirmation) on a running
+  vote, gated by the server's `canRecordForMeeting` (not by the room moderation).
+- The badge and the auto-open now count meritocratic votes as well as elections (`seenOpenBallotIds`, `newlyOpenedBallots`). Eight message
+  catalogs updated; docs and the staging test plan extended.
+
+### Security -- V1.9.27
+
+- **No amount ever leaves the server for the room.** The room DTO has `options` and `winnerOptionId` only; the queries select an explicit
+  column allowlist (never `second_price_ltr`) and read only the caller's own `vote_ballot.vote_id`. The client never calls `listVoteBallots`
+  or `getVote` in the room; tripwires pin both and allow `stakeLtr` only inside `VoteBallotInput(` in `VoteBallotForm.kt`.
+- **`VoteBallotInput.createOnly`** (default `false`): the room sets it, so a stale card can never silently overwrite an existing bid; the
+  server refuses with a `ConflictException` after the debit lock and before any ledger write. The motion page behaves exactly as before.
+- **The options are the fixed literals `YES`/`NO`.** `closeVote` decides by the label text ("NO" means REJECTED), so a translated "Nein"
+  would have turned a rejection into an adoption; a tripwire pins the literals.
+- **One ranking and one cap (20) for elections and votes**: ended ballots never displace open ones, whatever their kind; the query count is
+  independent of the ballot count. Eligibility is the rule of `castVoteBallot`, read by point access (`isCommitteeEligible`) in the poll.
+- No exception message is read; conflicts get fixed texts. Opening and closing go through the one guarded function; closing asks first.
+
+### Known limitations -- V1.9.27
+
+- **Vote stakes stay bound after the vote closes** (no release path: neither `closeVote`, nor `abortVote`, nor a lower recast writes one).
+  The room says so and promises no refund; a release path (new ledger type, settlement, migration) is a project of its own. The motion
+  page's tie text "Kein Gewinner, keine Belastung" is inexact for the same reason (outside this wave).
+- Recast, custom options and aborting only on the motion page; the room never loads other members' bids.
+- A vote opened from the room can only be a Yes/No vote; the options are shown as `YES`/`NO` (as on the motion page).
+- The staging test was written but **not run** (credentials belong to the operator): `conference-voting-staging-test.adoc`.
+- `vote(meeting_id)` has no index; the room query is limited and the table small (a later `V65__...` if it ever matters).
+
 ### Added -- V1.9.26 voting in the conference room, wave 3 (operator controls and secret-ballot wiring, client only)
 
 - **Operator controls in the room panel** for an election board member or BOARD/ADMIN: one primary button per status -- "Abstimmung
@@ -72,7 +108,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations -- V1.9.25
 
-- VOTE and CONSENSUS ballots show their state only; a VOTE has no link (no detail route yet).
+- VOTE and CONSENSUS ballots show their state only; a VOTE has no link (no detail route yet). (Superseded in V1.9.27: a VOTE has its own card, bid view and link.)
 - Not tested in a real LiveKit room (nudge over the data channel, real auto-open, receipt with a real disconnect, iOS WebView `pagehide`);
   that follows in V1.9.26 on staging.
 - Operator controls and a blocked vote button during a running stream follow in V1.9.26.

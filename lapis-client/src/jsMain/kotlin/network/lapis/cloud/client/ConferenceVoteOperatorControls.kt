@@ -185,8 +185,20 @@ internal class ConferenceVoteOperatorController(
     private val showNote: (String?) -> Unit,
     private val isOpen: () -> Boolean,
     private val requestOverviewRender: () -> Unit,
+    meritRpc: MeritOperatorRpc = MeritOperatorRpc(),
     private val scope: CoroutineScope = AppScope,
 ) {
+    /** V1.9.27 -- the meritocratic-vote side (open a Yes/No vote, close a running one). All its logic lives in its own file; this class only delegates. */
+    val merit: ConferenceMeritVoteOperator =
+        ConferenceMeritVoteOperator(
+            ctx = ctx,
+            rpc = meritRpc,
+            scheduler = scheduler,
+            runOperatorAction = { button, nudge, write -> runOperatorAction(button, nudge, write) },
+            isOpen = isOpen,
+            scope = scope,
+        )
+
     private val entries = mutableMapOf<String, OperatorEntry>()
     private var slots = mutableMapOf<String, OperatorSlot>()
     private val hungShown = mutableSetOf<String>()
@@ -204,6 +216,7 @@ internal class ConferenceVoteOperatorController(
     fun beginRender() {
         slots = mutableMapOf()
         hungShown.clear()
+        merit.beginRender()
     }
 
     private fun register(
@@ -321,6 +334,7 @@ internal class ConferenceVoteOperatorController(
     fun renderPreparedSection(parent: Container) {
         val slot = parent.vPanel(spacing = 4)
         register(PREPARED_KEY, slot) { content -> paintPrepared(content) }
+        merit.renderPrepared(parent)
         maybeRefreshPrepared(force = false)
     }
 
@@ -555,6 +569,8 @@ internal class ConferenceVoteOperatorController(
         ballots: List<RoomBallotDto>,
         boundNow: Boolean,
     ) {
+        // the merit side remembers the binding even while the panel is closed (opening it later needs it); it throttles itself
+        merit.onRoomUpdate(boundNow)
         bound = boundNow
         if (!isOpen() || disposed) return
         if (boundNow) maybeRefreshPrepared(force = false)
@@ -585,6 +601,7 @@ internal class ConferenceVoteOperatorController(
         if (disposed) return
         repaintAll()
         maybeRefreshPrepared(force = true)
+        merit.onOpened()
     }
 
     private fun maybeRefreshPrepared(force: Boolean) {
@@ -635,7 +652,7 @@ internal class ConferenceVoteOperatorController(
      * After every write the room, the counters and the prepared list are reloaded; after a SUCCESSFUL one the other members get one nudge
      * (an empty data message -- a lost nudge only costs them the next poll).
      */
-    private fun runOperatorAction(
+    internal fun runOperatorAction(
         button: Button,
         nudge: Boolean,
         write: suspend () -> Unit,
@@ -666,12 +683,14 @@ internal class ConferenceVoteOperatorController(
                 reloadEntries()
                 refreshRoom()
                 maybeRefreshPrepared(force = true)
+                merit.invalidate()
             }
         }
     }
 
     fun dispose() {
         disposed = true
+        merit.dispose()
         slots = mutableMapOf()
         entries.clear()
     }

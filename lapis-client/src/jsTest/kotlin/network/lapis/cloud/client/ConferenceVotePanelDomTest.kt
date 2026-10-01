@@ -72,6 +72,7 @@ class ConferenceVotePanelDomTest {
                         onLockChanged = { probe.locks += it },
                         onCloseRequested = { probe.closeRequests++ },
                         onBoothExited = { probe.boothExits++ },
+                        meritRpc = MeritOperatorRpc(listScheduledMotions = { emptyList() }),
                     )
                 handle.panel.show()
                 try {
@@ -195,20 +196,22 @@ class ConferenceVotePanelDomTest {
         }
 
     @Test
-    fun aVoteAndAConsensusBallot_showOnlyTheirState_noButton_noLink(): Promise<Unit> =
+    fun aConsensusBallot_showsOnlyItsState_noButton_noLink_andAVoteHasItsOwnMeritCard(): Promise<Unit> =
         formTest {
             withPanel("vote-readonly") { el, handle, _, _, _ ->
                 handle.apply(
                     answerOf(
-                        roomBallot("v1", kind = RoomBallotKind.VOTE, title = "Haushalt"),
                         roomBallot("c1", RoomBallotStatus.DECIDED, kind = RoomBallotKind.CONSENSUS, title = "Konsens"),
+                        roomBallot("c2", kind = RoomBallotKind.CONSENSUS, title = "Konsens offen"),
                     ),
                 )
                 val text = el.flatText()
-                assertTrue(text.contains("Haushalt") && text.contains("Konsens"))
+                assertTrue(text.contains("Konsens") && text.contains("Konsens offen"))
                 assertTrue(text.contains("Abstimmung läuft – Stimmabgabe im Raum folgt"))
-                assertNull(el.querySelector("a"), "there is no vote detail route to link to")
+                assertNull(el.querySelector("a"), "there is no consensus detail route to link to")
                 assertEquals(0, el.allOf("button.btn-primary").size)
+                handle.apply(answerOf(roomBallot("v1", kind = RoomBallotKind.VOTE, secret = false, title = "Haushalt")))
+                assertTrue(el.flatText().contains("Meritokratische Abstimmung"), "a vote is not a read-only row any more")
             }
         }
 

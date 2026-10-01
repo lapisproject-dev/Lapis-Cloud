@@ -39,13 +39,43 @@ private val ELECTION_FILES =
         // V1.9.26: the operator side and the stream mirror of the room's voting panel -- they handle counters, statuses and titles, never a ballot
         "ConferenceVoteOperatorControls.kt",
         "ConferenceVoteStreamMirror.kt",
+        // V1.9.27: the meritocratic vote in the room -- card, bid view, operator and the bid form. None of them logs, stores or toasts a message
+        "ConferenceMeritVoteCard.kt",
+        "ConferenceMeritVoteOperator.kt",
+        "ConferenceMeritBidView.kt",
+        "VoteBallotForm.kt",
     )
 
 /**
  * V1.9.26: the files of the conference panel that must never touch a ballot's content at all. The booth (`ElectionBooth.kt`) is the only
  * place a selection or a receipt code exists; the panel, the operator controls and the mirror see counters, statuses and titles.
  */
-private val BALLOT_BLIND_FILES = setOf("ConferenceVotePanel.kt", "ConferenceVoteOperatorControls.kt", "ConferenceVoteStreamMirror.kt")
+private val BALLOT_BLIND_FILES =
+    setOf(
+        "ConferenceVotePanel.kt",
+        "ConferenceVoteOperatorControls.kt",
+        "ConferenceVoteStreamMirror.kt",
+        "ConferenceMeritVoteCard.kt",
+        "ConferenceMeritVoteOperator.kt",
+        "ConferenceMeritBidView.kt",
+    )
+
+/**
+ * V1.9.27: the files of the conference room that must never read the CONTENT of a meritocratic bid. The room DTO carries no amount; these
+ * files may not fetch one either (`listVoteBallots`, `getVote`), may not name a basket total, a stake, a settlement or the second price,
+ * and may not show a member's name. The only file allowed to build a stake is `VoteBallotForm.kt`, and only inside `VoteBallotInput(`.
+ */
+private val MERIT_BLIND_FILES =
+    setOf(
+        "ConferenceMeritVoteCard.kt",
+        "ConferenceMeritVoteOperator.kt",
+        "ConferenceMeritBidView.kt",
+        "ConferenceVotePanel.kt",
+        "ConferenceVoteOperatorControls.kt",
+    )
+
+private val MERIT_CONTENT =
+    Regex("""\b(listVoteBallots|basketTotal\w*|stakeLtr|settledLtr|secondPrice\w*|memberDisplayName)\b|\bgetVote\s*\(""")
 
 private val BALLOT_CONTENT =
     Regex("""\b(receiptCode|selectedOptionIds|selectedOptionLabels|ElectionBallotInput|listElectionBallots|castElectionBallot)\b""")
@@ -73,6 +103,27 @@ internal fun electionSecrecyFindings(
         FORBIDDEN_EVERYWHERE.forEach { rule -> if (rule.containsMatchIn(line)) findings += "$fileName: ${line.trim()}" }
         if (fileName != "ElectionResultUi.kt" && Regex("""\bcastAt\b""").containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
         if (fileName in BALLOT_BLIND_FILES && BALLOT_CONTENT.containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
+        if (fileName in MERIT_BLIND_FILES && MERIT_CONTENT.containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
+    }
+    if (fileName == "VoteBallotForm.kt") findings += voteBallotFormFindings(text)
+    return findings
+}
+
+/**
+ * `VoteBallotForm.kt` may name `stakeLtr` only as an argument of `VoteBallotInput(` (a line with the constructor call within the six lines
+ * above), and must never read the returned ballot (`result.` -- it carries the stake): `result != null` is the only use.
+ */
+internal fun voteBallotFormFindings(text: String): List<String> {
+    val findings = mutableListOf<String>()
+    val code = codeLines(text)
+    code.forEachIndexed { index, line ->
+        if (Regex("""\bstakeLtr\b""").containsMatchIn(line)) {
+            val window = code.subList(maxOf(0, index - 6), index + 1)
+            if (window.none { it.contains("VoteBallotInput(") }) {
+                findings += "VoteBallotForm.kt: stakeLtr outside VoteBallotInput(: ${line.trim()}"
+            }
+        }
+        if (Regex("""\bresult\.""").containsMatchIn(line)) findings += "VoteBallotForm.kt: reads the returned ballot: ${line.trim()}"
     }
     return findings
 }
@@ -116,5 +167,27 @@ class ElectionSecrecyTripwireTest :
             electionSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = "notifyError(tr(\"Nicht gefunden.\"))").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = "val consoleLike = 1").size shouldBe 0
+        }
+
+        test("the merit files may not read a bid's content (V1.9.27)") {
+            electionSecrecyFindings(fileName = "ConferenceMeritVoteCard.kt", text = "rpc.listVoteBallots(id)").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceMeritBidView.kt", text = "val v = rpc.getVote(id)").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceMeritVoteOperator.kt", text = "val t = vote.basketTotalLtr").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceVotePanel.kt", text = "val s = ballot.stakeLtr").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceVoteOperatorControls.kt", text = "x.settledLtr").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceMeritBidView.kt", text = "x.secondPriceLtr").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceMeritVoteCard.kt", text = "b.memberDisplayName").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceMeritVoteCard.kt", text = "val v = voteDto // not a bid").size shouldBe 0
+            electionSecrecyFindings(fileName = "ConferenceMeritVoteCard.kt", text = " * a stakeLtr is never shown here").size shouldBe 0
+            electionSecrecyFindings(fileName = "ElectionBooth.kt", text = "x.memberDisplayName").size shouldBe 0
+        }
+
+        test("VoteBallotForm.kt builds a stake only inside VoteBallotInput and never reads the returned ballot") {
+            voteBallotFormFindings(File(CLIENT_DIR, "VoteBallotForm.kt").readText()).shouldBeEmpty()
+            voteBallotFormFindings("val x = a.stakeLtr").size shouldBe 1
+            voteBallotFormFindings("VoteBallotInput(\n    stakeLtr = 1,\n)").size shouldBe 0
+            voteBallotFormFindings("if (result != null) { notify(result.stake) }").size shouldBe 1
+            voteBallotFormFindings("if (result != null) { onChanged() }").size shouldBe 0
+            voteBallotFormFindings("// stakeLtr in a comment").size shouldBe 0
         }
     })

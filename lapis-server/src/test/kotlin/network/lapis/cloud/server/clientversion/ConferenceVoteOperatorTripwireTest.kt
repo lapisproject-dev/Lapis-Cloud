@@ -28,7 +28,38 @@ private val STATUS_FILE =
     File("../lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/domain/ConferenceStream.kt")
         .let { if (it.exists()) it else File("lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/domain/ConferenceStream.kt") }
 
-private val CONFERENCE_VOTE_FILES = listOf("ConferenceVotePanel.kt", "ConferenceVoteOperatorControls.kt", "ConferenceVoteStreamMirror.kt")
+private val CONFERENCE_VOTE_FILES =
+    listOf(
+        "ConferenceVotePanel.kt",
+        "ConferenceVoteOperatorControls.kt",
+        "ConferenceVoteStreamMirror.kt",
+        // V1.9.27: the meritocratic vote in the room
+        "ConferenceMeritVoteCard.kt",
+        "ConferenceMeritVoteOperator.kt",
+        "ConferenceMeritBidView.kt",
+    )
+
+private val MERIT_FILES = listOf("ConferenceMeritVoteCard.kt", "ConferenceMeritVoteOperator.kt", "ConferenceMeritBidView.kt")
+
+private val MERIT_WRITE = Regex("""\brpc\.(openVote|closeVote)\b""")
+
+/** `rpc.openVote`/`rpc.closeVote` uses of the merit operator that sit outside every `runOperatorAction(...)` span. */
+internal fun unguardedMeritWrites(text: String): List<String> {
+    val code = codeOnlyLines(text)
+    val spans = runOperatorActionSpans(code)
+    return MERIT_WRITE
+        .findAll(code)
+        .filter { m -> spans.none { m.range.first in it } }
+        .map { it.value }
+        .toList()
+}
+
+/** Lines naming `ConflictException` that are neither an import nor the `catch` that handles it. */
+internal fun conflictExceptionOutsideCatch(text: String): List<String> =
+    codeOnlyLines(text)
+        .lines()
+        .filter { it.contains("ConflictException") && !it.trimStart().startsWith("import ") && !it.contains("catch (") }
+        .map { it.trim() }
 
 private fun codeOnlyLines(text: String): String =
     text
@@ -179,7 +210,7 @@ class ConferenceVoteOperatorTripwireTest :
             // the writes exist (not vacuous) and the writing function runs through the double-click guard
             val operator = File(CLIENT_DIR, "ConferenceVoteOperatorControls.kt").readText()
             ELECTION_WRITE.findAll(codeOnlyLines(operator)).count() shouldBe 6
-            val body = operator.substringAfter("private fun runOperatorAction(").substringBefore("    fun dispose()")
+            val body = operator.substringAfter("internal fun runOperatorAction(").substringBefore("    fun dispose()")
             body.contains("runGuardedAction(") shouldBe true
         }
 
@@ -197,6 +228,47 @@ class ConferenceVoteOperatorTripwireTest :
                 val lines = codeOnlyLines(File(CLIENT_DIR, name).readText()).lines().filter { Regex("""\.message\b""").containsMatchIn(it) }
                 lines shouldBe emptyList()
             }
+        }
+
+        test("V1.9.27: the room's vote operator is gated by canRecordForMeeting, never by the room moderation") {
+            val operator = codeOnlyLines(File(CLIENT_DIR, "ConferenceMeritVoteOperator.kt").readText())
+            operator.contains("canRecordForMeeting") shouldBe true
+            operator.contains("canModerateRoom") shouldBe false
+        }
+
+        test("V1.9.27: every merit write sits inside runOperatorAction, and closeVote only behind a confirmation") {
+            val operatorText = File(CLIENT_DIR, "ConferenceMeritVoteOperator.kt").readText()
+            unguardedMeritWrites(operatorText) shouldBe emptyList()
+            MERIT_WRITE.findAll(codeOnlyLines(operatorText)).count() shouldBe 2
+            // the close sits inside a confirmDialog(...) { ... } block
+            val closeBlock = operatorText.substringAfter("confirmDialog(").substringBefore("private fun loadCloseGate")
+            closeBlock.contains("rpc.closeVote(") shouldBe true
+            // the scanner is not blind
+            unguardedMeritWrites("AppScope.launch { rpc.closeVote(id) }") shouldBe listOf("rpc.closeVote")
+            unguardedMeritWrites("runOperatorAction(b, true) { rpc.openVote(id) }") shouldBe emptyList()
+        }
+
+        test("V1.9.27: the room never aborts a vote, and the Yes/No options are the fixed English literals") {
+            (MERIT_FILES + "ConferenceVotePanel.kt").forEach { name ->
+                codeOnlyLines(File(CLIENT_DIR, name).readText()).contains("abortVote") shouldBe false
+            }
+            val operator = codeOnlyLines(File(CLIENT_DIR, "ConferenceMeritVoteOperator.kt").readText())
+            // closeVote decides by the label text ("NO" -> REJECTED): a translated label would flip the outcome
+            operator.contains("MERIT_YES_NO_LABELS: List<String> = listOf(\"YES\", \"NO\")") shouldBe true
+            operator.contains("optionLabels = MERIT_YES_NO_LABELS") shouldBe true
+            MERIT_FILES.forEach { name ->
+                val code = codeOnlyLines(File(CLIENT_DIR, name).readText())
+                Regex("""\btr\(\s*"(Ja|Nein)"\s*\)""").containsMatchIn(code) shouldBe false
+                Regex("""optionLabels\s*=\s*listOf\(\s*tr\(""").containsMatchIn(code) shouldBe false
+            }
+        }
+
+        test("V1.9.27: ConflictException is only ever caught in the merit files and the bid form, its message never read") {
+            (MERIT_FILES + "VoteBallotForm.kt").forEach { name ->
+                conflictExceptionOutsideCatch(File(CLIENT_DIR, name).readText()) shouldBe emptyList()
+            }
+            conflictExceptionOutsideCatch("throw ConflictException(x)") shouldBe listOf("throw ConflictException(x)")
+            conflictExceptionOutsideCatch("} catch (e: ConflictException) {") shouldBe emptyList()
         }
 
         test("the secret-ballot banner has no button and is a polite status") {

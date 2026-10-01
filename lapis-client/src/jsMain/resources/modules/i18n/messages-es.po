@@ -18231,3 +18231,55 @@ msgstr "Usted gestiona esta elección. Los controles reaparecerán después de q
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr "La votación sigue bloqueada. Se volverá a comprobar enseguida."
+
+msgid "Meritokratische Abstimmung"
+msgstr "Votación meritocrática"
+
+msgid "Sie haben geboten"
+msgstr "Ha realizado una puja"
+
+msgid "Gebot ansehen oder ändern"
+msgstr "Ver o cambiar la puja"
+
+msgid "Ergebnis: %1"
+msgstr "Resultado: %1"
+
+msgid "Unentschieden – kein Gewinner"
+msgstr "Empate: sin ganador"
+
+msgid "Ergebnis im Detail"
+msgstr "Resultado en detalle"
+
+msgid "Verfügbar: %1"
+msgstr "Disponible: %1"
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr "Su apuesta se descuenta de inmediato de su saldo disponible y queda retenida. Si gana su opción, la liquidación se realiza según el segundo precio; por ahora no se devuelven los importes no utilizados."
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr "¿Apostar %1 LTR por «%2»? El importe se descuenta de inmediato de su saldo y queda retenido."
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr "Abrir votación de sí/no"
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr "Otras opciones: en la página de la moción"
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr "¿Cerrar la votación? Después ya no se podrán hacer más pujas; el resultado se calcula de inmediato."
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr "Más mociones en la página de la moción"
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr "Esta votación ya no está abierta."
+
+msgid "Sie haben bereits geboten."
+msgstr "Ya ha realizado una puja."
+
+msgid "Vorbereitete Anträge"
+msgstr "Mociones preparadas"
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr "La puja supera su saldo disponible."
+

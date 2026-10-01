@@ -18206,3 +18206,55 @@ msgstr "Obsługują Państwo te wybory. Sterowanie pojawi się ponownie po oddan
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr "Głosowanie jest nadal zablokowane. Za chwilę nastąpi ponowne sprawdzenie."
+
+msgid "Meritokratische Abstimmung"
+msgstr "Głosowanie merytokratyczne"
+
+msgid "Sie haben geboten"
+msgstr "Twoja oferta została złożona"
+
+msgid "Gebot ansehen oder ändern"
+msgstr "Zobacz lub zmień ofertę"
+
+msgid "Ergebnis: %1"
+msgstr "Wynik: %1"
+
+msgid "Unentschieden – kein Gewinner"
+msgstr "Remis – brak zwycięzcy"
+
+msgid "Ergebnis im Detail"
+msgstr "Wynik szczegółowo"
+
+msgid "Verfügbar: %1"
+msgstr "Dostępne: %1"
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr "Twoja stawka zostaje od razu odjęta od dostępnego salda i pozostaje zablokowana. Jeśli Twoja opcja wygra, rozliczenie następuje według drugiej ceny; niewykorzystane kwoty nie są na razie zwracane."
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr "Postawić %1 LTR na „%2”? Kwota zostanie od razu odjęta z salda i pozostanie zablokowana."
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr "Otwórz głosowanie tak/nie"
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr "Inne opcje: na stronie wniosku"
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr "Zamknąć głosowanie? Potem nie będzie można składać kolejnych ofert; wynik zostanie obliczony od razu."
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr "Kolejne wnioski na stronie wniosku"
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr "To głosowanie nie jest już otwarte."
+
+msgid "Sie haben bereits geboten."
+msgstr "Oferta została już złożona."
+
+msgid "Vorbereitete Anträge"
+msgstr "Przygotowane wnioski"
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr "Oferta przekracza Twoje dostępne saldo."
+

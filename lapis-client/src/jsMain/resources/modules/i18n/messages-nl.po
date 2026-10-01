@@ -18207,3 +18207,55 @@ msgstr "U beheert deze verkiezing. De bediening verschijnt weer nadat u hebt ges
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr "Stemmen is nog geblokkeerd. Er wordt zo opnieuw gecontroleerd."
+
+msgid "Meritokratische Abstimmung"
+msgstr "Meritocratische stemming"
+
+msgid "Sie haben geboten"
+msgstr "U hebt een bod uitgebracht"
+
+msgid "Gebot ansehen oder ändern"
+msgstr "Bod bekijken of wijzigen"
+
+msgid "Ergebnis: %1"
+msgstr "Resultaat: %1"
+
+msgid "Unentschieden – kein Gewinner"
+msgstr "Gelijkspel – geen winnaar"
+
+msgid "Ergebnis im Detail"
+msgstr "Resultaat in detail"
+
+msgid "Verfügbar: %1"
+msgstr "Beschikbaar: %1"
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr "Uw inzet wordt direct van uw beschikbare saldo afgeschreven en blijft gebonden. Wint uw optie, dan wordt afgerekend tegen de tweede prijs; niet-gebruikte bedragen worden momenteel nog niet teruggegeven."
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr "%1 LTR inzetten op ‘%2’? Het bedrag wordt direct van uw saldo afgeschreven en blijft gebonden."
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr "Ja/nee-stemming openen"
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr "Andere opties: op de pagina van het voorstel"
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr "Stemming sluiten? Daarna zijn er geen biedingen meer mogelijk; het resultaat wordt direct berekend."
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr "Meer voorstellen op de voorstelpagina"
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr "Deze stemming is niet meer open."
+
+msgid "Sie haben bereits geboten."
+msgstr "U hebt al een bod uitgebracht."
+
+msgid "Vorbereitete Anträge"
+msgstr "Voorbereide voorstellen"
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr "Het bod overschrijdt uw beschikbare saldo."
+

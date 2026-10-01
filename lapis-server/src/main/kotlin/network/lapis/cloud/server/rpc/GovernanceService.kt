@@ -1009,6 +1009,8 @@ class GovernanceService(
                     .where {
                         (VoteBallotTable.voteId eq abId) and (VoteBallotTable.memberId eq current.memberId)
                     }.singleOrNull()
+            // V1.9.27: createOnly (conference room) refuses to turn into a recast. Before any ledger write.
+            if (input.createOnly && existing != null) throw ConflictException("Ballot already exists")
 
             // A recast (existing != null) only needs to debit the INCREASE over its own previous
             // stake -- that previous stake's debit already sits in the ledger from the earlier

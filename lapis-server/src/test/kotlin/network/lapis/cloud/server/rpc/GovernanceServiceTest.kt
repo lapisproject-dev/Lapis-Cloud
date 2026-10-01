@@ -1466,6 +1466,72 @@ class GovernanceServiceTest :
             }
         }
 
+        test(
+            "castVoteBallot createOnly (V1.9.27): an existing ballot is a Conflict BEFORE any ledger write, createOnly=false still recasts",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installGovernanceExceptionHandlers() }
+                    routing {
+                        registerGovernanceTestRoutes()
+                        registerMotionTestRoutes()
+                        registerVoteTestRoutes()
+                    }
+                }
+
+                val committeeId =
+                    client
+                        .post("/test/create-committee/Executive Board%20CreateOnly/EXECUTIVE_BOARD/50") { header("X-Member-Id", BOARD_ID) }
+                        .bodyAsText()
+                createdCommitteeIds += Uuid.parse(committeeId)
+                val chair = createTestMember("createonly-chair@example.org")
+                val member = createTestMember("createonly-member@example.org")
+                client.post("/test/add-member/$committeeId/$chair/CHAIR") { header("X-Member-Id", BOARD_ID) }
+                client.post("/test/add-member/$committeeId/$member/MEMBER") { header("X-Member-Id", BOARD_ID) }
+                seedLtrBalance(member, BigDecimal("100.00"))
+                val (motionId, _) =
+                    client.createTerminierterMotion(
+                        committeeId = committeeId,
+                        chairId = chair,
+                        submitterId = chair,
+                        year = 2026,
+                        month = 11,
+                        day = 9,
+                    )
+                val opened = client.post("/test/open-vote/$motionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                val voteId = opened.substringBefore(":")
+                val options = opened.split(":", limit = 3)[2].split(";")
+                val yes = options.first { it.endsWith("=YES") }.substringBefore("=")
+                val no = options.first { it.endsWith("=NO") }.substringBefore("=")
+
+                fun ledgerRows() = transaction { LtrLedgerEntryTable.selectAll().where { LtrLedgerEntryTable.memberId eq member }.count() }
+
+                // a first bid with createOnly succeeds like any other
+                client
+                    .post("/test/cast-vote-ballot/$voteId/$yes/10.00?createOnly=true") { header("X-Member-Id", member.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                val rowsAfterFirst = ledgerRows()
+
+                // a stale card tries to bid again: refused, nothing written, the bid is unchanged
+                val refused =
+                    client.post("/test/cast-vote-ballot/$voteId/$no/50.00?createOnly=true") { header("X-Member-Id", member.toString()) }
+                refused.status shouldBe HttpStatusCode.Conflict
+                ledgerRows() shouldBe rowsAfterFirst
+                val ballot = transaction { VoteBallotTable.selectAll().where { VoteBallotTable.voteId eq Uuid.parse(voteId) }.single() }
+                ballot[VoteBallotTable.stakeLtr].compareTo(BigDecimal("10.00")) shouldBe 0
+                ballot[VoteBallotTable.optionId] shouldBe Uuid.parse(yes)
+
+                // the default (motion page) still recasts: option and stake replaced, the increase debited
+                client
+                    .post("/test/cast-vote-ballot/$voteId/$no/25.00") { header("X-Member-Id", member.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+                ledgerRows() shouldBe rowsAfterFirst + 1
+                val recast = transaction { VoteBallotTable.selectAll().where { VoteBallotTable.voteId eq Uuid.parse(voteId) }.single() }
+                recast[VoteBallotTable.stakeLtr].compareTo(BigDecimal("25.00")) shouldBe 0
+                recast[VoteBallotTable.optionId] shouldBe Uuid.parse(no)
+            }
+        }
+
         // ── addCommitteeMember status-gate (round-2 review, 2026-07-30) ──────────────────
         // Direct coverage of the gate itself (requireActiveMembership(memberId) added to
         // addCommitteeMember) -- the tests above only exercised it indirectly as setup for the
@@ -2839,6 +2905,7 @@ private fun Route.registerVoteTestRoutes() {
                     voteId = call.parameters["voteId"]!!,
                     optionId = call.parameters["optionId"]!!,
                     stakeLtr = BigDecimal(call.parameters["stake"]!!),
+                    createOnly = call.request.queryParameters["createOnly"] == "true",
                 ),
             )
         call.respondText("${s.id}:${s.stakeLtr}")

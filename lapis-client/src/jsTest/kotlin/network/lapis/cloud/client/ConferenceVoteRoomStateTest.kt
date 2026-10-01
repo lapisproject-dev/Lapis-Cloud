@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import network.lapis.cloud.shared.domain.RoomBallotDto
 import network.lapis.cloud.shared.domain.RoomBallotKind
+import network.lapis.cloud.shared.domain.RoomBallotOptionDto
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
 import kotlin.test.Test
@@ -27,16 +28,21 @@ internal fun roomBallot(
     secret: Boolean = true,
     title: String = "Vorstandswahl",
     motionTitle: String = "Antrag zur Vorstandswahl",
+    options: List<RoomBallotOptionDto> = emptyList(),
+    winnerOptionId: String? = null,
+    motionId: String = "m-$id",
 ) = RoomBallotDto(
     kind = kind,
     id = id,
-    motionId = "m-$id",
+    motionId = motionId,
     motionTitle = motionTitle,
     title = title,
     status = status,
     secret = secret,
     ownEligible = eligible,
     ownHasVoted = voted,
+    options = options,
+    winnerOptionId = winnerOptionId,
 )
 
 internal fun roomState(
@@ -115,8 +121,8 @@ class ConferenceVoteRoomStateTest {
     @Test
     fun theFirstAnswer_reportsNoNewlyOpenedElection_butRemembersTheOpenOnes() {
         val update = voteRoomReduce(ConferenceVoteRoomState(), roomState(roomBallot("e1"), roomBallot("e2", RoomBallotStatus.DECIDED)))
-        assertTrue(update.newlyOpenedElections.isEmpty(), "a member who joins a running vote gets the badge, not a pop-up")
-        assertEquals(setOf("e1"), update.state.seenOpenElectionIds)
+        assertTrue(update.newlyOpenedBallots.isEmpty(), "a member who joins a running vote gets the badge, not a pop-up")
+        assertEquals(setOf("e1"), update.state.seenOpenBallotIds)
         assertEquals(true, update.state.bound)
         assertTrue(update.listChanged)
     }
@@ -125,27 +131,51 @@ class ConferenceVoteRoomStateTest {
     fun aLaterAnswer_reportsTheElectionsThatOpenedSince() {
         val first = voteRoomReduce(ConferenceVoteRoomState(), roomState(roomBallot("e1"))).state
         val second = voteRoomReduce(first, roomState(roomBallot("e1"), roomBallot("e2")))
-        assertEquals(listOf("e2"), second.newlyOpenedElections.map { it.id })
+        assertEquals(listOf("e2"), second.newlyOpenedBallots.map { it.id })
         val third = voteRoomReduce(second.state, roomState(roomBallot("e1"), roomBallot("e2")))
-        assertTrue(third.newlyOpenedElections.isEmpty(), "each election is reported once")
+        assertTrue(third.newlyOpenedBallots.isEmpty(), "each election is reported once")
     }
 
     @Test
-    fun voteAndConsensusBallots_neverTriggerTheOpeningSignal() {
+    fun aConsensusBallot_neverTriggersTheOpeningSignal_butAnOpenMeritVoteDoes_onceAndNeverOnTheFirstAnswer() {
         val first = voteRoomReduce(ConferenceVoteRoomState(), roomState()).state
-        val next =
+        val consensusOnly = voteRoomReduce(first, roomState(roomBallot("c1", kind = RoomBallotKind.CONSENSUS)))
+        assertTrue(consensusOnly.newlyOpenedBallots.isEmpty(), "a consensus ballot is reserved and never announced")
+        val withVote =
             voteRoomReduce(
-                first,
-                roomState(roomBallot("v1", kind = RoomBallotKind.VOTE), roomBallot("c1", kind = RoomBallotKind.CONSENSUS)),
+                consensusOnly.state,
+                roomState(roomBallot("c1", kind = RoomBallotKind.CONSENSUS), roomBallot("v1", kind = RoomBallotKind.VOTE)),
             )
-        assertTrue(next.newlyOpenedElections.isEmpty())
+        assertEquals(listOf("v1"), withVote.newlyOpenedBallots.map { it.id })
+        val again = voteRoomReduce(withVote.state, roomState(roomBallot("v1", kind = RoomBallotKind.VOTE)))
+        assertTrue(again.newlyOpenedBallots.isEmpty(), "each vote is reported once")
+        val joiner = voteRoomReduce(ConferenceVoteRoomState(), roomState(roomBallot("v1", kind = RoomBallotKind.VOTE)))
+        assertTrue(joiner.newlyOpenedBallots.isEmpty(), "a member who joins a running vote gets the badge, not a pop-up")
+        assertEquals(setOf("v1"), joiner.state.seenOpenBallotIds)
+    }
+
+    @Test
+    fun theBadge_countsOpenElectionsAndVotes_theMemberMayStillActIn() {
+        val state =
+            voteRoomReduce(
+                ConferenceVoteRoomState(),
+                roomState(
+                    roomBallot("e1"),
+                    roomBallot("v1", kind = RoomBallotKind.VOTE, secret = false),
+                    roomBallot("v2", kind = RoomBallotKind.VOTE, secret = false, voted = true),
+                    roomBallot("v3", kind = RoomBallotKind.VOTE, secret = false, eligible = false),
+                    roomBallot("v4", RoomBallotStatus.DECIDED, kind = RoomBallotKind.VOTE, secret = false),
+                    roomBallot("c1", kind = RoomBallotKind.CONSENSUS),
+                ),
+            ).state
+        assertEquals(2, state.badgeCount(), "the open election and the open vote that the member has not bid on yet")
     }
 
     @Test
     fun anElectionThatAppearsAlreadyClosed_isNotNewlyOpened() {
         val first = voteRoomReduce(ConferenceVoteRoomState(), roomState()).state
         val next = voteRoomReduce(first, roomState(roomBallot("e1", RoomBallotStatus.CLOSED_AWAITING_TALLY)))
-        assertTrue(next.newlyOpenedElections.isEmpty())
+        assertTrue(next.newlyOpenedBallots.isEmpty())
     }
 
     @Test
@@ -158,7 +188,7 @@ class ConferenceVoteRoomStateTest {
     }
 
     @Test
-    fun badgeCount_countsOnlyOpenElectionsTheMemberMayStillVoteIn() {
+    fun badgeCount_countsOnlyOpenElectionsTheMemberMayStillVoteIn_aReservedConsensusNeverCounts() {
         val state =
             voteRoomReduce(
                 ConferenceVoteRoomState(),
@@ -167,7 +197,7 @@ class ConferenceVoteRoomStateTest {
                     roomBallot("b", voted = true),
                     roomBallot("c", eligible = false),
                     roomBallot("d", RoomBallotStatus.CLOSED_AWAITING_TALLY),
-                    roomBallot("e", kind = RoomBallotKind.VOTE),
+                    roomBallot("e", kind = RoomBallotKind.CONSENSUS),
                     roomBallot("f"),
                 ),
             ).state

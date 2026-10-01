@@ -2845,6 +2845,7 @@ private fun enterCall(
                 sendNudge = { nudgeSink() },
                 onStopStreamRequested = if (canModerate) ({ onStreamStopClicked() }) else null,
                 onRefreshRoom = { voteController?.refreshNow() },
+                loadRoomState = { fetchRoomVotingState(room.id) },
             )
         } else {
             null
@@ -3095,7 +3096,7 @@ private fun enterCall(
                 }
                 var changed = update.listChanged
                 if (votingHandle != null) {
-                    update.newlyOpenedElections.forEach { ballot ->
+                    update.newlyOpenedBallots.forEach { ballot ->
                         // the announcement always comes (also on a narrow screen, where the panel is NOT opened for the member)
                         votingHandle.announce(ballot.title)
                         panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingAutoOpen(ballot.id))

@@ -17288,3 +17288,55 @@ msgstr ""
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr ""
+
+msgid "Meritokratische Abstimmung"
+msgstr ""
+
+msgid "Sie haben geboten"
+msgstr ""
+
+msgid "Gebot ansehen oder ändern"
+msgstr ""
+
+msgid "Ergebnis: %1"
+msgstr ""
+
+msgid "Unentschieden – kein Gewinner"
+msgstr ""
+
+msgid "Ergebnis im Detail"
+msgstr ""
+
+msgid "Verfügbar: %1"
+msgstr ""
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr ""
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr ""
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr ""
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr ""
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr ""
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr ""
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr ""
+
+msgid "Sie haben bereits geboten."
+msgstr ""
+
+msgid "Vorbereitete Anträge"
+msgstr ""
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr ""
+

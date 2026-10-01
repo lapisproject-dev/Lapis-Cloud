@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * V1.9.24 "Abstimmen im Konferenzraum", wave 1 -- which kind of ballot a [RoomBallotDto] describes.
- * Only [ELECTION] is ever populated in this wave; [VOTE] arrives with V1.9.27 (meritocratic vote) and
- * [CONSENSUS] is RESERVED (systemic consensing is a project of its own) and never filled.
+ * [ELECTION] (V1.9.24) and [VOTE] (V1.9.27, meritocratic vote) are populated; [CONSENSUS] is RESERVED
+ * (systemic consensing is a project of its own) and never filled.
  */
 @Serializable
 enum class RoomBallotKind { ELECTION, VOTE, CONSENSUS }
@@ -15,9 +15,20 @@ enum class RoomBallotKind { ELECTION, VOTE, CONSENSUS }
  * waves can map other ballot kinds onto the same three values. Mapping for elections:
  * [ElectionStatus.OPEN] -> [OPEN], [ElectionStatus.CLOSED] -> [CLOSED_AWAITING_TALLY],
  * [ElectionStatus.TALLIED] -> [DECIDED]. All other election states are never delivered.
+ *
+ * Mapping for meritocratic votes (V1.9.27): `OPEN` -> [OPEN]; `CLOSED` -> [DECIDED] (the result is computed
+ * while closing, so [CLOSED_AWAITING_TALLY] never occurs for a vote); `ABORTED` is never delivered.
  */
 @Serializable
 enum class RoomBallotStatus { OPEN, CLOSED_AWAITING_TALLY, DECIDED }
+
+/** One option of a meritocratic vote shown in the room. [label] is untrusted free text. */
+@Serializable
+data class RoomBallotOptionDto(
+    val id: String,
+    val label: String,
+    val position: Int,
+)
 
 /**
  * One ballot visible in a conference room.
@@ -28,6 +39,10 @@ enum class RoomBallotStatus { OPEN, CLOSED_AWAITING_TALLY, DECIDED }
  * **Ballot secrecy**: the DTO carries ONLY the calling account's own flags ([ownEligible],
  * [ownHasVoted]) -- no counters, no timestamps, no selections, no receipts, no names or member ids.
  * For a non-member caller ([MemberStatusSets.NON_MEMBER]) [ownEligible] is always `false`.
+ *
+ * V1.9.27 (kind [RoomBallotKind.VOTE]): a meritocratic vote is never secret (`secret = false`). The DTO
+ * NEVER carries `basketTotalLtr`, `stakeLtr`, `settledLtr`, `secondPriceLtr`, names, timestamps, the
+ * caller's own stake or any count of bids -- only [options] (label text) and, once decided, [winnerOptionId].
  */
 @Serializable
 data class RoomBallotDto(
@@ -40,6 +55,10 @@ data class RoomBallotDto(
     val secret: Boolean,
     val ownEligible: Boolean,
     val ownHasVoted: Boolean,
+    /** VOTE only (ordered by position); always empty for ELECTION. Untrusted free text in `label`. */
+    val options: List<RoomBallotOptionDto> = emptyList(),
+    /** VOTE + DECIDED only; null on a tie and for every ELECTION. */
+    val winnerOptionId: String? = null,
 )
 
 /**

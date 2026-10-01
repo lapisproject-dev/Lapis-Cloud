@@ -234,7 +234,8 @@ interface IGovernanceService {
      * `network.lapis.cloud.server.rpc.GovernanceService.castVoteBallot` KDoc. Requires
      * [network.lapis.cloud.shared.domain.VoteStatus.OPEN]. Upserts one ballot per member;
      * a second call overwrites the member's own prior stake/option, it does not add a second
-     * ballot.
+     * ballot. With `VoteBallotInput.createOnly = true` (V1.9.27, conference room) an existing ballot
+     * yields `ConflictException` instead of an overwrite.
      */
     suspend fun castVoteBallot(input: VoteBallotInput): VoteBallotDto
 

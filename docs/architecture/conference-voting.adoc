@@ -11,8 +11,9 @@ later waves stand on:
 * The data-channel topic `lapis-vote-nudge`, a data-less signal that makes the other clients ask the server again, so the list
   updates within about two seconds instead of at the next 5-second poll.
 
-Only democratic elections are delivered. Meritocratic votes follow in V1.9.27; systemic consensing is a project of its own, its enum
-value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25) and the operator panel (V1.9.26, below) follow.
+Wave 1 delivers democratic elections only. Meritocratic votes follow in V1.9.27 (section "Client: the meritocratic vote in the room",
+below); systemic consensing is a project of its own, its enum value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25)
+and the operator panel (V1.9.26, below) follow.
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
@@ -110,11 +111,11 @@ rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disc
 
 == Known limitations
 
-* Client (V1.9.25): VOTE and CONSENSUS ballots show only their state; a VOTE has no link because there is no detail route yet.
+* Client: a CONSENSUS ballot (reserved, never delivered) would show only its state. Since V1.9.27 a VOTE has its own card, bid view and operator controls (below).
 * In-app navigation (menu, hash) during a visible receipt discards it, exactly as on the elections page.
 * The nudge does not reach participants in breakouts; the poll covers them.
 * Leaving while a ballot request is in flight is blocked since V1.9.26 (the `CASTING` lock, see below); closing the browser tab asks first.
-* Elections only; meritocratic votes in V1.9.27, consensing is not planned for the room.
+* Elections and meritocratic votes; consensing is not planned for the room.
 * Unbound room: stream is never paused (C2).
 * A hanging pause can be resolved only by the room moderator or the election management (C1).
 * Recordings are not paused for a secret ballot; the room banner says so (V1.9.26).
@@ -327,3 +328,94 @@ stream that is being paused for a ballot.
 While the ballot request is in flight the panel lock is `CASTING`: the leave buttons are disabled with the reason "Ihre Stimme wird gerade
 übermittelt", the unload guard treats it like a visible receipt, and the browser's own "leave this page?" question is registered only for
 that time (the receipt of that very request would have no place to appear once the page is gone). `pagehide` still always disconnects.
+
+== Client: the meritocratic vote in the room (V1.9.27)
+
+Wave 4 of four. The room shows a meritocratic vote (a vote with LTR bids, `Vote` in the governance code) next to the elections, lets an
+eligible member place a FIRST bid, and lets the person who may record for the committee open a Yes/No vote and close a running one.
+
+=== Server: what the room learns about a vote
+
+`getRoomVotingState` now also delivers `RoomBallotKind.VOTE` ballots. Everything else about the query (authorization, the uniform
+error, the rate limit, the lock on the motion) is unchanged.
+
+|===
+| Vote state | Room status | Delivered
+| `OPEN` | `OPEN` | yes
+| `CLOSED`, closed within the last 12 hours | `DECIDED` (the result is computed while closing, `CLOSED_AWAITING_TALLY` never occurs for a vote) | yes, with `winnerOptionId` (`null` on a tie)
+| `CLOSED`, older | | no
+| `ABORTED` | | never
+|===
+
+* **One ranking, one cap.** All open elections and votes come first, then elections in `CLOSED`, then ended ballots (tallied elections
+  and closed votes), newest first; the cap of 20 is shared, so an ended ballot of either kind never displaces an open one. The number of
+  queries does not depend on the ballot count.
+* **Fields.** A vote carries `options` (`id`, `label`, `position`, ordered by position) and, once decided, `winnerOptionId`.
+  The DTO NEVER carries a basket total, a stake, a settlement, the second price, a name, a timestamp, the caller's own stake or any
+  count of bids. The server reads only `vote_ballot.vote_id` of the caller's own rows and never selects `second_price_ltr`.
+* **Eligibility** is the rule of `castVoteBallot`: the status must be in `MemberStatusSets.ORGANIZATION_MEMBER` and the member must be in
+  the eligible set of the vote's Sitzung. The polling path uses `isCommitteeEligible`, the point-access twin of `eligibleMemberIds`
+  (same conditions, plus `member_id`), so a general assembly does not load every active member every five seconds. A parity test pins
+  both against each other; `castVoteBallot` itself still uses `eligibleMemberIds`.
+* **Never secret, never pauses the stream.** A meritocratic vote is saved by name (`secret = false`); `SecretBallotStreamLock` does not
+  know it, so it neither pauses a stream nor blocks unbinding the room.
+* No migration: the existing indexes serve the queries (`vote(meeting_id)` is not indexed; the table is small and the query is limited).
+
+=== Client: card, bid view, operator
+
+[source,kuml,name="conference-merit-vote-sequence"]
+----
+sequenceDiagram(name = "A first bid and closing the vote from the room") {
+    val member = lifeline(name = "Member client (panel)")
+    val server = lifeline(name = "Server (authoritative)")
+    val ledger = lifeline(name = "LTR ledger")
+    val operator = lifeline(name = "Operator client")
+
+    message(from = member, to = server, label = "getRoomVotingState (fresh, before the bid view opens)")
+    message(from = member, to = member, label = "dialog: stake, option, 'bound immediately'")
+    message(from = member, to = server, label = "castVoteBallot(createOnly = true)")
+    message(from = server, to = ledger, label = "VOTE_STAKE debit (refused with a Conflict if a bid exists)")
+    message(from = member, to = operator, label = "lapis-vote-nudge, one zero byte")
+    message(from = operator, to = operator, label = "dialog: close the vote, focus on Abbrechen")
+    message(from = operator, to = server, label = "closeVote(voteId)")
+    message(from = server, to = member, label = "next poll: status DECIDED with winnerOptionId")
+}
+----
+
+* **Card** (`ConferenceMeritVoteCard.kt`): title, "Meritokratische Abstimmung", the state, "offen – namentlich", your standing ("Sie haben
+  geboten" / "Sie sind stimmberechtigt" / "Nicht stimmberechtigt"). One primary button "Gebot abgeben" only for an eligible member without
+  a bid; a link "Gebot ansehen oder ändern" (new tab, `rel="noopener noreferrer"`) once a bid exists; for a decided vote "Ergebnis: <label>"
+  or "Unentschieden – kein Gewinner" and "Ergebnis im Detail". A winner id that is not among the options shows no result line. The notice
+  "Diese Abstimmung ist offen und wird namentlich gespeichert" appears once above the open cards. Titles and labels go through the
+  untrusted-text helpers.
+* **Bid view** (`ConferenceMeritBidView.kt`) lives in the SAME booth host as the election booth, so the panel's close lock, the "no
+  auto-open while it is open" rule and the unload prompt apply without new state. Before it opens, the panel asks the server again
+  (`getRoomVotingState`): a vote that is no longer open or a bid that already exists means a note and no bid view. It shows the free
+  balance (the shared load states: a failure shows the one error sentence with a retry) and the honest explanation of what a stake does.
+  Sending asks once ("%1 LTR auf „%2“ setzen? ...") and goes through the same form as the motion page (`VoteBallotForm.kt`).
+* **`createOnly`.** `VoteBallotInput.createOnly` (default `false`) makes `castVoteBallot` throw `ConflictException` when the caller already
+  holds a ballot, checked after the debit lock and before any ledger write. The room sets it, so a stale card can never turn a first bid
+  into a silent recast; the motion page keeps the old behaviour exactly. A conflict returns the member to the list with the fixed note
+  "Der Stand hat sich geändert und wurde neu geladen."; the exception's message is never read.
+* **Operator** (`ConferenceMeritVoteOperator.kt`). The gate is `GovernanceAuthzUi.canRecordForMeeting` (board or admin, or CHAIR, DEPUTY_CHAIR
+  or SECRETARY of the target committee), the mirror of the server's rule; the room moderation (`canModerateRoom`) is NOT consulted.
+  "Ja/Nein-Abstimmung eröffnen" appears under the prepared items for a SCHEDULED motion of this room's Sitzung that `meritCanOpen`
+  accepts: no open or finished vote, no running election, no consensus unless aborted, and no pending amendment (`openVote` does not
+  check amendments but `closeVote` does, so a vote opened over a pending amendment could not be closed). At most five candidates are looked
+  at, re-read every 30 seconds, after an own action and when the panel opens. "Abstimmung schließen" sits on the card of a running vote and
+  asks first (the dialog focuses "Abbrechen"). Aborting a vote, custom options and changing a bid stay on the motion page.
+* **The options are the literals `YES` and `NO`, never translated.** `closeVote` decides the outcome by the label text: the label "NO"
+  (case-insensitive) means REJECTED, any other winning label means ADOPTED. A translated "Nein" would turn a rejection into an adoption.
+  A tripwire pins the literals.
+* **Writes.** Opening and closing go through the controller's one guarded function `runOperatorAction`; a tripwire pins it for the merit
+  operator as well.
+
+=== Known limitations (V1.9.27)
+
+* **Stakes stay bound.** `castVoteBallot` debits the stake immediately as `VOTE_STAKE`, and no path releases it afterwards: neither
+  `closeVote` (it only sets `settledLtr`), nor `abortVote`, nor a lower recast. The room therefore says so ("... bleibt gebunden ... eine
+  Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht") and never promises a refund. A release path needs a new ledger type,
+  a settlement and a migration: a project of its own.
+* The room never loads other members' bids; a changed bid, custom options and aborting a vote are on the motion page (new tab).
+* The text "Kein Gewinner, keine Belastung" on the motion page (`renderVoteSection`, tie) is inexact for the same reason; it is outside this wave.
+* The staging test (`conference-voting-staging-test.adoc`) was written but not run: the credentials belong to the operator.

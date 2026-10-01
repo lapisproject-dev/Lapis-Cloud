@@ -18197,3 +18197,55 @@ msgstr "Вы проводите эти выборы. Элементы управ
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr "Голосование пока заблокировано. Скоро будет выполнена повторная проверка."
+
+msgid "Meritokratische Abstimmung"
+msgstr "Меритократическое голосование"
+
+msgid "Sie haben geboten"
+msgstr "Вы сделали ставку"
+
+msgid "Gebot ansehen oder ändern"
+msgstr "Посмотреть или изменить ставку"
+
+msgid "Ergebnis: %1"
+msgstr "Результат: %1"
+
+msgid "Unentschieden – kein Gewinner"
+msgstr "Ничья – победителя нет"
+
+msgid "Ergebnis im Detail"
+msgstr "Результат подробно"
+
+msgid "Verfügbar: %1"
+msgstr "Доступно: %1"
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr "Ваша ставка сразу списывается с доступного баланса и остаётся заблокированной. Если ваш вариант победит, расчёт производится по второй цене; неиспользованные суммы пока не возвращаются."
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr "Поставить %1 LTR на «%2»? Сумма сразу списывается с баланса и остаётся заблокированной."
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr "Открыть голосование «да/нет»"
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr "Другие варианты: на странице заявки"
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr "Закрыть голосование? После этого ставки больше невозможны; результат рассчитывается сразу."
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr "Другие заявки – на странице заявки"
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr "Это голосование больше не открыто."
+
+msgid "Sie haben bereits geboten."
+msgstr "Вы уже сделали ставку."
+
+msgid "Vorbereitete Anträge"
+msgstr "Подготовленные заявки"
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr "Ставка превышает ваш доступный баланс."
+

@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import dev.kilua.rpc.types.toDecimal
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -29,7 +28,6 @@ import network.lapis.cloud.shared.domain.MotionResolutionInput
 import network.lapis.cloud.shared.domain.MotionReviewDecision
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ResolutionStatus
-import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.domain.VoteDto
 import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteStatus
@@ -949,7 +947,7 @@ internal fun renderVoteSection(
                 }
             }
             if (isEligibleToBallot) {
-                renderBallotForm(panel, vote, myBallot?.optionId, onChanged)
+                renderBallotForm(panel, vote.toBallotFormModel(), myBallot?.optionId, onChanged)
             }
             if (canManage) {
                 renderVoteControls(panel, vote, onChanged)
@@ -1009,69 +1007,6 @@ internal fun renderVoteSection(
     }
 }
 
-internal fun renderBallotForm(
-    panel: SimplePanel,
-    vote: VoteDto,
-    currentOptionId: String?,
-    onChanged: () -> Unit,
-) {
-    val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
-    formPanel.p(tr("Gebot abgeben")) { addCssClass("fw-bold") }
-    val form = formPanel.lapisForm()
-    val optionOptions = untrustedOptions(vote.options.sortedBy { it.position }.map { it.id to it.label })
-    val optionField =
-        form.selectField(
-            label = tr("Option"),
-            options = optionOptions,
-            value = currentOptionId ?: optionOptions.firstOrNull()?.first,
-        )
-    val stakeField =
-        form.textField(
-            label = tr("Einsatz (LTR)"),
-            required = true,
-            rule = { value ->
-                if (Validation.isPositiveDecimal(
-                        value.trim(),
-                    )
-                ) {
-                    FieldCheck.Ok
-                } else {
-                    FieldCheck.Invalid(gettext("Bitte einen positiven Betrag (LTR) angeben."))
-                }
-            },
-        )
-
-    val castButton = Button(tr("Gebot abgeben"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = castButton)
-    castButton.onClick {
-        form.submit(castButton) {
-            val optionId = optionField.value.takeIf { it.isNotBlank() }
-            if (optionId == null) {
-                form.showFormError(tr("Bitte eine Option und einen positiven LTR-Einsatz angeben."))
-                return@submit
-            }
-            val result =
-                guarded {
-                    rpcService<IGovernanceService>().castVoteBallot(
-                        VoteBallotInput(
-                            voteId = vote.id,
-                            optionId = optionId,
-                            stakeLtr =
-                                stakeField.value
-                                    .trim()
-                                    .toDouble()
-                                    .toDecimal(),
-                        ),
-                    )
-                }
-            if (result != null) {
-                notifySuccess(tr("Gebot gespeichert."))
-                onChanged()
-            }
-        }
-    }
-}
-
 /** Design decision D7: `closeVote` is a forward/completing transition (no confirm, mirrors
  * `updateMeetingStatus -> HELD`); `abortVote` is destructive and gets the real `confirmDialog`. */
 private fun renderVoteControls(
@@ -1116,7 +1051,7 @@ private fun renderVoteControls(
  * leadership/BOARD/ADMIN to withdraw at any status except already-WITHDRAWN, terminal statuses
  * included (see that function's own KDoc).
  */
-private val NON_TERMINAL_MOTION_STATUSES =
+internal val NON_TERMINAL_MOTION_STATUSES =
     setOf(MotionStatus.SUBMITTED, MotionStatus.REVIEWED, MotionStatus.SCHEDULED, MotionStatus.POSTPONED)
 
 /**

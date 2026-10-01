@@ -18159,3 +18159,55 @@ msgstr "You are operating this election. The controls reappear after you have vo
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr "Voting is still locked. It will be checked again shortly."
+
+msgid "Meritokratische Abstimmung"
+msgstr "Meritocratic vote"
+
+msgid "Sie haben geboten"
+msgstr "You have bid"
+
+msgid "Gebot ansehen oder ändern"
+msgstr "View or change bid"
+
+msgid "Ergebnis: %1"
+msgstr "Result: %1"
+
+msgid "Unentschieden – kein Gewinner"
+msgstr "Tie – no winner"
+
+msgid "Ergebnis im Detail"
+msgstr "Result in detail"
+
+msgid "Verfügbar: %1"
+msgstr "Available: %1"
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr "Your stake is deducted from your available balance immediately and stays bound. If your option wins, settlement follows the second price; unused amounts are not returned yet."
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr "Bid %1 LTR on “%2”? The amount is deducted from your balance immediately and stays bound."
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr "Open yes/no vote"
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr "Other options: on the motion page"
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr "Close the vote? No more bids are possible afterwards; the result is calculated immediately."
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr "More motions on the motion page"
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr "This vote is no longer open."
+
+msgid "Sie haben bereits geboten."
+msgstr "You have already bid."
+
+msgid "Vorbereitete Anträge"
+msgstr "Prepared motions"
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr "The bid exceeds your available balance."
+

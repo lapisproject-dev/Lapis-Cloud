@@ -18252,3 +18252,55 @@ msgstr "Lei gestisce questa elezione. I comandi riappariranno dopo il suo voto."
 
 msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
 msgstr "Il voto è ancora bloccato. Verrà ricontrollato a breve."
+
+msgid "Meritokratische Abstimmung"
+msgstr "Votazione meritocratica"
+
+msgid "Sie haben geboten"
+msgstr "Hai effettuato un'offerta"
+
+msgid "Gebot ansehen oder ändern"
+msgstr "Visualizza o modifica l'offerta"
+
+msgid "Ergebnis: %1"
+msgstr "Risultato: %1"
+
+msgid "Unentschieden – kein Gewinner"
+msgstr "Pareggio – nessun vincitore"
+
+msgid "Ergebnis im Detail"
+msgstr "Risultato in dettaglio"
+
+msgid "Verfügbar: %1"
+msgstr "Disponibile: %1"
+
+msgid "Ihr Einsatz wird sofort von Ihrem verfügbaren Guthaben abgezogen und bleibt gebunden. Gewinnt Ihre Option, wird nach dem Zweitpreis abgerechnet; eine Rückgabe nicht verbrauchter Beträge gibt es derzeit noch nicht."
+msgstr "La tua puntata viene detratta subito dal tuo saldo disponibile e resta vincolata. Se la tua opzione vince, il regolamento avviene al secondo prezzo; gli importi non utilizzati per ora non vengono restituiti."
+
+msgid "%1 LTR auf „%2“ setzen? Der Betrag wird sofort von Ihrem Guthaben abgezogen und bleibt gebunden."
+msgstr "Puntare %1 LTR su «%2»? L'importo viene detratto subito dal tuo saldo e resta vincolato."
+
+msgid "Ja/Nein-Abstimmung eröffnen"
+msgstr "Apri votazione sì/no"
+
+msgid "Andere Optionen: auf der Antragsseite"
+msgstr "Altre opzioni: nella pagina della mozione"
+
+msgid "Abstimmung schließen? Danach sind keine Gebote mehr möglich, das Ergebnis wird sofort berechnet."
+msgstr "Chiudere la votazione? Dopo non saranno più possibili offerte; il risultato viene calcolato subito."
+
+msgid "Weitere Anträge auf der Antragsseite"
+msgstr "Altre mozioni nella pagina della mozione"
+
+msgid "Diese Abstimmung ist nicht mehr offen."
+msgstr "Questa votazione non è più aperta."
+
+msgid "Sie haben bereits geboten."
+msgstr "Hai già effettuato un'offerta."
+
+msgid "Vorbereitete Anträge"
+msgstr "Mozioni preparate"
+
+msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
+msgstr "L'offerta supera il tuo saldo disponibile."
+

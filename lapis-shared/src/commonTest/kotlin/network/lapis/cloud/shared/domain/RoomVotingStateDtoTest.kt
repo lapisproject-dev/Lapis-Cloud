@@ -13,9 +13,23 @@ class RoomVotingStateDtoTest {
     fun roomBallotDto_hasExactlyTheAllowedFields() {
         val names = RoomBallotDto.serializer().descriptor.names()
         assertEquals(
-            setOf("kind", "id", "motionId", "motionTitle", "title", "status", "secret", "ownEligible", "ownHasVoted"),
+            setOf(
+                "kind",
+                "id",
+                "motionId",
+                "motionTitle",
+                "title",
+                "status",
+                "secret",
+                "ownEligible",
+                "ownHasVoted",
+                // V1.9.27: option labels and the winner of a meritocratic vote -- never an amount
+                "options",
+                "winnerOptionId",
+            ),
             names,
         )
+        assertEquals(setOf("id", "label", "position"), RoomBallotOptionDto.serializer().descriptor.names())
     }
 
     @Test

@@ -24,6 +24,8 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.VoteOptionTable
+import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -47,8 +49,10 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotDto
 import network.lapis.cloud.shared.domain.RoomBallotKind
+import network.lapis.cloud.shared.domain.RoomBallotOptionDto
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -1104,6 +1108,7 @@ class ConferenceService(
                         loadRoomBallots(
                             meetingId = meetingId,
                             memberId = current.memberId,
+                            memberStatus = status,
                             isNonMember = status in MemberStatusSets.NON_MEMBER,
                             now = now,
                         )
@@ -1118,13 +1123,17 @@ class ConferenceService(
     }
 
     /**
-     * V1.9.24 -- at most 5 queries independent of the ballot count. Active (OPEN/CLOSED) elections of
-     * [meetingId] first, then TALLIED ones within [RECENTLY_TALLIED_WINDOW], so tallied elections can
-     * never crowd out an open one. Own flags are loaded only for the rows actually delivered.
+     * V1.9.24/V1.9.27 -- the number of queries is independent of the ballot count: 2 election queries,
+     * 2 vote queries, 1 vote-option query, plus own flags (elections: <= 3, votes: <= 3). One shared
+     * ranking and ONE shared cap across both kinds: (1) every OPEN election/vote, (2) elections in CLOSED
+     * (awaiting tally), (3) ended ones (TALLIED elections, CLOSED votes within [RECENTLY_TALLIED_WINDOW]),
+     * newest first -- so ended ballots can never crowd out an open one, whatever their kind. Own flags are
+     * loaded only for the rows actually delivered. An ABORTED vote is never delivered.
      */
     private fun loadRoomBallots(
         meetingId: Uuid,
         memberId: Uuid,
+        memberStatus: MemberStatus,
         isNonMember: Boolean,
         now: LocalDateTime,
     ): Pair<List<RoomBallotDto>, Boolean> {
@@ -1137,9 +1146,10 @@ class ConferenceService(
                 ElectionTable.motionId,
                 ElectionTable.votingOpenedAt,
                 ElectionTable.openedAt,
+                ElectionTable.tallyRunAt,
                 MotionTable.title,
             )
-        val active =
+        val activeElections =
             (ElectionTable innerJoin MotionTable)
                 .select(columns)
                 .where {
@@ -1148,9 +1158,29 @@ class ConferenceService(
                 }.orderBy(ElectionTable.openedAt, SortOrder.DESC)
                 .limit(MAX_ROOM_BALLOTS + 1)
                 .toList()
+        // The vote columns are an explicit allowlist: secondPriceLtr is deliberately NOT selected.
+        val voteColumns =
+            listOf(
+                VoteTable.id,
+                VoteTable.title,
+                VoteTable.status,
+                VoteTable.motionId,
+                VoteTable.meetingId,
+                VoteTable.openedAt,
+                VoteTable.closedAt,
+                VoteTable.winnerOptionId,
+                MotionTable.title,
+            )
+        val openVotes =
+            (VoteTable innerJoin MotionTable)
+                .select(voteColumns)
+                .where { (VoteTable.meetingId eq meetingId) and (VoteTable.status eq VoteStatus.OPEN) }
+                .orderBy(VoteTable.openedAt, SortOrder.DESC)
+                .limit(MAX_ROOM_BALLOTS + 1)
+                .toList()
         val zone = TimeZone.currentSystemDefault()
         val cutoff = (now.toInstant(zone) - RECENTLY_TALLIED_WINDOW).toLocalDateTime(zone)
-        val remaining = MAX_ROOM_BALLOTS + 1 - active.size
+        val remaining = MAX_ROOM_BALLOTS + 1 - activeElections.size - openVotes.size
         val tallied =
             if (remaining <= 0) {
                 emptyList()
@@ -1165,35 +1195,128 @@ class ConferenceService(
                     .limit(remaining)
                     .toList()
             }
+        val closedVotes =
+            if (remaining <= 0) {
+                emptyList()
+            } else {
+                (VoteTable innerJoin MotionTable)
+                    .select(voteColumns)
+                    .where {
+                        (VoteTable.meetingId eq meetingId) and
+                            (VoteTable.status eq VoteStatus.CLOSED) and
+                            (VoteTable.closedAt greaterEq cutoff)
+                    }.orderBy(VoteTable.closedAt, SortOrder.DESC)
+                    .limit(remaining)
+                    .toList()
+            }
+        val candidates =
+            activeElections.map { row ->
+                val open = row[ElectionTable.status] == ElectionStatus.OPEN
+                RoomBallotCandidate(
+                    sortGroup = if (open) 0 else 1,
+                    sortTime = row[ElectionTable.openedAt],
+                    election = row,
+                    vote = null,
+                )
+            } +
+                openVotes.map { RoomBallotCandidate(sortGroup = 0, sortTime = it[VoteTable.openedAt], election = null, vote = it) } +
+                tallied.map {
+                    RoomBallotCandidate(
+                        sortGroup = 2,
+                        sortTime = it[ElectionTable.tallyRunAt] ?: it[ElectionTable.openedAt],
+                        election = it,
+                        vote = null,
+                    )
+                } +
+                closedVotes.map {
+                    RoomBallotCandidate(
+                        sortGroup = 2,
+                        sortTime = it[VoteTable.closedAt] ?: it[VoteTable.openedAt],
+                        election = null,
+                        vote = it,
+                    )
+                }
         val ordered =
-            active.sortedBy { if (it[ElectionTable.status] == ElectionStatus.OPEN) 0 else 1 } + tallied
+            candidates.sortedWith(
+                compareBy<RoomBallotCandidate> { it.sortGroup }.thenByDescending { it.sortTime },
+            )
         val truncated = ordered.size > MAX_ROOM_BALLOTS
         val delivered = ordered.take(MAX_ROOM_BALLOTS)
-        val flags = ElectionOwnParticipation.load(electionRows = delivered, memberId = memberId)
+        val electionRows = delivered.mapNotNull { it.election }
+        val voteRows = delivered.mapNotNull { it.vote }
+        val electionFlags = ElectionOwnParticipation.load(electionRows = electionRows, memberId = memberId)
+        val voteFlags =
+            VoteOwnParticipation.load(voteRows = voteRows, memberId = memberId, memberStatus = memberStatus)
+        val optionsByVote: Map<Uuid, List<RoomBallotOptionDto>> =
+            if (voteRows.isEmpty()) {
+                emptyMap()
+            } else {
+                VoteOptionTable
+                    .select(VoteOptionTable.id, VoteOptionTable.voteId, VoteOptionTable.label, VoteOptionTable.position)
+                    .where { VoteOptionTable.voteId inList voteRows.map { it[VoteTable.id] } }
+                    .orderBy(VoteOptionTable.position, SortOrder.ASC)
+                    .groupBy({ it[VoteOptionTable.voteId] }) {
+                        RoomBallotOptionDto(
+                            id = it[VoteOptionTable.id].toString(),
+                            label = it[VoteOptionTable.label],
+                            position = it[VoteOptionTable.position],
+                        )
+                    }
+            }
         val ballots =
-            delivered.map { row ->
-                val electionId = row[ElectionTable.id]
-                val own = flags[electionId]
-                RoomBallotDto(
-                    kind = RoomBallotKind.ELECTION,
-                    id = electionId.toString(),
-                    motionId = row[ElectionTable.motionId].toString(),
-                    motionTitle = row[MotionTable.title],
-                    title = row[ElectionTable.title],
-                    status =
-                        when (row[ElectionTable.status]) {
-                            ElectionStatus.OPEN -> RoomBallotStatus.OPEN
-                            ElectionStatus.CLOSED -> RoomBallotStatus.CLOSED_AWAITING_TALLY
-                            else -> RoomBallotStatus.DECIDED
-                        },
-                    secret = row[ElectionTable.secret],
-                    // Defense in depth: a non-member is never eligible, whatever the snapshot says.
-                    ownEligible = !isNonMember && own?.eligible == true,
-                    ownHasVoted = own?.hasVoted == true,
-                )
+            delivered.map { candidate ->
+                val voteRow = candidate.vote
+                if (voteRow != null) {
+                    val voteId = voteRow[VoteTable.id]
+                    val own = voteFlags[voteId]
+                    val closed = voteRow[VoteTable.status] == VoteStatus.CLOSED
+                    RoomBallotDto(
+                        kind = RoomBallotKind.VOTE,
+                        id = voteId.toString(),
+                        motionId = voteRow[VoteTable.motionId].toString(),
+                        motionTitle = voteRow[MotionTable.title],
+                        title = voteRow[VoteTable.title],
+                        status = if (closed) RoomBallotStatus.DECIDED else RoomBallotStatus.OPEN,
+                        secret = false,
+                        // Defense in depth: a non-member is never eligible, whatever the lookup says.
+                        ownEligible = !isNonMember && own?.eligible == true,
+                        ownHasVoted = own?.hasVoted == true,
+                        options = optionsByVote[voteId].orEmpty(),
+                        winnerOptionId = if (closed) voteRow[VoteTable.winnerOptionId]?.toString() else null,
+                    )
+                } else {
+                    val row = checkNotNull(candidate.election)
+                    val electionId = row[ElectionTable.id]
+                    val own = electionFlags[electionId]
+                    RoomBallotDto(
+                        kind = RoomBallotKind.ELECTION,
+                        id = electionId.toString(),
+                        motionId = row[ElectionTable.motionId].toString(),
+                        motionTitle = row[MotionTable.title],
+                        title = row[ElectionTable.title],
+                        status =
+                            when (row[ElectionTable.status]) {
+                                ElectionStatus.OPEN -> RoomBallotStatus.OPEN
+                                ElectionStatus.CLOSED -> RoomBallotStatus.CLOSED_AWAITING_TALLY
+                                else -> RoomBallotStatus.DECIDED
+                            },
+                        secret = row[ElectionTable.secret],
+                        // Defense in depth: a non-member is never eligible, whatever the snapshot says.
+                        ownEligible = !isNonMember && own?.eligible == true,
+                        ownHasVoted = own?.hasVoted == true,
+                    )
+                }
             }
         return ballots to truncated
     }
+
+    /** One ranked entry of [loadRoomBallots]; exactly one of [election]/[vote] is set. */
+    private class RoomBallotCandidate(
+        val sortGroup: Int,
+        val sortTime: LocalDateTime,
+        val election: ResultRow?,
+        val vote: ResultRow?,
+    )
 
     // ── Internal helpers ──────────────────────────────────────────────────
 
