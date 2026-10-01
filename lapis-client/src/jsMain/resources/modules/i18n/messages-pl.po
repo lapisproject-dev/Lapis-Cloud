@@ -18044,3 +18044,81 @@ msgstr "Dla tego wniosku trwają wybory."
 
 msgid "Zur Wahl"
 msgstr "Do wyborów"
+
+msgid "Abstimmen"
+msgstr "Głosowanie"
+
+msgid "Abstimmen schließen"
+msgstr "Zamknij głosowanie"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Głosowanie, otwarte: %1"
+
+msgid "Zur Wahlkabine"
+msgstr "Do kabiny do głosowania"
+
+msgid "Zurück zur Übersicht"
+msgstr "Powrót do przeglądu"
+
+msgid "offen"
+msgstr "otwarte"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "zamknięte, czeka na przeliczenie"
+
+msgid "ausgezählt"
+msgstr "przeliczone"
+
+msgid "geheim"
+msgstr "tajne"
+
+msgid "offen – namentlich"
+msgstr "jawne – imienne"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "Masz prawo głosu"
+
+msgid "Sie haben abgestimmt"
+msgstr "Twój głos został oddany"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Brak prawa głosu"
+
+msgid "Details in neuem Tab"
+msgstr "Szczegóły w nowej karcie"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "To głosowanie jest jawne i zapisywane imiennie"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Najpierw zapisz swoje potwierdzenie."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Najpierw zakończ głosowanie."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "Otwarto nowe głosowanie: %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Głosowanie trwa – oddawanie głosów w pokoju pojawi się później"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "Kolejne głosowania – wszystkie szczegóły na posiedzeniu"
+
+msgid "Status wird aktualisiert …"
+msgstr "Status jest aktualizowany …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "Obecnie brak głosowań."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Trwają głosowania – głosować mogą tylko członkowie"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Powiąż posiedzenie, aby umożliwić głosowania w pokoju"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Nie udało się załadować kabiny do głosowania. Spróbuj ponownie."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "Te wybory nie są już otwarte."

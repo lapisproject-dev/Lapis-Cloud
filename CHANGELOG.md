@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.25 voting in the conference room, wave 2 (panel shell, client only)
+
+- **"Abstimmen" panel** in the video call: a toggle with a badge (open elections you may still vote in), a panel with one card per
+  election (title, state, your own standing), and the real voting booth embedded in the panel, with a banner for open ballots.
+  A new election opens the panel once per election id on wide screens; on narrow screens it is a bottom sheet that excludes the chat and
+  is never opened by itself (an announcement is made). Fullscreen keeps the panel open and shares the rail (60/40/30 split).
+- **Status line for guests and friends** while ballots run; a hint for the moderator when the room has no Sitzung.
+- **Polling** every 5 s (open ballots) / 15 s / 30 s hidden, immediate on tab visibility and on the data-channel nudge (minimum gap
+  1 s, one request in flight).
+
+### Security -- V1.9.25
+
+- **Unload fix:** `beforeunload` no longer disconnects while a secret-ballot receipt is on screen; `pagehide` always does.
+- **Receipt lock:** with a receipt on screen the panel cannot be closed and "Verlassen", "Für alle beenden" and "Zurück zum
+  Hauptraum" are disabled with a stated reason. The receipt code never leaves the booth's two DOM nodes.
+- **Hook scope:** the panel takes `electionReceiptVisibilityHook` and gives it back.
+- Titles of elections and motions are rendered only through the untrusted-text helpers (cards, announcement).
+
+### Known limitations -- V1.9.25
+
+- VOTE and CONSENSUS ballots show their state only; a VOTE has no link (no detail route yet).
+- Not tested in a real LiveKit room (nudge over the data channel, real auto-open, receipt with a real disconnect, iOS WebView `pagehide`);
+  that follows in V1.9.26 on staging.
+- Operator controls and a blocked vote button during a running stream follow in V1.9.26.
+- In-app navigation during a visible receipt discards it, as on the elections page. Leaving while a ballot request is in flight is not blocked.
+- The nudge does not reach participants in breakouts (the poll covers them). No auto-open on narrow screens (intended).
+
 ### Added -- V1.9.24 voting in the conference room, wave 1 (no UI yet)
 
 - **`getRoomVotingState(roomId)`** on `IConferenceService`: which elections of the room's Sitzung are open, closed or recently

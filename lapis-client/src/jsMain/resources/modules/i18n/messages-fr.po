@@ -18108,3 +18108,81 @@ msgstr "Une élection est en cours pour cette motion."
 
 msgid "Zur Wahl"
 msgstr "Vers l'élection"
+
+msgid "Abstimmen"
+msgstr "Votes"
+
+msgid "Abstimmen schließen"
+msgstr "Fermer les votes"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Votes, %1 ouverts"
+
+msgid "Zur Wahlkabine"
+msgstr "Vers l'isoloir"
+
+msgid "Zurück zur Übersicht"
+msgstr "Retour à l'aperçu"
+
+msgid "offen"
+msgstr "ouverte"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "clos, en attente du dépouillement"
+
+msgid "ausgezählt"
+msgstr "dépouillé"
+
+msgid "geheim"
+msgstr "secret"
+
+msgid "offen – namentlich"
+msgstr "ouverte – nominatif"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "Vous avez le droit de vote"
+
+msgid "Sie haben abgestimmt"
+msgstr "Vous avez voté"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Sans droit de vote"
+
+msgid "Details in neuem Tab"
+msgstr "Détails dans un nouvel onglet"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "Ce vote est ouvert et est enregistré nominativement"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Veuillez d'abord noter votre reçu."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Veuillez d'abord terminer le vote."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "Nouveau vote ouvert : %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Vote en cours – le vote dans la salle suivra"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "Autres votes – tous les détails dans la séance"
+
+msgid "Status wird aktualisiert …"
+msgstr "Mise à jour du statut …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "Aucun vote pour le moment."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Des votes sont en cours – seuls les membres peuvent voter"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Associez une séance pour permettre les votes dans la salle"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "L'isoloir n'a pas pu être chargé. Veuillez réessayer."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "Cette élection n'est plus ouverte."

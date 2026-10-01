@@ -17997,3 +17997,81 @@ msgstr "An election is running for this motion."
 
 msgid "Zur Wahl"
 msgstr "To the election"
+
+msgid "Abstimmen"
+msgstr "Voting"
+
+msgid "Abstimmen schließen"
+msgstr "Close voting"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Voting, %1 open"
+
+msgid "Zur Wahlkabine"
+msgstr "To the voting booth"
+
+msgid "Zurück zur Übersicht"
+msgstr "Back to overview"
+
+msgid "offen"
+msgstr "open"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "closed, awaiting the count"
+
+msgid "ausgezählt"
+msgstr "counted"
+
+msgid "geheim"
+msgstr "secret"
+
+msgid "offen – namentlich"
+msgstr "open – by name"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "You are entitled to vote"
+
+msgid "Sie haben abgestimmt"
+msgstr "You have voted"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Not entitled to vote"
+
+msgid "Details in neuem Tab"
+msgstr "Details in new tab"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "This vote is open and is stored by name"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Please note down your receipt first."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Please finish voting first."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "New vote opened: %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Vote in progress – voting in the room will follow"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "More votes – all details in the meeting"
+
+msgid "Status wird aktualisiert …"
+msgstr "Status is being updated …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "No votes at the moment."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Votes are running – only members can vote"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Link a meeting to enable votes in the room"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "The voting booth could not be loaded. Please try again."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "This election is no longer open."

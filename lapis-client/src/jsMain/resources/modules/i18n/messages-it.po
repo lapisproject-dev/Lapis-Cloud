@@ -18090,3 +18090,81 @@ msgstr "Per questa mozione è in corso un'elezione."
 
 msgid "Zur Wahl"
 msgstr "All'elezione"
+
+msgid "Abstimmen"
+msgstr "Votazioni"
+
+msgid "Abstimmen schließen"
+msgstr "Chiudi le votazioni"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Votazioni, %1 aperte"
+
+msgid "Zur Wahlkabine"
+msgstr "Alla cabina elettorale"
+
+msgid "Zurück zur Übersicht"
+msgstr "Torna al riepilogo"
+
+msgid "offen"
+msgstr "aperta"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "chiusa, in attesa dello scrutinio"
+
+msgid "ausgezählt"
+msgstr "scrutinata"
+
+msgid "geheim"
+msgstr "segreta"
+
+msgid "offen – namentlich"
+msgstr "aperta – nominale"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "Hai diritto di voto"
+
+msgid "Sie haben abgestimmt"
+msgstr "Hai votato"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Senza diritto di voto"
+
+msgid "Details in neuem Tab"
+msgstr "Dettagli in una nuova scheda"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "Questa votazione è aperta e viene registrata con il tuo nome"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Annota prima la tua ricevuta."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Termina prima il voto."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "Nuova votazione aperta: %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Votazione in corso – il voto nella sala seguirà"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "Altre votazioni – tutti i dettagli nella seduta"
+
+msgid "Status wird aktualisiert …"
+msgstr "Aggiornamento dello stato …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "Al momento nessuna votazione."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Votazioni in corso – solo i membri possono votare"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Collega una seduta per consentire le votazioni nella sala"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Impossibile caricare la cabina elettorale. Riprova."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "Questa elezione non è più aperta."

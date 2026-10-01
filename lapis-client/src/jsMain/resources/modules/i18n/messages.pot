@@ -17126,3 +17126,81 @@ msgstr ""
 
 msgid "Zur Wahl"
 msgstr ""
+
+msgid "Abstimmen"
+msgstr ""
+
+msgid "Abstimmen schließen"
+msgstr ""
+
+msgid "Abstimmen, offen: %1"
+msgstr ""
+
+msgid "Zur Wahlkabine"
+msgstr ""
+
+msgid "Zurück zur Übersicht"
+msgstr ""
+
+msgid "offen"
+msgstr ""
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr ""
+
+msgid "ausgezählt"
+msgstr ""
+
+msgid "geheim"
+msgstr ""
+
+msgid "offen – namentlich"
+msgstr ""
+
+msgid "Sie sind stimmberechtigt"
+msgstr ""
+
+msgid "Sie haben abgestimmt"
+msgstr ""
+
+msgid "Nicht stimmberechtigt"
+msgstr ""
+
+msgid "Details in neuem Tab"
+msgstr ""
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr ""
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr ""
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr ""
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr ""
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr ""
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr ""
+
+msgid "Status wird aktualisiert …"
+msgstr ""
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr ""
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr ""
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr ""
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr ""
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr ""

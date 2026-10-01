@@ -34,6 +34,8 @@ private val ELECTION_FILES =
         "ElectionPhase.kt",
         "ElectionAuthzUi.kt",
         "ElectionMajorityExplain.kt",
+        // V1.9.25: the conference voting panel embeds the booth; the receipt code never reaches it, and it stores/logs nothing either
+        "ConferenceVotePanel.kt",
     )
 
 private fun codeLines(text: String): List<String> =

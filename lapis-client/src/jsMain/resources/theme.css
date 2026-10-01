@@ -859,6 +859,71 @@ body {
   }
 }
 
+/* V1.9.25 "Abstimmen im Konferenzraum" -- das Abstimmungs-Panel, dritte Schiene neben Roster und Chat.
+   Normalmodus: im normalen Fluss wie Roster/Chat (nur Rahmen/Abstand über Bootstrap-Klassen). Vollbild (ab 768px): Overlay-Schiene rechts,
+   Aufteilung nach conferenceRailLayout(): allein volle Höhe; mit EINEM weiteren Panel 60% (das andere darunter); mit beiden Roster
+   höchstens 30%, Abstimmen 40%, Chat der Rest. Die Vollbild-Regeln stehen bewusst in einer min-width-Klammer: ihre Selektoren sind
+   spezifischer als die Bottom-Sheet-Regel darunter und würden sie sonst auf einem schmalen Vollbild-Telefon überstimmen. */
+@media (min-width: 768px) {
+  .lapis-conference-fullscreen .lapis-conference-voting {
+    position: absolute;
+    right: 0;
+    left: auto;
+    top: 0;
+    bottom: 0;
+    width: clamp(280px, 28vw, 380px);
+    z-index: 2;
+    margin: 0;
+    background-color: var(--lapis-surface);
+    border-left: 1px solid var(--lapis-border-strong);
+    overflow-y: auto;
+  }
+
+  .lapis-conference-fullscreen .lapis-conference-voting.lapis-conference-rail-voting-major {
+    bottom: 40%;
+  }
+
+  .lapis-conference-fullscreen .lapis-conference-voting.lapis-conference-rail-voting-min {
+    top: 30%;
+    bottom: 30%;
+  }
+
+  .lapis-conference-fullscreen .lapis-conference-roster.lapis-conference-rail-capped-30 {
+    bottom: auto;
+    max-height: 30%;
+  }
+
+  .lapis-conference-fullscreen .lapis-conference-roster.lapis-conference-rail-after-voting-major,
+  .lapis-conference-fullscreen .lapis-conference-chat.lapis-conference-rail-after-voting-major {
+    top: 60%;
+  }
+
+  .lapis-conference-fullscreen .lapis-conference-chat.lapis-conference-rail-after-voting-min {
+    top: 70%;
+  }
+}
+
+/* V1.9.25 -- unter 768px ein Bottom-Sheet über der Steuerleiste (wie das Mehr-Blatt), kein Vollbild-Sheet: der Anruf bleibt dahinter
+   sichtbar. Chat und Abstimmen schließen sich hier gegenseitig aus (Reducer), beide sind Sheets am selben Rand. */
+@media (max-width: 767.98px) {
+  .lapis-conference-voting,
+  .lapis-conference-fullscreen .lapis-conference-voting {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 75vh;
+    z-index: 4;
+    margin: 0;
+    overflow-y: auto;
+    background-color: var(--lapis-surface);
+    border-top: 1px solid var(--lapis-border-strong);
+    border-left: none;
+  }
+}
+
 /* V1.2.10 -- mobil-optimierte Steuerleiste, UI/UX-Design-Team-Review 2026-08-26. Fixe untere
    Leiste in allen Modi und Breiten (Ive: eine Leiste, kein Sonderfall pro Breite). WARNUNG: niemals
    transform/filter/perspective auf `.lapis-conference-call-panel` oder einen Vorfahren legen -- das

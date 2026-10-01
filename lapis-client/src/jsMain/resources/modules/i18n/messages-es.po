@@ -18068,3 +18068,81 @@ msgstr "Hay una elección en curso para esta moción."
 
 msgid "Zur Wahl"
 msgstr "A la elección"
+
+msgid "Abstimmen"
+msgstr "Votaciones"
+
+msgid "Abstimmen schließen"
+msgstr "Cerrar las votaciones"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Votaciones, %1 abiertas"
+
+msgid "Zur Wahlkabine"
+msgstr "A la cabina de votación"
+
+msgid "Zurück zur Übersicht"
+msgstr "Volver al resumen"
+
+msgid "offen"
+msgstr "abierta"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "cerrada, a la espera del escrutinio"
+
+msgid "ausgezählt"
+msgstr "escrutada"
+
+msgid "geheim"
+msgstr "secreta"
+
+msgid "offen – namentlich"
+msgstr "abierta – nominal"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "Tiene derecho a voto"
+
+msgid "Sie haben abgestimmt"
+msgstr "Ha votado"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Sin derecho a voto"
+
+msgid "Details in neuem Tab"
+msgstr "Detalles en una pestaña nueva"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "Esta votación es abierta y se guarda con su nombre"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Anote primero su recibo."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Termine primero la votación."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "Nueva votación abierta: %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Votación en curso: la emisión del voto en la sala llegará más adelante"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "Más votaciones: todos los detalles en la sesión"
+
+msgid "Status wird aktualisiert …"
+msgstr "Actualizando el estado …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "Ahora mismo no hay votaciones."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Hay votaciones en curso: solo los miembros pueden votar"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Vincule una sesión para habilitar votaciones en la sala"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "No se pudo cargar la cabina de votación. Inténtelo de nuevo."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "Esta elección ya no está abierta."

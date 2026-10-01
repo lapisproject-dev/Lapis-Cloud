@@ -51,18 +51,30 @@ private const val RECEIPT_GROUP_SIZE = 4
  */
 internal var electionReceiptVisibilityHook: ((Boolean) -> Unit)? = null
 
+/**
+ * @param openBallotBanner V1.9.25 -- inside the conference room an OPEN election says so in a banner above the choice ("this vote is
+ *   stored with your name"), instead of the muted line of the elections screen. Never changes a secret election. Default `false`: the
+ *   elections screen is unchanged.
+ * @param onBusyChanged V1.9.25 -- `true` while the ballot request is in flight, `false` afterwards. A host that can close the booth
+ *   (the conference panel's "back" button) must not do so then: the receipt of a ballot that is being cast would have no place to
+ *   appear.
+ */
 internal fun renderElectionBooth(
     panel: SimplePanel,
     election: ElectionDto,
+    openBallotBanner: Boolean = false,
+    onBusyChanged: (Boolean) -> Unit = {},
     onExit: (refresh: Boolean) -> Unit,
 ) {
-    ElectionBooth(panel, election, onExit).showSelect()
+    ElectionBooth(panel, election, onExit, openBallotBanner, onBusyChanged).showSelect()
 }
 
 private class ElectionBooth(
     private val host: SimplePanel,
     private val election: ElectionDto,
     private val onExit: (Boolean) -> Unit,
+    private val openBallotBanner: Boolean,
+    private val onBusyChanged: (Boolean) -> Unit,
 ) {
     private var answer: ElectionAnswer? = null
     private var selectedIds: List<String> = emptyList()
@@ -77,13 +89,20 @@ private class ElectionBooth(
         val booth = fresh()
         booth.h2(tr("Stimmabgabe")) { addCssClass("h5") }
         booth.untrustedP(election.title, className = "fw-bold mb-0")
-        booth.p(
-            if (election.secret) {
-                tr("Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie.")
-            } else {
-                tr("Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert.")
-            },
-        ) { addCssClasses("text-muted small mb-0") }
+        if (openBallotBanner && !election.secret) {
+            booth.p(tr("Diese Abstimmung ist offen und wird namentlich gespeichert")) {
+                addCssClasses("alert alert-warning mb-0")
+                setAttribute("role", "note")
+            }
+        } else {
+            booth.p(
+                if (election.secret) {
+                    tr("Ihre Stimme ist geheim: Es wird gespeichert, dass Sie abgestimmt haben, aber nicht, wie.")
+                } else {
+                    tr("Diese Wahl ist offen: Ihre Stimme wird mit Ihrem Namen gespeichert.")
+                },
+            ) { addCssClasses("text-muted small mb-0") }
+        }
 
         val form = booth.lapisForm()
         var readSelection: () -> Boolean = { false }
@@ -219,6 +238,7 @@ private class ElectionBooth(
     private fun castNow(button: Button) {
         if (inFlight) return
         inFlight = true
+        onBusyChanged(true)
         runGuardedAction(button) {
             try {
                 val input = ElectionBallotInput(electionId = election.id, answer = answer, selectedOptionIds = selectedIds)
@@ -241,6 +261,7 @@ private class ElectionBooth(
                 }
             } finally {
                 inFlight = false
+                onBusyChanged(false)
             }
         }
     }

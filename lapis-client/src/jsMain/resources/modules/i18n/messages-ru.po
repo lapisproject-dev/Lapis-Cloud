@@ -18035,3 +18035,81 @@ msgstr "По этой заявке идут выборы."
 
 msgid "Zur Wahl"
 msgstr "К выборам"
+
+msgid "Abstimmen"
+msgstr "Голосование"
+
+msgid "Abstimmen schließen"
+msgstr "Закрыть голосование"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Голосование, открыто: %1"
+
+msgid "Zur Wahlkabine"
+msgstr "В кабину для голосования"
+
+msgid "Zurück zur Übersicht"
+msgstr "Назад к обзору"
+
+msgid "offen"
+msgstr "открыто"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "закрыто, ожидает подсчёта"
+
+msgid "ausgezählt"
+msgstr "подсчитано"
+
+msgid "geheim"
+msgstr "тайное"
+
+msgid "offen – namentlich"
+msgstr "открытое – поимённое"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "У вас есть право голоса"
+
+msgid "Sie haben abgestimmt"
+msgstr "Вы проголосовали"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Нет права голоса"
+
+msgid "Details in neuem Tab"
+msgstr "Подробности в новой вкладке"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "Это голосование открытое, голос сохраняется с вашим именем"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Сначала запишите вашу квитанцию."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Сначала завершите голосование."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "Открыто новое голосование: %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Голосование идёт – подача голоса в комнате появится позже"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "Другие голосования – все подробности в заседании"
+
+msgid "Status wird aktualisiert …"
+msgstr "Статус обновляется …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "Сейчас голосований нет."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Идут голосования – голосовать могут только члены"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Привяжите заседание, чтобы разрешить голосования в комнате"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Не удалось загрузить кабину для голосования. Повторите попытку."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "Эти выборы больше не открыты."

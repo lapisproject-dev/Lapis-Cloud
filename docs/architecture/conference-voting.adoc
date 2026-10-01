@@ -110,7 +110,10 @@ rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disc
 
 == Known limitations
 
-* No user interface yet (V1.9.25).
+* Client (V1.9.25): VOTE and CONSENSUS ballots show only their state; a VOTE has no link because there is no detail route yet.
+* In-app navigation (menu, hash) during a visible receipt discards it, exactly as on the elections page.
+* The nudge does not reach participants in breakouts; the poll covers them.
+* Leaving while a ballot request is in flight is not blocked (only a visible receipt is).
 * Elections only; meritocratic votes in V1.9.27, consensing is not planned for the room.
 * Unbound room: stream is never paused (C2).
 * A hanging pause can be resolved only by the room moderator or the election management (C1).
@@ -119,5 +122,75 @@ rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disc
 
 == Untrusted free text
 
-`title` (election) and `motionTitle` (motion) are member-authored. The server returns the raw text. The client in V1.9.25 must
-render both with `textContent`/the untrusted-text sanitizer, never as HTML. This is a review point for that wave.
+`title` (election) and `motionTitle` (motion) are member-authored. The server returns the raw text. The client (V1.9.25) renders both
+only through `untrustedP`/`untrustedSpan` and, for the screen-reader announcement, `sanitizeUntrustedI18nText`; there is no
+`innerHTML` and no `.content = dto.field`. This closes the review point of V1.9.24.
+
+== Client: the room voting panel (V1.9.25)
+
+Wave 2 of four, client only. The server is unchanged and no migration exists. All ballot code is in one file,
+`ConferenceVotePanel.kt`, which `ElectionSecrecyTripwireTest` watches; `ConferenceScreen.kt` holds only the wiring.
+
+=== Components and data flow
+
+`ConferenceVotePollController` asks `getRoomVotingState` (every 5 s while a ballot is open or awaiting its count, 15 s otherwise,
+30 s in a hidden tab, at once when the tab becomes visible). The data-channel nudge calls `nudge()`, which asks at once but never
+more often than once per second; at most one request is in flight and whatever arrives meanwhile becomes exactly one follow-up.
+The pure `voteRoomReduce` turns the answer into a state, the list of newly opened elections and a `listChanged` flag. A failed
+poll only counts; after three misses in a row a calm "status is being updated" line appears, never an error text.
+
+The panel `ConferenceVotePanel` shows one card per election (title, state, your own standing, one primary button only when you can
+still vote). It embeds the real booth (`ElectionBooth`, with a banner for open ballots) instead of a copy. The panel state (`normal`/
+`fullscreen` flags, narrow-screen exclusion with chat, the rail share, the lock) lives in the existing `conferencePanelReduce`.
+
+=== The quiet rule
+
+A poll answer rebuilds only the overview, and only when the list changed. While the booth is open the overview is hidden and the
+booth's container is never touched. A new election opens the panel at most once per election id, never on a narrow screen, never
+under a lock, never for an election that was already open when the call started (those only show in the badge); the screen-reader
+announcement through a live region outside the panel always comes and never moves the focus.
+
+[source,kuml,name="conference-voting-client-state"]
+----
+stateDiagram(name = "Room voting panel") {
+    val start = initialState()
+    val closed = state(name = "Closed")
+    val overview = state(name = "Overview")
+    val booth = state(name = "Booth")
+    val receipt = state(name = "Receipt on screen")
+
+    transition(source = start, target = closed)
+    transition(source = closed, target = overview) { trigger = "toggle, or a new election opens (wide screen, once per id)" }
+    transition(source = overview, target = overview) { trigger = "poll answer (list rebuilt only if it changed)" }
+    transition(source = overview, target = booth) {
+        trigger = "Zur Wahlkabine"
+        guard = "[open, eligible, not voted yet]"
+    }
+    transition(source = booth, target = receipt) {
+        trigger = "ballot cast"
+        guard = "[secret election]"
+    }
+    transition(source = booth, target = overview) { trigger = "back, cancel, or an open ballot is done" }
+    transition(source = booth, target = booth) { trigger = "close panel (blocked)" }
+    transition(source = receipt, target = overview) { trigger = "Fertig (receipt noted)" }
+    transition(source = receipt, target = receipt) { trigger = "close panel, leave, end for all, back to main room (blocked)" }
+    transition(source = overview, target = closed) { trigger = "toggle, Esc" }
+}
+----
+
+=== The receipt and leaving the page
+
+The receipt code exists only in the two DOM nodes of the booth. The panel learns one Boolean ("a receipt is on screen") through
+`electionReceiptVisibilityHook`, which `ConferenceReceiptHookScope` takes for the panel's life and gives back, keeping a hook somebody
+else set in the meantime. While the receipt is up the panel cannot be closed, and "Verlassen", "Für alle beenden" and "Zurück zum
+Hauptraum" are disabled and say why (each of them disconnects).
+
+The old unload listener disconnected on `beforeunload`, which fires before the browser asks "leave this page?". With a receipt the booth
+asks, and answering "stay" left the member in the page but out of the room. `ConferenceUnloadGuard` now disconnects on `beforeunload`
+only without a receipt and always on `pagehide`, which fires only when the page really goes.
+
+=== Roles and rooms
+
+The panel and its toggle exist only for an active member; a guest or friend gets one status line while ballots are running, and the
+controller still runs for them. A room without a Sitzung shows no toggle; the moderator sees a hint next to "Sitzung zuordnen".
+Breakouts ask with the main room id, as documented above.

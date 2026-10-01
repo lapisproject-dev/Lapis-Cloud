@@ -68,6 +68,7 @@ import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
@@ -387,15 +388,21 @@ fun renderConferenceScreen(
     var activeSession: LiveKitRoomSession? = null
     val setActiveSession: (LiveKitRoomSession?) -> Unit = { activeSession = it }
 
-    val beforeUnloadListener: (Event) -> Unit = {
-        AppScope.launch { runCatching { activeSession?.disconnect() } }
-    }
-    window.addEventListener("beforeunload", beforeUnloadListener)
+    // V1.9.25: `beforeunload` fires BEFORE the browser asks "leave this page?" -- with a secret-ballot receipt on screen the booth asks, and
+    // answering "stay" must not leave the member out of the room. So `beforeunload` disconnects only without a receipt; `pagehide` (the
+    // page really goes) always does. See [ConferenceUnloadGuard].
+    val unloadGuard =
+        ConferenceUnloadGuard(
+            receiptVisible = { ConferenceReceiptGate.visible },
+            disconnect = { AppScope.launch { runCatching { activeSession?.disconnect() } } },
+        )
+    unloadGuard.install()
     val root =
         container.conferenceScreenRoot {
             // V1.4.20: a screen change mid-call must never strand the "call live" flag at true.
             ConferenceCallPresence.set(live = false)
-            window.removeEventListener("beforeunload", beforeUnloadListener)
+            unloadGuard.uninstall()
+            ConferenceVoteRuntime.disposeActive()
             AppScope.launch { runCatching { activeSession?.disconnect() } }
         }
     root.pageHeader(tr("Videokonferenz"))
@@ -1134,6 +1141,12 @@ private fun enterCall(
     // chatToggleButton, damit beide Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
     val rosterToggleButton = controlsRow.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
     val chatToggleButton = controlsRow.button("", icon = "fas fa-comments", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.9.25 "Abstimmen im Konferenzraum" -- the panel and its toggle exist only for a member of the organization (the server decides
+    // again); a guest or friend gets a one-line status instead (see `guestVoteLine`). The toggle is built by `conferenceVotingToggle`
+    // (own file, no late hook) and stays hidden until the room is bound to a Sitzung.
+    val votingMember = conferenceIsVotingMember(AppState.session)
+    val votingToggle = if (votingMember) controlsRow.conferenceVotingToggle() else null
+    var voteController: ConferenceVotePollController? = null
     // V1.2.10 -- Badge-DOM für Teilnehmer-/Ungelesen-Zähler, einmalig erzeugt (theme.css's
     // `.lapis-conference-controls-row .btn` trägt `position: relative`, damit dieses absolut
     // positionierte `<span>` sich an seinem Button ausrichtet). Sichtbarkeit/Inhalt werden
@@ -1498,6 +1511,20 @@ private fun enterCall(
     var boundMeetingId = room.meetingId
     var boundMeetingTitle = room.meetingTitle
     val meetingBindingBadge = meetingBindingRow.statusBadge("", "secondary")
+    // V1.9.25 -- a room without a Sitzung has no ballots; the moderator who can bind one is told so, calmly. `voteBoundFromServer` is what
+    // the room-voting query last said (`null` until it answered; then the room's own knowledge decides).
+    var voteBoundFromServer: Boolean? = null
+    val voteBindingHint =
+        if (canModerate) {
+            meetingBindingRow.div(tr("Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen")) { addCssClasses("text-muted small") }
+        } else {
+            null
+        }
+
+    fun updateVoteBindingHint() {
+        if (voteBoundFromServer ?: (boundMeetingId != null)) voteBindingHint?.hide() else voteBindingHint?.show()
+    }
+    updateVoteBindingHint()
 
     fun updateMeetingBindingUi() {
         meetingBindingBadge.content =
@@ -1533,6 +1560,10 @@ private fun enterCall(
                     boundMeetingId = result.meetingId
                     boundMeetingTitle = result.meetingTitle
                     updateMeetingBindingUi()
+                    // V1.9.25: the room's ballots follow the Sitzung -- ask again at once
+                    voteBoundFromServer = null
+                    updateVoteBindingHint()
+                    voteController?.refreshNow()
                     if (boundMeetingId == null) unassignMeetingButton.hide() else unassignMeetingButton.show()
                     notifySuccess(if (boundMeetingId != null) tr("Sitzung zugeordnet.") else tr("Zuordnung aufgehoben."))
                 }
@@ -2532,10 +2563,8 @@ private fun enterCall(
     // Narrow viewports (< 768 px, same breakpoint as theme.css' `.lapis-conference-roster` bottom-sheet rule):
     // the roster is a full-screen `position: fixed` overlay there, so an OPEN roster hides every video tile
     // behind a mostly empty white page -- see conferenceInitialPanelState.
-    var panelState =
-        conferenceInitialPanelState(
-            narrowViewport = window.matchMedia("(max-width: $CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH)").matches,
-        )
+    val narrowQuery = window.matchMedia("(max-width: $CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH)")
+    var panelState = conferenceInitialPanelState(narrowViewport = narrowQuery.matches)
     val overlayControls = videoArea.hPanel(spacing = 4) { addCssClass("lapis-conference-video-overlay-controls") }
     val fullscreenButton =
         if (fullscreenApiAvailable()) {
@@ -2543,6 +2572,9 @@ private fun enterCall(
         } else {
             null
         }
+
+    // V1.9.25 -- what a guest or friend sees while ballots run in the room: no panel, one calm line above the tiles.
+    val guestVoteLine = if (!votingMember) renderGuestVotingStatusLine(videoArea) else null
 
     // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
     val stageDiv =
@@ -2743,6 +2775,25 @@ private fun enterCall(
     val chatInput = chatRow.text(label = tr("Nachricht")) { addCssClasses("flex-grow-1") }
     val chatSendButton = chatRow.button(tr("Senden"), style = ButtonStyle.OUTLINEPRIMARY)
 
+    // --- V1.9.25 voting panel ("Abstimmen"), the third rail panel next to roster and chat -------------------------------------
+    // The panel talks back through two sinks assigned right after `applyPanelVisibility` (a local function cannot be referenced before
+    // its declaration). `leaving` is the "a leave is running" flag the receipt lock must not undo (the leave buttons disable themselves).
+    var votingLockSink: (ConferenceVotingLock) -> Unit = {}
+    var votingCloseSink: () -> Unit = {}
+    var leaving = false
+    val receiptLock = ConferenceReceiptLockApplier()
+    val votingHandle =
+        if (votingMember) {
+            renderConferenceVotePanel(
+                parent = videoArea,
+                onLockChanged = { lock -> votingLockSink(lock) },
+                onCloseRequested = { votingCloseSink() },
+                onBoothExited = { voteController?.refreshNow() },
+            )
+        } else {
+            null
+        }
+
     // --- Collapsible whiteboard side panel (V1.0 Wave 7 "Whiteboard", off by default) --------------
     // Same `vPanel`/`hide()`/toggle-button pattern as chatPanel above -- Kay/Tesler/Raskin: modeless,
     // coexisting, never a modal/grid-replacement -- see ConferenceWhiteboardPanel.kt class KDoc.
@@ -2843,6 +2894,35 @@ private fun enterCall(
             chatPanel.removeCssClass("lapis-conference-rail-flexible")
         }
 
+        // V1.9.25 -- the voting panel, its toggle (with the badge), its rail share and the receipt lock on the leave buttons.
+        val votingOpen = panelState.votingVisible()
+        votingHandle?.let { handle -> if (votingOpen) handle.panel.show() else handle.panel.hide() }
+        val voteState = voteController?.state
+        votingToggle?.update(
+            openCount = voteState?.badgeCount() ?: 0,
+            pressed = votingOpen,
+            visible = votingOpen || (voteState?.bound ?: (boundMeetingId != null)),
+        )
+        votingHandle?.panel?.let { panel ->
+            panel.toggleCssClass("lapis-conference-rail-voting-major", railLayout.votingShare == ConferenceVotingRailShare.MAJOR_60)
+            panel.toggleCssClass("lapis-conference-rail-voting-min", railLayout.votingShare == ConferenceVotingRailShare.MIN_40)
+        }
+        rosterPanel.toggleCssClass("lapis-conference-rail-capped-30", railLayout.rosterCap30)
+        rosterPanel.toggleCssClass(
+            "lapis-conference-rail-after-voting-major",
+            railLayout.votingShare == ConferenceVotingRailShare.MAJOR_60 && panelState.rosterVisible(),
+        )
+        chatPanel.toggleCssClass(
+            "lapis-conference-rail-after-voting-major",
+            railLayout.votingShare == ConferenceVotingRailShare.MAJOR_60 && panelState.chatVisible(),
+        )
+        chatPanel.toggleCssClass("lapis-conference-rail-after-voting-min", railLayout.votingShare == ConferenceVotingRailShare.MIN_40)
+        receiptLock.apply(
+            locked = panelState.votingLock == ConferenceVotingLock.RECEIPT,
+            leaving = leaving,
+            buttons = listOf(leaveButton, endButton, backToMainButton),
+        )
+
         // D6/Stolperfalle 7: KVision-Widgets kennen addCssClass/removeCssClass NUR auf sich selbst --
         // callPanel.getElement() liefert das rohe org.w3c.dom.HTMLElement, dort gilt classList.add/remove.
         callPanel.getElement()?.classList?.let { classList ->
@@ -2931,6 +3011,54 @@ private fun enterCall(
         window.setTimeout({ callPanel.getElement()?.let { el -> resumeStalledVideos(el) } }, 0)
     }
     applyPanelVisibility() // initialer Render, Default-Zustand
+
+    // V1.9.25 -- the panel's two sinks, now that `applyPanelVisibility` exists.
+    votingLockSink = { lock ->
+        panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingLockChanged(lock))
+        applyPanelVisibility()
+    }
+    votingCloseSink = {
+        if (panelState.votingVisible()) {
+            panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingToggled)
+            applyPanelVisibility()
+        }
+    }
+    // V1.9.25 -- the ballots of the room. Runs for everybody (a guest needs the status line); started once the call is connected, stopped
+    // by every way out of the call (`ConferenceVoteRuntime.disposeActive`). The panel only ever hears about changes.
+    voteController =
+        ConferenceVotePollController(
+            roomId = room.id,
+            onUpdate = { update ->
+                voteBoundFromServer = update.state.bound
+                updateVoteBindingHint()
+                votingHandle?.apply(update)
+                guestVoteLine?.let { line ->
+                    if (update.state.ballots.any { it.status == RoomBallotStatus.OPEN }) line.show() else line.hide()
+                }
+                var changed = update.listChanged
+                if (votingHandle != null) {
+                    update.newlyOpenedElections.forEach { ballot ->
+                        // the announcement always comes (also on a narrow screen, where the panel is NOT opened for the member)
+                        votingHandle.announce(ballot.title)
+                        panelState = conferencePanelReduce(panelState, ConferencePanelEvent.VotingAutoOpen(ballot.id))
+                        changed = true
+                    }
+                }
+                if (changed) applyPanelVisibility()
+            },
+            onFailure = { failed -> votingHandle?.applyFailure(failed) },
+        )
+    val narrowListener: (Event) -> Unit = {
+        panelState = conferencePanelReduce(panelState, ConferencePanelEvent.ViewportChanged(narrowQuery.matches))
+        applyPanelVisibility()
+    }
+    narrowQuery.addEventListener("change", narrowListener)
+    val voteRegistration =
+        ConferenceVoteRuntime.register {
+            voteController?.stop()
+            votingHandle?.dispose?.invoke()
+            narrowQuery.removeEventListener("change", narrowListener)
+        }
 
     // V1.2.10 -- icon/`text-danger`-Zustand statt vormals `Button.text`-Umschaltung (die
     // Steuerleiste ist jetzt icon-only, siehe controlsRow-Deklaration oben). Deklariert hier, auf
@@ -3042,6 +3170,8 @@ private fun enterCall(
     // Browser-Vollbild"-Vermeidung). Muss textuell VOR der ersten returnToLobby(...)-Call-Site stehen.
     // V1.2.10 erweitert: räumt zusätzlich die vier Auto-Hide-Aktivitäts-Listener ab.
     fun cleanupFullscreen() {
+        // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
+        ConferenceVoteRuntime.disposeActive()
         document.removeEventListener("fullscreenchange", fullscreenChangeListener)
         document.removeEventListener("webkitfullscreenchange", fullscreenChangeListener)
         document.removeEventListener("pointermove", onControlsActivity)
@@ -3435,6 +3565,8 @@ private fun enterCall(
         connectionState = conferenceConnectionReduce(connectionState, event)
         ConferenceCallPresence.set(live = connectionState.countsAsLiveCall())
         renderConnectionState()
+        // V1.9.25: no ballot polling once the call is over (the server would only deny it)
+        if (connectionState is ConferenceConnectionState.Ended) voteRegistration.dispose()
     }
 
     // V1.3.x Geräteauswahl -- `session` muss bereits DEKLARIERT sein (Kotlin erlaubt in lokalen
@@ -3839,6 +3971,9 @@ private fun enterCall(
             // deliberately toast-free before this fix and stays that way.
             onMediaDevicesError = { _, _ -> },
             onChat = { message -> appendChatLine(message.senderDisplayName, message.text, isOwn = false) },
+            // V1.9.25 -- "look again" from the data channel (payload never read, throttled to 2 s by the session); this side adds its own
+            // 1 s minimum gap and the one-request-in-flight rule.
+            onVoteNudge = { voteController?.nudge() },
             // V1.0 Wave 7 "Whiteboard" -- see LiveKitRoomSession KDoc "Whiteboard trust boundary".
             // `whiteboardController` is `null` only in the brief window before the connect-success
             // block below constructs it -- no preview/commit packet can arrive before then, since
@@ -4057,6 +4192,8 @@ private fun enterCall(
             return@launch
         }
         transition(ConferenceConnectionEvent.ConnectSucceeded)
+        // V1.9.25 -- the ballots of the room (see `voteController`)
+        voteController?.start()
         // Wave 5 -- see refreshGuestHomeservers KDoc "called once right after connect succeeds".
         refreshGuestHomeservers()
         // V1.0 Wave 7 "Whiteboard" -- constructed once per connect (mirrors the roster/recording-
@@ -4228,6 +4365,12 @@ private fun enterCall(
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.ChatToggled)
         applyPanelVisibility()
     }
+    votingToggle?.button?.onClick {
+        panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.VotingToggled)
+        applyPanelVisibility()
+        // a fresh look when the member opens the panel
+        if (panelState.votingVisible()) voteController?.refreshNow()
+    }
     // V1.2.10 -- "Mehr"-Blatt.
     moreToggleButton.onClick {
         panelState = conferencePanelReduce(current = panelState, event = ConferencePanelEvent.MoreToggled)
@@ -4308,6 +4451,9 @@ private fun enterCall(
     // always has -- a direct, deliberate client-initiated transition, not something this screen
     // needs to ask the server "what does this mean" about.
     backToMainButton?.onClick {
+        // V1.9.25: this disconnects too -- not with a receipt on screen
+        if (ConferenceReceiptGate.visible) return@onClick
+        leaving = true
         backToMainButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
         AppScope.launch {
@@ -4346,6 +4492,9 @@ private fun enterCall(
     // room's own LiveKit connection plus leaving the PARENT meeting's `conference_participation`
     // record, exactly like leaving from Main always has.
     leaveButton.onClick {
+        // V1.9.25: the receipt of a secret ballot exists only on this screen -- leaving would lose it
+        if (ConferenceReceiptGate.visible) return@onClick
+        leaving = true
         leaveButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
         AppScope.launch {
@@ -4367,7 +4516,9 @@ private fun enterCall(
     }
 
     endButton?.onClick {
+        if (ConferenceReceiptGate.visible) return@onClick
         endRoomConfirmDialog(roomTitle) {
+            leaving = true
             endButton.disabled = true
             transition(ConferenceConnectionEvent.UserLeft)
             AppScope.launch {
@@ -4390,6 +4541,14 @@ private fun enterCall(
             }
         }
     }
+}
+
+/** V1.9.25 -- a CSS class on a KVision widget, on or off (both calls are idempotent). */
+private fun Widget.toggleCssClass(
+    name: String,
+    on: Boolean,
+) {
+    if (on) addCssClass(name) else removeCssClass(name)
 }
 
 /**
@@ -6132,8 +6291,23 @@ internal data class ConferencePanelState(
     val fullscreenRosterOpen: Boolean = false,
     val fullscreenChatOpen: Boolean = false,
     val controlsVisible: Boolean = true, // V1.2.10
-    val moreOpen: Boolean = false, // V1.2.10
+    val moreOpen: Boolean = false,
+    /** V1.9.25 -- the viewport is below [CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH]: chat and the voting panel are bottom sheets and exclude each other. */
+    val narrow: Boolean = false,
+    /** V1.9.25 -- the voting panel ("Abstimmen"), per context like roster/chat; unlike them it STAYS open on entering fullscreen (the right to vote must not vanish). */
+    val normalVotingOpen: Boolean = false,
+    val fullscreenVotingOpen: Boolean = false,
+    /** V1.9.25 -- what keeps the voting panel (and, for [ConferenceVotingLock.RECEIPT], the leave buttons) from being closed. */
+    val votingLock: ConferenceVotingLock = ConferenceVotingLock.NONE,
+    /** V1.9.25 -- ids of the elections whose arrival already opened the panel once. Ids only: never a title, a choice or a receipt. */
+    val autoOpenedVotingIds: Set<String> = emptySet(),
 )
+
+/**
+ * V1.9.25 -- why the voting panel cannot be closed: [BOOTH] while the booth is open (nothing is lost by leaving, but an open booth is
+ * not abandoned by accident), [RECEIPT] while a receipt of a secret ballot is on screen (the one place its code exists).
+ */
+internal enum class ConferenceVotingLock { NONE, BOOTH, RECEIPT }
 
 /**
  * `theme.css` turns the roster and chat panels into full-screen `position: fixed` bottom sheets below this
@@ -6151,7 +6325,7 @@ internal const val CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH = "767.98px"
  * a real phone (2026-09-19). The participants button in the control bar still opens it on demand.
  */
 internal fun conferenceInitialPanelState(narrowViewport: Boolean): ConferencePanelState =
-    ConferencePanelState(normalRosterOpen = !narrowViewport)
+    ConferencePanelState(normalRosterOpen = !narrowViewport, narrow = narrowViewport)
 
 /** V1.2.9 -- Events in [conferencePanelReduce]. [FullscreenEntered]/[FullscreenExited] werden
  * AUSSCHLIESSLICH vom `fullscreenchange`-Listener gefeuert, niemals vom Klick-Handler direkt --
@@ -6174,6 +6348,24 @@ internal sealed class ConferencePanelEvent {
     internal data object PointerActivity : ConferencePanelEvent() // V1.2.10
 
     internal data object InactivityElapsed : ConferencePanelEvent() // V1.2.10
+
+    /** V1.9.25 -- click on the "Abstimmen" toggle. */
+    internal data object VotingToggled : ConferencePanelEvent()
+
+    /** V1.9.25 -- an election arrived in the room (never fired for one that was already open when the call started). */
+    internal data class VotingAutoOpen(
+        val electionId: String,
+    ) : ConferencePanelEvent()
+
+    /** V1.9.25 -- the booth/receipt lock changed (set by the panel, never by a click). */
+    internal data class VotingLockChanged(
+        val lock: ConferenceVotingLock,
+    ) : ConferencePanelEvent()
+
+    /** V1.9.25 -- the viewport crossed [CONFERENCE_NARROW_VIEWPORT_MEDIA_MAX_WIDTH]. */
+    internal data class ViewportChanged(
+        val narrow: Boolean,
+    ) : ConferencePanelEvent()
 }
 
 /**
@@ -6206,39 +6398,120 @@ internal fun conferencePanelReduce(
                     fullscreen = true,
                     fullscreenRosterOpen = false,
                     fullscreenChatOpen = false,
+                    // V1.9.25: the voting panel is carried into fullscreen (the right to vote must not vanish)
+                    fullscreenVotingOpen = current.normalVotingOpen,
                     moreOpen = false,
                     controlsVisible = true,
                 )
             }
         is ConferencePanelEvent.FullscreenExited ->
-            if (!current.fullscreen) current else current.copy(fullscreen = false, controlsVisible = true)
+            if (!current.fullscreen) {
+                current
+            } else {
+                // V1.9.25: a booth opened in fullscreen must not vanish on leaving it
+                current.copy(fullscreen = false, controlsVisible = true, normalVotingOpen = current.fullscreenVotingOpen)
+            }
         is ConferencePanelEvent.RosterToggled ->
-            (
-                if (current.fullscreen) {
-                    current.copy(fullscreenRosterOpen = !current.fullscreenRosterOpen)
-                } else {
-                    current.copy(normalRosterOpen = !current.normalRosterOpen)
-                }
-            ).copy(controlsVisible = true)
-        is ConferencePanelEvent.ChatToggled ->
-            (
-                if (current.fullscreen) {
-                    current.copy(fullscreenChatOpen = !current.fullscreenChatOpen)
-                } else {
-                    current.copy(normalChatOpen = !current.normalChatOpen)
-                }
-            ).copy(controlsVisible = true)
+            // V1.9.25: a full-screen sheet over a receipt would hide it
+            if (!current.rosterVisible() && current.narrow && current.votingLock == ConferenceVotingLock.RECEIPT) {
+                current
+            } else if (current.fullscreen) {
+                current.copy(fullscreenRosterOpen = !current.fullscreenRosterOpen, controlsVisible = true)
+            } else {
+                current.copy(normalRosterOpen = !current.normalRosterOpen, controlsVisible = true)
+            }
+        is ConferencePanelEvent.ChatToggled -> reduceChatToggled(current)
         is ConferencePanelEvent.MoreToggled ->
-            current.copy(moreOpen = !current.moreOpen, controlsVisible = true)
+            if (!current.moreOpen && current.narrow && current.votingLock == ConferenceVotingLock.RECEIPT) {
+                current
+            } else {
+                current.copy(moreOpen = !current.moreOpen, controlsVisible = true)
+            }
         is ConferencePanelEvent.PointerActivity ->
             if (current.controlsVisible) current else current.copy(controlsVisible = true)
         is ConferencePanelEvent.InactivityElapsed ->
-            if (current.moreOpen || !current.controlsVisible) current else current.copy(controlsVisible = false)
+            // V1.9.25: with a receipt on screen the bar (with the blocked leave button and its reason) stays
+            if (current.moreOpen || !current.controlsVisible || current.votingLock == ConferenceVotingLock.RECEIPT) {
+                current
+            } else {
+                current.copy(controlsVisible = false)
+            }
+        is ConferencePanelEvent.VotingToggled -> reduceVotingToggled(current)
+        is ConferencePanelEvent.VotingAutoOpen -> reduceVotingAutoOpen(current, event.electionId)
+        is ConferencePanelEvent.VotingLockChanged ->
+            when {
+                current.votingLock == event.lock -> current
+                // a receipt or booth is up: the bar with the blocked leave button (and its reason) must not be hidden
+                event.lock != ConferenceVotingLock.NONE -> current.copy(votingLock = event.lock, controlsVisible = true)
+                else -> current.copy(votingLock = event.lock)
+            }
+        is ConferencePanelEvent.ViewportChanged -> reduceViewportChanged(current, event.narrow)
     }
+
+/** Chat toggled. On a narrow screen chat and the voting panel are both bottom sheets: opening one closes the other -- unless the voting panel is locked. */
+private fun reduceChatToggled(current: ConferencePanelState): ConferencePanelState {
+    val opening = !current.chatVisible()
+    if (opening && current.narrow && current.votingVisible()) {
+        if (current.votingLock != ConferenceVotingLock.NONE) return current
+        return current.withVotingOpen(false).withChatOpen(true).copy(controlsVisible = true)
+    }
+    return current.withChatOpen(opening).copy(controlsVisible = true)
+}
+
+private fun reduceVotingToggled(current: ConferencePanelState): ConferencePanelState {
+    val open = current.votingVisible()
+    // a booth or a receipt is not closed by a click on the toggle
+    if (open && current.votingLock != ConferenceVotingLock.NONE) return current
+    val opening = !open
+    val next = current.withVotingOpen(opening)
+    return (if (opening && current.narrow) next.withChatOpen(false) else next).copy(controlsVisible = true)
+}
+
+/**
+ * An election arrived. Opens the panel once per election id -- and never on a narrow screen (a sheet would cover the call), never
+ * while a booth or receipt is up, never when it is open anyway. On a narrow screen or under a lock the id is NOT remembered: the
+ * member was not told, so a later look is not "already seen" (the live-region announcement and the badge still tell them).
+ */
+private fun reduceVotingAutoOpen(
+    current: ConferencePanelState,
+    electionId: String,
+): ConferencePanelState =
+    when {
+        current.narrow || current.votingLock != ConferenceVotingLock.NONE -> current
+        electionId in current.autoOpenedVotingIds -> current
+        current.votingVisible() -> current.copy(autoOpenedVotingIds = current.autoOpenedVotingIds + electionId)
+        else ->
+            current
+                .withVotingOpen(true)
+                .copy(autoOpenedVotingIds = current.autoOpenedVotingIds + electionId, controlsVisible = true)
+    }
+
+private fun reduceViewportChanged(
+    current: ConferencePanelState,
+    narrow: Boolean,
+): ConferencePanelState {
+    if (current.narrow == narrow) return current
+    var next = current.copy(narrow = narrow)
+    if (narrow) {
+        // chat and the voting panel exclude each other on a narrow screen: the voting panel wins (it may be locked)
+        if (next.normalChatOpen && next.normalVotingOpen) next = next.copy(normalChatOpen = false)
+        if (next.fullscreenChatOpen && next.fullscreenVotingOpen) next = next.copy(fullscreenChatOpen = false)
+    }
+    return next
+}
+
+private fun ConferencePanelState.withVotingOpen(open: Boolean): ConferencePanelState =
+    if (fullscreen) copy(fullscreenVotingOpen = open) else copy(normalVotingOpen = open)
+
+private fun ConferencePanelState.withChatOpen(open: Boolean): ConferencePanelState =
+    if (fullscreen) copy(fullscreenChatOpen = open) else copy(normalChatOpen = open)
 
 internal fun ConferencePanelState.rosterVisible(): Boolean = if (fullscreen) fullscreenRosterOpen else normalRosterOpen
 
 internal fun ConferencePanelState.chatVisible(): Boolean = if (fullscreen) fullscreenChatOpen else normalChatOpen
+
+/** V1.9.25 -- the voting panel in the active context. */
+internal fun ConferencePanelState.votingVisible(): Boolean = if (fullscreen) fullscreenVotingOpen else normalVotingOpen
 
 /** V1.2.9 -- reine Ableitung für die Rail-Stapel-CSS-Klassen im Vollbild (D10). Außerhalb des
  * Vollbilds bedeutungslos (die Rail existiert nur dort), aber bewusst nicht auf `fullscreen`
@@ -6250,11 +6523,34 @@ internal data class ConferenceRailLayout(
     val rosterCapped: Boolean,
     val chatFlexible: Boolean,
     val railOccupied: Boolean,
+    /** V1.9.25 -- how much of the rail the voting panel takes; [ConferenceVotingRailShare.NONE] when it is closed. */
+    val votingShare: ConferenceVotingRailShare = ConferenceVotingRailShare.NONE,
+    /** V1.9.25 -- with all three panels open the roster is held to 30% instead of 40%. */
+    val rosterCap30: Boolean = false,
 )
+
+/** V1.9.25 -- the voting panel's share of the fullscreen rail: alone [FULL]; with one other panel [MAJOR_60]; with both at least [MIN_40]. */
+internal enum class ConferenceVotingRailShare { NONE, FULL, MAJOR_60, MIN_40 }
 
 internal fun conferenceRailLayout(state: ConferencePanelState): ConferenceRailLayout {
     val rosterOpen = state.rosterVisible()
     val chatOpen = state.chatVisible()
+    if (state.votingVisible()) {
+        // the voting panel is on the rail: the old 40/60 split between roster and chat does not apply
+        val others = listOf(rosterOpen, chatOpen).count { it }
+        return ConferenceRailLayout(
+            rosterCapped = false,
+            chatFlexible = false,
+            railOccupied = true,
+            votingShare =
+                when (others) {
+                    0 -> ConferenceVotingRailShare.FULL
+                    1 -> ConferenceVotingRailShare.MAJOR_60
+                    else -> ConferenceVotingRailShare.MIN_40
+                },
+            rosterCap30 = others == 2,
+        )
+    }
     return ConferenceRailLayout(
         rosterCapped = rosterOpen && chatOpen,
         chatFlexible = rosterOpen && chatOpen,

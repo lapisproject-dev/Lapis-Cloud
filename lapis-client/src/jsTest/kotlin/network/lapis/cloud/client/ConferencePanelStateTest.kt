@@ -306,4 +306,223 @@ class ConferencePanelStateTest {
         val hiddenAgain = conferencePanelReduce(shown, ConferencePanelEvent.InactivityElapsed)
         assertFalse(hiddenAgain.controlsVisible)
     }
+
+    // ── V1.9.25 "Abstimmen im Konferenzraum": the voting panel in the same reducer ─────────────────────────────────
+
+    private fun reduce(
+        state: ConferencePanelState,
+        vararg events: ConferencePanelEvent,
+    ): ConferencePanelState = events.fold(state) { current, event -> conferencePanelReduce(current, event) }
+
+    private val narrow = ConferencePanelState(narrow = true, normalRosterOpen = false)
+
+    @Test
+    fun voting_default_isClosed_unlocked_andRemembersNoElection() {
+        val state = ConferencePanelState()
+        assertFalse(state.votingVisible())
+        assertEquals(ConferenceVotingLock.NONE, state.votingLock)
+        assertTrue(state.autoOpenedVotingIds.isEmpty())
+        assertFalse(state.narrow)
+        assertTrue(conferenceInitialPanelState(narrowViewport = true).narrow)
+        assertFalse(conferenceInitialPanelState(narrowViewport = false).narrow)
+    }
+
+    @Test
+    fun votingToggled_opensAndClosesInTheActiveContext() {
+        val opened = reduce(ConferencePanelState(), ConferencePanelEvent.VotingToggled)
+        assertTrue(opened.votingVisible())
+        assertTrue(opened.normalVotingOpen)
+        assertFalse(opened.fullscreenVotingOpen)
+        assertFalse(reduce(opened, ConferencePanelEvent.VotingToggled).votingVisible())
+        val fullscreen = reduce(ConferencePanelState(fullscreen = true), ConferencePanelEvent.VotingToggled)
+        assertTrue(fullscreen.fullscreenVotingOpen)
+        assertFalse(fullscreen.normalVotingOpen)
+    }
+
+    @Test
+    fun votingToggled_closing_isANoop_underABoothOrAReceiptLock() {
+        for (lock in listOf(ConferenceVotingLock.BOOTH, ConferenceVotingLock.RECEIPT)) {
+            val state = ConferencePanelState(normalVotingOpen = true, votingLock = lock)
+            assertEquals(state, reduce(state, ConferencePanelEvent.VotingToggled), "a click must not close the panel under $lock")
+        }
+    }
+
+    @Test
+    fun votingToggled_opening_onANarrowScreen_closesTheChat_andChatOpeningClosesTheVotingPanel() {
+        val chatOpen = narrow.copy(normalChatOpen = true)
+        val votingOpened = reduce(chatOpen, ConferencePanelEvent.VotingToggled)
+        assertTrue(votingOpened.votingVisible())
+        assertFalse(votingOpened.chatVisible())
+        val chatAgain = reduce(votingOpened, ConferencePanelEvent.ChatToggled)
+        assertTrue(chatAgain.chatVisible())
+        assertFalse(chatAgain.votingVisible())
+    }
+
+    @Test
+    fun chatToggled_opening_onANarrowScreen_isANoop_whileTheVotingPanelIsLocked() {
+        for (lock in listOf(ConferenceVotingLock.BOOTH, ConferenceVotingLock.RECEIPT)) {
+            val state = narrow.copy(normalVotingOpen = true, votingLock = lock)
+            val next = reduce(state, ConferencePanelEvent.ChatToggled)
+            assertEquals(state, next)
+            assertFalse(next.chatVisible())
+        }
+    }
+
+    @Test
+    fun onAWideScreen_votingPanel_chatAndRoster_coexist() {
+        val all = reduce(ConferencePanelState(), ConferencePanelEvent.ChatToggled, ConferencePanelEvent.VotingToggled)
+        assertTrue(all.rosterVisible())
+        assertTrue(all.chatVisible())
+        assertTrue(all.votingVisible())
+    }
+
+    @Test
+    fun rosterAndMoreToggled_opening_onANarrowScreen_isANoop_withAReceiptOnScreen() {
+        val state = narrow.copy(normalVotingOpen = true, votingLock = ConferenceVotingLock.RECEIPT)
+        assertEquals(state, reduce(state, ConferencePanelEvent.RosterToggled))
+        assertEquals(state, reduce(state, ConferencePanelEvent.MoreToggled))
+        // closing is never blocked, and a booth (no receipt yet) does not block opening them
+        val rosterOpen = state.copy(normalRosterOpen = true)
+        assertFalse(reduce(rosterOpen, ConferencePanelEvent.RosterToggled).rosterVisible())
+        val booth = narrow.copy(normalVotingOpen = true, votingLock = ConferenceVotingLock.BOOTH)
+        assertTrue(reduce(booth, ConferencePanelEvent.RosterToggled).rosterVisible())
+        // on a wide screen a receipt blocks neither
+        val wide = ConferencePanelState(normalVotingOpen = true, votingLock = ConferenceVotingLock.RECEIPT, normalRosterOpen = false)
+        assertTrue(reduce(wide, ConferencePanelEvent.RosterToggled).rosterVisible())
+    }
+
+    @Test
+    fun fullscreen_carriesTheVotingPanelIn_andBackOut_withoutLosingABoothOpenedThere() {
+        val before = ConferencePanelState(normalVotingOpen = true)
+        val entered = reduce(before, ConferencePanelEvent.FullscreenEntered)
+        assertTrue(entered.fullscreenVotingOpen, "the right to vote does not vanish in fullscreen")
+        assertTrue(entered.votingVisible())
+        assertFalse(entered.rosterVisible())
+        assertFalse(entered.chatVisible())
+        val closedInFullscreen = reduce(entered, ConferencePanelEvent.VotingToggled)
+        assertTrue(before.normalVotingOpen, "the normal flag is untouched during the episode")
+        assertFalse(reduce(closedInFullscreen, ConferencePanelEvent.FullscreenExited).votingVisible())
+        val openedInFullscreen = reduce(ConferencePanelState(), ConferencePanelEvent.FullscreenEntered, ConferencePanelEvent.VotingToggled)
+        assertTrue(reduce(openedInFullscreen, ConferencePanelEvent.FullscreenExited).votingVisible(), "a booth opened in fullscreen stays")
+    }
+
+    @Test
+    fun votingAutoOpen_opensOnce_perElectionId() {
+        val opened = reduce(ConferencePanelState(), ConferencePanelEvent.VotingAutoOpen("e1"))
+        assertTrue(opened.votingVisible())
+        assertEquals(setOf("e1"), opened.autoOpenedVotingIds)
+        // the member closes it: the same election does not open it again, another one does
+        val closed = reduce(opened, ConferencePanelEvent.VotingToggled)
+        assertFalse(closed.votingVisible())
+        assertEquals(closed, reduce(closed, ConferencePanelEvent.VotingAutoOpen("e1")))
+        val second = reduce(closed, ConferencePanelEvent.VotingAutoOpen("e2"))
+        assertTrue(second.votingVisible())
+        assertEquals(setOf("e1", "e2"), second.autoOpenedVotingIds)
+    }
+
+    @Test
+    fun votingAutoOpen_isANoop_onANarrowScreen_andUnderALock_andRemembersNothingThen() {
+        assertEquals(narrow, reduce(narrow, ConferencePanelEvent.VotingAutoOpen("e1")))
+        for (lock in listOf(ConferenceVotingLock.BOOTH, ConferenceVotingLock.RECEIPT)) {
+            val locked = ConferencePanelState(votingLock = lock)
+            assertEquals(locked, reduce(locked, ConferencePanelEvent.VotingAutoOpen("e1")))
+        }
+    }
+
+    @Test
+    fun votingAutoOpen_whenThePanelIsOpenAnyway_changesNothingButRemembersTheId() {
+        val open = ConferencePanelState(normalVotingOpen = true)
+        val next = reduce(open, ConferencePanelEvent.VotingAutoOpen("e1"))
+        assertEquals(open.copy(autoOpenedVotingIds = setOf("e1")), next)
+    }
+
+    @Test
+    fun votingLockChanged_setsOnlyTheLock_andIsIdempotent() {
+        val locked =
+            reduce(ConferencePanelState(controlsVisible = false), ConferencePanelEvent.VotingLockChanged(ConferenceVotingLock.RECEIPT))
+        assertEquals(ConferenceVotingLock.RECEIPT, locked.votingLock)
+        assertTrue(locked.controlsVisible, "the bar with the blocked leave button must show")
+        assertEquals(locked, reduce(locked, ConferencePanelEvent.VotingLockChanged(ConferenceVotingLock.RECEIPT)))
+        val released = reduce(locked, ConferencePanelEvent.VotingLockChanged(ConferenceVotingLock.NONE))
+        assertEquals(ConferenceVotingLock.NONE, released.votingLock)
+    }
+
+    @Test
+    fun inactivityElapsed_isANoop_whileAReceiptIsOnScreen() {
+        val state = ConferencePanelState(votingLock = ConferenceVotingLock.RECEIPT)
+        assertEquals(state, reduce(state, ConferencePanelEvent.InactivityElapsed))
+        val booth = ConferencePanelState(votingLock = ConferenceVotingLock.BOOTH)
+        assertFalse(reduce(booth, ConferencePanelEvent.InactivityElapsed).controlsVisible)
+    }
+
+    @Test
+    fun viewportChanged_toNarrow_makesChatAndVotingExclusive_theVotingPanelWins() {
+        val both =
+            ConferencePanelState(normalChatOpen = true, normalVotingOpen = true, fullscreenChatOpen = true, fullscreenVotingOpen = true)
+        val next = reduce(both, ConferencePanelEvent.ViewportChanged(narrow = true))
+        assertTrue(next.narrow)
+        assertFalse(next.normalChatOpen)
+        assertFalse(next.fullscreenChatOpen)
+        assertTrue(next.normalVotingOpen)
+        assertTrue(next.fullscreenVotingOpen)
+        // widening again changes only the flag; the same event twice is a no-op
+        val wide = reduce(next, ConferencePanelEvent.ViewportChanged(narrow = false))
+        assertFalse(wide.narrow)
+        assertEquals(next, reduce(next, ConferencePanelEvent.ViewportChanged(narrow = true)))
+    }
+
+    @Test
+    fun railLayout_withoutTheVotingPanel_isTheOldOne() {
+        val layout = conferenceRailLayout(ConferencePanelState(fullscreen = true, fullscreenRosterOpen = true, fullscreenChatOpen = true))
+        assertTrue(layout.rosterCapped)
+        assertTrue(layout.chatFlexible)
+        assertEquals(ConferenceVotingRailShare.NONE, layout.votingShare)
+        assertFalse(layout.rosterCap30)
+    }
+
+    @Test
+    fun railLayout_votingAlone_takesTheWholeRail() {
+        val layout = conferenceRailLayout(ConferencePanelState(fullscreen = true, fullscreenVotingOpen = true))
+        assertEquals(ConferenceVotingRailShare.FULL, layout.votingShare)
+        assertTrue(layout.railOccupied)
+        assertFalse(layout.rosterCapped)
+        assertFalse(layout.chatFlexible)
+        assertFalse(layout.rosterCap30)
+    }
+
+    @Test
+    fun railLayout_votingWithOnePanel_takesSixtyPercent_andTheOtherIsNotCapped() {
+        val withRoster =
+            conferenceRailLayout(ConferencePanelState(fullscreen = true, fullscreenVotingOpen = true, fullscreenRosterOpen = true))
+        val withChat = conferenceRailLayout(ConferencePanelState(fullscreen = true, fullscreenVotingOpen = true, fullscreenChatOpen = true))
+        for (layout in listOf(withRoster, withChat)) {
+            assertEquals(ConferenceVotingRailShare.MAJOR_60, layout.votingShare)
+            assertFalse(layout.rosterCapped)
+            assertFalse(layout.rosterCap30)
+        }
+    }
+
+    @Test
+    fun railLayout_allThreeOpen_capsTheRosterAtThirty_andGivesTheVotingPanelAtLeastForty() {
+        val layout =
+            conferenceRailLayout(
+                ConferencePanelState(
+                    fullscreen = true,
+                    fullscreenVotingOpen = true,
+                    fullscreenRosterOpen = true,
+                    fullscreenChatOpen = true,
+                ),
+            )
+        assertEquals(ConferenceVotingRailShare.MIN_40, layout.votingShare)
+        assertTrue(layout.rosterCap30)
+        assertFalse(layout.rosterCapped, "the 40% cap of the two-panel layout is replaced, not added")
+    }
+
+    @Test
+    fun railLayout_readsTheActiveContext_only() {
+        val layout = conferenceRailLayout(ConferencePanelState(fullscreen = false, normalVotingOpen = true, normalRosterOpen = false))
+        assertEquals(ConferenceVotingRailShare.FULL, layout.votingShare)
+        val other = conferenceRailLayout(ConferencePanelState(fullscreen = true, normalVotingOpen = true, fullscreenVotingOpen = false))
+        assertEquals(ConferenceVotingRailShare.NONE, other.votingShare)
+    }
 }

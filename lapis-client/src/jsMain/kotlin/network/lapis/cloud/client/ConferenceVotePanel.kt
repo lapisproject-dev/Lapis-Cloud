@@ -1,0 +1,811 @@
+package network.lapis.cloud.client
+
+import io.kvision.core.Container
+import io.kvision.core.Widget
+import io.kvision.core.onEvent
+import io.kvision.html.Button
+import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
+import io.kvision.html.button
+import io.kvision.html.div
+import io.kvision.html.h2
+import io.kvision.html.icon
+import io.kvision.html.link
+import io.kvision.html.span
+import io.kvision.i18n.gettext
+import io.kvision.i18n.tr
+import io.kvision.panel.SimplePanel
+import io.kvision.panel.hPanel
+import io.kvision.panel.vPanel
+import kotlinx.browser.document
+import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.ElectionDto
+import network.lapis.cloud.shared.domain.ElectionStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.RoomBallotDto
+import network.lapis.cloud.shared.domain.RoomBallotKind
+import network.lapis.cloud.shared.domain.RoomBallotStatus
+import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.IConferenceService
+import network.lapis.cloud.shared.rpc.IElectionService
+import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.Event
+import kotlin.js.Date
+
+/*
+ * V1.9.25 "Abstimmen im Konferenzraum", Welle 2 -- the panel shell. Client only: the server state and the nudge channel are V1.9.24.
+ *
+ * Everything that touches a ballot lives in THIS file, so one tripwire (`ElectionSecrecyTripwireTest`) can watch it: the receipt code
+ * of a secret ballot exists only in the two DOM nodes of the embedded booth (`ElectionBooth.kt`); this file never sees it. The only
+ * thing that crosses over is one Boolean ("a receipt is on screen"), through `electionReceiptVisibilityHook`.
+ *
+ * Layout of the file: the pure room state (`voteRoomReduce`, no DOM, tested without a browser), the polling controller (the timer
+ * and the in-flight rule, behind a scheduler seam), the unload guard and the hook scope, then the rendering.
+ */
+
+// ── the pure room state ──────────────────────────────────────────────────────────────────────────────
+
+/** What the client knows about the ballots of the room. [bound] is `null` until the first answer; [consecutiveFailures] counts failed polls in a row. */
+internal data class ConferenceVoteRoomState(
+    val bound: Boolean? = null,
+    val ballots: List<RoomBallotDto> = emptyList(),
+    val truncated: Boolean = false,
+    val seenOpenElectionIds: Set<String> = emptySet(),
+    val consecutiveFailures: Int = 0,
+)
+
+internal data class ConferenceVoteRoomUpdate(
+    val state: ConferenceVoteRoomState,
+    /** Elections that are OPEN now and were not before. Never filled by the FIRST answer: a member who joins a running vote sees the badge, no pop-up. */
+    val newlyOpenedElections: List<RoomBallotDto>,
+    val listChanged: Boolean,
+)
+
+internal fun voteRoomReduce(
+    prev: ConferenceVoteRoomState,
+    dto: RoomVotingStateDto,
+): ConferenceVoteRoomUpdate {
+    val openElections = dto.ballots.filter { it.kind == RoomBallotKind.ELECTION && it.status == RoomBallotStatus.OPEN }
+    val firstAnswer = prev.bound == null
+    val newlyOpened = if (firstAnswer) emptyList() else openElections.filter { it.id !in prev.seenOpenElectionIds }
+    val next =
+        ConferenceVoteRoomState(
+            bound = dto.bound,
+            ballots = dto.ballots,
+            truncated = dto.truncated,
+            seenOpenElectionIds = prev.seenOpenElectionIds + openElections.map { it.id },
+            consecutiveFailures = 0,
+        )
+    val listChanged = prev.bound != next.bound || prev.ballots != next.ballots || prev.truncated != next.truncated
+    return ConferenceVoteRoomUpdate(state = next, newlyOpenedElections = newlyOpened, listChanged = listChanged)
+}
+
+/** A failed poll changes nothing but the failure counter: the list the member sees stays as it was. */
+internal fun voteRoomFailure(prev: ConferenceVoteRoomState): ConferenceVoteRoomState =
+    prev.copy(
+        consecutiveFailures =
+            prev.consecutiveFailures + 1,
+    )
+
+/** The number on the toggle button: open elections the member may vote in and has not voted in yet. */
+internal fun ConferenceVoteRoomState.badgeCount(): Int =
+    ballots.count {
+        it.kind == RoomBallotKind.ELECTION && it.status == RoomBallotStatus.OPEN && it.ownEligible && !it.ownHasVoted
+    }
+
+internal fun ConferenceVoteRoomState.anyActive(): Boolean =
+    ballots.any { it.status == RoomBallotStatus.OPEN || it.status == RoomBallotStatus.CLOSED_AWAITING_TALLY }
+
+/** Three failed polls in a row: a calm "status is being refreshed" line, never an error text. */
+internal fun ConferenceVoteRoomState.showQuietRefreshHint(): Boolean = consecutiveFailures >= QUIET_HINT_AFTER_FAILURES
+
+private const val QUIET_HINT_AFTER_FAILURES = 3
+
+private const val POLL_ACTIVE_MS = 5_000
+private const val POLL_IDLE_MS = 15_000
+private const val POLL_HIDDEN_MS = 30_000
+
+internal fun conferenceVotePollDelayMs(
+    state: ConferenceVoteRoomState,
+    hidden: Boolean,
+): Int =
+    when {
+        hidden -> POLL_HIDDEN_MS
+        state.anyActive() -> POLL_ACTIVE_MS
+        else -> POLL_IDLE_MS
+    }
+
+/** Two nudges closer together than this are one request. The server allows 90 requests a minute; this client stays far below. */
+internal const val CONFERENCE_VOTE_NUDGE_MIN_GAP_MS = 1_000
+
+/** Only a member of the organization may vote (the server decides again; this only keeps the panel from being built for nobody). */
+internal fun conferenceIsVotingMember(session: SessionInfoDto?): Boolean =
+    session != null && !session.isGuest && session.status in MemberStatusSets.ORGANIZATION_MEMBER
+
+private val ELECTION_ID_PATTERN = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+/** The in-app address of an election; `null` unless [id] has the shape of an id this server mints. Never a foreign URL. */
+internal fun conferenceElectionDetailHref(id: String): String? = if (ELECTION_ID_PATTERN.matches(id)) "#/elections/$id" else null
+
+// ── the polling controller ───────────────────────────────────────────────────────────────────────────
+
+/** The timer, behind a seam so a test runs on a fake clock. */
+internal interface ConferenceVoteScheduler {
+    fun now(): Double
+
+    fun schedule(
+        delayMs: Int,
+        block: () -> Unit,
+    ): Int
+
+    fun cancel(handle: Int)
+}
+
+internal object BrowserVoteScheduler : ConferenceVoteScheduler {
+    override fun now(): Double = Date.now()
+
+    override fun schedule(
+        delayMs: Int,
+        block: () -> Unit,
+    ): Int = window.setTimeout({ block() }, delayMs)
+
+    override fun cancel(handle: Int) = window.clearTimeout(handle)
+}
+
+/**
+ * Asks the server for the ballots of the room: every 5 s while something is open, 15 s otherwise, 30 s in a hidden tab, at once when
+ * the tab becomes visible and when the data channel nudges. At most ONE request is in flight; whatever arrives meanwhile becomes
+ * exactly one follow-up. A failed poll is counted and never shown as an error (no toast, no message); [stop] ends everything and a
+ * result that arrives afterwards is ignored.
+ */
+internal class ConferenceVotePollController(
+    private val roomId: String,
+    private val fetch: suspend (String) -> RoomVotingStateDto = { id -> rpcService<IConferenceService>().getRoomVotingState(id) },
+    private val isHidden: () -> Boolean = { document.asDynamic().visibilityState == "hidden" },
+    private val scheduler: ConferenceVoteScheduler = BrowserVoteScheduler,
+    private val scope: CoroutineScope = AppScope,
+    private val onUpdate: (ConferenceVoteRoomUpdate) -> Unit,
+    private val onFailure: (ConferenceVoteRoomState) -> Unit,
+) {
+    var state: ConferenceVoteRoomState = ConferenceVoteRoomState()
+        private set
+
+    private var started = false
+    private var stopped = false
+    private var inFlight = false
+    private var followUp = false
+    private var generation = 0
+    private var timer: Int? = null
+    private var nudgeTimer: Int? = null
+    private var lastRequestAt = Double.NEGATIVE_INFINITY
+    private val visibilityListener: (Event) -> Unit = { onVisibilityChanged() }
+
+    fun start() {
+        if (started || stopped) return
+        started = true
+        document.addEventListener("visibilitychange", visibilityListener)
+        requestNow()
+    }
+
+    /** A nudge from the data channel: ask now, but never more often than [CONFERENCE_VOTE_NUDGE_MIN_GAP_MS]; the rest waits for one later request. */
+    fun nudge() {
+        if (!started || stopped) return
+        val gap = scheduler.now() - lastRequestAt
+        if (gap >= CONFERENCE_VOTE_NUDGE_MIN_GAP_MS) {
+            requestNow()
+        } else if (nudgeTimer == null) {
+            nudgeTimer =
+                scheduler.schedule((CONFERENCE_VOTE_NUDGE_MIN_GAP_MS - gap).toInt().coerceAtLeast(0)) {
+                    nudgeTimer = null
+                    requestNow()
+                }
+        }
+    }
+
+    /** After a state change the member caused (Sitzung assigned, booth left, panel opened). */
+    fun refreshNow() {
+        if (!started || stopped) return
+        requestNow()
+    }
+
+    fun stop() {
+        if (stopped) return
+        stopped = true
+        generation++
+        cancelTimers()
+        if (started) document.removeEventListener("visibilitychange", visibilityListener)
+    }
+
+    internal fun onVisibilityChanged() {
+        if (!started || stopped) return
+        if (isHidden()) {
+            if (!inFlight) scheduleNext()
+        } else {
+            requestNow()
+        }
+    }
+
+    private fun cancelTimers() {
+        timer?.let { scheduler.cancel(it) }
+        timer = null
+        nudgeTimer?.let { scheduler.cancel(it) }
+        nudgeTimer = null
+    }
+
+    private fun scheduleNext() {
+        timer?.let { scheduler.cancel(it) }
+        timer =
+            scheduler.schedule(conferenceVotePollDelayMs(state, isHidden())) {
+                timer = null
+                requestNow()
+            }
+    }
+
+    private fun requestNow() {
+        if (stopped) return
+        if (inFlight) {
+            followUp = true
+            return
+        }
+        timer?.let { scheduler.cancel(it) }
+        timer = null
+        inFlight = true
+        lastRequestAt = scheduler.now()
+        val mine = generation
+        scope.launch {
+            var answer: RoomVotingStateDto? = null
+            var failed = false
+            try {
+                answer = fetch(roomId)
+            } catch (e: CancellationException) {
+                inFlight = false
+                throw e
+            } catch (ignored: Throwable) {
+                // Never shown: the quiet hint after three misses is the whole reaction, and `message` is never read.
+                failed = true
+            }
+            inFlight = false
+            if (stopped || mine != generation) return@launch
+            if (failed || answer == null) {
+                state = voteRoomFailure(state)
+                onFailure(state)
+            } else {
+                val update = voteRoomReduce(state, answer)
+                state = update.state
+                onUpdate(update)
+            }
+            if (stopped) return@launch
+            if (followUp) {
+                followUp = false
+                requestNow()
+            } else {
+                scheduleNext()
+            }
+        }
+    }
+}
+
+// ── leaving the page ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * True while a secret-ballot receipt is on screen. A module singleton on purpose: there is exactly one conference screen, and the
+ * unload guard, which lives one level above the call, must read it without a parameter chain through every re-entry path.
+ */
+internal object ConferenceReceiptGate {
+    var visible: Boolean = false
+}
+
+/**
+ * Leaving the page during a call. The old listener disconnected on `beforeunload` -- which fires BEFORE the browser asks "leave this
+ * page?". With a receipt on screen the booth asks (its own `beforeunload` guard), and answering "stay" left the member in the room
+ * page but out of the room. Now `beforeunload` disconnects only when no receipt is on screen, and `pagehide` -- which fires only
+ * when the page really goes -- always does. Nothing is awaited: the disconnect is fire-and-forget, as before.
+ */
+internal class ConferenceUnloadGuard(
+    private val receiptVisible: () -> Boolean,
+    private val disconnect: () -> Unit,
+) {
+    val beforeUnload: (Event) -> Unit = { if (!receiptVisible()) disconnect() }
+    val pageHide: (Event) -> Unit = { disconnect() }
+
+    fun install() {
+        window.addEventListener("beforeunload", beforeUnload)
+        window.addEventListener("pagehide", pageHide)
+    }
+
+    fun uninstall() {
+        window.removeEventListener("beforeunload", beforeUnload)
+        window.removeEventListener("pagehide", pageHide)
+    }
+}
+
+/**
+ * Takes `electionReceiptVisibilityHook` for the life of the panel and gives it back. The hook is one global variable that the
+ * elections screen also sets and never clears; a panel that simply overwrote it would leave its own closure behind. The identity
+ * check keeps a hook somebody else set in the meantime.
+ */
+internal class ConferenceReceiptHookScope(
+    private val onChange: (Boolean) -> Unit,
+) {
+    private var previous: ((Boolean) -> Unit)? = null
+    private var installed = false
+
+    fun install() {
+        if (installed) return
+        previous = electionReceiptVisibilityHook
+        electionReceiptVisibilityHook = onChange
+        installed = true
+    }
+
+    fun restore() {
+        if (installed && electionReceiptVisibilityHook === onChange) electionReceiptVisibilityHook = previous
+        installed = false
+        previous = null
+    }
+}
+
+/**
+ * Whatever has to be torn down when the call ends -- the controller, the hook, a listener -- registers here. One call, several exits
+ * (leaving, "end for all", a kick, a breakout hand-over, the screen being closed): each of them calls [disposeActive].
+ */
+internal object ConferenceVoteRuntime {
+    private var active: Registration? = null
+
+    class Registration internal constructor(
+        private val action: () -> Unit,
+    ) {
+        private var done = false
+
+        fun dispose() {
+            if (done) return
+            done = true
+            action()
+            if (active === this) active = null
+        }
+    }
+
+    fun register(action: () -> Unit): Registration {
+        active?.dispose()
+        return Registration(action).also { active = it }
+    }
+
+    fun disposeActive() {
+        active?.dispose()
+    }
+}
+
+// ── rendering ────────────────────────────────────────────────────────────────────────────────────────
+
+private const val LOCK_REASON_ID = "lapis-vote-lock-reason"
+
+/** Same as the private helper of `ConferenceScreen.kt`: `Widget.setAttribute` re-renders on every call, so only a real change is written. */
+private fun Widget.setAttr(
+    name: String,
+    value: String,
+) {
+    if (getAttribute(name) != value) setAttribute(name, value)
+}
+
+/** The toggle button of the control bar, with the badge for the number of open ballots. */
+internal class ConferenceVotingToggle(
+    val button: Button,
+) {
+    private var badge: HTMLElement? = null
+    private var count = 0
+
+    fun attachBadge(host: HTMLElement?) {
+        val element = host ?: return
+        val created = document.createElement("span") as HTMLElement
+        created.className = "lapis-conference-control-badge"
+        element.appendChild(created)
+        badge = created
+        paintBadge()
+    }
+
+    private fun paintBadge() {
+        val el = badge ?: return
+        if (count > 0) {
+            el.textContent = count.toString()
+            el.style.display = "flex"
+        } else {
+            el.style.display = "none"
+        }
+    }
+
+    fun update(
+        openCount: Int,
+        pressed: Boolean,
+        visible: Boolean,
+    ) {
+        count = openCount
+        val label = if (openCount > 0) gettext("Abstimmen, offen: %1", openCount) else gettext("Abstimmen")
+        if (button.title != label) button.title = label
+        button.setAttr("aria-label", label)
+        button.setAttr("aria-pressed", pressed.toString())
+        if (pressed) button.addCssClass("active") else button.removeCssClass("active")
+        if (visible) button.show() else button.hide()
+        paintBadge()
+    }
+}
+
+/**
+ * The toggle button, placed by the caller in the control bar. Built by constructor and added through [addWithLifecycle] so the badge
+ * hook exists before the first render (no late hook). Its accessible name is set inside the call; [ConferenceVotingToggle.update] keeps
+ * it current.
+ */
+internal fun Container.conferenceVotingToggle(): ConferenceVotingToggle {
+    val button =
+        Button(text = "", icon = "fas fa-check-to-slot", style = ButtonStyle.OUTLINESECONDARY) {
+            title = gettext("Abstimmen")
+            setAttribute("aria-label", gettext("Abstimmen"))
+        }
+    val toggle = ConferenceVotingToggle(button)
+    addWithLifecycle(button, onInsert = { vnode -> toggle.attachBadge(vnode.elm as? HTMLElement) })
+    button.hide()
+    return toggle
+}
+
+private fun Container.votingBadge(
+    text: String,
+    color: String,
+    faIcon: String,
+) {
+    span {
+        addCssClasses("badge rounded-pill text-bg-$color")
+        icon(faIcon) { addCssClass("me-1") }
+        span(text)
+    }
+}
+
+internal fun roomBallotStatusLabel(status: RoomBallotStatus): String =
+    when (status) {
+        RoomBallotStatus.OPEN -> tr("offen")
+        RoomBallotStatus.CLOSED_AWAITING_TALLY -> tr("geschlossen, wartet auf Auszählung")
+        RoomBallotStatus.DECIDED -> tr("ausgezählt")
+    }
+
+private fun roomBallotStatusColor(status: RoomBallotStatus): String =
+    when (status) {
+        RoomBallotStatus.OPEN -> "success"
+        RoomBallotStatus.CLOSED_AWAITING_TALLY -> "warning"
+        RoomBallotStatus.DECIDED -> "secondary"
+    }
+
+private fun roomBallotStatusIcon(status: RoomBallotStatus): String =
+    when (status) {
+        RoomBallotStatus.OPEN -> "fas fa-circle"
+        RoomBallotStatus.CLOSED_AWAITING_TALLY -> "fas fa-hourglass-half"
+        RoomBallotStatus.DECIDED -> "fas fa-check"
+    }
+
+private fun Container.ballotBadges(ballot: RoomBallotDto) {
+    val row = hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center") }
+    row.votingBadge(roomBallotStatusLabel(ballot.status), roomBallotStatusColor(ballot.status), roomBallotStatusIcon(ballot.status))
+    if (ballot.secret) {
+        row.votingBadge(tr("geheim"), "dark", "fas fa-lock")
+    } else {
+        row.votingBadge(tr("offen – namentlich"), "info", "fas fa-user-pen")
+    }
+}
+
+/** Your own standing in one ballot. No other member appears anywhere in the panel. */
+private fun ownParticipationLabel(ballot: RoomBallotDto): String =
+    when {
+        ballot.ownHasVoted -> tr("Sie haben abgestimmt")
+        ballot.ownEligible -> tr("Sie sind stimmberechtigt")
+        else -> tr("Nicht stimmberechtigt")
+    }
+
+/**
+ * One election as a card of three lines: title, state, your standing. Title and motion title are member-written free text, so both go
+ * through the untrusted helpers. The single primary button exists only when the member can vote right now.
+ */
+internal fun renderElectionLiveCard(
+    parent: Container,
+    ballot: RoomBallotDto,
+    onEnterBooth: (Button) -> Unit,
+) {
+    val card = parent.vPanel(spacing = 4) { addCssClasses("lapis-vote-card border rounded p-2") }
+    card.untrustedP(ballot.title, className = "fw-bold mb-0")
+    if (ballot.motionTitle.isNotBlank() && ballot.motionTitle != ballot.title) {
+        card.untrustedSpan(ballot.motionTitle, className = "text-muted small")
+    }
+    card.ballotBadges(ballot)
+    card.div(ownParticipationLabel(ballot)) { addCssClasses("small") }
+    if (ballot.status == RoomBallotStatus.OPEN && ballot.ownEligible && !ballot.ownHasVoted) {
+        val enter = card.button(tr("Zur Wahlkabine"), style = ButtonStyle.PRIMARY)
+        enter.onClick { onEnterBooth(enter) }
+    } else if (ballot.status != RoomBallotStatus.OPEN) {
+        val href = conferenceElectionDetailHref(ballot.id)
+        if (href != null) {
+            card.link(tr("Details in neuem Tab"), url = href, target = "_blank") {
+                setAttribute("rel", "noopener noreferrer")
+            }
+        }
+    }
+}
+
+/** A VOTE or CONSENSUS ballot: only its state. There is no way to vote on it in the room yet and no detail route to link to. */
+internal fun renderRoomBallotReadOnlyRow(
+    parent: Container,
+    ballot: RoomBallotDto,
+) {
+    val card = parent.vPanel(spacing = 4) { addCssClasses("lapis-vote-card border rounded p-2") }
+    card.untrustedP(ballot.title, className = "fw-bold mb-0")
+    card.ballotBadges(ballot)
+    if (ballot.status == RoomBallotStatus.OPEN) {
+        card.div(tr("Abstimmung läuft – Stimmabgabe im Raum folgt")) { addCssClasses("text-muted small") }
+    }
+}
+
+/** The single line a guest or friend sees while ballots are running: they may be in the room, they may not vote. Hidden until [show]n. */
+internal fun renderGuestVotingStatusLine(parent: Container): Div {
+    val line =
+        parent.div(tr("Abstimmungen laufen – nur Mitglieder können abstimmen")) {
+            addCssClasses("text-muted small")
+            setAttribute("role", "status")
+        }
+    line.hide()
+    return line
+}
+
+internal class ConferenceVotePanelHandle(
+    val panel: SimplePanel,
+    val apply: (ConferenceVoteRoomUpdate) -> Unit,
+    val applyFailure: (ConferenceVoteRoomState) -> Unit,
+    val announce: (String) -> Unit,
+    val isBoothOpen: () -> Boolean,
+    val dispose: () -> Unit,
+)
+
+/**
+ * The panel itself: header with the (lockable) close button, the overview of the room's ballots and, in place of the overview, the
+ * embedded voting booth.
+ *
+ * The quiet rule: [ConferenceVotePanelHandle.apply] rebuilds only the overview. While the booth is open the overview is merely
+ * hidden and the booth's container is never touched -- a poll answer must not move anything under a member's hand.
+ * [ConferenceVotePanelHandle.announce] speaks through a live region OUTSIDE the panel, so a new ballot is announced even while the
+ * panel is closed (and, on a narrow screen, never opened for the member).
+ */
+internal fun renderConferenceVotePanel(
+    parent: Container,
+    loadElection: suspend (String) -> ElectionDto = { id -> rpcService<IElectionService>().getElection(id) },
+    onLockChanged: (ConferenceVotingLock) -> Unit,
+    onCloseRequested: () -> Unit,
+    onBoothExited: () -> Unit,
+): ConferenceVotePanelHandle {
+    val liveRegion =
+        parent.div("") {
+            addCssClass("visually-hidden")
+            setAttribute("role", "status")
+            setAttribute("aria-live", "polite")
+        }
+    val panel = parent.vPanel(spacing = 6) { addCssClasses("border rounded p-2 lapis-conference-voting") }
+    panel.hide()
+
+    val header = panel.hPanel(spacing = 6) { addCssClasses("align-items-center justify-content-between") }
+    header.h2(tr("Abstimmen")) { addCssClasses("h6 mb-0") }
+    val closeButton = header.button(tr("Abstimmen schließen"), style = ButtonStyle.OUTLINESECONDARY) { addCssClass("btn-sm") }
+    val lockReason = panel.div("") { addCssClasses("text-muted small") }
+    lockReason.id = LOCK_REASON_ID
+    lockReason.hide()
+    val inlineNote = panel.div("") { addCssClasses("text-muted small") }
+    inlineNote.hide()
+    val overview = panel.vPanel(spacing = 6) { addCssClass("lapis-vote-overview") }
+    val refreshHint = panel.div(tr("Status wird aktualisiert …")) { addCssClasses("text-muted small") }
+    refreshHint.hide()
+    val boothHost = panel.vPanel(spacing = 6) { addCssClass("lapis-vote-booth-host") }
+    boothHost.hide()
+    val backRow = boothHost.hPanel(spacing = 6)
+    val backButton = backRow.button(tr("Zurück zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY) { addCssClass("btn-sm") }
+    val boothArea = SimplePanel()
+    boothHost.add(boothArea)
+
+    var roomState = ConferenceVoteRoomState()
+    var boothOpen = false
+    var receiptShown = false
+    var boothBusy = false
+    var disposed = false
+
+    fun currentLock(): ConferenceVotingLock =
+        when {
+            receiptShown -> ConferenceVotingLock.RECEIPT
+            boothOpen -> ConferenceVotingLock.BOOTH
+            else -> ConferenceVotingLock.NONE
+        }
+
+    fun paintLock(lock: ConferenceVotingLock) {
+        val locked = lock != ConferenceVotingLock.NONE
+        closeButton.disabled = locked
+        closeButton.setAttr("aria-disabled", locked.toString())
+        if (locked) closeButton.setAttr("aria-describedby", LOCK_REASON_ID) else closeButton.removeAttribute("aria-describedby")
+        val backLocked = lock == ConferenceVotingLock.RECEIPT || boothBusy
+        backButton.disabled = backLocked
+        backButton.setAttr("aria-disabled", backLocked.toString())
+        when (lock) {
+            ConferenceVotingLock.RECEIPT -> lockReason.content = tr("Bitte notieren Sie zuerst Ihre Quittung.")
+            ConferenceVotingLock.BOOTH -> lockReason.content = tr("Bitte beenden Sie zuerst die Stimmabgabe.")
+            ConferenceVotingLock.NONE -> Unit
+        }
+        if (locked) lockReason.show() else lockReason.hide()
+    }
+
+    fun publishLock() {
+        val lock = currentLock()
+        ConferenceReceiptGate.visible = receiptShown
+        paintLock(lock)
+        onLockChanged(lock)
+    }
+
+    val hookScope =
+        ConferenceReceiptHookScope { visible ->
+            if (!disposed) {
+                receiptShown = visible
+                publishLock()
+            }
+        }
+    hookScope.install()
+
+    fun showNote(text: String?) {
+        if (text == null) {
+            inlineNote.hide()
+        } else {
+            inlineNote.content = text
+            inlineNote.show()
+        }
+    }
+
+    // The overview, the booth and the card buttons call each other; a local function cannot be referenced before it is declared.
+    var enterBoothAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
+
+    fun renderOverview() {
+        overview.removeAll()
+        when {
+            roomState.bound == null -> overview.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+            roomState.ballots.isEmpty() -> overview.div(tr("Zurzeit keine Abstimmungen.")) { addCssClasses("text-muted small") }
+            else ->
+                roomState.ballots.forEach { ballot ->
+                    when (ballot.kind) {
+                        RoomBallotKind.ELECTION -> renderElectionLiveCard(overview, ballot) { enter -> enterBoothAction(enter, ballot) }
+                        else -> renderRoomBallotReadOnlyRow(overview, ballot)
+                    }
+                }
+        }
+        if (roomState.truncated) {
+            overview.div(tr("Weitere Abstimmungen – alle Details in der Sitzung")) { addCssClasses("text-muted small") }
+        }
+    }
+
+    fun focusFirstHeading() {
+        window.setTimeout({
+            val heading = boothHost.getElement()?.querySelector("h2") as? HTMLElement
+            if (heading != null) {
+                heading.tabIndex = -1
+                heading.focus()
+            }
+        }, 0)
+    }
+
+    fun exitBooth() {
+        boothArea.removeAll()
+        boothHost.hide()
+        boothOpen = false
+        receiptShown = false
+        boothBusy = false
+        overview.show()
+        renderOverview()
+        publishLock()
+        onBoothExited()
+        window.setTimeout({
+            val target = overview.getElement()?.querySelector("button") as? HTMLElement
+            (target ?: closeButton.getElement())?.focus()
+        }, 0)
+    }
+
+    fun openBooth(election: ElectionDto) {
+        boothOpen = true
+        receiptShown = false
+        boothBusy = false
+        showNote(null)
+        overview.hide()
+        boothHost.show()
+        publishLock()
+        renderElectionBooth(
+            boothArea,
+            election,
+            openBallotBanner = true,
+            onBusyChanged = { busy ->
+                boothBusy = busy
+                paintLock(currentLock())
+            },
+        ) { exitBooth() }
+        focusFirstHeading()
+    }
+
+    enterBoothAction = { enter, ballot ->
+        runGuardedAction(enter) {
+            val election =
+                try {
+                    loadElection(ballot.id)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (ignored: Throwable) {
+                    null
+                }
+            when {
+                election == null -> showNote(tr("Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."))
+                election.status != ElectionStatus.OPEN -> showNote(tr("Diese Wahl ist nicht mehr offen."))
+                else -> openBooth(election)
+            }
+        }
+    }
+
+    closeButton.onClick { if (currentLock() == ConferenceVotingLock.NONE) onCloseRequested() }
+    backButton.onClick { if (currentLock() != ConferenceVotingLock.RECEIPT && !boothBusy) exitBooth() }
+    panel.onEvent {
+        keydown = { event ->
+            if (event.key == "Escape" && !event.defaultPrevented && currentLock() == ConferenceVotingLock.NONE) onCloseRequested()
+        }
+    }
+    paintLock(ConferenceVotingLock.NONE)
+    renderOverview()
+
+    return ConferenceVotePanelHandle(
+        panel = panel,
+        apply = { update ->
+            roomState = update.state
+            if (update.listChanged) renderOverview()
+            if (roomState.showQuietRefreshHint()) refreshHint.show() else refreshHint.hide()
+        },
+        applyFailure = { failed ->
+            roomState = failed
+            if (failed.showQuietRefreshHint()) refreshHint.show() else refreshHint.hide()
+        },
+        announce = { title ->
+            liveRegion.content = gettext("Neue Abstimmung geöffnet: %1", sanitizeUntrustedI18nText(title))
+        },
+        isBoothOpen = { boothOpen },
+        dispose = {
+            if (!disposed) {
+                disposed = true
+                hookScope.restore()
+                ConferenceReceiptGate.visible = false
+            }
+        },
+    )
+}
+
+// ── the lock on the leave buttons ────────────────────────────────────────────────────────────────────
+
+/**
+ * While a receipt is on screen "Verlassen", "Für alle beenden" and "Zurück zum Hauptraum" are disabled (and say why): each of them
+ * disconnects, and the receipt exists nowhere else. [leaving] is the screen's own "a leave is already running" flag -- those buttons
+ * are also disabled by their own click handlers, and unlocking must not undo that.
+ */
+internal class ConferenceReceiptLockApplier {
+    private var lastLocked = false
+
+    fun apply(
+        locked: Boolean,
+        leaving: Boolean,
+        buttons: List<Button?>,
+    ) {
+        if (locked == lastLocked) return
+        lastLocked = locked
+        buttons.filterNotNull().forEach { button ->
+            if (locked) {
+                button.disabled = true
+                button.setAttr("aria-disabled", "true")
+                button.setAttr("aria-describedby", LOCK_REASON_ID)
+            } else {
+                if (!leaving) button.disabled = false
+                button.removeAttribute("aria-disabled")
+                button.removeAttribute("aria-describedby")
+            }
+        }
+    }
+}

@@ -58,10 +58,16 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * "Vorschau" action calls `previewMailingHtml(` on demand from a button inside `runGuardedAction`. Like the debounced series preview
  * above it is a user-triggered, stateless computation with no list to show a loading/empty/error state for -- a failure already
  * toasts through `guarded`, and the preview box simply stays as it was. 150 -> 151.
+ * Welle V1.9.25 "Abstimmen im Konferenzraum" adds TWO, both in the new `ConferenceVotePanel.kt` (a new file, hence 45 -> 46 files too): the
+ * 5-second `getRoomVotingState(` poll and the on-demand `getElection(` load behind "Zur Wahlkabine". Neither has a sensible `dataSection`:
+ * the poll runs in the background and deliberately shows NO error (a failed poll leaves the list as it was and, after three misses in a
+ * row, a calm "Status wird aktualisiert" line replaces the toast a `dataErrorState` would be); the booth load is a one-shot action whose
+ * failure is a plain inline note and whose success replaces the whole overview. Same accepted shape as the badge reads above.
+ * 151 -> 153.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 151
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 45
+private const val READ_OUTSIDE_STATE_REGION_MAX = 153
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 46
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

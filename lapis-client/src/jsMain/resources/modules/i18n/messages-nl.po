@@ -18045,3 +18045,81 @@ msgstr "Voor dit voorstel loopt een verkiezing."
 
 msgid "Zur Wahl"
 msgstr "Naar de verkiezing"
+
+msgid "Abstimmen"
+msgstr "Stemmen"
+
+msgid "Abstimmen schließen"
+msgstr "Stemmen sluiten"
+
+msgid "Abstimmen, offen: %1"
+msgstr "Stemmen, %1 open"
+
+msgid "Zur Wahlkabine"
+msgstr "Naar het stemhokje"
+
+msgid "Zurück zur Übersicht"
+msgstr "Terug naar het overzicht"
+
+msgid "offen"
+msgstr "open"
+
+msgid "geschlossen, wartet auf Auszählung"
+msgstr "gesloten, wacht op de telling"
+
+msgid "ausgezählt"
+msgstr "geteld"
+
+msgid "geheim"
+msgstr "geheim"
+
+msgid "offen – namentlich"
+msgstr "open – met naam"
+
+msgid "Sie sind stimmberechtigt"
+msgstr "U bent stemgerechtigd"
+
+msgid "Sie haben abgestimmt"
+msgstr "U hebt gestemd"
+
+msgid "Nicht stimmberechtigt"
+msgstr "Niet stemgerechtigd"
+
+msgid "Details in neuem Tab"
+msgstr "Details in nieuw tabblad"
+
+msgid "Diese Abstimmung ist offen und wird namentlich gespeichert"
+msgstr "Deze stemming is open en wordt met naam opgeslagen"
+
+msgid "Bitte notieren Sie zuerst Ihre Quittung."
+msgstr "Noteer eerst uw bewijs."
+
+msgid "Bitte beenden Sie zuerst die Stimmabgabe."
+msgstr "Rond eerst het stemmen af."
+
+msgid "Neue Abstimmung geöffnet: %1"
+msgstr "Nieuwe stemming geopend: %1"
+
+msgid "Abstimmung läuft – Stimmabgabe im Raum folgt"
+msgstr "Stemming loopt – stemmen in de ruimte volgt nog"
+
+msgid "Weitere Abstimmungen – alle Details in der Sitzung"
+msgstr "Meer stemmingen – alle details in de vergadering"
+
+msgid "Status wird aktualisiert …"
+msgstr "Status wordt bijgewerkt …"
+
+msgid "Zurzeit keine Abstimmungen."
+msgstr "Momenteel geen stemmingen."
+
+msgid "Abstimmungen laufen – nur Mitglieder können abstimmen"
+msgstr "Er lopen stemmingen – alleen leden kunnen stemmen"
+
+msgid "Sitzung zuordnen, um Abstimmungen im Raum zu ermöglichen"
+msgstr "Koppel een vergadering om stemmingen in de ruimte mogelijk te maken"
+
+msgid "Die Wahlkabine konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Het stemhokje kon niet worden geladen. Probeer het opnieuw."
+
+msgid "Diese Wahl ist nicht mehr offen."
+msgstr "Deze verkiezing is niet meer open."
