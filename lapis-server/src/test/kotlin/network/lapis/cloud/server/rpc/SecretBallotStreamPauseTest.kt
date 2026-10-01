@@ -1783,6 +1783,182 @@ class SecretBallotStreamPauseTest :
             }
         }
 
+        // ── V1.9.24 Befund C -- hung PAUSING ("haengende Pause") + unbound room, tests only, no production change ──
+
+        /**
+         * Shared arrange for C1: a bound room with a LIVE stream whose secret-ballot pause never confirms
+         * (autoConfirmOnStop = false) -- the row is stuck PAUSING. Returns the fixture handles.
+         */
+        class HungPause(
+            val chair: Uuid,
+            val roomMod: Uuid,
+            val board: List<Uuid>,
+            val voter: Uuid,
+            val streamId: Uuid,
+            val egressId: String,
+            val electionId: String,
+        )
+
+        suspend fun HttpClient.arrangeHungPause(
+            fakeClient: ControllableFakeLiveKitEgressClient,
+            tag: String,
+        ): HungPause {
+            val committeeId = createTestCommittee("Pause-$tag")
+            val chair = createTestMember("pause$tag-chair@example.org")
+            addMember(committeeId, chair, CommitteeRole.CHAIR)
+            // Room-only moderator: creates/moderates the room but has NO election role and no Gremium membership.
+            val roomMod = createTestMember("pause$tag-roommod@example.org")
+            val board = (1..3).map { createTestMember("pause$tag-wv$it@example.org") }
+            val voter = createTestMember("pause$tag-voter@example.org")
+            addMember(committeeId, voter, CommitteeRole.MEMBER)
+            val meetingId = createTestMeeting(committeeId)
+            val roomId = createTestRoom(roomMod, "Pause-$tag Raum", meetingId)
+            val destId = createTestDestination("Pause-$tag Ziel", roomMod)
+            val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+            startStream(roomMod, roomId, destId).status shouldBe HttpStatusCode.OK
+            val streamId =
+                transaction {
+                    ConferenceStreamTable.selectAll().where { ConferenceStreamTable.roomId eq roomId }.single()[ConferenceStreamTable.id]
+                }
+            val egressId = streamRow(streamId)[ConferenceStreamTable.livekitEgressId]!!
+            val electionId = setUpAndOpenSecretElection(chair, motionId, board)
+            streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSING
+            fakeClient.stopCalls.size shouldBe 1 // the guard's own StopEgress request, never confirmed
+            return HungPause(chair, roomMod, board, voter, streamId, egressId, electionId)
+        }
+
+        test(
+            "C1 hungPause_moderatorCanStillStopStream: a stream stuck PAUSING can still be stopped by its room moderator, after which the ballot unlocks",
+        ) {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val h = client.arrangeHungPause(fakeClient, "c1a")
+
+                val stop = client.post("/test/stop-stream?streamId=${h.streamId}") { header("X-Member-Id", h.roomMod.toString()) }
+                stop.status shouldBe HttpStatusCode.OK
+                // stopStream is outside SecretBallotStreamLock; with a never-confirming egress it stays STOPPING (still fail-closed).
+                streamRow(h.streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.STOPPING
+                client.castElectionBallot(h.voter, h.electionId).status shouldBe HttpStatusCode.Conflict
+
+                // Once the egress is really gone, the poller finalises STOPPING -> ENDED and the ballot is castable again.
+                fakeClient.forceGone(h.egressId)
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
+                streamRow(h.streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.ENDED
+                client.castElectionBallot(h.voter, h.electionId).status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "C1 hungPause_electionManagerCanStillAbort: abortElection works while the stream is stuck PAUSING (independent of stream state)",
+        ) {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val h = client.arrangeHungPause(fakeClient, "c1b")
+
+                val abort = client.post("/test/abort-election/${h.electionId}") { header("X-Member-Id", h.chair.toString()) }
+                abort.status shouldBe HttpStatusCode.OK
+                abort.bodyAsText() shouldBe ElectionStatus.ABORTED.name
+            }
+        }
+
+        test("C1 hungPause_ballotStaysFailClosed: while the pause is stuck, no ballot or participation row can be written") {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val h = client.arrangeHungPause(fakeClient, "c1c")
+
+                client.castElectionBallot(h.voter, h.electionId).status shouldBe HttpStatusCode.Conflict
+                val wId = Uuid.parse(h.electionId)
+                transaction { ElectionBallotTable.selectAll().where { ElectionBallotTable.electionId eq wId }.count() } shouldBe 0
+                transaction {
+                    ElectionParticipationTable.selectAll().where { ElectionParticipationTable.electionId eq wId }.count()
+                } shouldBe
+                    0
+            }
+        }
+
+        test(
+            "C1 hungPause_roomOnlyModeratorGap: a room moderator WITHOUT an election role can stop the stream (unlocking the ballot) but cannot abort the election",
+        ) {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient(autoConfirmOnStop = false)
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val h = client.arrangeHungPause(fakeClient, "c1d")
+
+                // Documented gap: the room moderator has no say over the election itself ...
+                client.post("/test/abort-election/${h.electionId}") { header("X-Member-Id", h.roomMod.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
+                // ... but the one lever they do have (stop the stream) is sufficient to unblock the vote.
+                client.post("/test/stop-stream?streamId=${h.streamId}") { header("X-Member-Id", h.roomMod.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+                fakeClient.forceGone(h.egressId)
+                StreamPoller(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG).tick()
+                client.castElectionBallot(h.voter, h.electionId).status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        /**
+         * C2 -- documents CURRENT behaviour, a KNOWN LIMITATION whose change is intended in a later wave. This is
+         * NOT a tripwire: it does not guard an existing safety property and must not be "fixed" by loosening it;
+         * if the later wave changes the behaviour, this test is rewritten together with that change.
+         */
+        test(
+            "C2 knownGap_unboundRoomStreamIsNeverPaused: a room without a bound Sitzung keeps its LIVE stream while a secret ballot runs",
+        ) {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient()
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val committeeId = createTestCommittee("Pause-c2")
+                val chair = createTestMember("pausec2-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val board = (1..3).map { createTestMember("pausec2-wv$it@example.org") }
+                val voter = createTestMember("pausec2-voter@example.org")
+                addMember(committeeId, voter, CommitteeRole.MEMBER)
+                val meetingId = createTestMeeting(committeeId)
+                val roomId = createTestRoom(chair, "Pause-c2 Raum", meetingId = null)
+                val destId = createTestDestination("Pause-c2 Ziel", chair)
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+                client.startStream(chair, roomId, destId).status shouldBe HttpStatusCode.OK
+                val streamId =
+                    transaction {
+                        ConferenceStreamTable
+                            .selectAll()
+                            .where {
+                                ConferenceStreamTable.roomId eq roomId
+                            }.single()[ConferenceStreamTable.id]
+                    }
+
+                val electionId = client.setUpAndOpenSecretElection(chair, motionId, board)
+
+                streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.LIVE
+                fakeClient.stopCalls.size shouldBe 0
+                // requireStreamQuiescedForBallot only inspects rooms bound to the meeting, so the ballot is not blocked either.
+                client.castElectionBallot(voter, electionId).status shouldBe HttpStatusCode.OK
+            }
+        }
+
         // ── Scenario 19 -- no raw LiveKit error text ever reaches a DTO ────────────────────
 
         test("19: no raw LiveKit error text (a fake hostname) ever appears in the ElectionDto or ConferenceStreamDto responses") {
@@ -2750,6 +2926,7 @@ private fun Route.registerSecretBallotPauseTestRoutes(
                 createRoomRateLimiter = LoginRateLimiter(),
                 config = ENABLED_CONFERENCE_CONFIG,
                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 1.minutes),
+                roomVotingStateRateLimiter = FederationInboxRateLimiter(),
             )
         val dto = service.setRoomMeeting(roomId = q["roomId"]!!, meetingId = q["meetingId"]?.takeIf { it.isNotBlank() })
         call.respondText(dto.meetingId ?: "")

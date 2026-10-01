@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.isStructurallyValid
+import org.khronos.webgl.Uint8Array
 import kotlin.js.unsafeCast
 
 private external interface PublishDataOptions {
@@ -163,6 +164,12 @@ internal sealed interface ConnectAttemptResult {
  * locally-sent messages are never delivered back to the sender by LiveKit's data channel, so
  * `ConferenceScreen.kt` renders its own outgoing chat messages itself, immediately on [sendChat]
  * returning, rather than waiting for an echo through [onChat].
+ *
+ * **Vote-nudge trust boundary** (V1.9.24): a `lapis-vote-nudge` payload is peer-to-peer and
+ * unauthenticated -- any participant can send any bytes. It is therefore NEVER decoded, parsed or even
+ * read; the topic alone triggers [onVoteNudge], throttled to once per 2 s ([VoteNudgeThrottle]). The
+ * only permitted reaction is an authorised server re-query, so a forged nudge costs at most one extra
+ * rate-limited `getRoomVotingState` call. [sendVoteNudge] is the sender side.
  *
  * **Speaking-priority signal** (V1.0 Videokonferenzen Wave 4 "Politur", D3): [onActiveSpeakersChanged]
  * relays [RoomEvent.ActiveSpeakersChanged] verbatim as a list of identities -- this class does not
@@ -324,8 +331,19 @@ class LiveKitRoomSession(
      * `Room` is an `external class`, so any JS object exposing the same method/property names
      * works identically to the real thing at the call sites this class uses). */
     private val roomFactory: (RoomOptions) -> Room = { options -> Room(options) },
+    /**
+     * V1.9.24 -- fires at most once per 2 s after a peer's vote nudge. Carries NO data: the nudge payload
+     * is peer-to-peer, unauthenticated and DISCARDED; the only allowed reaction is a server re-query
+     * (`getRoomVotingState`). See class KDoc "Vote-nudge trust boundary".
+     */
+    private val onVoteNudge: () -> Unit = {},
+    /** Test seam: lets a `jsTest` inject a deterministic [VoteNudgeThrottle] (fake clock/scheduler). */
+    voteNudgeThrottleFactory: ((onRefresh: () -> Unit) -> VoteNudgeThrottle)? = null,
 ) {
     private var room: Room? = null
+
+    private val voteNudgeThrottle: VoteNudgeThrottle =
+        (voteNudgeThrottleFactory ?: { onRefresh -> VoteNudgeThrottle(onRefresh = onRefresh) })(onVoteNudge)
 
     /**
      * True only for the (normally brief) window inside [connect]'s relay-fallback retry where
@@ -736,6 +754,8 @@ class LiveKitRoomSession(
                         if (!broadcast.isStructurallyValid()) return@onOwned
                         onNotesCommit(participant.identity, participant.name ?: participant.identity, broadcast)
                     }
+                // V1.9.24 -- NO decode, NO payload/participant access: see class KDoc "Vote-nudge trust boundary".
+                VOTE_NUDGE_TOPIC -> voteNudgeThrottle.trigger()
                 else -> return@onOwned
             }
         }
@@ -1035,6 +1055,20 @@ class LiveKitRoomSession(
     }
 
     /**
+     * V1.9.24 -- sent by the operator after openVoting/closeVoting/tally succeeded. One zero byte (a
+     * zero-length array has SDK edge cases), reliable. Carries no data by design.
+     */
+    suspend fun sendVoteNudge() {
+        val currentRoom = room ?: return
+        val options =
+            obj<PublishDataOptions> {
+                reliable = true
+                topic = VOTE_NUDGE_TOPIC
+            }
+        currentRoom.localParticipant.publishData(Uint8Array(1), options).await()
+    }
+
+    /**
      * Audit finding "Race (disconnect() silent no-op during relay-retry teardown)": before this fix,
      * [room] was the ONLY signal this method consulted, so a call landing in the brief window
      * [connect]'s relay-fallback retry holds it `null` (see [connectInFlight] KDoc) silently did
@@ -1045,6 +1079,8 @@ class LiveKitRoomSession(
      * silent no-op.
      */
     suspend fun disconnect() {
+        // V1.9.24 -- a pending trailing nudge must not fire a callback after the user left.
+        voteNudgeThrottle.cancel()
         val currentRoom = room
         if (currentRoom != null) {
             // Deliberately awaited BEFORE nulling [room] (unchanged from the pre-fix ordering): the
@@ -1073,5 +1109,8 @@ class LiveKitRoomSession(
 
         /** V1.0 Wave 8 "Geteilte Notizen" -- committed block-edit broadcast, RELIABLE, see [sendNotesCommit] KDoc. */
         const val NOTES_COMMIT_TOPIC = "lapis-notes-commit"
+
+        /** V1.9.24 -- data-less "re-query the voting state" signal, see [sendVoteNudge] KDoc. */
+        const val VOTE_NUDGE_TOPIC = "lapis-vote-nudge"
     }
 }

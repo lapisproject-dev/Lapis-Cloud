@@ -48,6 +48,7 @@ fun Route.registerMobileConferenceRoutes(
     conferenceWhiteboardState: ConferenceWhiteboardState,
     conferenceNotesState: ConferenceNotesState,
     conferenceMeetingBindRateLimiter: FederationInboxRateLimiter,
+    roomVotingStateRateLimiter: FederationInboxRateLimiter,
     config: ConferenceConfig = ConferenceConfig.load(),
 ) {
     fun buildService(call: ApplicationCall) =
@@ -64,6 +65,7 @@ fun Route.registerMobileConferenceRoutes(
             whiteboardState = conferenceWhiteboardState,
             notesState = conferenceNotesState,
             conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
+            roomVotingStateRateLimiter = roomVotingStateRateLimiter,
         )
 
     get("/api/mobile/v1/conference/availability") {

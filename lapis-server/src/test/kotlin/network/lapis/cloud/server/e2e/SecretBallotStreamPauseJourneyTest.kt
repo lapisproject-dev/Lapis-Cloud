@@ -217,6 +217,7 @@ class SecretBallotStreamPauseJourneyTest :
                                 createRoomRateLimiter = LoginRateLimiter(),
                                 config = E2E9_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                                roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                             )
 
                         fun streamingService(call: ApplicationCall) =

@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceParticipantDto
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
+import network.lapis.cloud.shared.domain.RoomVotingStateDto
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 1 -- LiveKit-backed video conferencing for the
@@ -339,4 +340,17 @@ interface IConferenceService {
         roomId: String,
         meetingId: String?,
     ): ConferenceRoomDto
+
+    /**
+     * V1.9.24 Abstimmen im Konferenzraum, wave 1. Session-derived meeting (`conference_room.meeting_id`,
+     * never a client parameter). Authorization: the
+     * room-entry gate plus an OPEN `conference_participation` for EVERY caller (member, friend, guest).
+     * Every denial -- unknown/ended/foreign room id, breakout LiveKit id, not in room, not eligible,
+     * malformed id -- throws the SAME [ForbiddenException] with the SAME message (no existence oracle).
+     * Rate-limit and conference-disabled errors keep their own types. Polled ~5 s by the client; own
+     * rate budget. Returns elections only in this wave: OPEN, CLOSED, TALLIED within the last 12 h;
+     * PREPARATION/CANDIDATE_LIST_RELEASED/ABORTED excluded; max 20. Breakouts inherit the main room's
+     * Sitzung: the client asks with the main room id.
+     */
+    suspend fun getRoomVotingState(roomId: String): RoomVotingStateDto
 }

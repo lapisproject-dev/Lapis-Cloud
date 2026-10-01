@@ -458,6 +458,7 @@ private fun Route.registerFriendConferenceTestRoutes(config: ConferenceConfig = 
             listRateLimiter = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes),
             guestAccessRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes),
             conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+            roomVotingStateRateLimiter = FederationInboxRateLimiter(),
         )
     post("/test/join-room") {
         val q = call.request.queryParameters

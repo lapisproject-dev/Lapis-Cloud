@@ -1,0 +1,123 @@
+= Voting in the conference room, server query and nudge channel (V1.9.24)
+:toc:
+
+== Purpose and scope
+
+Wave 1 of four that bring voting into the video conference. This wave has **no user interface**. It adds the two building blocks the
+later waves stand on:
+
+* `IConferenceService.getRoomVotingState(roomId)`, a server query that tells a participant which ballots of the room's Sitzung are
+  running or just finished, and what the caller's own status in each is.
+* The data-channel topic `lapis-vote-nudge`, a data-less signal that makes the other clients ask the server again, so the list
+  updates within about two seconds instead of at the next 5-second poll.
+
+Only democratic elections are delivered. Meritocratic votes follow in V1.9.27; systemic consensing is a project of its own, its enum
+value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25) and the operator panel (V1.9.26) come next.
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Data flow
+
+The server is the single source of truth. The nudge only says "look again"; it never carries a ballot, a title or a result.
+
+[source,kuml,name="conference-voting-dataflow"]
+----
+sequenceDiagram(name = "Room voting state and nudge") {
+    val operator = lifeline(name = "Operator client")
+    val channel = lifeline(name = "LiveKit data channel (P2P, untrusted)")
+    val peer = lifeline(name = "Participant client")
+    val server = lifeline(name = "ConferenceService (server authoritative)")
+    val db = lifeline(name = "conference_room, election, own-flag tables")
+
+    message(from = peer, to = server, label = "getRoomVotingState(roomId) every ~5 s")
+    message(from = server, to = db, label = "room -> meeting_id (session-derived, never a parameter)")
+    message(from = server, to = db, label = "active elections, then recently tallied, max 20")
+    message(from = server, to = db, label = "own eligible / has-voted flags, at most 3 queries")
+    message(from = server, to = peer, label = "RoomVotingStateDto (own flags only) | uniform Forbidden")
+    message(from = operator, to = channel, label = "after openVoting / closeVoting / tally: lapis-vote-nudge, one zero byte")
+    message(from = channel, to = peer, label = "payload is DISCARDED, never read")
+    message(from = peer, to = server, label = "at most one extra getRoomVotingState per 2 s")
+}
+----
+
+== Authorization and the uniform error
+
+The meeting is derived on the server from `conference_room.meeting_id`; the client never names a Sitzung. The caller must pass the
+shared room-entry gate (`requireRoomEntryAuthorization`: member status, and for non-members the room's `allowFederationGuests`)
+**and** have an open `conference_participation` row in the room. The second condition applies to every role, including the room
+creator: only a client that is actually in the room polls.
+
+Every denial throws the same `ForbiddenException` with the same message (`ROOM_VOTING_UNAVAILABLE`):
+
+* unknown room id, an id of a room the caller is not in, an ended room,
+* a breakout room id or a breakout LiveKit room name (they are not `conference_room` rows),
+* a caller who left or was removed (`left_at` is set), a withdrawn member, a friend or guest of a room without guest access,
+* a malformed id.
+
+The participation lookup runs even for an unknown room so the denial paths do the same work. Only `ForbiddenException` and
+`NotFoundException` are mapped; a rate-limit error (`Conflict`) and "conference not configured" (`Conflict`) keep their own type.
+`listParticipants` answers an unknown room with `NotFound` and a foreign room with `Forbidden`; that is an existence oracle, and this
+query deliberately does not copy it.
+
+The query has its own rate budget, 90 requests per member and minute (`roomVotingStateRateLimiter`, a module-scoped singleton, no
+constructor default). Sharing the list limiter would let polling starve `listParticipants`.
+
+== Status filter and caps
+
+[cols="2,1,4", options="header"]
+|===
+| Election status | Delivered | Why
+| `PREPARATION`, `CANDIDATE_LIST_RELEASED` | no | Nothing can be done in the room yet, and before the snapshot the eligibility is unknown (a three-valued flag). The election list and the operator panel use `ElectionService` directly.
+| `OPEN` | yes, `OPEN` | The member can vote.
+| `CLOSED` | yes, `CLOSED_AWAITING_TALLY` | Voting is over, the count is awaited.
+| `TALLIED` within 12 hours | yes, `DECIDED` | The result is still relevant for the running meeting. After that it is not.
+| `ABORTED` | no | Nothing to show.
+|===
+
+At most 20 ballots are delivered (`truncated` says when the cap applied). Active elections are read first and recently tallied ones
+second, so a tallied election never pushes out an open one. Order: `OPEN`, `CLOSED_AWAITING_TALLY`, `DECIDED`. At most five queries
+run regardless of the number of ballots.
+
+== Ballot secrecy
+
+`RoomBallotDto` carries only the caller's own flags (`ownEligible`, `ownHasVoted`). It has no counters, no timestamps, no choice, no
+receipt, and no names or member ids. The shared helper `ElectionOwnParticipation` keeps the table separation exactly as it was:
+for a secret election "has voted" comes from `election_participation`, for an open one from `election_ballot`.
+`ElectionService.getElectionParticipation` uses the same helper. A non-member is never eligible: `ownEligible` is forced to `false`
+even if a snapshot row existed.
+
+== Breakout rooms
+
+Breakouts are `conference_breakout_room` rows. A participant's main-room participation stays open during a breakout excursion, so the
+client asks with the **main** room id and sees the main room's Sitzung. No special logic exists. A breakout id is simply denied.
+
+== The nudge channel and its trust boundary
+
+Topic `lapis-vote-nudge`, one zero byte, reliable. Any room participant can publish anything on any topic, so the receiver treats
+the signal as untrusted: it does not decode, parse or read the payload or the sender, it only triggers `onVoteNudge`, throttled by
+`VoteNudgeThrottle` to one call per 2 seconds (leading edge immediately, exactly one trailing call for anything inside the window, so two
+closely spaced events are not lost). The only allowed reaction is an authorized server query. A forged nudge costs at most one extra,
+rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disconnect()`.
+
+== Secret-ballot stream pause: findings
+
+[cols="1,4", options="header"]
+|===
+| Finding | Result
+| C1, hanging pause | A stream stuck in `PAUSING` can always be left: `stopStream` needs only the room moderator or a privileged account and sits outside `SecretBallotStreamLock`; `abortElection` needs only the election manager. Both are covered by tests in `SecretBallotStreamPauseTest`. Until the egress is confirmed stopped, a ballot stays rejected (`STOPPING` blocks like `PAUSING`), then the poller ends the stream and the ballot is castable again. Gap: a room moderator without an election role can unblock the vote by stopping the stream but cannot abort the election.
+| C2, unbound room | A room without a bound Sitzung is never paused when a secret election opens, because only rooms bound to the meeting are checked. The test `knownGap_unboundRoomStreamIsNeverPaused` documents this behavior; it is not a tripwire and changes together with the later wave that changes the behavior.
+|===
+
+== Known limitations
+
+* No user interface yet (V1.9.25).
+* Elections only; meritocratic votes in V1.9.27, consensing is not planned for the room.
+* Unbound room: stream is never paused (C2).
+* A hanging pause can be resolved only by the room moderator or the election management (C1).
+* Recordings are not paused for a secret ballot.
+* A small timing difference between "unknown id" and "known id" remains (ids are random UUIDv4, low risk).
+
+== Untrusted free text
+
+`title` (election) and `motionTitle` (motion) are member-authored. The server returns the raw text. The client in V1.9.25 must
+render both with `textContent`/the untrusted-text sanitizer, never as HTML. This is a review point for that wave.

@@ -194,6 +194,7 @@ class FriendConferenceJourneyTest :
                                 createRoomRateLimiter = LoginRateLimiter(),
                                 config = FRIEND_JOURNEY_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                                roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                             )
                         post("/friend-journey/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "Friend-Journey-Raum"))

@@ -277,6 +277,7 @@ private fun Route.registerNotesTeardownTestRoutes(
             config = NOTES_TEARDOWN_ENABLED_CONFIG,
             notesState = notesState,
             conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+            roomVotingStateRateLimiter = FederationInboxRateLimiter(),
         )
     post("/test/end-room") {
         val service = service(call)

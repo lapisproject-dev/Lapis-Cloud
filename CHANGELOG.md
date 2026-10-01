@@ -6,6 +6,36 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.24 voting in the conference room, wave 1 (no UI yet)
+
+- **`getRoomVotingState(roomId)`** on `IConferenceService`: which elections of the room's Sitzung are open, closed or recently
+  tallied (max 20, tallied ones for 12 hours), and the caller's own eligibility and vote status for each. The Sitzung comes from
+  `conference_room.meeting_id`, never from the client. See `docs/architecture/conference-voting.adoc`.
+- **`lapis-vote-nudge`**, a data-channel signal (one zero byte) after open, close and tally, so other clients re-query within
+  about two seconds. Receivers throttle it (`VoteNudgeThrottle`, one call per 2 s, one coalesced trailing call).
+- `ElectionOwnParticipation`, the shared own-flags lookup now also used by `getElectionParticipation` (behavior unchanged).
+
+### Security -- V1.9.24
+
+- Every denial of `getRoomVotingState` is the same `ForbiddenException` with the same message: unknown, ended, foreign or breakout
+  room id, not in the room, left or removed, no guest access, malformed id. No existence oracle. An open participation is required
+  for every role.
+- Only the caller's own flags are delivered, never counters, timestamps, choices, receipts or member ids; a test pins the exact
+  JSON keys and checks a secret vote leaks no receipt or foreign id. A non-member is never eligible.
+- The nudge payload is never read (peer-to-peer, unauthenticated); the only reaction is an authorized server query.
+- Own rate budget (90/min per member), module-scoped singleton without constructor default; the client throttle is cancelled on disconnect.
+- `title` and `motionTitle` are untrusted free text; the client must escape them (V1.9.25 review point).
+
+### Known limitations -- V1.9.24
+
+- No UI yet (V1.9.25); only elections (meritocratic votes V1.9.27, consensing is a project of its own).
+- A room without a bound Sitzung never has its stream paused for a secret ballot (documented by a test).
+- A stream stuck in `PAUSING` can only be resolved by the room moderator (stop stream) or the election management (abort);
+  tests cover both paths.
+- Recordings are not paused for a secret ballot.
+- A small timing difference between unknown and known room ids remains (random UUIDv4, low risk).
+- No migration; the schema is unchanged.
+
 ## [0.26.0] — 2026-10-01
 
 Release summary (the detail is in the sections below, grouped by wave V1.9.15 -- V1.9.23):

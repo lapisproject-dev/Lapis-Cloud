@@ -289,6 +289,7 @@ private fun Route.registerTeardownTestRoutes(
             config = TEARDOWN_ENABLED_CONFIG,
             whiteboardState = whiteboardState,
             conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+            roomVotingStateRateLimiter = FederationInboxRateLimiter(),
         )
     post("/test/end-room") {
         val service = service(call)

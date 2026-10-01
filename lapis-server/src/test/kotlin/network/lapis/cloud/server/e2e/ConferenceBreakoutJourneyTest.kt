@@ -171,6 +171,7 @@ class ConferenceBreakoutJourneyTest :
                                 createRoomRateLimiter = LoginRateLimiter(),
                                 config = E2E6_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                                roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                             )
 
                         fun breakoutService(call: ApplicationCall) =
@@ -304,6 +305,7 @@ class ConferenceBreakoutJourneyTest :
                                 createRoomRateLimiter = LoginRateLimiter(),
                                 config = E2E6_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                                roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                             )
 
                         fun breakoutService(call: ApplicationCall) =

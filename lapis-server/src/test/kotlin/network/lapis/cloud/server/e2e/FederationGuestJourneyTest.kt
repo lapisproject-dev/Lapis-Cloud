@@ -342,6 +342,7 @@ class FederationGuestJourneyTest :
                                 createRoomRateLimiter = LoginRateLimiter(),
                                 config = E2E_ENABLED_CONFERENCE_CONFIG,
                                 conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(),
+                                roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                             )
                         post("/e2e3-conf/create-room") {
                             val room = conferenceService(call).createRoom(ConferenceRoomInput(title = "E2E Scenario 3 Konferenzraum"))

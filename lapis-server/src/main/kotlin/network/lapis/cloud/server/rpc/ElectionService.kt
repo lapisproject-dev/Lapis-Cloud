@@ -1124,33 +1124,10 @@ class ElectionService(
         val wId = electionId.toUuidOrNotFound("Election")
         return transaction {
             val electionRow = requireElectionRow(wId)
-            val secret = electionRow[ElectionTable.secret]
-            val hasVoted =
-                if (secret) {
-                    ElectionParticipationTable
-                        .selectAll()
-                        .where {
-                            (ElectionParticipationTable.electionId eq wId) and
-                                (ElectionParticipationTable.memberId eq current.memberId)
-                        }.count() > 0
-                } else {
-                    ElectionBallotTable
-                        .selectAll()
-                        .where { (ElectionBallotTable.electionId eq wId) and (ElectionBallotTable.memberId eq current.memberId) }
-                        .count() > 0
-                }
+            val ownFlags = ElectionOwnParticipation.load(electionRows = listOf(electionRow), memberId = current.memberId).getValue(wId)
+            val hasVoted = ownFlags.hasVoted
             val snapshotTaken = electionRow[ElectionTable.votingOpenedAt] != null
-            val eligible =
-                if (snapshotTaken) {
-                    ElectionEligibleVoterTable
-                        .selectAll()
-                        .where {
-                            (ElectionEligibleVoterTable.electionId eq wId) and
-                                (ElectionEligibleVoterTable.memberId eq current.memberId)
-                        }.count() > 0
-                } else {
-                    null
-                }
+            val eligible = ownFlags.eligible
             val eligibleCount =
                 if (snapshotTaken) {
                     ElectionEligibleVoterTable

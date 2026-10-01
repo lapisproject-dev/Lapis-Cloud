@@ -18,8 +18,10 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -40,8 +42,13 @@ import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.RoomBallotDto
+import network.lapis.cloud.shared.domain.RoomBallotKind
+import network.lapis.cloud.shared.domain.RoomBallotStatus
+import network.lapis.cloud.shared.domain.RoomVotingStateDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -51,13 +58,16 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
@@ -92,6 +102,22 @@ private const val MAX_DESCRIPTION_LENGTH = 1000
 
 /** DoS guard for [ConferenceService.listActiveRooms] -- same class of cap `AuctionService.listAuctions`'s own limit enforces. */
 private const val MAX_LIST_RESULTS = 200
+
+/** V1.9.24 -- hard cap on ballots delivered by [ConferenceService.getRoomVotingState]; also the SQL `limit`. */
+private const val MAX_ROOM_BALLOTS = 20
+
+/** V1.9.24 -- how long a TALLIED election stays visible in a room after its tally ran. */
+private val RECENTLY_TALLIED_WINDOW = 12.hours
+
+/**
+ * V1.9.24 -- [ConferenceService.getRoomVotingState]'s OWN per-member budget. 5-s polling is 12/min,
+ * plus at most ~30/min from throttled vote nudges, with headroom. NOT shared with
+ * [DEFAULT_LIST_RATE_MAX]: polling would otherwise starve `listParticipants`.
+ */
+internal const val DEFAULT_ROOM_VOTING_STATE_RATE_MAX = 90
+
+/** V1.9.24 -- the ONE message every denial path of [ConferenceService.getRoomVotingState] throws (no existence oracle). */
+internal const val ROOM_VOTING_UNAVAILABLE = "Room voting state is not available"
 
 /** Security-audit MINOR-10 fix -- [ConferenceService.setRoomMeeting]'s own cap on how many rooms may be bound to the SAME Sitzung at once. */
 private const val MAX_ROOMS_PER_MEETING = 10
@@ -247,6 +273,12 @@ class ConferenceService(
      * that does not care about this limiter now passes its own throwaway instance explicitly too.
      */
     private val conferenceMeetingBindRateLimiter: FederationInboxRateLimiter,
+    /**
+     * V1.9.24 -- [getRoomVotingState]'s own budget, see [DEFAULT_ROOM_VOTING_STATE_RATE_MAX]. NO default,
+     * same reasoning as [conferenceMeetingBindRateLimiter]: a default would mint a fresh, empty limiter
+     * per RPC call (`registerService` builds a new service per request).
+     */
+    private val roomVotingStateRateLimiter: FederationInboxRateLimiter,
 ) : IConferenceService {
     override suspend fun getAvailability(): ConferenceAvailabilityDto {
         resolveCurrentMember(call)
@@ -1038,6 +1070,129 @@ class ConferenceService(
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
             rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
         }
+    }
+
+    override suspend fun getRoomVotingState(roomId: String): RoomVotingStateDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = roomVotingStateRateLimiter, memberId = current.memberId)
+        val id =
+            runCatching { Uuid.parse(roomId) }.getOrElse { throw ForbiddenException(ROOM_VOTING_UNAVAILABLE) }
+        val now = nowLocalDateTime()
+        return transaction {
+            try {
+                val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
+                // ALWAYS executed (even for an unknown room) so the denial paths do the same work.
+                val hasOpenParticipation =
+                    ConferenceParticipationTable
+                        .selectAll()
+                        .where {
+                            (ConferenceParticipationTable.roomId eq id) and
+                                (ConferenceParticipationTable.memberId eq current.memberId) and
+                                ConferenceParticipationTable.leftAt.isNull()
+                        }.limit(1)
+                        .count() > 0
+                if (row == null || row[ConferenceRoomTable.endedAt] != null || !hasOpenParticipation) {
+                    throw ForbiddenException(ROOM_VOTING_UNAVAILABLE)
+                }
+                val status = requireRoomEntryAuthorization(roomRow = row, current = current)
+                val meetingId = row[ConferenceRoomTable.meetingId]
+                if (meetingId == null) {
+                    RoomVotingStateDto(roomId = id.toString(), bound = false, ballots = emptyList(), truncated = false)
+                } else {
+                    val (ballots, truncated) =
+                        loadRoomBallots(
+                            meetingId = meetingId,
+                            memberId = current.memberId,
+                            isNonMember = status in MemberStatusSets.NON_MEMBER,
+                            now = now,
+                        )
+                    RoomVotingStateDto(roomId = id.toString(), bound = true, ballots = ballots, truncated = truncated)
+                }
+            } catch (e: ForbiddenException) {
+                throw ForbiddenException(ROOM_VOTING_UNAVAILABLE)
+            } catch (e: NotFoundException) {
+                throw ForbiddenException(ROOM_VOTING_UNAVAILABLE)
+            }
+        }
+    }
+
+    /**
+     * V1.9.24 -- at most 5 queries independent of the ballot count. Active (OPEN/CLOSED) elections of
+     * [meetingId] first, then TALLIED ones within [RECENTLY_TALLIED_WINDOW], so tallied elections can
+     * never crowd out an open one. Own flags are loaded only for the rows actually delivered.
+     */
+    private fun loadRoomBallots(
+        meetingId: Uuid,
+        memberId: Uuid,
+        isNonMember: Boolean,
+        now: LocalDateTime,
+    ): Pair<List<RoomBallotDto>, Boolean> {
+        val columns =
+            listOf(
+                ElectionTable.id,
+                ElectionTable.title,
+                ElectionTable.secret,
+                ElectionTable.status,
+                ElectionTable.motionId,
+                ElectionTable.votingOpenedAt,
+                ElectionTable.openedAt,
+                MotionTable.title,
+            )
+        val active =
+            (ElectionTable innerJoin MotionTable)
+                .select(columns)
+                .where {
+                    (ElectionTable.meetingId eq meetingId) and
+                        (ElectionTable.status inList listOf(ElectionStatus.OPEN, ElectionStatus.CLOSED))
+                }.orderBy(ElectionTable.openedAt, SortOrder.DESC)
+                .limit(MAX_ROOM_BALLOTS + 1)
+                .toList()
+        val zone = TimeZone.currentSystemDefault()
+        val cutoff = (now.toInstant(zone) - RECENTLY_TALLIED_WINDOW).toLocalDateTime(zone)
+        val remaining = MAX_ROOM_BALLOTS + 1 - active.size
+        val tallied =
+            if (remaining <= 0) {
+                emptyList()
+            } else {
+                (ElectionTable innerJoin MotionTable)
+                    .select(columns)
+                    .where {
+                        (ElectionTable.meetingId eq meetingId) and
+                            (ElectionTable.status eq ElectionStatus.TALLIED) and
+                            (ElectionTable.tallyRunAt greaterEq cutoff)
+                    }.orderBy(ElectionTable.tallyRunAt, SortOrder.DESC)
+                    .limit(remaining)
+                    .toList()
+            }
+        val ordered =
+            active.sortedBy { if (it[ElectionTable.status] == ElectionStatus.OPEN) 0 else 1 } + tallied
+        val truncated = ordered.size > MAX_ROOM_BALLOTS
+        val delivered = ordered.take(MAX_ROOM_BALLOTS)
+        val flags = ElectionOwnParticipation.load(electionRows = delivered, memberId = memberId)
+        val ballots =
+            delivered.map { row ->
+                val electionId = row[ElectionTable.id]
+                val own = flags[electionId]
+                RoomBallotDto(
+                    kind = RoomBallotKind.ELECTION,
+                    id = electionId.toString(),
+                    motionId = row[ElectionTable.motionId].toString(),
+                    motionTitle = row[MotionTable.title],
+                    title = row[ElectionTable.title],
+                    status =
+                        when (row[ElectionTable.status]) {
+                            ElectionStatus.OPEN -> RoomBallotStatus.OPEN
+                            ElectionStatus.CLOSED -> RoomBallotStatus.CLOSED_AWAITING_TALLY
+                            else -> RoomBallotStatus.DECIDED
+                        },
+                    secret = row[ElectionTable.secret],
+                    // Defense in depth: a non-member is never eligible, whatever the snapshot says.
+                    ownEligible = !isNonMember && own?.eligible == true,
+                    ownHasVoted = own?.hasVoted == true,
+                )
+            }
+        return ballots to truncated
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────

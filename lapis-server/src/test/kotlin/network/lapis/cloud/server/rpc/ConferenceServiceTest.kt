@@ -2385,6 +2385,7 @@ class ConferenceServiceTest :
                                     createRoomRateLimiter = LoginRateLimiter(),
                                     config = DISABLED_CONFIG,
                                     conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+                                    roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val q = call.request.queryParameters
                             call.respondText(service.getGuestJoinInfo(q["roomId"]!!).toPipeString())
@@ -2397,6 +2398,7 @@ class ConferenceServiceTest :
                                     createRoomRateLimiter = LoginRateLimiter(),
                                     config = DISABLED_CONFIG,
                                     conferenceMeetingBindRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+                                    roomVotingStateRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val q = call.request.queryParameters
                             call.respondText(
@@ -2620,6 +2622,8 @@ private fun Route.registerConferenceTestRoutes(
     // a constructor default (see that field's own KDoc), so every test call site now threads its own
     // throwaway instance explicitly.
     conferenceMeetingBindRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes),
+    // V1.9.24 -- same MINOR-11 reasoning, getRoomVotingState's own (no-default) limiter.
+    roomVotingStateRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 90, window = 1.minutes),
 ) {
     fun service(
         call: ApplicationCall,
@@ -2634,6 +2638,7 @@ private fun Route.registerConferenceTestRoutes(
         listRateLimiter = listRateLimiter,
         guestAccessRateLimiter = guestAccessRateLimiter,
         conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
+        roomVotingStateRateLimiter = roomVotingStateRateLimiter,
     )
     get("/test/availability-enabled") {
         val service = service(call, enabledConfig)

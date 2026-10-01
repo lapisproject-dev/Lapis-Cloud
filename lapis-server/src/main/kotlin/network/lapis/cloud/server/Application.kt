@@ -839,6 +839,11 @@ internal fun Application.module(
     // limiters above already document.
     val conferenceGuestAccessRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
+    // V1.9.24 "Abstimmen im Konferenzraum" -- getRoomVotingState's OWN budget (5-s client polling +
+    // throttled vote nudges; see ConferenceService's DEFAULT_ROOM_VOTING_STATE_RATE_MAX KDoc). Module
+    // singleton for the same per-request-service-construction reason as every limiter above.
+    val roomVotingStateRateLimiter = FederationInboxRateLimiter(maxRequests = 90, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
     // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
     // registerService factory lambda below constructs a brand-new ConferenceBreakoutService on
@@ -1882,6 +1887,7 @@ internal fun Application.module(
                 whiteboardState = conferenceWhiteboardState,
                 notesState = conferenceNotesState,
                 conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
+                roomVotingStateRateLimiter = roomVotingStateRateLimiter,
             )
         }
         registerService(IConferenceBreakoutService::class) { call ->
@@ -2088,6 +2094,7 @@ internal fun Application.module(
             conferenceWhiteboardState = conferenceWhiteboardState,
             conferenceNotesState = conferenceNotesState,
             conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
+            roomVotingStateRateLimiter = roomVotingStateRateLimiter,
             config = conferenceConfig,
         )
         // Security mitigation 2026-09-19: the WebView session bridge is opt-in (default OFF) until it
