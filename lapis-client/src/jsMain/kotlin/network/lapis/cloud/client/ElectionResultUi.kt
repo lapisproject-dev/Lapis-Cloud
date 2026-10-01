@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.core.Widget
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
@@ -16,6 +17,7 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.perc
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionOptionDto
+import network.lapis.cloud.shared.domain.ElectionResultDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
 import network.lapis.cloud.shared.rpc.IElectionService
@@ -58,12 +60,34 @@ internal fun renderElectionResultSection(
     val e = data.election
     val result = data.result ?: return
     panel.h2(tr("Ergebnis")) { addCssClass("h5") }
+    renderElectionResultCompact(panel, e, result)
 
+    val eligibleCount = data.participation.eligibleCount
+    if (eligibleCount != null) {
+        panel.div(gettext("Beteiligung: %1 von %2 Wahlberechtigten", data.participation.ballotCount, eligibleCount)) {
+            addCssClasses("text-muted small")
+        }
+    }
+    if (e.resolutionId != null) {
+        val link = panel.button(tr("Beschluss im Beschlussbuch"), style = ButtonStyle.OUTLINESECONDARY)
+        link.onClick { navigateTo("/motions/${e.motionId}") }
+    }
+}
+
+/**
+ * V1.9.26 -- the rows of a result (one per option, winners marked) and the verdict line, without heading, participation or links: the
+ * part of the result the detail view and the conference panel share. The room shows exactly this, so the two can never disagree.
+ */
+internal fun renderElectionResultCompact(
+    container: Container,
+    e: ElectionDto,
+    result: ElectionResultDto,
+) {
     val options = e.options.sortedByDescending { result.perOptionVotes[it.id] ?: 0 }
     val maxVotes = options.maxOfOrNull { result.perOptionVotes[it.id] ?: 0 }?.coerceAtLeast(1) ?: 1
     options.forEach { option ->
         renderResultRow(
-            panel,
+            container,
             e,
             option,
             result.perOptionVotes[option.id] ?: 0,
@@ -79,30 +103,19 @@ internal fun renderElectionResultSection(
                 result.majorityMet == true -> gettext("Die erforderliche Mehrheit wurde erreicht.")
                 else -> gettext("Die erforderliche Mehrheit wurde nicht erreicht.")
             }
-        panel.p(text) { addCssClasses("fw-bold mb-0") }
+        container.p(text) { addCssClasses("fw-bold mb-0") }
     } else if (result.tie) {
-        panel.p(
+        container.p(
             tr(
                 "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. " +
                     "Der Antrag wurde zurückgestellt.",
             ),
         ) { addCssClasses("alert alert-warning mb-0") }
     }
-
-    val eligibleCount = data.participation.eligibleCount
-    if (eligibleCount != null) {
-        panel.div(gettext("Beteiligung: %1 von %2 Wahlberechtigten", data.participation.ballotCount, eligibleCount)) {
-            addCssClasses("text-muted small")
-        }
-    }
-    if (e.resolutionId != null) {
-        val link = panel.button(tr("Beschluss im Beschlussbuch"), style = ButtonStyle.OUTLINESECONDARY)
-        link.onClick { navigateTo("/motions/${e.motionId}") }
-    }
 }
 
 private fun renderResultRow(
-    panel: SimplePanel,
+    panel: Container,
     e: ElectionDto,
     option: ElectionOptionDto,
     votes: Int,

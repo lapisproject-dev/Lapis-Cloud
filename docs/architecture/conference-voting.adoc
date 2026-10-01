@@ -12,9 +12,9 @@ later waves stand on:
   updates within about two seconds instead of at the next 5-second poll.
 
 Only democratic elections are delivered. Meritocratic votes follow in V1.9.27; systemic consensing is a project of its own, its enum
-value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25) and the operator panel (V1.9.26) come next.
+value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25) and the operator panel (V1.9.26, below) follow.
 
-NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
 == Data flow
 
@@ -113,11 +113,11 @@ rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disc
 * Client (V1.9.25): VOTE and CONSENSUS ballots show only their state; a VOTE has no link because there is no detail route yet.
 * In-app navigation (menu, hash) during a visible receipt discards it, exactly as on the elections page.
 * The nudge does not reach participants in breakouts; the poll covers them.
-* Leaving while a ballot request is in flight is not blocked (only a visible receipt is).
+* Leaving while a ballot request is in flight is blocked since V1.9.26 (the `CASTING` lock, see below); closing the browser tab asks first.
 * Elections only; meritocratic votes in V1.9.27, consensing is not planned for the room.
 * Unbound room: stream is never paused (C2).
 * A hanging pause can be resolved only by the room moderator or the election management (C1).
-* Recordings are not paused for a secret ballot.
+* Recordings are not paused for a secret ballot; the room banner says so (V1.9.26).
 * A small timing difference between "unknown id" and "known id" remains (ids are random UUIDv4, low risk).
 
 == Untrusted free text
@@ -194,3 +194,136 @@ only without a receipt and always on `pagehide`, which fires only when the page 
 The panel and its toggle exist only for an active member; a guest or friend gets one status line while ballots are running, and the
 controller still runs for them. A room without a Sitzung shows no toggle; the moderator sees a hint next to "Sitzung zuordnen".
 Breakouts ask with the main room id, as documented above.
+
+== Client: operator controls and secret-ballot wiring (V1.9.26)
+
+Wave 3 of four, client only. The server is unchanged and no migration exists: every RPC the operator side needs already exists
+(`openVoting`, `closeVoting`, `approveTally`, `tally`, `abortElection`, `getElection`, `getElectionParticipation`,
+`getElectionResult`, `listElections`, `stopStream`). The new code lives in `ConferenceVoteStreamMirror.kt` (pure, no DOM, no RPC) and
+`ConferenceVoteOperatorControls.kt`; `ConferenceVotePanel.kt` and `ConferenceScreen.kt` only wire them in.
+
+=== Roles: the gates are the server's
+
+Every gate comes from `ElectionAuthzUi`, the mirror of the server's rules; the operator side never decides a permission itself.
+
+[cols="2,3", options="header"]
+|===
+| Action | Who (as the server decides)
+| Open, close, count | An appointed election board member, or BOARD/ADMIN
+| Approve the count | A real election board member only (BOARD/ADMIN have no bypass; the N-of-M count is of named members)
+| Abort | The committee leadership of the motion, or BOARD/ADMIN ("manage"); needs the motion and the roster, so it is read lazily
+|===
+
+Deviation from the original brief, stated openly: the committee leadership (without election board seat or BOARD/ADMIN) can open and close
+nothing, because the server does not allow it. In the room it gets exactly its own right: "Wahl abbrechen" on the emergency card.
+Letting it open and close would be a server rule change that touches the four-eyes model and is not part of this wave.
+
+=== Where "prepared elections" come from
+
+`getRoomVotingState` lists only OPEN, CLOSED and TALLIED elections, so an election that is still being prepared never reaches the room.
+The panel therefore reads `listElections(status = PREPARATION)` and `listElections(status = CANDIDATE_LIST_RELEASED)` and keeps those of
+the room's Sitzung (client-side filter on `meetingId`, at most 10, each with one participation read for the gate). The calls are
+organisation-wide and unpaginated; the status filter keeps them small, and they run only while the panel is open and the room is bound:
+on opening, when the tab becomes visible, at most every 30 s with the poll rhythm, and after the member's own actions. A server query
+`listRoomPreparedElections(roomId)` would be cleaner but is not necessary and stays an option.
+
+=== The stream mirror
+
+The server refuses a secret ballot while a stream of the Sitzung is publishing (`requireStreamQuiescedForBallot`, over all rooms of
+the Sitzung). The client mirrors that table to show the lock early; the server stays the authority.
+
+[cols="1,1,3", options="header"]
+|===
+| Stream status | Lock | Note
+| `PAUSED`, `ENDED`, `FAILED` | free | `FAILED` frees, too
+| no stream known | free |
+| `STARTING`, `LIVE`, `STOPPING` | locked |
+| `PAUSING` | locked, after 20 s "slow", after 60 s "hung" | the stopwatch starts at the first observation of `PAUSING`
+|===
+
+`ConferenceVoteOperatorTripwireTest` parses the server's private `isQuiescedForBallot` and the
+client's `quiescedForSecretBallot`, compares their "free" sets, requires both to be exhaustive without `else`, and requires both to name
+every status. A new status is a compile error on each side until a human decides.
+
+[source,kuml,name="conference-voting-stream-mirror"]
+----
+stateDiagram(name = "Cast lock of a secret ballot") {
+    val start = initialState()
+    val free = state(name = "FREE")
+    val locked = state(name = "LOCKED (stream pausing)")
+    val slow = state(name = "LOCKED_SLOW (after 20 s)")
+    val hung = state(name = "HUNG (after 60 s)")
+
+    transition(source = start, target = free)
+    transition(source = free, target = locked) { trigger = "stream STARTING, LIVE, PAUSING or STOPPING" }
+    transition(source = locked, target = slow) { trigger = "20 s of PAUSING" }
+    transition(source = slow, target = hung) { trigger = "60 s of PAUSING" }
+    transition(source = locked, target = free) { trigger = "stream PAUSED, ENDED or FAILED" }
+    transition(source = slow, target = free) { trigger = "stream PAUSED, ENDED or FAILED" }
+    transition(source = hung, target = free) { trigger = "stream PAUSED, ENDED or FAILED, or stopped by the moderation" }
+}
+----
+
+A conflict is the normal way to learn that the mirror was wrong: the Sitzung may have a stream in ANOTHER room, which the client of this
+room never sees, and a breakout never knows its own stream. The booth then treats a conflict as "still locked", not as an error: if
+the probe says the election is still OPEN and the member has not voted, the selection is kept in the booth controller's memory (never in
+the DOM outside the booth and never in a storage), the cast button stays disabled with a visible reason, and after 5 s it is enabled
+again. There is no automatic re-submit. Without the lock hook (the elections page, every open election) nothing changes: a conflict ends
+in the terminal text as before.
+
+For members `HUNG` reads as `LOCKED_SLOW`; only the operators and the moderation get the emergency card.
+
+=== Polling the stream
+
+`LIVE` is pushed over LiveKit, not polled, so without a change the booth could stay on `LIVE` after the server has started pausing. While
+a secret ballot is open and the stream is not quiesced, the stream status is therefore polled every 5 s (at most 12 of the 60 allowed
+reads a minute); otherwise the old 15 s rhythm applies. The two time stages (20 s, 60 s) are driven by a timer in the panel, because no
+push announces them.
+
+=== Operating an election
+
+[source,kuml,name="conference-voting-operator-sequence"]
+----
+sequenceDiagram(name = "Opening a secret election from the room") {
+    val operator = lifeline(name = "Operator client")
+    val server = lifeline(name = "ElectionService (server authoritative)")
+    val streams = lifeline(name = "Streams of the Sitzung")
+    val peer = lifeline(name = "Participant client")
+
+    message(from = operator, to = operator, label = "dialog: stream state, other rooms, recording stays on")
+    message(from = operator, to = server, label = "openVoting(electionId), once (double-click guarded)")
+    message(from = server, to = streams, label = "pause every stream of the Sitzung (PAUSING, then PAUSED)")
+    message(from = server, to = operator, label = "ElectionDto (OPEN)")
+    message(from = operator, to = peer, label = "lapis-vote-nudge, one zero byte (only after success)")
+    message(from = peer, to = server, label = "getRoomVotingState, then the stream status every 5 s")
+    message(from = peer, to = peer, label = "cast button locked until the stream is PAUSED, then free")
+}
+----
+
+One guarded function, `runOperatorAction`, is the only place in the operator side that writes. It runs through `runGuardedAction`
+(a second click while the first runs does nothing), answers a `ConflictException` with the neutral "the state changed and was reloaded"
+(its message is never read; what it meant is found out by reloading), and reloads the room, the counters and the prepared list afterwards.
+Only after a successful open, close, tally or abort does it send the nudge, once; approving sends none (the other operators see the new
+count with their next poll, which refreshes the counter of a CLOSED election every 5 s while the panel is open). A lost nudge is
+ignored without any message: the other clients catch up with their poll.
+
+* One primary button per status: open (prepared elections), close, approve or count. Closing, counting and aborting ask first; the
+  dialog focuses "Abbrechen", names the verb on the action button and, at zero ballots, adds "Es wurde noch keine Stimme abgegeben.".
+  Aborting needs the election title typed, exactly as on the elections page.
+* Opening a secret election shows what happens first: the stream of this room, that streams of other rooms of the Sitzung are paused
+  as well, and that the recording is not paused.
+* An operator who opens the booth to vote loses the controls next to the ballot and reads why; they return with the overview.
+* The count of a TALLIED election is shown with the same rows as the detail page (`renderElectionResultCompact`).
+
+=== The banner
+
+The existing banner above the call now speaks for the whole secret ballot ("Geheime Wahl läuft: ..."), with the stream state and, unless
+the recording is known to be off, the sentence that the recording goes on. It is a polite status (a changed text is not re-announced
+as an alarm), has no close button and lives in the call surface, so a guest sees it too; a guest without room state sees it only for a
+stream that is being paused for a ballot.
+
+=== Casting is not interruptible
+
+While the ballot request is in flight the panel lock is `CASTING`: the leave buttons are disabled with the reason "Ihre Stimme wird gerade
+übermittelt", the unload guard treats it like a visible receipt, and the browser's own "leave this page?" question is registered only for
+that time (the receipt of that very request would have no place to appear once the page is gone). `pagehide` still always disconnects.

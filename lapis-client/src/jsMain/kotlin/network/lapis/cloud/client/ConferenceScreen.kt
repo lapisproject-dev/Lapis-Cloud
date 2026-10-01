@@ -393,7 +393,7 @@ fun renderConferenceScreen(
     // page really goes) always does. See [ConferenceUnloadGuard].
     val unloadGuard =
         ConferenceUnloadGuard(
-            receiptVisible = { ConferenceReceiptGate.visible },
+            receiptVisible = { ConferenceReceiptGate.blocksUnload },
             disconnect = { AppScope.launch { runCatching { activeSession?.disconnect() } } },
         )
     unloadGuard.install()
@@ -1752,10 +1752,50 @@ private fun enterCall(
     // ballot without ever needing to be "re-armed", and there is nothing for a participant to
     // meaningfully act on besides waiting. `warning` (not `danger`) matches
     // [conferenceStreamStatusColor]'s own PAUSING/PAUSED-adjacent hue, not an alarm.
+    //
+    // V1.9.26: the same banner now speaks for the whole secret ballot ("Geheime Wahl läuft: ..." -- see [secretBallotBannerText]); it is a
+    // polite status (a changed text must not be re-announced as an alarm), has still no close button, and stays in the call surface so a
+    // guest sees it too.
     val secretBallotPauseBanner = callPanel.vPanel(spacing = 6) { addCssClasses("border border-warning rounded p-2") }
     secretBallotPauseBanner.hide()
-    secretBallotPauseBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
-    secretBallotPauseBanner.div(CONFERENCE_SECRET_BALLOT_PAUSE_BANNER_TEXT) { addCssClass("fw-bold") }
+    secretBallotPauseBanner.setAttribute("role", "status")
+    secretBallotPauseBanner.setAttribute("aria-live", "polite")
+    val secretBallotBannerLine = secretBallotPauseBanner.div("") { addCssClass("fw-bold") }
+    var recordingStateKnown = false
+    var shownBannerText: String? = null
+
+    // The panel hears the stream status through this sink (assigned once the panel exists; `updateStreamButtonsVisibility` is declared earlier).
+    var streamStateSink: (ConferenceStreamStatus?, ConferenceStreamPauseReason?) -> Unit = { _, _ -> }
+
+    fun secretBallotOpen(): Boolean = voteController?.state?.ballots?.any { it.secret && it.status == RoomBallotStatus.OPEN } == true
+
+    fun updateSecretBallotBanner() {
+        val votes = voteController?.state
+        val secretOpen: Boolean? =
+            if (votes == null ||
+                votes.bound == null
+            ) {
+                null
+            } else {
+                votes.bound == true && votes.ballots.any { it.secret && it.status == RoomBallotStatus.OPEN }
+            }
+        val recordingActive =
+            when {
+                activeRecordingDto != null -> true
+                recordingStateKnown -> false
+                else -> null
+            }
+        val text =
+            secretBallotBannerText(secretOpen, StreamMirrorState(activeStreamDto?.status, activeStreamDto?.pauseReason), recordingActive)
+        if (text == shownBannerText) return
+        shownBannerText = text
+        if (text == null) {
+            secretBallotPauseBanner.hide()
+        } else {
+            secretBallotBannerLine.content = text
+            secretBallotPauseBanner.show()
+        }
+    }
 
     // D8: the ONE place either badge row or the document.title prefix is ever rendered -- always
     // from `activeRecordingDto`/`activeStreamDto` (server state), never from a raw LiveKit push
@@ -1940,10 +1980,11 @@ private fun enterCall(
     // room has a legal right to know", same posture [IConferenceStreamingService.getActiveStream]
     // KDoc already establishes).
     fun updateStreamButtonsVisibility() {
+        streamStateSink(activeStreamDto?.status, activeStreamDto?.pauseReason)
+        updateSecretBallotBanner()
         val pausedForSecretBallot =
             activeStreamDto?.status == ConferenceStreamStatus.PAUSED &&
                 activeStreamDto?.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT
-        if (pausedForSecretBallot) secretBallotPauseBanner.show() else secretBallotPauseBanner.hide()
 
         val startBtn = streamStartButton
         val pauseBtn = streamPauseButton
@@ -2241,6 +2282,7 @@ private fun enterCall(
     suspend fun refreshRecordingState() {
         val availability = guarded { rpcService<IConferenceRecordingService>().getRecordingAvailability() }
         recordingAvailable = availability?.enabled == true
+        recordingStateKnown = true
         if (canModerate && recordingAvailable) {
             recordingControlsRowRef?.show()
             ensureRecordButton()
@@ -2251,6 +2293,7 @@ private fun enterCall(
         if (!recordingAvailable) {
             activeRecordingDto = null
             updateRecordingDetailLine()
+            updateSecretBallotBanner()
             return
         }
         // Role: MEMBER+ -- every participant, not only the moderator, may see who is recording and
@@ -2260,6 +2303,7 @@ private fun enterCall(
         activeRecordingDto = recordings?.singleOrNull()
         updateRecordingDetailLine()
         updateRecordButtonLabel()
+        updateSecretBallotBanner()
     }
 
     // Wave 3 -- mirrors [refreshRecordingState] exactly, for the independent streaming availability
@@ -2288,7 +2332,8 @@ private fun enterCall(
             // branch nulls out WITHOUT going through `updateStreamButtonsVisibility()` below (the
             // buttons are already individually hidden above) -- hide it explicitly so it cannot get
             // stranded visible.
-            secretBallotPauseBanner.hide()
+            streamStateSink(null, null)
+            updateSecretBallotBanner()
             return
         }
         // Role: MEMBER+, ACTIVE, GUEST, or FRIEND -- NEVER privilege-gated, same "everyone in the
@@ -2465,9 +2510,9 @@ private fun enterCall(
         // actually starts before the first connect resolves; the live-check now only gates the
         // per-tick work.
         while (connectionState !is ConferenceConnectionState.Ended) {
-            delay(CONFERENCE_STREAM_POLL_INTERVAL_MS)
+            delay(conferenceStreamPollIntervalMs(activeStreamDto, secretBallotOpen()))
             if (!connectionState.isLive()) continue
-            val current = activeStreamDto?.takeIf { conferenceStreamNeedsPoll(it) } ?: continue
+            val current = activeStreamDto?.takeIf { conferenceStreamNeedsPollWithBallot(it, secretBallotOpen()) } ?: continue
             val refreshed =
                 try {
                     rpcService<IConferenceStreamingService>().getActiveStream(room.id).singleOrNull()
@@ -2780,6 +2825,7 @@ private fun enterCall(
     // its declaration). `leaving` is the "a leave is running" flag the receipt lock must not undo (the leave buttons disable themselves).
     var votingLockSink: (ConferenceVotingLock) -> Unit = {}
     var votingCloseSink: () -> Unit = {}
+    var nudgeSink: suspend () -> Unit = {}
     var leaving = false
     val receiptLock = ConferenceReceiptLockApplier()
     val votingHandle =
@@ -2789,10 +2835,21 @@ private fun enterCall(
                 onLockChanged = { lock -> votingLockSink(lock) },
                 onCloseRequested = { votingCloseSink() },
                 onBoothExited = { voteController?.refreshNow() },
+                operatorContext =
+                    OperatorContext(
+                        currentMemberId = localMemberId.orEmpty(),
+                        isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN),
+                        canModerateRoom = canModerate,
+                        roomMeetingId = { boundMeetingId },
+                    ),
+                sendNudge = { nudgeSink() },
+                onStopStreamRequested = if (canModerate) ({ onStreamStopClicked() }) else null,
+                onRefreshRoom = { voteController?.refreshNow() },
             )
         } else {
             null
         }
+    streamStateSink = { status, reason -> votingHandle?.onStreamState(status, reason) }
 
     // --- Collapsible whiteboard side panel (V1.0 Wave 7 "Whiteboard", off by default) --------------
     // Same `vPanel`/`hide()`/toggle-button pattern as chatPanel above -- Kay/Tesler/Raskin: modeless,
@@ -2896,7 +2953,7 @@ private fun enterCall(
 
         // V1.9.25 -- the voting panel, its toggle (with the badge), its rail share and the receipt lock on the leave buttons.
         val votingOpen = panelState.votingVisible()
-        votingHandle?.let { handle -> if (votingOpen) handle.panel.show() else handle.panel.hide() }
+        votingHandle?.setOpen(votingOpen)
         val voteState = voteController?.state
         votingToggle?.update(
             openCount = voteState?.badgeCount() ?: 0,
@@ -2918,7 +2975,7 @@ private fun enterCall(
         )
         chatPanel.toggleCssClass("lapis-conference-rail-after-voting-min", railLayout.votingShare == ConferenceVotingRailShare.MIN_40)
         receiptLock.apply(
-            locked = panelState.votingLock == ConferenceVotingLock.RECEIPT,
+            locked = panelState.votingLock.blocksLeaving(),
             leaving = leaving,
             buttons = listOf(leaveButton, endButton, backToMainButton),
         )
@@ -3032,6 +3089,7 @@ private fun enterCall(
                 voteBoundFromServer = update.state.bound
                 updateVoteBindingHint()
                 votingHandle?.apply(update)
+                updateSecretBallotBanner()
                 guestVoteLine?.let { line ->
                     if (update.state.ballots.any { it.status == RoomBallotStatus.OPEN }) line.show() else line.hide()
                 }
@@ -4157,6 +4215,7 @@ private fun enterCall(
             },
         )
     setActiveSession(session)
+    nudgeSink = { session.sendVoteNudge() }
 
     // Seed the local tile immediately (D8: the initial roster must render instantaneously and
     // completely, not "populate" one-by-one after landing) so the caller sees their own tile even
@@ -4452,7 +4511,7 @@ private fun enterCall(
     // needs to ask the server "what does this mean" about.
     backToMainButton?.onClick {
         // V1.9.25: this disconnects too -- not with a receipt on screen
-        if (ConferenceReceiptGate.visible) return@onClick
+        if (ConferenceReceiptGate.blocksUnload) return@onClick
         leaving = true
         backToMainButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
@@ -4493,7 +4552,7 @@ private fun enterCall(
     // record, exactly like leaving from Main always has.
     leaveButton.onClick {
         // V1.9.25: the receipt of a secret ballot exists only on this screen -- leaving would lose it
-        if (ConferenceReceiptGate.visible) return@onClick
+        if (ConferenceReceiptGate.blocksUnload) return@onClick
         leaving = true
         leaveButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
@@ -4516,7 +4575,7 @@ private fun enterCall(
     }
 
     endButton?.onClick {
-        if (ConferenceReceiptGate.visible) return@onClick
+        if (ConferenceReceiptGate.blocksUnload) return@onClick
         endRoomConfirmDialog(roomTitle) {
             leaving = true
             endButton.disabled = true
@@ -5870,13 +5929,6 @@ internal val CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS: String by lazy {
  * the `by lazy` pattern itself, not something this i18n wave introduces new. */
 internal val CONFERENCE_STREAM_BANNER_TEXT: String by lazy { gettext("Diese Besprechung wird ab jetzt live gestreamt.") }
 
-/** [secretBallotPauseBanner]'s exact, terminology-locked copy -- same gettext()/`by lazy` reasoning
- * as [CONFERENCE_STREAM_BANNER_TEXT] immediately above (top-level so a future test can assert
- * against the SAME literal the UI renders, resolved once and immediately at first access). */
-internal val CONFERENCE_SECRET_BALLOT_PAUSE_BANNER_TEXT: String by lazy {
-    gettext("Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen.")
-}
-
 /** [pollInFlightStreamStatus]'s poll interval -- same reasoning as [CONFERENCE_RECORDING_POLL_INTERVAL_MS]
  * (the README's own suggested 15-30s cadence, close to but not faster than `StreamPoller`'s own
  * server-side 10s default tick, `ConferenceStreamingConfig.DEFAULT_POLL_INTERVAL_SECONDS`). */
@@ -6307,7 +6359,18 @@ internal data class ConferencePanelState(
  * V1.9.25 -- why the voting panel cannot be closed: [BOOTH] while the booth is open (nothing is lost by leaving, but an open booth is
  * not abandoned by accident), [RECEIPT] while a receipt of a secret ballot is on screen (the one place its code exists).
  */
-internal enum class ConferenceVotingLock { NONE, BOOTH, RECEIPT }
+internal enum class ConferenceVotingLock {
+    NONE,
+    BOOTH,
+
+    /** V1.9.26 -- the ballot request is in flight: the leave buttons are locked, because the receipt of that very request would have no place to appear. */
+    CASTING,
+    RECEIPT,
+    ;
+
+    /** The leave buttons stay disabled (and say why) while a receipt is on screen or a ballot request is still running. */
+    fun blocksLeaving(): Boolean = this == CASTING || this == RECEIPT
+}
 
 /**
  * `theme.css` turns the roster and chat panels into full-screen `position: fixed` bottom sheets below this
@@ -6413,7 +6476,7 @@ internal fun conferencePanelReduce(
             }
         is ConferencePanelEvent.RosterToggled ->
             // V1.9.25: a full-screen sheet over a receipt would hide it
-            if (!current.rosterVisible() && current.narrow && current.votingLock == ConferenceVotingLock.RECEIPT) {
+            if (!current.rosterVisible() && current.narrow && current.votingLock.blocksLeaving()) {
                 current
             } else if (current.fullscreen) {
                 current.copy(fullscreenRosterOpen = !current.fullscreenRosterOpen, controlsVisible = true)
@@ -6422,7 +6485,7 @@ internal fun conferencePanelReduce(
             }
         is ConferencePanelEvent.ChatToggled -> reduceChatToggled(current)
         is ConferencePanelEvent.MoreToggled ->
-            if (!current.moreOpen && current.narrow && current.votingLock == ConferenceVotingLock.RECEIPT) {
+            if (!current.moreOpen && current.narrow && current.votingLock.blocksLeaving()) {
                 current
             } else {
                 current.copy(moreOpen = !current.moreOpen, controlsVisible = true)
@@ -6431,7 +6494,7 @@ internal fun conferencePanelReduce(
             if (current.controlsVisible) current else current.copy(controlsVisible = true)
         is ConferencePanelEvent.InactivityElapsed ->
             // V1.9.25: with a receipt on screen the bar (with the blocked leave button and its reason) stays
-            if (current.moreOpen || !current.controlsVisible || current.votingLock == ConferenceVotingLock.RECEIPT) {
+            if (current.moreOpen || !current.controlsVisible || current.votingLock.blocksLeaving()) {
                 current
             } else {
                 current.copy(controlsVisible = false)

@@ -22,6 +22,8 @@ import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
+import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -297,6 +299,40 @@ internal class ConferenceVotePollController(
  */
 internal object ConferenceReceiptGate {
     var visible: Boolean = false
+
+    /** V1.9.26 -- true while the ballot request is in flight: the receipt of that very request has no place to appear once the page is gone. */
+    var casting: Boolean = false
+
+    /** Leaving the page (or the room) would lose a receipt that is on screen or about to arrive. */
+    val blocksUnload: Boolean get() = visible || casting
+}
+
+/**
+ * V1.9.26 -- the browser's own "leave this page?" question while a ballot request is in flight. Registered only for that time (the panel
+ * installs it when the request starts and removes it when it ends), so there is no standing listener and nothing to leak.
+ */
+internal class ConferenceCastingUnloadPrompt(
+    private val isCasting: () -> Boolean,
+) {
+    private val listener: (Event) -> Unit = { event ->
+        if (isCasting()) {
+            event.preventDefault()
+            event.asDynamic().returnValue = ""
+        }
+    }
+    private var installed = false
+
+    fun install() {
+        if (installed) return
+        installed = true
+        window.addEventListener("beforeunload", listener)
+    }
+
+    fun uninstall() {
+        if (!installed) return
+        installed = false
+        window.removeEventListener("beforeunload", listener)
+    }
 }
 
 /**
@@ -383,7 +419,7 @@ internal object ConferenceVoteRuntime {
 private const val LOCK_REASON_ID = "lapis-vote-lock-reason"
 
 /** Same as the private helper of `ConferenceScreen.kt`: `Widget.setAttribute` re-renders on every call, so only a real change is written. */
-private fun Widget.setAttr(
+internal fun Widget.setAttr(
     name: String,
     value: String,
 ) {
@@ -508,7 +544,7 @@ internal fun renderElectionLiveCard(
     parent: Container,
     ballot: RoomBallotDto,
     onEnterBooth: (Button) -> Unit,
-) {
+): SimplePanel {
     val card = parent.vPanel(spacing = 4) { addCssClasses("lapis-vote-card border rounded p-2") }
     card.untrustedP(ballot.title, className = "fw-bold mb-0")
     if (ballot.motionTitle.isNotBlank() && ballot.motionTitle != ballot.title) {
@@ -527,6 +563,7 @@ internal fun renderElectionLiveCard(
             }
         }
     }
+    return card
 }
 
 /** A VOTE or CONSENSUS ballot: only its state. There is no way to vote on it in the room yet and no detail route to link to. */
@@ -560,6 +597,10 @@ internal class ConferenceVotePanelHandle(
     val announce: (String) -> Unit,
     val isBoothOpen: () -> Boolean,
     val dispose: () -> Unit,
+    /** V1.9.26 -- the stream status of the room, from the screen's one choke point; re-renders only when a lock level changes, never the booth. */
+    val onStreamState: (ConferenceStreamStatus?, ConferenceStreamPauseReason?) -> Unit = { _, _ -> },
+    /** V1.9.26 -- show or hide the panel; opening it is what lets the operator side read anything. */
+    val setOpen: (Boolean) -> Unit = {},
 )
 
 /**
@@ -577,6 +618,13 @@ internal fun renderConferenceVotePanel(
     onLockChanged: (ConferenceVotingLock) -> Unit,
     onCloseRequested: () -> Unit,
     onBoothExited: () -> Unit,
+    operatorContext: OperatorContext? = null,
+    operatorRpc: OperatorRpc = OperatorRpc(),
+    sendNudge: suspend () -> Unit = {},
+    onStopStreamRequested: (() -> Unit)? = null,
+    onRefreshRoom: () -> Unit = {},
+    scheduler: ConferenceVoteScheduler = BrowserVoteScheduler,
+    onStreamMirrorChanged: (StreamMirrorState) -> Unit = {},
 ): ConferenceVotePanelHandle {
     val liveRegion =
         parent.div("") {
@@ -602,6 +650,8 @@ internal fun renderConferenceVotePanel(
     boothHost.hide()
     val backRow = boothHost.hPanel(spacing = 6)
     val backButton = backRow.button(tr("Zurück zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY) { addCssClass("btn-sm") }
+    val boothNote = boothHost.div("") { addCssClasses("text-muted small") }
+    boothNote.hide()
     val boothArea = SimplePanel()
     boothHost.add(boothArea)
 
@@ -610,10 +660,14 @@ internal fun renderConferenceVotePanel(
     var receiptShown = false
     var boothBusy = false
     var disposed = false
+    val castPrompt = ConferenceCastingUnloadPrompt { boothBusy }
+    val lockClock = BallotLockClock(scheduler)
+    var lockedHung = false
 
     fun currentLock(): ConferenceVotingLock =
         when {
             receiptShown -> ConferenceVotingLock.RECEIPT
+            boothBusy -> ConferenceVotingLock.CASTING
             boothOpen -> ConferenceVotingLock.BOOTH
             else -> ConferenceVotingLock.NONE
         }
@@ -628,6 +682,7 @@ internal fun renderConferenceVotePanel(
         backButton.setAttr("aria-disabled", backLocked.toString())
         when (lock) {
             ConferenceVotingLock.RECEIPT -> lockReason.content = tr("Bitte notieren Sie zuerst Ihre Quittung.")
+            ConferenceVotingLock.CASTING -> lockReason.content = tr("Ihre Stimme wird gerade übermittelt …")
             ConferenceVotingLock.BOOTH -> lockReason.content = tr("Bitte beenden Sie zuerst die Stimmabgabe.")
             ConferenceVotingLock.NONE -> Unit
         }
@@ -637,6 +692,7 @@ internal fun renderConferenceVotePanel(
     fun publishLock() {
         val lock = currentLock()
         ConferenceReceiptGate.visible = receiptShown
+        ConferenceReceiptGate.casting = boothBusy
         paintLock(lock)
         onLockChanged(lock)
     }
@@ -661,22 +717,62 @@ internal fun renderConferenceVotePanel(
 
     // The overview, the booth and the card buttons call each other; a local function cannot be referenced before it is declared.
     var enterBoothAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
+    var overviewRenderer: () -> Unit = {}
+
+    // V1.9.26 -- the operator side (open, close, count, emergency card). Only for a member of the organization; everything it needs from the
+    // screen comes through the arguments above. `panel.visible` is the "panel is open" test: a hidden panel reads nothing.
+    val operator =
+        operatorContext?.let { context ->
+            ConferenceVoteOperatorController(
+                ctx = context,
+                rpc = operatorRpc,
+                scheduler = scheduler,
+                lockClock = lockClock,
+                sendNudge = sendNudge,
+                refreshRoom = onRefreshRoom,
+                onStopStreamRequested = onStopStreamRequested,
+                showNote = { text -> showNote(text) },
+                isOpen = { panel.visible },
+                requestOverviewRender = { overviewRenderer() },
+            )
+        }
 
     fun renderOverview() {
         overview.removeAll()
+        operator?.beginRender()
         when {
             roomState.bound == null -> overview.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
             roomState.ballots.isEmpty() -> overview.div(tr("Zurzeit keine Abstimmungen.")) { addCssClasses("text-muted small") }
             else ->
                 roomState.ballots.forEach { ballot ->
-                    when (ballot.kind) {
-                        RoomBallotKind.ELECTION -> renderElectionLiveCard(overview, ballot) { enter -> enterBoothAction(enter, ballot) }
-                        else -> renderRoomBallotReadOnlyRow(overview, ballot)
+                    when {
+                        ballot.kind != RoomBallotKind.ELECTION -> renderRoomBallotReadOnlyRow(overview, ballot)
+                        operator != null && operator.showsHungCard(ballot) -> operator.renderHungCard(overview, ballot)
+                        else -> {
+                            val card = renderElectionLiveCard(overview, ballot) { enter -> enterBoothAction(enter, ballot) }
+                            operator?.renderForBallot(card, ballot)
+                        }
                     }
                 }
         }
         if (roomState.truncated) {
             overview.div(tr("Weitere Abstimmungen – alle Details in der Sitzung")) { addCssClasses("text-muted small") }
+        }
+        if (roomState.bound == true) operator?.renderPreparedSection(overview)
+    }
+    overviewRenderer = { renderOverview() }
+
+    // Every change of the lock -- a new stream status, or the 20 s / 60 s of PAUSING running out -- lands here. Only a change of the emergency
+    // level rebuilds the overview (never the booth); every other change repaints the slots and the booth listeners hear it from the clock.
+    lockClock.subscribe {
+        if (!disposed) {
+            val hungNow = lockClock.lock(true) == BallotStreamLock.HUNG
+            if (hungNow != lockedHung) {
+                lockedHung = hungNow
+                renderOverview()
+            } else {
+                operator?.repaintAll()
+            }
         }
     }
 
@@ -696,6 +792,8 @@ internal fun renderConferenceVotePanel(
         boothOpen = false
         receiptShown = false
         boothBusy = false
+        castPrompt.uninstall()
+        boothNote.hide()
         overview.show()
         renderOverview()
         publishLock()
@@ -711,6 +809,12 @@ internal fun renderConferenceVotePanel(
         receiptShown = false
         boothBusy = false
         showNote(null)
+        if (operator?.isOperatorFor(election.id) == true) {
+            boothNote.content = tr("Sie bedienen diese Wahl. Die Steuerung erscheint nach Ihrer Stimmabgabe wieder.")
+            boothNote.show()
+        } else {
+            boothNote.hide()
+        }
         overview.hide()
         boothHost.show()
         publishLock()
@@ -720,8 +824,10 @@ internal fun renderConferenceVotePanel(
             openBallotBanner = true,
             onBusyChanged = { busy ->
                 boothBusy = busy
-                paintLock(currentLock())
+                if (busy) castPrompt.install() else castPrompt.uninstall()
+                publishLock()
             },
+            ballotLock = if (election.secret) memberBallotLock(lockClock, onRefreshRoom, scheduler) else null,
         ) { exitBooth() }
         focusFirstHeading()
     }
@@ -759,6 +865,7 @@ internal fun renderConferenceVotePanel(
         apply = { update ->
             roomState = update.state
             if (update.listChanged) renderOverview()
+            operator?.onRoomUpdate(update.state.ballots, update.state.bound == true)
             if (roomState.showQuietRefreshHint()) refreshHint.show() else refreshHint.hide()
         },
         applyFailure = { failed ->
@@ -774,10 +881,41 @@ internal fun renderConferenceVotePanel(
                 disposed = true
                 hookScope.restore()
                 ConferenceReceiptGate.visible = false
+                ConferenceReceiptGate.casting = false
+                castPrompt.uninstall()
+                lockClock.dispose()
+                operator?.dispose()
             }
+        },
+        onStreamState = { status, reason ->
+            if (!disposed) {
+                lockClock.update(status, reason)
+                onStreamMirrorChanged(lockClock.mirror)
+            }
+        },
+        setOpen = { open ->
+            val wasOpen = panel.visible
+            if (open) panel.show() else panel.hide()
+            if (open && !wasOpen && !disposed) operator?.onOpened()
         },
     )
 }
+
+/** The lock of a secret ballot as the booth sees it: members read HUNG as "slow", the stream status comes from the panel's clock. */
+private fun memberBallotLock(
+    clock: BallotLockClock,
+    onRefreshRoom: () -> Unit,
+    voteScheduler: ConferenceVoteScheduler,
+): BallotLockHook =
+    object : BallotLockHook {
+        override fun lockedReason(): String? = ballotLockReason(clock.lock(true).forMember())
+
+        override fun subscribe(listener: () -> Unit): () -> Unit = clock.subscribe(listener)
+
+        override fun onConflict() = onRefreshRoom()
+
+        override val scheduler: ConferenceVoteScheduler = voteScheduler
+    }
 
 // ── the lock on the leave buttons ────────────────────────────────────────────────────────────────────
 

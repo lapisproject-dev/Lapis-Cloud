@@ -25,15 +25,30 @@ fun confirmDialog(
     message: String,
     confirmLabel: String = tr("Bestätigen"),
     confirmStyle: ButtonStyle = ButtonStyle.DANGER,
+    extraLines: List<String> = emptyList(),
+    dangerNote: String? = null,
+    focusCancel: Boolean = false,
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = title)
     modal.div(message)
-    modal.addButton(
+    // V1.9.26 -- additive: every further line is its own element (never a sentence glued from fragments), [dangerNote] stands out in the
+    // warning colour, [focusCancel] puts the keyboard focus on "Abbrechen" instead of the primary action (an irreversible step).
+    extraLines.forEach { line -> modal.div(line) }
+    dangerNote?.let { modal.div(it) { addCssClasses("fw-bold text-danger") } }
+    val cancelButton =
         Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply {
             onClick { modal.hide() }
-        },
-    )
+        }
+    modal.addButton(cancelButton)
+    if (focusCancel) {
+        // Two moments, because Bootstrap decides the first: without a fade it has shown the modal (and moved the focus) before this hook runs,
+        // with a fade it does so after the `shown` event of the transition -- the listener catches that one.
+        modal.addAfterInsertHook { vnode ->
+            (vnode.elm as? org.w3c.dom.HTMLElement)?.addEventListener("shown.bs.modal", { cancelButton.getElement()?.focus() })
+            kotlinx.browser.window.setTimeout({ cancelButton.getElement()?.focus() }, 0)
+        }
+    }
     val once = ConfirmOnce()
     val confirmButton = Button(confirmLabel, style = confirmStyle)
     confirmButton.onClick {

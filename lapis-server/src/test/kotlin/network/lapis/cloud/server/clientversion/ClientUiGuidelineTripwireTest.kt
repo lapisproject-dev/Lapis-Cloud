@@ -623,6 +623,10 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // V1.9.25 "Abstimmen im Konferenzraum": the voting panel has no form of its own (the booth it embeds is `ElectionBooth.kt`); its one
         // write path, entering the booth, goes through `runGuardedAction`. Strict set, not `R24_MIGRATED`: that one demands a `lapisForm(`.
         "ConferenceVotePanel.kt",
+        // V1.9.26 "Abstimmen im Konferenzraum", Welle 3: the operator controls (buttons and confirmation dialogs only, no field) and the pure
+        // stream mirror (no widget at all). Every write goes through `runOperatorAction` -> `runGuardedAction`.
+        "ConferenceVoteOperatorControls.kt",
+        "ConferenceVoteStreamMirror.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */

@@ -36,7 +36,19 @@ private val ELECTION_FILES =
         "ElectionMajorityExplain.kt",
         // V1.9.25: the conference voting panel embeds the booth; the receipt code never reaches it, and it stores/logs nothing either
         "ConferenceVotePanel.kt",
+        // V1.9.26: the operator side and the stream mirror of the room's voting panel -- they handle counters, statuses and titles, never a ballot
+        "ConferenceVoteOperatorControls.kt",
+        "ConferenceVoteStreamMirror.kt",
     )
+
+/**
+ * V1.9.26: the files of the conference panel that must never touch a ballot's content at all. The booth (`ElectionBooth.kt`) is the only
+ * place a selection or a receipt code exists; the panel, the operator controls and the mirror see counters, statuses and titles.
+ */
+private val BALLOT_BLIND_FILES = setOf("ConferenceVotePanel.kt", "ConferenceVoteOperatorControls.kt", "ConferenceVoteStreamMirror.kt")
+
+private val BALLOT_CONTENT =
+    Regex("""\b(receiptCode|selectedOptionIds|selectedOptionLabels|ElectionBallotInput|listElectionBallots|castElectionBallot)\b""")
 
 private fun codeLines(text: String): List<String> =
     text.lines().filterNot { line -> line.trimStart().let { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") } }
@@ -60,6 +72,7 @@ internal fun electionSecrecyFindings(
     codeLines(text).forEach { line ->
         FORBIDDEN_EVERYWHERE.forEach { rule -> if (rule.containsMatchIn(line)) findings += "$fileName: ${line.trim()}" }
         if (fileName != "ElectionResultUi.kt" && Regex("""\bcastAt\b""").containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
+        if (fileName in BALLOT_BLIND_FILES && BALLOT_CONTENT.containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
     }
     return findings
 }
@@ -93,6 +106,12 @@ class ElectionSecrecyTripwireTest :
             electionSecrecyFindings(fileName = "X.kt", text = "notifyError(e.message)").size shouldBe 1
             electionSecrecyFindings(fileName = "X.kt", text = "val t = result.castAt").size shouldBe 1
             electionSecrecyFindings(fileName = "ElectionResultUi.kt", text = "val t = ballot.castAt").size shouldBe 0
+            electionSecrecyFindings(fileName = "ConferenceVoteOperatorControls.kt", text = "val c = result.receiptCode").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceVotePanel.kt", text = "rpc.castElectionBallot(input)").size shouldBe 1
+            electionSecrecyFindings(fileName = "ConferenceVoteStreamMirror.kt", text = "listElectionBallots(id)").size shouldBe 1
+            electionSecrecyFindings(fileName = "ElectionBooth.kt", text = "val c = result.receiptCode").size shouldBe 0
+            electionSecrecyFindings(fileName = "ConferenceVotePanel.kt", text = " * the receiptCode never reaches this file").size shouldBe
+                0
             electionSecrecyFindings(fileName = "X.kt", text = "// console.log(code)").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = "notifyError(tr(\"Nicht gefunden.\"))").size shouldBe 0

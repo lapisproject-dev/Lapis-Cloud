@@ -3634,9 +3634,6 @@ msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
 msgstr "The main motion must itself be scheduled first."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5718
-msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
-msgstr "The live stream is paused because of a secret ballot."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:547
 msgid ""
 "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung "
@@ -18075,3 +18072,90 @@ msgstr "The voting booth could not be loaded. Please try again."
 
 msgid "Diese Wahl ist nicht mehr offen."
 msgstr "This election is no longer open."
+
+msgid "Der Live-Stream wird noch angehalten. Erst danach ist die Stimmabgabe möglich."
+msgstr "The live stream is still being paused. Voting is possible only after that."
+
+msgid "Das dauert länger als üblich. Bitte haben Sie noch einen Moment Geduld."
+msgstr "This is taking longer than usual. Please be patient for a moment."
+
+msgid "Geheime Wahl läuft: Der Livestream ist angehalten."
+msgstr "Secret election in progress: the live stream is paused."
+
+msgid "Geheime Wahl läuft: Der Livestream wird angehalten."
+msgstr "Secret election in progress: the live stream is being paused."
+
+msgid "Geheime Wahl läuft."
+msgstr "Secret election in progress."
+
+msgid "Die Aufzeichnung der Sitzung läuft weiter."
+msgstr "The recording of the meeting continues."
+
+msgid "Der Live-Stream in diesem Raum wird für die Dauer der Abstimmung angehalten."
+msgstr "The live stream in this room is paused for the duration of the vote."
+
+msgid "Der Live-Stream im Raum ist angehalten und bleibt es während der Abstimmung."
+msgstr "The live stream in the room is paused and stays paused during the vote."
+
+msgid "In diesem Raum läuft kein Live-Stream."
+msgstr "No live stream is running in this room."
+
+msgid "Das gilt auch für Live-Streams in anderen Räumen dieser Sitzung."
+msgstr "This also applies to live streams in other rooms of this meeting."
+
+msgid "Die Aufzeichnung der Sitzung wird nicht angehalten."
+msgstr "The recording of the meeting is not paused."
+
+msgid "Stimmen bisher: %1"
+msgstr "Votes so far: %1"
+
+msgid "Abstimmung schließen"
+msgstr "Close voting"
+
+msgid "Es wurde noch keine Stimme abgegeben."
+msgstr "No vote has been cast yet."
+
+msgid "Bisher 1 Stimme abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "1 vote cast so far. No further votes are possible after closing."
+
+msgid "Bisher %1 Stimmen abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "%1 votes cast so far. No further votes are possible after closing."
+
+msgid "Freigaben %1 von %2"
+msgstr "Approvals %1 of %2"
+
+msgid "Die Stimmen werden jetzt ausgezählt. Das Ergebnis steht danach fest."
+msgstr "The votes are counted now. The result is final afterwards."
+
+msgid "Vorbereitete Wahlen"
+msgstr "Prepared elections"
+
+msgid "Wahl vorbereiten in neuem Tab"
+msgstr "Prepare an election in a new tab"
+
+msgid "vorbereitet"
+msgstr "prepared"
+
+msgid "Geheime Wahl öffnen"
+msgstr "Open secret election"
+
+msgid "Der Stream lässt sich nicht anhalten. Die Moderation kann den Stream stoppen, die Wahlleitung kann die Wahl abbrechen."
+msgstr "The stream cannot be paused. The moderation can stop the stream, the election leadership can abort the election."
+
+msgid "Der Stream lässt sich nicht anhalten. Die Stimmabgabe bleibt gesperrt, bis er angehalten ist."
+msgstr "The stream cannot be paused. Voting stays locked until it is paused."
+
+msgid "Stream stoppen"
+msgstr "Stop stream"
+
+msgid "Der Stand hat sich geändert und wurde neu geladen."
+msgstr "The state has changed and was reloaded."
+
+msgid "Ihre Stimme wird gerade übermittelt …"
+msgstr "Your vote is being submitted …"
+
+msgid "Sie bedienen diese Wahl. Die Steuerung erscheint nach Ihrer Stimmabgabe wieder."
+msgstr "You are operating this election. The controls reappear after you have voted."
+
+msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
+msgstr "Voting is still locked. It will be checked again shortly."

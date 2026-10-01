@@ -1,0 +1,48 @@
+= Staging test plan: operating and casting a secret ballot in the conference room (V1.9.26)
+:toc:
+
+== Purpose
+
+Everything in V1.9.26 is covered by unit, DOM and tripwire tests, but three things can only be shown against a real LiveKit room with a
+real RTMP publisher: the order "the stream is gone before the first ballot is accepted", the nudge between real clients, and the
+behaviour when a pause hangs. This plan is the mandatory part of the wave's acceptance; it was **not executed** by the author of the wave
+(credentials and the staging server belong to the operator).
+
+== Set-up
+
+. **Own RTMP sink, no public platform.** Run mediamtx in Docker on the staging host, next to the staging stack and in the Docker network
+  of the LiveKit egress. `validateRtmpUrl` allows private hosts on purpose. Set `logLevel: debug`; the target is
+  `rtmp://mediamtx:1935/lapis-test/<key>`, created by an admin as a stream destination (platform CUSTOM). Owncast works as well.
+. At least **four test members**: three on the election board (threshold 2), one plain member, plus one guest. Two Chrome profiles started
+  with `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`; a third browser is optional.
+. Bind the room to a Sitzung. On `/elections` prepare a YES_NO election, secret, and appoint the election board.
+
+== Steps
+
+. Start the stream; the mediamtx log shows the RTMP publish.
+. In the room panel ("Abstimmen") the prepared election is listed with "Abstimmung öffnen". Open it; the dialog names the running stream,
+  that other rooms of the Sitzung are paused too, and that the recording is not paused.
+. **Core check:** the timestamp of the RTMP disconnect in the mediamtx log lies **before** the first successful ballot. The counterpart is
+  the receipt time of the first ballot, taken from the server log or the member's receipt moment (time only, never any content).
+. While the stream is `PAUSING` the cast button is visibly disabled with a text; after `PAUSED` it is enabled.
+. The banner "Geheime Wahl läuft: ..." is visible for everybody, the guest included, and mentions the recording.
+. Cast with the plain member and with two board members. The counter on the close card reads "Stimmen bisher: 3".
+. Close: the dialog shows the count and focuses "Abbrechen". After closing, the nudge makes the others refresh; the sink reconnects
+  (a new publish appears in the mediamtx log). Two board members approve ("Freigaben 2 von 3" on the others after at most 5 s), count,
+  and the result appears compactly in the panel.
+
+== Negative cases
+
+[cols="2,3,2,2", options="header"]
+|===
+| Case | Expected | Actual | Screenshot
+| Unbound room | No panel and no toggle; the moderator sees the hint next to "Sitzung zuordnen". Known gap: the stream of an unbound room is not paused. | |
+| Pause hangs (block the disconnect in mediamtx, or stop the egress) | After 20 s a second sentence appears; after 60 s operators and the moderation get the emergency card (stop on top, abort below), members keep the lock text. Test once "Stream stoppen", once "Wahl abbrechen" (title typed). | |
+| Leave while a receipt is on screen | Leave buttons disabled with a reason; the browser asks on reload. | |
+| Leave while the ballot request runs (throttle the network) | Leave buttons disabled ("Ihre Stimme wird gerade übermittelt"); the browser asks on reload or close. | |
+| Hostile nudge: in the dev tools `publishData` with topic `lapis-vote-nudge` and arbitrary bytes | One extra poll, no crash, nothing read from the payload. | |
+| Second room of the Sitzung with a running stream | The booth of this room may show "free"; the cast is refused, the booth shows "noch gesperrt", keeps the choice, and frees the button after 5 s. No error text. | |
+| Double click on a confirmation button | Exactly one request in the network panel. | |
+|===
+
+NOTE: Passwords and access data are known to the operator only and are not part of this document.

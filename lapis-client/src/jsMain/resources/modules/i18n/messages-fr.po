@@ -3663,9 +3663,6 @@ msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
 msgstr "La motion principale doit d'abord être elle-même programmée."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5718
-msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
-msgstr "Le direct est interrompu en raison d'un vote secret."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:547
 msgid ""
 "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung "
@@ -18186,3 +18183,90 @@ msgstr "L'isoloir n'a pas pu être chargé. Veuillez réessayer."
 
 msgid "Diese Wahl ist nicht mehr offen."
 msgstr "Cette élection n'est plus ouverte."
+
+msgid "Der Live-Stream wird noch angehalten. Erst danach ist die Stimmabgabe möglich."
+msgstr "La diffusion en direct est encore en cours de mise en pause. Le vote ne sera possible qu'ensuite."
+
+msgid "Das dauert länger als üblich. Bitte haben Sie noch einen Moment Geduld."
+msgstr "Cela prend plus de temps que d'habitude. Merci de patienter un instant."
+
+msgid "Geheime Wahl läuft: Der Livestream ist angehalten."
+msgstr "Élection secrète en cours : la diffusion en direct est en pause."
+
+msgid "Geheime Wahl läuft: Der Livestream wird angehalten."
+msgstr "Élection secrète en cours : la diffusion en direct est mise en pause."
+
+msgid "Geheime Wahl läuft."
+msgstr "Élection secrète en cours."
+
+msgid "Die Aufzeichnung der Sitzung läuft weiter."
+msgstr "L'enregistrement de la séance se poursuit."
+
+msgid "Der Live-Stream in diesem Raum wird für die Dauer der Abstimmung angehalten."
+msgstr "La diffusion en direct de cette salle est mise en pause pendant la durée du vote."
+
+msgid "Der Live-Stream im Raum ist angehalten und bleibt es während der Abstimmung."
+msgstr "La diffusion en direct de la salle est en pause et le reste pendant le vote."
+
+msgid "In diesem Raum läuft kein Live-Stream."
+msgstr "Aucune diffusion en direct n'est en cours dans cette salle."
+
+msgid "Das gilt auch für Live-Streams in anderen Räumen dieser Sitzung."
+msgstr "Cela vaut aussi pour les diffusions en direct dans les autres salles de cette séance."
+
+msgid "Die Aufzeichnung der Sitzung wird nicht angehalten."
+msgstr "L'enregistrement de la séance n'est pas mis en pause."
+
+msgid "Stimmen bisher: %1"
+msgstr "Votes jusqu'ici : %1"
+
+msgid "Abstimmung schließen"
+msgstr "Clore le vote"
+
+msgid "Es wurde noch keine Stimme abgegeben."
+msgstr "Aucun vote n'a encore été exprimé."
+
+msgid "Bisher 1 Stimme abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "1 vote exprimé jusqu'ici. Après la clôture, aucun autre vote n'est possible."
+
+msgid "Bisher %1 Stimmen abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "%1 votes exprimés jusqu'ici. Après la clôture, aucun autre vote n'est possible."
+
+msgid "Freigaben %1 von %2"
+msgstr "Validations %1 sur %2"
+
+msgid "Die Stimmen werden jetzt ausgezählt. Das Ergebnis steht danach fest."
+msgstr "Les votes sont dépouillés maintenant. Le résultat sera ensuite définitif."
+
+msgid "Vorbereitete Wahlen"
+msgstr "Élections préparées"
+
+msgid "Wahl vorbereiten in neuem Tab"
+msgstr "Préparer une élection dans un nouvel onglet"
+
+msgid "vorbereitet"
+msgstr "préparée"
+
+msgid "Geheime Wahl öffnen"
+msgstr "Ouvrir l'élection secrète"
+
+msgid "Der Stream lässt sich nicht anhalten. Die Moderation kann den Stream stoppen, die Wahlleitung kann die Wahl abbrechen."
+msgstr "La diffusion ne peut pas être mise en pause. La modération peut l'arrêter, la direction de l'élection peut annuler l'élection."
+
+msgid "Der Stream lässt sich nicht anhalten. Die Stimmabgabe bleibt gesperrt, bis er angehalten ist."
+msgstr "La diffusion ne peut pas être mise en pause. Le vote reste bloqué tant qu'elle n'est pas en pause."
+
+msgid "Stream stoppen"
+msgstr "Arrêter la diffusion"
+
+msgid "Der Stand hat sich geändert und wurde neu geladen."
+msgstr "L'état a changé et a été rechargé."
+
+msgid "Ihre Stimme wird gerade übermittelt …"
+msgstr "Votre vote est en cours d'envoi …"
+
+msgid "Sie bedienen diese Wahl. Die Steuerung erscheint nach Ihrer Stimmabgabe wieder."
+msgstr "Vous gérez cette élection. Les commandes réapparaîtront après votre vote."
+
+msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
+msgstr "Le vote est encore bloqué. Une nouvelle vérification aura lieu dans un instant."

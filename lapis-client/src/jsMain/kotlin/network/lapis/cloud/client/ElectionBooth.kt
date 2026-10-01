@@ -45,6 +45,8 @@ private val RECEIPT_PATTERN = Regex("^[A-Za-z0-9_-]{27}$")
 
 private const val RECEIPT_GROUP_SIZE = 4
 
+private const val BOOTH_LOCK_REASON_ID = "lapis-booth-lock-reason"
+
 /**
  * Set by the elections screen: called with `true` while a receipt is on screen (so the "back to overview" button can be hidden --
  * `beforeunload` does not fire on in-app navigation) and with `false` once the receipt is gone.
@@ -52,6 +54,25 @@ private const val RECEIPT_GROUP_SIZE = 4
 internal var electionReceiptVisibilityHook: ((Boolean) -> Unit)? = null
 
 /**
+ * V1.9.26 -- the narrow seam through which a host (the conference panel) tells the booth that casting is locked for now. The booth owns no
+ * stream knowledge: it asks [lockedReason] ("why can't I cast right now?", `null` = it can), hears about changes through [subscribe], and
+ * reports a conflict through [onConflict]. The hook never sees a selection or a receipt, and carries no text about the ballot itself.
+ */
+internal interface BallotLockHook {
+    /** `null` = submitting is allowed; otherwise the visible reason. */
+    fun lockedReason(): String?
+
+    /** Called on every change of the lock; returns the unsubscribe. */
+    fun subscribe(listener: () -> Unit): () -> Unit
+
+    /** The booth got a conflict and the probe says "still OPEN, not voted": the host refreshes its room state. */
+    fun onConflict()
+
+    val scheduler: ConferenceVoteScheduler
+}
+
+/**
+ * @param ballotLock V1.9.26 -- see [BallotLockHook]. `null` (the elections screen, and every open election) leaves the booth exactly as before.
  * @param openBallotBanner V1.9.25 -- inside the conference room an OPEN election says so in a banner above the choice ("this vote is
  *   stored with your name"), instead of the muted line of the elections screen. Never changes a secret election. Default `false`: the
  *   elections screen is unchanged.
@@ -64,9 +85,10 @@ internal fun renderElectionBooth(
     election: ElectionDto,
     openBallotBanner: Boolean = false,
     onBusyChanged: (Boolean) -> Unit = {},
+    ballotLock: BallotLockHook? = null,
     onExit: (refresh: Boolean) -> Unit,
 ) {
-    ElectionBooth(panel, election, onExit, openBallotBanner, onBusyChanged).showSelect()
+    ElectionBooth(panel, election, onExit, openBallotBanner, onBusyChanged, ballotLock).showSelect()
 }
 
 private class ElectionBooth(
@@ -75,17 +97,41 @@ private class ElectionBooth(
     private val onExit: (Boolean) -> Unit,
     private val openBallotBanner: Boolean,
     private val onBusyChanged: (Boolean) -> Unit,
+    private val ballotLock: BallotLockHook?,
 ) {
     private var answer: ElectionAnswer? = null
     private var selectedIds: List<String> = emptyList()
     private var inFlight = false
 
+    // V1.9.26 -- the lock of a secret ballot while a stream is still being paused. All of it is nothing but timers and subscriptions: the
+    // selection and the receipt never pass through here.
+    private var conflictLocked = false
+    private var recheckHandle: Int? = null
+    private val lockSubscriptions = mutableListOf<() -> Unit>()
+    private var paintLock: (() -> Unit)? = null
+
+    /** Ends everything the review step of THIS booth registered: the lock subscription and the recheck timer. Idempotent. */
+    private fun releaseLockWatchers() {
+        lockSubscriptions.forEach { it() }
+        lockSubscriptions.clear()
+        paintLock = null
+        recheckHandle?.let { handle -> ballotLock?.scheduler?.cancel(handle) }
+        recheckHandle = null
+    }
+
+    private fun exit(refresh: Boolean) {
+        releaseLockWatchers()
+        onExit(refresh)
+    }
+
     private fun fresh(): SimplePanel {
+        releaseLockWatchers()
         host.removeAll()
         return host.vPanel(spacing = 10) { addCssClasses("lapis-booth") }
     }
 
     fun showSelect() {
+        conflictLocked = false
         val booth = fresh()
         booth.h2(tr("Stimmabgabe")) { addCssClass("h5") }
         booth.untrustedP(election.title, className = "fw-bold mb-0")
@@ -205,7 +251,7 @@ private class ElectionBooth(
         cancel.onClick {
             answer = null
             selectedIds = emptyList()
-            onExit(false)
+            exit(false)
         }
         next.onClick {
             if (form.validateAndReport() && readSelection()) showReview()
@@ -232,7 +278,51 @@ private class ElectionBooth(
         row.add(back)
         row.add(cast)
         back.onClick { if (!inFlight) showSelect() }
-        cast.onClick { castNow(cast) }
+        cast.onClick { if (ballotLock?.lockedReason() == null && !conflictLocked) castNow(cast) }
+        ballotLock?.let { watchLock(booth, cast, it) }
+    }
+
+    /** The visible reason next to a locked cast button: shown while the stream is still being paused, and after a conflict until the recheck. */
+    private fun watchLock(
+        booth: SimplePanel,
+        cast: Button,
+        hook: BallotLockHook,
+    ) {
+        val note =
+            booth.div("") {
+                addCssClasses("text-muted small")
+                setAttribute("role", "status")
+            }
+        note.id = BOOTH_LOCK_REASON_ID
+
+        fun paint() {
+            val reason = hook.lockedReason() ?: if (conflictLocked) conflictReason() else null
+            cast.disabled = reason != null
+            if (reason == null) {
+                note.hide()
+                cast.removeAttribute("aria-describedby")
+            } else {
+                note.content = reason
+                note.show()
+                cast.setAttr("aria-describedby", BOOTH_LOCK_REASON_ID)
+            }
+        }
+        paint()
+        paintLock = { if (!inFlight) paint() }
+        lockSubscriptions += hook.subscribe { paintLock?.invoke() }
+    }
+
+    private fun conflictReason(): String = gettext("Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft.")
+
+    private fun scheduleRecheck(hook: BallotLockHook) {
+        recheckHandle?.let { hook.scheduler.cancel(it) }
+        recheckHandle =
+            hook.scheduler.schedule(BALLOT_LOCK_RECHECK_MS) {
+                recheckHandle = null
+                conflictLocked = false
+                // Never an automatic re-submit: the member sees the button free again and decides.
+                paintLock?.invoke()
+            }
     }
 
     private fun castNow(button: Button) {
@@ -243,7 +333,20 @@ private class ElectionBooth(
             try {
                 val input = ElectionBallotInput(electionId = election.id, answer = answer, selectedOptionIds = selectedIds)
                 val outcome = castBallotGuarded(input)
-                // The selection is not needed any more the moment the request has been sent.
+                // A conflict inside the conference room usually means "the stream is not paused yet" (or a stream of ANOTHER room of the
+                // Sitzung): if the probe says the election is still open and the member has not voted, the selection is kept.
+                var probed: ElectionProbe? = null
+                if (outcome is CastOutcome.Conflict && ballotLock != null) {
+                    probed = probeElectionState(election.id)
+                    if (probed.election?.status == ElectionStatus.OPEN && probed.participation?.hasVoted == false) {
+                        conflictLocked = true
+                        ballotLock.onConflict()
+                        showReview()
+                        scheduleRecheck(ballotLock)
+                        return@runGuardedAction
+                    }
+                }
+                // The outcome is classified: the selection is not needed any more.
                 answer = null
                 selectedIds = emptyList()
                 when (outcome) {
@@ -256,19 +359,24 @@ private class ElectionBooth(
                             tr("Keine Stimmberechtigung"),
                             tr("Sie stehen nicht im Wählerverzeichnis dieser Wahl und können nicht abstimmen."),
                         )
-                    CastOutcome.Conflict -> explainFailure(connectionLost = false)
+                    CastOutcome.Conflict -> explainFailure(connectionLost = false, alreadyProbed = probed)
                     CastOutcome.Failed -> explainFailure(connectionLost = true)
                 }
             } finally {
                 inFlight = false
                 onBusyChanged(false)
+                // a lock change that came in while the request ran was skipped (the button is guarded then): catch up now
+                paintLock?.invoke()
             }
         }
     }
 
     /** What really happened after a conflict or a lost connection: found out by reading the state, never by reading an error. */
-    private suspend fun explainFailure(connectionLost: Boolean) {
-        val probed = probeElectionState(election.id)
+    private suspend fun explainFailure(
+        connectionLost: Boolean,
+        alreadyProbed: ElectionProbe? = null,
+    ) {
+        val probed = alreadyProbed ?: probeElectionState(election.id)
         if (probed.participation?.hasVoted == true) {
             showTerminal(
                 tr("Bereits abgestimmt"),
@@ -312,7 +420,7 @@ private class ElectionBooth(
         booth.h2(title) { addCssClass("h5") }
         booth.p(text)
         val row = booth.hPanel(spacing = 8)
-        row.button(tr("Zurück zur Wahl"), style = ButtonStyle.OUTLINESECONDARY).onClick { onExit(true) }
+        row.button(tr("Zurück zur Wahl"), style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
         if (retry) row.button(tr("Erneut abstimmen"), style = ButtonStyle.PRIMARY).onClick { showSelect() }
     }
 
@@ -320,7 +428,7 @@ private class ElectionBooth(
         val booth = fresh()
         booth.h2(tr("Ihre Stimme wurde gezählt")) { addCssClass("h5") }
         booth.p(tr("Vielen Dank. Ihre Stimme wurde mit Ihrem Namen gespeichert."))
-        booth.button(tr("Fertig"), style = ButtonStyle.PRIMARY).onClick { onExit(true) }
+        booth.button(tr("Fertig"), style = ButtonStyle.PRIMARY).onClick { exit(true) }
     }
 
     /**
@@ -333,7 +441,7 @@ private class ElectionBooth(
         booth.h2(tr("Ihre Stimme wurde gezählt")) { addCssClass("h5") }
         if (!RECEIPT_PATTERN.matches(code)) {
             booth.p(tr("Die Quittung konnte nicht angezeigt werden. Ihre Stimme ist trotzdem gezählt."))
-            booth.button(tr("Fertig"), style = ButtonStyle.PRIMARY).onClick { onExit(true) }
+            booth.button(tr("Fertig"), style = ButtonStyle.PRIMARY).onClick { exit(true) }
             return
         }
         booth.p(
@@ -418,7 +526,7 @@ private class ElectionBooth(
             raw = null
             removeListeners()
             host.removeAll()
-            onExit(true)
+            exit(true)
         }
     }
 }

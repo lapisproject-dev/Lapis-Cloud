@@ -3640,9 +3640,6 @@ msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
 msgstr "Het hoofdvoorstel moet eerst zelf worden geagendeerd."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5718
-msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
-msgstr "De livestream is onderbroken vanwege een geheime stemming."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:547
 msgid ""
 "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung "
@@ -18123,3 +18120,90 @@ msgstr "Het stemhokje kon niet worden geladen. Probeer het opnieuw."
 
 msgid "Diese Wahl ist nicht mehr offen."
 msgstr "Deze verkiezing is niet meer open."
+
+msgid "Der Live-Stream wird noch angehalten. Erst danach ist die Stimmabgabe möglich."
+msgstr "De livestream wordt nog gepauzeerd. Pas daarna kunt u stemmen."
+
+msgid "Das dauert länger als üblich. Bitte haben Sie noch einen Moment Geduld."
+msgstr "Dit duurt langer dan gebruikelijk. Heeft u nog even geduld."
+
+msgid "Geheime Wahl läuft: Der Livestream ist angehalten."
+msgstr "Geheime verkiezing bezig: de livestream is gepauzeerd."
+
+msgid "Geheime Wahl läuft: Der Livestream wird angehalten."
+msgstr "Geheime verkiezing bezig: de livestream wordt gepauzeerd."
+
+msgid "Geheime Wahl läuft."
+msgstr "Geheime verkiezing bezig."
+
+msgid "Die Aufzeichnung der Sitzung läuft weiter."
+msgstr "De opname van de vergadering loopt door."
+
+msgid "Der Live-Stream in diesem Raum wird für die Dauer der Abstimmung angehalten."
+msgstr "De livestream in deze ruimte wordt voor de duur van de stemming gepauzeerd."
+
+msgid "Der Live-Stream im Raum ist angehalten und bleibt es während der Abstimmung."
+msgstr "De livestream in de ruimte is gepauzeerd en blijft dat tijdens de stemming."
+
+msgid "In diesem Raum läuft kein Live-Stream."
+msgstr "In deze ruimte loopt geen livestream."
+
+msgid "Das gilt auch für Live-Streams in anderen Räumen dieser Sitzung."
+msgstr "Dit geldt ook voor livestreams in andere ruimtes van deze vergadering."
+
+msgid "Die Aufzeichnung der Sitzung wird nicht angehalten."
+msgstr "De opname van de vergadering wordt niet gepauzeerd."
+
+msgid "Stimmen bisher: %1"
+msgstr "Stemmen tot nu toe: %1"
+
+msgid "Abstimmung schließen"
+msgstr "Stemming sluiten"
+
+msgid "Es wurde noch keine Stimme abgegeben."
+msgstr "Er is nog geen stem uitgebracht."
+
+msgid "Bisher 1 Stimme abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Tot nu toe is 1 stem uitgebracht. Na het sluiten zijn er geen stemmen meer mogelijk."
+
+msgid "Bisher %1 Stimmen abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Tot nu toe zijn %1 stemmen uitgebracht. Na het sluiten zijn er geen stemmen meer mogelijk."
+
+msgid "Freigaben %1 von %2"
+msgstr "Goedkeuringen %1 van %2"
+
+msgid "Die Stimmen werden jetzt ausgezählt. Das Ergebnis steht danach fest."
+msgstr "De stemmen worden nu geteld. Daarna staat de uitslag vast."
+
+msgid "Vorbereitete Wahlen"
+msgstr "Voorbereide verkiezingen"
+
+msgid "Wahl vorbereiten in neuem Tab"
+msgstr "Verkiezing voorbereiden in een nieuw tabblad"
+
+msgid "vorbereitet"
+msgstr "voorbereid"
+
+msgid "Geheime Wahl öffnen"
+msgstr "Geheime verkiezing openen"
+
+msgid "Der Stream lässt sich nicht anhalten. Die Moderation kann den Stream stoppen, die Wahlleitung kann die Wahl abbrechen."
+msgstr "De stream laat zich niet pauzeren. De moderatie kan de stream stoppen, de verkiezingsleiding kan de verkiezing afbreken."
+
+msgid "Der Stream lässt sich nicht anhalten. Die Stimmabgabe bleibt gesperrt, bis er angehalten ist."
+msgstr "De stream laat zich niet pauzeren. Stemmen blijft geblokkeerd totdat hij gepauzeerd is."
+
+msgid "Stream stoppen"
+msgstr "Stream stoppen"
+
+msgid "Der Stand hat sich geändert und wurde neu geladen."
+msgstr "De stand is gewijzigd en opnieuw geladen."
+
+msgid "Ihre Stimme wird gerade übermittelt …"
+msgstr "Uw stem wordt verzonden …"
+
+msgid "Sie bedienen diese Wahl. Die Steuerung erscheint nach Ihrer Stimmabgabe wieder."
+msgstr "U beheert deze verkiezing. De bediening verschijnt weer nadat u hebt gestemd."
+
+msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
+msgstr "Stemmen is nog geblokkeerd. Er wordt zo opnieuw gecontroleerd."

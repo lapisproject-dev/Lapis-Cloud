@@ -6,6 +6,52 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.26 voting in the conference room, wave 3 (operator controls and secret-ballot wiring, client only)
+
+- **Operator controls in the room panel** for an election board member or BOARD/ADMIN: one primary button per status -- "Abstimmung
+  schließen" (with the ballot count), "Auszählung freigeben" / "Auszählen" (with "Freigaben x von N"), and the compact result of a counted
+  election. Closing and counting ask first (the dialog focuses "Abbrechen"; at zero ballots it adds "Es wurde noch keine Stimme abgegeben.").
+- **"Vorbereitete Wahlen"**: prepared elections of the room's Sitzung can be opened from the panel (with the election-board-size gate and its
+  reason), plus a link to prepare one in a new tab. Opening a secret election first shows what happens to the stream of this room, to the
+  streams of the other rooms of the Sitzung, and that the recording is not paused.
+- **Cast lock mirror:** the booth's cast button is disabled, with a visible reason, while a stream of the Sitzung is still being paused;
+  free for `PAUSED`, `ENDED`, `FAILED` and without a stream. After 20 s a second sentence; after 60 s operators and the moderation get an
+  emergency card ("Stream stoppen" on top, "Wahl abbrechen" below, abort with the title typed). Open elections are never locked.
+- **Banner for the whole secret ballot** ("Geheime Wahl läuft: ..."), with the stream state and the note that the recording goes on; a polite
+  status without a close button, visible to guests too (replaces the old stream-pause banner text).
+- **`CASTING` lock:** while the ballot request runs, the leave buttons are disabled with a reason and the browser asks before the page is left.
+- Stream status is polled every 5 s while a secret ballot is open and the stream is not quiesced (a `LIVE` stream was not polled before).
+- `confirmDialog` gained `extraLines`, `dangerNote` and `focusCancel` (additive); the result rows of the detail page are shared as
+  `renderElectionResultCompact`. Eight message catalogs updated; docs and a staging test plan added
+  (`docs/architecture/conference-voting.adoc`, `docs/architecture/conference-voting-staging-test.adoc`).
+
+### Security -- V1.9.26
+
+- The server stays authoritative: every client lock is a mirror (`ConferenceVoteOperatorTripwireTest` pins parity with the server's private
+  `isQuiescedForBallot`), every gate comes from `ElectionAuthzUi`, and `castElectionBallot` still checks the stream on the server.
+- No exception message is ever read; a conflict is answered with a neutral "reloaded" text and found out by reloading.
+- The nudge carries no payload and is sent once, only after a successful write; approving sends none.
+- Every write goes through one guarded function (`runOperatorAction` over `runGuardedAction`), pinned by a tripwire; the conference voting
+  files never touch a ballot's content (receipt, selection, ballot lists), also pinned.
+- **Relaxed invariant, stated openly:** after a conflict inside the room the booth keeps the selection in its controller's memory (it was
+  cleared as soon as the request was sent before), so the member can cast again after the lock lifts. It never reaches the DOM outside the
+  booth, a storage or the console, and there is no automatic re-submit. On the elections page nothing changed.
+
+### Known limitations -- V1.9.26
+
+- **The staging test was not run** (credentials and the server belong to the operator); the plan is `conference-voting-staging-test.adoc`.
+  Not verified in a real LiveKit room: the nudge between clients, the order "RTMP disconnect before the first ballot", the hanging-pause case.
+- The committee leadership (without election board seat or BOARD/ADMIN) cannot open, close or count: the server does not allow it, so
+  the room offers it only "Wahl abbrechen" on the emergency card. A change would be a server rule change.
+- Rooms without a Sitzung keep the gap that their stream is not paused (C2 above).
+- The recording is not paused; the banner and the dialog say so.
+- A hung pause is recognised only with the next stream poll, up to 5 s late; streams in OTHER rooms of the Sitzung become visible only
+  through the conflict path ("noch gesperrt").
+- The "Freigaben" counter of other operators follows the room poll (5 s while a count is pending), not a push.
+- The prepared-election lists (`listElections`, `getElectionParticipation`, `getElection`, `getElectionResult`) have no server-side rate
+  limit of their own; the client reads them only while the panel is open, at most every 30 s (prepared list) or 5 s (counter of a CLOSED
+  election, operators only). A server limit is a follow-up.
+
 ### Added -- V1.9.25 voting in the conference room, wave 2 (panel shell, client only)
 
 - **"Abstimmen" panel** in the video call: a toggle with a badge (open elections you may still vote in), a panel with one card per

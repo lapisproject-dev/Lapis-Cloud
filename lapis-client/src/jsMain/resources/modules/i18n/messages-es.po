@@ -3648,8 +3648,6 @@ msgid "Der Hauptantrag muss zuerst selbst terminiert werden."
 msgstr "La moción principal debe programarse primero por sí misma."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5718
-msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
-msgstr ""
 "La transmisión en vivo está interrumpida debido a una votación secreta."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:547
@@ -18146,3 +18144,90 @@ msgstr "No se pudo cargar la cabina de votación. Inténtelo de nuevo."
 
 msgid "Diese Wahl ist nicht mehr offen."
 msgstr "Esta elección ya no está abierta."
+
+msgid "Der Live-Stream wird noch angehalten. Erst danach ist die Stimmabgabe möglich."
+msgstr "La transmisión en directo aún se está pausando. Solo después se podrá votar."
+
+msgid "Das dauert länger als üblich. Bitte haben Sie noch einen Moment Geduld."
+msgstr "Esto tarda más de lo habitual. Tenga un momento de paciencia."
+
+msgid "Geheime Wahl läuft: Der Livestream ist angehalten."
+msgstr "Elección secreta en curso: la transmisión en directo está en pausa."
+
+msgid "Geheime Wahl läuft: Der Livestream wird angehalten."
+msgstr "Elección secreta en curso: la transmisión en directo se está pausando."
+
+msgid "Geheime Wahl läuft."
+msgstr "Elección secreta en curso."
+
+msgid "Die Aufzeichnung der Sitzung läuft weiter."
+msgstr "La grabación de la sesión continúa."
+
+msgid "Der Live-Stream in diesem Raum wird für die Dauer der Abstimmung angehalten."
+msgstr "La transmisión en directo de esta sala se pausa mientras dure la votación."
+
+msgid "Der Live-Stream im Raum ist angehalten und bleibt es während der Abstimmung."
+msgstr "La transmisión en directo de la sala está en pausa y seguirá así durante la votación."
+
+msgid "In diesem Raum läuft kein Live-Stream."
+msgstr "En esta sala no hay ninguna transmisión en directo."
+
+msgid "Das gilt auch für Live-Streams in anderen Räumen dieser Sitzung."
+msgstr "Esto también se aplica a las transmisiones en directo de otras salas de esta sesión."
+
+msgid "Die Aufzeichnung der Sitzung wird nicht angehalten."
+msgstr "La grabación de la sesión no se pausa."
+
+msgid "Stimmen bisher: %1"
+msgstr "Votos hasta ahora: %1"
+
+msgid "Abstimmung schließen"
+msgstr "Cerrar la votación"
+
+msgid "Es wurde noch keine Stimme abgegeben."
+msgstr "Todavía no se ha emitido ningún voto."
+
+msgid "Bisher 1 Stimme abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Hasta ahora se ha emitido 1 voto. Tras el cierre no se podrán emitir más votos."
+
+msgid "Bisher %1 Stimmen abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Hasta ahora se han emitido %1 votos. Tras el cierre no se podrán emitir más votos."
+
+msgid "Freigaben %1 von %2"
+msgstr "Aprobaciones %1 de %2"
+
+msgid "Die Stimmen werden jetzt ausgezählt. Das Ergebnis steht danach fest."
+msgstr "Los votos se escrutan ahora. Después el resultado será definitivo."
+
+msgid "Vorbereitete Wahlen"
+msgstr "Elecciones preparadas"
+
+msgid "Wahl vorbereiten in neuem Tab"
+msgstr "Preparar una elección en una pestaña nueva"
+
+msgid "vorbereitet"
+msgstr "preparada"
+
+msgid "Geheime Wahl öffnen"
+msgstr "Abrir elección secreta"
+
+msgid "Der Stream lässt sich nicht anhalten. Die Moderation kann den Stream stoppen, die Wahlleitung kann die Wahl abbrechen."
+msgstr "La transmisión no se puede pausar. La moderación puede detenerla; la dirección de la elección puede cancelar la elección."
+
+msgid "Der Stream lässt sich nicht anhalten. Die Stimmabgabe bleibt gesperrt, bis er angehalten ist."
+msgstr "La transmisión no se puede pausar. La votación sigue bloqueada hasta que se pause."
+
+msgid "Stream stoppen"
+msgstr "Detener la transmisión"
+
+msgid "Der Stand hat sich geändert und wurde neu geladen."
+msgstr "El estado ha cambiado y se ha recargado."
+
+msgid "Ihre Stimme wird gerade übermittelt …"
+msgstr "Su voto se está enviando …"
+
+msgid "Sie bedienen diese Wahl. Die Steuerung erscheint nach Ihrer Stimmabgabe wieder."
+msgstr "Usted gestiona esta elección. Los controles reaparecerán después de que vote."
+
+msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
+msgstr "La votación sigue bloqueada. Se volverá a comprobar enseguida."

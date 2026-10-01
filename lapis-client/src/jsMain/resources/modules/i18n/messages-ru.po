@@ -3638,9 +3638,6 @@ msgstr ""
 "Сначала на голосование должно быть назначено само основное предложение."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5718
-msgid "Der Live-Stream ist wegen einer geheimen Abstimmung unterbrochen."
-msgstr "Прямая трансляция приостановлена из-за тайного голосования."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:547
 msgid ""
 "Der Politiker-Status von %1 wird widerrufen. Eine spätere erneute Erteilung "
@@ -18113,3 +18110,90 @@ msgstr "Не удалось загрузить кабину для голосо�
 
 msgid "Diese Wahl ist nicht mehr offen."
 msgstr "Эти выборы больше не открыты."
+
+msgid "Der Live-Stream wird noch angehalten. Erst danach ist die Stimmabgabe möglich."
+msgstr "Прямая трансляция ещё приостанавливается. Голосовать можно будет только после этого."
+
+msgid "Das dauert länger als üblich. Bitte haben Sie noch einen Moment Geduld."
+msgstr "Это занимает больше времени, чем обычно. Пожалуйста, подождите ещё немного."
+
+msgid "Geheime Wahl läuft: Der Livestream ist angehalten."
+msgstr "Идут тайные выборы: прямая трансляция приостановлена."
+
+msgid "Geheime Wahl läuft: Der Livestream wird angehalten."
+msgstr "Идут тайные выборы: прямая трансляция приостанавливается."
+
+msgid "Geheime Wahl läuft."
+msgstr "Идут тайные выборы."
+
+msgid "Die Aufzeichnung der Sitzung läuft weiter."
+msgstr "Запись заседания продолжается."
+
+msgid "Der Live-Stream in diesem Raum wird für die Dauer der Abstimmung angehalten."
+msgstr "Прямая трансляция в этой комнате приостанавливается на время голосования."
+
+msgid "Der Live-Stream im Raum ist angehalten und bleibt es während der Abstimmung."
+msgstr "Прямая трансляция в комнате приостановлена и останется такой на время голосования."
+
+msgid "In diesem Raum läuft kein Live-Stream."
+msgstr "В этой комнате нет прямой трансляции."
+
+msgid "Das gilt auch für Live-Streams in anderen Räumen dieser Sitzung."
+msgstr "Это относится и к прямым трансляциям в других комнатах этого заседания."
+
+msgid "Die Aufzeichnung der Sitzung wird nicht angehalten."
+msgstr "Запись заседания не приостанавливается."
+
+msgid "Stimmen bisher: %1"
+msgstr "Голосов на данный момент: %1"
+
+msgid "Abstimmung schließen"
+msgstr "Закрыть голосование"
+
+msgid "Es wurde noch keine Stimme abgegeben."
+msgstr "Ещё не подано ни одного голоса."
+
+msgid "Bisher 1 Stimme abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Пока подан 1 голос. После закрытия новые голоса принимать нельзя."
+
+msgid "Bisher %1 Stimmen abgegeben. Nach dem Schließen sind keine weiteren Stimmen möglich."
+msgstr "Пока подано голосов: %1. После закрытия новые голоса принимать нельзя."
+
+msgid "Freigaben %1 von %2"
+msgstr "Подтверждений %1 из %2"
+
+msgid "Die Stimmen werden jetzt ausgezählt. Das Ergebnis steht danach fest."
+msgstr "Сейчас будет проведён подсчёт голосов. После этого результат станет окончательным."
+
+msgid "Vorbereitete Wahlen"
+msgstr "Подготовленные выборы"
+
+msgid "Wahl vorbereiten in neuem Tab"
+msgstr "Подготовить выборы в новой вкладке"
+
+msgid "vorbereitet"
+msgstr "подготовлено"
+
+msgid "Geheime Wahl öffnen"
+msgstr "Открыть тайные выборы"
+
+msgid "Der Stream lässt sich nicht anhalten. Die Moderation kann den Stream stoppen, die Wahlleitung kann die Wahl abbrechen."
+msgstr "Трансляцию не удаётся приостановить. Модерация может остановить трансляцию, руководство выборов может отменить выборы."
+
+msgid "Der Stream lässt sich nicht anhalten. Die Stimmabgabe bleibt gesperrt, bis er angehalten ist."
+msgstr "Трансляцию не удаётся приостановить. Голосование остаётся заблокированным, пока она не будет приостановлена."
+
+msgid "Stream stoppen"
+msgstr "Остановить трансляцию"
+
+msgid "Der Stand hat sich geändert und wurde neu geladen."
+msgstr "Состояние изменилось и было загружено заново."
+
+msgid "Ihre Stimme wird gerade übermittelt …"
+msgstr "Ваш голос отправляется …"
+
+msgid "Sie bedienen diese Wahl. Die Steuerung erscheint nach Ihrer Stimmabgabe wieder."
+msgstr "Вы проводите эти выборы. Элементы управления появятся снова после того, как вы проголосуете."
+
+msgid "Die Stimmabgabe ist noch gesperrt. Es wird gleich erneut geprüft."
+msgstr "Голосование пока заблокировано. Скоро будет выполнена повторная проверка."

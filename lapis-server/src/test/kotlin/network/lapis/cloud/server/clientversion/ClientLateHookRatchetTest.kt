@@ -67,9 +67,15 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
             (1 to "raw <video> in a late insert hook; more widgets follow in the same card, exactly one video results"),
         "ConferenceWhiteboardController.kt" to
             (5 to "built in the hidden whiteboard panel: no element exists when the hooks are registered"),
+        "ConfirmDialog.kt" to
+            (
+                1 to
+                    "(V1.9.26) `focusCancel`: registered on a Modal created in the same call, before it has an element; " +
+                    "it only focuses the cancel button (no key, no re-render involved)"
+            ),
         "ConferenceScreen.kt" to
             (
-                10 to
+                9 to
                     "role=alert banners (hidden first; the live call path cannot be mounted in a test, so they were not converted), " +
                     "roster/chat badges (raw child, next add patches), stage/grid zones " +
                     "(first fire is the replacement, before any tile exists), chatRow (hidden panel), setStaticA11yLabel/" +
@@ -119,8 +125,8 @@ private val AUDITED_RAW_DOM_SET_ATTRIBUTE: Map<String, Pair<Int, String>> =
             (2 to "RawAttributes: the tile attributes are re-applied by an insert hook on every (re-)insert; the group is built hidden"),
         "ConferenceScreen.kt" to
             (
-                9 to
-                    "the three `role=\"alert\"` banner hooks (the live call path is not testable in Karma, so not converted to " +
+                8 to
+                    "the two `role=\"alert\"` banner hooks (the live call path is not testable in Karma, so not converted to " +
                     "Widget.setAttribute) and setStaticA11yLabel / setDynamicA11yTitle: `getElement() ?: hook` idiom, written again on " +
                     "every call -- the label changes with the connection state, a Widget attribute would re-render the control bar"
             ),
