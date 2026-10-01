@@ -157,7 +157,7 @@ private fun handleGuardedFailure(e: Throwable) {
     }
 }
 
-private fun sessionExpired() {
+internal fun sessionExpired() {
     AppState.setSession(null)
     notifyError(tr("Sitzung abgelaufen -- bitte erneut anmelden."))
     navigateTo(Routes.LOGIN)

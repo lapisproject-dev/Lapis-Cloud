@@ -636,6 +636,9 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "ConsensusReceipt.kt",
         "ConsensusResultView.kt",
         "ConsensusOpenForm.kt",
+        // V1.9.29 "KI-Zugang": no form at all -- one immediate switch (a `CheckBox` constructor, saved by itself, confirmed by a dialog when turned
+        // off) and a revoke button per connection; every write goes through `runGuardedAction`, so R29 does not rise.
+        "McpAccessCard.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */

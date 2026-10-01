@@ -17742,3 +17742,81 @@ msgstr ""
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr ""
+
+msgid "KI-Zugang"
+msgstr ""
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr ""
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr ""
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr ""
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr ""
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr ""
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr ""
+
+msgid "So verbinden Sie einen Agenten"
+msgstr ""
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr ""
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr ""
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr ""
+
+msgid "Ohne Namen"
+msgstr ""
+
+msgid "Erteilt am %1"
+msgstr ""
+
+msgid "Zuletzt benutzt am %1"
+msgstr ""
+
+msgid "Noch nie benutzt"
+msgstr ""
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr ""
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr ""
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr ""
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr ""
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr ""
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr ""
+
+msgid "KI-Zugang ausschalten"
+msgstr ""
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr ""
+
+msgid "Ausschalten"
+msgstr ""
+
+msgid "Verbindung widerrufen"
+msgstr ""
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr ""

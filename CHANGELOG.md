@@ -6,6 +6,32 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added -- V1.9.29 member MCP access card ("KI-Zugang")
+
+- **The "KI-Zugang" card** on "Meine Daten", below the public profile card: the switch "KI-Agenten dürfen sich mit meinem Konto verbinden", the
+  list of the member's agent connections (name, granted, last used or "Noch nie benutzt") with a "Widerrufen" button per row, and a collapsible
+  "So verbinden Sie einen Agenten". Switching off and revoking ask for confirmation (cancel focused); switching on does not. No optimistic UI:
+  the card renders only what the server answered, and re-reads the state after a failed write. Client only: no server, protocol or migration change.
+- Eight message catalogs updated (26 texts); `docs/architecture/mcp-server.adoc` ("Member UI (V1.9.29)") and `docs/architecture/mcp-access-card-staging-test.adoc` added.
+
+### Security -- V1.9.29
+
+- The connection name (chosen by the agent's user) only reaches the screen through the marker-stripping `untrustedDiv`; it is never put into a
+  dialog, attribute or toast. The `tokenId` lives only in the click closure of its row (no DOM, title, id, storage or URL).
+- Every write goes through `runGuardedAction` with a synchronous in-flight guard; the confirmation callbacks are idempotent. No exception text is
+  ever shown, nothing is logged, there is no polling and no automatic retry.
+- The card stays silent (no request, no toast) unless the session has `mcpEnabled` and the member is `ACTIVE`; a feature-off or forbidden answer hides it.
+  `ClientMcpAccessCardTripwireTest` pins this, `McpAccessCard.kt` is in the strict form-grammar set of `ClientUiGuidelineTripwireTest`.
+
+### Known limitations -- V1.9.29
+
+- No per-connection rights are shown (the DTO carries none).
+- MCP is off on PdV, ELB and Staging (no `LAPIS_MCP_*` in the Ops compose files), so the card is invisible there until an operator enables it.
+- The server's fallback label "Unbenannte Verbindung" is a German literal and is not translated; the client's "Ohne Namen" only covers a blank label.
+- A rejected switch-ON arrives as a generic `ForbiddenException`; the card infers the rate limit from the context (switching on).
+- Only `ACTIVE` members see the card; a previously connected member who is no longer active cannot see or revoke connections in the UI (the server rejects them).
+- Not exercised against a real agent or the staging server in this wave (see the staging test plan).
+
 ### Added -- V1.9.28 systemic consensus, web client ("Konsensieren")
 
 - **The "Konsensieren" screen** (sidebar group "Selbstverwaltung", routes `/consensus` and `/consensus/:id`): list with status filter, round and

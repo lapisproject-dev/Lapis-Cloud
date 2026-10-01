@@ -1,0 +1,31 @@
+= Staging test plan: member MCP access card "KI-Zugang" (V1.9.29)
+:toc:
+
+== Purpose
+
+Everything in V1.9.29 is covered by unit, DOM and tripwire tests against stubbed servers. What only a real server can show: a real agent
+OAuth flow producing a connection row, the real effect of a revoke or of the switch on the agent's next call, and the real rate limit.
+This plan is **not executed** in this wave (the staging server and its access belong to the operator).
+
+== Prerequisite (an Ops action)
+
+MCP is off on every operated instance: the compose files of `Lapis-Cloud-Ops` (`pdv`, `elb`, `staging`, `demo`) contain no `LAPIS_MCP_*` variable,
+so the card is invisible there. For this test set `LAPIS_MCP_ENABLED=true` (and optionally `LAPIS_MCP_WRITE_ENABLED=true`) in
+`Lapis-Cloud-Ops/staging/docker-compose.yml`, redeploy staging, and register an agent client (for example Claude Desktop pointed at the staging
+address). One ACTIVE member account, one guest account.
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | Open "Meine Daten" as the member | the card "KI-Zugang" sits below the public profile card; the switch is on by default; "Eingeschaltet. Derzeit ist kein Agent verbunden."
+| 2 | Start the agent's OAuth flow, enter a label on the consent page, "Erlauben" | after a reload the row appears with the label, "Erteilt am ..." and "Noch nie benutzt"
+| 3 | Let the agent call a tool | after a reload "Zuletzt benutzt am ..." is filled
+| 4 | "Widerrufen": cancel first, then confirm | cancel changes nothing; confirm removes the row; the agent's next call gets 401
+| 5 | Switch off | a dialog names the connections and that drafts are kept; after confirming all rows are gone, "Ausgeschaltet."; a new agent attempt ends in `access_denied`
+| 6 | Switch on, then toggle on and off repeatedly | no dialog when switching on; after the configured number of changes switching on is refused with "Bitte versuchen Sie es in einigen Minuten erneut." and the switch shows the server state; switching off still works
+| 7 | A guest (or applicant) opens "Meine Daten" | no card, no toast
+| 8 | Set `LAPIS_MCP_ENABLED` back to false, redeploy, reload as the member | the card is gone, no toast
+| 9 | Name a connection `###KvI18nS###Abbrechen<img src=x onerror=alert(1)>` on the consent page | the row shows plain text without the marker; no image element
+|===

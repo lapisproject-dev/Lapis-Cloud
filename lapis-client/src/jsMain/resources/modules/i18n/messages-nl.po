@@ -18661,3 +18661,81 @@ msgstr "Gelijke stand bij de gecumuleerde weerstand, beslist door de laagste max
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr "Gelijke stand bij de gecumuleerde weerstand, beslist door de kleinste spreiding."
+
+msgid "KI-Zugang"
+msgstr "AI-toegang"
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr "AI-agents, bijvoorbeeld Claude Desktop, kunnen verbinding maken met uw account en uw eigen gegevens lezen. Gegevens van anderen blijven voor hen ontoegankelijk."
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr "Als uw organisatie dat toestaat, kunnen agents ook concepten aanmaken. Er wordt pas iets gepubliceerd wanneer u zelf een concept vrijgeeft."
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr "AI-agents mogen verbinding maken met mijn account"
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr "Uitgeschakeld. Geen enkele AI-agent kan verbinding maken met uw account."
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr "Ingeschakeld. Er is momenteel geen agent verbonden."
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr "Ingeschakeld. Verbonden agents: %1."
+
+msgid "So verbinden Sie einen Agenten"
+msgstr "Zo verbindt u een agent"
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr "Voer in uw AI-agent het adres van dit platform in als MCP-server; uw organisatie vertelt u het exacte adres."
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr "Bij de eerste verbinding meldt u zich hier aan en geeft u de verbinding zelf een naam; de agent krijgt pas toegang nadat u dat toestaat."
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr "De agent ziet alleen uw eigen gegevens en u kunt elke verbinding hier op elk moment intrekken."
+
+msgid "Ohne Namen"
+msgstr "Zonder naam"
+
+msgid "Erteilt am %1"
+msgstr "Verleend op %1"
+
+msgid "Zuletzt benutzt am %1"
+msgstr "Laatst gebruikt op %1"
+
+msgid "Noch nie benutzt"
+msgstr "Nog nooit gebruikt"
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr "De wijziging kon niet worden opgeslagen."
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr "Probeer het over enkele minuten opnieuw."
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr "Alle bestaande verbindingen worden onmiddellijk verbroken."
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr "Er is momenteel geen agent verbonden."
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr "Reeds aangemaakte concepten blijven behouden."
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr "Lopende agentsessies eindigen onmiddellijk."
+
+msgid "KI-Zugang ausschalten"
+msgstr "AI-toegang uitschakelen"
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr "Wilt u de AI-toegang echt uitschakelen?"
+
+msgid "Ausschalten"
+msgstr "Uitschakelen"
+
+msgid "Verbindung widerrufen"
+msgstr "Verbinding intrekken"
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr "Deze agent verliest onmiddellijk de toegang tot uw account."

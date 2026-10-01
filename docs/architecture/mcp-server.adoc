@@ -29,12 +29,30 @@ the member-facing connection list/revoke surface.
 
 == What a member sees
 
-A per-member switch ("KI-Agenten Zugriff erlauben") next to the AI-assistance opt-in, visible only
-when the server reports the MCP layer as operational -- gated independently of the AI-assistance
-layer's own kill switch (the two are deliberately decoupled, see below). Beneath the switch, a list of
-the member's own live connections: the self-declared connection name, when it was granted, when it
-was last used, and a "Zugriff beenden" button per row. Turning the switch off immediately revokes
-every existing connection, not just future ones.
+The "KI-Zugang" card on "Meine Daten" (`DsgvoRightsScreen`, directly below the public profile card -- not next to the AI-assistance
+opt-in): a per-member switch "KI-Agenten dürfen sich mit meinem Konto verbinden", visible only when the server reports the MCP layer as
+operational -- gated independently of the AI-assistance layer's own kill switch (the two are deliberately decoupled, see below). Beneath
+the switch, a list of the member's own live connections: the self-declared connection name, when it was granted, when it was last used, and a
+"Widerrufen" button per row. Turning the switch off immediately revokes every existing connection, not just future ones.
+
+=== Member UI (V1.9.29)
+
+* **Gating.** The card is built only when the session says `mcpEnabled` AND the member is `ACTIVE` (the server answers a non-member with a plain
+  `ForbiddenException`), and it stays hidden when the state read says `featureEnabled = false`, throws `McpFeatureDisabledException` or
+  `ForbiddenException`. Hidden means silent: no toast, no placeholder. Any other read error shows the shared error state with "Erneut versuchen".
+* **Confirmations.** Switching OFF and revoking a connection each ask first (cancel has the focus); switching ON does not. The OFF dialog says
+  whether connections exist ("Alle bestehenden Verbindungen werden sofort getrennt." or "Derzeit ist kein Agent verbunden.") and that drafts are kept.
+  The revoke dialog names no connection label.
+* **No optimistic UI.** Every state shown comes from the DTO the server answered with; a failed write re-reads the state. While a write runs the switch
+  and all revoke buttons are locked, and the in-flight guard is taken synchronously so a double click or a second `onConfirm` is a no-op.
+* **Drafts are kept.** Switching off or revoking never touches `mcp_post_draft` rows; the dialog says so.
+* **The `tokenId` is never displayed.** It lives only in the click closure of its row: not in the DOM, a title, an id, storage or the URL.
+* **The label is untrusted.** The connection name only reaches the screen through `untrustedDiv` (forged i18n markers are stripped); a blank
+  name shows "Ohne Namen". Server exception text is never shown: failures become fixed sentences.
+* **The honest first-connection text.** A collapsible "So verbinden Sie einen Agenten" says what really happens: the agent's address is entered in
+  the agent (the organization names it), the member signs in and names the connection themselves, and only their consent grants access.
+* **Rate limit.** The server answers a rejected switch-ON with a generic `ForbiddenException`; the card can only infer the rate limit from the
+  context (switching on) and shows "Bitte versuchen Sie es in einigen Minuten erneut.", then re-reads the state.
 
 The consent screen an agent's OAuth flow lands the member on is a SEPARATE screen from the existing
 guest-federation consent page (which stays byte-identical). It carries a fixed heading never

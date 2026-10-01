@@ -116,6 +116,7 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     // politician listing consent. The card renders nothing for a member who is neither board member
     // nor politician and has no stored text.
     renderMemberPublicProfileSection(root)
+    renderMcpAccessSection(root)
 
     root.h2(tr("Auskunft")) { addCssClass("h5") }
     root.div(

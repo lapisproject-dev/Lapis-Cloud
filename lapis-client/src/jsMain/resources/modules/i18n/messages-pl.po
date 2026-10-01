@@ -18660,3 +18660,81 @@ msgstr "Remis w skumulowanym oporze, rozstrzygnięty przez najniższą wartość
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr "Remis w skumulowanym oporze, rozstrzygnięty przez najmniejszy rozrzut."
+
+msgid "KI-Zugang"
+msgstr "Dostęp AI"
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr "Agenci AI, na przykład Claude Desktop, mogą połączyć się z Twoim kontem i odczytywać Twoje własne dane. Dane innych osób pozostają dla nich niedostępne."
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr "Jeśli Twoja organizacja na to zezwala, agenci mogą także tworzyć szkice. Nic nie zostanie opublikowane, dopóki sam nie zatwierdzisz szkicu."
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr "Agenci AI mogą łączyć się z moim kontem"
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr "Wyłączone. Żaden agent AI nie może połączyć się z Twoim kontem."
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr "Włączone. Obecnie żaden agent nie jest połączony."
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr "Włączone. Połączeni agenci: %1."
+
+msgid "So verbinden Sie einen Agenten"
+msgstr "Jak połączyć agenta"
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr "Wpisz w swoim agencie AI adres tej platformy jako serwer MCP; dokładny adres poda Ci Twoja organizacja."
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr "Przy pierwszym połączeniu logujesz się tutaj i sam nadajesz połączeniu nazwę; agent otrzymuje dostęp dopiero po Twojej zgodzie."
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr "Agent widzi tylko Twoje własne dane, a każde połączenie możesz tutaj w dowolnej chwili cofnąć."
+
+msgid "Ohne Namen"
+msgstr "Bez nazwy"
+
+msgid "Erteilt am %1"
+msgstr "Udzielono: %1"
+
+msgid "Zuletzt benutzt am %1"
+msgstr "Ostatnio użyto: %1"
+
+msgid "Noch nie benutzt"
+msgstr "Jeszcze nie używano"
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr "Nie udało się zapisać zmiany."
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr "Spróbuj ponownie za kilka minut."
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr "Wszystkie istniejące połączenia zostaną natychmiast przerwane."
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr "Obecnie żaden agent nie jest połączony."
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr "Już utworzone szkice zostają zachowane."
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr "Trwające sesje agenta kończą się natychmiast."
+
+msgid "KI-Zugang ausschalten"
+msgstr "Wyłącz dostęp AI"
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr "Czy na pewno chcesz wyłączyć dostęp AI?"
+
+msgid "Ausschalten"
+msgstr "Wyłącz"
+
+msgid "Verbindung widerrufen"
+msgstr "Cofnij połączenie"
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr "Ten agent natychmiast traci dostęp do Twojego konta."

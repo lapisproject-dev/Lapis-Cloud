@@ -18685,3 +18685,81 @@ msgstr "Empate en la resistencia acumulada, decidido por el valor máximo más b
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr "Empate en la resistencia acumulada, decidido por la menor dispersión."
+
+msgid "KI-Zugang"
+msgstr "Acceso de IA"
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr "Los agentes de IA, por ejemplo Claude Desktop, pueden conectarse a su cuenta y leer sus propios datos. Los datos de otras personas les permanecen inaccesibles."
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr "Si su organización lo permite, los agentes también pueden crear borradores. No se publica nada hasta que usted mismo apruebe un borrador."
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr "Los agentes de IA pueden conectarse a mi cuenta"
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr "Desactivado. Ningún agente de IA puede conectarse a su cuenta."
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr "Activado. Actualmente no hay ningún agente conectado."
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr "Activado. Agentes conectados: %1."
+
+msgid "So verbinden Sie einen Agenten"
+msgstr "Cómo conectar un agente"
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr "Introduzca en su agente de IA la dirección de esta plataforma como servidor MCP; su organización le indicará la dirección exacta."
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr "Al conectar por primera vez, inicia sesión aquí y da usted mismo un nombre a la conexión; el agente solo obtiene acceso después de que usted lo permita."
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr "El agente solo ve sus propios datos y usted puede revocar cada conexión aquí en cualquier momento."
+
+msgid "Ohne Namen"
+msgstr "Sin nombre"
+
+msgid "Erteilt am %1"
+msgstr "Concedido el %1"
+
+msgid "Zuletzt benutzt am %1"
+msgstr "Usado por última vez el %1"
+
+msgid "Noch nie benutzt"
+msgstr "Nunca utilizado"
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr "No se pudo guardar el cambio."
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr "Inténtelo de nuevo en unos minutos."
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr "Todas las conexiones existentes se cortan de inmediato."
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr "Actualmente no hay ningún agente conectado."
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr "Los borradores ya creados se conservan."
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr "Las sesiones de agente en curso terminan de inmediato."
+
+msgid "KI-Zugang ausschalten"
+msgstr "Desactivar el acceso de IA"
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr "¿Realmente desea desactivar el acceso de IA?"
+
+msgid "Ausschalten"
+msgstr "Desactivar"
+
+msgid "Verbindung widerrufen"
+msgstr "Revocar conexión"
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr "Este agente pierde de inmediato el acceso a su cuenta."

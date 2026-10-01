@@ -18724,3 +18724,81 @@ msgstr "Égalité de la résistance cumulée, tranchée par la valeur maximale l
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr "Égalité de la résistance cumulée, tranchée par la dispersion la plus faible."
+
+msgid "KI-Zugang"
+msgstr "Accès IA"
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr "Les agents IA, par exemple Claude Desktop, peuvent se connecter à votre compte et lire vos propres données. Les données d'autres personnes leur restent inaccessibles."
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr "Si votre organisation l'autorise, les agents peuvent aussi créer des brouillons. Rien n'est publié tant que vous n'avez pas validé vous-même un brouillon."
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr "Les agents IA peuvent se connecter à mon compte"
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr "Désactivé. Aucun agent IA ne peut se connecter à votre compte."
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr "Activé. Aucun agent n'est connecté pour le moment."
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr "Activé. Agents connectés : %1."
+
+msgid "So verbinden Sie einen Agenten"
+msgstr "Comment connecter un agent"
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr "Saisissez dans votre agent IA l'adresse de cette plateforme comme serveur MCP ; votre organisation vous indiquera l'adresse exacte."
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr "Lors de la première connexion, vous vous identifiez ici et nommez vous-même la connexion ; l'agent n'obtient l'accès qu'après votre autorisation."
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr "L'agent ne voit que vos propres données, et vous pouvez révoquer chaque connexion ici à tout moment."
+
+msgid "Ohne Namen"
+msgstr "Sans nom"
+
+msgid "Erteilt am %1"
+msgstr "Accordé le %1"
+
+msgid "Zuletzt benutzt am %1"
+msgstr "Dernière utilisation le %1"
+
+msgid "Noch nie benutzt"
+msgstr "Jamais utilisé"
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr "La modification n'a pas pu être enregistrée."
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr "Veuillez réessayer dans quelques minutes."
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr "Toutes les connexions existantes sont coupées immédiatement."
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr "Aucun agent n'est connecté actuellement."
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr "Les brouillons déjà créés sont conservés."
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr "Les sessions d'agent en cours se terminent immédiatement."
+
+msgid "KI-Zugang ausschalten"
+msgstr "Désactiver l'accès IA"
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr "Voulez-vous vraiment désactiver l'accès IA ?"
+
+msgid "Ausschalten"
+msgstr "Désactiver"
+
+msgid "Verbindung widerrufen"
+msgstr "Révoquer la connexion"
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr "Cet agent perd immédiatement l'accès à votre compte."

@@ -18613,3 +18613,81 @@ msgstr "Tie in the cumulative resistance, decided by the lowest maximum value."
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr "Tie in the cumulative resistance, decided by the lowest spread."
+
+msgid "KI-Zugang"
+msgstr "AI access"
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr "AI agents, for example Claude Desktop, can connect to your account and read your own data. Other people's data stays closed to them."
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr "If your organization allows it, agents can also create drafts. Nothing is published until you release a draft yourself."
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr "AI agents may connect to my account"
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr "Switched off. No AI agent can connect to your account."
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr "Switched on. No agent is connected at the moment."
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr "Switched on. Connected agents: %1."
+
+msgid "So verbinden Sie einen Agenten"
+msgstr "How to connect an agent"
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr "Enter the address of this platform as an MCP server in your AI agent; your organization will tell you the exact address."
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr "When connecting for the first time you sign in here and name the connection yourself; the agent only gets access after you allow it."
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr "The agent only sees your own data, and you can revoke every connection here at any time."
+
+msgid "Ohne Namen"
+msgstr "Unnamed"
+
+msgid "Erteilt am %1"
+msgstr "Granted on %1"
+
+msgid "Zuletzt benutzt am %1"
+msgstr "Last used on %1"
+
+msgid "Noch nie benutzt"
+msgstr "Never used"
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr "The change could not be saved."
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr "Please try again in a few minutes."
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr "All existing connections are cut immediately."
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr "No agent is connected at the moment."
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr "Drafts that were already created are kept."
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr "Running agent sessions end immediately."
+
+msgid "KI-Zugang ausschalten"
+msgstr "Switch off AI access"
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr "Do you really want to switch off AI access?"
+
+msgid "Ausschalten"
+msgstr "Switch off"
+
+msgid "Verbindung widerrufen"
+msgstr "Revoke connection"
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr "This agent immediately loses access to your account."

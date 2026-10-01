@@ -18651,3 +18651,81 @@ msgstr "Равенство по накопленному сопротивлен�
 
 msgid "Gleichstand beim kumulierten Widerstand, entschieden durch die geringste Streuung."
 msgstr "Равенство по накопленному сопротивлению, решено по наименьшему разбросу."
+
+msgid "KI-Zugang"
+msgstr "Доступ ИИ"
+
+msgid "KI-Agenten, zum Beispiel Claude Desktop, können sich mit Ihrem Konto verbinden und Ihre eigenen Daten lesen. Daten anderer Personen bleiben ihnen verschlossen."
+msgstr "ИИ-агенты, например Claude Desktop, могут подключаться к вашей учётной записи и читать ваши собственные данные. Данные других людей остаются для них недоступными."
+
+msgid "Wenn Ihre Organisation es erlaubt, können Agenten außerdem Entwürfe anlegen. Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben."
+msgstr "Если ваша организация это разрешает, агенты могут также создавать черновики. Ничего не публикуется, пока вы сами не одобрите черновик."
+
+msgid "KI-Agenten dürfen sich mit meinem Konto verbinden"
+msgstr "ИИ-агентам разрешено подключаться к моей учётной записи"
+
+msgid "Ausgeschaltet. Kein KI-Agent kann sich mit Ihrem Konto verbinden."
+msgstr "Выключено. Ни один ИИ-агент не может подключиться к вашей учётной записи."
+
+msgid "Eingeschaltet. Derzeit ist kein Agent verbunden."
+msgstr "Включено. Сейчас ни один агент не подключён."
+
+msgid "Eingeschaltet. Verbundene Agenten: %1."
+msgstr "Включено. Подключённых агентов: %1."
+
+msgid "So verbinden Sie einen Agenten"
+msgstr "Как подключить агента"
+
+msgid "Tragen Sie in Ihrem KI-Agenten die Adresse dieser Plattform als MCP-Server ein; die genaue Adresse nennt Ihnen Ihre Organisation."
+msgstr "Укажите в своём ИИ-агенте адрес этой платформы как MCP-сервер; точный адрес сообщит вам ваша организация."
+
+msgid "Beim ersten Verbinden melden Sie sich hier an und geben der Verbindung selbst einen Namen; erst nach Ihrem Erlauben erhält der Agent Zugriff."
+msgstr "При первом подключении вы входите здесь и сами даёте подключению имя; агент получает доступ только после вашего разрешения."
+
+msgid "Der Agent sieht nur Ihre eigenen Daten, und Sie können jede Verbindung hier jederzeit widerrufen."
+msgstr "Агент видит только ваши собственные данные, и вы можете в любой момент отозвать любое подключение здесь."
+
+msgid "Ohne Namen"
+msgstr "Без имени"
+
+msgid "Erteilt am %1"
+msgstr "Предоставлено: %1"
+
+msgid "Zuletzt benutzt am %1"
+msgstr "Последнее использование: %1"
+
+msgid "Noch nie benutzt"
+msgstr "Ещё не использовалось"
+
+msgid "Die Änderung konnte nicht gespeichert werden."
+msgstr "Не удалось сохранить изменение."
+
+msgid "Bitte versuchen Sie es in einigen Minuten erneut."
+msgstr "Повторите попытку через несколько минут."
+
+msgid "Alle bestehenden Verbindungen werden sofort getrennt."
+msgstr "Все существующие подключения будут немедленно разорваны."
+
+msgid "Derzeit ist kein Agent verbunden."
+msgstr "Сейчас ни один агент не подключён."
+
+msgid "Bereits erstellte Entwürfe bleiben erhalten."
+msgstr "Уже созданные черновики сохраняются."
+
+msgid "Laufende Agentensitzungen enden sofort."
+msgstr "Текущие сеансы агента завершаются немедленно."
+
+msgid "KI-Zugang ausschalten"
+msgstr "Выключить доступ ИИ"
+
+msgid "Möchten Sie den KI-Zugang wirklich ausschalten?"
+msgstr "Вы действительно хотите выключить доступ ИИ?"
+
+msgid "Ausschalten"
+msgstr "Выключить"
+
+msgid "Verbindung widerrufen"
+msgstr "Отозвать подключение"
+
+msgid "Dieser Agent verliert sofort den Zugriff auf Ihr Konto."
+msgstr "Этот агент немедленно теряет доступ к вашей учётной записи."
