@@ -147,17 +147,28 @@ The receipt code is 20 random bytes as unpadded Base64url: exactly 27 characters
 * A secret election's ballot table shows the selection and nothing else -- no id, no time, no name. The DTO is reduced to a
   private row type *before* it is rendered, so the id and the cast time never reach a table state or a sort key, and a hostile
   server cannot make a name appear.
-* `castAt` of a secret election is stored with day precision (the server already coarsens it), which breaks the one-to-one join
-  with the participation row's full-precision `voted_at`. Remaining risk: a ballot can still be attributed to a *day* if only
-  one member voted that day.
+* `castAt` of a secret ballot is the one constant `votingOpenedAt` of its election (V1.9.23). It carries no time and no order, so
+  it cannot be joined with the participation row's full-precision `voted_at`, and the booth never shows a time. Before V1.9.23 this was coarsened to the day, which still leaked the day and, with a stable ballot list, the order.
+* `listElectionBallots` returns *nothing* for a secret election before `TALLIED` (the number is in `ballotCount`), and afterwards
+  ballots with a blank id in a canonical order. A poll of stable ballot ids would have shown exactly when a voter's ballot appeared.
 * Before the tally only the number of ballots is shown. Option vote counts stay `0` until `TALLIED` (server rule).
+
+== Required majority (V1.9.23)
+
+The form no longer asks for a percentage. The majority is a choice -- "Einfache Mehrheit (mehr Ja als Nein)" (1/2, the default),
+"Zwei Drittel" (2/3), "Drei Viertel" (3/4) or "Andere Mehrheit" ("mindestens N von M Stimmen", `M` up to 100, at least one half).
+The server stores the reduced fraction and checks `ja * denominator >= numerator * (ja + nein)` in integer arithmetic, which
+expresses two thirds exactly (a whole percent cannot: 66 % is too lenient, 67 % too strict). `requiredMajorityPercent` is still
+filled (`ceil(numerator * 100 / denominator)`) so a V1.9.22 client keeps working. A plurality election (multiple choice) has no
+majority and the group is hidden. The live explanation uses the same arithmetic as the server.
+
+== Conflicts
+
+A conflict on an election action, or when opening an election from a motion, now means that another decision path got there first
+(see `elections-integrity.adoc`). The client shows a fixed text ("Der Antrag wurde inzwischen anders bearbeitet. Die Ansicht wurde
+aktualisiert."), never the server's message, and reloads the motion or the election.
 
 == Known limitations and follow-ups
 
-* `MIN_TALLY_THRESHOLD` stays `1` on the server; the form asks for at least 2 (four eyes).
-* Two thirds cannot be expressed exactly with an integer percentage.
 * Who approved the tally is not visible by name, only the count.
-* Two decision paths for one motion are not guarded against each other *on the server*: `openVote`/`resolveMotion` still work
-  while an election exists, `openElection` does not check for an open meritocratic vote, and `tally()` does not check that the
-  motion is still `SCHEDULED`. The client closes this in the UI (a motion with a running election offers no other way to decide
-  it) but the server rule is an open integrity follow-up.
+* The meritocratic-vote and systemic-consensus screens still use the generic conflict toast; they do not reload on a conflict.

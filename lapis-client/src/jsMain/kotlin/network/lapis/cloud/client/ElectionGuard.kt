@@ -21,10 +21,12 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
 
 /**
  * Like `guarded`, but a [ConflictException] shows the fixed [conflictMessage] instead of the generic conflict toast -- for every
- * election WRITE call. Any other exception behaves exactly as in `guarded`.
+ * election WRITE call. [onConflict] runs right after that message (typically a reload of the screen). Any other exception
+ * behaves exactly as in `guarded`.
  */
 suspend fun <T> electionGuarded(
     conflictMessage: String,
+    onConflict: () -> Unit = {},
     block: suspend () -> T,
 ): T? =
     try {
@@ -41,6 +43,9 @@ suspend fun <T> electionGuarded(
         null
     } catch (e: ConflictException) {
         notifyError(conflictMessage)
+        // V1.9.23: a conflict now usually means another decision path got there first (an election, a vote, a
+        // quorum resolution). The caller reloads, so the screen shows the real state instead of a stale one.
+        onConflict()
         null
     } catch (e: BadRequestException) {
         notifyError(tr("Ungültige Anfrage."))

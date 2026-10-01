@@ -31,12 +31,15 @@ public object ElectionTable : Table("election") {
     public val motionId: Column<Uuid> = reference("motion_id", MotionTable.id)
     public val meetingId: Column<Uuid> = reference("meeting_id", MeetingTable.id)
     public val resolutionId: Column<Uuid?> = optReference("resolution_id", ResolutionTable.id)
+    public val activeMotionId: Column<Uuid?> = uuid("active_motion_id").nullable()
+    public val requiredMajorityNumerator: Column<Int?> = integer("required_majority_numerator").nullable()
+    public val requiredMajorityDenominator: Column<Int?> = integer("required_majority_denominator").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 3 index(es) declared on this entity are not emitted —
+    // Note: 4 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
-    // Note: 3 check constraint(s) declared on this entity are not
+    // Note: 6 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

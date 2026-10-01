@@ -948,7 +948,7 @@ class ElectionServiceTest :
         }
 
         test(
-            "secret ballot secrecy: election_ballot.cast_at is decoupled from election_participation.voted_at, " +
+            "secret ballot secrecy: cast_at is the constant votingOpenedAt, decoupled from election_participation.voted_at, " +
                 "not a bit-identical join key back to the voter",
         ) {
             testApplication {
@@ -993,15 +993,22 @@ class ElectionServiceTest :
                             .where { ElectionBallotTable.electionId eq Uuid.parse(electionId) }
                             .single()[ElectionBallotTable.castAt]
                     }
-                // The bug: both columns were written from the same `now` value, so a trivial
-                // `voted_at = cast_at` join re-linked every secret ballot to its voter. The fix:
-                // cast_at is coarsened to the calendar date (time-of-day zeroed) for a secret
-                // Election, so it is never bit-identical to voted_at's full-precision timestamp.
+                // V1.9.23: cast_at of a secret ballot is the election's constant votingOpenedAt -- never the
+                // voter's full-precision voted_at (the original join-key bug) and no longer a day-coarsened
+                // value that still leaked the order and the day.
+                val votingOpenedAt =
+                    transaction {
+                        ElectionTable
+                            .selectAll()
+                            .where {
+                                ElectionTable.id eq
+                                    Uuid.parse(
+                                        electionId,
+                                    )
+                            }.single()[ElectionTable.votingOpenedAt]
+                    }
+                castAt shouldBe votingOpenedAt
                 castAt shouldNotBe votedAt
-                castAt.hour shouldBe 0
-                castAt.minute shouldBe 0
-                castAt.second shouldBe 0
-                castAt.date shouldBe votedAt.date
             }
         }
 

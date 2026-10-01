@@ -41,6 +41,73 @@ data class PersonnelElectionErgebnis(
 )
 
 /**
+ * A required majority as an exact fraction: the winner needs `votes * denominator >= numerator * total`.
+ * The invariants mirror the database CHECK `ck_election_majority_fraction`
+ * (`1 <= numerator <= denominator <= 100` and `2 * numerator >= denominator`, i.e. at least half).
+ */
+data class MajorityFraction(
+    val numerator: Int,
+    val denominator: Int,
+) {
+    init {
+        require(numerator >= 1) { "required majority numerator must be at least 1, got $numerator" }
+        require(denominator <= MAX_DENOMINATOR) { "required majority denominator must be at most $MAX_DENOMINATOR, got $denominator" }
+        require(numerator <= denominator) { "required majority must not exceed 1 ($numerator/$denominator)" }
+        require(2 * numerator >= denominator) { "Die Mehrheit muss mindestens die Hälfte betragen ($numerator/$denominator)" }
+    }
+
+    /** `true` when [votes] out of [total] reach this majority. Exact, overflow-free (Long arithmetic). */
+    fun isMetBy(
+        votes: Int,
+        total: Int,
+    ): Boolean = votes.toLong() * denominator >= numerator.toLong() * total
+
+    companion object {
+        const val MAX_DENOMINATOR = 100
+    }
+}
+
+object ElectionMajority {
+    /**
+     * Validates a numerator/denominator pair and reduces it by the greatest common divisor, so `4/6` is
+     * stored as `2/3`. Both `null` means "no fraction" (the legacy percent path) and returns `null`.
+     *
+     * @throws IllegalArgumentException when only one of the two is set or an invariant of
+     *   [MajorityFraction] is violated.
+     */
+    fun normalize(
+        numerator: Int?,
+        denominator: Int?,
+    ): MajorityFraction? {
+        if (numerator == null && denominator == null) return null
+        require(
+            numerator != null && denominator != null,
+        ) { "requiredMajorityNumerator and requiredMajorityDenominator must be set together" }
+        require(denominator >= 1) { "required majority denominator must be at least 1, got $denominator" }
+        val divisor = gcd(a = numerator, b = denominator)
+        return MajorityFraction(numerator = numerator / divisor, denominator = denominator / divisor)
+    }
+
+    /** `ceil(numerator * 100 / denominator)`, in integer arithmetic -- the value shown to clients that only know percents. */
+    fun percentForLegacyDisplay(fraction: MajorityFraction): Int =
+        ((fraction.numerator.toLong() * 100 + fraction.denominator - 1) / fraction.denominator).toInt()
+
+    private fun gcd(
+        a: Int,
+        b: Int,
+    ): Int {
+        var x = kotlin.math.abs(a)
+        var y = kotlin.math.abs(b)
+        while (y != 0) {
+            val t = x % y
+            x = y
+            y = t
+        }
+        return if (x == 0) 1 else x
+    }
+}
+
+/**
  * Ja/Nein tally for [network.lapis.cloud.shared.domain.ElectionType.YES_NO] Electionen. Pure function, no
  * DB access -- exhaustively property-testable, same rationale as
  * `VoteSettlement.computeVickreySettlement` KDoc gives for why this matters (a bug here
@@ -52,10 +119,15 @@ data class PersonnelElectionErgebnis(
  * requiredMajorityPercent * decisive`) to avoid any floating-point rounding boundary error. A tie
  * (`ja == nein`, including the `0 == 0` no-ballots-cast case) is undecided regardless of
  * [requiredMajorityPercent] and is never reported as [JaNeinErgebnis.majorityMet].
+ *
+ * V1.9.23: when [fraction] is given it replaces the percent check (`ja * denominator >= numerator *
+ * decisive`), which can express 2/3 exactly -- a whole percent cannot (67 % demands more than two thirds,
+ * 66 % less). [requiredMajorityPercent] is then only validated, not used.
  */
 fun computeJaNeinErgebnis(
     ballots: List<ElectionAnswer>,
     requiredMajorityPercent: Int,
+    fraction: MajorityFraction? = null,
 ): JaNeinErgebnis {
     require(requiredMajorityPercent in 1..100) {
         "requiredMajorityPercent must be in 1..100, got $requiredMajorityPercent"
@@ -65,7 +137,13 @@ fun computeJaNeinErgebnis(
     val enthaltung = ballots.count { it == ElectionAnswer.ABSTAIN }
     val decisive = ja + nein
     val tie = decisive == 0 || ja == nein
-    val majorityMet = !tie && ja.toLong() * 100 >= requiredMajorityPercent.toLong() * decisive
+    val majorityMet =
+        !tie &&
+            if (fraction != null) {
+                fraction.isMetBy(votes = ja, total = decisive)
+            } else {
+                ja.toLong() * 100 >= requiredMajorityPercent.toLong() * decisive
+            }
     return JaNeinErgebnis(ja = ja, nein = nein, enthaltung = enthaltung, majorityMet = majorityMet, tie = tie)
 }
 

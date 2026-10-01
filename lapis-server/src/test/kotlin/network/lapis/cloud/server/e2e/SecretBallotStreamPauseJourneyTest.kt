@@ -271,7 +271,7 @@ class SecretBallotStreamPauseJourneyTest :
                                         motionId = call.parameters["motionId"]!!,
                                         electionType = ElectionType.YES_NO,
                                         secret = true,
-                                        tallyThreshold = 1,
+                                        tallyThreshold = 2,
                                     ),
                                 )
                             call.respondText("${w.id}:${w.status}")
@@ -448,9 +448,10 @@ class SecretBallotStreamPauseJourneyTest :
                 restartCountAfterCloseVoting shouldBe 1
                 streamStatusAndPauseReasonOf(streamId).second shouldBe null
 
-                // ── Step 9: Vier-Augen tally (tallyThreshold=1 -- one named approval suffices) -- ─
+                // ── Step 9: Vier-Augen tally (tallyThreshold=2 -- two named approvals, V1.9.23 floor) ─
                 // ── 2 YES votes, no NO/ABSTAIN -> majority met, YES wins, no tie. ─────────────────
                 client.post("/e2e9/approve-tally/$electionId") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.OK
+                client.post("/e2e9/approve-tally/$electionId") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
                 val tallyParts = client.post("/e2e9/tally/$electionId") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split(":")
                 tallyParts[1] shouldBe "false" // tie
                 tallyParts[2] shouldBe "true" // majorityMet

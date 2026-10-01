@@ -490,6 +490,15 @@ class GovernanceService(
         return transaction {
             val committeeId = requireMeetingCommitteeId(sId)
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
+            // V1.9.23: a free-form resolution recorded against an agenda item must not sidestep an election
+            // that is deciding the motion behind that item. The motions are locked (motion first, ascending id)
+            // so the check cannot race an openElection.
+            val agendaItemId = input.agendaItemId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+            if (agendaItemId != null) {
+                MotionDecisionLock.lockMotionsByAgendaItem(agendaItemId).forEach {
+                    MotionDecisionLock.requireNoActiveElection(it[MotionTable.id])
+                }
+            }
             val meeting = loadMeeting(sId)
             val resolution =
                 insertResolutionRow(
@@ -644,15 +653,16 @@ class GovernanceService(
         val current = resolveCurrentMember(call)
         val aId = id.toMotionUuid()
         return transaction {
-            val row =
-                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Motion $id not found")
+            // V1.9.23: locked, and refused while an election runs on the motion -- withdrawing it would leave
+            // the election unable to be tallied. The election has to be aborted first.
+            val row = MotionDecisionLock.lockMotion(aId)
             val committeeId = row[MotionTable.targetCommitteeId]
             val submitterId = row[MotionTable.submitterMemberId]
             val status = row[MotionTable.status]
             val submitterWithdrawingOwnPending = current.memberId == submitterId && status == MotionStatus.SUBMITTED
             if (!submitterWithdrawingOwnPending && !current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             if (status == MotionStatus.WITHDRAWN) throw ConflictException("Motion $id already withdrawn")
+            MotionDecisionLock.requireNoActiveElection(aId)
             val now = nowLocalDateTime()
             MotionTable.update({ MotionTable.id eq aId }) {
                 it[MotionTable.status] = MotionStatus.WITHDRAWN
@@ -809,6 +819,8 @@ class GovernanceService(
             if (row[MotionTable.status] != MotionStatus.SCHEDULED) {
                 throw ConflictException("Motion $id is ${row[MotionTable.status]}, expected SCHEDULED")
             }
+            // V1.9.23: an election is the decision path of this motion; the quorum path may not decide it too.
+            MotionDecisionLock.requireNoActiveElection(aId)
             // Änderungsantrag (V0.2.6) ordering guard: a MAIN motion may not resolve while any of
             // its amendments is still pending -- see requireNoPendingAmendments KDoc.
             if (row[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(aId)
@@ -868,9 +880,9 @@ class GovernanceService(
         val current = resolveCurrentMember(call)
         val aId = input.motionId.toMotionUuid()
         return transaction {
-            val motionRow =
-                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Motion ${input.motionId} not found")
+            // V1.9.23: locked first (see MotionDecisionLock), so the vote check and the exclusion against an
+            // election / systemic consensus cannot race another openVote or openElection.
+            val motionRow = MotionDecisionLock.lockMotion(aId)
             val committeeId = motionRow[MotionTable.targetCommitteeId]
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
             if (motionRow[MotionTable.status] != MotionStatus.SCHEDULED) {
@@ -879,6 +891,8 @@ class GovernanceService(
             val sId =
                 motionRow[MotionTable.meetingId]
                     ?: throw ConflictException("Motion ${input.motionId} has no scheduled Meeting")
+            MotionDecisionLock.requireNoActiveElection(aId)
+            MotionDecisionLock.requireNoActiveSystemicConsensus(aId)
             val hasActiveVote =
                 VoteTable
                     .selectAll()
@@ -1085,25 +1099,35 @@ class GovernanceService(
         val current = resolveCurrentMember(call)
         val abId = voteId.toVoteUuid()
         return transaction {
-            val voteRow =
-                VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+            // motion_id never changes, so it can be read before any lock.
+            val motionId =
+                VoteTable
+                    .selectAll()
+                    .where { VoteTable.id eq abId }
+                    .singleOrNull()
+                    ?.get(VoteTable.motionId)
                     ?: throw NotFoundException("Vote $voteId not found")
             // forUpdate(): same lock discipline as resolveMotion's own Motion-row read -- see its
             // KDoc for the submitMotion race this closes; closeVote is the second path capable of
             // finalizing a main motion, so it needs the identical lock.
-            val motionRow =
-                MotionTable
+            val motionRow = MotionDecisionLock.lockMotion(motionId)
+            // V1.9.23: the vote row is re-read FOR UPDATE only AFTER the motion lock. Before, it was read
+            // before the lock and its stale status was "re-checked" below, so two concurrent closeVote calls
+            // could both settle and both write a resolution.
+            val voteRow =
+                VoteTable
                     .selectAll()
-                    .where { MotionTable.id eq voteRow[VoteTable.motionId] }
+                    .where { VoteTable.id eq abId }
                     .forUpdate()
                     .single()
             val committeeId = motionRow[MotionTable.targetCommitteeId]
             if (!current.canRecordForMeeting(committeeId)) throw ForbiddenException()
-            // Re-checked inside the transaction: guards against a concurrent second close (or a
-            // cast-vs-close race) between the read above and this point.
             if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
                 throw ConflictException("Vote $voteId is ${voteRow[VoteTable.status]}, expected OPEN")
             }
+            // V1.9.23: an election on the same motion owns the decision; the motion must still be undecided.
+            MotionDecisionLock.requireNoActiveElection(motionId)
+            MotionDecisionLock.requireUndecided(motionRow)
             // Änderungsantrag (V0.2.6) ordering guard: same invariant resolveMotion enforces --
             // required for soundness here too, since closeVote is a second path capable of
             // finalizing a main motion that still has pending amendments.
@@ -1214,11 +1238,21 @@ class GovernanceService(
         val current = resolveCurrentMember(call)
         val abId = voteId.toVoteUuid()
         return transaction {
-            val voteRow =
-                VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+            val motionId =
+                VoteTable
+                    .selectAll()
+                    .where { VoteTable.id eq abId }
+                    .singleOrNull()
+                    ?.get(VoteTable.motionId)
                     ?: throw NotFoundException("Vote $voteId not found")
-            val motionRow =
-                MotionTable.selectAll().where { MotionTable.id eq voteRow[VoteTable.motionId] }.single()
+            // V1.9.23: motion lock first, then the vote row FOR UPDATE -- abort cannot interleave with closeVote.
+            val motionRow = MotionDecisionLock.lockMotion(motionId)
+            val voteRow =
+                VoteTable
+                    .selectAll()
+                    .where { VoteTable.id eq abId }
+                    .forUpdate()
+                    .single()
             if (!current.canRecordForMeeting(motionRow[MotionTable.targetCommitteeId])) throw ForbiddenException()
             if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
                 throw ConflictException("Vote $voteId is ${voteRow[VoteTable.status]}, expected OPEN")

@@ -335,6 +335,53 @@ class ElectionSchemaDriftTest :
             model.entityNameOf(entity.attributeByName("option_id")?.foreignKey?.targetEntityId ?: "") shouldBe "election_option"
         }
 
+        test("V1.9.23 election integrity columns and unique indexes are modelled and migrated") {
+            val entity = model.entities.single { it.name == "election" }
+            val real = transaction { introspectElectionTable("election") }
+            listOf("active_motion_id", "required_majority_numerator", "required_majority_denominator").forEach { name ->
+                withClue(clue = "column '$name'") {
+                    real.columns.getValue(name).nullable shouldBe true
+                    entity.attributeByName(name)?.nullable shouldBe true
+                }
+            }
+            real.uniqueColumnsByName["uq_election_active_motion"] shouldBe setOf("active_motion_id")
+            entity.indexes.single { it.name == "uq_election_active_motion" }.let {
+                it.unique shouldBe true
+                it.attributeIds shouldBe listOf(entity.attributeByName("active_motion_id")!!.id)
+            }
+
+            val option = model.entities.single { it.name == "election_option" }
+            val realOption = transaction { introspectElectionTable("election_option") }
+            realOption.uniqueColumnsByName["uq_election_option_position"] shouldBe setOf("election_id", "position")
+            option.indexes.single { it.name == "uq_election_option_position" }.let {
+                it.unique shouldBe true
+                it.attributeIds.toSet() shouldBe
+                    setOf(option.attributeByName("election_id")!!.id, option.attributeByName("position")!!.id)
+            }
+        }
+
+        test("V1.9.23 check constraints exist in the migrated schema") {
+            // The CHECKs are exercised against real rows by ElectionIntegrityMigrationTest / ElectionIntegrityTest;
+            // here we only pin that the named constraints exist in the migrated schema.
+            val names = mutableSetOf<String>()
+            transaction {
+                exec(
+                    "SELECT constraint_name FROM information_schema.table_constraints " +
+                        "WHERE table_name = 'election' AND constraint_type = 'CHECK'",
+                ) { rs ->
+                    while (rs.next()) names += rs.getString("constraint_name").lowercase()
+                }
+            }
+            names.containsAll(
+                listOf(
+                    "ck_election_active_motion",
+                    "ck_election_active_motion_status",
+                    "ck_election_majority_fraction",
+                    "ck_election_tally_threshold",
+                ),
+            ) shouldBe true
+        }
+
         // ── (2) Model vs. hand-written Exposed Table objects ────────────────────
 
         test("election entity column-name set matches the hand-written ElectionTable 1:1") {
@@ -451,6 +498,8 @@ private data class IntrospectedElectionTable(
     val foreignKeys: Map<String, String>,
     /** Each element is the full column-name set of one multi-column UNIQUE constraint (2+ columns). */
     val compositeUniqueConstraints: List<Set<String>>,
+    /** Every UNIQUE constraint/index by name, single-column ones included (V1.9.23). */
+    val uniqueColumnsByName: Map<String, Set<String>>,
 )
 
 private data class IntrospectedElectionColumn(
@@ -534,6 +583,7 @@ private fun JdbcTransaction.introspectElectionTable(tableName: String): Introspe
         columns = columns,
         foreignKeys = fkByColumn,
         compositeUniqueConstraints = compositeUniques,
+        uniqueColumnsByName = uniqueColumnsByConstraint.mapValues { it.value.toSet() },
     )
 }
 

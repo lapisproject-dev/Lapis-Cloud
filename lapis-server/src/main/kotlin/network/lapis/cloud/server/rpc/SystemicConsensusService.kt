@@ -117,15 +117,17 @@ class SystemicConsensusService(
         val current = resolveCurrentMember(call)
         val aId = input.motionId.toUuidOrNotFound("Motion")
         return transaction {
-            val motionRow =
-                MotionTable.selectAll().where { MotionTable.id eq aId }.singleOrNull()
-                    ?: throw NotFoundException("Motion ${input.motionId} not found")
+            // V1.9.23: motion lock first (see MotionDecisionLock) and mutual exclusion against an election
+            // and a meritocratic vote on the same motion.
+            val motionRow = MotionDecisionLock.lockMotion(aId)
             val committeeId = motionRow[MotionTable.targetCommitteeId]
             if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
             if (motionRow[MotionTable.status] != MotionStatus.SCHEDULED) {
                 throw ConflictException("Motion ${input.motionId} is ${motionRow[MotionTable.status]}, expected SCHEDULED")
             }
             val sId = motionRow[MotionTable.meetingId] ?: throw ConflictException("Motion ${input.motionId} has no scheduled Meeting")
+            MotionDecisionLock.requireNoActiveElection(aId)
+            MotionDecisionLock.requireNoOpenVote(aId)
 
             val hasActive =
                 SystemicConsensusTable
@@ -495,11 +497,24 @@ class SystemicConsensusService(
         val current = resolveCurrentMember(call)
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
         return transaction {
-            val row = requireSystemicConsensusRow(kId)
-            val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
+            // V1.9.23: lock order motion -> systemic consensus. The motion is locked up front (not only inside
+            // the BINDING branch) so the exclusion against an election is checked on locked state.
+            val motionId = requireSystemicConsensusRow(kId)[SystemicConsensusTable.motionId]
+            val evaluateMotionRow = MotionDecisionLock.lockMotion(motionId)
+            val row =
+                SystemicConsensusTable
+                    .selectAll()
+                    .where { SystemicConsensusTable.id eq kId }
+                    .forUpdate()
+                    .single()
+            val committeeId = evaluateMotionRow[MotionTable.targetCommitteeId]
             if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
             if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.CLOSED) {
                 throw ConflictException("SystemicConsensus $systemicConsensusId is ${row[SystemicConsensusTable.status]}, expected CLOSED")
+            }
+            MotionDecisionLock.requireNoActiveElection(motionId)
+            if (row[SystemicConsensusTable.bindingness] == SystemicConsensusBindingness.BINDING) {
+                MotionDecisionLock.requireUndecided(evaluateMotionRow)
             }
             val round = row[SystemicConsensusTable.round]
 
@@ -567,12 +582,8 @@ class SystemicConsensusService(
                 val meeting = MeetingTable.selectAll().where { MeetingTable.id eq row[SystemicConsensusTable.meetingId] }.single()
                 // forUpdate(): same lock discipline as GovernanceService.resolveMotion/closeVote's
                 // own Motion-row read -- see that KDoc for the submitMotion race this closes.
-                val motionRow =
-                    MotionTable
-                        .selectAll()
-                        .where { MotionTable.id eq row[SystemicConsensusTable.motionId] }
-                        .forUpdate()
-                        .single()
+                // Already locked at the top of this transaction.
+                val motionRow = evaluateMotionRow
                 // Änderungsantrag (V0.2.6) ordering guard: this BINDING branch also finalizes the
                 // underlying Motion to a terminal status, so it needs the same soundness guard
                 // GovernanceService.resolveMotion/closeVote enforce -- see

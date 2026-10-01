@@ -58,4 +58,48 @@ class ElectionMajorityExplainTest {
         assertTrue(majorityExplanation(ElectionType.LIST_VOTE, 50).isEmpty())
         assertTrue(majorityExplanation(ElectionType.RANKED_CHOICE, 50).isEmpty())
     }
+
+    @Test
+    fun theFractionForms_matchTheServerArithmeticExactly() {
+        // 2/3 of 3 decisive votes: 2 yes carry it (2 * 3 >= 2 * 3), a tie is never enough
+        assertEquals(2, minYesNeeded(decisive = 3, numerator = 2, denominator = 3))
+        // 2/3 of 100: 67 yes (66 * 3 = 198 < 200, 67 * 3 = 201 >= 200)
+        assertEquals(67, minYesNeeded(decisive = 100, numerator = 2, denominator = 3))
+        assertEquals(3, minYesNeeded(decisive = 4, numerator = 3, denominator = 4))
+        assertEquals(51, minYesNeeded(decisive = 100, numerator = 1, denominator = 2))
+        assertNull(minYesNeeded(decisive = 0, numerator = 2, denominator = 3))
+        assertEquals(4, minVotesSingleChoice(total = 5, numerator = 2, denominator = 3))
+        assertEquals(67, minVotesSingleChoice(total = 100, numerator = 2, denominator = 3))
+        assertEquals(0, minVotesSingleChoice(total = 0, numerator = 1, denominator = 2))
+    }
+
+    @Test
+    fun theLegacyPercentForms_areTheFractionOverOneHundred() {
+        for (decisive in 1..30) {
+            for (percent in listOf(1, 34, 50, 60, 67, 75, 100)) {
+                assertEquals(
+                    minYesNeeded(decisive = decisive, numerator = percent, denominator = 100),
+                    minYesNeeded(decisive = decisive, percent = percent),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun majorityPercentCeil_roundsUpLikeTheServer() {
+        assertEquals(50, majorityPercentCeil(1, 2))
+        assertEquals(67, majorityPercentCeil(2, 3))
+        assertEquals(75, majorityPercentCeil(3, 4))
+        assertEquals(60, majorityPercentCeil(3, 5))
+        assertEquals(100, majorityPercentCeil(1, 1))
+    }
+
+    @Test
+    fun majorityLabel_usesWordsForTheCommonFractions() {
+        assertEquals("Einfache Mehrheit (mehr Ja als Nein)", majorityLabel(1, 2))
+        assertEquals("Einfache Mehrheit (mehr Ja als Nein)", majorityLabel(50, 100))
+        assertEquals("Zwei Drittel", majorityLabel(2, 3))
+        assertEquals("Drei Viertel", majorityLabel(3, 4))
+        assertEquals("mindestens 3 von 5 Stimmen", majorityLabel(3, 5))
+    }
 }

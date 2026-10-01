@@ -2599,7 +2599,7 @@ private fun Route.registerSecretBallotPauseTestRoutes(
                     targetCommitteeId = null,
                     targetRole = null,
                     requiredMajorityPercent = 50,
-                    tallyThreshold = 1,
+                    tallyThreshold = 2,
                 ),
             )
         call.respondText("${w.id}:${w.status}")

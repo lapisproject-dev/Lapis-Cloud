@@ -1,0 +1,140 @@
+= Democratic elections, server integrity (V1.9.23)
+:toc:
+
+== Purpose
+
+A motion can be decided in four ways: the committee quorum (`resolveMotion`, `recordResolution`), a meritocratic vote
+(`openVote`/`closeVote`), a systemic consensus (`evaluate`) and an election (`tally`). Until V1.9.22 nothing on the server stopped two
+of them from deciding the same motion, and several election methods read the election row without any lock. V1.9.23 makes the
+four paths mutually exclusive and every election transition serialized. It adds one additive migration, `V64__election_integrity.sql`.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Lock order
+
+Every decision-relevant transaction takes its locks in the same order, so no two of them can wait for each other in a cycle.
+
+[cols="1,3,3", options="header"]
+|===
+| Step | Lock | Taken by
+| 1 | `motion` row, `FOR UPDATE` | `openElection`, `tally`, `abortElection`, `openVote`, `closeVote`, `abortVote`, `resolveMotion`, `withdrawMotion`, `recordResolution` (per agenda item, ascending id), `openSystemicConsensus`, `evaluate`
+| 2 | `election`, `vote` or `systemic_consensus` row, `FOR UPDATE` | all election methods, `closeVote`, `abortVote`, `evaluate`
+| 3 | `conference_room` / stream rows | `openVoting` for a secret election (after the electorate snapshot)
+| 4 | `member` row (`requireActiveMembership(forUpdate = true)`) | `appointElectionBoard`, the winner seating in `tally`
+| 5 | audit log chain | always the last write (`AuditLogRecorder`)
+|===
+
+A method that starts from a child id (an election id, a vote id) first reads the child's `motion_id` without a lock -- the column never
+changes -- then locks the motion, then re-reads the child row `FOR UPDATE` and does every check on the re-read row. A method that
+never touches the motion (`castElectionBallot`, `approveTally`, `closeVoting`, `openVoting`, `releaseCandidateList`, candidacies) locks
+only the election row; it cannot be part of a cycle because it never waits for the motion. `forUpdate()` is only used on single-table
+selects (H2 rejects it on joins). The helpers are in `MotionDecisionLock.kt`.
+
+== Mutual exclusion of the decision paths
+
+[cols="3,1,1,1,1", options="header"]
+|===
+| While ... exists | election | vote | systemic consensus | quorum resolution
+| an election (`election.active_motion_id`): any non-`ABORTED` one blocks `openElection` (unique index); only a running one (`PREPARATION` to `CLOSED`, not `TALLIED`) blocks the other paths | `openElection` refused | `openVote`, `closeVote` refused while running | `openSystemicConsensus`, `evaluate` refused while running | `resolveMotion`, `withdrawMotion`, `recordResolution` (agenda item) refused while running
+| a vote that is `OPEN` or `CLOSED` | `openElection` refused | -- | `openSystemicConsensus` refused | allowed (see follow-ups)
+| a systemic consensus that is not `ABORTED` | `openElection` refused | `openVote` refused | -- | allowed (see follow-ups)
+|===
+
+Also while an election runs: `withdrawMotion` is refused (the election would become untallable -- abort it first), and `tally`,
+`closeVote` and a binding `evaluate` additionally require the *locked* motion row to still be `SCHEDULED`.
+
+`resolution_id` is deliberately not part of the "undecided" test: a motion that was `POSTPONED` and scheduled again still carries its
+earlier resolution, and must be decidable again. The status of the locked row is what counts.
+
+== Election transitions
+
+Every arrow is one transaction that holds the election row lock; `tally` and `abortElection` hold the motion lock first.
+
+[source,kuml,name="elections-integrity-election"]
+----
+stateDiagram(name = "Election, locked transitions") {
+    val start = initialState()
+    val preparation = state(name = "PREPARATION")
+    val released = state(name = "CANDIDATE_LIST_RELEASED")
+    val open = state(name = "OPEN")
+    val closed = state(name = "CLOSED")
+    val tallied = state(name = "TALLIED")
+    val aborted = state(name = "ABORTED")
+
+    transition(source = start, target = preparation) {
+        trigger = "openElection (motion lock)"
+        guard = "[motion SCHEDULED, no other decision path]"
+    }
+    transition(source = preparation, target = released) { trigger = "releaseCandidateList (election lock)" }
+    transition(source = preparation, target = open) { trigger = "openVoting (election lock, one snapshot)" }
+    transition(source = released, target = open) { trigger = "openVoting (election lock, one snapshot)" }
+    transition(source = open, target = closed) { trigger = "closeVoting (election lock)" }
+    transition(source = closed, target = tallied) {
+        trigger = "tally (motion, then election lock)"
+        guard = "[approvals >= threshold, motion SCHEDULED]"
+    }
+    transition(source = preparation, target = aborted) { trigger = "abortElection (motion, then election lock)" }
+    transition(source = released, target = aborted) { trigger = "abortElection" }
+    transition(source = open, target = aborted) { trigger = "abortElection" }
+    transition(source = closed, target = aborted) { trigger = "abortElection" }
+}
+----
+
+== Motion transitions around an election
+
+[source,kuml,name="elections-integrity-motion"]
+----
+stateDiagram(name = "Motion, decision paths") {
+    val scheduled = state(name = "SCHEDULED")
+    val resolved = state(name = "RESOLVED")
+    val rejected = state(name = "REJECTED")
+    val postponed = state(name = "POSTPONED")
+    val withdrawn = state(name = "WITHDRAWN")
+
+    transition(source = scheduled, target = resolved) { trigger = "one decision path (adopted)" }
+    transition(source = scheduled, target = rejected) { trigger = "one decision path (rejected)" }
+    transition(source = scheduled, target = postponed) { trigger = "one decision path (tie or postponed)" }
+    transition(source = scheduled, target = withdrawn) {
+        trigger = "withdrawMotion"
+        guard = "[no active election]"
+    }
+    transition(source = postponed, target = scheduled) { trigger = "scheduleMotion" }
+}
+----
+
+== Database safeguards (`V64`)
+
+[cols="2,4", options="header"]
+|===
+| Safeguard | What it does
+| `election.active_motion_id` + `uq_election_active_motion` | Shadow column, equal to `motion_id` while the election is not `ABORTED`, `NULL` otherwise; the unique index allows at most one non-aborted election per motion. A partial unique index (`WHERE status <> 'ABORTED'`) is not available on H2, hence the column. Maintained by `openElection` and `abortElection`.
+| `ck_election_active_motion`, `ck_election_active_motion_status` | The column is either `NULL` or the motion id, and `NULL` exactly when the election is `ABORTED`.
+| `required_majority_numerator/denominator` + `ck_election_majority_fraction` | Both `NULL` (legacy percent) or `1 <= n <= d <= 100` with `2n >= d`; a half-set pair is refused.
+| `ck_election_tally_threshold` | `tally_threshold >= 2` unless the election is `TALLIED` or `ABORTED`. The migration raises running elections with a lower value to 2 first.
+| `election_ballot.cast_at` of secret elections | Rewritten to the election's `voting_opened_at` (`COALESCE` with `opened_at`); the application writes the same constant from now on.
+| `uq_election_option_position` | Option positions are unique within an election; a second `releaseCandidateList` could only insert duplicates.
+|===
+
+The application translates every unique-constraint violation into a `ConflictException` *inside* the transaction block. An
+`ExposedSQLException` that escaped the block would make Exposed run the whole block again, including its side effects.
+
+== Ballot secrecy
+
+* `cast_at` of a secret ballot is the constant `voting_opened_at`. The day-coarsened value of V1.9.22 still showed the day and, since
+  `listElectionBallots` had no `ORDER BY`, tended to follow the insertion order.
+* A secret election lists no ballots before `TALLIED`. The ids were stable from the moment a ballot was cast, so a poll of the list showed
+  exactly when a voter's ballot appeared; after the tally the labels of those very ids are revealed. After `TALLIED` the ballots come back
+  with a blank id, in an order that depends only on the chosen options.
+* The cast result of a secret ballot carries a blank id for the same reason. Ballot ids stay random v4 UUIDs.
+* Audited and unchanged: `getElectionParticipation` returns only the caller's own `hasVoted` and counters; `voted_at` is never delivered.
+
+== Known limitations and follow-ups
+
+* `resolveMotion` is not refused while a meritocratic vote or a systemic consensus is open (only the election blocks it). That would
+  change existing behaviour and is a separate decision.
+* Specific conflict codes in the RPC (today every refusal is a `ConflictException`).
+* Who released the tally is visible only as a count.
+* The concurrency tests run on H2; there is no Postgres test infrastructure, so lock behaviour on Postgres is argued from the lock order,
+  not measured.
+* `castVoteBallot` and `castResistanceBallot` have their own races against closing; they are outside this wave.
+* Amendments to a motion that has a running election.

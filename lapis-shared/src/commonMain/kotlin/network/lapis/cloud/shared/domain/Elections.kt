@@ -61,6 +61,10 @@ data class ElectionDto(
     val targetCommitteeId: String?,
     val targetCommitteeName: String?,
     val targetRole: CommitteeRole?,
+    /**
+     * Legacy display value. When [requiredMajorityNumerator]/[requiredMajorityDenominator] are set it is
+     * only `ceil(numerator * 100 / denominator)` for old clients; the exact fraction is authoritative.
+     */
     val requiredMajorityPercent: Int,
     val status: ElectionStatus,
     val openedById: String,
@@ -73,6 +77,9 @@ data class ElectionDto(
     val tallyRunAt: LocalDateTime?,
     val resolutionId: String?,
     val options: List<ElectionOptionDto>,
+    /** Exact required majority as a reduced fraction; both `null` for elections created before V1.9.23. */
+    val requiredMajorityNumerator: Int? = null,
+    val requiredMajorityDenominator: Int? = null,
 )
 
 /**
@@ -92,6 +99,14 @@ data class ElectionOpenInput(
     val targetRole: CommitteeRole? = null,
     val requiredMajorityPercent: Int = 50,
     val tallyThreshold: Int = 2,
+    /**
+     * Exact required majority (V1.9.23): `ja * denominator >= numerator * (ja + nein)`. Both or neither
+     * must be set; when set they take precedence over [requiredMajorityPercent]. Constraints, enforced
+     * by the server and the database: `1 <= numerator <= denominator <= 100` and at least one half
+     * (`2 * numerator >= denominator`). Not allowed for [ElectionType.MULTI_CHOICE].
+     */
+    val requiredMajorityNumerator: Int? = null,
+    val requiredMajorityDenominator: Int? = null,
 )
 
 @Serializable
@@ -139,7 +154,9 @@ data class ElectionBallotInput(
  */
 @Serializable
 data class ElectionBallotCastResultDto(
+    /** Blank for a secret election (V1.9.23): a ballot id would make the later ballot list linkable to the voter. */
     val id: String,
+    /** For a secret election the constant `votingOpenedAt` (V1.9.23), without any meaning as a time. */
     val castAt: LocalDateTime,
     val receiptCode: String?,
 )
@@ -156,14 +173,21 @@ data class ElectionBallotCastResultDto(
  * runs). Without this gate, anyone could enumerate every anonymized ballot's plaintext choice
  * while voting is still open and tally a running result themselves. Non-secret Electionen always
  * reveal the labels, since the ballot's `memberId` is already visible in the clear.
+ *
+ * V1.9.23: a secret election returns NO ballots at all before it is [ElectionStatus.TALLIED] (the count
+ * is in `ElectionParticipationDto.ballotCount`), because a polled list of stable ballot ids would show
+ * exactly when a voter's ballot appeared. After the tally the ballots come back with a blank [id] in a
+ * canonical order (by chosen options), independent of the order in which they were cast.
  */
 @Serializable
 data class ElectionBallotDto(
+    /** Blank for a secret election (V1.9.23). */
     val id: String,
     val electionId: String,
     val memberId: String?,
     val memberDisplayName: String?,
     val selectedOptionLabels: List<String>,
+    /** For a secret election the constant `votingOpenedAt` (V1.9.23), without any meaning as a time. */
     val castAt: LocalDateTime,
 )
 

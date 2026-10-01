@@ -183,17 +183,18 @@ class MotionsOpenElectionDomTest {
                 assertFalse(hasLabel(el, "Zielgremium"), "a yes/no election seats nobody")
                 assertFalse(hasLabel(el, "Rolle im Zielgremium"))
                 assertFalse(hasLabel(el, "Sitze"))
-                assertTrue(hasLabel(el, "Erforderlicher Anteil in Prozent"))
+                assertTrue(hasLabel(el, "Erforderliche Mehrheit"))
+                assertFalse(hasLabel(el, "Mindestens"), "the custom fraction only shows for the custom majority")
 
                 el.chooseIn("Wahlart", ElectionType.SINGLE_CHOICE.name)
                 assertTrue(hasLabel(el, "Zielgremium") && hasLabel(el, "Rolle im Zielgremium"))
                 assertFalse(hasLabel(el, "Sitze"), "a single-choice election has exactly one seat (shown as text)")
                 assertTrue(el.flatText().contains("Zu besetzende Sitze: 1"))
-                assertTrue(hasLabel(el, "Erforderlicher Anteil in Prozent"))
+                assertTrue(hasLabel(el, "Erforderliche Mehrheit"))
 
                 el.chooseIn("Wahlart", ElectionType.MULTI_CHOICE.name)
                 assertTrue(hasLabel(el, "Sitze"))
-                assertFalse(hasLabel(el, "Erforderlicher Anteil in Prozent"), "plurality needs no required share")
+                assertFalse(hasLabel(el, "Erforderliche Mehrheit"), "plurality needs no required share")
                 assertFalse(el.flatText().contains("Zu besetzende Sitze: 1"))
             }
         }
@@ -205,9 +206,9 @@ class MotionsOpenElectionDomTest {
                 renderOpenElectionForm(root, motionDto(), committees) {}
                 val el = element()
                 assertTrue(el.flatText().contains("Bei 3 Ja- und Nein-Stimmen sind mindestens 2 davon Ja nötig."))
-                el.typeInto("Erforderlicher Anteil in Prozent", "67")
+                el.chooseIn("Erforderliche Mehrheit", "TWO_THIRDS")
                 awaitUntil("explanation follows the field", 1500) {
-                    element().flatText().contains("Bei 3 Ja- und Nein-Stimmen sind mindestens 3 davon Ja nötig.")
+                    element().flatText().contains("Bei 10 Ja- und Nein-Stimmen sind mindestens 7 davon Ja nötig.")
                 }
                 assertTrue(el.flatText().contains("Bei Stimmengleichheit ist nichts entschieden"))
             }
@@ -242,7 +243,9 @@ class MotionsOpenElectionDomTest {
                     renderOpenElectionForm(root, motionDto(), committees) { openedId = it.id }
                     val el = element()
                     (el.controlOf("Geheime Wahl") as HTMLInputElement).click() // open election
-                    el.typeInto("Erforderlicher Anteil in Prozent", "  60 ")
+                    el.chooseIn("Erforderliche Mehrheit", "CUSTOM")
+                    el.typeInto("Mindestens", " 3 ")
+                    el.typeInto("von", "5")
                     el.typeInto("Erforderliche Freigaben der Auszählung", " 3 ")
                     el.buttonNamed("Wahl eröffnen").click()
                     awaitUntil("openElection sent", 1500) { calls.toRoute(routes.openElection).size == 1 }
@@ -250,7 +253,9 @@ class MotionsOpenElectionDomTest {
                     assertEquals("m1", input.motionId as String)
                     assertEquals("YES_NO", input.electionType as String)
                     assertEquals(false, input.secret as Boolean)
-                    assertEquals(60, input.requiredMajorityPercent as Int)
+                    assertEquals(60, input.requiredMajorityPercent as Int, "the legacy display percent is ceil(3 * 100 / 5)")
+                    assertEquals(3, input.requiredMajorityNumerator as Int)
+                    assertEquals(5, input.requiredMajorityDenominator as Int)
                     assertEquals(3, input.tallyThreshold as Int)
                     assertTrue(input.targetCommitteeId == null, "a yes/no election has no target committee")
                     assertTrue(input.targetRole == null)
@@ -288,6 +293,10 @@ class MotionsOpenElectionDomTest {
                         input.requiredMajorityPercent == null || input.requiredMajorityPercent == 50,
                         "plurality sends the neutral 50",
                     )
+                    assertTrue(
+                        input.requiredMajorityNumerator == null && input.requiredMajorityDenominator == null,
+                        "plurality has no fraction",
+                    )
                 }
             }
         }
@@ -305,14 +314,63 @@ class MotionsOpenElectionDomTest {
                     el.buttonNamed("Wahl eröffnen").click()
                     assertEquals(0, calls.toRoute(routes.openElection).size, "one approval is below the four-eyes minimum")
                     el.typeInto("Erforderliche Freigaben der Auszählung", "2")
-                    el.typeInto("Erforderlicher Anteil in Prozent", "101")
+                    el.chooseIn("Erforderliche Mehrheit", "CUSTOM")
+                    el.typeInto("Mindestens", "101")
+                    el.typeInto("von", "100")
                     el.buttonNamed("Wahl eröffnen").click()
-                    assertEquals(0, calls.toRoute(routes.openElection).size, "101 percent is out of range")
+                    assertEquals(0, calls.toRoute(routes.openElection).size, "101 of 100 is out of range")
+                    el.typeInto("Mindestens", "1")
+                    el.typeInto("von", "3")
+                    el.buttonNamed("Wahl eröffnen").click()
+                    assertEquals(0, calls.toRoute(routes.openElection).size, "a third is below the required half")
+                    awaitUntil(
+                        "below-half message",
+                        1500,
+                    ) { element().flatText().contains("Die Mehrheit muss mindestens die Hälfte betragen.") }
+                    el.chooseIn("Erforderliche Mehrheit", "HALF")
                     el.chooseIn("Wahlart", ElectionType.MULTI_CHOICE.name)
                     el.chooseIn("Zielgremium", "c9")
                     el.typeInto("Sitze", "1")
                     el.buttonNamed("Wahl eröffnen").click()
                     assertEquals(0, calls.toRoute(routes.openElection).size, "a multiple-choice election needs 2 to 25 seats")
+                }
+            }
+        }
+
+    @Test
+    fun theMajorityPresets_sendTheExactFractionAndTheLegacyPercent(): Promise<Unit> =
+        formTest {
+            val routes = electionRoutes()
+            val world = ElectionWorld(election(), opened = election(status = ElectionStatus.PREPARATION))
+            withFetchStub(respond = world.respond(routes)) { calls ->
+                mountedForm("motion-election-send-presets") { root, element ->
+                    renderOpenElectionForm(root, motionDto(), committees) {}
+                    val el = element()
+                    el.chooseIn("Erforderliche Mehrheit", "TWO_THIRDS")
+                    el.buttonNamed("Wahl eröffnen").click()
+                    awaitUntil("openElection sent", 1500) { calls.toRoute(routes.openElection).size == 1 }
+                    val input = calls.singleCall(routes.openElection).rpcParam(0)
+                    assertEquals(2, input.requiredMajorityNumerator as Int)
+                    assertEquals(3, input.requiredMajorityDenominator as Int)
+                    assertEquals(67, input.requiredMajorityPercent as Int)
+                }
+            }
+        }
+
+    @Test
+    fun theDefaultMajority_isTheSimpleMajority(): Promise<Unit> =
+        formTest {
+            val routes = electionRoutes()
+            val world = ElectionWorld(election(), opened = election(status = ElectionStatus.PREPARATION))
+            withFetchStub(respond = world.respond(routes)) { calls ->
+                mountedForm("motion-election-send-default-majority") { root, element ->
+                    renderOpenElectionForm(root, motionDto(), committees) {}
+                    element().buttonNamed("Wahl eröffnen").click()
+                    awaitUntil("openElection sent", 1500) { calls.toRoute(routes.openElection).size == 1 }
+                    val input = calls.singleCall(routes.openElection).rpcParam(0)
+                    assertEquals(1, input.requiredMajorityNumerator as Int)
+                    assertEquals(2, input.requiredMajorityDenominator as Int)
+                    assertTrue(input.requiredMajorityPercent == null || input.requiredMajorityPercent == 50)
                 }
             }
         }

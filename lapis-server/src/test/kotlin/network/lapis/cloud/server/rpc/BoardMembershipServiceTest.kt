@@ -213,7 +213,7 @@ class BoardMembershipServiceTest :
                 client
                     .post(
                         "/test/open-election/$motionId/SINGLE_CHOICE" +
-                            "?targetCommitteeId=$targetCommitteeId&targetRole=CHAIR&tallyThreshold=1",
+                            "?targetCommitteeId=$targetCommitteeId&targetRole=CHAIR&tallyThreshold=2",
                     ) { header("X-Member-Id", adminId.toString()) }
                     .bodyAsText()
             val electionId = opened.substringBefore(":")
@@ -226,6 +226,7 @@ class BoardMembershipServiceTest :
             client.post("/test/open-voting/$electionId") { header("X-Member-Id", adminId.toString()) }
             client.post("/test/close-voting/$electionId") { header("X-Member-Id", adminId.toString()) }
             client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMemberIds[0].toString()) }
+            client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMemberIds[1].toString()) }
             client.post("/test/tally/$electionId") { header("X-Member-Id", adminId.toString()) }
             return electionId
         }

@@ -467,6 +467,7 @@ class StreamPollerTest :
                     it[ElectionTable.motionId] = motionId
                     it[ElectionTable.meetingId] = meetingId
                     it[resolutionId] = null
+                    it[activeMotionId] = motionId
                 }
             }
             createdElectionIds += id

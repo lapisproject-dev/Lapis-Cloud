@@ -6,6 +6,63 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Security -- V1.9.23 "Server integrity of the democratic elections"
+
+Closes the "Known limitations" of V1.9.22. One additive migration, `V64__election_integrity.sql`; `V1__baseline.sql` is untouched.
+
+- **The four ways to decide a motion exclude each other on the server.** An election (`active_motion_id`), a meritocratic vote, a
+  systemic consensus and the quorum resolution can no longer decide the same motion: `openElection`, `openVote`,
+  `openSystemicConsensus`, `resolveMotion`, `closeVote`, `abortVote`, `recordResolution` (against an agenda item), `withdrawMotion`
+  and `evaluate` lock the motion first (`MotionDecisionLock`) and refuse with a `ConflictException` when another path owns it.
+  Found while reproducing the races: `closeVote` read the vote row *before* its motion lock and "re-checked" that stale status, so two
+  concurrent calls could both settle; `withdrawMotion` could withdraw a motion with a running election; systemic consensus was a
+  fourth, unlisted decision path.
+- **`tally()` can no longer overwrite a decision**: it locks motion, then election, and requires the motion to be `SCHEDULED`
+  (a quorum resolution that landed in between made `tally` write a second resolution and a second status).
+- **Every election transition is serialized** (`openVoting` takes exactly one electorate snapshot, `releaseCandidateList` inserts
+  each option once, `castElectionBallot` cannot land after `closeVoting`, `abortElection` and `tally` cannot interleave); unique
+  violations are translated to `ConflictException` inside the transaction so Exposed never re-runs the block.
+- **One tally approval is no longer enough**: `MIN_TALLY_THRESHOLD` is 2 (its description always said so), at most 25.
+- **Ballot secrecy**: `cast_at` of a secret ballot is the constant `voting_opened_at` (the day-coarsened value still leaked the day
+  and the order); `listElectionBallots` returns no ballots for a secret election before `TALLIED` (stable ballot ids let a poll show
+  when a voter's ballot appeared), afterwards blank ids in a canonical order; the cast result carries a blank id for a secret ballot.
+
+### Changed -- V1.9.23
+
+- **Required majority is an exact fraction.** `ElectionOpenInput`/`ElectionDto` gain `requiredMajorityNumerator`/`Denominator`
+  (default `null`, additive); the server stores the reduced fraction and checks `ja * den >= num * (ja + nein)`, so two thirds is exact.
+  `requiredMajorityPercent` stays and is filled with `ceil(num * 100 / den)` for V1.9.22 clients. Not allowed for multiple choice.
+  Single choice counts against all votes cast, as before.
+- The election form offers "Einfache Mehrheit", "Zwei Drittel", "Drei Viertel" or "Andere Mehrheit" instead of a percentage; a conflict
+  shows a fixed text and reloads the motion/election.
+- i18n: 11 new texts in all eight catalogs, "Erforderlicher Anteil in Prozent"/"Erforderlicher Anteil: %1 Prozent" removed.
+
+### Operator notes -- V1.9.23
+
+Run these on every instance (PdV, ELB, Staging, self-hosted) BEFORE deploying; `V64` fails and rolls back if a constraint is violated.
+
+```sql
+SELECT count(*) FROM election;                                         -- expectation on PdV/ELB: 0
+SELECT motion_id, count(*) FROM election WHERE status <> 'ABORTED'
+  GROUP BY motion_id HAVING count(*) > 1;                              -- must be empty, else V64 fails
+SELECT count(*) FROM election WHERE tally_threshold < 2
+  AND status NOT IN ('TALLIED','ABORTED');                             -- these are raised to 2 by V64
+SELECT election_id, position, count(*) FROM election_option
+  GROUP BY 1, 2 HAVING count(*) > 1;                                   -- must be empty, else V64 fails
+```
+
+Secret ballots of existing elections get their `cast_at` rewritten to the election's `voting_opened_at` (`opened_at` if voting never
+opened); this is intended and not reversible. Docs: `docs/architecture/elections-integrity.adoc`.
+
+### Known limitations and follow-ups -- V1.9.23
+
+- `resolveMotion` is not refused while a meritocratic vote or systemic consensus is open (only elections block it).
+- Specific conflict codes in the RPC; who released the tally (names, not only the count); the meritocratic-vote and systemic-consensus
+  screens do not reload on a conflict.
+- Concurrency tests run on H2 only (no Postgres test infrastructure).
+- `castVoteBallot` and `castResistanceBallot` have their own races against closing; amendments to a motion with a running election.
+- `voted_at` stays internal and is not delivered (audited, unchanged).
+
 ### Added -- V1.9.22 "Democratic elections in the web client"
 
 - **"Wahlen" screen** (`/elections`, `/elections/:id`, sidebar group "Selbstverwaltung" right after "Anträge"): the list with a
@@ -47,11 +104,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations and follow-ups -- V1.9.22
 
-- **Integrity (server, not fixed here)**: `openVote`/`resolveMotion` still work while an election exists, `openElection` does not
+- **Integrity (server) -- fixed in V1.9.23**: `openVote`/`resolveMotion` still work while an election exists, `openElection` does not
   check for an open meritocratic vote, and `tally()` does not check that the motion is still `SCHEDULED` -- a tally after a
   quorum decision would overwrite the motion's status and resolution. The client closes the UI paths; the server guards are an
   open follow-up.
-- `MIN_TALLY_THRESHOLD` stays 1 on the server (the form asks for at least 2); two thirds cannot be expressed exactly with an
+- (Fixed in V1.9.23: threshold floor 2, exact fractions, constant `castAt`.) `MIN_TALLY_THRESHOLD` stayed 1 on the server (the form asked for at least 2); two thirds cannot be expressed exactly with an
   integer percentage; who approved the tally is visible only as a count; `castAt` of a secret ballot is stored with day precision,
   so a ballot can still be attributed to a day when only one member voted that day.
 

@@ -177,6 +177,10 @@ classDiagram(name = "Election") {
         stereotype("Index") { "columns" to listOf("motion_id"); "name" to "idx_election_motion" }
         stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_election_meeting" }
         stereotype("Index") { "columns" to listOf("status"); "name" to "idx_election_status" }
+        // V1.9.23: shadow column equal to motion_id while the election is not ABORTED (NULL otherwise) --
+        // a partial unique index is not available on H2, so this unique index enforces "at most one
+        // non-aborted election per motion".
+        stereotype("Index") { "columns" to listOf("active_motion_id"); "unique" to true; "name" to "uq_election_active_motion" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -236,6 +240,20 @@ classDiagram(name = "Election") {
         attribute(name = "tallyRunAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "tally_run_at" }
+        }
+        // V1.9.23: maintained by ElectionService, see the uq_election_active_motion index above.
+        attribute(name = "activeMotionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "active_motion_id" }
+        }
+        // V1.9.23: required majority as an exact fraction (both NULL = legacy percent path).
+        attribute(name = "requiredMajorityNumerator", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "required_majority_numerator" }
+        }
+        attribute(name = "requiredMajorityDenominator", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "required_majority_denominator" }
         }
     }
 
@@ -298,6 +316,8 @@ classDiagram(name = "Election") {
     val electionOption = classOf(name = "ElectionOption") {
         stereotype("Entity") { "tableName" to "election_option"; "kotlinObjectName" to "ElectionOptionTable" }
         stereotype("Index") { "columns" to listOf("election_id"); "name" to "idx_election_option_election" }
+        // V1.9.23: option positions are unique within an election, so a candidate list cannot be released twice.
+        stereotype("Index") { "columns" to listOf("election_id", "position"); "unique" to true; "name" to "uq_election_option_position" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")

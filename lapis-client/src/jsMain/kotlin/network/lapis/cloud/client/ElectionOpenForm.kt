@@ -30,12 +30,33 @@ private const val MIN_SEATS = 2
 private const val MAX_SEATS = 25
 private const val MIN_APPROVALS = 2
 private const val MAX_APPROVALS = 25
-private const val DEFAULT_PERCENT = 50
+private const val NEUTRAL_PERCENT = 50
+private const val MAX_DENOMINATOR = 100
+
+/** The offered required majorities. The first four are fractions of the decisive votes; [CUSTOM] shows two number fields. */
+private enum class MajorityPreset(
+    val numerator: Int,
+    val denominator: Int,
+) {
+    HALF(1, 2),
+    TWO_THIRDS(2, 3),
+    THREE_QUARTERS(3, 4),
+    CUSTOM(0, 0),
+}
+
+private fun majorityPresetLabel(preset: MajorityPreset): String =
+    when (preset) {
+        MajorityPreset.HALF -> gettext("Einfache Mehrheit (mehr Ja als Nein)")
+        MajorityPreset.TWO_THIRDS -> gettext("Zwei Drittel")
+        MajorityPreset.THREE_QUARTERS -> gettext("Drei Viertel")
+        MajorityPreset.CUSTOM -> gettext("Andere Mehrheit")
+    }
 
 internal fun renderOpenElectionForm(
     panel: SimplePanel,
     motion: MotionDto,
     committees: List<CommitteeDto>,
+    onConflict: () -> Unit = {},
     onOpened: (ElectionDto) -> Unit,
 ) {
     val holder = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
@@ -81,12 +102,48 @@ internal fun renderOpenElectionForm(
             value = "2",
             rule = { if (currentType() == ElectionType.MULTI_CHOICE) FormRules.intInRange(it, MIN_SEATS, MAX_SEATS) else FieldCheck.Ok },
         )
-    val percentField =
-        form.textField(
-            label = tr("Erforderlicher Anteil in Prozent"),
-            value = DEFAULT_PERCENT.toString(),
-            rule = { if (currentType() == ElectionType.MULTI_CHOICE) FieldCheck.Ok else FormRules.intInRange(it, 1, 100) },
+    // A select cannot be hidden on its own (LapisField.setVisible is for text controls), so it lives in a box that is shown or hidden.
+    val majorityBox = form.panel.vPanel(spacing = 2)
+    val majorityField =
+        form.selectField(
+            host = majorityBox,
+            label = tr("Erforderliche Mehrheit"),
+            options = MajorityPreset.entries.map { it.name to majorityPresetLabel(it) },
+            value = MajorityPreset.HALF.name,
+            required = true,
         )
+
+    fun currentPreset(): MajorityPreset = MajorityPreset.valueOf(majorityField.value.ifBlank { MajorityPreset.HALF.name })
+
+    fun customActive(): Boolean = currentType() != ElectionType.MULTI_CHOICE && currentPreset() == MajorityPreset.CUSTOM
+
+    val customNumeratorField =
+        form.textField(
+            label = tr("Mindestens"),
+            value = "3",
+            rule = { if (customActive()) FormRules.intInRange(it, 1, MAX_DENOMINATOR) else FieldCheck.Ok },
+        )
+    val customDenominatorField =
+        form.textField(
+            label = tr("von"),
+            value = "5",
+            hint = tr("Zum Beispiel mindestens 3 von 5 Stimmen."),
+            rule = { if (customActive()) FormRules.intInRange(it, 1, MAX_DENOMINATOR) else FieldCheck.Ok },
+        )
+
+    /** The chosen majority as numerator/denominator; `null` for a multiple-choice election (plurality) and for unusable custom input. */
+    fun currentFraction(): Pair<Int, Int>? {
+        if (currentType() == ElectionType.MULTI_CHOICE) return null
+        val preset = currentPreset()
+        if (preset != MajorityPreset.CUSTOM) return preset.numerator to preset.denominator
+        val numerator = customNumeratorField.value.trim().toIntOrNull() ?: return null
+        val denominator = customDenominatorField.value.trim().toIntOrNull() ?: return null
+        return if (numerator in 1..denominator && denominator <= MAX_DENOMINATOR && 2 * numerator >= denominator) {
+            numerator to denominator
+        } else {
+            null
+        }
+    }
     val explanation = form.panel.vPanel(spacing = 2)
     val approvalsField =
         form.textField(
@@ -104,22 +161,31 @@ internal fun renderOpenElectionForm(
         roleField.setVisible(personnel)
         if (type == ElectionType.SINGLE_CHOICE) fixedSeats.show() else fixedSeats.hide()
         seatsField.setVisible(type == ElectionType.MULTI_CHOICE)
-        percentField.setVisible(type != ElectionType.MULTI_CHOICE)
+        if (type == ElectionType.MULTI_CHOICE) majorityBox.hide() else majorityBox.show()
+        customNumeratorField.setVisible(customActive())
+        customDenominatorField.setVisible(customActive())
         if ((secretField.control as CheckBox).value) openWarning.hide() else openWarning.show()
         explanation.removeAll()
-        val percent =
-            percentField.value
-                .trim()
-                .toIntOrNull()
-                ?.takeIf { it in 1..100 } ?: DEFAULT_PERCENT
-        majorityExplanation(type, percent).forEach { line -> explanation.div(line) { addCssClasses("text-muted small") } }
+        val (numerator, denominator) = currentFraction() ?: (MajorityPreset.HALF.numerator to MajorityPreset.HALF.denominator)
+        majorityExplanation(type, numerator, denominator).forEach { line -> explanation.div(line) { addCssClasses("text-muted small") } }
     }
     typeField.subscribe { update() }
     secretField.subscribe { update() }
-    percentField.subscribe { update() }
+    majorityField.subscribe { update() }
+    customNumeratorField.subscribe { update() }
+    customDenominatorField.subscribe { update() }
     form.crossFieldRule(focusOn = committeeField.control as? io.kvision.core.Widget) {
         if (isPersonnelElection(currentType()) && committeeField.value.isBlank()) {
             FieldCheck.Invalid(gettext("Bitte ein Zielgremium wählen."))
+        } else {
+            FieldCheck.Ok
+        }
+    }
+    form.crossFieldRule(focusOn = customNumeratorField.control as? io.kvision.core.Widget) {
+        val numerator = customNumeratorField.value.trim().toIntOrNull()
+        val denominator = customDenominatorField.value.trim().toIntOrNull()
+        if (customActive() && numerator != null && denominator != null && (numerator > denominator || 2 * numerator < denominator)) {
+            FieldCheck.Invalid(gettext("Die Mehrheit muss mindestens die Hälfte betragen."))
         } else {
             FieldCheck.Ok
         }
@@ -132,6 +198,7 @@ internal fun renderOpenElectionForm(
         form.submit(openButton) {
             val type = currentType()
             val personnel = isPersonnelElection(type)
+            val fraction = currentFraction()
             val input =
                 ElectionOpenInput(
                     motionId = motion.id,
@@ -140,11 +207,17 @@ internal fun renderOpenElectionForm(
                     seatCount = if (type == ElectionType.MULTI_CHOICE) seatsField.value.trim().toInt() else 1,
                     targetCommitteeId = if (personnel) committeeField.value else null,
                     targetRole = if (personnel) CommitteeRole.valueOf(roleField.value.ifBlank { CommitteeRole.MEMBER.name }) else null,
-                    requiredMajorityPercent = if (type == ElectionType.MULTI_CHOICE) DEFAULT_PERCENT else percentField.value.trim().toInt(),
+                    // The percent is only the legacy display value for old clients; the fraction is what counts.
+                    requiredMajorityPercent = fraction?.let { majorityPercentCeil(it.first, it.second) } ?: NEUTRAL_PERCENT,
+                    requiredMajorityNumerator = fraction?.first,
+                    requiredMajorityDenominator = fraction?.second,
                     tallyThreshold = approvalsField.value.trim().toInt(),
                 )
             val opened =
-                electionGuarded(gettext("Die Wahl konnte nicht eröffnet werden. Bitte Ansicht aktualisieren.")) {
+                electionGuarded(
+                    conflictMessage = gettext("Der Antrag wurde inzwischen anders bearbeitet. Die Ansicht wurde aktualisiert."),
+                    onConflict = onConflict,
+                ) {
                     rpcService<IElectionService>().openElection(input)
                 }
             if (opened != null) {

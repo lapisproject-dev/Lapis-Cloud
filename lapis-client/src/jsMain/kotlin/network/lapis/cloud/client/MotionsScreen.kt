@@ -780,7 +780,7 @@ internal fun renderResolutionSection(
 
     renderCommitteeQuorumResolutionForm(panel, motion, onChanged)
     renderOpenVoteForm(panel, motion, onChanged)
-    renderOpenElectionForm(panel, motion, committees) { opened -> navigateTo("/elections/${opened.id}") }
+    renderOpenElectionForm(panel, motion, committees, onConflict = onChanged) { opened -> navigateTo("/elections/${opened.id}") }
 }
 
 internal fun renderCommitteeQuorumResolutionForm(

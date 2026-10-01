@@ -188,6 +188,8 @@ class ElectionBoothDomTest {
                         assertEquals(7, codeBox.allOf("span").size, "27 characters in groups of four")
                         assertTrue(el.flatText().contains("Sie wird nur jetzt angezeigt und nirgends gespeichert."))
                         assertTrue(el.hasButton("Kopieren") && el.hasButton("Drucken"))
+                        // V1.9.23: a secret ballot carries no time of any kind, so the confirmation must not show one either.
+                        assertFalse(Regex("""\b\d{1,2}:\d{2}\b""").containsMatchIn(el.flatText()), "no clock time on the receipt screen")
                         assertTrue(el.isButtonDisabled("Fertig"), "done is disabled until the member confirms having noted the receipt")
                         assertFalse(window.location.href.contains(TEST_RECEIPT))
                         assertNoStoredCode()

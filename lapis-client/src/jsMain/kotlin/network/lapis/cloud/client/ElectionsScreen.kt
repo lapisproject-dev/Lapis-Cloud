@@ -248,7 +248,7 @@ private fun renderElectionHeader(
         panel.div(gettext("Zu besetzende Sitze: %1", e.seatCount)) { addCssClasses("text-muted small") }
     }
     if (e.electionType != ElectionType.MULTI_CHOICE) {
-        panel.div(gettext("Erforderlicher Anteil: %1 Prozent", e.requiredMajorityPercent)) { addCssClasses("text-muted small") }
+        panel.div(gettext("Erforderliche Mehrheit: %1", majorityLabel(e))) { addCssClasses("text-muted small") }
     }
     panel.div(gettext("Erforderliche Freigaben der Auszählung: %1", e.tallyThreshold)) { addCssClasses("text-muted small") }
     val eligibleCount = p.eligibleCount
@@ -323,7 +323,7 @@ private fun renderElectionActions(
     row.gatedButton(tr("Abstimmung öffnen"), ButtonStyle.PRIMARY, openGate) { button ->
         runGuardedAction(button) {
             val result =
-                electionGuarded(gettext("Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren.")) {
+                electionGuarded(gettext("Die Abstimmung konnte nicht geöffnet werden. Bitte Ansicht aktualisieren."), onConflict = reload) {
                     rpcService<IElectionService>().openVoting(e.id)
                 }
             if (result != null) {
@@ -343,7 +343,10 @@ private fun renderElectionActions(
             ) {
                 runGuardedAction(closeButton) {
                     val result =
-                        electionGuarded(gettext("Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren.")) {
+                        electionGuarded(
+                            gettext("Die Abstimmung konnte nicht beendet werden. Bitte Ansicht aktualisieren."),
+                            onConflict = reload,
+                        ) {
                             rpcService<IElectionService>().closeVoting(e.id)
                         }
                     if (result != null) {
@@ -359,7 +362,7 @@ private fun renderElectionActions(
         approve.onClick {
             runGuardedAction(approve) {
                 val result =
-                    electionGuarded(gettext("Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren.")) {
+                    electionGuarded(gettext("Die Freigabe war nicht möglich. Bitte Ansicht aktualisieren."), onConflict = reload) {
                         rpcService<IElectionService>().approveTally(e.id)
                     }
                 if (result != null) {
@@ -372,7 +375,7 @@ private fun renderElectionActions(
     row.gatedButton(tr("Auszählen"), ButtonStyle.SUCCESS, tallyGate) { button ->
         runGuardedAction(button) {
             val result =
-                electionGuarded(gettext("Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren.")) {
+                electionGuarded(gettext("Die Auszählung war nicht möglich. Bitte Ansicht aktualisieren."), onConflict = reload) {
                     rpcService<IElectionService>().tally(e.id)
                 }
             if (result != null) {
@@ -400,7 +403,10 @@ private fun renderElectionActions(
         ) {
             runGuardedAction(button) {
                 val result =
-                    electionGuarded(gettext("Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren.")) {
+                    electionGuarded(
+                        gettext("Die Kandidatenliste konnte nicht freigegeben werden. Bitte Ansicht aktualisieren."),
+                        onConflict = reload,
+                    ) {
                         rpcService<IElectionService>().releaseCandidateList(e.id)
                     }
                 if (result != null) {
@@ -435,7 +441,7 @@ private fun renderAbortAction(
     fun doAbort() {
         runGuardedAction(abort) {
             val result =
-                electionGuarded(gettext("Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren.")) {
+                electionGuarded(gettext("Die Wahl konnte nicht abgebrochen werden. Bitte Ansicht aktualisieren."), onConflict = reload) {
                     rpcService<IElectionService>().abortElection(e.id)
                 }
             if (result != null) {
