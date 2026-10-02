@@ -18982,3 +18982,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Peilingen"
+
+msgid "Bewertung geschlossen"
+msgstr "Beoordeling gesloten"
+
+msgid "anonym"
+msgstr "anoniem"
+
+msgid "Sie haben bewertet"
+msgstr "U hebt beoordeeld"
+
+msgid "Sie können bewerten"
+msgstr "U kunt beoordelen"
+
+msgid "In neuem Tab bewerten"
+msgstr "Beoordelen in een nieuw tabblad"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "Hoe werkt consensus?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Uw scherm wordt op dit moment uitgezonden. Zodat niemand uw beoordeling ziet, is het indienen geblokkeerd tot de uitzending is gepauzeerd."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Bewerken op de consensuspagina"
+
+msgid "1 Option"
+msgstr "1 optie"
+
+msgid "%1 Optionen"
+msgstr "%1 opties"
+
+msgid "Optionen festschreiben"
+msgstr "Opties vastleggen"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "Daarna kunnen er geen opties meer worden toegevoegd."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "Daarna zijn er geen beoordelingen meer mogelijk."
+
+msgid "Erneut bewerten"
+msgstr "Opnieuw beoordelen"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "Er begint een nieuwe beoordelingsronde. De eerdere beoordelingen tellen dan niet meer mee."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Open en met naam: de livestream loopt door."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "Gekozen wordt de optie met de laagste totale weerstand."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "Deze beoordeling is niet meer open."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "De beoordeling kon niet worden geladen. Probeer het opnieuw."

@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** V1.9.24 -- the wire contract of the room voting state: the exact field sets (ballot secrecy) and the reserved enum value. */
+/** V1.9.24 -- the wire contract of the room voting state: the exact field sets (ballot secrecy) and the unchanged enum. */
 private fun SerialDescriptor.names(): Set<String> = (0 until elementsCount).map { getElementName(it) }.toSet()
 
 class RoomVotingStateDtoTest {
@@ -26,6 +26,8 @@ class RoomVotingStateDtoTest {
                 // V1.9.27: option labels and the winner of a meritocratic vote -- never an amount
                 "options",
                 "winnerOptionId",
+                // V1.9.32: the real phase of a consensus -- an enum, never a rating, a count or a time
+                "consensusPhase",
             ),
             names,
         )
@@ -39,7 +41,7 @@ class RoomVotingStateDtoTest {
     }
 
     @Test
-    fun consensusKindIsReserved() {
+    fun consensusKindIsPopulatedSinceV1932_andTheEnumHasNoNewValue() {
         assertTrue(RoomBallotKind.CONSENSUS in RoomBallotKind.entries)
         assertEquals(listOf("ELECTION", "VOTE", "CONSENSUS"), RoomBallotKind.entries.map { it.name })
     }

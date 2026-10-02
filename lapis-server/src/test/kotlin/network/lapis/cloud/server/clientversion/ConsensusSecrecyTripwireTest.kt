@@ -33,6 +33,20 @@ private val CONSENSUS_FILES =
         "ConsensusGuard.kt",
         "ConsensusLabels.kt",
         "ConsensusAuthzUi.kt",
+        // V1.9.32: the consensus in the conference room -- card, booth host, operator and pure state. None of them logs, stores or toasts a rating
+        "ConferenceConsensusCard.kt",
+        "ConferenceConsensusBoothHost.kt",
+        "ConferenceConsensusOperator.kt",
+        "ConferenceConsensusRoomState.kt",
+    )
+
+/** V1.9.32: the files of the conference room that never touch the content of a rating (the booth is the only place a rating or a receipt exists). */
+private val CONFERENCE_CONSENSUS_FILES =
+    listOf(
+        "ConferenceConsensusCard.kt",
+        "ConferenceConsensusBoothHost.kt",
+        "ConferenceConsensusOperator.kt",
+        "ConferenceConsensusRoomState.kt",
     )
 
 private val RATING_CONTENT =
@@ -47,6 +61,11 @@ private val RATING_BLIND_FILES =
         "ConsensusLabels.kt",
         "ConsensusAuthzUi.kt",
         "ConsensusOpenForm.kt",
+        // V1.9.32
+        "ConferenceConsensusCard.kt",
+        "ConferenceConsensusBoothHost.kt",
+        "ConferenceConsensusOperator.kt",
+        "ConferenceConsensusRoomState.kt",
     )
 
 private val FORBIDDEN_EVERYWHERE =
@@ -93,6 +112,23 @@ internal fun consensusSecrecyFindings(
     return findings
 }
 
+/** V1.9.32: shapes that must not appear in the room's consensus files on top of the rules above. */
+private val CONFERENCE_CONSENSUS_FORBIDDEN =
+    listOf(
+        Regex("""data-|setAttribute\("data"""),
+        Regex("""\bAppState\b"""),
+        Regex("""\.message\b"""),
+        Regex("""notify\w*\([^)]*(ratings|receipt)"""),
+    )
+
+internal fun conferenceConsensusFindings(
+    fileName: String,
+    text: String,
+): List<String> =
+    codeLines(text)
+        .filter { line -> CONFERENCE_CONSENSUS_FORBIDDEN.any { it.containsMatchIn(line) } }
+        .map { "$fileName: ${it.trim()}" }
+
 class ConsensusSecrecyTripwireTest :
     FunSpec({
         test("the consensus client files exist (tripwire is not vacuous)") {
@@ -101,6 +137,25 @@ class ConsensusSecrecyTripwireTest :
 
         test("no consensus client file logs, stores, routes or toasts anything it must not") {
             CONSENSUS_FILES.flatMap { consensusSecrecyFindings(fileName = it, text = File(CLIENT_DIR, it).readText()) }.shouldBeEmpty()
+        }
+
+        test("V1.9.32: the room's consensus files carry no data attribute, no AppState, no exception message and no rating/receipt toast") {
+            CONFERENCE_CONSENSUS_FILES
+                .flatMap {
+                    conferenceConsensusFindings(
+                        fileName = it,
+                        text = File(CLIENT_DIR, it).readText(),
+                    )
+                }.shouldBeEmpty()
+            // the panel and the operator controls never touch a rating either
+            listOf("ConferenceVotePanel.kt", "ConferenceVoteOperatorControls.kt").forEach { name ->
+                codeLines(File(CLIENT_DIR, name).readText()).filter { RATING_CONTENT.containsMatchIn(it) } shouldBe emptyList()
+            }
+            conferenceConsensusFindings(fileName = "X.kt", text = "radio.setAttribute(\"data-v\", \"1\")").size shouldBe 1
+            conferenceConsensusFindings(fileName = "X.kt", text = "val s = AppState.session").size shouldBe 1
+            conferenceConsensusFindings(fileName = "X.kt", text = "notifyInfo(receipt)").size shouldBe 1
+            conferenceConsensusFindings(fileName = "X.kt", text = "notifyInfo(tr(\"Fertig\"))").size shouldBe 0
+            conferenceConsensusFindings(fileName = "X.kt", text = "// notifyInfo(receipt)").size shouldBe 0
         }
 
         test("the detector flags each forbidden shape and ignores comments and look-alikes") {

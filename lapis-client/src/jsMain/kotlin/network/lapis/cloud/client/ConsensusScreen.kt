@@ -166,6 +166,24 @@ internal suspend fun loadConsensusDetail(consensusId: String): ConsensusDetailDa
     return ConsensusDetailData(consensus = consensus, participation = participation, motion = motion, result = result)
 }
 
+/**
+ * V1.9.32 -- [loadConsensusDetail] for the conference room panel: the same snapshot (without the motion, which the panel does not show), but
+ * a failed read is simply `null`. No toast: the room polls this quietly, and a refusal is "no operator section", not an error to announce.
+ */
+internal suspend fun loadConsensusDetailQuietly(consensusId: String): ConsensusDetailData? {
+    val service = rpcService<ISystemicConsensusService>()
+    val consensus = probeQuietly { service.getSystemicConsensus(consensusId) } ?: return null
+    val participation = probeQuietly { service.getSystemicConsensusParticipation(consensusId) } ?: return null
+    // the result is only read for somebody who manages the consensus: for everybody else the room shows no result
+    val result =
+        if (consensus.status == SystemicConsensusStatus.EVALUATED && participation.canManage) {
+            probeQuietly { service.getSystemicConsensusResult(consensusId) }
+        } else {
+            null
+        }
+    return ConsensusDetailData(consensus = consensus, participation = participation, motion = null, result = result)
+}
+
 /** The consensuses of one motion, for the motion's resolution section. Lives here so every consensus read sits next to the state blocks. */
 internal suspend fun loadMotionConsensuses(motionId: String): List<SystemicConsensusDto> =
     guarded { rpcService<ISystemicConsensusService>().listSystemicConsensuses(motionId = motionId) } ?: emptyList()

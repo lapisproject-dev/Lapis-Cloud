@@ -18934,3 +18934,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Polls"
+
+msgid "Bewertung geschlossen"
+msgstr "Rating closed"
+
+msgid "anonym"
+msgstr "anonymous"
+
+msgid "Sie haben bewertet"
+msgstr "You have rated"
+
+msgid "Sie können bewerten"
+msgstr "You can rate"
+
+msgid "In neuem Tab bewerten"
+msgstr "Rate in a new tab"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "How does consensus work?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Your screen is currently being broadcast. So that nobody can see your rating, submitting is locked until the broadcast has been paused."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Edit on the consensus page"
+
+msgid "1 Option"
+msgstr "1 option"
+
+msgid "%1 Optionen"
+msgstr "%1 options"
+
+msgid "Optionen festschreiben"
+msgstr "Freeze options"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "After that, no more options can be added."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "After that, no more ratings are possible."
+
+msgid "Erneut bewerten"
+msgstr "Rate again"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "A new rating round begins. The previous ratings then no longer count."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Open and by name: the live stream keeps running."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "The option with the lowest total resistance is chosen."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "This rating is no longer open."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "The rating could not be loaded. Please try again."

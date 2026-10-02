@@ -19006,3 +19006,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Encuestas"
+
+msgid "Bewertung geschlossen"
+msgstr "Valoración cerrada"
+
+msgid "anonym"
+msgstr "anónimo"
+
+msgid "Sie haben bewertet"
+msgstr "Ha valorado"
+
+msgid "Sie können bewerten"
+msgstr "Puede valorar"
+
+msgid "In neuem Tab bewerten"
+msgstr "Valorar en una pestaña nueva"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "¿Cómo funciona el consenso?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Su pantalla se está transmitiendo en este momento. Para que nadie vea su valoración, el envío está bloqueado hasta que se detenga la transmisión."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Editar en la página del consenso"
+
+msgid "1 Option"
+msgstr "1 opción"
+
+msgid "%1 Optionen"
+msgstr "%1 opciones"
+
+msgid "Optionen festschreiben"
+msgstr "Fijar las opciones"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "Después ya no se podrán añadir más opciones."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "Después ya no serán posibles más valoraciones."
+
+msgid "Erneut bewerten"
+msgstr "Valorar de nuevo"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "Comienza una nueva ronda de valoración. Las valoraciones anteriores dejan de contar."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Abierto y nominal: la transmisión en directo continúa."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "Se elige la opción con la menor resistencia total."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "Esta valoración ya no está abierta."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "No se pudo cargar la valoración. Inténtelo de nuevo."

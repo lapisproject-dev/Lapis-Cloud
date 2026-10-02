@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Systemic consensus in the conference room panel** (V1.9.32): a card per consensus (phase, anonymous or named, the member's own standing),
+  the resistance booth embedded in the room's booth host with a compact grid (eleven fields in one row from a panel width of 290 px), and the
+  operator steps freeze options, close the rating, evaluate and rate again for somebody who manages the consensus. The room badge and the
+  panel auto-open count a consensus only while it is being rated; a re-rating opens the panel again. `RoomBallotDto` gets the additive field
+  `consensusPhase`; no migration.
+
+### Security
+
+- The stream lock for an anonymous consensus was already enforced by the server (V1.0 wave 9: `castResistanceBallot` is refused while a
+  stream of the Sitzung still publishes, `freezeOptions` and `reopenRating` pause the streams). V1.9.32 does not change it; the new tests
+  `SecretBallotStreamPauseTest` 15e--15h pin it for the room (a ballot while the stream is live writes nothing, an open consensus never
+  pauses, a re-rating pauses again).
+- The room DTO of a consensus is an allowlist: no rating, no option, no count, no time, no other member, no winner id, and `ownEligible` is
+  head-based (only an active member with a snapshot of the current round). Tests pin the exact JSON keys for an anonymous and an open consensus.
+- The client treats an anonymous consensus as a secret ballot only from `RATING` on (`isSecretBallotRunning`), so the banner and the
+  stream poll do not announce a pause that does not happen in `COLLECTION`.
+
+### Known limitations
+
+- Adding options, opening and aborting a consensus are only on the consensus page (new tab); the room never opens one.
+- A panel narrower than 290 px offers the booth as a link-button into a new tab.
+- The compact result in the room has no distribution and no named ratings.
+- The banner and the pre-flight lines say "Geheime Wahl ..." for an anonymous consensus as well.
+- The staging test and a real-room test were not run.
+
 ## [0.27.0] — 2026-10-02
 
 Release summary (the detail is in the sections below, grouped by wave V1.9.24 -- V1.9.31):

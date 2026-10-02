@@ -57,6 +57,7 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
@@ -1212,6 +1213,163 @@ class SecretBallotStreamPauseTest :
                 client.post("/test/abort-systemic_consensus/$k2") { header("X-Member-Id", chair.toString()) }.status shouldBe
                     HttpStatusCode.OK
                 fakeClient.startCalls.size shouldBe startCallsBefore
+            }
+        }
+
+        // ── Scenario 15e-15h -- V1.9.32 room consensus: the server-side lock is proven, not newly built ──
+
+        fun forceStreamStatus(
+            streamId: Uuid,
+            status: ConferenceStreamStatus,
+        ) = transaction {
+            ConferenceStreamTable.update({ ConferenceStreamTable.id eq streamId }) { it[ConferenceStreamTable.status] = status }
+        }
+
+        fun streamIdOf(roomId: Uuid): Uuid =
+            transaction {
+                ConferenceStreamTable.selectAll().where { ConferenceStreamTable.roomId eq roomId }.single()[ConferenceStreamTable.id]
+            }
+
+        fun consensusRowCounts(kId: String): Pair<Long, Long> {
+            val k = Uuid.parse(kId)
+            return transaction {
+                val participation =
+                    SystemicConsensusParticipationTable
+                        .selectAll()
+                        .where { SystemicConsensusParticipationTable.systemicConsensusId eq k }
+                        .count()
+                val ballots =
+                    SystemicConsensusBallotTable
+                        .selectAll()
+                        .where { SystemicConsensusBallotTable.systemicConsensusId eq k }
+                        .count()
+                participation to ballots
+            }
+        }
+
+        test("15e: anonymous consensus in RATING with the room stream LIVE -- castResistanceBallot is rejected, nothing is written") {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient()
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val committeeId = createTestCommittee("Pause-15e")
+                val chair = createTestMember("pause15e-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val voter = createTestMember("pause15e-voter@example.org")
+                addMember(committeeId, voter, CommitteeRole.MEMBER)
+                val meetingId = createTestMeeting(committeeId)
+                val roomId = createTestRoom(chair, "Pause-15e Raum", meetingId)
+                val destId = createTestDestination("Pause-15e Ziel", chair)
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+
+                client.startStream(chair, roomId, destId).status shouldBe HttpStatusCode.OK
+                val streamId = streamIdOf(roomId)
+                val kId = client.setUpAndFreezeSecretSystemicConsensus(chair, motionId)
+                // The freeze already paused the stream; simulate a stream that is publishing again (LIVE) during RATING.
+                forceStreamStatus(streamId, ConferenceStreamStatus.LIVE)
+
+                client.castResistanceBallot(voter, kId).status shouldBe HttpStatusCode.Conflict
+                consensusRowCounts(kId) shouldBe (0L to 0L)
+            }
+        }
+
+        test("15f: open (non-anonymous) consensus never pauses the stream, and its ballot is accepted while the stream is LIVE") {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient()
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val committeeId = createTestCommittee("Pause-15f")
+                val chair = createTestMember("pause15f-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val voter = createTestMember("pause15f-voter@example.org")
+                addMember(committeeId, voter, CommitteeRole.MEMBER)
+                val meetingId = createTestMeeting(committeeId)
+                val roomId = createTestRoom(chair, "Pause-15f Raum", meetingId)
+                val destId = createTestDestination("Pause-15f Ziel", chair)
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+
+                client.startStream(chair, roomId, destId).status shouldBe HttpStatusCode.OK
+                val streamId = streamIdOf(roomId)
+                val kId = client.setUpAndFreezeSecretSystemicConsensus(chair, motionId, secret = false)
+
+                streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.LIVE
+                fakeClient.stopCalls.size shouldBe 0
+                client.castResistanceBallot(voter, kId).status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test(
+            "15g: hasPendingOrOpenSecretBallot is true for COLLECTION+anonymous, false for COLLECTION+open; hasOpenSecretBallotForMeeting is false in COLLECTION",
+        ) {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient()
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val committeeId = createTestCommittee("Pause-15g")
+                val chair = createTestMember("pause15g-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val secretMeeting = createTestMeeting(committeeId)
+                val openMeeting = createTestMeeting(committeeId)
+                val secretMotion = createTerminierterMotion(committeeId, secretMeeting, chair)
+                val openMotion = createTerminierterMotion(committeeId, openMeeting, chair)
+
+                client.openSystemicConsensus(chair, secretMotion, secret = true)
+                client.openSystemicConsensus(chair, openMotion, secret = false)
+
+                transaction {
+                    SecretBallotStreamLock.hasPendingOrOpenSecretBallot(secretMeeting) shouldBe true
+                    SecretBallotStreamLock.hasOpenSecretBallotForMeeting(secretMeeting) shouldBe false
+                    SecretBallotStreamLock.hasPendingOrOpenSecretBallot(openMeeting) shouldBe false
+                    SecretBallotStreamLock.hasOpenSecretBallotForMeeting(openMeeting) shouldBe false
+                }
+            }
+        }
+
+        test("15h: reopenRating of an anonymous consensus pauses the stream again; a ballot while it still publishes is rejected") {
+            testApplication {
+                val fakeClient = ControllableFakeLiveKitEgressClient()
+                val guard = DefaultSecretBallotStreamGuard(liveKitEgressClient = fakeClient, streamingConfig = ENABLED_STREAMING_CONFIG)
+                application {
+                    install(StatusPages) { installSecretBallotPauseExceptionHandlers() }
+                    routing { registerSecretBallotPauseTestRoutes(egressClient = fakeClient, streamGuard = guard) }
+                }
+                val committeeId = createTestCommittee("Pause-15h")
+                val chair = createTestMember("pause15h-chair@example.org")
+                addMember(committeeId, chair, CommitteeRole.CHAIR)
+                val voter = createTestMember("pause15h-voter@example.org")
+                addMember(committeeId, voter, CommitteeRole.MEMBER)
+                val meetingId = createTestMeeting(committeeId)
+                val roomId = createTestRoom(chair, "Pause-15h Raum", meetingId)
+                val destId = createTestDestination("Pause-15h Ziel", chair)
+                val motionId = createTerminierterMotion(committeeId, meetingId, chair)
+
+                client.startStream(chair, roomId, destId).status shouldBe HttpStatusCode.OK
+                val streamId = streamIdOf(roomId)
+                val kId = client.setUpAndFreezeSecretSystemicConsensus(chair, motionId)
+                client.closeRating(chair, kId).status shouldBe HttpStatusCode.OK
+                streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.LIVE
+                val stopsBefore = fakeClient.stopCalls.size
+
+                client.reopenRating(chair, kId).status shouldBe HttpStatusCode.OK
+                streamRow(streamId)[ConferenceStreamTable.status] shouldBe ConferenceStreamStatus.PAUSED
+                fakeClient.stopCalls.size shouldBe stopsBefore + 1
+
+                // Before the pause is confirmed (stream still publishing) a ballot is refused ...
+                forceStreamStatus(streamId, ConferenceStreamStatus.LIVE)
+                client.castResistanceBallot(voter, kId).status shouldBe HttpStatusCode.Conflict
+                consensusRowCounts(kId) shouldBe (0L to 0L)
+                // ... and accepted once nothing publishes any more.
+                forceStreamStatus(streamId, ConferenceStreamStatus.PAUSED)
+                client.castResistanceBallot(voter, kId).status shouldBe HttpStatusCode.OK
             }
         }
 

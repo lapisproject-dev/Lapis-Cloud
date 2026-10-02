@@ -44,6 +44,8 @@ private val ELECTION_FILES =
         "ConferenceMeritVoteOperator.kt",
         "ConferenceMeritBidView.kt",
         "VoteBallotForm.kt",
+        // V1.9.32: the consensus booth host of the room -- it carries one Boolean ("a receipt is on screen"), never a receipt
+        "ConferenceConsensusBoothHost.kt",
     )
 
 /**
@@ -58,6 +60,7 @@ private val BALLOT_BLIND_FILES =
         "ConferenceMeritVoteCard.kt",
         "ConferenceMeritVoteOperator.kt",
         "ConferenceMeritBidView.kt",
+        "ConferenceConsensusBoothHost.kt",
     )
 
 /**
@@ -146,6 +149,13 @@ class ElectionSecrecyTripwireTest :
             val secretBranch = text.substringAfter("if (e.secret) {").substringBefore("} else {")
             secretBranch.contains("castAt") shouldBe false
             secretBranch.contains("BallotRow(name = null") shouldBe true
+        }
+
+        test("V1.9.32: the consensus receipt hook scope gives the previous hook back by identity and carries only a Boolean") {
+            val code = codeLines(File(CLIENT_DIR, "ConferenceConsensusBoothHost.kt").readText()).joinToString("\n")
+            code.contains("consensusReceiptVisibilityHook === onChange") shouldBe true
+            code.contains("private val onChange: (Boolean) -> Unit") shouldBe true
+            electionSecrecyFindings(fileName = "ConferenceConsensusBoothHost.kt", text = "val c = result.receiptCode").size shouldBe 1
         }
 
         test("the detector flags each forbidden shape and ignores comments and look-alikes") {

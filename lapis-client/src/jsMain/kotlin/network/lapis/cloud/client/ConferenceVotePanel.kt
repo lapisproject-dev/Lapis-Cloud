@@ -33,6 +33,7 @@ import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.SystemicConsensusDto
 import network.lapis.cloud.shared.domain.VoteBallotDto
 import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.rpc.IConferenceService
@@ -62,11 +63,13 @@ internal data class ConferenceVoteRoomState(
     val truncated: Boolean = false,
     val seenOpenBallotIds: Set<String> = emptySet(),
     val consecutiveFailures: Int = 0,
+    /** V1.9.32 -- consensus id -> how often it has entered RATING so far (a re-rating after a result is a new generation). */
+    val consensusGenerations: Map<String, Int> = emptyMap(),
 )
 
 internal data class ConferenceVoteRoomUpdate(
     val state: ConferenceVoteRoomState,
-    /** Elections and meritocratic votes that are OPEN now and were not before. Never filled by the FIRST answer: a member who joins a running vote sees the badge, no pop-up. */
+    /** Elections, meritocratic votes and consensuses in RATING that are open now and were not before. Never filled by the FIRST answer: a member who joins a running vote sees the badge, no pop-up. */
     val newlyOpenedBallots: List<RoomBallotDto>,
     val listChanged: Boolean,
 )
@@ -75,16 +78,38 @@ internal fun voteRoomReduce(
     prev: ConferenceVoteRoomState,
     dto: RoomVotingStateDto,
 ): ConferenceVoteRoomUpdate {
-    val openBallots = dto.ballots.filter { it.kind.isMemberVotable() && it.status == RoomBallotStatus.OPEN }
+    val openBallots = dto.ballots.filter { it.isOpenForMembers() }
     val firstAnswer = prev.bound == null
-    val newlyOpened = if (firstAnswer) emptyList() else openBallots.filter { it.id !in prev.seenOpenBallotIds }
+    val enteredRating = openBallots.filter { it.kind == RoomBallotKind.CONSENSUS && it.openSeenKey() !in prev.seenOpenBallotIds }
+    val generations = prev.consensusGenerations + enteredRating.associate { it.id to (prev.consensusGenerations[it.id] ?: 0) + 1 }
+    // V1.9.32: a consensus is announced only to a member who can act on it, and only in RATING (a COLLECTION is open for the room, nothing to
+    // rate yet). The id handed on carries the rating generation after the first one, so a re-rating opens the panel again although the
+    // screen remembers the first id for good.
+    val newlyOpened =
+        if (firstAnswer) {
+            emptyList()
+        } else {
+            openBallots
+                .filter { it.openSeenKey() !in prev.seenOpenBallotIds && (it.kind != RoomBallotKind.CONSENSUS || it.memberActionable()) }
+                .map { ballot ->
+                    val generation = generations[ballot.id] ?: 1
+                    if (ballot.kind == RoomBallotKind.CONSENSUS && generation > 1) ballot.copy(id = "${ballot.id}@$generation") else ballot
+                }
+        }
+    // a consensus that left RATING is forgotten, so a re-rating is announced again
+    val leftRating =
+        dto.ballots
+            .filter { it.kind == RoomBallotKind.CONSENSUS && !it.isConsensusRating() }
+            .map { it.openSeenKey() }
+            .toSet()
     val next =
         ConferenceVoteRoomState(
             bound = dto.bound,
             ballots = dto.ballots,
             truncated = dto.truncated,
-            seenOpenBallotIds = prev.seenOpenBallotIds + openBallots.map { it.id },
+            seenOpenBallotIds = (prev.seenOpenBallotIds - leftRating) + openBallots.map { it.openSeenKey() },
             consecutiveFailures = 0,
+            consensusGenerations = generations,
         )
     val listChanged = prev.bound != next.bound || prev.ballots != next.ballots || prev.truncated != next.truncated
     return ConferenceVoteRoomUpdate(state = next, newlyOpenedBallots = newlyOpened, listChanged = listChanged)
@@ -97,14 +122,8 @@ internal fun voteRoomFailure(prev: ConferenceVoteRoomState): ConferenceVoteRoomS
             prev.consecutiveFailures + 1,
     )
 
-/** The kinds a member can act on in the room: an election (booth) and, since V1.9.27, a meritocratic vote (bid). */
-private fun RoomBallotKind.isMemberVotable(): Boolean = this == RoomBallotKind.ELECTION || this == RoomBallotKind.VOTE
-
-/** The number on the toggle button: open elections and votes the member may vote in and has not voted in yet. */
-internal fun ConferenceVoteRoomState.badgeCount(): Int =
-    ballots.count {
-        it.kind.isMemberVotable() && it.status == RoomBallotStatus.OPEN && it.ownEligible && !it.ownHasVoted
-    }
+/** The number on the toggle button: open elections, votes and consensuses (in RATING) the member may vote in and has not voted in yet. */
+internal fun ConferenceVoteRoomState.badgeCount(): Int = ballots.count { it.memberActionable() }
 
 internal fun ConferenceVoteRoomState.anyActive(): Boolean =
     ballots.any { it.status == RoomBallotStatus.OPEN || it.status == RoomBallotStatus.CLOSED_AWAITING_TALLY }
@@ -576,7 +595,7 @@ internal fun renderElectionLiveCard(
     return card
 }
 
-/** A CONSENSUS ballot (reserved, never delivered yet): only its state. Votes have their own card (`ConferenceMeritVoteCard.kt`). */
+/** A ballot of a kind without a card of its own: only its state. Votes have `ConferenceMeritVoteCard.kt`, consensuses `ConferenceConsensusCard.kt`. */
 internal fun renderRoomBallotReadOnlyRow(
     parent: Container,
     ballot: RoomBallotDto,
@@ -639,6 +658,9 @@ internal fun renderConferenceVotePanel(
     loadBalance: suspend () -> LtrLedgerBalanceDto? = { defaultLoadBalance() },
     castVote: suspend (VoteBallotInput) -> VoteBallotDto = { rpcService<IGovernanceService>().castVoteBallot(it) },
     loadRoomState: suspend () -> RoomVotingStateDto? = { null },
+    consensusRpc: ConferenceConsensusRpc = ConferenceConsensusRpc(),
+    isVotingMember: Boolean = true,
+    measureWidth: (() -> Int)? = null,
 ): ConferenceVotePanelHandle {
     val liveRegion =
         parent.div("") {
@@ -674,6 +696,8 @@ internal fun renderConferenceVotePanel(
     var receiptShown = false
     var boothBusy = false
     var disposed = false
+    // V1.9.32 -- consensus ids whose booth does not fit the panel: their card offers the booth in a new tab (link) instead of the button
+    val narrowConsensusTabs = mutableMapOf<String, String>()
     val castPrompt = ConferenceCastingUnloadPrompt { boothBusy }
     val lockClock = BallotLockClock(scheduler)
     var lockedHung = false
@@ -719,6 +743,15 @@ internal fun renderConferenceVotePanel(
             }
         }
     hookScope.install()
+    // V1.9.32 -- the consensus booth reports its receipt through its OWN hook (`consensusReceiptVisibilityHook`)
+    val consensusHookScope =
+        ConferenceConsensusReceiptHookScope { visible ->
+            if (!disposed) {
+                receiptShown = visible
+                publishLock()
+            }
+        }
+    consensusHookScope.install()
 
     fun showNote(text: String?) {
         if (text == null) {
@@ -732,6 +765,7 @@ internal fun renderConferenceVotePanel(
     // The overview, the booth and the card buttons call each other; a local function cannot be referenced before it is declared.
     var enterBoothAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
     var enterMeritAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
+    var enterConsensusAction: (Button, RoomBallotDto) -> Unit = { _, _ -> }
     var overviewRenderer: () -> Unit = {}
 
     // V1.9.26 -- the operator side (open, close, count, emergency card). Only for a member of the organization; everything it needs from the
@@ -750,6 +784,7 @@ internal fun renderConferenceVotePanel(
                 isOpen = { panel.visible },
                 requestOverviewRender = { overviewRenderer() },
                 meritRpc = meritRpc,
+                consensusRpc = consensusRpc,
             )
         }
 
@@ -771,6 +806,21 @@ internal fun renderConferenceVotePanel(
                             val card = renderMeritVoteLiveCard(overview, ballot) { bid -> enterMeritAction(bid, ballot) }
                             operator?.merit?.renderForBallot(card, ballot)
                         }
+                        ballot.kind == RoomBallotKind.CONSENSUS && !isVotingMember -> renderConsensusGuestRow(overview, ballot)
+                        ballot.kind == RoomBallotKind.CONSENSUS ->
+                            if (operator != null && operator.consensus.showsHungCard(ballot)) {
+                                operator.consensus.renderHungCard(overview, ballot)
+                            } else {
+                                val card =
+                                    renderConsensusLiveCard(
+                                        parent = overview,
+                                        ballot = ballot,
+                                        canAct = true,
+                                        onRate = { rate -> enterConsensusAction(rate, ballot) },
+                                        tabHref = narrowConsensusTabs[ballot.id],
+                                    )
+                                operator?.consensus?.renderForBallot(card, ballot)
+                            }
                         ballot.kind != RoomBallotKind.ELECTION -> renderRoomBallotReadOnlyRow(overview, ballot)
                         operator != null && operator.showsHungCard(ballot) -> operator.renderHungCard(overview, ballot)
                         else -> {
@@ -948,6 +998,50 @@ internal fun renderConferenceVotePanel(
         }
     }
 
+    // V1.9.32 -- the resistance booth of a systemic consensus lives in the SAME booth host (close lock, "no auto-open while it is open", unload
+    // prompt for free). An anonymous consensus takes the stream lock of a secret ballot, an open one never does. The width is measured once, at the click.
+    fun openConsensusBooth(consensus: SystemicConsensusDto) {
+        boothOpen = true
+        receiptShown = false
+        boothBusy = false
+        showNote(null)
+        boothNote.hide()
+        overview.hide()
+        boothHost.show()
+        publishLock()
+        renderConsensusBoothInRoom(
+            boothArea = boothArea,
+            consensus = consensus,
+            exitLabel = tr("Zurück zur Übersicht"),
+            ballotLock = consensusMemberBallotLock(lockClock, onRefreshRoom, scheduler),
+            onBusyChanged = { busy ->
+                boothBusy = busy
+                if (busy) castPrompt.install() else castPrompt.uninstall()
+                publishLock()
+            },
+            onExit = { exitBooth() },
+        )
+        focusFirstHeading()
+    }
+
+    enterConsensusAction = { rate, ballot ->
+        runGuardedAction(rate) {
+            val width = measureWidth ?: { panel.getElement()?.clientWidth?.takeIf { it > 0 } ?: Int.MAX_VALUE }
+            when (val entry = decideConsensusEntry(consensusRpc, ballot.id, width)) {
+                is ConsensusEntry.Booth -> openConsensusBooth(entry.consensus)
+                is ConsensusEntry.NarrowTab -> {
+                    narrowConsensusTabs[ballot.id] = entry.href
+                    renderOverview()
+                }
+                ConsensusEntry.NotOpen -> {
+                    showNote(tr("Diese Bewertung ist nicht mehr offen."))
+                    onRefreshRoom()
+                }
+                ConsensusEntry.LoadFailed -> showNote(tr("Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."))
+            }
+        }
+    }
+
     closeButton.onClick { if (currentLock() == ConferenceVotingLock.NONE) onCloseRequested() }
     backButton.onClick { if (currentLock() != ConferenceVotingLock.RECEIPT && !boothBusy) exitBooth() }
     panel.onEvent {
@@ -978,6 +1072,7 @@ internal fun renderConferenceVotePanel(
             if (!disposed) {
                 disposed = true
                 hookScope.restore()
+                consensusHookScope.restore()
                 ConferenceReceiptGate.visible = false
                 ConferenceReceiptGate.casting = false
                 castPrompt.uninstall()

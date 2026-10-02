@@ -19045,3 +19045,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Sondages"
+
+msgid "Bewertung geschlossen"
+msgstr "Évaluation clôturée"
+
+msgid "anonym"
+msgstr "anonyme"
+
+msgid "Sie haben bewertet"
+msgstr "Vous avez évalué"
+
+msgid "Sie können bewerten"
+msgstr "Vous pouvez évaluer"
+
+msgid "In neuem Tab bewerten"
+msgstr "Évaluer dans un nouvel onglet"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "Comment fonctionne le consensus ?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Votre écran est actuellement diffusé. Pour que personne ne voie votre évaluation, l'envoi est verrouillé jusqu'à l'arrêt de la diffusion."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Modifier sur la page du consensus"
+
+msgid "1 Option"
+msgstr "1 option"
+
+msgid "%1 Optionen"
+msgstr "%1 options"
+
+msgid "Optionen festschreiben"
+msgstr "Figer les options"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "Ensuite, aucune option ne pourra plus être ajoutée."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "Ensuite, plus aucune évaluation ne sera possible."
+
+msgid "Erneut bewerten"
+msgstr "Évaluer à nouveau"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "Un nouveau tour d'évaluation commence. Les évaluations précédentes ne comptent alors plus."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Ouvert et nominatif : la diffusion en direct continue."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "L'option ayant la plus faible résistance totale est retenue."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "Cette évaluation n'est plus ouverte."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "L'évaluation n'a pas pu être chargée. Veuillez réessayer."

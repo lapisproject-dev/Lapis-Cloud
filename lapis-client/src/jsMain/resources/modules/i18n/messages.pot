@@ -18063,3 +18063,60 @@ msgstr ""
 
 msgid "Umfragen"
 msgstr ""
+
+msgid "Bewertung geschlossen"
+msgstr ""
+
+msgid "anonym"
+msgstr ""
+
+msgid "Sie haben bewertet"
+msgstr ""
+
+msgid "Sie können bewerten"
+msgstr ""
+
+msgid "In neuem Tab bewerten"
+msgstr ""
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr ""
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr ""
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr ""
+
+msgid "1 Option"
+msgstr ""
+
+msgid "%1 Optionen"
+msgstr ""
+
+msgid "Optionen festschreiben"
+msgstr ""
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr ""
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr ""
+
+msgid "Erneut bewerten"
+msgstr ""
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr ""
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr ""
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr ""
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr ""
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr ""

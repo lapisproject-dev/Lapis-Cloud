@@ -18972,3 +18972,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Опросы"
+
+msgid "Bewertung geschlossen"
+msgstr "Оценка закрыта"
+
+msgid "anonym"
+msgstr "анонимно"
+
+msgid "Sie haben bewertet"
+msgstr "Вы оценили"
+
+msgid "Sie können bewerten"
+msgstr "Вы можете оценивать"
+
+msgid "In neuem Tab bewerten"
+msgstr "Оценить в новой вкладке"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "Как работает консенсус?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Ваш экран сейчас транслируется. Чтобы никто не увидел вашу оценку, отправка заблокирована, пока трансляция не будет приостановлена."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Редактировать на странице консенсуса"
+
+msgid "1 Option"
+msgstr "1 вариант"
+
+msgid "%1 Optionen"
+msgstr "Вариантов: %1"
+
+msgid "Optionen festschreiben"
+msgstr "Зафиксировать варианты"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "После этого добавлять варианты будет нельзя."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "После этого оценки будут невозможны."
+
+msgid "Erneut bewerten"
+msgstr "Оценить снова"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "Начинается новый раунд оценки. Прежние оценки больше не учитываются."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Открыто и поимённо: прямая трансляция продолжается."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "Выбирается вариант с наименьшим суммарным сопротивлением."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "Эта оценка больше не открыта."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Не удалось загрузить оценку. Повторите попытку."

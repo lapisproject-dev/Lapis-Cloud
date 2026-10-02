@@ -170,5 +170,11 @@ the section's forms, like the server's `requireNoOpenVote`.
   round label reads "Eine Runde (Beschluss)". For a discussion round, run the consensus as a poll first.
 * The results of earlier rounds are not retrievable after a revote.
 * An anonymous consensus has no minimum group size; with a single participant the "anonymous" rating is trivially attributable.
-* The booth is not embedded in the conference room (a later wave).
+* The booth is embedded in the conference room since V1.9.32 (see the last section); the room has no results distribution.
 * The staging test is written, not executed: `consensus-staging-test.adoc`.
+
+== In the conference room (V1.9.32)
+
+The booth also runs inside the room panel (`ConferenceVotePanel.kt`), through a `ConsensusBoothRoomHost` (exit text, stream lock of an anonymous
+consensus, busy signal, compact grid). Without a host the booth is unchanged. The room's card, the stream lock, the operator steps and
+their limits are described in `conference-voting.adoc`, section "Systemic consensus in the room panel (V1.9.32)".

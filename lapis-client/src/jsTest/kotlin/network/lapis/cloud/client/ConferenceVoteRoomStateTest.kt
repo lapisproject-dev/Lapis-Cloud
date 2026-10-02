@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotOptionDto
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,6 +32,7 @@ internal fun roomBallot(
     options: List<RoomBallotOptionDto> = emptyList(),
     winnerOptionId: String? = null,
     motionId: String = "m-$id",
+    consensusPhase: SystemicConsensusStatus? = null,
 ) = RoomBallotDto(
     kind = kind,
     id = id,
@@ -43,6 +45,7 @@ internal fun roomBallot(
     ownHasVoted = voted,
     options = options,
     winnerOptionId = winnerOptionId,
+    consensusPhase = consensusPhase,
 )
 
 internal fun roomState(
@@ -387,5 +390,131 @@ class ConferenceVoteRoomStateTest {
         h.controller.start()
         assertEquals(1, h.requests)
         h.controller.stop()
+    }
+
+    // ── V1.9.32: the consensus in the room ───────────────────────────────────────────────────────────────────
+
+    private fun consensusBallot(
+        phase: SystemicConsensusStatus,
+        id: String = "k1",
+        secret: Boolean = true,
+        eligible: Boolean = true,
+        voted: Boolean = false,
+    ) = roomBallot(
+        id = id,
+        status =
+            when (phase) {
+                SystemicConsensusStatus.COLLECTION, SystemicConsensusStatus.RATING -> RoomBallotStatus.OPEN
+                SystemicConsensusStatus.CLOSED -> RoomBallotStatus.CLOSED_AWAITING_TALLY
+                else -> RoomBallotStatus.DECIDED
+            },
+        kind = RoomBallotKind.CONSENSUS,
+        eligible = eligible,
+        voted = voted,
+        secret = secret,
+        consensusPhase = phase,
+    )
+
+    @Test
+    fun memberActionable_isTrueForAConsensusOnlyInRating_andForOpenElectionsAndVotesAsBefore() {
+        assertTrue(consensusBallot(SystemicConsensusStatus.RATING).memberActionable())
+        assertFalse(consensusBallot(SystemicConsensusStatus.COLLECTION).memberActionable(), "nothing to rate while options are collected")
+        assertFalse(consensusBallot(SystemicConsensusStatus.CLOSED).memberActionable())
+        assertFalse(consensusBallot(SystemicConsensusStatus.EVALUATED).memberActionable())
+        assertFalse(consensusBallot(SystemicConsensusStatus.RATING, voted = true).memberActionable())
+        assertFalse(consensusBallot(SystemicConsensusStatus.RATING, eligible = false).memberActionable())
+        assertTrue(roomBallot("e1").memberActionable())
+        assertTrue(roomBallot("v1", kind = RoomBallotKind.VOTE, secret = false).memberActionable())
+        assertFalse(roomBallot("e2", voted = true).memberActionable())
+    }
+
+    @Test
+    fun isSecretBallotRunning_isFalseForAnAnonymousConsensusInCollection_butTrueInRating_andForASecretElection() {
+        assertFalse(
+            consensusBallot(SystemicConsensusStatus.COLLECTION).isSecretBallotRunning(),
+            "the server pauses only once the options are frozen",
+        )
+        assertTrue(consensusBallot(SystemicConsensusStatus.RATING).isSecretBallotRunning())
+        assertFalse(
+            consensusBallot(SystemicConsensusStatus.RATING, secret = false).isSecretBallotRunning(),
+            "an open consensus never locks the stream",
+        )
+        assertFalse(consensusBallot(SystemicConsensusStatus.CLOSED).isSecretBallotRunning())
+        assertTrue(roomBallot("e1").isSecretBallotRunning())
+        assertFalse(roomBallot("e2", secret = false).isSecretBallotRunning())
+        assertFalse(roomBallot("e3", RoomBallotStatus.CLOSED_AWAITING_TALLY).isSecretBallotRunning())
+    }
+
+    @Test
+    fun aConsensus_isAnnouncedOnlyWhenItEntersRating_notInCollection_andAReRatingIsAnnouncedAgain() {
+        val first = voteRoomReduce(ConferenceVoteRoomState(), roomState()).state
+        val collecting = voteRoomReduce(first, roomState(consensusBallot(SystemicConsensusStatus.COLLECTION)))
+        assertTrue(collecting.newlyOpenedBallots.isEmpty(), "COLLECTION is open for the room but not announced")
+        val rating = voteRoomReduce(collecting.state, roomState(consensusBallot(SystemicConsensusStatus.RATING)))
+        assertEquals(listOf("k1"), rating.newlyOpenedBallots.map { it.id })
+        val again = voteRoomReduce(rating.state, roomState(consensusBallot(SystemicConsensusStatus.RATING)))
+        assertTrue(again.newlyOpenedBallots.isEmpty(), "reported once")
+        val closed = voteRoomReduce(again.state, roomState(consensusBallot(SystemicConsensusStatus.CLOSED)))
+        assertTrue(closed.newlyOpenedBallots.isEmpty())
+        val evaluated = voteRoomReduce(closed.state, roomState(consensusBallot(SystemicConsensusStatus.EVALUATED)))
+        assertTrue(evaluated.newlyOpenedBallots.isEmpty())
+        val reRating = voteRoomReduce(evaluated.state, roomState(consensusBallot(SystemicConsensusStatus.RATING)))
+        assertEquals(1, reRating.newlyOpenedBallots.size, "a rating round after a result opens the panel again")
+        assertEquals("k1@2", reRating.newlyOpenedBallots.single().id, "the id handed to the screen's once-per-id memory is a new one")
+        assertEquals(
+            "k1",
+            reRating.state.ballots
+                .single()
+                .id,
+            "the list itself keeps the real id",
+        )
+    }
+
+    @Test
+    fun aConsensus_theMemberCannotActOn_isNeverAnnounced_andAJoinerGetsNoPopUp() {
+        val first = voteRoomReduce(ConferenceVoteRoomState(), roomState()).state
+        val notEligible = voteRoomReduce(first, roomState(consensusBallot(SystemicConsensusStatus.RATING, eligible = false)))
+        assertTrue(notEligible.newlyOpenedBallots.isEmpty())
+        val joiner = voteRoomReduce(ConferenceVoteRoomState(), roomState(consensusBallot(SystemicConsensusStatus.RATING)))
+        assertTrue(joiner.newlyOpenedBallots.isEmpty())
+        assertEquals(1, joiner.state.badgeCount(), "the joiner sees the badge")
+    }
+
+    @Test
+    fun theBadge_countsAConsensusOnlyInRatingThatTheMemberHasNotRatedYet() {
+        fun count(vararg b: RoomBallotDto) = voteRoomReduce(ConferenceVoteRoomState(), roomState(*b)).state.badgeCount()
+        assertEquals(1, count(consensusBallot(SystemicConsensusStatus.RATING)))
+        assertEquals(0, count(consensusBallot(SystemicConsensusStatus.COLLECTION)))
+        assertEquals(0, count(consensusBallot(SystemicConsensusStatus.RATING, voted = true)))
+        assertEquals(0, count(consensusBallot(SystemicConsensusStatus.RATING, eligible = false)))
+        assertEquals(2, count(consensusBallot(SystemicConsensusStatus.RATING), roomBallot("e1")))
+    }
+
+    @Test
+    fun openSeenKey_ofAConsensusIsPerRating_ofOtherKindsTheId() {
+        assertEquals("k1#rating", consensusBallot(SystemicConsensusStatus.RATING).openSeenKey())
+        assertEquals("e1", roomBallot("e1").openSeenKey())
+        assertEquals("v1", roomBallot("v1", kind = RoomBallotKind.VOTE).openSeenKey())
+    }
+
+    @Test
+    fun consensusPhaseLabel_namesEveryPhase_andTheDetailHrefOnlyForIdsOfOurShape() {
+        assertEquals("Optionen werden gesammelt", consensusPhaseLabel(SystemicConsensusStatus.COLLECTION))
+        assertEquals("Bewertung läuft", consensusPhaseLabel(SystemicConsensusStatus.RATING))
+        assertEquals("Bewertung geschlossen", consensusPhaseLabel(SystemicConsensusStatus.CLOSED))
+        assertEquals("Ausgewertet", consensusPhaseLabel(SystemicConsensusStatus.EVALUATED))
+        assertEquals(
+            "#/consensus/123e4567-e89b-12d3-a456-426614174000",
+            conferenceConsensusDetailHref("123e4567-e89b-12d3-a456-426614174000"),
+        )
+        assertNull(conferenceConsensusDetailHref("../../evil"))
+        assertNull(conferenceConsensusDetailHref("k1"))
+    }
+
+    @Test
+    fun theCompactBooth_fitsFrom290px_andNotBelow() {
+        assertFalse(consensusFitsPanel(289))
+        assertTrue(consensusFitsPanel(290))
+        assertTrue(consensusFitsPanel(1200))
     }
 }

@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * V1.9.24 "Abstimmen im Konferenzraum", wave 1 -- which kind of ballot a [RoomBallotDto] describes.
- * [ELECTION] (V1.9.24) and [VOTE] (V1.9.27, meritocratic vote) are populated; [CONSENSUS] is RESERVED
- * (systemic consensing is a project of its own) and never filled.
+ * [ELECTION] (V1.9.24), [VOTE] (V1.9.27, meritocratic vote) and [CONSENSUS] (V1.9.32, systemic
+ * consensing) are all populated.
  */
 @Serializable
 enum class RoomBallotKind { ELECTION, VOTE, CONSENSUS }
@@ -18,6 +18,10 @@ enum class RoomBallotKind { ELECTION, VOTE, CONSENSUS }
  *
  * Mapping for meritocratic votes (V1.9.27): `OPEN` -> [OPEN]; `CLOSED` -> [DECIDED] (the result is computed
  * while closing, so [CLOSED_AWAITING_TALLY] never occurs for a vote); `ABORTED` is never delivered.
+ *
+ * Mapping for systemic consensing (V1.9.32): `COLLECTION` and `RATING` -> [OPEN] (the real phase travels in
+ * [RoomBallotDto.consensusPhase]); `CLOSED` -> [CLOSED_AWAITING_TALLY]; `EVALUATED` -> [DECIDED];
+ * `ABORTED` is never delivered.
  */
 @Serializable
 enum class RoomBallotStatus { OPEN, CLOSED_AWAITING_TALLY, DECIDED }
@@ -59,6 +63,12 @@ data class RoomBallotDto(
     val options: List<RoomBallotOptionDto> = emptyList(),
     /** VOTE + DECIDED only; null on a tie and for every ELECTION. */
     val winnerOptionId: String? = null,
+    /**
+     * V1.9.32 -- CONSENSUS only: the real phase (COLLECTION/RATING/CLOSED/EVALUATED); null for ELECTION/VOTE.
+     * ABORTED is never delivered. For a CONSENSUS [options] is ALWAYS empty and [winnerOptionId] ALWAYS null
+     * (the compact result is loaded separately by an authorised operator).
+     */
+    val consensusPhase: SystemicConsensusStatus? = null,
 )
 
 /**

@@ -420,6 +420,106 @@ sequenceDiagram(name = "A first bid and closing the vote from the room") {
 * The text "Kein Gewinner, keine Belastung" on the motion page (`renderVoteSection`, tie) is inexact for the same reason; it is outside this wave.
 * The staging test (`conference-voting-staging-test.adoc`) was written but not run: the credentials belong to the operator.
 
-== Related: systemic consensus (V1.9.28)
+== Systemic consensus in the room panel (V1.9.32)
 
-The systemic consensus ("Konsensieren") has its own screen and booth, not yet embedded in the room: see `consensus-ui.adoc`.
+The systemic consensus ("Konsensieren", V1.9.28) is now part of the room panel: a card per consensus, the resistance booth embedded in
+the same booth host, and the operator steps freeze, close, evaluate and "rate again". The screen and its booth are described in
+`consensus-ui.adoc`; this section is only what the room adds.
+
+=== Server: what the room learns about a consensus
+
+`RoomBallotDto` gets ONE additive field, `consensusPhase` (`null` for elections and votes), and `RoomBallotKind.CONSENSUS` is filled. No
+new enum value, no migration (`systemic_consensus` already carries `meeting_id`, `round`, `rating_opened_at`, `rating_closed_at` and
+`tally_run_at`), so a client of an older version keeps working.
+
+The phase maps onto the neutral `RoomBallotStatus`; the real phase travels in `consensusPhase`:
+
+[cols="2,2,3",options="header"]
+|===
+|Consensus phase |`RoomBallotStatus` |In the list
+|`COLLECTION`, `RATING` |`OPEN` |always
+|`CLOSED` |`CLOSED_AWAITING_TALLY` |always
+|`EVALUATED` |`DECIDED` |only while `tally_run_at` is inside the recently-decided window
+|`ABORTED` |never delivered |--
+|===
+
+* **Allowlist.** The query selects only `id`, `title`, `status`, `secret`, `round`, `motion_id`, `opened_at`, `rating_opened_at`,
+  `rating_closed_at`, `tally_run_at` and the motion title. `winner_option_id`, `opened_by`, `resolution_id` and the thresholds are not read.
+* **Always empty.** For a consensus `options` is `[]` and `winnerOptionId` is `null`, also for an open consensus and also once
+  `EVALUATED`: the room DTO never carries a rating, an option, a count, a time or another member. The compact result is loaded
+  separately, and only for somebody the server lets read it (`getSystemicConsensusResult`).
+* **Own flags.** `ownEligible` is head-based: only an `ACTIVE` member (never a guest or friend, whatever a snapshot row says) with a
+  snapshot row of the CURRENT round. `ownHasVoted` is read per round from `systemic_consensus_participation` (anonymous) or
+  `systemic_consensus_ballot` (open), through the one place that already keeps the table separation (`SystemicConsensusOwnParticipation`);
+  a rating of round 1 does not survive a `reopenRating`. At most three extra queries, however many consensuses are delivered.
+* **One cap.** Elections, votes and consensuses share the cap of 20: every open ballot first, then the closed ones, then the
+  decided ones newest first, so a decided consensus never displaces an open one.
+
+=== Anonymous consensus is a secret ballot -- and the server already enforced it
+
+The server-side stream lock was not new work. `castResistanceBallot` checks, fail-closed and before any write: active membership, status
+`RATING`, and -- for an anonymous consensus only -- `SecretBallotStreamLock.requireStreamQuiescedForBallot`. `freezeOptions` and
+`reopenRating` lock the rooms, mark the streams as pausing and quiesce them for an anonymous consensus; `hasOpenSecretBallotForMeeting`
+(RATING) and `hasPendingOrOpenSecretBallot` (COLLECTION) cover it, so a room cannot be unbound from, or bound into, a Sitzung with
+one. V1.9.32 adds the tests that pin this for the room (`SecretBallotStreamPauseTest` 15e--15h: a ballot while the stream is LIVE is
+refused and writes nothing; an open consensus never pauses; COLLECTION locks nothing yet; a re-rating pauses again).
+
+The client mirrors the rule in one pure function: `RoomBallotDto.isSecretBallotRunning()` is true for an election that is OPEN and
+secret, and for a consensus that is `RATING` and anonymous -- never for one in `COLLECTION`, because the server pauses only when the
+options are frozen. The banner and the 5-second stream poll of the screen use it; announcing a pause that is not happening would be wrong.
+
+[source,kuml,name="conference-consensus-phases"]
+----
+stateDiagram(name = "Consensus phases in the room") {
+    val start = initialState()
+    val collection = state(name = "COLLECTION (room: OPEN, no lock)")
+    val rating = state(name = "RATING (room: OPEN, anonymous: stream locked)")
+    val closed = state(name = "CLOSED (room: CLOSED_AWAITING_TALLY)")
+    val evaluated = state(name = "EVALUATED (room: DECIDED)")
+
+    transition(source = start, target = collection) { trigger = "openSystemicConsensus" }
+    transition(source = collection, target = rating) { trigger = "freezeOptions: pauses the streams if anonymous" }
+    transition(source = rating, target = closed) { trigger = "closeRating: resumes the streams" }
+    transition(source = closed, target = evaluated) { trigger = "evaluate" }
+    transition(source = evaluated, target = rating) { trigger = "reopenRating: pauses again if anonymous" }
+}
+----
+
+=== Client: card, compact booth, operator
+
+* **Card** (`ConferenceConsensusCard.kt`): title, phase and anonymity badge ("anonym" or "offen – namentlich"), and -- in `RATING` only --
+  the member's own standing. The single primary button "Bewerten" exists only for an eligible member who has not rated; a link "Wie
+  funktioniert Konsensieren?" opens the overview in a new tab (`rel="noopener noreferrer"`). A guest, friend or federated guest sees the
+  title and the badges only (`renderConsensusGuestRow`). Titles go through the untrusted-text helpers.
+* **Booth.** The booth lives in the same booth host as the election booth and the bid view, so the close lock, the "no auto-open while it is
+  open" rule and the unload prompt apply without new state. It is the real `ConsensusBooth`, given a `ConsensusBoothRoomHost`: the
+  exit text ("Zurück zur Übersicht"), the stream lock (anonymous only), the busy signal and the compact grid. Without a host it renders exactly as
+  before (a regression test pins it). The eleven fields of 0..10 stay in ONE row from a panel width of 290 px (`CONSENSUS_COMPACT_MIN_WIDTH_PX`);
+  a narrower panel offers the booth as a link-button "In neuem Tab bewerten". The width is measured once, at the click, and a changed width
+  never re-renders an open booth. The counter ("x von N bewertet") sits next to "Prüfen"; the scale sentence is the booth's existing one.
+* **Lock.** While the stream of an anonymous consensus is still being paused the final "Endgültig abgeben" is disabled with a visible reason
+  (`aria-describedby`), and freed without rebuilding the booth when the stream is quiet. The card shows the same reason beforehand.
+* **Receipt.** The consensus booth reports its receipt through `consensusReceiptVisibilityHook`, not the election hook. The panel takes it
+  through `ConferenceConsensusReceiptHookScope` (identity-checked restore) and sets the same RECEIPT lock, the same gate for the leave buttons
+  and the unload prompt as for an election.
+* **Operator** (`ConferenceConsensusOperator.kt`). The gate is the server's `SystemicConsensusParticipationDto.canManage`; room moderation
+  alone gives none. Per phase: `COLLECTION` shows the option count and "Optionen festschreiben" (asks first; at least one option); `RATING`
+  "Bewertung schließen" (asks first); `CLOSED` "Auswerten"; `EVALUATED` the ranking by mean resistance with the winner badge (no distribution,
+  no named ratings) and "Erneut bewerten" (asks first) while `canReopen` allows it. The dialogs of the steps that start a rating round list the
+  stream lines of an anonymous consensus, or say that the stream keeps running for an open one. Adding options, opening and aborting stay on the
+  consensus page (new tab); the room never opens a consensus from a prepared motion.
+* **Reads and writes.** The snapshot is read through the quiet `loadConsensusDetailQuietly`, at most every 30 seconds, after a phase change and
+  when the panel opens, and never while it is hidden. Every write goes through the controller's one guarded function `runOperatorAction`
+  (double-click guard, neutral conflict note, empty nudge, room reload); a tripwire pins it.
+* **Emergency card.** An anonymous rating whose stream has not stopped after 60 seconds gives the moderation and a manager the same card as an
+  election: "Stream stoppen" for the moderation and the link to the consensus page. A plain member only reads the lock text.
+* **Badge and auto-open.** A consensus counts for the badge and opens the panel only in `RATING` and only for a member who can rate. The key
+  under which it is remembered is dropped when it leaves `RATING`, so a re-rating is announced again.
+
+=== Known limitations (V1.9.32)
+
+* Adding options, opening and aborting a consensus are only on the consensus page (new tab).
+* A panel narrower than 290 px sends the member to a new tab to rate.
+* The compact result has no distribution and no named ratings.
+* The banner and the pre-flight lines say "Geheime Wahl ..." for an anonymous consensus too; a neutral wording would change existing msgids.
+* The staging test (`conference-voting-staging-test.adoc`) and a real-room test were written but not run: the credentials belong to the operator.

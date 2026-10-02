@@ -186,6 +186,7 @@ internal class ConferenceVoteOperatorController(
     private val isOpen: () -> Boolean,
     private val requestOverviewRender: () -> Unit,
     meritRpc: MeritOperatorRpc = MeritOperatorRpc(),
+    consensusRpc: ConferenceConsensusRpc = ConferenceConsensusRpc(),
     private val scope: CoroutineScope = AppScope,
 ) {
     /** V1.9.27 -- the meritocratic-vote side (open a Yes/No vote, close a running one). All its logic lives in its own file; this class only delegates. */
@@ -196,6 +197,20 @@ internal class ConferenceVoteOperatorController(
             scheduler = scheduler,
             runOperatorAction = { button, nudge, write -> runOperatorAction(button, nudge, write) },
             isOpen = isOpen,
+            scope = scope,
+        )
+
+    /** V1.9.32 -- the systemic-consensus side (freeze, close, evaluate, rate again). All its logic lives in its own file; this class only delegates. */
+    val consensus: ConferenceConsensusOperator =
+        ConferenceConsensusOperator(
+            rpc = consensusRpc,
+            scheduler = scheduler,
+            lockClock = lockClock,
+            runOperatorAction = { button, nudge, write -> runOperatorAction(button, nudge, write) },
+            onStopStreamRequested = onStopStreamRequested,
+            canModerateRoom = ctx.canModerateRoom,
+            isOpen = isOpen,
+            requestOverviewRender = requestOverviewRender,
             scope = scope,
         )
 
@@ -217,6 +232,7 @@ internal class ConferenceVoteOperatorController(
         slots = mutableMapOf()
         hungShown.clear()
         merit.beginRender()
+        consensus.beginRender()
     }
 
     private fun register(
@@ -236,6 +252,7 @@ internal class ConferenceVoteOperatorController(
 
     fun repaintAll() {
         slots.keys.toList().forEach(::repaint)
+        consensus.repaintAll()
     }
 
     /** The operator section inside the live card of one election: the lock line for a member who can still vote, and the controls. */
@@ -571,6 +588,7 @@ internal class ConferenceVoteOperatorController(
     ) {
         // the merit side remembers the binding even while the panel is closed (opening it later needs it); it throttles itself
         merit.onRoomUpdate(boundNow)
+        consensus.onRoomUpdate(ballots)
         bound = boundNow
         if (!isOpen() || disposed) return
         if (boundNow) maybeRefreshPrepared(force = false)
@@ -602,6 +620,7 @@ internal class ConferenceVoteOperatorController(
         repaintAll()
         maybeRefreshPrepared(force = true)
         merit.onOpened()
+        consensus.onOpened()
     }
 
     private fun maybeRefreshPrepared(force: Boolean) {
@@ -684,6 +703,7 @@ internal class ConferenceVoteOperatorController(
                 refreshRoom()
                 maybeRefreshPrepared(force = true)
                 merit.invalidate()
+                consensus.invalidate()
             }
         }
     }
@@ -691,6 +711,7 @@ internal class ConferenceVoteOperatorController(
     fun dispose() {
         disposed = true
         merit.dispose()
+        consensus.dispose()
         slots = mutableMapOf()
         entries.clear()
     }

@@ -49,6 +49,12 @@ import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
@@ -67,6 +73,10 @@ import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.SystemicConsensusAggregation
+import network.lapis.cloud.shared.domain.SystemicConsensusBindingness
+import network.lapis.cloud.shared.domain.SystemicConsensusStatus
+import network.lapis.cloud.shared.domain.SystemicConsensusTiebreakRule
 import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -79,6 +89,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -110,6 +121,7 @@ class ConferenceRoomVotingStateTest :
         val motionIds = mutableListOf<Uuid>()
         val electionIds = mutableListOf<Uuid>()
         val voteIds = mutableListOf<Uuid>()
+        val consensusIds = mutableListOf<Uuid>()
         val roomIds = mutableListOf<Uuid>()
         val breakoutIds = mutableListOf<Uuid>()
         val json = Json { ignoreUnknownKeys = false }
@@ -128,6 +140,25 @@ class ConferenceRoomVotingStateTest :
                 ElectionParticipationTable.deleteWhere { ElectionParticipationTable.electionId inList electionIds }
                 ElectionEligibleVoterTable.deleteWhere { ElectionEligibleVoterTable.electionId inList electionIds }
                 ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
+                if (consensusIds.isNotEmpty()) {
+                    val ballotIds =
+                        SystemicConsensusBallotTable
+                            .selectAll()
+                            .where { SystemicConsensusBallotTable.systemicConsensusId inList consensusIds }
+                            .map { it[SystemicConsensusBallotTable.id] }
+                    SystemicConsensusResistanceTable.deleteWhere { SystemicConsensusResistanceTable.ballotId inList ballotIds }
+                    SystemicConsensusBallotTable.deleteWhere { SystemicConsensusBallotTable.systemicConsensusId inList consensusIds }
+                    SystemicConsensusParticipationTable.deleteWhere {
+                        SystemicConsensusParticipationTable.systemicConsensusId inList
+                            consensusIds
+                    }
+                    SystemicConsensusEligibleVoterTable.deleteWhere {
+                        SystemicConsensusEligibleVoterTable.systemicConsensusId inList
+                            consensusIds
+                    }
+                    SystemicConsensusOptionTable.deleteWhere { SystemicConsensusOptionTable.systemicConsensusId inList consensusIds }
+                    SystemicConsensusTable.deleteWhere { SystemicConsensusTable.id inList consensusIds }
+                }
                 VoteBallotTable.deleteWhere { VoteBallotTable.voteId inList voteIds }
                 VoteOptionTable.deleteWhere { VoteOptionTable.voteId inList voteIds }
                 VoteTable.deleteWhere { VoteTable.id inList voteIds }
@@ -311,6 +342,110 @@ class ConferenceRoomVotingStateTest :
             motionIds += motionId
             electionIds += electionId
             return electionId
+        }
+
+        /** Seeds one systemic consensus (with its own motion) directly; returns the consensus id. */
+        fun consensus(
+            f: Fixture,
+            title: String,
+            status: SystemicConsensusStatus,
+            secret: Boolean = true,
+            round: Int = 1,
+            meetingId: Uuid = f.meetingId,
+            openedAt: LocalDateTime = DbClock.nowLocalDateTime(),
+            tallyRunAt: LocalDateTime? = null,
+        ): Uuid {
+            val motionId = Uuid.random()
+            val consensusId = Uuid.random()
+            val rated =
+                status in setOf(SystemicConsensusStatus.RATING, SystemicConsensusStatus.CLOSED, SystemicConsensusStatus.EVALUATED)
+            val closed = status == SystemicConsensusStatus.CLOSED || status == SystemicConsensusStatus.EVALUATED
+            transaction {
+                MotionTable.insert {
+                    it[id] = motionId
+                    it[targetCommitteeId] = f.committeeId
+                    it[MotionTable.title] = "Antrag zu $title"
+                    it[rationale] = "R"
+                    it[text] = "T"
+                    it[submitterMemberId] = f.creator
+                    it[MotionTable.status] = MotionStatus.SCHEDULED
+                    it[submittedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[reviewedBy] = f.creator
+                    it[reviewedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[reviewNote] = null
+                    it[MotionTable.meetingId] = meetingId
+                    it[agendaItemId] = null
+                    it[resolutionId] = null
+                    it[withdrawnAt] = null
+                }
+                SystemicConsensusTable.insert {
+                    it[id] = consensusId
+                    it[SystemicConsensusTable.title] = title
+                    it[SystemicConsensusTable.status] = status
+                    it[SystemicConsensusTable.secret] = secret
+                    it[scaleMax] = 10
+                    it[aggregation] = SystemicConsensusAggregation.MEAN
+                    it[tiebreakRule] = SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE
+                    it[groupConflictViableThreshold] = BigDecimal("0.500")
+                    it[groupConflictWarnThreshold] = BigDecimal("0.800")
+                    it[statusQuoOptionAuto] = true
+                    it[bindingness] = SystemicConsensusBindingness.ADVISORY
+                    it[maxRounds] = 3
+                    it[SystemicConsensusTable.round] = round
+                    it[winnerOptionId] = null
+                    it[openedBy] = f.creator
+                    it[SystemicConsensusTable.openedAt] = openedAt
+                    it[ratingOpenedAt] = if (rated) openedAt else null
+                    it[ratingClosedAt] = if (closed) openedAt else null
+                    it[SystemicConsensusTable.tallyRunAt] = tallyRunAt
+                    it[SystemicConsensusTable.motionId] = motionId
+                    it[SystemicConsensusTable.meetingId] = meetingId
+                    it[resolutionId] = null
+                }
+            }
+            motionIds += motionId
+            consensusIds += consensusId
+            return consensusId
+        }
+
+        fun consensusSnapshot(
+            consensusId: Uuid,
+            memberId: Uuid,
+            round: Int = 1,
+        ) = transaction {
+            SystemicConsensusEligibleVoterTable.insert {
+                it[id] = Uuid.random()
+                it[systemicConsensusId] = consensusId
+                it[SystemicConsensusEligibleVoterTable.round] = round
+                it[SystemicConsensusEligibleVoterTable.memberId] = memberId
+            }
+        }
+
+        /** A rating in [round]: anonymous -> participation row (+ unlinked ballot), open -> named ballot row. */
+        fun consensusRated(
+            consensusId: Uuid,
+            memberId: Uuid,
+            secret: Boolean,
+            round: Int = 1,
+            receipt: String? = null,
+        ) = transaction {
+            if (secret) {
+                SystemicConsensusParticipationTable.insert {
+                    it[id] = Uuid.random()
+                    it[systemicConsensusId] = consensusId
+                    it[votedAt] = DbClock.nowLocalDateTime()
+                    it[SystemicConsensusParticipationTable.round] = round
+                    it[SystemicConsensusParticipationTable.memberId] = memberId
+                }
+            }
+            SystemicConsensusBallotTable.insert {
+                it[id] = Uuid.random()
+                it[systemicConsensusId] = consensusId
+                it[receiptCode] = receipt ?: "OPEN-${Uuid.random().toString().take(30)}"
+                it[castAt] = DbClock.nowLocalDateTime()
+                it[SystemicConsensusBallotTable.round] = round
+                it[SystemicConsensusBallotTable.memberId] = if (secret) null else memberId
+            }
         }
 
         fun eligible(
@@ -969,6 +1104,194 @@ class ConferenceRoomVotingStateTest :
                     SecretBallotStreamLock.hasOpenSecretBallotForMeeting(f.meetingId) shouldBe false
                     SecretBallotStreamLock.hasPendingOrOpenSecretBallot(f.meetingId) shouldBe false
                 }
+            })
+        }
+
+        test("V1.9.32 consensus content per phase: COLLECTION/RATING open, CLOSED awaiting tally, EVALUATED only inside the window") {
+            testApp({
+                val f = fixture("cphase")
+                val r = room(f)
+                val me = member("cphase-me").also { participate(r, it) }
+                consensus(f, "sammeln", SystemicConsensusStatus.COLLECTION)
+                val rating = consensus(f, "bewerten", SystemicConsensusStatus.RATING)
+                consensusSnapshot(rating, me)
+                consensus(f, "zu", SystemicConsensusStatus.CLOSED)
+                consensus(f, "fertig", SystemicConsensusStatus.EVALUATED, tallyRunAt = hoursAgo(1))
+                consensus(f, "alt", SystemicConsensusStatus.EVALUATED, tallyRunAt = hoursAgo(48))
+                consensus(f, "weg", SystemicConsensusStatus.ABORTED)
+                // another Sitzung's consensus never shows up
+                val other = fixture("cphase-other")
+                consensus(other, "fremd", SystemicConsensusStatus.RATING, meetingId = other.meetingId)
+
+                val byTitle = client.stateOk(r, me).ballots.associateBy { it.title }
+                byTitle.keys shouldBe setOf("sammeln", "bewerten", "zu", "fertig")
+                byTitle.values.all { it.kind == RoomBallotKind.CONSENSUS } shouldBe true
+                byTitle.getValue("sammeln").status shouldBe RoomBallotStatus.OPEN
+                byTitle.getValue("sammeln").consensusPhase shouldBe SystemicConsensusStatus.COLLECTION
+                byTitle.getValue("sammeln").ownEligible shouldBe false
+                byTitle.getValue("bewerten").status shouldBe RoomBallotStatus.OPEN
+                byTitle.getValue("bewerten").consensusPhase shouldBe SystemicConsensusStatus.RATING
+                byTitle.getValue("bewerten").ownEligible shouldBe true
+                byTitle.getValue("zu").status shouldBe RoomBallotStatus.CLOSED_AWAITING_TALLY
+                byTitle.getValue("zu").consensusPhase shouldBe SystemicConsensusStatus.CLOSED
+                byTitle.getValue("fertig").status shouldBe RoomBallotStatus.DECIDED
+                byTitle.getValue("fertig").consensusPhase shouldBe SystemicConsensusStatus.EVALUATED
+                byTitle.values.all { it.options.isEmpty() && it.winnerOptionId == null } shouldBe true
+            })
+        }
+
+        test("V1.9.32 consensus eligibility: head-based, only an ACTIVE member with a snapshot of the current round") {
+            testApp({
+                val f = fixture("celig")
+                val r = room(f, allowGuests = true)
+                val k = consensus(f, "elig", SystemicConsensusStatus.RATING)
+                val withSnapshot = member("celig-yes").also { participate(r, it) }
+                val withoutSnapshot = member("celig-no").also { participate(r, it) }
+                val guest = member("celig-guest", MemberStatus.GUEST).also { participate(r, it) }
+                val friend = member("celig-friend", MemberStatus.FRIEND).also { participate(r, it) }
+                consensusSnapshot(k, withSnapshot)
+                consensusSnapshot(k, guest)
+                consensusSnapshot(k, friend)
+                client
+                    .stateOk(r, withSnapshot)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe true
+                client
+                    .stateOk(r, withoutSnapshot)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+                client
+                    .stateOk(r, guest)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+                client
+                    .stateOk(r, friend)
+                    .ballots
+                    .single()
+                    .ownEligible shouldBe false
+            })
+        }
+
+        test("V1.9.32 consensus ownHasVoted is per round (anonymous and open) and a foreign rating never counts") {
+            testApp({
+                val f = fixture("cround")
+                val r = room(f)
+                val me = member("cround-me").also { participate(r, it) }
+                val other = member("cround-other").also { participate(r, it) }
+                listOf(true, false).forEach { secret ->
+                    val k = consensus(f, "runde-$secret", SystemicConsensusStatus.RATING, secret = secret)
+                    consensusSnapshot(k, me)
+                    consensusSnapshot(k, other)
+                    consensusRated(k, other, secret = secret)
+                    client
+                        .stateOk(r, me)
+                        .ballots
+                        .first { it.id == k.toString() }
+                        .ownHasVoted shouldBe false
+                    consensusRated(k, me, secret = secret)
+                    client
+                        .stateOk(r, me)
+                        .ballots
+                        .first { it.id == k.toString() }
+                        .ownHasVoted shouldBe true
+                    // reopenRating: round 2 with a fresh snapshot, the round-1 rating must not survive
+                    transaction { SystemicConsensusTable.update({ SystemicConsensusTable.id eq k }) { it[round] = 2 } }
+                    consensusSnapshot(k, me, round = 2)
+                    val reopened = client.stateOk(r, me).ballots.first { it.id == k.toString() }
+                    reopened.ownHasVoted shouldBe false
+                    reopened.ownEligible shouldBe true
+                }
+            })
+        }
+
+        test(
+            "V1.9.32 shared cap: open elections, votes and consensuses share ONE cap, an evaluated consensus never displaces an open one",
+        ) {
+            testApp({
+                val f = fixture("ccap")
+                val r = room(f)
+                val me = member("ccap-me").also { participate(r, it) }
+                repeat(15) { election(f, "open-e-$it", ElectionStatus.OPEN) }
+                repeat(3) { vote(f, "open-v-$it", VoteStatus.OPEN) }
+                repeat(5) { consensus(f, "open-c-$it", SystemicConsensusStatus.RATING) }
+                repeat(4) { consensus(f, "done-c-$it", SystemicConsensusStatus.EVALUATED, tallyRunAt = hoursAgo(1)) }
+                val s = client.stateOk(r, me)
+                s.ballots.size shouldBe 20
+                s.truncated shouldBe true
+                s.ballots.all { it.status == RoomBallotStatus.OPEN } shouldBe true
+                s.ballots.none { it.status == RoomBallotStatus.DECIDED } shouldBe true
+            })
+        }
+
+        test("V1.9.32 consensus field reduction: exact JSON keys, no rating, no option, no time, no foreign id or receipt") {
+            testApp({
+                val f = fixture("cfields")
+                val r = room(f)
+                val me = member("cfields-me").also { participate(r, it) }
+                val other = member("cfields-other").also { participate(r, it) }
+                listOf(true, false).forEach { secret ->
+                    val k = consensus(f, "k-$secret", SystemicConsensusStatus.RATING, secret = secret)
+                    consensusSnapshot(k, me)
+                    consensusSnapshot(k, other)
+                    consensusRated(k, other, secret = secret, receipt = if (secret) "RCPT-CONSENSUS-0123456789" else null)
+                }
+                consensus(f, "fertig", SystemicConsensusStatus.EVALUATED, tallyRunAt = hoursAgo(1))
+                val body = client.state(r.toString(), me).bodyAsText()
+                val ballots =
+                    json
+                        .parseToJsonElement(body)
+                        .jsonObject["ballots"]!!
+                        .jsonArray
+                        .map { it.jsonObject }
+                ballots.size shouldBe 3
+                ballots.forEach {
+                    it.keys shouldBe
+                        setOf(
+                            "kind",
+                            "id",
+                            "motionId",
+                            "motionTitle",
+                            "title",
+                            "status",
+                            "secret",
+                            "ownEligible",
+                            "ownHasVoted",
+                            "consensusPhase",
+                        )
+                }
+                listOf(
+                    "RCPT-CONSENSUS",
+                    "OPEN-",
+                    "winnerOptionId",
+                    "options",
+                    "openedAt",
+                    "ratingOpenedAt",
+                    "tallyRunAt",
+                    "castAt",
+                    "resistance",
+                    "memberId",
+                ).forEach { body shouldNotContain it }
+                body shouldNotContain other.toString()
+                body shouldNotContain me.toString()
+                body shouldNotContain f.meetingId.toString()
+            })
+        }
+
+        test("V1.9.32 a room with only a consensus keeps the uniform denial for every unauthorised caller") {
+            testApp({
+                val f = fixture("cauthz")
+                val r = room(f)
+                consensus(f, "nur-konsens", SystemicConsensusStatus.RATING)
+                val notInRoom = member("cauthz-out")
+                val left = member("cauthz-left").also { participate(r, it, left = true) }
+                val withdrawn = member("cauthz-wd", MemberStatus.WITHDRAWN).also { participate(r, it) }
+                client.shouldBeUniformlyDenied(r.toString(), notInRoom)
+                client.shouldBeUniformlyDenied(r.toString(), left)
+                client.shouldBeUniformlyDenied(r.toString(), withdrawn)
+                client.shouldBeUniformlyDenied(Uuid.random().toString(), notInRoom)
             })
         }
 

@@ -19027,3 +19027,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Sondaggi"
+
+msgid "Bewertung geschlossen"
+msgstr "Valutazione chiusa"
+
+msgid "anonym"
+msgstr "anonimo"
+
+msgid "Sie haben bewertet"
+msgstr "Hai valutato"
+
+msgid "Sie können bewerten"
+msgstr "Puoi valutare"
+
+msgid "In neuem Tab bewerten"
+msgstr "Valuta in una nuova scheda"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "Come funziona il consenso?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Il tuo schermo è attualmente in trasmissione. Perché nessuno veda la tua valutazione, l'invio è bloccato finché la trasmissione non viene interrotta."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Modifica nella pagina del consenso"
+
+msgid "1 Option"
+msgstr "1 opzione"
+
+msgid "%1 Optionen"
+msgstr "%1 opzioni"
+
+msgid "Optionen festschreiben"
+msgstr "Blocca le opzioni"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "Dopo non sarà più possibile aggiungere opzioni."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "Dopo non saranno più possibili altre valutazioni."
+
+msgid "Erneut bewerten"
+msgstr "Valuta di nuovo"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "Inizia un nuovo turno di valutazione. Le valutazioni precedenti non contano più."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Aperto e nominale: la diretta continua."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "Viene scelta l'opzione con la resistenza complessiva più bassa."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "Questa valutazione non è più aperta."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Impossibile caricare la valutazione. Riprova."

@@ -196,7 +196,7 @@ class ConferenceVotePanelDomTest {
         }
 
     @Test
-    fun aConsensusBallot_showsOnlyItsState_noButton_noLink_andAVoteHasItsOwnMeritCard(): Promise<Unit> =
+    fun aConsensusBallot_hasItsOwnCard_noReadOnlyRowAnyMore_andAVoteHasItsOwnMeritCard(): Promise<Unit> =
         formTest {
             withPanel("vote-readonly") { el, handle, _, _, _ ->
                 handle.apply(
@@ -207,8 +207,8 @@ class ConferenceVotePanelDomTest {
                 )
                 val text = el.flatText()
                 assertTrue(text.contains("Konsens") && text.contains("Konsens offen"))
-                assertTrue(text.contains("Abstimmung läuft – Stimmabgabe im Raum folgt"))
-                assertNull(el.querySelector("a"), "there is no consensus detail route to link to")
+                assertFalse(text.contains("Abstimmung läuft – Stimmabgabe im Raum folgt"), "the reserved read-only row is gone")
+                assertTrue(text.contains("Wie funktioniert Konsensieren?"), "a consensus card explains itself")
                 assertEquals(0, el.allOf("button.btn-primary").size)
                 handle.apply(answerOf(roomBallot("v1", kind = RoomBallotKind.VOTE, secret = false, title = "Haushalt")))
                 assertTrue(el.flatText().contains("Meritokratische Abstimmung"), "a vote is not a read-only row any more")

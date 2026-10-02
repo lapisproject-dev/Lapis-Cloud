@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -341,6 +342,60 @@ class ConsensusBoothDomTest {
                 el.buttonNamed("Prüfen").click()
                 awaitUntil("review", 1500) { el.hasButton("Endgültig abgeben") }
                 assertFalse(el.innerHTML.contains("###KvI18n"), "review step: ${el.flatText()}")
+            }
+        }
+
+    // ── V1.9.32: the same booth, with and without the room host ──────────────────────────────────────────────
+
+    @Test
+    fun withoutARoomHost_theBoothIsExactlyAsBefore_noCompactGrid_theCounterInTheHead_theOldExitText(): Promise<Unit> =
+        formTest {
+            val routes = consensusRoutes()
+            val world = ConsensusWorld(rating())
+            world.failures[routes.cast] = FORBIDDEN_EXCEPTION
+            withBooth(world, "sk-booth-no-host") { el, _, _ ->
+                assertNull(el.querySelector(".lapis-booth-compact"), "no compact grid on the consensus screen")
+                assertNotNull(el.querySelector(".sticky-top [role=status]"), "the counter stays in the sticky head")
+                assertFalse(el.flatText().contains("Gewählt wird die Option mit dem geringsten Gesamtwiderstand."))
+                el.rateAll()
+                el.reviewAndSubmit()
+                awaitUntil("explained", 2000) { el.flatText().contains("Sie sind für diese Runde nicht stimmberechtigt.") }
+                assertTrue(el.hasButton("Zurück zum Konsensieren"))
+                assertNull(el.querySelector("#lapis-consensus-lock-reason"), "no lock note without a host")
+            }
+        }
+
+    @Test
+    fun withARoomHost_theBoothIsCompact_theCounterNextToCheck_andTheTerminalStateUsesTheHostsExitText(): Promise<Unit> =
+        formTest {
+            val routes = consensusRoutes()
+            val world = ConsensusWorld(rating())
+            world.failures[routes.cast] = FORBIDDEN_EXCEPTION
+            val busy = mutableListOf<Boolean>()
+            withFetchStub(respond = world.respond(routes)) { _ ->
+                mountedForm("sk-booth-host") { root, element ->
+                    renderConsensusBooth(
+                        panel = root,
+                        consensus = world.consensus,
+                        roomHost =
+                            ConsensusBoothRoomHost(
+                                exitLabel = "Zurück zur Übersicht",
+                                ballotLock = null,
+                                onBusyChanged = { busy += it },
+                                compact = true,
+                            ),
+                    ) {}
+                    val el = element()
+                    assertNotNull(el.querySelector(".lapis-booth-compact"))
+                    assertNull(el.querySelector(".sticky-top [role=status]"), "no counter in the head")
+                    assertTrue(el.flatText().contains("Gewählt wird die Option mit dem geringsten Gesamtwiderstand."))
+                    el.rateAll()
+                    el.reviewAndSubmit()
+                    awaitUntil("explained", 2000) { el.flatText().contains("Sie sind für diese Runde nicht stimmberechtigt.") }
+                    assertTrue(el.hasButton("Zurück zur Übersicht"))
+                    assertFalse(el.hasButton("Zurück zum Konsensieren"))
+                    assertEquals(listOf(true, false), busy, "busy is reported around the request")
+                }
             }
         }
 }

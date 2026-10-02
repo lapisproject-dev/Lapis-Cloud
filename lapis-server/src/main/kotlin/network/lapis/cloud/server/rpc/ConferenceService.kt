@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -52,6 +53,7 @@ import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotOptionDto
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.RoomVotingStateDto
+import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -1123,8 +1125,9 @@ class ConferenceService(
     }
 
     /**
-     * V1.9.24/V1.9.27 -- the number of queries is independent of the ballot count: 2 election queries,
-     * 2 vote queries, 1 vote-option query, plus own flags (elections: <= 3, votes: <= 3). One shared
+     * V1.9.24/V1.9.27/V1.9.32 -- the number of queries is independent of the ballot count: 2 election queries,
+     * 2 vote queries, 1 vote-option query, 2 consensus queries, plus own flags (elections: <= 3, votes: <= 3,
+     * consensuses: <= 3). One shared
      * ranking and ONE shared cap across both kinds: (1) every OPEN election/vote, (2) elections in CLOSED
      * (awaiting tally), (3) ended ones (TALLIED elections, CLOSED votes within [RECENTLY_TALLIED_WINDOW]),
      * newest first -- so ended ballots can never crowd out an open one, whatever their kind. Own flags are
@@ -1178,9 +1181,40 @@ class ConferenceService(
                 .orderBy(VoteTable.openedAt, SortOrder.DESC)
                 .limit(MAX_ROOM_BALLOTS + 1)
                 .toList()
+        // V1.9.32: explicit allowlist -- winnerOptionId, openedBy, resolutionId and the thresholds are NOT read.
+        val consensusColumns =
+            listOf(
+                SystemicConsensusTable.id,
+                SystemicConsensusTable.title,
+                SystemicConsensusTable.status,
+                SystemicConsensusTable.secret,
+                SystemicConsensusTable.round,
+                SystemicConsensusTable.motionId,
+                SystemicConsensusTable.openedAt,
+                SystemicConsensusTable.ratingOpenedAt,
+                SystemicConsensusTable.ratingClosedAt,
+                SystemicConsensusTable.tallyRunAt,
+                MotionTable.title,
+            )
+        val activeConsensuses =
+            (SystemicConsensusTable innerJoin MotionTable)
+                .select(consensusColumns)
+                .where {
+                    (SystemicConsensusTable.meetingId eq meetingId) and
+                        (
+                            SystemicConsensusTable.status inList
+                                listOf(
+                                    SystemicConsensusStatus.COLLECTION,
+                                    SystemicConsensusStatus.RATING,
+                                    SystemicConsensusStatus.CLOSED,
+                                )
+                        )
+                }.orderBy(SystemicConsensusTable.openedAt, SortOrder.DESC)
+                .limit(MAX_ROOM_BALLOTS + 1)
+                .toList()
         val zone = TimeZone.currentSystemDefault()
         val cutoff = (now.toInstant(zone) - RECENTLY_TALLIED_WINDOW).toLocalDateTime(zone)
-        val remaining = MAX_ROOM_BALLOTS + 1 - activeElections.size - openVotes.size
+        val remaining = MAX_ROOM_BALLOTS + 1 - activeElections.size - openVotes.size - activeConsensuses.size
         val tallied =
             if (remaining <= 0) {
                 emptyList()
@@ -1209,6 +1243,20 @@ class ConferenceService(
                     .limit(remaining)
                     .toList()
             }
+        val evaluatedConsensuses =
+            if (remaining <= 0) {
+                emptyList()
+            } else {
+                (SystemicConsensusTable innerJoin MotionTable)
+                    .select(consensusColumns)
+                    .where {
+                        (SystemicConsensusTable.meetingId eq meetingId) and
+                            (SystemicConsensusTable.status eq SystemicConsensusStatus.EVALUATED) and
+                            (SystemicConsensusTable.tallyRunAt greaterEq cutoff)
+                    }.orderBy(SystemicConsensusTable.tallyRunAt, SortOrder.DESC)
+                    .limit(remaining)
+                    .toList()
+            }
         val candidates =
             activeElections.map { row ->
                 val open = row[ElectionTable.status] == ElectionStatus.OPEN
@@ -1217,15 +1265,41 @@ class ConferenceService(
                     sortTime = row[ElectionTable.openedAt],
                     election = row,
                     vote = null,
+                    consensus = null,
                 )
             } +
-                openVotes.map { RoomBallotCandidate(sortGroup = 0, sortTime = it[VoteTable.openedAt], election = null, vote = it) } +
+                openVotes.map {
+                    RoomBallotCandidate(sortGroup = 0, sortTime = it[VoteTable.openedAt], election = null, vote = it, consensus = null)
+                } +
+                (activeConsensuses + evaluatedConsensuses).map { row ->
+                    val phase = row[SystemicConsensusTable.status]
+                    RoomBallotCandidate(
+                        sortGroup =
+                            when (phase) {
+                                SystemicConsensusStatus.CLOSED -> 1
+                                SystemicConsensusStatus.EVALUATED -> 2
+                                else -> 0
+                            },
+                        sortTime =
+                            when (phase) {
+                                SystemicConsensusStatus.CLOSED ->
+                                    row[SystemicConsensusTable.ratingClosedAt] ?: row[SystemicConsensusTable.openedAt]
+                                SystemicConsensusStatus.EVALUATED ->
+                                    row[SystemicConsensusTable.tallyRunAt] ?: row[SystemicConsensusTable.openedAt]
+                                else -> row[SystemicConsensusTable.ratingOpenedAt] ?: row[SystemicConsensusTable.openedAt]
+                            },
+                        election = null,
+                        vote = null,
+                        consensus = row,
+                    )
+                } +
                 tallied.map {
                     RoomBallotCandidate(
                         sortGroup = 2,
                         sortTime = it[ElectionTable.tallyRunAt] ?: it[ElectionTable.openedAt],
                         election = it,
                         vote = null,
+                        consensus = null,
                     )
                 } +
                 closedVotes.map {
@@ -1234,6 +1308,7 @@ class ConferenceService(
                         sortTime = it[VoteTable.closedAt] ?: it[VoteTable.openedAt],
                         election = null,
                         vote = it,
+                        consensus = null,
                     )
                 }
         val ordered =
@@ -1244,6 +1319,8 @@ class ConferenceService(
         val delivered = ordered.take(MAX_ROOM_BALLOTS)
         val electionRows = delivered.mapNotNull { it.election }
         val voteRows = delivered.mapNotNull { it.vote }
+        val consensusRows = delivered.mapNotNull { it.consensus }
+        val consensusFlags = SystemicConsensusOwnParticipation.load(rows = consensusRows, memberId = memberId)
         val electionFlags = ElectionOwnParticipation.load(electionRows = electionRows, memberId = memberId)
         val voteFlags =
             VoteOwnParticipation.load(voteRows = voteRows, memberId = memberId, memberStatus = memberStatus)
@@ -1266,7 +1343,30 @@ class ConferenceService(
         val ballots =
             delivered.map { candidate ->
                 val voteRow = candidate.vote
-                if (voteRow != null) {
+                val consensusRow = candidate.consensus
+                if (consensusRow != null) {
+                    val consensusId = consensusRow[SystemicConsensusTable.id]
+                    val own = consensusFlags[consensusId]
+                    val phase = consensusRow[SystemicConsensusTable.status]
+                    RoomBallotDto(
+                        kind = RoomBallotKind.CONSENSUS,
+                        id = consensusId.toString(),
+                        motionId = consensusRow[SystemicConsensusTable.motionId].toString(),
+                        motionTitle = consensusRow[MotionTable.title],
+                        title = consensusRow[SystemicConsensusTable.title],
+                        status =
+                            when (phase) {
+                                SystemicConsensusStatus.COLLECTION, SystemicConsensusStatus.RATING -> RoomBallotStatus.OPEN
+                                SystemicConsensusStatus.CLOSED -> RoomBallotStatus.CLOSED_AWAITING_TALLY
+                                else -> RoomBallotStatus.DECIDED
+                            },
+                        secret = consensusRow[SystemicConsensusTable.secret],
+                        // Head-based: only ACTIVE members (never LTR/friends), snapshot of the CURRENT round.
+                        ownEligible = !isNonMember && memberStatus == MemberStatus.ACTIVE && own?.eligible == true,
+                        ownHasVoted = own?.hasRated == true,
+                        consensusPhase = phase,
+                    )
+                } else if (voteRow != null) {
                     val voteId = voteRow[VoteTable.id]
                     val own = voteFlags[voteId]
                     val closed = voteRow[VoteTable.status] == VoteStatus.CLOSED
@@ -1310,12 +1410,13 @@ class ConferenceService(
         return ballots to truncated
     }
 
-    /** One ranked entry of [loadRoomBallots]; exactly one of [election]/[vote] is set. */
+    /** One ranked entry of [loadRoomBallots]; exactly one of [election]/[vote]/[consensus] is set. */
     private class RoomBallotCandidate(
         val sortGroup: Int,
         val sortTime: LocalDateTime,
         val election: ResultRow?,
         val vote: ResultRow?,
+        val consensus: ResultRow?,
     )
 
     // ── Internal helpers ──────────────────────────────────────────────────

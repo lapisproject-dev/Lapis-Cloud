@@ -53,6 +53,21 @@ account that only moderates the room, one guest.
 | The stream while all this runs | Keeps running; no lock text, no banner. | |
 |===
 
+== Systemic consensus in the room (V1.9.32)
+
+. Open an anonymous consensus on a scheduled motion of the room's Sitzung (consensus page), freeze nothing yet. In the room panel the card
+  shows "Optionen werden gesammelt" and "anonym"; no banner "Geheime Wahl läuft" appears and the stream keeps running.
+. Start a stream. As a manager press "Optionen festschreiben": the dialog lists the stream lines. Confirm: the stream of EVERY room of the Sitzung
+  is paused. The card of a member who can rate switches to "Bewertung läuft" and the panel opens once.
+. As that member press "Bewerten" while the stream is still being paused: the booth opens, and "Endgültig abgeben" stays disabled with the
+  sentence "Ihr Bildschirm wird gerade übertragen ..." until the stream is paused. Then it frees without the booth being rebuilt.
+. Submit: the receipt appears, the panel cannot be closed and the leave buttons are blocked until "Fertig".
+. As a manager press "Bewertung schließen" and confirm: the stream resumes. Press "Auswerten": the compact result shows the ranking and the
+  winner badge. Press "Erneut bewerten": the stream is paused again and the panel opens again for the members.
+. An open (non-anonymous) consensus: freezing the options does NOT pause the stream, and a rating is accepted while it is live.
+. A panel narrower than 290 px (narrow window, panel open next to the roster): "Bewerten" turns into "In neuem Tab bewerten".
+. A guest or friend in the room sees the consensus title and badges only: no button, no link.
+
 == Negative cases
 
 [cols="2,3,2,2", options="header"]

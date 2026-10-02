@@ -1,8 +1,10 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.core.onEvent
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
 import io.kvision.html.TAG
 import io.kvision.html.Tag
 import io.kvision.html.button
@@ -40,10 +42,26 @@ import org.w3c.dom.HTMLInputElement
 internal fun renderConsensusBooth(
     panel: SimplePanel,
     consensus: SystemicConsensusDto,
+    roomHost: ConsensusBoothRoomHost? = null,
     onExit: (refresh: Boolean) -> Unit,
 ) {
-    ConsensusBooth(panel, consensus, onExit).showSelect()
+    ConsensusBooth(panel, consensus, onExit, roomHost).showSelect()
 }
+
+/**
+ * V1.9.32 -- what the conference room panel adds to the booth. `null` (the consensus screen) leaves the booth exactly as it was.
+ * [exitLabel] is the label of the way out of a terminal state; [ballotLock] is the stream lock of an ANONYMOUS consensus (`null` for an open
+ * one, which never pauses a stream); [onBusyChanged] is `true` while the rating request is in flight (the panel locks its close button and
+ * asks before the page is left); [compact] is the narrow grid of the side panel. The hook never sees a rating or a receipt.
+ */
+internal class ConsensusBoothRoomHost(
+    val exitLabel: String,
+    val ballotLock: BallotLockHook?,
+    val onBusyChanged: (Boolean) -> Unit,
+    val compact: Boolean,
+)
+
+private const val CONSENSUS_LOCK_REASON_ID = "lapis-consensus-lock-reason"
 
 /** The three anchors of the scale, under 0, 5 and 10. */
 private const val SCALE_START = 0
@@ -53,7 +71,12 @@ private class ConsensusBooth(
     private val host: SimplePanel,
     private val consensus: SystemicConsensusDto,
     private val onExit: (Boolean) -> Unit,
+    private val roomHost: ConsensusBoothRoomHost?,
 ) {
+    // V1.9.32 -- the stream lock of the review step: only subscriptions, never a rating or a receipt.
+    private val lockSubscriptions = mutableListOf<() -> Unit>()
+    private var paintLock: (() -> Unit)? = null
+
     /** option id -> rating, filled when the member goes to the review step and emptied once the request has been sent. */
     private val ratings = linkedMapOf<String, Int>()
     private var inFlight = false
@@ -62,14 +85,25 @@ private class ConsensusBooth(
     private val options: List<SystemicConsensusOptionDto> =
         consensus.options.filterNot { it.isStatusQuoOption }.sortedBy { it.position } + consensus.options.filter { it.isStatusQuoOption }
 
+    private fun releaseLockWatchers() {
+        lockSubscriptions.forEach { it() }
+        lockSubscriptions.clear()
+        paintLock = null
+    }
+
     private fun exit(refresh: Boolean) {
         ratings.clear()
+        releaseLockWatchers()
         onExit(refresh)
     }
 
     private fun fresh(): SimplePanel {
+        releaseLockWatchers()
         host.removeAll()
-        return host.vPanel(spacing = 10) { addCssClasses("lapis-booth") }
+        return host.vPanel(spacing = 10) {
+            addCssClasses("lapis-booth")
+            if (roomHost?.compact == true) addCssClass("lapis-booth-compact")
+        }
     }
 
     fun showSelect(notice: String? = null) {
@@ -81,6 +115,9 @@ private class ConsensusBooth(
         head.p(
             tr("0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."),
         ) { addCssClasses("text-muted small mb-1") }
+        if (roomHost != null) {
+            head.p(tr("Gewählt wird die Option mit dem geringsten Gesamtwiderstand.")) { addCssClasses("text-muted small mb-1") }
+        }
         head.p(
             if (consensus.secret) {
                 tr("Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie.")
@@ -88,12 +125,15 @@ private class ConsensusBooth(
                 tr("Dieses Konsensieren ist offen: Ihre Bewertung wird mit Ihrem Namen gespeichert.")
             },
         ) { addCssClasses("text-muted small mb-1") }
-        val counter =
-            head.div("") {
+
+        fun newCounter(parent: Container): Div =
+            parent.div("") {
                 addCssClasses("small fw-bold")
                 setAttribute("role", "status")
                 setAttribute("aria-live", "polite")
             }
+        // In the room the counter sits next to "Prüfen" (the head stays short in a narrow panel); on the consensus screen it stays in the head.
+        var counter: Div? = if (roomHost == null) newCounter(head) else null
         if (notice != null) booth.p(notice) { addCssClasses("alert alert-warning mb-0") }
 
         // (option id, its eleven radio buttons in the order 0..scaleMax) -- never written into the DOM.
@@ -129,10 +169,11 @@ private class ConsensusBooth(
         val actions = booth.hPanel(spacing = 8)
         val cancel = actions.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
         val next = actions.button(tr("Prüfen"), style = ButtonStyle.PRIMARY)
+        if (roomHost != null) counter = newCounter(actions)
 
         fun update() {
             val done = groups.count { (_, radios) -> chosen(radios) != null }
-            counter.content =
+            counter?.content =
                 if (groups.size ==
                     1
                 ) {
@@ -178,12 +219,44 @@ private class ConsensusBooth(
         row.add(back)
         row.add(submit)
         back.onClick { if (!inFlight) showSelect() }
-        submit.onClick { submitNow(submit) }
+        submit.onClick { if (roomHost?.ballotLock?.lockedReason() == null) submitNow(submit) }
+        roomHost?.ballotLock?.let { watchLock(booth, submit, it) }
+    }
+
+    /** V1.9.32 -- the visible reason next to a locked "Endgültig abgeben" while the stream of an anonymous consensus is still being paused. */
+    private fun watchLock(
+        booth: SimplePanel,
+        submit: Button,
+        hook: BallotLockHook,
+    ) {
+        val note =
+            booth.div("") {
+                addCssClasses("text-muted small")
+                setAttribute("role", "status")
+            }
+        note.id = CONSENSUS_LOCK_REASON_ID
+
+        fun paint() {
+            val reason = hook.lockedReason()
+            submit.disabled = reason != null
+            if (reason == null) {
+                note.hide()
+                submit.removeAttribute("aria-describedby")
+            } else {
+                note.content = reason
+                note.show()
+                submit.setAttr("aria-describedby", CONSENSUS_LOCK_REASON_ID)
+            }
+        }
+        paint()
+        paintLock = { if (!inFlight) paint() }
+        lockSubscriptions += hook.subscribe { paintLock?.invoke() }
     }
 
     private fun submitNow(button: Button) {
         if (inFlight) return
         inFlight = true
+        roomHost?.onBusyChanged?.invoke(true)
         var succeeded = false
         runGuardedAction(button, restoreDisabled = { succeeded }) {
             try {
@@ -198,6 +271,9 @@ private class ConsensusBooth(
                 }
             } finally {
                 inFlight = false
+                roomHost?.onBusyChanged?.invoke(false)
+                // a lock change that came in while the request ran was skipped (the button is guarded then): catch up now
+                paintLock?.invoke()
             }
         }
     }
@@ -242,7 +318,11 @@ private class ConsensusBooth(
             }
             // Still open and not rated: usually "the conference stream is not paused yet". The ratings are kept and nothing is sent again by
             // itself -- the member decides.
-            else -> showReview(notice = gettext("Bitte kurz warten und erneut versuchen."))
+            else -> {
+                // inside the room this usually means "the stream is not paused yet": the host refreshes its room state
+                roomHost?.ballotLock?.onConflict()
+                showReview(notice = gettext("Bitte kurz warten und erneut versuchen."))
+            }
         }
     }
 
@@ -253,7 +333,7 @@ private class ConsensusBooth(
         val booth = fresh()
         booth.h2(title) { addCssClass("h5") }
         booth.p(text)
-        booth.button(tr("Zurück zum Konsensieren"), style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
+        booth.button(roomHost?.exitLabel ?: tr("Zurück zum Konsensieren"), style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
     }
 
     private fun showDone() {

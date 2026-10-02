@@ -2429,6 +2429,26 @@ html .form-select.is-invalid:focus {
   }
 }
 
+/* V1.9.32 Konsensieren im Konferenzraum: kompakte Kabine fuer das schmale Seitenpanel. Elf Felder 0..10 immer in EINER Zeile
+   (Mindestbreite des Panels 290 px, siehe CONSENSUS_COMPACT_MIN_WIDTH_PX), keine Ampelfarben; Auswahl und Fokus erbt die Regeln oben. */
+.lapis-booth-compact .lapis-sk-option {
+  padding: 8px;
+}
+
+.lapis-booth-compact .lapis-sk-scale {
+  grid-template-columns: repeat(11, 1fr);
+  max-width: none;
+  gap: 2px;
+}
+
+.lapis-booth-compact .lapis-sk-scale > label {
+  min-width: 24px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .lapis-sk-rank {
   padding: 10px 12px;
   border: 1px solid var(--lapis-border);

@@ -18981,3 +18981,60 @@ msgstr "%1 %"
 
 msgid "Umfragen"
 msgstr "Ankiety"
+
+msgid "Bewertung geschlossen"
+msgstr "Ocena zamknięta"
+
+msgid "anonym"
+msgstr "anonimowo"
+
+msgid "Sie haben bewertet"
+msgstr "Twoja ocena została oddana"
+
+msgid "Sie können bewerten"
+msgstr "Możesz ocenić"
+
+msgid "In neuem Tab bewerten"
+msgstr "Oceń w nowej karcie"
+
+msgid "Wie funktioniert Konsensieren?"
+msgstr "Jak działa konsensus?"
+
+msgid "Ihr Bildschirm wird gerade übertragen. Damit niemand Ihre Bewertung sieht, ist die Abgabe gesperrt, bis die Übertragung angehalten ist."
+msgstr "Twój ekran jest teraz transmitowany. Aby nikt nie zobaczył Twojej oceny, wysyłanie jest zablokowane do czasu wstrzymania transmisji."
+
+msgid "Auf der Konsensieren-Seite bearbeiten"
+msgstr "Edytuj na stronie konsensusu"
+
+msgid "1 Option"
+msgstr "1 opcja"
+
+msgid "%1 Optionen"
+msgstr "%1 opcji"
+
+msgid "Optionen festschreiben"
+msgstr "Zamroź opcje"
+
+msgid "Danach können keine Optionen mehr hinzukommen."
+msgstr "Potem nie będzie można dodać kolejnych opcji."
+
+msgid "Danach sind keine Bewertungen mehr möglich."
+msgstr "Potem nie będzie można już oceniać."
+
+msgid "Erneut bewerten"
+msgstr "Oceń ponownie"
+
+msgid "Es beginnt eine neue Bewertungsrunde. Die bisherigen Bewertungen zählen dann nicht mehr."
+msgstr "Rozpoczyna się nowa runda oceny. Dotychczasowe oceny przestają się liczyć."
+
+msgid "Offen und namentlich: Der Live-Stream läuft weiter."
+msgstr "Jawne i imienne: transmisja na żywo trwa nadal."
+
+msgid "Gewählt wird die Option mit dem geringsten Gesamtwiderstand."
+msgstr "Wybierana jest opcja o najmniejszym łącznym sprzeciwie."
+
+msgid "Diese Bewertung ist nicht mehr offen."
+msgstr "Ta ocena nie jest już otwarta."
+
+msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
+msgstr "Nie udało się załadować oceny. Spróbuj ponownie."

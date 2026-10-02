@@ -37,6 +37,11 @@ private val CONFERENCE_VOTE_FILES =
         "ConferenceMeritVoteCard.kt",
         "ConferenceMeritVoteOperator.kt",
         "ConferenceMeritBidView.kt",
+        // V1.9.32: the systemic consensus in the room
+        "ConferenceConsensusCard.kt",
+        "ConferenceConsensusBoothHost.kt",
+        "ConferenceConsensusOperator.kt",
+        "ConferenceConsensusRoomState.kt",
     )
 
 private val MERIT_FILES = listOf("ConferenceMeritVoteCard.kt", "ConferenceMeritVoteOperator.kt", "ConferenceMeritBidView.kt")
@@ -140,6 +145,19 @@ internal fun runOperatorActionSpans(text: String): List<IntRange> {
     return spans
 }
 
+private val CONSENSUS_WRITE = Regex("""\brpc\.(freeze|closeRating|evaluate|reopen)\b""")
+
+/** `rpc.freeze`/`closeRating`/`evaluate`/`reopen` uses of the consensus operator that sit outside every `runOperatorAction(...)` span. */
+internal fun unguardedConsensusWrites(text: String): List<String> {
+    val code = codeOnlyLines(text)
+    val spans = runOperatorActionSpans(code)
+    return CONSENSUS_WRITE
+        .findAll(code)
+        .filter { m -> spans.none { m.range.first in it } }
+        .map { it.value }
+        .toList()
+}
+
 private val ELECTION_WRITE = Regex("""\brpc\.(openVoting|closeVoting|approveTally|tally|abortElection)\b""")
 
 /** `rpc.<write>` uses that sit outside every `runOperatorAction(...)` span. */
@@ -221,6 +239,36 @@ class ConferenceVoteOperatorTripwireTest :
                 listOf("rpc.abortElection")
             unguardedElectionWrites("// rpc.closeVoting(id)") shouldBe emptyList()
             unguardedElectionWrites("val x = rpc.getElection(id)") shouldBe emptyList()
+        }
+
+        test(
+            "V1.9.32: every consensus write sits inside runOperatorAction, behind the seam, and the destructive ones behind a confirmation",
+        ) {
+            val operatorText = File(CLIENT_DIR, "ConferenceConsensusOperator.kt").readText()
+            unguardedConsensusWrites(operatorText) shouldBe emptyList()
+            CONSENSUS_WRITE.findAll(codeOnlyLines(operatorText)).count() shouldBe 4
+            // freeze, closeRating and reopen sit inside a confirmDialog(...) block, evaluate does not need one
+            listOf("rpc.freeze(", "rpc.closeRating(", "rpc.reopen(").forEach { write ->
+                val index = operatorText.indexOf(write)
+                (operatorText.lastIndexOf("confirmDialog(", index) > operatorText.lastIndexOf("private fun paint", index)) shouldBe true
+            }
+            // the scanner is not blind
+            unguardedConsensusWrites("AppScope.launch { rpc.freeze(id) }") shouldBe listOf("rpc.freeze")
+            unguardedConsensusWrites("runOperatorAction(b, true) { rpc.evaluate(id) }") shouldBe emptyList()
+            // no direct service call outside the one seam class
+            listOf("ConferenceConsensusCard.kt", "ConferenceConsensusOperator.kt", "ConferenceConsensusRoomState.kt").forEach { name ->
+                codeOnlyLines(File(CLIENT_DIR, name).readText()).contains("rpcService<ISystemicConsensusService>") shouldBe false
+            }
+            val host = codeOnlyLines(File(CLIENT_DIR, "ConferenceConsensusBoothHost.kt").readText())
+            val seam = host.substringAfter("internal class ConferenceConsensusRpc(").substringBefore("\n)\n")
+            Regex("rpcService<ISystemicConsensusService>").findAll(host).count() shouldBe
+                Regex("rpcService<ISystemicConsensusService>").findAll(seam).count()
+            // the room never opens or aborts a consensus
+            listOf("ConferenceConsensusOperator.kt", "ConferenceConsensusBoothHost.kt", "ConferenceVotePanel.kt").forEach { name ->
+                val code = codeOnlyLines(File(CLIENT_DIR, name).readText())
+                code.contains("abortSystemicConsensus") shouldBe false
+                code.contains("openSystemicConsensus") shouldBe false
+            }
         }
 
         test("no conference voting file reads an exception message") {

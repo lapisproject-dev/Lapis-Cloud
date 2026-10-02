@@ -1767,7 +1767,7 @@ private fun enterCall(
     // The panel hears the stream status through this sink (assigned once the panel exists; `updateStreamButtonsVisibility` is declared earlier).
     var streamStateSink: (ConferenceStreamStatus?, ConferenceStreamPauseReason?) -> Unit = { _, _ -> }
 
-    fun secretBallotOpen(): Boolean = voteController?.state?.ballots?.any { it.secret && it.status == RoomBallotStatus.OPEN } == true
+    fun secretBallotOpen(): Boolean = voteController?.state?.ballots?.any { it.isSecretBallotRunning() } == true
 
     fun updateSecretBallotBanner() {
         val votes = voteController?.state
@@ -1777,7 +1777,7 @@ private fun enterCall(
             ) {
                 null
             } else {
-                votes.bound == true && votes.ballots.any { it.secret && it.status == RoomBallotStatus.OPEN }
+                votes.bound == true && votes.ballots.any { it.isSecretBallotRunning() }
             }
         val recordingActive =
             when {
