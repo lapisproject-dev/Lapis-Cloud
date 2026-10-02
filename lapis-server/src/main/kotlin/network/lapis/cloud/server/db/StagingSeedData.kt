@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.security.PasswordHasher
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -416,10 +417,12 @@ object StagingSeedData {
             }
 
             val now = DbClock.nowLocalDateTime()
+            // class-B fields (meeting/event times) are wall-clocks of the organization zone, not UTC stamps (V1.9.38)
+            val wallNow = OrganizationTimeZone.wallNowOf(now)
             MeetingTable.insert {
                 it[id] = plannedMeetingId
                 it[title] = "Vorstandssitzung Q3"
-                it[scheduledAt] = now.plusDays(14)
+                it[scheduledAt] = wallNow.plusDays(14)
                 it[format] = MeetingFormat.ONLINE
                 it[status] = MeetingStatus.PLANNED
                 it[chairMemberId] = admin.id
@@ -429,7 +432,7 @@ object StagingSeedData {
             MeetingTable.insert {
                 it[id] = heldMeetingId
                 it[title] = "Vorstandssitzung Q2"
-                it[scheduledAt] = now.minusDays(30)
+                it[scheduledAt] = wallNow.minusDays(30)
                 it[format] = MeetingFormat.IN_PERSON
                 it[status] = MeetingStatus.HELD
                 it[chairMemberId] = admin.id
@@ -475,8 +478,8 @@ object StagingSeedData {
                 it[title] = "Mitgliederabend"
                 it[description] = "Geselliger Abend fuer alle Mitglieder des Testvereins."
                 it[locationText] = "Vereinsheim Musterstadt"
-                it[startsAt] = now.plusDays(21)
-                it[endsAt] = now.plusDays(21).plusHours(3)
+                it[startsAt] = wallNow.plusDays(21)
+                it[endsAt] = wallNow.plusDays(21).plusHours(3)
                 it[capacity] = 50
                 it[feeAmount] = BigDecimal("0.00")
                 it[feeCurrency] = "EUR"

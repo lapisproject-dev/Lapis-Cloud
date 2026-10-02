@@ -17,8 +17,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.BeneficialOwnerDataGapDto
 import network.lapis.cloud.shared.domain.BoardMembershipDto
 import network.lapis.cloud.shared.domain.BoardMembershipInput
@@ -29,7 +27,6 @@ import network.lapis.cloud.shared.domain.TransparenzregisterReportDto
 import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import network.lapis.cloud.shared.rpc.IMemberService
-import kotlin.time.Clock
 
 /**
  * Compliance UI wave, screen 5 of 5 -- "Vorstand & Transparenzregister" (board roster + §20 GwG
@@ -425,7 +422,7 @@ private fun renderReminderRow(
     headerRow.untrustedCardTitle(reminder.memberDisplayName)
     headerRow.statusBadge(reminderResolutionLabel(reminder.resolved), reminderResolutionColor(reminder.resolved))
 
-    row.div(gettext("Ausgelöst am: %1", formatDateTime(reminder.triggeredAt))) { addCssClasses("text-muted small") }
+    row.div(gettext("Ausgelöst am: %1", formatSystemDateTime(reminder.triggeredAt))) { addCssClasses("text-muted small") }
 
     if (reminder.resolved) {
         row.div(resolvedCaption(reminder)) { addCssClasses("text-muted small") }
@@ -460,17 +457,12 @@ fun reminderResolutionColor(resolved: Boolean): String = if (resolved) "success"
  * `DsgvoRightsScreen.kt`'s audit-actor display already establishes. */
 fun resolvedCaption(reminder: TransparenzregisterReminderDto): String {
     val who = reminder.resolvedByDisplayName ?: reminder.resolvedById ?: gettext("unbekannt")
-    return gettext("Bestätigt von %1 am %2", who, formatDateTime(reminder.resolvedAt!!))
+    return gettext("Bestätigt von %1 am %2", who, formatSystemDateTime(reminder.resolvedAt!!))
 }
 
 /** Today's date as `JJJJ-MM-TT` -- mirrors `CommitteesScreen.todayIso`'s own `kotlin.time.Clock`
  * idiom (this codebase's pinned kotlinx-datetime version only extends the stdlib clock). */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
 // ================================================================================================
 // Copy constants -- the German source text is the msgid; every use site wraps it in `tr(...)` (audit fix M4), so they are translated.

@@ -8,6 +8,19 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Unified time zones, stage 1** (V1.9.38): every temporal field is now one of three classes -- A (a system timestamp the server stamped, stored
+  and sent as UTC), B (a wall-clock a person typed in, in the organization's zone) or D (a calendar date) -- classified field by field in
+  `lapis-server/src/test/resources/time-fields.tsv` (410 DTO properties, 357 columns) and enforced by `TimeFieldClassificationTripwireTest`,
+  `ServerImplicitZoneTripwireTest`, `ClientSystemTimestampTripwireTest` and `ClientImplicitZoneTripwireTest` (a new temporal field cannot be
+  added without deciding its clock and its display rule). New `ServerClock` (storage zone fixed to UTC, never read from the environment) and
+  `OrganizationTimeZone`; new setting "Zeitzone der Organisation" for ADMIN (`IOrganizationTimeZoneService`, allow-list, audit entry with the old and
+  the new zone, migration `V67__organization_timezone.sql`, default `Europe/Berlin`); `SessionInfoDto.organizationTimeZone` delivers it to every
+  client. The client shows class-A values in that zone (`formatSystem*`, with the zone abbreviation on the dashboard's session expiry and the ISO
+  UTC instant as hover title in the audit log) and class-B values as typed. New npm dependency `@js-joda/timezone` 2.23.0 (BSD-3-Clause, full zone
+  data; kotlinx-datetime on Kotlin/JS knows no named zone without it). The whole server suite runs green with a UTC and with a Europe/Berlin
+  process zone (`-PtestTimeZone=...`). Documentation: `docs/architecture/time-and-timezones.adoc`, `time-and-timezones-staging-test.adoc` (not
+  executed), `ui-ux-guideline.adoc`, `CLAUDE.md`.
+
 - **Postgres test lane** (V1.9.37): `./gradlew :lapis-server:postgresTest` runs a defined set of specs against a real, disposable PostgreSQL 17
   and is part of `check` (skipped when `LAPIS_TEST_POSTGRES_URL` is not set; CI runs it against a `postgres:17` service container). Until now
   every test ran on H2 only. One fresh database per spec, cloned from a template migrated once per JVM. Covered: the whole Flyway chain (66
@@ -64,7 +77,26 @@ All notable changes to this project are documented here. Format follows
   panel auto-open count a consensus only while it is being rated; a re-rating opens the panel again. `RoomBallotDto` gets the additive field
   `consensusPhase`; no migration.
 
+### Changed
+
+- **V1.9.38, behaviour change at deploy time**: open polls close, and running events end, up to two hours EARLIER than before in Germany -- at the
+  typed-in local time instead of the same digits read as UTC. Announce it and, if possible, deploy while no vote is running.
+
 ### Fixed
+
+- **Times read in the wrong zone** (V1.9.38): (1) the iCal feed shifted every single event by one or two hours (`DTSTART`/`DTEND` read the typed-in
+  local time as UTC) and drifted weekly series by an hour across clock changes (the master was a UTC instant; it now carries `TZID` plus a
+  `VTIMEZONE`, and `EXDATE`/`RECURRENCE-ID` follow); the embed feed had the same shift. (2) A poll closed one or two hours late
+  (`closes_at` was compared with the UTC stamp). (3) An event stayed "upcoming" and registration stayed open for one or two hours after the
+  event ended or started (`EventPolicy`, `EventStore.list`, the public navigation, the MCP event list). (4) A letter generated between 00:00 and
+  02:00 local time carried yesterday's date (Spendenbescheinigung, Beitragsrechnung, Einladung, event invoice), as did every `now.date`
+  calendar-date comparison of dunning, SEPA, contributions, relief requests, carpool, open items and committee seats (about 60 places now use the
+  organization's "today"). (5) The 72-hour data-breach deadline was read as UTC and reported overdue one or two hours late
+  (`BreachDeadlineCalculator`: wall-clock to instant, plus 72 real hours, back to a wall-clock). (6) The dashboard showed the session expiry in UTC
+  without a zone. (7) SEPA `GrpHdr/CreDtTm` and the DATEV header "erzeugt am" carry the organization wall-clock (their documentation already
+  demanded a Berlin container). (8) The audit-log date filter compared a typed-in local time with a UTC stamp. (9) CRM interactions without a
+  typed-in time and payment settlement times from PSP/bank-statement no longer mix UTC stamps into columns that otherwise hold typed-in
+  wall-clocks. Every fix has a test that fails without it (mutation-checked).
 
 - **Three code paths that were only correct on H2** (V1.9.37, found by the Postgres lane). On PostgreSQL a failed statement (a caught unique
   violation) poisons the whole transaction (`25P02`), and Exposed then re-runs the WHOLE `transaction {}`, which hid the problem. Each statement
@@ -74,6 +106,11 @@ All notable changes to this project are documented here. Format follows
   under the same lock was not committed). No migration. `EventTicketIssuer.rawCodeSupplier` is a test seam only.
 
 ### Security
+
+- **V1.9.38 zone hygiene**: the server no longer reads the zone of its own process anywhere (`currentSystemDefault` and friends are banned by a
+  tripwire); `ServerClock.zone` is the constant UTC and the container pins it three times (`ENV TZ=UTC`, `-Duser.timezone=UTC` in the start script,
+  `TZ: UTC` in the example compose file). The organization zone is validated against an allow-list (no offsets, no short ids, no `Etc/GMT+n`, no
+  path or control characters), writable only by ADMIN through its own RPC (not through the generic settings update) and audited.
 
 - V1.9.37 Postgres lane: the lane creates and drops databases, so it only runs against a throwaway instance -- URL whitelist (`jdbc:postgresql://`, host
   `localhost`/`127.0.0.1`/`[::1]`/`postgres`, no multi-host, no credentials in the URL, `sslmode` as the only query parameter, a set but invalid URL is a hard
@@ -120,6 +157,15 @@ All notable changes to this project are documented here. Format follows
   stream poll do not announce a pause that does not happen in `COLLECTION`.
 
 ### Known limitations
+
+- V1.9.38 (stage 1 only): the wire format is unchanged -- class-A values are zone-less UTC `LocalDateTime`s, so public API and MCP consumers see UTC
+  without a zone marker (stage 2, `Instant` on the wire, is not done). Recurring series stay on `Europe/Berlin` (database constraint
+  `event_series.timezone`), so with another organization zone their occurrences are still interpreted in Berlin. Changing the zone moves the real
+  instant of every open class-B deadline (ADMIN-only, audited). `PollDto.closedAt` is now uniformly an organization wall-clock (a manual close,
+  stored as UTC, is converted on the way out). The registry lists two doubtful fields (`A?`, a CRM `consent_withdrawn_at` whose stamping writer
+  was not found). The SEPA `CreDtTm` change has no isolated test (the file is archived encrypted; the code path is one line). **Operator note**
+  (not changed by this repository): the compose files of PdV, ELB and Staging in `Lapis-Cloud-Ops` should add `TZ: UTC` to the `lapis-server`
+  service -- never `Europe/Berlin`, and no `JAVA_TOOL_OPTIONS` that replaces an existing value.
 
 - V1.9.37: the lane measures but does not add a production `lock_timeout`/`statement_timeout` (still none); Exposed's automatic re-run of a whole
   transaction after an `SQLException` (default 3 attempts) can still repeat an external side effect such as a Stripe call (the single-flight test measures

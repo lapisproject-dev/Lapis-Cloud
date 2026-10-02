@@ -27,8 +27,6 @@ import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CostCenterDto
 import network.lapis.cloud.shared.domain.DonorCategory
@@ -57,7 +55,6 @@ import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IPostalMailService
-import kotlin.time.Clock
 
 /**
  * Accounting UI wave, screen 1 of 5 -- "Kontenplan & Journal" (SKR42 chart of accounts CRUD; the
@@ -1345,10 +1342,10 @@ private fun renderJournalEntryDetailBody(
             gettext(
                 "Entwurf von %1 am %2 -- noch nicht Teil offizieller Berichte.",
                 entry.createdByDisplayName,
-                formatDateTime(entry.createdAt),
+                formatSystemDateTime(entry.createdAt),
             )
         } else {
-            gettext("Gebucht am %1 von %2 -- unveränderlich.", formatDateTime(entry.postedAt!!), entry.createdByDisplayName)
+            gettext("Gebucht am %1 von %2 -- unveränderlich.", formatSystemDateTime(entry.postedAt!!), entry.createdByDisplayName)
         }
     panel.div(caption) { addCssClasses("text-muted small") }
     panel.div(gettext("Datum: %1", formatDate(entry.entryDate))) { addCssClasses("text-muted small") }
@@ -2353,12 +2350,7 @@ private fun postingConfirmDialog(
 
 /** Mirrors `CommitteesScreen.kt`'s own private `todayIso()` -- no shared date-util file exists in
  * this client (each screen that needs "today as JJJJ-MM-TT" carries its own copy). */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
 // ============================================================================================
 // German label/badge-color tables -- LedgerAccountType/PostingSide/JournalEntryStatus stay local

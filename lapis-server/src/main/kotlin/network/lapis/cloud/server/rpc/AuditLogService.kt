@@ -1,11 +1,14 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.audit.AuditHashChain
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditChainVerificationResultDto
 import network.lapis.cloud.shared.domain.AuditLogEntryDto
@@ -58,8 +61,11 @@ class AuditLogService(
         val actorUuid = query.actorMemberId?.toAuditUuid("Member")
         val cappedLimit = query.limit.coerceIn(1, MAX_PAGE_SIZE)
         val entityType = query.entityType
-        val from = query.from
-        val to = query.to
+        // `from`/`to` are class-B wall-clocks typed in the filter form in the organization zone (V1.9.38); the log's
+        // `occurred_at` is a UTC system stamp, so the bounds are converted before they are compared.
+        val orgZone = OrganizationTimeZone.current()
+        val from = query.from?.let { ServerClock.wallToInstant(wall = it, orgZone = orgZone).toLocalDateTime(ServerClock.zone) }
+        val to = query.to?.let { ServerClock.wallToInstant(wall = it, orgZone = orgZone).toLocalDateTime(ServerClock.zone) }
         val beforeSequenceNumber = query.beforeSequenceNumber
         return transaction {
             val conditions = mutableListOf<Op<Boolean>>()

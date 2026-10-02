@@ -157,7 +157,7 @@ internal fun renderBallotsSection(
             if (e.secret) {
                 BallotRow(name = null, selection = selection, at = null)
             } else {
-                BallotRow(name = ballot.memberDisplayName.orEmpty(), selection = selection, at = formatDateTime(ballot.castAt))
+                BallotRow(name = ballot.memberDisplayName.orEmpty(), selection = selection, at = formatSystemDateTime(ballot.castAt))
             }
         }
     if (rows.isEmpty()) {

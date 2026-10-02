@@ -307,8 +307,10 @@ object SepaPain008Writer {
 }
 
 /**
- * [creationDateTime] is emitted as ISO-8601 without a zone (`GrpHdr/CreDtTm`) -- the container must
- * run on Europe/Berlin, see the operator notes.
+ * [creationDateTime] is emitted as ISO-8601 without a zone (`GrpHdr/CreDtTm`), so the caller passes the
+ * organization-zone wall-clock (`OrganizationTimeZone.wallNow()`), NOT a UTC stamp and not the process zone
+ * (V1.9.38; the container zone is fixed to UTC). The value is informative only: `MsgId` stays unique even in the
+ * repeated hour of a fall-back DST night.
  */
 data class SepaBatchSpec(
     val version: String,

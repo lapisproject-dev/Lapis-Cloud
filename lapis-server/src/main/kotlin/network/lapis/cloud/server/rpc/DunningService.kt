@@ -25,6 +25,7 @@ import network.lapis.cloud.server.payment.dunning.dunningReferenceDate
 import network.lapis.cloud.server.payment.dunning.requireDunningUsable
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -573,7 +574,7 @@ class DunningService(
             if (slotOccupied) throw ConflictException("Diese Mahnstufe wurde soeben bereits ausgestellt.")
 
             val now = DbClock.nowLocalDateTime()
-            val respondBy = now.date
+            val respondBy = OrganizationTimeZone.dateOf(now)
             val noticeId = Uuid.random()
             try {
                 DunningNoticeTable.insert {
@@ -717,7 +718,7 @@ class DunningService(
                 )
             }
 
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             val newStatus = if (contributionRow[ContributionTable.dueDate] >= today) ContributionStatus.OPEN else ContributionStatus.OVERDUE
             ContributionTable.update({ ContributionTable.id eq id }) { it[status] = newStatus }
         }

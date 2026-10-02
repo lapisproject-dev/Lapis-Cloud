@@ -19,7 +19,6 @@ import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollRules
 import network.lapis.cloud.shared.rpc.IPollService
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -182,10 +181,7 @@ private fun deadlineChoiceOf(value: String): PollDeadlineChoice =
         else -> PollDeadlineChoice.Preset(168)
     }
 
-private fun localNow(): LocalDateTime =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
+private fun localNow(): LocalDateTime = organizationNow()
 
 /** One option field with its row and (from the third option on) its remove button. */
 private class OptionRow(

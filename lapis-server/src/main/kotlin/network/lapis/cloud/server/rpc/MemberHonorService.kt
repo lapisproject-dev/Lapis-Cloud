@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.MemberHonorTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberHonorCategory
 import network.lapis.cloud.shared.domain.MemberHonorDto
@@ -53,7 +54,7 @@ private val HONOR_READ_WRITE_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMI
  */
 class MemberHonorService(
     private val call: ApplicationCall,
-    private val clock: () -> LocalDate = { DbClock.nowLocalDateTime().date },
+    private val clock: () -> LocalDate = { OrganizationTimeZone.today() },
 ) : IMemberHonorService {
     override suspend fun listHonors(
         memberId: String?,

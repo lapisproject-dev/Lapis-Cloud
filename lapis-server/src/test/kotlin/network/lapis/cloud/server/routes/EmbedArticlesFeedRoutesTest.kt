@@ -14,9 +14,6 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -138,8 +135,9 @@ class EmbedArticlesFeedRoutesTest :
             }
         }
 
+        // An article's `published_at` is a class-A system stamp, stored as UTC (V1.9.38): the feed only formats it, never converts it.
         fun expectedUtcIso(dt: LocalDateTime): String {
-            val utc = dt.toInstant(TimeZone.currentSystemDefault()).toLocalDateTime(TimeZone.UTC)
+            val utc = dt
             return "%04d-%02d-%02dT%02d:%02d:%02dZ".format(utc.year, utc.monthNumber, utc.dayOfMonth, utc.hour, utc.minute, utc.second)
         }
 

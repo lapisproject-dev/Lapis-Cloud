@@ -1263,7 +1263,7 @@ class RecordingPollerTest :
 
 /** Test-only helper -- shifts a [LocalDateTime] by [minutes] using kotlinx-datetime's own Instant arithmetic, same conversion RecordingPoller itself uses. */
 private fun LocalDateTime.toJavaLocalDateTimeShiftedMinutes(minutes: Long): LocalDateTime {
-    val zone = TimeZone.currentSystemDefault()
+    val zone = TimeZone.UTC
     return this
         .toInstant(zone)
         .plus(minutes.minutes)

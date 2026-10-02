@@ -61,6 +61,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # V1.9.38: storage zone of every class-A system timestamp. NEVER change on an existing instance (stored values
+      # would be re-interpreted) and never set it to a local zone; local display is handled by the organization
+      # time zone setting. See docs/architecture/time-and-timezones.adoc.
+      TZ: UTC
       LAPIS_DB_URL: jdbc:postgresql://postgres:5432/${LAPIS_DB_NAME:-lapiscloud}
       LAPIS_DB_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
       LAPIS_DB_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}

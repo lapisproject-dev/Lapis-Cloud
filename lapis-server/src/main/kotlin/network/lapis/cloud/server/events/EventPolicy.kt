@@ -98,7 +98,7 @@ object EventPolicy {
      */
     fun validate(
         input: EventInput,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
         existingStartsAt: LocalDateTime? = null,
     ) {
         if (input.title.isBlank()) throw BadRequestException("Titel darf nicht leer sein.")
@@ -119,6 +119,7 @@ object EventPolicy {
             throw BadRequestException("Online-Link ist zu lang (maximal $MAX_ONLINE_URL_LENGTH Zeichen).")
         }
         if (input.endsAt < input.startsAt) throw BadRequestException("Ende darf nicht vor dem Beginn liegen.")
+        // V1.9.38: `wallNow` is the organization-zone wall-clock -- `startsAt` is a class-B wall-clock, never compare it with a UTC stamp.
         // Review MINOR fix: `now` used to be an entirely unused parameter -- a BOARD/ADMIN could
         // create (or edit into) an event whose `startsAt` is years in the past, which `publishEvent`
         // happily accepted, `listEvents(includePast = true)`/the public detail page then displayed,
@@ -131,7 +132,7 @@ object EventPolicy {
         // this same `validate` with no way to distinguish "genuinely moving startsAt into the past"
         // from "startsAt already was, and still is, in the past". `existingStartsAt` (set only by
         // `updateEvent`) makes that distinction possible.
-        if (input.startsAt != existingStartsAt && input.startsAt < now) {
+        if (input.startsAt != existingStartsAt && input.startsAt < wallNow) {
             throw BadRequestException("Beginn darf nicht in der Vergangenheit liegen.")
         }
         val capacity = input.capacity
@@ -228,11 +229,11 @@ object EventPolicy {
         status: EventStatus,
         registrationClosesAt: LocalDateTime?,
         startsAt: LocalDateTime,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
     ): Boolean {
         if (status != EventStatus.PUBLISHED) return false
-        if (registrationClosesAt != null && now > registrationClosesAt) return false
-        if (now >= startsAt) return false
+        if (registrationClosesAt != null && wallNow > registrationClosesAt) return false
+        if (wallNow >= startsAt) return false
         return true
     }
 }

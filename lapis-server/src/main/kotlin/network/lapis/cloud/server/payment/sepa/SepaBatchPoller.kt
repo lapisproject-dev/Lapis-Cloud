@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SepaReturnTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.resetGeneratedBatchesForUnusableMandate
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -141,7 +142,7 @@ class SepaBatchPoller(
         for (mandate in candidates) {
             try {
                 val expiresAt = SepaConfig.mandateExpiryDate(grantedAt = mandate.grantedAt.date, lastUsedAt = mandate.lastUsedAt)
-                if (expiresAt >= now.date) continue
+                if (expiresAt >= OrganizationTimeZone.dateOf(now)) continue
                 transaction {
                     val updated =
                         SepaMandateTable.update({
@@ -253,7 +254,7 @@ class SepaBatchPoller(
                     .mapNotNull { row ->
                         val submittedAt = row[SepaDebitBatchTable.submittedAt] ?: return@mapNotNull null
                         val eligibleFrom = submittedAt.date.plus(SepaConfig.RETURN_WINDOW_DAYS, DateTimeUnit.DAY)
-                        if (eligibleFrom <= now.date) row[SepaDebitBatchTable.id] else null
+                        if (eligibleFrom <= OrganizationTimeZone.dateOf(now)) row[SepaDebitBatchTable.id] else null
                     }
             }
         for (batchId in eligibleBatchIds) {
@@ -287,7 +288,7 @@ class SepaBatchPoller(
                             (SepaDebitItemTable.id inList settleableIds) and (SepaDebitItemTable.status eq SepaDebitItemStatus.PENDING)
                         }) {
                             it[status] = SepaDebitItemStatus.SETTLEABLE
-                            it[settleableAt] = now.date
+                            it[settleableAt] = OrganizationTimeZone.dateOf(now)
                         }
                     if (updated > 0) {
                         AuditLogRecorder.record(

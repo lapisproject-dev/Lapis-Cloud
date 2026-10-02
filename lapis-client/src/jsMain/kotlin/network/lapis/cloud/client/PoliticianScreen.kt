@@ -345,7 +345,7 @@ private fun renderPoliticianCard(
     }
 
     card.div(
-        gettext("Politiker-Status seit %1 (erteilt von %2)", formatDateTime(politician.grantedAt), politician.grantedByDisplayName),
+        gettext("Politiker-Status seit %1 (erteilt von %2)", formatSystemDateTime(politician.grantedAt), politician.grantedByDisplayName),
     ) {
         addCssClasses("text-muted small")
     }
@@ -353,7 +353,7 @@ private fun renderPoliticianCard(
         card.div(
             gettext(
                 "Widerrufen am %1 von %2",
-                formatDateTime(politician.revokedAt!!),
+                formatSystemDateTime(politician.revokedAt!!),
                 politician.revokedByDisplayName ?: "--",
             ),
         ) {
@@ -621,7 +621,7 @@ internal fun renderWeightHistoryTable(
                     numeric = true,
                     cell = { cell, s -> cell.plainAmountSpan(s.combinedTrustWeight).addCssClasses("fw-bold small") },
                 ),
-                dateTimeColumn<PoliticianWeightSnapshotDto>(
+                systemDateTimeColumn<PoliticianWeightSnapshotDto>(
                     title = tr("Berechnet"),
                     numeric = false,
                     cssClasses = "text-muted small",

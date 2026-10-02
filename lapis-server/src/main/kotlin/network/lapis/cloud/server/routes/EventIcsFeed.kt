@@ -2,15 +2,14 @@ package network.lapis.cloud.server.routes
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
-import kotlinx.datetime.toLocalDateTime
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.series.RecurrenceExpander
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -40,13 +39,14 @@ import kotlin.uuid.Uuid
  * Writer innerhalb einer offenen Transaktion würde eine Pool-Connection für die gesamte
  * String-Bau-Zeit halten, dieselbe Begründung wie `SocialPublicSitemap` KDoc dokumentiert.
  *
- * **Zeitzone**: `event.starts_at`/`.ends_at` sind `LocalDateTime` OHNE eigene TZ-Spalte -- ihre
- * Bedeutung ist Wandzeit in `TimeZone.currentSystemDefault()`, exakt wie `EventStore.list()`/
- * `EventPolicy`/`loadPublicEventView` sie beim Now-Vergleich bereits interpretieren (siehe
- * `EventTable`/`EventPublicRoutes.kt`). [icsUtc] konvertiert deshalb über
- * [kotlinx.datetime.LocalDateTime.toInstant] nach UTC -- KEIN hartes `Z`-Anhängen an die rohe
- * `LocalDateTime` (das wäre bei einer Server-Zone != UTC falsch verschoben, siehe genau diese
- * Stolperfalle in der Klassen-Historie dieser Welle).
+ * **Zeitzone (V1.9.38)**: `event.starts_at`/`.ends_at` sind Klasse-B-Wandzeiten (`LocalDateTime` ohne
+ * TZ-Spalte), eingetragen in der Zeitzone der Organisation (`OrganizationTimeZone`). Einzeltermine
+ * werden mit [icsUtcFromWall] von dieser Zone nach UTC umgerechnet -- NICHT mit der Zone des
+ * Server-Prozesses (die ist per `ServerClock` fest UTC). `DTSTAMP` ist dagegen ein Klasse-A-
+ * Systemstempel (UTC) und wird mit [icsUtcFromSystem] unverändert formatiert. Serien-Master und
+ * ihre Ausnahmen (`RECURRENCE-ID`, `EXDATE`, überschriebenes `DTSTART`/`DTEND`) tragen
+ * `;TZID=<event_series.timezone>` samt `VTIMEZONE`, damit die Wiederholung über Sommerzeit-Wechsel
+ * auf der Wanduhr stabil bleibt (eine UTC-Wiederholung würde im Winter um eine Stunde driften).
  */
 internal object EventIcsFeed {
     /**
@@ -59,7 +59,7 @@ internal object EventIcsFeed {
     const val MAX_EVENTS = 500
 
     /**
-     * Nur `visibility=PUBLIC AND status=PUBLISHED`, nur `endsAt > now` (echte Grenze, nicht
+     * Nur `visibility=PUBLIC AND status=PUBLISHED`, nur `endsAt > wallNow` (Wandzeit der Organisation, echte Grenze, nicht
      * `>=`) -- ein Event, das GENAU jetzt endet, fällt aus dem Feed, wie
      * `EventStore.list(includePast=false)`'s Default es ebenfalls tut.
      *
@@ -70,7 +70,7 @@ internal object EventIcsFeed {
      * calling this with no `limit` argument and is unaffected.
      */
     fun loadUpcomingPublicPublished(
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
         limit: Int = MAX_EVENTS,
     ): List<ResultRow> =
         EventTable
@@ -78,7 +78,7 @@ internal object EventIcsFeed {
             .where {
                 (EventTable.visibility eq EventVisibility.PUBLIC) and
                     (EventTable.status eq EventStatus.PUBLISHED) and
-                    (EventTable.endsAt greater now)
+                    (EventTable.endsAt greater wallNow)
             }.orderBy(EventTable.startsAt to SortOrder.ASC, EventTable.id to SortOrder.ASC)
             .limit(limit)
             .toList()
@@ -155,15 +155,12 @@ internal object EventIcsFeed {
         baseUrl: String,
         brandTitle: String,
         seriesData: Map<Uuid, SeriesRenderData> = emptyMap(),
+        orgZone: TimeZone = OrganizationTimeZone.current(),
     ): String {
         val host = baseUrl.substringAfter("://")
-        // DbClock.nowLocalDateTime() OHNE TimeZone.UTC-Argument: icsUtc() erwartet -- wie an
-        // jeder anderen Callsite (startsAt/endsAt) -- eine Wandzeit in
-        // TimeZone.currentSystemDefault() und konvertiert selbst nach UTC. Ein `TimeZone.UTC`-Arg
-        // hier würde eine bereits-UTC-Wandzeit ein zweites Mal (fälschlich als lokale Zeit)
-        // verschieben, sobald die Server-Zone != UTC ist -- derselbe Bug-Typ, vor dem icsUtc()s
-        // eigenes KDoc bei DTSTART/DTEND warnt, nur über einen anderen Mechanismus.
-        val dtstamp = icsUtc(DbClock.nowLocalDateTime())
+        // DTSTAMP is a class-A system timestamp (UTC): formatted as-is, never converted. (Before V1.9.38 this
+        // went through the process default zone, which is only correct while that zone happens to be UTC.)
+        val dtstamp = icsUtcFromSystem(ServerClock.now())
         val sb = StringBuilder()
         sb.append("BEGIN:VCALENDAR\r\n")
         sb.append("VERSION:2.0\r\n")
@@ -171,6 +168,12 @@ internal object EventIcsFeed {
         sb.append("CALSCALE:GREGORIAN\r\n")
         sb.append("METHOD:PUBLISH\r\n")
         sb.append(foldLine("X-WR-CALNAME:${icsEscape(brandTitle)} – Veranstaltungen"))
+        // One VTIMEZONE per distinct zone a TZID property below will reference.
+        val usedSeriesZones =
+            rows
+                .mapNotNull { row -> row[EventTable.seriesId]?.let { seriesData[it]?.zone?.id } }
+                .distinct()
+        usedSeriesZones.forEach { sb.append(IcsVTimezone.render(it)) }
         val renderedSeriesMasters = mutableSetOf<Uuid>()
         for (row in rows) {
             val seriesId = row[EventTable.seriesId]
@@ -180,12 +183,20 @@ internal object EventIcsFeed {
                     appendSeriesMaster(sb = sb, seriesId = seriesId, data = data, host = host, dtstamp = dtstamp, baseUrl = baseUrl)
                 }
                 if (row[EventTable.seriesDetached]) {
-                    appendSeriesExceptionVevent(sb = sb, row = row, seriesId = seriesId, host = host, dtstamp = dtstamp, baseUrl = baseUrl)
+                    appendSeriesExceptionVevent(
+                        sb = sb,
+                        row = row,
+                        seriesId = seriesId,
+                        zone = data.zone,
+                        host = host,
+                        dtstamp = dtstamp,
+                        baseUrl = baseUrl,
+                    )
                 }
                 // A plain, non-detached occurrence is already covered by the master's RRULE -- no
                 // per-occurrence VEVENT for it.
             } else {
-                appendSingleVevent(sb = sb, row = row, host = host, dtstamp = dtstamp, baseUrl = baseUrl)
+                appendSingleVevent(sb = sb, row = row, host = host, dtstamp = dtstamp, baseUrl = baseUrl, orgZone = orgZone)
             }
         }
         sb.append("END:VCALENDAR\r\n")
@@ -198,14 +209,15 @@ internal object EventIcsFeed {
         host: String,
         dtstamp: String,
         baseUrl: String,
+        orgZone: TimeZone,
     ) {
         val eventId = row[EventTable.id]
         val slug = row[EventTable.slug]
         sb.append("BEGIN:VEVENT\r\n")
         sb.append(foldLine("UID:$eventId@$host"))
         sb.append(foldLine("DTSTAMP:$dtstamp"))
-        sb.append(foldLine("DTSTART:${icsUtc(row[EventTable.startsAt])}"))
-        sb.append(foldLine("DTEND:${icsUtc(row[EventTable.endsAt])}"))
+        sb.append(foldLine("DTSTART:${icsUtcFromWall(wall = row[EventTable.startsAt], zone = orgZone)}"))
+        sb.append(foldLine("DTEND:${icsUtcFromWall(wall = row[EventTable.endsAt], zone = orgZone)}"))
         sb.append(foldLine("SUMMARY:${icsEscape(row[EventTable.title])}"))
         row[EventTable.description].takeIf { it.isNotBlank() }?.let {
             sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
@@ -258,13 +270,14 @@ internal object EventIcsFeed {
         sb.append("BEGIN:VEVENT\r\n")
         sb.append(foldLine("UID:series-$seriesId@$host"))
         sb.append(foldLine("DTSTAMP:$dtstamp"))
-        sb.append(foldLine("DTSTART:${icsUtc(data.dtstart)}"))
-        sb.append(foldLine("DTEND:${icsUtc(data.dtstart.plusMinutesCompat(data.durationMinutes))}"))
+        val tzid = data.zone.id
+        sb.append(foldLine("DTSTART;TZID=$tzid:${icsLocal(data.dtstart)}"))
+        sb.append(foldLine("DTEND;TZID=$tzid:${icsLocal(data.dtstart.plusMinutesCompat(data.durationMinutes))}"))
         sb.append(foldLine("RRULE:${data.rrule}"))
         // RFC 5545 §3.8.5.1 permits either one EXDATE property per date or a single comma-separated
         // EXDATE listing several -- one property per date, matching this class' one-line-folding
         // helper without needing a separate comma-joining/length-budget calculation.
-        exdates.forEach { occurrenceStart -> sb.append(foldLine("EXDATE:${icsUtc(occurrenceStart)}")) }
+        exdates.forEach { occurrenceStart -> sb.append(foldLine("EXDATE;TZID=$tzid:${icsLocal(occurrenceStart)}")) }
         sb.append(foldLine("SUMMARY:${icsEscape(representative[EventTable.title])}"))
         representative[EventTable.description].takeIf { it.isNotBlank() }?.let {
             sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
@@ -291,6 +304,7 @@ internal object EventIcsFeed {
         sb: StringBuilder,
         row: ResultRow,
         seriesId: Uuid,
+        zone: ZoneId,
         host: String,
         dtstamp: String,
         baseUrl: String,
@@ -299,9 +313,10 @@ internal object EventIcsFeed {
         sb.append("BEGIN:VEVENT\r\n")
         sb.append(foldLine("UID:series-$seriesId@$host"))
         sb.append(foldLine("DTSTAMP:$dtstamp"))
-        sb.append(foldLine("RECURRENCE-ID:${icsUtc(originalStart)}"))
-        sb.append(foldLine("DTSTART:${icsUtc(row[EventTable.startsAt])}"))
-        sb.append(foldLine("DTEND:${icsUtc(row[EventTable.endsAt])}"))
+        val tzid = zone.id
+        sb.append(foldLine("RECURRENCE-ID;TZID=$tzid:${icsLocal(originalStart)}"))
+        sb.append(foldLine("DTSTART;TZID=$tzid:${icsLocal(row[EventTable.startsAt])}"))
+        sb.append(foldLine("DTEND;TZID=$tzid:${icsLocal(row[EventTable.endsAt])}"))
         sb.append(foldLine("SUMMARY:${icsEscape(row[EventTable.title])}"))
         row[EventTable.description].takeIf { it.isNotBlank() }?.let {
             sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
@@ -312,24 +327,6 @@ internal object EventIcsFeed {
         sb.append(foldLine("URL:$baseUrl/veranstaltung/${row[EventTable.slug]}"))
         sb.append("STATUS:CONFIRMED\r\n")
         sb.append("END:VEVENT\r\n")
-    }
-
-    /**
-     * RFC 5545 §3.3.5 -- Instant über die Server-Default-Zone (siehe Klassen-KDoc "Zeitzone"),
-     * formatiert als UTC (`...Z`-Suffix). NIEMALS `dt.toString() + "Z"` -- das wäre bei einer
-     * Server-Zone != UTC ein falsch verschobener Zeitpunkt in jedem Kalender-Client.
-     */
-    private fun icsUtc(dt: LocalDateTime): String {
-        val instant = dt.toInstant(TimeZone.currentSystemDefault())
-        val utc = instant.toLocalDateTime(TimeZone.UTC)
-        return "%04d%02d%02dT%02d%02d%02dZ".format(
-            utc.year,
-            utc.monthNumber,
-            utc.dayOfMonth,
-            utc.hour,
-            utc.minute,
-            utc.second,
-        )
     }
 
     /** `LocalDateTime + N minutes` -- same idiom `EventSeriesMaterializer.plusMinutesKt` already establishes for the exact same arithmetic, duplicated here rather than shared to keep this file's dependency on the `events.series` package limited to [RecurrenceExpander] alone. */

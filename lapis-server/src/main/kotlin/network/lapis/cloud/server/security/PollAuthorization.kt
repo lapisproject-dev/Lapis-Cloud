@@ -1,10 +1,9 @@
 package network.lapis.cloud.server.security
 
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.COMMITTEE_RECORDING_ROLES
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -17,7 +16,6 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 // Welle V1.9.30 "Umfragen auf LTR-Basis" -- authorization helpers of `PollService`.
@@ -35,11 +33,7 @@ import kotlin.uuid.Uuid
  * `until IS NULL OR until >= today`). One query.
  */
 fun CurrentMember.isCommitteeLeaderAnywhere(): Boolean {
-    val today =
-        Clock.System
-            .now()
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
+    val today = OrganizationTimeZone.today()
     if (!isActiveMemberNow()) return false
     return CommitteeMembershipTable
         .join(CommitteeTable, JoinType.INNER, CommitteeMembershipTable.committeeId, CommitteeTable.id)

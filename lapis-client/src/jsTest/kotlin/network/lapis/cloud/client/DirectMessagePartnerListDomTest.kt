@@ -15,6 +15,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLTextAreaElement
 import kotlin.js.Promise
 import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -79,8 +80,19 @@ private fun partner(
 
 /** Welle V1.9.36 -- "Gespräche": list grammar, first-load hook, opening a conversation, mark-read once, one open at a time. */
 class DirectMessagePartnerListDomTest {
+    // V1.9.38: these values are class-A system timestamps (UTC), now shown in the organization zone. This test is about something else
+    // (labels, table/card parity), so it pins the zone to UTC and keeps its literal expectations; the conversion itself is covered by
+    // OrganizationTimeTest/OrganizationTimeDomTest.
+    @BeforeTest
+    fun pinOrganizationZoneToUtc() {
+        OrganizationTime.zoneId = "UTC"
+    }
+
     @AfterTest
-    fun reset() = UnreadMessages.resetForTest()
+    fun reset() {
+        UnreadMessages.resetForTest()
+        OrganizationTime.zoneId = DEFAULT_ORGANIZATION_ZONE_ID
+    }
 
     private fun session() =
         SessionInfoDto(
@@ -89,6 +101,7 @@ class DirectMessagePartnerListDomTest {
             role = AccountRole.MEMBER,
             status = MemberStatus.ACTIVE,
             expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
+            organizationTimeZone = "UTC",
         )
 
     private inline fun withList(

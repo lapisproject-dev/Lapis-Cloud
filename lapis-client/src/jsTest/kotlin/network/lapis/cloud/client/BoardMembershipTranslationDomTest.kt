@@ -9,6 +9,8 @@ import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.TransparenzregisterReminderDto
 import network.lapis.cloud.shared.rpc.IBoardMembershipService
 import kotlin.js.Promise
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -19,6 +21,19 @@ import kotlin.test.assertTrue
  * saw them. Proven here by installing a catalog that maps every one of them to a visibly different text and reading the REAL screen.
  */
 class BoardMembershipTranslationDomTest {
+    // V1.9.38: these values are class-A system timestamps (UTC), now shown in the organization zone. This test is about something else
+    // (labels, table/card parity), so it pins the zone to UTC and keeps its literal expectations; the conversion itself is covered by
+    // OrganizationTimeTest/OrganizationTimeDomTest.
+    @BeforeTest
+    fun pinOrganizationZoneToUtc() {
+        OrganizationTime.zoneId = "UTC"
+    }
+
+    @AfterTest
+    fun restoreOrganizationZone() {
+        OrganizationTime.zoneId = DEFAULT_ORGANIZATION_ZONE_ID
+    }
+
     private fun reminder(resolved: Boolean) =
         TransparenzregisterReminderDto(
             id = if (resolved) "r2" else "r1",

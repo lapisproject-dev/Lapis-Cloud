@@ -15,12 +15,9 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SepaMandateInput
 import network.lapis.cloud.shared.rpc.ISepaService
-import kotlin.time.Clock
 
 /**
  * V1.2.2 SEPA-Client-UI wave -- Plan §4.1 "Mandats-Sektion im ContributionsScreen (K1 -- der
@@ -139,12 +136,7 @@ internal suspend fun loadMyMandateQuietly() = sepaProbe { rpcService<ISepaServic
 
 internal suspend fun loadMyPrenotificationsQuietly() = sepaProbe { rpcService<ISepaService>().listMyPrenotifications() }
 
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
 /**
  * Plan §2.5 -- the shared mandate form for both self- and on-behalf ([onBehalf]) grants, rendered

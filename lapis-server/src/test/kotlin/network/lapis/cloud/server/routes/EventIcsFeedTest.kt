@@ -25,6 +25,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -124,42 +125,42 @@ class EventIcsFeedTest :
         test("PUBLIC+PUBLISHED future event is included") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe true
         }
 
         test("MEMBERS_ONLY+PUBLISHED is excluded") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd, visibility = EventVisibility.MEMBERS_ONLY)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("PUBLIC+DRAFT is excluded") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd, status = EventStatus.DRAFT)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("PUBLIC+CANCELLED is excluded") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd, status = EventStatus.CANCELLED)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("endsAt in the past is excluded") {
             val (id, _) = createEvent(startsAt = farPast, endsAt = farPastEnd)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
         test("endsAt exactly equal to now is excluded (boundary is `greater`, not `greaterEq`)") {
             val now = LocalDateTime(2027, 6, 1, 12, 0)
             val (id, _) = createEvent(startsAt = now.minusHoursCompat(2), endsAt = now)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
             (id in rows.map { it[EventTable.id] }) shouldBe false
         }
 
@@ -176,7 +177,7 @@ class EventIcsFeedTest :
                     val end = LocalDateTime(2032, 1, 1 + offset, 12, 0)
                     createEvent(startsAt = start, endsAt = end).first
                 }
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now, limit = 2) }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now, limit = 2) }
             val matchingRows = rows.filter { it[EventTable.id] in ids }
             (matchingRows.size <= 2) shouldBe true
         }
@@ -184,8 +185,8 @@ class EventIcsFeedTest :
         test("omitted `limit` behaves exactly as before -- defaults to MAX_EVENTS(500), unaffected by the new parameter") {
             val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd)
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val withDefault = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }
-            val withExplicitMax = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now, limit = EventIcsFeed.MAX_EVENTS) }
+            val withDefault = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }
+            val withExplicitMax = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now, limit = EventIcsFeed.MAX_EVENTS) }
             withDefault.map { it[EventTable.id] } shouldBe withExplicitMax.map { it[EventTable.id] }
             (id in withDefault.map { it[EventTable.id] }) shouldBe true
         }
@@ -206,7 +207,7 @@ class EventIcsFeedTest :
         // otherwise mix in other tests' events and make substring/first-match assertions flaky.
         fun rowsFor(id: Uuid): List<org.jetbrains.exposed.v1.core.ResultRow> {
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            return transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now) }.filter { it[EventTable.id] == id }
+            return transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now) }.filter { it[EventTable.id] == id }
         }
 
         /** Joins RFC-5545 folded continuation lines (`\r\n ` -> nothing) back into single logical lines, so a substring check doesn't need to know where a fold happened to land. */
@@ -271,34 +272,69 @@ class EventIcsFeedTest :
 
         // ── Timezone handling -- the core stolperfalle of this wave ─────────────────────────────
 
-        test("DTSTART/DTEND are computed via Instant conversion, not a hardcoded Z-suffix on the raw wall-clock value") {
-            val wallClock = LocalDateTime(2026, 12, 24, 18, 0, 0)
-            val wallClockEnd = LocalDateTime(2026, 12, 24, 20, 0, 0)
-            val (id, _) = createEvent(startsAt = wallClock, endsAt = wallClockEnd)
-            val body = EventIcsFeed.render(rows = rowsFor(id), baseUrl = "https://example.org", brandTitle = "Testverein")
+        // V1.9.38: `event.starts_at`/`ends_at` are class-B wall-clocks of the ORGANIZATION zone; the feed converts them from
+        // that zone, never from the zone of the server process (fixed to UTC) and never by appending a hardcoded Z.
+        val berlin = TimeZone.of("Europe/Berlin")
 
-            // Independently computed expectation -- via Instant/TimeZone, never a hardcoded offset,
-            // so this assertion is correct regardless of which zone the test JVM runs in.
-            val expectedInstant = wallClock.toInstant(TimeZone.currentSystemDefault())
-            val expectedUtc = expectedInstant.toString() // kotlinx.datetime.Instant.toString() is always UTC with trailing Z
-            val expectedDtstart =
-                "DTSTART:" +
-                    expectedUtc
-                        .replace("-", "")
-                        .replace(":", "")
-                        .substringBefore(".")
-                        .let { if (it.endsWith("Z")) it else "${it}Z" }
-            body shouldContain expectedDtstart
+        fun renderedDtstart(
+            wall: LocalDateTime,
+            zone: TimeZone = berlin,
+        ): String {
+            val (id, _) = createEvent(startsAt = wall, endsAt = wall)
+            val body = EventIcsFeed.render(rows = rowsFor(id), baseUrl = "https://example.org", brandTitle = "Testverein", orgZone = zone)
+            return body.split("\r\n").first { it.startsWith("DTSTART:") }.removePrefix("DTSTART:")
+        }
 
-            // Regression guard: a naive "wallClock.toString() + Z" would produce THIS wrong value
-            // whenever the current system zone is not UTC -- assert it's NOT what we emitted, unless
-            // the test happens to run with a UTC system zone (in which case both forms coincide and
-            // this guard is a no-op, not a false failure).
-            if (TimeZone.currentSystemDefault() != TimeZone.UTC) {
-                val naiveWrongValue = "DTSTART:20261224T180000Z"
-                if (expectedDtstart != naiveWrongValue) {
-                    body shouldNotContain naiveWrongValue
+        test("DTSTART is the UTC instant of the Berlin wall-clock: summer 20:00 is 18:00Z, winter 20:00 is 19:00Z") {
+            renderedDtstart(LocalDateTime(2026, 7, 1, 20, 0, 0)) shouldBe "20260701T180000Z"
+            renderedDtstart(LocalDateTime(2026, 12, 1, 20, 0, 0)) shouldBe "20261201T190000Z"
+        }
+
+        test("DST edges: a wall-clock in the spring gap resolves forward, one in the autumn overlap takes the earlier offset") {
+            renderedDtstart(LocalDateTime(2026, 3, 29, 2, 30, 0)) shouldBe "20260329T013000Z"
+            renderedDtstart(LocalDateTime(2026, 10, 25, 2, 30, 0)) shouldBe "20261025T003000Z"
+        }
+
+        test("DTEND converts the same way as DTSTART") {
+            val (id, _) = createEvent(startsAt = LocalDateTime(2026, 7, 1, 20, 0, 0), endsAt = LocalDateTime(2026, 7, 1, 22, 30, 0))
+            val body = EventIcsFeed.render(rows = rowsFor(id), baseUrl = "https://example.org", brandTitle = "Testverein", orgZone = berlin)
+            body shouldContain "DTEND:20260701T203000Z"
+        }
+
+        test("the result does not depend on the zone of the JVM process") {
+            val original = java.util.TimeZone.getDefault()
+            try {
+                listOf("UTC", "Europe/Berlin", "America/New_York", "Asia/Tbilisi").forEach { processZone ->
+                    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(processZone))
+                    renderedDtstart(LocalDateTime(2026, 7, 1, 20, 0, 0)) shouldBe "20260701T180000Z"
                 }
+            } finally {
+                java.util.TimeZone.setDefault(original)
+            }
+        }
+
+        test("another organization zone converts from that zone (Tbilisi is UTC+4 all year)") {
+            renderedDtstart(LocalDateTime(2026, 7, 1, 20, 0, 0), TimeZone.of("Asia/Tbilisi")) shouldBe "20260701T160000Z"
+        }
+
+        test("DTSTAMP is a UTC system stamp, formatted unchanged (not converted into the organization zone)") {
+            val original = ServerClock.source
+            try {
+                ServerClock.source =
+                    object : Clock {
+                        override fun now() = kotlin.time.Instant.parse("2026-07-01T10:00:00Z")
+                    }
+                val (id, _) = createEvent(startsAt = farFuture, endsAt = farFutureEnd)
+                val body =
+                    EventIcsFeed.render(
+                        rows = rowsFor(id),
+                        baseUrl = "https://example.org",
+                        brandTitle = "Testverein",
+                        orgZone = berlin,
+                    )
+                body shouldContain "DTSTAMP:20260701T100000Z"
+            } finally {
+                ServerClock.source = original
             }
         }
 

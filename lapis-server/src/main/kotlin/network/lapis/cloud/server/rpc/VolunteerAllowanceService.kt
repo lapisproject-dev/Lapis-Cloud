@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.VolunteerAllowanceSelfDeclaration
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -178,7 +179,7 @@ class VolunteerAllowanceService(
             memberId = current.memberId,
             recordedBy = current.memberId,
             signedOn = null,
-            today = now.date,
+            today = OrganizationTimeZone.dateOf(now),
         )
         requireValidCalendarYear(calendarYear)
         return transaction {
@@ -235,7 +236,7 @@ class VolunteerAllowanceService(
             memberId = targetMemberId,
             recordedBy = current.memberId,
             signedOn = input.signedOn,
-            today = now.date,
+            today = OrganizationTimeZone.dateOf(now),
         )
         requireValidCalendarYear(input.calendarYear)
         return transaction {
@@ -847,8 +848,8 @@ class VolunteerAllowanceService(
         if (input.amount > BigDecimal(VolunteerAllowanceRules.MAX_PAYMENT_AMOUNT)) {
             throw BadRequestException("amount must be at most ${VolunteerAllowanceRules.MAX_PAYMENT_AMOUNT}")
         }
-        val earliest = now.date.minus(VolunteerAllowanceRules.MAX_BACKDATE_DAYS, DateTimeUnit.DAY)
-        val latest = now.date.plus(VolunteerAllowanceRules.MAX_FUTURE_DAYS, DateTimeUnit.DAY)
+        val earliest = OrganizationTimeZone.dateOf(now).minus(VolunteerAllowanceRules.MAX_BACKDATE_DAYS, DateTimeUnit.DAY)
+        val latest = OrganizationTimeZone.dateOf(now).plus(VolunteerAllowanceRules.MAX_FUTURE_DAYS, DateTimeUnit.DAY)
         if (input.paymentDate < earliest || input.paymentDate > latest) {
             throw BadRequestException(
                 "paymentDate must be between $earliest and $latest",

@@ -10,6 +10,7 @@ import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.loadOpenItemDetail
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.OpenItemDetailDto
 import network.lapis.cloud.shared.domain.OpenItemDirection
@@ -186,7 +187,7 @@ class ReceivableDunningService(
             val outcome =
                 ReceivableDunningEngine.issueNextLevel(
                     itemId = id,
-                    asOf = DbClock.nowLocalDateTime().date,
+                    asOf = OrganizationTimeZone.today(),
                     respectGraceDays = false,
                     actorMemberId = current.memberId,
                     actorRole = current.role,
@@ -211,7 +212,7 @@ class ReceivableDunningService(
             requireReceivableItem(id)
             ReceivableDunningEngine.skipNextLevel(
                 itemId = id,
-                asOf = DbClock.nowLocalDateTime().date,
+                asOf = OrganizationTimeZone.today(),
                 reason = reason,
                 actorMemberId = current.memberId,
                 actorRole = current.role,

@@ -1,7 +1,10 @@
 package network.lapis.cloud.server.pdf
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import java.math.BigDecimal
@@ -38,3 +41,10 @@ internal fun OrganizationSettingsDto.addressLines(): List<String> =
         if (cityLine.isNotBlank()) add(cityLine)
         country?.let { add(it) }
     }
+
+/**
+ * The issue date printed in a letter's date line (class D, a calendar date): "today" in the ORGANIZATION zone,
+ * not the UTC date of the server clock -- a letter generated at 00:30 in Berlin must carry today's date, not
+ * yesterday's (V1.9.38). [orgZone] is a parameter so tests can pin the zone.
+ */
+internal fun pdfIssueDate(orgZone: TimeZone = OrganizationTimeZone.current()): LocalDate = ServerClock.todayIn(orgZone)

@@ -297,7 +297,7 @@ private fun renderOperationRow(
         addCssClasses("flex-grow-1 text-muted small")
     }
     headerRow.div(
-        gettext("%1 – %2", formatDateTime(operation.startedAt), formatDateTime(operation.finishedAt)),
+        gettext("%1 – %2", formatSystemDateTime(operation.startedAt), formatSystemDateTime(operation.finishedAt)),
     ) { addCssClasses("text-muted small") }
 
     row.div(

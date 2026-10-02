@@ -61,12 +61,12 @@ internal data class PublishedEventFee(
  */
 internal object EventReads {
     fun listPublishedUpcoming(
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
         limit: Int,
     ): List<UpcomingEventSummary> =
         EventTable
             .selectAll()
-            .where { (EventTable.status eq EventStatus.PUBLISHED) and (EventTable.endsAt greater now) }
+            .where { (EventTable.status eq EventStatus.PUBLISHED) and (EventTable.endsAt greater wallNow) }
             .orderBy(EventTable.startsAt, SortOrder.ASC)
             .limit(limit)
             .map {

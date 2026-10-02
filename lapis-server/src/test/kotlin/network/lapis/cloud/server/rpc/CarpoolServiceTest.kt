@@ -58,7 +58,7 @@ private const val MEMBER_ID = "00000000-0000-0000-0000-000000000004"
 private val TEST_TODAY: LocalDate =
     Clock.System
         .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .toLocalDateTime(TimeZone.of("Europe/Berlin")) // the organization zone (default), class D "today"
         .date
 private val VALID_FUTURE_DATE: LocalDate = TEST_TODAY.plus(DatePeriod(days = 30))
 private val VALID_FUTURE_DATE_2: LocalDate = TEST_TODAY.plus(DatePeriod(days = 31))

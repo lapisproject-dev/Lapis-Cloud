@@ -20,8 +20,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionReliefKind
@@ -38,7 +36,6 @@ import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IPostalMailService
-import kotlin.time.Clock
 
 /**
  * Screen 5 of the V0.7.3 plan -- the `IContributionService` backend has existed since V0.1/V0.4;
@@ -180,7 +177,7 @@ private fun renderOwnContributions(
 
     val blockingRequest = activeBlockingDeferralRequest(data.reliefRequests)
     if (blockingRequest != null) {
-        content.div(gettext("Stundungsantrag vom %1 in Bearbeitung", formatDateTime(blockingRequest.requestedAt))) {
+        content.div(gettext("Stundungsantrag vom %1 in Bearbeitung", formatSystemDateTime(blockingRequest.requestedAt))) {
             addCssClasses("alert alert-info")
         }
     }
@@ -274,7 +271,7 @@ private fun openDeferralRequestDialog(
 
     submitButton.onClick {
         errorBox.hide()
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val now = organizationNow()
         val today = now.date
         val newDueDate = runCatching { LocalDate.parse(dueDateInput.value.orEmpty().trim()) }.getOrNull()
         val reason = reasonSelect.value?.let { runCatching { ContributionReliefReason.valueOf(it) }.getOrNull() }
@@ -478,7 +475,7 @@ private fun renderOwnReliefRequestCard(
         card.div(gettext("Erläuterung: %1", request.reasonText)) { addCssClasses("text-muted small") }
     } else if (request.reasonRedactedAt != null) {
         card.div(
-            gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", formatDateTime(request.reasonRedactedAt!!)),
+            gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", formatSystemDateTime(request.reasonRedactedAt!!)),
         ) {
             addCssClasses("text-muted small")
         }
@@ -657,7 +654,7 @@ private fun renderContributionActions(
             payButton.disabled = true
             AppScope.launch {
                 try {
-                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                    val now = organizationNow()
                     val result =
                         guarded {
                             rpcService<IContributionService>().markContributionPaid(

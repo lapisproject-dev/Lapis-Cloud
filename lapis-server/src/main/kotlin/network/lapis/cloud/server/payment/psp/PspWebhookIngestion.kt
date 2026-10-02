@@ -23,6 +23,7 @@ import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
 import network.lapis.cloud.server.rpc.EventFeePostingBridge
 import network.lapis.cloud.server.rpc.lastPaymentGatewayComplianceAcknowledgerMemberIdOrNull
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.server.webhook.WebhookPayloads
 import network.lapis.cloud.shared.domain.AccountRole
@@ -350,7 +351,7 @@ object PspWebhookIngestion {
                             (ContributionTable.status notInList (ContributionStatusSets.SETTLED + ContributionStatusSets.DEBIT_IN_FLIGHT))
                     }) {
                         it[status] = ContributionStatus.PAID
-                        it[paidAt] = now
+                        it[paidAt] = OrganizationTimeZone.wallNowOf(now)
                         it[paidAmount] = sessionAmount
                         it[paymentMethod] = ContributionPaymentMethod.GATEWAY
                     }
@@ -444,7 +445,7 @@ object PspWebhookIngestion {
                             ContributionPostingBridge.postContributionPayment(
                                 contributionId = contributionId,
                                 paidAmount = sessionAmount,
-                                paidAt = now,
+                                paidAt = OrganizationTimeZone.wallNowOf(now),
                                 source = ContributionPaymentMethod.GATEWAY,
                                 providerFee = null,
                                 actorMemberId = actorMemberId,
@@ -456,7 +457,7 @@ object PspWebhookIngestion {
                         DonationPostingBridge.postDonationPayment(
                             paymentTransactionId = paymentTransactionId,
                             paidAmount = sessionAmount,
-                            paidAt = now,
+                            paidAt = OrganizationTimeZone.wallNowOf(now),
                             providerFee = null,
                             // V1.4.1b -- sessionMemberId (NOT actorMemberId): a real donor's own
                             // identity for the member path, null for an anonymous embed-widget
@@ -475,7 +476,7 @@ object PspWebhookIngestion {
                             paymentTransactionId = paymentTransactionId,
                             eventRegistrationId = requireNotNull(sessionEventRegistrationId),
                             paidAmount = sessionAmount,
-                            paidAt = now,
+                            paidAt = OrganizationTimeZone.wallNowOf(now),
                             providerFee = null,
                             actorMemberId = actorMemberId,
                             actorRole = actorRole,
@@ -511,7 +512,7 @@ object PspWebhookIngestion {
                     requireNotNull(sessionContributionId).let { contributionId ->
                         ContributionPaymentEvents.publishPaid(
                             contributionId = contributionId,
-                            paidAt = now,
+                            paidAt = OrganizationTimeZone.wallNowOf(now),
                             amount = sessionAmount,
                             transactionId = paymentTransactionId.toString(),
                         )

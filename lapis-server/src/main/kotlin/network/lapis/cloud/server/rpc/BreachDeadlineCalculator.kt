@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.BreachDeadlineStatus
 import kotlin.time.Duration.Companion.hours
 
@@ -39,12 +40,22 @@ internal object BreachDeadlineCalculator {
      */
     const val DUE_SOON_THRESHOLD_HOURS = 12L
 
-    /** [discoveredAt] plus the statutory 72h window -- see class KDoc. */
-    fun deadline(discoveredAt: LocalDateTime): LocalDateTime =
-        discoveredAt
-            .toInstant(TimeZone.UTC)
-            .plus(AUTHORITY_NOTIFICATION_WINDOW_HOURS.hours)
-            .toLocalDateTime(TimeZone.UTC)
+    /**
+     * [discoveredAt] plus the statutory 72h window -- see class KDoc. V1.9.38: `discoveredAt` is a class-B
+     * wall-clock typed in by a person in [orgZone] (the organization zone), NOT a UTC stamp. The 72 hours are
+     * added to the REAL instant it denotes, and the result is expressed as a wall-clock in [orgZone] again, so
+     * it stays class B (displayed without conversion) and a DST change inside the window is honoured.
+     * Before this, the wall-clock was read as UTC, which made the deadline 1-2 h too late in Germany.
+     */
+    fun deadline(
+        discoveredAt: LocalDateTime,
+        orgZone: TimeZone,
+    ): LocalDateTime = deadlineInstant(discoveredAt = discoveredAt, orgZone = orgZone).toLocalDateTime(orgZone)
+
+    private fun deadlineInstant(
+        discoveredAt: LocalDateTime,
+        orgZone: TimeZone,
+    ) = discoveredAt.toInstant(orgZone).plus(AUTHORITY_NOTIFICATION_WINDOW_HOURS.hours)
 
     /**
      * [BreachDeadlineStatus.SATISFIED] iff [authorityNotifiedAt] is non-null (notification already
@@ -53,16 +64,20 @@ internal object BreachDeadlineCalculator {
      * [BreachDeadlineStatus.OVERDUE] once [now] is past [deadline], [BreachDeadlineStatus.DUE_SOON]
      * within [DUE_SOON_THRESHOLD_HOURS] of it, else [BreachDeadlineStatus.WITHIN_WINDOW]. Never
      * reads/sets `authorityNotificationRequired` -- see class KDoc.
+     *
+     * [now] is a class-A system timestamp (UTC), [discoveredAt] a class-B wall-clock in [orgZone]; the two are
+     * compared as real instants.
      */
     fun status(
         discoveredAt: LocalDateTime,
         authorityNotifiedAt: LocalDateTime?,
         now: LocalDateTime,
+        orgZone: TimeZone,
     ): BreachDeadlineStatus {
         if (authorityNotifiedAt != null) return BreachDeadlineStatus.SATISFIED
 
-        val deadlineInstant = deadline(discoveredAt).toInstant(TimeZone.UTC)
-        val nowInstant = now.toInstant(TimeZone.UTC)
+        val deadlineInstant = deadlineInstant(discoveredAt = discoveredAt, orgZone = orgZone)
+        val nowInstant = now.toInstant(ServerClock.zone)
         return when {
             nowInstant > deadlineInstant -> BreachDeadlineStatus.OVERDUE
             deadlineInstant - nowInstant <= DUE_SOON_THRESHOLD_HOURS.hours -> BreachDeadlineStatus.DUE_SOON

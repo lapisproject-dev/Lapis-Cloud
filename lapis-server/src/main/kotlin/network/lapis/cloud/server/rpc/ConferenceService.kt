@@ -3,7 +3,6 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
@@ -33,6 +32,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.isActiveCommitteeMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceAvailabilityDto
@@ -595,7 +595,7 @@ class ConferenceService(
             identity = current.memberId.toString(),
             displayName = prep.displayName,
             role = prep.role,
-            expiresAt = minted.expiresAt.toLocalDateTime(TimeZone.currentSystemDefault()),
+            expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
             turnServers = turnServers,
         )
     }
@@ -1212,7 +1212,7 @@ class ConferenceService(
                 }.orderBy(SystemicConsensusTable.openedAt, SortOrder.DESC)
                 .limit(MAX_ROOM_BALLOTS + 1)
                 .toList()
-        val zone = TimeZone.currentSystemDefault()
+        val zone = ServerClock.zone
         val cutoff = (now.toInstant(zone) - RECENTLY_TALLIED_WINDOW).toLocalDateTime(zone)
         val remaining = MAX_ROOM_BALLOTS + 1 - activeElections.size - openVotes.size - activeConsensuses.size
         val tallied =
@@ -1501,7 +1501,7 @@ class ConferenceService(
         createdAt: LocalDateTime,
         now: LocalDateTime,
     ): Boolean {
-        val zone = TimeZone.currentSystemDefault()
+        val zone = ServerClock.zone
         return createdAt.toInstant(zone).plus(ROOM_EMPTY_TIMEOUT_SECONDS.seconds) <= now.toInstant(zone)
     }
 

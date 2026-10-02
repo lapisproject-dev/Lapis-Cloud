@@ -141,7 +141,7 @@ private fun renderReliefRequestCard(
         card.div(gettext("Erläuterung: %1", request.reasonText)) { addCssClasses("text-muted small") }
     } else if (request.reasonRedactedAt != null) {
         card.div(
-            gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", formatDateTime(request.reasonRedactedAt!!)),
+            gettext("Begründung am %1 automatisch gelöscht (12-Monats-Frist).", formatSystemDateTime(request.reasonRedactedAt!!)),
         ) {
             addCssClasses("text-muted small")
         }

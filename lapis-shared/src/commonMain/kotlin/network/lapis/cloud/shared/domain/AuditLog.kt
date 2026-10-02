@@ -421,6 +421,10 @@ data class AuditLogEntryDto(
  * object both fits that ceiling and reads better at call sites than seven positional/named
  * arguments. All fields default to "no filter"/the house-standard page size, matching every other
  * `activeOnly`/`includeResolved`-style optional-filter default in this codebase.
+ *
+ * V1.9.38: [from]/[to] are wall-clock values in the ORGANIZATION time zone (what the filter form shows,
+ * since audit timestamps are displayed in that zone); the server converts them to UTC before comparing them
+ * with the stored `occurred_at`.
  */
 @Serializable
 data class AuditLogListQuery(

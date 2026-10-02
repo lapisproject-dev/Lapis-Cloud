@@ -4,6 +4,7 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.minus
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -26,7 +27,7 @@ internal object CarpoolRetention {
     /** @return Anzahl gelöschter Zeilen. */
     fun deleteDueRows(now: LocalDateTime): Int =
         transaction {
-            val cutoff = now.date.minus(DatePeriod(days = RETENTION_DAYS_AFTER_DEPARTURE))
+            val cutoff = OrganizationTimeZone.dateOf(now).minus(DatePeriod(days = RETENTION_DAYS_AFTER_DEPARTURE))
             val dueIds =
                 CarpoolPostingTable
                     .select(CarpoolPostingTable.id)

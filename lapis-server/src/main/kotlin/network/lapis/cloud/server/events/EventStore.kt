@@ -75,7 +75,7 @@ internal object EventStore {
     fun list(
         status: EventStatus?,
         includePast: Boolean,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
         limit: Int,
         offset: Int,
     ): Pair<List<ResultRow>, Int> {
@@ -83,7 +83,7 @@ internal object EventStore {
         val effectiveOffset = offset.coerceAtLeast(0)
         var condition: Op<Boolean>? = null
         if (status != null) condition = (EventTable.status eq status).andWith(condition)
-        if (!includePast) condition = (EventTable.endsAt greater now).andWith(condition)
+        if (!includePast) condition = (EventTable.endsAt greater wallNow).andWith(condition)
         val fixed = condition
 
         fun query() = if (fixed != null) EventTable.selectAll().where { fixed } else EventTable.selectAll()
@@ -719,15 +719,15 @@ internal object EventStore {
 
     /**
      * A series counts as "active" iff at least one of its materialized `event` rows has
-     * `endsAt > now` AND `status != CANCELLED` -- the `MAX_ACTIVE_SERIES_PER_ORG` gate
+     * `endsAt > wallNow` (class-B wall-clock) AND `status != CANCELLED` -- the `MAX_ACTIVE_SERIES_PER_ORG` gate
      * ([EventSeriesLimits]). Counts DISTINCT `series_id`, not rows.
      */
-    fun countActiveSeries(now: LocalDateTime): Int =
+    fun countActiveSeries(wallNow: LocalDateTime): Int =
         EventTable
             .select(EventTable.seriesId)
             .where {
                 (EventTable.seriesId.isNotNull()) and
-                    (EventTable.endsAt greater now) and
+                    (EventTable.endsAt greater wallNow) and
                     (EventTable.status neq EventStatus.CANCELLED)
             }.withDistinct()
             .count()

@@ -14,7 +14,6 @@ import io.ktor.server.routing.post
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
@@ -29,6 +28,7 @@ import network.lapis.cloud.server.payment.dunning.requireDunningUsable
 import network.lapis.cloud.server.pdf.MahnungPdfGenerator
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionStatusSets
@@ -192,7 +192,7 @@ fun Route.registerDunningRoutes(
 
                 val recipient = loadMailmergeMember(contributionRow[ContributionTable.memberId]) ?: return@transaction null
                 val organization = loadOrganizationSettingsDto()
-                val today: LocalDate = DbClock.nowLocalDateTime().date
+                val today: LocalDate = OrganizationTimeZone.today()
                 val respondBy = today.plus(nextLevel[DunningLevelTable.responseDays], DateTimeUnit.DAY)
                 val contributionDto =
                     ContributionDto(
@@ -236,7 +236,7 @@ fun Route.registerDunningRoutes(
                 levelNumber = prepared.levelNumber,
                 feeAmount = prepared.feeAmount,
                 respondBy = prepared.respondBy,
-                issuedOn = DbClock.nowLocalDateTime().date,
+                issuedOn = OrganizationTimeZone.today(),
             )
         call.respondBytes(bytes = pdfBytes, contentType = ContentType.Application.Pdf)
     }

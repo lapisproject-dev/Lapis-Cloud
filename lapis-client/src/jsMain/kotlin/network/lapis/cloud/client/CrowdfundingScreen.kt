@@ -280,7 +280,7 @@ private fun renderProjectCard(
 
     card.div(sanitizeUntrustedI18nText(project.description)) { addCssClasses("small") }
     card.div(
-        gettext("Eingereicht von %1 am %2", project.submitterDisplayName, formatDateTime(project.submittedAt)),
+        gettext("Eingereicht von %1 am %2", project.submitterDisplayName, formatSystemDateTime(project.submittedAt)),
     ) { addCssClasses("text-muted small") }
 
     // status (persisted board decision) vs. effectiveStatus/isAutoApproved (14-day
@@ -319,7 +319,7 @@ private fun renderProjectCard(
     }
     project.reviewedByDisplayName?.let { reviewer ->
         card.div(
-            gettext("Entschieden von %1 am %2", reviewer, formatDateTime(project.reviewedAt!!)),
+            gettext("Entschieden von %1 am %2", reviewer, formatSystemDateTime(project.reviewedAt!!)),
         ) { addCssClasses("text-muted small") }
     }
 
@@ -578,7 +578,7 @@ internal fun renderDistributionsTable(
                 textColumn<CrowdfundingDistributionDto>(
                     title = tr("Berechnet"),
                     cssClasses = "text-muted small",
-                ) { gettext("%1 von %2", formatDateTime(it.computedAt), it.triggeredByDisplayName) },
+                ) { gettext("%1 von %2", formatSystemDateTime(it.computedAt), it.triggeredByDisplayName) },
             ),
         rows = distributions,
         viewport = viewport,

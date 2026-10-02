@@ -13,8 +13,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.MemberAddressDataDto
 import network.lapis.cloud.shared.domain.MemberAddressField
 import network.lapis.cloud.shared.domain.MemberAddressRules
@@ -23,7 +21,6 @@ import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.NotFoundException
-import kotlin.time.Clock
 
 /** The two writes [MemberAddressCard] needs -- shared by the self-service card and the board dialog (V1.9.35). Exceptions propagate. */
 internal interface MemberAddressWriteRpc {
@@ -90,11 +87,7 @@ internal fun liveMemberAddressRpc(): MemberAddressRpc =
  * The client's own "today". The server judges with its own clock and time zone: a difference can at worst
  * produce a Conflict, which re-reads the view -- never a wrong write.
  */
-internal fun clientToday(): LocalDate =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
+internal fun clientToday(): LocalDate = organizationToday()
 
 /**
  * Runs [block]. Kilua RPC transmits only the TYPE of an exception, never its text, so a [ConflictException] is ambiguous (several

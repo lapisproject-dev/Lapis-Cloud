@@ -140,7 +140,7 @@ class EventIcsFeedSeriesTest :
         test("a plain series (no detached/cancelled/deleted occurrences) renders as ONE RRULE master VEVENT, no per-occurrence VEVENTs") {
             val (seriesId, eventIds) = createWeeklySeries()
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now).filter { it[EventTable.id] in eventIds } }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now).filter { it[EventTable.id] in eventIds } }
             val seriesData = transaction { EventIcsFeed.loadSeriesRenderData(setOf(seriesId)) }
             val body = EventIcsFeed.render(rows = rows, baseUrl = "https://example.org", brandTitle = "Testverein", seriesData = seriesData)
 
@@ -166,7 +166,7 @@ class EventIcsFeedSeriesTest :
                 }
             }
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now).filter { it[EventTable.id] in eventIds } }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now).filter { it[EventTable.id] in eventIds } }
             val seriesData = transaction { EventIcsFeed.loadSeriesRenderData(setOf(seriesId)) }
             val body = EventIcsFeed.render(rows = rows, baseUrl = "https://example.org", brandTitle = "Testverein", seriesData = seriesData)
 
@@ -176,7 +176,7 @@ class EventIcsFeedSeriesTest :
             vevents.all { it.uid.orElseThrow().value == masterUid } shouldBe true
             val exception = vevents.single { it.getProperty<RecurrenceId<*>>("RECURRENCE-ID").isPresent }
             exception.summary.value shouldBe "Verschobener Einzeltermin"
-            body shouldContain "RECURRENCE-ID:"
+            body shouldContain "RECURRENCE-ID;TZID=Europe/Berlin:"
         }
 
         test("a hard-deleted occurrence produces an EXDATE on the master, not a ghost VEVENT") {
@@ -185,13 +185,13 @@ class EventIcsFeedSeriesTest :
             transaction { EventTable.deleteWhere { id eq deletedId } }
             val remainingIds = eventIds - deletedId
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now).filter { it[EventTable.id] in remainingIds } }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now).filter { it[EventTable.id] in remainingIds } }
             val seriesData = transaction { EventIcsFeed.loadSeriesRenderData(setOf(seriesId)) }
             val body = EventIcsFeed.render(rows = rows, baseUrl = "https://example.org", brandTitle = "Testverein", seriesData = seriesData)
 
             val vevents = parseVevents(body)
             vevents.size shouldBe 1
-            body shouldContain "EXDATE:"
+            body shouldContain "EXDATE;TZID=Europe/Berlin:"
         }
 
         test("a cancelled (status != PUBLISHED) occurrence also produces an EXDATE, same as a hard-deleted one") {
@@ -200,12 +200,12 @@ class EventIcsFeedSeriesTest :
             transaction { EventTable.update({ EventTable.id eq cancelledId }) { it[status] = EventStatus.CANCELLED } }
             val remainingIds = eventIds - cancelledId
             val now = LocalDateTime(2026, 1, 1, 0, 0)
-            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(now = now).filter { it[EventTable.id] in remainingIds } }
+            val rows = transaction { EventIcsFeed.loadUpcomingPublicPublished(wallNow = now).filter { it[EventTable.id] in remainingIds } }
             val seriesData = transaction { EventIcsFeed.loadSeriesRenderData(setOf(seriesId)) }
             val body = EventIcsFeed.render(rows = rows, baseUrl = "https://example.org", brandTitle = "Testverein", seriesData = seriesData)
 
             val vevents = parseVevents(body)
             vevents.size shouldBe 1
-            body shouldContain "EXDATE:"
+            body shouldContain "EXDATE;TZID=Europe/Berlin:"
         }
     })

@@ -1470,7 +1470,7 @@ class StreamPollerTest :
         }
     })
 
-private val TZ = TimeZone.currentSystemDefault()
+private val TZ = TimeZone.UTC
 
 /** Test-only helper -- shifts a [LocalDateTime] by whole minutes using kotlinx-datetime's own Instant arithmetic, same conversion [StreamPoller] itself uses. */
 private fun LocalDateTime.shiftedByMinutes(minutes: Long): LocalDateTime = this.toInstant(TZ).plus(minutes.minutes).toLocalDateTime(TZ)

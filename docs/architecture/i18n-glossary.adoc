@@ -241,6 +241,9 @@ The check above needs a term that is a distinct whole word. These terms are fixe
 | Quorum
 | Quorum (en), quórum (es), quorum (fr), quorum (it), quorum (nl), kworum (pl), кворум (ru) -- V1.9.34, the number of members entitled to vote who must be present for a meeting to vote. Not "Beschlussfähigkeit" in the UI text, and never the same word as the result of a vote.
 
+| Zeitzone der Organisation / MEZ / MESZ
+| Organization time zone (en), zona horaria de la organización (es), fuseau horaire de l'organisation (fr), fuso orario dell'organizzazione (it), tijdzone van de organisatie (nl), strefa czasowa organizacji (pl), часовой пояс организации (ru) -- V1.9.38. "MEZ"/"MESZ" (Central European Time / Summer Time) read CET/CEST in en, es, it, nl, pl, ru and HNEC/HAEC in fr. A zone ID such as "Europe/Berlin" is a technical identifier and is never translated.
+
 | Verlauf (einer Unterhaltung)
 | History (en), historial (es), historique (fr), cronologia (it), geschiedenis (nl), historia (pl), история (ru) -- V1.9.34, the expandable list of all direct messages with one member. Not "Chat" or "Thread".
 |===

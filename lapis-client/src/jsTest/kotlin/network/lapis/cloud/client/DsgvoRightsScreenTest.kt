@@ -9,6 +9,8 @@ import network.lapis.cloud.shared.domain.DsgvoSubjectKind
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -23,6 +25,19 @@ import kotlin.test.assertTrue
  * (no DOM/rendering test harness exists in this module).
  */
 class DsgvoRightsScreenTest {
+    // V1.9.38: these values are class-A system timestamps (UTC), now shown in the organization zone. This test is about something else
+    // (labels, table/card parity), so it pins the zone to UTC and keeps its literal expectations; the conversion itself is covered by
+    // OrganizationTimeTest/OrganizationTimeDomTest.
+    @BeforeTest
+    fun pinOrganizationZoneToUtc() {
+        OrganizationTime.zoneId = "UTC"
+    }
+
+    @AfterTest
+    fun restoreOrganizationZone() {
+        OrganizationTime.zoneId = DEFAULT_ORGANIZATION_ZONE_ID
+    }
+
     private fun request(
         status: ErasureStatus,
         requestedBy: String = "member-subject",

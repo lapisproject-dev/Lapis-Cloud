@@ -3,10 +3,10 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnniversaryCalendar
 import network.lapis.cloud.shared.domain.AnniversaryEntryDto
@@ -33,7 +33,7 @@ private val ANNIVERSARY_READ_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMI
  */
 class MemberAnniversaryService(
     private val call: ApplicationCall,
-    private val clock: () -> LocalDate = { DbClock.nowLocalDateTime().date },
+    private val clock: () -> LocalDate = { OrganizationTimeZone.today() },
 ) : IMemberAnniversaryService {
     override suspend fun getUpcomingAnniversaries(windowDays: Int): MemberAnniversaryOverviewDto {
         val current = resolveCurrentMember(call)

@@ -4,11 +4,8 @@ import dev.kilua.rpc.types.toDecimal
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventVisibility
-import kotlin.time.Clock
 
 /**
  * Welle V1.4.3.x "Veranstaltungen: BOARD/ADMIN-Verwaltungsoberfläche" -- pure, DOM-independent
@@ -62,7 +59,7 @@ private const val MAX_DESCRIPTION_LENGTH = 8000
 fun validateEventForm(
     raw: EventFormRawInput,
     existingStartsAt: LocalDateTime?,
-    now: LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
+    now: LocalDateTime = organizationNow(),
 ): EventFormResult {
     val title = raw.title.trim()
     if (title.isBlank()) return EventFormResult.Error(tr("Bitte einen Titel angeben."))

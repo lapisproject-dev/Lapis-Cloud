@@ -416,7 +416,7 @@ private fun renderOfficerRow(
 ) {
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center border-bottom py-1 flex-wrap") }
     row.untrustedSpan(officer.displayName)
-    row.span(gettext("seit %1", formatDate(officer.grantedAt.date))) { addCssClasses("text-muted small") }
+    row.span(gettext("seit %1", formatDate(systemDate(officer.grantedAt)))) { addCssClasses("text-muted small") }
     officer.grantedByDisplayName?.let { grantedBy ->
         row.untrustedSpan(gettext("erteilt von %1", grantedBy), className = "text-muted small")
     }

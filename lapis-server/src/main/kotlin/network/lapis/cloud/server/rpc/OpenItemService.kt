@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.ReceivableDunningNoticeTable
 import network.lapis.cloud.server.openitem.dunning.ReceivableDunningEngine
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -166,7 +167,7 @@ class OpenItemService(
         val current = resolveCurrentMember(call)
         current.requireRole(*OPEN_ITEM_READ_ROLES)
         return transaction {
-            val asOf = DbClock.nowLocalDateTime().date
+            val asOf = OrganizationTimeZone.today()
             val payableBuckets = aggregateBuckets(direction = OpenItemDirection.PAYABLE, asOf = asOf)
             val receivableBuckets = aggregateBuckets(direction = OpenItemDirection.RECEIVABLE, asOf = asOf)
             val settingsRow =
@@ -202,7 +203,7 @@ class OpenItemService(
         val effectiveLimit = limit.coerceIn(1, MAX_LIST_RESULTS)
         val afterId = afterOpenItemId?.toOpenItemUuid("afterOpenItemId")
         return transaction {
-            val asOf = DbClock.nowLocalDateTime().date
+            val asOf = OrganizationTimeZone.today()
             var condition: Op<Boolean> = Op.TRUE
             if (direction != null) condition = condition and (OpenItemTable.direction eq direction)
             if (onlyOpen) condition = condition and (OpenItemTable.status inList OpenItemStatusSets.SETTLEABLE.toList())
@@ -421,7 +422,7 @@ class OpenItemService(
                         originalJournalEntryId = creationJournalEntryId,
                         description = "Storno offener Posten",
                         reason = reason,
-                        on = DbClock.nowLocalDateTime().date,
+                        on = OrganizationTimeZone.today(),
                         actorMemberId = current.memberId,
                         actorRole = current.role,
                     )
@@ -604,7 +605,7 @@ class OpenItemService(
                     originalJournalEntryId = journalEntryId,
                     description = "Storno Zahlung offener Posten",
                     reason = reason,
-                    on = DbClock.nowLocalDateTime().date,
+                    on = OrganizationTimeZone.today(),
                     actorMemberId = current.memberId,
                     actorRole = current.role,
                 )
@@ -773,7 +774,7 @@ class OpenItemService(
         current.requireRole(*OPEN_ITEM_READ_ROLES)
         val effectiveLimit = limit.coerceIn(1, MAX_LIST_RESULTS)
         return transaction {
-            val asOf = DbClock.nowLocalDateTime().date
+            val asOf = OrganizationTimeZone.today()
             findAllNettingCandidates(asOf).take(effectiveLimit)
         }
     }
@@ -880,7 +881,7 @@ class OpenItemService(
 
             val nettingId = Uuid.random()
             val now = DbClock.nowLocalDateTime()
-            val today = now.date
+            val today = OrganizationTimeZone.dateOf(now)
             val counterpartyKey = payableRow[OpenItemTable.counterpartyKey]
             val crmContactId = payableRow[OpenItemTable.crmContactId] ?: receivableRow[OpenItemTable.crmContactId]
 
@@ -994,7 +995,7 @@ class OpenItemService(
                     originalJournalEntryId = journalEntryId,
                     description = "Storno Verrechnung",
                     reason = reason,
-                    on = DbClock.nowLocalDateTime().date,
+                    on = OrganizationTimeZone.today(),
                     actorMemberId = current.memberId,
                     actorRole = current.role,
                 )
@@ -1405,7 +1406,7 @@ internal fun ResultRow.toOpenItemSnapshot(): OpenItemSnapshot =
  */
 internal fun loadOpenItemDetail(itemId: Uuid): OpenItemDetailDto {
     val row = OpenItemTable.selectAll().where { OpenItemTable.id eq itemId }.single()
-    val asOf = DbClock.nowLocalDateTime().date
+    val asOf = OrganizationTimeZone.today()
     val accountInfo = loadAccountInfo(listOf(row[OpenItemTable.contraAccountId]))
     // Explicit ORDER BY: without it Postgres returns rows in plan-dependent order, and the client
     // relies on chronological order (oldest settlement first, newest last).

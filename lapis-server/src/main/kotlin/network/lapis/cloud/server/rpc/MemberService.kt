@@ -39,6 +39,7 @@ import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.memberVisibility
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminPasswordAction
@@ -414,7 +415,7 @@ class MemberService(
             if (MemberAddressRules.birthDateViolation(
                     dateOfBirth = dateOfBirth,
                     dateOfDeath = row[MemberTable.dateOfDeath],
-                    today = now.date,
+                    today = OrganizationTimeZone.dateOf(now),
                 ) !=
                 null
             ) {
@@ -917,7 +918,11 @@ class MemberService(
                 // rejectApplication already establish: committee/mandate cleanup INSIDE this
                 // transaction, session revocation AFTER commit (see below).
                 if (newStatus in MemberStatusSets.MEMBERSHIP_ENDED) {
-                    endAllOpenCommitteeMembershipsForMember(memberId = targetId, until = now.date, current = current)
+                    endAllOpenCommitteeMembershipsForMember(
+                        memberId = targetId,
+                        until = OrganizationTimeZone.dateOf(now),
+                        current = current,
+                    )
                     revokeMandatesForEndedMembership(
                         memberId = targetId,
                         actorMemberId = current.memberId,
@@ -1662,7 +1667,7 @@ class MemberService(
             DeathDateRules.violation(
                 dateOfDeath = dateOfDeath,
                 dateOfBirth = row[MemberTable.dateOfBirth],
-                today = now.date,
+                today = OrganizationTimeZone.dateOf(now),
             )
         ) {
             DeathDateViolation.IN_FUTURE -> throw ConflictException("A date of death cannot be in the future")

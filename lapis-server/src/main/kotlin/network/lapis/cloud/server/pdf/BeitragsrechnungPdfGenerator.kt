@@ -1,11 +1,8 @@
 package network.lapis.cloud.server.pdf
 
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
-import kotlin.time.Clock
 
 /**
  * Mail-merges a Beitragsrechnung (membership dues invoice) from a [ContributionDto] + the billed
@@ -23,11 +20,7 @@ object BeitragsrechnungPdfGenerator {
         val builder = LetterPdfBuilder()
         builder.letterhead(orgName = organization.name, orgAddressLines = organization.addressLines())
         builder.recipientAddress(member.addressLines())
-        val today =
-            Clock.System
-                .now()
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .date
+        val today = pdfIssueDate()
         builder.dateLine(place = organization.city ?: organization.name, date = today)
         builder.heading("Beitragsrechnung")
         builder.paragraph(

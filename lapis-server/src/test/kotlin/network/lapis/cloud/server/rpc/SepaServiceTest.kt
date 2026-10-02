@@ -46,6 +46,7 @@ import network.lapis.cloud.server.db.generated.SepaDebitItemTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
 import network.lapis.cloud.server.db.generated.SepaReturnTable
 import network.lapis.cloud.server.payment.sepa.SepaConfig
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.ContributionStatus
@@ -447,7 +448,7 @@ class SepaServiceTest :
                 val member = createTestMember("sepa-grant-self-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
                 enableSepaForOrg(ackByMemberId = member)
 
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val response =
                     client.post(
                         "/test/sepa/grant?debtorName=Erika+Mustermann&debtorIban=DE89370400440532013000&signatureDate=$today",
@@ -470,7 +471,7 @@ class SepaServiceTest :
                 val otherMember = createTestMember("sepa-grant-other-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
                 val bystander = createTestMember("sepa-grant-bystander-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
                 enableSepaForOrg(ackByMemberId = treasurer)
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
 
                 val treasurerResponse =
                     client.post(
@@ -536,7 +537,7 @@ class SepaServiceTest :
                 }
                 val member = createTestMember("sepa-grant-race-${Uuid.random()}@example.org", role = AccountRole.MEMBER)
                 enableSepaForOrg(ackByMemberId = member)
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
 
                 val startLatch = CountDownLatch(2)
                 val doneLatch = CountDownLatch(2)
@@ -621,7 +622,7 @@ class SepaServiceTest :
                 // debtor_iban_ciphertext to embed the real IBAN in the pain.008 file, which a fake
                 // placeholder ciphertext (grantMandateRow's own shortcut, fine for tests that never
                 // reach generateBatchFile) cannot satisfy.
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val grantResponse =
                     client.post(
                         "/test/sepa/grant?debtorName=E2E+Konto&debtorIban=DE89370400440532013000&signatureDate=$today",
@@ -733,7 +734,7 @@ class SepaServiceTest :
                 val contributionId = createOpenContribution(memberId = member, tierId = tier)
                 val batchId = Uuid.random()
                 val itemId = Uuid.random()
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 transaction {
                     SepaDebitBatchTable.insert {
                         it[id] = batchId
@@ -874,7 +875,7 @@ class SepaServiceTest :
                 val batchId = Uuid.random()
                 val itemAId = Uuid.random()
                 val itemBId = Uuid.random()
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 transaction {
                     SepaDebitBatchTable.insert {
                         it[id] = batchId
@@ -1049,7 +1050,7 @@ class SepaServiceTest :
                     )
                 createdBatchIds += batchId
 
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val first =
                     client.post("/test/sepa/return?debitItemId=$itemId&returnedAt=$today&reasonCode=AC01") {
                         header("X-Member-Id", treasurer.toString())
@@ -1086,7 +1087,7 @@ class SepaServiceTest :
                         contributionId = contributionId,
                     )
                 createdBatchIds += batchId
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
 
                 for (tooBig in listOf("1000000000.01", "10000000000", "1.0E20")) {
                     val response =
@@ -1137,7 +1138,7 @@ class SepaServiceTest :
                 createdBatchIds += batchMd01
                 createdBatchIds += batchAc01
 
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val md01Response =
                     client.post("/test/sepa/return?debitItemId=$itemMd01&returnedAt=$today&reasonCode=MD01") {
                         header("X-Member-Id", treasurer.toString())
@@ -1242,7 +1243,7 @@ class SepaServiceTest :
                 createdBatchIds += batchAc04
                 createdBatchIds += batchMd01
 
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val farFuture = today.plus(365, DateTimeUnit.DAY)
 
                 // Before any return, both contributions would be candidates in a fresh preview once
@@ -1295,7 +1296,7 @@ class SepaServiceTest :
 
                 // Expired: granted 40 months ago, never used -- well past the 36-month expiry, but the
                 // mandate row itself is still marked ACTIVE (as it would be with the poller disabled).
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val fortyMonthsAgoDate = today.minus(40, DateTimeUnit.MONTH)
                 val fortyMonthsAgo =
                     LocalDateTime(fortyMonthsAgoDate.year, fortyMonthsAgoDate.monthNumber, fortyMonthsAgoDate.dayOfMonth, 9, 0)
@@ -1440,7 +1441,7 @@ class SepaServiceTest :
 
                 // Same construction as the M-5 test above: granted 40 months ago, never used -- well
                 // past the 36-month expiry, mandate row itself still ACTIVE (poller disabled/not run).
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val fortyMonthsAgoDate = today.minus(40, DateTimeUnit.MONTH)
                 val fortyMonthsAgo =
                     LocalDateTime(fortyMonthsAgoDate.year, fortyMonthsAgoDate.monthNumber, fortyMonthsAgoDate.dayOfMonth, 9, 0)
@@ -1489,7 +1490,7 @@ class SepaServiceTest :
                     contributionIncomeAccountId = incomeAccountId,
                 )
                 val plaintextIban = "DE89370400440532013000"
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val grantResponse =
                     client.post(
                         "/test/sepa/grant?debtorName=M2+Konto&debtorIban=$plaintextIban&signatureDate=$today",
@@ -1570,7 +1571,7 @@ class SepaServiceTest :
                     paymentBankAccountId = bankAccountId,
                     contributionIncomeAccountId = incomeAccountId,
                 )
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val grantResponse =
                     client.post(
                         "/test/sepa/grant?debtorName=N2+Konto&debtorIban=DE89370400440532013000&signatureDate=$today",
@@ -1662,7 +1663,7 @@ class SepaServiceTest :
                     paymentBankAccountId = bankAccountId,
                     contributionIncomeAccountId = incomeAccountId,
                 )
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val grantResponse =
                     client.post(
                         "/test/sepa/grant?debtorName=M3+Konto&debtorIban=DE89370400440532013000&signatureDate=$today",
@@ -1763,7 +1764,7 @@ class SepaServiceTest :
                     paymentBankAccountId = bankAccountId,
                     contributionIncomeAccountId = incomeAccountId,
                 )
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val grantResponse =
                     client.post(
                         "/test/sepa/grant?debtorName=N1A+Konto&debtorIban=DE89370400440532013000&signatureDate=$today",
@@ -1922,7 +1923,7 @@ class SepaServiceTest :
                 // generateBatchFile call" scenario markBatchSubmitted's own hardening targets.
                 val returnResponse =
                     client.post(
-                        "/test/sepa/return?debitItemId=$itemId&returnedAt=${DbClock.nowLocalDateTime().date}&reasonCode=MD01",
+                        "/test/sepa/return?debitItemId=$itemId&returnedAt=${OrganizationTimeZone.today()}&reasonCode=MD01",
                     ) { header("X-Member-Id", treasurer.toString()) }
                 returnResponse.status shouldBe HttpStatusCode.OK
 
@@ -1949,7 +1950,7 @@ class SepaServiceTest :
                 // ACTIVE: SepaBatchPoller.tick() is never called anywhere in this test, so nothing
                 // ever flips it to EXPIRED in the DB (mirrors LAPIS_SEPA_POLLER_ENABLED=false, the
                 // production default) -- markBatchSubmitted must catch this itself, synchronously.
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 val fortyMonthsAgoDate = today.minus(40, DateTimeUnit.MONTH)
                 val fortyMonthsAgo =
                     LocalDateTime(fortyMonthsAgoDate.year, fortyMonthsAgoDate.monthNumber, fortyMonthsAgoDate.dayOfMonth, 9, 0)
@@ -2015,7 +2016,7 @@ class SepaServiceTest :
                 )
                 // enableSepaForOrg's own fixture creditor identity ("X"): sepaCreditorId
                 // "DE98ZZZ09999999999" / sepaCreditorName "Sepa-Fixture Verein".
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 // Real grantMandate RPC (not the raw-table grantMandateRow helper) -- generateBatchFile
                 // below actually SecretBox-decrypts debtor_iban_ciphertext, which a fake placeholder
                 // ciphertext cannot satisfy (same reasoning the "batch lifecycle end-to-end" test's own

@@ -22,8 +22,6 @@ import io.kvision.table.Table
 import io.kvision.table.cell
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
@@ -42,7 +40,6 @@ import network.lapis.cloud.shared.domain.VatSettingsDto
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IVatService
-import kotlin.time.Clock
 
 /**
  * Accounting UI wave, screen 3 of 5 -- "Gemeinnützigkeits-Berichte" (Vier-Sphären-Ergebnisrechnung
@@ -724,15 +721,6 @@ fun hasOverdueAmount(amount: Decimal): Boolean = amount.toDouble() > 0.0
 
 /** Mirrors `LedgerScreen.kt`/`FinancialReportsScreen.kt`'s own private `todayIso()` -- no shared
  * date-util file exists in this client. */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
-private fun currentYear(): Int =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date.year
+private fun currentYear(): Int = organizationToday().year

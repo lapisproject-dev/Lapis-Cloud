@@ -145,7 +145,9 @@ private fun renderConsensusHeader(
             tr("Offene Bewertung: Ihre Bewertung wird mit Ihrem Namen gespeichert und ist für alle Mitglieder sichtbar.")
         },
     ) { addCssClasses("text-muted small") }
-    panel.div(gettext("Eröffnet von %1 am %2", c.openedByDisplayName, formatDateTime(c.openedAt))) { addCssClasses("text-muted small") }
+    panel.div(
+        gettext("Eröffnet von %1 am %2", c.openedByDisplayName, formatSystemDateTime(c.openedAt)),
+    ) { addCssClasses("text-muted small") }
 
     val eligibleCount = p.eligibleCount
     if (eligibleCount != null) {

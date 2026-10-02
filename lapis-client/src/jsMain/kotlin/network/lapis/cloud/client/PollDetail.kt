@@ -52,7 +52,7 @@ private fun renderPollBody(
         gettext(
             "Gestartet von %1 am %2",
             sanitizeUntrustedI18nText(poll.createdByDisplayName),
-            formatDateTime(poll.createdAt),
+            formatSystemDateTime(poll.createdAt),
         ),
     ) { addCssClasses("text-muted small mb-0") }
     body.p(pollDeadlineLabel(poll)) { addCssClasses("text-muted small mb-0") }

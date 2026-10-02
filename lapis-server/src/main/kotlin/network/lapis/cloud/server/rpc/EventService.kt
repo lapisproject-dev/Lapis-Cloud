@@ -39,6 +39,7 @@ import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -166,7 +167,7 @@ class EventService(
                 EventStore.list(
                     status = effectiveStatus,
                     includePast = query.includePast,
-                    now = now,
+                    wallNow = OrganizationTimeZone.wallNowOf(now),
                     limit = query.limit,
                     offset = query.offset,
                 )
@@ -193,7 +194,7 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
-        EventPolicy.validate(input = input, now = now)
+        EventPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(now))
         val roomId = input.roomId?.toEventUuid()
         return transaction {
             // Room-collision check, AFTER EventPolicy.validate, BEFORE the insert -- see
@@ -252,7 +253,11 @@ class EventService(
             // genuinely moved into the past" apart from "startsAt already was, and still is, in the
             // past" -- see `EventPolicy.validate` KDoc. Passing the currently-stored `startsAt` here
             // (only obtainable once `existing` is loaded) makes that distinction possible.
-            EventPolicy.validate(input = input, now = now, existingStartsAt = existing[EventTable.startsAt])
+            EventPolicy.validate(
+                input = input,
+                wallNow = OrganizationTimeZone.wallNowOf(now),
+                existingStartsAt = existing[EventTable.startsAt],
+            )
             val hasActiveRegistrations = EventStore.hasNonInactiveRegistration(eventId)
             val feeChanged =
                 input.feeAmount.compareTo(existing[EventTable.feeAmount]) != 0 || input.feeCurrency != existing[EventTable.feeCurrency]
@@ -713,7 +718,7 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
-        EventPolicy.validate(input = input, now = now)
+        EventPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(now))
         val durationMinutes = minutesBetween(startsAt = input.startsAt, endsAt = input.endsAt)
         if (durationMinutes <= 0 ||
             durationMinutes > network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_INSTANCE_DURATION_MINUTES
@@ -732,7 +737,9 @@ class EventService(
                 is RecurrenceRuleBuilder.Result.Ok -> built.rrule
             }
         return transaction {
-            if (EventStore.countActiveSeries(now) >= network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_ACTIVE_SERIES_PER_ORG) {
+            if (EventStore.countActiveSeries(OrganizationTimeZone.wallNowOf(now)) >=
+                network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_ACTIVE_SERIES_PER_ORG
+            ) {
                 throw ConflictException(
                     "Es sind bereits " +
                         "${network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_ACTIVE_SERIES_PER_ORG} aktive Serien vorhanden.",
@@ -795,7 +802,7 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
-        EventPolicy.validate(input = input, now = now)
+        EventPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(now))
         val id = eventId.toEventUuid()
         val durationMinutes = minutesBetween(startsAt = input.startsAt, endsAt = input.endsAt)
         return transaction {
@@ -1059,7 +1066,7 @@ class EventService(
                     ?: "Unbekannt"
 
             val itemId = Uuid.random()
-            val itemDate = now.date
+            val itemDate = OrganizationTimeZone.wallNowOf(now).date
             val dueDate = itemDate.plus(input.dueInDays, DateTimeUnit.DAY)
             val counterpartyKey = CounterpartyKey.of(counterpartyName)
             // Grep-able payment reference, printed on EventInvoicePdfGenerator's "Verwendungszweck"

@@ -21,8 +21,6 @@ import io.kvision.table.table
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountingExportBlockerKind
 import network.lapis.cloud.shared.domain.AccountingExportConnectionDto
 import network.lapis.cloud.shared.domain.AccountingExportDirection
@@ -35,7 +33,6 @@ import network.lapis.cloud.shared.domain.AccountingExportRunStatus
 import network.lapis.cloud.shared.domain.AccountingExportUnknownItemResolution
 import network.lapis.cloud.shared.domain.displayName
 import network.lapis.cloud.shared.rpc.IAccountingExportService
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -258,7 +255,10 @@ internal fun renderZeroVatSection(
 ) {
     if (connection.zeroVatAcknowledged) {
         panel.div(
-            gettext("Hinweis zur Umsatzsteuer quittiert am %1.", connection.zeroVatAcknowledgedAt?.let { formatDateTime(it) }.orEmpty()),
+            gettext(
+                "Hinweis zur Umsatzsteuer quittiert am %1.",
+                connection.zeroVatAcknowledgedAt?.let { formatSystemDateTime(it) }.orEmpty(),
+            ),
         ) { addCssClasses("text-muted small") }
         return
     }
@@ -668,18 +668,9 @@ private fun accountingExportRunStatusLabel(status: AccountingExportRunStatus): S
         AccountingExportRunStatus.ABORTED -> tr("abgebrochen")
     }
 
-private fun currentYear(): Int =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date.year
+private fun currentYear(): Int = organizationToday().year
 
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
 /** Security review Fund 2026-09-07 (Runde 4, Befund 2): the client-side counterpart of
  * `IAccountingExportService.resolveUnknownItem` -- the only UI path to resolve an

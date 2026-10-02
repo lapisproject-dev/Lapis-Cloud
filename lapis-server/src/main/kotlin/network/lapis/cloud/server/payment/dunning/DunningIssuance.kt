@@ -19,6 +19,7 @@ import network.lapis.cloud.server.routes.archiveGeneratedPdf
 import network.lapis.cloud.server.routes.loadMailmergeMember
 import network.lapis.cloud.server.routes.loadOrganizationSettingsDto
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -274,10 +275,10 @@ internal fun issueDunningNotice(
                         dueDate = contributionRow[ContributionTable.dueDate],
                     )
                 val dueOn = referenceDate.plus(nextLevelRow[DunningLevelTable.graceDays], DateTimeUnit.DAY)
-                if (dueOn > request.now.date) return@transaction DunningIssueOutcome.NotDue
+                if (dueOn > OrganizationTimeZone.dateOf(request.now)) return@transaction DunningIssueOutcome.NotDue
             }
 
-            val respondBy = request.now.date.plus(nextLevelRow[DunningLevelTable.responseDays], DateTimeUnit.DAY)
+            val respondBy = OrganizationTimeZone.dateOf(request.now).plus(nextLevelRow[DunningLevelTable.responseDays], DateTimeUnit.DAY)
             val contributionDto = contributionRow.toContributionDtoForDunning()
             val recipient = loadMailmergeMember(memberId) ?: return@transaction DunningIssueOutcome.NotDunnable("Mitglied nicht gefunden.")
             val organization = loadOrganizationSettingsDto()
@@ -328,7 +329,7 @@ internal fun issueDunningNotice(
             levelNumber = prepared.levelNumber,
             feeAmount = prepared.feeAmount,
             respondBy = prepared.respondBy,
-            issuedOn = request.now.date,
+            issuedOn = OrganizationTimeZone.dateOf(request.now),
         )
 
     onBeforePhase2Lock()

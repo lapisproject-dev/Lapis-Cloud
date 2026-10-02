@@ -2,12 +2,12 @@ package network.lapis.cloud.server.bootstrap
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import network.lapis.cloud.server.db.DatabaseConfig
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.WeakPasswordException
@@ -226,7 +226,7 @@ object AdminBootstrap {
                 it[MemberTable.displayName] = trimmedDisplayName
                 it[MemberTable.email] = normalizedEmail
                 it[status] = MemberStatus.ACTIVE
-                it[joinedAt] = DbClock.nowLocalDateTime().date
+                it[joinedAt] = OrganizationTimeZone.today()
                 it[membershipTierId] = null
             }
             AccountTable.insert {

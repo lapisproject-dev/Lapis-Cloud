@@ -115,7 +115,7 @@ private fun renderElectionTable(
                     title = tr("Status"),
                     cell = { container, e -> container.statusBadge(electionStatusLabel(e.status), electionStatusColor(e.status)) },
                 ),
-                textColumn(title = tr("Eröffnet am")) { formatDateTime(it.openedAt) },
+                textColumn(title = tr("Eröffnet am")) { formatSystemDateTime(it.openedAt) },
                 textColumn(title = tr("Zielgremium")) { it.targetCommitteeName.orEmpty() },
             ),
         rows = elections,
@@ -234,7 +234,9 @@ private fun renderElectionHeader(
     }
     panel.electionPhaseBar(e)
 
-    panel.div(gettext("Eröffnet von %1 am %2", e.openedByDisplayName, formatDateTime(e.openedAt))) { addCssClasses("text-muted small") }
+    panel.div(
+        gettext("Eröffnet von %1 am %2", e.openedByDisplayName, formatSystemDateTime(e.openedAt)),
+    ) { addCssClasses("text-muted small") }
     if (isPersonnelElection(e.electionType)) {
         panel.div(
             sanitizeUntrustedI18nText(

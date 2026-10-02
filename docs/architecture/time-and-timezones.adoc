@@ -1,0 +1,192 @@
+= Time and time zones (V1.9.38)
+:toc:
+
+== Purpose
+
+Before V1.9.38 the server stamped `LocalDateTime`s in the zone of its process (UTC in a container), the client displayed those
+values without knowing the zone, and values that a person *typed in* (an event's start, a poll's deadline) were compared with
+that same stamp. The two kinds of time were never told apart, which produced real errors in Germany (UTC+1/+2): single events in the iCal
+feed were shifted by one or two hours, polls closed one or two hours late, past events stayed "upcoming" for one or two hours, a letter
+generated between 00:00 and 02:00 carried yesterday's date, and the 72-hour data-breach deadline was reported overdue one or two hours late.
+
+V1.9.38 ("stage 1") fixes this *without* changing the wire format: every temporal field is classified, the server has one
+clock, and the client has one zone. Stage 2 (sending `Instant`s on the wire) is deliberately not part of it.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== The three kinds of time
+
+[cols="1,3,3,3", options="header"]
+|===
+| Class | What it is | Stored and sent as | Display / comparison
+| *A* system timestamp | stamped by the server clock, *or derived from it* (`now + TTL`): `createdAt`, `postedAt`, session `expiresAt`, an auction's `endsAt`, a payment hold's `holdExpiresAt`
+| zone-less `LocalDateTime`, always *UTC*
+| converted to the organization zone for display (`formatSystem*`); compared with `ServerClock.now()`
+| *B* wall-clock | typed in by a person *or derived from such a value*: an event's `startsAt`/`endsAt`, a poll's `closesAt`, a meeting's `scheduledAt`, a data-breach `discoveredAt` (and the 72 h deadline derived from it), `departureTime`
+| zone-less `LocalDateTime`/`LocalTime`, the wall-clock of the *organization zone*
+| shown exactly as stored, *never* converted; compared with `ServerClock.nowIn(orgZone)`
+| *D* calendar date | any `LocalDate`: due dates, entry dates, `departureDate`
+| `LocalDate`
+| never converted; "today" is `ServerClock.todayIn(orgZone)`
+|===
+
+A derived value inherits the class of its basis. Where one column could hold both kinds, the writer is normalized so that it never does
+(a CRM interaction without a typed-in time stores the organization wall-clock of "now"; a poll's manually closed instant, which is a class-A
+stamp, is reported to the client as an organization wall-clock, so `PollDto.closedAt` is uniformly class B).
+
+[source,kuml,name="time-classes"]
+----
+classDiagram(name = "Time classes (V1.9.38)") {
+    val a = classOf(name = "A: system timestamp (UTC)") {
+        attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "postedAt", type = "LocalDateTime")
+        attribute(name = "expiresAt", type = "LocalDateTime")
+        attribute(name = "holdExpiresAt", type = "LocalDateTime")
+    }
+    val b = classOf(name = "B: wall-clock (organization zone)") {
+        attribute(name = "startsAt", type = "LocalDateTime")
+        attribute(name = "closesAt", type = "LocalDateTime")
+        attribute(name = "scheduledAt", type = "LocalDateTime")
+        attribute(name = "discoveredAt", type = "LocalDateTime")
+        attribute(name = "departureTime", type = "LocalTime")
+    }
+    val d = classOf(name = "D: calendar date") {
+        attribute(name = "dueDate", type = "LocalDate")
+        attribute(name = "entryDate", type = "LocalDate")
+        attribute(name = "departureDate", type = "LocalDate")
+    }
+    val clock = classOf(name = "ServerClock") {
+        attribute(name = "zone", type = "TimeZone")
+    }
+    val org = classOf(name = "OrganizationTimeZone") {
+        attribute(name = "zoneId", type = "String")
+    }
+    association(source = clock, target = a) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "stamps (now)" }
+    }
+    association(source = org, target = b) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "interprets (nowIn)" }
+    }
+    association(source = org, target = d) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "today (todayIn)" }
+    }
+}
+----
+
+== Server
+
+* `ServerClock` is the only place that reads the clock and converts between wall-clocks and instants. Its storage zone `ServerClock.zone` is the
+  constant `TimeZone.UTC`; it is never derived from the environment, so a changed container `TZ` or a developer machine in Berlin cannot
+  re-interpret stored values. `DbClock.nowLocalDateTime()` defaults to it and reads the same clock source.
+* `OrganizationTimeZone` (cached, invalidated on write, 60 s TTL as a safety net) provides the organization zone; `wallNow()`, `today()`,
+  `wallNowOf(systemNow)` and `dateOf(systemNow)` are the two-clock helpers. `wallNowOf`/`dateOf` re-express an *injected* class-A "now" as the
+  organization wall-clock, so one instant stays one instant in code that is handed a test clock.
+* **Two clocks, never one `now`.** A query that compares a class-B column (an event's `endsAt`) with a class-A column (a payment hold's
+  `holdExpiresAt`) takes two named values (`wallNow`, `now`). `EventPolicy`, `EventStore.list`, `PollLifecycle` and the public
+  navigation use the parameter name `wallNow` on purpose, so a caller that passes the UTC stamp stands out.
+* *Daylight saving.* A wall-clock inside a spring-forward gap resolves forward (02:30 on 2026-03-29 is 01:30Z); an ambiguous wall-clock in the
+  autumn overlap takes the earlier offset (02:30 on 2026-10-25 is 00:30Z). That is the kotlinx-datetime behaviour; `ServerClockTest` pins it
+  so a library update cannot change it silently.
+* *iCal feed.* A single event's `DTSTART`/`DTEND` are the UTC instants of the organization wall-clock. `DTSTAMP` is a class-A stamp and is
+  formatted unchanged. A series master and its exceptions carry `;TZID=<event_series.timezone>` plus a generated `VTIMEZONE`
+  (`DTSTART`, `DTEND`, `EXDATE`, `RECURRENCE-ID`): expressed in UTC, a weekly "19:00 Berlin" series would drift by an hour whenever the
+  clocks change. The embed feed converts the same way.
+* *Other writers.* SEPA `GrpHdr/CreDtTm` and the DATEV header "erzeugt am" are zone-less and read as local time, so they carry the
+  organization wall-clock of the real clock. A letter's date line uses `ServerClock.todayIn(orgZone)`. The 72-hour data-breach deadline adds
+  72 *real* hours to the instant of the typed-in wall-clock and is shown again as a wall-clock.
+* *Filters.* `AuditLogListQuery.from/to` are wall-clocks typed in the filter form in the organization zone; the server converts them to UTC
+  before comparing with `occurred_at`.
+
+=== Process environment
+
+The server pins its zone in three places (defence in depth): `ENV TZ=UTC` in the `Dockerfile`, `-Duser.timezone=UTC` in
+`applicationDefaultJvmArgs` of `lapis-server` (baked into the start script, so a `JAVA_TOOL_OPTIONS` set by an operator cannot remove it), and
+`TZ: UTC` in `deploy/example/docker-compose.yml`. **Never change the `TZ` of an existing instance and never set it to a local zone**: the
+code does not depend on it, but libraries that read the default zone and the database session do. Local display is the job of the
+organization time zone setting.
+
+=== The organization zone
+
+`organization_settings.timezone` (migration `V67__organization_timezone.sql`, `NOT NULL DEFAULT 'Europe/Berlin'`, so every existing instance
+keeps today's behaviour). It is *not* part of the generic `updateOrganizationSettings` write-set (mass-assignment guard); it can only be
+changed through `IOrganizationTimeZoneService.updateOrganizationTimeZone` (ADMIN, allow-list validation, audit entry with the old and the new
+zone). The allow-list (`OrganizationTimeZoneRules`) accepts `UTC` and region ids the JVM knows; it rejects fixed offsets (no DST), legacy short
+ids (`CET`, `EST5EDT`), `Etc/GMT+n` (inverted sign), the `SystemV` family and anything with path or control characters. The zone reaches every
+other role through `SessionInfoDto.organizationTimeZone`.
+
+NOTE: Changing the zone re-interprets the real instant of every *open* class-B deadline (a poll closing "20:00" is 18:00Z in Berlin and 16:00Z in
+Tbilisi). It is therefore ADMIN-only and audited; the admin form says so.
+
+== Client
+
+* `OrganizationTime.kt` is the only file that touches a zone source. `OrganizationTime.zoneId` is set from the session (`AppState.setSession`).
+* A class-A field is displayed through `formatSystemDateTime`, `formatSystemTimestamp`, `systemDateTimeToken`, `systemDateTimeSpan`,
+  `systemDateTimeColumn`, `systemTimestampColumn` (with `utcTitle = true` for audit and journal lists: the hover title is the ISO UTC instant).
+  The token carries the value already converted to the organization wall-clock, so it follows a language switch like any other token.
+* A class-B field keeps the plain formatters of `DateTime.kt`. `DateTime.kt` itself never converts anything.
+* A zone abbreviation is shown only where "until when" matters across zones: the session expiry on the dashboard and the preview in the admin
+  setting (`02.10.2026, 03:48 MESZ`). The Central European family shows `MEZ`/`MESZ` (translated); other zones show `UTC+4`, `UTC+5:30`, `UTC-3`.
+  Nothing relative ("5 minutes ago") is shown for a system timestamp.
+* "Now" and "today" in the browser are read as `organizationNow()`/`organizationToday()`, never from the browser's own zone.
+* kotlinx-datetime on Kotlin/JS knows only UTC and the browser zone until `@js-joda/timezone` (exactly 2.23.0, full data set) is loaded.
+  Kotlin/JS initializes top-level properties lazily, so `OrganizationTime.kt` references the module from every public function; without it
+  `TimeZone.of("Europe/Berlin")` would throw in the browser while every JVM test stays green (`OrganizationTimeTest` covers it in Karma).
+
+[source,kuml,name="time-flow"]
+----
+activityDiagram(name = "From storage to display") {
+    val start = initialNode()
+    val kind = decision(name = "class of the field (time-fields.tsv)?")
+    edge(from = start, to = kind)
+
+    val systemStamp = action(name = "A: server clock stamps UTC (ServerClock.now)")
+    edge(from = kind, to = systemStamp, guard = "A system timestamp")
+    val toOrg = action(name = "client: toOrganizationZone (js-joda zone data)")
+    edge(from = systemStamp, to = toOrg)
+
+    val typedIn = action(name = "B: person types the wall-clock in the organization zone")
+    edge(from = kind, to = typedIn, guard = "B wall-clock")
+    val compare = action(name = "server compares with ServerClock.nowIn(orgZone)")
+    edge(from = typedIn, to = compare)
+
+    val shown = action(name = "plain formatter (DateTime.kt): shown as stored")
+    edge(from = compare, to = shown)
+    val shownOrg = action(name = "formatSystem*: shown in the organization zone")
+    edge(from = toOrg, to = shownOrg)
+
+    edge(from = shown, to = finalNode())
+    edge(from = shownOrg, to = finalNode())
+}
+----
+
+== Registry and tripwires
+
+`lapis-server/src/test/resources/time-fields.tsv` classifies *every* temporal DTO property (scanned in `lapis-shared`) and every temporal
+Exposed column (scanned in `lapis-server`): `qualifier<TAB>class<TAB>reason`, with a trailing `?` for a doubtful case. It lives with the
+server tests because all tripwires run there and read it; the shared DTOs are untouched.
+
+[cols="2,4", options="header"]
+|===
+| Tripwire | Rule
+| `TimeFieldClassificationTripwireTest` | every temporal field is classified, no orphans, `LocalDate` is D, `LocalTime` is B
+| `ServerImplicitZoneTripwireTest` | no `currentSystemDefault`, `ZoneId.systemDefault`, zone-less `.now()` in `lapis-server/src/main` outside `ServerClock.kt`
+| `ClientSystemTimestampTripwireTest` | a class-A field is never formatted with a plain formatter, a class-B field never with a `system*` one
+| `ClientImplicitZoneTripwireTest` | no browser-zone API in the client outside `OrganizationTime.kt`
+|===
+
+A NEW temporal field fails the first test until it is classified: that is the point where its clock and its display rule are decided.
+
+`./gradlew :lapis-server:test -PtestTimeZone=Europe/Berlin` runs the whole suite with a non-UTC process zone (JVM zone and `TZ`); both
+that run and the default UTC run must stay green.
+
+== Known limitations (stage 1)
+
+* The wire format is unchanged: class-A values are zone-less UTC `LocalDateTime`s, so API and MCP consumers see UTC without a zone marker.
+* A recurring series stays on `Europe/Berlin` (`event_series.timezone` is constrained to it by the database and `EventSeriesLimits`). With an
+  organization zone other than Berlin, the occurrences of a series are interpreted in Berlin while single events use the organization zone.
+* A past value is not re-interpreted when the zone changes (class-A values stay UTC, class-B wall-clocks stay as typed); only the *real instant*
+  of class-B values moves.
+* Daylight-saving edge cases of a typed-in wall-clock are resolved as described above and are not reported to the person.

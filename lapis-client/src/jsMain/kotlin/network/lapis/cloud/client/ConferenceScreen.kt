@@ -32,9 +32,7 @@ import kotlinx.coroutines.await
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
@@ -595,7 +593,7 @@ private fun renderLobby(
         startButton.disabled = true
         startButton.text = tr("Wird gestartet …")
         AppScope.launch {
-            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val now = organizationNow()
             val room =
                 guarded {
                     rpcService<IConferenceService>().createRoom(ConferenceRoomInput(title = conferenceDefaultRoomTitle(now)))

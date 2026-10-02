@@ -936,7 +936,7 @@ private fun renderOpenItemDetail(
         panel.div(
             gettext(
                 "Storniert am %1 -- Grund: %2",
-                item.cancelledAt?.let { formatDateTime(it) }.orEmpty(),
+                item.cancelledAt?.let { formatSystemDateTime(it) }.orEmpty(),
                 item.cancellationReason.orEmpty(),
             ),
         ) { addCssClasses("text-muted small") }
@@ -1157,7 +1157,7 @@ private fun renderNoticeRow(
         textCell(notice.levelName)
         val statusCell = cell()
         statusCell.statusBadge(receivableDunningNoticeStatusLabel(notice.status), receivableDunningNoticeStatusColor(notice.status))
-        numCell { dateTimeSpan(notice.issuedAt) }
+        numCell { systemDateTimeSpan(notice.issuedAt) }
         numCell { dateSpan(notice.respondBy) }
         numCell { notice.feeAmount?.let { moneySpan(it) } ?: div("–") }
         textCell(notice.cancellationReason.orEmpty())

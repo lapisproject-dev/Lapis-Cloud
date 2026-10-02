@@ -136,7 +136,7 @@ private fun renderConsensusTable(
                 textColumn(title = tr("Art")) { consensusBindingnessLabel(it.bindingness) },
                 textColumn(title = tr("Runde")) { consensusRoundLabel(it) },
                 textColumn(title = tr("Ihr Stand")) { consensusOwnStatus(it, data.own[it.id]) },
-                textColumn(title = tr("Eröffnet am")) { formatDateTime(it.openedAt) },
+                textColumn(title = tr("Eröffnet am")) { formatSystemDateTime(it.openedAt) },
             ),
         rows = data.consensuses,
         actions = { container, c ->

@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -317,8 +318,8 @@ class TravelExpenseService(
             }
             val travelFrom = report[TravelExpenseReportTable.travelFrom]
             val travelTo = report[TravelExpenseReportTable.travelTo]
-            if (travelTo > now.date) throw BadRequestException("travelTo must not be in the future")
-            if (travelFrom < now.date.minus(TravelExpenseAmountRules.MAX_TRAVEL_BACKDATE_DAYS, DateTimeUnit.DAY)) {
+            if (travelTo > OrganizationTimeZone.dateOf(now)) throw BadRequestException("travelTo must not be in the future")
+            if (travelFrom < OrganizationTimeZone.dateOf(now).minus(TravelExpenseAmountRules.MAX_TRAVEL_BACKDATE_DAYS, DateTimeUnit.DAY)) {
                 throw BadRequestException(
                     "travelFrom must not be more than ${TravelExpenseAmountRules.MAX_TRAVEL_BACKDATE_DAYS} days in the past",
                 )

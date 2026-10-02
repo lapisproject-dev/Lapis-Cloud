@@ -269,9 +269,9 @@ internal class McpAccessCard(
         } else {
             info.untrustedDiv(shownLabel, className = "fw-bold text-break")
         }
-        info.div(gettext("Erteilt am %1", formatDateTime(connection.grantedAt))) { addCssClasses("text-muted small") }
+        info.div(gettext("Erteilt am %1", formatSystemDateTime(connection.grantedAt))) { addCssClasses("text-muted small") }
         info.div(
-            connection.lastUsedAt?.let { gettext("Zuletzt benutzt am %1", formatDateTime(it)) } ?: tr("Noch nie benutzt"),
+            connection.lastUsedAt?.let { gettext("Zuletzt benutzt am %1", formatSystemDateTime(it)) } ?: tr("Noch nie benutzt"),
         ) { addCssClasses("text-muted small") }
         val revoke = Button(tr("Widerrufen"), icon = "fas fa-unlink", style = ButtonStyle.OUTLINEDANGER)
         row.add(revoke)

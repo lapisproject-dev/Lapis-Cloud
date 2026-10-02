@@ -18,7 +18,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
 import network.lapis.cloud.server.db.DatabaseConfig
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
@@ -26,6 +25,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
@@ -364,7 +364,7 @@ class TravelExpenseReportTest :
                 }
                 setRates(mileage = BigDecimal("0.3000"), perDiem = null)
                 val memberId = newMember()
-                val future = DbClock.nowLocalDateTime().date.plus(30, DateTimeUnit.DAY)
+                val future = OrganizationTimeZone.today().plus(30, DateTimeUnit.DAY)
                 val draftId =
                     client
                         .post("/test/travelexpense/create?subjectMemberId=$memberId&purpose=Fahrt&from=$future&to=$future") {

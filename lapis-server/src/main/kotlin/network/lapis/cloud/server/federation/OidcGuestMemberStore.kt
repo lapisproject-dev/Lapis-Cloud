@@ -4,6 +4,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.and
@@ -112,7 +113,7 @@ object OidcGuestMemberStore {
                             ?: "Gast"
                         it[email] = syntheticEmail(issuer = claims.issuer, subject = claims.subject)
                         it[status] = MemberStatus.GUEST
-                        it[joinedAt] = now.date
+                        it[joinedAt] = OrganizationTimeZone.dateOf(now)
                         it[membershipTierId] = null
                     }
                     AccountTable.insert {

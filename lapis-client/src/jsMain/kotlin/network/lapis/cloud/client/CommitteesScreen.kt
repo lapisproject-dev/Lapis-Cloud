@@ -17,8 +17,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
@@ -29,7 +27,6 @@ import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMemberService
-import kotlin.time.Clock
 
 /**
  * Governance UI wave, screen 1 of 3 -- "Gremien" (Committees & Membership), per the approved plan
@@ -440,12 +437,7 @@ internal fun renderAddCommitteeMemberForm(
  * `ContributionsScreen.kt`'s `Clock.System.now().toLocalDateTime(...)` idiom (the stdlib
  * `kotlin.time.Clock`, not `kotlinx.datetime.Clock` -- this codebase's pinned kotlinx-datetime
  * version only extends the former). */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
 /**
  * German label/badge-color tables for [CommitteeType]/[CommitteeRole] -- this screen's own first

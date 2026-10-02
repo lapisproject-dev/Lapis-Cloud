@@ -15,8 +15,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnonymousDonationDutyDto
 import network.lapis.cloud.shared.domain.DonationDuty
@@ -27,7 +25,6 @@ import network.lapis.cloud.shared.domain.DonorType
 import network.lapis.cloud.shared.domain.ExternalDonorDto
 import network.lapis.cloud.shared.domain.ExternalDonorInput
 import network.lapis.cloud.shared.rpc.IAccountingService
-import kotlin.time.Clock
 
 /**
  * Accounting UI wave, screen 5 of 5 -- "Spender" (external-donor CRM-lite CRUD + the §25 PartG
@@ -580,11 +577,7 @@ fun donorAddressLine(donor: ExternalDonorDto): String {
     return if (parts.isEmpty()) gettext("Keine Adresse hinterlegt") else parts.joinToString(", ")
 }
 
-private fun currentYear(): Int =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date.year
+private fun currentYear(): Int = organizationToday().year
 
 /**
  * The detail of one external donor, re-fetched via `getExternalDonor(id)` (see the file KDoc: a genuinely fresh read).

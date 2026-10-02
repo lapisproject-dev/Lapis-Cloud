@@ -347,7 +347,7 @@ private fun renderRosterRow(
             detailsPanel.div("${gettext("Ticket ausgestellt")}: ${if (row.hasTicket) gettext("Ja") else gettext("Nein")}")
             if (row.checkedInAt != null) {
                 detailsPanel.div(
-                    "${gettext("Eingecheckt um")}: ${formatDateTime(row.checkedInAt!!)} (${row.checkedInByDisplayName ?: "-"})",
+                    "${gettext("Eingecheckt um")}: ${formatSystemDateTime(row.checkedInAt!!)} (${row.checkedInByDisplayName ?: "-"})",
                 )
             }
             val reissueButton = detailsPanel.button(tr("Ticket neu ausstellen"), style = ButtonStyle.OUTLINEDANGER)

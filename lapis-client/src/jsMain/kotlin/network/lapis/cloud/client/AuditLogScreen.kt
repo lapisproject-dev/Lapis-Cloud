@@ -294,7 +294,12 @@ const val CHAIN_VERIFICATION_BROKEN_GUIDANCE =
  */
 private fun auditLogColumns(): List<DataColumn<AuditLogEntryDto>> =
     listOf(
-        timestampColumn(title = tr("Zeitpunkt"), numeric = false, primary = true) { entry: AuditLogEntryDto -> entry.occurredAt },
+        systemTimestampColumn(
+            title = tr("Zeitpunkt"),
+            numeric = false,
+            primary = true,
+            utcTitle = true,
+        ) { entry: AuditLogEntryDto -> entry.occurredAt },
         DataColumn(
             title = tr("Entitätstyp"),
             cell = {
@@ -349,7 +354,7 @@ private fun renderAuditLogDetailBody(
     headerRow.statusBadge(auditEntryActionLabel(entry), auditEntryActionColor(entry))
     headerRow.div(gettext("Sequenznummer %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 fw-bold") }
 
-    panel.div(gettext("Zeitpunkt: %1", formatTimestamp(entry.occurredAt))) { addCssClasses("text-muted small") }
+    panel.div(gettext("Zeitpunkt: %1", formatSystemTimestamp(entry.occurredAt))) { addCssClasses("text-muted small") }
     panel.div(gettext("Akteur: %1", actorDisplayText(entry))) { addCssClasses("text-muted small") }
     panel.div(gettext("Entität: %1", entry.entityId)) { addCssClasses("text-muted small") }
     auditEntityRoute(entry.entityType, entry.entityId)?.let { route ->
@@ -614,7 +619,7 @@ internal fun renderJournalEntrySnapshotBody(
     snapshot.postedAt?.let {
         details.labelValueRow(
             gettext("Gebucht am"),
-            dateTimeToken(it),
+            systemDateTimeToken(it),
         )
     }
     details.labelValueRow(gettext("Erfasst von (Mitglieds-ID)"), snapshot.createdBy)
@@ -658,7 +663,7 @@ private fun renderResolutionSnapshotBody(
     )
     details.labelValueRow(
         gettext("Entschieden am"),
-        dateTimeToken(snapshot.decidedAt),
+        systemDateTimeToken(snapshot.decidedAt),
     )
     details.labelValueRow(gettext("Protokolliert von (ID)"), snapshot.recordedBy)
 }

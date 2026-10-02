@@ -13,6 +13,8 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import kotlin.js.Promise
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -24,6 +26,19 @@ import kotlin.test.assertTrue
  * what a conflict never shows, and what the result and the ballot list may and may not reveal.
  */
 class ElectionDetailDomTest {
+    // V1.9.38: these values are class-A system timestamps (UTC), now shown in the organization zone. This test is about something else
+    // (labels, table/card parity), so it pins the zone to UTC and keeps its literal expectations; the conversion itself is covered by
+    // OrganizationTimeTest/OrganizationTimeDomTest.
+    @BeforeTest
+    fun pinOrganizationZoneToUtc() {
+        OrganizationTime.zoneId = "UTC"
+    }
+
+    @AfterTest
+    fun restoreOrganizationZone() {
+        OrganizationTime.zoneId = DEFAULT_ORGANIZATION_ZONE_ID
+    }
+
     private val manager = ElectionUiContext(currentMemberId = "admin-1", isBoardOrAdmin = true)
     private val member = ElectionUiContext(currentMemberId = "m-1", isBoardOrAdmin = false)
 

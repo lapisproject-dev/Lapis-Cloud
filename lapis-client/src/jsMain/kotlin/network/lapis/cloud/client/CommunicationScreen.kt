@@ -246,7 +246,7 @@ private fun renderInboxMessageRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClass("align-items-center") }
     headerRow.untrustedDiv(message.senderDisplayName, className = "flex-grow-1 fw-bold")
     if (unread) headerRow.statusBadge(tr("Ungelesen"), "primary")
-    headerRow.div(formatDateTime(message.sentAt)) { addCssClasses("text-muted small") }
+    headerRow.div(formatSystemDateTime(message.sentAt)) { addCssClasses("text-muted small") }
     row.untrustedDiv(message.body)
     row.conversationDisclosure(message.senderId, message.senderDisplayName)
     // Als gelesen markieren geschieht gebündelt in `renderInbox.refresh()` (markReadThenRefreshCounter), damit der
@@ -512,9 +512,9 @@ private fun renderSubscriberRow(
     row.untrustedDiv(subscriber.memberDisplayName, className = "flex-grow-1")
     val statusText =
         if (subscriber.unsubscribedAt != null) {
-            gettext("Abbestellt am %1", formatDateTime(subscriber.unsubscribedAt!!))
+            gettext("Abbestellt am %1", formatSystemDateTime(subscriber.unsubscribedAt!!))
         } else {
-            gettext("Abonniert seit %1", formatDateTime(subscriber.subscribedAt))
+            gettext("Abonniert seit %1", formatSystemDateTime(subscriber.subscribedAt))
         }
     row.div(statusText) { addCssClasses("text-muted small") }
 }
@@ -540,7 +540,7 @@ private fun renderMailingMessageRow(
     headerRow.div(sanitizeUntrustedI18nText(message.subject)) { addCssClass("flex-grow-1") }
     headerRow.statusBadge(mailingMessageStatusLabel(message.status), mailingMessageStatusColor(message.status))
     message.sentAt?.let { sentAt ->
-        row.div(gettext("Gesendet am %1", formatDateTime(sentAt))) { addCssClasses("text-muted small") }
+        row.div(gettext("Gesendet am %1", formatSystemDateTime(sentAt))) { addCssClasses("text-muted small") }
     }
 
     if (message.status == MailingMessageStatus.SENT) {

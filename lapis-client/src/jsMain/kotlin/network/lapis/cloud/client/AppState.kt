@@ -63,6 +63,8 @@ object AppState {
     fun setSession(newSession: SessionInfoDto?) {
         if (newSession == session) return
         session = newSession
+        // V1.9.38: the organization's zone travels with the session; it must be in place before any screen re-renders.
+        OrganizationTime.zoneId = newSession?.organizationTimeZone ?: DEFAULT_ORGANIZATION_ZONE_ID
         onSessionChange()
     }
 }

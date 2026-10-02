@@ -20,8 +20,6 @@ import io.kvision.panel.vPanel
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberHonorCategory
 import network.lapis.cloud.shared.domain.MemberHonorCategory.HONORARY_MEMBERSHIP
@@ -34,7 +32,6 @@ import network.lapis.cloud.shared.domain.MemberHonorLimits
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.rpc.IMemberHonorService
 import network.lapis.cloud.shared.rpc.IMemberService
-import kotlin.time.Clock
 
 /**
  * Welle V1.4.4.3 "Mitgliederlebenszyklus: Ehrungsverwaltung" -- UI/UX-Design-Team-Entscheidungen:
@@ -451,9 +448,4 @@ internal fun memberHonorsEmptyStateText(
     }
 
 /** Today's date as `JJJJ-MM-TT` -- mirrors `BoardMembershipScreen.todayIso`'s own `kotlin.time.Clock` idiom. */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()

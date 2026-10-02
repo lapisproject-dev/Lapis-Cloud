@@ -20,15 +20,12 @@ import io.kvision.table.cell
 import io.kvision.table.table
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CostCenterDto
 import network.lapis.cloud.shared.domain.CostCenterInput
 import network.lapis.cloud.shared.domain.CostCenterReportDto
 import network.lapis.cloud.shared.domain.CostCenterResultDto
 import network.lapis.cloud.shared.rpc.IAccountingService
-import kotlin.time.Clock
 
 /**
  * Accounting UI wave, screen 4 of 5 -- "Kostenstellen" (cost-center CRUD + report), per the
@@ -446,9 +443,4 @@ fun costCenterResultLabel(costCenter: CostCenterResultDto): String = gettext("%1
 /** Mirrors `LedgerScreen.kt`/`FinancialReportsScreen.kt`'s own private `todayIso()` -- no shared
  * date-util file exists in this client (each screen that needs "today as JJJJ-MM-TT" carries its
  * own copy). */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()

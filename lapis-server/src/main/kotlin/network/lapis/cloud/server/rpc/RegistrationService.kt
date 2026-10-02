@@ -23,6 +23,7 @@ import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
@@ -260,7 +261,7 @@ class RegistrationService internal constructor(
                     it[displayName] = input.displayName
                     it[email] = normalizedEmail
                     it[status] = MemberStatus.APPLICATION
-                    it[joinedAt] = now.date
+                    it[joinedAt] = OrganizationTimeZone.dateOf(now)
                     it[membershipTierId] = null
                     it[regionalChapterId] = resolvedChapterId
                 }
@@ -397,7 +398,7 @@ class RegistrationService internal constructor(
                 }
                 // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
                 // rejected applicant can never be observed still seated in a Committee.
-                endAllOpenCommitteeMembershipsForMember(memberId = targetId, until = now.date, current = current)
+                endAllOpenCommitteeMembershipsForMember(memberId = targetId, until = OrganizationTimeZone.dateOf(now), current = current)
                 loadMember(targetId)
             }
         SessionStore.revokeAllForMember(memberId = targetId)
@@ -433,7 +434,7 @@ class RegistrationService internal constructor(
                 it[displayName] = input.displayName
                 it[email] = normalizedEmail
                 it[status] = MemberStatus.ACTIVE
-                it[joinedAt] = now.date
+                it[joinedAt] = OrganizationTimeZone.dateOf(now)
                 it[membershipTierId] = null
                 it[regionalChapterId] = resolvedChapterId
             }
@@ -481,7 +482,11 @@ class RegistrationService internal constructor(
                 }
                 // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
                 // withdrawn member can never be observed still seated in a Committee.
-                endAllOpenCommitteeMembershipsForMember(memberId = current.memberId, until = now.date, current = current)
+                endAllOpenCommitteeMembershipsForMember(
+                    memberId = current.memberId,
+                    until = OrganizationTimeZone.dateOf(now),
+                    current = current,
+                )
                 // Welle V1.9.13, decision F1 -- see `revokeActiveRegionalChapterOfficerGrant` KDoc.
                 // Self-service leave: actor IS the leaving member.
                 revokeActiveRegionalChapterOfficerGrant(
@@ -613,9 +618,9 @@ class RegistrationService internal constructor(
                     it[displayName] = input.displayName
                     it[email] = normalizedEmail
                     it[status] = MemberStatus.FRIEND
-                    it[joinedAt] = now.date
+                    it[joinedAt] = OrganizationTimeZone.dateOf(now)
                     it[membershipTierId] = null
-                    it[friendSince] = now.date
+                    it[friendSince] = OrganizationTimeZone.dateOf(now)
                 }
                 AccountTable.insert {
                     it[id] = Uuid.random()

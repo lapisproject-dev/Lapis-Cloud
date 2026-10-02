@@ -65,7 +65,7 @@ internal fun renderEventRefundsSection(
                     card.div(formatMoney(refund.paidAmount))
                     val cancelledAt = refund.cancelledAt
                     if (refund.status == EventRegistrationStatus.CANCELLED && cancelledAt != null) {
-                        card.div(gettext("Abgemeldet am %1", formatDate(cancelledAt.date))) { addCssClasses("text-muted small") }
+                        card.div(gettext("Abgemeldet am %1", formatDate(systemDate(cancelledAt)))) { addCssClasses("text-muted small") }
                     } else {
                         card.div(tr("Reservierung abgelaufen")) { addCssClasses("text-muted small") }
                     }

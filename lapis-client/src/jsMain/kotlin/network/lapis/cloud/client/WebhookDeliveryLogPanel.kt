@@ -80,7 +80,7 @@ private fun renderWebhookDeliveryTable(
         )
     items.forEach { item ->
         table.row {
-            textCell(formatTimestamp(item.occurredAt))
+            textCell(formatSystemTimestamp(item.occurredAt))
             cell { webhookEventTypeBadge(item.eventType) }
             textCell("${item.attemptCount}/${item.maxAttempts}")
             textCell(item.lastHttpStatus?.toString() ?: "–")

@@ -21,9 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SepaDebitBatchDetailDto
 import network.lapis.cloud.shared.domain.SepaDebitBatchDto
@@ -39,7 +37,6 @@ import network.lapis.cloud.shared.domain.SepaReturnReason
 import network.lapis.cloud.shared.domain.SepaReturnReasonSets
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.ISepaService
-import kotlin.time.Clock
 
 /**
  * V1.2.2 SEPA-Client-UI wave -- Plan §2.7/§4.3. Route-gated TREASURER/BOARD/ADMIN (see
@@ -265,11 +262,7 @@ private fun selectBatch(
 /** `internal`, not `private` (Client-UI wave for GitHub Issue #5): shared with
  * `DunningCasesScreen.kt`'s own "today" comparisons (`DunningAuthzUi.nextCaseAction`), so a second
  * copy of this exact computation does not need to exist in this client. */
-internal fun todayLocalDate(): LocalDate =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
+internal fun todayLocalDate(): LocalDate = organizationToday()
 
 // ================================================================================================
 // ADMIN-only disclaimer-mismatch warning band (K2, Plan §4.3/O-1)
@@ -470,7 +463,7 @@ private fun renderBatchPreview(
  */
 private fun sepaBatchColumns(): List<DataColumn<SepaDebitBatchDto>> =
     listOf(
-        dateTimeColumn(title = tr("Erstellt am"), numeric = false, primary = true) { batch: SepaDebitBatchDto -> batch.createdAt },
+        systemDateTimeColumn(title = tr("Erstellt am"), numeric = false, primary = true) { batch: SepaDebitBatchDto -> batch.createdAt },
         dateColumn(title = tr("Fälligkeit"), numeric = true) { batch: SepaDebitBatchDto ->
             batch.requestedCollectionDate
         },

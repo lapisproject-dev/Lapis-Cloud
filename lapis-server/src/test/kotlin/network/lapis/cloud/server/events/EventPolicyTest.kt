@@ -41,37 +41,37 @@ class EventPolicyTest :
         // ── validate ──────────────────────────────────────────────────────────────────
 
         test("validate accepts a well-formed input") {
-            EventPolicy.validate(input = baseInput(), now = now)
+            EventPolicy.validate(input = baseInput(), wallNow = now)
         }
 
         test("validate rejects a blank title") {
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = baseInput(title = " "), now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = baseInput(title = " "), wallNow = now) }
         }
 
         test("validate rejects neither locationText nor onlineUrl set") {
             val input = baseInput().copy(locationText = null, onlineUrl = null)
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now) }
         }
 
         test("validate accepts onlineUrl alone, without locationText") {
             val input = baseInput().copy(locationText = null, onlineUrl = "https://example.org/stream")
-            EventPolicy.validate(input = input, now = now)
+            EventPolicy.validate(input = input, wallNow = now)
         }
 
         test("validate rejects endsAt before startsAt") {
             val input = baseInput(startsAt = LocalDateTime(2026, 9, 10, 20, 0), endsAt = LocalDateTime(2026, 9, 10, 19, 0))
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now) }
         }
 
         // Review MINOR fix regression coverage: `now` used to be an entirely unused parameter, so
         // `validate` silently accepted an event whose `startsAt` was years in the past.
         test("validate rejects a startsAt in the past") {
             val input = baseInput(startsAt = LocalDateTime(2020, 1, 1, 18, 0), endsAt = LocalDateTime(2020, 1, 1, 22, 0))
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now) }
         }
 
         test("validate accepts a startsAt exactly at now") {
-            EventPolicy.validate(input = baseInput(startsAt = now, endsAt = now), now = now)
+            EventPolicy.validate(input = baseInput(startsAt = now, endsAt = now), wallNow = now)
         }
 
         // Review MAJOR fix regression coverage: `updateEvent` used to call `validate` the same way
@@ -83,50 +83,50 @@ class EventPolicyTest :
         ) {
             val pastStartsAt = LocalDateTime(2020, 1, 1, 18, 0)
             val input = baseInput(startsAt = pastStartsAt, endsAt = LocalDateTime(2020, 1, 1, 22, 0))
-            EventPolicy.validate(input = input, now = now, existingStartsAt = pastStartsAt)
+            EventPolicy.validate(input = input, wallNow = now, existingStartsAt = pastStartsAt)
         }
 
         test("validate still rejects a startsAt moved to a DIFFERENT point in the past, even with existingStartsAt set (updateEvent)") {
             val originalStartsAt = LocalDateTime(2020, 1, 1, 18, 0)
             val newPastStartsAt = LocalDateTime(2019, 6, 1, 18, 0)
             val input = baseInput(startsAt = newPastStartsAt, endsAt = LocalDateTime(2019, 6, 1, 22, 0))
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now, existingStartsAt = originalStartsAt) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now, existingStartsAt = originalStartsAt) }
         }
 
         test("validate still rejects a brand-new event (existingStartsAt == null) with a past startsAt") {
             val input = baseInput(startsAt = LocalDateTime(2020, 1, 1, 18, 0), endsAt = LocalDateTime(2020, 1, 1, 22, 0))
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now, existingStartsAt = null) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now, existingStartsAt = null) }
         }
 
         test("validate rejects a zero or negative capacity") {
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = baseInput().copy(capacity = 0), now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = baseInput().copy(capacity = 0), wallNow = now) }
         }
 
         test("validate accepts a null capacity (unbounded)") {
-            EventPolicy.validate(input = baseInput().copy(capacity = null), now = now)
+            EventPolicy.validate(input = baseInput().copy(capacity = null), wallNow = now)
         }
 
         test("validate rejects a negative fee amount") {
             val input = baseInput().copy(feeAmount = BigDecimal("-1.00"))
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now) }
         }
 
         test("validate accepts a zero fee amount (free event)") {
-            EventPolicy.validate(input = baseInput().copy(feeAmount = BigDecimal.ZERO), now = now)
+            EventPolicy.validate(input = baseInput().copy(feeAmount = BigDecimal.ZERO), wallNow = now)
         }
 
         test("validate rejects a non-EUR currency") {
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = baseInput().copy(feeCurrency = "USD"), now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = baseInput().copy(feeCurrency = "USD"), wallNow = now) }
         }
 
         test("validate rejects registrationClosesAt after startsAt") {
             val input = baseInput().copy(registrationClosesAt = LocalDateTime(2026, 9, 10, 19, 0))
-            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, now = now) }
+            shouldThrow<BadRequestException> { EventPolicy.validate(input = input, wallNow = now) }
         }
 
         test("validate accepts registrationClosesAt before startsAt") {
             val input = baseInput().copy(registrationClosesAt = LocalDateTime(2026, 9, 9, 23, 59))
-            EventPolicy.validate(input = input, now = now)
+            EventPolicy.validate(input = input, wallNow = now)
         }
 
         // ── slugFor ───────────────────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ class EventPolicyTest :
                 status = EventStatus.DRAFT,
                 registrationClosesAt = null,
                 startsAt = LocalDateTime(2026, 9, 10, 18, 0),
-                now = now,
+                wallNow = now,
             ) shouldBe false
         }
 
@@ -211,7 +211,7 @@ class EventPolicyTest :
                 status = EventStatus.PUBLISHED,
                 registrationClosesAt = LocalDateTime(2026, 8, 31, 0, 0),
                 startsAt = LocalDateTime(2026, 9, 10, 18, 0),
-                now = now,
+                wallNow = now,
             ) shouldBe false
         }
 
@@ -220,7 +220,7 @@ class EventPolicyTest :
                 status = EventStatus.PUBLISHED,
                 registrationClosesAt = null,
                 startsAt = LocalDateTime(2026, 8, 31, 0, 0),
-                now = now,
+                wallNow = now,
             ) shouldBe false
         }
 
@@ -229,7 +229,7 @@ class EventPolicyTest :
                 status = EventStatus.PUBLISHED,
                 registrationClosesAt = LocalDateTime(2026, 9, 9, 0, 0),
                 startsAt = LocalDateTime(2026, 9, 10, 18, 0),
-                now = now,
+                wallNow = now,
             ) shouldBe true
         }
     })

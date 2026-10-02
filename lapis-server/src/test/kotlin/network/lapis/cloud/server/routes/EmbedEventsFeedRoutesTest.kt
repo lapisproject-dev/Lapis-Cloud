@@ -176,9 +176,9 @@ class EmbedEventsFeedRoutesTest :
             }
         }
 
-        /** Same Instant round-trip [EmbedEventsFeedRoutes]' own `embedFeedUtc` uses -- never a hardcoded offset. */
+        /** The event times are wall-clocks of the ORGANIZATION zone (default Europe/Berlin, V1.9.38), converted to UTC -- never the process zone. */
         fun expectedUtcIso(dt: LocalDateTime): String {
-            val utc = dt.toInstant(TimeZone.currentSystemDefault()).toLocalDateTime(TimeZone.UTC)
+            val utc = dt.toInstant(TimeZone.of("Europe/Berlin")).toLocalDateTime(TimeZone.UTC)
             return "%04d-%02d-%02dT%02d:%02d:%02dZ".format(utc.year, utc.monthNumber, utc.dayOfMonth, utc.hour, utc.minute, utc.second)
         }
 
@@ -208,6 +208,9 @@ class EmbedEventsFeedRoutesTest :
                 // documents for the sibling iCal feed).
                 item["startsAt"]!!.jsonPrimitive.content shouldBe expectedUtcIso(farFutureStartsAt)
                 item["endsAt"]!!.jsonPrimitive.content shouldBe expectedUtcIso(farFutureEndsAt)
+                // ... and pinned to literals: 18:00 / 22:00 Berlin wall-clock in January is 17:00Z / 21:00Z.
+                item["startsAt"]!!.jsonPrimitive.content shouldBe "2030-01-01T17:00:00Z"
+                item["endsAt"]!!.jsonPrimitive.content shouldBe "2030-01-01T21:00:00Z"
             }
         }
 

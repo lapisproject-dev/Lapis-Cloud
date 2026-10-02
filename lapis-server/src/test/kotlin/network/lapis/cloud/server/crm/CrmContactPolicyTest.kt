@@ -124,7 +124,12 @@ class CrmContactPolicyTest :
         val validateNow = LocalDateTime(2026, 6, 1, 0, 0)
 
         test("validate rejects a blank displayName") {
-            shouldThrow<BadRequestException> { CrmContactPolicy.validate(input = baseInput().copy(displayName = "   "), now = validateNow) }
+            shouldThrow<BadRequestException> {
+                CrmContactPolicy.validate(
+                    input = baseInput().copy(displayName = "   "),
+                    wallNow = validateNow,
+                )
+            }
         }
 
         test("validate rejects CONSENT without consentSource") {
@@ -136,7 +141,7 @@ class CrmContactPolicyTest :
                             consentSource = null,
                             consentGivenAt = LocalDateTime(2026, 1, 1, 0, 0),
                         ),
-                    now = validateNow,
+                    wallNow = validateNow,
                 )
             }
         }
@@ -145,7 +150,7 @@ class CrmContactPolicyTest :
             shouldThrow<BadRequestException> {
                 CrmContactPolicy.validate(
                     input = baseInput().copy(lawfulBasis = CrmLawfulBasis.CONSENT, consentSource = "Infostand", consentGivenAt = null),
-                    now = validateNow,
+                    wallNow = validateNow,
                 )
             }
         }
@@ -158,7 +163,7 @@ class CrmContactPolicyTest :
                         consentSource = "Infostand Braunschweig",
                         consentGivenAt = LocalDateTime(2026, 1, 1, 0, 0),
                     ),
-                now = validateNow,
+                wallNow = validateNow,
             )
         }
 
@@ -170,7 +175,7 @@ class CrmContactPolicyTest :
                             externalDonorId = "00000000-0000-0000-0000-000000000001",
                             memberId = "00000000-0000-0000-0000-000000000002",
                         ),
-                    now = validateNow,
+                    wallNow = validateNow,
                 )
             }
         }
@@ -188,7 +193,7 @@ class CrmContactPolicyTest :
                             consentSource = "Infostand",
                             consentGivenAt = LocalDateTime(2026, 6, 1, 12, 1),
                         ),
-                    now = now,
+                    wallNow = now,
                 )
             }
         }
@@ -197,7 +202,7 @@ class CrmContactPolicyTest :
             val now = LocalDateTime(2026, 6, 1, 12, 0)
             CrmContactPolicy.validate(
                 input = baseInput().copy(lawfulBasis = CrmLawfulBasis.CONSENT, consentSource = "Infostand", consentGivenAt = now),
-                now = now,
+                wallNow = now,
             )
         }
 
@@ -209,7 +214,7 @@ class CrmContactPolicyTest :
                         consentSource = "Infostand",
                         consentGivenAt = LocalDateTime(2026, 1, 1, 0, 0),
                     ),
-                now = LocalDateTime(2026, 6, 1, 12, 0),
+                wallNow = LocalDateTime(2026, 6, 1, 12, 0),
             )
         }
 
@@ -226,7 +231,7 @@ class CrmContactPolicyTest :
                             consentGivenAt = LocalDateTime(2026, 1, 1, 0, 0),
                             clearConsentEvidence = true,
                         ),
-                    now = validateNow,
+                    wallNow = validateNow,
                 )
             }
         }
@@ -234,7 +239,7 @@ class CrmContactPolicyTest :
         test("validate accepts clearConsentEvidence once lawfulBasis is no longer CONSENT") {
             CrmContactPolicy.validate(
                 input = baseInput().copy(lawfulBasis = CrmLawfulBasis.LEGITIMATE_INTEREST, clearConsentEvidence = true),
-                now = validateNow,
+                wallNow = validateNow,
             )
         }
 
@@ -242,12 +247,12 @@ class CrmContactPolicyTest :
 
         test("validate rejects a displayName longer than 300 characters") {
             shouldThrow<BadRequestException> {
-                CrmContactPolicy.validate(input = baseInput().copy(displayName = "x".repeat(301)), now = validateNow)
+                CrmContactPolicy.validate(input = baseInput().copy(displayName = "x".repeat(301)), wallNow = validateNow)
             }
         }
 
         test("validate accepts a displayName at exactly 300 characters") {
-            CrmContactPolicy.validate(input = baseInput().copy(displayName = "x".repeat(300)), now = validateNow)
+            CrmContactPolicy.validate(input = baseInput().copy(displayName = "x".repeat(300)), wallNow = validateNow)
         }
 
         test("validate rejects a consentSource longer than 200 characters") {
@@ -259,7 +264,7 @@ class CrmContactPolicyTest :
                             consentSource = "x".repeat(201),
                             consentGivenAt = LocalDateTime(2026, 1, 1, 0, 0),
                         ),
-                    now = validateNow,
+                    wallNow = validateNow,
                 )
             }
         }
@@ -268,7 +273,7 @@ class CrmContactPolicyTest :
             shouldThrow<BadRequestException> {
                 CrmContactPolicy.validate(
                     input = baseInput().copy(street = "x".repeat(201)),
-                    now = validateNow,
+                    wallNow = validateNow,
                 )
             }
         }
@@ -285,7 +290,10 @@ class CrmContactPolicyTest :
 
         test("validateInteraction rejects a blank summary") {
             shouldThrow<BadRequestException> {
-                CrmContactPolicy.validateInteraction(input = baseInteraction().copy(summary = "   "), now = LocalDateTime(2026, 1, 1, 0, 0))
+                CrmContactPolicy.validateInteraction(
+                    input = baseInteraction().copy(summary = "   "),
+                    wallNow = LocalDateTime(2026, 1, 1, 0, 0),
+                )
             }
         }
 
@@ -293,7 +301,7 @@ class CrmContactPolicyTest :
             shouldThrow<BadRequestException> {
                 CrmContactPolicy.validateInteraction(
                     input = baseInteraction().copy(summary = "x".repeat(4001)),
-                    now = LocalDateTime(2026, 1, 1, 0, 0),
+                    wallNow = LocalDateTime(2026, 1, 1, 0, 0),
                 )
             }
         }
@@ -301,7 +309,7 @@ class CrmContactPolicyTest :
         test("validateInteraction accepts a summary at exactly 4000 characters") {
             CrmContactPolicy.validateInteraction(
                 input = baseInteraction().copy(summary = "x".repeat(4000)),
-                now = LocalDateTime(2026, 1, 1, 0, 0),
+                wallNow = LocalDateTime(2026, 1, 1, 0, 0),
             )
         }
 
@@ -310,22 +318,28 @@ class CrmContactPolicyTest :
             shouldThrow<BadRequestException> {
                 CrmContactPolicy.validateInteraction(
                     input = baseInteraction().copy(occurredAt = LocalDateTime(2026, 6, 1, 12, 1)),
-                    now = now,
+                    wallNow = now,
                 )
             }
         }
 
         test("validateInteraction accepts an occurredAt equal to now") {
             val now = LocalDateTime(2026, 6, 1, 12, 0)
-            CrmContactPolicy.validateInteraction(input = baseInteraction().copy(occurredAt = now), now = now)
+            CrmContactPolicy.validateInteraction(input = baseInteraction().copy(occurredAt = now), wallNow = now)
         }
 
         test("validateInteraction accepts a backdated occurredAt in the past") {
             val now = LocalDateTime(2026, 6, 1, 12, 0)
-            CrmContactPolicy.validateInteraction(input = baseInteraction().copy(occurredAt = LocalDateTime(2026, 1, 1, 0, 0)), now = now)
+            CrmContactPolicy.validateInteraction(
+                input = baseInteraction().copy(occurredAt = LocalDateTime(2026, 1, 1, 0, 0)),
+                wallNow = now,
+            )
         }
 
         test("validateInteraction accepts occurredAt = null (defaults to now server-side)") {
-            CrmContactPolicy.validateInteraction(input = baseInteraction().copy(occurredAt = null), now = LocalDateTime(2026, 1, 1, 0, 0))
+            CrmContactPolicy.validateInteraction(
+                input = baseInteraction().copy(occurredAt = null),
+                wallNow = LocalDateTime(2026, 1, 1, 0, 0),
+            )
         }
     })

@@ -18,7 +18,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CrmContactDto
@@ -671,7 +670,8 @@ fun crmContactAddressLine(contact: CrmContactDto): String {
 fun crmLastInteractionRelativeText(lastInteractionAt: LocalDateTime?): String {
     if (lastInteractionAt == null) return gettext("Noch kein Kontakt")
     val now = Clock.System.now()
-    val then = lastInteractionAt.toInstant(TimeZone.currentSystemDefault())
+    // lastInteractionAt is a class-B wall-clock of the organization zone (V1.9.38).
+    val then = lastInteractionAt.toInstant(resolveZone(OrganizationTime.zoneId))
     val days = (now - then).inWholeDays
     return when {
         days <= 0 -> gettext("Letzter Kontakt: heute")

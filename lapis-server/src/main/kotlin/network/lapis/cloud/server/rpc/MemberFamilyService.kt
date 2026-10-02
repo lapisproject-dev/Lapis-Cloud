@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnniversaryCalendar
 import network.lapis.cloud.shared.domain.FamilyMemberRole
@@ -72,7 +73,7 @@ private const val FAMILY_DEPENDENT_REASON = "family-dependent"
  */
 class MemberFamilyService(
     private val call: ApplicationCall,
-    private val clock: () -> LocalDate = { DbClock.nowLocalDateTime().date },
+    private val clock: () -> LocalDate = { OrganizationTimeZone.today() },
 ) : IMemberFamilyService {
     override suspend fun listFamilies(
         search: String?,

@@ -10,6 +10,8 @@ import network.lapis.cloud.shared.domain.PoliticianProfileDto
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
 import network.lapis.cloud.shared.domain.PoliticianWeightSnapshotDto
 import org.w3c.dom.HTMLElement
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -26,6 +28,19 @@ import kotlin.test.assertTrue
  * from the old source by hand, and the structure assertions (headers, `aria-label`, de-emphasis classes) are necessarily new.
  */
 class PseudoTableGoldenDomTest {
+    // V1.9.38: these values are class-A system timestamps (UTC), now shown in the organization zone. This test is about something else
+    // (labels, table/card parity), so it pins the zone to UTC and keeps its literal expectations; the conversion itself is covered by
+    // OrganizationTimeTest/OrganizationTimeDomTest.
+    @BeforeTest
+    fun pinOrganizationZoneToUtc() {
+        OrganizationTime.zoneId = "UTC"
+    }
+
+    @AfterTest
+    fun restoreOrganizationZone() {
+        OrganizationTime.zoneId = DEFAULT_ORGANIZATION_ZONE_ID
+    }
+
     private val bids =
         listOf(
             AuctionBidDto("b1", "a1", "Vereinsbanner", 12.5.toDecimal(), LocalDateTime(2026, 9, 1, 10, 30), true, AuctionStatus.OPEN),

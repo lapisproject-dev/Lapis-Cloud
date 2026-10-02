@@ -10,6 +10,8 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
@@ -121,5 +123,10 @@ private fun ResultRow.toArticleItem(): PublicOverviewHtml.ArticleItem? {
         logger.warn { "Skipping article ${this[ArticleTable.id]} on /aktuelles: missing/invalid slug or publishedAt" }
         return null
     }
-    return PublicOverviewHtml.ArticleItem(title = this[ArticleTable.title], slug = slug, publishedAt = publishedAt)
+    // class-A stamp shown as a date: in the organization zone (V1.9.38)
+    return PublicOverviewHtml.ArticleItem(
+        title = this[ArticleTable.title],
+        slug = slug,
+        publishedAt = ServerClock.systemToWall(utc = publishedAt, orgZone = OrganizationTimeZone.current()),
+    )
 }

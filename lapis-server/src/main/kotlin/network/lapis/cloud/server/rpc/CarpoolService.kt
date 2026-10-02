@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CarpoolPostingDto
 import network.lapis.cloud.shared.domain.CarpoolPostingInput
 import network.lapis.cloud.shared.domain.CarpoolPostingType
@@ -59,7 +60,7 @@ class CarpoolService(
         val current = resolveCurrentMember(call)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             baseQuery()
                 .where {
                     (CarpoolPostingTable.departureDate greaterEq today) and
@@ -77,7 +78,7 @@ class CarpoolService(
         val current = resolveCurrentMember(call)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             baseQuery()
                 .where { CarpoolPostingTable.authorMemberId eq current.memberId }
                 .orderBy(
@@ -91,7 +92,7 @@ class CarpoolService(
         val current = resolveCurrentMember(call)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             val validated = CarpoolValidation.validate(input = input, today = today)
             CarpoolValidation.requireUnderQuota(authorMemberId = current.memberId, today = today)
             val now = DbClock.nowLocalDateTime()
@@ -121,7 +122,7 @@ class CarpoolService(
         val postingId = Uuid.parse(id)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             val existing = requirePostingRow(postingId)
             if (existing[CarpoolPostingTable.authorMemberId] != current.memberId) {
                 throw ForbiddenException("Only the author may edit this posting")
@@ -168,7 +169,7 @@ class CarpoolService(
         return transaction {
             requireActiveMembership(memberId = current.memberId)
             val validatedMessage = CarpoolValidation.validateContactMessage(message)
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             // Eigener Blick auf "abgelaufen": der Feed-Filter in listPostings greift zwar schon
             // vorher, aber ein Client könnte theoretisch eine gecachte Posting-ID senden.
             val row =

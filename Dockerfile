@@ -86,6 +86,9 @@ RUN mkdir -p /app/document-storage /app/egress-out && chown -R lapiscloud:lapisc
 
 USER lapiscloud
 
+# V1.9.38: the storage zone of every class-A system timestamp. Never change on an existing instance --
+# see docs/architecture/time-and-timezones.adoc. (Also pinned in the start script via -Duser.timezone=UTC.)
+ENV TZ=UTC
 ENV LAPIS_CLIENT_DIST_ROOT=/app/client
 ENV LAPIS_DOCUMENT_STORAGE_ROOT=/app/document-storage
 ENV LAPIS_EGRESS_OUTPUT_HOST_DIR=/app/egress-out

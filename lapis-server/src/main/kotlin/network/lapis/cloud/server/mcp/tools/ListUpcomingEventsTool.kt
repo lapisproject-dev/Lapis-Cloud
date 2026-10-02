@@ -8,6 +8,7 @@ import kotlinx.serialization.json.putJsonObject
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.mcp.auth.McpPrincipal
 import network.lapis.cloud.server.rpc.EventReads
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
@@ -52,7 +53,7 @@ internal object ListUpcomingEventsTool {
                     MIN_LIMIT..MAX_LIMIT,
             )
         val now = DbClock.nowLocalDateTime()
-        val events = EventReads.listPublishedUpcoming(now = now, limit = limit)
+        val events = EventReads.listPublishedUpcoming(wallNow = OrganizationTimeZone.wallNowOf(now), limit = limit)
         buildJsonObject {
             putJsonArray("events") {
                 events.forEach { event ->

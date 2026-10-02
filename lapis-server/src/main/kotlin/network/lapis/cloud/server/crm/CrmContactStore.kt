@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.CrmContactTable
 import network.lapis.cloud.server.db.generated.CrmInteractionTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CrmContactDto
 import network.lapis.cloud.shared.domain.CrmContactInput
 import network.lapis.cloud.shared.domain.CrmContactPageDto
@@ -72,7 +73,9 @@ object CrmContactStore {
     ): CrmContactPageDto {
         val effectiveLimit = limit.coerceIn(1, MAX_PAGE_SIZE)
         val effectiveOffset = offset.coerceAtLeast(0)
-        val now = DbClock.nowLocalDateTime()
+        // V1.9.38: retention_review_due_at is a class-B wall-clock (derived from a typed-in or wall-normalized
+        // interaction time), so it is compared with the organization-zone wall-clock, not the UTC stamp.
+        val wallNow = OrganizationTimeZone.wallNowOf(DbClock.nowLocalDateTime())
 
         // Condition built up-front as a nullable Op<Boolean>, not a `.where {}.andWhere {}` chain
         // -- same idiom FederationService.listFederationRelationships/DsgvoService.listAuditLog
@@ -80,7 +83,7 @@ object CrmContactStore {
         var condition: Op<Boolean>? = null
         if (filterType != null) condition = (CrmContactTable.contactType eq filterType).andWith(condition)
         if (!includeArchived) condition = CrmContactTable.archivedAt.isNull().andWith(condition)
-        if (onlyRetentionOverdue) condition = (CrmContactTable.retentionReviewDueAt lessEq now).andWith(condition)
+        if (onlyRetentionOverdue) condition = (CrmContactTable.retentionReviewDueAt lessEq wallNow).andWith(condition)
         val fixedCondition = condition
 
         fun query() = if (fixedCondition != null) CrmContactTable.selectAll().where { fixedCondition } else CrmContactTable.selectAll()
@@ -113,7 +116,9 @@ object CrmContactStore {
 
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
-        val retentionDue = CrmContactPolicy.retentionReviewDueAt(lastInteractionAt = null, createdAt = now)
+        // class B: the retention base is a wall-clock (see list()), so a contact created "now" uses the organization-zone now.
+        val retentionDue =
+            CrmContactPolicy.retentionReviewDueAt(lastInteractionAt = null, createdAt = OrganizationTimeZone.wallNowOf(now))
         try {
             CrmContactTable.insert {
                 it[CrmContactTable.id] = id
@@ -429,7 +434,10 @@ object CrmContactStore {
                 ?: throw NotFoundException("CRM contact ${input.contactId} not found")
 
         val now = DbClock.nowLocalDateTime()
-        val occurredAt = input.occurredAt ?: now
+        // `occurred_at`/`last_interaction_at` are class-B wall-clocks: a typed-in value is stored as typed, and an
+        // omitted one is normalized to the organization-zone wall-clock of `now`, so the column never mixes UTC
+        // stamps with typed-in wall-clocks (V1.9.38).
+        val occurredAt = input.occurredAt ?: OrganizationTimeZone.wallNowOf(now)
         val existingLastInteractionAt = lockedContact[CrmContactTable.lastInteractionAt]
         val newLastInteractionAt =
             if (existingLastInteractionAt == null || occurredAt > existingLastInteractionAt) occurredAt else existingLastInteractionAt

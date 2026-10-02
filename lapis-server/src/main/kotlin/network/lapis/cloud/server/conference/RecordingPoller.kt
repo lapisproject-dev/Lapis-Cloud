@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
@@ -19,6 +18,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.routes.archiveGeneratedFile
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -727,7 +727,7 @@ class RecordingPoller(
     private fun formatSeconds(seconds: Double): String = String.format(java.util.Locale.ROOT, "%.3f", seconds)
 }
 
-private val TZ = TimeZone.currentSystemDefault()
+private val TZ = ServerClock.zone
 
 private val NON_TERMINAL_STATUSES =
     listOf(ConferenceRecordingStatus.RECORDING, ConferenceRecordingStatus.STOPPING, ConferenceRecordingStatus.PROCESSING)

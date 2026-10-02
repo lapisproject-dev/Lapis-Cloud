@@ -267,7 +267,7 @@ private fun renderExportManifest(
     panel: SimplePanel,
     manifest: ExportManifestDto,
 ) {
-    panel.div(gettext("Stand: %1", formatDateTime(manifest.generatedAt))) { addCssClasses("text-muted small") }
+    panel.div(gettext("Stand: %1", formatSystemDateTime(manifest.generatedAt))) { addCssClasses("text-muted small") }
     if (manifest.sectionCounts.isEmpty()) {
         panel.div(tr("Keine Daten in den registrierten Bereichen gefunden.")) { addCssClasses("text-muted small") }
         return
@@ -550,7 +550,7 @@ private fun renderDsgvoAuditLogRow(
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.statusBadge(dsgvoAuditActionLabel(entry.action), dsgvoAuditActionColor(entry.action))
-    headerRow.div(formatDateTime(entry.occurredAt)) { addCssClasses("flex-grow-1 text-muted small") }
+    headerRow.div(formatSystemDateTime(entry.occurredAt)) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(gettext("Akteur: %1 · Betroffenes Mitglied: %2", dsgvoAuditActorDisplayText(entry), entry.subjectMemberId)) {
         addCssClasses("text-muted small")
@@ -640,7 +640,7 @@ fun erasureRequestedByDisplayText(request: ErasureRequestDto): String =
     if (request.requestedBy == request.subjectMemberId) gettext("Mitglied selbst") else request.requestedBy
 
 fun erasureRequestedCaption(request: ErasureRequestDto): String =
-    gettext("Beantragt von %1 am %2", erasureRequestedByDisplayText(request), formatDateTime(request.requestedAt))
+    gettext("Beantragt von %1 am %2", erasureRequestedByDisplayText(request), formatSystemDateTime(request.requestedAt))
 
 fun erasureDecidedCaption(request: ErasureRequestDto): String? {
     val decidedBy = request.decidedBy ?: return null
@@ -658,4 +658,4 @@ fun erasureDecidedCaption(request: ErasureRequestDto): String? {
  * which uses a timestamp as if it were an actor); `executeErasure` is ADMIN-only by role but the DTO
  * does not record which specific ADMIN pressed the button, so this caption says "am", not "von". */
 fun erasureExecutedCaption(request: ErasureRequestDto): String? =
-    request.executedAt?.let { gettext("Ausgeführt am %1", formatDateTime(it)) }
+    request.executedAt?.let { gettext("Ausgeführt am %1", formatSystemDateTime(it)) }

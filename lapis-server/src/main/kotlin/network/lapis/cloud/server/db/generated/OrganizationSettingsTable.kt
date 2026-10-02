@@ -68,6 +68,8 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.10 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
     public val showPublicMemberCount: Column<Boolean> = bool("show_public_member_count")
     // TODO default = "TRUE"
+    // Welle V1.9.38 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
+    public val timezone: Column<String> = varchar("timezone", 64).default("Europe/Berlin")
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

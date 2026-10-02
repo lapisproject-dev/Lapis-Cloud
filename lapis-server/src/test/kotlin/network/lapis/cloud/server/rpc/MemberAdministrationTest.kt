@@ -54,6 +54,7 @@ import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.TemporaryPasswordGenerator
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -1176,7 +1177,7 @@ class MemberAdministrationTest :
                     routing { registerMemberAdminTestRoutes() }
                 }
                 val active = createTestMember("dod-future@example.org", status = MemberStatus.ACTIVE)
-                val tomorrow = DbClock.nowLocalDateTime().date.plus(1, DateTimeUnit.DAY)
+                val tomorrow = OrganizationTimeZone.today().plus(1, DateTimeUnit.DAY)
                 client
                     .post("/test/status/$active?newStatus=DECEASED&reason=Sterbefall+gemeldet&dateOfDeath=$tomorrow") {
                         header("X-Member-Id", BOARD_ID)

@@ -3,12 +3,12 @@ package network.lapis.cloud.server.accounting.export
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.accounting.datev.DatevBuchungsstapelWriter
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.PostingSide
@@ -92,6 +92,7 @@ internal data class JournalExportRequest(
     val mandantNummer: Int?,
     val organizationName: String,
     val exportedBy: String,
+    /** Organization-zone wall-clock of the export (class B by construction), NOT a UTC stamp. */
     val generatedAt: LocalDateTime,
     val entries: List<JournalExportEntry>,
 )
@@ -201,7 +202,8 @@ internal fun buildJournalExportRequest(
         mandantNummer = orgRow[OrganizationSettingsTable.datevMandantNummer],
         organizationName = orgRow[OrganizationSettingsTable.name],
         exportedBy = exportedBy,
-        generatedAt = DbClock.nowLocalDateTime(),
+        // The DATEV header "erzeugt am" is read by people and by DATEV as a local time: the organization-zone wall-clock (V1.9.38).
+        generatedAt = OrganizationTimeZone.wallNow(),
         entries = entries,
     )
 }

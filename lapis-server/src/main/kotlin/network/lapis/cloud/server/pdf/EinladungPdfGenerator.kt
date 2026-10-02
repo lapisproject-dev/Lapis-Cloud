@@ -1,11 +1,8 @@
 package network.lapis.cloud.server.pdf
 
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
-import kotlin.time.Clock
 
 /**
  * Mail-merges an Einladung (invitation letter, e.g. for a general-assembly invitation) --
@@ -29,11 +26,7 @@ object EinladungPdfGenerator {
         organization: OrganizationSettingsDto,
     ): ByteArray {
         val builder = LetterPdfBuilder()
-        val today =
-            Clock.System
-                .now()
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .date
+        val today = pdfIssueDate()
         recipients.forEachIndexed { index, recipient ->
             if (index > 0) builder.newPage()
             builder.letterhead(orgName = organization.name, orgAddressLines = organization.addressLines())

@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.concurrent.ConcurrentHashMap
@@ -95,7 +96,7 @@ private fun renderCachedEventsBody(
         transaction {
             val dbNow = DbClock.nowLocalDateTime()
             EventIcsFeed
-                .loadUpcomingPublicPublished(now = dbNow, limit = MAX_EVENTS)
+                .loadUpcomingPublicPublished(wallNow = OrganizationTimeZone.wallNowOf(dbNow), limit = MAX_EVENTS)
                 .mapNotNull { row -> row.toEventItem() }
         }
     val body = PublicOverviewHtml.eventsPage(items = items, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)

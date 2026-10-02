@@ -279,7 +279,7 @@ private fun renderMotionRow(
             "%1 · eingereicht von %2 am %3",
             motion.targetCommitteeName,
             motion.submitterDisplayName,
-            formatDateTime(motion.submittedAt),
+            formatSystemDateTime(motion.submittedAt),
         ),
     ) { addCssClasses("text-muted small") }
 
@@ -466,7 +466,7 @@ private fun renderMotionMeta(
             "Gremium: %1 · eingereicht von %2 am %3",
             motion.targetCommitteeName,
             motion.submitterDisplayName,
-            formatDateTime(motion.submittedAt),
+            formatSystemDateTime(motion.submittedAt),
         ),
     ) { addCssClasses("text-muted small") }
     if (motion.rationale.isNotBlank()) panel.untrustedP(motion.rationale, className = "mb-0")
@@ -476,7 +476,7 @@ private fun renderMotionMeta(
             gettext(
                 "Geprüft von %1 am %2%3",
                 reviewer,
-                formatDateTime(motion.reviewedAt!!),
+                formatSystemDateTime(motion.reviewedAt!!),
                 motion.reviewNote?.let { " -- $it" } ?: "",
             ),
         ) {

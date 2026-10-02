@@ -439,7 +439,7 @@ private fun dunningNoticeColumns(role: AccountRole?): List<DataColumn<DunningNot
                 container.statusBadge(dunningNoticeStatusLabel(notice.status), dunningNoticeStatusColor(notice.status))
             },
         ),
-        dateTimeColumn(title = tr("Ausgestellt am"), numeric = true) { notice: DunningNoticeDto -> notice.issuedAt },
+        systemDateTimeColumn(title = tr("Ausgestellt am"), numeric = true) { notice: DunningNoticeDto -> notice.issuedAt },
         dateColumn(title = tr("Antwort bis"), numeric = true) { notice: DunningNoticeDto -> notice.respondBy },
         DataColumn(
             title = tr("Gebühr"),

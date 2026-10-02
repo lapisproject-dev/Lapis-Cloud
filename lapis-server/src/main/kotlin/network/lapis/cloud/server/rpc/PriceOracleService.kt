@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
@@ -19,6 +18,7 @@ import network.lapis.cloud.server.economy.oracle.QuoteOutcome
 import network.lapis.cloud.server.economy.oracle.plausiblePegBand
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
@@ -138,7 +138,7 @@ class PriceOracleService(
                     sourceIds = outcome.quote.contributingSourceIds,
                     priceTimestamp =
                         outcome.quote.priceTimestamp
-                            .toLocalDateTime(TimeZone.currentSystemDefault())
+                            .toLocalDateTime(ServerClock.zone)
                             .truncatedToDbPrecision(),
                 )
             is QuoteOutcome.Halt ->
@@ -171,7 +171,7 @@ class PriceOracleService(
         val ltrMinted =
             computeLtrMinted(donationAmount = donationAmount, anchorUnitsPerLtr = config.anchorUnitsPerLtr, anchorPrice = quote.medianPrice)
         val now = nowLocalDateTime()
-        val priceTimestampLocal = quote.priceTimestamp.toLocalDateTime(TimeZone.currentSystemDefault()).truncatedToDbPrecision()
+        val priceTimestampLocal = quote.priceTimestamp.toLocalDateTime(ServerClock.zone).truncatedToDbPrecision()
         val sourcesUsed = quote.contributingSourceIds.joinToString(",")
 
         return transaction {
@@ -343,9 +343,9 @@ class PriceOracleService(
             range.days?.let { days ->
                 DbClock
                     .nowLocalDateTime()
-                    .toInstant(TimeZone.currentSystemDefault())
-                    .minus(days, DateTimeUnit.DAY, TimeZone.currentSystemDefault())
-                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                    .toInstant(ServerClock.zone)
+                    .minus(days, DateTimeUnit.DAY, ServerClock.zone)
+                    .toLocalDateTime(ServerClock.zone)
                     .truncatedToDbPrecision()
             }
         return PriceOracleSnapshotStore.loadHistory(

@@ -82,4 +82,10 @@ data class SessionInfoDto(
      * wins first".
      */
     val chapterScope: RegionalChapterRefDto? = null,
+    /**
+     * Welle V1.9.38 "Einheitliche Zeitzonen" -- the organization's IANA zone id. The client displays every
+     * class-A system timestamp (stored as UTC) in this zone. Defaulted for serialization compatibility
+     * between an old client and a new server and vice versa.
+     */
+    val organizationTimeZone: String = "Europe/Berlin",
 )

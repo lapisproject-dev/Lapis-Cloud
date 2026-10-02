@@ -187,9 +187,9 @@ private fun insertSnapshot(
     val priceTimestamp =
         DbClock
             .nowLocalDateTime()
-            .toInstant(TimeZone.currentSystemDefault())
-            .minus(daysAgo, DateTimeUnit.DAY, TimeZone.currentSystemDefault())
-            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .toInstant(TimeZone.UTC)
+            .minus(daysAgo, DateTimeUnit.DAY, TimeZone.UTC)
+            .toLocalDateTime(TimeZone.UTC)
     transaction {
         PriceOracleSnapshotTable.insert {
             it[id] = Uuid.random()

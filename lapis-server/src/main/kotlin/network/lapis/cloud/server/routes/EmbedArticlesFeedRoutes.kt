@@ -144,7 +144,7 @@ internal fun Route.registerEmbedArticlesFeedRoutes(
                                     slug = slug,
                                     coverImageId = row[ArticleTable.coverImageId],
                                 ),
-                            publishedAt = embedFeedUtc(publishedAt),
+                            publishedAt = embedFeedUtcFromSystem(publishedAt),
                         )
                     }
                 }

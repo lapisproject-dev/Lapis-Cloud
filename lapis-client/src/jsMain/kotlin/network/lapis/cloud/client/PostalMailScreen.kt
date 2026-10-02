@@ -115,7 +115,7 @@ private fun renderPostalDeliveryLogRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.statusBadge(postalDeliveryStatusLabel(entry.status), postalDeliveryStatusColor(entry.status))
     headerRow.untrustedDiv(entry.recipientDisplayName, className = "flex-grow-1")
-    headerRow.div(gettext("%1", formatDateTime(entry.dispatchedAt))) { addCssClasses("text-muted small") }
+    headerRow.div(gettext("%1", formatSystemDateTime(entry.dispatchedAt))) { addCssClasses("text-muted small") }
     row.untrustedDiv(entry.documentReference, className = "small")
 
     // Never both -- SENT carries a providerReference, FAILED carries an errorMessage, QUEUED (dead

@@ -22,8 +22,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuctionBidDto
 import network.lapis.cloud.shared.domain.AuctionComplianceAcknowledgmentInput
@@ -34,7 +32,6 @@ import network.lapis.cloud.shared.domain.AuctionStatus
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IAuctionService
-import kotlin.time.Clock
 
 /**
  * LTR-Wirtschaft UI wave, screen 3 of 5 -- "Auktion". Self-contained domain ([IAuctionService]):
@@ -181,7 +178,7 @@ fun renderAuctionScreen(container: SimplePanel) {
         val statusFilter = parseOptionalEnum<AuctionStatus>(statusFilterSelect.value)
         AppScope.launch {
             val auctions = loadAuctionsOrShowBanner(statusFilter, auctionsPanel, disabledBanner) ?: return@launch
-            val fetchedAt = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+            val fetchedAt = organizationNow()
             staleLabel.content =
                 gettext("Preisstand: %1:%2:%3 Uhr", pad2(fetchedAt.hour), pad2(fetchedAt.minute), pad2(fetchedAt.second))
             auctionsPanel.removeAll()
@@ -473,7 +470,7 @@ private fun renderAuctionCard(
         gettext(
             "Verkäufer: %1 · Endet: %2 · Gebote: %3",
             auction.sellerDisplayName,
-            formatDateTime(auction.endsAt),
+            formatSystemDateTime(auction.endsAt),
             auction.bidCount,
         ),
     ) {
@@ -706,7 +703,11 @@ internal fun renderMyBidsTable(
                     title = tr("Status"),
                     cell = { cell, bid -> cell.statusBadge(auctionStatusLabel(bid.auctionStatus), auctionStatusColor(bid.auctionStatus)) },
                 ),
-                dateTimeColumn<AuctionBidDto>(title = tr("Abgegeben"), numeric = false, cssClasses = "text-muted small") { it.createdAt },
+                systemDateTimeColumn<AuctionBidDto>(
+                    title = tr("Abgegeben"),
+                    numeric = false,
+                    cssClasses = "text-muted small",
+                ) { it.createdAt },
             ),
         rows = bids,
         viewport = viewport,
@@ -858,7 +859,7 @@ private fun renderAuctionSettingsSummary(
             gettext(
                 "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3).",
                 settings.lastAcknowledgedByDisplayName,
-                formatDateTime(settings.lastAcknowledgedAt!!),
+                formatSystemDateTime(settings.lastAcknowledgedAt!!),
                 settings.lastDisclaimerVersion,
             ),
         ) { addCssClasses("text-muted small") }

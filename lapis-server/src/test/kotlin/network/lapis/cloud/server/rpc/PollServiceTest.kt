@@ -21,6 +21,8 @@ import network.lapis.cloud.server.db.generated.PollParticipationTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -63,10 +65,12 @@ class PollServiceTest :
             data.cleanUp()
         }
 
+        // `closesAt` is a class-B wall-clock of the ORGANIZATION zone (V1.9.38), so a deadline "in <duration>" is
+        // built on that zone's clock -- not on the zone of the test process.
         fun inFuture(duration: Duration): LocalDateTime {
-            val zone = TimeZone.currentSystemDefault()
-            return DbClock
-                .nowLocalDateTime(zone)
+            val zone = OrganizationTimeZone.current()
+            return ServerClock
+                .nowIn(zone)
                 .toInstant(zone)
                 .plus(duration)
                 .toLocalDateTime(zone)

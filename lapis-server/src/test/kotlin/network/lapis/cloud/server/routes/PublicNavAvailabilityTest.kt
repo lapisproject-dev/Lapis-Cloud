@@ -145,64 +145,64 @@ class PublicNavAvailabilityTest :
 
         // ── T3b: events ──────────────────────────────────────────────────────────
         test("T3b baseline: no published articles/events after neutralization -> both false") {
-            loadPublicNavAvailability(now = now) shouldBe PublicNavAvailability.NONE
+            loadPublicNavAvailability(wallNow = now) shouldBe PublicNavAvailability.NONE
         }
 
         test("T3b: PUBLIC + PUBLISHED + endsAt in the future -> events == true") {
             createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1))
-            loadPublicNavAvailability(now = now).events shouldBe true
+            loadPublicNavAvailability(wallNow = now).events shouldBe true
         }
 
         test("T3b: an event exactly at the endsAt == now boundary is EXCLUDED (real '>' boundary)") {
             createEvent(startsAt = now.plusHours(-2), endsAt = now)
-            loadPublicNavAvailability(now = now).events shouldBe false
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
         }
 
         test("T3b: an already-ended event is excluded") {
             createEvent(startsAt = now.plusHours(-3), endsAt = now.plusHours(-1))
-            loadPublicNavAvailability(now = now).events shouldBe false
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
         }
 
         test("T3b: a DRAFT event is excluded") {
             createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1), status = EventStatus.DRAFT)
-            loadPublicNavAvailability(now = now).events shouldBe false
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
         }
 
         test("T3b: a CANCELLED event is excluded") {
             createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1), status = EventStatus.CANCELLED)
-            loadPublicNavAvailability(now = now).events shouldBe false
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
         }
 
         test("T3b: a MEMBERS_ONLY event is excluded, even if PUBLISHED and upcoming") {
             createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1), visibility = EventVisibility.MEMBERS_ONLY)
-            loadPublicNavAvailability(now = now).events shouldBe false
+            loadPublicNavAvailability(wallNow = now).events shouldBe false
         }
 
         // ── T4: articles ─────────────────────────────────────────────────────────
         test("T4: a DRAFT article is excluded") {
             createArticle(status = ArticleStatus.DRAFT)
-            loadPublicNavAvailability(now = now).articles shouldBe false
+            loadPublicNavAvailability(wallNow = now).articles shouldBe false
         }
 
         test("T4: a SUBMITTED article is excluded") {
             createArticle(status = ArticleStatus.SUBMITTED)
-            loadPublicNavAvailability(now = now).articles shouldBe false
+            loadPublicNavAvailability(wallNow = now).articles shouldBe false
         }
 
         test("T4: a REJECTED article is excluded") {
             createArticle(status = ArticleStatus.REJECTED)
-            loadPublicNavAvailability(now = now).articles shouldBe false
+            loadPublicNavAvailability(wallNow = now).articles shouldBe false
         }
 
         test("T4: a PUBLISHED article -> articles == true") {
             createArticle(status = ArticleStatus.PUBLISHED)
-            loadPublicNavAvailability(now = now).articles shouldBe true
+            loadPublicNavAvailability(wallNow = now).articles shouldBe true
         }
 
         // ── T3c: consistency with the overview routes' own loaders ────────────────
         test("T3c: articles flag agrees with ArticleStore.listPublishedNewestFirst(1)") {
             createArticle(status = ArticleStatus.PUBLISHED)
-            val nav = loadPublicNavAvailability(now = now)
+            val nav = loadPublicNavAvailability(wallNow = now)
             transaction {
                 nav.articles shouldBe ArticleStore.listPublishedNewestFirst(limit = 1).isNotEmpty()
             }
@@ -210,9 +210,9 @@ class PublicNavAvailabilityTest :
 
         test("T3c: events flag agrees with EventIcsFeed.loadUpcomingPublicPublished(now, 1)") {
             createEvent(startsAt = now.plusHours(-1), endsAt = now.plusHours(1))
-            val nav = loadPublicNavAvailability(now = now)
+            val nav = loadPublicNavAvailability(wallNow = now)
             transaction {
-                nav.events shouldBe EventIcsFeed.loadUpcomingPublicPublished(now = now, limit = 1).isNotEmpty()
+                nav.events shouldBe EventIcsFeed.loadUpcomingPublicPublished(wallNow = now, limit = 1).isNotEmpty()
             }
         }
 

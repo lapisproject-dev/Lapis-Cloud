@@ -146,7 +146,7 @@ private fun renderDunningSettingsSummary(
         panel.div(
             gettext(
                 "Zuletzt bestätigt am %1 (Hinweistext-Version %2).",
-                formatDateTime(settings.lastAcknowledgedAt!!),
+                formatSystemDateTime(settings.lastAcknowledgedAt!!),
                 settings.lastDisclaimerVersion,
             ),
         ) { addCssClasses("text-muted small") }

@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BankCsvDialect
 import network.lapis.cloud.shared.domain.BankStatementDonationAssignmentInput
@@ -251,7 +252,7 @@ internal object BankStatementStore {
                         )
                 }) {
                     it[status] = ContributionStatus.PAID
-                    it[paidAt] = now
+                    it[paidAt] = OrganizationTimeZone.wallNowOf(now)
                     it[paidAmount] = amount
                     it[paymentMethod] = ContributionPaymentMethod.MANUAL
                 }
@@ -263,7 +264,7 @@ internal object BankStatementStore {
                 ContributionPostingBridge.postContributionPayment(
                     contributionId = contributionId,
                     paidAmount = amount,
-                    paidAt = now,
+                    paidAt = OrganizationTimeZone.wallNowOf(now),
                     source = ContributionPaymentMethod.MANUAL,
                     providerFee = null,
                     actorMemberId = actorMemberId,
@@ -296,7 +297,7 @@ internal object BankStatementStore {
             }
             ContributionPaymentEvents.publishPaid(
                 contributionId = contributionId,
-                paidAt = now,
+                paidAt = OrganizationTimeZone.wallNowOf(now),
                 amount = amount,
                 transactionId = paymentTransactionId.toString(),
             )
@@ -363,7 +364,7 @@ internal object BankStatementStore {
                 DonationPostingBridge.postDonationPayment(
                     paymentTransactionId = paymentTransactionId,
                     paidAmount = amount,
-                    paidAt = now,
+                    paidAt = OrganizationTimeZone.wallNowOf(now),
                     providerFee = null,
                     donorMemberId = donorMemberUuid,
                     externalDonorId = externalDonorUuid,

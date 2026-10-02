@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.OpenItemDirection
 import network.lapis.cloud.shared.domain.OpenItemStatusSets
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -92,7 +93,7 @@ class ReceivableDunningPoller(
                 }
             if (!enabled) return
 
-            val asOf = clock().date
+            val asOf = OrganizationTimeZone.dateOf(clock())
             var afterDueDate: LocalDate? = null
             var afterId: Uuid? = null
             var processed = 0

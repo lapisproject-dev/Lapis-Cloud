@@ -124,7 +124,7 @@ private fun renderSepaSettingsSummary(
             gettext(
                 "Zuletzt bestätigt von %1 am %2 (Hinweistext-Version %3).",
                 settings.lastAcknowledgedByDisplayName,
-                formatDateTime(settings.lastAcknowledgedAt!!),
+                formatSystemDateTime(settings.lastAcknowledgedAt!!),
                 settings.lastDisclaimerVersion,
             ),
         ) { addCssClasses("text-muted small") }

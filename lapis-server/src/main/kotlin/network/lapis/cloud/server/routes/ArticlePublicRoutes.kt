@@ -13,7 +13,6 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import kotlinx.coroutines.CancellationException
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.articles.ArticleCoverPolicy
 import network.lapis.cloud.server.articles.ArticleMarkdown
@@ -22,6 +21,8 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 private val logger = KotlinLogging.logger {}
@@ -98,8 +99,9 @@ internal fun Route.registerArticlePublicRoutes(
                             slug = slug,
                             coverImageId = row[ArticleTable.coverImageId],
                         ),
-                    publishedAt = publishedAt,
-                    publishedAtIso = publishedAt.toInstant(TimeZone.currentSystemDefault()).toString(),
+                    // class-A stamp shown as a date: in the organization zone (V1.9.38); the ISO form below stays the UTC instant
+                    publishedAt = ServerClock.systemToWall(utc = publishedAt, orgZone = OrganizationTimeZone.current()),
+                    publishedAtIso = publishedAt.toInstant(ServerClock.zone).toString(),
                 )
             call.response.header(HttpHeaders.CacheControl, "no-store")
             applyArticlePageSecurityHeaders(call)

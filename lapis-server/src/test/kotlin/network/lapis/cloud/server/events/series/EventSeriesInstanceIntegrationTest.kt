@@ -271,7 +271,7 @@ class EventSeriesInstanceIntegrationTest :
             val rows =
                 transaction {
                     network.lapis.cloud.server.routes.EventIcsFeed
-                        .loadUpcomingPublicPublished(now = now)
+                        .loadUpcomingPublicPublished(wallNow = now)
                 }
             (eventId in rows.map { it[EventTable.id] }) shouldBe true
         }

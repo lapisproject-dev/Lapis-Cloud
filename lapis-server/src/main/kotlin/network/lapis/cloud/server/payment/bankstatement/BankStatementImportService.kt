@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -860,7 +861,7 @@ internal class BankStatementImportService(
                                 )
                         }) {
                             it[status] = ContributionStatus.PAID
-                            it[paidAt] = now
+                            it[paidAt] = OrganizationTimeZone.wallNowOf(now)
                             it[paidAmount] = candidate.amount
                             it[paymentMethod] = ContributionPaymentMethod.MANUAL
                         }
@@ -872,7 +873,7 @@ internal class BankStatementImportService(
                         ContributionPostingBridge.postContributionPayment(
                             contributionId = candidate.contributionId,
                             paidAmount = candidate.amount,
-                            paidAt = now,
+                            paidAt = OrganizationTimeZone.wallNowOf(now),
                             source = ContributionPaymentMethod.MANUAL,
                             providerFee = null,
                             actorMemberId = uploadedBy,
@@ -894,7 +895,7 @@ internal class BankStatementImportService(
                     }
                     ContributionPaymentEvents.publishPaid(
                         contributionId = candidate.contributionId,
-                        paidAt = now,
+                        paidAt = OrganizationTimeZone.wallNowOf(now),
                         amount = candidate.amount,
                         transactionId = paymentTransactionId.toString(),
                     )

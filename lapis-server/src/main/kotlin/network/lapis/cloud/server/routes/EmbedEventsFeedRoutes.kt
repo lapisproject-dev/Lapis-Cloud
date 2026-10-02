@@ -27,6 +27,7 @@ import network.lapis.cloud.server.embed.respondEmbedPreflight
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 private val logger = KotlinLogging.logger {}
@@ -127,11 +128,14 @@ internal fun Route.registerEmbedEventsFeedRoutes(
             // 4. Query + per-row projection, ONE short transaction (see EventIcsFeed.kt's own KDoc
             // "Nicht gestreamt" for the same split-outside-the-transaction reasoning).
             val now = DbClock.nowLocalDateTime()
+            val orgZone = OrganizationTimeZone.current()
             val items =
                 transaction {
                     EventIcsFeed
-                        .loadUpcomingPublicPublished(now = now, limit = EmbedEventsFeedLimits.MAX_EVENTS)
-                        .map { row ->
+                        .loadUpcomingPublicPublished(
+                            wallNow = OrganizationTimeZone.wallNowOf(now),
+                            limit = EmbedEventsFeedLimits.MAX_EVENTS,
+                        ).map { row ->
                             val slug = row[EventTable.slug]
                             val eventId = row[EventTable.id]
                             // N+1 by design at MAX_EVENTS=50 -- not batched, see this file's own
@@ -143,8 +147,8 @@ internal fun Route.registerEmbedEventsFeedRoutes(
                             EmbedEventListItemDto(
                                 slug = slug,
                                 title = row[EventTable.title],
-                                startsAt = embedFeedUtc(row[EventTable.startsAt]),
-                                endsAt = embedFeedUtc(row[EventTable.endsAt]),
+                                startsAt = embedFeedUtc(dt = row[EventTable.startsAt], zone = orgZone),
+                                endsAt = embedFeedUtc(dt = row[EventTable.endsAt], zone = orgZone),
                                 locationText = row[EventTable.locationText],
                                 registrationUrl = "$baseUrl/veranstaltung/$slug",
                                 full = capacity != null && occupied >= capacity,

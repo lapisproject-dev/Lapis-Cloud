@@ -12,15 +12,12 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.table.cell
 import io.kvision.table.row
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberSelectionDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.VolunteerAllowanceSelfDeclarationDto
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
-import kotlin.time.Clock
 
 /** The RPC surface of the declarations overview -- an interface so DOM tests can drive it without a server. Exceptions propagate. */
 internal interface VolunteerAllowanceDeclarationsRpc {
@@ -61,11 +58,7 @@ internal fun memberSelectionLabel(member: MemberSelectionDto): String {
 /** Visibility only -- the server decides (`VOLUNTEER_ALLOWANCE_DECISION_ROLES`) and rejects anyone else. */
 internal fun canViewOthersVolunteerAllowanceDeclarations(): Boolean = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
-private fun currentCalendarYear(): Int =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date.year
+private fun currentCalendarYear(): Int = organizationToday().year
 
 /**
  * Welle V1.9.34 -- overview of the volunteer-allowance self-declarations: "your own" for every member, and for BOARD/ADMIN an expandable
@@ -187,7 +180,7 @@ private fun renderDeclarationsTable(
             textCell(trusted(volunteerAllowanceCategoryLabel(declaration.category)))
             cell {
                 typeBadge(volunteerAllowanceDeclarationSourceLabel(declaration.source), "secondary")
-                div(formatDateTime(declaration.declaredAt)) { addCssClasses("text-muted small") }
+                div(formatSystemDateTime(declaration.declaredAt)) { addCssClasses("text-muted small") }
             }
             textCell(trusted(declaration.signedOn?.let { formatDate(it) } ?: "–"))
             textCell(declaration.recordedByDisplayName)

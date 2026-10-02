@@ -5,6 +5,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
 import network.lapis.cloud.server.db.generated.ContributionReliefRequestTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.ContributionReliefKind
 import network.lapis.cloud.shared.domain.ContributionReliefStatus
 import network.lapis.cloud.shared.domain.ContributionReliefStatusSets
@@ -77,7 +78,7 @@ object ContributionReliefRedaction {
             var redacted = 0
             candidates.forEach { row ->
                 val anchor = redactionAnchor(row) ?: return@forEach
-                if (anchor.plus(REDACTION_AFTER_MONTHS, DateTimeUnit.MONTH) > now.date) return@forEach
+                if (anchor.plus(REDACTION_AFTER_MONTHS, DateTimeUnit.MONTH) > OrganizationTimeZone.dateOf(now)) return@forEach
                 redacted +=
                     ContributionReliefRequestTable.update({
                         (ContributionReliefRequestTable.id eq row[ContributionReliefRequestTable.id]) and

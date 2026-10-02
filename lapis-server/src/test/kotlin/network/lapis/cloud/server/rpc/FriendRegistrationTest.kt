@@ -29,6 +29,7 @@ import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -109,10 +110,8 @@ class FriendRegistrationTest :
 
                 val friendSince =
                     transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.friendSince] }
-                friendSince shouldBe
-                    network.lapis.cloud.server.db.DbClock
-                        .nowLocalDateTime()
-                        .date
+                // friendSince is a class-D calendar date in the organization zone, not the UTC date
+                friendSince shouldBe OrganizationTimeZone.today()
 
                 val ackCount =
                     transaction {

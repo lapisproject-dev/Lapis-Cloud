@@ -34,6 +34,7 @@ import network.lapis.cloud.server.routes.archiveGeneratedFile
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -354,7 +355,7 @@ class SepaService(
             }
         val debtorName = SepaCharacterSet.sanitize(raw = input.debtorName, maxLength = 70)
         if (debtorName.isBlank()) throw ConflictException("Der Kontoinhabername darf nicht leer sein.")
-        val today = DbClock.nowLocalDateTime().date
+        val today = OrganizationTimeZone.today()
         if (input.signatureDate > today || input.signatureDate < today.minus(1, DateTimeUnit.YEAR)) {
             throw ConflictException("Das Unterschriftsdatum ist ungueltig.")
         }
@@ -556,7 +557,7 @@ class SepaService(
         val current = resolveCurrentMember(call)
         current.requireRole(*SEPA_TREASURY_ROLES)
         requireSepaUsable()
-        val today = DbClock.nowLocalDateTime().date
+        val today = OrganizationTimeZone.today()
         if (input.requestedCollectionDate <= today) throw ConflictException("Das Einzugsdatum muss in der Zukunft liegen.")
 
         return transaction {
@@ -1040,7 +1041,7 @@ class SepaService(
             // is the primary choke point, see that function's KDoc) but cross its 36-month expiry
             // during the pre-notification waiting period before generateBatchFile runs. Re-derived
             // from the SAME SepaConfig.mandateExpiryDate helper, never a second inline calculation.
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             val remaining = mutableListOf<ResultRow>()
             itemRows.forEach { itemRow ->
                 val mandateId = itemRow[SepaMandateTable.id]
@@ -1092,7 +1093,8 @@ class SepaService(
                 SepaBatchSpec(
                     version = sepaConfig.pain008Version,
                     messageId = batchRow[SepaDebitBatchTable.messageId],
-                    creationDateTime = DbClock.nowLocalDateTime(),
+                    // zone-less xs:dateTime: the organization-zone wall-clock, as the writer's KDoc states (V1.9.38).
+                    creationDateTime = OrganizationTimeZone.wallNow(),
                     initiatingPartyName = creditorName,
                     paymentInfoId = batchRow[SepaDebitBatchTable.paymentInfoId],
                     sequenceType = batchRow[SepaDebitBatchTable.sequenceType],
@@ -1175,7 +1177,7 @@ class SepaService(
             // substitute for this synchronous check (the poller is disabled by default). Mandates
             // locked forUpdate(), ordered by id -- same deadlock-avoidance discipline
             // createDebitBatch/prepareBatchFileGeneration already apply to their own mandate locks.
-            val today = DbClock.nowLocalDateTime().date
+            val today = OrganizationTimeZone.today()
             val submitMandateIds = items.map { it[SepaDebitItemTable.mandateId] }.distinct().sortedBy { it.toString() }
             val lockedSubmitMandates =
                 if (submitMandateIds.isEmpty()) {
@@ -1513,7 +1515,7 @@ class SepaService(
         val current = resolveCurrentMember(call)
         current.requireRole(*SEPA_TREASURY_ROLES)
         requireSepaUsable()
-        val today = DbClock.nowLocalDateTime().date
+        val today = OrganizationTimeZone.today()
         if (input.returnedAt > today) throw ConflictException("Das Rueckgabedatum darf nicht in der Zukunft liegen.")
         val returnFee = input.returnFee
         if (returnFee != null && (returnFee.signum() <= 0 || returnFee.scale() > 2)) {
@@ -1956,7 +1958,7 @@ class SepaService(
 
     /** Selection logic shared by [previewDebitBatch] and [createDebitBatch]. Purely read-only. */
     private fun buildPreview(input: SepaDebitBatchInput): SepaDebitBatchPreviewDto {
-        val today = DbClock.nowLocalDateTime().date
+        val today = OrganizationTimeZone.today()
         val tierId = input.membershipTierId?.toSepaTierUuid()
         val relevantStatuses = (ContributionStatusSets.OUTSTANDING + ContributionStatusSets.DEBIT_IN_FLIGHT).toList()
         val conditions =

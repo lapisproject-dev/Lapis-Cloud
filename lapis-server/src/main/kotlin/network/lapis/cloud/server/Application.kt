@@ -255,6 +255,7 @@ import network.lapis.cloud.server.rpc.MemberPublicProfileService
 import network.lapis.cloud.server.rpc.MemberService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
+import network.lapis.cloud.server.rpc.OrganizationTimeZoneService
 import network.lapis.cloud.server.rpc.PaymentGatewayService
 import network.lapis.cloud.server.rpc.PeerTransferService
 import network.lapis.cloud.server.rpc.PingService
@@ -333,6 +334,7 @@ import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+import network.lapis.cloud.shared.rpc.IOrganizationTimeZoneService
 import network.lapis.cloud.shared.rpc.IPaymentGatewayService
 import network.lapis.cloud.shared.rpc.IPeerTransferService
 import network.lapis.cloud.shared.rpc.IPingService
@@ -1762,6 +1764,7 @@ internal fun Application.module(
             )
         }
         registerService(IOrganizationSettingsService::class) { call -> OrganizationSettingsService(call) }
+        registerService(IOrganizationTimeZoneService::class) { call -> OrganizationTimeZoneService(call) }
         registerService(
             IPostalMailService::class,
         ) { call -> PostalMailService(call = call, storageRoot = documentStorageRoot, postalMailProvider = postalMailProvider) }

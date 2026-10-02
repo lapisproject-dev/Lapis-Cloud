@@ -622,8 +622,8 @@ class ConferenceServiceTest :
                 val creatorJoin = client.post("/test/join-room?roomId=$roomId") { header("X-Member-Id", creator.toString()) }
                 val creatorExpiresAt = LocalDateTime.parse(creatorJoin.bodyAsText().split("|")[7])
                 val creatorTtlMinutes =
-                    creatorExpiresAt.toInstant(TimeZone.currentSystemDefault()).epochSeconds -
-                        DbClock.nowLocalDateTime().toInstant(TimeZone.currentSystemDefault()).epochSeconds
+                    creatorExpiresAt.toInstant(TimeZone.UTC).epochSeconds -
+                        DbClock.nowLocalDateTime().toInstant(TimeZone.UTC).epochSeconds
                 // Close to 240min (240*60=14400s) -- generous tolerance for test wall-clock jitter,
                 // never anywhere near the 15min guest bound below.
                 (creatorTtlMinutes > 14000) shouldBe true
@@ -640,8 +640,8 @@ class ConferenceServiceTest :
                 guestParts[6] shouldBe "true" // hasTurnServers -- guest gets a TURN credential too, same short TTL
                 val guestExpiresAt = LocalDateTime.parse(guestParts[7])
                 val guestTtlSeconds =
-                    guestExpiresAt.toInstant(TimeZone.currentSystemDefault()).epochSeconds -
-                        DbClock.nowLocalDateTime().toInstant(TimeZone.currentSystemDefault()).epochSeconds
+                    guestExpiresAt.toInstant(TimeZone.UTC).epochSeconds -
+                        DbClock.nowLocalDateTime().toInstant(TimeZone.UTC).epochSeconds
                 // 15min = 900s -- generous tolerance for test wall-clock jitter, but must stay far
                 // below the AKTIV creator's ~14400s above.
                 (guestTtlSeconds in 0..1200) shouldBe true
@@ -2752,6 +2752,6 @@ private fun ConferenceGuestJoinInfoDto.toPipeString(): String =
     "$roomId|$title|$allowsFederationGuests|$roomActive|$organizationName|$createdByMemberId|$callerIsGuest|${disclaimer.version}|${disclaimer.sha256}"
 
 private fun LocalDateTime.minusSecondsForTest(seconds: Int): LocalDateTime {
-    val zone = TimeZone.currentSystemDefault()
+    val zone = TimeZone.UTC
     return toInstant(zone).minus(seconds.seconds).toLocalDateTime(zone)
 }

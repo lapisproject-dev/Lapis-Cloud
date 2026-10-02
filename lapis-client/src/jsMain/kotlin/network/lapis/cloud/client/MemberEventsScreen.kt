@@ -12,8 +12,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
@@ -23,7 +21,6 @@ import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.rpc.IEventService
 import org.w3c.dom.url.URL
-import kotlin.time.Clock
 
 /** The RPC surface the member event screen needs -- an interface so DOM tests can drive it without a server. Exceptions propagate. */
 internal interface MemberEventsRpc {
@@ -124,7 +121,7 @@ internal fun isSafeHttpsRedirect(url: String): Boolean {
     return parsed.protocol == "https:" && parsed.username.isEmpty() && parsed.password.isEmpty() && parsed.hostname.isNotEmpty()
 }
 
-internal fun clientNow(): LocalDateTime = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+internal fun clientNow(): LocalDateTime = organizationNow()
 
 private fun ownStatusLabel(status: EventRegistrationStatus): String? =
     when (status) {

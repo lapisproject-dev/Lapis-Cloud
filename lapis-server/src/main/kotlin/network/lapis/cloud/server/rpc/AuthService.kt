@@ -14,6 +14,7 @@ import network.lapis.cloud.server.security.extractSessionToken
 import network.lapis.cloud.server.security.memberVisibility
 import network.lapis.cloud.server.security.resolveChapterScopeRef
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
@@ -165,6 +166,7 @@ class AuthService internal constructor(
             regionalChaptersExist = sessionExtras.regionalChaptersExist,
             ownRegionalChapter = sessionExtras.ownRegionalChapter,
             chapterScope = sessionExtras.chapterScope,
+            organizationTimeZone = OrganizationTimeZone.current().id,
         )
     }
 }

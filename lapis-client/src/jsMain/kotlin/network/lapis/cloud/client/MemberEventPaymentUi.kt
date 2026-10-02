@@ -41,7 +41,7 @@ internal fun SimplePanel.renderOwnRefundLine(e: EventDto) {
         if (markedAt == null) {
             tr("Bezahlt – Erstattung noch offen.")
         } else {
-            gettext("Erstattung vom Vorstand als erledigt vermerkt am %1.", formatDate(markedAt.date))
+            gettext("Erstattung vom Vorstand als erledigt vermerkt am %1.", formatDate(systemDate(markedAt)))
         }
     div(text) { addCssClasses("text-muted small") }
 }

@@ -2,7 +2,6 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
@@ -25,6 +24,8 @@ import network.lapis.cloud.server.security.isCommitteeLeaderAnywhere
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requirePollReader
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.PollCreateInput
@@ -92,12 +93,13 @@ class PollService(
         return transaction {
             if (!current.canCreatePolls()) throw ForbiddenException()
             val now = nowLocalDateTime()
-            val validated = validateCreateInput(input = input, now = now)
+            val wallNow = wallNow()
+            val validated = validateCreateInput(input = input, wallNow = wallNow)
 
             // Global mutex for the open-poll cap: without it two concurrent creates both read "19 open"
             // and both insert. Taken BEFORE the inserts and the audit row (lock order, see class KDoc).
             OrganizationSettingsTable.selectAll().forUpdate().single()
-            val openCount = PollTable.selectAll().where { effectiveOpenPredicate(now) }.count()
+            val openCount = PollTable.selectAll().where { effectiveOpenPredicate(wallNow) }.count()
             if (openCount >= PollRules.MAX_OPEN_POLLS) {
                 throw ConflictException("The maximum of ${PollRules.MAX_OPEN_POLLS} open polls is reached")
             }
@@ -105,12 +107,12 @@ class PollService(
             val ownOpenCount =
                 PollTable
                     .selectAll()
-                    .where { effectiveOpenPredicate(now) and (PollTable.createdBy eq current.memberId) }
+                    .where { effectiveOpenPredicate(wallNow) and (PollTable.createdBy eq current.memberId) }
                     .count()
             if (ownOpenCount >= PollRules.MAX_OPEN_POLLS_PER_CREATOR) {
                 throw ConflictException("You may have at most ${PollRules.MAX_OPEN_POLLS_PER_CREATOR} open polls")
             }
-            val zone = TimeZone.currentSystemDefault()
+            val zone = ServerClock.zone
             val windowStart = now.toInstant(zone).minus(PollRules.CREATE_RATE_WINDOW_HOURS.hours).toLocalDateTime(zone)
             val recentCount =
                 PollTable
@@ -156,7 +158,7 @@ class PollService(
                         ),
                     ),
             )
-            loadPolls(ids = listOf(pollId), current = current, now = now).single()
+            loadPolls(ids = listOf(pollId), current = current, wallNow = wallNow).single()
         }
     }
 
@@ -178,7 +180,8 @@ class PollService(
             val row = lockPollRow(pollId)
             if (!canManage(current = current, createdBy = row[PollTable.createdBy])) throw ForbiddenException()
             val now = nowLocalDateTime()
-            if (row.effectivePollStatus(now) != PollStatus.OPEN) throw ConflictException("Poll is not open")
+            val wallNow = wallNow()
+            if (row.effectivePollStatus(wallNow) != PollStatus.OPEN) throw ConflictException("Poll is not open")
             val before = snapshotOf(row = row, effective = PollStatus.OPEN, closedAt = null)
 
             PollTable.update({ PollTable.id eq pollId }) {
@@ -195,7 +198,7 @@ class PollService(
                 before = snapshotJson(before),
                 after = snapshotJson(before.copy(status = target.name, closedAt = now)),
             )
-            loadPolls(ids = listOf(pollId), current = current, now = now).single()
+            loadPolls(ids = listOf(pollId), current = current, wallNow = wallNow).single()
         }
     }
 
@@ -204,7 +207,7 @@ class PollService(
         return transaction {
             current.requirePollReader()
             val id = pollId.toPollIdOrNotFound()
-            loadPolls(ids = listOf(id), current = current, now = nowLocalDateTime()).singleOrNull()
+            loadPolls(ids = listOf(id), current = current, wallNow = wallNow()).singleOrNull()
                 ?: throw NotFoundException("Poll not found")
         }
     }
@@ -218,8 +221,8 @@ class PollService(
         return transaction {
             current.requirePollReader()
             if (offset < 0 || offset > PollRules.MAX_LIST_OFFSET) throw BadRequestException("Invalid offset")
-            val now = nowLocalDateTime()
-            val filter: Op<Boolean> = if (status == null) Op.TRUE else effectiveStatusPredicate(status = status, now = now)
+            val wallNow = wallNow()
+            val filter: Op<Boolean> = if (status == null) Op.TRUE else effectiveStatusPredicate(status = status, wallNow = wallNow)
             val ids =
                 PollTable
                     .selectAll()
@@ -228,7 +231,7 @@ class PollService(
                     .limit(limit.coerceIn(1, PollRules.MAX_LIST_LIMIT))
                     .offset(offset.toLong())
                     .map { it[PollTable.id] }
-            loadPolls(ids = ids, current = current, now = now)
+            loadPolls(ids = ids, current = current, wallNow = wallNow)
         }
     }
 
@@ -239,7 +242,7 @@ class PollService(
             val id = pollId.toPollIdOrNotFound()
             val row = PollTable.selectAll().where { PollTable.id eq id }.singleOrNull() ?: throw NotFoundException("Poll not found")
             // ABORTED is NOT closed: an aborted poll's responses are never disclosed.
-            if (row.effectivePollStatus(nowLocalDateTime()) != PollStatus.CLOSED) throw ConflictException("Poll is not closed")
+            if (row.effectivePollStatus(wallNow()) != PollStatus.CLOSED) throw ConflictException("Poll is not closed")
 
             val optionIds =
                 PollOptionTable
@@ -295,7 +298,7 @@ class PollService(
                     pollRows = listOf(row),
                     memberId = current.memberId,
                     eligible = current.isActiveMemberNow(),
-                    now = nowLocalDateTime(),
+                    wallNow = wallNow(),
                 ).getValue(id)
         }
     }
@@ -315,7 +318,7 @@ class PollService(
                     pollRows = rows,
                     memberId = current.memberId,
                     eligible = current.isActiveMemberNow(),
-                    now = nowLocalDateTime(),
+                    wallNow = wallNow(),
                 )
             // Unknown ids are left out; the request's order is kept.
             ids.mapNotNull { byId[it] }
@@ -334,7 +337,7 @@ class PollService(
             // closed_at, and concurrent casts of one member serialise. `now` is taken AFTER the lock.
             val pollRow = lockPollRow(pollId)
             val now = nowLocalDateTime()
-            if (pollRow.effectivePollStatus(now) != PollStatus.OPEN) throw ConflictException("Poll is not open")
+            if (pollRow.effectivePollStatus(wallNow()) != PollStatus.OPEN) throw ConflictException("Poll is not open")
             val optionBelongs =
                 PollOptionTable
                     .selectAll()
@@ -394,7 +397,7 @@ class PollService(
 
     private fun validateCreateInput(
         input: PollCreateInput,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
     ): ValidatedCreate {
         // Bound the work before any per-element processing.
         if (input.options.size > PollRules.MAX_OPTIONS) {
@@ -424,9 +427,11 @@ class PollService(
         }
         val closesAt = input.closesAt?.truncatedToDbPrecision()
         if (closesAt != null) {
-            val zone = TimeZone.currentSystemDefault()
-            val earliest = now.toInstant(zone).plus(PollRules.MIN_DEADLINE_LEAD_MINUTES.minutes).toLocalDateTime(zone)
-            val latest = now.toInstant(zone).plus(PollRules.MAX_DEADLINE_DAYS.days).toLocalDateTime(zone)
+            // closesAt is a wall-clock in the organization zone, so the window is measured on that wall-clock
+            // too (the lead/max spans are added as instants in that zone, so a DST change inside the span is honoured).
+            val zone = OrganizationTimeZone.current()
+            val earliest = wallNow.toInstant(zone).plus(PollRules.MIN_DEADLINE_LEAD_MINUTES.minutes).toLocalDateTime(zone)
+            val latest = wallNow.toInstant(zone).plus(PollRules.MAX_DEADLINE_DAYS.days).toLocalDateTime(zone)
             if (closesAt < earliest || closesAt > latest) {
                 throw BadRequestException(
                     "The deadline must be between ${PollRules.MIN_DEADLINE_LEAD_MINUTES} minutes and " +
@@ -475,7 +480,7 @@ class PollService(
     private fun loadPolls(
         ids: List<Uuid>,
         current: CurrentMember,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
     ): List<PollDto> {
         if (ids.isEmpty()) return emptyList()
         val rows = PollTable.selectAll().where { PollTable.id inList ids }.associateBy { it[PollTable.id] }
@@ -491,6 +496,7 @@ class PollService(
                         text = it[PollOptionTable.text],
                     )
                 }
+        val orgZone = OrganizationTimeZone.current()
         val creatorIds = rows.values.map { it[PollTable.createdBy] }.distinct()
         val names =
             MemberTable
@@ -499,7 +505,7 @@ class PollService(
                 .associate { it[MemberTable.id] to it[MemberTable.displayName] }
         // The response count is disclosed only for effectively CLOSED polls (never while OPEN, never for
         // ABORTED) -- a live counter would let an observer tie a click to a participation.
-        val closedIds = rows.values.filter { it.effectivePollStatus(now) == PollStatus.CLOSED }.map { it[PollTable.id] }
+        val closedIds = rows.values.filter { it.effectivePollStatus(wallNow) == PollStatus.CLOSED }.map { it[PollTable.id] }
         val counts: Map<Uuid, Int> =
             if (closedIds.isEmpty()) {
                 emptyMap()
@@ -515,7 +521,7 @@ class PollService(
         val leaderAnywhere by lazy { current.isCommitteeLeaderAnywhere() }
         return ids.mapNotNull { id ->
             val row = rows[id] ?: return@mapNotNull null
-            val status = row.effectivePollStatus(now)
+            val status = row.effectivePollStatus(wallNow)
             val responseCount = if (status == PollStatus.CLOSED) counts[id] ?: 0 else null
             val creator = row[PollTable.createdBy]
             PollDto(
@@ -527,7 +533,7 @@ class PollService(
                 createdAt = row[PollTable.createdAt],
                 createdByDisplayName = names[creator].orEmpty(),
                 closesAt = row[PollTable.closesAt],
-                closedAt = row.effectiveClosedAt(now),
+                closedAt = row.effectiveClosedAt(wallNow = wallNow, orgZone = orgZone),
                 binding = false,
                 resultAvailable = responseCount != null && responseCount >= PollRules.MIN_RESPONSES_FOR_RESULT,
                 responseCount = responseCount,
@@ -545,6 +551,9 @@ class PollService(
         }.getOrElse { throw BadRequestException("Invalid option") }
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
+
+    /** Class-B "now" for comparisons against `closes_at`: the wall-clock in the organization zone. */
+    private fun wallNow(): LocalDateTime = ServerClock.nowIn(OrganizationTimeZone.current())
 }
 
 /** SQLState of a unique-constraint violation (Postgres and H2). */

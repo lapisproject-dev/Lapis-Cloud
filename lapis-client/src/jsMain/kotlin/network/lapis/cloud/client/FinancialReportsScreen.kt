@@ -17,8 +17,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AnnualFinancialStatementDto
 import network.lapis.cloud.shared.domain.BalanceSheetDto
@@ -26,7 +24,6 @@ import network.lapis.cloud.shared.domain.DatevExportPreviewDto
 import network.lapis.cloud.shared.domain.IncomeStatementDto
 import network.lapis.cloud.shared.domain.StatementLineDto
 import network.lapis.cloud.shared.rpc.IAccountingService
-import kotlin.time.Clock
 
 /**
  * Accounting UI wave, screen 2 of 5 -- "Finanzberichte" (GuV / Bilanz / Jahresabschluss), per the
@@ -467,15 +464,6 @@ fun balancedColor(balanced: Boolean): String = if (balanced) "success" else "dan
 
 /** Mirrors `LedgerScreen.kt`'s own private `todayIso()` -- no shared date-util file exists in this
  * client (each screen that needs "today as JJJJ-MM-TT" carries its own copy). */
-private fun todayIso(): String =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date
-        .toString()
+private fun todayIso(): String = organizationToday().toString()
 
-private fun currentYear(): Int =
-    Clock.System
-        .now()
-        .toLocalDateTime(TimeZone.currentSystemDefault())
-        .date.year
+private fun currentYear(): Int = organizationToday().year

@@ -18,6 +18,12 @@ kotlin {
 
 application {
     mainClass.set("network.lapis.cloud.server.ApplicationKt")
+    // V1.9.38: pin the JVM default zone to UTC in the generated start script (DEFAULT_JVM_OPTS). Defence in depth next to
+    // `ENV TZ=UTC` in the Dockerfile and `TZ: UTC` in the compose files: a `JAVA_TOOL_OPTIONS` set by an operator would
+    // silently replace a Dockerfile `ENV JAVA_TOOL_OPTIONS`, but it cannot remove an argument baked into the script.
+    // The server code does not depend on it (ServerClock.zone is a constant UTC) -- this only keeps third-party
+    // libraries that read the default zone consistent with the storage zone.
+    applicationDefaultJvmArgs = listOf("-Duser.timezone=UTC")
 }
 
 dependencies {
@@ -225,6 +231,12 @@ fun Test.configureLapisTestJvm() {
     // to trigger the first DNS resolution. Test-JVM-only; a real server process never has this set.
     systemProperty("sun.net.inetaddr.ttl", "0")
     systemProperty("sun.net.inetaddr.negative.ttl", "0")
+    // V1.9.38: `-PtestTimeZone=Europe/Berlin` runs the whole suite with a non-UTC process zone (JVM default zone AND the
+    // `TZ` environment variable), proving that no server code path depends on the environment's zone.
+    providers.gradleProperty("testTimeZone").orNull?.let { zoneId ->
+        systemProperty("user.timezone", zoneId)
+        environment("TZ", zoneId)
+    }
 }
 
 tasks.test {

@@ -23,6 +23,7 @@ import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.mail.FinTsReauthNotificationMailer
 import network.lapis.cloud.server.payment.bankstatement.BankStatementImportService
 import network.lapis.cloud.server.payment.bankstatement.BankStatementRejectedException
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WEBHOOK_NOTIFICATION_MAX_RECIPIENTS
 import network.lapis.cloud.server.webhook.WebhookUrlCheck
 import network.lapis.cloud.server.webhook.boardAndAdminMemberEmails
@@ -181,7 +182,7 @@ internal class FinTsPoller(
         // problem with a non-null but very old watermark), requesting a window the bank is likely to
         // reject -- which would then never self-heal, because only a SUCCESSFUL fetch
         // (handleMt940) ever advances the watermark.
-        val oldestAllowedFrom = now.date.minus(config.fetchWindowDays, DateTimeUnit.DAY)
+        val oldestAllowedFrom = OrganizationTimeZone.dateOf(now).minus(config.fetchWindowDays, DateTimeUnit.DAY)
         val watermark = row[BankAccountTable.fintsLastFetchTo]
         // Review fix (MEDIUM, follow-up to the watermark-floor fix above): the floor above silently
         // widened the gap between an old watermark and `oldestAllowedFrom` -- a fetch that then
@@ -194,7 +195,7 @@ internal class FinTsPoller(
         // skipped statements remains a manual re-import, same as before this fix.
         val fetchWindowGapDetected = watermark != null && watermark < oldestAllowedFrom
         val from = if (watermark == null || watermark < oldestAllowedFrom) oldestAllowedFrom else watermark
-        val to = now.date
+        val to = OrganizationTimeZone.dateOf(now)
         if (fetchWindowGapDetected) {
             logger.warn {
                 "FinTsPoller: account $bankAccountId watermark ($watermark) is older than the " +

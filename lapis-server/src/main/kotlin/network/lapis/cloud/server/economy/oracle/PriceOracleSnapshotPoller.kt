@@ -8,12 +8,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.PriceOracleConfigTable
 import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.rpc.PRICE_ORACLE_CONFIG_ID
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AnchorAsset
 import network.lapis.cloud.shared.domain.AnchorPolicy
 import network.lapis.cloud.shared.domain.PriceOracleConfigDto
@@ -155,7 +155,7 @@ class PriceOracleSnapshotPoller(
             is QuoteOutcome.Ok -> {
                 val priceTimestampLocal =
                     outcome.quote.priceTimestamp
-                        .toLocalDateTime(TimeZone.currentSystemDefault())
+                        .toLocalDateTime(ServerClock.zone)
                         .truncatedToDbPrecision()
                 val wrote =
                     PriceOracleSnapshotStore.recordIfAbsent(

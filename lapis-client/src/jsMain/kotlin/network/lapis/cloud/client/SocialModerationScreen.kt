@@ -135,7 +135,7 @@ private fun renderReportRow(
     headerRow.typeBadge(socialPostReportCategoryLabel(report.category), "secondary")
     headerRow.statusBadge(socialPostReportStatusLabel(report.status), socialPostReportStatusColor(report.status))
     headerRow.div(
-        gettext("gemeldet am %1", formatDateTime(report.reportedAt)),
+        gettext("gemeldet am %1", formatSystemDateTime(report.reportedAt)),
     ) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(gettext("Beitrag: %1", report.postExcerpt)) { addCssClasses("small") }
@@ -281,7 +281,7 @@ private fun renderErasureRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(socialPostErasureStatusLabel(erasure.status), socialPostErasureStatusColor(erasure.status))
     headerRow.div(
-        gettext("beantragt am %1", formatDateTime(erasure.requestedAt)),
+        gettext("beantragt am %1", formatSystemDateTime(erasure.requestedAt)),
     ) { addCssClasses("flex-grow-1 text-muted small") }
 
     row.div(gettext("Begründung: %1", erasure.reason)) { addCssClasses("small") }

@@ -216,9 +216,9 @@ class ConferenceNotesTeardownTest :
                 val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
                 val backdated =
                     row[ConferenceRoomTable.createdAt]
-                        .toInstant(TimeZone.currentSystemDefault())
+                        .toInstant(TimeZone.UTC)
                         .minus(400.seconds)
-                        .toLocalDateTime(TimeZone.currentSystemDefault())
+                        .toLocalDateTime(TimeZone.UTC)
                 ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[createdAt] = backdated }
             }
             liveKit.forgetRoom(livekitRoomName)

@@ -39,19 +39,17 @@ import kotlinx.datetime.number
  * covered by `T5b`/`T5b-λ` -- `DsgvoRightsScreen.kt`'s `erasureDecidedCaption` is one confirmed, deliberately
  * left-open instance (see the guideline's W7 section, Tesler-named follow-up).
  *
- * **No `Instant`, no zone conversion, no zone suffix.** Every persisted time field in `lapis-shared` is
- * [LocalDate] or [LocalDateTime] -- there is not a single `Instant` field on the wire (verified:
- * `grep -rn ": Instant\b" lapis-shared/src/commonMain/kotlin` -> 0 hits). A `LocalDateTime` here is the
- * WALL-CLOCK TIME OF THE SERVER PROCESS (`DbClock.nowLocalDateTime`, stamped with
- * `TimeZone.currentSystemDefault()`), not a UTC instant with the zone stripped -- there is no zone
- * information anywhere to convert FROM. Formatting therefore never touches `toInstant`, `TimeZone` or
- * `Clock` (enforced by the `T4` rule of `ClientTemporalFormatTripwireTest`, the temporal sibling of
- * `ClientMoneyFormatTripwireTest`'s M1-M6 for `Money.kt` -- T4 scans this very file's source for those
- * three identifiers, so it fails the moment this docstring's claim stops being true): the components of the value
- * are rendered exactly as they arrived, in the reader's UI language, never re-interpreted against a
- * browser zone that would silently disagree with the value the server actually stored (W8, a later wave,
- * replaces the storage type with `Instant`; until then a displayed zone suffix would be a claim this app
- * cannot back up).
+ * **No `Instant`, no zone conversion, no zone suffix -- in THIS file.** Every persisted time field in `lapis-shared` is
+ * [LocalDate] or [LocalDateTime]; there is not a single `Instant` field on the wire. Since V1.9.38 a `LocalDateTime` is one of
+ * two kinds (see `docs/architecture/time-and-timezones.adoc` and `OrganizationTime.kt`):
+ *   - **class B**, a wall-clock typed in by a person in the organization's zone (`startsAt`, `closesAt`, `scheduledAt`, ...):
+ *     rendered by THIS file exactly as it arrived.
+ *   - **class A**, a system timestamp the server stamped, stored and sent as UTC (`createdAt`, `postedAt`, `expiresAt`, ...):
+ *     converted to the organization's zone by `OrganizationTime.kt` (`formatSystemDateTime`, `systemDateTimeToken`, ...) and
+ *     THEN rendered by this file. This file still never converts anything itself (enforced by the `T4` rule of
+ *     `ClientTemporalFormatTripwireTest`, which scans this very file's source for `toInstant`, `TimeZone` and `Clock`);
+ *     which of the two a field is lives in `lapis-server/src/test/resources/time-fields.tsv`, and
+ *     `ClientSystemTimestampTripwireTest` fails the build when a class-A field is rendered here without the conversion.
  *
  * **Display vs. machine-readable**, exactly as in [Money.kt]: everything below is DISPLAY. What prefills
  * a field, is compared against an entered value, or is used as a lexicographic SORT KEY stays the

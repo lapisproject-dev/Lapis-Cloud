@@ -141,7 +141,7 @@ private fun renderPartnerRows(
         if (unread) toggle.addCssClass("fw-bold")
         toggle.setAttribute("aria-expanded", "false")
         head.add(toggle)
-        head.div(formatDateTime(partner.lastActivityAt)) { addCssClasses("text-muted small") }
+        head.div(formatSystemDateTime(partner.lastActivityAt)) { addCssClasses("text-muted small") }
         if (unread) head.statusBadge(unreadPartnerBadge(partner.unreadCount), "primary")
         val body = card.vPanel(spacing = 6)
         rows[partner.partnerId] = PartnerRow(toggle, body)

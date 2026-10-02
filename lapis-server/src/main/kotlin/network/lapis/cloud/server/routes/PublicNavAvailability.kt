@@ -4,9 +4,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.articles.ArticleStore
-import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
@@ -62,7 +62,7 @@ internal data class PublicNavAvailability(
  * Runs its own `transaction {}` -- never call this from inside another open transaction (see
  * [PublicNavAvailabilityProvider.current] KDoc "S2, keine verschachtelte Transaktion").
  */
-internal fun loadPublicNavAvailability(now: LocalDateTime = DbClock.nowLocalDateTime()): PublicNavAvailability =
+internal fun loadPublicNavAvailability(wallNow: LocalDateTime = OrganizationTimeZone.wallNow()): PublicNavAvailability =
     transaction {
         PublicNavAvailability(
             articles =
@@ -78,7 +78,7 @@ internal fun loadPublicNavAvailability(now: LocalDateTime = DbClock.nowLocalDate
                     .where {
                         (EventTable.visibility eq EventVisibility.PUBLIC) and
                             (EventTable.status eq EventStatus.PUBLISHED) and
-                            (EventTable.endsAt greater now)
+                            (EventTable.endsAt greater wallNow)
                     }.limit(1)
                     .empty()
                     .not(),

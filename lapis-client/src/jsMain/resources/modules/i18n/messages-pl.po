@@ -19355,3 +19355,27 @@ msgstr "Nie wszyscy członkowie są wyświetlani – użyj wyszukiwania."
 
 msgid "Die Antwort konnte nicht gesendet werden."
 msgstr "Nie udało się wysłać odpowiedzi."
+
+msgid "Zeitzone der Organisation"
+msgstr "Strefa czasowa organizacji"
+
+msgid "Eingetragene Termine und Fristen bleiben unverändert. Systemzeitstempel und der Kalender-Feed werden in der neuen Zeitzone angezeigt."
+msgstr "Wprowadzone terminy i daty graniczne pozostają bez zmian. Znaczniki czasu systemu i kanał kalendarza są wyświetlane w nowej strefie czasowej."
+
+msgid "Jetzt: %1"
+msgstr "Teraz: %1"
+
+msgid "Unbekannte Zeitzone"
+msgstr "Nieznana strefa czasowa"
+
+msgid "Wiederkehrende Veranstaltungen verwenden weiterhin Europe/Berlin."
+msgstr "Wydarzenia cykliczne nadal używają Europe/Berlin."
+
+msgid "Zeitzone gespeichert."
+msgstr "Strefa czasowa zapisana."
+
+msgid "MEZ"
+msgstr "CET"
+
+msgid "MESZ"
+msgstr "CEST"

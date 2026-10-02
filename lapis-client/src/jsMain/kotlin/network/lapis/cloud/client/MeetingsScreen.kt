@@ -820,7 +820,7 @@ fun renderResolutionRow(
             resolution.votesNo,
             resolution.votesAbstain,
             if (resolution.quorumMet) gettext("erreicht") else gettext("nicht erreicht"),
-            formatDateTime(resolution.decidedAt),
+            formatSystemDateTime(resolution.decidedAt),
             resolution.recordedByDisplayName,
         ),
     ) { addCssClasses("text-muted small") }
@@ -993,7 +993,7 @@ private fun renderProtocolPreview(
 
     renderQuorumRow(printArea, draft.quorum)
     printArea.div(
-        gettext("Entwurf erstellt am %1", formatDateTime(draft.generatedAt)),
+        gettext("Entwurf erstellt am %1", formatSystemDateTime(draft.generatedAt)),
     ) { addCssClasses("text-muted small mt-2") }
 
     val printButton = panel.button(tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)

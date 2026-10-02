@@ -1,11 +1,8 @@
 package network.lapis.cloud.server.pdf
 
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import java.math.BigDecimal
-import kotlin.time.Clock
 
 /**
  * Welle V1.4.3.6 "Externe Rechnungsstellung für Veranstaltungen" -- the invoice PDF for
@@ -49,11 +46,7 @@ internal object EventInvoicePdfGenerator {
                 billingCountry = billingCountry,
             ),
         )
-        val today =
-            Clock.System
-                .now()
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .date
+        val today = pdfIssueDate()
         builder.dateLine(place = organization.city ?: organization.name, date = today)
         builder.heading("Rechnung")
         builder.paragraph(

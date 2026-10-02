@@ -3,8 +3,6 @@ package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.conference.SecretBallotStreamGuard
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
@@ -27,6 +25,7 @@ import network.lapis.cloud.server.security.canStandAsCandidate
 import network.lapis.cloud.server.security.isElectionBoard
 import network.lapis.cloud.server.security.isElectionBoardMember
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CandidacyDto
 import network.lapis.cloud.shared.domain.CandidacyInput
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -67,7 +66,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.security.SecureRandom
 import java.util.Base64
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -824,11 +822,7 @@ class ElectionService(
                     val targetCommitteeType =
                         CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.single()[CommitteeTable.type]
                     val candidacyIdByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.candidacyId] }
-                    val today =
-                        Clock.System
-                            .now()
-                            .toLocalDateTime(TimeZone.currentSystemDefault())
-                            .date
+                    val today = OrganizationTimeZone.today()
                     effectiveWinnerOptionIds.forEach { winnerOptionId ->
                         val candidacyId =
                             candidacyIdByOptionId[winnerOptionId]

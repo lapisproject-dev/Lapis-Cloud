@@ -3,7 +3,6 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.conference.ConferenceConfig
@@ -21,6 +20,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentInput
 import network.lapis.cloud.shared.domain.ConferenceBreakoutPlanInput
@@ -311,9 +311,9 @@ class ConferenceBreakoutService(
                         // secondary, semantically meaningless `id` (random UUID) tiebreak instead.
                         it[createdAt] =
                             now
-                                .toInstant(TimeZone.currentSystemDefault())
+                                .toInstant(ServerClock.zone)
                                 .plus(index.milliseconds)
-                                .toLocalDateTime(TimeZone.currentSystemDefault())
+                                .toLocalDateTime(ServerClock.zone)
                         it[closedAt] = null
                     }
                 }
@@ -811,7 +811,7 @@ class ConferenceBreakoutService(
             identity = memberId.toString(),
             displayName = displayName,
             role = role,
-            expiresAt = minted.expiresAt.toLocalDateTime(TimeZone.currentSystemDefault()),
+            expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
             turnServers = turnServers,
         )
     }

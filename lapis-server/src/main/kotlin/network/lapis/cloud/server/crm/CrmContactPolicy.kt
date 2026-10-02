@@ -82,7 +82,8 @@ object CrmContactPolicy {
      * screen). Mirrors the CHECK constraints in `V17__crm_contacts.sql` (the DB is the backstop,
      * this is the friendlier first gate with a real message).
      *
-     * [now] is the caller's [network.lapis.cloud.server.db.DbClock] snapshot, passed in rather
+     * [wallNow] is the organization-zone wall-clock (class B, `OrganizationTimeZone.wallNowOf(DbClock...)`) -- the
+     * typed-in `consentGivenAt`/`occurredAt` are wall-clocks, never compare them with a UTC stamp (V1.9.38). Passed in rather
      * than read here -- same posture [validateInteraction] already established, kept pure/unit-
      * testable. Guards a future [CrmContactInput.consentGivenAt]: without this, an operator typo
      * (wrong year, e.g. "2036" instead of "2026") is accepted verbatim, immediately flips
@@ -92,7 +93,7 @@ object CrmContactPolicy {
      */
     fun validate(
         input: CrmContactInput,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
     ) {
         if (input.displayName.isBlank()) {
             throw BadRequestException("Name darf nicht leer sein.")
@@ -124,7 +125,7 @@ object CrmContactPolicy {
         // module (`lapis-shared`), so Kotlin cannot smart-cast the property access itself across
         // the module boundary even after the null check above.
         val consentGivenAt = input.consentGivenAt
-        if (consentGivenAt != null && consentGivenAt > now) {
+        if (consentGivenAt != null && consentGivenAt > wallNow) {
             throw BadRequestException("Zeitpunkt der Einwilligung darf nicht in der Zukunft liegen.")
         }
         if (input.externalDonorId != null && input.memberId != null) {
@@ -135,7 +136,7 @@ object CrmContactPolicy {
     /**
      * Server-side validation for [CrmInteractionInput] -- mirrors [validate]'s posture: the
      * authority, independent of the client-side pre-check `CrmContactsScreen.kt`'s capture form
-     * already does. [now] is the caller's [network.lapis.cloud.server.db.DbClock] snapshot, passed
+     * already does. [wallNow] is the organization-zone wall-clock (class B, see [validate]), passed
      * in rather than read here, so this function stays pure/unit-testable like every other one in
      * this object.
      *
@@ -146,7 +147,7 @@ object CrmContactPolicy {
      */
     fun validateInteraction(
         input: CrmInteractionInput,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
     ) {
         val trimmedSummary = input.summary.trim()
         if (trimmedSummary.isBlank()) {
@@ -154,7 +155,7 @@ object CrmContactPolicy {
         }
         requireMaxLength(value = trimmedSummary, maxLength = MAX_INTERACTION_SUMMARY_LENGTH, fieldLabel = "Notiz")
         val occurredAt = input.occurredAt
-        if (occurredAt != null && occurredAt > now) {
+        if (occurredAt != null && occurredAt > wallNow) {
             throw BadRequestException("Zeitpunkt darf nicht in der Zukunft liegen.")
         }
     }

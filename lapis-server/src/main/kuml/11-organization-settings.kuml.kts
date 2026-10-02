@@ -122,6 +122,14 @@
 // `network.lapis.cloud.server.PublicTransparencyReader.loadStats` includes the active member
 // count at all -- when FALSE, the count is not even queried, not merely hidden in the renderer
 // (see that class's KDoc for the "hiding must not happen only in the renderer" rationale).
+// **Welle V1.9.38 "Einheitliche Zeitzonen"** adds one field: `timezone` -- the IANA zone id of the
+// organization (NOT NULL, defaults to 'Europe/Berlin', so every existing instance keeps today's
+// behaviour). It is the zone in which class-B wall-clock values (event times, poll deadlines) are
+// typed in and in which class-A system timestamps (UTC) are displayed. Deliberately NOT part of the
+// generic `updateOrganizationSettings` write-set (mass-assignment guard): settable ONLY through
+// `IOrganizationTimeZoneService.updateOrganizationTimeZone` (ADMIN, validated against an allow-list,
+// audited), because changing it re-interprets the real instant of every open class-B deadline.
+// See docs/architecture/time-and-timezones.adoc.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -427,6 +435,12 @@ classDiagram(name = "OrganizationSettings") {
         attribute(name = "showPublicMemberCount", type = "Boolean") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "show_public_member_count" }
+        }
+        // Welle V1.9.38. IANA zone id, NOT NULL, defaults to 'Europe/Berlin'. NOT part of the generic
+        // updateOrganizationSettings write-set -- see file header addendum.
+        attribute(name = "timezone", type = "String") {
+            defaultValue = "'Europe/Berlin'"
+            stereotype("Column") { "columnName" to "timezone"; "sqlType" to "VARCHAR(64)" }
         }
     }
 }

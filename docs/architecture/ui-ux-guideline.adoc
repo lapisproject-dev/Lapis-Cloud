@@ -1951,3 +1951,21 @@ primary style, "Abbrechen" focused) and rebuild from the DTO the server returned
 the DOM. Self-gated worklists (`EventRefundsSection.kt`) render nothing when empty: no heading, no "nothing here" text.
 `MemberAddressAdminDialog.kt`, `EventRefundsSection.kt`, `MemberEventPaymentUi.kt` and `AuditMarkerLabels.kt` join the strict R24 set without a form.
 
+== V1.9.38 -- Time display
+
+Every displayed `LocalDateTime` has a class in `lapis-server/src/test/resources/time-fields.tsv` (see `docs/architecture/time-and-timezones.adoc`);
+the class decides the formatter, and `ClientSystemTimestampTripwireTest` fails the build when they disagree.
+
+* **System timestamp (class A, `createdAt`, `postedAt`, `expiresAt`, ...)**: `formatSystemDateTime`/`formatSystemTimestamp`, `systemDateTimeSpan`,
+  `systemDateTimeColumn`/`systemTimestampColumn`, `systemDateTimeToken` -- converted to the organization's zone, never shown as UTC. Day grouping uses
+  `systemDate(...)`.
+* **Typed-in wall-clock (class B, `startsAt`, `closesAt`, `scheduledAt`, ...)**: the plain `DateTime.kt` formatters, never converted.
+* **A zone abbreviation** is shown only where "until when" matters across zones: the session expiry on the dashboard and the preview in the zone
+  setting (`formatSystemDateTimeWithZone`, a finished string -- a token is never concatenated with anything, rule T2). Central Europe reads
+  `MEZ`/`MESZ` (`CET`/`CEST` in the other catalogs), every other zone `UTC+4`, `UTC+5:30`, `UTC-3`.
+* **Audit and journal lists** (`systemTimestampColumn(utcTitle = true)`) carry the ISO UTC instant as the cell's hover `title`, so the stored value
+  stays reachable without a second column.
+* Nothing relative ("5 minutes ago") is shown for a system timestamp; "now" and "today" come from `organizationNow()`/`organizationToday()`, never
+  from the browser's zone.
+* The zone setting is a native select (never free text) of the server's allow-list with a live preview and a one-line note about what changes; the
+  form follows the form grammar (label, `required`, single-shot submit) and the card loads through `dataSection`.

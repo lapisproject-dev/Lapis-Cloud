@@ -1,0 +1,41 @@
+= Staging test plan: unified time zones (V1.9.38)
+:toc:
+
+== Purpose
+
+Everything in V1.9.38 is covered by unit, DOM, tripwire and integration tests. What only a real deployment can show: the real calendar
+clients reading the iCal feed, the container's own clock, a real browser in a real zone, and the behaviour after the migration `V67` on real data.
+The plan is the mandatory part of the wave's acceptance. It was **not executed** by the author of the wave: nothing was deployed (the
+staging server belongs to the operator), so every row of "Actual results" below is still open. It is a plan to be run by a person, not a script.
+
+== Set-up
+
+. Staging with this version deployed; `docker exec <server> date` and `docker exec <server> sh -c 'echo $TZ'` show UTC (add `TZ: UTC` to the
+  `lapis-server` service of the instance's compose file first; see "Operator note" in the CHANGELOG).
+. An ADMIN account, a BOARD account and a MEMBER account; the browser (or the operating system) set to a zone *other* than the organization zone
+  for the second pass (for example Asia/Tbilisi while the organization is on Europe/Berlin).
+. One public event on a day in summer and one in winter, both typed in as 20:00; one poll closing today at a time 20 minutes ahead.
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | Log in and open the dashboard | "Sitzung gültig bis" shows the expiry in the organization zone with the abbreviation (for Berlin `MEZ`/`MESZ`), matching the wall clock on the wall
+| 2 | Open the audit log; hover a timestamp | the cell shows the organization time; the hover title shows the same instant in UTC (`...Z`)
+| 3 | Subscribe the calendar `/veranstaltung.ics` in Google Calendar, Apple Calendar and Outlook | the summer event and the winter event both appear at 20:00 local time (not 22:00, not 18:00)
+| 4 | Subscribe a recurring series (weekly, 19:00) and look at the weeks before and after a clock change | every occurrence is at 19:00 local time; a deleted occurrence does not reappear
+| 5 | Let the 20-minutes poll run out while watching the clock | the poll turns "beendet" at the typed-in minute, not one or two hours later
+| 6 | An event that ended 30 minutes ago | not in "Veranstaltungen" (upcoming) and not in the public list
+| 7 | Generate a Spendenbescheinigung or a Beitragsrechnung between 00:00 and 02:00 local time | the date line shows today's local date
+| 8 | As ADMIN open "Mitgliederverwaltung" and the card "Zeitzone der Organisation" | the select lists the common zones first, then all others; the live preview shows "Jetzt: ..." with the abbreviation; the note about recurring events appears for a zone other than Europe/Berlin
+| 9 | Change the zone to Asia/Tbilisi and save | a success toast; the dashboard expiry, audit log and the preview now show UTC+4 times; an audit entry exists (old and new zone); reload keeps it
+| 10 | As BOARD and MEMBER look for the card; call the RPC directly | no card; the RPC answers "Forbidden"
+| 11 | Reset the zone to Europe/Berlin | everything is back; the iCal feed shows the same instants as in step 3
+| 12 | `docker exec <postgres> psql -c "select timezone from organization_settings"` | `Europe/Berlin` after step 11; `V67` is in `flyway_schema_history`
+| 13 | Switch the UI to English and open the dashboard | the abbreviation reads `CET`/`CEST`
+|===
+
+== Actual results
+
+(to be filled in when the plan is run)

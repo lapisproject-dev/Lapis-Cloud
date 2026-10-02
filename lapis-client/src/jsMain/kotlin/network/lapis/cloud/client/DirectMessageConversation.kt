@@ -204,6 +204,6 @@ private fun renderConversationMessage(
     } else {
         entry.untrustedDiv(message.senderDisplayName, className = "fw-bold")
     }
-    entry.div(formatDateTime(message.sentAt)) { addCssClasses("text-muted small") }
+    entry.div(formatSystemDateTime(message.sentAt)) { addCssClasses("text-muted small") }
     entry.untrustedDiv(message.body)
 }

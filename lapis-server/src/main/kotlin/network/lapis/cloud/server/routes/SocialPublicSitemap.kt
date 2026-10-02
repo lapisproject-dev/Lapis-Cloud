@@ -1,10 +1,10 @@
 package network.lapis.cloud.server.routes
 
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.db.generated.SocialPostTable
 import network.lapis.cloud.server.rpc.SocialVisibility
+import network.lapis.cloud.server.time.ServerClock
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
@@ -222,11 +222,11 @@ internal fun xmlEscape(text: String): String =
  * to re-fetch. [network.lapis.cloud.server.db.DbClock] captures with microsecond precision (see its
  * own KDoc), so this loses no information the database doesn't already have.
  *
- * Converted via [TimeZone.currentSystemDefault] -- the SAME zone [DbClock.nowLocalDateTime]'s
+ * Converted via [ServerClock.zone] (UTC) -- the SAME zone [DbClock.nowLocalDateTime]'s
  * default parameter uses to CAPTURE `published_at`/`state_changed_at` in the first place (see
  * `SocialNetworkService`'s write paths), so this is the round-trip inverse of how the value was
  * produced, not an independent assumption about server timezone. [kotlinx.datetime.Instant.toString]
  * always renders in UTC with a trailing `Z`, which is both valid W3C Datetime and independent of
  * which zone this reader/writer pair currently resolves to.
  */
-internal fun LocalDateTime.toW3cDatetime(): String = toInstant(TimeZone.currentSystemDefault()).toString()
+internal fun LocalDateTime.toW3cDatetime(): String = toInstant(ServerClock.zone).toString()

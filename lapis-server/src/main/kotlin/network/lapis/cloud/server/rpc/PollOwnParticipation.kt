@@ -26,7 +26,7 @@ internal object PollOwnParticipation {
         pollRows: List<ResultRow>,
         memberId: Uuid,
         eligible: Boolean,
-        now: LocalDateTime,
+        wallNow: LocalDateTime,
     ): Map<Uuid, PollParticipationDto> {
         if (pollRows.isEmpty()) return emptyMap()
         val ids = pollRows.map { it[PollTable.id] }
@@ -44,7 +44,7 @@ internal object PollOwnParticipation {
                     pollId = id.toString(),
                     eligible = eligible,
                     hasResponded = hasResponded,
-                    canRespond = eligible && !hasResponded && row.effectivePollStatus(now) == PollStatus.OPEN,
+                    canRespond = eligible && !hasResponded && row.effectivePollStatus(wallNow) == PollStatus.OPEN,
                 )
         }
     }

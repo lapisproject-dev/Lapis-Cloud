@@ -97,6 +97,8 @@ private fun renderMemberAdministrationSections(
     // ADMIN-only to CHANGE -- see renderPublicMemberCountToggle KDoc for why this deliberately does
     // NOT mirror renderPoliticianRankingToggle's canAdmin computation (BOARD there IS writable).
     renderPublicMemberCountToggle(root, canAdmin = callerRole == AccountRole.ADMIN)
+    // Welle V1.9.38 "Einheitliche Zeitzonen": ADMIN-only (both RPC methods are), see OrganizationTimeZoneSettings.kt.
+    if (callerRole == AccountRole.ADMIN) renderOrganizationTimeZoneCard(root)
 }
 
 private fun renderPendingApplications(

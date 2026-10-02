@@ -42,6 +42,7 @@ import network.lapis.cloud.server.pdf.EventTicketPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
@@ -162,7 +163,7 @@ internal fun Route.registerEventPublicRoutes(
             // -- `render` itself stays entirely outside any transaction).
             val (rows, seriesData) =
                 transaction {
-                    val loadedRows = EventIcsFeed.loadUpcomingPublicPublished(now = now)
+                    val loadedRows = EventIcsFeed.loadUpcomingPublicPublished(wallNow = OrganizationTimeZone.wallNowOf(now))
                     val loadedSeriesData =
                         EventIcsFeed.loadSeriesRenderData(loadedRows.mapNotNull { it[EventTable.seriesId] })
                     loadedRows to loadedSeriesData
@@ -743,7 +744,7 @@ private fun loadPublicEventView(
                 status = row[EventTable.status],
                 registrationClosesAt = row[EventTable.registrationClosesAt],
                 startsAt = row[EventTable.startsAt],
-                now = now,
+                wallNow = OrganizationTimeZone.wallNowOf(now),
             )
         EventPublicHtml.View(
             title = row[EventTable.title],

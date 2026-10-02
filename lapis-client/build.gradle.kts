@@ -109,6 +109,18 @@ kotlin {
                 // after adding, siehe die livekit-client-Zeile oben für die Begründung.
                 implementation(npm("maplibre-gl", "5.24.0"))
                 implementation(npm("pmtiles", "4.5.0"))
+                // V1.9.38 Einheitliche Zeitzonen: kotlinx-datetime on Kotlin/JS knows only UTC and the browser's own
+                // zone until the zone database of `@js-joda/timezone` is loaded -- without it
+                // `TimeZone.of("Europe/Berlin")` throws in the browser while every JVM test stays green. Loaded by
+                // `OrganizationTime.kt` (`@JsModule` external + a reference from every public function there, because
+                // Kotlin/JS initializes top-level properties lazily). The FULL data set (`dist/js-joda-timezone.js`),
+                // deliberately NOT the `10-year-range`/`1970-2030` variants: those silently compute wrong offsets
+                // outside their window. Exactly 2.23.0 (BSD-3-Clause, tzdata for all years, ~4 MB unpacked): the newest
+                // 2.x whose peer range (`@js-joda/core >=1.11.0`) accepts the 3.2.0 core KVision pulls in -- 2.24+ and
+                // 3.x demand core >=5.7.0, a second core copy in the bundle would break the shared registry.
+                // Requires re-running `./gradlew :lapis-client:kotlinUpgradeYarnLock` after adding and committing
+                // `.kotlin-js-store/yarn.lock`, siehe die `livekit-client`-Zeile oben für die Begründung.
+                implementation(npm("@js-joda/timezone", "2.23.0"))
             }
         }
         // V0.7.3 Basis-Mehrseiten-UI: this module had no jsTest source set at all before this wave

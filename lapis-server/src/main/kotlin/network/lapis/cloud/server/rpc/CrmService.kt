@@ -13,6 +13,7 @@ import network.lapis.cloud.server.dsgvo.DataSubject
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CrmContactDto
 import network.lapis.cloud.shared.domain.CrmContactInput
@@ -82,7 +83,7 @@ class CrmService(
         val current = resolveCurrentMember(call)
         current.requireRole(*CRM_READ_WRITE_ROLES)
         requireWithinRate(limiter = contactWriteRateLimiter, memberId = current.memberId)
-        CrmContactPolicy.validate(input = input, now = DbClock.nowLocalDateTime())
+        CrmContactPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(DbClock.nowLocalDateTime()))
         return transaction { CrmContactStore.create(input = input, createdBy = current.memberId) }
     }
 
@@ -93,7 +94,7 @@ class CrmService(
         val current = resolveCurrentMember(call)
         current.requireRole(*CRM_READ_WRITE_ROLES)
         requireWithinRate(limiter = contactWriteRateLimiter, memberId = current.memberId)
-        CrmContactPolicy.validate(input = input, now = DbClock.nowLocalDateTime())
+        CrmContactPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(DbClock.nowLocalDateTime()))
         return transaction { CrmContactStore.update(id = id.toCrmUuid(), input = input) }
     }
 
@@ -129,7 +130,7 @@ class CrmService(
         val current = resolveCurrentMember(call)
         current.requireRole(*CRM_READ_WRITE_ROLES)
         requireWithinRate(limiter = interactionWriteRateLimiter, memberId = current.memberId)
-        CrmContactPolicy.validateInteraction(input = input, now = DbClock.nowLocalDateTime())
+        CrmContactPolicy.validateInteraction(input = input, wallNow = OrganizationTimeZone.wallNowOf(DbClock.nowLocalDateTime()))
         return transaction { CrmContactStore.recordInteraction(input = input, recordedBy = current.memberId) }
     }
 

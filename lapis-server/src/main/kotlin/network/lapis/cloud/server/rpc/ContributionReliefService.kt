@@ -18,6 +18,7 @@ import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -298,7 +299,7 @@ class ContributionReliefService(
                 // "Due", not merely "has a review date set" -- a REDUCTION with review_due_on far
                 // in the future must not show up as due today just because the column is non-null
                 // (Review finding: the name promises more than an isNotNull()-only filter delivers).
-                val today = DbClock.nowLocalDateTime().date
+                val today = OrganizationTimeZone.today()
                 conditions += ContributionReliefRequestTable.reviewDueOn.isNotNull()
                 conditions += (ContributionReliefRequestTable.reviewDueOn lessEq today)
             }
@@ -548,13 +549,13 @@ class ContributionReliefService(
                     )
                 }
                 val currentDueDate = contributionRow[ContributionTable.dueDate]
-                if (newDueDate <= now.date) throw BadRequestException("deferralNewDueDate must be in the future")
+                if (newDueDate <= OrganizationTimeZone.dateOf(now)) throw BadRequestException("deferralNewDueDate must be in the future")
                 if (newDueDate <=
                     currentDueDate
                 ) {
                     throw BadRequestException("deferralNewDueDate must be after the contribution's current due date")
                 }
-                if (newDueDate > now.date.plus(MAX_DEFERRAL_DAYS.toInt(), DateTimeUnit.DAY)) {
+                if (newDueDate > OrganizationTimeZone.dateOf(now).plus(MAX_DEFERRAL_DAYS.toInt(), DateTimeUnit.DAY)) {
                     throw BadRequestException("deferralNewDueDate must be at most $MAX_DEFERRAL_DAYS days in the future")
                 }
                 ValidatedPayload(deferralContributionId = contributionId, deferralNewDueDate = newDueDate)
@@ -564,7 +565,7 @@ class ContributionReliefService(
                 val from = input.exemptionFrom ?: throw BadRequestException("exemptionFrom is required for kind=EXEMPTION")
                 val until = input.exemptionUntil
                 if (until != null && until < from) throw BadRequestException("exemptionUntil must not be before exemptionFrom")
-                if (from < now.date.minus(MAX_EXEMPTION_BACKDATE_DAYS.toInt(), DateTimeUnit.DAY)) {
+                if (from < OrganizationTimeZone.dateOf(now).minus(MAX_EXEMPTION_BACKDATE_DAYS.toInt(), DateTimeUnit.DAY)) {
                     throw BadRequestException("exemptionFrom must not be more than $MAX_EXEMPTION_BACKDATE_DAYS days in the past")
                 }
                 ValidatedPayload(exemptionFrom = from, exemptionUntil = until)

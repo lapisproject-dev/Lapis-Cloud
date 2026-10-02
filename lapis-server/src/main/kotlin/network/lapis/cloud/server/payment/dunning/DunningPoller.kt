@@ -27,6 +27,7 @@ import network.lapis.cloud.server.postal.PostalMailProvider
 import network.lapis.cloud.server.routes.loadMailmergeMember
 import network.lapis.cloud.server.routes.loadOrganizationSettingsDto
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionPaymentMethod
 import network.lapis.cloud.shared.domain.ContributionStatus
@@ -170,7 +171,8 @@ class DunningPoller(
         try {
             transaction {
                 ContributionTable.update({
-                    (ContributionTable.status eq ContributionStatus.OPEN) and (ContributionTable.dueDate less now.date)
+                    (ContributionTable.status eq ContributionStatus.OPEN) and
+                        (ContributionTable.dueDate less OrganizationTimeZone.dateOf(now))
                 }) {
                     it[status] = ContributionStatus.OVERDUE
                 }
@@ -425,7 +427,7 @@ class DunningPoller(
                             dueDate = row[ContributionTable.dueDate],
                         )
                     val dueOn = referenceDate.plus(nextLevel[DunningLevelTable.graceDays], DateTimeUnit.DAY)
-                    if (dueOn > now.date) return@mapNotNull null
+                    if (dueOn > OrganizationTimeZone.dateOf(now)) return@mapNotNull null
                     contributionId
                 }
             val lastRow = pageRows.last()

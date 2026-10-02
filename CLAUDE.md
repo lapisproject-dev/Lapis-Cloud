@@ -90,3 +90,20 @@ Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prü
 - `kuml-dev/kuml-asciidoc` — Asciidoctor-Extension, die das `[kuml]`-Macro bereitstellt
 - PZB (`gitlab.com/pdv7/pzb`) — Vorgänger-Repo, read-only Referenz für die Neuimplementierung
 - Lapis Net — dezentrales P2P-Schwesterprojekt (eigenes Repo, noch anzulegen)
+
+## Zeiten und Zeitzonen (V1.9.38)
+
+Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
+
+- **Keine implizite Prozesszone.** In `lapis-server/src/main` nie `currentSystemDefault`, `ZoneId.systemDefault` oder `LocalDateTime.now()`:
+  `ServerClock.now()` (UTC-Systemstempel, Klasse A), `ServerClock.nowIn(orgZone)` (Wandzeit der Organisation, Klasse B) oder
+  `ServerClock.todayIn(orgZone)` (Kalenderdatum, Klasse D); `OrganizationTimeZone.wallNow()/today()/wallNowOf(now)/dateOf(now)` liefern die
+  Organisationszone. Ein Test pinnt die Uhr mit `TimeTestSupport.withServerClock("2026-07-01T10:00:00Z") { ... }`.
+- **Zwei Uhren, nie ein `now`.** Wer eine B-Spalte (`startsAt`, `closesAt`) mit "jetzt" vergleicht, nimmt `wallNow`, wer eine A-Spalte
+  (`holdExpiresAt`, `expiresAt`) vergleicht, `now` (UTC). Parameter heißen `wallNow`, damit ein Aufrufer, der den UTC-Stempel übergibt, auffällt.
+- **Neue Zeitfelder** (DTO-Property oder Exposed-Spalte) gehören in `lapis-server/src/test/resources/time-fields.tsv` (Klasse A/B/D, Begründung =
+  die schreibende Stelle); sonst bricht `TimeFieldClassificationTripwireTest`.
+- **Client:** Klasse A nur über `formatSystem*`/`systemDateTime*`/`systemTimestamp*` (`OrganizationTime.kt`), Klasse B über die einfachen
+  Formatter aus `DateTime.kt`; "jetzt"/"heute" über `organizationNow()`/`organizationToday()`, nie über die Browser-Zone.
+- **Container:** `TZ=UTC`, nie ändern und nie auf eine lokale Zone setzen. Die Testsuite läuft in beiden Prozesszonen grün:
+  `./gradlew clean :lapis-server:test -PtestTimeZone=Europe/Berlin` und `-PtestTimeZone=UTC`.

@@ -283,7 +283,7 @@ class ConferenceRoomVotingStateTest :
         }
 
         fun hoursAgo(h: Int): LocalDateTime {
-            val zone = TimeZone.currentSystemDefault()
+            val zone = TimeZone.UTC
             return (DbClock.nowLocalDateTime().toInstant(zone) - h.hours).toLocalDateTime(zone)
         }
 

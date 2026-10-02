@@ -21,6 +21,7 @@ import network.lapis.cloud.server.payment.psp.PspReturnUrls
 import network.lapis.cloud.server.routes.sha256Hex
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.paymentGatewayDisclaimerIsCurrentlyAcknowledged
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
 import network.lapis.cloud.shared.domain.PaymentProvider
@@ -167,7 +168,7 @@ internal class EventRegistrationSubmission(
                 status = eventRow[EventTable.status],
                 registrationClosesAt = eventRow[EventTable.registrationClosesAt],
                 startsAt = eventRow[EventTable.startsAt],
-                now = now,
+                wallNow = OrganizationTimeZone.wallNowOf(now),
             )
         ) {
             return EventRegistrationResult.EventNotAvailable
@@ -195,7 +196,7 @@ internal class EventRegistrationSubmission(
                         status = lockedEvent[EventTable.status],
                         registrationClosesAt = lockedEvent[EventTable.registrationClosesAt],
                         startsAt = lockedEvent[EventTable.startsAt],
-                        now = now,
+                        wallNow = OrganizationTimeZone.wallNowOf(now),
                     )
                 ) {
                     return@withEventLock Placement.EventClosed
@@ -433,7 +434,7 @@ internal class EventRegistrationSubmission(
                         status = lockedEvent[EventTable.status],
                         registrationClosesAt = lockedEvent[EventTable.registrationClosesAt],
                         startsAt = lockedEvent[EventTable.startsAt],
-                        now = now,
+                        wallNow = OrganizationTimeZone.wallNowOf(now),
                     )
                 when {
                     registration == null -> null

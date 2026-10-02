@@ -1,10 +1,9 @@
 package network.lapis.cloud.server.security
 
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.COMMITTEE_LEADERSHIP_ROLES
 import network.lapis.cloud.shared.domain.COMMITTEE_RECORDING_ROLES
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -19,7 +18,6 @@ import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -91,11 +89,7 @@ private fun CurrentMember.hasCommitteeRole(
     committeeId: Uuid,
     vararg roles: CommitteeRole,
 ): Boolean {
-    val today =
-        Clock.System
-            .now()
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
+    val today = OrganizationTimeZone.today()
     return transaction {
         CommitteeMembershipTable
             .selectAll()

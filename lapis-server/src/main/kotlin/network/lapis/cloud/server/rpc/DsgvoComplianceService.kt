@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.ProcessingAgreementTable
 import network.lapis.cloud.server.db.generated.TechnicalOrganizationalMeasureTable
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AvvStatus
 import network.lapis.cloud.shared.domain.BreachStatus
@@ -460,6 +461,7 @@ class DsgvoComplianceService(
     }
 
     private fun ResultRow.toDataBreachIncidentDto(now: LocalDateTime): DataBreachIncidentDto {
+        val orgZone = OrganizationTimeZone.current()
         val discoveredAt = this[DataBreachIncidentTable.discoveredAt]
         val authorityNotifiedAt = this[DataBreachIncidentTable.authorityNotifiedAt]
         val reportedBy = this[DataBreachIncidentTable.reportedBy]
@@ -481,12 +483,13 @@ class DsgvoComplianceService(
             reportedByDisplayName = memberDisplayName(reportedBy),
             updatedAt = this[DataBreachIncidentTable.updatedAt],
             updatedBy = updatedBy?.toString(),
-            authorityNotificationDeadline = BreachDeadlineCalculator.deadline(discoveredAt),
+            authorityNotificationDeadline = BreachDeadlineCalculator.deadline(discoveredAt = discoveredAt, orgZone = orgZone),
             deadlineStatus =
                 BreachDeadlineCalculator.status(
                     discoveredAt = discoveredAt,
                     authorityNotifiedAt = authorityNotifiedAt,
                     now = now,
+                    orgZone = orgZone,
                 ),
         )
     }

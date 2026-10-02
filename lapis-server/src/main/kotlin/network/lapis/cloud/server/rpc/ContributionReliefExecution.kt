@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.ContributionReliefKind
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.ContributionStatusSets
@@ -83,12 +84,16 @@ internal object ContributionReliefExecution {
         val status = row[ContributionTable.status]
         if (status !in ContributionStatusSets.DEFERRABLE) return ReliefExecutionOutcome.Failed("contribution_not_deferrable:$status")
         val previous = row[ContributionTable.dueDate]
-        if (newDueDate <= previous || newDueDate <= now.date) return ReliefExecutionOutcome.Failed("new_due_date_not_in_future")
+        if (newDueDate <= previous ||
+            newDueDate <= OrganizationTimeZone.dateOf(now)
+        ) {
+            return ReliefExecutionOutcome.Failed("new_due_date_not_in_future")
+        }
 
         // Status-Neuberechnung -- OHNE diese Zeile bliebe eine vorher OVERDUE-Zeile fuer immer als
         // ueberfaellig sichtbar: DunningPoller.runPhaseA schreibt NUR OPEN -> OVERDUE, nie zurueck.
         // Gleiches Idiom wie DunningService.kt (dunningReferenceDate-Neuberechnung).
-        val recomputed = if (newDueDate >= now.date) ContributionStatus.OPEN else ContributionStatus.OVERDUE
+        val recomputed = if (newDueDate >= OrganizationTimeZone.dateOf(now)) ContributionStatus.OPEN else ContributionStatus.OVERDUE
         ContributionTable.update({ ContributionTable.id eq contributionId }) {
             it[dueDate] = newDueDate
             it[ContributionTable.status] = recomputed

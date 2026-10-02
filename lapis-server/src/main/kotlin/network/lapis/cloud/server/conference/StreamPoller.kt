@@ -9,7 +9,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
@@ -19,6 +18,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.rpc.ConferenceStreamPauseCoordinator
 import network.lapis.cloud.server.rpc.SecretBallotStreamLock
 import network.lapis.cloud.server.rpc.restartEgressForStream
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
@@ -898,7 +898,7 @@ class StreamPoller(
     ) = to.toInstant(TZ) - from.toInstant(TZ)
 }
 
-private val TZ = TimeZone.currentSystemDefault()
+private val TZ = ServerClock.zone
 
 /** Plain data snapshot of a `conference_stream` row -- never held across a suspension point as a live [ResultRow], same discipline [RecordingRow] establishes in `RecordingPoller`. */
 private data class StreamRow(

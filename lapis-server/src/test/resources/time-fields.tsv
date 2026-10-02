@@ -1,0 +1,774 @@
+# Registry of every temporal field (V1.9.38) -- read by TimeFieldClassificationTripwireTest.
+# Format: qualifier<TAB>class<TAB>reason. One line per DTO property (dto:<DtoName>.<field>, scanned in lapis-shared) and per
+# Exposed column (col:<TableObject>.<column>, scanned in lapis-server). Classes: A = server-stamped system timestamp, stored
+# and sent as UTC, DISPLAYED in the organization zone. B = wall-clock typed in by a person (or derived from one) in the
+# organization zone, NEVER converted for display, compared with ServerClock.nowIn(orgZone). D = calendar date (LocalDate).
+# A trailing ? marks a doubtful case (still accepted, but listed in the review). LocalDate must be D, LocalTime must be B.
+# A derived value inherits the class of its basis. See docs/architecture/time-and-timezones.adoc.
+dto:JournalEntryDto.entryDate	D	calendar date (LocalDate); never converted
+dto:JournalEntryDto.postedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:JournalEntryDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:JournalEntryInput.entryDate	D	calendar date (LocalDate); never converted
+dto:GeneralLedgerLineDto.entryDate	D	calendar date (LocalDate); never converted
+dto:KassenbuchLineDto.entryDate	D	calendar date (LocalDate); never converted
+dto:VoucherPreviewLineDto.entryDate	D	calendar date (LocalDate); never converted
+dto:AccountingExportPreviewDto.from	D	calendar date (LocalDate); never converted
+dto:AccountingExportPreviewDto.to	D	calendar date (LocalDate); never converted
+dto:AccountingExportConnectionDto.lastTestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AccountingExportConnectionDto.zeroVatAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AccountingExportRunDto.from	D	calendar date (LocalDate); never converted
+dto:AccountingExportRunDto.to	D	calendar date (LocalDate); never converted
+dto:AccountingExportRunDto.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AccountingExportRunDto.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AccountingExportItemDto.entryDate	D	calendar date (LocalDate); never converted
+dto:AiKnowledgeEntryDto.indexedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ApiKeyDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ApiKeyDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ApiKeyDto.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ApiKeyDto.lastUsedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleDto.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleDto.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleSummaryDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleSummaryDto.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleReviewDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionDto.endsAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionDto.settledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionBidDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionBidResultDto.endsAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuctionSettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PollSnapshot.closesAt	B	PollService.createPoll: input.closesAt typed in the poll form; compared via wallNow (PollLifecycle)
+dto:PollSnapshot.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuditLogEntryDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AuditLogListQuery.from	B	filter bounds typed in the audit-log filter form (organization zone); AuditLogService converts them to UTC before comparing with occurred_at (A)
+dto:AuditLogListQuery.to	B	filter bounds typed in the audit-log filter form (organization zone); AuditLogService converts them to UTC before comparing with occurred_at (A)
+dto:JournalEntrySnapshot.entryDate	D	calendar date (LocalDate); never converted
+dto:JournalEntrySnapshot.postedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ResolutionSnapshot.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BoardMembershipSnapshot.startedAt	D	calendar date (LocalDate); never converted
+dto:BoardMembershipSnapshot.endedAt	D	calendar date (LocalDate); never converted
+dto:SocialPostModerationSnapshot.contentErasedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaMandateSnapshot.signatureDate	D	calendar date (LocalDate); never converted
+dto:SepaMandateSnapshot.lastUsedAt	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchSnapshot.requestedCollectionDate	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchSnapshot.notifiedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DunningNoticeSnapshot.respondBy	D	calendar date (LocalDate); never converted
+dto:ConferenceRecordingSnapshot.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ApiKeySnapshot.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ApiKeySnapshot.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BackupOperationLogDto.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BackupOperationLogDto.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankAccountDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankAccountDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankAccountDto.finTsPinSetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankAccountDto.finTsLastSuccessAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankAccountDto.finTsGapFrom	D	calendar date (LocalDate); never converted
+dto:BankAccountDto.finTsGapTo	D	calendar date (LocalDate); never converted
+dto:BankAccountDto.finTsGapDetectedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TanRequested.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankStatementImportResultDto.statementFrom	D	calendar date (LocalDate); never converted
+dto:BankStatementImportResultDto.statementTo	D	calendar date (LocalDate); never converted
+dto:BankStatementImportDto.statementFrom	D	calendar date (LocalDate); never converted
+dto:BankStatementImportDto.statementTo	D	calendar date (LocalDate); never converted
+dto:BankStatementImportDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankStatementLineDto.bookingDate	D	calendar date (LocalDate); never converted
+dto:BankStatementLineDto.valueDate	D	calendar date (LocalDate); never converted
+dto:BankStatementLineDto.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BankStatementMatchCandidateDto.periodStart	D	calendar date (LocalDate); never converted
+dto:BankStatementMatchCandidateDto.periodEnd	D	calendar date (LocalDate); never converted
+dto:CarpoolPostingInput.departureDate	D	calendar date (LocalDate); never converted
+dto:CarpoolPostingInput.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:CarpoolPostingDto.departureDate	D	calendar date (LocalDate); never converted
+dto:CarpoolPostingDto.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:CarpoolPostingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingListDto.currentMemberOpenTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingListDto.currentMemberClickTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingListSubscriptionDto.subscribedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingListSubscriptionDto.unsubscribedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingListSubscriptionDto.openTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingListSubscriptionDto.clickTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingMessageDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MailingDeliveryLogDto.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DirectMessageDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DirectMessageDto.readAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DirectMessagePartnerDto.lastActivityAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DirectMessageCursorDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceRoomDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceRoomDto.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceJoinTokenDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceParticipantDto.joinedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceParticipantDto.leftAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceBreakoutRoomDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceBreakoutRoomDto.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceBreakoutAssignmentDto.assignedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceRecordingDto.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceRecordingDto.stoppedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceRecordingDto.readyAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceStreamDestinationDto.streamKeySetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceStreamDto.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceStreamDto.pausedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceStreamDto.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ContributionReliefRequestDto.reasonRedactedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ContributionReliefRequestDto.deferralNewDueDate	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestDto.deferralPreviousDueDate	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestDto.exemptionFrom	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestDto.exemptionUntil	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestDto.reviewDueOn	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestDto.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ContributionReliefRequestDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ContributionReliefRequestDto.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ContributionReliefRequestInput.deferralNewDueDate	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestInput.exemptionFrom	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestInput.exemptionUntil	D	calendar date (LocalDate); never converted
+dto:ContributionReliefRequestInput.reviewDueOn	D	calendar date (LocalDate); never converted
+dto:ContributionExemptionStateDto.exemptFrom	D	calendar date (LocalDate); never converted
+dto:ContributionExemptionStateDto.exemptUntil	D	calendar date (LocalDate); never converted
+dto:ContributionReliefSnapshot.previousDueDate	D	calendar date (LocalDate); never converted
+dto:ContributionReliefSnapshot.newDueDate	D	calendar date (LocalDate); never converted
+dto:ContributionReliefSnapshot.exemptFrom	D	calendar date (LocalDate); never converted
+dto:ContributionReliefSnapshot.exemptUntil	D	calendar date (LocalDate); never converted
+dto:ContributionDto.periodStart	D	calendar date (LocalDate); never converted
+dto:ContributionDto.periodEnd	D	calendar date (LocalDate); never converted
+dto:ContributionDto.paidAt	B	ContributionService.markContributionPaid: input paidAt typed by the treasurer; PSP/bank-statement writers store the organization wall-clock of now; SEPA stores the settleable date at 00:00
+dto:ContributionDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ContributionDto.dueDate	D	calendar date (LocalDate); never converted
+dto:CrmContactDto.consentGivenAt	B	CrmContactInput.consentGivenAt typed in the contact form
+dto:CrmContactDto.consentWithdrawnAt	A?	only ever set to NULL in CrmContactStore.create; the writer that stamps it was not found -- treated as a system stamp
+dto:CrmContactDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CrmContactDto.lastInteractionAt	B	derived from CrmInteraction.occurred_at (B)
+dto:CrmContactDto.retentionReviewDueAt	B	derived from CrmInteraction.occurred_at (B)
+dto:CrmContactDto.archivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CrmContactInput.consentGivenAt	B	CrmContactInput.consentGivenAt typed in the contact form
+dto:CrmInteractionDto.occurredAt	B	CrmContactStore.recordInteraction: typed in, or the organization wall-clock of now when omitted
+dto:CrmInteractionDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CrmInteractionInput.occurredAt	B	CrmContactStore.recordInteraction: typed in, or the organization wall-clock of now when omitted
+dto:CrowdfundingProjectDto.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CrowdfundingProjectDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CrowdfundingReactionDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CrowdfundingDistributionDto.periodStart	D	calendar date (LocalDate); never converted
+dto:CrowdfundingDistributionDto.periodEnd	D	calendar date (LocalDate); never converted
+dto:CrowdfundingDistributionDto.computedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DatevExportPreviewDto.from	D	calendar date (LocalDate); never converted
+dto:DatevExportPreviewDto.to	D	calendar date (LocalDate); never converted
+dto:DocumentDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DocumentVersionDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ErasureRequestDto.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ErasureRequestDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ErasureRequestDto.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ExportManifestDto.generatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DsgvoAuditLogEntryDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ProcessingAgreementDto.signedDate	D	calendar date (LocalDate); never converted
+dto:ProcessingAgreementDto.reviewDueDate	D	calendar date (LocalDate); never converted
+dto:ProcessingAgreementDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ProcessingAgreementDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ProcessingAgreementInput.signedDate	D	calendar date (LocalDate); never converted
+dto:ProcessingAgreementInput.reviewDueDate	D	calendar date (LocalDate); never converted
+dto:TechnicalOrganizationalMeasureDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TechnicalOrganizationalMeasureDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DpiaAssessmentDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DpiaAssessmentDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DataBreachIncidentDto.discoveredAt	B	DsgvoComplianceService: typed in the incident form
+dto:DataBreachIncidentDto.authorityNotifiedAt	B	DsgvoComplianceService: typed in the incident form
+dto:DataBreachIncidentDto.dataSubjectsNotifiedAt	B	DsgvoComplianceService: typed in the incident form
+dto:DataBreachIncidentDto.reportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DataBreachIncidentDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DataBreachIncidentDto.authorityNotificationDeadline	B	derived from discoveredAt (B): BreachDeadlineCalculator.deadline = wall-clock + 72 h of real time
+dto:DataBreachIncidentInput.discoveredAt	B	DsgvoComplianceService: typed in the incident form
+dto:DataBreachIncidentInput.authorityNotifiedAt	B	DsgvoComplianceService: typed in the incident form
+dto:DataBreachIncidentInput.dataSubjectsNotifiedAt	B	DsgvoComplianceService: typed in the incident form
+dto:DunningNoticeDto.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DunningNoticeDto.respondBy	D	calendar date (LocalDate); never converted
+dto:DunningCaseDto.periodStart	D	calendar date (LocalDate); never converted
+dto:DunningCaseDto.periodEnd	D	calendar date (LocalDate); never converted
+dto:DunningCaseDto.dueDate	D	calendar date (LocalDate); never converted
+dto:DunningCaseDto.lastNoticeIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:DunningCaseDto.nextLevelDueOn	D	calendar date (LocalDate); never converted
+dto:DunningSettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionDto.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionDto.candidateListApprovedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionDto.votingOpenedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionDto.votingClosedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionDto.tallyRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CandidacyDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CandidacyDto.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionBoardMemberDto.appointedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionBallotCastResultDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ElectionBallotDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CateringOrderDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:RecurrenceRuleInput.until	D	calendar date (LocalDate); never converted
+dto:SeriesPreviewDto.first	B	occurrences of a recurrence rule, wall-clock in the series zone
+dto:SeriesPreviewDto.last	B	occurrences of a recurrence rule, wall-clock in the series zone
+dto:EventVolunteerShiftInput.startsAt	B	EventVolunteerService: shift times typed in the shift form
+dto:EventVolunteerShiftInput.endsAt	B	EventVolunteerService: shift times typed in the shift form
+dto:EventVolunteerShiftDto.startsAt	B	EventVolunteerService: shift times typed in the shift form
+dto:EventVolunteerShiftDto.endsAt	B	EventVolunteerService: shift times typed in the shift form
+dto:EventVolunteerSignupDto.signedUpAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventVolunteerSignupDto.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventInput.startsAt	B	EventService.createEvent/updateEvent: input.startsAt/endsAt/registrationClosesAt typed in the event form; compared via wallNow (EventPolicy, EventStore.list)
+dto:EventInput.endsAt	B	EventService.createEvent/updateEvent: input.startsAt/endsAt/registrationClosesAt typed in the event form; compared via wallNow (EventPolicy, EventStore.list)
+dto:EventInput.registrationClosesAt	B	EventService.createEvent/updateEvent: input.startsAt/endsAt/registrationClosesAt typed in the event form; compared via wallNow (EventPolicy, EventStore.list)
+dto:EventDto.startsAt	B	EventService.createEvent/updateEvent: input.startsAt/endsAt/registrationClosesAt typed in the event form; compared via wallNow (EventPolicy, EventStore.list)
+dto:EventDto.endsAt	B	EventService.createEvent/updateEvent: input.startsAt/endsAt/registrationClosesAt typed in the event form; compared via wallNow (EventPolicy, EventStore.list)
+dto:EventDto.registrationClosesAt	B	EventService.createEvent/updateEvent: input.startsAt/endsAt/registrationClosesAt typed in the event form; compared via wallNow (EventPolicy, EventStore.list)
+dto:EventDto.ownRefundMarkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventRefundDto.eventStartsAt	B	copy of event.starts_at (class B), shown unconverted
+dto:EventRefundDto.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventRefundDto.refundMarkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventRegistrationDto.registeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventRegistrationDto.ticketIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventRegistrationDto.checkedInAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventRegistrationDto.invoiceIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventCheckInResultDto.checkedInAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventCheckInRowDto.checkedInAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EventCheckInRosterDto.startsAt	B	copy of event.starts_at (class B), shown unconverted
+dto:FederationActorDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:FederationRelationshipDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:FederationRelationshipDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:FederationRelationshipEventDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:IncomeStatementDto.from	D	calendar date (LocalDate); never converted
+dto:IncomeStatementDto.to	D	calendar date (LocalDate); never converted
+dto:BalanceSheetDto.asOf	D	calendar date (LocalDate); never converted
+dto:FourSphereIncomeStatementDto.from	D	calendar date (LocalDate); never converted
+dto:FourSphereIncomeStatementDto.to	D	calendar date (LocalDate); never converted
+dto:AnnualFinancialStatementDto.periodStart	D	calendar date (LocalDate); never converted
+dto:AnnualFinancialStatementDto.periodEnd	D	calendar date (LocalDate); never converted
+dto:CostCenterReportDto.from	D	calendar date (LocalDate); never converted
+dto:CostCenterReportDto.to	D	calendar date (LocalDate); never converted
+dto:MemberDto.joinedAt	D	calendar date (LocalDate); never converted
+dto:MemberDto.dateOfBirth	D	calendar date (LocalDate); never converted
+dto:MemberDto.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberDto.friendSince	D	calendar date (LocalDate); never converted
+dto:MemberDto.dateOfDeath	D	calendar date (LocalDate); never converted
+dto:MemberAddressDataDto.dateOfBirth	D	calendar date (LocalDate); never converted
+dto:MemberAddressDataDto.dateOfDeath	D	calendar date (LocalDate); never converted
+dto:CommitteeDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CommitteeMembershipDto.since	D	calendar date (LocalDate); never converted
+dto:CommitteeMembershipDto.until	D	calendar date (LocalDate); never converted
+dto:CommitteeMembershipInput.since	D	calendar date (LocalDate); never converted
+dto:MeetingDto.scheduledAt	B	GovernanceService.createMeeting: input.scheduledAt typed in the meeting form; only its date is used
+dto:MeetingDto.calledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MeetingInput.scheduledAt	B	GovernanceService.createMeeting: input.scheduledAt typed in the meeting form; only its date is used
+dto:AttendanceDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ResolutionDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ProtocolDraftDto.generatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MotionDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MotionDto.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VoteDto.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VoteDto.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VoteBallotDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:LtrLedgerEntryDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:McpConnectionDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:McpConnectionDto.lastUsedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:McpPostDraftDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:McpPostDraftDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:McpPostDraftDto.statusChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberAddressViolation.EARLIEST_BIRTH_DATE	D	calendar date (LocalDate); never converted
+dto:MemberAdminRowDto.joinedAt	D	calendar date (LocalDate); never converted
+dto:MemberAdminRowDto.dateOfDeath	D	calendar date (LocalDate); never converted
+dto:AnniversaryEntryDto.occursOn	D	calendar date (LocalDate); never converted
+dto:AnniversaryEntryDto.originalDate	D	calendar date (LocalDate); never converted
+dto:MemberAnniversaryOverviewDto.from	D	calendar date (LocalDate); never converted
+dto:MemberAnniversaryOverviewDto.through	D	calendar date (LocalDate); never converted
+dto:MemberCardReissueResultDto.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberFamilyLinkDto.linkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberFamilyDetailDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:UpcomingMajorityEntryDto.turnsMajorOn	D	calendar date (LocalDate); never converted
+dto:UpcomingMajorityOverviewDto.from	D	calendar date (LocalDate); never converted
+dto:UpcomingMajorityOverviewDto.through	D	calendar date (LocalDate); never converted
+dto:FinancialHistoryEntryDto.date	D	calendar date (LocalDate); never converted
+dto:MemberFinancialHistoryDto.joinedAt	D	calendar date (LocalDate); never converted
+dto:MemberFinancialHistoryDto.friendSince	D	calendar date (LocalDate); never converted
+dto:MemberHonorDto.awardedAt	D	calendar date (LocalDate); never converted
+dto:MemberHonorDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberHonorInput.awardedAt	D	calendar date (LocalDate); never converted
+dto:OwnMemberPhotoDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OpenItemDto.itemDate	D	calendar date (LocalDate); never converted
+dto:OpenItemDto.dueDate	D	calendar date (LocalDate); never converted
+dto:OpenItemDto.asOf	D	calendar date (LocalDate); never converted
+dto:OpenItemDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OpenItemDto.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OpenItemDto.nextDunningLevelDueOn	D	calendar date (LocalDate); never converted
+dto:OpenItemInput.itemDate	D	calendar date (LocalDate); never converted
+dto:OpenItemInput.dueDate	D	calendar date (LocalDate); never converted
+dto:OpenItemSettlementDto.settledOn	D	calendar date (LocalDate); never converted
+dto:OpenItemSettlementDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OpenItemSettlementDto.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OpenItemSummaryDto.asOf	D	calendar date (LocalDate); never converted
+dto:OpenItemNettingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OpenItemNettingDto.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OrganizationSettingsDto.taxExemptionDate	D	calendar date (LocalDate); never converted
+dto:OrganizationSettingsInput.taxExemptionDate	D	calendar date (LocalDate); never converted
+dto:AnonymousDonationDutyDto.entryDate	D	calendar date (LocalDate); never converted
+dto:SepaSettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PaymentGatewaySettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CheckoutSessionDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CheckoutSessionDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PaymentTransactionDto.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PeerTransferResultDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PoliticianProfileDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PoliticianProfileDto.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PoliticianReactionDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PoliticianWeightSnapshotDto.periodMonth	D	calendar date (LocalDate); never converted
+dto:PoliticianWeightSnapshotDto.computedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PollCreateInput.closesAt	B	PollService.createPoll: input.closesAt typed in the poll form; compared via wallNow (PollLifecycle)
+dto:PollDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PollDto.closesAt	B	PollService.createPoll: input.closesAt typed in the poll form; compared via wallNow (PollLifecycle)
+dto:PollDto.closedAt	B	PollLifecycle.effectiveClosedAt: manual close stamp (A) converted to the organization wall-clock, or the deadline (B) -- uniformly B on the wire
+dto:PostalDeliveryLogDto.dispatchedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PostalInvitationDispatchInput.eventDateTime	B	mail-merge form field typed in by the user, printed raw on the letter
+dto:PriceOracleConfigDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OraclePriceStatusDto.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PriceOracleConversionDto.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PriceOracleConversionDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PriceSnapshotDto.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PriceSnapshotDto.capturedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PublicRankingConsentStateDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ReceivableDunningNoticeDto.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ReceivableDunningNoticeDto.respondBy	D	calendar date (LocalDate); never converted
+dto:ReceivableDunningNoticeDto.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:RegionalChapterOfficerDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaMandateDto.signatureDate	D	calendar date (LocalDate); never converted
+dto:SepaMandateDto.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaMandateDto.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaMandateDto.lastUsedAt	D	calendar date (LocalDate); never converted
+dto:SepaMandateDto.expiresAt	D	calendar date (LocalDate); never converted
+dto:SepaMandateInput.signatureDate	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchDto.requestedCollectionDate	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaDebitBatchDto.notifiedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaDebitBatchDto.fileGenerationAllowedFrom	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchDto.generatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaDebitBatchDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaDebitBatchDto.settledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaDebitBatchDto.settlementEligibleFrom	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchDto.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaDebitItemDto.settleableAt	D	calendar date (LocalDate); never converted
+dto:SepaReturnDto.returnedAt	D	calendar date (LocalDate); never converted
+dto:SepaReturnDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SepaReturnInput.returnedAt	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchInput.requestedCollectionDate	D	calendar date (LocalDate); never converted
+dto:SepaDebitBatchInput.dueOnOrBefore	D	calendar date (LocalDate); never converted
+dto:SepaPrenotificationDto.requestedCollectionDate	D	calendar date (LocalDate); never converted
+dto:SepaPrenotificationDto.notifiedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SessionInfoDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialTimelinePageDto.rankingHorizonFrom	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostDto.contentErasedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostDto.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostReportDto.reportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostReportDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostErasureDto.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostErasureDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostErasureDto.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SocialPostRemovalNoticeDto.removedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SystemicConsensusDto.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SystemicConsensusDto.ratingOpenedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SystemicConsensusDto.ratingClosedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SystemicConsensusDto.tallyRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SystemicConsensusBallotCastResultDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:SystemicConsensusBallotDto.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:BoardMembershipDto.startedAt	D	calendar date (LocalDate); never converted
+dto:BoardMembershipDto.endedAt	D	calendar date (LocalDate); never converted
+dto:BoardMembershipInput.startedAt	D	calendar date (LocalDate); never converted
+dto:TransparenzregisterReminderDto.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TransparenzregisterReminderDto.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReceiptDto.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReportDto.travelFrom	D	calendar date (LocalDate); never converted
+dto:TravelExpenseReportDto.travelTo	D	calendar date (LocalDate); never converted
+dto:TravelExpenseReportDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReportDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReportDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReportDto.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReportInput.travelFrom	D	calendar date (LocalDate); never converted
+dto:TravelExpenseReportInput.travelTo	D	calendar date (LocalDate); never converted
+dto:TravelExpenseSnapshot.travelFrom	D	calendar date (LocalDate); never converted
+dto:TravelExpenseSnapshot.travelTo	D	calendar date (LocalDate); never converted
+dto:TrustAnchorSigningKeyDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TrustAnchorSigningKeyDto.retiredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TrustAnchorSigningKeyDto.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TrustAnchorPoolMemberDto.addedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TrustedExternalAnchorDto.addedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TrustAnchorEventDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VatReturnPreviewDto.from	D	calendar date (LocalDate); never converted
+dto:VatReturnPreviewDto.to	D	calendar date (LocalDate); never converted
+dto:VatSettingsDto.lastAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowancePaymentDto.paymentDate	D	calendar date (LocalDate); never converted
+dto:VolunteerAllowancePaymentDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowancePaymentDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowancePaymentDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowancePaymentDto.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowancePaymentDto.capAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowancePaymentInput.paymentDate	D	calendar date (LocalDate); never converted
+dto:VolunteerAllowanceSelfDeclarationDto.declaredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:VolunteerAllowanceSelfDeclarationDto.signedOn	D	calendar date (LocalDate); never converted
+dto:VolunteerAllowanceSelfDeclarationInput.signedOn	D	calendar date (LocalDate); never converted
+dto:VolunteerAllowanceSnapshot.paymentDate	D	calendar date (LocalDate); never converted
+dto:VolunteerAllowanceDeclarationSnapshot.signedOn	D	calendar date (LocalDate); never converted
+dto:WebhookEndpointDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookEndpointDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookEndpointDto.deactivatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookEndpointDto.lastAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookDeliveryDto.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookDeliveryDto.lastAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookDeliveryDto.nextAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookDeliveryDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:WebhookDeliveryDto.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportCategoryMapTable.mappedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportConnectionTable.lastTestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportConnectionTable.zeroVatAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportConnectionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportConnectionTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportItemTable.entryDate	D	calendar date (LocalDate); never converted
+col:AccountingExportItemTable.nextAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportItemTable.claimedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportItemTable.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportRunTable.periodFrom	D	calendar date (LocalDate); never converted
+col:AccountingExportRunTable.periodTo	D	calendar date (LocalDate); never converted
+col:AccountingExportRunTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportRunTable.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AiCallAuditTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AiKnowledgeChunkTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AiKnowledgeIndexStateTable.indexedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AiKnowledgeReleaseTable.releasedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AiMemberOptInTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ApiKeyTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ApiKeyTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ApiKeyTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ApiKeyTable.lastUsedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AttendanceTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionBidTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionTable.endsAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuctionTable.settledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AuditLogEntryTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BackupOperationLogTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BackupOperationLogTable.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountFinTsAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountTable.fintsActivatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountTable.fintsPinSetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountTable.fintsLastSuccessAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankAccountTable.fintsLastFetchTo	D	calendar date (LocalDate); never converted
+col:BankAccountTable.fintsGapFrom	D	calendar date (LocalDate); never converted
+col:BankAccountTable.fintsGapTo	D	calendar date (LocalDate); never converted
+col:BankAccountTable.fintsGapDetectedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankStatementImportTable.statementFrom	D	calendar date (LocalDate); never converted
+col:BankStatementImportTable.statementTo	D	calendar date (LocalDate); never converted
+col:BankStatementImportTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BankStatementLineTable.bookingDate	D	calendar date (LocalDate); never converted
+col:BankStatementLineTable.valueDate	D	calendar date (LocalDate); never converted
+col:BankStatementLineTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:BoardMembershipTable.startedAt	D	calendar date (LocalDate); never converted
+col:BoardMembershipTable.endedAt	D	calendar date (LocalDate); never converted
+col:CarpoolPostingTable.departureDate	D	calendar date (LocalDate); never converted
+col:CarpoolPostingTable.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+col:CarpoolPostingTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolPostingTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CommitteeMembershipTable.since	D	calendar date (LocalDate); never converted
+col:CommitteeMembershipTable.until	D	calendar date (LocalDate); never converted
+col:CommitteeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceBackgroundImageTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceBreakoutAssignmentTable.assignedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceBreakoutAssignmentTable.recalledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceBreakoutRoomTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceBreakoutRoomTable.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceGuestConsentAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceParticipationTable.joinedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceParticipationTable.leftAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingTable.stoppedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingTable.readyAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRoomTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRoomTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamDestinationTable.streamKeySetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamDestinationTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamTable.pausedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceStreamTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ContributionReliefRequestTable.reasonRedactedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ContributionReliefRequestTable.deferralNewDueDate	D	calendar date (LocalDate); never converted
+col:ContributionReliefRequestTable.deferralPreviousDueDate	D	calendar date (LocalDate); never converted
+col:ContributionReliefRequestTable.exemptionFrom	D	calendar date (LocalDate); never converted
+col:ContributionReliefRequestTable.exemptionUntil	D	calendar date (LocalDate); never converted
+col:ContributionReliefRequestTable.reviewDueOn	D	calendar date (LocalDate); never converted
+col:ContributionReliefRequestTable.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ContributionReliefRequestTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ContributionReliefRequestTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ContributionTable.periodStart	D	calendar date (LocalDate); never converted
+col:ContributionTable.periodEnd	D	calendar date (LocalDate); never converted
+col:ContributionTable.paidAt	B	ContributionService.markContributionPaid: typed by the treasurer; PSP/bank-statement writers store the organization wall-clock of now (V1.9.38); SEPA stores the settleable date at 00:00
+col:ContributionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ContributionTable.dueDate	D	calendar date (LocalDate); never converted
+col:CrmContactTable.consentGivenAt	B	CrmContactStore: input.consentGivenAt typed in the contact form
+col:CrmContactTable.consentWithdrawnAt	A?	only ever set to NULL in CrmContactStore.create; the writer that stamps it was not found -- treated as a system stamp
+col:CrmContactTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CrmContactTable.lastInteractionAt	B	derived from crm_interaction.occurred_at (B)
+col:CrmContactTable.retentionReviewDueAt	B	derived from crm_interaction.occurred_at (B)
+col:CrmContactTable.archivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CrmInteractionTable.occurredAt	B	CrmContactStore.recordInteraction: typed in, or the organization wall-clock of now when omitted
+col:CrmInteractionTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CrowdfundingDistributionTable.periodStart	D	calendar date (LocalDate); never converted
+col:CrowdfundingDistributionTable.periodEnd	D	calendar date (LocalDate); never converted
+col:CrowdfundingDistributionTable.computedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CrowdfundingProjectTable.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CrowdfundingProjectTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CrowdfundingReactionTable.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DataBreachIncidentTable.discoveredAt	B	DsgvoComplianceService: typed in the incident form
+col:DataBreachIncidentTable.authorityNotifiedAt	B	DsgvoComplianceService: typed in the incident form
+col:DataBreachIncidentTable.dataSubjectsNotifiedAt	B	DsgvoComplianceService: typed in the incident form
+col:DataBreachIncidentTable.reportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DataBreachIncidentTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DataProtectionImpactAssessmentTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DataProtectionImpactAssessmentTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DirectMessageTable.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DirectMessageTable.readAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DocumentTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DocumentVersionTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DsgvoAuditLogTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DunningComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DunningLevelTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DunningNoticeTable.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:DunningNoticeTable.respondBy	D	calendar date (LocalDate); never converted
+col:DunningNoticeTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionBallotTable.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionBoardMemberTable.appointedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionCandidacyTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionCandidacyTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionParticipationTable.votedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionTable.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionTable.candidateListApprovedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionTable.votingOpenedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionTable.votingClosedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionTable.tallyRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionTallyApprovalTable.approvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ErasureRequestTable.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ErasureRequestTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ErasureRequestTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventCateringOrderTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.holdExpiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.registeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.confirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.waitlistOfferedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.ticketIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.checkedInAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.invoiceIssuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRegistrationTable.refundMarkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventRoomTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventSeriesTable.dtstart	B	EventService.createSeries: typed in; interpreted in event_series.timezone (stored zone, B with zone)
+col:EventSeriesTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventTable.startsAt	B	EventService: typed in the event form (class B)
+col:EventTable.endsAt	B	EventService: typed in the event form (class B)
+col:EventTable.registrationClosesAt	B	EventService: typed in the event form (class B)
+col:EventTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventTable.seriesOriginalStart	B	EventSeriesMaterializer: wall-clock of the recurrence-rule occurrence in the series zone
+col:EventVolunteerShiftTable.startsAt	B	EventVolunteerService: shift form
+col:EventVolunteerShiftTable.endsAt	B	EventVolunteerService: shift form
+col:EventVolunteerShiftTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventVolunteerSignupTable.signedUpAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventVolunteerSignupTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FederationActorKeyTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FederationInboxDeliveryLogTable.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FederationRelationshipEventTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FederationRelationshipTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FederationRelationshipTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FriendEmailVerificationTokenTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FriendEmailVerificationTokenTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FriendEmailVerificationTokenTable.consumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:FriendTermsAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:JournalEntryTable.entryDate	D	calendar date (LocalDate); never converted
+col:JournalEntryTable.postedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:JournalEntryTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:KeycloakAccountLinkTable.linkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:KeycloakAccountLinkTable.lastLoginAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:KeycloakLoginAttemptTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:KeycloakLoginAttemptTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:KeycloakLoginAttemptTable.consumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:LtrLedgerEntryTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingDeliveryLogTable.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingDeliveryLogTable.firstOpenedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingLinkClickTable.firstClickedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListSubscriptionTable.subscribedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListSubscriptionTable.unsubscribedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListSubscriptionTable.openTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListSubscriptionTable.clickTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingMessageTable.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:McpMemberBlockTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:McpPostDraftTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:McpPostDraftTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:McpPostDraftTable.statusChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:McpToolCallAuditTable.calledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingTable.scheduledAt	B	GovernanceService.createMeeting: input.scheduledAt typed in the meeting form
+col:MeetingTable.calledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MeetingTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberCardCodeTable.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberCardCodeTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFamilyLinkTable.linkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFamilyTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberHonorTable.awardedAt	D	calendar date (LocalDate); never converted
+col:MemberHonorTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberPhotoTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberPhotoTable.consentGrantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberPublicBioTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberPublicBioTable.consentGrantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberTable.joinedAt	D	calendar date (LocalDate); never converted
+col:MemberTable.anonymizedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberTable.dateOfBirth	D	calendar date (LocalDate); never converted
+col:MemberTable.dateOfDeath	D	calendar date (LocalDate); never converted
+col:MemberTable.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberTable.friendSince	D	calendar date (LocalDate); never converted
+col:MemberTable.emailVerifiedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberTable.contributionExemptFrom	D	calendar date (LocalDate); never converted
+col:MemberTable.contributionExemptUntil	D	calendar date (LocalDate); never converted
+col:MembershipAgreementAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MotionTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MotionTable.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MotionTable.withdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcAuthorizationCodeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcAuthorizationCodeTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcAuthorizationCodeTable.consumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcClientRegistrationTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcGuestLoginEventTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcGuestProfileTable.lastLoginAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcHomeServerRegistrationTable.registeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcIssuedTokenTable.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcIssuedTokenTable.accessExpiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcIssuedTokenTable.refreshExpiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcIssuedTokenTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcIssuedTokenTable.lastUsedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcRpLoginAttemptTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcRpLoginAttemptTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcRpLoginAttemptTable.consumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OidcSigningKeyTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OpenItemNettingTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OpenItemNettingTable.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OpenItemSettlementTable.settledOn	D	calendar date (LocalDate); never converted
+col:OpenItemSettlementTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OpenItemSettlementTable.reversedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OpenItemTable.itemDate	D	calendar date (LocalDate); never converted
+col:OpenItemTable.dueDate	D	calendar date (LocalDate); never converted
+col:OpenItemTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OpenItemTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:OrganizationSettingsTable.taxExemptionDate	D	calendar date (LocalDate); never converted
+col:PasswordResetTokenTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PasswordResetTokenTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PasswordResetTokenTable.consumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentCheckoutSessionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentCheckoutSessionTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentCheckoutSessionTable.completedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentGatewayComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentTransactionTable.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PaymentTransactionTable.reconciledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PeerTransferTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PoliticianProfileTable.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PoliticianProfileTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PoliticianReactionTable.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PoliticianWeightSnapshotTable.periodMonth	D	calendar date (LocalDate); never converted
+col:PoliticianWeightSnapshotTable.computedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PollTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PollTable.closesAt	B	PollService.createPoll: input.closesAt typed in the poll form
+col:PollTable.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PostalDeliveryLogTable.dispatchedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PriceOracleConfigTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PriceOracleConversionTable.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PriceOracleConversionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PriceOracleSnapshotTable.priceTimestamp	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PriceOracleSnapshotTable.capturedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ProcessingAgreementTable.signedDate	D	calendar date (LocalDate); never converted
+col:ProcessingAgreementTable.reviewDueDate	D	calendar date (LocalDate); never converted
+col:ProcessingAgreementTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ProcessingAgreementTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PspWebhookEventTable.receivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PublicRankingConsentEventTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PublicRankingConsentEventTable.supersededAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ReceivableDunningLevelTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ReceivableDunningNoticeTable.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ReceivableDunningNoticeTable.respondBy	D	calendar date (LocalDate); never converted
+col:ReceivableDunningNoticeTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:RegionalChapterOfficerTable.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:RegionalChapterOfficerTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:RegionalChapterTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ResolutionTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitBatchTable.requestedCollectionDate	D	calendar date (LocalDate); never converted
+col:SepaDebitBatchTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitBatchTable.notifiedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitBatchTable.generatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitBatchTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitBatchTable.settledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitBatchTable.cancelledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaDebitItemTable.settleableAt	D	calendar date (LocalDate); never converted
+col:SepaMandateTable.debtorIbanSetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaMandateTable.signatureDate	D	calendar date (LocalDate); never converted
+col:SepaMandateTable.grantedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaMandateTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SepaMandateTable.lastUsedAt	D	calendar date (LocalDate); never converted
+col:SepaReturnTable.returnedAt	D	calendar date (LocalDate); never converted
+col:SepaReturnTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SessionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SessionTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SessionTable.lastUsedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SessionTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostBoostTable.boostedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostErasureTable.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostErasureTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostErasureTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostReportTable.reportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostReportTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostTable.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostTable.stateChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SocialPostTable.contentErasedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SystemicConsensusBallotTable.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SystemicConsensusParticipationTable.votedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SystemicConsensusTable.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SystemicConsensusTable.ratingOpenedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SystemicConsensusTable.ratingClosedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:SystemicConsensusTable.tallyRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TechnicalOrganizationalMeasureTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TechnicalOrganizationalMeasureTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TransparenzregisterReminderTable.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TransparenzregisterReminderTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseLineTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseReceiptTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseReportTable.travelFrom	D	calendar date (LocalDate); never converted
+col:TravelExpenseReportTable.travelTo	D	calendar date (LocalDate); never converted
+col:TravelExpenseReportTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseReportTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseReportTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseReportTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TrustAnchorEventTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TrustAnchorPoolMemberTable.addedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TrustAnchorSigningKeyTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TrustAnchorSigningKeyTable.retiredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TrustAnchorSigningKeyTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TrustedExternalAnchorTable.addedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VatComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowancePaymentTable.paymentDate	D	calendar date (LocalDate); never converted
+col:VolunteerAllowancePaymentTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowancePaymentTable.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowancePaymentTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowancePaymentTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowancePaymentTable.capAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowanceSelfDeclarationTable.declaredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VolunteerAllowanceSelfDeclarationTable.signedOn	D	calendar date (LocalDate); never converted
+col:VoteBallotTable.castAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VoteTable.openedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:VoteTable.closedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookDeliveryTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookDeliveryTable.nextAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookDeliveryTable.lastAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookDeliveryTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookDeliveryTable.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookEndpointTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookEndpointTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:WebhookEndpointTable.deactivatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

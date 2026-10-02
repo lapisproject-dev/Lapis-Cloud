@@ -2,7 +2,6 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DbClock
@@ -16,6 +15,7 @@ import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuctionBidDto
 import network.lapis.cloud.shared.domain.AuctionBidResultDto
@@ -116,7 +116,7 @@ class AuctionService(
         // (a same-named bare reference inside an insert{}/update{} body resolves against the
         // Table receiver's column property, not the outer local variable).
         val computedEndsAt =
-            now.toInstant(TimeZone.currentSystemDefault()).plus(input.durationHours.hours).toLocalDateTime(TimeZone.currentSystemDefault())
+            now.toInstant(ServerClock.zone).plus(input.durationHours.hours).toLocalDateTime(ServerClock.zone)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
             val maxValue = currentAuctionMaxValueLtr()

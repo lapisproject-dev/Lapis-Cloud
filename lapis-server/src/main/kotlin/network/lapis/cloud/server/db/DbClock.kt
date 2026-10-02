@@ -5,11 +5,11 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.time.ServerClock
 import java.time.temporal.ChronoUnit
-import kotlin.time.Clock
 
 /**
- * Single source of truth for "now, as a DB-storable [LocalDateTime]" across the whole server --
+ * Single source of truth for "now, as a DB-storable class-A system timestamp ([LocalDateTime] in UTC)" across the whole server --
  * see [DatabaseConfig]'s own KDoc ("MODE=PostgreSQL for SQL-dialect parity with prod") for why
  * this truncation exists at all.
  *
@@ -33,9 +33,13 @@ import kotlin.time.Clock
  * and were therefore all equally exposed to this bug.
  */
 object DbClock {
-    fun nowLocalDateTime(zone: TimeZone = TimeZone.currentSystemDefault()): LocalDateTime =
-        Clock.System
-            .now()
+    /**
+     * V1.9.38: the default is the fixed storage zone [ServerClock.zone] (UTC), NOT the process's
+     * default zone -- every value this returns is a class-A system timestamp (see [ServerClock]).
+     */
+    fun nowLocalDateTime(zone: TimeZone = ServerClock.zone): LocalDateTime =
+        ServerClock
+            .nowInstant()
             .toLocalDateTime(zone)
             .truncatedToDbPrecision()
 }

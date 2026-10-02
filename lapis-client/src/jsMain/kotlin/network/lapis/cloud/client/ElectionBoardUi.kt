@@ -49,7 +49,7 @@ internal fun renderElectionBoardSection(
                     textColumn<ElectionBoardMemberDto>(title = tr("Name"), primary = true) {
                         it.memberDisplayName
                     },
-                    textColumn(title = tr("Bestellt am")) { formatDateTime(it.appointedAt) },
+                    textColumn(title = tr("Bestellt am")) { formatSystemDateTime(it.appointedAt) },
                 ),
             rows = data.board,
         )
@@ -213,7 +213,7 @@ internal fun renderCandidacySection(
                         title = tr("Motivation"),
                         cell = { container, c -> renderMotivationCell(container, c.motivationText) },
                     ),
-                    textColumn(title = tr("Eingereicht am")) { formatDateTime(it.submittedAt) },
+                    textColumn(title = tr("Eingereicht am")) { formatSystemDateTime(it.submittedAt) },
                     textColumn(title = tr("Status")) { if (it.withdrawnAt == null) gettext("Aktiv") else gettext("Zurückgezogen") },
                 ),
             rows = data.candidacies,
