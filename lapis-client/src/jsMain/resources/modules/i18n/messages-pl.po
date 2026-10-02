@@ -19197,9 +19197,6 @@ msgstr "Państwa zapis został zapisany."
 msgid "Von der Veranstaltung abmelden"
 msgstr "Wypisz się z wydarzenia"
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr "Zwrot środków nie następuje automatycznie. Proszę zwrócić się w tej sprawie do zarządu."
-
 msgid "Anmeldung zurückziehen"
 msgstr "Wycofaj zapis"
 
@@ -19259,3 +19256,79 @@ msgstr "Wyświetlanych jest co najwyżej 200 wpisów. Proszę filtrować według
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr "Ta lista pokazuje tylko, jakie oświadczenia zostały zapisane. Kwoty i roczne limity widnieją przy danej płatności."
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr "Kontynuuj płatność (%1)"
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr "W tej chwili nie można kontynuować płatności. Widok został odświeżony."
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr "Za to wydarzenie zapłacili Państwo %1. Kwota nie jest zwracana automatycznie. Państwa wypisanie pojawi się u zarządu jako oczekujący zwrot."
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr "Zapłacono – zwrot nadal oczekuje."
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr "Zwrot odnotowany przez zarząd jako zrealizowany w dniu %1."
+
+msgid "Offene Erstattungen (%1)"
+msgstr "Oczekujące zwroty (%1)"
+
+msgid "Abgemeldet am %1"
+msgstr "Wypisano dnia %1"
+
+msgid "Reservierung abgelaufen"
+msgstr "Rezerwacja wygasła"
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr "Zapłacono wielokrotnie (%1 płatności)"
+
+msgid "Als erstattet markieren"
+msgstr "Oznacz jako zwrócone"
+
+msgid "Erstattung vermerken"
+msgstr "Odnotuj zwrot"
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr "Czy zwrócili Państwo %1 osobie %2 poza Lapis Cloud? Lapis Cloud niczego nie wypłaca, jedynie odnotowuje zrealizowany zwrot."
+
+msgid "Erstattung vermerkt."
+msgstr "Zwrot odnotowany."
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Ten zwrot został już zmieniony. Widok został odświeżony."
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr "Edytuj adres i dane zgodnie z ustawą o przeciwdziałaniu praniu pieniędzy"
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr "Adres i dane zgodnie z ustawą o przeciwdziałaniu praniu pieniędzy – %1"
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr "Te dane podlegają ustawie o przeciwdziałaniu praniu pieniędzy. Ich wyświetlenie jest odnotowywane pod Państwa nazwiskiem w dzienniku kontroli."
+
+msgid "Angaben anzeigen"
+msgstr "Pokaż dane"
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr "Zapisać zmiany w danych osoby %1? Zmiana zostanie odnotowana w dzienniku kontroli."
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "Puste pole usuwa zapisaną wartość. Każda zmiana jest rejestrowana; same wartości nie trafiają do rejestru."
+
+msgid "Eingesehen"
+msgstr "Wyświetlono"
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr "Wyświetlono adres i dane zgodnie z ustawą o przeciwdziałaniu praniu pieniędzy"
+
+msgid "Anschrift geändert"
+msgstr "Adres zmieniono"
+
+msgid "GwG-Angaben geändert"
+msgstr "Dane zgodnie z ustawą o przeciwdziałaniu praniu pieniędzy zmieniono"
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr "Zwrot odnotowany poza Lapis Cloud"
+

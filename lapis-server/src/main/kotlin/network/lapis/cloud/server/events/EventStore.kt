@@ -297,6 +297,18 @@ internal object EventStore {
                     (EventRegistrationTable.status notInList EventRegistrationStatusSets.INACTIVE.toList())
             }.singleOrNull()
 
+    /** V1.9.35: the calling member's NEWEST own registration for [eventId], any status (active or not). */
+    fun findOwnLatestRegistration(
+        eventId: Uuid,
+        memberId: Uuid,
+    ): ResultRow? =
+        EventRegistrationTable
+            .selectAll()
+            .where { (EventRegistrationTable.eventId eq eventId) and (EventRegistrationTable.memberId eq memberId) }
+            .orderBy(EventRegistrationTable.registeredAt to SortOrder.DESC)
+            .limit(1)
+            .firstOrNull()
+
     fun listByEvent(eventId: Uuid): List<ResultRow> =
         EventRegistrationTable
             .selectAll()

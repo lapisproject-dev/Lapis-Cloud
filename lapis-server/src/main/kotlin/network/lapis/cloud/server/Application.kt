@@ -1419,6 +1419,9 @@ internal fun Application.module(
     // bekannte Paar der oeffentlichen Ticket-Routen (weiches Seitenbudget je IP + strenger
     // Fehlversuchs-Riegel), hier fuer GET /ausweis -- siehe registerMemberCardPublicRoutes KDoc.
     val memberCardIssueRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
+
+    // V1.9.35: shared singleton for IMemberService.getMemberAddressForAdministration (30 reads / 60 min / actor).
+    val memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 60.minutes)
     val memberCardPublicPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val memberCardCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
 
@@ -1669,6 +1672,7 @@ internal fun Application.module(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = memberAddressAdminReadRateLimiter,
             )
         }
         registerService(IContributionService::class) { call -> ContributionService(call) }

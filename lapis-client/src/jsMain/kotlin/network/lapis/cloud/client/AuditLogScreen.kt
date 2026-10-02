@@ -306,7 +306,7 @@ private fun auditLogColumns(): List<DataColumn<AuditLogEntryDto>> =
         ),
         DataColumn(
             title = tr("Aktion"),
-            cell = { container, entry -> container.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action)) },
+            cell = { container, entry -> container.statusBadge(auditEntryActionLabel(entry), auditEntryActionColor(entry)) },
         ),
         textColumn(title = tr("Seq."), numeric = true) { entry: AuditLogEntryDto -> entry.sequenceNumber.toString() },
         textColumn(title = tr("Akteur")) { entry: AuditLogEntryDto -> actorDisplayText(entry) },
@@ -346,7 +346,7 @@ private fun renderAuditLogDetailBody(
 ) {
     val headerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.typeBadge(auditEntityTypeLabel(entry.entityType), auditEntityTypeColor(entry.entityType))
-    headerRow.statusBadge(auditActionLabel(entry.action), auditActionColor(entry.action))
+    headerRow.statusBadge(auditEntryActionLabel(entry), auditEntryActionColor(entry))
     headerRow.div(gettext("Sequenznummer %1", entry.sequenceNumber)) { addCssClasses("flex-grow-1 fw-bold") }
 
     panel.div(gettext("Zeitpunkt: %1", formatTimestamp(entry.occurredAt))) { addCssClasses("text-muted small") }
@@ -397,7 +397,8 @@ private fun renderSnapshotSection(
     entry.afterSnapshot?.let { raw ->
         val column = columns.vPanel(spacing = 4) { addCssClasses("flex-grow-1") }
         column.div(tr("Nachher")) { addCssClass("fw-bold") }
-        renderSnapshotBody(column, entry.entityType, raw)
+        val marker = auditMarkerDescription(entry.entityType, raw)
+        if (marker != null) column.div(marker) else renderSnapshotBody(column, entry.entityType, raw)
     }
 }
 

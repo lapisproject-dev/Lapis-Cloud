@@ -1,4 +1,4 @@
-= Staging test plan: member self-service (address, GwG data, card block, events) (V1.9.33)
+= Staging test plan: member self-service (V1.9.33) and refunds, resume payment, board GwG access (V1.9.35)
 :toc:
 
 NOT EXECUTED: no staging run in this wave. Everything in V1.9.33 is covered by unit, DOM and tripwire tests against stubbed servers; what
@@ -31,4 +31,30 @@ test mode), one that is full, one that has already started.
 | 15 | Withdraw from a paid, confirmed event | the dialog names that no refund is made automatically
 | 16 | Event that already started | no registration button
 | 17 | Two tabs: withdraw in tab A, withdraw in tab B | tab B shows the "had already changed" message and reloads
+|===
+
+== V1.9.35: refunds, "Zahlung fortsetzen", board access to address / GwG data
+
+NOT EXECUTED: no staging run in this wave either. Additional prerequisite: the payment provider in Stripe TEST mode, a BOARD and an ADMIN account,
+a TREASURER account, a member with a fee-bearing event.
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 18 | Register for the fee event, abandon the Stripe page, reopen "Veranstaltungen" | badge "Zahlung offen", button "Zahlung fortsetzen (amount)"
+| 19 | Click "Zahlung fortsetzen" | redirect to the SAME Stripe session (no second session in Stripe); pay with a test card; after the webhook the card shows "Angemeldet"
+| 20 | Double-click "Zahlung fortsetzen" | one redirect, one session
+| 21 | Let the hold run out, click "Zahlung fortsetzen" | the fixed sentence "kann gerade nicht fortgesetzt werden", the list reloads
+| 22 | As that paid member: "Von der Veranstaltung abmelden" | the dialog names the paid amount and the open refund; confirm; the card shows "Bezahlt – Erstattung noch offen."
+| 23 | As BOARD open the event management screen | section "Offene Erstattungen (1)" with the event, the name, the amount and the withdrawal date
+| 24 | As TREASURER and as MEMBER open the same screen / call the RPC | no section / Forbidden
+| 25 | "Als erstattet markieren", cancel | nothing changes; again and confirm: toast "Erstattung vermerkt.", the section disappears when it was the last one
+| 26 | Open the protocol screen | one PAYMENT_TRANSACTION entry "Erstattung außerhalb von Lapis Cloud vermerkt", no name, no amount
+| 27 | As the paid member reload "Veranstaltungen" | "Erstattung vom Vorstand als erledigt vermerkt am ..."
+| 28 | Mark the same refund in two tabs | the second tab shows the "had already changed" message and reloads
+| 29 | As BOARD open the member roster | the icon "Anschrift und GwG-Angaben bearbeiten" is there; as TREASURER, chapter officer and MEMBER it is not; not for an anonymized member
+| 30 | Click the icon, then "Schließen" | no entry in the protocol
+| 31 | Click the icon, "Angaben anzeigen" | one entry "Eingesehen" (`ADDRESS_READ`); the forms are prefilled
+| 32 | Change the city, save, confirm the question | toast "Gespeichert."; one more entry `ADDRESS_UPDATED`, no second `ADDRESS_READ`; close and reopen: new value
+| 33 | Read 31 times in an hour as one actor | the 31st gives a general failure toast; another actor is not affected
 |===

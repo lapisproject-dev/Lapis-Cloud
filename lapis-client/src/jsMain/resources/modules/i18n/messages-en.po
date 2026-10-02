@@ -19150,9 +19150,6 @@ msgstr "Your registration has been saved."
 msgid "Von der Veranstaltung abmelden"
 msgstr "Withdraw from the event"
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr "A refund is not made automatically. Please contact the board for this."
-
 msgid "Anmeldung zurückziehen"
 msgstr "Withdraw registration"
 
@@ -19212,3 +19209,79 @@ msgstr "At most 200 entries are shown. Please filter by year."
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr "This list only shows which declarations have been recorded. Amounts and annual limits are shown with the respective payment."
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr "Continue payment (%1)"
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr "The payment cannot be continued right now. The view has been updated."
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr "You have paid %1 for this event. The amount is not refunded automatically. Your withdrawal appears on the board's list as an open refund."
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr "Paid – refund still open."
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr "Refund recorded as completed by the board on %1."
+
+msgid "Offene Erstattungen (%1)"
+msgstr "Open refunds (%1)"
+
+msgid "Abgemeldet am %1"
+msgstr "Withdrawn on %1"
+
+msgid "Reservierung abgelaufen"
+msgstr "Reservation expired"
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr "Paid several times (%1 payments)"
+
+msgid "Als erstattet markieren"
+msgstr "Mark as refunded"
+
+msgid "Erstattung vermerken"
+msgstr "Record refund"
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr "Have you paid back %1 to %2 outside Lapis Cloud? Lapis Cloud does not pay anything out; it only records the completed refund."
+
+msgid "Erstattung vermerkt."
+msgstr "Refund recorded."
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "This refund had already changed. The view has been updated."
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr "Edit address and Money Laundering Act details"
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr "Address and Money Laundering Act details of %1"
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr "These details are subject to the Money Laundering Act. Viewing them is recorded in the audit log under your name."
+
+msgid "Angaben anzeigen"
+msgstr "Show details"
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr "Save changes to the details of %1? The change is recorded in the audit log."
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "An empty field deletes the stored value. Every change is logged; the values themselves are not part of the log."
+
+msgid "Eingesehen"
+msgstr "Viewed"
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr "Address and Money Laundering Act details viewed"
+
+msgid "Anschrift geändert"
+msgstr "Address changed"
+
+msgid "GwG-Angaben geändert"
+msgstr "Money Laundering Act details changed"
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr "Refund recorded outside Lapis Cloud"
+

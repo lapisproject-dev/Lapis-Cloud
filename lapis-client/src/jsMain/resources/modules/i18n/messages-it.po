@@ -19243,9 +19243,6 @@ msgstr "La Sua iscrizione è stata salvata."
 msgid "Von der Veranstaltung abmelden"
 msgstr "Annulla l'iscrizione all'evento"
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr "Il rimborso non avviene automaticamente. Si rivolga al consiglio direttivo."
-
 msgid "Anmeldung zurückziehen"
 msgstr "Ritira l'iscrizione"
 
@@ -19305,3 +19302,79 @@ msgstr "Vengono mostrate al massimo 200 voci. Filtrare per anno."
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr "Questo elenco mostra solo quali dichiarazioni sono registrate. Importi e limiti annuali si trovano presso il rispettivo pagamento."
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr "Prosegui il pagamento (%1)"
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr "Al momento non è possibile proseguire il pagamento. La visualizzazione è stata aggiornata."
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr "Ha pagato %1 per questo evento. L'importo non viene rimborsato automaticamente. La Sua cancellazione compare presso il consiglio direttivo come rimborso in sospeso."
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr "Pagato – rimborso ancora in sospeso."
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr "Rimborso registrato come effettuato dal consiglio direttivo il %1."
+
+msgid "Offene Erstattungen (%1)"
+msgstr "Rimborsi in sospeso (%1)"
+
+msgid "Abgemeldet am %1"
+msgstr "Cancellato il %1"
+
+msgid "Reservierung abgelaufen"
+msgstr "Prenotazione scaduta"
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr "Pagato più volte (%1 pagamenti)"
+
+msgid "Als erstattet markieren"
+msgstr "Segna come rimborsato"
+
+msgid "Erstattung vermerken"
+msgstr "Registra rimborso"
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr "Ha rimborsato %1 a %2 al di fuori di Lapis Cloud? Lapis Cloud non versa nulla, registra soltanto il rimborso effettuato."
+
+msgid "Erstattung vermerkt."
+msgstr "Rimborso registrato."
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Questo rimborso era già cambiato. La visualizzazione è stata aggiornata."
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr "Modifica indirizzo e dati ai sensi della legge antiriciclaggio"
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr "Indirizzo e dati ai sensi della legge antiriciclaggio di %1"
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr "Questi dati sono soggetti alla legge antiriciclaggio. La loro consultazione viene registrata con il Suo nome nel registro di controllo."
+
+msgid "Angaben anzeigen"
+msgstr "Mostra dati"
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr "Salvare le modifiche ai dati di %1? La modifica viene registrata nel registro di controllo."
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "Un campo vuoto elimina il valore memorizzato. Ogni modifica viene registrata; i valori stessi non compaiono nel registro."
+
+msgid "Eingesehen"
+msgstr "Consultato"
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr "Indirizzo e dati ai sensi della legge antiriciclaggio consultati"
+
+msgid "Anschrift geändert"
+msgstr "Indirizzo modificato"
+
+msgid "GwG-Angaben geändert"
+msgstr "Dati ai sensi della legge antiriciclaggio modificati"
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr "Rimborso registrato al di fuori di Lapis Cloud"
+

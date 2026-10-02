@@ -165,6 +165,13 @@
 // `chk_event_registration_invoice_consistency`, not modelled here -- same "cross-field CHECK
 // constraints are SQL-only" posture this file's own header already documents).
 //
+// **Welle V1.9.35 "Erstattungsvermerk" addendum** (`V66__event_refund_marking.sql`) adds two nullable
+// `event_registration` columns, `refundMarkedAt`/`refundMarkedBy` (FK -> `member`): the board
+// records that a refund of a paid-but-withdrawn registration was paid OUTSIDE Lapis Cloud. **No
+// money flow, no booking.** The CHECKs (both set or neither; a marker only on CANCELLED/EXPIRED)
+// are SQL-only, like V38's. The marking is audited as PAYMENT_TRANSACTION/UPDATE with the
+// value-free marker EVENT_REFUND_MARKED.
+//
 // **Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" addendum**
 // (`V56__event_series.sql`) adds ONE new table, `event_series` (the recurrence rule + its
 // timezone/duration template, one row per series), and THREE new `event` columns: `seriesId`
@@ -552,6 +559,15 @@ classDiagram(name = "Events") {
         attribute(name = "invoiceIssuedBy", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "invoice_issued_by"; "fkEntity" to "Member" }
+        }
+        // V1.9.35 refund marker -- both set or neither (chk_event_registration_refund_marked_pair, SQL-only).
+        attribute(name = "refundMarkedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "refund_marked_at" }
+        }
+        attribute(name = "refundMarkedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "refund_marked_by"; "fkEntity" to "Member" }
         }
     }
 }

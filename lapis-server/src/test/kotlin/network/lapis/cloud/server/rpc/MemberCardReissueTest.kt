@@ -247,6 +247,7 @@ internal fun Route.registerMemberCardReissueTestRoute(issueRateLimiter: Federati
                 adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                 adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                 memberCardIssueRateLimiter = issueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val dto = service.reissueMemberCard(call.parameters["id"]!!)
         call.respondText(

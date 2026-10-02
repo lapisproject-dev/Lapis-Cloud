@@ -25,6 +25,9 @@ internal fun testEvent(
     registrationClosesAt: LocalDateTime? = null,
     locationText: String? = "Gemeindehaus",
     onlineUrl: String? = null,
+    ownPaid: Boolean = false,
+    ownPaidAmount: Double? = null,
+    ownRefundMarkedAt: LocalDateTime? = null,
 ) = EventDto(
     id = id,
     slug = "slug-$id",
@@ -46,6 +49,9 @@ internal fun testEvent(
     feeEditable = true,
     ownRegistrationStatus = own,
     publicUrl = null,
+    ownPaid = ownPaid,
+    ownRefundMarkedAt = ownRefundMarkedAt,
+    ownPaidAmount = ownPaidAmount?.toDecimal(),
 )
 
 /** Welle V1.9.33 -- the pure decisions behind the member event screen. */
@@ -110,5 +116,28 @@ class MemberEventActionTest {
             "not a url",
             "HTTP://pay.example.org",
         ).forEach { assertFalse(isSafeHttpsRedirect(it), it) }
+    }
+
+    // ── V1.9.35: the withdrawal refund note is server truth only ──
+
+    @Test
+    fun aPaidActiveRegistration_carriesTheRefundNote_withThePaidAmount() {
+        val note =
+            memberWithdrawRefundNote(
+                testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED, ownPaid = true, ownPaidAmount = 24.0),
+            )
+        assertEquals(1, note.size)
+        assertTrue(note.single().contains(formatMoney(24.0)))
+    }
+
+    @Test
+    fun aFeeBearingConfirmedRegistration_withoutAPayment_carriesNoRefundNote() {
+        // the regression case of the old "fee + CONFIRMED" guess
+        assertTrue(memberWithdrawRefundNote(testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED)).isEmpty())
+    }
+
+    @Test
+    fun noActiveRegistration_meansNoWithdrawNote_evenIfPaid() {
+        assertTrue(memberWithdrawRefundNote(testEvent(fee = 12.0, own = null, ownPaid = true, ownPaidAmount = 12.0)).isEmpty())
     }
 }

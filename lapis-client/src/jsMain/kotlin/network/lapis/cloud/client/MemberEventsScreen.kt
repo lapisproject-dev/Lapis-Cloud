@@ -32,6 +32,8 @@ internal interface MemberEventsRpc {
     suspend fun registerSelf(eventId: String): EventRegistrationResultDto
 
     suspend fun cancelOwnRegistration(eventId: String): EventRegistrationDto
+
+    suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto
 }
 
 internal fun liveMemberEventsRpc(): MemberEventsRpc =
@@ -44,6 +46,8 @@ internal fun liveMemberEventsRpc(): MemberEventsRpc =
         override suspend fun registerSelf(eventId: String) = rpcService<IEventService>().registerSelf(eventId)
 
         override suspend fun cancelOwnRegistration(eventId: String) = rpcService<IEventService>().cancelOwnRegistration(eventId)
+
+        override suspend fun resumeOwnEventPayment(eventId: String) = rpcService<IEventService>().resumeOwnEventPayment(eventId)
     }
 
 /** The member list is capped, there is no paging here (documented limitation). */
@@ -150,8 +154,9 @@ fun renderMemberEventsScreen(container: SimplePanel) {
  * Welle V1.9.33 -- upcoming events for members: register, register and pay, join the waitlist, withdraw. The list loads through a
  * [dataSection]; every write is a [runGuardedAction] followed by a reload, so the screen always shows the server state.
  *
- * Honest limits: an unfinished payment cannot be resumed here (that needs the e-mail link token); the reservation simply expires
- * and the member may register again. Withdrawal never refunds automatically. Titles, places and all other event text are untrusted
+ * V1.9.35: an unfinished payment can be resumed here ("Zahlung fortsetzen", amount from the server); a paid withdrawal shows the
+ * refund state (see `MemberEventPaymentUi.kt`). Honest limits: the reservation still expires on its own, and withdrawal never
+ * refunds automatically -- the board pays outside Lapis Cloud and marks it. Titles, places and all other event text are untrusted
  * and only ever reach the screen through the `untrusted*` helpers. The payment redirect is followed only for `https:` URLs.
  */
 internal fun renderMemberEventsScreenWith(
@@ -228,8 +233,10 @@ private fun renderEventCard(
             tr("Die Reservierung verfällt automatisch, wenn die Zahlung nicht abgeschlossen wird. Danach können Sie sich erneut anmelden."),
         ) { addCssClasses("text-muted small") }
     }
+    card.renderOwnRefundLine(e)
 
     val actions = card.hPanel(spacing = 8)
+    renderResumePaymentButton(actions, e, rpc, navigate, toastError, reload)
     val action = memberEventAction(e, now())
     if (action != MemberEventAction.None) {
         val label =
@@ -276,12 +283,7 @@ private fun renderEventCard(
         actions.add(cancel)
         cancel.onClick {
             if (cancel.disabled) return@onClick
-            val refundNote =
-                if (hasFee(e) && own == EventRegistrationStatus.CONFIRMED) {
-                    listOf(gettext("Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."))
-                } else {
-                    emptyList()
-                }
+            val refundNote = memberWithdrawRefundNote(e)
             confirm.show(
                 gettext("Anmeldung zurückziehen"),
                 gettext(

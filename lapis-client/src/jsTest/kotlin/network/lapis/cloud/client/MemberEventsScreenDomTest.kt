@@ -32,6 +32,10 @@ private class FakeEventsRpc(
     var registerFailure: Throwable? = null
     var cancelFailure: Throwable? = null
     var gate: CompletableDeferred<Unit>? = null
+    val resumeCalls = mutableListOf<String>()
+    var resumeUrl: String? = "https://pay.example.org/checkout/resume"
+    var resumeFailure: Throwable? = null
+    var resumeGate: CompletableDeferred<Unit>? = null
 
     override suspend fun listUpcoming(): EventPageDto {
         listCalls++
@@ -61,6 +65,13 @@ private class FakeEventsRpc(
         gate?.await()
         registerFailure?.let { throw it }
         return registerResult ?: EventRegistrationResultDto(registration(eventId, EventRegistrationStatus.CONFIRMED), null)
+    }
+
+    override suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto {
+        resumeCalls += eventId
+        resumeGate?.await()
+        resumeFailure?.let { throw it }
+        return EventRegistrationResultDto(registration(eventId, EventRegistrationStatus.PENDING_PAYMENT), resumeUrl)
     }
 
     override suspend fun cancelOwnRegistration(eventId: String): EventRegistrationDto {
@@ -338,12 +349,16 @@ class MemberEventsScreenDomTest {
 
     @Test
     fun withdrawingFromAPaidConfirmedEvent_carriesTheRefundNote(): Promise<Unit> {
-        val rpc = FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED)))
+        val rpc =
+            FakeEventsRpc(
+                listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED, ownPaid = true, ownPaidAmount = 12.0)),
+            )
         return withScreen("ev-withdraw-refund", rpc) { el, h ->
             el().buttonNamed("Von der Veranstaltung abmelden").click()
             val dialog = h.dialogs.shown.single()
             assertEquals(1, dialog.extraLines.size)
-            assertTrue(dialog.extraLines.single().contains("Rückerstattung"))
+            assertTrue(dialog.extraLines.single().contains("offene Erstattung"))
+            assertTrue(dialog.extraLines.single().contains(formatMoney(12.0)))
             dialog.onConfirm()
             awaitUntil("reloaded") { rpc.listCalls == 2 }
             assertEquals(listOf("e1"), rpc.cancelCalls)
@@ -383,4 +398,131 @@ class MemberEventsScreenDomTest {
             )
         }
     }
+
+    // ── V1.9.35: resume payment, refund state line ──
+
+    @Test
+    fun aFeeBearingConfirmedRegistrationWithoutPayment_showsNoRefundNote(): Promise<Unit> {
+        val rpc = FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.CONFIRMED)))
+        return withScreen("ev-withdraw-no-note", rpc) { el, h ->
+            el().buttonNamed("Von der Veranstaltung abmelden").click()
+            assertTrue(
+                h.dialogs.shown
+                    .single()
+                    .extraLines
+                    .isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun theResumeButton_showsOnlyForAPendingPayment_withTheAmount(): Promise<Unit> {
+        val rows =
+            listOf(
+                testEvent(id = "pending", title = "Offen", fee = 12.0, own = EventRegistrationStatus.PENDING_PAYMENT),
+                testEvent(id = "confirmed", title = "Fest", fee = 12.0, own = EventRegistrationStatus.CONFIRMED),
+                testEvent(id = "free", title = "Frei"),
+            )
+        return withScreen("ev-resume-visible", FakeEventsRpc(rows)) { el, _ ->
+            assertEquals(1, el().allOf("button").count { it.textContent?.trim() == "Zahlung fortsetzen (${formatMoney(12.0)})" })
+        }
+    }
+
+    @Test
+    fun resuming_navigatesToTheHttpsUrl_once_withoutReload(): Promise<Unit> {
+        val rpc = FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.PENDING_PAYMENT)))
+        return withScreen("ev-resume-ok", rpc) { el, h ->
+            el().buttonNamed("Zahlung fortsetzen (${formatMoney(12.0)})").click()
+            awaitUntil("navigated") { h.navigated.isNotEmpty() }
+            assertEquals(listOf("https://pay.example.org/checkout/resume"), h.navigated)
+            assertEquals(listOf("e1"), rpc.resumeCalls)
+            delay(80)
+            assertEquals(1, rpc.listCalls)
+        }
+    }
+
+    @Test
+    fun resumingWithAnUnsafeUrl_isNeverNavigatedTo_toastsAndReloads(): Promise<Unit> =
+        formTest {
+            listOf("http://pay.example.org/x", "javascript:alert(1)", "https://user:pw@pay.example.org/x").forEachIndexed { i, url ->
+                val rpc =
+                    FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.PENDING_PAYMENT))).apply { resumeUrl = url }
+                AppState.setSession(session)
+                val h = Harness()
+                mountedForm("ev-resume-bad-$i") { root, element ->
+                    renderMemberEventsScreenWith(root, rpc, { EVENT_NOW }, { h.navigated += it }, h.dialogs, { h.errors += it }, {
+                        h.successes += it
+                    })
+                    awaitUntil("loaded") { rpc.listCalls >= 1 }
+                    delay(80)
+                    element().buttonNamed("Zahlung fortsetzen (${formatMoney(12.0)})").click()
+                    awaitUntil("reloaded") { rpc.listCalls == 2 }
+                    assertTrue(h.navigated.isEmpty(), url)
+                    assertEquals(listOf("Die Zahlungsseite konnte nicht geöffnet werden."), h.errors, url)
+                }
+            }
+        }
+
+    @Test
+    fun aResumeConflict_toastsTheFixedSentence_andReloads(): Promise<Unit> {
+        val rpc =
+            FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.PENDING_PAYMENT))).apply {
+                resumeFailure = ConflictException("anything")
+            }
+        return withScreen("ev-resume-conflict", rpc) { el, h ->
+            el().buttonNamed("Zahlung fortsetzen (${formatMoney(12.0)})").click()
+            awaitUntil("reloaded") { rpc.listCalls == 2 }
+            assertEquals(listOf("Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."), h.errors)
+            assertTrue(h.navigated.isEmpty())
+        }
+    }
+
+    @Test
+    fun aDoubleClickOnResume_callsTheServerOnce(): Promise<Unit> {
+        val gate = CompletableDeferred<Unit>()
+        val rpc =
+            FakeEventsRpc(listOf(testEvent(fee = 12.0, own = EventRegistrationStatus.PENDING_PAYMENT))).apply { resumeGate = gate }
+        return withScreen("ev-resume-double", rpc) { el, h ->
+            val button = el().buttonNamed("Zahlung fortsetzen (${formatMoney(12.0)})")
+            button.click()
+            button.click()
+            delay(60)
+            gate.complete(Unit)
+            awaitUntil("navigated") { h.navigated.isNotEmpty() }
+            assertEquals(1, rpc.resumeCalls.size)
+        }
+    }
+
+    @Test
+    fun afterAPaidWithdrawal_theCardShowsTheOpenRefundLine(): Promise<Unit> {
+        val rows = listOf(testEvent(fee = 12.0, own = null, ownPaid = true, ownPaidAmount = 12.0))
+        return withScreen("ev-refund-open", FakeEventsRpc(rows)) { el, _ ->
+            assertTrue(el().textContent.orEmpty().contains("Bezahlt – Erstattung noch offen."))
+        }
+    }
+
+    @Test
+    fun afterTheBoardMarkedTheRefund_theCardSaysSo(): Promise<Unit> {
+        val rows =
+            listOf(
+                testEvent(
+                    fee = 12.0,
+                    own = null,
+                    ownPaid = true,
+                    ownPaidAmount = 12.0,
+                    ownRefundMarkedAt = LocalDateTime(2026, 10, 1, 9, 0),
+                ),
+            )
+        return withScreen("ev-refund-marked", FakeEventsRpc(rows)) { el, _ ->
+            val text = el().textContent.orEmpty()
+            assertTrue(text.contains("Erstattung vom Vorstand als erledigt vermerkt am"))
+            assertFalse(text.contains("Erstattung noch offen"))
+        }
+    }
+
+    @Test
+    fun withoutAPayment_noRefundLineAppears(): Promise<Unit> =
+        withScreen("ev-refund-none", FakeEventsRpc(listOf(testEvent(fee = 12.0)))) { el, _ ->
+            assertFalse(el().textContent.orEmpty().contains("Erstattung"))
+        }
 }

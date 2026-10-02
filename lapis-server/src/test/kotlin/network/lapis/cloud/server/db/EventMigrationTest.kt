@@ -920,4 +920,80 @@ class EventMigrationTest :
             val deleteException = probeInsert("DELETE FROM event_series WHERE id = '$seriesId'")
             deleteException shouldBe null
         }
+
+        // ── V1.9.35 "Erstattungsvermerk" -- V66__event_refund_marking.sql ───────────────────────
+
+        fun cancelledRegistrationId(): Uuid {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            probeInsert(registrationColumns(id = registrationId, eventId = eventId)) shouldBe null
+            probeInsert(
+                "UPDATE event_registration SET status = 'CANCELLED', active_participant_key = NULL, " +
+                    "cancelled_at = TIMESTAMP '2026-01-02 00:00:00' WHERE id = '$registrationId'",
+            ) shouldBe null
+            return registrationId
+        }
+
+        test("chk_event_registration_refund_marked_pair rejects refund_marked_at without refund_marked_by") {
+            val registrationId = cancelledRegistrationId()
+            val exception =
+                probeInsert("UPDATE event_registration SET refund_marked_at = TIMESTAMP '2026-01-03 00:00:00' WHERE id = '$registrationId'")
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_refund_marked_pair", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_refund_marked_pair rejects refund_marked_by without refund_marked_at") {
+            val registrationId = cancelledRegistrationId()
+            val exception = probeInsert("UPDATE event_registration SET refund_marked_by = '$ADMIN_UUID' WHERE id = '$registrationId'")
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_refund_marked_pair", ignoreCase = true) shouldBe true
+        }
+
+        test("chk_event_registration_refund_marked_status rejects a marker on a CONFIRMED registration") {
+            val eventId = createRealEvent()
+            val registrationId = Uuid.random()
+            probeInsert(registrationColumns(id = registrationId, eventId = eventId)) shouldBe null
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET refund_marked_at = TIMESTAMP '2026-01-03 00:00:00', " +
+                        "refund_marked_by = '$ADMIN_UUID' WHERE id = '$registrationId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("chk_event_registration_refund_marked_status", ignoreCase = true) shouldBe true
+        }
+
+        test("a refund marker with both columns set on a CANCELLED registration is accepted") {
+            val registrationId = cancelledRegistrationId()
+            probeInsert(
+                "UPDATE event_registration SET refund_marked_at = TIMESTAMP '2026-01-03 00:00:00', " +
+                    "refund_marked_by = '$ADMIN_UUID' WHERE id = '$registrationId'",
+            ) shouldBe null
+        }
+
+        test("fk_event_registration_refund_marked_by rejects an unknown member id") {
+            val registrationId = cancelledRegistrationId()
+            val exception =
+                probeInsert(
+                    "UPDATE event_registration SET refund_marked_at = TIMESTAMP '2026-01-03 00:00:00', " +
+                        "refund_marked_by = '${Uuid.random()}' WHERE id = '$registrationId'",
+                )
+            (exception is ExposedSQLException) shouldBe true
+            (exception?.message ?: "").contains("fk_event_registration_refund_marked_by", ignoreCase = true) shouldBe true
+        }
+
+        test("V66 migration is idempotent -- running its statements again against the migrated schema succeeds") {
+            val sql =
+                requireNotNull(
+                    Thread.currentThread().contextClassLoader.getResourceAsStream("db/migration/V66__event_refund_marking.sql"),
+                ).bufferedReader().readText()
+            val statements =
+                sql
+                    .lines()
+                    .filterNot { it.trimStart().startsWith("--") }
+                    .joinToString("\n")
+                    .split(";")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+            statements.forEach { probeInsert(it) shouldBe null }
+        }
     })

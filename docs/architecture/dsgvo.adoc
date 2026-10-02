@@ -385,8 +385,36 @@ nationality; the GwG data) have existed since the foundation waves. V1.9.33 hard
 * **Audit**: every call writes one `AuditLogEntry` (`MEMBER`, `UPDATE`) in the same transaction with the marker `ADDRESS_UPDATED` or
   `BENEFICIAL_OWNER_DATA_UPDATED` as `after_snapshot`. Never a before value, never a field value. It is also written when nothing changed.
 * **No rate limit**: `MemberService` has no general limiter for writes and none was added.
-* **No admin UI**: BOARD/ADMIN can call the RPC but the client offers no screen for other members. A privileged read of the address
-  fields does not exist (`MemberAdminRowDto` carries none); a form without prefill would delete stored data on save. Proposed for a later wave.
+* **Admin UI**: V1.9.35 adds it, see the next section.
+
+== Privileged read of address and GwG data (V1.9.35)
+
+`IMemberService.getMemberAddressForAdministration(memberId)` returns another member's address and GwG fields to BOARD/ADMIN so the board can
+correct them without a blind form.
+
+* **Who**: BOARD/ADMIN only (`isPrivileged`). The check is the first thing that happens: before the id is parsed, before any lookup, before the
+  rate limit. A non-privileged caller (also for their own id: the self path is `getCurrentMember`) therefore learns nothing about which ids exist
+  and uses up no budget.
+* **Audit**: every successful call writes one `AuditLogEntry` (`MEMBER`, `UPDATE`, marker `ADDRESS_READ`, no before, no value) in the SAME
+  transaction as the read. If the audit write fails the transaction rolls back and no data leaves. An unknown or anonymized member is a `NotFoundException`
+  and writes nothing.
+* **Rate limit**: 30 reads per 60 minutes per actor, one singleton `FederationInboxRateLimiter` created in `Application.kt` (`MemberService` is
+  rebuilt per call, so a default parameter would limit nothing).
+* **No value in logs**: no field value and no member id is logged or put in an exception.
+* **UI** (`MemberAddressAdminDialog.kt`, roster action "Anschrift und GwG-Angaben bearbeiten", offered to BOARD/ADMIN only and not for an anonymized
+  member): two steps. Step 1 only explains that the read is logged under the caller's name and makes NO server call, so a mis-click leaves no trace.
+  "Angaben anzeigen" removes step 1 at once and starts exactly one audited read. Step 2 is the shared `MemberAddressCard` (variant ADMINISTRATION): every
+  save asks first and is rebuilt from the DTO the server returned (no second read, no second audit entry); a refused write reloads once. Closing the
+  dialog leaves no personal data in the DOM. Values never reach a toast, a log, browser storage or the URL (`ClientSelfServicePiiTripwireTest`).
+* **Peer protection**: none. Like `updateMemberAddress` before, BOARD can read and write the data of ADMIN and other BOARD members.
+* The protocol screen shows the read as "Eingesehen" and the three markers as sentences (`AuditMarkerLabels.kt`); the marker strings are pinned
+  (`AuditMarkerStabilityTest`) because they live in the hash chain.
+
+=== Event refunds (V1.9.35, migration V66)
+
+`event_registration` gained `refund_marked_at` and `refund_marked_by` (FK to `member`). Auskunft exports `refundMarkedAt` of the member's own
+registrations and `refundMarkedCount` (how often the member marked a refund as a board member). Erasure keeps `refund_marked_by` as an FK anchor with
+a written reason (a GoBD-relevant payment event must stay traceable), like `invoice_issued_by`. See `member-events.adoc`.
 
 == Card revocation without a new card (V1.9.33)
 

@@ -841,6 +841,8 @@ private fun renderRosterActions(
         }
     }
 
+    renderMemberAddressAdminAction(actionsCell, row) // V1.9.35, self-gated (BOARD/ADMIN, not anonymized)
+
     // V1.7.2 sub-wave 2b -- self-gated (returns immediately outside Keycloak mode / for a non-ADMIN
     // caller), see KeycloakLinkScreen.kt KDoc "renderKeycloakUnlinkAction".
     renderKeycloakUnlinkAction(actionsCell, row, onChanged)

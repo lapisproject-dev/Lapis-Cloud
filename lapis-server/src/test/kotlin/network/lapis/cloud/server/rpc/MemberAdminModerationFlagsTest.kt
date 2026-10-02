@@ -65,6 +65,7 @@ class MemberAdminModerationFlagsTest :
                             adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                             adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                             memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                            memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                             regionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load(env = { null }),
                         )
                     val page =

@@ -19180,9 +19180,6 @@ msgstr "Su inscripción se ha guardado."
 msgid "Von der Veranstaltung abmelden"
 msgstr "Cancelar la inscripción en el evento"
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr "El reembolso no se realiza automáticamente. Póngase en contacto con la junta directiva."
-
 msgid "Anmeldung zurückziehen"
 msgstr "Retirar la inscripción"
 
@@ -19242,3 +19239,79 @@ msgstr "Se muestran como máximo 200 entradas. Filtre por año."
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr "Esta lista solo muestra qué declaraciones están registradas. Los importes y límites anuales figuran en cada pago."
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr "Continuar el pago (%1)"
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr "El pago no se puede continuar en este momento. La vista se ha actualizado."
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr "Ha pagado %1 por este evento. El importe no se reembolsa automáticamente. Su baja aparece en la junta directiva como reembolso pendiente."
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr "Pagado – reembolso pendiente."
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr "Reembolso registrado como realizado por la junta directiva el %1."
+
+msgid "Offene Erstattungen (%1)"
+msgstr "Reembolsos pendientes (%1)"
+
+msgid "Abgemeldet am %1"
+msgstr "Baja el %1"
+
+msgid "Reservierung abgelaufen"
+msgstr "Reserva caducada"
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr "Pagado varias veces (%1 pagos)"
+
+msgid "Als erstattet markieren"
+msgstr "Marcar como reembolsado"
+
+msgid "Erstattung vermerken"
+msgstr "Registrar reembolso"
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr "¿Ha devuelto %1 a %2 fuera de Lapis Cloud? Lapis Cloud no paga nada; solo registra el reembolso realizado."
+
+msgid "Erstattung vermerkt."
+msgstr "Reembolso registrado."
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Este reembolso ya había cambiado. La vista se ha actualizado."
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr "Editar dirección y datos conforme a la ley contra el blanqueo de capitales"
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr "Dirección y datos conforme a la ley contra el blanqueo de capitales de %1"
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr "Estos datos están sujetos a la ley contra el blanqueo de capitales. Su consulta se registra con su nombre en el registro de auditoría."
+
+msgid "Angaben anzeigen"
+msgstr "Mostrar datos"
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr "¿Guardar los cambios en los datos de %1? El cambio se registra en el registro de auditoría."
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "Un campo vacío borra el valor guardado. Cada cambio se registra; los valores en sí no figuran en el registro."
+
+msgid "Eingesehen"
+msgstr "Consultado"
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr "Dirección y datos conforme a la ley contra el blanqueo de capitales consultados"
+
+msgid "Anschrift geändert"
+msgstr "Dirección modificada"
+
+msgid "GwG-Angaben geändert"
+msgstr "Datos conforme a la ley contra el blanqueo de capitales modificados"
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr "Reembolso registrado fuera de Lapis Cloud"
+

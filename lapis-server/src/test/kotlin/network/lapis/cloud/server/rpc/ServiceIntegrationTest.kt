@@ -840,6 +840,7 @@ class ServiceIntegrationTest :
                                     adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                     adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                     memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                                    memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val members = service.listMembers()
                             call.respondText(members.joinToString(",") { "${it.id}:${it.displayName}" })
@@ -870,6 +871,7 @@ class ServiceIntegrationTest :
                                     adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                     adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                     memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                                    memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val members = service.listMembers()
                             // MemberSummaryDto only has id + displayName — this would not compile

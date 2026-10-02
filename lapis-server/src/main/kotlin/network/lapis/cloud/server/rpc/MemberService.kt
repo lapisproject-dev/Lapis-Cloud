@@ -44,10 +44,12 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminPasswordAction
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.AuditMarkers
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.DeathDateViolation
 import network.lapis.cloud.shared.domain.MailDeliveryState
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
+import network.lapis.cloud.shared.domain.MemberAddressDataDto
 import network.lapis.cloud.shared.domain.MemberAddressField
 import network.lapis.cloud.shared.domain.MemberAddressRules
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
@@ -224,6 +226,12 @@ class MemberService(
      */
     private val memberCardIssueRateLimiter: FederationInboxRateLimiter,
     /**
+     * V1.9.35: budget (30 / 60 min per actor) of [getMemberAddressForAdministration]. MUST be a
+     * singleton created in `Application.kt` -- `MemberService` is rebuilt per call, so a default
+     * value would create a fresh limiter per call and limit nothing. No default on purpose.
+     */
+    private val memberAddressAdminReadRateLimiter: FederationInboxRateLimiter,
+    /**
      * Review-fix (V1.9.13): default-constructs its own [RegionalChapterEnforcementConfig.load],
      * same "default value on purpose, existing call sites keep working unchanged" idiom
      * [RegistrationService]'s own `keycloakConfig`/`regionalChapterEnforcementConfig` constructor
@@ -312,6 +320,48 @@ class MemberService(
                 .where { MemberTable.id eq targetId }
                 .single()
                 .toMemberDto()
+        }
+    }
+
+    /**
+     * V1.9.35 -- BOARD/ADMIN only. Order matters: role check first (before parse and lookup, so a
+     * non-privileged caller learns nothing about which ids exist), then the actor rate limit, then
+     * parse, then ONE transaction that reads the row and writes the value-free audit entry. If the
+     * audit write fails the transaction rolls back and no data leaves. No field value and no member
+     * id is logged.
+     */
+    override suspend fun getMemberAddressForAdministration(memberId: String): MemberAddressDataDto {
+        val current = resolveCurrentMember(call)
+        if (!current.isPrivileged) throw ForbiddenException()
+        if (!memberAddressAdminReadRateLimiter.checkAndRecord("actor:${current.memberId}")) {
+            throw ConflictException("Too many requests")
+        }
+        val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member not found") }
+        return transaction {
+            val row =
+                MemberTable.selectAll().where { MemberTable.id eq targetId }.singleOrNull()
+                    ?: throw NotFoundException("Member not found")
+            if (row[MemberTable.anonymizedAt] != null) throw NotFoundException("Member not found")
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                action = AuditAction.UPDATE,
+                after = MEMBER_ADDRESS_AUDIT_READ,
+                occurredAt = nowLocalDateTime(),
+            )
+            MemberAddressDataDto(
+                memberId = targetId.toString(),
+                displayName = row[MemberTable.displayName],
+                street = row[MemberTable.street],
+                postalCode = row[MemberTable.postalCode],
+                city = row[MemberTable.city],
+                country = row[MemberTable.country],
+                dateOfBirth = row[MemberTable.dateOfBirth],
+                nationality = row[MemberTable.nationality],
+                dateOfDeath = row[MemberTable.dateOfDeath],
+            )
         }
     }
 
@@ -1759,5 +1809,8 @@ fun ResultRow.toMemberDto(): MemberDto =
     )
 
 /** Welle V1.9.33 -- value-free audit markers for the self-service address / GwG edits. */
-internal const val MEMBER_ADDRESS_AUDIT_UPDATED = "ADDRESS_UPDATED"
-internal const val MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED = "BENEFICIAL_OWNER_DATA_UPDATED"
+internal const val MEMBER_ADDRESS_AUDIT_UPDATED = AuditMarkers.MEMBER_ADDRESS_UPDATED
+internal const val MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED = AuditMarkers.MEMBER_BENEFICIAL_OWNER_UPDATED
+
+/** Welle V1.9.35 -- value-free marker for a BOARD/ADMIN read of another member's address / GwG data. */
+internal const val MEMBER_ADDRESS_AUDIT_READ = AuditMarkers.MEMBER_ADDRESS_READ

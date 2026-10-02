@@ -11,7 +11,17 @@ import java.io.File
  * console or to browser storage, read an exception's `message` (Kilua RPC never transmits it, and showing it would leak server text),
  * or hand a personal-data DTO field to a toast.
  */
-private val SELF_SERVICE_FILES = listOf("MemberAddressCard.kt", "MemberCardRevokeCard.kt", "MemberEventsScreen.kt")
+private val SELF_SERVICE_FILES =
+    listOf(
+        "MemberAddressCard.kt",
+        "MemberCardRevokeCard.kt",
+        "MemberEventsScreen.kt",
+        // V1.9.35: the board-side files handle other people's address / GwG data, names and payment amounts.
+        "MemberAddressAdminDialog.kt",
+        "EventRefundsSection.kt",
+        "MemberEventPaymentUi.kt",
+        "AuditMarkerLabels.kt",
+    )
 
 private val SOURCES =
     File("../lapis-client/src/jsMain/kotlin")
@@ -42,6 +52,37 @@ class ClientSelfServicePiiTripwireTest :
                     codeLines(sourceOf(name)).filter { toastWithPii.containsMatchIn(it) }.map { "$name: ${it.trim()}" }
                 }
             findings shouldBe emptyList()
+        }
+
+        test("no toast receives a participant name, an amount, a display name, an event title or a guest name") {
+            val toastWithData =
+                Regex("""(?:notify\w*|toast\w*)\([^)]*\b(?:participantDisplayName|paidAmount|displayName|eventTitle|guestName)\b""")
+            val findings =
+                SELF_SERVICE_FILES.flatMap { name ->
+                    codeLines(sourceOf(name)).filter { toastWithData.containsMatchIn(it) }.map { "$name: ${it.trim()}" }
+                }
+            findings shouldBe emptyList()
+        }
+
+        test("no personal-data field and no navigation / URL helper meet on one line (no PII in the URL)") {
+            val piiInUrl =
+                Regex("""(?:window\.location|\bhistory\.|URLSearchParams|navigateTo\(|\.assign\()[^\n]*\b(?:$PII_FIELDS)\b""")
+            val findings =
+                SELF_SERVICE_FILES.flatMap { name ->
+                    codeLines(sourceOf(name)).filter { piiInUrl.containsMatchIn(it) }.map { "$name: ${it.trim()}" }
+                }
+            findings shouldBe emptyList()
+        }
+
+        test("the V1.9.35 detectors see what they are meant to see") {
+            val toastWithData =
+                Regex("""(?:notify\w*|toast\w*)\([^)]*\b(?:participantDisplayName|paidAmount|displayName|eventTitle|guestName)\b""")
+            toastWithData.containsMatchIn("""toastSuccess(refund.participantDisplayName)""") shouldBe true
+            toastWithData.containsMatchIn("""toastSuccess(gettext("Erstattung vermerkt."))""") shouldBe false
+            val piiInUrl =
+                Regex("""(?:window\.location|\bhistory\.|URLSearchParams|navigateTo\(|\.assign\()[^\n]*\b(?:$PII_FIELDS)\b""")
+            piiInUrl.containsMatchIn("""window.location.assign("/x?city=" + dto.city)""") shouldBe true
+            piiInUrl.containsMatchIn("""window.location.assign(url)""") shouldBe false
         }
 
         test("the detector sees what it is meant to see") {

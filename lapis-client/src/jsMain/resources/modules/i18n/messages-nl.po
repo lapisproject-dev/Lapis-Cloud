@@ -19198,9 +19198,6 @@ msgstr "Uw aanmelding is opgeslagen."
 msgid "Von der Veranstaltung abmelden"
 msgstr "Afmelden voor het evenement"
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr "Een terugbetaling gebeurt niet automatisch. Neem hiervoor contact op met het bestuur."
-
 msgid "Anmeldung zurückziehen"
 msgstr "Aanmelding intrekken"
 
@@ -19260,3 +19257,79 @@ msgstr "Er worden maximaal 200 items getoond. Filter op jaar."
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr "Deze lijst toont alleen welke verklaringen zijn vastgelegd. Bedragen en jaargrenzen staan bij de betreffende betaling."
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr "Betaling voortzetten (%1)"
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr "De betaling kan op dit moment niet worden voortgezet. De weergave is bijgewerkt."
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr "U heeft %1 betaald voor dit evenement. Het bedrag wordt niet automatisch terugbetaald. Uw afmelding verschijnt bij het bestuur als openstaande terugbetaling."
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr "Betaald – terugbetaling nog openstaand."
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr "Terugbetaling door het bestuur als afgehandeld vastgelegd op %1."
+
+msgid "Offene Erstattungen (%1)"
+msgstr "Openstaande terugbetalingen (%1)"
+
+msgid "Abgemeldet am %1"
+msgstr "Afgemeld op %1"
+
+msgid "Reservierung abgelaufen"
+msgstr "Reservering verlopen"
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr "Meerdere keren betaald (%1 betalingen)"
+
+msgid "Als erstattet markieren"
+msgstr "Markeren als terugbetaald"
+
+msgid "Erstattung vermerken"
+msgstr "Terugbetaling vastleggen"
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr "Heeft u %1 buiten Lapis Cloud om aan %2 terugbetaald? Lapis Cloud betaalt niets uit, het legt alleen de afgehandelde terugbetaling vast."
+
+msgid "Erstattung vermerkt."
+msgstr "Terugbetaling vastgelegd."
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Deze terugbetaling was al gewijzigd. De weergave is bijgewerkt."
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr "Adres en gegevens volgens de witwaswet bewerken"
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr "Adres en gegevens volgens de witwaswet van %1"
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr "Deze gegevens vallen onder de witwaswet. Het inzien ervan wordt onder uw naam in het controlelogboek vastgelegd."
+
+msgid "Angaben anzeigen"
+msgstr "Gegevens tonen"
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr "Wijzigingen in de gegevens van %1 opslaan? De wijziging wordt in het controlelogboek vastgelegd."
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "Een leeg veld wist de opgeslagen waarde. Elke wijziging wordt vastgelegd; de waarden zelf staan niet in het logboek."
+
+msgid "Eingesehen"
+msgstr "Ingezien"
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr "Adres en gegevens volgens de witwaswet ingezien"
+
+msgid "Anschrift geändert"
+msgstr "Adres gewijzigd"
+
+msgid "GwG-Angaben geändert"
+msgstr "Gegevens volgens de witwaswet gewijzigd"
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr "Terugbetaling buiten Lapis Cloud om vastgelegd"
+

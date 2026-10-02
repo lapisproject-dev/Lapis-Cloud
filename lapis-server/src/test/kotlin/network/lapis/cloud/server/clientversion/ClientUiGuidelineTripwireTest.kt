@@ -655,6 +655,12 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // through `runGuardedAction`, so R29 does not rise. (Strict set, not `R24_MIGRATED`: that one demands a `lapisForm(`.)
         "MemberCardRevokeCard.kt",
         "MemberEventsScreen.kt",
+        // V1.9.35: board-side refunds, the audited two-step address read, "Zahlung fortsetzen" and the audit-marker labels. The only
+        // fields live inside the shared `MemberAddressCard` (strict above); every write goes through `runGuardedAction`/`runBusy`.
+        "MemberAddressAdminDialog.kt",
+        "EventRefundsSection.kt",
+        "MemberEventPaymentUi.kt",
+        "AuditMarkerLabels.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */

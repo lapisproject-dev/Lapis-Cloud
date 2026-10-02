@@ -42,6 +42,10 @@ public object EventRegistrationTable : Table("event_registration") {
     public val invoiceIssuedAt: Column<LocalDateTime?> = datetime("invoice_issued_at").nullable()
     public val invoiceIssuedBy: Column<Uuid?> = optReference("invoice_issued_by", MemberTable.id)
 
+    // V1.9.35 addendum -- see 39-events.kuml.kts file header.
+    public val refundMarkedAt: Column<LocalDateTime?> = datetime("refund_marked_at").nullable()
+    public val refundMarkedBy: Column<Uuid?> = optReference("refund_marked_by", MemberTable.id)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 6 index(es) declared on this entity are not emitted —

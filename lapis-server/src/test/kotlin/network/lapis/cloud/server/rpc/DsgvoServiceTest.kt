@@ -282,6 +282,7 @@ class DsgvoServiceTest :
                                     adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                     adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                     memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                                    memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val query = call.request.queryParameters
                             val dto =
@@ -311,6 +312,7 @@ class DsgvoServiceTest :
                                     adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                     adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                     memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                                    memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val result =
                                 service.setTemporaryPasswordForMember(
@@ -559,6 +561,7 @@ class DsgvoServiceTest :
                                     adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                     adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                     memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                                    memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                                 )
                             val query = call.request.queryParameters
                             val dto =

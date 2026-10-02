@@ -102,6 +102,30 @@ data class EventDto(
     val seriesDetached: Boolean = false,
     /** Non-null only when `seriesId != null && !seriesDetached` -- for the ↻ symbol's tooltip/aria-label. */
     val seriesRuleSummary: String? = null,
+    /** V1.9.35: the caller's NEWEST own registration (any status) has a COMPLETED event-fee session. */
+    val ownPaid: Boolean = false,
+    /** V1.9.35: `refund_marked_at` of that newest own registration (null = not marked). */
+    val ownRefundMarkedAt: LocalDateTime? = null,
+    /** V1.9.35: the amount actually paid for that newest own registration (sum of COMPLETED sessions), null if unpaid. */
+    val ownPaidAmount: Decimal? = null,
+)
+
+/** V1.9.35 -- one paid-but-withdrawn registration whose refund the board still has to pay outside Lapis Cloud. */
+@Serializable
+data class EventRefundDto(
+    val registrationId: String,
+    val eventId: String,
+    val eventTitle: String,
+    val eventStartsAt: LocalDateTime,
+    /** Member name or guest name -- UNTRUSTED in the client. */
+    val participantDisplayName: String,
+    /** Sum of the COMPLETED sessions, never client-supplied. */
+    val paidAmount: Decimal,
+    /** More than 1 = paid several times. */
+    val paymentCount: Int,
+    val cancelledAt: LocalDateTime?,
+    val status: EventRegistrationStatus,
+    val refundMarkedAt: LocalDateTime? = null,
 )
 
 /**

@@ -2,6 +2,8 @@ package network.lapis.cloud.server.events
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
@@ -403,6 +405,23 @@ internal class EventRegistrationSubmission(
         eventId: Uuid,
         registrationId: Uuid,
         now: LocalDateTime = DbClock.nowLocalDateTime(),
+    ): EventRegistrationResult =
+        resumeStripes[(registrationId.hashCode() and Int.MAX_VALUE) % RESUME_STRIPE_COUNT].withLock {
+            resumeCheckoutUnguarded(eventId = eventId, registrationId = registrationId, now = now)
+        }
+
+    /**
+     * The body of [resumeCheckout] (see its KDoc). V1.9.35 **single-flight**: the lookup of a
+     * reusable session ran outside any lock, so two concurrent resumes could both find none and
+     * both create a Stripe session (double payment). [resumeCheckout] therefore serializes per
+     * registration over a fixed array of [Mutex] stripes (bounded, no map growth); the second
+     * caller then finds the session the first just created. The limit: this only holds inside ONE
+     * process -- with horizontal scaling it would have to become a DB advisory lock.
+     */
+    private suspend fun resumeCheckoutUnguarded(
+        eventId: Uuid,
+        registrationId: Uuid,
+        now: LocalDateTime,
     ): EventRegistrationResult {
         if (!gatewayUsable()) return EventRegistrationResult.GatewayUnavailable
         val (feeAndHold, promotions) =
@@ -785,6 +804,11 @@ internal class EventRegistrationSubmission(
 
     private companion object {
         val SECURE_RANDOM = SecureRandom()
+
+        const val RESUME_STRIPE_COUNT = 64
+
+        /** Process-wide (companion): the e-mail route and the RPC build separate [EventRegistrationSubmission] instances. */
+        val resumeStripes = Array(RESUME_STRIPE_COUNT) { Mutex() }
 
         /** ANSI SQL `unique_violation` -- the SQLSTATE both PostgreSQL and H2 (this codebase's test-time dialect) report for a UNIQUE-index conflict, see `submit`'s own `catch (e: ExposedSQLException)` KDoc. */
         const val UNIQUE_VIOLATION_SQL_STATE = "23505"

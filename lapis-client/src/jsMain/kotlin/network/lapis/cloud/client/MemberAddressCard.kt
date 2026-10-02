@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.shared.domain.MemberAddressDataDto
 import network.lapis.cloud.shared.domain.MemberAddressField
 import network.lapis.cloud.shared.domain.MemberAddressRules
 import network.lapis.cloud.shared.domain.MemberAddressViolation
@@ -24,10 +25,8 @@ import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import kotlin.time.Clock
 
-/** The RPC surface [MemberAddressCard] needs -- an interface so DOM tests can drive the card without a server. Exceptions propagate. */
-internal interface MemberAddressRpc {
-    suspend fun getCurrentMember(): MemberDto
-
+/** The two writes [MemberAddressCard] needs -- shared by the self-service card and the board dialog (V1.9.35). Exceptions propagate. */
+internal interface MemberAddressWriteRpc {
     suspend fun updateAddress(
         memberId: String,
         street: String?,
@@ -42,6 +41,31 @@ internal interface MemberAddressRpc {
         nationality: String?,
     ): MemberDto
 }
+
+/** The RPC surface of the self-service card -- an interface so DOM tests can drive the card without a server. Exceptions propagate. */
+internal interface MemberAddressRpc : MemberAddressWriteRpc {
+    suspend fun getCurrentMember(): MemberDto
+}
+
+/** What [MemberAddressCard] renders -- built from a [MemberDto] (self-service) or a `MemberAddressDataDto` (board dialog). */
+internal data class MemberAddressFormData(
+    val memberId: String,
+    val street: String?,
+    val postalCode: String?,
+    val city: String?,
+    val country: String?,
+    val dateOfBirth: LocalDate?,
+    val nationality: String?,
+    val dateOfDeath: LocalDate?,
+)
+
+internal fun MemberDto.toFormData() = MemberAddressFormData(id, street, postalCode, city, country, dateOfBirth, nationality, dateOfDeath)
+
+internal fun MemberAddressDataDto.toFormData() =
+    MemberAddressFormData(memberId, street, postalCode, city, country, dateOfBirth, nationality, dateOfDeath)
+
+/** Who the card is for: the member themselves (default) or a board/admin editing someone else's data. */
+internal enum class MemberAddressCardVariant { SELF, ADMINISTRATION }
 
 internal fun liveMemberAddressRpc(): MemberAddressRpc =
     object : MemberAddressRpc {
@@ -119,25 +143,40 @@ private fun textRule(field: MemberAddressField): (String) -> FieldCheck =
  */
 internal class MemberAddressCard(
     private val parent: SimplePanel,
-    private val rpc: MemberAddressRpc,
+    private val rpc: MemberAddressWriteRpc,
     private val today: () -> LocalDate,
     private val onChanged: () -> Unit,
     private val toastError: (String) -> Unit = { notifyError(it) },
     private val toastSuccess: (String) -> Unit = { notifySuccess(it) },
+    /** V1.9.35: when set it replaces [onChanged] after a save -- gets the written [MemberDto] on success, `null` on a refused write. */
+    private val onSaved: ((MemberDto?) -> Unit)? = null,
+    private val variant: MemberAddressCardVariant = MemberAddressCardVariant.SELF,
+    /** V1.9.35: the board dialog asks first; [proceed] performs the save. The self-service card saves at once. */
+    private val confirmSave: (proceed: () -> Unit) -> Unit = { it() },
 ) {
     internal lateinit var addressButton: Button
         private set
     internal lateinit var beneficialOwnerButton: Button
         private set
 
-    fun render(dto: MemberDto) {
-        val root = parent.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
-        root.h2(tr("Anschrift und Angaben nach Geldwäschegesetz")) { addCssClass("h5") }
-        root.div(
-            tr(
-                "Ihre Anschrift verwendet die Organisation für Briefpost und Rechnungen. Geburtsdatum und Staatsangehörigkeit werden bei Bedarf für Pflichtangaben nach dem Geldwäschegesetz benötigt. Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll.",
-            ),
-        ) { addCssClasses("text-muted small") }
+    fun render(dto: MemberDto) = render(dto.toFormData())
+
+    fun render(dto: MemberAddressFormData) {
+        val root = parent.vPanel(spacing = 8) { if (variant == MemberAddressCardVariant.SELF) addCssClasses("border rounded p-3") }
+        if (variant == MemberAddressCardVariant.SELF) {
+            root.h2(tr("Anschrift und Angaben nach Geldwäschegesetz")) { addCssClass("h5") }
+            root.div(
+                tr(
+                    "Ihre Anschrift verwendet die Organisation für Briefpost und Rechnungen. Geburtsdatum und Staatsangehörigkeit werden bei Bedarf für Pflichtangaben nach dem Geldwäschegesetz benötigt. Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll.",
+                ),
+            ) { addCssClasses("text-muted small") }
+        } else {
+            root.div(
+                tr(
+                    "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll.",
+                ),
+            ) { addCssClasses("text-muted small") }
+        }
 
         buildAddressForm(root, dto)
         buildBeneficialOwnerForm(root, dto)
@@ -145,7 +184,7 @@ internal class MemberAddressCard(
 
     private fun buildAddressForm(
         root: SimplePanel,
-        dto: MemberDto,
+        dto: MemberAddressFormData,
     ) {
         val form = root.lapisForm()
         val street =
@@ -192,9 +231,11 @@ internal class MemberAddressCard(
         button.onClick {
             if (!canSave()) return@onClick
             val values = fields.map { MemberAddressRules.normalize(it.value) }
-            form.runBusy(button, restoreDisabled = { !canSave() }) {
-                save {
-                    rpc.updateAddress(dto.id, values[0], values[1], values[2], values[3])
+            confirmSave {
+                form.runBusy(button, restoreDisabled = { !canSave() }) {
+                    save {
+                        rpc.updateAddress(dto.memberId, values[0], values[1], values[2], values[3])
+                    }
                 }
             }
         }
@@ -202,7 +243,7 @@ internal class MemberAddressCard(
 
     private fun buildBeneficialOwnerForm(
         root: SimplePanel,
-        dto: MemberDto,
+        dto: MemberAddressFormData,
     ) {
         val initialDate = dto.dateOfBirth?.let { machineDate(it) }
         val form = root.lapisForm()
@@ -238,8 +279,10 @@ internal class MemberAddressCard(
             if (!canSave()) return@onClick
             val date = dateValue()?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             val nat = MemberAddressRules.normalize(nationality.value)
-            form.runBusy(button, restoreDisabled = { !canSave() }) {
-                save { rpc.updateBeneficialOwnerData(dto.id, date, nat) }
+            confirmSave {
+                form.runBusy(button, restoreDisabled = { !canSave() }) {
+                    save { rpc.updateBeneficialOwnerData(dto.memberId, date, nat) }
+                }
             }
         }
     }
@@ -260,7 +303,8 @@ internal class MemberAddressCard(
     }
 
     /** One write, then ALWAYS a reload: the card shows the server state afterwards, whatever happened. */
-    private suspend fun save(write: suspend () -> Unit) {
+    private suspend fun save(write: suspend () -> MemberDto) {
+        var written: MemberDto? = null
         val ok =
             runOrConflict(
                 conflictMessage =
@@ -268,10 +312,11 @@ internal class MemberAddressCard(
                         "Die Angaben wurden nicht gespeichert. Bitte prüfen Sie die Eingaben; die Ansicht wurde neu geladen.",
                     ),
                 toast = toastError,
-                block = write,
+                block = { written = write() },
             )
         if (ok) toastSuccess(gettext("Gespeichert."))
-        onChanged()
+        val saved = onSaved
+        if (saved != null) saved(if (ok) written else null) else onChanged()
     }
 }
 

@@ -8,6 +8,17 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Known gaps, part 1: refunds, continue payment, board access to GwG data** (V1.9.35): (1) the event management screen shows "Offene
+  Erstattungen" for BOARD/ADMIN -- paid registrations that were withdrawn (or expired after a late payment) and not yet marked; "Als erstattet
+  markieren" records that the refund was paid OUTSIDE Lapis Cloud (it moves no money and posts no booking; migration `V66`, columns
+  `refund_marked_at`/`refund_marked_by`, audit `PAYMENT_TRANSACTION`/`UPDATE` with the marker `EVENT_REFUND_MARKED`). The member sees "Bezahlt --
+  Erstattung noch offen" and later "vom Vorstand als erledigt vermerkt"; the withdrawal dialog names the real paid amount (server truth,
+  `EventDto.ownPaid`/`ownPaidAmount`/`ownRefundMarkedAt`) instead of the old "fee + confirmed" guess. (2) "Zahlung fortsetzen" for a
+  `PENDING_PAYMENT` registration (`resumeOwnEventPayment`, amount from the server only). (3) BOARD/ADMIN can open another member's address and GwG
+  data from the roster (`getMemberAddressForAdministration`): a two-step dialog, one audit entry per read (`ADDRESS_READ`), 30 reads per hour per
+  actor, edits ask first. The protocol screen translates the audit markers ("Eingesehen", "Anschrift geändert", ...). Documentation:
+  `docs/architecture/member-events.adoc`, `dsgvo.adoc`, `ui-ux-guideline.adoc`, staging plan (not executed).
+
 - **Smaller UI gaps, part 2: meeting quorum, direct messages, volunteer allowance** (V1.9.34): the quorum badge is now calm grey when reached and
   yellow when not (never green, which means "accepted" in that screen) with one sentence that explains the word and says it is no legal
   assessment. Direct messages: "Verlauf anzeigen" below an inbox message opens the whole conversation (oldest first, own messages as "Sie",
@@ -32,6 +43,16 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- `getMemberAddressForAdministration` (V1.9.35): the role check runs before the id is parsed or looked up (no existence oracle, no rate budget
+  used by a refused caller), the audit entry is written in the same transaction as the read (no read without an entry), one shared singleton limiter
+  (30 per 60 minutes per actor), no field value or member id in logs, exceptions, toasts, storage or the URL. Anonymized members are `NotFound`.
+- `resumeOwnEventPayment` (V1.9.35): the registration is found through the caller's own member id only, the amount is read server-side under the
+  event lock, every refusal is one `ConflictException`. `resumeCheckout` is now single-flight per registration (64 `Mutex` stripes shared by the RPC and the
+  e-mail path), which closes an existing window in which two concurrent resumes could create two Stripe sessions.
+- `markEventRefunded` (V1.9.35): conditional, row-locked marking (a concurrent second call gets a `ConflictException` and writes no second audit
+  entry), audit only on success and value-free; the database refuses a marker on an active registration or with only one of the two columns.
+- The audit marker strings are pinned (`AuditMarkerStabilityTest`) because they are persisted in the hash chain; `ClientSelfServicePiiTripwireTest` now covers
+  the four new client files (no toast with a name, amount, title or personal-data field; no personal-data field in a URL).
 - `DirectMessageService.listConversation` returns at most the newest 200 messages of a conversation (`MAX_CONVERSATION_MESSAGES`); before it was
   unbounded (V1.9.34, no schema change, test `DirectMessageConversationLimitTest`).
 - `ClientDirectMessagePiiTripwireTest`: the new direct-message and declarations files never log, store or toast personal data, and the unread
@@ -52,6 +73,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- V1.9.35: the refund stays manual. Lapis Cloud pays nothing out and **books no refund** (the treasurer still books it by hand and does not see the
+  list: it is BOARD/ADMIN, like the participant data). Marking cannot be undone; a correction is only visible in the audit log. A member sees the
+  refund state only for upcoming events (list capped at 50) and only for the newest own registration per event. Guests learn nothing about the refund
+  on the cancellation page or in the cancellation mail. A fee paid against an invoice (`issueEventInvoice`) is not recognized, and a double payment on an
+  active registration is not listed. Single-flight for "Zahlung fortsetzen" holds inside one server process only (with horizontal scaling it needs a
+  database advisory lock). `toEventDto` makes up to two more queries per row (paid state of the newest own registration). Peer protection for the GwG
+  read: none (BOARD can read ADMIN data, as it could already write it). The staging plan (steps 18--33) was not executed. The V1.9.33 limitations
+  about resuming a payment and about editing other members' address data are closed.
 - V1.9.34: no way into the conversation history for a partner who never wrote to you. The unread counter refreshes on every route change, but not while the user stays on one screen (no timer), and is
   invisible while the sidebar group "Mitgliedschaft" is collapsed. The history is capped at the newest 200 messages (no paging). The
   declarations overview is a plain list (no category filter, no export) capped at 200 rows. Its BOARD/ADMIN member picker is filled from `listMembers`, which returns ACTIVE members only, so the declarations of a

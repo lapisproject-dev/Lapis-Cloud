@@ -19261,9 +19261,6 @@ msgstr "Votre inscription a été enregistrée."
 msgid "Von der Veranstaltung abmelden"
 msgstr "Se désinscrire de l'événement"
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr "Aucun remboursement n'est effectué automatiquement. Veuillez vous adresser au conseil d'administration."
-
 msgid "Anmeldung zurückziehen"
 msgstr "Retirer l'inscription"
 
@@ -19323,3 +19320,79 @@ msgstr "200 entrées au maximum sont affichées. Veuillez filtrer par année."
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr "Cette liste indique uniquement quelles déclarations sont enregistrées. Les montants et plafonds annuels figurent sur chaque paiement."
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr "Poursuivre le paiement (%1)"
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr "Le paiement ne peut pas être poursuivi pour le moment. L'affichage a été actualisé."
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr "Vous avez payé %1 pour cet événement. Le montant n'est pas remboursé automatiquement. Votre désinscription apparaît auprès du conseil d'administration comme remboursement en attente."
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr "Payé – remboursement en attente."
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr "Remboursement consigné comme effectué par le conseil d'administration le %1."
+
+msgid "Offene Erstattungen (%1)"
+msgstr "Remboursements en attente (%1)"
+
+msgid "Abgemeldet am %1"
+msgstr "Désinscrit le %1"
+
+msgid "Reservierung abgelaufen"
+msgstr "Réservation expirée"
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr "Payé plusieurs fois (%1 paiements)"
+
+msgid "Als erstattet markieren"
+msgstr "Marquer comme remboursé"
+
+msgid "Erstattung vermerken"
+msgstr "Consigner le remboursement"
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr "Avez-vous remboursé %1 à %2 en dehors de Lapis Cloud ? Lapis Cloud ne verse rien, il consigne seulement le remboursement effectué."
+
+msgid "Erstattung vermerkt."
+msgstr "Remboursement consigné."
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Ce remboursement avait déjà changé. L'affichage a été actualisé."
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr "Modifier l'adresse et les informations au titre de la loi sur le blanchiment d'argent"
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr "Adresse et informations au titre de la loi sur le blanchiment d'argent de %1"
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr "Ces informations relèvent de la loi sur le blanchiment d'argent. Leur consultation est consignée sous votre nom dans le journal d'audit."
+
+msgid "Angaben anzeigen"
+msgstr "Afficher les informations"
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr "Enregistrer les modifications des informations de %1 ? La modification est consignée dans le journal d'audit."
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "Un champ vide supprime la valeur enregistrée. Chaque modification est consignée ; les valeurs elles-mêmes ne figurent pas dans le journal."
+
+msgid "Eingesehen"
+msgstr "Consulté"
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr "Adresse et informations au titre de la loi sur le blanchiment d'argent consultées"
+
+msgid "Anschrift geändert"
+msgstr "Adresse modifiée"
+
+msgid "GwG-Angaben geändert"
+msgstr "Informations au titre de la loi sur le blanchiment d'argent modifiées"
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr "Remboursement consigné en dehors de Lapis Cloud"
+

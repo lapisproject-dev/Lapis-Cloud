@@ -1940,3 +1940,14 @@ keeps all three free of console output, browser storage, `.message` and toasts t
   `warning` when not (never `success`/`danger`), with one sentence that explains the word. See `domain-model.adoc`, "Quorum display is informational".
 * **Counters in a sidebar label use "(n)" and cap at "(99+)".** The unread-messages counter on "Kommunikation" follows the grammar of the other
   sidebar counters (`null`/0 = plain label) but caps at 99, and it refreshes on events only (sidebar build, route change, mark-read/reply) -- never on a timer. See `direct-messages.adoc`.
+
+== V1.9.35 -- Pattern: a logged read in two steps
+
+When looking at data is itself an audited event (the board reading another member's address / GwG data), the dialog opens in TWO steps:
+step 1 states, in one sentence, that the read is logged under the viewer's name and makes NO server call; the primary button starts exactly one
+read and removes step 1 at once (a double click lands on nothing). A mis-click on the roster icon therefore leaves no trace in the protocol. The
+data section's retry after a load error is a new, logged read -- that is intended. Writes inside such a dialog ask first (`confirmDialog` with
+primary style, "Abbrechen" focused) and rebuild from the DTO the server returned, not from a second read. Closing the dialog removes the data from
+the DOM. Self-gated worklists (`EventRefundsSection.kt`) render nothing when empty: no heading, no "nothing here" text.
+`MemberAddressAdminDialog.kt`, `EventRefundsSection.kt`, `MemberEventPaymentUi.kt` and `AuditMarkerLabels.kt` join the strict R24 set without a form.
+

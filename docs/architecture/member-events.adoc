@@ -1,11 +1,12 @@
-= Events from the member's point of view (V1.9.33)
+= Events from the member's and the board's point of view (V1.9.33, V1.9.35)
 :toc:
 
 == Scope
 
 The screen `/my-events` ("Veranstaltungen" in the group "Mitgliedschaft", `MemberEventsScreen.kt`) lists the upcoming published events and
-lets a member register, register and pay, join the waitlist and withdraw. The management screen for BOARD/ADMIN is unchanged
-(`/event-management`, group "Administration"). The server side (`IEventService.registerSelf`, `cancelOwnRegistration`) is unchanged.
+lets a member register, register and pay, join the waitlist, withdraw and (V1.9.35) continue an unfinished payment. The management screen for
+BOARD/ADMIN (`/event-management`, group "Administration") gained the section "Offene Erstattungen" (V1.9.35, see below). Registration and
+withdrawal (`IEventService.registerSelf`, `cancelOwnRegistration`) are unchanged.
 
 == What is shown
 
@@ -13,6 +14,9 @@ lets a member register, register and pay, join the waitlist and withdraw. The ma
   `endsAt >= now`) and sorted by start. More than 50 upcoming events are not reachable: there is no paging.
 * Per event: title, start, place (`locationText`, else the room name, else "Online" when only an online URL exists; the URL is never
   rendered as a link), fee or "Kostenlos", the member's own registration status and "Ausgebucht" for a full event.
+* V1.9.35: `EventDto.ownPaid`, `ownPaidAmount` and `ownRefundMarkedAt`. They come from the caller's NEWEST own registration of any status
+  (a withdrawn registration is not "active", so `ownRegistrationStatus` is `null` after a withdrawal). "Paid" means: that registration has at
+  least one `COMPLETED` `EVENT_FEE` checkout session. `ownPaidAmount` is the sum of those sessions.
 
 == States and actions
 
@@ -22,17 +26,58 @@ lets a member register, register and pay, join the waitlist and withdraw. The ma
 | no active registration, open, free | "Zur Veranstaltung anmelden"
 | no active registration, open, fee | "Anmelden und bezahlen (amount)"
 | no active registration, open, full | "Auf die Warteliste" (the server never charges for the waitlist)
-| `CONFIRMED`, `WAITLISTED`, `PENDING_PAYMENT` | "Von der Veranstaltung abmelden" (confirmation dialog, "Abbrechen" focused)
-| `CANCELLED`, `EXPIRED` | as if never registered
+| `PENDING_PAYMENT` | "Zahlung fortsetzen (amount)" and "Von der Veranstaltung abmelden"
+| `CONFIRMED`, `WAITLISTED` | "Von der Veranstaltung abmelden" (confirmation dialog, "Abbrechen" focused)
+| `CONFIRMED` and paid | the dialog adds "you paid X, not refunded automatically, appears with the board as an open refund"
+| withdrawn (`CANCELLED`/`EXPIRED`) and paid | the line "Bezahlt – Erstattung noch offen." until the board marks it, then "Erstattung vom Vorstand als erledigt vermerkt am ..."
+| `CANCELLED`, `EXPIRED`, never paid | as if never registered
 | `now >= startsAt` or after `registrationClosesAt` | no registration button (the server closes registration with the start, too)
 |===
 
+== Resuming a payment (V1.9.35)
+
+`IEventService.resumeOwnEventPayment(eventId)`.
+
+* **Ownership**: the RPC takes only the event id and finds the registration through the caller's own member id
+  (`findOwnActiveRegistration`, must be `PENDING_PAYMENT`). A foreign registration cannot be addressed at all.
+* **Amount**: never from the client. `EventRegistrationSubmission.resumeCheckout` re-reads the registration's `feeAmount` under the event lock and
+  re-checks status, hold and `isRegistrationOpen` there; an expired hold, a cancelled or started event, a missing gateway and every Stripe error
+  are refused.
+* **Idempotency**: a still valid `CREATED` session is reused; a Stripe error leaves the registration `PENDING_PAYMENT`.
+* **Single flight**: `resumeCheckout` serializes per registration over a fixed array of 64 `Mutex` stripes. Before, two concurrent resumes could both
+  find no reusable session and both create one (double payment); this was already possible in the e-mail path (`POST /veranstaltung/{slug}/zahlung`)
+  and is closed for both entry points, which share the stripes. The limit: it only holds inside ONE process (see Honest limits).
+* **Refusals are uniform**: every non-success is the same `ConflictException` ("Die Zahlung kann nicht fortgesetzt werden."). The client shows one
+  fixed sentence and reloads.
+* The write rate limit of the event service (60 per minute per member) applies.
+
+== Refunds (board view, V1.9.35)
+
+A withdrawal never refunds anything: Lapis Cloud has no payout path. What the board needs is a worklist, and a record that a refund was paid.
+
+* **Criterion** (`EventRefunds.listOpen`): registration `CANCELLED` or `EXPIRED`, `refund_marked_at IS NULL`, at least one `COMPLETED` `EVENT_FEE`
+  session. `EXPIRED` is included because a webhook can complete a payment after the hold expired. One join query, oldest first, at most 200.
+* **Amount** shown is the sum of the completed sessions, never client-supplied; "Mehrfach bezahlt (n Zahlungen)" appears when `paymentCount > 1`.
+* **Who**: `listOpenEventRefunds` and `markEventRefunded` are BOARD/ADMIN (`EVENT_MANAGE_ROLES`) and use the event write rate limit. The section
+  `EventRefundsSection.kt` on the management screen renders nothing at all when the list is empty; a load error is always shown.
+* **Marking** (`markEventRefunded`, migration `V66__event_refund_marking.sql`): "Als erstattet markieren" asks first, then locks the registration
+  row, re-checks the open conditions and runs a conditional `UPDATE ... WHERE refund_marked_at IS NULL`. A second, concurrent call changes nothing
+  and gets a `ConflictException`. It moves no money and posts no booking. There is no undo.
+* **Audit**: one `PAYMENT_TRANSACTION`/`UPDATE` entry whose `entity_id` is the `payment_transaction.id` of the newest completed session and whose
+  `after_snapshot` is the marker `EVENT_REFUND_MARKED` -- no name, no amount. Written only on success, in the same transaction. The protocol screen
+  translates the marker (`AuditMarkerLabels.kt`).
+* **Database**: both columns set or neither (`chk_event_registration_refund_marked_pair`); a marker only on a `CANCELLED`/`EXPIRED` registration
+  (`chk_event_registration_refund_marked_status`).
+
 == Honest limits
 
-* **No refund.** Withdrawing never refunds automatically; for a confirmed, fee-bearing registration the dialog says so and names the board.
-* **A payment cannot be resumed in the web client.** Resuming needs the token that only arrives by e-mail link (`POST /veranstaltung/{slug}/zahlung`).
-  For `PENDING_PAYMENT` the card says that the reservation expires by itself and the member may register again afterwards. There is no
-  link, because the public event page would start a new registration, not continue the payment.
+* **No refund.** Withdrawing never refunds automatically; the board pays outside Lapis Cloud and marks it. Lapis Cloud books nothing for it: the
+  treasurer still books the refund by hand (and does not see the list, which is BOARD/ADMIN).
+* Only fees paid through a checkout session are recognized. A fee paid against an invoice (`issueEventInvoice`) is not.
+* A double payment on an ACTIVE registration is not listed (nothing was withdrawn).
+* A member sees the refund state only for upcoming, not yet ended events (the list is capped at 50) and only for the newest own registration per event.
+* Guests learn nothing about the refund on the cancellation page or in the cancellation mail.
+* Single flight holds inside one server process. With horizontal scaling it would have to become a database advisory lock.
 * **Redirect to the payment page only for `https:`.** The checkout URL from the server is parsed (`isSafeHttpsRedirect`); `http:`, `javascript:`,
   `data:`, scheme-relative `//host` and URLs with credentials are never followed (a fixed message instead and a reload).
 * The client cannot tell conflict reasons apart (Kilua RPC transmits only the exception type): every refusal of a registration shows one

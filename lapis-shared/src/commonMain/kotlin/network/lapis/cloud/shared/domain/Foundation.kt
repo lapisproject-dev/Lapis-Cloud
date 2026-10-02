@@ -316,3 +316,21 @@ data class UnlinkedMemberDto(
     val displayName: String,
     val email: String,
 )
+
+/**
+ * V1.9.35 -- address + GwG data of ONE member, returned only to BOARD/ADMIN by
+ * `IMemberService.getMemberAddressForAdministration` (every successful call is audited).
+ * [dateOfDeath] only feeds the client-side validation of the date of birth.
+ */
+@Serializable
+data class MemberAddressDataDto(
+    val memberId: String,
+    val displayName: String,
+    val street: String?,
+    val postalCode: String?,
+    val city: String?,
+    val country: String?,
+    val dateOfBirth: LocalDate?,
+    val nationality: String?,
+    val dateOfDeath: LocalDate?,
+)

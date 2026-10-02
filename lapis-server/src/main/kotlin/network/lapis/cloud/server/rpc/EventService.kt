@@ -18,6 +18,7 @@ import network.lapis.cloud.server.events.EventCheckIn
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
+import network.lapis.cloud.server.events.EventRefunds
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventRoomCollisionGuard
@@ -41,6 +42,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.AuditMarkers
 import network.lapis.cloud.shared.domain.CounterpartyKey
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
@@ -50,6 +52,7 @@ import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
+import network.lapis.cloud.shared.domain.EventRefundDto
 import network.lapis.cloud.shared.domain.EventRegistrationDto
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -432,6 +435,69 @@ class EventService(
         promotions.forEach { it.mailPromotion(mailDispatcher) }
         return fetchRegistrationDto(registrationId)
     }
+
+    /** V1.9.35 -- see [IEventService.listOpenEventRefunds]. */
+    override suspend fun listOpenEventRefunds(): List<EventRefundDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        return transaction { EventRefunds.listOpen() }
+    }
+
+    /**
+     * V1.9.35 -- see [IEventService.markEventRefunded]. The audit entry is value-free (no name, no
+     * amount) and is written only on success, in the same transaction as the marking. Its entityId
+     * is the `payment_transaction.id` of the newest COMPLETED session (matches
+     * `PAYMENT_TRANSACTION`); without one nothing is marked.
+     */
+    override suspend fun markEventRefunded(registrationId: String): EventRefundDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        val regId = runCatching { Uuid.parse(registrationId) }.getOrNull() ?: throw refundNotOpen()
+        return transaction {
+            val now = DbClock.nowLocalDateTime()
+            val txId = EventRefunds.latestPaymentTransactionId(regId) ?: throw refundNotOpen()
+            if (EventRefunds.markRefunded(registrationId = regId, actor = current.memberId, now = now) == 0) throw refundNotOpen()
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.PAYMENT_TRANSACTION,
+                entityId = txId,
+                action = AuditAction.UPDATE,
+                after = AuditMarkers.EVENT_REFUND_MARKED,
+                occurredAt = now,
+            )
+            EventRefunds.toDto(EventStore.getRegistrationOrThrow(regId))
+        }
+    }
+
+    private fun refundNotOpen() = ConflictException("Diese Erstattung ist nicht offen.")
+
+    /**
+     * V1.9.35 -- see [IEventService.resumeOwnEventPayment]. The RPC only takes the event id and
+     * finds the registration through the caller's own member id, so a foreign registration cannot
+     * be addressed. The amount is re-read server-side under the event lock by `resumeCheckout`.
+     */
+    override suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto {
+        val current = resolveCurrentMember(call)
+        requireWithinRate(current.memberId)
+        val id = runCatching { Uuid.parse(eventId) }.getOrNull() ?: throw resumeRefused()
+        val regId =
+            transaction {
+                EventStore
+                    .findOwnActiveRegistration(eventId = id, memberId = current.memberId)
+                    ?.takeIf { it[EventRegistrationTable.status] == EventRegistrationStatus.PENDING_PAYMENT }
+                    ?.get(EventRegistrationTable.id)
+            } ?: throw resumeRefused()
+        return when (val r = submission.resumeCheckout(eventId = id, registrationId = regId)) {
+            is EventRegistrationResult.PaymentRequired ->
+                EventRegistrationResultDto(registration = fetchRegistrationDto(r.registrationId), checkoutRedirectUrl = r.redirectUrl)
+            else -> throw resumeRefused()
+        }
+    }
+
+    private fun resumeRefused() = ConflictException("Die Zahlung kann nicht fortgesetzt werden.")
 
     override suspend fun sweepEvent(id: String): EventDto {
         val current = resolveCurrentMember(call)
@@ -1116,6 +1182,12 @@ private fun ResultRow.toEventDto(
     val full = capacity != null && occupied >= capacity
     val feeEditable = !EventStore.hasNonInactiveRegistration(id)
     val ownStatus = EventStore.findOwnActiveRegistration(eventId = id, memberId = memberId)?.get(EventRegistrationTable.status)
+
+    // V1.9.35: ownPaid/ownRefundMarkedAt come from the caller's NEWEST registration of any status
+    // (the active-only lookup above stays the source of ownRegistrationStatus). At most two extra
+    // queries per row -- listEvents caps managers at 200 rows; a bundled helper would be a later step.
+    val ownLatest = EventStore.findOwnLatestRegistration(eventId = id, memberId = memberId)
+    val ownPaidAmount = ownLatest?.let { EventRefunds.paidAmount(it[EventRegistrationTable.id]) }
     val status = this[EventTable.status]
     val visibility = this[EventTable.visibility]
     val slug = this[EventTable.slug]
@@ -1166,6 +1238,9 @@ private fun ResultRow.toEventDto(
         seriesId = seriesId?.toString(),
         seriesDetached = seriesDetached,
         seriesRuleSummary = seriesRuleSummary,
+        ownPaid = ownPaidAmount != null,
+        ownRefundMarkedAt = ownLatest?.get(EventRegistrationTable.refundMarkedAt),
+        ownPaidAmount = ownPaidAmount,
     )
 }
 

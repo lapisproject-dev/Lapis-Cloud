@@ -9,6 +9,7 @@ import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
+import network.lapis.cloud.shared.domain.EventRefundDto
 import network.lapis.cloud.shared.domain.EventRegistrationDto
 import network.lapis.cloud.shared.domain.EventRegistrationResultDto
 import network.lapis.cloud.shared.domain.EventSeriesCreateResultDto
@@ -189,4 +190,22 @@ interface IEventService {
         scope: EventSeriesEditScope,
         reason: String,
     ): EventSeriesEditResultDto
+
+    /**
+     * V1.9.35 -- BOARD/ADMIN. Paid registrations that are CANCELLED/EXPIRED and not yet marked
+     * refunded, oldest first, max 200.
+     */
+    suspend fun listOpenEventRefunds(): List<EventRefundDto>
+
+    /**
+     * V1.9.35 -- BOARD/ADMIN. Records that a refund was paid OUTSIDE Lapis Cloud. Moves no money,
+     * posts no booking. [ConflictException] if the registration is not (or no longer) open.
+     */
+    suspend fun markEventRefunded(registrationId: String): EventRefundDto
+
+    /**
+     * V1.9.35 -- the caller's OWN `PENDING_PAYMENT` registration of [eventId]: start or reuse the
+     * checkout. The amount comes from the server only. Every non-success is one [ConflictException].
+     */
+    suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto
 }

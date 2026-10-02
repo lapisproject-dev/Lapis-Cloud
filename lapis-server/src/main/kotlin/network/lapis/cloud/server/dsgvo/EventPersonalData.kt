@@ -19,7 +19,7 @@ import kotlin.uuid.Uuid
  * Owns [EventTable]/[EventRegistrationTable] (Welle V1.4.3.1 "Veranstaltungen"). See
  * `39-events.kuml.kts` file header for why this contributor only ever handles
  * [network.lapis.cloud.shared.domain.DsgvoSubjectKind.MEMBER] subjects (a `MemberPersonalDataContributor`,
- * not the raw interface) -- `event_registration.member_id`/`.checked_in_by`/`.invoice_issued_by`/
+ * not the raw interface) -- `event_registration.member_id`/`.checked_in_by`/`.invoice_issued_by`/`.refund_marked_by`/
  * `event.created_by` are the only FOUR member-FK-bearing columns in this domain (Welle V1.4.3.2
  * added `checked_in_by`, Welle V1.4.3.6 added `invoice_issued_by`, alongside the original two). A
  * GUEST registration (`guest_name`/`guest_email`, no `member_id`) carries PII of a person who is
@@ -72,6 +72,11 @@ import kotlin.uuid.Uuid
  * Counted in [eraseMember] below, same "createdBy"-style outcome the Room/Catering addenda above
  * already establish (unlike `.checked_in_by`, which -- pre-existing gap, not introduced here --
  * has no dedicated [eraseMember] outcome of its own).
+ *
+ * **Welle V1.9.35 "Erstattungsvermerk" addendum.** [EventRegistrationTable] gained a fifth
+ * member-FK-bearing column, `refund_marked_by` (V66) -- same retain-with-reason posture as
+ * `.invoice_issued_by` (a GoBD-relevant payment event must stay traceable to who recorded it).
+ * Auskunft exports `refundMarkedAt` of the member's own registrations and `refundMarkedCount`.
  *
  * **Welle V1.4.3.7 "Helfer-/Schichtplanung" addendum.** [EventVolunteerShiftTable] gained a sixth
  * member-FK-bearing column, `created_by` (same retain-with-reason posture as
@@ -130,10 +135,21 @@ object EventPersonalData : MemberPersonalDataContributor {
                                     put("status", row[EventRegistrationTable.status].name)
                                     put("feeAmount", row[EventRegistrationTable.feeAmount].toString())
                                     put("registeredAt", row[EventRegistrationTable.registeredAt].toString())
+                                    // V1.9.35: when the board marked the refund of this registration as paid (outside Lapis Cloud)
+                                    row[EventRegistrationTable.refundMarkedAt]?.let { put("refundMarkedAt", it.toString()) }
                                 },
                             )
                         }
                 },
+            )
+            // V1.9.35: how many refunds this member marked as a board member (own, non-guest data).
+            put(
+                "refundMarkedCount",
+                EventRegistrationTable
+                    .selectAll()
+                    .where { EventRegistrationTable.refundMarkedBy eq memberId }
+                    .count()
+                    .toInt(),
             )
             put(
                 "createdEvents",
@@ -283,6 +299,12 @@ object EventPersonalData : MemberPersonalDataContributor {
                 .where { EventRegistrationTable.invoiceIssuedBy eq memberId }
                 .count()
                 .toInt()
+        val refundMarkedCount =
+            EventRegistrationTable
+                .selectAll()
+                .where { EventRegistrationTable.refundMarkedBy eq memberId }
+                .count()
+                .toInt()
         val createdVolunteerShiftCount =
             EventVolunteerShiftTable
                 .selectAll()
@@ -355,6 +377,17 @@ object EventPersonalData : MemberPersonalDataContributor {
                         "Buchhalterische/organisatorische Nachvollziehbarkeit, wer eine externe Rechnung " +
                             "ausgestellt hat -- invoice_issued_by bleibt als FK-Anker erhalten, der resultierende " +
                             "offene Posten ist Teil der GoBD-Buchführung.",
+                )
+        }
+        if (refundMarkedCount > 0) {
+            outcomes +=
+                TableErasureOutcome(
+                    table = "event_registration",
+                    rowsRetained = refundMarkedCount,
+                    retentionReason =
+                        "Buchhalterische/organisatorische Nachvollziehbarkeit, wer eine Erstattung als " +
+                            "außerhalb von Lapis Cloud gezahlt vermerkt hat -- refund_marked_by bleibt als " +
+                            "FK-Anker erhalten, der Vorgang betrifft eine GoBD-relevante Zahlung.",
                 )
         }
         if (createdVolunteerShiftCount > 0) {

@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
+import network.lapis.cloud.shared.domain.MemberAddressDataDto
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
@@ -515,4 +516,12 @@ interface IMemberService {
      * both mint the identical revoke-then-rotate side effect against the identical target.
      */
     suspend fun reissueMemberCard(memberId: String): MemberCardReissueResultDto
+
+    /**
+     * V1.9.35 -- BOARD/ADMIN only (`isPrivileged`; Forbidden is thrown before anything is parsed or
+     * looked up). Returns the address and GwG data of [memberId]. Every successful call writes one
+     * value-free audit entry (`MEMBER`/`UPDATE`, after = `ADDRESS_READ`) in the same transaction;
+     * 30 calls per 60 minutes per actor. Unknown or anonymized members -> [NotFoundException].
+     */
+    suspend fun getMemberAddressForAdministration(memberId: String): MemberAddressDataDto
 }

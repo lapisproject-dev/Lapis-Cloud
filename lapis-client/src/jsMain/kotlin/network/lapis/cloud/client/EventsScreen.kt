@@ -82,6 +82,7 @@ fun renderEventsScreen(container: SimplePanel) {
         onClick { navigateTo(Routes.EVENT_CHECKIN) }
     }
 
+    renderEventRefundsSection(root) // V1.9.35, self-gated BOARD/ADMIN, invisible when empty
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val statusFilterOptions =

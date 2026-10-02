@@ -537,4 +537,71 @@ class EventPersonalDataTest :
             val stillThere = transaction { EventSeriesTable.selectAll().where { EventSeriesTable.id eq seriesId }.count() }
             stillThere shouldBe 1L
         }
+
+        // ── V1.9.35 "Erstattungsvermerk" addendum ───────────────────────────────────────────────
+
+        test(
+            "export includes refundMarkedAt of the member's own registrations and refundMarkedCount; erase retains refund_marked_by rows",
+        ) {
+            val member = createTestMember("event-pd-refund-member-${Uuid.random()}@example.org")
+            val board = createTestMember("event-pd-refund-board-${Uuid.random()}@example.org")
+            val now = DbClock.nowLocalDateTime()
+            val eventId = Uuid.random()
+            val registrationId = Uuid.random()
+            transaction {
+                EventTable.insert {
+                    it[EventTable.id] = eventId
+                    it[slug] = "event-pd-refund-test-$eventId"
+                    it[title] = "PD-Refund-Test-Event"
+                    it[description] = "test"
+                    it[locationText] = "Testort"
+                    it[onlineUrl] = null
+                    it[startsAt] = now
+                    it[endsAt] = now
+                    it[capacity] = null
+                    it[feeAmount] = BigDecimal("10.00")
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[registrationClosesAt] = null
+                    it[EventTable.createdAt] = now
+                    it[EventTable.createdBy] = board
+                    it[cancelledAt] = null
+                }
+                EventRegistrationTable.insert {
+                    it[id] = registrationId
+                    it[EventRegistrationTable.eventId] = eventId
+                    it[memberId] = member
+                    it[guestName] = null
+                    it[guestEmail] = null
+                    it[activeParticipantKey] = null
+                    it[status] = EventRegistrationStatus.CANCELLED
+                    it[feeAmount] = BigDecimal("10.00")
+                    it[holdExpiresAt] = null
+                    it[waitlistPosition] = null
+                    it[cancelTokenSha256] = null
+                    it[registeredAt] = now
+                    it[confirmedAt] = null
+                    it[cancelledAt] = now
+                    it[waitlistOfferedAt] = null
+                    it[refundMarkedAt] = now
+                    it[refundMarkedBy] = board
+                }
+            }
+            createdEventIds += eventId
+
+            val memberExport = transaction { EventPersonalData.exportMember(member) }
+            val registrations = memberExport.jsonObject["registrations"]!!.jsonArray
+            registrations.size shouldBe 1
+            (registrations[0].jsonObject["refundMarkedAt"] != null) shouldBe true
+            memberExport.jsonObject["refundMarkedCount"]!!.toString() shouldBe "0"
+            transaction { EventPersonalData.exportMember(board) }.jsonObject["refundMarkedCount"]!!.toString() shouldBe "1"
+
+            val outcomes = transaction { EventPersonalData.eraseMember(memberId = board, mode = ErasureMode.ANONYMIZE) }
+            val refundOutcome = outcomes.single { it.retentionReason?.contains("refund_marked_by") == true }
+            refundOutcome.table shouldBe "event_registration"
+            refundOutcome.rowsRetained shouldBe 1
+            refundOutcome.rowsDeleted shouldBe 0
+            transaction { EventRegistrationTable.selectAll().where { EventRegistrationTable.id eq registrationId }.count() } shouldBe 1L
+        }
     })

@@ -100,6 +100,7 @@ class MemberAddressSelfServiceTest :
                     adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                     adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                     memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                    memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                 )
             post("/test/address/{id}") {
                 val q = call.request.queryParameters

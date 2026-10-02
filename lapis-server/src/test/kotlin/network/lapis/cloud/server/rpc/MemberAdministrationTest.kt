@@ -3169,6 +3169,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val statuses =
@@ -3213,6 +3214,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto =
@@ -3237,6 +3239,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto =
@@ -3263,6 +3266,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto =
@@ -3287,6 +3291,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto = service.updateMemberRole(memberId = call.parameters["id"]!!, newRole = AccountRole.valueOf(q["newRole"]!!))
@@ -3307,6 +3312,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto =
@@ -3332,6 +3338,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto =
@@ -3361,6 +3368,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val dto = service.getMemberAccessPreflight(memberId = call.parameters["id"]!!)
         call.respondText("${dto.mailDelivery}:${dto.activeSessionCount}")
@@ -3379,6 +3387,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val q = call.request.queryParameters
         val dto =
@@ -3405,6 +3414,7 @@ private fun Route.registerMemberAdminTestRoutes(
                 adminPasswordMailActorRateLimiter = adminPasswordMailActorRateLimiter,
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
+                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
             )
         val dto = service.sendPasswordResetMailToMember(memberId = call.parameters["id"]!!)
         call.respondText("${dto.delivery}")

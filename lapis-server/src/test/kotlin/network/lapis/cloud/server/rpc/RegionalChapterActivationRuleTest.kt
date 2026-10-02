@@ -129,6 +129,7 @@ class RegionalChapterActivationRuleTest :
                                 adminPasswordMailActorRateLimiter = FederationInboxRateLimiter(),
                                 adminPasswordNotificationTargetRateLimiter = FederationInboxRateLimiter(),
                                 memberCardIssueRateLimiter = FederationInboxRateLimiter(),
+                                memberAddressAdminReadRateLimiter = FederationInboxRateLimiter(),
                                 regionalChapterEnforcementConfig =
                                     RegionalChapterEnforcementConfig.load { name ->
                                         if (name == RegionalChapterEnforcementConfig.ENV_ENABLED && enforcementEnabled) "true" else null

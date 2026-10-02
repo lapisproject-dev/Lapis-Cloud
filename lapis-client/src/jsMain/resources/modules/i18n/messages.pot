@@ -18283,9 +18283,6 @@ msgstr ""
 msgid "Von der Veranstaltung abmelden"
 msgstr ""
 
-msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
-msgstr ""
-
 msgid "Anmeldung zurückziehen"
 msgstr ""
 
@@ -18345,3 +18342,79 @@ msgstr ""
 
 msgid "Diese Liste zeigt nur, welche Erklärungen erfasst sind. Beträge und Jahresgrenzen stehen bei der jeweiligen Zahlung."
 msgstr ""
+
+msgid "Zahlung fortsetzen (%1)"
+msgstr ""
+
+msgid "Die Zahlung kann gerade nicht fortgesetzt werden. Die Ansicht wurde aktualisiert."
+msgstr ""
+
+msgid "Sie haben für diese Veranstaltung %1 bezahlt. Der Betrag wird nicht automatisch zurückgezahlt. Ihre Abmeldung erscheint beim Vorstand als offene Erstattung."
+msgstr ""
+
+msgid "Bezahlt – Erstattung noch offen."
+msgstr ""
+
+msgid "Erstattung vom Vorstand als erledigt vermerkt am %1."
+msgstr ""
+
+msgid "Offene Erstattungen (%1)"
+msgstr ""
+
+msgid "Abgemeldet am %1"
+msgstr ""
+
+msgid "Reservierung abgelaufen"
+msgstr ""
+
+msgid "Mehrfach bezahlt (%1 Zahlungen)"
+msgstr ""
+
+msgid "Als erstattet markieren"
+msgstr ""
+
+msgid "Erstattung vermerken"
+msgstr ""
+
+msgid "Haben Sie %1 an %2 außerhalb von Lapis Cloud zurückgezahlt? Lapis Cloud zahlt nichts aus, es vermerkt nur die erledigte Erstattung."
+msgstr ""
+
+msgid "Erstattung vermerkt."
+msgstr ""
+
+msgid "Diese Erstattung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr ""
+
+msgid "Anschrift und GwG-Angaben bearbeiten"
+msgstr ""
+
+msgid "Anschrift und GwG-Angaben von %1"
+msgstr ""
+
+msgid "Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."
+msgstr ""
+
+msgid "Angaben anzeigen"
+msgstr ""
+
+msgid "Änderungen an den Angaben von %1 speichern? Die Änderung wird im Prüfprotokoll vermerkt."
+msgstr ""
+
+msgid "Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr ""
+
+msgid "Eingesehen"
+msgstr ""
+
+msgid "Anschrift und GwG-Angaben eingesehen"
+msgstr ""
+
+msgid "Anschrift geändert"
+msgstr ""
+
+msgid "GwG-Angaben geändert"
+msgstr ""
+
+msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
+msgstr ""
+
