@@ -19029,3 +19029,117 @@ msgstr "Эта оценка больше не открыта."
 
 msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
 msgstr "Не удалось загрузить оценку. Повторите попытку."
+
+msgid "Zeilenumbrüche und Steuerzeichen sind nicht erlaubt."
+msgstr "Переносы строк и управляющие символы не допускаются."
+
+msgid "Anschrift und Angaben nach Geldwäschegesetz"
+msgstr "Адрес и данные в соответствии с законом о борьбе с отмыванием денег"
+
+msgid "Ihre Anschrift verwendet die Organisation für Briefpost und Rechnungen. Geburtsdatum und Staatsangehörigkeit werden bei Bedarf für Pflichtangaben nach dem Geldwäschegesetz benötigt. Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "Организация использует Ваш адрес для почтовой корреспонденции и счетов. Дата рождения и гражданство при необходимости требуются для обязательных сведений в соответствии с законом о борьбе с отмыванием денег. Пустое поле удаляет сохранённое значение. Каждое изменение протоколируется; сами значения в протокол не попадают."
+
+msgid "Straße und Hausnummer"
+msgstr "Улица и номер дома"
+
+msgid "Postleitzahl"
+msgstr "Почтовый индекс"
+
+msgid "Anschrift speichern"
+msgstr "Сохранить адрес"
+
+msgid "Angaben speichern"
+msgstr "Сохранить данные"
+
+msgid "Das Geburtsdatum darf nicht in der Zukunft liegen."
+msgstr "Дата рождения не может быть в будущем."
+
+msgid "Bitte ein Datum ab dem 01.01.1900 angeben."
+msgstr "Укажите дату не раньше 1 января 1900 года."
+
+msgid "Das Geburtsdatum darf nicht nach dem Sterbedatum liegen."
+msgstr "Дата рождения не может быть позже даты смерти."
+
+msgid "Die Angaben wurden nicht gespeichert. Bitte prüfen Sie die Eingaben; die Ansicht wurde neu geladen."
+msgstr "Данные не сохранены. Проверьте введённые значения; страница была обновлена."
+
+msgid "Mitgliedsausweis"
+msgstr "Членский билет"
+
+msgid "Haben Sie Ihren Ausweis verloren? Dann können Sie ihn hier sperren, ohne einen neuen auszustellen."
+msgstr "Потеряли билет? Здесь его можно заблокировать, не выпуская новый."
+
+msgid "Ausweis sperren …"
+msgstr "Заблокировать билет …"
+
+msgid "Ausweis sperren"
+msgstr "Заблокировать билет"
+
+msgid "Ihr bisheriger Ausweis und sein QR-Code werden sofort ungültig. Sie erhalten dabei keinen neuen Ausweis. Einen neuen Ausweis können Sie jederzeit auf der Startseite herunterladen."
+msgstr "Ваш прежний билет и его QR-код сразу станут недействительными. Новый билет при этом выдан не будет. Новый билет можно в любой момент скачать на главной странице."
+
+msgid "Der Ausweis konnte gerade nicht gesperrt werden. Bitte versuchen Sie es später erneut."
+msgstr "Сейчас не удалось заблокировать билет. Повторите попытку позже."
+
+msgid "Ihr Ausweis wurde gesperrt."
+msgstr "Ваш билет заблокирован."
+
+msgid "Es war kein gültiger Ausweis vorhanden."
+msgstr "Действительного билета не было."
+
+msgid "Angemeldet"
+msgstr "Записан"
+
+msgid "Derzeit sind keine Veranstaltungen geplant."
+msgstr "Сейчас мероприятий не запланировано."
+
+msgid "Ausgebucht"
+msgstr "Мест нет"
+
+msgid "Gebühr: %1"
+msgstr "Взнос: %1"
+
+msgid "Kostenlos"
+msgstr "Бесплатно"
+
+msgid "Die Reservierung verfällt automatisch, wenn die Zahlung nicht abgeschlossen wird. Danach können Sie sich erneut anmelden."
+msgstr "Бронь автоматически аннулируется, если оплата не завершена. После этого Вы сможете записаться снова."
+
+msgid "Zur Veranstaltung anmelden"
+msgstr "Записаться на мероприятие"
+
+msgid "Auf die Warteliste"
+msgstr "В лист ожидания"
+
+msgid "Anmelden und bezahlen (%1)"
+msgstr "Записаться и оплатить (%1)"
+
+msgid "Die Anmeldung war nicht möglich. Die Ansicht wurde aktualisiert."
+msgstr "Записаться не удалось. Страница обновлена."
+
+msgid "Die Zahlungsseite konnte nicht geöffnet werden."
+msgstr "Не удалось открыть страницу оплаты."
+
+msgid "Sie sind angemeldet."
+msgstr "Вы записаны."
+
+msgid "Sie stehen auf der Warteliste."
+msgstr "Вы в листе ожидания."
+
+msgid "Ihre Anmeldung wurde gespeichert."
+msgstr "Ваша запись сохранена."
+
+msgid "Von der Veranstaltung abmelden"
+msgstr "Отменить запись на мероприятие"
+
+msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
+msgstr "Возврат средств не производится автоматически. Для этого обратитесь в правление."
+
+msgid "Anmeldung zurückziehen"
+msgstr "Отозвать запись"
+
+msgid "Möchten Sie Ihre Anmeldung zu „%1“ zurückziehen? Ihr Platz wird freigegeben."
+msgstr "Отозвать Вашу запись на «%1»? Ваше место будет освобождено."
+
+msgid "Ihre Anmeldung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Ваша запись уже изменилась. Страница обновлена."

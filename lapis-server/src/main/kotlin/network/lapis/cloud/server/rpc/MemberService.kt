@@ -48,6 +48,8 @@ import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.DeathDateViolation
 import network.lapis.cloud.shared.domain.MailDeliveryState
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
+import network.lapis.cloud.shared.domain.MemberAddressField
+import network.lapis.cloud.shared.domain.MemberAddressRules
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
 import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
@@ -259,6 +261,13 @@ class MemberService(
         }
     }
 
+    /**
+     * Welle V1.9.33: values are normalized (trim, blank -> null) and validated by
+     * [MemberAddressRules] AFTER the authorization check (Forbidden first, so nobody can probe the
+     * rules without permission). Rejections throw a value-free [ConflictException]. A value-free
+     * audit entry ([MEMBER_ADDRESS_AUDIT_UPDATED]) is written in the same transaction, also when
+     * nothing changed. No dedicated rate limiter: `MemberService` has no general write limiter.
+     */
     override suspend fun updateMemberAddress(
         memberId: String,
         street: String?,
@@ -269,15 +278,35 @@ class MemberService(
         val current = resolveCurrentMember(call)
         val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member $memberId not found") }
         if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        val normStreet = MemberAddressRules.normalize(street)
+        val normPostalCode = MemberAddressRules.normalize(postalCode)
+        val normCity = MemberAddressRules.normalize(city)
+        val normCountry = MemberAddressRules.normalize(country)
+        val violated =
+            MemberAddressRules.textViolation(field = MemberAddressField.STREET, normalized = normStreet) != null ||
+                MemberAddressRules.textViolation(field = MemberAddressField.POSTAL_CODE, normalized = normPostalCode) != null ||
+                MemberAddressRules.textViolation(field = MemberAddressField.CITY, normalized = normCity) != null ||
+                MemberAddressRules.textViolation(field = MemberAddressField.COUNTRY, normalized = normCountry) != null
+        if (violated) throw ConflictException("Invalid address data")
         return transaction {
+            val now = nowLocalDateTime()
             val updated =
                 MemberTable.update({ MemberTable.id eq targetId }) {
-                    it[MemberTable.street] = street
-                    it[MemberTable.postalCode] = postalCode
-                    it[MemberTable.city] = city
-                    it[MemberTable.country] = country
+                    it[MemberTable.street] = normStreet
+                    it[MemberTable.postalCode] = normPostalCode
+                    it[MemberTable.city] = normCity
+                    it[MemberTable.country] = normCountry
                 }
             if (updated == 0) throw NotFoundException("Member $memberId not found")
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                action = AuditAction.UPDATE,
+                after = MEMBER_ADDRESS_AUDIT_UPDATED,
+                occurredAt = now,
+            )
             (MemberTable innerJoin AccountTable)
                 .selectAll()
                 .where { MemberTable.id eq targetId }
@@ -286,6 +315,7 @@ class MemberService(
         }
     }
 
+    /** Welle V1.9.33: same hardening as [updateMemberAddress]; the date of death is read `forUpdate` (TOCTOU). */
     override suspend fun updateMemberBeneficialOwnerData(
         memberId: String,
         dateOfBirth: LocalDate?,
@@ -294,13 +324,40 @@ class MemberService(
         val current = resolveCurrentMember(call)
         val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member $memberId not found") }
         if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        val normNationality = MemberAddressRules.normalize(nationality)
+        if (MemberAddressRules.textViolation(field = MemberAddressField.NATIONALITY, normalized = normNationality) != null) {
+            throw ConflictException("Invalid beneficial owner data")
+        }
         return transaction {
-            val updated =
-                MemberTable.update({ MemberTable.id eq targetId }) {
-                    it[MemberTable.dateOfBirth] = dateOfBirth
-                    it[MemberTable.nationality] = nationality
-                }
-            if (updated == 0) throw NotFoundException("Member $memberId not found")
+            val now = nowLocalDateTime()
+            val row =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq targetId }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+            if (MemberAddressRules.birthDateViolation(
+                    dateOfBirth = dateOfBirth,
+                    dateOfDeath = row[MemberTable.dateOfDeath],
+                    today = now.date,
+                ) !=
+                null
+            ) {
+                throw ConflictException("Invalid beneficial owner data")
+            }
+            MemberTable.update({ MemberTable.id eq targetId }) {
+                it[MemberTable.dateOfBirth] = dateOfBirth
+                it[MemberTable.nationality] = normNationality
+            }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                action = AuditAction.UPDATE,
+                after = MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED,
+                occurredAt = now,
+            )
             (MemberTable innerJoin AccountTable)
                 .selectAll()
                 .where { MemberTable.id eq targetId }
@@ -1700,3 +1757,7 @@ fun ResultRow.toMemberDto(): MemberDto =
         dateOfDeath = this[MemberTable.dateOfDeath],
         regionalChapterId = this[MemberTable.regionalChapterId]?.toString(),
     )
+
+/** Welle V1.9.33 -- value-free audit markers for the self-service address / GwG edits. */
+internal const val MEMBER_ADDRESS_AUDIT_UPDATED = "ADDRESS_UPDATED"
+internal const val MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED = "BENEFICIAL_OWNER_DATA_UPDATED"

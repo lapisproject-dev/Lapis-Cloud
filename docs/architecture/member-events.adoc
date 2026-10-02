@@ -1,0 +1,41 @@
+= Events from the member's point of view (V1.9.33)
+:toc:
+
+== Scope
+
+The screen `/my-events` ("Veranstaltungen" in the group "Mitgliedschaft", `MemberEventsScreen.kt`) lists the upcoming published events and
+lets a member register, register and pay, join the waitlist and withdraw. The management screen for BOARD/ADMIN is unchanged
+(`/event-management`, group "Administration"). The server side (`IEventService.registerSelf`, `cancelOwnRegistration`) is unchanged.
+
+== What is shown
+
+* `listEvents(status = PUBLISHED, includePast = false, limit = 50)`, filtered again in the client (`status == PUBLISHED` and
+  `endsAt >= now`) and sorted by start. More than 50 upcoming events are not reachable: there is no paging.
+* Per event: title, start, place (`locationText`, else the room name, else "Online" when only an online URL exists; the URL is never
+  rendered as a link), fee or "Kostenlos", the member's own registration status and "Ausgebucht" for a full event.
+
+== States and actions
+
+[cols="2,3", options="header"]
+|===
+| State | Offered
+| no active registration, open, free | "Zur Veranstaltung anmelden"
+| no active registration, open, fee | "Anmelden und bezahlen (amount)"
+| no active registration, open, full | "Auf die Warteliste" (the server never charges for the waitlist)
+| `CONFIRMED`, `WAITLISTED`, `PENDING_PAYMENT` | "Von der Veranstaltung abmelden" (confirmation dialog, "Abbrechen" focused)
+| `CANCELLED`, `EXPIRED` | as if never registered
+| `now >= startsAt` or after `registrationClosesAt` | no registration button (the server closes registration with the start, too)
+|===
+
+== Honest limits
+
+* **No refund.** Withdrawing never refunds automatically; for a confirmed, fee-bearing registration the dialog says so and names the board.
+* **A payment cannot be resumed in the web client.** Resuming needs the token that only arrives by e-mail link (`POST /veranstaltung/{slug}/zahlung`).
+  For `PENDING_PAYMENT` the card says that the reservation expires by itself and the member may register again afterwards. There is no
+  link, because the public event page would start a new registration, not continue the payment.
+* **Redirect to the payment page only for `https:`.** The checkout URL from the server is parsed (`isSafeHttpsRedirect`); `http:`, `javascript:`,
+  `data:`, scheme-relative `//host` and URLs with credentials are never followed (a fixed message instead and a reload).
+* The client cannot tell conflict reasons apart (Kilua RPC transmits only the exception type): every refusal of a registration shows one
+  general sentence and reloads the list.
+* Event text is untrusted and only reaches the screen through the `untrusted*` helpers, in dialog texts after `sanitizeUntrustedI18nText`.
+* The client compares with its own clock and time zone; the server decides.

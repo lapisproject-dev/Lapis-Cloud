@@ -646,9 +646,15 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "PollBooth.kt",
         "PollResultView.kt",
         "PollGuard.kt",
+        // V1.9.33 (new, born on the form grammar): the member's address / GwG forms. Two `lapisForm`s, each with its own save button.
+        "MemberAddressCard.kt",
         // V1.9.29 "KI-Zugang": no form at all -- one immediate switch (a `CheckBox` constructor, saved by itself, confirmed by a dialog when turned
         // off) and a revoke button per connection; every write goes through `runGuardedAction`, so R29 does not rise.
         "McpAccessCard.kt",
+        // V1.9.33: no field at all -- buttons and confirmation dialogs only (card revoke, event register / withdraw); every write goes
+        // through `runGuardedAction`, so R29 does not rise. (Strict set, not `R24_MIGRATED`: that one demands a `lapisForm(`.)
+        "MemberCardRevokeCard.kt",
+        "MemberEventsScreen.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */

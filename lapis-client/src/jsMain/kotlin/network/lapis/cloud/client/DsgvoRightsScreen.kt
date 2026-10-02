@@ -117,6 +117,8 @@ private fun renderSelfServiceSection(root: SimplePanel) {
     // nor politician and has no stored text.
     renderMemberPublicProfileSection(root)
     renderMcpAccessSection(root)
+    renderMemberAddressSection(root)
+    renderMemberCardRevokeSection(root)
 
     root.h2(tr("Auskunft")) { addCssClass("h5") }
     root.div(

@@ -1,0 +1,34 @@
+= Staging test plan: member self-service (address, GwG data, card block, events) (V1.9.33)
+:toc:
+
+NOT EXECUTED: no staging run in this wave. Everything in V1.9.33 is covered by unit, DOM and tripwire tests against stubbed servers; what
+only a real server can show is listed here.
+
+== Prerequisite
+
+An ACTIVE member account, a BOARD account, a FRIEND account, at least one published event that is free, one with a fee (payment provider in
+test mode), one that is full, one that has already started.
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | Open "Meine Daten" as the member | the cards "Anschrift und Angaben nach Geldwäschegesetz" and "Mitgliedsausweis" appear, fields prefilled, both save buttons disabled
+| 2 | Change the city, "Anschrift speichern" | toast "Gespeichert.", the field shows the new value after the reload; the audit log has one MEMBER/UPDATE entry `ADDRESS_UPDATED` without any value
+| 3 | Clear the street, save | the street is empty afterwards
+| 4 | Enter 201 characters into the street field | inline message, button stays disabled
+| 5 | Date of birth tomorrow, 1899-12-31 | inline message, button disabled; 1900-01-01 can be saved
+| 6 | Save GwG data | `BENEFICIAL_OWNER_DATA_UPDATED` in the audit log, no value in any audit column
+| 7 | "Ausweis sperren ..." and cancel | nothing happens; confirm: "Ihr Ausweis wurde gesperrt."; the old QR code no longer verifies; no number or code on screen
+| 8 | Block again at once | button locked for a moment; after a burst of attempts the general "gerade nicht gesperrt" message appears
+| 9 | Download the card on the start page | a new card is issued and verifies
+| 10 | As FRIEND open "Meine Daten" | address card yes, card-block card no
+| 11 | Open "Veranstaltungen" in "Mitgliedschaft" | upcoming published events sorted by start; no draft, cancelled or past event
+| 12 | Register for the free event | "Sie sind angemeldet.", badge "Angemeldet", button changes to "Von der Veranstaltung abmelden"
+| 13 | Register for the fee event | redirect to the payment page (https); after abandoning, the card shows "Zahlung offen" and the expiry hint; after the hold expires "Zur Veranstaltung anmelden" is offered again
+| 14 | Register for the full event | waitlist entry, badge "Warteliste"
+| 15 | Withdraw from a paid, confirmed event | the dialog names that no refund is made automatically
+| 16 | Event that already started | no registration button
+| 17 | Two tabs: withdraw in tab A, withdraw in tab B | tab B shows the "had already changed" message and reloads
+|===

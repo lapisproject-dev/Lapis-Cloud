@@ -19102,3 +19102,117 @@ msgstr "Cette évaluation n'est plus ouverte."
 
 msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
 msgstr "L'évaluation n'a pas pu être chargée. Veuillez réessayer."
+
+msgid "Zeilenumbrüche und Steuerzeichen sind nicht erlaubt."
+msgstr "Les retours à la ligne et les caractères de contrôle ne sont pas autorisés."
+
+msgid "Anschrift und Angaben nach Geldwäschegesetz"
+msgstr "Adresse et informations au titre de la loi sur le blanchiment d'argent"
+
+msgid "Ihre Anschrift verwendet die Organisation für Briefpost und Rechnungen. Geburtsdatum und Staatsangehörigkeit werden bei Bedarf für Pflichtangaben nach dem Geldwäschegesetz benötigt. Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "L'organisation utilise votre adresse pour le courrier postal et les factures. La date de naissance et la nationalité sont requises, le cas échéant, pour les informations obligatoires au titre de la loi sur le blanchiment d'argent. Un champ vide supprime la valeur enregistrée. Chaque modification est consignée ; les valeurs elles-mêmes ne figurent pas dans le journal."
+
+msgid "Straße und Hausnummer"
+msgstr "Rue et numéro"
+
+msgid "Postleitzahl"
+msgstr "Code postal"
+
+msgid "Anschrift speichern"
+msgstr "Enregistrer l'adresse"
+
+msgid "Angaben speichern"
+msgstr "Enregistrer les informations"
+
+msgid "Das Geburtsdatum darf nicht in der Zukunft liegen."
+msgstr "La date de naissance ne peut pas être dans le futur."
+
+msgid "Bitte ein Datum ab dem 01.01.1900 angeben."
+msgstr "Veuillez saisir une date à partir du 1er janvier 1900."
+
+msgid "Das Geburtsdatum darf nicht nach dem Sterbedatum liegen."
+msgstr "La date de naissance ne peut pas être postérieure à la date de décès."
+
+msgid "Die Angaben wurden nicht gespeichert. Bitte prüfen Sie die Eingaben; die Ansicht wurde neu geladen."
+msgstr "Les informations n'ont pas été enregistrées. Veuillez vérifier votre saisie ; l'affichage a été rechargé."
+
+msgid "Mitgliedsausweis"
+msgstr "Carte de membre"
+
+msgid "Haben Sie Ihren Ausweis verloren? Dann können Sie ihn hier sperren, ohne einen neuen auszustellen."
+msgstr "Vous avez perdu votre carte ? Vous pouvez la bloquer ici sans en émettre une nouvelle."
+
+msgid "Ausweis sperren …"
+msgstr "Bloquer la carte …"
+
+msgid "Ausweis sperren"
+msgstr "Bloquer la carte"
+
+msgid "Ihr bisheriger Ausweis und sein QR-Code werden sofort ungültig. Sie erhalten dabei keinen neuen Ausweis. Einen neuen Ausweis können Sie jederzeit auf der Startseite herunterladen."
+msgstr "Votre carte actuelle et son code QR deviennent immédiatement invalides. Vous ne recevez pas de nouvelle carte. Vous pouvez à tout moment télécharger une nouvelle carte sur la page d'accueil."
+
+msgid "Der Ausweis konnte gerade nicht gesperrt werden. Bitte versuchen Sie es später erneut."
+msgstr "La carte n'a pas pu être bloquée pour le moment. Veuillez réessayer plus tard."
+
+msgid "Ihr Ausweis wurde gesperrt."
+msgstr "Votre carte a été bloquée."
+
+msgid "Es war kein gültiger Ausweis vorhanden."
+msgstr "Il n'y avait aucune carte valide."
+
+msgid "Angemeldet"
+msgstr "Inscrit"
+
+msgid "Derzeit sind keine Veranstaltungen geplant."
+msgstr "Aucun événement n'est prévu pour le moment."
+
+msgid "Ausgebucht"
+msgstr "Complet"
+
+msgid "Gebühr: %1"
+msgstr "Frais : %1"
+
+msgid "Kostenlos"
+msgstr "Gratuit"
+
+msgid "Die Reservierung verfällt automatisch, wenn die Zahlung nicht abgeschlossen wird. Danach können Sie sich erneut anmelden."
+msgstr "La réservation expire automatiquement si le paiement n'est pas finalisé. Vous pourrez alors vous inscrire à nouveau."
+
+msgid "Zur Veranstaltung anmelden"
+msgstr "S'inscrire à l'événement"
+
+msgid "Auf die Warteliste"
+msgstr "Rejoindre la liste d'attente"
+
+msgid "Anmelden und bezahlen (%1)"
+msgstr "S'inscrire et payer (%1)"
+
+msgid "Die Anmeldung war nicht möglich. Die Ansicht wurde aktualisiert."
+msgstr "L'inscription n'a pas été possible. L'affichage a été actualisé."
+
+msgid "Die Zahlungsseite konnte nicht geöffnet werden."
+msgstr "La page de paiement n'a pas pu être ouverte."
+
+msgid "Sie sind angemeldet."
+msgstr "Vous êtes inscrit."
+
+msgid "Sie stehen auf der Warteliste."
+msgstr "Vous êtes sur la liste d'attente."
+
+msgid "Ihre Anmeldung wurde gespeichert."
+msgstr "Votre inscription a été enregistrée."
+
+msgid "Von der Veranstaltung abmelden"
+msgstr "Se désinscrire de l'événement"
+
+msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
+msgstr "Aucun remboursement n'est effectué automatiquement. Veuillez vous adresser au conseil d'administration."
+
+msgid "Anmeldung zurückziehen"
+msgstr "Retirer l'inscription"
+
+msgid "Möchten Sie Ihre Anmeldung zu „%1“ zurückziehen? Ihr Platz wird freigegeben."
+msgstr "Voulez-vous retirer votre inscription à « %1 » ? Votre place sera libérée."
+
+msgid "Ihre Anmeldung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Votre inscription avait déjà changé. L'affichage a été actualisé."

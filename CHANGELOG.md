@@ -8,6 +8,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Member self-service: address, GwG data, card block, events** (V1.9.33): on "Meine Daten" the card "Anschrift und Angaben nach
+  Geldwäschegesetz" (street, postal code, city, country; date of birth, nationality) with two independent forms and inline validation, and the
+  card "Mitgliedsausweis" to block a lost card without issuing a new one (a new card is still the download on the start page). New screen
+  `/my-events` ("Veranstaltungen" in "Mitgliedschaft"): upcoming events, register, register and pay (redirect only to `https:`), waitlist,
+  withdraw. Server: `updateMemberAddress` and `updateMemberBeneficialOwnerData` now validate (`MemberAddressRules`) and write a value-free
+  audit entry. No migration. Documentation: `docs/architecture/member-events.adoc`, `dsgvo.adoc`, staging plan (not executed).
+
 - **Systemic consensus in the conference room panel** (V1.9.32): a card per consensus (phase, anonymous or named, the member's own standing),
   the resistance booth embedded in the room's booth host with a compact grid (eleven fields in one row from a panel width of 290 px), and the
   operator steps freeze options, close the rating, evaluate and rate again for somebody who manages the consensus. The room badge and the
@@ -16,6 +23,10 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- Self-service address and GwG data are validated on the server (length per column, no control characters, plausible date of birth with a
+  `FOR UPDATE` read of the date of death), refusals are value-free `ConflictException`s, and every call writes an audit entry whose marker
+  carries no field value. The new files never log, store or toast personal data (`ClientSelfServicePiiTripwireTest`). A payment redirect is
+  followed only for absolute `https:` URLs without credentials. Event titles and places are sanitized against forged i18n markers, also in dialog texts.
 - The stream lock for an anonymous consensus was already enforced by the server (V1.0 wave 9: `castResistanceBallot` is refused while a
   stream of the Sitzung still publishes, `freezeOptions` and `reopenRating` pause the streams). V1.9.32 does not change it; the new tests
   `SecretBallotStreamPauseTest` 15e--15h pin it for the room (a ballot while the stream is live writes nothing, an open consensus never
@@ -27,6 +38,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- V1.9.33: BOARD and ADMIN cannot edit other members' address or GwG data in the UI (no privileged read exists; a save without prefill would
+  delete data). An unfinished payment cannot be resumed in the web client (it needs the e-mail link token). Withdrawing never refunds
+  automatically. No format check for postal code or country. No rate limit for address changes. The member event list is capped at 50 events.
+  The client cannot tell conflict reasons apart (Kilua RPC sends only the exception type), so each refusal shows one general sentence. Not tested
+  against real data or a staging server.
 - Adding options, opening and aborting a consensus are only on the consensus page (new tab); the room never opens one.
 - A panel narrower than 290 px offers the booth as a link-button into a new tab.
 - The compact result in the room has no distribution and no named ratings.

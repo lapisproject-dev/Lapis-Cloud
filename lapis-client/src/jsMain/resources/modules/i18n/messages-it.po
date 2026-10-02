@@ -19084,3 +19084,117 @@ msgstr "Questa valutazione non è più aperta."
 
 msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
 msgstr "Impossibile caricare la valutazione. Riprova."
+
+msgid "Zeilenumbrüche und Steuerzeichen sind nicht erlaubt."
+msgstr "Gli a capo e i caratteri di controllo non sono consentiti."
+
+msgid "Anschrift und Angaben nach Geldwäschegesetz"
+msgstr "Indirizzo e dati ai sensi della legge antiriciclaggio"
+
+msgid "Ihre Anschrift verwendet die Organisation für Briefpost und Rechnungen. Geburtsdatum und Staatsangehörigkeit werden bei Bedarf für Pflichtangaben nach dem Geldwäschegesetz benötigt. Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "L'organizzazione utilizza il Suo indirizzo per la posta e le fatture. Data di nascita e cittadinanza sono necessarie, se richiesto, per le informazioni obbligatorie ai sensi della legge antiriciclaggio. Un campo vuoto elimina il valore memorizzato. Ogni modifica viene registrata; i valori stessi non compaiono nel registro."
+
+msgid "Straße und Hausnummer"
+msgstr "Via e numero civico"
+
+msgid "Postleitzahl"
+msgstr "CAP"
+
+msgid "Anschrift speichern"
+msgstr "Salva indirizzo"
+
+msgid "Angaben speichern"
+msgstr "Salva dati"
+
+msgid "Das Geburtsdatum darf nicht in der Zukunft liegen."
+msgstr "La data di nascita non può essere nel futuro."
+
+msgid "Bitte ein Datum ab dem 01.01.1900 angeben."
+msgstr "Inserire una data a partire dal 1° gennaio 1900."
+
+msgid "Das Geburtsdatum darf nicht nach dem Sterbedatum liegen."
+msgstr "La data di nascita non può essere successiva alla data di decesso."
+
+msgid "Die Angaben wurden nicht gespeichert. Bitte prüfen Sie die Eingaben; die Ansicht wurde neu geladen."
+msgstr "I dati non sono stati salvati. Controlli le voci inserite; la vista è stata ricaricata."
+
+msgid "Mitgliedsausweis"
+msgstr "Tessera di socio"
+
+msgid "Haben Sie Ihren Ausweis verloren? Dann können Sie ihn hier sperren, ohne einen neuen auszustellen."
+msgstr "Ha smarrito la tessera? Può bloccarla qui senza emetterne una nuova."
+
+msgid "Ausweis sperren …"
+msgstr "Blocca la tessera …"
+
+msgid "Ausweis sperren"
+msgstr "Blocca la tessera"
+
+msgid "Ihr bisheriger Ausweis und sein QR-Code werden sofort ungültig. Sie erhalten dabei keinen neuen Ausweis. Einen neuen Ausweis können Sie jederzeit auf der Startseite herunterladen."
+msgstr "La Sua tessera attuale e il relativo codice QR diventano subito non validi. Non riceverà una nuova tessera. Può scaricare una nuova tessera in qualsiasi momento dalla pagina iniziale."
+
+msgid "Der Ausweis konnte gerade nicht gesperrt werden. Bitte versuchen Sie es später erneut."
+msgstr "Non è stato possibile bloccare la tessera in questo momento. Riprovi più tardi."
+
+msgid "Ihr Ausweis wurde gesperrt."
+msgstr "La Sua tessera è stata bloccata."
+
+msgid "Es war kein gültiger Ausweis vorhanden."
+msgstr "Non era presente alcuna tessera valida."
+
+msgid "Angemeldet"
+msgstr "Iscritto"
+
+msgid "Derzeit sind keine Veranstaltungen geplant."
+msgstr "Al momento non sono previsti eventi."
+
+msgid "Ausgebucht"
+msgstr "Al completo"
+
+msgid "Gebühr: %1"
+msgstr "Quota: %1"
+
+msgid "Kostenlos"
+msgstr "Gratuito"
+
+msgid "Die Reservierung verfällt automatisch, wenn die Zahlung nicht abgeschlossen wird. Danach können Sie sich erneut anmelden."
+msgstr "La prenotazione scade automaticamente se il pagamento non viene completato. Successivamente potrà iscriversi di nuovo."
+
+msgid "Zur Veranstaltung anmelden"
+msgstr "Iscriviti all'evento"
+
+msgid "Auf die Warteliste"
+msgstr "In lista d'attesa"
+
+msgid "Anmelden und bezahlen (%1)"
+msgstr "Iscriviti e paga (%1)"
+
+msgid "Die Anmeldung war nicht möglich. Die Ansicht wurde aktualisiert."
+msgstr "L'iscrizione non è stata possibile. La vista è stata aggiornata."
+
+msgid "Die Zahlungsseite konnte nicht geöffnet werden."
+msgstr "Non è stato possibile aprire la pagina di pagamento."
+
+msgid "Sie sind angemeldet."
+msgstr "È iscritto."
+
+msgid "Sie stehen auf der Warteliste."
+msgstr "È in lista d'attesa."
+
+msgid "Ihre Anmeldung wurde gespeichert."
+msgstr "La Sua iscrizione è stata salvata."
+
+msgid "Von der Veranstaltung abmelden"
+msgstr "Annulla l'iscrizione all'evento"
+
+msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
+msgstr "Il rimborso non avviene automaticamente. Si rivolga al consiglio direttivo."
+
+msgid "Anmeldung zurückziehen"
+msgstr "Ritira l'iscrizione"
+
+msgid "Möchten Sie Ihre Anmeldung zu „%1“ zurückziehen? Ihr Platz wird freigegeben."
+msgstr "Vuole ritirare la Sua iscrizione a «%1»? Il Suo posto verrà liberato."
+
+msgid "Ihre Anmeldung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "La Sua iscrizione era già cambiata. La vista è stata aggiornata."

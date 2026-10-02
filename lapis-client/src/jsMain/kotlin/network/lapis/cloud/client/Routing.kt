@@ -476,6 +476,10 @@ object Routes {
     // [TRAVEL_EXPENSES], nicht die BOARD/ADMIN-Schicht-VERWALTUNG unter [EVENT_VOLUNTEERS].
     const val MY_VOLUNTEER_SHIFTS = "/my-volunteer-shifts"
 
+    // Welle V1.9.33 -- `requireAuth`: jedes Mitglied sieht die kommenden Veranstaltungen und meldet sich selbst an/ab
+    // ([renderMemberEventsScreen], `IEventService.registerSelf`/`cancelOwnRegistration`); die Verwaltung ist [EVENT_MANAGEMENT].
+    const val MY_EVENTS = "/my-events"
+
     // Welle V1.4.4.1 "Beitragshistorie" -- `requireAuth`, NICHT `requireRole`: jedes authentifizierte
     // Mitglied erreicht diese Route für die EIGENE Historie (Selbstauskunft), die engere
     // TREASURER/BOARD/ADMIN-Schwelle für eine FREMDE Mitglieds-Id wird ausschließlich serverseitig in
@@ -1024,6 +1028,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.MY_VOLUNTEER_SHIFTS) {
         requireAuth(routing) { show(Routes.MY_VOLUNTEER_SHIFTS, ::renderMyVolunteerShiftsScreen) }
+    }
+    routing.kvOn(Routes.MY_EVENTS) {
+        requireAuth(routing) { show(Routes.MY_EVENTS, ::renderMemberEventsScreen) }
     }
     // `:id` read off Navigo's own `Match.data`, same idiom as `Routes.SOCIAL_NETWORK_POST` above.
     routing.kvOn(Routes.EVENT_CHECKIN_EVENT) { params ->

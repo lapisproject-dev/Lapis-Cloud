@@ -327,6 +327,15 @@ class SidebarStructureTest {
         assertEquals(SidebarGroupId.MEMBERSHIP, sidebarGroupForRoute(Routes.MY_CHAPTER))
     }
 
+    // Welle V1.9.33: the member's own events screen lives in "Mitgliedschaft" (the management screen stays in "Administration").
+    @Test
+    fun membershipGroup_showsMyEventsEntry_forEveryMember_andTheRouteBelongsToTheGroup() {
+        assertEquals(SidebarGroupId.MEMBERSHIP, sidebarGroupForRoute(Routes.MY_EVENTS))
+        assertEquals(SidebarGroupId.ADMINISTRATION, sidebarGroupForRoute(Routes.EVENT_MANAGEMENT))
+        assertTrue(sidebarLinkUrls(adminSession.copy(role = AccountRole.MEMBER)).contains("#${Routes.MY_EVENTS}"), "MEMBER")
+        assertTrue(sidebarLinkUrls(adminSession).contains("#${Routes.MY_EVENTS}"), "ADMIN")
+    }
+
     @Test
     fun administrationGroup_showsRegionalChaptersEntry_onlyForBoardAndAdmin() {
         assertTrue(sidebarLinkUrls(adminSession).contains("#${Routes.REGIONAL_CHAPTERS}"))

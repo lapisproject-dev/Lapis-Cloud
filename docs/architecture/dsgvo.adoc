@@ -368,6 +368,34 @@ identifiable record. What makes this feature DSGVO-relevant is not a new storage
   vector tiles (OpenStreetMap, ODbL, via Protomaps) contain no personal data about this
   organization's members -- they are reference geodata, unrelated to any `DataSubject`.
 
+== Self-service address and beneficial-owner data (V1.9.33)
+
+`IMemberService.updateMemberAddress` (street, postal code, city, country) and `updateMemberBeneficialOwnerData` (date of birth,
+nationality; the GwG data) have existed since the foundation waves. V1.9.33 hardens them and adds the first client UI for them
+(card "Anschrift und Angaben nach Geldwäschegesetz" on "Meine Daten", own account only).
+
+* **Who may**: the member themselves, or BOARD/ADMIN (`isPrivileged`). TREASURER may not. The authorization check comes before any
+  validation of the input, so nobody can probe the rules without permission.
+* **Validation** (`MemberAddressRules`, shared by server and client): values are trimmed, a blank value becomes `null` (clears the field);
+  the lengths equal the columns (200/20/200/100/100, pinned by a test against `MemberTable`); control characters (`isISOControl`, which
+  includes `\n`, `\r`, `\t`) are refused; the date of birth must not lie in the future, before 1900-01-01 or after a recorded date of
+  death (the date of death is read `FOR UPDATE` in the same transaction). A refusal is a value-free `ConflictException` and writes nothing.
+  Lengths are measured in UTF-16 code units, Postgres counts code points: the rule can only be stricter than the database for emoji.
+  No format is checked for postal code or country (members live abroad).
+* **Audit**: every call writes one `AuditLogEntry` (`MEMBER`, `UPDATE`) in the same transaction with the marker `ADDRESS_UPDATED` or
+  `BENEFICIAL_OWNER_DATA_UPDATED` as `after_snapshot`. Never a before value, never a field value. It is also written when nothing changed.
+* **No rate limit**: `MemberService` has no general limiter for writes and none was added.
+* **No admin UI**: BOARD/ADMIN can call the RPC but the client offers no screen for other members. A privileged read of the address
+  fields does not exist (`MemberAdminRowDto` carries none); a form without prefill would delete stored data on save. Proposed for a later wave.
+
+== Card revocation without a new card (V1.9.33)
+
+"Mitgliedsausweis" on "Meine Daten" lets a member block a lost card (`IMemberService.reissueMemberCard`, the existing RPC; no server code
+changed). The server rotates the card code and the client reads only `previousCardRevoked`: neither the member number nor a code is shown.
+The call shares the rate limit of the PDF download (`memberCardIssueRateLimiter`). A new card is obtained by the existing download on the
+start page, which issues one. Kilua RPC transmits only the exception type, so a rate limit and a missing membership status are both
+`ConflictException`: the client shows one general sentence for both.
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.MemberPhotoPersonalData` — hard-delete contributor for `member_photo`, export with

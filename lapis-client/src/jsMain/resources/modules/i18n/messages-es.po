@@ -19063,3 +19063,117 @@ msgstr "Esta valoración ya no está abierta."
 
 msgid "Die Bewertung konnte nicht geladen werden. Bitte erneut versuchen."
 msgstr "No se pudo cargar la valoración. Inténtelo de nuevo."
+
+msgid "Zeilenumbrüche und Steuerzeichen sind nicht erlaubt."
+msgstr "No se permiten saltos de línea ni caracteres de control."
+
+msgid "Anschrift und Angaben nach Geldwäschegesetz"
+msgstr "Dirección y datos conforme a la ley contra el blanqueo de capitales"
+
+msgid "Ihre Anschrift verwendet die Organisation für Briefpost und Rechnungen. Geburtsdatum und Staatsangehörigkeit werden bei Bedarf für Pflichtangaben nach dem Geldwäschegesetz benötigt. Ein leeres Feld löscht den gespeicherten Wert. Jede Änderung wird protokolliert, die Werte selbst stehen nicht im Protokoll."
+msgstr "La organización utiliza su dirección para el correo postal y las facturas. La fecha de nacimiento y la nacionalidad se necesitan, cuando procede, para los datos obligatorios conforme a la ley contra el blanqueo de capitales. Un campo vacío borra el valor guardado. Cada cambio se registra; los valores en sí no figuran en el registro."
+
+msgid "Straße und Hausnummer"
+msgstr "Calle y número"
+
+msgid "Postleitzahl"
+msgstr "Código postal"
+
+msgid "Anschrift speichern"
+msgstr "Guardar dirección"
+
+msgid "Angaben speichern"
+msgstr "Guardar datos"
+
+msgid "Das Geburtsdatum darf nicht in der Zukunft liegen."
+msgstr "La fecha de nacimiento no puede estar en el futuro."
+
+msgid "Bitte ein Datum ab dem 01.01.1900 angeben."
+msgstr "Indique una fecha a partir del 1 de enero de 1900."
+
+msgid "Das Geburtsdatum darf nicht nach dem Sterbedatum liegen."
+msgstr "La fecha de nacimiento no puede ser posterior a la fecha de fallecimiento."
+
+msgid "Die Angaben wurden nicht gespeichert. Bitte prüfen Sie die Eingaben; die Ansicht wurde neu geladen."
+msgstr "Los datos no se han guardado. Revise sus entradas; la vista se ha recargado."
+
+msgid "Mitgliedsausweis"
+msgstr "Carné de socio"
+
+msgid "Haben Sie Ihren Ausweis verloren? Dann können Sie ihn hier sperren, ohne einen neuen auszustellen."
+msgstr "¿Ha perdido su carné? Puede bloquearlo aquí sin emitir uno nuevo."
+
+msgid "Ausweis sperren …"
+msgstr "Bloquear carné …"
+
+msgid "Ausweis sperren"
+msgstr "Bloquear carné"
+
+msgid "Ihr bisheriger Ausweis und sein QR-Code werden sofort ungültig. Sie erhalten dabei keinen neuen Ausweis. Einen neuen Ausweis können Sie jederzeit auf der Startseite herunterladen."
+msgstr "Su carné actual y su código QR dejan de ser válidos de inmediato. No recibirá un carné nuevo. Puede descargar un carné nuevo en cualquier momento desde la página de inicio."
+
+msgid "Der Ausweis konnte gerade nicht gesperrt werden. Bitte versuchen Sie es später erneut."
+msgstr "No se ha podido bloquear el carné ahora mismo. Inténtelo de nuevo más tarde."
+
+msgid "Ihr Ausweis wurde gesperrt."
+msgstr "Su carné ha sido bloqueado."
+
+msgid "Es war kein gültiger Ausweis vorhanden."
+msgstr "No había ningún carné válido."
+
+msgid "Angemeldet"
+msgstr "Inscrito"
+
+msgid "Derzeit sind keine Veranstaltungen geplant."
+msgstr "Por el momento no hay eventos previstos."
+
+msgid "Ausgebucht"
+msgstr "Completo"
+
+msgid "Gebühr: %1"
+msgstr "Cuota: %1"
+
+msgid "Kostenlos"
+msgstr "Gratis"
+
+msgid "Die Reservierung verfällt automatisch, wenn die Zahlung nicht abgeschlossen wird. Danach können Sie sich erneut anmelden."
+msgstr "La reserva caduca automáticamente si el pago no se completa. Después podrá inscribirse de nuevo."
+
+msgid "Zur Veranstaltung anmelden"
+msgstr "Inscribirse en el evento"
+
+msgid "Auf die Warteliste"
+msgstr "A la lista de espera"
+
+msgid "Anmelden und bezahlen (%1)"
+msgstr "Inscribirse y pagar (%1)"
+
+msgid "Die Anmeldung war nicht möglich. Die Ansicht wurde aktualisiert."
+msgstr "La inscripción no fue posible. La vista se ha actualizado."
+
+msgid "Die Zahlungsseite konnte nicht geöffnet werden."
+msgstr "No se ha podido abrir la página de pago."
+
+msgid "Sie sind angemeldet."
+msgstr "Está inscrito."
+
+msgid "Sie stehen auf der Warteliste."
+msgstr "Está en la lista de espera."
+
+msgid "Ihre Anmeldung wurde gespeichert."
+msgstr "Su inscripción se ha guardado."
+
+msgid "Von der Veranstaltung abmelden"
+msgstr "Cancelar la inscripción en el evento"
+
+msgid "Eine Rückerstattung erfolgt nicht automatisch. Wenden Sie sich dafür an den Vorstand."
+msgstr "El reembolso no se realiza automáticamente. Póngase en contacto con la junta directiva."
+
+msgid "Anmeldung zurückziehen"
+msgstr "Retirar la inscripción"
+
+msgid "Möchten Sie Ihre Anmeldung zu „%1“ zurückziehen? Ihr Platz wird freigegeben."
+msgstr "¿Desea retirar su inscripción en «%1»? Se liberará su plaza."
+
+msgid "Ihre Anmeldung hatte sich bereits geändert. Die Ansicht wurde aktualisiert."
+msgstr "Su inscripción ya había cambiado. La vista se ha actualizado."

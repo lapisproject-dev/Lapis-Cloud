@@ -40,7 +40,13 @@ class DsgvoRightsScreenMemberPhotoDomTest {
                         .trim(),
                     "the photo section opens the screen",
                 )
-                assertEquals("Auskunft", headings[1].textContent.orEmpty().trim(), "and 'Auskunft' follows directly")
+                // V1.9.33: the member's own address and card cards sit between the photo and "Auskunft" (after the KI-Zugang card).
+                val titles = headings.map { it.textContent.orEmpty().trim() }
+                assertTrue(titles.indexOf("Auskunft") > 0, "'Auskunft' is still on the screen, after the photo section: $titles")
+                assertTrue(
+                    titles.indexOf("Mitgliedsausweis") in 1 until titles.indexOf("Auskunft"),
+                    "the card block card precedes 'Auskunft': $titles",
+                )
             }
         }
 

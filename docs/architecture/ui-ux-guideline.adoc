@@ -1926,3 +1926,10 @@ both previously listed under "Known gaps" above, across two rounds on branch
   `SepaBatchesScreen.kt` sites the bug report named. Extending
   `scripts/i18n/regenerate-source-refs.mjs`'s matcher to also cover `ntr(`/`ngettext(` (closing the
   gap this round's comment fix only documents) remains a possible, separately scoped follow-up too.
+
+== V1.9.33 additions (member self-service)
+
+`MemberAddressCard.kt` joins the strict R24 set with a `lapisForm` (two forms, one save button each, enabled only while something changed and
+every field is valid). `MemberCardRevokeCard.kt` and `MemberEventsScreen.kt` have no field and join the strict set without a form
+(`R24_STRICT_WITHOUT_FORM`); all their writes go through `runGuardedAction`, so the R29 count does not rise. `ClientSelfServicePiiTripwireTest`
+keeps all three free of console output, browser storage, `.message` and toasts that carry a personal-data field.

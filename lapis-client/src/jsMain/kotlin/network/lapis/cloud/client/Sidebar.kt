@@ -124,6 +124,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DSGVO_RIGHTS,
                 Routes.TRAVEL_EXPENSES,
                 Routes.MY_VOLUNTEER_SHIFTS,
+                Routes.MY_EVENTS,
             ),
         SidebarGroupId.SELF_GOVERNANCE to
             listOf(Routes.COMMITTEES, Routes.MEETINGS, Routes.MOTIONS, Routes.ELECTIONS, Routes.CONSENSUS, Routes.POLLS),
@@ -404,6 +405,8 @@ fun buildSidebar(
             // Selbstbedienung, kein Rollen-Gate innerhalb der Gruppe (jedes Mitglied kann sich für
             // eine Schicht an-/abmelden).
             sidebarLink(Routes.MY_VOLUNTEER_SHIFTS, tr("Helferschichten"), "fas fa-calendar-check", toggle)
+            // Welle V1.9.33 -- Selbstbedienung: kommende Veranstaltungen, An-/Abmeldung (die Verwaltung steht in der Gruppe Administration).
+            sidebarLink(Routes.MY_EVENTS, tr("Veranstaltungen"), "fas fa-ticket", toggle)
         }
     } else if (NavVisibility.showsDsgvoRights(session.status)) {
         // Welle V1.1.4: ein FRIEND hat kein volles "Mitgliedschaft"-Dropdown, braucht aber
