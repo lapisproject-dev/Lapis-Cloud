@@ -403,11 +403,17 @@ class RecordingPollerTest :
                 val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
                 poller.requestTick()
 
-                withTimeout(5_000) { while (egressClient.started.isEmpty()) delay(10) }
+                // Generous bounds: these only cost time when the test would fail anyway (a loaded CI runner can starve the poller).
+                withTimeout(30_000) { while (egressClient.started.isEmpty()) delay(10) }
                 egressClient.started.single().second shouldBe "TR_wake"
-                transaction {
-                    ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.recordingId eq recordingId }.count()
-                } shouldBe 1L
+                // The poller records the track row AFTER it has asked the egress client to start, so the row is not there the instant
+                // `started` fills (a race that failed on a loaded CI runner: expected 1, was 0) -- wait for it instead of reading once.
+                fun trackRows(): Long =
+                    transaction {
+                        ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.recordingId eq recordingId }.count()
+                    }
+                withTimeout(30_000) { while (trackRows() < 1L) delay(10) }
+                trackRows() shouldBe 1L
             } finally {
                 poller.stop()
                 hostRawRoot.deleteRecursively()
