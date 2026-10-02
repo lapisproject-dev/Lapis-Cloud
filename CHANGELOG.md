@@ -6,6 +6,47 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-10-02
+
+Release summary (the detail is in the sections below, grouped by wave V1.9.24 -- V1.9.31):
+
+- **Voting inside the video conference** (V1.9.24 -- V1.9.27): an "Abstimmen" panel in the room lists the open and recently
+  decided elections and meritocratic votes of the room's Sitzung with the member's own standing and embeds the real voting booth;
+  a server query (`getRoomVotingState`) plus a payload-free data-channel nudge keep it current. Election board members and
+  BOARD/ADMIN can open prepared elections, close and count from the room; approving the count stays with named election board
+  members (no BOARD/ADMIN bypass). While a secret election is open, the cast
+  button stays locked as long as a stream of the Sitzung is still being paused (the server enforces the same rule); the recording
+  is not paused, and rooms without a Sitzung never have their stream paused. A first meritocratic bid, opening a Yes/No vote and
+  closing it are possible from the room; changing a bid, custom options and aborting stay on the motion page.
+- **Systemic consensus ("Konsensieren") has a web UI** (V1.9.28): list and detail, opening from a scheduled motion (anonymous or
+  open, advisory or binding), a resistance booth (0..10 per option, review step, one submit, a receipt for an anonymous
+  consensus) and the result ranked by mean resistance with the group conflict in words. Not yet part of the conference room.
+- **"KI-Zugang" card on "Meine Daten"** (V1.9.29): members switch access for their own MCP agents on or off and see and revoke
+  their agent connections. The card appears only where the operator has enabled MCP (off by default).
+- **Non-binding opinion polls ("Umfragen") on an LTR basis** (V1.9.30 server, V1.9.31 web UI): one question, 2..10 options,
+  one answer per member, anonymous by table separation, no LTR is moved. Results only after the close, by head count and
+  LTR-weighted side by side; the head count needs at least 5 answers, the weighted result additionally at least 5 answers with
+  weight > 0 and at least 3 weighted answers for every option that has any -- otherwise it is withheld with a reason.
+- **Operator actions before the upgrade**: take a backup and run `./gradlew :lapis-server:flywayRepair` once on every existing
+  instance (V1.9.30 widened `V1__baseline.sql` in place by the audit entity type `POLL`) -- from the v0.27.0 checkout, after the
+  code sync and before the build/restart -- then deploy. Migration `V65`. MCP stays
+  off by default: it is only on when you set `LAPIS_MCP_ENABLED=true`, and the compose files deliberately do not forward the
+  `LAPIS_MCP_*` variables -- add the line yourself (`deploy/example/README.adoc`, "MCP access for AI agents");
+  `LAPIS_MCP_WRITE_ENABLED` remains a separate switch for the write tools.
+- **Not yet verified in real use**: the staging test plans for conference voting, consensus, polls and the MCP card are written
+  but were not executed; the concurrency tests run on H2 only. Vote stakes stay bound after a vote closes (no release path).
+  Weighted poll results are withheld for small polls by design, and whoever can read the database or its backups keeps a residual
+  re-identification risk for poll answers. (The V1.9.29 note "MCP is off on PdV, ELB and Staging" describes the state when that
+  wave was written; on 2026-10-02 the maintainers enabled MCP with the read tools only on these three instances.)
+
+### Fixed -- release housekeeping
+
+- **Flaky client test** `ConsensusDetailDomTest` (named ratings of an open consensus): the test waited for a name that was already
+  on the page before the named-ratings table had been requested; it now waits for a row of that table. The shared DOM-test harness
+  (`FormTestSupport.kt`, `FetchStub.kt`) now isolates tests from leftover asynchronous work of the previous test. Test code only,
+  no production code and no assertion changed.
+- **`build.gradle.kts` version** is `0.27.0`.
+
 ### Added -- V1.9.31 opinion polls (web UI)
 
 - **The polls get their screens** (`/polls`, `/polls/:id`; navigation entry "Umfragen" directly after "Konsensieren", ACTIVE members only). List with a
@@ -115,6 +156,7 @@ All notable changes to this project are documented here. Format follows
 - A rejected switch-ON arrives as a generic `ForbiddenException`; the card infers the rate limit from the context (switching on).
 - Only `ACTIVE` members see the card; a previously connected member who is no longer active cannot see or revoke connections in the UI (the server rejects them).
 - Not exercised against a real agent or the staging server in this wave (see the staging test plan).
+- The protected-resource metadata document (`/.well-known/oauth-protected-resource/mcp`) always lists the scope `mcp:member_write` even while `LAPIS_MCP_WRITE_ENABLED` is off; `/authorize` still rejects the scope and the OIDC discovery document does not list it (cosmetic).
 
 ### Added -- V1.9.28 systemic consensus, web client ("Konsensieren")
 
@@ -190,7 +232,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Added -- V1.9.26 voting in the conference room, wave 3 (operator controls and secret-ballot wiring, client only)
 
-- **Operator controls in the room panel** for an election board member or BOARD/ADMIN: one primary button per status -- "Abstimmung
+- **Operator controls in the room panel** for an election board member or BOARD/ADMIN (approving the count is reserved for named election board members, BOARD/ADMIN have no bypass): one primary button per status -- "Abstimmung
   schließen" (with the ballot count), "Auszählung freigeben" / "Auszählen" (with "Freigaben x von N"), and the compact result of a counted
   election. Closing and counting ask first (the dialog focuses "Abbrechen"; at zero ballots it adds "Es wurde noch keine Stimme abgegeben.").
 - **"Vorbereitete Wahlen"**: prepared elections of the room's Sitzung can be opened from the panel (with the election-board-size gate and its

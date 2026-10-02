@@ -500,9 +500,9 @@ after 7 days / `RELEASED` rows after 90 days. See xref:dsgvo.adoc[dsgvo.adoc].
   (a local agent and a loopback redirect tolerate `localhost:8080` only partially); this is the single
   open acceptance condition for calling this wave functionally complete end-to-end with a real client,
   not just against `McpConformanceTest`'s frozen wire fixtures.
-* **No client UI for `IMcpAccessService`** -- the member's own connection list and kill switch have a
-  complete, independently callable RPC backend (V1.8.1) but no screen of their own yet; a member can
-  today only revoke a connection or flip the kill switch through a direct RPC call. A wave of its own.
+* **No client UI for `IMcpAccessService`** -- at the time of this wave the member's own connection list
+  and kill switch had a complete, independently callable RPC backend (V1.8.1) but no screen of their
+  own. *Closed in V1.9.29*: the "KI-Zugang" card on "Meine Daten", see "Member UI (V1.9.29)" above.
 * This addendum's prose was not re-verified via the `:docs-render:renderDocs` Gradle task this
   session; run it before the next documentation release gate.
 * The MCP consent screen is German-only, like every other server-rendered HTML page in this

@@ -177,7 +177,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Sixteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Seventeen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -423,8 +423,8 @@ an event and drafting a post. **Everything is off by default**: the endpoint nee
 gets access until the member authorizes that specific connection on a dedicated consent screen; on
 top of that an all-or-nothing per-member kill switch (`mcp_member_block` -- no row means *not*
 blocked, the deliberate opposite polarity of `ai_member_opt_in`) always wins and revokes every live
-token the moment it is flipped. Its member-facing screen is still to come; the RPC backend is
-complete.
+token the moment it is flipped. Its member-facing screen followed in V1.9.29 (the "KI-Zugang" card,
+tag `v0.27.0`); at the time of `v0.24.0` only the RPC backend existed.
 
 Two boundaries are worth naming because they were deliberate decisions, not oversights.
 **An agent cannot spend money**: registering for a *paid* event is rejected outright, so no
@@ -496,6 +496,21 @@ and several small UI issues. Operators: this release edits `V1__baseline.sql` on
 `flywayRepair`), adds migrations `V60` to `V64`, and needs the `LAPIS_MAILING_*` variables forwarded
 in the compose file -- they never were; see `CHANGELOG.md` `[0.26.0]` "Operator actions" and "Operator notes -- V1.9.23".
 
+**`v0.27.0`** spans eight numbered waves (V1.9.24 through V1.9.31) plus a test-only stability fix; see
+`CHANGELOG.md` `[0.27.0]` for the wave-by-wave detail. **Voting moves into the video conference**
+(V1.9.24-V1.9.27, see "Voting in the conference room" below): an "Abstimmen" panel lists the open and
+recently decided elections and meritocratic votes of the room's Sitzung and embeds the real voting
+booth, operators can open, close and count elections from the room, and a secret election locks the
+cast button until the streams of the Sitzung are paused. **Systemic consensus gets its web client**
+(V1.9.28, see "Systemic consensus" below). Members get the **"KI-Zugang" card** on "Meine Daten" to
+switch MCP agent access on or off and revoke connections (V1.9.29) -- visible only where the operator
+has enabled MCP. **Non-binding opinion polls** weighted by LTR balance arrive with server and web UI
+(V1.9.30/V1.9.31, see "Opinion polls" below). None of the new conference, consensus or poll flows has
+been run end to end on Staging yet; the test plans are written. Operators: this release edits
+`V1__baseline.sql` once more (take a backup and run `flywayRepair` on every existing instance before deploying) and adds migration
+`V65`; MCP stays off unless `LAPIS_MCP_ENABLED=true` is added to the compose file by hand -- see
+`CHANGELOG.md` `[0.27.0]`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -541,12 +556,12 @@ legal counsel — not something this project can decide once for everyone. See `
   (`/board-membership`), §25 PartG donation duty (`/donors`) — as well as the postal-dispatch audit
   trail (`/postal-mail`) and all four original LTR economy domains (`/crowdfunding`, `/auction`,
   peer transfer on `/ltr-ledger`, `/politicians`). **Democratic elections** gained their client in
-  V1.9.22 (`/elections`, see "Democratic elections" below). Two domains are genuinely still reachable
-  only via Kilua RPC / raw HTTP: **systemisches Konsensieren** (`ISystemicConsensusService`) and
-  **federation/trust-anchor administration** (`IFederationService`/`ITrustAnchorService`) -- verified
-  against `Routing.kt` (no route, no screen, no client reference at all). The member-facing screen of
-  the MCP access switch (`IMcpAccessService`) is missing as well. These are lower day-to-day usage
-  frequency per the pilots' own prioritization and are not yet scheduled as numbered waves.
+  V1.9.22 (`/elections`, see "Democratic elections" below), **systemisches Konsensieren** in V1.9.28
+  (`/consensus`), and the member-facing MCP access switch (`IMcpAccessService`) in V1.9.29 (the
+  "KI-Zugang" card on "Meine Daten"). One domain is genuinely still reachable only via Kilua RPC /
+  raw HTTP: **federation/trust-anchor administration** (`IFederationService`/`ITrustAnchorService`)
+  -- it has no route and no screen. It is of lower day-to-day usage frequency per the pilots' own
+  prioritization and is not yet scheduled as a numbered wave.
 * **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
   layer; no existing content type (crowdfunding projects, politician profiles, governance
   resolutions, or the Soziales Netzwerk posts added in V1.1) is wired into outbound federation. A
@@ -1481,6 +1496,70 @@ election carries no time and no order. See `docs/architecture/elections-ui.adoc`
 A real end-to-end election run with several accounts on Staging is still outstanding. Concurrency tests run on H2 only (no Postgres test infrastructure yet). List and ranked-choice
 elections are rejected by the server. Who approved a tally is visible only as a count.
 `castVoteBallot` and `castResistanceBallot` have their own races against closing.
+
+== Voting in the conference room (V1.9.24-V1.9.27)
+
+The video-conference room gains an "Abstimmen" panel. `IConferenceService.getRoomVotingState(roomId)`
+tells a participant which elections and meritocratic votes of the room's Sitzung are open or were
+decided within the last 12 hours (at most 20), with only the caller's own eligibility and status --
+never counters, choices, receipts, amounts or other members' ids. The Sitzung comes from the room on
+the server, never from the client. A payload-free data-channel signal (`lapis-vote-nudge`) makes the
+other clients ask the server again after open, close and tally; besides that the panel polls. The
+real voting booth is embedded in the panel; election board members and BOARD/ADMIN can open prepared
+elections, close and count from the room; approving the count stays with named election board members
+(no BOARD/ADMIN bypass). While a secret election is open, the cast button
+stays locked as long as a stream of the Sitzung is still being paused (the server checks the same).
+For a meritocratic vote, a first bid, opening a Yes/No vote and closing it work from the room; a
+changed bid, custom options and aborting stay on the motion page. See
+`docs/architecture/conference-voting.adoc`.
+
+=== What doesn't work yet
+
+The staging test (`docs/architecture/conference-voting-staging-test.adoc`) was written but not run,
+so the nudge between real clients, the stream pause before the first ballot and a hanging pause are
+not verified in a real LiveKit room. Recordings are not paused for a secret ballot, and a room without
+a Sitzung never has its stream paused. **Vote stakes stay bound after a vote closes** -- there is no
+release path yet. The committee leadership without an election-board seat cannot open, close or count
+(a server rule). Systemic consensus is not part of the room panel.
+
+== Systemic consensus web client (V1.9.28)
+
+The "Konsensieren" screen (`/consensus`, `/consensus/:id`) drives `ISystemicConsensusService`, which
+had no client before: a list with status filter, a detail view with the phase actions (freeze options,
+close rating, evaluate, revote, abort), adding and removing options (the status-quo option is always
+last and permanent), and opening a consensus from a scheduled motion -- anonymous or open, advisory or
+binding. The resistance booth rates every option from 0 to 10, shows a review step and submits once;
+an anonymous consensus shows a receipt once, which can be checked later. The result ranks the options
+by mean resistance and states the group conflict in words. Four additive read RPCs back the screen; no
+migration. See `docs/architecture/consensus-ui.adoc`.
+
+=== What doesn't work yet
+
+The staging test (`docs/architecture/consensus-staging-test.adoc`) is written, not run. A binding
+consensus has exactly one round; results of earlier rounds are not retrievable after a revote; an
+anonymous consensus has no minimum group size. The booth is not part of the conference room yet.
+
+== Opinion polls (V1.9.30/V1.9.31)
+
+Non-binding opinion polls ("Umfragen", `/polls`): a question, an optional description, 2..10 options and
+an optional deadline. ADMIN/BOARD or a recording seat in an active committee may create one; every ACTIVE
+member may answer once. A poll is never a resolution, is bound to no motion or meeting and moves no
+LTR: the responder's free balance is only read as a weight snapshot. Answers are anonymous by table
+separation (who answered and what was answered share no key, no time is stored). Results appear only
+after the close -- by head count and LTR-weighted side by side, in whole percents. The head count needs
+at least 5 answers; the weighted result additionally needs at least 5 answers with weight above zero
+and at least 3 weighted answers for every option that has any, otherwise it is withheld with a reason.
+Migration `V65` adds the four poll tables and the audit entity type `POLL`; because `V1__baseline.sql`
+was also widened in place, run `flywayRepair` (after a backup, from the v0.27.0 checkout after the code
+sync and before the build/restart) before deploying on an existing instance. See
+`docs/architecture/polls.adoc`.
+
+=== What doesn't work yet
+
+The staging test (`docs/architecture/polls-staging-test.adoc`) was not executed. Whoever can read the
+database or its backups sees option and weight per answer and could try to match weights against the
+LTR ledger -- this is a table separation, not cryptography. The concurrency tests run on H2 only. There
+is no participation rate, only single choice, and the deadline is entered in the browser's local time.
 
 == Documentation Convention
 

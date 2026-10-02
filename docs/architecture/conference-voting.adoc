@@ -12,7 +12,7 @@ later waves stand on:
   updates within about two seconds instead of at the next 5-second poll.
 
 Wave 1 delivers democratic elections only. Meritocratic votes follow in V1.9.27 (section "Client: the meritocratic vote in the room",
-below); systemic consensing is a project of its own, its enum value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25)
+below); systemic consensing got its own screen in V1.9.28 (`consensus-ui.adoc`) but is not part of the room, its enum value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25)
 and the operator panel (V1.9.26, below) follow.
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -115,7 +115,7 @@ rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disc
 * In-app navigation (menu, hash) during a visible receipt discards it, exactly as on the elections page.
 * The nudge does not reach participants in breakouts; the poll covers them.
 * Leaving while a ballot request is in flight is blocked since V1.9.26 (the `CASTING` lock, see below); closing the browser tab asks first.
-* Elections and meritocratic votes; consensing is not planned for the room.
+* Elections and meritocratic votes; consensing is not yet in the room panel (a later wave).
 * Unbound room: stream is never paused (C2).
 * A hanging pause can be resolved only by the room moderator or the election management (C1).
 * Recordings are not paused for a secret ballot; the room banner says so (V1.9.26).
