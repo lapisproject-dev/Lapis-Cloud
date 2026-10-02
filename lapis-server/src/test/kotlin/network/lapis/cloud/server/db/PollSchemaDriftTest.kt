@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.db
 
 import dev.kuml.erm.model.ErmModel
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -8,6 +10,8 @@ import network.lapis.cloud.server.db.generated.PollOptionTable
 import network.lapis.cloud.server.db.generated.PollParticipationTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -20,9 +24,11 @@ import java.io.File
  * [MemberPublicBioSchemaDriftTest], plus the ANONYMITY invariants of the model: `poll_response` has
  * no member column and no time column, `poll_participation` has no time column.
  */
-class PollSchemaDriftTest :
-    FunSpec({
-        beforeSpec { DatabaseConfig.connect() }
+abstract class PollSchemaDriftScenarios(
+    db: TestDatabase,
+) : FunSpec({
+        beforeSpec { db.activate() }
+        afterSpec { db.deactivate() }
 
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "61-poll.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
@@ -82,6 +88,14 @@ class PollSchemaDriftTest :
         }
     })
 
+/** The unchanged H2 run (normal `test` task). */
+class PollSchemaDriftTest : PollSchemaDriftScenarios(TestDatabase.H2)
+
+/** The same drift checks against a fresh, Flyway-migrated PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class PollSchemaDriftPostgresTest : PollSchemaDriftScenarios(TestDatabase.Postgres())
+
 private data class IntrospectedPollTable(
     val nullableByColumn: Map<String, Boolean>,
     val foreignKeys: Map<String, String>,
@@ -90,7 +104,9 @@ private data class IntrospectedPollTable(
 /** Same ANSI `information_schema` walk shape as [MemberPublicBioSchemaDriftTest]'s own introspection. */
 private fun JdbcTransaction.introspectPollTable(tableName: String): IntrospectedPollTable {
     val nullableByColumn = mutableMapOf<String, Boolean>()
-    exec("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '$tableName'") { rs ->
+    exec(
+        "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '$tableName' AND table_schema = CURRENT_SCHEMA",
+    ) { rs ->
         while (rs.next()) nullableByColumn[rs.getString("column_name")] = rs.getString("is_nullable") == "YES"
     }
     val fkByColumn = mutableMapOf<String, String>()
@@ -100,6 +116,7 @@ private fun JdbcTransaction.introspectPollTable(tableName: String): Introspected
         FROM information_schema.table_constraints tc
         JOIN information_schema.key_column_usage kcu
             ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+            AND tc.table_name = kcu.table_name
         JOIN information_schema.referential_constraints rc
             ON tc.constraint_name = rc.constraint_name AND tc.constraint_schema = rc.constraint_schema
         JOIN information_schema.table_constraints tc2

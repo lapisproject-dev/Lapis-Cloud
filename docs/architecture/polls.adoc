@@ -276,5 +276,5 @@ server withholds shows the reason in a sentence instead of partial numbers; a wi
 * The physical insertion order (Postgres heap, WAL) may still correlate a participation with its response; the poll row lock only makes
   the two inserts of one cast adjacent.
 * There is no participation rate: eligibility is evaluated live when a member answers, no snapshot of the entitled members is taken.
-* The concurrency tests run on H2 only; lock behaviour on Postgres is argued from the lock order, not measured.
+* The concurrency tests run on H2 and, since V1.9.37, on a real PostgreSQL too (the Postgres test lane, link:postgres-test-lane.adoc[postgres-test-lane.adoc]); the lock behaviour is measured there.
 * The web UI (V1.9.31) is described in the next section; its known limits are listed there.

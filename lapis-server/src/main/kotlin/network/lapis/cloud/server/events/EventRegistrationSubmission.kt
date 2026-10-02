@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
+import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
@@ -651,23 +652,28 @@ internal class EventRegistrationSubmission(
         ticketCodeSha256: String? = null,
         ticketIssuedAt: LocalDateTime? = null,
     ) {
-        EventStore.insertRegistration(
-            id = registrationId,
-            eventId = eventId,
-            memberId = (participant as? EventParticipant.Member)?.memberId,
-            guestName = (participant as? EventParticipant.Guest)?.name,
-            guestEmail = (participant as? EventParticipant.Guest)?.normalizedEmail,
-            activeParticipantKey = key,
-            status = status,
-            feeAmount = feeAmount,
-            holdExpiresAt = holdExpiresAt,
-            waitlistPosition = waitlistPosition,
-            cancelTokenSha256 = cancelTokenHash,
-            registeredAt = now,
-            confirmedAt = confirmedAt,
-            ticketCodeSha256 = ticketCodeSha256,
-            ticketIssuedAt = ticketIssuedAt,
-        )
+        // Savepoint (V1.9.37): the caller catches a `uq_event_registration_active_participant` violation
+        // and goes on using this transaction (promotion sweep, commit). On PostgreSQL that violation
+        // aborts the whole transaction (25P02) unless the INSERT is isolated -- see `withSavepoint` KDoc.
+        withSavepoint(name = "event_registration_insert") {
+            EventStore.insertRegistration(
+                id = registrationId,
+                eventId = eventId,
+                memberId = (participant as? EventParticipant.Member)?.memberId,
+                guestName = (participant as? EventParticipant.Guest)?.name,
+                guestEmail = (participant as? EventParticipant.Guest)?.normalizedEmail,
+                activeParticipantKey = key,
+                status = status,
+                feeAmount = feeAmount,
+                holdExpiresAt = holdExpiresAt,
+                waitlistPosition = waitlistPosition,
+                cancelTokenSha256 = cancelTokenHash,
+                registeredAt = now,
+                confirmedAt = confirmedAt,
+                ticketCodeSha256 = ticketCodeSha256,
+                ticketIssuedAt = ticketIssuedAt,
+            )
+        }
     }
 
     private fun gatewayUsable(): Boolean {

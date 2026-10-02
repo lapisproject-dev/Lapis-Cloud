@@ -1,7 +1,10 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -23,7 +26,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
-import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AgendaItemTable
@@ -50,6 +52,9 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CandidacyInput
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -96,20 +101,29 @@ import kotlin.uuid.Uuid
  * Every test creates its own committee/members/meeting/motion so the global in-memory database is
  * never shared between tests; [afterSpec] hard-deletes everything this spec created.
  *
+ * V1.9.37: the scenarios run on H2 ([ElectionIntegrityTest]) and on a real PostgreSQL
+ * ([ElectionIntegrityPostgresTest]) with the same assertions; on Postgres every test additionally
+ * asserts that the server's deadlock counter did not move.
+ *
  * Concurrency tests fire requests in parallel; they accept a [HttpStatusCode.Conflict] (and, for
  * robustness against H2's lock timeouts, a 5xx) as a non-success but assert a consistent end state.
  */
-class ElectionIntegrityTest :
-    FunSpec({
+abstract class ElectionIntegrityScenarios(
+    db: TestDatabase,
+) : FunSpec({
         val createdCommitteeIds = mutableListOf<Uuid>()
         val createdMemberIds = mutableListOf<Uuid>()
 
         beforeSpec {
-            DatabaseConfig.connect()
+            db.activate()
             DevSeedData.seedIfEmpty(force = true)
         }
+        installLaneGuards(db = db, checkDeadlocks = true)
 
-        afterSpec { cleanUpIntegrityTestData(committeeIds = createdCommitteeIds, memberIds = createdMemberIds) }
+        afterSpec {
+            cleanUpIntegrityTestData(committeeIds = createdCommitteeIds, memberIds = createdMemberIds)
+            db.deactivate()
+        }
 
         fun createMember(email: String): Uuid {
             val id = Uuid.random()
@@ -925,7 +939,108 @@ class ElectionIntegrityTest :
                 } shouldBe 1L
             }
         }
+
+        // ------------------------------------------------------------------ V1.9.37: all decision paths at once
+
+        /**
+         * One motion that EVERY decision path could decide: a closed election with enough tally approvals
+         * (tally), a legacy open vote next to it (closeVote), a closed BINDING systemic consensus
+         * (evaluate), plus the motion-addressed paths resolveMotion and recordResolution. Earlier tests
+         * raced these in pairs; this fires all five at once. The rows are inserted raw, exactly like the
+         * existing "legacy/raced row next to the election" tests, because the service guards would
+         * (correctly) refuse to create them through the front door.
+         */
+        class RaceFixture(
+            val f: Fixture,
+            val electionId: String,
+            val voteId: Uuid,
+            val scId: Uuid,
+            val agendaItemId: Uuid,
+        )
+
+        suspend fun io.ktor.server.testing.ApplicationTestBuilder.raceFixture(tag: String): RaceFixture {
+            val f = fixture(tag, agendaItem = true)
+            val electionId = client.openElection(f)
+            client.driveToClosedWithApprovals(f, electionId)
+            val voteId = insertRawOpenVote(f)
+            val scId = insertRawSystemicConsensus(f, SystemicConsensusStatus.CLOSED, SystemicConsensusBindingness.BINDING)
+            val agendaItemId =
+                transaction { MotionTable.selectAll().where { MotionTable.id eq f.motionId }.single()[MotionTable.agendaItemId]!! }
+            return RaceFixture(f, electionId, voteId, scId, agendaItemId)
+        }
+
+        suspend fun io.ktor.server.testing.ApplicationTestBuilder.firePath(
+            r: RaceFixture,
+            path: Int,
+        ): HttpStatusCode {
+            val chair = r.f.chair.toString()
+            return when (path) {
+                0 -> client.post("/test/tally/${r.electionId}") { header("X-Member-Id", r.f.board[0].toString()) }.status
+                1 -> client.post("/test/resolve-motion/${r.f.motionId}/ADOPTED") { header("X-Member-Id", chair) }.status
+                2 -> client.post("/test/close-vote/${r.voteId}") { header("X-Member-Id", chair) }.status
+                3 -> client.post("/test/evaluate-systemic-consensus/${r.scId}") { header("X-Member-Id", chair) }.status
+                else ->
+                    client
+                        .post("/test/record-resolution/${r.f.meetingId}?agendaItemId=${r.agendaItemId}") { header("X-Member-Id", chair) }
+                        .status
+            }
+        }
+
+        /**
+         * `recordResolution` (path 4) is a FREE-FORM resolution: it never decides the motion and is refused only
+         * while an election is still running, so it may legitimately succeed any number of times once the
+         * election is TALLIED. The four DECIDING paths (0..3) must produce exactly one decision between them.
+         */
+        fun assertDecidedOnce(
+            r: RaceFixture,
+            statuses: List<Pair<Int, HttpStatusCode>>,
+        ) {
+            val deciders = statuses.filter { it.first in 0..3 }
+            deciders.count { it.second == HttpStatusCode.OK } shouldBe 1
+            val freeForm = statuses.count { it.first == 4 && it.second == HttpStatusCode.OK }.toLong()
+            meetingResolutionCount(r.f.meetingId) shouldBe 1L + freeForm
+            transaction { MotionTable.selectAll().where { MotionTable.id eq r.f.motionId }.single()[MotionTable.status] } shouldNotBe
+                MotionStatus.SCHEDULED
+        }
+
+        test("MotionDecisionLock: tally, resolveMotion, closeVote, evaluate and recordResolution at once decide the motion exactly once") {
+            withApp {
+                repeat(3) { round ->
+                    val r = raceFixture("race-all-four-$round")
+                    val statuses = parallel(10) { i -> (i % 5) to firePath(r, i % 5) }
+                    assertDecidedOnce(r, statuses)
+                    // Every refused DECIDING path is a clean Conflict on Postgres; under H2 a lock timeout may surface as a 5xx.
+                    if (db.isPostgres) {
+                        statuses.filter { it.first in 0..3 && it.second != HttpStatusCode.OK }.all {
+                            it.second == HttpStatusCode.Conflict
+                        } shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("MotionDecisionLock: mixed lock order (child id first vs. motion id first) never deadlocks and decides once") {
+            withApp {
+                repeat(3) { round ->
+                    val r = raceFixture("race-mixed-order-$round")
+                    // child-id-addressed paths (tally 0, closeVote 2, evaluate 3) racing the motion-addressed ones
+                    // (resolveMotion 1, recordResolution 4) in a deliberately scrambled order; the lane's
+                    // zero-new-deadlocks guard (afterTest) turns any lock-order inversion into a failure.
+                    val order = listOf(2, 1, 3, 4, 0, 3, 2, 4, 1, 0)
+                    val statuses = parallel(order.size) { i -> order[i] to firePath(r, order[i]) }
+                    assertDecidedOnce(r, statuses)
+                }
+            }
+        }
     })
+
+/** The unchanged H2 run (normal `test` task). */
+class ElectionIntegrityTest : ElectionIntegrityScenarios(TestDatabase.H2)
+
+/** The same scenarios on a fresh PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class ElectionIntegrityPostgresTest : ElectionIntegrityScenarios(TestDatabase.Postgres())
 
 private fun io.ktor.server.plugins.statuspages.StatusPagesConfig.installIntegrityExceptionHandlers() {
     exception<UnauthenticatedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Unauthorized) }

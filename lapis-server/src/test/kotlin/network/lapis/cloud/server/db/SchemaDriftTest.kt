@@ -2,11 +2,16 @@ package network.lapis.cloud.server.db
 
 import dev.kuml.erm.model.ErmDataType
 import dev.kuml.erm.model.ErmModel
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import org.jetbrains.exposed.v1.core.vendors.currentDialect
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -36,9 +41,11 @@ import java.io.File
  *     to catch: someone editing V10+.sql / the hand-written table without updating the model, or
  *     vice versa).
  */
-class SchemaDriftTest :
-    FunSpec({
-        beforeSpec { DatabaseConfig.connect() }
+abstract class SchemaDriftScenarios(
+    db: TestDatabase,
+) : FunSpec({
+        beforeSpec { db.activate() }
+        afterSpec { db.deactivate() }
 
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "00-foundation.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
@@ -235,6 +242,14 @@ class SchemaDriftTest :
         }
     })
 
+/** The unchanged H2 run (normal `test` task). */
+class SchemaDriftTest : SchemaDriftScenarios(TestDatabase.H2)
+
+/** The same drift checks against a fresh, Flyway-migrated PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class SchemaDriftPostgresTest : SchemaDriftScenarios(TestDatabase.Postgres())
+
 /** Result of introspecting one real table's shape via `information_schema`. */
 private data class IntrospectedTable(
     val columns: Map<String, IntrospectedColumn>,
@@ -258,7 +273,7 @@ private fun JdbcTransaction.introspectTable(tableName: String): IntrospectedTabl
         """
         SELECT column_name, is_nullable
         FROM information_schema.columns
-        WHERE table_name = '$tableName'
+        WHERE table_name = '$tableName' AND table_schema = CURRENT_SCHEMA
         """.trimIndent(),
     ) { rs ->
         while (rs.next()) {
@@ -274,6 +289,7 @@ private fun JdbcTransaction.introspectTable(tableName: String): IntrospectedTabl
         JOIN information_schema.key_column_usage kcu
             ON tc.constraint_name = kcu.constraint_name
             AND tc.table_schema = kcu.table_schema
+            AND tc.table_name = kcu.table_name
         JOIN information_schema.referential_constraints rc
             ON tc.constraint_name = rc.constraint_name
             AND tc.constraint_schema = rc.constraint_schema
@@ -300,13 +316,10 @@ private fun JdbcTransaction.introspectTable(tableName: String): IntrospectedTabl
         JOIN information_schema.key_column_usage kcu
             ON tc.constraint_name = kcu.constraint_name
             AND tc.table_schema = kcu.table_schema
+            AND tc.table_name = kcu.table_name
         WHERE tc.constraint_type = 'UNIQUE' AND tc.table_name = '$tableName'
         UNION
-        SELECT ic.column_name
-        FROM information_schema.index_columns ic
-        JOIN information_schema.indexes i
-            ON ic.index_name = i.index_name AND ic.table_name = i.table_name
-        WHERE i.index_type_name = 'UNIQUE INDEX' AND ic.table_name = '$tableName'
+        ${uniqueIndexColumnSelect(tableName = tableName, postgres = currentDialect.name == "PostgreSQL", withName = false)}
         """.trimIndent(),
     ) { rs ->
         while (rs.next()) {

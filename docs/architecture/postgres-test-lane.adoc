@@ -1,0 +1,131 @@
+= Postgres test lane (V1.9.37)
+:toc:
+
+== Purpose
+
+Until V1.9.36 the whole test suite ran on H2 (`MODE=PostgreSQL`). Production runs PostgreSQL. Everything that depends on the database
+engine itself -- `SELECT ... FOR UPDATE` row locks, the isolation level, deadlocks, the behaviour of a transaction after a failed
+statement, the real Flyway chain -- was therefore argued from reading the code, never measured. The "Known limitations" of V1.9.23 and
+V1.9.30 said exactly that ("concurrency tests run on H2 only").
+
+The Postgres test lane closes that gap: a second Gradle task, `:lapis-server:postgresTest`, runs a defined set of specs against a real,
+disposable PostgreSQL, locally and in CI. It is part of `check`. The normal `test` task is unchanged and still needs nothing but a JDK.
+
+== How it works
+
+[cols="1,3", options="header"]
+|===
+| Piece | Behaviour
+| `test` task | System property `kotest.tags=!Postgres`: every spec tagged `@Tags("Postgres")` is excluded (and, because of the annotation, never instantiated).
+| `postgresTest` task | `kotest.tags=Postgres` plus a class filter `*Postgres*` (some legacy H2 specs touch the database in their constructor, so Kotest must not even instantiate them in this JVM). Never up to date, never read from or written to the build cache (`outputs.upToDateWhen { false }`, `outputs.cacheIf { false }`) because the external database is not a task input. `onlyIf` the variable `LAPIS_TEST_POSTGRES_URL` is present -- otherwise the task is SKIPPED. Timeout 20 minutes.
+| Spec markers | `@Tags("Postgres")` and `@EnabledIf(PostgresConfigured::class)` on every lane spec (`PostgresLaneNamingTest` keeps tag and the `Postgres` class-name convention in step).
+| Isolation | One FRESH database per spec: `lapis_pgtest_<16 hex>`, cloned with `CREATE DATABASE ... TEMPLATE` from a template that is migrated ONCE per JVM. Extensions, `search_path` and leftovers cannot leak between specs, and `information_schema` shows only the spec's own schema. `PostgresMigrationTest` deliberately uses an EMPTY database instead of the template (it must run the migrations itself).
+| Wiring | The lane uses the same factory functions as production (`DatabaseConfig.buildDataSource`, `DatabaseConfig.flywayFor`) and its own Exposed `Database`; it sets `TransactionManager.defaultDatabase` for the duration of a spec and restores it afterwards. It never touches the `DatabaseConfig` singleton.
+| Same assertions on both databases | A scenario spec is an abstract class taking a `TestDatabase`; `FooTest` passes `TestDatabase.H2`, `FooPostgresTest` (tagged) passes `TestDatabase.Postgres()`. The H2 class names are unchanged. Where H2 is only tolerant because of its 1-second lock timeout, the H2 assertion stays and the Postgres run adds a stricter one.
+| Guards in every lane spec | Before every test: the Exposed dialect must be PostgreSQL and `current_database()` must be the spec's own database (catches a silent fall-back to H2 through `module()`). For concurrency specs, after every test: the server's `pg_stat_database.deadlocks` counter must not have moved.
+|===
+
+== Running it locally
+
+Use a FRESH, disposable container bound to the loopback interface. Never point the lane at a shared or real database.
+
+[source,bash]
+----
+PGPW="$(openssl rand -hex 16)"
+docker run --rm -d --name lapis-pgtest -e POSTGRES_PASSWORD="$PGPW" -p 127.0.0.1:55432:5432 postgres:17
+LAPIS_TEST_POSTGRES_URL=jdbc:postgresql://localhost:55432/postgres \
+LAPIS_TEST_POSTGRES_USER=postgres LAPIS_TEST_POSTGRES_PASSWORD="$PGPW" \
+  ./gradlew clean :lapis-server:postgresTest
+docker stop lapis-pgtest
+----
+
+One spec only: add `-Plane.tests='*PollConcurrencyPostgresTest'` (an extra `--tests` would only ADD to the built-in class filter).
+
+Without `LAPIS_TEST_POSTGRES_URL` the task is skipped and `./gradlew clean check` is green on a machine without Docker.
+
+== Continuous integration
+
+`.github/workflows/ci.yml` starts a `postgres:17` service container (`lapis_test`, a disposable password that is not a secret) and sets
+the three `LAPIS_TEST_POSTGRES_*` variables on the `./gradlew clean check` step ONLY (not job-wide, never echoed). The host is
+`localhost` through the port mapping. `check` runs the lane exactly once.
+
+`LAPIS_DB_URL` must NOT be set -- neither in CI nor locally. `DevSeedData`'s production guard keys off that variable, and the lane
+refuses to start when it is present.
+
+== Safety guards
+
+The lane creates and drops databases, so it is deliberately paranoid.
+
+* *URL whitelist* (`PostgresTestSupport.validateUrl`): prefix `jdbc:postgresql://`; host one of `localhost`, `127.0.0.1`, `[::1]`,
+  `postgres`; no multi-host URL, no credentials in the URL; database name `^[a-z_][a-z0-9_]{0,62}$`; the only query parameter allowed
+  is `sslmode` (with a known value) -- `socketFactory`, `sslfactory`, `options`, `loggerFile` and everything else is refused. A set but
+  invalid URL is a HARD error, never a silent skip. Error messages name at most the host, never the raw value.
+* *Throwaway instance check* (`checkThrowawayInstance`): the lane aborts unless `pg_database` contains only `postgres`, `template0`,
+  `template1`, the URL's own database and `lapis_pgtest_*`, AND the URL's own database has no user tables. There is no escape hatch.
+* *DROP guard*: `DROP DATABASE ... WITH (FORCE)` only for a name matching `^lapis_pgtest_(tpl_)?[0-9a-f]{16}$` that THIS JVM created
+  itself (a `createdNames` set); the check runs before any connection is opened. A JVM shutdown hook drops whatever a crashed spec left
+  behind. Names are never concatenated into SQL before these checks pass.
+* *No secrets in the build*: user and password are read from the environment inside the test JVM only -- not in `build.gradle.kts`,
+  not as a task input, not in the configuration cache, not in any exception text.
+
+== What is covered
+
+[cols="2,3,1", options="header"]
+|===
+| Spec | What it proves | Databases
+| `PostgresMigrationTest` | All 66 migrations apply to an empty PostgreSQL 17; the schema version equals the highest file; `validate` is clean; a second `migrate` is a no-op; `repair` + `validate` stays green (the operator task `flywayRepair`); `unaccent`/`pg_trgm` and the GIN full-text index are created. | PG
+| `PostgresH2SchemaEquivalenceTest` | THE drift guard: for every table (179), column (1723: name, type, length, precision/scale, nullability, generated), foreign key (349), unique constraint/index as column set (293) and explicitly named check constraint (186), the migrated H2 schema equals the migrated PostgreSQL schema. | PG + H2
+| `PostgresExposedTableDriftTest` | Every hand-written Exposed `Table` object (at least 170 are found, so the scan cannot run silently empty) matches the PostgreSQL schema in columns and nullability. | PG
+| `PollSchemaDriftTest`, `ElectionSchemaDriftTest`, `SchemaDriftTest` | The existing kUML-model drift tests, now also against PostgreSQL (their introspection became backend-aware). | H2 + PG
+| `PollConcurrencyTest` | One answer per member, close vs. answer, the open-poll cap (the free slot MUST be taken on PostgreSQL). | H2 + PG
+| `ElectionIntegrityTest` | All integrity and concurrency scenarios of the elections, plus the new `MotionDecisionLock` races: tally, resolveMotion, closeVote, evaluate and recordResolution at once decide a motion exactly once, and a scrambled lock order (child id first vs. motion id first) never deadlocks. | H2 + PG
+| `EventPaymentResumeRpcTest`, `EventRefundRpcTest` | Single flight of the payment session (exactly one Stripe call), the refund marker (exactly one success, one audit entry). | H2 + PG
+| `PeerTransferServiceTest` | Opposite transfers without deadlock, exact balances, and eight parallel transfers of 3 LTR from a balance of 10: exactly three succeed, the balance never goes negative, the ledger adds up. | H2 + PG
+| `AuditChainConcurrencyTest` | 16 parallel writers: gapless sequence numbers, every entry chained to its predecessor, every hash recomputed independently; the genesis race (8 parallel first writers on an empty chain) on PostgreSQL. | H2 + PG
+| `UniqueViolationRecoveryTest`, `UniqueViolationWaitPostgresTest` | Code that catches a unique violation and keeps using the transaction (see Findings). The deterministic variants hold a conflicting uncommitted row in a second transaction, wait (via `pg_stat_activity`, no sleeps) until the code under test is blocked inside its INSERT, and only then commit the blocker. | H2 + PG / PG
+| `PostgresLockSemanticsTest` | The isolation level is `read committed`; for every production lock helper (`lockMotion`, `lockForDebit`, `requireActiveMembership(forUpdate)`, the audit chain-state row, `lockPollRow`, the organization-settings mutex, the PSP session row, the refund marker row) a second transaction waits (`55P03` under `lock_timeout`), and after the first commits it sees the first's COMMITTED change; plus a proof that the deadlock counter really counts. | PG
+| `PostgresFullTextRetrieverLiveTest` | The Postgres full-text knowledge retriever, previously a manual, env-gated test. | PG
+| `PostgresTestSupportUrlValidationTest`, `PostgresLaneNamingTest` | URL whitelist and DROP guard; tag/name convention. No database needed -- they run in the normal `test` task. | none
+|===
+
+*Not covered here:* the election row lock is private (`ElectionService.requireElectionRow`) and is exercised through the real service in
+`ElectionIntegrityPostgresTest` instead; the second `lockForDebit` caller (`AuctionService.placeBid`, `CrowdfundingService`) is covered at
+helper level only; all other service tests (about 700 specs) still run on H2 only; the roughly 67 other `*SchemaDriftTest` specs are
+covered transitively (model = H2 schema by their own test, H2 schema = PostgreSQL schema by `PostgresH2SchemaEquivalenceTest`).
+
+== Findings of the first run
+
+Measured on PostgreSQL 17 (2026-10-02). Everything not listed here behaved exactly like H2.
+
+. *Migrations*: all 66 apply cleanly; no migration change was needed (`V67` is NOT introduced).
+. *Isolation and locks*: Exposed on Hikari + pgjdbc runs at `read committed`; every lock helper blocks and re-evaluates as the design assumes;
+  zero new deadlocks across all concurrency specs, including the all-paths-at-once race on one motion.
+. *Schema*: no difference between H2 and PostgreSQL. One spelling is normalized on purpose and documented in the introspection: H2 has no
+  unbounded `text`, it reports `VARCHAR(1000000000)`, which is compared as `text`. A real `VARCHAR(n)` still has to match exactly.
+. *`25P02` after a caught unique violation -- three production defects, fixed with a savepoint*
+  (`db/Savepoints.kt`, the idiom `PaymentReferenceAllocator` and `WebhookEventPublisher` had already established inline):
+  .. `EventTicketIssuer.mintWithRetry` retried a ticket-code collision on the poisoned transaction. Measured: three codes were minted
+     instead of two, i.e. the retry failed and Exposed re-ran the WHOLE transaction. Invisible on H2.
+  .. `FederationRelationshipStore.upsertByRemoteActorUri`: the loser of a concurrent first Follow re-read inside the poisoned transaction;
+     measured: the transaction body ran twice (Exposed's hidden re-run). The outcome was right only because of that re-run.
+  .. `EventRegistrationSubmission.submit`: after a unique violation at INSERT time the transaction continued with the waitlist sweep and the
+     commit. Measured: the waitlist promotion made under the same lock acquisition was not committed (the registrant stayed `WAITLISTED`)
+     because the poisoned transaction was thrown away and re-run. Note: with an ordinary INSERT-based race this backstop is practically
+     unreachable, because the foreign-key lock on the event row queues the second registrant behind the event lock and its duplicate pre-check
+     then catches the case; the deterministic test reaches it by re-activating a cancelled row with an UPDATE.
+  Exposed re-runs a whole `transaction {}` after any `SQLException`, which MASKS this bug class; the tests therefore count how often the
+  body ran or a side effect fired, not only the result.
+. *Reviewed and left unchanged*: `DunningIssuance` (returns right after the catch; the `FOR UPDATE` on the contribution makes the collision
+  unreachable), `McpMemberBlockStore`/`AiMemberOptInStore` (own transaction), and every other `catch (ExposedSQLException)` in the code base
+  (they rethrow or translate to a domain exception inside the same transaction).
+. *Not a defect, but worth knowing*: `recordResolution` is a free-form resolution; it is refused only while an election is running and may
+  succeed any number of times afterwards. It does not decide a motion, so it is excluded from the "decided exactly once" count.
+
+== Known limitations
+
+* There is still no Postgres-side `lock_timeout`/`statement_timeout` in production (`DatabaseConfig`); the lane only measures that waits
+  behave as designed, it does not add a backstop. Exposed's automatic re-run of a whole transaction after an `SQLException` (default 3
+  attempts) can repeat external side effects (for example a Stripe call inside `resumeOwnEventPayment`); the single-flight test measures
+  exactly one call, but nothing prevents the pattern in general. Both are deliberately out of scope of this wave.
+* Only PostgreSQL 17 is exercised. `DROP DATABASE ... WITH (FORCE)` needs PostgreSQL 13 or newer; the version is logged.
+* The Postgres lane adds minutes to CI (the measured local run time is in the CHANGELOG entry).

@@ -26,10 +26,10 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
  * Works with or without the GIN index [PostgresFullTextIndexInitializer] tries to create -- the
  * index only accelerates.
  *
- * **CI gap, documented on purpose:** this repo has no Testcontainers/embedded Postgres, so CI checks
- * only the SQL shape (`PostgresFullTextRetrieverSqlTest`); the live path is verified by the
- * env-gated `PostgresFullTextRetrieverLiveTest` and must be run once manually against the real
- * instance before first productive use.
+ * **Test coverage:** CI checks the SQL shape everywhere (`PostgresFullTextRetrieverSqlTest`) and, since
+ * V1.9.37, the live path against a real PostgreSQL in the Postgres test lane
+ * (`PostgresFullTextRetrieverLiveTest`, `./gradlew :lapis-server:postgresTest`, a fresh migrated
+ * database per spec) -- no manual run against a prepared instance is needed any more.
  */
 internal class PostgresFullTextKnowledgeRetriever : KnowledgeRetriever {
     override fun search(

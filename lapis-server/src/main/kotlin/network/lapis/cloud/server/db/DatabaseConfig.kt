@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.util.UUID
+import javax.sql.DataSource
 
 /**
  * Wires HikariCP + Flyway + Exposed together.
@@ -39,8 +40,6 @@ object DatabaseConfig {
                 ?: "jdbc:h2:mem:$inMemoryDatabaseName;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
         val username = System.getenv("LAPIS_DB_USER") ?: "sa"
         val password = System.getenv("LAPIS_DB_PASSWORD") ?: ""
-        val isPostgres = jdbcUrl.startsWith("jdbc:postgresql")
-        val driverClassName = if (isPostgres) "org.postgresql.Driver" else "org.h2.Driver"
         val poolSize = System.getenv("LAPIS_DB_POOL_SIZE")?.toIntOrNull() ?: 10
         // Security-Audit-Fund S-A1 (2026-08-18, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive
         // Gesamtgewichtung"): the real fix for the pool-exhaustion risk this fund described (two
@@ -61,6 +60,36 @@ object DatabaseConfig {
         // codebase does not yet set anywhere -- noted as a follow-up, not yet actioned.
         val connectionTimeoutMs = System.getenv("LAPIS_DB_CONNECTION_TIMEOUT_MS")?.toLongOrNull() ?: 30_000L
 
+        // Known gap (unchanged by the V1.9.37 refactor): no Postgres-side `lock_timeout`/
+        // `statement_timeout` is configured anywhere -- see the comment above.
+        val dataSource =
+            buildDataSource(
+                jdbcUrl = jdbcUrl,
+                username = username,
+                password = password,
+                poolSize = poolSize,
+                connectionTimeoutMs = connectionTimeoutMs,
+                poolName = "lapis-cloud-db-pool",
+            )
+        flywayFor(dataSource).migrate()
+
+        return Database.connect(dataSource)
+    }
+
+    /**
+     * Builds the Hikari pool exactly the way production does (driver selection by URL prefix, pool
+     * size, acquisition timeout). `internal` so the Postgres test lane (V1.9.37) reuses the very same
+     * wiring instead of a parallel, drift-prone copy.
+     */
+    internal fun buildDataSource(
+        jdbcUrl: String,
+        username: String,
+        password: String,
+        poolSize: Int,
+        connectionTimeoutMs: Long,
+        poolName: String,
+    ): HikariDataSource {
+        val driverClassName = if (jdbcUrl.startsWith("jdbc:postgresql")) "org.postgresql.Driver" else "org.h2.Driver"
         val hikariConfig =
             HikariConfig().apply {
                 this.jdbcUrl = jdbcUrl
@@ -69,17 +98,16 @@ object DatabaseConfig {
                 this.driverClassName = driverClassName
                 this.maximumPoolSize = poolSize
                 this.connectionTimeout = connectionTimeoutMs
-                this.poolName = "lapis-cloud-db-pool"
+                this.poolName = poolName
             }
-        val dataSource = HikariDataSource(hikariConfig)
+        return HikariDataSource(hikariConfig)
+    }
 
+    /** The Flyway configuration used in production (classpath migrations, nothing else). */
+    internal fun flywayFor(dataSource: DataSource): Flyway =
         Flyway
             .configure()
             .dataSource(dataSource)
             .locations("classpath:db/migration")
             .load()
-            .migrate()
-
-        return Database.connect(dataSource)
-    }
 }

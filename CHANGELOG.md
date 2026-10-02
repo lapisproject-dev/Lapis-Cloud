@@ -8,6 +8,19 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Postgres test lane** (V1.9.37): `./gradlew :lapis-server:postgresTest` runs a defined set of specs against a real, disposable PostgreSQL 17
+  and is part of `check` (skipped when `LAPIS_TEST_POSTGRES_URL` is not set; CI runs it against a `postgres:17` service container). Until now
+  every test ran on H2 only. One fresh database per spec, cloned from a template migrated once per JVM. Covered: the whole Flyway chain (66
+  migrations on an empty database, validate, idempotence, repair), schema equivalence H2 = PostgreSQL for every table, column, foreign key,
+  unique index and named check constraint (179 tables, 1723 columns, 349 foreign keys), every Exposed table object against the real schema,
+  the poll/election/foundation drift tests, the existing poll, election, event-payment, refund and peer-transfer concurrency specs with the
+  same assertions on both databases, new races (all decision paths on one motion at once, a scrambled lock order, 16 parallel audit-chain
+  writers and the genesis race, eight parallel LTR transfers from a balance that covers three), the `FOR UPDATE` and `read committed`
+  assumptions for eight production lock helpers, and the Postgres full-text retriever (previously a manual env-gated test). Every lane spec
+  checks the dialect before each test and, for concurrency specs, that the server's deadlock counter did not move. A full lane run took
+  about 2.5 minutes locally (162 s of test time, 138 executed tests); expect CI to take that much longer. Documentation:
+  `docs/architecture/postgres-test-lane.adoc`, `README.adoc`, `CLAUDE.md`.
+
 - **Known gaps, part 2: conversations, history paging, header unread counter, volunteer-allowance member picker** (V1.9.36): (1) "Gespräche" on
   the communication screen lists everyone you have exchanged messages with (name, last activity, "n neu"), without any message text; opening a row
   shows the conversation and a reply form (`listConversationPartners`). (2) The history is paged by keyset (`listConversationPage`, newest 50 first,
@@ -51,7 +64,24 @@ All notable changes to this project are documented here. Format follows
   panel auto-open count a consensus only while it is being rated; a re-rating opens the panel again. `RoomBallotDto` gets the additive field
   `consensusPhase`; no migration.
 
+### Fixed
+
+- **Three code paths that were only correct on H2** (V1.9.37, found by the Postgres lane). On PostgreSQL a failed statement (a caught unique
+  violation) poisons the whole transaction (`25P02`), and Exposed then re-runs the WHOLE `transaction {}`, which hid the problem. Each statement
+  that may violate a constraint now runs under a savepoint (`withSavepoint`, `db/Savepoints.kt`): `EventTicketIssuer.mintWithRetry` (a
+  ticket-code collision minted three codes instead of two), `FederationRelationshipStore.upsertByRemoteActorUri` (the loser of a concurrent first
+  Follow re-ran its whole transaction), `EventRegistrationSubmission.submit` (after a unique violation at INSERT time the waitlist promotion made
+  under the same lock was not committed). No migration. `EventTicketIssuer.rawCodeSupplier` is a test seam only.
+
 ### Security
+
+- V1.9.37 Postgres lane: the lane creates and drops databases, so it only runs against a throwaway instance -- URL whitelist (`jdbc:postgresql://`, host
+  `localhost`/`127.0.0.1`/`[::1]`/`postgres`, no multi-host, no credentials in the URL, `sslmode` as the only query parameter, a set but invalid URL is a hard
+  error with a message that names at most the host), an instance check (only `postgres`/`template0`/`template1`/the URL's own and `lapis_pgtest_*` databases,
+  and no user tables in the URL's database; no escape hatch), `DROP DATABASE` only for a `lapis_pgtest_<16 hex>` name this JVM created itself (checked before any
+  connection), a shutdown hook for leftovers. Credentials come from the environment inside the test JVM only (never a Gradle input or the configuration
+  cache, never in an exception text); the CI password is the literal of the disposable service container, set on the check step only. `LAPIS_DB_URL` must not
+  be set (the lane refuses; `DevSeedData`'s production guard is unchanged). The savepoint fixes log nothing new and carry no SQL or parameters.
 
 - V1.9.36 direct messages: `listConversationPartners`, `listConversationPage` and `markConversationRead` are anchored on the caller's own id in every
   query and run `requireActiveMembership` first (no path for the board to read others' messages). No existence oracle: an unknown or foreign member id
@@ -91,6 +121,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- V1.9.37: the lane measures but does not add a production `lock_timeout`/`statement_timeout` (still none); Exposed's automatic re-run of a whole
+  transaction after an `SQLException` (default 3 attempts) can still repeat an external side effect such as a Stripe call (the single-flight test measures
+  exactly one) -- both are a possible follow-up wave. Only the specs listed in `docs/architecture/postgres-test-lane.adoc` run on PostgreSQL; all other
+  service tests (about 700) still run on H2 only, and about 67 further `*SchemaDriftTest` specs are covered transitively (model = H2 schema by their own
+  test, H2 schema = PostgreSQL schema by the equivalence test). The second `lockForDebit` caller (`AuctionService.placeBid`, `CrowdfundingService`) is
+  covered at helper level only; the election row lock (private) only through the service races. Only PostgreSQL 17 is exercised. `DunningIssuance`
+  also catches a unique violation but was left unchanged (it returns right after the catch and a `FOR UPDATE` makes the collision unreachable). Of the
+  older notes below, "concurrency tests run on H2 only" (V1.9.30, V1.9.23, V1.9.26-V1.9.27) is now measured for the specs listed in the lane document.
 - V1.9.36: the inbox stays next to the conversation list and still marks everything read when it loads, so the "n neu" hint of the list is a snapshot
   of the state since the last visit (the list therefore loads first). No message preview, at most 100 conversations in the list and 1000 messages per
   conversation in the client. A reply to a member who is no longer active is refused by the server (one general sentence on the form). The picker offers at most

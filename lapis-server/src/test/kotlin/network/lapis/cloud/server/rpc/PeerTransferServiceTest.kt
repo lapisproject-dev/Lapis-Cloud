@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
@@ -21,12 +23,14 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PeerTransferTable
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArbitrationTransferInput
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
@@ -47,6 +51,8 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.math.BigDecimal
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.uuid.Uuid
 
@@ -61,16 +67,21 @@ private const val MEMBER_ID = "00000000-0000-0000-0000-000000000004"
  * is a fresh test member, same discipline [CrowdfundingServiceTest]/[GovernanceServiceTest]
  * document for their own fixtures. [afterSpec] hard-deletes every row this file created.
  */
-class PeerTransferServiceTest :
-    FunSpec({
+abstract class PeerTransferServiceScenarios(
+    db: TestDatabase,
+) : FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
 
         beforeSpec {
-            DatabaseConfig.connect()
+            db.activate()
             DevSeedData.seedIfEmpty(force = true)
         }
+        installLaneGuards(db = db, checkDeadlocks = true)
 
-        afterSpec { cleanUpPeerTransferTestData(createdMemberIds) }
+        afterSpec {
+            cleanUpPeerTransferTestData(createdMemberIds)
+            db.deactivate()
+        }
 
         fun createTestMember(
             email: String,
@@ -527,6 +538,62 @@ class PeerTransferServiceTest :
             }
         }
 
+        test(
+            "transferLtr: 8 parallel transfers of 3 LTR from a 10 LTR balance -- at most 3 succeed, the balance never goes negative, the ledger adds up",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installPeerTransferExceptionHandlers() }
+                    routing { registerPeerTransferTestRoutes() }
+                }
+                val sender = createTestMember("pt-overdraw-sender@example.org")
+                val recipient = createTestMember("pt-overdraw-recipient@example.org")
+                mintLtr(sender, BigDecimal("10.00"))
+
+                val barrier = CyclicBarrier(8)
+                val pool = Executors.newFixedThreadPool(8)
+                val statuses =
+                    try {
+                        (0 until 8)
+                            .map {
+                                pool.submit<HttpStatusCode> {
+                                    barrier.await(30, TimeUnit.SECONDS)
+                                    runBlocking {
+                                        client
+                                            .post("/test/transfer?recipientId=$recipient&amount=3.00&characterization=SONSTIGES") {
+                                                header("X-Member-Id", sender.toString())
+                                            }.status
+                                    }
+                                }
+                            }.map { it.get(60, TimeUnit.SECONDS) }
+                    } finally {
+                        pool.shutdownNow()
+                    }
+
+                val successes = statuses.count { it == HttpStatusCode.OK }
+                (successes <= 3) shouldBe true
+                // Postgres has no 1-second H2 lock timeout: the balance covers exactly three transfers, all of which must go through.
+                if (db.isPostgres) successes shouldBe 3
+                // Every loser is the domain refusal, not a raw error.
+                if (db.isPostgres) statuses.filter { it != HttpStatusCode.OK }.all { it == HttpStatusCode.Conflict } shouldBe true
+
+                val senderBalance = freeBalanceOf(sender)
+                (senderBalance >= BigDecimal.ZERO) shouldBe true
+                senderBalance.compareTo(BigDecimal("10.00") - BigDecimal("3.00") * BigDecimal(successes)) shouldBe 0
+                freeBalanceOf(recipient).compareTo(BigDecimal("3.00") * BigDecimal(successes)) shouldBe 0
+                // Ledger sum over both members is conserved (the 10 minted LTR, nothing created or lost).
+                (freeBalanceOf(sender) + freeBalanceOf(recipient)).compareTo(BigDecimal("10.00")) shouldBe 0
+                transaction {
+                    LtrLedgerEntryTable
+                        .selectAll()
+                        .where {
+                            (LtrLedgerEntryTable.memberId eq sender) and
+                                (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.PEER_TRANSFER_OUT)
+                        }.count()
+                } shouldBe successes.toLong()
+            }
+        }
+
         test("executeArbitrationTransfer: senderMemberId == recipientMemberId is rejected") {
             testApplication {
                 application {
@@ -581,6 +648,14 @@ class PeerTransferServiceTest :
             }
         }
     })
+
+/** The unchanged H2 run (normal `test` task). */
+class PeerTransferServiceTest : PeerTransferServiceScenarios(TestDatabase.H2)
+
+/** The same scenarios on a fresh PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class PeerTransferServicePostgresTest : PeerTransferServiceScenarios(TestDatabase.Postgres())
 
 /**
  * Fires an A->B and a B->A [PeerTransferService.transferLtr] call from two independent OS

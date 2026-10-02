@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     // V0.4.2 Letterxpress postal-mail dispatch: first `@Serializable` classes declared directly in
@@ -201,7 +203,8 @@ tasks.register<JavaExec>("importMembersFromCsv") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
-tasks.test {
+// Settings shared by `test` and `postgresTest` -- kept in ONE place so the two lanes cannot drift.
+fun Test.configureLapisTestJvm() {
     useJUnitPlatform()
     // V0.7.1 Authentifizierung -- the ONLY place that sets this JVM system property. Read once by
     // network.lapis.cloud.server.security.AuthTestMode at class-init time to gate the legacy
@@ -223,3 +226,43 @@ tasks.test {
     systemProperty("sun.net.inetaddr.ttl", "0")
     systemProperty("sun.net.inetaddr.negative.ttl", "0")
 }
+
+tasks.test {
+    configureLapisTestJvm()
+    // V1.9.37: the Postgres lane (specs tagged "Postgres") runs in its own task below.
+    systemProperty("kotest.tags", "!Postgres")
+}
+
+// V1.9.37 Postgres test lane -- see docs/architecture/postgres-test-lane.adoc. Needs a DISPOSABLE
+// PostgreSQL instance (LAPIS_TEST_POSTGRES_URL/_USER/_PASSWORD from the environment); without the
+// variable the task is SKIPPED. The credentials are deliberately NOT read here (never a task input,
+// never visible to the configuration cache or a build scan): the forked test worker inherits the
+// daemon's environment.
+val postgresTest =
+    tasks.register<Test>("postgresTest") {
+        group = "verification"
+        description =
+            "Postgres test lane (needs LAPIS_TEST_POSTGRES_URL; skipped otherwise). " +
+            "See docs/architecture/postgres-test-lane.adoc"
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+        configureLapisTestJvm()
+        systemProperty("kotest.tags", "Postgres")
+        // Kotest instantiates every spec it cannot exclude by annotation to inspect its tags, and some
+        // legacy H2 specs touch the database in their constructor -- so the lane's class set is
+        // narrowed by NAME as well. Convention: every lane spec has "Postgres" in its class name
+        // (enforced by PostgresLaneNamingTest).
+        // `-Plane.tests=<pattern>` narrows a local run to a single spec (an extra `--tests` would only ADD to this include).
+        filter.includeTestsMatching(providers.gradleProperty("lane.tests").getOrElse("*Postgres*"))
+        shouldRunAfter(tasks.test)
+        // External database state is not a task input: never up-to-date, never served from the build
+        // cache (the build cache is on, also in CI -- a cached result would prove nothing).
+        outputs.upToDateWhen { false }
+        outputs.cacheIf { false }
+        // Only the PRESENCE of the variable is read (a configuration-cache input), never its value.
+        val urlConfigured = providers.environmentVariable("LAPIS_TEST_POSTGRES_URL").isPresent
+        onlyIf("LAPIS_TEST_POSTGRES_URL is set") { urlConfigured }
+        timeout.set(Duration.ofMinutes(20))
+    }
+
+tasks.named("check") { dependsOn(postgresTest) }

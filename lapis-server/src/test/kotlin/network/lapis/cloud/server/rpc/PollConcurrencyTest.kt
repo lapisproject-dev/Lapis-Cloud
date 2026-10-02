@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.shouldBe
@@ -7,12 +9,14 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.PollParticipationTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.domain.PollRules
 import network.lapis.cloud.shared.domain.PollStatus
@@ -25,23 +29,28 @@ import kotlin.uuid.Uuid
 
 /**
  * Welle V1.9.30 -- the poll row lock, the UNIQUE index and the settings-row mutex under real
- * parallelism. **H2 only** (the test database): this does NOT prove the same behaviour on Postgres
- * (listed under "Known limitations" in the CHANGELOG). Same barrier idiom as [ElectionIntegrityTest].
- * A request may legitimately fail with a lock timeout under H2, so the assertions pin the END STATE
- * (row counts, caps), not that every loser is a [ConflictException].
+ * parallelism. Welle V1.9.37: the scenarios run on H2 ([PollConcurrencyTest], `test` task) AND on a
+ * real PostgreSQL ([PollConcurrencyPostgresTest], `postgresTest` task) with the SAME assertions --
+ * the earlier "H2 only" Known limitation is thereby measured, not assumed. Same barrier idiom as
+ * [ElectionIntegrityTest]. A request may legitimately fail with a lock timeout under H2, so the
+ * assertions pin the END STATE (row counts, caps), not that every loser is a [ConflictException]; on
+ * Postgres they are additionally tightened (the free slot MUST be taken, zero new deadlocks).
  */
-class PollConcurrencyTest :
-    FunSpec({
+abstract class PollConcurrencyScenarios(
+    db: TestDatabase,
+) : FunSpec({
         val data = PollTestData()
 
         beforeSpec {
-            DatabaseConfig.connect()
+            db.activate()
             DevSeedData.seedIfEmpty(force = true)
         }
+        installLaneGuards(db = db, checkDeadlocks = true)
         beforeTest { data.deleteAllPolls() }
         afterSpec {
             data.deleteAllPolls()
             data.cleanUp()
+            db.deactivate()
         }
 
         suspend fun <T> parallel(
@@ -155,6 +164,8 @@ class PollConcurrencyTest :
                 val results = parallel(21) { i -> attempt(member = racers[i]) { createPoll(pollInput(question = "Parallel $i?")) } }
                 val successes = results.count { it.isSuccess }
                 successes shouldBeIn listOf(0, 1) // exactly one slot was left (0 only if a lock timeout hit every request)
+                // Postgres has no 1-second lock timeout (that is an H2 artefact), so the one free slot MUST be taken.
+                if (db.isPostgres) successes shouldBe 1
                 val open = transaction { PollTable.selectAll().where { effectiveOpenPredicate(DbClock.nowLocalDateTime()) }.count() }
                 open shouldBe (PollRules.MAX_OPEN_POLLS - 1 + successes).toLong()
                 (open <= PollRules.MAX_OPEN_POLLS) shouldBe true
@@ -162,3 +173,11 @@ class PollConcurrencyTest :
             }
         }
     })
+
+/** The unchanged H2 run (normal `test` task); FQCN kept so existing reports stay comparable. */
+class PollConcurrencyTest : PollConcurrencyScenarios(TestDatabase.H2)
+
+/** The same scenarios on a fresh PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class PollConcurrencyPostgresTest : PollConcurrencyScenarios(TestDatabase.Postgres())

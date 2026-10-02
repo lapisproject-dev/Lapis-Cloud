@@ -3,6 +3,7 @@ package network.lapis.cloud.server.events
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.routes.sha256Hex
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -31,9 +32,17 @@ internal object EventTicketIssuer {
     /** Bounded retry against the vanishingly unlikely `uq_event_registration_ticket_code` collision -- see class KDoc call sites' own retry loop. At 80 bits of entropy this is a structural safety net, not something expected to ever actually retry. */
     const val MAX_MINT_ATTEMPTS: Int = 3
 
+    /**
+     * Source of fresh raw codes. A test seam ONLY (V1.9.37: lets a test force a genuine
+     * `uq_event_registration_ticket_code` collision, which at 80 bits of entropy can never be provoked
+     * by chance) -- production never reassigns it.
+     */
+    @Volatile
+    internal var rawCodeSupplier: () -> String = EventTicketPolicy::newRawCode
+
     /** Generates a fresh raw code + its SHA-256 hash. Pure -- does not touch the database itself. */
     fun mint(): IssuedTicket {
-        val rawCode = EventTicketPolicy.newRawCode()
+        val rawCode = rawCodeSupplier()
         return IssuedTicket(rawCode = rawCode, sha256 = sha256Hex(rawCode.toByteArray(Charsets.US_ASCII)))
     }
 
@@ -93,7 +102,10 @@ internal object EventTicketIssuer {
             val candidate = mint()
             val affected =
                 try {
-                    write(candidate)
+                    // Savepoint (V1.9.37): on PostgreSQL a unique violation aborts the whole transaction
+                    // (25P02), so the retry below would otherwise run on a dead transaction -- see
+                    // `withSavepoint` KDoc. H2 never showed this.
+                    withSavepoint(name = "event_ticket_mint") { write(candidate) }
                 } catch (e: ExposedSQLException) {
                     if (e.sqlState != UNIQUE_VIOLATION_SQL_STATE) throw e
                     logger.warn {

@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -25,7 +27,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
@@ -37,6 +38,9 @@ import network.lapis.cloud.server.db.generated.PaymentTransactionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -67,12 +71,14 @@ import kotlin.uuid.Uuid
  * V1.9.35 -- `listOpenEventRefunds` / `markEventRefunded` and the `ownPaid` / `ownRefundMarkedAt`
  * fields on `EventDto`, over the real RPC surface (throwaway routes + `X-Member-Id`).
  */
-class EventRefundRpcTest :
-    FunSpec({
+abstract class EventRefundRpcScenarios(
+    db: TestDatabase,
+) : FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdEventIds = mutableListOf<Uuid>()
 
-        beforeSpec { DatabaseConfig.connect() }
+        beforeSpec { db.activate() }
+        installLaneGuards(db = db, checkDeadlocks = true)
 
         afterSpec {
             transaction {
@@ -102,6 +108,7 @@ class EventRefundRpcTest :
                     MemberTable.deleteWhere { id inList createdMemberIds }
                 }
             }
+            db.deactivate()
         }
 
         fun createMember(
@@ -543,3 +550,11 @@ class EventRefundRpcTest :
             ok.isSuccess shouldBe true
         }
     })
+
+/** The unchanged H2 run (normal `test` task). */
+class EventRefundRpcTest : EventRefundRpcScenarios(TestDatabase.H2)
+
+/** The same scenarios on a fresh PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class EventRefundRpcPostgresTest : EventRefundRpcScenarios(TestDatabase.Postgres())

@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.ai.retrieval
 
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -8,13 +10,14 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import network.lapis.cloud.server.ai.AiTestFixtures
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import org.jetbrains.exposed.v1.core.QueryBuilder
 import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
@@ -75,25 +78,22 @@ private fun KnowledgeRetriever.shouldBeInstanceOfSimple() {
 }
 
 /**
- * **Manual verification of the Postgres full-text path** (this repo has no Testcontainers, so CI
- * cannot run it -- see `PostgresFullTextKnowledgeRetriever` KDoc). Enabled only when
- * `LAPIS_TEST_POSTGRES_URL` (plus optional `LAPIS_TEST_POSTGRES_USER`/`_PASSWORD`) points at a
- * **migrated, disposable** PostgreSQL database. Run it once against the real instance before the
- * first productive use of the AI layer.
+ * **Live verification of the Postgres full-text path.** Since Welle V1.9.37 this runs in the
+ * Postgres test lane (`./gradlew :lapis-server:postgresTest`, and therefore in CI): a fresh, migrated
+ * PostgreSQL database per spec -- no manually prepared instance any more (the earlier "CI cannot run
+ * it" KDoc is obsolete). Without `LAPIS_TEST_POSTGRES_URL` the spec is not even instantiated.
  */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
 class PostgresFullTextRetrieverLiveTest :
     FunSpec({
-        val url = System.getenv("LAPIS_TEST_POSTGRES_URL")
+        val pg = TestDatabase.Postgres()
 
-        test("live: full-text search respects release, level and current version").config(enabled = url != null) {
-            val previous = TransactionManager.defaultDatabase
-            val db =
-                Database.connect(
-                    url = url!!,
-                    user = System.getenv("LAPIS_TEST_POSTGRES_USER") ?: "",
-                    password = System.getenv("LAPIS_TEST_POSTGRES_PASSWORD") ?: "",
-                )
-            TransactionManager.defaultDatabase = db
+        beforeSpec { pg.activate() }
+        installLaneGuards(db = pg)
+        afterSpec { pg.deactivate() }
+
+        test("live: full-text search respects release, level and current version") {
             val fixtures = AiTestFixtures()
             try {
                 PostgresFullTextIndexInitializer.ensureIndexes()
@@ -117,7 +117,6 @@ class PostgresFullTextRetrieverLiveTest :
                     ).shouldBeEmpty()
             } finally {
                 fixtures.cleanup()
-                TransactionManager.defaultDatabase = previous
             }
         }
     })

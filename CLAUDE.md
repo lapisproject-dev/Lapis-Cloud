@@ -67,6 +67,23 @@ JetBrains) — Details und Architektur-Hintergrund siehe `README.adoc`.
 > dieses Repos sitzt und ein logging-freies Client-Modul anbietet. Begründung ausführlich:
 > `docs/architecture/ai-assistant.adoc`.
 
+## Postgres-Testspur (V1.9.37)
+
+Die normale Testsuite läuft auf H2. Alles, was von der Datenbank-Engine abhängt (Row-Locks, Isolation, Deadlocks, das Verhalten einer
+Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prüft die Postgres-Spur: `./gradlew :lapis-server:postgresTest`
+(Teil von `check`, wird übersprungen, wenn `LAPIS_TEST_POSTGRES_URL` fehlt). Details: `docs/architecture/postgres-test-lane.adoc`.
+
+- **Neue Concurrency- und Lock-Tests immer als `...Scenarios(db: TestDatabase)` anlegen** und zweimal einhängen: `FooTest : FooScenarios(TestDatabase.H2)`
+  und `FooPostgresTest : FooScenarios(TestDatabase.Postgres())` mit `@Tags("Postgres")` und `@EnabledIf(PostgresConfigured::class)`. Gleiche
+  Assertions auf beiden Datenbanken; wo H2 nur wegen seines 1-Sekunden-Lock-Timeouts tolerant ist, auf Postgres strenger prüfen, nie lockerer.
+  Der Klassenname der Spur-Variante enthält `Postgres` (der Gradle-Filter arbeitet über den Namen; `PostgresLaneNamingTest` wacht darüber).
+- In Szenarien der Spur niemals `module()` oder `DatabaseConfig.connect()` aufrufen (sonst Rückfall auf H2); der Dialekt-Guard in `installLaneGuards` fängt das ab.
+- **Nie `LAPIS_DB_URL` setzen** (weder lokal noch in CI) und **nie gegen eine fremde oder produktive Datenbank testen**: die Spur lehnt alles außer einer
+  Wegwerf-Instanz ab (URL-Whitelist, Instanz-Check, DROP nur für selbst angelegte `lapis_pgtest_*`). Lokal nur ein frischer Docker-Container, an `127.0.0.1` gebunden.
+- Wer eine Constraint-Verletzung fängt und danach dieselbe Transaktion weiterbenutzt, braucht einen Savepoint (`withSavepoint`, `db/Savepoints.kt`):
+  auf Postgres vergiftet die Verletzung die ganze Transaktion (`25P02`). Exposed wiederholt dann die GESAMTE Transaktion und maskiert den Fehler -- Tests zählen
+  deshalb, wie oft der Block lief, nicht nur das Ergebnis.
+
 ## Verwandte Repositories
 
 - `kuml-dev/kUML` — Modellierungssprache für alle Diagramme

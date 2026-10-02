@@ -3,6 +3,7 @@ package network.lapis.cloud.server.federation
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.FederationRelationshipEventTable
 import network.lapis.cloud.server.db.generated.FederationRelationshipTable
+import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.shared.domain.FederationEventType
 import network.lapis.cloud.shared.domain.FederationRelationshipDirection
 import network.lapis.cloud.shared.domain.FederationRelationshipDto
@@ -126,15 +127,19 @@ object FederationRelationshipStore {
         val existing = findByRemoteActorUri(remoteActorUri = remoteActorUri, forUpdate = true)
         if (existing == null) {
             return try {
-                insert(
-                    direction = direction,
-                    status = FederationRelationshipStatus.PENDING,
-                    remoteActorUri = remoteActorUri,
-                    remoteInboxUri = remoteInboxUri,
-                    remotePublicKeyPem = remotePublicKeyPem,
-                    initiatedActivityId = initiatedActivityId,
-                    now = now,
-                )
+                // Savepoint (V1.9.37): on PostgreSQL the losing INSERT aborts the whole transaction
+                // (25P02), so the re-read in the catch below would fail -- see `withSavepoint` KDoc.
+                withSavepoint(name = "federation_relationship_insert") {
+                    insert(
+                        direction = direction,
+                        status = FederationRelationshipStatus.PENDING,
+                        remoteActorUri = remoteActorUri,
+                        remoteInboxUri = remoteInboxUri,
+                        remotePublicKeyPem = remotePublicKeyPem,
+                        initiatedActivityId = initiatedActivityId,
+                        now = now,
+                    )
+                }
             } catch (e: ExposedSQLException) {
                 // See class KDoc "Concurrency" point 3 -- the loser of a concurrent first-Follow
                 // race retries the read (this time WITH a row to lock) and defers to the winner.

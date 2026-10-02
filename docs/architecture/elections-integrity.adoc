@@ -134,7 +134,7 @@ The application translates every unique-constraint violation into a `ConflictExc
   change existing behaviour and is a separate decision.
 * Specific conflict codes in the RPC (today every refusal is a `ConflictException`).
 * Who released the tally is visible only as a count.
-* The concurrency tests run on H2; there is no Postgres test infrastructure, so lock behaviour on Postgres is argued from the lock order,
-  not measured.
+* The concurrency tests run on H2 AND, since V1.9.37, on a real PostgreSQL (the Postgres test lane, link:postgres-test-lane.adoc[postgres-test-lane.adoc]);
+  the lock order of this document is measured there, including all decision paths racing on one motion.
 * `castVoteBallot` and `castResistanceBallot` have their own races against closing; they are outside this wave.
 * Amendments to a motion that has a running election.

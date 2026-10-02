@@ -606,6 +606,14 @@ Local development/testing infrastructure (`deploy/local/` — this repository's 
 a full local-run recipe, including a two-browser manual verification walkthrough and an opt-in live
 integration test, are documented in link:deploy/local/README.adoc[deploy/local/README.adoc].
 
+=== Postgres test lane (V1.9.37)
+
+The normal test suite runs on H2. A second Gradle task, `./gradlew :lapis-server:postgresTest`, runs the engine-dependent specs (Flyway
+chain, schema equivalence with H2, row locks, isolation, deadlocks, concurrency) against a real, disposable PostgreSQL; it is part of `check`
+and is skipped when `LAPIS_TEST_POSTGRES_URL` is not set. CI runs it against a `postgres:17` service container. Start it locally with a
+fresh Docker container bound to `127.0.0.1` -- see link:docs/architecture/postgres-test-lane.adoc[postgres-test-lane.adoc]. Never set
+`LAPIS_DB_URL` for it and never point it at a real database (the lane refuses).
+
 NOTE: GitHub's built-in `.adoc` viewer does not load the `kuml-asciidoc` extension, so it cannot
 execute the `[kuml]` macro below and shows its raw source instead. The image immediately below is a
 pre-rendered copy of that exact model, committed purely so GitHub's preview has something to show
@@ -1493,7 +1501,7 @@ election carries no time and no order. See `docs/architecture/elections-ui.adoc`
 
 === What doesn't work yet
 
-A real end-to-end election run with several accounts on Staging is still outstanding. Concurrency tests run on H2 only (no Postgres test infrastructure yet). List and ranked-choice
+A real end-to-end election run with several accounts on Staging is still outstanding. The concurrency tests run on H2 and, since V1.9.37, also on PostgreSQL (the Postgres test lane). List and ranked-choice
 elections are rejected by the server. Who approved a tally is visible only as a count.
 `castVoteBallot` and `castResistanceBallot` have their own races against closing.
 
@@ -1558,7 +1566,7 @@ sync and before the build/restart) before deploying on an existing instance. See
 
 The staging test (`docs/architecture/polls-staging-test.adoc`) was not executed. Whoever can read the
 database or its backups sees option and weight per answer and could try to match weights against the
-LTR ledger -- this is a table separation, not cryptography. The concurrency tests run on H2 only. There
+LTR ledger -- this is a table separation, not cryptography. The concurrency tests run on H2 and, since V1.9.37, on PostgreSQL as well. There
 is no participation rate, only single choice, and the deadline is entered in the browser's local time.
 
 == Documentation Convention

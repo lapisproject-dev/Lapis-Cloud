@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.core.annotation.EnabledIf
+import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
@@ -30,7 +32,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
@@ -46,6 +47,9 @@ import network.lapis.cloud.server.mail.NoOpMailTransport
 import network.lapis.cloud.server.payment.psp.PspConfig
 import network.lapis.cloud.server.payment.psp.PspConfigState
 import network.lapis.cloud.server.payment.psp.StripeCheckoutClient
+import network.lapis.cloud.server.testdb.PostgresConfigured
+import network.lapis.cloud.server.testdb.TestDatabase
+import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
@@ -66,12 +70,14 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 /** V1.9.35 -- `resumeOwnEventPayment`: ownership, server-side amount, idempotency, single-flight, uniform refusals. */
-class EventPaymentResumeRpcTest :
-    FunSpec({
+abstract class EventPaymentResumeRpcScenarios(
+    db: TestDatabase,
+) : FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
         val createdEventIds = mutableListOf<Uuid>()
 
-        beforeSpec { DatabaseConfig.connect() }
+        beforeSpec { db.activate() }
+        installLaneGuards(db = db, checkDeadlocks = true)
 
         afterTest {
             transaction {
@@ -102,6 +108,7 @@ class EventPaymentResumeRpcTest :
                     MemberTable.deleteWhere { id inList createdMemberIds }
                 }
             }
+            db.deactivate()
         }
 
         fun createMember(): Uuid {
@@ -480,3 +487,11 @@ class EventPaymentResumeRpcTest :
             }
         }
     })
+
+/** The unchanged H2 run (normal `test` task). */
+class EventPaymentResumeRpcTest : EventPaymentResumeRpcScenarios(TestDatabase.H2)
+
+/** The same scenarios on a fresh PostgreSQL database (`postgresTest` task). */
+@Tags("Postgres")
+@EnabledIf(PostgresConfigured::class)
+class EventPaymentResumeRpcPostgresTest : EventPaymentResumeRpcScenarios(TestDatabase.Postgres())
