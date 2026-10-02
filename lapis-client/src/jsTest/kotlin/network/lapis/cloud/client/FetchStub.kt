@@ -91,11 +91,18 @@ internal fun serviceExceptionResult(
     return StubResponse(text = JSON.stringify(body))
 }
 
-/** The promise `fetch` returns for [response]: resolved (after [StubResponse.delayMs]) or rejected for a network error. */
-private fun answer(response: StubResponse): Promise<dynamic> =
+/**
+ * The promise `fetch` returns for [response]: resolved (after [StubResponse.delayMs]) or rejected for a network error. An answer
+ * that would only arrive after its stub was removed ([stubOpen] is `false` by then) is rejected like a dropped connection instead
+ * (see [withFetchStub]).
+ */
+private fun answer(
+    response: StubResponse,
+    stubOpen: () -> Boolean,
+): Promise<dynamic> =
     Promise { resolve, reject ->
         val deliver = {
-            if (response.networkError) {
+            if (response.networkError || !stubOpen()) {
                 reject(
                     js("new TypeError('Failed to fetch')").unsafeCast<Throwable>(),
                 )
@@ -118,6 +125,11 @@ private fun newResponse(response: StubResponse): dynamic {
  * requests arrive -- read it AFTER the awaited action). [respond] decides the answer per request; the default answers
  * every RPC call with a `null` result and every other request with an empty 200. `window.fetch` is restored in
  * `finally`.
+ *
+ * Once the block has ended, this stub no longer answers successfully: a request whose answer is still pending then (a
+ * [StubResponse.delayMs], or a Kilua body that is only read afterwards) is rejected like a dropped connection. Otherwise the
+ * code waiting for it would carry on in the NEXT test -- e.g. a write's "reload the screen" whose requests then reach the next
+ * test's stub and are answered (and counted) there (see [settleAppScope]).
  */
 internal suspend fun <T> withFetchStub(
     respond: (RecordedRequest) -> StubResponse = { request ->
@@ -126,6 +138,8 @@ internal suspend fun <T> withFetchStub(
     block: suspend (List<RecordedRequest>) -> T,
 ): T {
     val recorded = mutableListOf<RecordedRequest>()
+    var open = true
+    val isOpen = { open }
     val realFetch = window.asDynamic().fetch
     window.asDynamic().fetch = { input: dynamic, init: dynamic ->
         if (jsTypeOf(input.text) == "function") {
@@ -135,24 +149,29 @@ internal suspend fun <T> withFetchStub(
             (input.clone().text() as Promise<String>).then { bodyText ->
                 val request = RecordedRequest(url, method, bodyText)
                 recorded += request
-                answer(respond(request))
+                answer(respond(request), isOpen)
             }
         } else {
             val rawBody: dynamic = init?.body
             val bodyText = if (jsTypeOf(rawBody) == "string") rawBody as String else "<blob>"
             val request = RecordedRequest(input.toString(), (init?.method ?: "GET") as String, bodyText)
             recorded += request
-            answer(respond(request))
+            answer(respond(request), isOpen)
         }
     }
     try {
         return block(recorded)
     } finally {
+        open = false
         window.asDynamic().fetch = realFetch
     }
 }
 
-/** Polls [condition] (every 20 ms, up to [timeoutMs]); fails the test with [message] if it never holds. */
+/**
+ * Polls [condition] (every 20 ms, up to [timeoutMs]); fails the test with [message] if it never holds. The message is also written
+ * to the console: the Karma report shows only "AssertionError at commons.js:NNN" for a failed Kotlin assertion, without its message,
+ * so a timeout would otherwise not say WHICH wait ran out.
+ */
 internal suspend fun awaitUntil(
     message: String,
     timeoutMs: Int = 3000,
@@ -163,6 +182,7 @@ internal suspend fun awaitUntil(
         kotlinx.coroutines.delay(20)
         waited += 20
     }
+    if (!condition()) console.error("awaitUntil timeout after $timeoutMs ms: $message")
     kotlin.test.assertTrue(condition(), "timeout: $message")
 }
 
@@ -170,21 +190,33 @@ internal suspend fun awaitUntil(
  * The route [call] goes to (see [RecordedRequest.rpcRoute]), learned by actually performing it against a private stub. The call is a
  * direct reference to the service method, so the compiler checks the name and a renamed/removed method breaks this test at build time
  * instead of silently matching nothing. Use dummy arguments; the outer stub (if any) is restored afterwards.
+ *
+ * The private stub answers EVERY fetch made while it is installed, also one of a coroutine still running from earlier work. Taking
+ * "the last RPC seen" would then return that foreign route, and the test would answer its own method with nothing (or count the
+ * wrong calls). So the route is only accepted when exactly one RPC request went out during the call; otherwise the call is repeated.
  */
 internal suspend fun routeOf(call: suspend () -> Unit): String {
-    var route = ""
-    withFetchStub(
-        respond = { request ->
-            if (request.isRpc) route = request.rpcRoute
-            StubResponse(networkError = true)
-        },
-    ) {
-        try {
-            call()
-        } catch (ignored: Throwable) {
-            // The answer is a dropped connection on purpose: only the outgoing request matters.
+    var seen: List<String> = emptyList()
+    repeat(ROUTE_OF_ATTEMPTS) {
+        val routes = mutableListOf<String>()
+        withFetchStub(
+            respond = { request ->
+                if (request.isRpc) routes += request.rpcRoute
+                StubResponse(networkError = true)
+            },
+        ) {
+            try {
+                call()
+            } catch (ignored: Throwable) {
+                // The answer is a dropped connection on purpose: only the outgoing request matters.
+            }
         }
+        if (routes.size == 1) return routes.single()
+        seen = routes
     }
-    kotlin.test.assertTrue(route.isNotEmpty(), "routeOf: the call sent no RPC request")
-    return route
+    val problem = if (seen.isEmpty()) "the call sent no RPC request" else "more than one RPC request during the call: $seen"
+    console.error("routeOf: $problem")
+    kotlin.test.fail("routeOf: $problem")
 }
+
+private const val ROUTE_OF_ATTEMPTS = 5

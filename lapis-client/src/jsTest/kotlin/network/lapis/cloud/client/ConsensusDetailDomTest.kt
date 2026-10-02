@@ -525,7 +525,13 @@ class ConsensusDetailDomTest {
                 )
             val world = ConsensusWorld(evaluated(secret = false), skParticipation(canRate = false), result = skResult(), ballots = ballots)
             withDetail(world, "sk-named") { el, calls, routes ->
-                awaitUntil("named table", 3000) { el.flatText().contains("Mia Mitglied") }
+                // Wait for a ROW of the named table, not for the name anywhere: "Mia Mitglied" also proposed option B, and the option
+                // list ("Vorgeschlagen von Mia Mitglied") is on the page as soon as the detail is -- before the ballots are even
+                // requested. Waiting for the bare name let the count below run before `listResistanceBallots` had gone out (flaky
+                // under CPU load: "Expected <1>, actual <0>").
+                awaitUntil("named table row", 3000) {
+                    el.allOf("table tbody tr, .lapis-data-card").any { it.textContent.orEmpty().contains("Mia Mitglied") }
+                }
                 assertEquals(1, calls.toRoute(routes.listBallots).size)
                 assertTrue(el.flatText().contains("Namentliche Bewertungen"))
             }

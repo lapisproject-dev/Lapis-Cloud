@@ -3,7 +3,9 @@ package network.lapis.cloud.client
 import io.kvision.panel.Root
 import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.promise
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
@@ -31,6 +33,8 @@ internal fun formTest(block: suspend () -> Unit): Promise<Unit> =
         disableModalTransitions()
         // Leftovers of other test classes (a hidden modal, a live focus trap) must not be found as 'the last modal'.
         closeOpenModals(timeoutMs = 300)
+        // Nor may a coroutine another test left running in AppScope ask THIS test's stub (see [settleAppScope]).
+        cancelAppScopeWork()
         try {
             block()
         } finally {
@@ -40,9 +44,9 @@ internal fun formTest(block: suspend () -> Unit): Promise<Unit> =
     }
 
 /**
- * [withMountedRoot] that closes every open modal BEFORE the root is disposed: disposing the root tears the modal out of the
- * document while Bootstrap still holds its focus trap, which pulls `document.activeElement` onto a modal button in whichever test
- * runs next (see [closeOpenModals]).
+ * [withMountedRoot] that lets the screen's background work finish against the test's own stub ([settleAppScope]) and then closes
+ * every open modal BEFORE the root is disposed: disposing the root tears the modal out of the document while Bootstrap still holds
+ * its focus trap, which pulls `document.activeElement` onto a modal button in whichever test runs next (see [closeOpenModals]).
  */
 internal suspend inline fun <T> mountedForm(
     id: String,
@@ -52,9 +56,50 @@ internal suspend inline fun <T> mountedForm(
         try {
             block(root, element)
         } finally {
+            settleAppScope()
             closeOpenModals(timeoutMs = 1000)
         }
     }
+
+/** The coroutines currently running in the production [AppScope] (every screen load, every guarded action, every reload). */
+private fun activeAppScopeWork(): List<Job> {
+    val scopeJob = AppScope.coroutineContext[Job] ?: return emptyList()
+    return scopeJob.children.filter { it.isActive }.toList()
+}
+
+/**
+ * Cancels every coroutine still running in [AppScope] -- a best-effort net, not a guarantee: a Kilua RPC call that is already
+ * waiting for its answer is NOT interrupted by this (observed: the cancelled reopen of the revote test still returned its result
+ * and reloaded the screen), so the code after it carries on. What really keeps a test's work out of the next test is that it
+ * finishes in time ([settleAppScope]) and that a stub answers nothing once its test is over ([withFetchStub]).
+ */
+internal fun cancelAppScopeWork() {
+    activeAppScopeWork().forEach { it.cancel() }
+}
+
+/**
+ * Lets the background work a test has started finish BEFORE its fetch stub goes away: waits up to [graceMs] until no [AppScope]
+ * coroutine is running any more (a write's follow-up keeps the count above zero throughout, because each step launches the next
+ * before it ends), then cancels whatever is still running (a screen that polls forever never settles).
+ *
+ * Why (found 2026-10-02 while chasing the flaky `ConsensusDetailDomTest.anOpenConsensus_listsTheNamedRatings_onlyThere`, whose
+ * own cause was a wait for the wrong text): a test that clicks a write waits only until the write REQUEST is recorded and then
+ * ends, while the write's answer and the reload of the whole screen that follows it can still be running in [AppScope] -- seen
+ * under CPU load at the end of the revote, evaluate, freeze-conflict and close-rating phases. The test's stub is removed, the next
+ * test installs its own, and the leftover reload is answered by the NEXT test's world (in a detached panel): every load request
+ * then appears a second time in that test's call log, and a leftover request inside a [routeOf] window hands back a foreign
+ * route (observed: the evaluate reload of one test inside the routes lookup of the next). Holding back the revote's reopen answer
+ * until the next test had installed its stub made that next test fail deterministically; with this settle and the closed-stub
+ * rule of [withFetchStub] it passes.
+ */
+internal suspend fun settleAppScope(graceMs: Int = 1500) {
+    var waited = 0
+    while (activeAppScopeWork().isNotEmpty() && waited < graceMs) {
+        delay(10)
+        waited += 10
+    }
+    cancelAppScopeWork()
+}
 
 internal fun HTMLElement.allOf(selector: String): List<HTMLElement> =
     (0 until querySelectorAll(selector).length).map { querySelectorAll(selector).item(it) as HTMLElement }
