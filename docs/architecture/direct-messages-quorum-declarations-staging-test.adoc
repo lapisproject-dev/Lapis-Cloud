@@ -37,3 +37,25 @@ deployed, so every row of "Actual result" is still open.
 | 15 | As the role-less member call `listDeclarations` for another member id (browser console / RPC client) | the server refuses; the screen is unaffected | open
 | 16 | Switch to English | all new texts are English | open
 |===
+
+== V1.9.36 (not executed)
+
+Known-gaps part 2: conversation list, paging, navbar counter, member picker. Same status as above: covered by unit, DOM and tripwire tests against
+stubbed servers; **not executed on a real server**, every row is open.
+
+[cols="1,4,4,3", options="header"]
+|===
+| # | Action | Expected | Actual result
+| 1 | B sends A three messages; A opens any screen on a desktop and on a phone | envelope with the pill "3" in the navbar on both widths; the sidebar link "Kommunikation" has no number | open
+| 2 | Collapse the sidebar group "Mitgliedschaft" | the pill is still visible | open
+| 3 | With 105 unread messages for A | the pill shows "99+"; the accessible name reads "Nachrichten, 99+ ungelesen" | open
+| 4 | Leave the tab, B sends a message, return after less than 30 s, then again after more than 30 s | first return: no new call (network tab); after 30 s: one `unreadCount` call and the pill updates | open
+| 5 | A has only ever sent messages to C | C appears in "Gespräche" with no "neu" badge | open
+| 6 | A opens a conversation with unread messages | the conversation and a reply form show; one `markConversationRead` call; the pill drops; the list reloads and the conversation stays open | open
+| 7 | 205 messages between A and B | the newest 50 show; "Ältere Nachrichten laden" prepends the next 50, no duplicates, until the start | open
+| 8 | A replies to a partner who has left | one general sentence "Die Antwort konnte nicht gesendet werden."; the list reloads | open
+| 9 | Click the envelope | `#/communication?section=messages` (no id in the URL); the heading "Gespräche" has the focus | open
+| 10 | As BOARD open "Erklärungen anderer Mitglieder ansehen" and pick a withdrawn member | the member is listed as "Name (Ausgetreten)" and the declarations load | open
+| 11 | As ordinary MEMBER call `listMembersForSelection` through the RPC client | the server refuses; the screen shows no such link | open
+| 12 | Switch to English and repeat steps 1, 5, 7 and 10 | all new texts are English | open
+|===

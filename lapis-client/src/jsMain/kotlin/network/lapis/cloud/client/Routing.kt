@@ -677,7 +677,7 @@ fun initRouting(pageContainer: SimplePanel) {
         NavHighlight.setActiveRoute(route)
         // Welle V1.4.31: a ROUTE CHANGE lets the next page header take the focus -- not the first route shown (M7, see `PageFocus`).
         PageFocus.onRouteShown()
-        // Welle V1.9.34: the unread-message counter in the sidebar refreshes on each route change (event-driven, no timer).
+        // Welle V1.9.34: the unread-message pill in the navbar refreshes on each route change (event-driven, no timer).
         UnreadMessages.onRouteShown()
         pageContainer.removeAll()
         try {

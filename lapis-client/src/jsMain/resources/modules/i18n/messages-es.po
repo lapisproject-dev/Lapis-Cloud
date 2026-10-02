@@ -19201,12 +19201,6 @@ msgstr "Ocultar historial"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "Todavía no hay mensajes en esta conversación."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "Se muestran los 200 mensajes más recientes."
-
-msgid "Kommunikation (%1)"
-msgstr "Comunicación (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "Mis declaraciones sobre la asignación de voluntariado y de monitor"
 
@@ -19315,3 +19309,32 @@ msgstr "Datos conforme a la ley contra el blanqueo de capitales modificados"
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Reembolso registrado fuera de Lapis Cloud"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Mensajes, %1 sin leer"
+
+msgid "Gespräche"
+msgstr "Conversaciones"
+
+msgid "Noch keine Gespräche."
+msgstr "Todavía no hay conversaciones."
+
+msgid "%1 neu"
+msgstr "%1 nuevos"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "Se muestran las 100 conversaciones con actividad más reciente."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Cargar mensajes anteriores"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "Los mensajes anteriores no se muestran aquí."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "No se pudieron cargar los mensajes anteriores."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "No se muestran todos los miembros – utilice la búsqueda."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "No se pudo enviar la respuesta."

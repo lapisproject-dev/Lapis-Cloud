@@ -27,9 +27,12 @@ Below every inbox message the link-button "Verlauf anzeigen" opens the whole con
 * Received, still unread messages shown here are marked read through the same batch helper as in the inbox.
 * A failed load is the standard error state (fixed sentence, "Erneut versuchen"), never the exception text.
 
-== Unread counter
+== Unread counter (sidebar part replaced in V1.9.36, see below)
 
-The sidebar link "Kommunikation" shows "(n)" for 1 to 99 unread messages and "(99+)" from 100 (`communicationSidebarLabel`). `UnreadMessages`
+NOTE: Since V1.9.36 the number lives in the navbar, not in the sidebar link (section "V1.9.36"). The description below is the V1.9.34
+state; `communicationSidebarLabel` and `attach`/`detach` no longer exist.
+
+The sidebar link "Kommunikation" showed "(n)" for 1 to 99 unread messages and "(99+)" from 100 (`communicationSidebarLabel`). `UnreadMessages`
 is the only writer:
 
 * It loads when the sidebar is built (`attach`), on **every route change** (`UnreadMessages.onRouteShown`, called from `show()` in
@@ -38,6 +41,49 @@ is the only writer:
 * Calls are coalesced: at most one in flight plus one follow-up.
 * Failures are silent (no toast): the counter runs on every sidebar build, and an inactive member's `unreadCount` is rejected by the server.
 * `detach` (on logout) stops a late answer from writing into a dead link.
+
+== V1.9.36: conversation list, paging, navbar counter
+
+=== Conversation partners
+
+`listConversationPartners(limit)` returns everyone the caller has exchanged messages with: partner id and name, the time of the last message
+in either direction and the number of unread messages from that partner -- **never a message text**. It is an aggregation over
+`direct_message` (three grouped queries on the indexed sender/recipient columns, merged in Kotlin); there is no migration. Messages to
+oneself (possible before V1.9.12) are not a conversation and are filtered out. Order: `lastActivityAt DESC`, then `partnerId ASC`; `limit` is
+clamped to 1..100 (`MAX_CONVERSATION_PARTNERS`). The screen shows the heading "Gespräche" with the list; opening a row shows the conversation and
+a reply form (`DirectMessageReplyForm.kt`, extracted from the inbox row); only one conversation is open at a time.
+
+The partner list loads **first**; the inbox is built only after its first load. Reason: the inbox marks everything read as soon as it loads,
+so the "n neu" hint would otherwise already be empty. The hint is therefore a snapshot of the state since the last visit.
+
+=== Keyset paging
+
+`listConversationPage(otherMemberId, beforeSentAt, beforeId, limit)` returns one page, newest first, ordered by `(sent_at DESC, id DESC)`; the
+cursor is the last (oldest) message of the previous page, passed as two flat nullable primitives (both null for the first page, both set
+otherwise; one alone is a `BadRequestException`). `limit` is clamped to 1..100 (`MAX_CONVERSATION_PAGE`); the server fetches `limit + 1`
+rows to know `hasMore`. `sent_at` is truncated to microseconds on write, so the cursor round trip is lossless; identical `sent_at` values
+are separated by `id`. A message inserted between two pages causes neither a duplicate nor a gap. The client loads 50 per page, prepends older
+pages block by block, drops duplicates by id and stops offering older messages at 1000 loaded (`DIRECT_MESSAGE_CLIENT_CAP`). `listConversation` and its
+200-message cap stay for existing callers.
+
+A conversation that does not exist, or that belongs to others, is an empty page, not an error: no existence oracle. A malformed id is a
+uniform `BadRequestException` that does not echo the input.
+
+=== `markConversationRead`
+
+One `UPDATE` marks every unread message **from** the partner **to** the caller as read and returns the count (unknown or foreign id: 0).
+Why it exists next to `markRead`: with paging the conversation view only holds the newest page, so older unread messages could not be
+marked through the ids of that page; and one atomic statement replaces N single calls. The inbox list keeps using `markRead`.
+
+=== Navbar counter
+
+The unread count is shown as a pill on an envelope in the navbar (`NavbarUnreadIndicator.kt`), visible on every width and with a collapsed
+sidebar, only for members who see the COMMUNICATION link. It links to `#/communication?section=messages` (no id, no personal data); the screen
+then focuses the "Gespräche" heading. `UnreadMessages` is one state with a registry of displays keyed by name (the navbar is rebuilt on every
+`refreshNavbar`; the new display replaces the old under the same key). Triggers: registration, every route change (unthrottled), a mark-read
+or reply, and **tab return** (`visibilitychange`/`focus`, installed once) throttled by a timestamp comparison to one refresh per 30 seconds
+(`TAB_RETURN_REFRESH_THROTTLE_MS`). Still no timer, no polling, no websocket. The sidebar link "Kommunikation" carries no number any more. The pill is not
+an `aria-live` region and not animated; its accessible name is "Nachrichten, n ungelesen".
 
 == Personal data
 
@@ -48,9 +94,11 @@ Message text and the names of both sides are personal data. In the new files the
 == Known limitations
 
 * There is no way into the history for a partner who never wrote to you (only inbox messages carry the link).
-* The counter does not update by itself while the user stays on one screen; it refreshes on the next route change (see above).
-* The counter is not visible while the sidebar group "Mitgliedschaft" is collapsed; no counter is shown on the group label.
-* The history is capped at the newest 200 messages; there is no paging.
+* The counter does not update by itself while the user stays on one screen; it refreshes on the next route change or tab return (see V1.9.36).
+* (V1.9.36) The inbox stays next to the conversation list and still marks everything read when it loads; the "n neu" hint of the list is a snapshot.
+* (V1.9.36) At most 100 conversations in the list, at most 1000 messages per conversation in the client. No message preview in the list.
+* (V1.9.36) A reply to a partner who is no longer an active member is refused by the server; the form shows one general sentence.
+* (V1.9.36) No real-time push: the pill refreshes on navigation and on tab return.
 * Not tested against real data or a staging server (see `direct-messages-quorum-declarations-staging-test.adoc`, not executed).
 
 See also the contact routing of the carpool board in `carpool.adoc`.

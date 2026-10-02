@@ -60,7 +60,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.uuid.Uuid
 
-private val VOLUNTEER_ALLOWANCE_DECISION_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+internal val VOLUNTEER_ALLOWANCE_DECISION_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 private const val MAX_LIST_RESULTS = 200
 private const val AMOUNT_SCALE = 2
 private val logger = KotlinLogging.logger {}

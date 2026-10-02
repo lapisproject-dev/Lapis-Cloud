@@ -223,7 +223,6 @@ fun sidebarGroupForRoute(route: String?): SidebarGroupId? {
 fun clearSidebar(body: SimplePanel) {
     body.removeAll()
     body.addCssClass("lapis-sidebar-empty")
-    UnreadMessages.detach()
     NavHighlight.reset()
 }
 
@@ -370,7 +369,7 @@ fun buildSidebar(
             if (NavVisibility.showsStatuteQa(session.status, session.aiAssistantEnabled)) {
                 sidebarLink(Routes.STATUTE_QA, tr("Fragen zur Satzung"), "fas fa-magnifying-glass", toggle)
             }
-            UnreadMessages.attach(sidebarLink(Routes.COMMUNICATION, communicationSidebarLabel(null), "fas fa-envelope", toggle))
+            sidebarLink(Routes.COMMUNICATION, tr("Kommunikation"), "fas fa-envelope", toggle)
             // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- nur sichtbar mit
             // aktivem "Landesvorstand"-Zugang (serverseitig berechnetes SessionInfoDto.chapterScope,
             // siehe NavVisibility.showsChapterRoster KDoc), kein eigenes Rollen-Gate.

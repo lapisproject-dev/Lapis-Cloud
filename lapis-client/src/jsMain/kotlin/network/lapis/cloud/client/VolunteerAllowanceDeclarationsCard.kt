@@ -15,7 +15,8 @@ import io.kvision.table.row
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
-import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.MemberSelectionDto
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.VolunteerAllowanceSelfDeclarationDto
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
@@ -28,7 +29,7 @@ internal interface VolunteerAllowanceDeclarationsRpc {
         calendarYear: Int?,
     ): List<VolunteerAllowanceSelfDeclarationDto>
 
-    suspend fun listMembers(): List<MemberSummaryDto>
+    suspend fun listMembersForSelection(): List<MemberSelectionDto>
 }
 
 internal fun liveVolunteerAllowanceDeclarationsRpc(): VolunteerAllowanceDeclarationsRpc =
@@ -38,11 +39,24 @@ internal fun liveVolunteerAllowanceDeclarationsRpc(): VolunteerAllowanceDeclarat
             calendarYear: Int?,
         ) = rpcService<IVolunteerAllowanceService>().listDeclarations(memberId, calendarYear)
 
-        override suspend fun listMembers() = rpcService<IMemberService>().listMembers()
+        override suspend fun listMembersForSelection() = rpcService<IMemberService>().listMembersForSelection()
     }
 
 /** Mirrors `MAX_LIST_RESULTS` in the server's `VolunteerAllowanceService.kt`. */
 internal const val VOLUNTEER_ALLOWANCE_DECLARATIONS_LIST_CAP = 200
+
+/** Mirrors `MAX_MEMBER_SELECTION` in the server's `MemberService.kt`. */
+internal const val MEMBER_SELECTION_CAP = 5000
+
+/**
+ * The picker label of one person: the sanitized name, plus " (Status)" for everyone who is not ACTIVE (a withdrawn or deceased
+ * member can still have declarations). The status label comes from [memberStatusLabel]; the composition happens OUTSIDE
+ * `tr`/`gettext`, so a name can never become part of a translation key.
+ */
+internal fun memberSelectionLabel(member: MemberSelectionDto): String {
+    val name = sanitizeUntrustedI18nText(member.displayName)
+    return if (member.status == MemberStatus.ACTIVE) name else name + " (" + memberStatusLabel(member.status) + ")"
+}
 
 /** Visibility only -- the server decides (`VOLUNTEER_ALLOWANCE_DECISION_ROLES`) and rejects anyone else. */
 internal fun canViewOthersVolunteerAllowanceDeclarations(): Boolean = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
@@ -93,12 +107,12 @@ private fun renderOthersDisclosure(
         toggle.setAttribute("aria-expanded", open.toString())
         body.removeAll()
         if (!open) return@onClick
-        // `listMembers` is only loaded now, on expand -- and only ever reached by BOARD/ADMIN.
+        // `listMembersForSelection` is only loaded now, on expand -- and only ever reached by BOARD/ADMIN.
         body
-            .dataSection<List<MemberSummaryDto>>(
+            .dataSection<List<MemberSelectionDto>>(
                 emptyText = tr("Keine Mitglieder gefunden."),
                 isEmpty = { it.isEmpty() },
-                load = { guarded { rpc.listMembers() } },
+                load = { guarded { rpc.listMembersForSelection() } },
                 render = { panel, members -> renderOthersPicker(panel, rpc, members, thisYear) },
             ).reload()
     }
@@ -107,13 +121,16 @@ private fun renderOthersDisclosure(
 private fun renderOthersPicker(
     panel: SimplePanel,
     rpc: VolunteerAllowanceDeclarationsRpc,
-    members: List<MemberSummaryDto>,
+    members: List<MemberSelectionDto>,
     thisYear: Int,
 ) {
+    if (members.size >= MEMBER_SELECTION_CAP) {
+        panel.div(tr("Nicht alle Mitglieder werden angezeigt – bitte suchen.")) { addCssClasses("text-muted small") }
+    }
     val controls = panel.hPanel(spacing = 8) { addCssClass("align-items-end") }
     val memberSelect =
         controls.searchableSelect(
-            options = untrustedOptions(members.map { it.id to it.displayName }),
+            options = untrustedOptions(members.map { it.id to memberSelectionLabel(it) }),
             label = tr("Mitglied"),
         )
     val yearOptions = listOf("" to tr("Alle Jahre")) + (thisYear downTo thisYear - 6).map { it.toString() to it.toString() }

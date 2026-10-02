@@ -444,6 +444,25 @@ body {
   background-color: var(--lapis-nav-hover-bg);
 }
 
+/* V1.9.36: Kopfleisten-Umschlag mit Ungelesen-Pille (immer sichtbar, auch mit eingeklappter Seitenleiste). Mindestens 44x44 px
+   Trefferflaeche; die Pille ist absolut positioniert, damit die Kopfleiste nicht umbricht. Keine Animation, keine Transition. */
+.lapis-navbar-unread {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.lapis-unread-pill {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Mobile-Overflow-Fund 2026-09-09 (Live-Verifikation nach dem Vertical-Sidebar-Umbau): unter
    ~576px reicht die Breite nicht mehr für Branding-Logo + Text, Sidebar-Toggle, Sprachumschalter
    ("Globus DE") und Konto-/Login-Link ("Person Anmelden") nebeneinander -- live gemessen auf

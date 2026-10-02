@@ -16,6 +16,7 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.table.row
 import io.kvision.utils.px
+import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.DirectMessageDto
@@ -32,7 +33,7 @@ import network.lapis.cloud.shared.rpc.IMemberService
 
 /**
  * Carries forward the Mailinglisten/Postfach functionality the pre-V0.7.3 demo already exercised
- * (`listMailingLists`/`subscribe`/`unsubscribe`; the unread counter has lived in the sidebar since V1.9.34, see [UnreadMessages]) -- exactly the same calls, just
+ * (`listMailingLists`/`subscribe`/`unsubscribe`; the unread pill has lived in the navbar since V1.9.36, see [UnreadMessages]) -- exactly the same calls, just
  * re-hosted under real session auth instead of the removed "acting as" switcher. See V0.7.3 plan
  * "Open Question 3" for why this self-service tier was carried forward as-is rather than either
  * expanded or removed at the time.
@@ -57,7 +58,14 @@ fun renderCommunicationScreen(container: SimplePanel) {
     root.pageHeader(tr("Kommunikation"))
 
     val refreshMailingLists = renderMailingLists(root)
-    renderInbox(root)
+    // V1.9.36: the conversation partners load FIRST; the inbox is built only after that (it marks everything read on load).
+    val inboxHost = SimplePanel()
+    renderDirectMessagePartnerList(
+        root,
+        onFirstLoadSettled = { renderInbox(inboxHost) },
+        focusHeading = parseHashQueryParam(window.location.hash, "section") == MESSAGES_SECTION,
+    )
+    root.add(inboxHost)
 
     if (AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)) {
         renderMailingListAdminSection(root, refreshMailingLists)
@@ -242,22 +250,9 @@ private fun renderInboxMessageRow(
     row.untrustedDiv(message.body)
     row.conversationDisclosure(message.senderId, message.senderDisplayName)
     // Als gelesen markieren geschieht gebündelt in `renderInbox.refresh()` (markReadThenRefreshCounter), damit der
-    // Sidebar-Zähler erst NACH den Markierungen und nur einmal neu geladen wird.
+    // Ungelesen-Zähler erst NACH den Markierungen und nur einmal neu geladen wird.
 
-    val replyForm = row.lapisForm()
-    val replyField = replyForm.textAreaField(label = tr("Antwort"), rows = 2, required = true)
-    val replyButton = Button(tr("Antworten"), style = ButtonStyle.OUTLINEPRIMARY)
-    replyForm.buttons(primary = replyButton)
-    replyButton.onClick {
-        replyForm.submit(replyButton) {
-            val result = guarded { rpcService<IDirectMessageService>().sendDirectMessage(message.senderId, replyField.value.trim()) }
-            if (result != null) {
-                notifySuccess(tr("Antwort wurde gesendet."))
-                UnreadMessages.refresh()
-                onChanged()
-            }
-        }
-    }
+    row.directMessageReplyForm(message.senderId, onChanged)
 }
 
 // ================================================================================================

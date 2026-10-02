@@ -661,6 +661,9 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "EventRefundsSection.kt",
         "MemberEventPaymentUi.kt",
         "AuditMarkerLabels.kt",
+        // V1.9.36: the reply form extracted from the inbox row (born on the form grammar: `lapisForm`, `textAreaField`, `submit`); the
+        // partner list and the conversation view have no field and write only through `runGuardedAction`.
+        "DirectMessageReplyForm.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */

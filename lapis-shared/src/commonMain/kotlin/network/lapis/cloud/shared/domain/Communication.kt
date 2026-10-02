@@ -103,6 +103,30 @@ data class DirectMessageDto(
     val readAt: LocalDateTime?,
 )
 
+/** V1.9.36 -- one conversation partner of the caller: name, last activity and unread count; never any message text. */
+@Serializable
+data class DirectMessagePartnerDto(
+    val partnerId: String,
+    val partnerDisplayName: String,
+    val lastActivityAt: LocalDateTime,
+    val unreadCount: Int,
+)
+
+/** V1.9.36 -- keyset cursor of a conversation page: the oldest message of the previous page. */
+@Serializable
+data class DirectMessageCursorDto(
+    val sentAt: LocalDateTime,
+    val id: String,
+)
+
+/** V1.9.36 -- one page of a conversation, newest first. [nextCursor] is the last (oldest) message of this page, `null` if empty. */
+@Serializable
+data class DirectMessagePageDto(
+    val messages: List<DirectMessageDto>,
+    val hasMore: Boolean,
+    val nextCursor: DirectMessageCursorDto?,
+)
+
 /**
  * Welle V1.9.15 -- per-link aggregate of [MailingMessageStatsDto]. [uniqueRecipients]/[totalClicks]
  * are `null` when the click cohort is below

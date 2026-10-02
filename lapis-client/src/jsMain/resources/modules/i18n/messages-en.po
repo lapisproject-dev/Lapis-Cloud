@@ -19171,12 +19171,6 @@ msgstr "Hide history"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "No messages in this conversation yet."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "The newest 200 messages are shown."
-
-msgid "Kommunikation (%1)"
-msgstr "Communication (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "My declarations on the volunteer and instructor allowance"
 
@@ -19285,3 +19279,32 @@ msgstr "Money Laundering Act details changed"
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Refund recorded outside Lapis Cloud"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Messages, %1 unread"
+
+msgid "Gespräche"
+msgstr "Conversations"
+
+msgid "Noch keine Gespräche."
+msgstr "No conversations yet."
+
+msgid "%1 neu"
+msgstr "%1 new"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "The 100 most recently active conversations are shown."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Load older messages"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "Older messages are not shown here."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "Older messages could not be loaded."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "Not all members are shown – please search."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "The reply could not be sent."

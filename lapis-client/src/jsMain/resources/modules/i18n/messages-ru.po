@@ -19209,12 +19209,6 @@ msgstr "Скрыть историю"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "В этой переписке пока нет сообщений."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "Показаны 200 последних сообщений."
-
-msgid "Kommunikation (%1)"
-msgstr "Коммуникация (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "Мои заявления о пособии для волонтёров и инструкторов"
 
@@ -19323,3 +19317,32 @@ msgstr "Данные по закону о борьбе с отмыванием �
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Возврат зафиксирован вне Lapis Cloud"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Сообщения, непрочитанных: %1"
+
+msgid "Gespräche"
+msgstr "Беседы"
+
+msgid "Noch keine Gespräche."
+msgstr "Бесед пока нет."
+
+msgid "%1 neu"
+msgstr "%1 новых"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "Показаны 100 последних активных бесед."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Загрузить более старые сообщения"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "Более старые сообщения здесь не показываются."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "Не удалось загрузить более старые сообщения."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "Показаны не все члены – воспользуйтесь поиском."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "Не удалось отправить ответ."

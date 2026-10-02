@@ -238,3 +238,11 @@ data class TemporaryPasswordResultDto(
 data class PasswordResetMailResultDto(
     val delivery: MailDeliveryState,
 )
+
+/** V1.9.36 -- minimal picker projection for the volunteer-allowance declarations overview (BOARD/ADMIN only, all statuses). */
+@Serializable
+data class MemberSelectionDto(
+    val id: String,
+    val displayName: String,
+    val status: MemberStatus,
+)

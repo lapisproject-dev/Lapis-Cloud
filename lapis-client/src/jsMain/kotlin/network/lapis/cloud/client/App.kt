@@ -538,10 +538,14 @@ internal fun refreshNavbar(
     }
 
     val rightNav: Nav = navbar.nav(rightAlign = true)
+    // V1.9.36: the unread envelope comes first, so it sits before the theme toggle / language / account on every width. A rebuilt
+    // navbar re-registers under the same key and so replaces the old display.
+    session?.let { rightNav.navbarUnreadIndicator(it) }
     addThemeToggle(rightNav)
     addLanguageSwitcher(rightNav, onLanguageChange)
 
     if (session == null) {
+        UnreadMessages.clear()
         // Design-Team-Review Runde 6 (2026-09-08): shown unconditionally whenever there is no
         // session -- NOT only during the brief boot-time probe gap. `Routing.kt`'s `requireAuth`/
         // `requireRole` redirect every OTHER route to `Routes.LOGIN` on a missing session, but

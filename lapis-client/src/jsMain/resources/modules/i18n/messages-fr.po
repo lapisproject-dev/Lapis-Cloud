@@ -19282,12 +19282,6 @@ msgstr "Masquer l'historique"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "Aucun message dans cette conversation pour l'instant."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "Les 200 messages les plus récents sont affichés."
-
-msgid "Kommunikation (%1)"
-msgstr "Communication (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "Mes déclarations relatives à l'indemnité de bénévolat et de formateur"
 
@@ -19396,3 +19390,32 @@ msgstr "Informations au titre de la loi sur le blanchiment d'argent modifiées"
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Remboursement consigné en dehors de Lapis Cloud"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Messages, %1 non lus"
+
+msgid "Gespräche"
+msgstr "Conversations"
+
+msgid "Noch keine Gespräche."
+msgstr "Pas encore de conversations."
+
+msgid "%1 neu"
+msgstr "%1 nouveau(x)"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "Les 100 conversations les plus récemment actives sont affichées."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Charger les messages plus anciens"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "Les messages plus anciens ne sont pas affichés ici."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "Les messages plus anciens n'ont pas pu être chargés."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "Tous les membres ne sont pas affichés – veuillez effectuer une recherche."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "La réponse n'a pas pu être envoyée."

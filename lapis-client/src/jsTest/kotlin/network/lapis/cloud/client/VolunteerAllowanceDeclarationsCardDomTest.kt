@@ -5,14 +5,17 @@ import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MemberSelectionDto
 import network.lapis.cloud.shared.domain.MemberStatus
-import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.domain.VolunteerAllowanceCategory
 import network.lapis.cloud.shared.domain.VolunteerAllowanceDeclarationSource
 import network.lapis.cloud.shared.domain.VolunteerAllowanceSelfDeclarationDto
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,7 +25,7 @@ import kotlin.test.assertTrue
 private class FakeDeclarationsRpc(
     var own: List<VolunteerAllowanceSelfDeclarationDto> = emptyList(),
     var others: List<VolunteerAllowanceSelfDeclarationDto> = emptyList(),
-    var members: List<MemberSummaryDto> = emptyList(),
+    var members: List<MemberSelectionDto> = emptyList(),
 ) : VolunteerAllowanceDeclarationsRpc {
     val declarationCalls = mutableListOf<Pair<String?, Int?>>()
     var memberCalls = 0
@@ -37,7 +40,7 @@ private class FakeDeclarationsRpc(
         return if (memberId == null) own else others
     }
 
-    override suspend fun listMembers(): List<MemberSummaryDto> {
+    override suspend fun listMembersForSelection(): List<MemberSelectionDto> {
         memberCalls++
         return members
     }
@@ -135,7 +138,7 @@ class VolunteerAllowanceDeclarationsCardDomTest {
     }
 
     @Test
-    fun aMember_getsNoBoardSection_andListMembersIsNeverCalled(): Promise<Unit> {
+    fun aMember_getsNoBoardSection_andTheSelectionIsNeverLoaded(): Promise<Unit> {
         val rpc = FakeDeclarationsRpc(own = listOf(declaration(2026, VolunteerAllowanceDeclarationSource.IN_APP)))
         return withCard("decl-member", rpc) { el ->
             awaitUntil("rows") { el().allOf("tbody tr").size == 1 }
@@ -150,7 +153,11 @@ class VolunteerAllowanceDeclarationsCardDomTest {
         val rpc =
             FakeDeclarationsRpc(
                 others = listOf(declaration(2024, VolunteerAllowanceDeclarationSource.ON_PAPER, recordedBy = "###KvI18nS###Fake Name")),
-                members = listOf(MemberSummaryDto("member-9", "###KvI18nS###Evil Member"), MemberSummaryDto("member-8", "Ole Voss")),
+                members =
+                    listOf(
+                        MemberSelectionDto("member-9", "###KvI18nS###Evil Member", MemberStatus.ACTIVE),
+                        MemberSelectionDto("member-8", "Ole Voss", MemberStatus.ACTIVE),
+                    ),
             )
         return withCard("decl-board", rpc, AccountRole.BOARD) { el ->
             awaitUntil("own load") { rpc.declarationCalls.isNotEmpty() }
@@ -188,6 +195,51 @@ class VolunteerAllowanceDeclarationsCardDomTest {
         return withCard("decl-fail", rpc) { el ->
             awaitUntil("error state") { el().textContent.orEmpty().contains("Die Daten konnten nicht geladen werden.") }
             assertFalse(el().textContent.orEmpty().contains("secret-server-text"))
+        }
+    }
+
+    private fun HTMLElement.optionLabels(label: String): List<String> {
+        val input = controlOf(label) as HTMLInputElement
+        input.click()
+        val labels = (input.closest(".lapis-ssel") as HTMLElement).allOf("[role=option]").map { it.textContent.orEmpty().trim() }
+        input.dispatchEvent(
+            KeyboardEvent("keydown", KeyboardEventInit(key = "Escape", bubbles = true, cancelable = true)),
+        )
+        return labels
+    }
+
+    @Test
+    fun theLabelCarriesTheStatusOnlyForNonActiveMembers(): Promise<Unit> {
+        val rpc =
+            FakeDeclarationsRpc(
+                members =
+                    listOf(
+                        MemberSelectionDto("m-1", "Anna Aktiv", MemberStatus.ACTIVE),
+                        MemberSelectionDto("m-2", "Willi Weg", MemberStatus.WITHDRAWN),
+                        MemberSelectionDto("m-3", "###KvI18nS###Mallory", MemberStatus.DECEASED),
+                    ),
+            )
+        return withCard("decl-status", rpc, AccountRole.ADMIN) { el ->
+            el().buttonNamed("Erklärungen anderer Mitglieder ansehen").click()
+            awaitUntil("members loaded") { rpc.memberCalls == 1 && el().textContent.orEmpty().contains("Bitte ein Mitglied wählen.") }
+            val labels = el().optionLabels("Mitglied")
+            assertTrue("Anna Aktiv" in labels, labels.toString())
+            assertTrue("Willi Weg (${memberStatusLabel(MemberStatus.WITHDRAWN)})" in labels, labels.toString())
+            assertTrue(labels.any { it.startsWith("Mallory (") }, labels.toString())
+            assertFalse(labels.any { it.contains("###KvI18nS###") })
+            assertEquals(listOf("Anna Aktiv"), labels.filter { !it.contains("(") && it.startsWith("Anna") })
+        }
+    }
+
+    @Test
+    fun atTheSelectionCap_theSearchHintIsShown(): Promise<Unit> {
+        val rpc =
+            FakeDeclarationsRpc(
+                members = (1..MEMBER_SELECTION_CAP).map { MemberSelectionDto("m-$it", "Person $it", MemberStatus.ACTIVE) },
+            )
+        return withCard("decl-selcap", rpc, AccountRole.BOARD) { el ->
+            el().buttonNamed("Erklärungen anderer Mitglieder ansehen").click()
+            awaitUntil("hint") { el().textContent.orEmpty().contains("Nicht alle Mitglieder werden angezeigt") }
         }
     }
 }

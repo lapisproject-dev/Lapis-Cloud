@@ -18304,12 +18304,6 @@ msgstr ""
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr ""
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr ""
-
-msgid "Kommunikation (%1)"
-msgstr ""
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr ""
 
@@ -18418,3 +18412,32 @@ msgstr ""
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr ""
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr ""
+
+msgid "Gespräche"
+msgstr ""
+
+msgid "Noch keine Gespräche."
+msgstr ""
+
+msgid "%1 neu"
+msgstr ""
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr ""
+
+msgid "Ältere Nachrichten laden"
+msgstr ""
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr ""
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr ""
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr ""
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr ""

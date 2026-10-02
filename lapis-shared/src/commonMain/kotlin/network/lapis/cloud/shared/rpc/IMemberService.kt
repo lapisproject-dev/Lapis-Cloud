@@ -10,6 +10,7 @@ import network.lapis.cloud.shared.domain.MemberAdminQuery
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberCardReissueResultDto
 import network.lapis.cloud.shared.domain.MemberDto
+import network.lapis.cloud.shared.domain.MemberSelectionDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
@@ -524,4 +525,10 @@ interface IMemberService {
      * 30 calls per 60 minutes per actor. Unknown or anonymized members -> [NotFoundException].
      */
     suspend fun getMemberAddressForAdministration(memberId: String): MemberAddressDataDto
+
+    /**
+     * V1.9.36 -- BOARD/ADMIN only (the roles that may read another member's volunteer-allowance declarations). All statuses,
+     * anonymized members excluded, displayName ASC, id ASC, at most 5000.
+     */
+    suspend fun listMembersForSelection(): List<MemberSelectionDto>
 }

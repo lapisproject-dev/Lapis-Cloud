@@ -19219,12 +19219,6 @@ msgstr "Geschiedenis verbergen"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "Nog geen berichten in dit gesprek."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "De nieuwste 200 berichten worden getoond."
-
-msgid "Kommunikation (%1)"
-msgstr "Communicatie (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "Mijn verklaringen over de vrijwilligers- en trainersvergoeding"
 
@@ -19333,3 +19327,32 @@ msgstr "Gegevens volgens de witwaswet gewijzigd"
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Terugbetaling buiten Lapis Cloud om vastgelegd"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Berichten, %1 ongelezen"
+
+msgid "Gespräche"
+msgstr "Gesprekken"
+
+msgid "Noch keine Gespräche."
+msgstr "Nog geen gesprekken."
+
+msgid "%1 neu"
+msgstr "%1 nieuw"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "De 100 meest recent actieve gesprekken worden getoond."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Oudere berichten laden"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "Oudere berichten worden hier niet getoond."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "Oudere berichten konden niet worden geladen."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "Niet alle leden worden getoond – gebruik de zoekfunctie."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "Het antwoord kon niet worden verzonden."

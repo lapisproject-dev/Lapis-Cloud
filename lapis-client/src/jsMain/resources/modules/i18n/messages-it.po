@@ -19264,12 +19264,6 @@ msgstr "Nascondi cronologia"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "Ancora nessun messaggio in questa conversazione."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "Vengono mostrati i 200 messaggi più recenti."
-
-msgid "Kommunikation (%1)"
-msgstr "Comunicazione (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "Le mie dichiarazioni sull'indennità per volontariato e istruttori"
 
@@ -19378,3 +19372,32 @@ msgstr "Dati ai sensi della legge antiriciclaggio modificati"
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Rimborso registrato al di fuori di Lapis Cloud"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Messaggi, %1 non letti"
+
+msgid "Gespräche"
+msgstr "Conversazioni"
+
+msgid "Noch keine Gespräche."
+msgstr "Ancora nessuna conversazione."
+
+msgid "%1 neu"
+msgstr "%1 nuovi"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "Vengono mostrate le 100 conversazioni attive più di recente."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Carica messaggi meno recenti"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "I messaggi meno recenti non vengono mostrati qui."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "Impossibile caricare i messaggi meno recenti."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "Non tutti i membri vengono mostrati – utilizzare la ricerca."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "Impossibile inviare la risposta."

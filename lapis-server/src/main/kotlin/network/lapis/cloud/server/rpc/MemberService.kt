@@ -59,6 +59,7 @@ import network.lapis.cloud.shared.domain.MemberAdminSort
 import network.lapis.cloud.shared.domain.MemberCardReissueResultDto
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberDto
+import network.lapis.cloud.shared.domain.MemberSelectionDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
@@ -362,6 +363,30 @@ class MemberService(
                 nationality = row[MemberTable.nationality],
                 dateOfDeath = row[MemberTable.dateOfDeath],
             )
+        }
+    }
+
+    /**
+     * V1.9.36 -- picker projection for the volunteer-allowance declarations overview. The role check runs BEFORE any database
+     * access; `memberVisibility` is deliberately not used (a chapter officer with role MEMBER is rejected). Anonymized members are
+     * excluded (they would all be named alike). Minimal fields only; at most [MAX_MEMBER_SELECTION] rows.
+     */
+    override suspend fun listMembersForSelection(): List<MemberSelectionDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*VOLUNTEER_ALLOWANCE_DECISION_ROLES)
+        return transaction {
+            MemberTable
+                .select(MemberTable.id, MemberTable.displayName, MemberTable.status)
+                .where { MemberTable.anonymizedAt.isNull() }
+                .orderBy(MemberTable.displayName to SortOrder.ASC, MemberTable.id to SortOrder.ASC)
+                .limit(MAX_MEMBER_SELECTION)
+                .map {
+                    MemberSelectionDto(
+                        id = it[MemberTable.id].toString(),
+                        displayName = it[MemberTable.displayName],
+                        status = it[MemberTable.status],
+                    )
+                }
         }
     }
 
@@ -1807,6 +1832,9 @@ fun ResultRow.toMemberDto(): MemberDto =
         dateOfDeath = this[MemberTable.dateOfDeath],
         regionalChapterId = this[MemberTable.regionalChapterId]?.toString(),
     )
+
+/** Welle V1.9.36 -- upper bound of [MemberService.listMembersForSelection]. */
+internal const val MAX_MEMBER_SELECTION = 5000
 
 /** Welle V1.9.33 -- value-free audit markers for the self-service address / GwG edits. */
 internal const val MEMBER_ADDRESS_AUDIT_UPDATED = AuditMarkers.MEMBER_ADDRESS_UPDATED

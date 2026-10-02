@@ -8,6 +8,16 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Known gaps, part 2: conversations, history paging, header unread counter, volunteer-allowance member picker** (V1.9.36): (1) "Gespräche" on
+  the communication screen lists everyone you have exchanged messages with (name, last activity, "n neu"), without any message text; opening a row
+  shows the conversation and a reply form (`listConversationPartners`). (2) The history is paged by keyset (`listConversationPage`, newest 50 first,
+  "Ältere Nachrichten laden", up to 1000 in the client) instead of the newest 200. (3) `markConversationRead` marks a whole conversation read in one
+  call -- a named scope extension: with paging the view no longer holds all ids, and one atomic `UPDATE` replaces N calls. (4) The unread count
+  moved from the sidebar to a navbar envelope with a pill ("99+" from 100), visible on every width; it refreshes on route change and, throttled
+  to 30 s, on tab return -- still no timer. (5) The volunteer-allowance picker offers all members, withdrawn and deceased included, anonymized
+  excluded (`listMembersForSelection`, BOARD/ADMIN only, at most 5000). No migration. Documentation: `docs/architecture/direct-messages.adoc`,
+  `volunteer-allowance.adoc`, staging plan (not executed).
+
 - **Known gaps, part 1: refunds, continue payment, board access to GwG data** (V1.9.35): (1) the event management screen shows "Offene
   Erstattungen" for BOARD/ADMIN -- paid registrations that were withdrawn (or expired after a late payment) and not yet marked; "Als erstattet
   markieren" records that the refund was paid OUTSIDE Lapis Cloud (it moves no money and posts no booking; migration `V66`, columns
@@ -43,6 +53,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- V1.9.36 direct messages: `listConversationPartners`, `listConversationPage` and `markConversationRead` are anchored on the caller's own id in every
+  query and run `requireActiveMembership` first (no path for the board to read others' messages). No existence oracle: an unknown or foreign member id
+  gives an empty page or 0, a malformed id a uniform `BadRequestException` that does not echo the input. All limits are clamped on the server
+  (partners and page 1..100); the tab-return refresh is throttled by a timestamp, there is no polling. `listMembersForSelection` checks the role
+  (BOARD/ADMIN, the same constant as `listDeclarations`) before any database access, returns only id, name and status and caps at 5000. Names and texts reach the
+  screen only through the sanitizing helpers; no personal data in the URL (`?section=messages`), storage, console or toasts. The tripwires were
+  extended (new files, interval and animation-frame timers, the tab-return listeners only with the throttle).
+
 - `getMemberAddressForAdministration` (V1.9.35): the role check runs before the id is parsed or looked up (no existence oracle, no rate budget
   used by a refused caller), the audit entry is written in the same transaction as the read (no read without an entry), one shared singleton limiter
   (30 per 60 minutes per actor), no field value or member id in logs, exceptions, toasts, storage or the URL. Anonymized members are `NotFound`.
@@ -73,6 +91,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- V1.9.36: the inbox stays next to the conversation list and still marks everything read when it loads, so the "n neu" hint of the list is a snapshot
+  of the state since the last visit (the list therefore loads first). No message preview, at most 100 conversations in the list and 1000 messages per
+  conversation in the client. A reply to a member who is no longer active is refused by the server (one general sentence on the form). The picker offers at most
+  5000 people and never anonymized members. No real-time push: the pill refreshes on navigation and on tab return (at most every 30 s). Staging was not executed (staging plan,
+  section V1.9.36).
 - V1.9.35: the refund stays manual. Lapis Cloud pays nothing out and **books no refund** (the treasurer still books it by hand and does not see the
   list: it is BOARD/ADMIN, like the participant data). Marking cannot be undone; a correction is only visible in the audit log. A member sees the
   refund state only for upcoming events (list capped at 50) and only for the newest own registration per event. Guests learn nothing about the refund

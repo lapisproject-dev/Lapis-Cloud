@@ -37,6 +37,8 @@ class NavbarAccountMenuDomTest {
         block: (() -> HTMLElement) -> T,
     ): T =
         withMountedRoot(id) { root, element ->
+            // V1.9.36: the navbar carries the unread envelope -- never let it reach a real RPC.
+            UnreadMessages.rpc = UnreadCountRpc { 0 }
             AppState.setSession(session)
             try {
                 val navbar = root.navbar(label = "Lapis", expand = NavbarExpand.ALWAYS, className = "lapis-navbar")
@@ -45,6 +47,7 @@ class NavbarAccountMenuDomTest {
                 block(element)
             } finally {
                 AppState.setSession(null)
+                UnreadMessages.resetForTest()
             }
         }
 

@@ -19218,12 +19218,6 @@ msgstr "Ukryj historię"
 msgid "Noch keine Nachrichten in diesem Verlauf."
 msgstr "W tej rozmowie nie ma jeszcze wiadomości."
 
-msgid "Es werden die neuesten 200 Nachrichten angezeigt."
-msgstr "Wyświetlanych jest 200 najnowszych wiadomości."
-
-msgid "Kommunikation (%1)"
-msgstr "Komunikacja (%1)"
-
 msgid "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 msgstr "Moje oświadczenia dotyczące ryczałtu dla wolontariuszy i instruktorów"
 
@@ -19332,3 +19326,32 @@ msgstr "Dane zgodnie z ustawą o przeciwdziałaniu praniu pieniędzy zmieniono"
 msgid "Erstattung außerhalb von Lapis Cloud vermerkt"
 msgstr "Zwrot odnotowany poza Lapis Cloud"
 
+msgid "Nachrichten, %1 ungelesen"
+msgstr "Wiadomości, nieprzeczytane: %1"
+
+msgid "Gespräche"
+msgstr "Rozmowy"
+
+msgid "Noch keine Gespräche."
+msgstr "Brak rozmów."
+
+msgid "%1 neu"
+msgstr "%1 nowych"
+
+msgid "Es werden die 100 zuletzt aktiven Gespräche angezeigt."
+msgstr "Wyświetlane jest 100 ostatnio aktywnych rozmów."
+
+msgid "Ältere Nachrichten laden"
+msgstr "Wczytaj starsze wiadomości"
+
+msgid "Ältere Nachrichten werden hier nicht angezeigt."
+msgstr "Starsze wiadomości nie są tutaj wyświetlane."
+
+msgid "Ältere Nachrichten konnten nicht geladen werden."
+msgstr "Nie udało się wczytać starszych wiadomości."
+
+msgid "Nicht alle Mitglieder werden angezeigt – bitte suchen."
+msgstr "Nie wszyscy członkowie są wyświetlani – użyj wyszukiwania."
+
+msgid "Die Antwort konnte nicht gesendet werden."
+msgstr "Nie udało się wysłać odpowiedzi."

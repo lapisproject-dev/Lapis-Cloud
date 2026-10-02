@@ -183,11 +183,21 @@ triple; a declaration for year X does not cover year X+1.
 The screen "Ehrenamts- und Übungsleiterpauschalen" ends with a card "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
 (`VolunteerAllowanceDeclarationsCard.kt`): a table of the caller's own declarations over all years (year, kind, how and when it was given --
 "In der App" / "Auf Papier" --, signed on, recorded by). BOARD and ADMIN additionally get a collapsed "Erklärungen anderer Mitglieder
-ansehen": the member list (`listMembers`) is loaded only on expand, then a member and an optional year are chosen. The list shows **only which
+ansehen": the member list is loaded only on expand (V1.9.36: `listMembersForSelection`, see below), then a member and an optional year are chosen. The list shows **only which
 declarations exist** -- it calls neither `getYearStatus` nor `getVolunteerAllowanceConfig`, and shows no amount, no cap, no sum and no
 "missing" column; those stay with the payment. The server caps the list at 200 rows (`MAX_LIST_RESULTS`), and the card says so and asks to
 filter by year. The role check in the client is visibility only: `listDeclarations(someoneElse)` is refused by the server for anyone but
 BOARD/ADMIN.
+
+=== Member picker (V1.9.36)
+
+The picker of "Erklärungen anderer Mitglieder ansehen" no longer uses `listMembers` (which offers only active members). `IMemberService.listMembersForSelection()`
+returns `id`, `displayName` and `status` of **all** members regardless of status (a withdrawn or deceased member can still have declarations;
+so can a non-member trainer), ordered by `displayName`, then `id`, at most 5000 (`MAX_MEMBER_SELECTION`). Anonymized members are excluded: they
+would all be called "Geloeschtes Mitglied" and could not be told apart. Only BOARD and ADMIN may call it -- the same `VOLUNTEER_ALLOWANCE_DECISION_ROLES` that
+guard `listDeclarations` for another member; the role is checked **before** any database access, and `memberVisibility` is deliberately not used
+(a chapter officer with role MEMBER is refused). The label is the sanitized name, plus " (Status)" for everyone who is not ACTIVE
+(`memberSelectionLabel`, composed outside `tr`/`gettext`). At 5000 entries the card says not all members are shown and asks to search.
 
 == Booking (`VolunteerAllowancePostingBridge`)
 
