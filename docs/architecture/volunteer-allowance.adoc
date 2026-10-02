@@ -178,6 +178,17 @@ paper declaration on behalf of someone else -- `recordedBy` must differ from the
 and `signedOn` is mandatory). `uq_vasd_member_category_year` enforces at most one declaration per
 triple; a declaration for year X does not cover year X+1.
 
+=== Declarations overview (V1.9.34)
+
+The screen "Ehrenamts- und Übungsleiterpauschalen" ends with a card "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale"
+(`VolunteerAllowanceDeclarationsCard.kt`): a table of the caller's own declarations over all years (year, kind, how and when it was given --
+"In der App" / "Auf Papier" --, signed on, recorded by). BOARD and ADMIN additionally get a collapsed "Erklärungen anderer Mitglieder
+ansehen": the member list (`listMembers`) is loaded only on expand, then a member and an optional year are chosen. The list shows **only which
+declarations exist** -- it calls neither `getYearStatus` nor `getVolunteerAllowanceConfig`, and shows no amount, no cap, no sum and no
+"missing" column; those stay with the payment. The server caps the list at 200 rows (`MAX_LIST_RESULTS`), and the card says so and asks to
+filter by year. The role check in the client is visibility only: `listDeclarations(someoneElse)` is refused by the server for anyone but
+BOARD/ADMIN.
+
 == Booking (`VolunteerAllowancePostingBridge`)
 
 [cols="1,1"]
@@ -239,3 +250,10 @@ See the README's own "Volunteer/instructor allowance" section for the full list 
 boundaries (no configurable/jahresbezogene Deckel, no automated Lohnsteuer withholding for the
 exceeding portion, no cross-organization cap awareness, no payout/payment run, single EXPENSE
 account for both categories).
+
+The member picker of the BOARD/ADMIN view is filled from `listMembers`, which returns **active members only**. The declarations of a suspended or
+departed member (for example a look back at a past on-paper declaration) cannot be reached through the overview, although the server's
+`listDeclarations(memberId)` would serve them; a picker that includes non-active members is a follow-up.
+
+The declarations overview (V1.9.34) is a plain list: no filter by category, no export, no paging beyond the 200-row cap, and it is loaded once when
+the screen opens (it reloads after a declaration is written from the same screen).

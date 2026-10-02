@@ -1667,3 +1667,15 @@ xref:member-photo.adoc[member-photo.adoc] for the pipeline, consent and public-r
 **DSGVO**: `MemberPhotoPersonalData` -- export with the image, never the token; hard delete of row and file.
 
 **Admin backup**: `member_photo` is in `OrganizationSchemaCatalog.EXCLUDED_TABLES`, not in `BLOB_TABLES`.
+
+== V1.9.34 -- Quorum display is informational
+
+The meetings screen shows a quorum row in two places (the attendance section and the protocol preview, `renderQuorumRow` in
+`MeetingsScreen.kt`): a badge ("Quorum erreicht" / "Quorum nicht erreicht") and the numbers "x von y anwesend (erforderlich: z, p%)". Both come
+from `getMeetingDetail`, which computes them on the server (`computeQuorum`); the separate RPCs `getAttendance` and `checkQuorum` are not
+called by the client.
+
+Since V1.9.34 the badge is `secondary` when the quorum is reached and `warning` when it is not (`quorumBadgeColor`) -- never `success`/`danger`.
+Green means "a resolution was accepted" everywhere else in this screen, and a quorum is only a precondition for a vote, not a result. One
+always-visible sentence under the row says so ("Quorum heißt: ... Diese Anzeige ist keine rechtliche Bewertung."): it makes no legal statement,
+shows no time and has no button. The resolution result stays the only place that says whether a motion was carried.

@@ -32,7 +32,7 @@ import network.lapis.cloud.shared.rpc.IMemberService
 
 /**
  * Carries forward the Mailinglisten/Postfach functionality the pre-V0.7.3 demo already exercised
- * (`listMailingLists`/`subscribe`/`unsubscribe`/`unreadCount`) -- exactly the same calls, just
+ * (`listMailingLists`/`subscribe`/`unsubscribe`; the unread counter has lived in the sidebar since V1.9.34, see [UnreadMessages]) -- exactly the same calls, just
  * re-hosted under real session auth instead of the removed "acting as" switcher. See V0.7.3 plan
  * "Open Question 3" for why this self-service tier was carried forward as-is rather than either
  * expanded or removed at the time.
@@ -218,9 +218,11 @@ private fun renderInbox(root: SimplePanel) {
             val messages = guarded { rpcService<IDirectMessageService>().listInbox() } ?: return@launch
             if (messages.isEmpty()) {
                 panel.p(tr("Noch keine Nachrichten."))
+                markReadThenRefreshCounter(emptyList())
                 return@launch
             }
             messages.forEach { message -> renderInboxMessageRow(panel, message, ::refresh) }
+            markReadThenRefreshCounter(messages.filter { it.readAt == null }.map { it.id })
         }
     }
     refresh()
@@ -238,15 +240,9 @@ private fun renderInboxMessageRow(
     if (unread) headerRow.statusBadge(tr("Ungelesen"), "primary")
     headerRow.div(formatDateTime(message.sentAt)) { addCssClasses("text-muted small") }
     row.untrustedDiv(message.body)
-
-    if (unread) {
-        // Als gelesen markieren, sobald die Nachricht gerendert wird -- ein zweiter Aufruf (z. B.
-        // beim nächsten refresh()) ist ein wirkungsloses No-op auf Serverseite. Kein Knopf zum
-        // Doppelklick-Schützen (feuert beim Rendern, nicht bei einem Klick) -- `runGuardedAction(null)`
-        // trotzdem verwendet, damit R29 (Schreibzugriffe außerhalb eines Guards) diesen Aufruf nicht
-        // als ungeschützt zählt.
-        runGuardedAction(null) { guarded { rpcService<IDirectMessageService>().markRead(message.id) } }
-    }
+    row.conversationDisclosure(message.senderId, message.senderDisplayName)
+    // Als gelesen markieren geschieht gebündelt in `renderInbox.refresh()` (markReadThenRefreshCounter), damit der
+    // Sidebar-Zähler erst NACH den Markierungen und nur einmal neu geladen wird.
 
     val replyForm = row.lapisForm()
     val replyField = replyForm.textAreaField(label = tr("Antwort"), rows = 2, required = true)
@@ -257,6 +253,7 @@ private fun renderInboxMessageRow(
             val result = guarded { rpcService<IDirectMessageService>().sendDirectMessage(message.senderId, replyField.value.trim()) }
             if (result != null) {
                 notifySuccess(tr("Antwort wurde gesendet."))
+                UnreadMessages.refresh()
                 onChanged()
             }
         }

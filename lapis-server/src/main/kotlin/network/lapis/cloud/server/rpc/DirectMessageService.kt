@@ -20,6 +20,9 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
+/** Welle V1.9.34 -- upper bound of [DirectMessageService.listConversation]: the newest 200 messages of one conversation. */
+internal const val MAX_CONVERSATION_MESSAGES = 200
+
 /**
  * Content is only ever visible to sender and recipient — see [IDirectMessageService] KDoc.
  * Every query here filters by (senderId = current OR recipientId = current); there is no
@@ -72,6 +75,7 @@ class DirectMessageService(
                     ((DirectMessageTable.senderId eq current.memberId) and (DirectMessageTable.recipientId eq other)) or
                         ((DirectMessageTable.senderId eq other) and (DirectMessageTable.recipientId eq current.memberId))
                 }.orderBy(DirectMessageTable.sentAt, SortOrder.DESC)
+                .limit(MAX_CONVERSATION_MESSAGES)
                 .map { it.toDirectMessageDto() }
         }
     }

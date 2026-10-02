@@ -58,8 +58,10 @@ fun renderVolunteerAllowanceScreen(
     val editorPanel = root.vPanel(spacing = 10)
     root.h2(tr("Meine Zahlungen")) { addCssClasses("h5 mt-3") }
     val listPanel = root.vPanel(spacing = 10)
+    var declarations: DataSection? = null
 
     fun reload() {
+        declarations?.reload()
         editorPanel.removeAll()
         listPanel.removeAll()
         AppScope.launch {
@@ -100,6 +102,7 @@ fun renderVolunteerAllowanceScreen(
         }
     }
     reload()
+    declarations = renderVolunteerAllowanceDeclarationsCard(root)
 }
 
 private fun renderConfigBanner(

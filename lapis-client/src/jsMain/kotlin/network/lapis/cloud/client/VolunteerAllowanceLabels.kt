@@ -136,3 +136,10 @@ fun volunteerAllowancePostingErrorMessage(raw: String?): String {
             tr("Die Zahlung hat sich seit der Genehmigung verändert und kann so nicht gebucht werden.")
     }
 }
+
+/** Welle V1.9.34 -- label of how a declaration was given (declarations overview). */
+fun volunteerAllowanceDeclarationSourceLabel(source: VolunteerAllowanceDeclarationSource): String =
+    when (source) {
+        VolunteerAllowanceDeclarationSource.IN_APP -> tr("In der App")
+        VolunteerAllowanceDeclarationSource.ON_PAPER -> tr("Auf Papier")
+    }

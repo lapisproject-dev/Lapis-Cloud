@@ -1003,7 +1003,8 @@ private fun renderProtocolPreview(
 /** Design decision D4: solid pass/fail badge, immediately followed by plain numbers -- no
  * checkmark/✕ icon (the German label already carries the signal, no icon-font precedent exists
  * in this codebase besides the one deliberately-scoped `GuestBadge` SVG). Reused verbatim by both
- * [renderAttendanceSection] and [renderProtocolPreview] (design decision D5). */
+ * [renderAttendanceSection] and [renderProtocolPreview] (design decision D5). Colour since V1.9.34:
+ * `secondary` (reached) / `warning` (not reached) -- see [quorumBadgeColor]; green stays reserved for "accepted". */
 private fun renderQuorumRow(
     panel: SimplePanel,
     quorum: QuorumResultDto,
@@ -1011,7 +1012,7 @@ private fun renderQuorumRow(
     val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     row.statusBadge(
         if (quorum.met) tr("Quorum erreicht") else tr("Quorum nicht erreicht"),
-        if (quorum.met) "success" else "danger",
+        quorumBadgeColor(quorum.met),
     )
     row.div(
         gettext(
@@ -1022,6 +1023,7 @@ private fun renderQuorumRow(
             quorum.quorumPercent,
         ),
     )
+    panel.quorumExplanation()
 }
 
 /**

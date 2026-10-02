@@ -1,0 +1,39 @@
+= Staging test plan: quorum hint, direct-message history and counter, declarations overview (V1.9.34)
+:toc:
+
+== Purpose
+
+Everything in V1.9.34 is covered by unit, DOM and tripwire tests against stubbed servers. What only a real server can show: the real quorum
+numbers of a meeting, the unread counter against real messages on two devices, the 200-message cap against real data and the role check of the
+declarations list. This plan is the mandatory part of the wave's acceptance. It was **not executed** by the author of the wave: nothing was
+deployed, so every row of "Actual result" is still open.
+
+== Set-up
+
+. Two ACTIVE members (A and B) who can be logged in on two devices or browser profiles at the same time, one BOARD account, one ACTIVE member without a role.
+. A meeting with at least five eligible members, attendance not yet recorded.
+. For the cap: 205 messages between A and B (script or the reply form).
+. Browser language German for the first pass, English for the last step.
+
+== Steps
+
+[cols="1,4,4,3", options="header"]
+|===
+| # | Action | Expected | Actual result
+| 1 | Open the meeting, record fewer present members than required | badge "Quorum nicht erreicht" in **yellow** (`warning`), the numbers, and under the row the sentence "Quorum heißt: ..." | open
+| 2 | Record enough members present | badge "Quorum erreicht" in **grey** (`secondary`), never green; the same sentence | open
+| 3 | Open the protocol preview | same badge colour and the same sentence as in step 2 | open
+| 4 | B sends A two messages; A reloads the page | sidebar shows "Kommunikation (2)" until the inbox is opened | open
+| 5 | A opens "Kommunikation" | the two messages show as unread, then the sidebar drops to "Kommunikation" (no number) without a reload | open
+| 6 | B sends a third message while A stays on the page | nothing changes by itself (no polling); after A navigates to another screen (route change) the counter shows "(1)" | open
+| 7 | A clicks "Verlauf anzeigen" below a message of B | the whole conversation, oldest first, own messages labelled "Sie"; the button now reads "Verlauf ausblenden" | open
+| 8 | A collapses and expands again | content disappears, then loads again (watch the network tab: one `listConversation` call per expand, none while closed) | open
+| 9 | With 205 messages between A and B, open the history | exactly the newest 200, the note "Es werden die neuesten 200 Nachrichten angezeigt." | open
+| 10 | A replies | toast "Antwort wurde gesendet."; the toast contains no message text | open
+| 11 | Member without a role opens "Ehrenamts- und Übungsleiterpauschalen" | the card "Meine Erklärungen ..." with the own declarations (or "Keine Erklärung erfasst."); no "Erklärungen anderer Mitglieder" link | open
+| 12 | Confirm a self-declaration on a payment of the same screen | the declarations list shows the new row without leaving the screen | open
+| 13 | As BOARD expand "Erklärungen anderer Mitglieder ansehen" | network: `listMembers` only now; hint "Bitte ein Mitglied wählen." | open
+| 14 | Choose a member, then a year | list of that member's declarations; with the year only that year; no amount, cap or sum anywhere | open
+| 15 | As the role-less member call `listDeclarations` for another member id (browser console / RPC client) | the server refuses; the screen is unaffected | open
+| 16 | Switch to English | all new texts are English | open
+|===

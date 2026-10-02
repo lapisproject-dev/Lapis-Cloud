@@ -1,0 +1,56 @@
+= Direct messages: inbox, conversation history and unread counter (V1.9.34)
+:description: How the member inbox, the expandable conversation history and the sidebar's unread counter work, what personal data they handle and what they do not do yet.
+:toc:
+:icons: font
+
+== Scope
+
+Direct messages are one-to-one messages between active members (`IDirectMessageService`). The client shows them on the screen "Kommunikation"
+(`CommunicationScreen.kt`, section "Postfach"). V1.9.12 added the list and the reply form (carpool contact messages arrive here); V1.9.34 adds
+the conversation history and the unread counter. The server changed in one place only: `listConversation` is capped (see below). No migration.
+
+== Inbox
+
+`listInbox()` returns the messages addressed to the caller. After the list is rendered, all unread ones are marked read in one batch
+(`markReadThenRefreshCounter`): one coroutine marks them one after another and only then refreshes the sidebar counter exactly once. This
+order matters -- refreshing before the marks landed would leave "(3)" in the sidebar, and one refresh per message would be N calls.
+
+== Conversation history
+
+Below every inbox message the link-button "Verlauf anzeigen" opens the whole conversation with that member (`conversationDisclosure`):
+
+* Loaded only on expand (a closed disclosure costs no call); collapsing removes the content, expanding again loads again. No state is kept.
+* Oldest first (the server delivers newest first; the client reverses for display). The viewer's own messages say "Sie", the other member's
+  name is shown for theirs. No chat bubbles, no left/right alignment.
+* `listConversation` returns only conversations the caller takes part in, and since V1.9.34 at most the newest 200 messages
+  (`MAX_CONVERSATION_MESSAGES`); at 200 the client says "Es werden die neuesten 200 Nachrichten angezeigt."
+* Received, still unread messages shown here are marked read through the same batch helper as in the inbox.
+* A failed load is the standard error state (fixed sentence, "Erneut versuchen"), never the exception text.
+
+== Unread counter
+
+The sidebar link "Kommunikation" shows "(n)" for 1 to 99 unread messages and "(99+)" from 100 (`communicationSidebarLabel`). `UnreadMessages`
+is the only writer:
+
+* It loads when the sidebar is built (`attach`), on **every route change** (`UnreadMessages.onRouteShown`, called from `show()` in
+  `Routing.kt`) and after a batch of messages was marked read or a reply was sent. There is **no timer, no polling and no websocket** -- a
+  message that arrives while the page is open shows up at the next screen change, not while the user stays on the same screen.
+* Calls are coalesced: at most one in flight plus one follow-up.
+* Failures are silent (no toast): the counter runs on every sidebar build, and an inactive member's `unreadCount` is rejected by the server.
+* `detach` (on logout) stops a late answer from writing into a dead link.
+
+== Personal data
+
+Message text and the names of both sides are personal data. In the new files they reach the screen only through `untrustedDiv`/`textCell`/
+`untrustedOptions` (a forged i18n marker is neutralised), and never a toast, the route, the document title, the console or browser storage.
+`ClientDirectMessagePiiTripwireTest` checks this on the source, plus "no timer in the counter or the conversation view".
+
+== Known limitations
+
+* There is no way into the history for a partner who never wrote to you (only inbox messages carry the link).
+* The counter does not update by itself while the user stays on one screen; it refreshes on the next route change (see above).
+* The counter is not visible while the sidebar group "Mitgliedschaft" is collapsed; no counter is shown on the group label.
+* The history is capped at the newest 200 messages; there is no paging.
+* Not tested against real data or a staging server (see `direct-messages-quorum-declarations-staging-test.adoc`, not executed).
+
+See also the contact routing of the carpool board in `carpool.adoc`.

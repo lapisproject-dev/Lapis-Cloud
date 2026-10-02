@@ -8,6 +8,15 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Smaller UI gaps, part 2: meeting quorum, direct messages, volunteer allowance** (V1.9.34): the quorum badge is now calm grey when reached and
+  yellow when not (never green, which means "accepted" in that screen) with one sentence that explains the word and says it is no legal
+  assessment. Direct messages: "Verlauf anzeigen" below an inbox message opens the whole conversation (oldest first, own messages as "Sie",
+  loaded only on expand), and the sidebar link "Kommunikation" shows the unread count ("(n)", "(99+)" from 100) without any timer. Volunteer
+  allowance: the card "Meine Erklärungen zur Ehrenamts- und Übungsleiterpauschale" lists the own declarations over all years, and BOARD/ADMIN can look at another
+  member's (no amounts, no caps). `getAttendance` and `checkQuorum` stay uncalled on purpose: `getMeetingDetail` already carries both from the same
+  server source. No migration. Documentation: `docs/architecture/direct-messages.adoc`, `domain-model.adoc`, `volunteer-allowance.adoc`,
+  `ui-ux-guideline.adoc`, staging plan (not executed).
+
 - **Member self-service: address, GwG data, card block, events** (V1.9.33): on "Meine Daten" the card "Anschrift und Angaben nach
   Geldwäschegesetz" (street, postal code, city, country; date of birth, nationality) with two independent forms and inline validation, and the
   card "Mitgliedsausweis" to block a lost card without issuing a new one (a new card is still the download on the start page). New screen
@@ -23,6 +32,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- `DirectMessageService.listConversation` returns at most the newest 200 messages of a conversation (`MAX_CONVERSATION_MESSAGES`); before it was
+  unbounded (V1.9.34, no schema change, test `DirectMessageConversationLimitTest`).
+- `ClientDirectMessagePiiTripwireTest`: the new direct-message and declarations files never log, store or toast personal data, and the unread
+  counter and the conversation view contain no timer. Marking messages read is one batch followed by exactly one counter refresh, so a page with
+  many unread messages makes one counter call, not one per message.
 - Self-service address and GwG data are validated on the server (length per column, no control characters, plausible date of birth with a
   `FOR UPDATE` read of the date of death), refusals are value-free `ConflictException`s, and every call writes an audit entry whose marker
   carries no field value. The new files never log, store or toast personal data (`ClientSelfServicePiiTripwireTest`). A payment redirect is
@@ -38,6 +52,12 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- V1.9.34: no way into the conversation history for a partner who never wrote to you. The unread counter refreshes on every route change, but not while the user stays on one screen (no timer), and is
+  invisible while the sidebar group "Mitgliedschaft" is collapsed. The history is capped at the newest 200 messages (no paging). The
+  declarations overview is a plain list (no category filter, no export) capped at 200 rows. Its BOARD/ADMIN member picker is filled from `listMembers`, which returns ACTIVE members only, so the declarations of a
+  suspended or departed member cannot be reached through the overview (the server's `listDeclarations(memberId)` would serve them). `CommunicationScreen` has no injectable RPC seam,
+  so the batching is tested on its helper (`markReadThenRefreshCounter`), not on the screen. Not tested against real data or a staging
+  server; the staging plan was not executed.
 - V1.9.33: BOARD and ADMIN cannot edit other members' address or GwG data in the UI (no privileged read exists; a save without prefill would
   delete data). An unfinished payment cannot be resumed in the web client (it needs the e-mail link token). Withdrawing never refunds
   automatically. No format check for postal code or country. No rate limit for address changes. The member event list is capped at 50 events.

@@ -192,3 +192,5 @@ kept anywhere, deliberately simpler than the direct-message case rather than mir
   the feed themselves.
 * No moderation/reporting path specific to carpool postings beyond what already exists for direct
   messages in general.
+
+Since V1.9.34 the "Kommunikation" mailbox also offers the conversation history below each message and an unread counter in the sidebar; see `direct-messages.adoc`.

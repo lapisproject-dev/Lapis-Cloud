@@ -237,6 +237,12 @@ The check above needs a term that is a distinct whole word. These terms are fixe
 
 | Kandidatur
 | Candidacy (en), candidatura (es), candidature (fr), candidatura (it), kandidatuur (nl), kandydatura (pl), кандидатура (ru) -- V1.9.22, a member's self-nomination in an election of people.
+
+| Quorum
+| Quorum (en), quórum (es), quorum (fr), quorum (it), quorum (nl), kworum (pl), кворум (ru) -- V1.9.34, the number of members entitled to vote who must be present for a meeting to vote. Not "Beschlussfähigkeit" in the UI text, and never the same word as the result of a vote.
+
+| Verlauf (einer Unterhaltung)
+| History (en), historial (es), historique (fr), cronologia (it), geschiedenis (nl), historia (pl), история (ru) -- V1.9.34, the expandable list of all direct messages with one member. Not "Chat" or "Thread".
 |===
 
 == Known gaps

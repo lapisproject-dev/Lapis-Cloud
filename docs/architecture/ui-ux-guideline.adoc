@@ -1933,3 +1933,10 @@ both previously listed under "Known gaps" above, across two rounds on branch
 every field is valid). `MemberCardRevokeCard.kt` and `MemberEventsScreen.kt` have no field and join the strict set without a form
 (`R24_STRICT_WITHOUT_FORM`); all their writes go through `runGuardedAction`, so the R29 count does not rise. `ClientSelfServicePiiTripwireTest`
 keeps all three free of console output, browser storage, `.message` and toasts that carry a personal-data field.
+
+== V1.9.34 -- Two small rules
+
+* **Green only for "accepted" / "succeeded".** A precondition is not a result: the meetings quorum badge is `secondary` when reached and
+  `warning` when not (never `success`/`danger`), with one sentence that explains the word. See `domain-model.adoc`, "Quorum display is informational".
+* **Counters in a sidebar label use "(n)" and cap at "(99+)".** The unread-messages counter on "Kommunikation" follows the grammar of the other
+  sidebar counters (`null`/0 = plain label) but caps at 99, and it refreshes on events only (sidebar build, route change, mark-read/reply) -- never on a timer. See `direct-messages.adoc`.
