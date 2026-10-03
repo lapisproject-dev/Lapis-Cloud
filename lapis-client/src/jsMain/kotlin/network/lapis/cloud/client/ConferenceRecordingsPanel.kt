@@ -4,7 +4,6 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
-import io.kvision.html.link
 import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -228,7 +227,7 @@ private fun renderConferenceRecordingRow(
 
         // D9: a SEPARATE click target from inline playback -- never the same element.
         val downloadRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-        downloadRow.link(tr("Herunterladen"), url = mediaUrl, target = "_blank")
+        downloadRow.actionLink(ActionIcon.DOWNLOAD, tr("Herunterladen"), mediaUrl, "_blank")
         recording.fileSizeBytes?.let { size ->
             downloadRow.div(conferenceRecordingFileSizeLabel(size)) { addCssClasses("text-muted small") }
         }

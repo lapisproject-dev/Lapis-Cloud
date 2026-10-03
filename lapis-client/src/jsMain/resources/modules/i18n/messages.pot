@@ -6488,10 +6488,6 @@ msgstr ""
 msgid "Neuen Beitrag verfassen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:89
-msgid "Neuen Schlüssel ausstellen"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:221
 msgid "Neuen Spender anlegen"
 msgstr ""
@@ -18746,4 +18742,12 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
 msgid "Neue Mahnstufe"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Neuer Schlüssel"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Schlüssel ausstellen"
 msgstr ""

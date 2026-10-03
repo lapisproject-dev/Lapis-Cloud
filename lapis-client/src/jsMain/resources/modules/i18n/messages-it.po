@@ -7177,10 +7177,6 @@ msgstr "Crea nuova voce del contratto di trattamento dati"
 msgid "Neuen Beitrag verfassen"
 msgstr "Scrivi un nuovo post"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:89
-msgid "Neuen Schlüssel ausstellen"
-msgstr "Emetti nuova chiave"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:221
 msgid "Neuen Spender anlegen"
 msgstr "Crea nuovo donatore"
@@ -19707,3 +19703,11 @@ msgstr "Nuova richiesta di rimborso spese di viaggio"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
 msgid "Neue Mahnstufe"
 msgstr "Nuovo livello di sollecito"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Neuer Schlüssel"
+msgstr "Nuova chiave"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Schlüssel ausstellen"
+msgstr "Emetti chiave"

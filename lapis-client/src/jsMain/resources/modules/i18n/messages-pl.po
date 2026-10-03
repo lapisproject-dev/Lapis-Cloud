@@ -7135,10 +7135,6 @@ msgstr "Utwórz nowy wpis AVV"
 msgid "Neuen Beitrag verfassen"
 msgstr "Napisz nowy post"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:89
-msgid "Neuen Schlüssel ausstellen"
-msgstr "Wystaw nowy klucz"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:221
 msgid "Neuen Spender anlegen"
 msgstr "Utwórz nowego darczyńcę"
@@ -19661,3 +19657,11 @@ msgstr "Nowy wniosek o zwrot kosztów podróży"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
 msgid "Neue Mahnstufe"
 msgstr "Nowy stopień wezwania"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Neuer Schlüssel"
+msgstr "Nowy klucz"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Schlüssel ausstellen"
+msgstr "Wystaw klucz"

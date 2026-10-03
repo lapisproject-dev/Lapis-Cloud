@@ -375,8 +375,10 @@ class FormSubmitBodyDomTest {
             withFetchStub { calls ->
                 withMountedRoot("body-apikey") { root, element ->
                     renderApiKeysScreen(root)
-                    fill(element().inputs("input[type=text]")[0], "   CI-Schlüssel  ")
-                    element().button("Neuen Schlüssel ausstellen").click()
+                    // V1.9.51 (R36B): the issue form is collapsed behind the title-row button "Neuer Schlüssel".
+                    val host = openCreateForm(element(), "lapis-create-api-key")
+                    fill(host.inputs("input[type=text]")[0], "   CI-Schlüssel  ")
+                    host.button("Schlüssel ausstellen").click()
                     awaitUntil("issue request") {
                         calls.any {
                             it.isRpc &&

@@ -253,13 +253,13 @@ Component and scanner:
 
 * `ActionIcon.ACCESS` (`fa-user-lock`): "Sichtbarkeit ändern".
 * Scanner additions of `ClientUiGuidelineTripwireTest`: (1) a section title written as a bold `div(tr("Neu ...")) { fw-bold }`, (2) any `render...Create...Form`
-  builder, (3) a shared builder called with `existing = null`. Every detector has a positive and a negative self-test. The run finds nothing beyond the five exempt
-  findings; `R36B_EXEMPT` still names them (the test asserts that the scanner still sees exactly those five).
+  builder, (3) a shared builder called with `existing = null`. Every detector has a positive and a negative self-test. The run finds nothing beyond the four exempt
+  findings (five until V1.9.51); `R36B_EXEMPT` still names them (the test asserts that the scanner still sees exactly those four).
 * R36B ratchet: `R36B_REMAINING_MAX = 0`, `R36B_NOT_YET_COLLAPSED` is empty.
 
 Not converted, with the reason (each is a documented exception, none is debt):
 
-* The four `R36B_EXEMPT` entries (one-time key display, conference lobby, the member's own single SEPA mandate, social post composer).
+* The `R36B_EXEMPT` entries (one-time key display, the member's own single SEPA mandate, social post composer). The conference lobby left this list in V1.9.51: it is a list with a start action, and the action is in the title row now (see below).
 * `renderVersionUpload` (documents): the upload is the follow-up step of "Dokument anlegen" ("danach Datei hochladen") and sits in the version panel of one
   document. It is not a pure "no typed text" form: the optional "Änderungshinweis" is free text. The exception stands because the form is the whole purpose of that
   panel, but it is not a "nothing to lose" form. When the document changes, the typed note is lost (older behaviour).
@@ -311,6 +311,20 @@ only renamed accessible name of the wave: "Zurück zur Liste" (the arrow is now 
 
 Scanner: see `ui-ux-guideline.adoc`, section "V1.9.50". `ArticlesScreen` stays an exception in the sense of "no inline create form" (the editor is a mode of its own),
 but its button now follows the rule of the title row.
+
+== V1.9.51 -- Direct start without a form, API keys
+
+*Direct start without a form.* "Besprechung jetzt starten" (conference lobby) creates a room and joins it in one click: there is no form to collapse, so it is a
+title-row button built with `newActionButton(ActionIcon.ADD, ...)`, not a `collapsibleCreateForm`. Two rules come with it: the click MUST go through
+`runGuardedAction` (a double click would otherwise create two rooms), and the lobby and its title-row action are shown and hidden together through
+`setConferenceLobbyVisible`, because the page header stays on screen while a call runs.
+
+*API keys.* `ApiKeysScreen` now converts like the other list screens: "Neuer Schlüssel" in the title row opens the form with the field "Bezeichnung" and
+"Schlüssel ausstellen" / "Abbrechen"; success folds the form back, shows the one-time card and reloads the list. The slot order is form host, one-time card, list.
+The two one-time cards ("Neuer Schlüssel -- jetzt speichern", "Neues Signaturgeheimnis -- jetzt speichern") stay in `R36B_EXEMPT`: result cards, not create forms.
+
+*Still open, with the reason.* The post composer of the social network (`SocialNetworkScreen`) stays visible: it is the core action of the feed, and the LTR balance and
+the effort note have to be visible before writing. The decision to collapse it anyway is the owner's.
 
 == Not done
 

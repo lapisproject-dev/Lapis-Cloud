@@ -7139,10 +7139,6 @@ msgstr "Nieuw AVV-item aanmaken"
 msgid "Neuen Beitrag verfassen"
 msgstr "Nieuwe post opstellen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:89
-msgid "Neuen Schlüssel ausstellen"
-msgstr "Nieuwe sleutel uitgeven"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:221
 msgid "Neuen Spender anlegen"
 msgstr "Nieuwe donateur aanmaken"
@@ -19662,3 +19658,11 @@ msgstr "Nieuwe reiskostenaanvraag"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
 msgid "Neue Mahnstufe"
 msgstr "Nieuw aanmaningsniveau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Neuer Schlüssel"
+msgstr "Nieuwe sleutel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Schlüssel ausstellen"
+msgstr "Sleutel uitgeven"

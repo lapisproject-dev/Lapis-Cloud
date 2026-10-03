@@ -7196,10 +7196,6 @@ msgstr "Créer un nouveau contrat de sous-traitance"
 msgid "Neuen Beitrag verfassen"
 msgstr "Rédiger une nouvelle publication"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:89
-msgid "Neuen Schlüssel ausstellen"
-msgstr "Émettre une nouvelle clé"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:221
 msgid "Neuen Spender anlegen"
 msgstr "Créer un nouveau donateur"
@@ -19725,3 +19721,11 @@ msgstr "Nouvelle demande de frais de déplacement"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
 msgid "Neue Mahnstufe"
 msgstr "Nouveau niveau de relance"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Neuer Schlüssel"
+msgstr "Nouvelle clé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Schlüssel ausstellen"
+msgstr "Émettre la clé"

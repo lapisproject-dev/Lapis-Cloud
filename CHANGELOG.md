@@ -8,6 +8,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Conference lobby: "Besprechung jetzt starten" in the title row; API keys collapsed** (V1.9.51, rules R36B/R36C and R57). Client only: no migration, no server, RPC or
+  `V1__baseline.sql` change.
+  - The start action of the conference screen is the one button of the title row (plus icon, outlined primary); the heading "Neue Besprechung" and the content button are
+    gone. The click runs through `runGuardedAction` (two quick clicks create one room). The page header outlives the lobby panel, so `ConferenceLobbyVisibility.kt`
+    shows and hides the lobby and its title-row action together: no second meeting can be started from inside a running call.
+  - New `actionLink(kind, label, url, target)`: the recording download carries the download icon and `rel="noopener"`.
+  - `ApiKeysScreen`: the always-visible issue form (icon-less "Neuen Schlüssel ausstellen") is a collapsible create form behind "Neuer Schlüssel"; the form button is
+    "Schlüssel ausstellen". i18n: two new msgids in all eight catalogs, the old one removed.
+  - Ratchet: `ConferenceScreen.kt` leaves `R36B_EXEMPT` (five exemptions become four); new detector R36C (text-only "Neue ..."/"... jetzt starten" buttons in the content,
+    one named exemption) and a tripwire against raw `lobbyPanel.show()`/`hide()`.
+  - Tests: new `ConferenceTitleRowStartDomTest`; `FormSubmitBodyDomTest.apiKeyIssue_sendsTheTrimmedLabel` opens the collapsed form first.
+
 - **UI stragglers: Mitfahrerzentrale, Artikel, "Meine Daten"; the scanner sees every file** (V1.9.50, rules R36/R36B and R57). Client only: no migration, no server,
   RPC or `V1__baseline.sql` change.
   - "Mitfahrerzentrale": "Eintrag erstellen" is the collapsed create form of the page header (one button in the title row); "Bearbeiten" and "Duplizieren" open the same
@@ -22,6 +34,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- The social-network post composer stays an always-visible form (`R36B_EXEMPT`): the LTR balance and the effort note have to be visible before writing. Not changed in V1.9.51.
+- "Beitreten", "Aufzeichnung jetzt starten", "Umfrage starten" and the recordings pager stay text-only (domain verbs).
 - The accessible name of one button changed: the article editor's back button is now "Zurück zur Liste" (the arrow is an icon). The translations of the old text were moved.
 - The article editor stays a full-screen mode that replaces the list (no inline create form).
 - Disclosure toggles ("Verlauf anzeigen", "Mehr anzeigen", ...) and domain icons (conference control bar, editor glyphs, three "<Zeilenart> hinzufügen" buttons) deliberately

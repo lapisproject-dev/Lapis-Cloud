@@ -7134,10 +7134,6 @@ msgstr "Создать новую запись AVV"
 msgid "Neuen Beitrag verfassen"
 msgstr "Написать новую запись"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:89
-msgid "Neuen Schlüssel ausstellen"
-msgstr "Выпустить новый ключ"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:221
 msgid "Neuen Spender anlegen"
 msgstr "Создать нового жертвователя"
@@ -19652,3 +19648,11 @@ msgstr "Новая заявка на возмещение командирово
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
 msgid "Neue Mahnstufe"
 msgstr "Новый уровень напоминания"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Neuer Schlüssel"
+msgstr "Новый ключ"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
+msgid "Schlüssel ausstellen"
+msgstr "Выпустить ключ"

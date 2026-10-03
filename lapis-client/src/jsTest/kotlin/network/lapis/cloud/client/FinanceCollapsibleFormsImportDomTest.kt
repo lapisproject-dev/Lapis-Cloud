@@ -41,6 +41,19 @@ class FinanceCollapsibleFormsImportDomTest {
 
     private fun HTMLElement.actionButtons(): List<HTMLElement> = allOf(".lapis-page-header .lapis-page-action button")
 
+    private fun HTMLElement.showsFile(name: String): Boolean =
+        innerHTML.contains(name) || allOf("input").any { (it as? HTMLInputElement)?.value.orEmpty().contains(name) }
+
+    /** The upload control (bootstrap-fileinput) registers a chosen file asynchronously: waits until it shows the file name, instead of a fixed pause. */
+    private suspend fun awaitFileSelectionRegistered(host: HTMLElement) {
+        var waited = 0
+        while (!host.showsFile("auszug.csv") && waited < 15_000) {
+            delay(20)
+            waited += 20
+        }
+        assertTrue(host.showsFile("auszug.csv"), "the upload control did not show the chosen file: ${host.innerHTML.take(2500)}")
+    }
+
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
     private fun HTMLElement.hasForm(formId: String): Boolean = querySelector("[id='$formId'] .lapis-form") != null
@@ -151,7 +164,7 @@ class FinanceCollapsibleFormsImportDomTest {
                     transfer.items.add(js("new File(['a;b'], 'auszug.csv', { type: 'text/csv' })"))
                     input.asDynamic().files = transfer.files
                     input.dispatchEvent(Event("change"))
-                    delay(200) // the upload control registers its selection asynchronously
+                    awaitFileSelectionRegistered(reopened)
                     escape(reopened)
                     awaitDiscardDialog()
                     lastOpenModal().buttonNamed("Verwerfen").click()
@@ -206,18 +219,19 @@ class FinanceCollapsibleFormsImportDomTest {
                 mountedForm("r36b-finance-bank-import-success") { root, element ->
                     renderBankStatementImportScreen(root, null)
                     val screen = element()
-                    awaitUntil("the empty state is shown") { screen.shows("Noch keine Kontoauszüge importiert.") }
+                    awaitUntil("the empty state is shown", 15_000) { screen.shows("Noch keine Kontoauszüge importiert.") }
                     val host = openCreateForm(screen, "lapis-create-bank-import")
                     val input = assertNotNull(host.querySelector("input[type=file]") as? HTMLInputElement, "no file input")
                     val transfer = js("new DataTransfer()")
                     transfer.items.add(js("new File(['a;b'], 'auszug.csv', { type: 'text/csv' })"))
                     input.asDynamic().files = transfer.files
                     input.dispatchEvent(Event("change"))
-                    delay(200) // the upload control registers its selection asynchronously
+                    awaitFileSelectionRegistered(host)
                     host.buttonNamed("Hochladen").click()
-                    awaitUntil("the upload was sent") { calls.any { it.url.contains("/api/bank-statements/import") } }
-                    awaitUntil("the form folded back") { !screen.hasForm("lapis-create-bank-import") }
-                    assertTrue(calls.toRoute(listImports).size >= 2, "the import list was reloaded after the upload")
+                    awaitUntil("the upload was sent", 15_000) { calls.any { it.url.contains("/api/bank-statements/import") } }
+                    awaitUntil("the form folded back", 15_000) { !screen.hasForm("lapis-create-bank-import") }
+                    // The reload follows the fold-back asynchronously: wait for it, with the same threshold (list on open + once after the upload).
+                    awaitUntil("the import list was reloaded after the upload", 15_000) { calls.toRoute(listImports).size >= 2 }
                     assertTrue(document.querySelector(".modal.show") == null, "no discard dialog after a successful upload")
                 }
             }

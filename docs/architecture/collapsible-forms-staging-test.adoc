@@ -142,6 +142,20 @@ article, a place name with a catalog marker (`###KvI18nS###Test`).
 . Spot checks of the rest: "Familienmitgliedschaften" and "Mitgliedschaftsstufen" have their create button in the title row; "Abstimmung schließen" / "Wahl abbrechen"
   in the conference room show the close / cancel icon; "Verlauf anzeigen" and "Mehr anzeigen" have NO icon (they are toggles).
 
+== Conference lobby, recordings and API keys (V1.9.51) -- additional steps, not executed
+
+Nothing was deployed by the author of the wave; every result is open. Accounts: an ACTIVE MEMBER, an ADMIN, and a federated guest. Data: one finished recording.
+
+. "Videokonferenz" as MEMBER: "Besprechung jetzt starten" sits at the top right of the title row with a plus icon; there is no heading "Neue Besprechung" and no start
+  button in the content.
+. Press it twice quickly: exactly one room appears in "Aktive Besprechungen" and the call opens. While the call runs the button is NOT visible. Leave the call: the button is
+  back, and the room list is reloaded.
+. Make the join fail (revoke the LiveKit key on a staging copy): the room stays in the list for a manual "Beitreten", the button is usable again with its label and icon.
+. As federated guest and with video conferences switched off: no button in the title row.
+. "Aufzeichnungen": "Herunterladen" carries a download icon and opens the file in a new tab.
+. "API-Schlüssel" as ADMIN: the form is collapsed; "Neuer Schlüssel" opens "Bezeichnung" + "Schlüssel ausstellen"; "Abbrechen" without input closes at once, with input asks
+  "Eingaben verwerfen?". Issue a key: the form folds back, the one-time card appears above the list, the list is reloaded.
+
 == Actual results
 
 (to be filled in when the plan is run)

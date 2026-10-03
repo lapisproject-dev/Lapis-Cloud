@@ -3,6 +3,9 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Link
+import io.kvision.html.icon
+import io.kvision.html.span
 import org.w3c.dom.HTMLElement
 
 /** Icon classes every [actionButton] icon carries: fixed width (aligned labels) + the spacing class from theme.css. */
@@ -63,3 +66,28 @@ fun Container.tableActionButton(
     tooltip: String,
     style: ButtonStyle = ButtonStyle.OUTLINESECONDARY,
 ): Button = actionButton(kind, tooltip, style = style, iconOnly = true)
+
+/**
+ * A link with the icon of its verb (V1.9.51, guideline R57) -- the link counterpart of [actionButton], for a verb that navigates to a
+ * file instead of running an action (the download of a recording). The icon is decoration (`aria-hidden`), [label] stays the
+ * accessible name. A `_blank` [target] gets `rel="noopener"`.
+ *
+ * [label] must be a static `tr(...)` text, never data from the server; [url] is the existing media URL of the caller.
+ */
+fun Container.actionLink(
+    kind: ActionIcon,
+    label: String,
+    url: String,
+    target: String? = null,
+): Link {
+    require(label.isNotBlank()) { "actionLink needs a label (accessible name)" }
+    val result = Link(label = "", url = url)
+    if (target != null) {
+        result.target = target
+        if (target == "_blank") result.setAttribute("rel", "noopener")
+    }
+    result.icon("${kind.css} $ACTION_ICON_EXTRA_CLASSES") { setAttribute("aria-hidden", "true") }
+    result.span(label)
+    add(result)
+    return result
+}

@@ -403,7 +403,7 @@ fun renderConferenceScreen(
             ConferenceVoteRuntime.disposeActive()
             AppScope.launch { runCatching { activeSession?.disconnect() } }
         }
-    root.pageHeader(tr("Videokonferenz"))
+    val header = root.pageHeader(tr("Videokonferenz"))
     val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
     val callPanel = root.vPanel(spacing = 10) { addCssClass("lapis-conference-call-panel") }
@@ -432,7 +432,8 @@ fun renderConferenceScreen(
             // ignored for a GUEST/FRIEND caller, same as it always was for the web guest lobby.
             renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
         } else {
-            renderLobby(lobbyPanel, callPanel, setActiveSession, autoJoinRoomId)
+            // The title-row slot is only read in THIS branch (lazy getter): guest lobby, lock panel and load error get no empty slot.
+            renderLobby(lobbyPanel, callPanel, setActiveSession, header.actionSlot, autoJoinRoomId)
         }
     }
 }
@@ -519,10 +520,10 @@ private fun renderLobby(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    headerAction: Container,
     autoJoinRoomId: String? = null,
 ) {
     lobbyPanel.removeAll()
-    lobbyPanel.show()
 
     // V1.5.1 Mobile App -- guards against re-triggering the auto-join on a LATER loadRooms()
     // call (e.g. the user hits "Aktualisieren", or a room card's own join flow calls
@@ -532,8 +533,13 @@ private fun renderLobby(
 
     // Wave 4 "Politur", D1: single-button "start now" flow -- no title-entry form for the common,
     // spontaneous case. See file KDoc "Wave 4 -- D1".
-    lobbyPanel.h2(tr("Neue Besprechung")) { addCssClass("h5") }
-    val startButton = lobbyPanel.button(tr("Besprechung jetzt starten"), style = ButtonStyle.PRIMARY)
+    // V1.9.51 (R36B): the start action sits in the title row, like every other "new" action. The lobby is rebuilt on every call of
+    // this function, so the slot is emptied first (no duplicates).
+    headerAction.removeAll()
+    val startButton = newActionButton(ActionIcon.ADD, tr("Besprechung jetzt starten"), ButtonStyle.OUTLINEPRIMARY)
+    headerAction.add(startButton)
+    registerConferenceLobbyHeaderAction(lobbyPanel, headerAction)
+    setConferenceLobbyVisible(lobbyPanel, true)
 
     lobbyPanel.h2(tr("Aktive Besprechungen")) { addCssClass("h5") }
     val refreshRow = lobbyPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -589,26 +595,24 @@ private fun renderLobby(
     // D1: create -> join -> enterCall in one click. Uses the exact SAME two, already-authorization-
     // gated RPC calls the old form-based flow used (createRoom/joinRoom, both server-side
     // requireActiveMembership-gated, see IConferenceService KDoc) -- no new, weaker RPC surface.
+    // runGuardedAction: a second click while the first still runs is a no-op (exactly one room); `disabled` is restored in its finally.
     startButton.onClick {
-        startButton.disabled = true
-        startButton.text = tr("Wird gestartet …")
-        AppScope.launch {
+        runGuardedAction(startButton) {
+            startButton.text = tr("Wird gestartet …")
             val now = organizationNow()
             val room =
                 guarded {
                     rpcService<IConferenceService>().createRoom(ConferenceRoomInput(title = conferenceDefaultRoomTitle(now)))
                 }
             if (room == null) {
-                startButton.disabled = false
                 startButton.text = tr("Besprechung jetzt starten")
-                return@launch
+                return@runGuardedAction
             }
             // The room now exists and is visible in "Aktive Besprechungen" regardless of what
             // joinRoom does next -- Norman: visible system status, recoverable if the next step
             // fails (see file KDoc "Wave 4 -- D1").
             refreshLobby()
             val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
-            startButton.disabled = false
             startButton.text = tr("Besprechung jetzt starten")
             if (token != null) {
                 enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, refreshLobby)
@@ -697,7 +701,7 @@ private fun renderGuestLobby(
     setActiveSession: (LiveKitRoomSession?) -> Unit,
 ) {
     lobbyPanel.removeAll()
-    lobbyPanel.show()
+    setConferenceLobbyVisible(lobbyPanel, true)
 
     lobbyPanel.h2(tr("Als Gast beitreten")) { addCssClass("h5") }
     lobbyPanel.div(
@@ -978,7 +982,7 @@ private fun enterCall(
     setActiveSession: (LiveKitRoomSession?) -> Unit,
     onReturnedToLobby: () -> Unit,
 ) {
-    lobbyPanel.hide()
+    setConferenceLobbyVisible(lobbyPanel, false)
     callPanel.removeAll()
     callPanel.show()
 
@@ -4723,7 +4727,7 @@ private fun returnToLobby(
     setActiveSession(null)
     callPanel.removeAll()
     callPanel.hide()
-    lobbyPanel.show()
+    setConferenceLobbyVisible(lobbyPanel, true)
     if (originalTitle != null) document.title = originalTitle
     onReturnedToLobby()
 }

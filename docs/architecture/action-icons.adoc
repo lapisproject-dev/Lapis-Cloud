@@ -161,6 +161,14 @@ is in the ledger `R57_LEDGER` of `ClientToolbarIconTripwireTest`, each entry wit
 * Moved to standard icons without a change of look: `fa-upload`, `fa-trash`, `fa-eye`, `fa-plus`, `fa-magnifying-glass` (Foto, Vorschau, Hintergrundbild,
   "Frage stellen") and `fa-unlink` -> `REVOKE` (KI access).
 
+=== V1.9.51: conference lobby and recordings
+
+* `ADD` for "Besprechung jetzt starten" (title row of the conference screen). Not `fa-video` (the camera switch of the control bar) and not `fa-play` ("play"): the plus is
+  the one picture that claims nothing else on this screen.
+* The recording download is a link, so it uses `actionLink(ActionIcon.DOWNLOAD, tr("Herunterladen"), url, "_blank")` (icon decorative, `rel="noopener"`).
+* Without an icon, on purpose (domain verbs): "Beitreten" (room card), "Aufzeichnung jetzt starten" (the confirmation of the consent modal), "Umfrage starten", the
+  pager "‹ Zurück" / "Weiter ›" of the recordings list (text pager, like the member roster) and the conference control bar.
+
 == Known limitations
 
 * Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, ledgered). Since V1.9.50 every remaining exception is in `R57_LEDGER` with a reason (disclosure toggles, domain icons, one custom class, one dialog button).

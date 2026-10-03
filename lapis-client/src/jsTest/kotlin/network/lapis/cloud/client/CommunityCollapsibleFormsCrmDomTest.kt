@@ -226,10 +226,10 @@ class CommunityCollapsibleFormsCrmDomTest {
             ) { calls ->
                 mountedForm("r36b-crm-interaction") { root, element ->
                     renderCrmContactsScreen(root)
-                    awaitUntil("the list is shown") { element().shows("Altkontakt") }
+                    awaitUntil("the list is shown", 15_000) { element().shows("Altkontakt") }
                     val screen = element()
                     screen.buttonNamed("Details anzeigen").click()
-                    awaitUntil("the detail shows its timeline button") {
+                    awaitUntil("the detail shows its timeline button", 15_000) {
                         screen.allOf("button").any {
                             it.textContent?.trim() ==
                                 "Interaktion erfassen"
@@ -251,15 +251,20 @@ class CommunityCollapsibleFormsCrmDomTest {
                     assertTrue(formId.startsWith("lapis-create-crm-interaction-"), "own sequence id, never a contact id: $formId")
                     assertFalse(formId.contains("c1"))
                     assertFalse(screen.hostOpen(formId), "collapsed")
+                    // The base count is read only once the FIRST timeline load has finished and rendered; read earlier, the request of that
+                    // load could still arrive afterwards and be counted as part of the reload, so "== base + 1" would not hold.
+                    awaitUntil("the initial timeline load completed", 15_000) {
+                        calls.toRoute(timeline).isNotEmpty() && screen.shows("Noch keine Interaktionen erfasst.")
+                    }
                     val timelineCalls = calls.toRoute(timeline).size
 
                     val host = openCreateFormHost(screen, formId)
                     host.typeInto("Notiz", "Rückruf vereinbart")
                     host.buttonNamed("Interaktion speichern").click()
-                    awaitUntil("recordInteraction was called") { calls.toRoute(record).size == 1 }
-                    awaitUntil("the form folded back") { !screen.hostOpen(formId) }
+                    awaitUntil("recordInteraction was called", 15_000) { calls.toRoute(record).size == 1 }
+                    awaitUntil("the form folded back", 15_000) { !screen.hostOpen(formId) }
                     assertEquals("Rückruf vereinbart", calls.singleCall(record).rpcParam(0).summary as String)
-                    awaitUntil("the timeline was reloaded") { calls.toRoute(timeline).size == timelineCalls + 1 }
+                    awaitUntil("the timeline was reloaded", 15_000) { calls.toRoute(timeline).size == timelineCalls + 1 }
                 }
             }
         }

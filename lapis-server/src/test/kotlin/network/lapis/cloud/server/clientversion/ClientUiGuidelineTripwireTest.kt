@@ -955,15 +955,18 @@ private val CREATE_FORM_CALL =
 private val DECLARATION_PREFIX = Regex("""\bfun\s+(?:[A-Za-z0-9_<>?]+\.)?$""")
 private val COLLAPSIBLE_CALL = Regex("""(?<![A-Za-z0-9_])collapsibleCreateForm(?:<[^>]*>)?\(""")
 
+/** The character ranges of every `collapsibleCreateForm(...) { ... }` call of the comment-blanked [code]. */
+private fun collapsibleCallRanges(code: String): List<IntRange> =
+    COLLAPSIBLE_CALL
+        .findAll(code)
+        .map { match ->
+            match.range.first until
+                match.range.last + callWithTrailingLambda(text = code, openParen = match.range.last).length
+        }.toList()
+
 internal fun visibleCreateFormFindings(text: String): List<String> {
     val code = codeOnly(text)
-    val collapsed =
-        COLLAPSIBLE_CALL
-            .findAll(code)
-            .map { match ->
-                match.range.first until
-                    match.range.last + callWithTrailingLambda(text = code, openParen = match.range.last).length
-            }.toList()
+    val collapsed = collapsibleCallRanges(code)
     val titles =
         (CREATE_SECTION_TITLE.findAll(code) + CREATE_TITLE_DIV.findAll(code)).map { fingerprintAt(code = code, offset = it.range.first) }
     val calls =
@@ -993,16 +996,6 @@ private val R36B_EXEMPT: Map<String, R36bEntry> =
                     ),
                 reason = "One-time display of a newly issued API key / signing secret (\"save it now\"): a result card, not a create form.",
             ),
-        "ConferenceScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "lobbyPanel.h2(tr(\"Neue Besprechung\")) { addCssClass(\"h5\") }",
-                    ),
-                reason =
-                    "Conference lobby panel (\"Neue Besprechung\" starts a room from the live conference screen): " +
-                        "a room panel/console, not a list-plus-create screen.",
-            ),
         "SepaMandateSection.kt" to
             R36bEntry(
                 fingerprints = listOf("renderSepaMandateForm("),
@@ -1019,6 +1012,52 @@ private val R36B_EXEMPT: Map<String, R36bEntry> =
                         "the screen is the composer, not a list with a create form.",
             ),
     )
+
+// ── R36C: no start/new button without an icon in the content (V1.9.51) ────────────────────────────────
+
+/**
+ * A plain `button(tr("Neue[r|n|s] <Noun>"))` / `Button(tr("... jetzt starten"))` outside a `collapsibleCreateForm(...)` call: the "new" or
+ * "start" action of a screen belongs in the title row ([PageHeader.actionSlot]) as a `newActionButton(ActionIcon.ADD, ...)`, not in the
+ * content as a text-only button (V1.9.51: the conference lobby's "Besprechung jetzt starten"). Labels of more than the noun
+ * ("Neues Passwort setzen") are not "new X" buttons and are not matched.
+ */
+private val START_NEW_BUTTON =
+    Regex("""(?:\bButton|\.button)\(\s*(?:text\s*=\s*)?tr\(\s*"(?:Neue[nrs]?\s\p{L}+|[^"]*jetzt starten)"""")
+
+internal fun startNewButtonFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    val collapsed = collapsibleCallRanges(code)
+    return START_NEW_BUTTON
+        .findAll(code)
+        .filter { match -> collapsed.none { match.range.first in it } }
+        .map { fingerprintAt(code = code, offset = it.range.first) }
+        .toList()
+}
+
+/** Start buttons that stay text-only on purpose: a confirmation of a domain verb, by file, with the reason. */
+private val R36C_EXEMPT: Map<String, R36bEntry> =
+    mapOf(
+        "ConferenceScreen.kt" to
+            R36bEntry(
+                fingerprints = listOf("Button(tr(\"Aufzeichnung jetzt starten\"), style = ButtonStyle.WARNING).apply {"),
+                reason =
+                    "Confirmation button of the recording-consent modal (domain verb, WARNING style): it confirms a consequence, " +
+                        "it is not the page's \"new\" action.",
+            ),
+    )
+
+/** Start/new buttons that are real violations and still unfixed: EMPTY, a new finding is fixed or (with a reason) exempted. */
+private const val R36C_REMAINING_MAX = 0
+
+private fun r36cActual(): Map<String, List<String>> =
+    clientKotlinFiles()
+        .associate { it.name to startNewButtonFindings(it.readText()) }
+        .filterValues { it.isNotEmpty() }
+
+/** The conference lobby and its title-row action are shown and hidden together (V1.9.51). */
+private val RAW_LOBBY_VISIBILITY = Regex("""\blobbyPanel\s*\.\s*(?:show|hide)\(\)""")
+
+internal fun rawLobbyVisibilityCalls(text: String): List<String> = RAW_LOBBY_VISIBILITY.findAll(codeOnly(text)).map { it.value }.toList()
 
 /**
  * Real create forms that are still always visible: the debt of the later waves, by file, with the wave that pays it.
@@ -1599,7 +1638,7 @@ class ClientUiGuidelineTripwireTest :
             // The scanner must still FIND the exempt findings, otherwise "no finding anywhere" would prove nothing.
             val found = r36bActual().values.sumOf { it.size }
             withClue("exempt findings the scanner sees: $found") { found shouldBe R36B_EXEMPT.values.sumOf { it.fingerprints.size } }
-            R36B_EXEMPT.values.sumOf { it.fingerprints.size } shouldBe 5
+            R36B_EXEMPT.values.sumOf { it.fingerprints.size } shouldBe 4
         }
 
         test("R36B flags a create-section title and an unwrapped create-form call, ignores a wrapped one, a declaration and comments") {
@@ -1617,6 +1656,49 @@ class ClientUiGuidelineTripwireTest :
             visibleCreateFormFindings(
                 "collapsibleCreateForm<Unit>(a) { _, c -> renderXCreation(this, c) }\nrenderXCreation(root, f)",
             ).size shouldBe 1
+        }
+
+        test("R36C (V1.9.51): the start/new buttons of the content equal the exemptions exactly, and the scanner is not vacuous") {
+            val diff = ledgerDiff(actual = r36cActual(), ledger = R36C_EXEMPT.mapValues { it.value.fingerprints })
+            withClue(diff.joinToString(separator = "\n", prefix = "\n")) { diff shouldBe emptyList() }
+            R36C_EXEMPT.values.forEach { it.reason.isNotBlank() shouldBe true }
+            R36C_EXEMPT.values.sumOf { it.fingerprints.size } shouldBe 1
+            (r36cActual().values.sumOf { it.size } - R36C_EXEMPT.values.sumOf { it.fingerprints.size }) shouldBe R36C_REMAINING_MAX
+        }
+
+        test(
+            "R36C finds a text-only start/new button, ignores an icon button, a refresh label, a row action, comments and a wrapped call",
+        ) {
+            startNewButtonFindings("lobbyPanel.button(tr(\"Besprechung jetzt starten\"), style = ButtonStyle.PRIMARY)").size shouldBe 1
+            startNewButtonFindings("val b = Button(tr(\"Neuen Schlüssel ausstellen\"), style = ButtonStyle.PRIMARY)").size shouldBe 0
+            startNewButtonFindings("val b = Button(tr(\"Neuer Schlüssel\"), style = ButtonStyle.PRIMARY)").size shouldBe 1
+            startNewButtonFindings("val b = Button(text = tr(\"Neue Sitzung\"))").size shouldBe 1
+            startNewButtonFindings(
+                "val b = newActionButton(ActionIcon.ADD, tr(\"Besprechung jetzt starten\"), ButtonStyle.OUTLINEPRIMARY)",
+            ).size shouldBe
+                0
+            startNewButtonFindings("root.button(tr(\"Neu laden\"))").size shouldBe 0
+            startNewButtonFindings("root.button(tr(\"Neu ausstellen\"))").size shouldBe 0
+            startNewButtonFindings("val b = Button(tr(\"Neues Passwort setzen\"))").size shouldBe 0
+            startNewButtonFindings("// lobbyPanel.button(tr(\"Besprechung jetzt starten\"))\n* Button(tr(\"Neue Sitzung\"))").size shouldBe
+                0
+            startNewButtonFindings(
+                "collapsibleCreateForm<Unit>(a) { _, c -> panel.button(tr(\"Neue Sitzung\")) }",
+            ).size shouldBe 0
+            startNewButtonFindings(
+                "collapsibleCreateForm<Unit>(a) { _, c -> x() }\npanel.button(tr(\"Neue Sitzung\"))",
+            ).size shouldBe 1
+        }
+
+        test("V1.9.51: ConferenceScreen shows and hides the lobby only through setConferenceLobbyVisible (the header action must follow)") {
+            val screen = clientKotlinFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            rawLobbyVisibilityCalls(screen) shouldBe emptyList()
+            codeOnly(screen).contains("setConferenceLobbyVisible(") shouldBe true
+            rawLobbyVisibilityCalls("lobbyPanel.hide()") shouldBe listOf("lobbyPanel.hide()")
+            rawLobbyVisibilityCalls("    lobbyPanel.show()") shouldBe listOf("lobbyPanel.show()")
+            rawLobbyVisibilityCalls("setConferenceLobbyVisible(lobbyPanel, false)") shouldBe emptyList()
+            rawLobbyVisibilityCalls("// lobbyPanel.hide()\n* lobbyPanel.show()") shouldBe emptyList()
+            rawLobbyVisibilityCalls("callPanel.hide()") shouldBe emptyList()
         }
 
         test("R36B (V1.9.49) also finds a bold div title, a Create...Form builder and a shared builder called with existing = null") {

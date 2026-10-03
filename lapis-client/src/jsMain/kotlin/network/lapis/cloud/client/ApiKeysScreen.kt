@@ -43,7 +43,7 @@ fun renderApiKeysScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("API-Schlüssel"))
+    val header = root.pageHeader(tr("API-Schlüssel"))
     root.div(
         tr(
             "Diese Schlüssel authentifizieren externe Zugriffe auf die schreibgeschützte REST-API " +
@@ -58,6 +58,7 @@ fun renderApiKeysScreen(container: SimplePanel) {
     // showWebhookSecretRevealCard) guarantees the two are never shown simultaneously (Raskin-
     // Auflage, same discipline `ConfirmDialog.kt`'s own "cancel left, danger action right" rule
     // establishes for this screen's confirmation dialogs).
+    val issueFormHost = root.vPanel(spacing = 8)
     val revealCardSlot = root.vPanel(spacing = 8)
     val listSlot = root.vPanel(spacing = 8) { addCssClasses("mt-2") }
 
@@ -78,25 +79,33 @@ fun renderApiKeysScreen(container: SimplePanel) {
 
     // Formular-Grammatik (V1.4.28): ein Pflichtfeld, eine Aktion (Fall c) -- die Leer-Prüfung ist jetzt ein Feldfehler statt
     // eines Toasts. Die beiden Webhook-URL-Felder weiter unten bleiben W4c (im Tripwire R24 als Ausnahme benannt).
-    val issueForm = root.lapisForm()
-    issueForm.panel.addCssClass("mt-2")
-    val labelField =
-        issueForm.textField(
-            label = tr("Bezeichnung"),
-            required = true,
-            requiredMessage = gettext("Bitte eine Bezeichnung angeben."),
-        )
-    val issueButton = Button(tr("Neuen Schlüssel ausstellen"), style = ButtonStyle.PRIMARY)
-    issueForm.buttons(primary = issueButton)
-    issueButton.onClick {
-        issueForm.submit(issueButton) {
-            val result = guarded { rpcService<IApiKeyService>().issueApiKey(label = labelField.value.trim()) }
-            if (result != null) {
-                labelField.reset()
-                showApiKeyRevealCard(revealCardSlot, result)
-                loadKeysAndWebhooks()
+    // V1.9.51 (R36B): the form is collapsed behind the title-row button "Neuer Schlüssel"; the reveal card stays between form and list.
+    collapsibleCreateForm<Unit>(
+        actionSlot = header.actionSlot,
+        formHost = issueFormHost,
+        buttonLabel = tr("Neuer Schlüssel"),
+        formId = "lapis-create-api-key",
+    ) { _, close ->
+        val issueForm = lapisForm()
+        val labelField =
+            issueForm.textField(
+                label = tr("Bezeichnung"),
+                required = true,
+                requiredMessage = gettext("Bitte eine Bezeichnung angeben."),
+            )
+        val issueButton = newActionButton(ActionIcon.ADD, tr("Schlüssel ausstellen"), ButtonStyle.PRIMARY)
+        issueForm.buttons(primary = issueButton, cancel = collapseCancelButton(close))
+        issueButton.onClick {
+            issueForm.submit(issueButton) {
+                val result = guarded { rpcService<IApiKeyService>().issueApiKey(label = labelField.value.trim()) }
+                if (result != null) {
+                    close(true)
+                    showApiKeyRevealCard(revealCardSlot, result)
+                    loadKeysAndWebhooks()
+                }
             }
         }
+        issueForm.snapshot()
     }
 
     loadKeysAndWebhooks()
