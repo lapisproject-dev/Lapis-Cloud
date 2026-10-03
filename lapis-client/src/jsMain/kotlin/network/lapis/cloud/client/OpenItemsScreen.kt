@@ -117,10 +117,12 @@ fun renderOpenItemsScreen(
     selectedItemId: String? = null,
 ) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Offene Posten"))
+    val header = root.pageHeader(tr("Offene Posten"))
 
     val role = AppState.session?.role
     val canWrite = OpenItemAuthzUi.canWrite(role)
+    // V1.9.45 (R36B): the create form is collapsed; its host sits directly under the header, the button in the header's action slot.
+    val formHost = root.vPanel(spacing = 8)
     val state = OpenItemsState(selectedId = selectedItemId?.takeIf { looksLikeOpenItemUuid(it) })
 
     val bandHost = root.vPanel(spacing = 4)
@@ -131,7 +133,6 @@ fun renderOpenItemsScreen(
     val agingHost = root.vPanel(spacing = 6).apply { hide() }
 
     val actionRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    val formHost = root.vPanel(spacing = 8)
 
     val listHeading = root.h2(tr("Posten")) { addCssClass("h5") }
     // Focus target of the detail-closing refetch (see `followSelection`): programmatically focusable, not in the tab order.
@@ -741,38 +742,43 @@ fun renderOpenItemsScreen(
         }
         loadPaymentMappingFn = ::loadPaymentMapping
 
-        val createButton = actionRow.actionButton(ActionIcon.ADD, tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
         val nettingButton = actionRow.button(tr("Verrechnen …"), style = ButtonStyle.OUTLINESECONDARY)
-        createButton.onClick {
-            formHost.removeAll()
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = formHost,
+            buttonLabel = tr("Neuer offener Posten"),
+            formId = "lapis-create-open-item",
+        ) { _, close ->
             val defaultDirection =
                 when (state.segment) {
                     OpenItemSegment.ALL -> null // S11: in "Alle" keine Vorbelegung -- bewusste Wahl erzwingen
                     OpenItemSegment.PAYABLE -> OpenItemDirection.PAYABLE
                     OpenItemSegment.RECEIVABLE -> OpenItemDirection.RECEIVABLE
                 }
-            renderOpenItemCreateForm(
-                host = formHost,
-                role = role,
-                accounts = { state.accounts },
-                defaultDirection = defaultDirection,
-                registerAccountsLoadedListener = { listener -> onAccountsLoaded = listener },
-                onCreated = { created ->
-                    onAccountsLoaded = null
-                    formHost.removeAll()
-                    notifyCreatedOutcome(created.item)
-                    showDetail(created)
-                    refreshSummary()
-                    loadPage(reloadMode(detail = RefetchDetail.KEEP))
-                },
-                onCancel = {
-                    onAccountsLoaded = null
-                    formHost.removeAll()
-                },
-            )
+            val snapshot =
+                renderOpenItemCreateForm(
+                    host = this,
+                    role = role,
+                    accounts = { state.accounts },
+                    defaultDirection = defaultDirection,
+                    registerAccountsLoadedListener = { listener -> onAccountsLoaded = listener },
+                    onCreated = { created ->
+                        onAccountsLoaded = null
+                        close(true)
+                        notifyCreatedOutcome(created.item)
+                        showDetail(created)
+                        refreshSummary()
+                        loadPage(reloadMode(detail = RefetchDetail.KEEP))
+                    },
+                    onCancel = {
+                        onAccountsLoaded = null
+                        close(false)
+                    },
+                )
             // The initial load may still be in flight or may have failed (no automatic retry) -- an
             // empty list would leave the form's "Gegenkonto" select without any option.
             if (state.accounts.isEmpty()) loadAccounts()
+            snapshot
         }
         nettingButton.onClick { openItemNettingDialog { reloadAll() } }
         // Konten für Gegenkonto-/Zahlungskonto-Selects laden; ohne sie bleibt das Formular leer.
@@ -1225,7 +1231,7 @@ private fun renderOpenItemActionBar(
     }
 
     if (OpenItemAuthzUi.canRetryPosting(role, item)) {
-        val retry = actionsRow.button(tr("Nachbuchen"), style = ButtonStyle.OUTLINEWARNING)
+        val retry = actionsRow.actionButton(ActionIcon.REFRESH, tr("Nachbuchen"), style = ButtonStyle.OUTLINEWARNING)
         retry.onClick {
             runGuardedAction(retry) {
                 val result = guarded { rpcService<IOpenItemService>().retryOpenItemPosting(item.id) }
@@ -1238,14 +1244,14 @@ private fun renderOpenItemActionBar(
     }
 
     if (item.status != OpenItemStatus.CANCELLED) {
-        actionsRow.button(tr("Beleg/Notiz bearbeiten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+        actionsRow.actionButton(ActionIcon.EDIT, tr("Beleg/Notiz bearbeiten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
             openItemMetadataDialog(item, onChanged)
         }
     }
 
     val hasActiveSettlements = detail.settlements.any { it.reversedAt == null }
     if (item.status in OpenItemStatusSets.SETTLEABLE && !hasActiveSettlements) {
-        val cancel = actionsRow.button(tr("Posten stornieren"), style = ButtonStyle.OUTLINEDANGER)
+        val cancel = actionsRow.actionButton(ActionIcon.UNDO, tr("Posten stornieren"), style = ButtonStyle.OUTLINEDANGER)
         cancel.onClick {
             confirmWithReasonDialog(
                 title = tr("Posten stornieren"),
@@ -1363,7 +1369,7 @@ internal fun renderOpenItemCreateForm(
     // Called by the screen when the ledger accounts arrive (or are re-fetched) while the form is
     // already open, so the "Gegenkonto" select is rebuilt instead of staying at "(bitte wählen)".
     registerAccountsLoadedListener: ((() -> Unit) -> Unit) = {},
-) {
+): FormSnapshot {
     val surface = host.div { addCssClasses("lapis-surface border rounded p-3") }
     surface.h2(tr("Posten anlegen")) { addCssClass("h6") }
     // W4c: das Anlegen-Formular ist ein [LapisForm]. `validateOpenItemForm` bleibt die Regelquelle UND der letzte Riegel vor dem RPC
@@ -1594,4 +1600,5 @@ internal fun renderOpenItemCreateForm(
             if (created != null) onCreated(created)
         }
     }
+    return form.snapshot()
 }

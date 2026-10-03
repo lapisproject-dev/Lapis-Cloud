@@ -16,6 +16,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
@@ -58,7 +59,11 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
     if (AppState.hasRole(AccountRole.ADMIN)) {
         renderAdminDisclaimerWarningBand(root)
     }
-    root.pageHeader(tr("SEPA-Lastschrift"))
+    val header = root.pageHeader(tr("SEPA-Lastschrift"))
+    // V1.9.45 (R36B): both create forms are collapsed; the hosts sit directly under the header, the buttons in its action slot
+    // (batch first, return second -- two equal-rank outline buttons, see ui-ux-guideline R36).
+    val batchHost = if (canTreasuryAct) root.simplePanel() else null
+    val returnHost = if (canTreasuryAct) root.simplePanel() else null
 
     root.h2(tr("Läufe")) { addCssClass("h5") }
     val statusRegion = root.dataStatusRegion()
@@ -91,7 +96,13 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
         listPanel.removeAll()
         if (loaded.isEmpty()) {
             countsLabel.content = ""
-            listPanel.p(tr("Noch kein SEPA-Lauf angelegt.")) { addCssClasses("text-muted") }
+            listPanel.p(
+                if (canTreasuryAct) {
+                    tr("Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an.")
+                } else {
+                    tr("Noch kein SEPA-Lauf angelegt.")
+                },
+            ) { addCssClasses("text-muted") }
             return
         }
         countsLabel.content = dataCountText(shown = loaded.size, loaded = loaded.size, hasMore = hasMore)
@@ -148,14 +159,27 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
         }
     }
 
-    if (canTreasuryAct) {
-        renderNewBatchSection(root) { loadBatches(true) }
+    if (batchHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = batchHost,
+            buttonLabel = tr("Neuer Lastschriftlauf"),
+            formId = "lapis-create-sepa-batch",
+        ) { _, close -> renderNewBatchSection(this, close) { loadBatches(true) } }
     }
 
     loadMoreButton.onClick { loadBatches(false) }
     loadBatches(true)
 
-    renderSepaReturnsSection(root, canTreasuryAct)
+    val loadReturns = renderSepaReturnsSection(root, canTreasuryAct)
+    if (returnHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = returnHost,
+            buttonLabel = tr("Neue Rücklastschrift"),
+            formId = "lapis-create-sepa-return",
+        ) { _, close -> renderRecordReturnForm(this, close) { loadReturns() } }
+    }
 }
 
 private const val SEPA_BATCHES_PAGE_SIZE = 50
@@ -295,10 +319,11 @@ private fun renderAdminDisclaimerWarningBand(root: SimplePanel) {
 
 internal fun renderNewBatchSection(
     root: SimplePanel,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onCreated: () -> Unit,
-) {
-    root.h2(tr("Neuer Lauf")) { addCssClass("h5") }
+): FormSnapshot {
     val form = root.lapisForm()
+    val snapshot = form.snapshot()
     // MAJOR (Review Round 2, 2026-08-20): defaulting this to TODAY made the form's own standard
     // path fail every time -- `createDebitBatch` (SepaService.kt:552) rejects any
     // `requestedCollectionDate <= today` outright, but `previewDebitBatch` does NOT check the date
@@ -346,10 +371,10 @@ internal fun renderNewBatchSection(
         val tiers = guarded { rpcService<IContributionService>().listMembershipTiers() } ?: return@launch
         (tierField.control as Select).options =
             listOf("" to tr("Alle Mitgliedschaftsstufen")) + untrustedOptions(tiers.map { it.id to it.name })
-        tierField.setValue("")
+        snapshot.applyProgrammatic { tierField.setValue("") }
     }
-    val previewButton = Button(tr("Vorschau berechnen"), style = ButtonStyle.OUTLINEPRIMARY)
-    form.buttons(primary = previewButton)
+    val previewButton = newActionButton(ActionIcon.VIEW, tr("Vorschau berechnen"), ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = previewButton, cancel = collapse?.let { collapseCancelButton(it) })
     val previewPanel = form.panel.vPanel(spacing = 4)
     val createButtonHost = form.panel.vPanel(spacing = 4)
 
@@ -401,12 +426,16 @@ internal fun renderNewBatchSection(
                         // Erfolg wie Fehlschlag: die Vorschau (und mit ihr die Anzahl/Summe im Knopftext) gilt nicht mehr. Nach einem
                         // Fehlschlag (Konflikt, geänderte Bestandslage) stand sonst der alte Knopf mit den alten Zahlen bereit.
                         resetPreview()
-                        if (created != null) onCreated()
+                        if (created != null) {
+                            onCreated()
+                            collapse?.invoke(true)
+                        }
                     }
                 }
             }
         }
     }
+    return snapshot
 }
 
 private fun renderBatchPreview(
@@ -724,10 +753,11 @@ private fun sepaItemColumns(failedItemIds: List<String>): List<DataColumn<SepaDe
 // Rücklastschriften (Plan §4.3)
 // ================================================================================================
 
+/** Renders the returns list; hands back its reload function (the screen wires it to the collapsed "Neue Rücklastschrift" form). */
 internal fun renderSepaReturnsSection(
     root: SimplePanel,
     canRecordReturn: Boolean,
-) {
+): () -> Unit {
     root.h2(tr("Rücklastschriften")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()
     val fromInput = filterRow.text(label = tr("Von"))
@@ -807,7 +837,11 @@ internal fun renderSepaReturnsSection(
                     if (hasRange) {
                         tr("Keine Rücklastschrift im gewählten Zeitraum.")
                     } else {
-                        tr("Noch keine Rücklastschriften erfasst.")
+                        if (canRecordReturn) {
+                            tr("Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine.")
+                        } else {
+                            tr("Noch keine Rücklastschriften erfasst.")
+                        }
                     }
                 returnsPanel.p(text) { addCssClasses("text-muted") }
                 return@launch
@@ -817,11 +851,7 @@ internal fun renderSepaReturnsSection(
     }
     filterButton.onClick { loadReturns() }
     loadReturns()
-
-    if (canRecordReturn) {
-        root.h2(tr("Rücklastschrift erfassen")) { addCssClass("h6") }
-        renderRecordReturnForm(root) { loadReturns() }
-    }
+    return ::loadReturns
 }
 
 /** Spalten der Rücklastschriften-Tabelle / Kartenliste; das Mitglied ist die Identität der Zeile. */
@@ -848,9 +878,11 @@ private fun sepaReturnColumns(): List<DataColumn<SepaReturnDto>> =
 
 internal fun renderRecordReturnForm(
     root: SimplePanel,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onRecorded: () -> Unit,
-) {
+): FormSnapshot {
     val form = root.lapisForm()
+    val snapshot = form.snapshot()
     val batchField = form.selectField(label = tr("Lauf"), options = emptyList(), value = null, required = true)
     val itemPlaceholder = listOf("" to tr("-- Position wählen --"))
     val itemField =
@@ -912,7 +944,7 @@ internal fun renderRecordReturnForm(
             rule = { FormRules.returnFee(it) },
         )
     val submitButton = Button(tr("Rücklastschrift erfassen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = submitButton)
+    form.buttons(primary = submitButton, cancel = collapse?.let { collapseCancelButton(it) })
 
     fun updateRevocationNote() {
         val reason = runCatching { SepaReturnReason.valueOf(reasonField.value) }.getOrNull()
@@ -934,7 +966,8 @@ internal fun renderRecordReturnForm(
         val eligible = (submitted + settled).sortedByDescending { it.createdAt }
         (batchField.control as Select).options =
             eligible.map { it.id to gettext("%1 (%2)", formatDate(it.requestedCollectionDate), sepaBatchStatusLabel(it.status)) }
-        batchField.setValue(eligible.firstOrNull()?.id)
+        // A server-loaded preselection is not an edit by the person (V1.9.45): it becomes the new baseline only while the form is untouched.
+        snapshot.applyProgrammatic { batchField.setValue(eligible.firstOrNull()?.id) }
         // Ein gesetzter Wert räumt einen stehenden Fehler nicht von selbst (siehe `LapisField.setValue`).
         batchField.validate(force = false)
     }
@@ -969,7 +1002,7 @@ internal fun renderRecordReturnForm(
             (itemField.control as SearchableSelect).options =
                 itemPlaceholder +
                 returnable.map { item -> item.id to gettext("%1 -- %2", item.memberDisplayName, formatMoney(item.amount)) }
-            itemField.setValue(if (preselectFirst) returnable.firstOrNull()?.id ?: "" else "")
+            snapshot.applyProgrammatic { itemField.setValue(if (preselectFirst) returnable.firstOrNull()?.id ?: "" else "") }
             // Ein Lauf ohne rücklastschriftfähige Position ließ hier den Fehler "Bitte eine Position auswählen." stehen, obwohl der
             // Nutzer gerade einen Lauf MIT Positionen gewählt hat (siehe `LapisField.setValue`).
             itemField.validate(force = false)
@@ -1010,7 +1043,9 @@ internal fun renderRecordReturnForm(
                 feeField.reset()
                 refreshItemOptions(batchField.value, preselectFirst = false)
                 onRecorded()
+                collapse?.invoke(true)
             }
         }
     }
+    return snapshot
 }

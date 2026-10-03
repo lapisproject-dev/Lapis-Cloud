@@ -60,9 +60,7 @@ fun renderBankAccountsScreen(container: SimplePanel) {
     // Warnband über dem Titel (Richtlinie 2.8: es betrifft den ganzen Screen) -- unverändert gegenüber
     // V1.4.14, nur die Reihenfolge stimmt jetzt mit der Richtlinie überein.
     val warningBand = root.div().apply { hide() }
-    root.pageHeader(tr("Bankkonten"))
-
-    val actionsRow = root.hPanel(spacing = 8)
+    val header = root.pageHeader(tr("Bankkonten"))
 
     // Welle V1.4.26 (W2): der Abruf liegt in einem `dataSection` -- Lade-, Fehler- und Leerzustand statt
     // eines stumm leeren Bereichs, wenn `listBankAccounts` scheitert (`?: return@launch` vorher).
@@ -80,7 +78,9 @@ fun renderBankAccountsScreen(container: SimplePanel) {
         )
 
     if (BankAccountAuthzUi.canWrite(AppState.session?.role)) {
-        val createButton = actionsRow.button(tr("Bankkonto anlegen"), style = ButtonStyle.PRIMARY)
+        // V1.9.45 (R36B-consistent): the single create action sits in the header's action slot. It keeps opening the modal (see KDoc: no
+        // always-visible create form on this screen).
+        val createButton = header.actionSlot.actionButton(ActionIcon.ADD, tr("Neues Bankkonto"), style = ButtonStyle.OUTLINEPRIMARY)
         createButton.onClick { bankAccountEditModal(null) { section.reload() } }
     }
 

@@ -62,7 +62,7 @@ private fun renderSepaAdminSection(root: SimplePanel) {
 
     val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
     val enableButton = actionsRow.button(tr("SEPA-Lastschrift aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.button(tr("SEPA-Lastschrift deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("SEPA-Lastschrift deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
 
     fun acknowledgeAndEnable() {
         enableButton.disabled = true

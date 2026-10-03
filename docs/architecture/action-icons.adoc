@@ -21,7 +21,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `ADD` | `fa-plus` | Hinzufügen, Anlegen, "Neu ..."
 | `SEARCH`, `FILTER` | `fa-magnifying-glass`, `fa-filter` | Suchen, Filtern
 | `DOWNLOAD`, `UPLOAD`, `EXPORT` | `fa-download`, `fa-upload`, `fa-file-export` | Herunterladen, Hochladen, Exportieren
-| `COPY`, `PRINT` | `fa-copy`, `fa-print` | Kopieren, Drucken
+| `COPY`, `PRINT` | `fa-copy`, `fa-print` | Kopieren, Duplizieren, Drucken
 | `VIEW` | `fa-eye` | Details anzeigen, Anzeigen, Vorschau
 | `OPEN_EXTERNAL` | `fa-arrow-up-right-from-square` | opens another site or tab
 | `BACK`, `NEXT` | `fa-arrow-left`, `fa-arrow-right` | Zurück, Weiter, Öffnen
@@ -53,6 +53,33 @@ aligns at the bottom of the controls and drops that margin. `toolbarText()` puts
 Domain verbs that have no standard picture keep their text only: for example "Abstimmung eröffnen", "Konsensieren eröffnen", "Wahl eröffnen",
 "Stream unterbrechen", "Gebot abgeben", "Rechnung stellen", "Mandat erteilen", "Verrechnen ...", "Mehr laden", "Laden", "Prüfen", the
 `Zum ...` navigation buttons and the conference control bar. Inventing a picture for each would blur the one-picture-one-verb rule.
+
+=== Finance, V1.9.45
+
+The finance screens use the table wherever it names the verb unambiguously: "Mandat widerrufen" and "SEPA-Lastschrift deaktivieren" take `REVOKE`,
+"Posten stornieren" takes `UNDO` (as "Stornieren" of a batch did before), the "Nachbuchen" button takes `REFRESH`, "Vorschau berechnen" takes `VIEW`,
+"Beleg/Notiz bearbeiten" takes `EDIT`, "Buchungszeile hinzufügen" takes `ADD`, "Kontenzuordnung speichern" and "Token speichern" take `SAVE`,
+"Als neuen Entwurf duplizieren" takes `COPY` (a judgement call: duplicating is copying, hence the table row above now lists it), "Nur
+fehlgeschlagene erneut versuchen" takes `REFRESH`, "Kontoauszug hochladen" takes `UPLOAD`. Where the table and a hand-written list of "domain
+verbs" disagreed, the table won.
+
+Without a standard icon, each for the reason given:
+
+* *Booking and settling:* Buchen, Direkt buchen, Endgültig buchen, Ausgleichen ..., Jetzt ausgleichen, Verrechnen ..., Endgültig verrechnen -- the
+  accounting act has no standard picture; a check mark would claim "approve".
+* *Dunning:* Mahnhinweis Stufe %1 ausstellen, Stufe überspringen.
+* *SEPA runs:* Ankündigen, Datei erzeugen, Als eingereicht markieren, Abrechnen, "Lauf anlegen (n Positionen, Betrag)" (the label carries server numbers
+  and an amount, and `actionButton` takes a static label only), Mandat erteilen, Rücklastschrift erfassen ("erfassen" is not in the table).
+* *Consent and activation:* SEPA-Lastschrift aktivieren ..., "Ich bestätige ...", Aktivieren, TAN bestätigen, Neu anmelden ....
+* *Bank statement:* Diesem Beitrag zuordnen, Als Spende zuordnen, Zeile ignorieren.
+* *Accounting export:* Verbindung prüfen, Bestätigen, Prüfen, Zuordnen, Übertragen, In %1 gefunden, Nicht gefunden; "Token entfernen" (the credentials
+  are deleted: `REMOVE` would mean "detach", `DELETE` is the bin of an object); "Lauf abbrechen" (cancels a running job, not "close a form").
+* *Loading:* "Laden" (first load is not "reload"), "Mehr laden" and "Weitere ... laden" (pagination).
+* *Switches and navigation:* Hauptbuch / Kassenbuch, link buttons, filter chips, "Altersstruktur anzeigen".
+
+The two finance rows that stay as strings in `tableActionButton("fas ...")` are domain verbs with no `ActionIcon` entry: "Als Standard setzen"
+(star, `BankAccountsScreen`) and "Ausgleichen" (money bill, `OpenItemsScreen`). They stay in the ledger of `ClientToolbarIconTripwireTest`.
+Inventing a table entry for a domain verb would break "one picture, one verb".
 
 Domain icons that stay as strings in table action columns (`tableActionButton("fas ...")`, 17 calls, ledgered in the tripwire): key, link, user-lock,
 medal, star, receipt, money, invoice, id card and similar.

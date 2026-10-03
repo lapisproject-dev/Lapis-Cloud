@@ -410,6 +410,10 @@ body {
 /* R36: the ONE primary action of a page sits at the right end of the title row and keeps its size next to a long title. */
 .lapis-page-action {
   flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 100%;
 }
 
 /* Skip link: first stop of the tab order, visible only while focused (clip, not display:none -- a display:none

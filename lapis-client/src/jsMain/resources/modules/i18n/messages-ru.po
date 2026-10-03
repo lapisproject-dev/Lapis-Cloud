@@ -19536,3 +19536,60 @@ msgstr "Новый опрос"
 
 msgid "Keine Änderung"
 msgstr "Без изменений"
+
+msgid "Neue Kostenstelle"
+msgstr "Новый центр затрат"
+
+msgid "Neuer Spender"
+msgstr "Новый донор"
+
+msgid "Neues Konto"
+msgstr "Новый счёт"
+
+msgid "Neuer offener Posten"
+msgstr "Новая открытая позиция"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "Новый запуск прямого дебетования"
+
+msgid "Neue Rücklastschrift"
+msgstr "Новый возврат дебетования"
+
+msgid "Neues Mandat"
+msgstr "Новый мандат"
+
+msgid "Kontoauszug hochladen"
+msgstr "Загрузить банковскую выписку"
+
+msgid "Neues Bankkonto"
+msgstr "Новый банковский счёт"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "Центров затрат пока нет. С помощью «Новый центр затрат» вы можете создать первый."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Внешних доноров пока нет. С помощью «Новый донор» вы можете создать первого."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Счетов пока нет. С помощью «Новый счёт» вы можете создать первый."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "Активных счетов пока нет -- сначала создайте не менее двух счетов с помощью «Новый счёт»."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "Запусков SEPA пока нет. С помощью «Новый запуск прямого дебетования» вы можете создать первый."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "Возвратов дебетования пока нет. С помощью «Новый возврат дебетования» вы можете зарегистрировать первый."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "Мандатов SEPA пока нет. С помощью «Новый мандат» вы можете зарегистрировать первый."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "Банковских выписок пока не импортировано. С помощью «Загрузить банковскую выписку» вы можете загрузить первую."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "С помощью «Новый донор» вы можете создать первого."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "С помощью «Новый счёт» вы можете создать первый."

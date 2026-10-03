@@ -19545,3 +19545,60 @@ msgstr "Nowa ankieta"
 
 msgid "Keine Änderung"
 msgstr "Bez zmian"
+
+msgid "Neue Kostenstelle"
+msgstr "Nowe miejsce powstawania kosztów"
+
+msgid "Neuer Spender"
+msgstr "Nowy darczyńca"
+
+msgid "Neues Konto"
+msgstr "Nowe konto"
+
+msgid "Neuer offener Posten"
+msgstr "Nowa pozycja otwarta"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "Nowy przebieg polecenia zapłaty"
+
+msgid "Neue Rücklastschrift"
+msgstr "Nowy zwrot polecenia zapłaty"
+
+msgid "Neues Mandat"
+msgstr "Nowy mandat"
+
+msgid "Kontoauszug hochladen"
+msgstr "Prześlij wyciąg bankowy"
+
+msgid "Neues Bankkonto"
+msgstr "Nowe konto bankowe"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "Brak miejsc powstawania kosztów. Za pomocą \"Nowe miejsce powstawania kosztów\" można dodać pierwsze."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Brak zewnętrznych darczyńców. Za pomocą \"Nowy darczyńca\" można dodać pierwszego."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Brak kont. Za pomocą \"Nowe konto\" można dodać pierwsze."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "Brak aktywnych kont -- najpierw dodaj co najmniej dwa konta za pomocą \"Nowe konto\"."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "Brak przebiegów SEPA. Za pomocą \"Nowy przebieg polecenia zapłaty\" można utworzyć pierwszy."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "Brak zwrotów poleceń zapłaty. Za pomocą \"Nowy zwrot polecenia zapłaty\" można zarejestrować pierwszy."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "Brak mandatów SEPA. Za pomocą \"Nowy mandat\" można zarejestrować pierwszy."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "Brak zaimportowanych wyciągów bankowych. Za pomocą \"Prześlij wyciąg bankowy\" można przesłać pierwszy."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Za pomocą \"Nowy darczyńca\" można dodać pierwszego."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Za pomocą \"Nowe konto\" można dodać pierwsze."

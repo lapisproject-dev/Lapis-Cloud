@@ -15,6 +15,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import io.kvision.table.Table
 import io.kvision.table.TableType
@@ -73,25 +74,14 @@ fun renderBankStatementImportScreen(
             marginTop = 24.px
         }
 
-    // Zone 1 -- Kopfzeile: Seitenkopf (W5) mit dem Upload-Knopf als einziger Primaeraktion; ohne Schreibrecht steht der
-    // Hinweis als Untertitel.
-    var uploadToggle: Button? = null
-    root.pageHeader(
-        tr("Kontoauszüge"),
-        subtitle = if (canWrite) null else tr("Sie sehen diese Seite mit Leserechten."),
-        primaryAction =
-            if (canWrite) {
-                { uploadToggle = button(tr("Auszug hochladen"), style = ButtonStyle.PRIMARY) }
-            } else {
-                null
-            },
-    )
-    val uploadPanel =
-        root.vPanel(spacing = 6) {
-            addCssClasses("border rounded p-3")
-            hide()
-        }
-    uploadToggle?.onClick { if (uploadPanel.visible) uploadPanel.hide() else uploadPanel.show() }
+    // Zone 1 -- Kopfzeile: Seitenkopf (W5); der Upload-Knopf steht im Aktions-Slot der Titelzeile (V1.9.45, R36B: das Formular ist
+    // eingeklappt, sein Host liegt direkt unter dem Kopf). Ohne Schreibrecht steht der Hinweis als Untertitel.
+    val header =
+        root.pageHeader(
+            tr("Kontoauszüge"),
+            subtitle = if (canWrite) null else tr("Sie sehen diese Seite mit Leserechten."),
+        )
+    val uploadHost = if (canWrite) root.simplePanel() else null
 
     // Zone 2 -- Import-Auswahl.
     val resultBannerHost = root.vPanel(spacing = 4)
@@ -107,6 +97,8 @@ fun renderBankStatementImportScreen(
     val workbenchHost = linesHost.vPanel(spacing = 8)
 
     var selectedImportId: String? = selectedImportIdParam
+    // The collapsed upload form; `onImported` closes it after a successful import.
+    var importForm: CollapsibleCreateFormController<Unit>? = null
     var importOffset = 0
     val loadedImports = mutableListOf<BankStatementImportDto>()
     // Review fix (MAJOR, Welle V1.4.5.1.1 Runde 2): `selectImport` used to only set `selectedImportId`
@@ -293,7 +285,13 @@ fun renderBankStatementImportScreen(
             importOffset += page.rows.size
             if (importOffset >= page.totalCount || page.rows.isEmpty()) loadMoreImportsButton.hide() else loadMoreImportsButton.show()
             if (loadedImports.isEmpty()) {
-                importPickerHost.div(tr("Noch keine Kontoauszüge importiert.")) { addCssClasses("text-muted small") }
+                importPickerHost.div(
+                    if (canWrite) {
+                        tr("Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch.")
+                    } else {
+                        tr("Noch keine Kontoauszüge importiert.")
+                    },
+                ) { addCssClasses("text-muted small") }
             }
         }
     }
@@ -315,10 +313,27 @@ fun renderBankStatementImportScreen(
         rebuildFilterRow()
         renderImports(reset = true)
         loadLines(reset = true)
-        uploadPanel.hide()
+        importForm?.close(force = true)
     }
 
-    renderUploadPanel(uploadPanel, onUploadStarted = { resultBannerHost.removeAll() }) { result -> onImported(result) }
+    if (uploadHost != null) {
+        importForm =
+            collapsibleCreateForm<Unit>(
+                actionSlot = header.actionSlot,
+                formHost = uploadHost,
+                buttonLabel = tr("Kontoauszug hochladen"),
+                formId = "lapis-create-bank-import",
+                icon = ActionIcon.UPLOAD,
+            ) { _, close ->
+                // The frame lives inside the build lambda: collapsed, no empty box is left behind.
+                val box = vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+                renderUploadPanel(
+                    box,
+                    onUploadStarted = { resultBannerHost.removeAll() },
+                    collapse = close,
+                ) { result -> onImported(result) }
+            }
+    }
     renderImports(reset = true)
 
     AppScope.launch {
@@ -336,8 +351,9 @@ internal fun bankStatementImportHash(importId: String?): String =
 internal fun renderUploadPanel(
     panel: SimplePanel,
     onUploadStarted: () -> Unit,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onImported: (BankStatementImportResultDto) -> Unit,
-) {
+): FormSnapshot {
     // W4c: der Upload ist ein [LapisForm]. Das rohe `Upload`-Control wird über `register` angemeldet (Muster `BackupScreen`): Hinweis-
     // und Fehlerslot stehen als GESCHWISTER hinter dem Control, nie darin.
     val form = panel.lapisForm()
@@ -373,7 +389,7 @@ internal fun renderUploadPanel(
             },
         )
     val uploadButton = newActionButton(ActionIcon.UPLOAD, tr("Hochladen"), ButtonStyle.PRIMARY)
-    form.buttons(primary = uploadButton)
+    form.buttons(primary = uploadButton, cancel = collapse?.let { collapseCancelButton(it) })
     // Die Rohzeile eines abgelehnten Auszugs (enthält IBAN und Betrag) steht in einem gewöhnlichen Detailbereich, NICHT in der
     // Sammelfläche des Formulars: die ist eine `role="alert"`-Live-Region, und ein Screenreader läse Kontodaten unaufgefordert vor.
     val rawLineHost = panel.div { addCssClasses("text-muted small font-monospace") }
@@ -409,12 +425,16 @@ internal fun renderUploadPanel(
                 is BankStatementImportOutcome.Rejected -> {
                     val rejection = outcome.rejection
                     form.showFormError(resolvedAttributeText(bankStatementRejectionMessage(rejection)))
-                    rejection.rawLineExcerpt?.let { rawLineHost.content = gettext("Betroffene Zeile: %1", it) }
+                    // The excerpt is a line out of the uploaded file (untrusted): keep an injected catalog marker out of the DOM.
+                    rejection.rawLineExcerpt?.let { rawLineHost.content = sanitizeUntrustedI18nText(gettext("Betroffene Zeile: %1", it)) }
                 }
                 is BankStatementImportOutcome.Other -> form.showFormError(resolvedAttributeText(outcome.message))
             }
         }
     }
+    // The raw Upload control may not report its selection through the generic field value: the chosen file names are part of the snapshot.
+    val fieldValues = form.snapshot()
+    return FormSnapshot { fieldValues.values() + fileUpload.value?.map { it.name }.orEmpty() }
 }
 
 private fun renderResultBanner(

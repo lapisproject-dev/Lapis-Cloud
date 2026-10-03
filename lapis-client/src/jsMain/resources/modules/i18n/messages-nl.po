@@ -19546,3 +19546,60 @@ msgstr "Nieuwe peiling"
 
 msgid "Keine Änderung"
 msgstr "Geen verandering"
+
+msgid "Neue Kostenstelle"
+msgstr "Nieuwe kostenplaats"
+
+msgid "Neuer Spender"
+msgstr "Nieuwe donateur"
+
+msgid "Neues Konto"
+msgstr "Nieuwe rekening"
+
+msgid "Neuer offener Posten"
+msgstr "Nieuwe openstaande post"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "Nieuwe incassorun"
+
+msgid "Neue Rücklastschrift"
+msgstr "Nieuwe stornering"
+
+msgid "Neues Mandat"
+msgstr "Nieuw mandaat"
+
+msgid "Kontoauszug hochladen"
+msgstr "Bankafschrift uploaden"
+
+msgid "Neues Bankkonto"
+msgstr "Nieuwe bankrekening"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "Nog geen kostenplaatsen. Met \"Nieuwe kostenplaats\" maakt u er een aan."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Nog geen externe donateurs. Met \"Nieuwe donateur\" maakt u er een aan."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Nog geen rekeningen. Met \"Nieuwe rekening\" maakt u er een aan."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "Nog geen actieve rekeningen -- maak eerst minstens twee rekeningen aan met \"Nieuwe rekening\"."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "Nog geen SEPA-run. Met \"Nieuwe incassorun\" maakt u er een aan."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "Nog geen stornering. Met \"Nieuwe stornering\" legt u er een vast."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "Nog geen SEPA-mandaten. Met \"Nieuw mandaat\" legt u er een vast."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "Nog geen bankafschriften geïmporteerd. Met \"Bankafschrift uploaden\" uploadt u het eerste."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Met \"Nieuwe donateur\" maakt u er een aan."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Met \"Nieuwe rekening\" maakt u er een aan."

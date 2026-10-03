@@ -40,6 +40,29 @@ private val PLAIN_STANDARD_BUTTON = Regex("""(?<![\w])[bB]utton\(\s*(?:text\s*=\
 private val FORBIDDEN_ICON_ALIAS = Regex("""fa-(?:times|edit|refresh)\b""")
 private val STRING_TABLE_ACTION = Regex("""tableActionButton\(\s*"""")
 
+/** V1.9.45: the finance screens, held strictly -- a plain button for a verb the `ActionIcon` table maps unambiguously is a finding, never ledgered. */
+private val R57_FINANCE_STRICT_FILES =
+    setOf(
+        "CostCentersScreen.kt",
+        "DonorsScreen.kt",
+        "LedgerScreen.kt",
+        "OpenItemsScreen.kt",
+        "SepaBatchesScreen.kt",
+        "SepaMandatesScreen.kt",
+        "SepaMandateSection.kt",
+        "SepaSettingsScreen.kt",
+        "BankStatementImportScreen.kt",
+        "BankAccountsScreen.kt",
+        "AccountingExportScreen.kt",
+        "FinancialReportsScreen.kt",
+        "ContributionsScreen.kt",
+        "DunningCasesScreen.kt",
+    )
+
+private const val TABLE_VERBS = "anlegen|hinzufügen|speichern|bearbeiten|stornieren|widerrufen|deaktivieren|duplizieren"
+
+private val PLAIN_TABLE_VERB_BUTTON = Regex("""(?<![\w])[bB]utton\(\s*(?:text\s*=\s*)?(?:tr|gettext)\("[^"]*(?:$TABLE_VERBS)"""")
+
 private fun isCommentLine(line: String): Boolean = line.trimStart().let { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") }
 
 private fun clientFiles(): List<File> =
@@ -84,6 +107,8 @@ internal fun plainStandardButtons(source: String): Int = PLAIN_STANDARD_BUTTON.f
 
 internal fun stringTableActionButtons(source: String): Int = codeLines(source).count { STRING_TABLE_ACTION.containsMatchIn(it) }
 
+internal fun plainTableVerbButtons(source: String): Int = PLAIN_TABLE_VERB_BUTTON.findAll(codeLines(source).joinToString("\n")).count()
+
 internal fun forbiddenIconAliases(source: String): Int = codeLines(source).count { FORBIDDEN_ICON_ALIAS.containsMatchIn(it) }
 
 /**
@@ -102,7 +127,11 @@ private val R57_PLAIN_STANDARD_BUTTON_LEDGER: Map<String, Int> =
         "ClientVersionWatcher.kt" to 1,
     )
 
-/** R57 ledger: file -> number of string-typed `tableActionButton("fas fa-...")` calls (domain verbs without a standard icon, see action-icons.adoc). */
+/**
+ * R57 ledger: file -> number of string-typed `tableActionButton("fas fa-...")` calls (domain verbs without a standard icon, see action-icons.adoc).
+ * V1.9.45: BankAccountsScreen ("Als Standard setzen", star) and OpenItemsScreen ("Ausgleichen", money bill) stay -- domain verbs with no
+ * `ActionIcon` entry; `action-icons.adoc` lists exactly these two as "domain icons that stay as strings".
+ */
 private val R57_STRING_TABLE_ACTION_LEDGER: Map<String, Int> =
     mapOf(
         "BankAccountsScreen.kt" to 1,
@@ -181,6 +210,25 @@ class ClientToolbarIconTripwireTest :
             plainStandardButtons("row.button(tr(\"Bearbeiten und freigeben\"))") shouldBe 0
             stringTableActionButtons("a.tableActionButton(\"fas fa-star\", tr(\"X\"))") shouldBe 1
             stringTableActionButtons("a.tableActionButton(ActionIcon.EDIT, tr(\"X\"))") shouldBe 0
+        }
+
+        test("R57 detector (finance): a plain button for a table verb is found, an actionButton or an unmapped verb is not") {
+            plainTableVerbButtons("row.button(tr(\"Posten stornieren\"), style = S)") shouldBe 1
+            plainTableVerbButtons("val b = Button(tr(\"Kostenstelle anlegen\"), style = S)") shouldBe 1
+            plainTableVerbButtons("row.button(\n    tr(\"Mandat widerrufen\"),\n)") shouldBe 1
+            plainTableVerbButtons("row.actionButton(ActionIcon.UNDO, tr(\"Posten stornieren\"))") shouldBe 0
+            plainTableVerbButtons("val b = newActionButton(ActionIcon.ADD, tr(\"Konto anlegen\"))") shouldBe 0
+            plainTableVerbButtons("row.button(tr(\"Ausgleichen …\"))") shouldBe 0
+        }
+
+        test("R57 (V1.9.45): the finance screens hold no plain button for a verb the ActionIcon table maps") {
+            val byName = clientFiles().associateBy { it.name }
+            val actual =
+                R57_FINANCE_STRICT_FILES
+                    .filter { it in byName }
+                    .associateWith { plainTableVerbButtons(byName.getValue(it).readText()) }
+                    .filterValues { it > 0 }
+            withClue("use actionButton/newActionButton(ActionIcon.X, ...): $actual") { actual shouldBe emptyMap() }
         }
 
         test("R57: the aliases fa-times, fa-edit and fa-refresh are not used (ActionIcon names the picture)") {

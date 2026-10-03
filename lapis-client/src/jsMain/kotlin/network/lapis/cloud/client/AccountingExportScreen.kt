@@ -197,7 +197,7 @@ internal fun renderConnectionSection(
             suppressManagers = true,
             requiredMessage = tr("Bitte ein Token eingeben."),
         )
-    val saveButton = Button(tr("Token speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Token speichern"), ButtonStyle.PRIMARY)
     val testButton = Button(tr("Verbindung prüfen"), style = ButtonStyle.OUTLINESECONDARY)
     val removeButton = Button(tr("Token entfernen"), style = ButtonStyle.OUTLINEDANGER)
     val actionsRow = form.buttons(primary = saveButton, destructive = removeButton)
@@ -532,7 +532,12 @@ private fun renderRunSection(
     val summaryBox = panel.div()
     val itemsPanel = panel.vPanel(spacing = 4)
     val actionsRow = panel.hPanel(spacing = 8)
-    val retryButton = actionsRow.button(tr("Nur fehlgeschlagene erneut versuchen"), style = ButtonStyle.OUTLINESECONDARY)
+    val retryButton =
+        actionsRow.actionButton(
+            ActionIcon.REFRESH,
+            tr("Nur fehlgeschlagene erneut versuchen"),
+            style = ButtonStyle.OUTLINESECONDARY,
+        )
     val abortButton = actionsRow.button(tr("Lauf abbrechen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun renderSummary(run: AccountingExportRunDto) {

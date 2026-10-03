@@ -11,6 +11,7 @@ import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -71,7 +72,9 @@ fun renderDonorsScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Spender"))
+    val header = root.pageHeader(tr("Spender"))
+    // V1.9.45 (R36B): the create form is collapsed; host directly under the header, button in the action slot.
+    val createHost = if (canManage) root.simplePanel() else null
     root.div(
         tr(
             "Externe Spender sind keine Mitglieder -- eine eigenständige Adressverwaltung für " +
@@ -140,11 +143,18 @@ fun renderDonorsScreen(container: SimplePanel) {
             // leere Liste bei aktivem „nur aktive"-Filter heisst nicht „noch keine Spender angelegt".
             val text =
                 if (includeInactiveCheck.value) {
-                    tr("Noch keine externen Spender angelegt.")
+                    if (canManage) {
+                        tr("Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an.")
+                    } else {
+                        tr("Noch keine externen Spender angelegt.")
+                    }
                 } else {
                     tr("Kein aktiver externer Spender vorhanden. Inaktive Spender einblenden, um auch stillgelegte zu sehen.")
                 }
             listPanel.p(text) { addCssClasses("text-muted") }
+            if (canManage && !includeInactiveCheck.value) {
+                listPanel.p(tr("Mit \"Neuer Spender\" legen Sie einen an.")) { addCssClasses("text-muted") }
+            }
             return
         }
         val filtered = filterExternalDonors(loadedDonors, query)
@@ -212,9 +222,13 @@ fun renderDonorsScreen(container: SimplePanel) {
 
     refreshList()
 
-    if (canManage) {
-        root.h2(tr("Neuen Spender anlegen")) { addCssClass("h5") }
-        renderDonorCreationForm(root) { refreshList() }
+    if (createHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = createHost,
+            buttonLabel = tr("Neuer Spender"),
+            formId = "lapis-create-donor",
+        ) { _, close -> renderDonorCreationForm(this, close) { refreshList() } }
     }
 
     // ---- Spendenrecht-Pflichten-Report (§25 PartG) -------------------------------------------
@@ -299,8 +313,9 @@ private fun Container.renderDonorActions(
  */
 internal fun renderDonorCreationForm(
     root: SimplePanel,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val form = root.lapisForm()
     val displayNameField = form.textField(label = tr("Name"), required = true)
     val categoryOptions =
@@ -318,8 +333,8 @@ internal fun renderDonorCreationForm(
     val cityField = form.textField(label = tr("Ort"))
     val countryField = form.textField(label = tr("Land"))
 
-    val createButton = Button(tr("Spender anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Spender anlegen"), ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
             val displayName = displayNameField.value.trim()
@@ -348,9 +363,11 @@ internal fun renderDonorCreationForm(
                 cityField.reset()
                 countryField.reset()
                 onCreated()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 // ============================================================================================

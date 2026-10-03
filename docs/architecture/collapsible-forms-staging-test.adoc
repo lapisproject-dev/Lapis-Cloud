@@ -34,6 +34,30 @@ open. It is a plan to be run by a person, not a script.
 | 14 | Switch the language to English and open a form, then cancel after typing | button, dialog and empty-state texts are translated
 |===
 
+== Finance group (V1.9.45) -- additional steps, not executed
+
+The finance screens were converted afterwards; the same plan applies with these accounts and screens. The steps below were **not executed**
+(nothing was deployed by the author of the wave); every result is open.
+
+. Accounts: TREASURER and BOARD. Data: at least two active ledger accounts, one cost center, one external donor, one submitted SEPA batch.
+. As TREASURER open each of "Kostenstellen" ("Neue Kostenstelle"), "Spender" ("Neuer Spender"), "Offene Posten" ("Neuer offener Posten"), "Kontoauszüge"
+  ("Kontoauszug hochladen", upload icon), "SEPA-Mandate" ("Neues Mandat"), "Bankkonten" ("Neues Bankkonto", opens the modal): the form is
+  collapsed, the button is in the title row, and steps 2 to 8 of the table above behave the same (Escape with and without typing, "Abbrechen",
+  save folds back and reloads, the focus returns to the button).
+. "Kontenplan & Journal": both buttons are in the title row, "Neue Buchung" left of "Neues Konto". Open "Neue Buchung", press "Buchungszeile hinzufügen",
+  type an amount into line 3, press `Escape`: the discard dialog appears. Press "Weiter bearbeiten": the amount is still there.
+. Journal: add a posting line without typing anything and press `Escape`: the dialog appears as well (an added line counts as a change; this is intended).
+. Journal: select a draft, press "Als neuen Entwurf duplizieren": the form opens pre-filled; `Escape` closes without a question. Change a field, press
+  "Als neuen Entwurf duplizieren" on another draft: the dialog asks before the form is overwritten.
+. Journal: "Direkt buchen" still asks for confirmation; a double click on "Endgültig buchen" books exactly once.
+. "SEPA-Lastschrift": both buttons ("Neuer Lastschriftlauf", "Neue Rücklastschrift") in the title row. Open "Neue Rücklastschrift", wait until the batch and the
+  item are preselected, press `Escape`: no dialog. Type a fee first, then `Escape`: the dialog appears.
+. "Offene Posten": open "Neuer offener Posten", type a counterparty, press "Abbrechen": the dialog appears (before this wave the input vanished silently).
+. "Kontoauszüge": the empty state names the button and does not open the form by itself; pick a file, press `Escape`: the dialog appears.
+. At 375 px width the two buttons of the journal and of the SEPA page wrap without horizontal scrolling.
+. As BOARD open all of the above: no button and no empty gap in the title row.
+. Switch the language to English: buttons, empty-state sentences and the dialog are translated.
+
 == Actual results
 
 (to be filled in when the plan is run)

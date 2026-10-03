@@ -18631,3 +18631,60 @@ msgstr ""
 
 msgid "Keine Änderung"
 msgstr ""
+
+msgid "Neue Kostenstelle"
+msgstr ""
+
+msgid "Neuer Spender"
+msgstr ""
+
+msgid "Neues Konto"
+msgstr ""
+
+msgid "Neuer offener Posten"
+msgstr ""
+
+msgid "Neuer Lastschriftlauf"
+msgstr ""
+
+msgid "Neue Rücklastschrift"
+msgstr ""
+
+msgid "Neues Mandat"
+msgstr ""
+
+msgid "Kontoauszug hochladen"
+msgstr ""
+
+msgid "Neues Bankkonto"
+msgstr ""
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr ""
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr ""
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr ""
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr ""
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr ""
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr ""
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr ""
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr ""
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr ""
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr ""

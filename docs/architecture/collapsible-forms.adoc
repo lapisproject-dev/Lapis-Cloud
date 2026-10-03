@@ -36,8 +36,10 @@ so the preselection is not mistaken for an edit.
 * `collapseCancelButton(close)`: the "Abbrechen" button of the form row.
 * `confirmDialog(cancelLabel = ...)` (in `ConfirmDialog.kt`): a new optional parameter for the label of the dismissing button; every existing caller is unchanged.
 
-The existing `render...Form` functions keep their signatures; they gained an optional trailing `collapse` parameter and now return the
-`FormSnapshot`. Callers that ignore the result (the body tests, which call them directly) are unaffected.
+The existing `render...Form` functions keep their call shape; they gained an optional `collapse` parameter and now return the
+`FormSnapshot`. `collapse` stands BEFORE the last lambda parameter (`onCreated`, `onSaved`, `onGranted`, `onRecorded`), not at the very end: the
+tests call the functions with a trailing lambda (`renderCostCenterCreationForm(root) { }`), and a function parameter at the end would capture that
+lambda and break the call. Callers that ignore the result (the body tests, which call them directly) are unaffected.
 
 == Where the data comes from
 
@@ -60,9 +62,70 @@ The scan is a heuristic (a section title `h2(tr("Neu ..."))`, or a call of a `re
 function outside a `collapsibleCreateForm` call). It does not see a create form built under another name or hand-rolled in a screen: the ledger
 is an honest approximation of the debt, not a complete census.
 
+== V1.9.45: group "Finanzen" converted
+
+Client only: no migration, no server code, no new RPC. Seven screens now use `collapsibleCreateForm` and are held strictly by the tripwire
+(`R36B_CONVERTED`); the debt ledger shrinks from 39 to 30 findings.
+
+[cols="2,2,2", options="header"]
+|===
+| Screen | Button(s) in the title row | Form id
+| Kostenstellen | "Neue Kostenstelle" | `lapis-create-cost-center`
+| Spender | "Neuer Spender" | `lapis-create-donor`
+| Kontenplan & Journal | "Neue Buchung", then "Neues Konto" | `lapis-create-journal-entry`, `lapis-create-ledger-account`
+| Offene Posten | "Neuer offener Posten" | `lapis-create-open-item`
+| SEPA-Lastschrift | "Neuer Lastschriftlauf", then "Neue Rücklastschrift" | `lapis-create-sepa-batch`, `lapis-create-sepa-return`
+| SEPA-Mandate | "Neues Mandat" (appears once the members are loaded) | `lapis-create-sepa-mandate`
+| Kontoauszüge | "Kontoauszug hochladen" (upload icon) | `lapis-create-bank-import`
+|===
+
+Two screens have two buttons. R36 says "at most one primary action"; here both buttons are equal-rank outline buttons, one per list on the page
+(journal and account list; batch list and return list). That is a deliberate exception (see `ui-ux-guideline.adoc`, R36). `.lapis-page-action` is a
+wrapping flex row (`gap: .5rem`), so the two buttons wrap at 375 px instead of overflowing. In the journal the two slot containers are created
+before the data arrives, so the order is fixed no matter which answer comes first.
+
+Two additions to the building block, both additive (the pilot calls are unchanged):
+
+* `collapsibleCreateForm(..., icon = ActionIcon.ADD, build)`: the icon of the title-row button. Only "Kontoauszug hochladen" needs another one (`UPLOAD`).
+* `FormSnapshot.applyProgrammatic { ... }`: a programmatic change of a field after the form was built (a server-loaded preselection). It becomes
+  the new "unchanged" state ONLY if the form was unchanged before; what the person typed is never swallowed. (`rebaseline()` takes the current
+  values unconditionally: fine when the form cannot have been touched yet, wrong when the answer of a slow request arrives after typing.) Used in
+  the SEPA return form (batch and item preselection) and the batch form (tier list).
+
+Findings that shaped the conversion:
+
+* *The journal form is dynamic.* Posting lines are fields registered with the form (`LapisForm.fields` is a live list; removing a line unregisters
+  its fields), and `snapshot()` reads the values at every comparison. A newly added, empty line therefore already counts as a change (Escape asks):
+  the safe direction. "Neue Buchung" is converted, not exempted; `FinanceCollapsibleFormsDomTest` proves it.
+* `open(prefill)` is now wired: "Als neuen Entwurf duplizieren" opens the form pre-filled. Before, the duplicate silently overwrote what was typed
+  into the always-visible form; now an open, changed form asks first.
+* Open items: the hand-built toggle ("Posten anlegen") threw typed input away on "Abbrechen" and on a second click. It is replaced by the shared
+  component, which asks.
+* The bank statement upload frame lives INSIDE the build lambda; otherwise an empty bordered box would stay on the page while collapsed. After a
+  successful import the screen closes the form through the controller. The snapshot of the upload form also contains the chosen file names,
+  because the raw upload control may not report its selection through the generic field value.
+
+Not converted, with the reason (only `SepaMandateSection.kt` is in `R36B_EXEMPT`: the exemption list takes only files the scanner finds something in):
+
+[cols="2,4", options="header"]
+|===
+| Screen | Reason
+| `BankAccountsScreen` | The create form is a modal, not an always-visible section. Its button moved into the title row ("Neues Bankkonto", `ADD` icon, outline) for consistency; it still opens the modal.
+| `SepaSettingsScreen` | A settings form that is the whole content of the page; there is no list of objects it adds to.
+| `SepaMandateSection` | The member's own single mandate, already behind the "Mandat erteilen" click. In `R36B_EXEMPT` (the scanner sees `renderSepaMandateForm(`).
+| `AccountingExportScreen` | The token/connection is one configuration, not a list; the "Zuordnen" rows are row actions.
+| Search and filters | Account and journal search, open-item filters, the return period: not create forms.
+|===
+
+R56 (tool rows): no `hPanel` of these screens holds a field plus a button. Two rows are deliberately not toolbars: the posting line
+(`lapis-posting-row`, an input row of a table) and the user-ID/PIN rows in the bank account modal (fields only).
+
 == Not done
 
-* Polls, and all other groups listed in `R36B_NOT_YET_COLLAPSED`.
-* `open(prefill)` is covered by the component's tests but wired into none of the pilot screens: there is no "duplicate" flow among them.
+* Groups not yet converted: events, community and members, documents, compliance, conference administration, economy/auction (all in
+  `R36B_NOT_YET_COLLAPSED`).
+* "Save and add another": every save folds the form back, so entering many bookings in a row costs one click each. A candidate for its own wave.
+* `BoardMembershipScreen` (pilot) still uses `rebaseline()`; it should move to `applyProgrammatic` (same race, smaller exposure).
+* The journal form loads its accounts, cost centers, members and donors when the page is built; a newly created account appears there only after the page is reloaded (unchanged behaviour).
 * The board appointment keeps its section title and caption ("Manuelle Eintragung") where it was, below the roster, because the caption explains
   the administrative path; the form opens right beneath it, not under the page header.

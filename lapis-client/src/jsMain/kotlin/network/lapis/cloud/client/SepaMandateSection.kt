@@ -84,7 +84,7 @@ fun renderSepaMandateSection(root: SimplePanel) {
                         addCssClasses("text-muted small")
                     }
                 }
-                val revokeButton = panel.button(tr("Mandat widerrufen"), style = ButtonStyle.OUTLINEDANGER)
+                val revokeButton = panel.actionButton(ActionIcon.REVOKE, tr("Mandat widerrufen"), style = ButtonStyle.OUTLINEDANGER)
                 revokeButton.onClick {
                     confirmWithReasonDialog(
                         title = tr("Mandat widerrufen"),
@@ -154,8 +154,9 @@ internal fun renderSepaMandateForm(
     onBehalf: Boolean,
     defaultDebtorName: String,
     memberOptions: List<Pair<String, String>>,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onGranted: () -> Unit,
-) {
+): FormSnapshot {
     val form = container.lapisForm()
     val memberField =
         if (onBehalf) {
@@ -237,7 +238,7 @@ internal fun renderSepaMandateForm(
             requiredMessage = tr("Bitte das SEPA-Lastschriftmandat bestätigen."),
         )
     val submitButton = Button(tr("Mandat erteilen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = submitButton)
+    form.buttons(primary = submitButton, cancel = collapse?.let { collapseCancelButton(it) })
 
     submitButton.onClick {
         form.submit(submitButton) {
@@ -277,9 +278,11 @@ internal fun renderSepaMandateForm(
                 signatureDateField.setValue(todayIso())
                 acknowledgedField.reset()
                 onGranted()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 /**

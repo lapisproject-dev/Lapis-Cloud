@@ -288,6 +288,83 @@ class CollapsibleCreateFormDomTest {
         }
 
     @Test
+    fun theButtonIconDefaultsToPlus_andTakesTheVerbIconOfTheCaller(): Promise<Unit> =
+        formTest {
+            mountedForm("collapsible-icon") { root, element ->
+                val header = root.pageHeader("Testseite")
+                val upload = root.vPanel(spacing = 6)
+                collapsibleCreateForm<Unit>(
+                    actionSlot = header.actionSlot,
+                    formHost = upload,
+                    buttonLabel = "Hochladen",
+                    formId = "lapis-create-icon-upload",
+                    icon = ActionIcon.UPLOAD,
+                ) { _, close -> testForm(null, close) }
+                val screen = element()
+                val button = createFormButton(screen, "lapis-create-icon-upload")
+                assertNotNull(button.querySelector(".fa-upload"), "the caller's verb icon")
+                assertEquals("true", button.querySelector(".fa-upload")?.getAttribute("aria-hidden"))
+                assertEquals(null, button.querySelector(".fa-plus"), "no plus glyph when another verb icon is given")
+            }
+        }
+
+    /** The form of [programmaticTest]: its snapshot and name field are handed out so the test can change the value like a server answer would. */
+    private class ProgrammaticParts(
+        var snapshot: FormSnapshot? = null,
+        var field: LapisField? = null,
+    )
+
+    private fun mountProgrammatic(
+        root: io.kvision.panel.Root,
+        parts: ProgrammaticParts,
+    ) {
+        val header = root.pageHeader("Testseite")
+        val host = root.vPanel(spacing = 6)
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = host,
+            buttonLabel = "Neues Ding",
+            formId = formId,
+        ) { _, close ->
+            val form = lapisForm()
+            parts.field = form.textField(label = "Name")
+            form.buttons(primary = Button("Anlegen", style = ButtonStyle.PRIMARY), cancel = collapseCancelButton(close))
+            form.snapshot().also { parts.snapshot = it }
+        }
+    }
+
+    @Test
+    fun applyProgrammatic_takesTheServerValueAsTheNewBaseline_whileTheFormIsUnchanged(): Promise<Unit> =
+        formTest {
+            mountedForm("collapsible-programmatic-unchanged") { root, element ->
+                val parts = ProgrammaticParts()
+                mountProgrammatic(root, parts)
+                val screen = element()
+                val host = openCreateForm(screen, formId)
+                parts.snapshot!!.applyProgrammatic { parts.field!!.setValue("Vom Server") }
+                keydown(host, "Escape")
+                awaitClosed(screen)
+                assertTrue(document.querySelector(".modal.show") == null, "a server preselection on an untouched form is not an edit")
+            }
+        }
+
+    @Test
+    fun applyProgrammatic_neverSwallowsWhatThePersonTyped(): Promise<Unit> =
+        formTest {
+            mountedForm("collapsible-programmatic-typed") { root, element ->
+                val parts = ProgrammaticParts()
+                mountProgrammatic(root, parts)
+                val screen = element()
+                val host = openCreateForm(screen, formId)
+                screen.typeInto("Name", "Getippt")
+                parts.snapshot!!.applyProgrammatic { parts.field!!.setValue("Vom Server") }
+                keydown(host, "Escape")
+                awaitDialog().buttonNamed("Weiter bearbeiten").click()
+                assertTrue(screen.hasForm(), "typed input keeps the form open after the server value arrived")
+            }
+        }
+
+    @Test
     fun whatIsTyped_neverLandsInADataAttributeOrInStorage(): Promise<Unit> =
         formTest {
             mountedForm("collapsible-privacy") { root, element ->

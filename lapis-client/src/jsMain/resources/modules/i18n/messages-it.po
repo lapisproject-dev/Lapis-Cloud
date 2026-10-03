@@ -19591,3 +19591,60 @@ msgstr "Nuovo sondaggio"
 
 msgid "Keine Änderung"
 msgstr "Nessuna modifica"
+
+msgid "Neue Kostenstelle"
+msgstr "Nuovo centro di costo"
+
+msgid "Neuer Spender"
+msgstr "Nuovo donatore"
+
+msgid "Neues Konto"
+msgstr "Nuovo conto"
+
+msgid "Neuer offener Posten"
+msgstr "Nuova partita aperta"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "Nuova distinta di addebito diretto"
+
+msgid "Neue Rücklastschrift"
+msgstr "Nuovo addebito respinto"
+
+msgid "Neues Mandat"
+msgstr "Nuovo mandato"
+
+msgid "Kontoauszug hochladen"
+msgstr "Carica estratto conto"
+
+msgid "Neues Bankkonto"
+msgstr "Nuovo conto bancario"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "Nessun centro di costo ancora. Con \"Nuovo centro di costo\" ne crea uno."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Nessun donatore esterno ancora. Con \"Nuovo donatore\" ne crea uno."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Nessun conto ancora. Con \"Nuovo conto\" ne crea uno."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "Nessun conto attivo ancora -- crei prima almeno due conti con \"Nuovo conto\"."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "Nessuna distinta SEPA ancora. Con \"Nuova distinta di addebito diretto\" ne crea una."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "Nessun addebito respinto ancora. Con \"Nuovo addebito respinto\" ne registra uno."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "Nessun mandato SEPA ancora. Con \"Nuovo mandato\" ne registra uno."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "Nessun estratto conto importato ancora. Con \"Carica estratto conto\" carica il primo."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Con \"Nuovo donatore\" ne crea uno."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Con \"Nuovo conto\" ne crea uno."

@@ -109,7 +109,13 @@ fun renderLedgerScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Kontenplan & Journal"))
+    val header = root.pageHeader(tr("Kontenplan & Journal"))
+    // V1.9.45 (R36B): both create forms are collapsed. The two slot containers are created first so the button order is fixed
+    // ("Neue Buchung", then "Neues Konto") no matter when the data for the posting form arrives; hosts sit directly under the header.
+    val entrySlot = if (canManage) header.actionSlot.div() else null
+    val accountSlot = if (canManage) header.actionSlot.div() else null
+    val entryHost = if (canManage) root.simplePanel() else null
+    val accountHost = if (canManage) root.simplePanel() else null
 
     // ---- Accounts (Kontenplan) -------------------------------------------------------------
     root.h2(tr("Konten (SKR42 Kontenplan)")) { addCssClass("h5") }
@@ -192,11 +198,18 @@ fun renderLedgerScreen(container: SimplePanel) {
             // aktivem „nur aktive" heisst nicht „noch keine Konten angelegt".
             val text =
                 if (includeInactiveAccountsCheck.value) {
-                    tr("Noch keine Konten angelegt.")
+                    if (canManage) {
+                        tr("Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an.")
+                    } else {
+                        tr("Noch keine Konten angelegt.")
+                    }
                 } else {
                     tr("Kein aktives Konto vorhanden. Inaktive Konten einblenden, um auch stillgelegte zu sehen.")
                 }
             accountListPanel.p(text) { addCssClasses("text-muted") }
+            if (canManage && !includeInactiveAccountsCheck.value) {
+                accountListPanel.p(tr("Mit \"Neues Konto\" legen Sie eines an.")) { addCssClasses("text-muted") }
+            }
             return
         }
         val filtered = filterLedgerAccounts(loadedAccounts, query)
@@ -283,9 +296,13 @@ fun renderLedgerScreen(container: SimplePanel) {
 
     refreshAccounts()
 
-    if (canManage) {
-        root.h2(tr("Neues Konto anlegen")) { addCssClass("h5") }
-        renderAccountCreationForm(root) { refreshAccounts() }
+    if (accountSlot != null && accountHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = accountSlot,
+            formHost = accountHost,
+            buttonLabel = tr("Neues Konto"),
+            formId = "lapis-create-ledger-account",
+        ) { _, close -> renderAccountCreationForm(this, close) { refreshAccounts() } }
     }
 
     // ---- Kontenzuordnung Zahlungsverkehr (V1.2.1 Zahlungs-Fundament) ----------------------
@@ -462,10 +479,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     }
     refreshJournal()
 
-    if (canManage) {
-        root.h2(tr("Neue Buchung")) { addCssClass("h5") }
-        val newEntryPanel = root.vPanel(spacing = 6)
-        newEntryPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+    if (entrySlot != null && entryHost != null) {
         AppScope.launch {
             val accounts = guarded { rpcService<IAccountingService>().listLedgerAccounts(activeOnly = true) } ?: emptyList()
             val costCenters = guarded { rpcService<IAccountingService>().listCostCenters(activeOnly = true) } ?: emptyList()
@@ -473,23 +487,36 @@ fun renderLedgerScreen(container: SimplePanel) {
             val externalDonors = guarded { rpcService<IAccountingService>().listExternalDonors(activeOnly = true) } ?: emptyList()
             val settings = guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() }
 
-            newEntryPanel.removeAll()
             if (accounts.isEmpty()) {
-                newEntryPanel.p(tr("Noch keine aktiven Konten -- zuerst oben mindestens zwei Konten anlegen."))
+                root.p(tr("Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen.")) {
+                    addCssClasses("text-muted")
+                }
                 return@launch
             }
-            newEntryPrefill =
-                renderNewEntryForm(
-                    newEntryPanel,
-                    accounts,
-                    costCenters,
-                    members,
-                    externalDonors,
-                    settings?.isPoliticalParty ?: false,
-                    settings?.vatEnabled ?: false,
-                    settings?.isKleinunternehmer ?: false,
-                    onSaved = { refreshJournal() },
-                )
+            val entryForm =
+                collapsibleCreateForm<JournalEntryDto>(
+                    actionSlot = entrySlot,
+                    formHost = entryHost,
+                    buttonLabel = tr("Neue Buchung"),
+                    formId = "lapis-create-journal-entry",
+                ) { prefill, close ->
+                    val handle =
+                        renderNewEntryForm(
+                            this,
+                            accounts,
+                            costCenters,
+                            members,
+                            externalDonors,
+                            settings?.isPoliticalParty ?: false,
+                            settings?.vatEnabled ?: false,
+                            settings?.isKleinunternehmer ?: false,
+                            collapse = close,
+                            onSaved = { refreshJournal() },
+                        )
+                    prefill?.let(handle.prefill)
+                    handle.snapshot
+                }
+            newEntryPrefill = { entry -> entryForm.open(entry) }
         }
     }
 }
@@ -727,7 +754,7 @@ internal fun renderPaymentAccountMappingSection(
                     },
                 )
 
-            val saveButton = Button(tr("Kontenzuordnung speichern"), style = ButtonStyle.PRIMARY)
+            val saveButton = newActionButton(ActionIcon.SAVE, tr("Kontenzuordnung speichern"), ButtonStyle.PRIMARY)
             form.buttons(primary = saveButton)
             saveButton.onClick {
                 // `form.submit` = Prüfung + Doppelklick-Schutz (`runGuardedAction`, `disabled` im `finally` zurückgesetzt -- auch bei
@@ -983,8 +1010,9 @@ private fun Container.renderAccountActions(
  */
 internal fun renderAccountCreationForm(
     root: SimplePanel,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val typeOptions = LedgerAccountType.entries.map { it.name to ledgerAccountTypeLabel(it) }
     val form = root.lapisForm()
     val numberField = form.textField(label = tr("Kontonummer (SKR42)"), required = true)
@@ -1027,7 +1055,7 @@ internal fun renderAccountCreationForm(
     typeField.subscribe { applyTypeGating(it) }
 
     val createButton = newActionButton(ActionIcon.ADD, tr("Konto anlegen"), ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
+    form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
             val accountNumber = numberField.value.trim()
@@ -1063,9 +1091,11 @@ internal fun renderAccountCreationForm(
                 reserveField.setValue("")
                 cashField.reset()
                 onCreated()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 // ============================================================================================
@@ -1389,7 +1419,12 @@ private fun renderJournalEntryDetailBody(
                 }
             }
         }
-        val duplicateButton = actionRow.button(tr("Als neuen Entwurf duplizieren"), style = ButtonStyle.OUTLINESECONDARY)
+        val duplicateButton =
+            actionRow.actionButton(
+                ActionIcon.COPY,
+                tr("Als neuen Entwurf duplizieren"),
+                style = ButtonStyle.OUTLINESECONDARY,
+            )
         duplicateButton.onClick { onDuplicate(entry) }
     }
 }
@@ -1636,8 +1671,9 @@ internal fun renderNewEntryForm(
     // both hold, exactly the condition under which the server would keep a sent rate anyway.
     vatEnabled: Boolean,
     isKleinunternehmer: Boolean,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onSaved: () -> Unit,
-): (JournalEntryDto) -> Unit {
+): NewEntryFormHandle {
     val vatUsable = vatEnabled && !isKleinunternehmer
     val form = root.lapisForm()
     val panel = form.panel
@@ -1700,7 +1736,7 @@ internal fun renderNewEntryForm(
     // or the sphere-derived suggestion pre-fills one; there is no user-facing "unset" choice.
     val vatRateOptions = listOf(VatRate.NOT_SUBJECT, VatRate.ZERO, VatRate.REDUCED, VatRate.STANDARD).map { it.name to vatRateLabel(it) }
 
-    val addRowButton = panel.button(tr("Buchungszeile hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+    val addRowButton = panel.actionButton(ActionIcon.ADD, tr("Buchungszeile hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
     val balanceStrip = panel.div { addCssClass("lapis-balance-strip") }
 
     // Erst nach `form.buttons(...)` entscheidet die Grammatik über die Sterne; eine später hinzugefügte Zeile markiert ihre Pflicht-
@@ -1926,7 +1962,7 @@ internal fun renderNewEntryForm(
     val saveDraftButton = newActionButton(ActionIcon.SAVE, tr("Als Entwurf speichern"), ButtonStyle.PRIMARY)
     // "Direkt buchen" ist unwiderruflich: eigene Zone UNTER der Knopfzeile (Richtlinie 2.5 / R27).
     val postDirectButton = Button(tr("Direkt buchen"), style = ButtonStyle.OUTLINEDANGER)
-    form.buttons(primary = saveDraftButton, destructive = postDirectButton)
+    form.buttons(primary = saveDraftButton, cancel = collapse?.let { collapseCancelButton(it) }, destructive = postDirectButton)
     formFinished = true
 
     saveDraftButton.onClick {
@@ -1938,6 +1974,7 @@ internal fun renderNewEntryForm(
                 notifySuccess(tr("Entwurf gespeichert."))
                 resetForm()
                 onSaved()
+                collapse?.invoke(true)
             }
         }
     }
@@ -1964,6 +2001,7 @@ internal fun renderNewEntryForm(
                     notifySuccess(tr("Buchung wurde gebucht."))
                     resetForm()
                     onSaved()
+                    collapse?.invoke(true)
                 }
             }
         }
@@ -2008,8 +2046,14 @@ internal fun renderNewEntryForm(
         notifyInfo(gettext("Entwurf \"%1\" als neuer Entwurf übernommen -- bitte prüfen und speichern.", entry.description))
     }
 
-    return ::prefill
+    return NewEntryFormHandle(prefill = ::prefill, snapshot = form.snapshot())
 }
+
+/** What [renderNewEntryForm] hands back: [prefill] fills the form from an existing draft ("Als neuen Entwurf duplizieren"), [snapshot] feeds the collapsible shell. */
+internal class NewEntryFormHandle(
+    val prefill: (JournalEntryDto) -> Unit,
+    val snapshot: FormSnapshot,
+)
 
 /** Factored out of [renderNewEntryForm] purely to keep that function's length manageable -- adds
  * one posting-line row to [rowsPanel] and registers it in [rows], with a self-removing "Entfernen"

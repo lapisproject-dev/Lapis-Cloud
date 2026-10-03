@@ -937,7 +937,7 @@ private const val R36B = "R36B create form collapsed behind one title-row button
 private val CREATE_SECTION_TITLE = Regex("""\.h[1-6]\(\s*tr\(\s*"Neu[^"]*"""")
 private val CREATE_FORM_CALL =
     Regex(
-        """(?<![A-Za-z0-9_])render\w*(?:Creation|CreateForm|CreationForm|CreateListingForm|SubmissionForm|SubmitProjectForm|AppointmentForm)\w*\(""",
+        """(?<![A-Za-z0-9_])render\w*(?:Creation|CreateForm|CreationForm|CreateListingForm|SubmissionForm|SubmitProjectForm|AppointmentForm|NewEntryForm|NewBatchSection|RecordReturnForm|MandateForm|UploadPanel)\w*\(""",
     )
 private val DECLARATION_PREFIX = Regex("""\bfun\s+(?:[A-Za-z0-9_<>?]+\.)?$""")
 private val COLLAPSIBLE_CALL = Regex("""(?<![A-Za-z0-9_])collapsibleCreateForm(?:<[^>]*>)?\(""")
@@ -989,6 +989,11 @@ private val R36B_EXEMPT: Map<String, R36bEntry> =
                     "Conference lobby panel (\"Neue Besprechung\" starts a room from the live conference screen): " +
                         "a room panel/console, not a list-plus-create screen.",
             ),
+        "SepaMandateSection.kt" to
+            R36bEntry(
+                fingerprints = listOf("renderSepaMandateForm("),
+                reason = "The member's own single mandate, already behind the \"Mandat erteilen\" click; not a list-plus-create screen.",
+            ),
         "SocialNetworkScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1031,15 +1036,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Konferenz-Verwaltung\" (conference administration).",
             ),
-        "CostCentersScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neue Kostenstelle anlegen\")) { addCssClass(\"h5\") }",
-                        "renderCostCenterCreationForm(root) { refreshList() }",
-                    ),
-                reason = "Group \"Finanzen\" (finance).",
-            ),
         "CrmContactsScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1067,15 +1063,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                         "renderFolderCreation(folderCreationPanel, AppState.session?.role) { refreshFolders() }",
                     ),
                 reason = "Group \"Dokumente\" (documents).",
-            ),
-        "DonorsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neuen Spender anlegen\")) { addCssClass(\"h5\") }",
-                        "renderDonorCreationForm(root) { refreshList() }",
-                    ),
-                reason = "Group \"Finanzen\" (finance).",
             ),
         "DsgvoComplianceScreen.kt" to
             R36bEntry(
@@ -1120,16 +1107,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Veranstaltungen\" (events).",
             ),
-        "LedgerScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neues Konto anlegen\")) { addCssClass(\"h5\") }",
-                        "root.h2(tr(\"Neue Buchung\")) { addCssClass(\"h5\") }",
-                        "renderAccountCreationForm(root) { refreshAccounts() }",
-                    ),
-                reason = "Group \"Finanzen\" (finance).",
-            ),
         "MemberAdministrationScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1137,14 +1114,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                         "if (isBoardOrAdmin) renderDirectMemberCreation(root, chapters)",
                     ),
                 reason = "Group \"Gemeinschaft\" (community and members).",
-            ),
-        "OpenItemsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "renderOpenItemCreateForm(",
-                    ),
-                reason = "Group \"Finanzen\" (finance).",
             ),
         "RegionalChaptersScreen.kt" to
             R36bEntry(
@@ -1154,26 +1123,32 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Gemeinschaft\" (community and members).",
             ),
-        "SepaBatchesScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neuer Lauf\")) { addCssClass(\"h5\") }",
-                    ),
-                reason = "Group \"Finanzen\" (finance).",
-            ),
     )
 
 /**
  * Ratchet over the debt: the number of findings outside the converted screens. Only ever lowered (by the wave that converts a group),
  * and it may not drop more than 3 below the cap without the cap being lowered -- so a quietly converted screen has to be taken out of the
  * ledger in the same commit. [R36B_NOT_YET_COLLAPSED] and [R36B_EXEMPT] pin the exact fingerprints; this pins the total.
+ * V1.9.45 finance: 39 -> 30 (CostCenters 2, Donors 2, Ledger 3, OpenItems 1, SepaBatches 1 paid off).
  */
-private const val R36B_REMAINING_MAX = 39
+private const val R36B_REMAINING_MAX = 30
 
-/** The governance pilot of V1.9.40: converted, so held strictly (no finding at all) and required to use the component. */
+/** The governance pilot of V1.9.40 plus the finance group of V1.9.45: converted, so held strictly (no finding at all) and required to use the component. */
 private val R36B_CONVERTED: Set<String> =
-    setOf("CommitteesScreen.kt", "BoardMembershipScreen.kt", "MeetingsScreen.kt", "MotionsScreen.kt", "PollListView.kt")
+    setOf(
+        "CommitteesScreen.kt",
+        "BoardMembershipScreen.kt",
+        "MeetingsScreen.kt",
+        "MotionsScreen.kt",
+        "PollListView.kt",
+        "CostCentersScreen.kt",
+        "DonorsScreen.kt",
+        "LedgerScreen.kt",
+        "OpenItemsScreen.kt",
+        "SepaBatchesScreen.kt",
+        "SepaMandatesScreen.kt",
+        "BankStatementImportScreen.kt",
+    )
 
 private fun r36bActual(): Map<String, List<String>> =
     clientKotlinFiles()
@@ -1713,6 +1688,42 @@ class ClientUiGuidelineTripwireTest :
             visibleCreateFormFindings(
                 "collapsibleCreateForm<Unit>(a) { _, c -> renderXCreation(this, c) }\nrenderXCreation(root, f)",
             ).size shouldBe 1
+        }
+
+        test("R36B (V1.9.45) also knows the finance builders: new-entry, new-batch, record-return, mandate and upload form") {
+            visibleCreateFormFindings("renderNewEntryForm(panel, a)") shouldBe listOf("renderNewEntryForm(panel, a)")
+            visibleCreateFormFindings(
+                "collapsibleCreateForm<Unit>(a) { _, c -> renderNewEntryForm(this, a, collapse = c) }",
+            ).size shouldBe 0
+            visibleCreateFormFindings("renderSepaMandateForm(").size shouldBe 1
+            visibleCreateFormFindings("renderNewBatchSection(root) { reload() }").size shouldBe 1
+            visibleCreateFormFindings("renderRecordReturnForm(root) { reload() }").size shouldBe 1
+            visibleCreateFormFindings("internal fun renderUploadPanel(\n    panel: SimplePanel,\n)").size shouldBe 0
+            visibleCreateFormFindings("renderUploadPanel(box, onUploadStarted = {}) { }").size shouldBe 1
+        }
+
+        test("R36B (V1.9.45): every collapsed finance form hangs its button in the page header's action slot") {
+            val byName = clientKotlinFiles().associateBy { it.name }
+            val financeFiles =
+                listOf(
+                    "CostCentersScreen.kt",
+                    "DonorsScreen.kt",
+                    "LedgerScreen.kt",
+                    "OpenItemsScreen.kt",
+                    "SepaBatchesScreen.kt",
+                    "SepaMandatesScreen.kt",
+                    "BankStatementImportScreen.kt",
+                )
+            financeFiles.forEach { name ->
+                val code = codeOnly(byName.getValue(name).readText())
+                COLLAPSIBLE_CALL.findAll(code).forEach { match ->
+                    val lambda = callWithTrailingLambda(text = code, openParen = match.range.last)
+                    val call = code.substring(match.range.first, match.range.last + lambda.length)
+                    withClue("$name: ${call.take(120)}") {
+                        (Regex("""actionSlot\s*=\s*(?:header\.actionSlot|entrySlot|accountSlot)""").containsMatchIn(call)) shouldBe true
+                    }
+                }
+            }
         }
 
         test("R24B: the strict screens hold no labelled select/checkBox call outside their justified fingerprints") {

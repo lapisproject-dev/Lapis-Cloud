@@ -19609,3 +19609,60 @@ msgstr "Nouveau sondage"
 
 msgid "Keine Änderung"
 msgstr "Aucun changement"
+
+msgid "Neue Kostenstelle"
+msgstr "Nouveau centre de coûts"
+
+msgid "Neuer Spender"
+msgstr "Nouveau donateur"
+
+msgid "Neues Konto"
+msgstr "Nouveau compte"
+
+msgid "Neuer offener Posten"
+msgstr "Nouveau poste ouvert"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "Nouvelle remise de prélèvements"
+
+msgid "Neue Rücklastschrift"
+msgstr "Nouveau rejet de prélèvement"
+
+msgid "Neues Mandat"
+msgstr "Nouveau mandat"
+
+msgid "Kontoauszug hochladen"
+msgstr "Importer un relevé de compte"
+
+msgid "Neues Bankkonto"
+msgstr "Nouveau compte bancaire"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "Aucun centre de coûts pour le moment. Avec \"Nouveau centre de coûts\", vous pouvez en créer un."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Aucun donateur externe pour le moment. Avec \"Nouveau donateur\", vous pouvez en créer un."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Aucun compte pour le moment. Avec \"Nouveau compte\", vous pouvez en créer un."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "Aucun compte actif pour le moment -- créez d'abord au moins deux comptes avec \"Nouveau compte\"."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "Aucune remise SEPA pour le moment. Avec \"Nouvelle remise de prélèvements\", vous pouvez en créer une."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "Aucun rejet de prélèvement pour le moment. Avec \"Nouveau rejet de prélèvement\", vous pouvez en enregistrer un."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "Aucun mandat SEPA pour le moment. Avec \"Nouveau mandat\", vous pouvez en enregistrer un."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "Aucun relevé de compte importé pour le moment. Avec \"Importer un relevé de compte\", vous pouvez importer le premier."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Avec \"Nouveau donateur\", vous pouvez en créer un."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Avec \"Nouveau compte\", vous pouvez en créer un."

@@ -19528,3 +19528,60 @@ msgstr "Nueva encuesta"
 
 msgid "Keine Änderung"
 msgstr "Sin cambios"
+
+msgid "Neue Kostenstelle"
+msgstr "Nuevo centro de coste"
+
+msgid "Neuer Spender"
+msgstr "Nuevo donante"
+
+msgid "Neues Konto"
+msgstr "Nueva cuenta"
+
+msgid "Neuer offener Posten"
+msgstr "Nueva partida abierta"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "Nueva remesa de adeudos directos"
+
+msgid "Neue Rücklastschrift"
+msgstr "Nueva devolución de adeudo"
+
+msgid "Neues Mandat"
+msgstr "Nuevo mandato"
+
+msgid "Kontoauszug hochladen"
+msgstr "Subir extracto bancario"
+
+msgid "Neues Bankkonto"
+msgstr "Nueva cuenta bancaria"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "Todavía no hay centros de coste. Con \"Nuevo centro de coste\" puede crear uno."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Todavía no hay donantes externos. Con \"Nuevo donante\" puede crear uno."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Todavía no hay cuentas. Con \"Nueva cuenta\" puede crear una."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "Todavía no hay cuentas activas -- cree primero al menos dos cuentas con \"Nueva cuenta\"."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "Todavía no hay remesas SEPA. Con \"Nueva remesa de adeudos directos\" puede crear una."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "Todavía no hay devoluciones de adeudo. Con \"Nueva devolución de adeudo\" puede registrar una."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "Todavía no hay mandatos SEPA. Con \"Nuevo mandato\" puede registrar uno."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "Todavía no se ha importado ningún extracto bancario. Con \"Subir extracto bancario\" puede subir el primero."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Con \"Nuevo donante\" puede crear uno."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Con \"Nueva cuenta\" puede crear una."

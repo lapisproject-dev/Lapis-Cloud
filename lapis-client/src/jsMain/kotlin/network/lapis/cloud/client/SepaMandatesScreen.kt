@@ -27,9 +27,11 @@ import network.lapis.cloud.shared.rpc.ISepaService
  */
 fun renderSepaMandatesScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("SEPA-Mandate"))
+    val header = root.pageHeader(tr("SEPA-Mandate"))
 
     val canGrantOnBehalf = SepaAuthzUi.canGrantOnBehalf(AppState.session?.role)
+    // V1.9.45 (R36B): the on-behalf form is collapsed; host directly under the header, button in the action slot once the members are loaded.
+    val formHost = if (canGrantOnBehalf) root.simplePanel() else null
 
     root.h2(tr("Mandate")) { addCssClass("h5") }
     // Welle V1.4.26 (W2): Filterleiste nach Richtlinie 2.4 -- Suchfeld, Status-Segment, `Aktualisieren`
@@ -74,7 +76,7 @@ fun renderSepaMandatesScreen(container: SimplePanel) {
         listPanel.removeAll()
         if (loaded.isEmpty()) {
             countsLabel.content = ""
-            listPanel.p(sepaMandatesEmptyText(statusFilter)) { addCssClasses("text-muted") }
+            listPanel.p(sepaMandatesEmptyText(statusFilter, canGrantOnBehalf)) { addCssClasses("text-muted") }
             return
         }
         val visible = filterSepaMandates(loaded, searchTerm)
@@ -171,24 +173,30 @@ fun renderSepaMandatesScreen(container: SimplePanel) {
     }
     loadPage(true)
 
-    if (canGrantOnBehalf) {
-        root.h2(tr("Mandat im Namen eines Mitglieds erfassen")) { addCssClass("h5") }
-        val formHost = root.vPanel(spacing = 4)
+    if (formHost != null) {
         AppScope.launch {
             val members = guarded { rpcService<IMemberService>().listMembers() } ?: return@launch
             val memberOptions = untrustedOptions(members.map { it.id to it.displayName })
-            renderSepaMandateForm(
-                container = formHost,
-                onBehalf = true,
-                defaultDebtorName = "",
-                memberOptions = memberOptions,
-            ) {
-                loadPage(true)
+            collapsibleCreateForm<Unit>(
+                actionSlot = header.actionSlot,
+                formHost = formHost,
+                buttonLabel = tr("Neues Mandat"),
+                formId = "lapis-create-sepa-mandate",
+            ) { _, close ->
+                // Die Grenze steht als Platzhalter im Satz, nie im msgid (W4c): eine Konstante im msgid sagte sie in acht Katalogen.
+                p(gettext("Es können höchstens %1 Mandate pro Minute erfasst werden.", SEPA_MANDATES_PER_MINUTE_LIMIT)) {
+                    addCssClasses("text-muted small")
+                }
+                renderSepaMandateForm(
+                    container = this,
+                    onBehalf = true,
+                    defaultDebtorName = "",
+                    memberOptions = memberOptions,
+                    collapse = close,
+                ) {
+                    loadPage(true)
+                }
             }
-        }
-        // Die Grenze steht als Platzhalter im Satz, nie im msgid (W4c): eine Konstante im msgid sagte sie in acht Katalogen.
-        root.p(gettext("Es können höchstens %1 Mandate pro Minute erfasst werden.", SEPA_MANDATES_PER_MINUTE_LIMIT)) {
-            addCssClasses("text-muted small")
         }
     }
 }
@@ -217,9 +225,16 @@ internal fun filterSepaMandates(
 }
 
 /** „Noch keine Daten" -- und zwar für den gewählten Status, nicht als ein Satz für alle vier Fälle (R41). */
-internal fun sepaMandatesEmptyText(status: SepaMandateStatus?): String =
+internal fun sepaMandatesEmptyText(
+    status: SepaMandateStatus?,
+    canGrant: Boolean = false,
+): String =
     if (status == null) {
-        gettext("Noch keine SEPA-Mandate erfasst.")
+        if (canGrant) {
+            gettext("Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines.")
+        } else {
+            gettext("Noch keine SEPA-Mandate erfasst.")
+        }
     } else {
         gettext("Kein Mandat mit dem Status \"%1\".", sepaMandateStatusLabel(status))
     }

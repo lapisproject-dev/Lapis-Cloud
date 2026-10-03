@@ -44,6 +44,9 @@ class FormSnapshot(
     /** Set by the controller; see [rebaseline]. */
     internal var onRebaseline: (() -> Unit)? = null
 
+    /** Set by the controller; true while the form this snapshot belongs to is open and unchanged. See [applyProgrammatic]. */
+    internal var isUnchangedProbe: (() -> Boolean)? = null
+
     /**
      * Takes the current values as the new "unchanged" state. For a form that fills a field programmatically AFTER it was built (a picker
      * whose options arrive from the server and which preselects the first one): that is not an edit by the person, so it must not make
@@ -51,6 +54,16 @@ class FormSnapshot(
      */
     fun rebaseline() {
         onRebaseline?.invoke()
+    }
+
+    /**
+     * A programmatic change (server-loaded preselection). It becomes the new "unchanged" state ONLY if the form was unchanged before it;
+     * typed input is never swallowed. Before the controller attaches (still inside the build lambda) it simply applies the change.
+     */
+    fun applyProgrammatic(change: () -> Unit) {
+        val wasUnchanged = isUnchangedProbe?.invoke() ?: false
+        change()
+        if (wasUnchanged) rebaseline()
     }
 }
 
@@ -118,6 +131,7 @@ class CollapsibleCreateFormController<P> internal constructor(
         snapshot = created
         baseline = created.values()
         created.onRebaseline = { if (snapshot === created) baseline = created.values() }
+        created.isUnchangedProbe = { snapshot === created && !isDirty() }
         paintButton(open = true)
         whenRendered({ formHost.getElement()?.querySelector(FIRST_FIELD) != null }) {
             val host = formHost.getElement() ?: return@whenRendered
@@ -154,6 +168,7 @@ class CollapsibleCreateFormController<P> internal constructor(
  *  - [actionSlot]: the page header's action slot ([PageHeader.actionSlot]); the button goes in there (R36).
  *  - [formHost]: where the form is built, directly under the header; it receives [formId].
  *  - [buttonLabel]: a `tr()` constant ("Neues Gremium"), never a data value.
+ *  - [icon]: the verb icon of the button ([ActionIcon.ADD] by default; [ActionIcon.UPLOAD] for "Kontoauszug hochladen").
  *  - [build]: builds the form into the host and returns its [FormSnapshot] (see [LapisForm.snapshot]); it calls `close(true)` after a
  *    successful save and `close(false)` for Cancel.
  */
@@ -162,13 +177,14 @@ fun <P> collapsibleCreateForm(
     formHost: SimplePanel,
     buttonLabel: String,
     formId: String,
+    icon: ActionIcon = ActionIcon.ADD,
     build: SimplePanel.(prefill: P?, close: (saved: Boolean) -> Unit) -> FormSnapshot,
 ): CollapsibleCreateFormController<P> {
     formHost.id = formId
     // The plus glyph is decoration (`aria-hidden`), the label carries the meaning; both are children of the button.
     val button =
         Button("", style = ButtonStyle.OUTLINEPRIMARY).apply {
-            icon("fas fa-plus") { setAttribute("aria-hidden", "true") }
+            icon(icon.css) { setAttribute("aria-hidden", "true") }
             span(buttonLabel, className = "ms-1")
         }
     actionSlot.add(button)

@@ -13,6 +13,7 @@ import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import io.kvision.table.cell
 import io.kvision.table.table
@@ -62,7 +63,9 @@ fun renderCostCentersScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.TREASURER, AccountRole.ADMIN)
 
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Kostenstellen"))
+    val header = root.pageHeader(tr("Kostenstellen"))
+    // V1.9.45 (R36B): the create form is collapsed; its host sits directly under the header, the button in the header's action slot.
+    val createHost = if (canManage) root.simplePanel() else null
 
     // ---- List (Kostenstellen-Übersicht) ----------------------------------------------------
     root.h2(tr("Übersicht")) { addCssClass("h5") }
@@ -103,7 +106,13 @@ fun renderCostCentersScreen(container: SimplePanel) {
         val sortFocusKey = pendingSortFocus
         pendingSortFocus = null
         if (loadedCostCenters.isEmpty()) {
-            listPanel.p(tr("Noch keine Kostenstellen angelegt."))
+            listPanel.p(
+                if (canManage) {
+                    tr("Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an.")
+                } else {
+                    tr("Noch keine Kostenstellen angelegt.")
+                },
+            )
             return
         }
         val filtered = filterCostCenters(loadedCostCenters, query)
@@ -175,9 +184,13 @@ fun renderCostCentersScreen(container: SimplePanel) {
 
     refreshList()
 
-    if (canManage) {
-        root.h2(tr("Neue Kostenstelle anlegen")) { addCssClass("h5") }
-        renderCostCenterCreationForm(root) { refreshList() }
+    if (createHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = createHost,
+            buttonLabel = tr("Neue Kostenstelle"),
+            formId = "lapis-create-cost-center",
+        ) { _, close -> renderCostCenterCreationForm(this, close) { refreshList() } }
     }
 
     // ---- Report -----------------------------------------------------------------------------
@@ -292,16 +305,17 @@ private fun Container.renderCostCenterActions(
  */
 internal fun renderCostCenterCreationForm(
     root: SimplePanel,
+    collapse: ((saved: Boolean) -> Unit)? = null,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val form = root.lapisForm()
     // Das Beispiel steht im Hinweis, nie im Label (W4c).
     val codeField = form.textField(label = tr("Code"), required = true, hint = tr("Eindeutig. Beispiel: SOMMERFEST-2027."))
     val nameField = form.textField(label = tr("Name"), required = true)
     val descriptionField = form.textField(label = tr("Beschreibung"))
 
-    val createButton = Button(tr("Kostenstelle anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Kostenstelle anlegen"), ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
             val code = codeField.value.trim()
@@ -319,9 +333,11 @@ internal fun renderCostCenterCreationForm(
                 nameField.reset()
                 descriptionField.reset()
                 onCreated()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 // ============================================================================================

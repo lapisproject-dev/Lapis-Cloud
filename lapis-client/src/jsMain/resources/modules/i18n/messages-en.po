@@ -19498,3 +19498,60 @@ msgstr "New poll"
 
 msgid "Keine Änderung"
 msgstr "No change"
+
+msgid "Neue Kostenstelle"
+msgstr "New cost center"
+
+msgid "Neuer Spender"
+msgstr "New donor"
+
+msgid "Neues Konto"
+msgstr "New account"
+
+msgid "Neuer offener Posten"
+msgstr "New open item"
+
+msgid "Neuer Lastschriftlauf"
+msgstr "New direct debit run"
+
+msgid "Neue Rücklastschrift"
+msgstr "New direct debit return"
+
+msgid "Neues Mandat"
+msgstr "New mandate"
+
+msgid "Kontoauszug hochladen"
+msgstr "Upload bank statement"
+
+msgid "Neues Bankkonto"
+msgstr "New bank account"
+
+msgid "Noch keine Kostenstellen. Mit \"Neue Kostenstelle\" legen Sie eine an."
+msgstr "No cost centers yet. Use \"New cost center\" to create one."
+
+msgid "Noch keine externen Spender. Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "No external donors yet. Use \"New donor\" to create one."
+
+msgid "Noch keine Konten. Mit \"Neues Konto\" legen Sie eines an."
+msgstr "No accounts yet. Use \"New account\" to create one."
+
+msgid "Noch keine aktiven Konten -- zuerst mit \"Neues Konto\" mindestens zwei Konten anlegen."
+msgstr "No active accounts yet -- first create at least two accounts with \"New account\"."
+
+msgid "Noch kein SEPA-Lauf. Mit \"Neuer Lastschriftlauf\" legen Sie einen an."
+msgstr "No SEPA run yet. Use \"New direct debit run\" to create one."
+
+msgid "Noch keine Rücklastschriften. Mit \"Neue Rücklastschrift\" erfassen Sie eine."
+msgstr "No direct debit returns yet. Use \"New direct debit return\" to record one."
+
+msgid "Noch keine SEPA-Mandate. Mit \"Neues Mandat\" erfassen Sie eines."
+msgstr "No SEPA mandates yet. Use \"New mandate\" to record one."
+
+msgid "Noch keine Kontoauszüge importiert. Mit \"Kontoauszug hochladen\" laden Sie den ersten hoch."
+msgstr "No bank statements imported yet. Use \"Upload bank statement\" to upload the first one."
+
+msgid "Mit \"Neuer Spender\" legen Sie einen an."
+msgstr "Use \"New donor\" to create one."
+
+msgid "Mit \"Neues Konto\" legen Sie eines an."
+msgstr "Use \"New account\" to create one."

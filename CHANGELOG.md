@@ -6,6 +6,34 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Collapsed create forms, group "Finanzen"** (V1.9.45, rule R36B): the create forms of Kostenstellen, Spender, Kontenplan & Journal (booking and account), Offene Posten,
+  SEPA-Lastschrift (batch and return), SEPA-Mandate and Kontoauszüge are collapsed behind one title-row button each ("Neue Kostenstelle", "Neuer Spender",
+  "Neue Buchung" + "Neues Konto", "Neuer offener Posten", "Neuer Lastschriftlauf" + "Neue Rücklastschrift", "Neues Mandat", "Kontoauszug hochladen"). Journal and
+  SEPA carry two equal-rank buttons (R36 clarified in `ui-ux-guideline.adoc`); `.lapis-page-action` is a wrapping flex row. The component gets an
+  optional `icon` and `FormSnapshot.applyProgrammatic` (a server-loaded preselection is the new baseline only while the form is untouched; typed input is
+  never swallowed). Screens with a list name the button in their empty state. "Bankkonto anlegen" moved into the title row as "Neues Bankkonto" and still
+  opens its modal. Debt ledger of R36B: 39 -> 30.
+- Open items: "Abbrechen" and a second click on the create button used to discard typed input silently; the shared component now asks first.
+  Journal: "Als neuen Entwurf duplizieren" asks before it overwrites a changed open form (it overwrote silently before).
+- Standard icons on the finance screens (R57): Mandat widerrufen and SEPA deaktivieren (`REVOKE`), Posten stornieren (`UNDO`), Nachbuchen and "Nur
+  fehlgeschlagene erneut versuchen" (`REFRESH`), Vorschau berechnen (`VIEW`), Beleg/Notiz bearbeiten (`EDIT`), Buchungszeile hinzufügen (`ADD`), Kontenzuordnung
+  and Token speichern (`SAVE`), Als neuen Entwurf duplizieren (`COPY`, new row in the table), Kontoauszug hochladen (`UPLOAD`). Domain verbs keep their text only
+  (listed in `action-icons.adoc`); "Als Standard setzen" and "Ausgleichen" stay string icons.
+- The bank statement upload shows the "Betroffene Zeile" excerpt (a line of the uploaded file, so untrusted) through `sanitizeUntrustedI18nText`.
+- New tests: `FinanceCollapsibleFormsDomTest`, `FinanceCollapsibleFormsSepaDomTest`, `FinanceCollapsibleFormsImportDomTest`, component tests for `icon` and
+  `applyProgrammatic`; tripwires: extended R36B scan names, seven strict finance screens, `R57_FINANCE_STRICT_FILES`. Client only: no migration, no server code.
+  Documentation: `collapsible-forms.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc`, `collapsible-forms-staging-test.adoc` (finance steps, not executed).
+
+### Known limitations
+
+- "Save and add another" does not exist: every save folds the form back, so entering several bookings in a row costs one click each. A candidate for its own wave.
+- The other six groups (events, community, documents, compliance, conference administration, economy/auction) still show their create forms; 30 ledgered findings.
+- The string-typed domain icons of R57 stay.
+- The journal form loads its data when the page is built; an account created afterwards appears there only after the page is reloaded (unchanged).
+- The staging test plan for the finance group was not executed.
+
 ### Added
 
 - **Toolbar alignment and standard icons** (V1.9.43, rules R56-R58): `lapisToolbar()` / `toolbarText()` (`ToolbarRow.kt`, `.lapis-toolbar` in `theme.css`),
