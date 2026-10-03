@@ -500,6 +500,9 @@ private val R24_MIGRATED: Set<String> =
         // W4b (V1.4.29)
         "ConfirmDialog.kt",
         "MemberAdministrationScreen.kt",
+        // V1.9.48: the direct-creation form moved out of MemberAdministrationScreen.kt, the chapter form out of RegionalChaptersScreen.kt.
+        "MemberDirectCreationForm.kt",
+        "RegionalChapterCreateForm.kt",
         "EventCheckInScreen.kt",
         "MeetingsScreen.kt",
         "MotionsScreen.kt",
@@ -1027,25 +1030,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Konferenz-Verwaltung\" (conference administration).",
             ),
-        "CrmContactsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neuen Kontakt anlegen\")) { addCssClass(\"h5\") }",
-                        "panel.h2(tr(\"Neue Interaktion erfassen\")) { addCssClass(\"h5\") }",
-                        "renderCrmContactCreationForm(root, ::refreshList)",
-                    ),
-                reason = "Group \"Gemeinschaft\" (community and members).",
-            ),
-        "CrowdfundingScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neues Projekt einreichen\")) { addCssClass(\"h5\") }",
-                        "renderSubmitProjectForm(submitPanel) { loadProjects() }",
-                    ),
-                reason = "Group \"Gemeinschaft\" (community and members).",
-            ),
         "DocumentsScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1070,22 +1054,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Compliance\" (data protection and legal).",
             ),
-        "MemberAdministrationScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "if (isBoardOrAdmin) renderDirectMemberCreation(root, chapters)",
-                    ),
-                reason = "Group \"Gemeinschaft\" (community and members).",
-            ),
-        "RegionalChaptersScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "renderChapterCreationForm(root, overview, onChanged)",
-                    ),
-                reason = "Group \"Gemeinschaft\" (community and members).",
-            ),
     )
 
 /**
@@ -1094,8 +1062,9 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
  * ledger in the same commit. [R36B_NOT_YET_COLLAPSED] and [R36B_EXEMPT] pin the exact fingerprints; this pins the total.
  * V1.9.45 finance: 39 -> 30 (CostCenters 2, Donors 2, Ledger 3, OpenItems 1, SepaBatches 1 paid off).
  * V1.9.47 events: 30 -> 21 (Catering 2, EventRooms 2, EventVolunteerShifts 2, Events 3 paid off).
+ * V1.9.48 community: 21 -> 14 (Crm 3, Crowdfunding 2, MemberAdministration 1, RegionalChapters 1 paid off).
  */
-private const val R36B_REMAINING_MAX = 21
+private const val R36B_REMAINING_MAX = 14
 
 /** The governance pilot of V1.9.40, the finance group of V1.9.45 and the events group of V1.9.47: converted, so held strictly (no finding at all) and required to use the component. */
 private val R36B_CONVERTED: Set<String> =
@@ -1116,6 +1085,14 @@ private val R36B_CONVERTED: Set<String> =
         "EventRoomsScreen.kt",
         "EventVolunteerShiftsScreen.kt",
         "CateringScreen.kt",
+        // V1.9.48 community group. The builder-only files (CrowdfundingForms.kt, MemberDirectCreationForm.kt, RegionalChapterCreateForm.kt) hold
+        // no collapsibleCreateForm call, so they cannot be listed here; the global ledger-equality test keeps them strict (any finding in a file
+        // outside the ledger is red).
+        "CrmContactsScreen.kt",
+        "CrmCollapsibleForms.kt",
+        "CrowdfundingScreen.kt",
+        "MemberAdministrationScreen.kt",
+        "RegionalChaptersScreen.kt",
     )
 
 private fun r36bActual(): Map<String, List<String>> =
@@ -1685,6 +1662,11 @@ class ClientUiGuidelineTripwireTest :
                     "EventRoomsScreen.kt",
                     "EventVolunteerShiftsScreen.kt",
                     "CateringScreen.kt",
+                    "CrmContactsScreen.kt",
+                    "CrmCollapsibleForms.kt",
+                    "CrowdfundingScreen.kt",
+                    "MemberAdministrationScreen.kt",
+                    "RegionalChaptersScreen.kt",
                 )
             financeFiles.forEach { name ->
                 val code = codeOnly(byName.getValue(name).readText())
@@ -1692,7 +1674,12 @@ class ClientUiGuidelineTripwireTest :
                     val lambda = callWithTrailingLambda(text = code, openParen = match.range.last)
                     val call = code.substring(match.range.first, match.range.last + lambda.length)
                     withClue("$name: ${call.take(120)}") {
-                        (Regex("""actionSlot\s*=\s*(?:header\.actionSlot|entrySlot|accountSlot)""").containsMatchIn(call)) shouldBe true
+                        (
+                            Regex(
+                                """actionSlot\s*=\s*(?:header\.actionSlot|entrySlot|accountSlot|distributionSlot|titleSlot)""",
+                            ).containsMatchIn(call)
+                        ) shouldBe
+                            true
                     }
                 }
             }

@@ -585,6 +585,10 @@ msgstr "Genegeerd"
 msgid "Interaktion speichern"
 msgstr "Interactie opslaan"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmCollapsibleForms.kt:41
+msgid "Interaktion erfassen"
+msgstr "Interactie vastleggen"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:354
 msgid "Interaktion wurde gespeichert."
 msgstr "Interactie is opgeslagen."

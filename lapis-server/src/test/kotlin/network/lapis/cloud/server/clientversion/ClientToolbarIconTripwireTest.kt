@@ -62,6 +62,15 @@ private val R57_STRICT_FILES =
         "EventRoomsScreen.kt",
         "EventVolunteerShiftsScreen.kt",
         "CateringScreen.kt",
+        // V1.9.48: the community group (create buttons, saves and revokes use ActionIcon.ADD / SAVE / REVOKE / DELETE / SEND / APPROVE).
+        "CrmContactsScreen.kt",
+        "CrmCollapsibleForms.kt",
+        "CrowdfundingScreen.kt",
+        "CrowdfundingForms.kt",
+        "MemberAdministrationScreen.kt",
+        "MemberDirectCreationForm.kt",
+        "RegionalChaptersScreen.kt",
+        "RegionalChapterCreateForm.kt",
     )
 
 private const val TABLE_VERBS = "anlegen|hinzufügen|speichern|bearbeiten|stornieren|widerrufen|deaktivieren|duplizieren"
@@ -136,6 +145,8 @@ private val R57_PLAIN_STANDARD_BUTTON_LEDGER: Map<String, Int> =
  * R57 ledger: file -> number of string-typed `tableActionButton("fas fa-...")` calls (domain verbs without a standard icon, see action-icons.adoc).
  * V1.9.45: BankAccountsScreen ("Als Standard setzen", star) and OpenItemsScreen ("Ausgleichen", money bill) stay -- domain verbs with no
  * `ActionIcon` entry; `action-icons.adoc` lists exactly these two as "domain icons that stay as strings".
+ * V1.9.48: the six of MemberAdministrationScreen (receipt, medal, id card, image, comment-slash, key) are no longer debt but a reasoned list
+ * in `action-icons.adoc` (each would be misread with a standard icon in a row of icon-only buttons).
  */
 private val R57_STRING_TABLE_ACTION_LEDGER: Map<String, Int> =
     mapOf(

@@ -58,11 +58,10 @@ class RegionalChaptersScreenDomTest {
             withFetchStub(respond = respond) {
                 withMountedRoot("body-regional-chapters-empty-edge-case") { root, element ->
                     renderRegionalChaptersScreen(root)
-                    awaitUntil("the creation form") { element().querySelector("input[type=text]") != null }
-                    assertTrue(
-                        element().all("button").any { it.textContent?.trim() == "Landesverband anlegen" },
-                        "the 'Landesverband anlegen' creation form must be reachable even with zero chapters and zero unassigned members",
-                    )
+                    awaitUntil("the empty-state notice") { element().textContent.orEmpty().contains("Noch keine Landesverbände angelegt") }
+                    // V1.9.48 (R36B): the form sits behind the page header button; it must be reachable even with zero chapters and zero unassigned members.
+                    val host = openCreateForm(element())
+                    assertTrue(host.textContent.orEmpty().contains("Name des Landesverbands"), "the opened form asks for the chapter name")
                     assertTrue(
                         element().textContent.orEmpty().contains("Noch keine Landesverbände angelegt"),
                         "the informational notice must still be shown alongside the form",
@@ -81,7 +80,9 @@ class RegionalChaptersScreenDomTest {
             withFetchStub(respond = respond) {
                 withMountedRoot("body-regional-chapters-unassigned-only") { root, element ->
                     renderRegionalChaptersScreen(root)
-                    awaitUntil("the creation form") { element().querySelector("input[type=text]") != null }
+                    awaitUntil("the unassigned hint") { element().textContent.orEmpty().contains("3 Mitglieder ohne Landesverband") }
+                    val host = openCreateForm(element())
+                    assertTrue(host.textContent.orEmpty().contains("Name des Landesverbands"))
                     // Not empty (unassignedCount > 0) even before this fix -- verifies the fix did not
                     // regress the ALREADY-working "unassigned members exist" branch.
                     assertTrue(element().textContent.orEmpty().contains("3 Mitglieder ohne Landesverband"))
@@ -119,7 +120,12 @@ class RegionalChaptersScreenDomTest {
                     renderRegionalChaptersScreen(root)
                     awaitUntil("the chapter card") { element().textContent.orEmpty().contains("Öffentliche Darstellung") }
                     assertTrue(
-                        element().all("button").any { it.textContent.orEmpty().startsWith("Wappen ") },
+                        element().all("button").any {
+                            it.textContent
+                                .orEmpty()
+                                .trim()
+                                .startsWith("Wappen ")
+                        },
                         "BOARD keeps the crest controls",
                     )
                     assertEquals(emptyList(), structuralButtons(element()), "create/rename/officers/delete are ADMIN-only on the server")
@@ -142,7 +148,14 @@ class RegionalChaptersScreenDomTest {
                         setOf("Landesverband anlegen", "Umbenennen", "Landesvorstand verwalten", "Löschen"),
                         structuralButtons(element()).toSet(),
                     )
-                    assertTrue(element().all("button").any { it.textContent.orEmpty().startsWith("Wappen ") })
+                    assertTrue(
+                        element().all("button").any {
+                            it.textContent
+                                .orEmpty()
+                                .trim()
+                                .startsWith("Wappen ")
+                        },
+                    )
                 }
             }
         }

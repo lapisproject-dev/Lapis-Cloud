@@ -38,6 +38,7 @@ class FormGrammarPart2I18nCatalogTest :
                 "FormRules.kt",
                 "ConfirmDialog.kt",
                 "MemberAdministrationScreen.kt",
+                "MemberDirectCreationForm.kt", // V1.9.48: moved out of MemberAdministrationScreen.kt
                 "EventCheckInScreen.kt",
                 "MeetingsScreen.kt",
                 "MotionsScreen.kt",

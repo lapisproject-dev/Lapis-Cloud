@@ -150,9 +150,53 @@ Specifics of these screens:
 The R57 strict set now also holds the four event screens: a plain button for "anlegen|hinzufügen|speichern|..." is a finding there.
 R36B debt ledger: 30 -> 21 findings.
 
+== V1.9.48: group "Gemeinschaft" converted
+
+Client only: no migration, no server change, no new RPC. Four screens, six forms:
+
+[cols="2,3,2,3"]
+|===
+| Screen | Button | Place | `formId`
+
+| `CrmContactsScreen` | "Kontakt anlegen" | page header | `lapis-create-crm-contact`
+| `CrmContactsScreen` (detail of a contact) | "Interaktion erfassen" | title row "Interaktionsverlauf" | `lapis-create-crm-interaction-<n>` (a counter, never a contact id: several details can be open)
+| `CrowdfundingScreen` | "Projekt einreichen" | page header | `lapis-create-crowdfunding-project`
+| `CrowdfundingScreen` (treasury tools, TREASURER/BOARD/ADMIN) | "Verteilung berechnen" | title row "Treuhänder-Werkzeuge" | `lapis-create-crowdfunding-distribution`
+| `MemberAdministrationScreen` (BOARD/ADMIN) | "Mitglied direkt anlegen" | page header | `lapis-create-member-direct`
+| `RegionalChaptersScreen` (ADMIN) | "Landesverband anlegen" | page header | `lapis-create-regional-chapter`
+|===
+
+Component additions (additive, existing callers unaffected):
+
+* `CollapsibleCreateFormController.requestClose(then)`: for a caller that is about to remove the form from the screen. Closed: `then` runs at once.
+  Open and unchanged: the form closes, then `then` runs. Open and changed: the discard dialog; "Weiter bearbeiten" never runs `then`. The CRM
+  detail uses it: collapsing a contact's detail over a changed interaction form asks first; `expanded` flips only inside the callback.
+* `Container.sectionTitleRow(title)`: title row of a sub-area (heading left, `lapis-page-action` slot right) for the create button of
+  a list that lives inside the page. A plain `div`, not a panel, so the toolbar rule R56 is not involved.
+
+Specifics:
+
+* *Guthaben-Streifen.* On "Projekt einreichen" the LTR balance strip (`renderMyLtrBalanceInline`) is the first element of the opened form, still
+  before every field (D3), and is loaded freshly on each opening.
+* *Member list reloads after "Mitglied direkt anlegen".* Before, the new member did not appear until the page was reloaded. The roster now returns its
+  own `refresh()` (filter, sort and offset kept) and the saved form calls it. The button is built exactly once, also when the chapter options fail to
+  load (the options RPC has no retry path); the form host exists synchronously under the header.
+* *Chapters.* Button and host live outside the data section, so a reload (delete, rename, failed load) neither builds a second button nor sweeps away a
+  form that is being typed in. At the chapter limit the button stays active; the opened form shows the existing hint and its submit is disabled.
+* The direct-creation snapshot is `LapisForm.snapshot()` (all fields, the password included -- compared only). There is no "Stufe" field.
+
+Not converted, with the reason:
+
+* `renderCrmContactEditForm` (an edit form), the Keycloak link, the member editor dialog (its "Konto anlegen" is a modal), the reject modal, chapter
+  assignment, the time-zone and visibility cards, search and filters, the crowdfunding board decision, reactions and status filter.
+* `MemberFamiliesScreen` ("Familie anlegen" opens a modal, not an inline form) and `ChapterRosterScreen` (no create form) are untouched.
+* An "Einladen" flow does not exist in the member administration.
+
+The R57 strict set now also holds the four screens and the three new builder files. R36B debt ledger: 21 -> 14 findings.
+
 == Not done
 
-* Groups not yet converted: community and members, documents, compliance, conference administration, economy/auction (all in
+* Groups not yet converted: documents, compliance, conference administration, economy/auction (all in
   `R36B_NOT_YET_COLLAPSED`).
 * "Save and add another": every save folds the form back, so entering many bookings in a row costs one click each. A candidate for its own wave.
 * `BoardMembershipScreen` (pilot) still uses `rebaseline()`; it should move to `applyProgrammatic` (same race, smaller exposure).

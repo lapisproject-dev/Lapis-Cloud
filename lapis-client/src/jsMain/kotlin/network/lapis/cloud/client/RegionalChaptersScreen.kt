@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.upload.upload
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -48,9 +47,29 @@ import network.lapis.cloud.shared.rpc.UnauthenticatedException
  */
 fun renderRegionalChaptersScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Gliederungsverwaltung"))
+    val header = root.pageHeader(tr("Gliederungsverwaltung"))
+    // BOARD reaches this screen for the crest and the public description only (server: create/rename/delete/officers ADMIN-only).
+    val structure = NavVisibility.showsRegionalChapterStructure(AppState.session?.role)
+    // V1.9.48 (R36B): button and host live OUTSIDE the data section's body, so a reload (delete, rename, failed load) never builds a second
+    // button or sweeps away a form the person is typing in.
+    var overview: RegionalChapterOverviewDto? = null
+    val createHost = if (structure) root.vPanel(spacing = 6) else null
 
     lateinit var section: DataSection
+    if (createHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = createHost,
+            buttonLabel = tr("Landesverband anlegen"),
+            formId = "lapis-create-regional-chapter",
+        ) { _, close ->
+            val atLimit = (overview?.chapters?.size ?: 0) >= RegionalChapterRules.MAX_CHAPTERS
+            renderChapterCreationForm(this, atLimit, close) {
+                section.reload()
+                refreshSessionFromServer()
+            }
+        }
+    }
     section =
         root.dataSection<RegionalChapterOverviewDto>(
             // Review fix (MINOR edge case): ALWAYS `false` -- with the previous
@@ -60,12 +79,13 @@ fun renderRegionalChaptersScreen(container: SimplePanel) {
             // `emptyText` and never calls `render` at all -- `renderChapterCreationForm` (the only
             // way to create the FIRST chapter) was unreachable. This screen has no "empty" state:
             // the creation form is part of its NORMAL content, not something an empty state should
-            // ever hide. The equivalent notice now lives inside [renderRegionalChaptersBody] itself,
-            // shown alongside the form instead of in place of it.
+            // ever hide. The equivalent notice now lives inside [renderRegionalChaptersBody] itself.
+            // (V1.9.48: the creation form is collapsed behind the page header button, which exists regardless of this state.)
             isEmpty = { false },
             load = { regionalChapterGuarded { rpcService<IRegionalChapterService>().listChapters() } },
-            render = { panel, overview ->
-                renderRegionalChaptersBody(panel, overview) { section.reload() }
+            render = { panel, o ->
+                overview = o
+                renderRegionalChaptersBody(panel, o, structure) { section.reload() }
             },
         )
     section.reload()
@@ -74,6 +94,7 @@ fun renderRegionalChaptersScreen(container: SimplePanel) {
 private fun renderRegionalChaptersBody(
     root: SimplePanel,
     overview: RegionalChapterOverviewDto,
+    structure: Boolean,
     onChanged: () -> Unit,
 ) {
     if (overview.chapters.isEmpty() && overview.unassignedCount == 0) {
@@ -92,53 +113,8 @@ private fun renderRegionalChaptersBody(
         root.p(tr("In der Mitgliederverwaltung nach „Nicht zugeordnet“ filtern.")) { addCssClass("text-muted") }
     }
 
-    // BOARD reaches this screen for the crest and the public description only (server: create/rename/delete/officers ADMIN-only).
-    val structure = NavVisibility.showsRegionalChapterStructure(AppState.session?.role)
-    if (structure) {
-        root.p(tr("Landesverband anlegen")) { addCssClasses("fw-bold mt-2") }
-        renderChapterCreationForm(root, overview, onChanged)
-    }
-
     val cardsPanel = root.vPanel(spacing = 8) { addCssClass("mt-3") }
     overview.chapters.forEach { chapter -> renderChapterCard(cardsPanel, chapter, structure, onChanged) }
-}
-
-private fun renderChapterCreationForm(
-    root: SimplePanel,
-    overview: RegionalChapterOverviewDto,
-    onChanged: () -> Unit,
-) {
-    val atLimit = overview.chapters.size >= RegionalChapterRules.MAX_CHAPTERS
-    val form = root.lapisForm()
-    val nameField =
-        form.textField(
-            label = tr("Name des Landesverbands"),
-            required = true,
-            rule = { chapterNameCheck(it) },
-        )
-    if (atLimit) {
-        form.panel.p(gettext("Höchstens %1 Landesverbände möglich.", RegionalChapterRules.MAX_CHAPTERS)) {
-            addCssClasses("text-muted small")
-        }
-    }
-    val createButton = Button(tr("Landesverband anlegen"), style = ButtonStyle.PRIMARY)
-    createButton.disabled = atLimit
-    form.buttons(primary = createButton)
-    createButton.onClick {
-        form.submit(createButton) {
-            val name = RegionalChapterRules.normalizeName(nameField.value)
-            val result =
-                regionalChapterGuarded(onNameTaken = { nameField.showError(tr("Ein Landesverband mit diesem Namen existiert bereits.")) }) {
-                    rpcService<IRegionalChapterService>().createChapter(name)
-                }
-            if (result != null) {
-                notifySuccess(gettext("Landesverband \"%1\" wurde angelegt.", result.name))
-                nameField.reset()
-                onChanged()
-                refreshSessionFromServer()
-            }
-        }
-    }
 }
 
 private fun renderChapterCard(
@@ -272,7 +248,12 @@ private fun renderChapterPublicSection(
             required = true,
             requiredMessage = tr("Bitte eine Datei auswählen."),
         )
-    val uploadButton = Button(if (chapter.hasCrest) tr("Wappen ersetzen") else tr("Wappen hochladen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val uploadButton =
+        newActionButton(
+            ActionIcon.UPLOAD,
+            if (chapter.hasCrest) tr("Wappen ersetzen") else tr("Wappen hochladen"),
+            ButtonStyle.OUTLINEPRIMARY,
+        )
     uploadForm.buttons(primary = uploadButton)
     uploadButton.onClick {
         uploadForm.submit(uploadButton) {
@@ -336,7 +317,7 @@ private fun renderChapterPublicSection(
     }
     updateCounter()
     descriptionField.subscribe { updateCounter() }
-    val saveDescriptionButton = Button(tr("Beschreibung speichern"), style = ButtonStyle.PRIMARY)
+    val saveDescriptionButton = newActionButton(ActionIcon.SAVE, tr("Beschreibung speichern"), ButtonStyle.PRIMARY)
     descriptionForm.buttons(primary = saveDescriptionButton)
     saveDescriptionButton.onClick {
         descriptionForm.submit(saveDescriptionButton) {
@@ -423,7 +404,7 @@ private fun renderOfficerRow(
         row.untrustedSpan(gettext("erteilt von %1", grantedBy), className = "text-muted small")
     }
 
-    val revokeButton = row.button(tr("Zugang entziehen"), style = ButtonStyle.OUTLINEDANGER)
+    val revokeButton = row.actionButton(ActionIcon.REVOKE, tr("Zugang entziehen"), style = ButtonStyle.OUTLINEDANGER)
     val confirmBox = panel.div { addCssClasses("alert alert-warning d-flex align-items-center gap-2") }
     confirmBox.hide()
     val gate = InlineConfirmGate()
@@ -431,7 +412,7 @@ private fun renderOfficerRow(
         if (!gate.openConfirmation()) return@onClick
         confirmBox.removeAll()
         confirmBox.span(tr("Zugang wirklich entziehen?"))
-        val confirmButton = confirmBox.button(tr("Jetzt entziehen"), style = ButtonStyle.DANGER)
+        val confirmButton = confirmBox.actionButton(ActionIcon.REVOKE, tr("Jetzt entziehen"), style = ButtonStyle.DANGER)
         val backButton = confirmBox.actionButton(ActionIcon.BACK, tr("Zurück"), style = ButtonStyle.OUTLINESECONDARY)
         backButton.onClick {
             if (gate.cancelConfirmation()) confirmBox.hide()
@@ -510,7 +491,12 @@ private fun renderOfficerCandidateRow(
     val state = officerCandidateState(row, officerMemberIds)
     val button =
         when (state) {
-            OfficerCandidateState.ELIGIBLE -> rowPanel.button(tr("Als Landesvorstand eintragen"), style = ButtonStyle.OUTLINEPRIMARY)
+            OfficerCandidateState.ELIGIBLE ->
+                rowPanel.actionButton(
+                    ActionIcon.ADD,
+                    tr("Als Landesvorstand eintragen"),
+                    style = ButtonStyle.OUTLINEPRIMARY,
+                )
             OfficerCandidateState.NO_ACCOUNT -> rowPanel.button(tr("kein Login-Konto"), style = ButtonStyle.OUTLINESECONDARY)
             OfficerCandidateState.ALREADY_OFFICER -> rowPanel.button(tr("bereits Landesvorstand"), style = ButtonStyle.OUTLINESECONDARY)
         }

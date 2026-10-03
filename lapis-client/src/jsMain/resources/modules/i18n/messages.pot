@@ -585,6 +585,10 @@ msgstr ""
 msgid "Interaktion speichern"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/CrmCollapsibleForms.kt:41
+msgid "Interaktion erfassen"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:354
 msgid "Interaktion wurde gespeichert."
 msgstr ""

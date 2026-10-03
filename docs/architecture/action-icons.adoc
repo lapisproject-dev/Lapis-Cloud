@@ -97,6 +97,26 @@ collapsed create forms. Without a standard icon, each for the reason given:
   `Button.text = ...` replaces the content including the icon. It stays a text button until `actionButton` can hold a label that changes
   without losing the icon; the accessible name "Kopieren" is unchanged.
 
+=== Community, V1.9.48
+
+Standard icons added: `ADD` ("Kontakt anlegen", "Mitglied anlegen", "Landesverband anlegen", "Als Landesvorstand eintragen"), `SEND` ("Projekt einreichen"),
+`SAVE` ("Interaktion speichern", "Stammdaten speichern", "Status ändern", "Sterbedatum korrigieren", "Rolle ändern", "Mitgliedschaftsstufe speichern" and
+"... zuweisen", "Beschreibung speichern"), `REMOVE` ("Mitgliedschaftsstufe entfernen": an assignment is released, the tier itself stays), `REVOKE` ("Einwilligung
+widerrufen", "Zugang entziehen", "Jetzt entziehen"), `DELETE` ("Löschen nach Art. 17 DSGVO"), `APPROVE` ("Annehmen"), `UPLOAD` ("Wappen hochladen/ersetzen").
+Without a standard icon, each for the reason given:
+
+* "Like" / "Dislike": domain verbs of the crowdfunding vote, not generic approve/reject (the board decision uses `APPROVE`/`REJECT`).
+* "Archivieren" / "Entarchivieren": a domain verb; the table has no archive entry and a trash can would read as deletion.
+* "Verteilung berechnen": a domain verb (a calculation, not a save).
+* "Landesvorstand verwalten", "Landesverband zuordnen", the candidate-status chips ("kein Login-Konto", "bereits Landesvorstand"), "Verbergen" /
+  "Anzeigen" and "Mehr laden" (both lists): navigation or state, not a verb of the table.
+* Pager "‹ Zurück" / "Weiter ›" of the member roster: the arrows are part of the label; the accessible name is unchanged. Moving the glyphs to
+  `BACK`/`NEXT` icons is a follow-up.
+* The six icon-only buttons in the member roster rows stay string-typed (`tableActionButton("fas ...")`, ledgered at 6): they are distinguished by
+  their picture alone, so each needs its own distinct glyph. `receipt` (Beitragshistorie), `medal` (Ehrungen), `id-card` (Mitgliedsausweis), `image`
+  (Foto entfernen), `comment-slash` (Kurzvorstellung entfernen) and `key` (Zugang zurücksetzen). `REMOVE` does not apply to destroying data (the
+  "Token entfernen" precedent), `DELETE` in a member row would be read as "delete the member", and a password reset is not `UNDO`.
+
 == Known limitations
 
 * Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, one ledgered call).

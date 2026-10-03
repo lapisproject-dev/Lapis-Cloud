@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
-import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -24,8 +23,6 @@ import network.lapis.cloud.shared.domain.CrmContactDto
 import network.lapis.cloud.shared.domain.CrmContactInput
 import network.lapis.cloud.shared.domain.CrmContactType
 import network.lapis.cloud.shared.domain.CrmInteractionDto
-import network.lapis.cloud.shared.domain.CrmInteractionInput
-import network.lapis.cloud.shared.domain.CrmInteractionKind
 import network.lapis.cloud.shared.domain.CrmLawfulBasis
 import network.lapis.cloud.shared.rpc.ICrmService
 import kotlin.time.Clock
@@ -36,8 +33,8 @@ import kotlin.time.Clock
  *
  * - Liste = drei Signale (Name · Typ-Badge · "Letzter Kontakt vor …"), Details per Akkordeon --
  *   selbe Grammatik wie [renderDonorsScreen]'s Spenderliste.
- * - Erfassungsformular für eine neue Interaktion ist MODELESS, dauerhaft sichtbar oberhalb der
- *   Zeitleiste, mit GENAU EINEM Pflichtfeld (`summary`) -- jedes zusätzliche Pflichtfeld halbiert
+ * - Erfassungsformular für eine neue Interaktion (seit V1.9.48 eingeklappt hinter dem Knopf "Interaktion
+ *   erfassen" in der Titelzeile "Interaktionsverlauf", siehe [CrmCollapsibleForms.kt]) mit GENAU EINEM Pflichtfeld (`summary`) -- jedes zusätzliche Pflichtfeld halbiert
  *   die Erfassungsrate (Raskin/Duarte, von Jobs im Review verschärft). `occurred_at` ist optional
  *   und defaultet server-seitig auf "jetzt" (siehe [ICrmService.recordInteraction] KDoc) -- diese
  *   Welle bietet dafür bewusst ein einfaches Freitext-ISO-Feld statt eines eigens gebauten
@@ -65,7 +62,8 @@ fun renderCrmContactsScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Kontakte & Interessenten"))
+    val header = root.pageHeader(tr("Kontakte & Interessenten"))
+    val createHost = root.vPanel(spacing = 6) // V1.9.48 (R36B): collapsed create form, directly under the header
     root.div(
         tr(
             "Interessenten, Sympathisanten und sonstige Kontakte, die weder Mitglied noch (notwendigerweise) " +
@@ -126,8 +124,12 @@ fun renderCrmContactsScreen(container: SimplePanel) {
     loadMoreButton.onClick { loadContactPage(reset = false) }
     refreshList()
 
-    root.h2(tr("Neuen Kontakt anlegen")) { addCssClass("h5") }
-    renderCrmContactCreationForm(root, ::refreshList)
+    collapsibleCreateForm<Unit>(
+        actionSlot = header.actionSlot,
+        formHost = createHost,
+        buttonLabel = tr("Kontakt anlegen"),
+        formId = "lapis-create-crm-contact",
+    ) { _, close -> renderCrmContactCreationForm(this, close, ::refreshList) }
 }
 
 /** Page size for [ICrmService.listContacts]' "Mehr laden" pagination -- see [renderCrmContactsScreen]. */
@@ -175,19 +177,27 @@ private fun renderCrmContactRow(
 
     val detailPanel = row.vPanel(spacing = 8) { hide() }
     var expanded = false
+    var interaction: CollapsibleCreateFormController<Unit>? = null
     detailButton.onClick {
-        expanded = !expanded
-        if (!expanded) {
-            detailPanel.hide()
+        if (expanded) {
+            // Collapsing removes the interaction form with it: ask first when it holds typed input ("Weiter bearbeiten" keeps the detail open).
+            val open = interaction
+            val collapseDetail = {
+                expanded = false
+                detailPanel.hide()
+                interaction = null
+            }
+            if (open != null) open.requestClose(collapseDetail) else collapseDetail()
             return@onClick
         }
+        expanded = true
         detailPanel.removeAll()
         detailPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
         detailPanel.show()
         AppScope.launch {
             val fresh = guarded { rpcService<ICrmService>().getContact(contact.id) } ?: return@launch
             detailPanel.removeAll()
-            renderCrmContactDetail(detailPanel, fresh, canErase, onChanged)
+            interaction = renderCrmContactDetail(detailPanel, fresh, canErase, onChanged)
         }
     }
 }
@@ -197,7 +207,7 @@ private fun renderCrmContactDetail(
     contact: CrmContactDto,
     canErase: Boolean,
     onChanged: () -> Unit,
-) {
+): CollapsibleCreateFormController<Unit> {
     // ---- Stammdaten (+ "Bearbeiten" toggle, Art. 16 DSGVO) -------------------------------
     val infoHeaderRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     infoHeaderRow.div(tr("Stammdaten")) { addCssClasses("flex-grow-1 fw-bold") }
@@ -218,7 +228,12 @@ private fun renderCrmContactDetail(
         } else if (contact.consentGivenAt != null) {
             val withdrawRow = infoPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
             withdrawRow.div(tr("Einwilligung ist aktiv."))
-            val withdrawButton = withdrawRow.button(tr("Einwilligung widerrufen"), style = ButtonStyle.OUTLINEDANGER)
+            val withdrawButton =
+                withdrawRow.actionButton(
+                    ActionIcon.REVOKE,
+                    tr("Einwilligung widerrufen"),
+                    style = ButtonStyle.OUTLINEDANGER,
+                )
             withdrawButton.onClick {
                 AppScope.launch {
                     val result = guarded { rpcService<ICrmService>().withdrawConsent(contact.id) }
@@ -261,16 +276,12 @@ private fun renderCrmContactDetail(
         }
     }
 
-    // ---- Interaktions-Erfassung (modeless, EIN Pflichtfeld) ------------------------------
-    panel.h2(tr("Neue Interaktion erfassen")) { addCssClass("h5") }
-    val captureFormHolder = panel.vPanel(spacing = 0)
-
-    // ---- Zeitleiste (neueste zuerst) -- erstellt VOR dem Formular referenziert, damit dessen
-    // Erfolgs-Callback sie direkt neu laden kann, ohne eine Container-Indirektion zu brauchen.
-    panel.h2(tr("Interaktionsverlauf")) { addCssClass("h5") }
+    // ---- Interaktionsverlauf + Erfassung (R36B: collapsed form behind a title-row button, one required field) ----
+    val captureSlot = panel.sectionTitleRow(tr("Interaktionsverlauf"))
+    val captureHost = panel.vPanel(spacing = 6)
     val timelinePanel = panel.vPanel(spacing = 4)
-
-    renderCrmInteractionCaptureForm(captureFormHolder, contact.id) { renderCrmInteractionTimeline(timelinePanel, contact.id) }
+    val interactionController =
+        mountCrmInteractionCapture(captureSlot, captureHost, contact.id) { renderCrmInteractionTimeline(timelinePanel, contact.id) }
     renderCrmInteractionTimeline(timelinePanel, contact.id)
 
     // ---- Datenschutz-Block (Art. 15/17 DSGVO) -- immer am ENDE, sichtbar abgesetzt --------
@@ -278,7 +289,7 @@ private fun renderCrmContactDetail(
     val privacyPanel = panel.vPanel(spacing = 8) { addCssClasses("border rounded p-3 border-warning") }
     privacyPanel.link(tr("Auskunft exportieren (JSON)"), url = crmContactExportUrl(contact.id), target = "_blank")
     if (canErase) {
-        val eraseButton = privacyPanel.button(tr("Löschen nach Art. 17 DSGVO"), style = ButtonStyle.OUTLINEDANGER)
+        val eraseButton = privacyPanel.actionButton(ActionIcon.DELETE, tr("Löschen nach Art. 17 DSGVO"), style = ButtonStyle.OUTLINEDANGER)
         eraseButton.onClick {
             confirmWithTypedConfirmationDialog(
                 title = tr("Kontakt endgültig löschen"),
@@ -299,64 +310,7 @@ private fun renderCrmContactDetail(
             }
         }
     }
-}
-
-private fun renderCrmInteractionCaptureForm(
-    panel: SimplePanel,
-    contactId: String,
-    onRecorded: () -> Unit,
-) {
-    val form = panel.vPanel(spacing = 6)
-    val kindOptions = CrmInteractionKind.entries.map { it.name to crmInteractionKindLabel(it) }
-    val kindSelect = form.select(options = kindOptions, value = CrmInteractionKind.NOTE.name, label = tr("Art"))
-    val occurredAtInput = form.text(label = tr("Zeitpunkt (optional, ISO -- leer = jetzt, z. B. 2026-09-14T10:00)"))
-    val summaryInput = form.textArea(label = tr("Notiz (Pflichtfeld)")) { rows = 3 }
-    val errorBox =
-        form.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val recordButton = form.button(tr("Interaktion speichern"), style = ButtonStyle.PRIMARY)
-
-    recordButton.onClick {
-        errorBox.hide()
-        val summary = summaryInput.value.orEmpty().trim()
-        if (!Validation.isNonBlank(summary)) {
-            errorBox.content = tr("Bitte eine Notiz eingeben.")
-            errorBox.show()
-            return@onClick
-        }
-        val kind = runCatching { CrmInteractionKind.valueOf(kindSelect.value.orEmpty()) }.getOrNull() ?: CrmInteractionKind.NOTE
-        val occurredAtRaw = occurredAtInput.value?.trim().orEmpty()
-        val occurredAt =
-            if (occurredAtRaw.isBlank()) {
-                null
-            } else {
-                runCatching { LocalDateTime.parse(occurredAtRaw) }.getOrNull()
-                    ?: run {
-                        errorBox.content = tr("Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00).")
-                        errorBox.show()
-                        return@onClick
-                    }
-            }
-
-        recordButton.disabled = true
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<ICrmService>().recordInteraction(
-                        CrmInteractionInput(contactId = contactId, occurredAt = occurredAt, kind = kind, summary = summary),
-                    )
-                }
-            recordButton.disabled = false
-            if (result != null) {
-                notifySuccess(tr("Interaktion wurde gespeichert."))
-                summaryInput.value = null
-                occurredAtInput.value = null
-                onRecorded()
-            }
-        }
-    }
+    return interactionController
 }
 
 /**
@@ -406,112 +360,6 @@ private fun renderCrmInteractionRow(
     headerRow.div(formatDateTime(interaction.occurredAt)) { addCssClasses("text-muted small") }
     headerRow.div(gettext("erfasst von %1", interaction.recordedByDisplayName)) { addCssClasses("text-muted small flex-grow-1 text-end") }
     row.untrustedDiv(interaction.summary)
-}
-
-// ============================================================================================
-// Creation form
-// ============================================================================================
-
-private fun renderCrmContactCreationForm(
-    root: SimplePanel,
-    onCreated: () -> Unit,
-) {
-    val panel = root.vPanel(spacing = 6)
-    val displayNameInput = panel.text(label = tr("Name"))
-    val emailInput = panel.text(label = tr("E-Mail (optional)"))
-    val phoneInput = panel.text(label = tr("Telefon (optional)"))
-    val streetInput = panel.text(label = tr("Straße (optional)"))
-    val postalCodeInput = panel.text(label = tr("PLZ (optional)"))
-    val cityInput = panel.text(label = tr("Ort (optional)"))
-    val countryInput = panel.text(label = tr("Land (optional)"))
-    val typeOptions = listOf("" to tr("-- Typ wählen --")) + CrmContactType.entries.map { it.name to crmContactTypeLabel(it) }
-    val typeSelect = panel.select(options = typeOptions, value = "", label = tr("Typ"))
-    val basisOptions = listOf("" to tr("-- Rechtsgrundlage wählen --")) + CrmLawfulBasis.entries.map { it.name to crmLawfulBasisLabel(it) }
-    val basisSelect = panel.select(options = basisOptions, value = "", label = tr("Rechtsgrundlage (Art. 6 DSGVO)"))
-    val consentSourceInput = panel.text(label = tr("Herkunft der Einwilligung (z. B. \"Infostand Braunschweig\")")) { hide() }
-    val consentGivenAtInput = panel.text(label = tr("Zeitpunkt der Einwilligung (ISO, z. B. 2026-09-14T10:00)")) { hide() }
-    basisSelect.subscribe { value ->
-        val isConsent = value == CrmLawfulBasis.CONSENT.name
-        consentSourceInput.visible = isConsent
-        consentGivenAtInput.visible = isConsent
-    }
-    val errorBox =
-        panel.div().apply {
-            addCssClass("text-danger")
-            hide()
-        }
-    val createButton = panel.button(tr("Kontakt anlegen"), style = ButtonStyle.PRIMARY)
-
-    createButton.onClick {
-        errorBox.hide()
-        val displayName = displayNameInput.value.orEmpty().trim()
-        val contactType = runCatching { CrmContactType.valueOf(typeSelect.value.orEmpty()) }.getOrNull()
-        val lawfulBasis = runCatching { CrmLawfulBasis.valueOf(basisSelect.value.orEmpty()) }.getOrNull()
-
-        if (!Validation.isNonBlank(displayName) || contactType == null || lawfulBasis == null) {
-            errorBox.content = tr("Bitte Name, Typ und Rechtsgrundlage angeben.")
-            errorBox.show()
-            return@onClick
-        }
-
-        val consentGivenAt =
-            if (lawfulBasis == CrmLawfulBasis.CONSENT) {
-                val raw = consentGivenAtInput.value?.trim().orEmpty()
-                if (raw.isBlank()) {
-                    errorBox.content = tr("Bei Rechtsgrundlage 'Einwilligung' ist der Zeitpunkt der Einwilligung Pflicht.")
-                    errorBox.show()
-                    return@onClick
-                }
-                runCatching { LocalDateTime.parse(raw) }.getOrNull()
-                    ?: run {
-                        errorBox.content = tr("Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00).")
-                        errorBox.show()
-                        return@onClick
-                    }
-            } else {
-                null
-            }
-
-        createButton.disabled = true
-        AppScope.launch {
-            val result =
-                guarded {
-                    rpcService<ICrmService>().createContact(
-                        CrmContactInput(
-                            displayName = displayName,
-                            email = emailInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            phone = phoneInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            street = streetInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            postalCode = postalCodeInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            city = cityInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            country = countryInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            contactType = contactType,
-                            lawfulBasis = lawfulBasis,
-                            consentSource = consentSourceInput.value?.trim()?.takeIf { it.isNotBlank() },
-                            consentGivenAt = consentGivenAt,
-                            externalDonorId = null,
-                            memberId = null,
-                        ),
-                    )
-                }
-            createButton.disabled = false
-            if (result != null) {
-                notifySuccess(gettext("Kontakt \"%1\" wurde angelegt.", displayName))
-                displayNameInput.value = null
-                emailInput.value = null
-                phoneInput.value = null
-                streetInput.value = null
-                postalCodeInput.value = null
-                cityInput.value = null
-                countryInput.value = null
-                typeSelect.value = ""
-                basisSelect.value = ""
-                consentSourceInput.value = null
-                consentGivenAtInput.value = null
-                onCreated()
-            }
-        }
-    }
 }
 
 // ============================================================================================

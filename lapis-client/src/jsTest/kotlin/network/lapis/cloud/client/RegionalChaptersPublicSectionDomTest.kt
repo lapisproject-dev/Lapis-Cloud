@@ -76,8 +76,12 @@ class RegionalChaptersPublicSectionDomTest {
                         "Wappen ersetzen",
                         element()
                             .allOf("button")
-                            .first { it.textContent.orEmpty().startsWith("Wappen ") }
-                            .textContent
+                            .first {
+                                it.textContent
+                                    .orEmpty()
+                                    .trim()
+                                    .startsWith("Wappen ")
+                            }.textContent
                             ?.trim(),
                     )
                 }

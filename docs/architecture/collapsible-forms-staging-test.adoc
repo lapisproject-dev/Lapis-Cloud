@@ -76,6 +76,28 @@ Nothing was deployed by the author of the wave; every result is open. Account: B
 . "Catering" and "Helfer-Schichten" with no event, and with the event list blocked (offline): no create button; after "Erneut versuchen" exactly one button.
 . At 375 px width the title row and the open forms do not scroll horizontally. Switch to English: buttons and the new line are translated.
 
+== Community group (V1.9.48) -- additional steps, not executed
+
+Nothing was deployed by the author of the wave; every result is open. Accounts: ADMIN, BOARD, TREASURER and a plain MEMBER. Data: two contacts, one
+project, one chapter, one member with a title typed as `###KvI18nS###Test` through the API if possible.
+
+. As BOARD open "Kontakte": the form is collapsed, "Kontakt anlegen" is in the title row. Steps 2 to 8 of the table above (Escape with and without typing,
+  "Abbrechen", save folds back and the list shows the contact, the focus returns to the button).
+. Open a contact's detail: "Interaktion erfassen" is in the title row "Interaktionsverlauf", not in the page header. Open it, type a note, collapse the
+  detail: the discard dialog appears; "Weiter bearbeiten" keeps detail and note. Without typing the detail collapses without a question. Save: the form
+  folds back and the history shows the interaction. Open two details at once: each has its own form.
+. "Crowdfunding" as MEMBER: "Projekt einreichen" in the header, no treasury tools. Open it: the LTR balance is shown before the first field. Submit: the
+  confirmation appears, then the form folds back and the project is listed. As TREASURER: "Verteilung berechnen" in the title row "Treuhänder-Werkzeuge";
+  type only a date and press Escape: the dialog appears. Compute: the form folds back and the history reloads.
+. "Mitgliederverwaltung" as ADMIN and BOARD: "Mitglied direkt anlegen" in the header, collapsed. Set a status filter, create a member: the roster reloads
+  with the filter kept and shows the member. Type only the password and press Escape: the dialog appears. As TREASURER: the roster, no button.
+. Block the chapter-options request (offline for that call): still exactly one button.
+. "Gliederungsverwaltung" as ADMIN: one button "Landesverband anlegen". Type a name, delete another chapter through its card: the form and the text
+  survive the reload, still one button. With the maximum number of chapters: the button works, the form shows the hint, its submit is disabled. As BOARD:
+  no button.
+. A name with a catalog marker is shown as text everywhere above, not translated or hidden. At 375 px the title rows and open forms do not scroll
+  horizontally. Switch to English: "Interaktion erfassen" ("Record interaction") and all other buttons are translated.
+
 == Actual results
 
 (to be filled in when the plan is run)

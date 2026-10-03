@@ -8,6 +8,19 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Collapsed create forms, group "Gemeinschaft"** (V1.9.48, rule R36B): the create forms of Kontakte (contact and, in a contact's detail, interaction),
+  Crowdfunding (project and monthly distribution), Mitgliederverwaltung (direct creation) and Gliederungsverwaltung (chapter) are collapsed behind one
+  title-row button each ("Kontakt anlegen", "Interaktion erfassen", "Projekt einreichen", "Verteilung berechnen", "Mitglied direkt anlegen",
+  "Landesverband anlegen"). Client only, no migration, no server or RPC change. `collapsibleCreateForm` gets `requestClose(then)` (collapsing a CRM detail
+  over a changed interaction form asks first) and a new `sectionTitleRow` helper puts the button into the title row of a sub-area. On the project form the LTR
+  balance strip is the first element of the opened form. **The member roster now reloads after "Mitglied direkt anlegen"** (filter, sort and offset kept);
+  before, the new member only appeared after a page reload. The chapter button and form live outside the data section, so a reload keeps both.
+  Standard icons (R57): `ADD`, `SEND`, `SAVE`, `REMOVE`, `REVOKE`, `DELETE`, `APPROVE`, `UPLOAD` on the buttons listed in `action-icons.adoc`; labels
+  unchanged. R36B debt ledger 21 -> 14; the four screens and the new builder files are in the strict sets. One new msgid ("Interaktion erfassen") in all
+  eight catalogs (translation by agent, not by a native speaker). New tests: four `CommunityCollapsibleForms*DomTest` classes, `CommunityActionIconsDomTest`,
+  `requestClose`/`sectionTitleRow` tests, tripwire updates. Documentation: `collapsible-forms.adoc`, `ui-ux-guideline.adoc`, `action-icons.adoc`,
+  `collapsible-forms-staging-test.adoc`.
+
 - **Collapsed create forms, group "Veranstaltungen"** (V1.9.47, rule R36B): the create forms of Veranstaltungen, Räume, Helfer-Schichten and Catering are collapsed
   behind one title-row button each ("Neue Veranstaltung", "Neuer Raum", "Neue Schicht", "Neue Bestellposition"). Client only, no migration, no server or RPC change.
   The in-form create buttons use the `ADD` icon (as the finance forms) next to "Abbrechen"; labels unchanged. On catering and shifts the event picker is
@@ -19,6 +32,15 @@ All notable changes to this project are documented here. Format follows
   in the strict R36B and R57 sets. Five new msgids in all eight catalogs (translations by agent, not by a native speaker). New tests:
   `EventsCollapsibleFormsDomTest`, `EventsCollapsibleFormsOpsDomTest`, an `onOpenChange` test in `CollapsibleCreateFormDomTest`, tripwire updates.
   Documentation: `collapsible-forms.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc`, `event-series.adoc`, `collapsible-forms-staging-test.adoc`.
+
+### Known limitations (V1.9.48)
+
+- The edit form of a CRM contact ("Bearbeiten") discards typed input without asking when it is closed through "Bearbeiten" again (it was not part of the wave).
+- A list reload in the CRM (filter, "Aktualisieren", an action on another row) still discards open interaction forms; this is older behaviour.
+- The roster pager keeps "‹ Zurück" / "Weiter ›" as plain label text; `MemberFamiliesScreen` and `ChapterRosterScreen` were not touched.
+- A save that fails with a conflict shows a toast and keeps the form open with its input; there is no "reload" banner.
+- Documents, compliance, conference administration and economy/auction follow.
+- The staging test plan for these screens was written, not executed.
 
 ### Known limitations (V1.9.47)
 

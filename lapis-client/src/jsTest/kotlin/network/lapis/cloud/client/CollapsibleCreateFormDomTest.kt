@@ -430,4 +430,64 @@ class CollapsibleCreateFormDomTest {
                 assertEquals(listOf(true, true, false), changes)
             }
         }
+
+    @Test
+    fun requestClose_runsThenAtOnceWhenClosedOrUnchanged_andAsksWhenChanged(): Promise<Unit> =
+        formTest {
+            mountedForm("collapsible-request-close") { root, element ->
+                val harness = mountHarness(root)
+                val screen = element()
+                var ran = 0
+
+                // closed: then runs at once
+                harness.controller.requestClose { ran++ }
+                assertEquals(1, ran)
+
+                // open and unchanged: closes, then runs, no question
+                openCreateForm(screen, formId)
+                harness.controller.requestClose { ran++ }
+                assertEquals(2, ran)
+                awaitClosed(screen)
+                assertTrue(document.querySelector(".modal.show") == null)
+
+                // open and changed: asks; keep editing never runs then
+                openCreateForm(screen, formId)
+                screen.typeInto("Name", "Halbfertig")
+                harness.controller.requestClose { ran++ }
+                awaitDialog().buttonNamed("Weiter bearbeiten").click()
+                awaitUntil("the dialog is gone") { document.querySelector(".modal.show") == null }
+                assertEquals(2, ran, "keep editing does not run then")
+                assertTrue(screen.hasForm(), "the form stays open")
+                assertEquals("Halbfertig", screen.input().value)
+
+                // discard: closes, then runs
+                harness.controller.requestClose { ran++ }
+                awaitDialog().buttonNamed("Verwerfen").click()
+                awaitClosed(screen)
+                assertEquals(3, ran)
+            }
+        }
+
+    @Test
+    fun sectionTitleRow_putsTheButtonNextToItsHeading_notIntoThePageHeader(): Promise<Unit> =
+        formTest {
+            mountedForm("collapsible-section-title-row") { root, element ->
+                root.pageHeader("Testseite")
+                val slot = root.sectionTitleRow("Verlauf")
+                val host = root.vPanel(spacing = 6)
+                collapsibleCreateForm<String>(
+                    actionSlot = slot,
+                    formHost = host,
+                    buttonLabel = "Neuer Eintrag",
+                    formId = formId,
+                ) { prefill, close -> testForm(prefill, close) }
+                val screen = element()
+                val button = createFormButton(screen, formId)
+                assertTrue(button.closest(".lapis-page-header") == null, "not in the page header")
+                val row = assertNotNull(button.closest(".lapis-page-action")?.parentElement, "the slot sits in the section row")
+                assertEquals("Verlauf", row.querySelector("h2")?.textContent?.trim())
+                openCreateForm(screen, formId)
+                assertTrue(screen.hasForm())
+            }
+        }
 }

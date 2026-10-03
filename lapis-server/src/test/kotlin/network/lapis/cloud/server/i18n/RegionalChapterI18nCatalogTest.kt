@@ -28,6 +28,8 @@ class RegionalChapterI18nCatalogTest :
                 "ChapterCrestHttp.kt",
                 "ChapterRosterScreen.kt",
                 "MemberAdministrationScreen.kt",
+                "MemberDirectCreationForm.kt", // V1.9.48: moved out of MemberAdministrationScreen.kt
+                "RegionalChapterCreateForm.kt", // V1.9.48: moved out of RegionalChaptersScreen.kt
                 "RegistrationScreen.kt",
                 "MemberAdminGuard.kt",
                 "App.kt",

@@ -270,3 +270,16 @@ internal suspend fun openCreateForm(
     awaitUntil("the create form '$id' is built") { root.querySelector("[id='$id'] .lapis-form") != null }
     return assertNotNull(root.querySelector("[id='$id']") as? HTMLElement, "no form host '$id'")
 }
+
+/**
+ * Like [openCreateForm] for a collapsed create form made of loose widgets (no `LapisForm`, so no `.lapis-form`): opens the form behind the
+ * button with `aria-controls` [formId] and waits until its host holds a labelled field. Returns the host.
+ */
+internal suspend fun openCreateFormHost(
+    root: HTMLElement,
+    formId: String,
+): HTMLElement {
+    createFormButton(root, formId).click()
+    awaitUntil("the create form '$formId' is built") { root.querySelector("[id='$formId'] label") != null }
+    return assertNotNull(root.querySelector("[id='$formId']") as? HTMLElement, "no form host '$formId'")
+}

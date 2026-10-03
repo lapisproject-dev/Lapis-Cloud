@@ -23,7 +23,6 @@ import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
-import network.lapis.cloud.shared.domain.AdminCreateMemberInput
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.FamilyMemberRole
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
@@ -38,7 +37,6 @@ import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
-import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
@@ -46,7 +44,6 @@ import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.IRegistrationService
-import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 
 /**
  * Screen 4 of the V0.7.3 plan -- BOARD/ADMIN only, route-guarded in `Routing.kt` (never even
@@ -64,10 +61,11 @@ import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
  */
 fun renderMemberAdministrationScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
-    root.pageHeader(tr("Mitgliederverwaltung"))
-
+    val header = root.pageHeader(tr("Mitgliederverwaltung"))
+    // V1.9.48 (R36B): the host sits directly under the header and exists synchronously; the button is hung in once the sections are built.
     val callerRole = AppState.session?.role
     val isBoardOrAdmin = callerRole == AccountRole.BOARD || callerRole == AccountRole.ADMIN
+    val createHost = if (isBoardOrAdmin) root.vPanel(spacing = 6) else null
     // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" -- loaded once, BEFORE any
     // of the sections below, and threaded through as a plain parameter (never
     // `session.regionalChaptersExist`, see plan §1 P5: that session flag is stale until the next
@@ -75,7 +73,7 @@ fun renderMemberAdministrationScreen(container: SimplePanel) {
     // `loadRegionalChapterOptionsOrEmpty` KDoc.
     AppScope.launch {
         val chapters = loadRegionalChapterOptionsOrEmpty()
-        renderMemberAdministrationSections(root, chapters, callerRole, isBoardOrAdmin)
+        renderMemberAdministrationSections(root, chapters, callerRole, isBoardOrAdmin, header, createHost)
     }
 }
 
@@ -84,14 +82,24 @@ private fun renderMemberAdministrationSections(
     chapters: List<RegionalChapterRefDto>,
     callerRole: AccountRole?,
     isBoardOrAdmin: Boolean,
+    header: PageHeader,
+    createHost: SimplePanel?,
 ) {
     if (isBoardOrAdmin) renderPendingApplications(root, chapters)
-    renderMemberRoster(root, chapters)
+    val reloadRoster = renderMemberRoster(root, chapters)
+    // Built exactly once: the sections are assembled once, after the chapter options loaded (or fell back to an empty list).
+    if (createHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = createHost,
+            buttonLabel = tr("Mitglied direkt anlegen"),
+            formId = "lapis-create-member-direct",
+        ) { _, close -> renderDirectMemberCreation(this, chapters, close, reloadRoster) }
+    }
     // V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI": ADMIN-only (mirrors
     // IKeycloakLinkService's own role gate), and only in Keycloak mode -- see KeycloakLinkScreen.kt
     // class KDoc "house rule ... never offer an action the server rejects anyway".
     if (callerRole == AccountRole.ADMIN && AppState.session?.keycloakMode == true) renderKeycloakLinkSection(root)
-    if (isBoardOrAdmin) renderDirectMemberCreation(root, chapters)
     // Welle V1.9.10 "Mitgliederzahl-Sichtbarkeit": visible to TREASURER/BOARD/ADMIN alike (same read
     // gate IOrganizationSettingsService.getOrganizationSettings already enforces server-side), but
     // ADMIN-only to CHANGE -- see renderPublicMemberCountToggle KDoc for why this deliberately does
@@ -184,7 +192,7 @@ private fun renderPendingApplicationActions(
     onChanged: () -> Unit,
 ) {
     val actionsRow = actionsContainer.hPanel(spacing = 8)
-    val approveButton = actionsRow.button(tr("Annehmen"), style = ButtonStyle.SUCCESS)
+    val approveButton = actionsRow.actionButton(ActionIcon.APPROVE, tr("Annehmen"), style = ButtonStyle.SUCCESS)
     approveButton.onClick {
         AppScope.launch {
             // Welle V1.9.14: RegionalChapterRequiredException is possible here when the enforcement
@@ -343,7 +351,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
 private fun renderMemberRoster(
     root: SimplePanel,
     chapters: List<RegionalChapterRefDto>,
-) {
+): () -> Unit {
     root.h2(tr("Mitgliederverzeichnis")) { addCssClass("h5") }
 
     var state = RosterState()
@@ -352,7 +360,7 @@ private fun renderMemberRoster(
     // Expires when that load fails, is superseded or renders no table (see [SortFocusRequest]).
     val sortFocus = SortFocusRequest()
 
-    val filterRow = root.hPanel(spacing = 8)
+    val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Name, E-Mail oder Personennummer"))
     // Welle V1.9.14 -- only rendered once chapters actually exist (mirrors every other chapter-UI
     // element's `chapters.isNotEmpty()` gate, plan §1 P5).
@@ -503,6 +511,7 @@ private fun renderMemberRoster(
     }
 
     refresh()
+    return { refresh() }
 }
 
 /**
@@ -888,7 +897,7 @@ internal fun openMemberEditorDialog(
                 required = true,
                 rule = { FormRules.email(value = it) },
             )
-        val saveCoreDataButton = Button(tr("Stammdaten speichern"), style = ButtonStyle.PRIMARY)
+        val saveCoreDataButton = newActionButton(ActionIcon.SAVE, tr("Stammdaten speichern"), ButtonStyle.PRIMARY)
         form.buttons(primary = saveCoreDataButton)
         saveCoreDataButton.onClick {
             form.submit(saveCoreDataButton) {
@@ -983,7 +992,7 @@ internal fun openMemberEditorDialog(
         refreshConsequence()
 
         val statusButtonStyle = if (MemberStatusTransitions.requiresAdmin(row.status)) ButtonStyle.WARNING else ButtonStyle.PRIMARY
-        val saveStatusButton = Button(tr("Status ändern"), style = statusButtonStyle)
+        val saveStatusButton = newActionButton(ActionIcon.SAVE, tr("Status ändern"), statusButtonStyle)
         form.buttons(primary = saveStatusButton)
         saveStatusButton.onClick {
             form.submit(saveStatusButton) {
@@ -1022,7 +1031,7 @@ internal fun openMemberEditorDialog(
                 rule = { deathDateCheck(value = it) },
             )
         val correctionReason = memberReasonField(form)
-        val correctButton = Button(tr("Sterbedatum korrigieren"), style = ButtonStyle.WARNING)
+        val correctButton = newActionButton(ActionIcon.SAVE, tr("Sterbedatum korrigieren"), ButtonStyle.WARNING)
         form.buttons(primary = correctButton)
         correctButton.onClick {
             form.submit(correctButton) {
@@ -1046,7 +1055,7 @@ internal fun openMemberEditorDialog(
         val form = modal.lapisForm(legendGroup)
         val roleOptions = AccountRole.entries.map { it.name to accountRoleLabel(it) }
         val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = row.role?.name, required = true)
-        val saveRoleButton = Button(tr("Rolle ändern"), style = ButtonStyle.PRIMARY)
+        val saveRoleButton = newActionButton(ActionIcon.SAVE, tr("Rolle ändern"), ButtonStyle.PRIMARY)
         form.buttons(primary = saveRoleButton)
         saveRoleButton.onClick {
             form.submit(saveRoleButton) {
@@ -1103,7 +1112,7 @@ internal fun openMemberEditorDialog(
             }
             tierField.subscribe { value -> showTierConsequence(value.isNotBlank()) }
             val tierReasonField = memberReasonField(form)
-            val saveTierButton = Button(tr("Mitgliedschaftsstufe speichern"), style = ButtonStyle.PRIMARY)
+            val saveTierButton = newActionButton(ActionIcon.SAVE, tr("Mitgliedschaftsstufe speichern"), ButtonStyle.PRIMARY)
             form.buttons(primary = saveTierButton)
             saveTierButton.onClick {
                 form.submit(saveTierButton) {
@@ -1143,7 +1152,7 @@ internal fun openMemberEditorDialog(
             }
             tierField.subscribe { value -> showTierConsequence(value.isNotBlank()) }
             val tierReasonField = memberReasonField(form)
-            val saveTierButton = Button(tr("Mitgliedschaftsstufe zuweisen"), style = ButtonStyle.PRIMARY)
+            val saveTierButton = newActionButton(ActionIcon.SAVE, tr("Mitgliedschaftsstufe zuweisen"), ButtonStyle.PRIMARY)
             form.buttons(primary = saveTierButton)
             saveTierButton.onClick {
                 form.submit(saveTierButton) {
@@ -1162,7 +1171,7 @@ internal fun openMemberEditorDialog(
             // BOARD: nur die Schaltfläche "Mitgliedschaftsstufe entfernen" -- siehe canEditMembershipTierOf KDoc.
             form.panel.p(gettext("Aktuelle Mitgliedschaftsstufe: %1", row.membershipTierName ?: gettext("beitragsfrei")))
             val tierReasonField = memberReasonField(form)
-            val removeTierButton = Button(tr("Mitgliedschaftsstufe entfernen"), style = ButtonStyle.WARNING)
+            val removeTierButton = newActionButton(ActionIcon.REMOVE, tr("Mitgliedschaftsstufe entfernen"), ButtonStyle.WARNING)
             form.buttons(primary = removeTierButton)
             removeTierButton.onClick {
                 form.submit(removeTierButton) {
@@ -1619,119 +1628,6 @@ fun pagerLabel(
     val from = offset + 1
     val to = minOf(offset + pageSize, totalCount)
     return gettext("%1–%2 von %3", from, to, totalCount)
-}
-
-internal fun renderDirectMemberCreation(
-    root: SimplePanel,
-    chapters: List<RegionalChapterRefDto> = emptyList(),
-) {
-    root.h2(tr("Mitglied direkt anlegen")) { addCssClass("h5") }
-    root.p(
-        tr(
-            "Legt ein Mitglied ohne Antrags-/Freigabeschritt an (z. B. für Beitritte auf Papier oder " +
-                "Datenmigration) -- Status sofort Aktiv.",
-        ),
-    )
-
-    val callerRole = AppState.session?.role ?: AccountRole.MEMBER
-    val roleOptions = selectableRolesFor(callerRole).map { it.name to it.name }
-
-    // Formular-Grammatik (V1.4.29): vier Pflichtfelder => Fall (b), keine Sterne, Legende "Alle Felder sind Pflichtfelder."
-    val form = root.lapisForm()
-    val nameField = form.textField(label = tr("Name"), required = true)
-    val emailField =
-        form.textField(
-            label = tr("E-Mail"),
-            type = InputType.EMAIL,
-            required = true,
-            rule = { FormRules.email(value = it) },
-        )
-    val passwordField =
-        form.passwordField(
-            label = gettext("Vorläufiges Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH),
-            required = true,
-            suppressManagers = true,
-            reveal = true,
-            rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
-        )
-    val roleField =
-        form.selectField(
-            label = tr("Rolle"),
-            options = roleOptions,
-            value = roleOptions.firstOrNull()?.first,
-            required = true,
-        )
-    if (roleOptions.size == 1) {
-        form.panel.p(
-            tr("Als Vorstand können Sie hier nur reguläre Mitglieder anlegen -- Vorstand/Schatzmeister/Admin ist Admin vorbehalten."),
-        )
-    }
-    // Welle V1.9.14 -- MUST be built before `form.buttons(...)` (plan §1 P9): the pflicht-legend
-    // decision happens there and needs the final field count/required-set.
-    val chapterField =
-        if (chapters.isNotEmpty()) {
-            form.selectField(
-                label = tr("Landesverband"),
-                options = listOf("" to tr("— noch nicht festgelegt —")) + untrustedOptions(chapters.map { it.id to it.name }),
-                required = false,
-            )
-        } else {
-            null
-        }
-
-    val createButton = Button(tr("Mitglied anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
-    createButton.onClick {
-        form.submit(createButton) {
-            val name = nameField.value.trim()
-            val email = emailField.value.trim()
-            // Ein Passwort wird NIE getrimmt.
-            val temporaryPassword = passwordField.value
-            val chapterId = chapterField?.value?.ifBlank { null }
-            // Review fix (NIT "misleading KDoc/behavior"): a chapter-shaped `BadRequestException`
-            // (the chapter picked here was deleted between loading the options and submitting --
-            // `createMemberDirect` then throws `BadRequestException("Unknown regionalChapterId")`)
-            // now gets the SAME field error `RegistrationScreen.kt`'s own catch chain already shows
-            // for the identical case, instead of `regionalChapterGuarded`'s generic "Ungültige
-            // Anfrage." toast -- see [regionalChapterGuarded] KDoc. RegionalChapterRequiredException
-            // is caught here too so the fallback to `regionalChapterGuarded { throw e }` (everything
-            // else) still gets its usual dispatch, unchanged from before this fix.
-            val result =
-                try {
-                    rpcService<IRegistrationService>().createMemberDirect(
-                        AdminCreateMemberInput(
-                            displayName = name,
-                            email = email,
-                            role = AccountRole.valueOf(roleField.value),
-                            temporaryPassword = temporaryPassword,
-                            regionalChapterId = chapterId,
-                        ),
-                    )
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: RegionalChapterRequiredException) {
-                    chapterField?.showError(tr("Bitte wählen Sie einen Landesverband."))
-                        ?: notifyError(tr("Bitte zuerst einen Landesverband zuordnen."))
-                    null
-                } catch (e: BadRequestException) {
-                    if (chapterField != null && !chapterId.isNullOrBlank()) {
-                        chapterField.showError(tr("Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."))
-                        null
-                    } else {
-                        regionalChapterGuarded { throw e }
-                    }
-                } catch (e: Throwable) {
-                    regionalChapterGuarded { throw e }
-                }
-            if (result != null) {
-                notifySuccess(gettext("%1 wurde angelegt.", name))
-                nameField.reset()
-                emailField.reset()
-                passwordField.reset()
-                chapterField?.reset()
-            }
-        }
-    }
 }
 
 // ================================================================================================

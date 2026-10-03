@@ -4,6 +4,8 @@ import io.kvision.core.Container
 import io.kvision.core.onEvent
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.div
+import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.html.span
 import io.kvision.i18n.tr
@@ -33,6 +35,10 @@ import org.w3c.dom.HTMLElement
  *    on "Weiter bearbeiten". There is no "dirty" flag: typing and deleting the same text again is "unchanged".
  *  - **After saving** the screen calls `close(true)`: closes without asking, the focus returns to the button, `aria-expanded=false`. A failed
  *    save (409, validation) never calls it -- the form stays open with its banner.
+ *
+ * ## V1.9.48 additions
+ * [CollapsibleCreateFormController.requestClose] closes the form on behalf of a caller that is about to remove it from the screen (asks when
+ * changed); [sectionTitleRow] gives a sub-area of a page its own title row with an action slot for the area's create button.
  *
  * ## Privacy
  * The snapshot lives in a closure only: never in a `data-*` attribute, storage, the console or the URL. The only text this component renders is
@@ -121,6 +127,27 @@ class CollapsibleCreateFormController<P> internal constructor(
         closeNow()
     }
 
+    /**
+     * Runs [then] once the form is out of the way (V1.9.48): at once when it is closed or unchanged (closing it first), after the
+     * discard confirmation when it was changed. "Weiter bearbeiten" never runs [then]. For a caller that is about to remove the form
+     * from the screen (collapsing a detail panel that hosts it) and must not lose typed input silently.
+     */
+    fun requestClose(then: () -> Unit) {
+        if (!isOpen) {
+            then()
+            return
+        }
+        if (isDirty()) {
+            askDiscard {
+                closeNow()
+                then()
+            }
+        } else {
+            closeNow()
+            then()
+        }
+    }
+
     private fun isDirty(): Boolean {
         val current = snapshot ?: return false
         return current.values() != baseline
@@ -194,6 +221,18 @@ fun <P> collapsibleCreateForm(
         }
     actionSlot.add(button)
     return CollapsibleCreateFormController(button, formHost, formId, build, onOpenChange = onOpenChange)
+}
+
+/**
+ * Title row of a sub-area of a page (V1.9.48, R36B): the heading on the left, an action slot on the right -- where the collapsible
+ * create button of that area goes when it belongs to a list inside the page rather than to the page itself. [title] is a `tr()`
+ * constant. Returns the action slot. A plain `div`, not a panel, so the toolbar rule R56 does not apply.
+ */
+internal fun Container.sectionTitleRow(title: String): Container {
+    val row = div(className = "d-flex flex-wrap align-items-center gap-2")
+    // The size class is spelled out on the call line: tripwire R7 reads it there.
+    row.h2(title) { addCssClasses("h5 flex-grow-1 mb-0") }
+    return row.div(className = "lapis-page-action")
 }
 
 /** The Cancel button of a collapsible create form: "Abbrechen" asks for confirmation when the form was changed ([CollapsibleCreateFormController.close]). */
