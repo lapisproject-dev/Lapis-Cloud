@@ -764,24 +764,9 @@ class SystemicConsensusService(
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
         return transaction {
             val row = requireSystemicConsensusRow(kId)
-            // Pre-tally secrecy gate: same invariant as ElectionService.listElectionBallots's
-            // revealLabels -- see SystemicConsensusBallotDto KDoc.
-            // V1.9.42: below the minimum participation an anonymous consensus never reveals its ballots either
-            // (a single ballot is a person's complete rating vector).
-            val secret = row[SystemicConsensusTable.secret]
-            val round = row[SystemicConsensusTable.round]
-            val ballotRows =
-                SystemicConsensusBallotTable
-                    .selectAll()
-                    .where { (SystemicConsensusBallotTable.systemicConsensusId eq kId) and (SystemicConsensusBallotTable.round eq round) }
-                    .toList()
-            val revealValues =
-                !secret ||
-                    (
-                        row[SystemicConsensusTable.status] == SystemicConsensusStatus.EVALUATED &&
-                            !systemicConsensusFiguresWithheld(secret = true, ballotCount = ballotRows.size)
-                    )
-            ballotRows.map { it.toSystemicConsensusBallotDto(revealValues) }
+            // V1.9.44: single ballots of an anonymous consensus are never delivered; the decision lives in
+            // disclosedSystemicConsensusBallots (SystemicConsensusOutcome.kt), the only DTO builder.
+            disclosedSystemicConsensusBallots(row = row, memberDisplayName = ::memberDisplayName)
         }
     }
 
@@ -969,31 +954,6 @@ class SystemicConsensusService(
             createdByDisplayName = memberDisplayName(this[SystemicConsensusOptionTable.createdBy]).orEmpty(),
             rationale = this[SystemicConsensusOptionTable.rationale],
         )
-
-    private fun ResultRow.toSystemicConsensusBallotDto(revealValues: Boolean): SystemicConsensusBallotDto {
-        val ballotId = this[SystemicConsensusBallotTable.id]
-        val memberId = this[SystemicConsensusBallotTable.memberId]
-        val resistances =
-            if (revealValues) {
-                SystemicConsensusResistanceTable
-                    .selectAll()
-                    .where { SystemicConsensusResistanceTable.ballotId eq ballotId }
-                    .associate {
-                        it[SystemicConsensusResistanceTable.optionId].toString() to it[SystemicConsensusResistanceTable.resistanceValue]
-                    }
-            } else {
-                emptyMap()
-            }
-        return SystemicConsensusBallotDto(
-            id = ballotId.toString(),
-            systemicConsensusId = this[SystemicConsensusBallotTable.systemicConsensusId].toString(),
-            memberId = memberId?.toString(),
-            memberDisplayName = memberDisplayName(memberId),
-            resistances = resistances,
-            castAt = this[SystemicConsensusBallotTable.castAt],
-            round = this[SystemicConsensusBallotTable.round],
-        )
-    }
 
     private fun String.toUuidOrNotFound(kind: String): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid $kind id: $this") }

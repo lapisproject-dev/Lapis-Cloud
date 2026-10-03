@@ -126,6 +126,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **BEHAVIOR CHANGE** (API, V1.9.44): `ISystemicConsensusService.listResistanceBallots` returns `[]` for `secret = true`. Signature unchanged. No screen used it
+  for an anonymous consensus (`ConsensusResultView` calls it only for an open consensus, guarded by `ConsensusSecrecyTripwireTest`); no MCP tool or other
+  server path reads it (verified by source search). External RPC consumers relying on anonymous ballot rows or counts must use
+  `getSystemicConsensusParticipation` / `listSystemicConsensusParticipations` (`ballotCount`) and `getSystemicConsensusResult` instead.
+
 - **BEHAVIOR CHANGE -- small anonymous consensus shows no figures anymore** (V1.9.42): an anonymous consensus with fewer than 5 ratings in the current
   round returns an empty `optionResults` (no mean, maximum, deviation, index, distribution and no ranking) from `evaluate` and
   `getSystemicConsensusResult`; winner, tie, tiebreak, `consensusViable`, `groupConflictWarning` and `noRatings` are unchanged and still computed from the
@@ -175,6 +180,17 @@ All notable changes to this project are documented here. Format follows
   under the same lock was not committed). No migration. `EventTicketIssuer.rawCodeSupplier` is a test seam only.
 
 ### Security
+
+- **`listResistanceBallots` is always empty for an anonymous consensus** (V1.9.44) -- in every status, at every participation, for every role including
+  BOARD/ADMIN; previously, from 5 ballots of the current round, an evaluated anonymous consensus returned every single ballot's complete rating vector
+  (without member reference) to any authenticated member, and in every status it returned one row per ballot with its id and cast time. Closes the V1.9.42
+  'Still open: from 5 ballots on `listResistanceBallots` returns ...' entry (that entry stays as history). One decision point:
+  `systemicConsensusSingleBallotsDisclosable` / `disclosedSystemicConsensusBallots` in `SystemicConsensusOutcome.kt`, which short-circuits before any ballot or
+  rating row is read; the N+1 rating query of the open path is now one `IN` query. New `SystemicConsensusAnonymousBallotsTest`; `ServerConsensusDisclosureTripwireTest`
+  pins the single DTO builder, the gate-before-read order and an allowlist of ballot-table readers.
+  Still open: `ElectionService.listElectionBallots` hands every authenticated member the single ballots of a TALLIED secret election (id, member and time are
+  neutralised, order is canonical, but there is no minimum participation); for MULTI_CHOICE / LIST_VOTE / RANKED_CHOICE this exposes per-person combinations or
+  rankings. Rated major, not changed in this wave -- owner decision pending (see the V1.9.44 report).
 
 - **Anonymous consensus ballots no longer leak below the minimum** (V1.9.42): `listResistanceBallots` returned the complete single ballots (every rating of
   every member, anonymised but one vector per ballot) of any *evaluated* anonymous consensus to every signed-in member, however small. It is now closed for an

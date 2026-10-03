@@ -541,7 +541,7 @@ class SystemicConsensusServiceTest :
         }
 
         test(
-            "listResistanceBallots hides values for a secret SystemicConsensus until EVALUATED and while below the minimum participation",
+            "listResistanceBallots is always empty for a secret SystemicConsensus (RATING, CLOSED and EVALUATED)",
         ) {
             testApplication {
                 application {
@@ -576,16 +576,20 @@ class SystemicConsensusServiceTest :
 
                 val beforeTally =
                     client.get("/test/list-resistances/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
-                beforeTally.split(";").forEach { entry -> entry.substringAfter(":") shouldBe "0" }
+                // V1.9.44: no ballot row at all, not even an id with an empty rating
+                beforeTally shouldBe ""
 
                 client.post("/test/close-rating/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }
+                val afterClose =
+                    client.get("/test/list-resistances/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
+                afterClose shouldBe ""
                 client.post("/test/evaluate/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }
 
                 val afterTally =
                     client.get("/test/list-resistances/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
-                // V1.9.42: one ballot is below the minimum participation, so even after EVALUATED nothing is revealed
-                // (the reveal at >= 5 ballots is covered by SystemicConsensusMinimumParticipationTest).
-                afterTally.split(";").forEach { entry -> entry.substringAfter(":") shouldBe "0" }
+                // V1.9.44: an anonymous consensus never delivers single ballots, in any status and at any participation
+                // (matrix in SystemicConsensusAnonymousBallotsTest).
+                afterTally shouldBe ""
             }
         }
 

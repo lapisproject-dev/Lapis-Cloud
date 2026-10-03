@@ -494,6 +494,7 @@ stateDiagram(name = "Consensus phases in the room") {
   the member's own standing. The single primary button "Bewerten" exists only for an eligible member who has not rated; a link "Wie
   funktioniert Konsensieren?" opens the overview in a new tab (`rel="noopener noreferrer"`). A guest, friend or federated guest sees the
   title and the badges only (`renderConsensusGuestRow`). Titles go through the untrusted-text helpers.
+* **No single ballots (V1.9.44).** For an anonymous consensus no single ballot can be fetched at all (`listResistanceBallots` returns `[]` in every status, for every role); the conference path never reads the ballot or rating tables.
 * **Booth.** The booth lives in the same booth host as the election booth and the bid view, so the close lock, the "no auto-open while it is
   open" rule and the unload prompt apply without new state. It is the real `ConsensusBooth`, given a `ConsensusBoothRoomHost`: the
   exit text ("Zurück zur Übersicht"), the stream lock (anonymous only), the busy signal and the compact grid. Without a host it renders exactly as

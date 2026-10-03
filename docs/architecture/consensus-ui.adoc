@@ -160,7 +160,7 @@ an earlier round and no longer counted; found and stored (values only after the 
 == Secrecy rules of the displays
 
 * An anonymous consensus' single ratings are never requested: the result shows only the aggregates per option (mean, group conflict, the
-  distribution) -- and below five ratings not even those (see "Minimum participation (V1.9.42)"). Only an *open* consensus lists who rated what, through `listResistanceBallots`, and only in `ConsensusResultView.kt`.
+  distribution) -- and below five ratings not even those (see "Minimum participation (V1.9.42)"). Only an *open* consensus lists who rated what, through `listResistanceBallots` (which returns nothing for an anonymous one anyway, V1.9.44), and only in `ConsensusResultView.kt`.
 * `castAt` is never read by the consensus screens.
 * Everything a member typed (titles, option texts, names) is sanitized before it becomes widget content.
 * No exception message is read: conflicts get fixed texts and the screen reloads. `ConsensusSecrecyTripwireTest` pins all of this.
@@ -192,8 +192,23 @@ full data -- only the *disclosure* is reduced. There is no role exception: manag
 | `winnerOptionId`, `tie`, `tiebreakApplied`, `consensusViable`, `groupConflictWarning`, `noRatings` | unchanged, computed from the full data
 |===
 
-`listResistanceBallots` follows the same gate: an anonymous consensus below the minimum returns its ballots without any rating even after `EVALUATED`
-(before this wave it returned the complete single ballots of every evaluated anonymous consensus, however small). Receipt verification returns only the
+`listResistanceBallots` is stricter than the figures (V1.9.44): an anonymous consensus never delivers a single ballot -- in any status, at any participation,
+to any role including BOARD/ADMIN -- it returns `[]` (before V1.9.44 it returned the complete single ballots of an evaluated anonymous consensus from five
+ballots on, and in every status one row per ballot with id and cast time). An unknown id is still a NotFound, so the answer carries no existence oracle. The aggregates
+(`getSystemicConsensusResult`) stay visible from five ballots on; only the single ballots are gone. The one decision point is
+`disclosedSystemicConsensusBallots` / `systemicConsensusSingleBallotsDisclosable` in `SystemicConsensusOutcome.kt`; it decides before it reads the ballot or rating
+table, and `ServerConsensusDisclosureTripwireTest` pins this order, the single DTO builder and the allowlist of ballot-table readers.
+
+[cols="2,5", options="header"]
+|===
+| Read path (anonymous consensus) | Delivers
+| `listResistanceBallots` | `[]` always, no role exception
+| `getSystemicConsensusResult` / `evaluate` | aggregates per option from five ballots on, otherwise `figuresWithheld`
+| `getSystemicConsensusParticipation` / `listSystemicConsensusParticipations` | the caller's own participation state and public counters
+| `verifySystemicConsensusReceipt` | only the caller's own ratings, by receipt code
+|===
+
+Receipt verification returns only the
 caller's own ratings and is unchanged; the room state (`RoomBallotDto`) never carried a figure and is pinned by an allowlist test.
 The minimum is judged per round: a revote with fewer ballots withholds again, one with five or more discloses.
 
@@ -274,8 +289,7 @@ Small points that bring the screens closer to how a Systemic Consensus is run in
   round label reads "Eine Runde (Beschluss)". For a discussion round, run the consensus as a poll first.
 * The results of earlier rounds are not retrievable after a revote.
 * V1.9.42: an anonymous consensus below five ratings in the current round discloses no figures (see "Minimum participation"); the residual risks R1 to R6
-  of that section remain. `listResistanceBallots` still hands out the complete anonymous single ballots of an evaluated anonymous consensus from five
-  ballots on (no screen uses them for an anonymous consensus); closing this completely (always empty for an anonymous consensus) is an open decision.
+  of that section remain. `listResistanceBallots` has returned `[]` for every anonymous consensus since V1.9.44.
 * The booth is embedded in the conference room since V1.9.32 (see the last section); the room has no results distribution.
 * V1.9.39: the receipt carries no option numbers; the status quo option has no rationale; `addOption`/`removeOption` take no row lock against a
   concurrent `freezeOptions` (only `setOptionRationale` does); `scaleMax` has no server-side upper bound and the compact room grid has a fixed

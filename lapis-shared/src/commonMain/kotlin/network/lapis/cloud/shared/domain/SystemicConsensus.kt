@@ -155,12 +155,9 @@ data class SystemicConsensusBallotCastResultDto(
 )
 
 /**
- * Transparency read of ballots cast so far. For a [SystemicConsensusDto.secret] SystemicConsensus,
- * [memberId]/[memberDisplayName] are always `null` (mirrors [ElectionBallotDto]), and
- * [resistances] is `emptyMap()` until [SystemicConsensusStatus.EVALUATED] -- the same pre-tally
- * secrecy gate [ElectionBallotDto.selectedOptionLabels] documents. V1.9.42: and it stays `emptyMap()` after
- * EVALUATED while the current round has fewer than [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots.
- * Non-secret SystemicConsensusen always reveal the resistance values.
+ * Transparency read of the named ballots of an OPEN consensus; every open consensus reveals the resistance values.
+ * Never delivered for an anonymous ([SystemicConsensusDto.secret]) consensus since V1.9.44 (in any status, at any
+ * participation, for any role); [memberId]/[memberDisplayName] are nullable only for wire compatibility.
  */
 @Serializable
 data class SystemicConsensusBallotDto(

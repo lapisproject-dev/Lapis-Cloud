@@ -51,10 +51,11 @@ result in the resolution book. This plan is the mandatory part of the wave's acc
 | 29 | (V1.9.42) Same as 26 in the conference room (operator step) | the room step shows the options, the winner badge, the sentence and the verdict, no mean
 | 30 | (V1.9.42) Revote after a result with 5 ratings: only 2 rate in round 2; and the reverse | round 2 withholds; the reverse discloses; the old result of round 1 is gone in both
 | 31 | (V1.9.42) Binding anonymous consensus with a single rating, evaluate | the result is withheld, the resolution is still recorded (adopted, or "Der Antrag gilt als abgelehnt" when the passive option wins; postponed on an unresolved tie)
-| 32 | (V1.9.42) As any member call `listResistanceBallots` for the evaluated small consensus | the ballots come without any rating
+| 32 | (V1.9.42) As any member call `listResistanceBallots` for the evaluated small consensus | superseded by V1.9.44 (step 33): the list is empty
+| 33 | (V1.9.44) As BOARD/ADMIN and as member A call `listResistanceBallots` (browser devtools RPC or a test client) for the evaluated anonymous binding consensus from the earlier steps, and for an anonymous one still in RATING | `[]` in every case, for every role. For an open advisory consensus: the named ballots as before
 |===
 
-NOTE: Steps 26 to 32 (V1.9.42) are written, **not executed**: this wave had no access to the staging instance.
+NOTE: Steps 26 to 33 (V1.9.42, V1.9.44) are written, **not executed**: this wave had no access to the staging instance.
 
 == Actual results
 

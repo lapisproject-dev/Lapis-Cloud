@@ -31,7 +31,7 @@ import network.lapis.cloud.shared.rpc.ISystemicConsensusService
  * `getSystemicConsensusResult`, which shares the calculation with `evaluate`.
  *
  * Anonymity: for an anonymous consensus no list of single ratings is requested at all (only the aggregate per option is shown). Only an OPEN
- * consensus lists who rated what, and only that branch calls `listResistanceBallots` (`ConsensusSecrecyTripwireTest`).
+ * consensus lists who rated what, and only that branch calls `listResistanceBallots` (`ConsensusSecrecyTripwireTest`; the server returns nothing for an anonymous consensus anyway, V1.9.44).
  *
  * V1.9.42: an anonymous consensus with fewer than the minimum participation arrives with `figuresWithheld` and no `optionResults` at all.
  * Then only the winner, the group-wide verdict and the options in their list order are shown -- no ranking, no figure. The branch is

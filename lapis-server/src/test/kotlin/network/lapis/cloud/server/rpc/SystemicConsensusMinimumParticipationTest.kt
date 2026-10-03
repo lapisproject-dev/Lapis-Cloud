@@ -2,7 +2,6 @@ package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -61,7 +60,7 @@ import kotlin.uuid.Uuid
 
 /**
  * V1.9.42 -- minimum participation of an anonymous Systemic Consensus, end to end against the real service and
- * H2: `evaluate`, `getSystemicConsensusResult`, `listResistanceBallots` and the receipt check below and at the
+ * H2: `evaluate`, `getSystemicConsensusResult`, `listResistanceBallots` (V1.9.44: always empty when anonymous) and the receipt check below and at the
  * threshold, plus the binding outcome (which must not depend on the withholding) and re-rating across rounds.
  */
 class SystemicConsensusMinimumParticipationTest :
@@ -327,24 +326,19 @@ class SystemicConsensusMinimumParticipationTest :
             }
         }
 
-        test("listResistanceBallots: hidden below the minimum after EVALUATED, shown at 5, always shown for an open consensus") {
+        test("listResistanceBallots: always empty for an anonymous consensus (below, at and above the minimum); open consensus unchanged") {
             withApp {
                 val below = buildWorld(tag = "ballots-below", day = 8, voterCount = 5)
                 castAll(below, 4)
-                ballots(below).forEach { it.resistances.shouldBeEmpty() }
+                ballots(below).shouldBeEmpty()
                 finish(below)
-                ballots(below).size shouldBe 4
-                ballots(below).forEach {
-                    it.resistances.shouldBeEmpty()
-                    it.memberId shouldBe null
-                    it.memberDisplayName shouldBe null
-                }
+                ballots(below).shouldBeEmpty()
 
                 val enough = buildWorld(tag = "ballots-five", day = 9, voterCount = 5)
                 castAll(enough, 5)
-                ballots(enough).forEach { it.resistances.shouldBeEmpty() }
+                ballots(enough).shouldBeEmpty()
                 finish(enough)
-                ballots(enough).forEach { it.resistances.size shouldBe 3 }
+                ballots(enough).shouldBeEmpty()
 
                 val open = buildWorld(tag = "ballots-open", day = 10, voterCount = 2, secret = false)
                 castAll(open, 1)
@@ -395,7 +389,7 @@ class SystemicConsensusMinimumParticipationTest :
                 castAll(up, 2)
                 finish(up).figuresWithheld shouldBe true
                 read(up).figuresWithheld shouldBe true
-                ballots(up).forEach { it.resistances.shouldBeEmpty() }
+                ballots(up).shouldBeEmpty()
 
                 val down = buildWorld(tag = "round-down", day = 15, voterCount = 5)
                 castAll(down, 2)

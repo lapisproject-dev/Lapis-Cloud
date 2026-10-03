@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.shared.domain.DisclosureRules
+import network.lapis.cloud.shared.domain.SystemicConsensusBallotDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -119,3 +120,54 @@ private fun SkErgebnis.toDisclosedDto(
         noRatings = noRatings,
         figuresWithheld = withheld,
     )
+
+/**
+ * V1.9.44 -- `true` iff the single ballots of this consensus may be delivered at all.
+ * An anonymous consensus never delivers single ballots: not in any status, at no participation,
+ * to no role (owner decision 2026-10-03). Pure, no DB access.
+ */
+internal fun systemicConsensusSingleBallotsDisclosable(secret: Boolean): Boolean = !secret
+
+/**
+ * The ONLY way to a list of [SystemicConsensusBallotDto]. Returns an empty list for an anonymous
+ * consensus BEFORE any ballot/resistance row is read. For an open consensus: every ballot of the
+ * current round, named, with its ratings (unchanged behaviour since V1.9.x).
+ * MUST run inside a transaction. [row] is the already-loaded SystemicConsensusTable row.
+ */
+internal fun disclosedSystemicConsensusBallots(
+    row: ResultRow,
+    memberDisplayName: (Uuid?) -> String?,
+): List<SystemicConsensusBallotDto> {
+    if (!systemicConsensusSingleBallotsDisclosable(row[SystemicConsensusTable.secret])) return emptyList()
+    val kId = row[SystemicConsensusTable.id]
+    val round = row[SystemicConsensusTable.round]
+    val ballotRows =
+        SystemicConsensusBallotTable
+            .selectAll()
+            .where { (SystemicConsensusBallotTable.systemicConsensusId eq kId) and (SystemicConsensusBallotTable.round eq round) }
+            .toList()
+    if (ballotRows.isEmpty()) return emptyList()
+    val ballotIds = ballotRows.map { it[SystemicConsensusBallotTable.id] }
+    val resistancesByBallot =
+        SystemicConsensusResistanceTable
+            .selectAll()
+            .where { SystemicConsensusResistanceTable.ballotId inList ballotIds }
+            .toList()
+            .groupBy(
+                { it[SystemicConsensusResistanceTable.ballotId] },
+                { it[SystemicConsensusResistanceTable.optionId].toString() to it[SystemicConsensusResistanceTable.resistanceValue] },
+            )
+    return ballotRows.map { ballot ->
+        val ballotId = ballot[SystemicConsensusBallotTable.id]
+        val memberId = ballot[SystemicConsensusBallotTable.memberId]
+        SystemicConsensusBallotDto(
+            id = ballotId.toString(),
+            systemicConsensusId = ballot[SystemicConsensusBallotTable.systemicConsensusId].toString(),
+            memberId = memberId?.toString(),
+            memberDisplayName = memberDisplayName(memberId),
+            resistances = resistancesByBallot[ballotId].orEmpty().toMap(),
+            castAt = ballot[SystemicConsensusBallotTable.castAt],
+            round = ballot[SystemicConsensusBallotTable.round],
+        )
+    }
+}

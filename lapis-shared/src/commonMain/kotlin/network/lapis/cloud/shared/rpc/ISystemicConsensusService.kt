@@ -132,12 +132,9 @@ interface ISystemicConsensusService {
     ): List<SystemicConsensusDto>
 
     /**
-     * Transparency read of every ballot cast so far in the *current* [SystemicConsensusDto.round].
-     * For a [SystemicConsensusDto.secret] SystemicConsensus, `memberId`/`memberDisplayName` are always
-     * `null`, and `resistances` is empty until [SystemicConsensusStatus.EVALUATED] -- and, since V1.9.42, also
-     * after it while the current round has fewer than
-     * [network.lapis.cloud.shared.domain.DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots -- see
-     * [SystemicConsensusBallotDto] KDoc.
+     * Transparency read of the named ballots of the *current* round of an **open** consensus. **Always empty for an
+     * anonymous ([SystemicConsensusDto.secret]) consensus** -- in every status, at every participation, for every
+     * role including BOARD/ADMIN (V1.9.44). An unknown id is a NotFound, as for [getSystemicConsensus].
      */
     suspend fun listResistanceBallots(systemicConsensusId: String): List<SystemicConsensusBallotDto>
 
