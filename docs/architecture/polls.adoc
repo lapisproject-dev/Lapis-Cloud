@@ -384,9 +384,9 @@ server withholds shows the reason in a sentence instead of partial numbers; a wi
 === Known limitations of the UI
 
 * The chosen option is in the DOM during the check step (on purpose, see above).
-* The deadline is entered in the browser's local time while the server calculates in its own zone. A browser in another zone shifts the
-  presets by the difference, and a custom deadline close to the 15-minute limit can be refused by the server (the form then asks to check
-  the details, especially the deadline). The client uses the same 15-minute and 365-day limits as the server and adds no safety margin.
+* The deadline is entered as a wall-clock in the organization's time zone (since V1.9.38 the form reads "now" through `organizationNow()`,
+  and the server compares in the same zone, see `time-and-timezones.adoc`); before V1.9.38 it was the browser's local time. A custom deadline
+  close to the 15-minute limit can still be refused by the server (the form then asks to check the details, especially the deadline). The client uses the same 15-minute and 365-day limits as the server and adds no safety margin.
 * "Abbrechen" asks for the keyword "ABBRECHEN" (translated per language) instead of the poll's title, because a question can be 500
   characters long.
 * The staging test plan (`polls-staging-test.adoc`) was not executed in this wave: nothing was deployed.

@@ -6,6 +6,49 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-10-03
+
+Release summary (the detail is in the sections below, grouped by wave V1.9.32 -- V1.9.49):
+
+- **API BEHAVIOR CHANGES** (signatures unchanged, no client change needed for the web UI):
+  `ISystemicConsensusService.listResistanceBallots` returns `[]` for every anonymous consensus (`secret = true`), in every status and
+  for every role (V1.9.44); `IElectionService.listElectionBallots` returns `[]` for every secret election, in every status and for every
+  role (V1.9.46). An anonymous consensus with fewer than 5 ratings in the current round returns an empty `optionResults` from `evaluate`
+  and `getSystemicConsensusResult` (V1.9.42). External RPC consumers must use the participation counts and the result RPCs instead (see
+  the "Changed" and "Security" entries below).
+- **Time zone of the organization** (V1.9.38): every temporal field is classified (system timestamp in UTC, typed-in wall-clock in the
+  organization's zone, calendar date); a new ADMIN setting "Zeitzone der Organisation" (default `Europe/Berlin`, migration `V67`); the
+  client shows system timestamps in that zone. Fixes the iCal feed, poll deadlines, event end times, letter dates, calendar-date
+  comparisons and the 72-hour data-breach deadline, which were off by one or two hours.
+- **Systemic consensus aligned with the practice** (V1.9.32, V1.9.39, V1.9.41, V1.9.42): the consensus is part of the conference room
+  panel; the status quo option is listed first (plaque P), the real options are numbered 1..n and may carry a rationale (migration `V68`);
+  the strong-objection hint follows the scale; opinion polls gain the kinds `SK_DECISION` and `SK_PRIORITY` with an optional explanation
+  per option (migration `V69`); an anonymous consensus discloses figures only from 5 ratings in the current round.
+- **Secret elections never deliver single ballots** (V1.9.46): members can no longer recount a secret election themselves (deliberate);
+  the result counts and the receipt check are unchanged.
+- **Collapsed create forms and standard icons** (V1.9.40, V1.9.45, V1.9.47 -- V1.9.49, rules R36B and R57): the inline create forms
+  of all groups open behind one button in the title row and ask before discarding changed input; the R36B debt ledger is empty (named
+  exceptions such as the article editor and the document version upload are listed in `collapsible-forms.adoc`).
+  Toolbar buttons line up with their fields and the standard verbs carry icons (V1.9.43, rules R56 -- R58).
+- **Members and board** (V1.9.33 -- V1.9.36): self-service address, GwG data, card block and `/my-events`; refund marking for event
+  registrations (the refund itself stays outside Lapis Cloud, migration `V66`), "Zahlung fortsetzen", audited board access to address and
+  GwG data; direct-message conversations, keyset paging and a navbar unread counter.
+- **Postgres test lane** (V1.9.37): engine-dependent specs run against a real PostgreSQL 17, in CI against a `postgres:17` service
+  container; it found three code paths that were only correct on H2 (fixed with savepoints).
+- **Operator actions**: take a backup, then deploy; migrations `V66` to `V69` are additive and run automatically. `V1__baseline.sql` is
+  unchanged since v0.27.0, so **no `flywayRepair`** is needed. At deploy time open polls close, and running events end, up to two hours
+  earlier than before (at the typed-in local time, V1.9.38) -- announce it and deploy while no vote is running. Recommended in
+  `Lapis-Cloud-Ops` (not part of this repository): `TZ: UTC` for the `lapis-server` service of every instance, never `Europe/Berlin`.
+- **Not yet verified in real use**: the staging test plans of these waves (time zones, consensus, polls, collapsible forms, toolbar icons,
+  member self-service, direct messages, elections) are written but were not executed. New translations were written by an agent, not by
+  native speakers.
+
+### Fixed -- release housekeeping
+
+- **Flaky server test** `RecordingPollerTest` (CI): the poller records the track row after asking the egress client to start, so the
+  test's immediate read raced on a loaded CI runner; it now waits for the row. Test code only, no production code changed.
+- **`build.gradle.kts` version** is `0.28.0`.
+
 ### Changed
 
 - **Collapsed create forms, the rest of the groups; the R36B debt ledger is empty** (V1.9.49, rules R36B and R57): the create forms of the auction ("Neues Angebot"),
@@ -69,7 +112,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations (V1.9.47)
 
-- Only the event screens are converted; community and members, documents, compliance, conference administration and economy/auction follow.
+- Only the event screens are converted; community and members, documents, compliance, conference administration and economy/auction follow (done in V1.9.48 and V1.9.49).
 - The navigation row of the events page stays as buttons (a proposal to move the links under the header is a separate wave); "Veröffentlichen", "Absagen",
   "Warteliste nachrücken", "Aktivieren", "Zusagen anzeigen" and the copy-URL button stay text buttons (reasons in `action-icons.adoc`).
 - No "save and add another"; every save folds the form back.
@@ -80,7 +123,7 @@ All notable changes to this project are documented here. Format follows
 
 - **`listElectionBallots` is always empty for a secret election** (V1.9.46) -- in every status, at every participation, for every role including BOARD/ADMIN.
   Before, a TALLIED secret election handed every authenticated member all single ballots (blank id, canonical order, no member, but one choice combination
-  per ballot, i.e. per-person rankings for MULTI_CHOICE / LIST_VOTE / RANKED_CHOICE and the single vote of a one-ballot election). **BEHAVIOR CHANGE** (API):
+  per ballot, i.e. per-person combinations for MULTI_CHOICE (LIST_VOTE / RANKED_CHOICE cannot be created) and the single vote of a one-ballot election). **BEHAVIOR CHANGE** (API):
   signature unchanged; open-ballot elections keep their named list. Closes the V1.9.44 'Still open' entry on `ElectionService.listElectionBallots` (that entry
   stays as history). One decision point: `electionSingleBallotsDisclosable` / `disclosedElectionBallots` in `rpc/ElectionBallotDisclosure.kt`, which
   short-circuits before any ballot or selection row is read; the rule itself is shared with the consensus (`singleBallotsDisclosable`). New
@@ -111,14 +154,14 @@ All notable changes to this project are documented here. Format follows
   `applyProgrammatic`; tripwires: extended R36B scan names, seven strict finance screens, `R57_FINANCE_STRICT_FILES`. Client only: no migration, no server code.
   Documentation: `collapsible-forms.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc`, `collapsible-forms-staging-test.adoc` (finance steps, not executed).
 
-### Known limitations
+### Known limitations (V1.9.45)
 
 - Small secret elections (V1.9.46): `ElectionOptionDto.voteCount` is delivered from `TALLIED` without a minimum participation; with one ballot the result is
   that vote, with a unanimous result every vote is known. `verifyReceipt` returns the option label to the holder of the receipt code, so a voter can prove
   their vote to a third party. Both are documented in `elections-integrity.adoc`; a minimum participation (like `MIN_ANONYMOUS_RESPONSES`) is recommended
   for a later wave and needs an owner decision about published vote counts.
 - "Save and add another" does not exist: every save folds the form back, so entering several bookings in a row costs one click each. A candidate for its own wave.
-- The other six groups (events, community, documents, compliance, conference administration, economy/auction) still show their create forms; 30 ledgered findings.
+- The other six groups (events, community, documents, compliance, conference administration, economy/auction) still show their create forms; 30 ledgered findings (all done in V1.9.47 -- V1.9.49, ledger now 0).
 - The string-typed domain icons of R57 stay.
 - The journal form loads its data when the page is built; an account created afterwards appears there only after the page is reloaded (unchanged).
 - The staging test plan for the finance group was not executed.
@@ -305,7 +348,7 @@ All notable changes to this project are documented here. Format follows
   `systemicConsensusSingleBallotsDisclosable` / `disclosedSystemicConsensusBallots` in `SystemicConsensusOutcome.kt`, which short-circuits before any ballot or
   rating row is read; the N+1 rating query of the open path is now one `IN` query. New `SystemicConsensusAnonymousBallotsTest`; `ServerConsensusDisclosureTripwireTest`
   pins the single DTO builder, the gate-before-read order and an allowlist of ballot-table readers.
-  Still open: `ElectionService.listElectionBallots` hands every authenticated member the single ballots of a TALLIED secret election (id, member and time are
+  Still open at that time (closed in V1.9.46, see above): `ElectionService.listElectionBallots` hands every authenticated member the single ballots of a TALLIED secret election (id, member and time are
   neutralised, order is canonical, but there is no minimum participation); for MULTI_CHOICE / LIST_VOTE / RANKED_CHOICE this exposes per-person combinations or
   rankings. Rated major, not changed in this wave -- owner decision pending (see the V1.9.44 report).
 

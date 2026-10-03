@@ -12,7 +12,7 @@ later waves stand on:
   updates within about two seconds instead of at the next 5-second poll.
 
 Wave 1 delivers democratic elections only. Meritocratic votes follow in V1.9.27 (section "Client: the meritocratic vote in the room",
-below); systemic consensing got its own screen in V1.9.28 (`consensus-ui.adoc`) but is not part of the room, its enum value `CONSENSUS` is reserved and never filled. The room screen (V1.9.25)
+below); systemic consensing got its own screen in V1.9.28 (`consensus-ui.adoc`) and joined the room panel in V1.9.32 (section "Systemic consensus in the room panel", below), which is also when its enum value `CONSENSUS` was first filled. The room screen (V1.9.25)
 and the operator panel (V1.9.26, below) follow.
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -111,7 +111,7 @@ rate-limited `getRoomVotingState` call. The throttle timer is cancelled on `disc
 
 == Known limitations
 
-* Client: a CONSENSUS ballot (reserved, never delivered) would show only its state. Since V1.9.27 a VOTE has its own card, bid view and operator controls (below).
+* Client: a CONSENSUS ballot has its own card, booth and operator steps since V1.9.32 (section "Systemic consensus in the room panel"). Since V1.9.27 a VOTE has its own card, bid view and operator controls (below).
 * In-app navigation (menu, hash) during a visible receipt discards it, exactly as on the elections page.
 * The nudge does not reach participants in breakouts; the poll covers them.
 * Leaving while a ballot request is in flight is blocked since V1.9.26 (the `CASTING` lock, see below); closing the browser tab asks first.

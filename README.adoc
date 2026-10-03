@@ -177,7 +177,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Seventeen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Eighteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -510,6 +510,31 @@ been run end to end on Staging yet; the test plans are written. Operators: this 
 `V1__baseline.sql` once more (take a backup and run `flywayRepair` on every existing instance before deploying) and adds migration
 `V65`; MCP stays off unless `LAPIS_MCP_ENABLED=true` is added to the compose file by hand -- see
 `CHANGELOG.md` `[0.27.0]`.
+
+**`v0.28.0`** spans eighteen numbered waves (V1.9.32 through V1.9.49) plus a test-only stability fix; see
+`CHANGELOG.md` `[0.28.0]` for the wave-by-wave detail. **Times follow the organization's time zone**
+(V1.9.38): a new ADMIN setting "Zeitzone der Organisation" (default `Europe/Berlin`), system timestamps
+shown in that zone, typed-in times shown as typed; this fixes the iCal feed, poll deadlines, event end
+times, letter dates and the 72-hour data-breach deadline, which were off by one or two hours.
+**Systemic consensus follows the practice more closely** (V1.9.32, V1.9.39, V1.9.41, V1.9.42): the
+consensus is part of the conference room panel, the status quo option is listed first, the real options
+carry numbers, a proposal can carry a rationale, the strong-objection hint follows the scale, and opinion
+polls gain two consensus modes (decision and priority ranking) with an optional explanation per option.
+An anonymous consensus with fewer than five ratings discloses no figures. **Single ballots of secret
+votes are never delivered** -- neither the rating vectors of an anonymous consensus nor the anonymised
+ballots of a secret election (V1.9.44, V1.9.46; both are API behaviour changes, see the CHANGELOG);
+members therefore can no longer recount a secret election themselves, the result counts and the
+receipt check remain. **Create forms are collapsed behind a button in the title row** on all screens the R36B scan
+knows (V1.9.40, V1.9.45, V1.9.47-V1.9.49; exceptions such as the article editor are named in `collapsible-forms.adoc`), action buttons carry standard icons and toolbar buttons line up
+with their fields (V1.9.43). **Members** can maintain their address and GwG data, block a lost
+membership card and register for events themselves (V1.9.33), direct messages gain conversations and
+paging, and the board can mark event refunds as paid outside Lapis Cloud (V1.9.34-V1.9.36). A
+**Postgres test lane** runs the engine-dependent tests against a real PostgreSQL 17, also in CI
+(V1.9.37), and found three code paths that were only correct on H2. The staging test plans of these
+waves are written but were not executed. Operators: take a backup and apply migrations `V66` to `V69`;
+`V1__baseline.sql` is unchanged, so no `flywayRepair` is needed. Open polls close and running events end
+up to two hours earlier than before (at the typed-in local time) -- deploy while no vote is running --
+see `CHANGELOG.md` `[0.28.0]`.
 
 === Auction opt-in (V0.6.2)
 
@@ -1494,7 +1519,8 @@ open; an exact required majority such as two thirds), the election committee (at
 members, never members of the target executive board), candidacies, the voting booth (review before
 casting, exactly one request however often the button is clicked), a one-time receipt for secret
 ballots, the four-eyes count approval (only real committee members, no admin bypass), the result and
-a receipt check. V1.9.23 hardened the server: the four ways to decide a motion exclude each other
+a receipt check. Since V1.9.46 the single ballots of a secret election are never delivered, in any
+status and to any role; open-ballot elections keep their named list. V1.9.23 hardened the server: the four ways to decide a motion exclude each other
 (`MotionDecisionLock`), a tally requires the motion to still be scheduled, and the ballot of a secret
 election carries no time and no order. See `docs/architecture/elections-ui.adoc` and
 `docs/architecture/elections-integrity.adoc`.
@@ -1503,7 +1529,11 @@ election carries no time and no order. See `docs/architecture/elections-ui.adoc`
 
 A real end-to-end election run with several accounts on Staging is still outstanding. The concurrency tests run on H2 and, since V1.9.37, also on PostgreSQL (the Postgres test lane). List and ranked-choice
 elections are rejected by the server. Who approved a tally is visible only as a count.
-`castVoteBallot` and `castResistanceBallot` have their own races against closing.
+`castVoteBallot` and `castResistanceBallot` have their own races against closing. Members cannot
+recount a secret election themselves (a deliberate consequence of V1.9.46). The vote counts of a small
+secret election are delivered without a minimum participation, so with one ballot or a unanimous
+result the votes are known; the receipt check tells the holder of a receipt code the chosen option (see
+`docs/architecture/elections-integrity.adoc`).
 
 == Voting in the conference room (V1.9.24-V1.9.27)
 
@@ -1528,24 +1558,29 @@ so the nudge between real clients, the stream pause before the first ballot and 
 not verified in a real LiveKit room. Recordings are not paused for a secret ballot, and a room without
 a Sitzung never has its stream paused. **Vote stakes stay bound after a vote closes** -- there is no
 release path yet. The committee leadership without an election-board seat cannot open, close or count
-(a server rule). Systemic consensus is not part of the room panel.
+(a server rule). Systemic consensus joined the room panel in V1.9.32 (see the next section).
 
 == Systemic consensus web client (V1.9.28)
 
 The "Konsensieren" screen (`/consensus`, `/consensus/:id`) drives `ISystemicConsensusService`, which
 had no client before: a list with status filter, a detail view with the phase actions (freeze options,
-close rating, evaluate, revote, abort), adding and removing options (the status-quo option is always
-last and permanent), and opening a consensus from a scheduled motion -- anonymous or open, advisory or
+close rating, evaluate, revote, abort), adding and removing options (the status-quo option is permanent
+and, since V1.9.39, listed first with the plaque P; the real options carry the numbers 1..n and may carry
+a rationale), and opening a consensus from a scheduled motion -- anonymous or open, advisory or
 binding. The resistance booth rates every option from 0 to 10, shows a review step and submits once;
 an anonymous consensus shows a receipt once, which can be checked later. The result ranks the options
 by mean resistance and states the group conflict in words. Four additive read RPCs back the screen; no
-migration. See `docs/architecture/consensus-ui.adoc`.
+migration. Since V1.9.32 the consensus is also part of the conference room panel (card, compact booth,
+operator steps). Since V1.9.42 an anonymous consensus with fewer than five ratings in the current round
+shows no figures, only the verdict in words, and since V1.9.44 its single ballots are never delivered.
+See `docs/architecture/consensus-ui.adoc`.
 
 === What doesn't work yet
 
 The staging test (`docs/architecture/consensus-staging-test.adoc`) is written, not run. A binding
 consensus has exactly one round; results of earlier rounds are not retrievable after a revote; an
-anonymous consensus has no minimum group size. The booth is not part of the conference room yet.
+anonymous consensus discloses figures from five ratings on, with the residual risks named in
+`consensus-ui.adoc` ("Minimum participation"). The room shows no results distribution.
 
 == Opinion polls (V1.9.30/V1.9.31)
 
@@ -1567,7 +1602,10 @@ sync and before the build/restart) before deploying on an existing instance. See
 The staging test (`docs/architecture/polls-staging-test.adoc`) was not executed. Whoever can read the
 database or its backups sees option and weight per answer and could try to match weights against the
 LTR ledger -- this is a table separation, not cryptography. The concurrency tests run on H2 and, since V1.9.37, on PostgreSQL as well. There
-is no participation rate, only single choice, and the deadline is entered in the browser's local time.
+is no participation rate. Since V1.9.41 a poll can also be a consensus poll (`SK_DECISION` with the passive
+option "Keine Änderung", or `SK_PRIORITY` as a ranking), rated 0..10 per option without any LTR; below
+five answers only the response count is shown. Since V1.9.38 the deadline is a wall-clock in the
+organization's time zone.
 
 == Documentation Convention
 
