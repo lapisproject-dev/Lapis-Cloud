@@ -5,7 +5,6 @@ import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
-import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -65,7 +64,7 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Stream-Ziele"))
+    val header = root.pageHeader(tr("Stream-Ziele"))
     root.div(
         tr(
             "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), " +
@@ -74,6 +73,7 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
 
+    val createHost = root.vPanel(spacing = 8)
     val listPanel = root.vPanel(spacing = 8)
 
     fun refreshList() {
@@ -92,8 +92,12 @@ fun renderConferenceStreamDestinationsScreen(container: SimplePanel) {
         }
     }
 
-    root.h2(tr("Neues Stream-Ziel anlegen")) { addCssClass("h5") }
-    renderDestinationCreateForm(root, ::refreshList)
+    collapsibleCreateForm<Unit>(
+        actionSlot = header.actionSlot,
+        formHost = createHost,
+        buttonLabel = tr("Neues Stream-Ziel"),
+        formId = "stream-destination-create",
+    ) { _, close -> renderDestinationCreateForm(close, ::refreshList) }
 
     refreshList()
 }
@@ -131,11 +135,13 @@ private fun renderDestinationRow(
     val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
     editButton.onClick { renderDestinationEditModal(destination, onChanged) }
 
+    // "Deaktivieren" is the revoke verb (icon); "Aktivieren" is a state change without a verb in the icon table (action-icons.adoc).
     val toggleButton =
-        actionRow.button(
-            if (destination.enabled) tr("Deaktivieren") else tr("Aktivieren"),
-            style = if (destination.enabled) ButtonStyle.OUTLINESECONDARY else ButtonStyle.OUTLINESUCCESS,
-        )
+        if (destination.enabled) {
+            actionRow.actionButton(ActionIcon.REVOKE, tr("Deaktivieren"), style = ButtonStyle.OUTLINESECONDARY)
+        } else {
+            actionRow.button(tr("Aktivieren"), style = ButtonStyle.OUTLINESUCCESS)
+        }
     toggleButton.onClick {
         toggleButton.disabled = true
         AppScope.launch {
@@ -180,11 +186,11 @@ private fun renderDestinationRow(
  * security boundary" posture) -- the server remains the authority on a duplicate label
  * ([ConflictException][network.lapis.cloud.shared.rpc.ConflictException]) or malformed URL.
  */
-private fun renderDestinationCreateForm(
-    root: SimplePanel,
+private fun SimplePanel.renderDestinationCreateForm(
+    collapse: (Boolean) -> Unit,
     onCreated: () -> Unit,
-) {
-    val card = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
+): FormSnapshot {
+    val card = vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
     // Formular-Grammatik (V1.4.28): vier Felder, alle Pflicht => Legende "Alle Felder sind Pflichtfelder." (Fall b).
     val form = card.lapisForm()
     val labelField = form.textField(label = tr("Bezeichnung (z. B. \"PdV YouTube-Kanal\")"), required = true)
@@ -215,8 +221,8 @@ private fun renderDestinationCreateForm(
             suppressManagers = true,
             actions = { it.lockIcon() },
         )
-    val createButton = Button(tr("Stream-Ziel anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Stream-Ziel anlegen"), ButtonStyle.PRIMARY)
+    form.buttons(primary = createButton, cancel = collapseCancelButton(collapse))
 
     fun applyPlatformDefaults() {
         val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
@@ -246,10 +252,12 @@ private fun renderDestinationCreateForm(
                 labelField.reset()
                 urlField.reset()
                 keyField.reset()
+                collapse(true)
                 onCreated()
             }
         }
     }
+    return form.snapshot()
 }
 
 /** Feldregel der RTMP-URL (lose gespiegelt, der Server bleibt Autorität). */

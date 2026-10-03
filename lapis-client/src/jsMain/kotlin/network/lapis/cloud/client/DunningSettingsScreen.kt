@@ -80,7 +80,7 @@ private fun renderDunningAdminSection(root: SimplePanel) {
 
     val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
     val enableButton = actionsRow.button(tr("Mahnwesen aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.button(tr("Mahnwesen deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("Mahnwesen deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
 
     fun acknowledgeAndEnable() {
         enableButton.disabled = true
@@ -234,7 +234,8 @@ private fun dunningDisableConfirmDialog(onConfirm: () -> Unit) {
 // ================================================================================================
 
 private fun renderDunningLevelsSection(root: SimplePanel) {
-    root.h2(tr("Mahnstufen")) { addCssClass("h5") }
+    val titleSlot = root.sectionTitleRow(tr("Mahnstufen"))
+    val createHost = root.vPanel(spacing = 6)
     val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Stufen anzeigen"))
     val listPanel = root.vPanel(spacing = 6)
@@ -271,8 +272,13 @@ private fun renderDunningLevelsSection(root: SimplePanel) {
     includeInactiveCheck.subscribe { loadLevels() }
     loadLevels()
 
-    root.h2(tr("Mahnstufe anlegen")) { addCssClass("h6") }
-    renderDunningLevelForm(root, existing = null, onSaved = ::loadLevels)
+    // V1.9.49 (R36B): the always-visible "Mahnstufe anlegen" form sits behind one title-row button now.
+    collapsibleCreateForm<Unit>(
+        actionSlot = titleSlot,
+        formHost = createHost,
+        buttonLabel = tr("Neue Mahnstufe"),
+        formId = "dunning-level-create",
+    ) { _, close -> renderDunningLevelForm(this, existing = null, collapse = close, onSaved = ::loadLevels) }
 }
 
 private fun renderDunningLevelRow(
@@ -354,8 +360,9 @@ internal fun renderDunningLevelForm(
     root: SimplePanel,
     existing: DunningLevelDto?,
     modal: Modal? = null,
+    collapse: ((Boolean) -> Unit)? = null,
     onSaved: () -> Unit,
-) {
+): FormSnapshot {
     // Formular-Grammatik (V1.4.28): Stufennummer, Name und beide Fristen Pflicht, die Gebühr optional => Fall (a).
     val form = root.lapisForm()
     val levelNumberField =
@@ -412,14 +419,19 @@ internal fun renderDunningLevelForm(
         } else {
             null
         }
-    val submitButton = Button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val submitButton =
+        newActionButton(
+            if (existing == null) ActionIcon.ADD else ActionIcon.SAVE,
+            if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"),
+            ButtonStyle.PRIMARY,
+        )
     if (modal != null) {
         // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
         form.finish()
         modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
         modal.addButton(submitButton)
     } else {
-        form.buttons(primary = submitButton)
+        form.buttons(primary = submitButton, cancel = collapse?.let { collapseCancelButton(it) })
     }
 
     fun updateFeeLock() {
@@ -492,17 +504,12 @@ internal fun renderDunningLevelForm(
                 }
             if (result != null) {
                 notifySuccess(if (existing == null) tr("Mahnstufe angelegt.") else tr("Mahnstufe gespeichert."))
-                if (existing == null) {
-                    levelNumberField.reset()
-                    nameField.reset()
-                    graceDaysField.reset()
-                    responseDaysField.reset()
-                    feeField.reset()
-                }
+                if (existing == null) collapse?.invoke(true)
                 onSaved()
             }
         }
     }
+    return form.snapshot()
 }
 
 /**

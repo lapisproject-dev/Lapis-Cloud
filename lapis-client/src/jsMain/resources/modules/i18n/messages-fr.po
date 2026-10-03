@@ -19685,3 +19685,43 @@ msgstr "Nouvelle ligne de commande"
 
 msgid "Für Veranstaltung:"
 msgstr "Pour l'événement :"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:198
+msgid "Neues Angebot"
+msgstr "Nouvelle offre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:98
+msgid "Neues Stream-Ziel"
+msgstr "Nouvelle destination de diffusion"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:310
+msgid "Neuer Ordner"
+msgstr "Nouveau dossier"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:318
+msgid "Neues Dokument"
+msgstr "Nouveau document"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:134
+msgid "Neuer AVV-Eintrag"
+msgstr "Nouvelle entrée de contrat de sous-traitance"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:227
+msgid "Neue TOM"
+msgstr "Nouvelle MTO"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:311
+msgid "Neue DSFA"
+msgstr "Nouvelle AIPD"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:279
+msgid "Neue Mailingliste"
+msgstr "Nouvelle liste de diffusion"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:116
+msgid "Neuer Reisekostenantrag"
+msgstr "Nouvelle demande de frais de déplacement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
+msgid "Neue Mahnstufe"
+msgstr "Nouveau niveau de relance"

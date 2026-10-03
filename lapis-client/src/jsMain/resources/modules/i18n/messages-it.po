@@ -19667,3 +19667,43 @@ msgstr "Nuova voce d'ordine"
 
 msgid "Für Veranstaltung:"
 msgstr "Per l'evento:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:198
+msgid "Neues Angebot"
+msgstr "Nuova offerta"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:98
+msgid "Neues Stream-Ziel"
+msgstr "Nuova destinazione di streaming"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:310
+msgid "Neuer Ordner"
+msgstr "Nuova cartella"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:318
+msgid "Neues Dokument"
+msgstr "Nuovo documento"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:134
+msgid "Neuer AVV-Eintrag"
+msgstr "Nuova voce AVV"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:227
+msgid "Neue TOM"
+msgstr "Nuova TOM"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:311
+msgid "Neue DSFA"
+msgstr "Nuova DPIA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:279
+msgid "Neue Mailingliste"
+msgstr "Nuova mailing list"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:116
+msgid "Neuer Reisekostenantrag"
+msgstr "Nuova richiesta di rimborso spese di viaggio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
+msgid "Neue Mahnstufe"
+msgstr "Nuovo livello di sollecito"

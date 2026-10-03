@@ -5,7 +5,6 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.form.upload.upload
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -16,19 +15,15 @@ import io.kvision.html.p
 import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
-import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
-import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AiIndexStatus
 import network.lapis.cloud.shared.domain.AiKnowledgeEntryDto
-import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.DocumentDto
 import network.lapis.cloud.shared.domain.DocumentFolderDto
 import network.lapis.cloud.shared.domain.DocumentVersionDto
-import network.lapis.cloud.shared.domain.restrictiveness
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IDocumentService
 
@@ -49,12 +44,19 @@ fun renderDocumentsScreen(container: SimplePanel) {
     root.pageHeader(tr("Dokumentenablage"))
     val canManage = DocumentsAuthzUi.canManage(AppState.session?.role)
 
-    root.h2(tr("Ordner")) { addCssClass("h5") }
+    // V1.9.49 (R36B): each list has a title row with its own create button; the forms sit directly under the title row.
+    val folderSlot = root.sectionTitleRow(tr("Ordner"))
+    val folderHost = root.vPanel(spacing = 6)
     val folderPanel = root.vPanel(spacing = 4)
-    val folderCreationPanel = if (canManage) root.vPanel(spacing = 6) else null
 
-    root.h2(tr("Dokumente")) { addCssClass("h5") }
+    val documentSlot = root.sectionTitleRow(tr("Dokumente"))
+    // The button of the document form gets a slot of its own: it appears only once a folder is open and its documents are loaded.
+    val documentButtonSlot = documentSlot.div().apply { hide() }
+    val documentHost = root.vPanel(spacing = 6)
     val documentPanel = root.vPanel(spacing = 6)
+    var documentForm: CollapsibleCreateFormController<Unit>? = null
+    var openFolder: DocumentFolderDto? = null
+    var loadGeneration = 0
 
     root.h2(tr("Versionen")) { addCssClass("h5") }
     val versionPanel = root.vPanel(spacing = 6)
@@ -111,6 +113,11 @@ fun renderDocumentsScreen(container: SimplePanel) {
 
     fun loadDocuments(folder: DocumentFolderDto) {
         val folderId = folder.id
+        // The create button of the document form hides while the list loads and returns once THIS load succeeded; a late answer of an
+        // earlier folder (quick A -> B) finds a newer generation and never shows the button for the wrong folder.
+        val generation = ++loadGeneration
+        openFolder = folder
+        documentButtonSlot.hide()
         documentPanel.removeAll()
         versionPanel.removeAll()
         // Drei Geschwister-Panels statt einem gemeinsamen `documentPanel` fuer Suchzeile, Liste und
@@ -122,7 +129,6 @@ fun renderDocumentsScreen(container: SimplePanel) {
         // beim Ordnerwechsel noetig.
         val searchRow = documentPanel.hPanel(spacing = 8)
         val listPanel = documentPanel.vPanel(spacing = 6)
-        val creationPanel = documentPanel.vPanel(spacing = 6)
 
         AppScope.launch {
             val documents = guarded { rpcService<IDocumentService>().listDocuments(folderId) }
@@ -131,6 +137,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
                 listPanel.dataErrorState(onRetry = { loadDocuments(folder) })
                 return@launch
             }
+            if (canManage && generation == loadGeneration) documentButtonSlot.show()
 
             // V1.6.1 "Wissensbasis" column -- only where the AI layer is operational (else the service is
             // not even registered) and only for BOARD/ADMIN. A failed load just hides the column.
@@ -250,11 +257,13 @@ fun renderDocumentsScreen(container: SimplePanel) {
                     renderList(normalized)
                 }
             }
-
-            if (canManage) {
-                renderDocumentCreation(creationPanel, folder, AppState.session?.role) { loadDocuments(folder) }
-            }
         }
+    }
+
+    // A folder switch with a changed, still open document form asks first ("Weiter bearbeiten" stays in the folder).
+    fun switchFolder(folder: DocumentFolderDto) {
+        val form = documentForm
+        if (form != null) form.requestClose { loadDocuments(folder) } else loadDocuments(folder)
     }
 
     /**
@@ -280,7 +289,7 @@ fun renderDocumentsScreen(container: SimplePanel) {
                 folderPanel.p(tr("Noch keine Ordner vorhanden."))
             } else {
                 folderPanel.dataTable(
-                    columns = folderColumns { folder -> loadDocuments(folder) },
+                    columns = folderColumns { folder -> switchFolder(folder) },
                     rows = folders,
                     actions =
                         if (canManage) {
@@ -294,8 +303,24 @@ fun renderDocumentsScreen(container: SimplePanel) {
     }
 
     refreshFolders()
-    if (canManage && folderCreationPanel != null) {
-        renderFolderCreation(folderCreationPanel, AppState.session?.role) { refreshFolders() }
+    if (canManage) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = folderSlot,
+            formHost = folderHost,
+            buttonLabel = tr("Neuer Ordner"),
+            formId = "documents-folder-create",
+        ) { _, close -> renderFolderCreation(AppState.session?.role, close) { refreshFolders() } }
+        // One controller for the whole screen life: the form is built per opening (for the folder open at that moment).
+        documentForm =
+            collapsibleCreateForm<Unit>(
+                actionSlot = documentButtonSlot,
+                formHost = documentHost,
+                buttonLabel = tr("Neues Dokument"),
+                formId = "documents-document-create",
+            ) { _, close ->
+                val folder = checkNotNull(openFolder) { "the document form opens only with a folder" }
+                renderDocumentCreation(folder, AppState.session?.role, close) { loadDocuments(folder) }
+            }
     }
 }
 
@@ -455,254 +480,6 @@ private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
         ),
     )
 
-/** Delete action of a document row -- role gate (`canManage`) and confirmation dialog unchanged. */
-internal fun Container.renderDocumentDeleteAction(
-    document: DocumentDto,
-    onDeleted: () -> Unit,
-) {
-    val deleteButton = tableActionButton(ActionIcon.DELETE, tr("Löschen"), ButtonStyle.OUTLINEDANGER)
-    deleteButton.onClick {
-        // Audit fix M9: the trigger is disabled while the delete runs, so a second click cannot open a second dialog for a second request.
-        if (deleteButton.disabled) return@onClick
-        confirmDialog(
-            title = tr("Dokument löschen"),
-            message =
-                gettext(
-                    "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen " +
-                        "bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)",
-                    document.title,
-                ),
-            confirmLabel = tr("Löschen"),
-            confirmIcon = ActionIcon.DELETE,
-        ) {
-            runGuardedAction(deleteButton) {
-                val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
-                if (result != null) {
-                    notifySuccess(tr("Gelöscht."))
-                    onDeleted()
-                }
-            }
-        }
-    }
-}
-
-/**
- * Welle V1.9.1: "Sichtbarkeit ändern" action of a document row. The modal IS the confirmation --
- * no second `confirmDialog` on top (unlike [renderDocumentDeleteAction]'s soft-delete, changing a
- * level is reversible and the modal already requires an explicit "Speichern" click). Options are
- * [DocumentsAuthzUi.allowedLevels] filtered to the folder's own level and up, same UX-nicety
- * reasoning as [renderDocumentCreation] -- the server (`ConflictException`) remains the authority.
- */
-internal fun Container.renderDocumentAccessLevelAction(
-    document: DocumentDto,
-    folderAccessLevel: DocumentAccessLevel,
-    onChanged: () -> Unit,
-) {
-    val changeButton = tableActionButton("fas fa-user-lock", tr("Sichtbarkeit ändern"))
-    changeButton.onClick {
-        val modal = Modal(caption = tr("Sichtbarkeit des Dokuments ändern"))
-        val form = modal.lapisForm()
-        val options =
-            DocumentsAuthzUi
-                .allowedLevels(AppState.session?.role)
-                .filter { it.restrictiveness >= folderAccessLevel.restrictiveness }
-                .map { it.name to documentAccessLevelLabel(it) }
-        val levelField =
-            form.selectField(label = tr("Sichtbarkeit"), options = options, value = document.accessLevel.name, required = true)
-        form.finish()
-        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-        val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
-        saveButton.onClick {
-            form.submit(saveButton) {
-                val newLevel = DocumentAccessLevel.valueOf(levelField.value)
-                // The returned DocumentDto is deliberately unused -- `onChanged()` reloads the whole
-                // list, so binding it would only invite someone to render a second, stale source of
-                // truth next to the reloaded one (fix round, W8: it used to be an unused `val`).
-                guarded { rpcService<IDocumentService>().setDocumentAccessLevel(document.id, newLevel) } ?: return@submit
-                modal.hide()
-                notifySuccess(tr("Sichtbarkeit geändert."))
-                onChanged()
-            }
-        }
-        modal.addButton(saveButton)
-        modal.show()
-    }
-}
-
-/**
- * Welle V1.9.1: "Sichtbarkeit ändern" action of a folder row. Unlike the document-level dialog
- * above, this one ALWAYS shows both cascade sentences (never conditionally) -- an admin choosing a
- * folder's level cannot yet know whether the choice tightens or loosens, and "an einschränkende
- * Wahl schränkt mit ein, eine erweiternde erweitert nichts" is the one fact that must land BEFORE
- * the click, not just in the success toast afterward. Since the fix round (B5) the tighten reaches
- * descendant FOLDERS as well as documents, which is why both sentences name both.
- *
- * The options are NOT filtered against a parent folder's level here (unlike the document dialog's
- * `>=` predicate): this screen only creates top-level folders, so the only way a sub-folder exists
- * at all is a nesting some other tool created, and in that case the server's `ConflictException`
- * ("A subfolder cannot be more visible than its parent folder") is the authority. `guarded` surfaces
- * it to the user as an error toast.
- */
-internal fun Container.renderFolderAccessLevelAction(
-    folder: DocumentFolderDto,
-    onChanged: () -> Unit,
-) {
-    val changeButton = tableActionButton("fas fa-user-lock", tr("Sichtbarkeit ändern"))
-    changeButton.onClick {
-        val modal = Modal(caption = tr("Sichtbarkeit des Ordners ändern"))
-        modal.div(tr("Eine Einschränkung des Ordners schränkt alle enthaltenen Unterordner und Dokumente mit ein."))
-        modal.div(tr("Eine Erweiterung des Ordners erweitert die enthaltenen Unterordner und Dokumente nicht."))
-        val form = modal.lapisForm()
-        val options = DocumentsAuthzUi.allowedLevels(AppState.session?.role).map { it.name to documentAccessLevelLabel(it) }
-        val levelField =
-            form.selectField(label = tr("Sichtbarkeit"), options = options, value = folder.accessLevel.name, required = true)
-        form.finish()
-        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-        val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
-        saveButton.onClick {
-            form.submit(saveButton) {
-                val newLevel = DocumentAccessLevel.valueOf(levelField.value)
-                val result = guarded { rpcService<IDocumentService>().setFolderAccessLevel(folder.id, newLevel) } ?: return@submit
-                modal.hide()
-                if (result.tightenedFolders > 0) {
-                    notifySuccess(
-                        gettext(
-                            "Sichtbarkeit geändert -- %1 Unterordner und %2 Dokumente wurden mit eingeschränkt.",
-                            result.tightenedFolders,
-                            result.tightenedDocuments,
-                        ),
-                    )
-                } else if (result.tightenedDocuments > 0) {
-                    notifySuccess(gettext("Sichtbarkeit geändert -- %1 Dokumente wurden mit eingeschränkt.", result.tightenedDocuments))
-                } else {
-                    notifySuccess(tr("Sichtbarkeit geändert."))
-                }
-                onChanged()
-            }
-        }
-        modal.addButton(saveButton)
-        modal.show()
-    }
-}
-
-/**
- * R24 (W4d): migrated to the form grammar. Welle V1.9.1, fix round (W1): a "Sichtbarkeit" select was
- * added, mirroring [renderDocumentCreation]'s own. Without it every new folder was PUBLIC_MEMBERS by
- * force -- and a folder NAME is frequently the sensitive part ("Kündigungen Q3"), visible to every
- * member from the moment of creation until someone remembered to change the level in a second step.
- * Options come from [DocumentsAuthzUi.allowedLevels], the same single source of truth the document
- * dialog and both "Sichtbarkeit ändern" modals use; the server's `canAccessDocumentAtLevel` check in
- * `createFolder` remains the real authority.
- *
- * No parent-folder-derived filtering here (unlike [renderDocumentCreation]'s `>=` predicate): this
- * screen only ever creates TOP-LEVEL folders (`parentFolderId = null`), so there is no parent level
- * to be at least as restrictive as.
- *
- * Folgepunkt zu V1.9.1: the preselected value is [DocumentsAuthzUi.defaultCreationLevel] -- the most
- * restrictive level [role] is allowed to pick -- instead of always PUBLIC_MEMBERS. Rationale is the
- * same as the KDoc above: a folder name is often already the sensitive part, so the safer default is
- * the tightest one the creating role can choose, not the loosest. After every successful creation the
- * select is reset back to this SAME role default (not left on whatever was last chosen) -- otherwise a
- * BOARD member who once picked PUBLIC_MEMBERS for a genuinely public folder would silently keep
- * proposing PUBLIC_MEMBERS for every folder created afterward in the same session.
- */
-private fun renderFolderCreation(
-    panel: SimplePanel,
-    role: AccountRole?,
-    onCreated: () -> Unit,
-) {
-    val form = panel.lapisForm()
-    val nameField = form.textField(label = tr("Neuer Ordnername"), required = true)
-    val accessLevelOptions = DocumentsAuthzUi.allowedLevels(role).map { it.name to documentAccessLevelLabel(it) }
-    val defaultLevel = DocumentsAuthzUi.defaultCreationLevel(role)
-    val accessField =
-        form.selectField(
-            label = tr("Sichtbarkeit"),
-            options = accessLevelOptions,
-            value = defaultLevel.name,
-            required = true,
-        )
-    val createButton = Button(tr("Ordner anlegen"), icon = "fas fa-folder-plus", style = ButtonStyle.OUTLINEPRIMARY)
-    form.buttons(primary = createButton)
-    createButton.onClick {
-        form.submit(createButton) {
-            val name = nameField.value.trim()
-            val accessLevel = DocumentAccessLevel.valueOf(accessField.value)
-            val result = guarded { rpcService<IDocumentService>().createFolder(name, null, accessLevel) }
-            if (result != null) {
-                notifySuccess(gettext("Ordner \"%1\" angelegt.", name))
-                nameField.reset()
-                // Not accessField.reset(): LapisField.reset() sets Select controls to null, emptying
-                // this required field. setValue() back to the role default is the intended UX here --
-                // see the function KDoc above.
-                accessField.setValue(defaultLevel.name)
-                onCreated()
-            }
-        }
-    }
-}
-
-// R24/R24B (W4d): migrated to the form grammar -- Titel (required text) + Sichtbarkeit (required select).
-private fun renderDocumentCreation(
-    panel: SimplePanel,
-    folder: DocumentFolderDto,
-    role: AccountRole?,
-    onCreated: () -> Unit,
-) {
-    // Review finding fix (Welle "Treasurer Document Upload", Runde 4): only offer access levels
-    // the current role is actually allowed to create at -- see [DocumentsAuthzUi.allowedLevels]
-    // KDoc for the orphaned-document failure mode this prevents. Welle V1.9.1: additionally
-    // restricted to levels at least as restrictive as the OPEN folder's own level -- a UX nicety on
-    // top of `createDocument`'s real `ConflictException` authority.
-    //
-    // Fix round (B5): this filter is only CORRECT because a folder tighten now materializes into
-    // every descendant folder's own level, so "own level == effective level" actually holds. The
-    // earlier comment here argued the opposite way round and was logically inverted: the effective
-    // level can only be EQUAL OR STRICTER than the own level, so filtering by the OWN level offers a
-    // superset of what the server accepts, not a subset. Before the materialization that superset was
-    // reachable in practice (tighten a parent, open a sub-folder that kept PUBLIC_MEMBERS) and every
-    // such creation answered `ConflictException`. It is now only reachable for a sub-folder some
-    // other tool created and never materialized -- and the server still rejects it, which is the
-    // posture that is actually load-bearing.
-    val accessLevelOptions =
-        DocumentsAuthzUi
-            .allowedLevels(role)
-            .filter { it.restrictiveness >= folder.accessLevel.restrictiveness }
-            // Welle V1.9.1: fixes a labeling bug -- this dropdown used to show the raw enum
-            // constant ("PUBLIC_MEMBERS") instead of a translated label (see
-            // ClientUntrustedWidgetTextTripwireTest's KNOWN_UNSANITIZED_OPTIONS_LABEL_MAPS ledger).
-            .map { it.name to documentAccessLevelLabel(it) }
-    val form = panel.lapisForm()
-    val titleField = form.textField(label = tr("Neuer Dokumenttitel"), required = true)
-    val accessField =
-        form.selectField(
-            // Defaults to the folder's own level -- itself always the most permissive option offered
-            // above (PUBLIC_MEMBERS, restrictiveness 0, is never filtered out by the `>=` predicate).
-            label = tr("Sichtbarkeit"),
-            options = accessLevelOptions,
-            value = folder.accessLevel.name,
-            required = true,
-        )
-    val createButton =
-        Button(
-            tr("Dokument anlegen (danach Datei hochladen)"),
-            icon = "fas fa-file-circle-plus",
-            style = ButtonStyle.OUTLINEPRIMARY,
-        )
-    form.buttons(primary = createButton)
-    createButton.onClick {
-        form.submit(createButton) {
-            val title = titleField.value.trim()
-            val accessLevel = DocumentAccessLevel.valueOf(accessField.value)
-            val result = guarded { rpcService<IDocumentService>().createDocument(folder.id, title, accessLevel) }
-            if (result != null) {
-                notifySuccess(gettext("Dokument \"%1\" angelegt -- jetzt eine Datei hochladen.", title))
-                onCreated()
-            }
-        }
-    }
-}
-
 // R24 (W4d): migrated to the form grammar -- the raw Upload control registered via `register` (pattern
 // `BankStatementImportScreen.kt`'s "Datei auswählen"), Änderungshinweis as an optional textField. The
 // progress bar (Nutzer-Beschwerde 2026-09-15, "kein Signal während des Uploads, man klickt wild") is
@@ -732,7 +509,7 @@ private fun renderVersionUpload(
     progressBar.setAttribute("role", "progressbar")
     progressBar.setStyle("width", "0%")
 
-    val uploadButton = Button(tr("Hochladen"), icon = "fas fa-upload", style = ButtonStyle.PRIMARY)
+    val uploadButton = newActionButton(ActionIcon.UPLOAD, tr("Hochladen"), ButtonStyle.PRIMARY)
     form.buttons(primary = uploadButton)
     uploadButton.onClick {
         form.submit(uploadButton) {

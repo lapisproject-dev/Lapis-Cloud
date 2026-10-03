@@ -37,6 +37,9 @@ enum class ActionIcon(
     SEND("fas fa-paper-plane"),
     REVOKE("fas fa-ban"),
     LOCK("fas fa-lock"),
+
+    /** Change who may see an object (visibility / access level). NOT [LOCK] (reserved). */
+    ACCESS("fas fa-user-lock"),
     EXPORT("fas fa-file-export"),
     SETTINGS("fas fa-gear"),
     UNDO("fas fa-rotate-left"),

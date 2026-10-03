@@ -29,6 +29,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `SEND` | `fa-paper-plane` | Senden, Per Post versenden
 | `REVOKE` | `fa-ban` | Widerrufen, Deaktivieren
 | `LOCK`, `SETTINGS` | `fa-lock`, `fa-gear` | reserved
+| `ACCESS` | `fa-user-lock` | Sichtbarkeit ändern (who may see an object); V1.9.49, NOT `LOCK`
 | `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen
 |===
 
@@ -81,8 +82,8 @@ The two finance rows that stay as strings in `tableActionButton("fas ...")` are 
 (star, `BankAccountsScreen`) and "Ausgleichen" (money bill, `OpenItemsScreen`). They stay in the ledger of `ClientToolbarIconTripwireTest`.
 Inventing a table entry for a domain verb would break "one picture, one verb".
 
-Domain icons that stay as strings in table action columns (`tableActionButton("fas ...")`, 17 calls, ledgered in the tripwire): key, link, user-lock,
-medal, star, receipt, money, invoice, id card and similar.
+Domain icons that stay as strings in table action columns (`tableActionButton("fas ...")`, 15 calls since V1.9.49, ledgered in the tripwire): key, link,
+medal, star, receipt, money, invoice, id card and similar. ("Sichtbarkeit ändern", the former `user-lock` string of the documents screen, is `ActionIcon.ACCESS` now.)
 
 === Events, V1.9.47
 
@@ -117,8 +118,27 @@ Without a standard icon, each for the reason given:
   (Foto entfernen), `comment-slash` (Kurzvorstellung entfernen) and `key` (Zugang zurücksetzen). `REMOVE` does not apply to destroying data (the
   "Token entfernen" precedent), `DELETE` in a member row would be read as "delete the member", and a password reset is not `UNDO`.
 
+=== Rest groups, V1.9.49
+
+Standard icons added: `ADD` for the in-form create buttons ("Angebot erstellen", "Stream-Ziel anlegen", "Ordner anlegen", "Dokument anlegen (danach Datei
+hochladen)", "AVV-Eintrag anlegen", "TOM anlegen", "DSFA anlegen", "Datenpanne melden", "Anlegen" of the mailing list, "Entwurf anlegen", "Mahnstufe anlegen"; a
+data breach is a record that is created, nothing is sent), `SAVE` ("Obergrenze speichern", "Speichern" of the edit forms, "Entwurf speichern"), `REVOKE`
+("Auktion deaktivieren", "Deaktivieren" of a stream destination, "Mahnwesen deaktivieren", "Forderungs-Mahnwesen deaktivieren"), `UPLOAD` ("Hochladen" of a
+document version) and, new, `ACCESS` ("Sichtbarkeit ändern" in the folder and document rows). `ADD` follows the verb table ("anlegen/erstellen"); the
+wave specification said `SAVE` for all submit buttons, the verb table decides, as in V1.9.47/48. Without a standard icon, each for the reason given:
+
+* "Aktivieren" (stream destination), "Auktion aktivieren …", "Mahnwesen aktivieren …": a state change with a legal disclaimer or a plain toggle, not a verb of
+  the table; the matching "deaktivieren" has the icon because "Widerrufen/Deaktivieren" is a table row.
+* "Bieten", "Sofort kaufen für …", "Gebot abgeben", "Sofort kaufen", "Abwickeln", "Ich bestätige, den aktuellen Text gelesen zu haben": domain verbs of the auction.
+* "Neu indexieren" (documents, knowledge base): resets the index rather than reloading; `fa-rotate` stays, see below.
+* "Als Entwurf kopieren" (travel expenses): it creates a new request from an old one, not a duplicate of the same object; no icon.
+* The three "<Zeilenart> hinzufügen" buttons of the travel-expense draft carry the icon of the line kind (car, calendar, receipt): three buttons with the
+  same `ADD` picture could not be told apart. `TravelExpenseScreen.kt` is therefore not in the R57 strict set (its form builder `TravelExpenseHeaderForm.kt` is).
+* "Fertig" (stream destination edit modal), the DSGVO view toggles ("Verarbeitungsverzeichnis (AVV)", "TOM", "DSFA", "Datenpannen"), "Verwalten" (mailing
+  lists), "Statistik": navigation or domain verbs.
+
 == Known limitations
 
 * Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, one ledgered call).
-* The 17 domain icons above and the many domain verbs are intentionally left as they are.
+* The 15 domain icons above and the many domain verbs are intentionally left as they are.
 * `fa-rotate` (password reset, re-index) still stands apart from `REFRESH` where the meaning is "reset", not "reload".

@@ -8,6 +8,22 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Collapsed create forms, the rest of the groups; the R36B debt ledger is empty** (V1.9.49, rules R36B and R57): the create forms of the auction ("Neues Angebot"),
+  the stream destinations ("Neues Stream-Ziel"), the documents ("Neuer Ordner", "Neues Dokument"), the four data-protection registers ("Neuer AVV-Eintrag", "Neue TOM", "Neue DSFA",
+  "Datenpanne melden") are collapsed behind one title-row button each. Beyond the debt ledger, which did not know them, the mailing list ("Neue Mailingliste"), travel expenses
+  ("Neuer Reisekostenantrag"), the volunteer allowance ("Neue Zahlung beantragen", both used a self-built "the button hides itself" pattern) and both dunning screens
+  ("Neue Mahnstufe", the form was always visible under the list) were converted, because the scanner could not see them. Client only: no migration, no server, RPC or
+  `V1__baseline.sql` change. Buttons that depend on an asynchronous load (the document button needs an open folder, the draft buttons need a load without an open draft) hang in a sub-slot
+  of a controller created once and are shown or hidden after a successful load (generation counter against late answers); a reload never touches the form host. A folder switch
+  and a switch of the data-protection view ask first when the open form was changed. The stream key is in the DOM only while the form is open. Auction: the LTR balance and the fee line
+  moved into the opened form. `AuctionScreen`, `DocumentsScreen`, `DsgvoComplianceScreen`, `CommunicationScreen` and `TravelExpenseScreen` were split (card, forms, row actions, labels) to
+  keep the files below 600 lines; code with read calls was not moved (the data-state tripwire budget is unchanged). Standard icons (R57): `ADD`, `SAVE`, `REVOKE`, `UPLOAD` on the
+  buttons listed in `action-icons.adoc` and the new `ActionIcon.ACCESS` ("Sichtbarkeit ändern"). R36B debt ledger 14 -> 0 (`R36B_REMAINING_MAX = 0`); the scanner now also finds a bold
+  `div(tr("Neu ...")) { fw-bold }` title, any `render...Create...Form` builder and a shared builder called with `existing = null` (convention: creating calls name the argument),
+  each with a positive and a negative self-test, and a test asserts that it still sees exactly the five exempt findings. Ten new msgids in all eight catalogs (translation by agent, not by
+  a native speaker). New tests: eight `RestGroup*DomTest` classes (35 tests, among them a test that changes every single input of each data-protection form and checks the fingerprint), tripwire
+  updates, sixteen existing DOM tests adapted. Documentation: `collapsible-forms.adoc`, `ui-ux-guideline.adoc`, `action-icons.adoc`, `collapsible-forms-staging-test.adoc`.
+
 - **Collapsed create forms, group "Gemeinschaft"** (V1.9.48, rule R36B): the create forms of Kontakte (contact and, in a contact's detail, interaction),
   Crowdfunding (project and monthly distribution), Mitgliederverwaltung (direct creation) and Gliederungsverwaltung (chapter) are collapsed behind one
   title-row button each ("Kontakt anlegen", "Interaktion erfassen", "Projekt einreichen", "Verteilung berechnen", "Mitglied direkt anlegen",
@@ -33,13 +49,22 @@ All notable changes to this project are documented here. Format follows
   `EventsCollapsibleFormsDomTest`, `EventsCollapsibleFormsOpsDomTest`, an `onOpenChange` test in `CollapsibleCreateFormDomTest`, tripwire updates.
   Documentation: `collapsible-forms.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc`, `event-series.adoc`, `collapsible-forms-staging-test.adoc`.
 
+### Known limitations (V1.9.49)
+
+- `renderVersionUpload` (documents) stays visible: it is the follow-up step of "Dokument anlegen". It is not a form without typed text: the optional "Änderungshinweis" is free text, and it is lost when the document changes (older behaviour).
+- The edit modals of stream destinations and dunning levels, the DSGVO edit forms in the rows, the article editor ("Neuer Artikel" replaces the list) and the mailing-list detail (draft form, "Mitglied hinzufügen") are not inline create forms and were not converted; they are named in `collapsible-forms.adoc`.
+- A typed draft in the mailing-list detail is lost when another list is chosen, and an open DSGVO edit form is lost when the view is switched (both older behaviour).
+- `TravelExpenseScreen.kt` is not in the R57 strict set: the three "<Zeilenart> hinzufügen" buttons keep the icon of the line kind (a deliberate domain icon).
+- The DSGVO view switch stays a plain row of buttons (no `role=tablist`).
+- The translations of the ten new msgids were written by the agent, not by native speakers. The staging test plan for these screens was written, not executed.
+
 ### Known limitations (V1.9.48)
 
 - The edit form of a CRM contact ("Bearbeiten") discards typed input without asking when it is closed through "Bearbeiten" again (it was not part of the wave).
 - A list reload in the CRM (filter, "Aktualisieren", an action on another row) still discards open interaction forms; this is older behaviour.
 - The roster pager keeps "‹ Zurück" / "Weiter ›" as plain label text; `MemberFamiliesScreen` and `ChapterRosterScreen` were not touched.
 - A save that fails with a conflict shows a toast and keeps the form open with its input; there is no "reload" banner.
-- Documents, compliance, conference administration and economy/auction follow.
+- Documents, compliance, conference administration and economy/auction follow (done in V1.9.49).
 - The staging test plan for these screens was written, not executed.
 
 ### Known limitations (V1.9.47)

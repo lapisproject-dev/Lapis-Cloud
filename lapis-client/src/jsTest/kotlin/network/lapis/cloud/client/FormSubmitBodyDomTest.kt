@@ -405,6 +405,7 @@ class FormSubmitBodyDomTest {
             withFetchStub(respond = answerLoadWith("[]")) { calls ->
                 withMountedRoot("body-destination-create") { root, element ->
                     renderConferenceStreamDestinationsScreen(root)
+                    openCreateForm(element(), "stream-destination-create")
                     val texts = element().inputs("input[type=text]")
                     fill(texts[0], "  PdV Kanal  ")
                     fill(texts[1], "  rtmps://ingest.example.org/live ")

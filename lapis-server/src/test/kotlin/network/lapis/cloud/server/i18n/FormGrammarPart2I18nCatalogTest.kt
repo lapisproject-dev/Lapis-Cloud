@@ -45,6 +45,8 @@ class FormGrammarPart2I18nCatalogTest :
                 "CommitteesScreen.kt",
                 "BoardMembershipScreen.kt",
                 "CommunicationScreen.kt",
+                "MailingListCreateForm.kt", // V1.9.49: moved out of CommunicationScreen.kt
+                "MailingListRows.kt", // V1.9.49: moved out of CommunicationScreen.kt
                 "ContributionReliefQueueScreen.kt",
                 "SocialModerationScreen.kt",
                 "StatuteQaScreen.kt",

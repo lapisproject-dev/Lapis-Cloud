@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -67,7 +66,12 @@ private fun renderReceivableStatusSection(root: SimplePanel) {
     val settingsPanel = root.vPanel(spacing = 4)
     val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2") }
     val enableButton = actionsRow.button(tr("Forderungs-Mahnwesen aktivieren"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.button(tr("Forderungs-Mahnwesen deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+    val disableButton =
+        actionsRow.actionButton(
+            ActionIcon.REVOKE,
+            tr("Forderungs-Mahnwesen deaktivieren"),
+            style = ButtonStyle.OUTLINEDANGER,
+        )
 
     fun loadSettings() {
         settingsPanel.removeAll()
@@ -160,7 +164,8 @@ private fun renderReceivableSettingsSummary(
 // ================================================================================================
 
 private fun renderReceivableLevelsSection(root: SimplePanel) {
-    root.h2(tr("Mahnstufen")) { addCssClass("h5") }
+    val titleSlot = root.sectionTitleRow(tr("Mahnstufen"))
+    val createHost = root.vPanel(spacing = 6)
     val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Stufen anzeigen"))
     val listPanel = root.vPanel(spacing = 6)
@@ -209,8 +214,13 @@ private fun renderReceivableLevelsSection(root: SimplePanel) {
     }
     loadLevels()
 
-    root.h2(tr("Mahnstufe anlegen")) { addCssClass("h6") }
-    renderReceivableLevelForm(root, existing = null, onSaved = ::loadLevels)
+    // V1.9.49 (R36B): the always-visible "Mahnstufe anlegen" form sits behind one title-row button now.
+    collapsibleCreateForm<Unit>(
+        actionSlot = titleSlot,
+        formHost = createHost,
+        buttonLabel = tr("Neue Mahnstufe"),
+        formId = "receivable-dunning-level-create",
+    ) { _, close -> renderReceivableLevelForm(this, existing = null, collapse = close, onSaved = ::loadLevels) }
 }
 
 private fun renderReceivableLevelRow(
@@ -277,8 +287,9 @@ internal fun renderReceivableLevelForm(
     root: SimplePanel,
     existing: ReceivableDunningLevelDto?,
     modal: Modal? = null,
+    collapse: ((Boolean) -> Unit)? = null,
     onSaved: () -> Unit,
-) {
+): FormSnapshot {
     // Formular-Grammatik (V1.4.28): Stufennummer, Name und beide Fristen Pflicht, die Gebühr optional => Fall (a).
     val form = root.lapisForm()
     val levelNumberField =
@@ -322,14 +333,19 @@ internal fun renderReceivableLevelForm(
         )
     // Nur beim Bearbeiten: Reaktivierung einer deaktivierten Stufe (eine neu angelegte Stufe ist immer aktiv).
     val activeField = if (existing != null) form.checkField(value = existing.active, label = tr("Aktiv")) else null
-    val submitButton = Button(if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val submitButton =
+        newActionButton(
+            if (existing == null) ActionIcon.ADD else ActionIcon.SAVE,
+            if (existing == null) tr("Mahnstufe anlegen") else tr("Speichern"),
+            ButtonStyle.PRIMARY,
+        )
     if (modal != null) {
         // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
         form.finish()
         modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
         modal.addButton(submitButton)
     } else {
-        form.buttons(primary = submitButton)
+        form.buttons(primary = submitButton, cancel = collapse?.let { collapseCancelButton(it) })
     }
 
     // N2: derselbe Betrags-Parser wie im Offene-Posten-Formular. Der frühere `replace(',', '.').toDoubleOrNull()` +
@@ -365,17 +381,12 @@ internal fun renderReceivableLevelForm(
                 }
             if (result != null) {
                 notifySuccess(if (existing == null) tr("Mahnstufe angelegt.") else tr("Mahnstufe gespeichert."))
-                if (existing == null) {
-                    levelNumberField.reset()
-                    nameField.reset()
-                    graceDaysField.reset()
-                    responseDaysField.reset()
-                    feeField.reset()
-                }
+                if (existing == null) collapse?.invoke(true)
                 onSaved()
             }
         }
     }
+    return form.snapshot()
 }
 
 /** Wie [buildDunningLevelInput], für die Forderungs-Mahnstufe (der Name wird hier nicht gekürzt, sondern ab 100 Zeichen abgelehnt). */

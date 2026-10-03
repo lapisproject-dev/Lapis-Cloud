@@ -66,21 +66,24 @@ class SecretFieldDomTest {
     }
 
     @Test
-    fun theStreamKeyField_requestsNoManagerHelp_andNeverLeaksItsValue() {
-        withMountedRoot("secret-stream-key") { root, element ->
-            renderConferenceStreamDestinationsScreen(root)
-            val key = assertNotNull(element().querySelector("input[type=password]") as? HTMLInputElement, "no stream key field")
-            assertRequestsNoManagerHelp(key)
-            val secret = "s3cr3t-STREAM-key-4711"
-            key.value = secret
-            key.dispatchEvent(Event("input"))
-            key.dispatchEvent(Event("blur"))
-            // Bezeichnung und URL bleiben leer -> ein Absenden erzeugt Feldfehler UND eine Sammelmeldung.
-            (element().all("button").first { it.textContent?.trim() == "Stream-Ziel anlegen" } as HTMLElement).click()
-            assertTrue(element().all(".lapis-field-error--shown").isNotEmpty(), "the submit must show field errors")
-            assertFalse(element().leakSurface().any { it.contains(secret) }, "the secret leaked into an attribute or a message")
+    fun theStreamKeyField_requestsNoManagerHelp_andNeverLeaksItsValue(): Promise<Unit> =
+        formTest {
+            mountedForm("secret-stream-key") { root, element ->
+                renderConferenceStreamDestinationsScreen(root)
+                // V1.9.49: the create form sits behind the "Neues Stream-Ziel" button.
+                openCreateForm(element(), "stream-destination-create")
+                val key = assertNotNull(element().querySelector("input[type=password]") as? HTMLInputElement, "no stream key field")
+                assertRequestsNoManagerHelp(key)
+                val secret = "s3cr3t-STREAM-key-4711"
+                key.value = secret
+                key.dispatchEvent(Event("input"))
+                key.dispatchEvent(Event("blur"))
+                // Bezeichnung und URL bleiben leer -> ein Absenden erzeugt Feldfehler UND eine Sammelmeldung.
+                (element().all("button").first { it.textContent?.trim() == "Stream-Ziel anlegen" } as HTMLElement).click()
+                assertTrue(element().all(".lapis-field-error--shown").isNotEmpty(), "the submit must show field errors")
+                assertFalse(element().leakSurface().any { it.contains(secret) }, "the secret leaked into an attribute or a message")
+            }
         }
-    }
 
     @Test
     fun aRevealToggle_isAToggleButton_andKeepsTheValue() {

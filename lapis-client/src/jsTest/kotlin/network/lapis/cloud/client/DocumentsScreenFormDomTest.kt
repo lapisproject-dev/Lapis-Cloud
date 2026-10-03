@@ -89,6 +89,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-happy") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     element().typeInto("Neuer Ordnername", "  Satzungen  ")
                     element().buttonNamed("Ordner anlegen").click()
                     awaitUntil("createFolder", timeoutMs = 800) { calls.toRoute(createFolderRoute).size == 1 }
@@ -111,6 +112,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-invalid") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     element().buttonNamed("Ordner anlegen").click()
                     delay(80)
                     assertTrue(calls.toRoute(createFolderRoute).isEmpty(), "no createFolder call for a blank name")
@@ -143,6 +145,7 @@ class DocumentsScreenFormDomTest {
                     element().linkNamed("Satzungen").click()
                     awaitUntil("documents loaded", timeoutMs = 800) { calls.toRoute(listDocumentsRoute).size == 1 }
                     delay(80)
+                    openCreateForm(element(), "documents-document-create")
                     element().typeInto("Neuer Dokumenttitel", "  Satzung 2026  ")
                     element().buttonNamed("Dokument anlegen (danach Datei hochladen)").click()
                     awaitUntil("createDocument", timeoutMs = 800) { calls.toRoute(createDocumentRoute).size == 1 }
@@ -177,6 +180,7 @@ class DocumentsScreenFormDomTest {
                     element().linkNamed("Satzungen").click()
                     awaitUntil("documents loaded", timeoutMs = 800) { calls.toRoute(listDocumentsRoute).size == 1 }
                     delay(80)
+                    openCreateForm(element(), "documents-document-create")
                     element().buttonNamed("Dokument anlegen (danach Datei hochladen)").click()
                     delay(80)
                     assertTrue(calls.toRoute(createDocumentRoute).isEmpty(), "no createDocument call for a blank title")
@@ -311,6 +315,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-level") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     element().typeInto("Neuer Ordnername", "Kündigungen Q3")
                     element().chooseIn("Sichtbarkeit", DocumentAccessLevel.PUBLIC_MEMBERS.name)
                     element().buttonNamed("Ordner anlegen").click()
@@ -338,6 +343,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-default-admin") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
                     assertEquals("ADMIN_ONLY", select.value)
                 }
@@ -355,6 +361,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-default-board") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
                     assertEquals("BOARD_ONLY", select.value)
                 }
@@ -372,6 +379,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-default-treasurer") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
                     assertEquals("BOARD_ONLY", select.value)
                 }
@@ -394,6 +402,7 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-default-sent") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     element().typeInto("Neuer Ordnername", "Kündigungen Q3")
                     // Deliberately no chooseIn(...) call -- the default itself must be sent.
                     element().buttonNamed("Ordner anlegen").click()
@@ -420,11 +429,17 @@ class DocumentsScreenFormDomTest {
                 mountedForm("documents-folder-create-reset-after") { root, element ->
                     renderDocumentsScreen(root)
                     delay(80)
+                    openCreateForm(element(), "documents-folder-create")
                     element().chooseIn("Sichtbarkeit", DocumentAccessLevel.PUBLIC_MEMBERS.name)
                     element().typeInto("Neuer Ordnername", "Kündigungen Q3")
                     element().buttonNamed("Ordner anlegen").click()
                     awaitUntil("createFolder", timeoutMs = 800) { calls.toRoute(createFolderRoute).size == 1 }
-                    delay(80)
+                    awaitUntil("the form folded back after saving") {
+                        element().querySelector("[id='documents-folder-create']")?.childElementCount ==
+                            0
+                    }
+                    // V1.9.49: the form is rebuilt per opening, so the next opening starts at the role default again.
+                    openCreateForm(element(), "documents-folder-create")
                     val select = element().controlOf("Sichtbarkeit") as HTMLSelectElement
                     assertEquals(
                         "BOARD_ONLY",

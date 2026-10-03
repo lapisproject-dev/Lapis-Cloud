@@ -101,7 +101,7 @@ class FormSubmitBodyPart3DomTest {
             val create = routeOf { rpcService<IMailingService>().createMailingList("n", null) }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-list-create") { root, element ->
-                    renderCreateMailingListForm(root, refreshSelfService = {}, onCreated = {})
+                    root.renderCreateMailingListForm(refreshSelfService = {}, onCreated = {})
                     element().typeInto("Name", "  Vorstand-Info  ")
                     element().typeInto("Beschreibung", "  Neuigkeiten für den Vorstand  ")
                     element().buttonNamed("Anlegen").click()
@@ -131,7 +131,7 @@ class FormSubmitBodyPart3DomTest {
         formTest {
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-list-create-empty") { root, element ->
-                    renderCreateMailingListForm(root, refreshSelfService = {}, onCreated = {})
+                    root.renderCreateMailingListForm(refreshSelfService = {}, onCreated = {})
                     element().buttonNamed("Anlegen").click()
                     delay(80)
                     assertEquals(0, calls.rpcCount, "no RPC at all")

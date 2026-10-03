@@ -5,6 +5,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
+import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,23 +37,26 @@ class ProgrammaticFieldWriteDomTest {
     }
 
     @Test
-    fun aPlatformPreset_clearsTheAlreadyShownUrlError_becauseTheNewValueIsValid() {
-        withMountedRoot("programmatic-stream-preset") { root, element ->
-            renderConferenceStreamDestinationsScreen(root)
-            // Leeres Formular absenden: alle vier Felder zeigen Fehler.
-            element().all("button").first { it.textContent?.trim() == "Stream-Ziel anlegen" }.click()
-            val url = element().inputLabelled("RTMP-Basis-URL")
-            assertTrue(url.classList.contains("is-invalid"), "precondition: the URL field shows its error")
+    fun aPlatformPreset_clearsTheAlreadyShownUrlError_becauseTheNewValueIsValid(): Promise<Unit> =
+        formTest {
+            mountedForm("programmatic-stream-preset") { root, element ->
+                renderConferenceStreamDestinationsScreen(root)
+                // V1.9.49: the create form sits behind the "Neues Stream-Ziel" button.
+                openCreateForm(element(), "stream-destination-create")
+                // Leeres Formular absenden: alle vier Felder zeigen Fehler.
+                element().all("button").first { it.textContent?.trim() == "Stream-Ziel anlegen" }.click()
+                val url = element().inputLabelled("RTMP-Basis-URL")
+                assertTrue(url.classList.contains("is-invalid"), "precondition: the URL field shows its error")
 
-            val select = element().all("select").first() as HTMLSelectElement
-            select.value = "YOUTUBE"
-            select.dispatchEvent(Event("change"))
+                val select = element().all("select").first() as HTMLSelectElement
+                select.value = "YOUTUBE"
+                select.dispatchEvent(Event("change"))
 
-            assertTrue(url.value.startsWith("rtmp"), "the YouTube preset must fill the URL, was '${url.value}'")
-            assertFalse(url.classList.contains("is-invalid"), "the stale error frame must be gone")
-            assertEquals("false", url.getAttribute("aria-invalid"))
+                assertTrue(url.value.startsWith("rtmp"), "the YouTube preset must fill the URL, was '${url.value}'")
+                assertFalse(url.classList.contains("is-invalid"), "the stale error frame must be gone")
+                assertEquals("false", url.getAttribute("aria-invalid"))
+            }
         }
-    }
 
     @Test
     fun lockingTheFeeFieldOnLevelOne_clearsAnAlreadyShownFeeError() {

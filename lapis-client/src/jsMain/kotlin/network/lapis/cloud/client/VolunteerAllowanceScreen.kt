@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.button
@@ -52,15 +51,24 @@ fun renderVolunteerAllowanceScreen(
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Ehrenamts- und Übungsleiterpauschalen"))
+    val header = root.pageHeader(tr("Ehrenamts- und Übungsleiterpauschalen"))
+    // The create button gets a slot of its own: it appears only after a successful load without an open draft.
+    val draftButtonSlot = header.actionSlot.div().apply { hide() }
 
     val configBanner = root.vPanel(spacing = 4)
+    val newDraftHost = root.vPanel(spacing = 10)
     val editorPanel = root.vPanel(spacing = 10)
     root.h2(tr("Meine Zahlungen")) { addCssClasses("h5 mt-3") }
     val listPanel = root.vPanel(spacing = 10)
     var declarations: DataSection? = null
 
+    var newDraftForm: CollapsibleCreateFormController<Unit>? = null
+    var loadGeneration = 0
+
     fun reload() {
+        // `reload` never touches `newDraftHost`: text typed into the open form survives a reload.
+        val generation = ++loadGeneration
+        draftButtonSlot.hide()
         declarations?.reload()
         editorPanel.removeAll()
         listPanel.removeAll()
@@ -85,8 +93,10 @@ fun renderVolunteerAllowanceScreen(
             val draft = payments.firstOrNull { it.status == VolunteerAllowancePaymentStatus.DRAFT }
             if (draft != null) {
                 renderDraftEditor(editorPanel, draft, ::reload)
-            } else {
-                renderNewDraftButton(editorPanel, ::reload)
+                // A draft exists (maybe created elsewhere meanwhile): an open create form is closed -- asking first when it was changed.
+                newDraftForm?.requestClose {}
+            } else if (generation == loadGeneration) {
+                draftButtonSlot.show()
             }
 
             listPanel.removeAll()
@@ -101,6 +111,34 @@ fun renderVolunteerAllowanceScreen(
             ordered.forEach { payment -> renderOwnPaymentCard(listPanel, payment, focusedPaymentId, currentMemberId, ::reload) }
         }
     }
+    newDraftForm =
+        collapsibleCreateForm<Unit>(
+            actionSlot = draftButtonSlot,
+            formHost = newDraftHost,
+            buttonLabel = tr("Neue Zahlung beantragen"),
+            formId = "volunteer-allowance-create",
+        ) { _, close ->
+            // V1.9.49 (R36B): creating a payment draft; it exists only while no draft is open.
+            val formPanel = vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+            renderPaymentForm(formPanel, existing = null, collapse = close) { category, amount, description, date ->
+                val result =
+                    guarded {
+                        rpcService<IVolunteerAllowanceService>().createDraft(
+                            AppState.session?.memberId.orEmpty(),
+                            VolunteerAllowancePaymentInput(
+                                category = category,
+                                amount = amount,
+                                activityDescription = description,
+                                paymentDate = date,
+                            ),
+                        )
+                    }
+                if (result != null) {
+                    close(true)
+                    reload()
+                }
+            }
+        }
     reload()
     declarations = renderVolunteerAllowanceDeclarationsCard(root)
 }
@@ -129,32 +167,6 @@ private fun renderConfigBanner(
                     "Administrator die Kontenzuordnung vervollständigt.",
             ),
         ) { addCssClasses("alert alert-warning") }
-    }
-}
-
-private fun renderNewDraftButton(
-    panel: SimplePanel,
-    onChanged: () -> Unit,
-) {
-    val button = panel.button(tr("Neue Zahlung beantragen"), style = ButtonStyle.PRIMARY)
-    button.onClick {
-        val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-        button.hide()
-        renderPaymentForm(formPanel, null) { category, amount, description, date ->
-            val result =
-                guarded {
-                    rpcService<IVolunteerAllowanceService>().createDraft(
-                        AppState.session?.memberId.orEmpty(),
-                        VolunteerAllowancePaymentInput(
-                            category = category,
-                            amount = amount,
-                            activityDescription = description,
-                            paymentDate = date,
-                        ),
-                    )
-                }
-            if (result != null) onChanged()
-        }
     }
 }
 
@@ -211,8 +223,9 @@ private fun renderDraftEditor(
 private fun renderPaymentForm(
     panel: SimplePanel,
     existing: VolunteerAllowancePaymentDto?,
+    collapse: ((Boolean) -> Unit)? = null,
     onSave: suspend (category: VolunteerAllowanceCategory, amount: Decimal, description: String, date: LocalDate) -> Unit,
-) {
+): FormSnapshot {
     val form = panel.lapisForm()
     val categoryOptions = VolunteerAllowanceCategory.entries.map { it.name to volunteerAllowanceCategoryLabel(it) }
     val categoryField =
@@ -251,8 +264,13 @@ private fun renderPaymentForm(
             hint = tr("Beispiel: 2026-03-14."),
             rule = { FormRules.isoDate(it) },
         )
-    val saveButton = Button(if (existing == null) tr("Entwurf anlegen") else tr("Speichern"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = saveButton)
+    val saveButton =
+        newActionButton(
+            if (existing == null) ActionIcon.ADD else ActionIcon.SAVE,
+            if (existing == null) tr("Entwurf anlegen") else tr("Speichern"),
+            ButtonStyle.PRIMARY,
+        )
+    form.buttons(primary = saveButton, cancel = collapse?.let { collapseCancelButton(it) })
     saveButton.onClick {
         form.submit(saveButton) {
             val category = checkNotNull(VolunteerAllowanceCategory.entries.firstOrNull { it.name == categoryField.value })
@@ -262,6 +280,7 @@ private fun renderPaymentForm(
             onSave(category, amount, description, date)
         }
     }
+    return form.snapshot()
 }
 
 /**

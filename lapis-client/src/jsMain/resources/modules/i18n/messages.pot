@@ -18707,3 +18707,43 @@ msgstr ""
 
 msgid "Für Veranstaltung:"
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:198
+msgid "Neues Angebot"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:98
+msgid "Neues Stream-Ziel"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:310
+msgid "Neuer Ordner"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:318
+msgid "Neues Dokument"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:134
+msgid "Neuer AVV-Eintrag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:227
+msgid "Neue TOM"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:311
+msgid "Neue DSFA"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:279
+msgid "Neue Mailingliste"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:116
+msgid "Neuer Reisekostenantrag"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
+msgid "Neue Mahnstufe"
+msgstr ""

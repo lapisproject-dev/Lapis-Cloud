@@ -101,14 +101,17 @@ class FormAuditMinorTest {
     // ── the lock icon is an icon, not an emoji ──────────────────────────────────────────────────────────────
 
     @Test
-    fun theStreamKeyFieldsLockIcon_isAHiddenFontAwesomeIcon_notAnEmoji() {
-        withMountedRoot("audit-lock-icon") { root, element ->
-            renderConferenceStreamDestinationsScreen(root)
-            val icon = assertNotNull(element().querySelector(".lapis-field-actions .fa-lock") as? HTMLElement, "no lock icon")
-            assertEquals("true", icon.getAttribute("aria-hidden"), "the icon carries no information a screen reader needs")
-            assertFalse(element().textContent.orEmpty().contains("🔒"), "no lock emoji in the rendered screen")
+    fun theStreamKeyFieldsLockIcon_isAHiddenFontAwesomeIcon_notAnEmoji(): Promise<Unit> =
+        test {
+            withMountedRoot("audit-lock-icon") { root, element ->
+                renderConferenceStreamDestinationsScreen(root)
+                // V1.9.49: the create form sits behind the "Neues Stream-Ziel" button.
+                openCreateForm(element(), "stream-destination-create")
+                val icon = assertNotNull(element().querySelector(".lapis-field-actions .fa-lock") as? HTMLElement, "no lock icon")
+                assertEquals("true", icon.getAttribute("aria-hidden"), "the icon carries no information a screen reader needs")
+                assertFalse(element().textContent.orEmpty().contains("🔒"), "no lock emoji in the rendered screen")
+            }
         }
-    }
 
     // ── SEPA: a stale error must not survive the loaded (valid) settings ─────────────────────────────────────
 

@@ -194,10 +194,93 @@ Not converted, with the reason:
 
 The R57 strict set now also holds the four screens and the three new builder files. R36B debt ledger: 21 -> 14 findings.
 
+== V1.9.49: remaining groups converted, debt ledger empty
+
+Client only: no migration, no server change, no new RPC, `V1__baseline.sql` untouched. Nine screens (the four groups of the ledger plus four screens the ledger
+and the scanner did not know), thirteen forms:
+
+[cols="2,3,2,3"]
+|===
+| Screen | Button | Place | `formId`
+
+| `AuctionScreen` | "Neues Angebot" | page header | `auction-listing-create`
+| `ConferenceStreamDestinationsScreen` (ADMIN) | "Neues Stream-Ziel" | page header | `stream-destination-create`
+| `DocumentsScreen` (BOARD/TREASURER/ADMIN) | "Neuer Ordner" | title row "Ordner" | `documents-folder-create`
+| `DocumentsScreen` | "Neues Dokument" | title row "Dokumente", only with an open folder | `documents-document-create`
+| `DsgvoComplianceScreen` (ADMIN) | "Neuer AVV-Eintrag" | title row of the view | `dsgvo-avv-create`
+| `DsgvoComplianceScreen` (ADMIN) | "Neue TOM" | title row of the view | `dsgvo-tom-create`
+| `DsgvoComplianceScreen` (BOARD/ADMIN) | "Neue DSFA" | title row of the view | `dsgvo-dsfa-create`
+| `DsgvoComplianceScreen` (BOARD/ADMIN) | "Datenpanne melden" | title row of the view | `dsgvo-breach-create`
+| `CommunicationScreen` (BOARD/ADMIN) | "Neue Mailingliste" | title row "Mailinglisten verwalten" | `mailing-list-create`
+| `TravelExpenseScreen` | "Neuer Reisekostenantrag" | page header, only without an open draft | `travel-expense-create`
+| `VolunteerAllowanceScreen` | "Neue Zahlung beantragen" | page header, only without an open draft | `volunteer-allowance-create`
+| `DunningSettingsScreen` (ADMIN) | "Neue Mahnstufe" | title row "Mahnstufen" | `dunning-level-create`
+| `ReceivableDunningSettingsScreen` (ADMIN) | "Neue Mahnstufe" | title row "Mahnstufen" | `receivable-dunning-level-create`
+|===
+
+*Beyond the ledger.* The mailing-list form, the travel-expense and volunteer-allowance buttons (a self-built "the button hides itself" pattern) and the two
+dunning forms (a permanently visible "Mahnstufe anlegen" under the list) were not in `R36B_NOT_YET_COLLAPSED`; the scanner did not see them. They are converted
+in this wave ("everywhere means everywhere"). The scanner now sees such cases (below).
+
+*Pattern "controller once, slot shown or hidden"* (new): for a button that depends on an asynchronous load (the document form needs an open folder with
+loaded documents; the draft forms need a load without an open draft) the button hangs in a sub-slot (`slot = header.actionSlot.div()`), the
+`collapsibleCreateForm` is created exactly ONCE at page build, and the slot is shown or hidden after the load. A generation counter drops the answer of a
+superseded load. Consequences: never a second button, no race between a late callback and the slot, and a failed load leaves the slot hidden. The form host is
+never touched by a reload, so typed text survives it. Hidden slots render no children (KVision), so the button is built when the slot is first shown.
+
+*Documents.* The form is built per opening, for the folder that is open at that moment. A folder switch goes through `requestClose`: a changed form asks first,
+"Weiter bearbeiten" stays in the folder. The visibility default of a new folder is the default of the role at every opening (the form is rebuilt, which replaces the
+old `setValue` reset). The version upload stays visible, see "Not converted".
+
+*DSGVO.* The four builders (`renderAgreementForm`, `renderTomForm`, `renderDpiaForm`, `renderBreachForm`, in `DsgvoComplianceForms.kt`) serve creating and
+editing; creating passes a Cancel and `collapse`, editing stays inline in the row (no Cancel, the row toggle is the way out). Their fingerprint is built by hand
+over EVERY input (loose widgets); `RestGroupFormsDsgvoDomTest.everyFieldIsInTheFingerprint` changes each input one by one and checks that Escape asks, and that restoring
+the value closes at once. Switching the view (the toggle row stays as it is) asks first when the form of the current view was changed.
+
+*Auction.* The LTR balance strip and the fee line (design decision D3) are the first elements of the opened form, not of the closed page. Validation and
+the confirm dialog (Tier 1) are unchanged. The server conflict for a switched-off auction keeps the form open.
+
+*Stream destinations.* After saving and after discarding, the form host is empty: no password field, no key value anywhere. A platform preset that fills the
+URL counts as a change.
+
+*Travel expenses and volunteer allowance.* The old button hid itself and never came back. The new button is part of the page header; if a draft shows up
+after a reload while the form is open, an unchanged form closes and a changed one asks first.
+
+*Convention.* A call of a shared create/edit builder that CREATES names the argument: `renderXxxForm(..., existing = null, ...)`; the scanner finds such a call
+outside a `collapsibleCreateForm`. Edit calls pass the row (`existing = row`), declarations spell `existing: T? = null` (a colon).
+
+Component and scanner:
+
+* `ActionIcon.ACCESS` (`fa-user-lock`): "Sichtbarkeit ändern".
+* Scanner additions of `ClientUiGuidelineTripwireTest`: (1) a section title written as a bold `div(tr("Neu ...")) { fw-bold }`, (2) any `render...Create...Form`
+  builder, (3) a shared builder called with `existing = null`. Every detector has a positive and a negative self-test. The run finds nothing beyond the five exempt
+  findings; `R36B_EXEMPT` still names them (the test asserts that the scanner still sees exactly those five).
+* R36B ratchet: `R36B_REMAINING_MAX = 0`, `R36B_NOT_YET_COLLAPSED` is empty.
+
+Not converted, with the reason (each is a documented exception, none is debt):
+
+* The four `R36B_EXEMPT` entries (one-time key display, conference lobby, the member's own single SEPA mandate, social post composer).
+* `renderVersionUpload` (documents): the upload is the follow-up step of "Dokument anlegen" ("danach Datei hochladen") and sits in the version panel of one
+  document. It is not a pure "no typed text" form: the optional "Änderungshinweis" is free text. The exception stands because the form is the whole purpose of that
+  panel, but it is not a "nothing to lose" form. When the document changes, the typed note is lost (older behaviour).
+* The edit modal of a stream destination (a mask with its own "Fertig" flow, no prefill into the create host) and the edit modal of a dunning level.
+* The filter rows of TOM, DSFA and the breaches, the DSGVO edit form in the row (an inline toggle, not a create form; opening an edit form in the create host would move it away from its
+  row).
+* `ArticlesScreen` "Neuer Artikel": the editor replaces the list (`listPanel.hide()`), an editing mode of its own and not an inline form.
+* The mailing-list detail ("Verwalten"): the draft form and "Mitglied hinzufügen" exist only behind an explicit click on a list. A typed draft is lost when another
+  list is chosen -- older behaviour, listed below.
+
+Later to check:
+
+* The DSGVO view toggle could become a tab list (`role=tablist`, Duarte); today it is a plain row of buttons and was left unchanged on purpose.
+* Typed text is lost silently when another list is chosen in the mailing-list detail, and when an edit form in a DSGVO row is closed through a view switch
+  (older behaviour, not part of this wave).
+
+The R57 strict set holds the nine screens (except `TravelExpenseScreen.kt`, see `action-icons.adoc`) and the new builder files. R36B debt ledger: 14 -> 0.
+
 == Not done
 
-* Groups not yet converted: documents, compliance, conference administration, economy/auction (all in
-  `R36B_NOT_YET_COLLAPSED`).
+* Groups not yet converted: none. `R36B_NOT_YET_COLLAPSED` is empty since V1.9.49; a new finding is converted or exempted with a reason.
 * "Save and add another": every save folds the form back, so entering many bookings in a row costs one click each. A candidate for its own wave.
 * `BoardMembershipScreen` (pilot) still uses `rebaseline()`; it should move to `applyProgrammatic` (same race, smaller exposure).
 * The journal form loads its accounts, cost centers, members and donors when the page is built; a newly created account appears there only after the page is reloaded (unchanged behaviour).

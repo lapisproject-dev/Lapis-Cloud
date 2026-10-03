@@ -19574,3 +19574,43 @@ msgstr "New order item"
 
 msgid "Für Veranstaltung:"
 msgstr "For event:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:198
+msgid "Neues Angebot"
+msgstr "New listing"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:98
+msgid "Neues Stream-Ziel"
+msgstr "New stream destination"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:310
+msgid "Neuer Ordner"
+msgstr "New folder"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:318
+msgid "Neues Dokument"
+msgstr "New document"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:134
+msgid "Neuer AVV-Eintrag"
+msgstr "New DPA entry"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:227
+msgid "Neue TOM"
+msgstr "New TOM"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:311
+msgid "Neue DSFA"
+msgstr "New DPIA"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommunicationScreen.kt:279
+msgid "Neue Mailingliste"
+msgstr "New mailing list"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:116
+msgid "Neuer Reisekostenantrag"
+msgstr "New travel expense request"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:221
+msgid "Neue Mahnstufe"
+msgstr "New dunning level"

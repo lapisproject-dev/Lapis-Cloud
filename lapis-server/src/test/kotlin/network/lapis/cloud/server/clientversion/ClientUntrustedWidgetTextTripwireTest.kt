@@ -412,6 +412,9 @@ private fun unsafeCellBlockTexts(text: String): List<String> {
     return findings
 }
 
+/** V1.9.49: the documents screen was split; the regression guards watch every file that now holds its code (a guard on one file alone would turn vacuously true). */
+private val DOCUMENTS_FILES = listOf("DocumentsScreen.kt", "DocumentsCreateForms.kt", "DocumentsRowActions.kt")
+
 class ClientUntrustedWidgetTextTripwireTest :
     FunSpec({
         val files = WIDGET_TEXT_SOURCES.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
@@ -493,7 +496,7 @@ class ClientUntrustedWidgetTextTripwireTest :
             findings.none { it.contains("report.purpose") } shouldBe true
             findings.none { it.contains("entry.description") } shouldBe true
             // Regression guards, round 7: the three raw link(...) findings (major finding 1) must never reappear.
-            findings.none { it.startsWith("DocumentsScreen.kt:") && it.contains("document.title") } shouldBe true
+            findings.none { DOCUMENTS_FILES.any { file -> it.startsWith("$file:") } && it.contains("document.title") } shouldBe true
             findings.none { it.contains("receipt.originalFilename") } shouldBe true
         }
 
@@ -557,7 +560,7 @@ class ClientUntrustedWidgetTextTripwireTest :
             findings.any { it.startsWith("MemberDirectCreationForm.kt:") && it.contains("it.name to it.name") } shouldBe true
             // Regression guard: DocumentsScreen.kt's exception was fixed (a labeling bug, see the KDoc above) and
             // must never reappear raw.
-            findings.none { it.startsWith("DocumentsScreen.kt:") && it.contains("it.name to it.name") } shouldBe true
+            findings.none { DOCUMENTS_FILES.any { file -> it.startsWith("$file:") } && it.contains("it.name to it.name") } shouldBe true
             // Regression guards: the round-8 findings fixed via untrustedOptions(...) must never reappear raw.
             findings.none { it.startsWith("LtrLedgerScreen.kt:") && it.contains("it.id to it.displayName") } shouldBe true
             findings.none { it.startsWith("MotionsScreen.kt:") && it.contains("it.id to it.label") } shouldBe true

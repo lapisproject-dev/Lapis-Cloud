@@ -104,8 +104,7 @@ class TravelExpenseScreenFormDomTest {
                 mountedForm("travel-expense-header-create-happy") { root, element ->
                     renderTravelExpenseScreen(root, null)
                     delay(80)
-                    element().buttonNamed("Neuen Antrag anlegen").click()
-                    delay(80)
+                    openCreateForm(element(), "travel-expense-create")
                     element().typeInto("Zweck der Reise", "  Delegiertenversammlung  ")
                     element().typeInto("Von (JJJJ-MM-TT)", "  2026-03-10  ")
                     element().typeInto("Bis (JJJJ-MM-TT)", "  2026-03-12  ")
@@ -145,8 +144,7 @@ class TravelExpenseScreenFormDomTest {
                 mountedForm("travel-expense-header-create-invalid") { root, element ->
                     renderTravelExpenseScreen(root, null)
                     delay(80)
-                    element().buttonNamed("Neuen Antrag anlegen").click()
-                    delay(80)
+                    openCreateForm(element(), "travel-expense-create")
                     element().typeInto("Zweck der Reise", "Delegiertenversammlung")
                     element().typeInto("Von (JJJJ-MM-TT)", "nicht-ein-datum")
                     element().typeInto("Bis (JJJJ-MM-TT)", "2026-03-12")

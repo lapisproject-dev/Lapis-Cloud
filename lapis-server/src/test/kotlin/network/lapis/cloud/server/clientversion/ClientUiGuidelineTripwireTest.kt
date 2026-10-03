@@ -938,9 +938,19 @@ private const val R36B = "R36B create form collapsed behind one title-row button
  * are listed in [R36B_EXEMPT] with a reason.
  */
 private val CREATE_SECTION_TITLE = Regex("""\.h[1-6]\(\s*tr\(\s*"Neu[^"]*"""")
+
+/** V1.9.49: the same title written as a bold `div` (the mailing-list form's "Neue Mailingliste anlegen" line was one). */
+private val CREATE_TITLE_DIV = Regex("""\.div\(\s*tr\(\s*"Neu[^"]*"\s*\)\s*\)\s*\{[^}]*fw-(?:bold|semibold)""")
+
+/**
+ * V1.9.49: a shared create/edit builder called for CREATING -- `renderXxxForm(..., existing = null, ...)` -- outside a collapsible create
+ * form. The convention (collapsible-forms.adoc): create calls of a shared builder name the argument `existing = null`, so this finds them.
+ * Edit calls (`existing = row`) and declarations (`existing: T? = null`, a colon) are no findings.
+ */
+private val CREATE_VIA_EXISTING_NULL = Regex("""(?<![A-Za-z0-9_])render\w*\((?:[^()]|\([^()]*\))*\bexisting\s*=\s*null""")
 private val CREATE_FORM_CALL =
     Regex(
-        """(?<![A-Za-z0-9_])render\w*(?:Creation|CreateForm|CreationForm|CreateListingForm|SubmissionForm|SubmitProjectForm|AppointmentForm|NewEntryForm|NewBatchSection|RecordReturnForm|MandateForm|UploadPanel)\w*\(""",
+        """(?<![A-Za-z0-9_])render\w*(?:Creation|CreateForm|Create\w*Form|CreationForm|CreateListingForm|SubmissionForm|SubmitProjectForm|AppointmentForm|NewEntryForm|NewBatchSection|RecordReturnForm|MandateForm|UploadPanel)\w*\(""",
     )
 private val DECLARATION_PREFIX = Regex("""\bfun\s+(?:[A-Za-z0-9_<>?]+\.)?$""")
 private val COLLAPSIBLE_CALL = Regex("""(?<![A-Za-z0-9_])collapsibleCreateForm(?:<[^>]*>)?\(""")
@@ -954,10 +964,11 @@ internal fun visibleCreateFormFindings(text: String): List<String> {
                 match.range.first until
                     match.range.last + callWithTrailingLambda(text = code, openParen = match.range.last).length
             }.toList()
-    val titles = CREATE_SECTION_TITLE.findAll(code).map { fingerprintAt(code = code, offset = it.range.first) }
+    val titles =
+        (CREATE_SECTION_TITLE.findAll(code) + CREATE_TITLE_DIV.findAll(code)).map { fingerprintAt(code = code, offset = it.range.first) }
     val calls =
-        CREATE_FORM_CALL
-            .findAll(code)
+        (CREATE_FORM_CALL.findAll(code) + CREATE_VIA_EXISTING_NULL.findAll(code))
+            .distinctBy { it.range.first }
             // `fun renderXxxCreation(` and the extension form `fun SimplePanel.renderXxxCreateForm(` (V1.9.41) are declarations, not calls
             .filter { !DECLARATION_PREFIX.containsMatchIn(code.substring(maxOf(0, it.range.first - 60), it.range.first)) }
             .filter { call -> collapsed.none { call.range.first in it } }
@@ -1009,52 +1020,12 @@ private val R36B_EXEMPT: Map<String, R36bEntry> =
             ),
     )
 
-/** Real create forms that are still always visible: the debt of the later waves, by file, with the wave that pays it. */
-private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
-    mapOf(
-        "AuctionScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neues Angebot erstellen\")) { addCssClass(\"h5\") }",
-                        "renderCreateListingForm(createPanel) {",
-                    ),
-                reason = "Group \"Wirtschaft\" (LTR economy): the listing form follows with that group.",
-            ),
-        "ConferenceStreamDestinationsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neues Stream-Ziel anlegen\")) { addCssClass(\"h5\") }",
-                        "renderDestinationCreateForm(root, ::refreshList)",
-                    ),
-                reason = "Group \"Konferenz-Verwaltung\" (conference administration).",
-            ),
-        "DocumentsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "renderDocumentCreation(creationPanel, folder, AppState.session?.role) { loadDocuments(folder) }",
-                        "renderFolderCreation(folderCreationPanel, AppState.session?.role) { refreshFolders() }",
-                    ),
-                reason = "Group \"Dokumente\" (documents).",
-            ),
-        "DsgvoComplianceScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "panel.h2(tr(\"Neuen AVV-Eintrag anlegen\")) { addCssClass(\"h5\") }",
-                        "panel.h2(tr(\"Neue TOM anlegen\")) { addCssClass(\"h5\") }",
-                        "panel.h2(tr(\"Neue DSFA anlegen\")) { addCssClass(\"h5\") }",
-                        "panel.h2(tr(\"Neue Datenpanne melden\")) { addCssClass(\"h5\") }",
-                        "renderAgreementCreationForm(panel, ::refreshList)",
-                        "renderTomCreationForm(panel, ::refreshList)",
-                        "renderDpiaCreationForm(panel, ::refreshList)",
-                        "renderBreachCreationForm(panel, ::refreshList)",
-                    ),
-                reason = "Group \"Compliance\" (data protection and legal).",
-            ),
-    )
+/**
+ * Real create forms that are still always visible: the debt of the later waves, by file, with the wave that pays it.
+ * V1.9.49: EMPTY -- the last four groups (Wirtschaft, Konferenz-Verwaltung, Dokumente, Compliance) are converted. A new finding is
+ * either converted (collapsibleCreateForm) or, with a reason, moved to [R36B_EXEMPT]; it never goes back in here.
+ */
+private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> = emptyMap()
 
 /**
  * Ratchet over the debt: the number of findings outside the converted screens. Only ever lowered (by the wave that converts a group),
@@ -1063,10 +1034,11 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
  * V1.9.45 finance: 39 -> 30 (CostCenters 2, Donors 2, Ledger 3, OpenItems 1, SepaBatches 1 paid off).
  * V1.9.47 events: 30 -> 21 (Catering 2, EventRooms 2, EventVolunteerShifts 2, Events 3 paid off).
  * V1.9.48 community: 21 -> 14 (Crm 3, Crowdfunding 2, MemberAdministration 1, RegionalChapters 1 paid off).
+ * V1.9.49 rest: 14 -> 0 (Auction 2, ConferenceStreamDestinations 2, Documents 2, DsgvoCompliance 8 paid off).
  */
-private const val R36B_REMAINING_MAX = 14
+private const val R36B_REMAINING_MAX = 0
 
-/** The governance pilot of V1.9.40, the finance group of V1.9.45 and the events group of V1.9.47: converted, so held strictly (no finding at all) and required to use the component. */
+/** The governance pilot of V1.9.40, the finance group of V1.9.45, the events group of V1.9.47, the community group of V1.9.48 and the rest of V1.9.49: converted, so held strictly (no finding at all) and required to use the component. */
 private val R36B_CONVERTED: Set<String> =
     setOf(
         "CommitteesScreen.kt",
@@ -1093,6 +1065,17 @@ private val R36B_CONVERTED: Set<String> =
         "CrowdfundingScreen.kt",
         "MemberAdministrationScreen.kt",
         "RegionalChaptersScreen.kt",
+        // V1.9.49 rest. Builder-only files (AuctionCreateListingForm.kt, DocumentsCreateForms.kt, DsgvoComplianceForms.kt,
+        // MailingListCreateForm.kt, TravelExpenseHeaderForm.kt) hold no collapsibleCreateForm call -- strict through the global equality test.
+        "AuctionScreen.kt",
+        "ConferenceStreamDestinationsScreen.kt",
+        "DocumentsScreen.kt",
+        "DsgvoComplianceScreen.kt",
+        "CommunicationScreen.kt",
+        "TravelExpenseScreen.kt",
+        "VolunteerAllowanceScreen.kt",
+        "DunningSettingsScreen.kt",
+        "ReceivableDunningSettingsScreen.kt",
     )
 
 private fun r36bActual(): Map<String, List<String>> =
@@ -1610,12 +1593,13 @@ class ClientUiGuidelineTripwireTest :
             R36B_CONVERTED.intersect((R36B_EXEMPT + R36B_NOT_YET_COLLAPSED).keys) shouldBe emptySet()
         }
 
-        test("R36B ratchet: the debt only ever goes down, and the scanner is not vacuous") {
-            val remaining = R36B_NOT_YET_COLLAPSED.values.sumOf { it.fingerprints.size }
-            withClue("remaining visible create forms: $remaining") {
-                (remaining <= R36B_REMAINING_MAX) shouldBe true
-                (remaining >= R36B_REMAINING_MAX - 3) shouldBe true
-            }
+        test("R36B ratchet (V1.9.49): the debt ledger is empty and the scanner is not vacuous") {
+            R36B_NOT_YET_COLLAPSED shouldBe emptyMap()
+            R36B_NOT_YET_COLLAPSED.values.sumOf { it.fingerprints.size } shouldBe R36B_REMAINING_MAX
+            // The scanner must still FIND the exempt findings, otherwise "no finding anywhere" would prove nothing.
+            val found = r36bActual().values.sumOf { it.size }
+            withClue("exempt findings the scanner sees: $found") { found shouldBe R36B_EXEMPT.values.sumOf { it.fingerprints.size } }
+            R36B_EXEMPT.values.sumOf { it.fingerprints.size } shouldBe 5
         }
 
         test("R36B flags a create-section title and an unwrapped create-form call, ignores a wrapped one, a declaration and comments") {
@@ -1633,6 +1617,27 @@ class ClientUiGuidelineTripwireTest :
             visibleCreateFormFindings(
                 "collapsibleCreateForm<Unit>(a) { _, c -> renderXCreation(this, c) }\nrenderXCreation(root, f)",
             ).size shouldBe 1
+        }
+
+        test("R36B (V1.9.49) also finds a bold div title, a Create...Form builder and a shared builder called with existing = null") {
+            visibleCreateFormFindings("panel.div(tr(\"Neue Mailingliste anlegen\")) { addCssClass(\"fw-bold\") }").size shouldBe 1
+            visibleCreateFormFindings("panel.div(tr(\"Neue Mailingliste anlegen\")) { addCssClass(\"fw-semibold\") }").size shouldBe 1
+            // a div without the bold class, or one that is not a "Neu..." title, is no create-form title
+            visibleCreateFormFindings("panel.div(tr(\"Neue Mailingliste anlegen\")) { addCssClass(\"text-muted\") }").size shouldBe 0
+            visibleCreateFormFindings("panel.div(tr(\"Liste verwalten\")) { addCssClasses(\"fw-bold mt-2\") }").size shouldBe 0
+            visibleCreateFormFindings("renderCreateMailingListForm(root, a) { }").size shouldBe 1
+            visibleCreateFormFindings("fun SimplePanel.renderCreateMailingListForm(\n    a: A,\n)").size shouldBe 0
+            visibleCreateFormFindings("renderDunningLevelForm(root, existing = null, onSaved = ::loadLevels)") shouldBe
+                listOf("renderDunningLevelForm(root, existing = null, onSaved = ::loadLevels)")
+            visibleCreateFormFindings("editPanel.renderTomForm(existing = tom) { editPanel.hide() }").size shouldBe 0
+            visibleCreateFormFindings("renderDunningLevelForm(modal, existing = level, modal = modal) { }").size shouldBe 0
+            val declaration = "internal fun renderDunningLevelForm(\n    root: SimplePanel,\n    existing: DunningLevelDto? = null,\n)"
+            visibleCreateFormFindings(declaration).size shouldBe 0
+            visibleCreateFormFindings(
+                "collapsibleCreateForm<Unit>(a) { _, close -> vPanel().renderTomForm(existing = null, collapse = close, onSaved = ::r) }",
+            ).size shouldBe 0
+            visibleCreateFormFindings("// renderTomForm(existing = null)").size shouldBe 0
+            visibleCreateFormFindings("renderTomForm(existing = null)\nrenderTomForm(existing = null)").size shouldBe 2
         }
 
         test("R36B (V1.9.45) also knows the finance builders: new-entry, new-batch, record-return, mandate and upload form") {
@@ -1667,6 +1672,15 @@ class ClientUiGuidelineTripwireTest :
                     "CrowdfundingScreen.kt",
                     "MemberAdministrationScreen.kt",
                     "RegionalChaptersScreen.kt",
+                    "AuctionScreen.kt",
+                    "ConferenceStreamDestinationsScreen.kt",
+                    "DocumentsScreen.kt",
+                    "DsgvoComplianceScreen.kt",
+                    "CommunicationScreen.kt",
+                    "TravelExpenseScreen.kt",
+                    "VolunteerAllowanceScreen.kt",
+                    "DunningSettingsScreen.kt",
+                    "ReceivableDunningSettingsScreen.kt",
                 )
             financeFiles.forEach { name ->
                 val code = codeOnly(byName.getValue(name).readText())
@@ -1676,7 +1690,7 @@ class ClientUiGuidelineTripwireTest :
                     withClue("$name: ${call.take(120)}") {
                         (
                             Regex(
-                                """actionSlot\s*=\s*(?:header\.actionSlot|entrySlot|accountSlot|distributionSlot|titleSlot)""",
+                                """actionSlot\s*=\s*(?:header\.actionSlot|entrySlot|accountSlot|distributionSlot|titleSlot|folderSlot|documentButtonSlot|draftButtonSlot)""",
                             ).containsMatchIn(call)
                         ) shouldBe
                             true

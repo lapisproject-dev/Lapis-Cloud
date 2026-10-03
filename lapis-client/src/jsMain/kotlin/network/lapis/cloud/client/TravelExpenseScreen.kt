@@ -4,7 +4,6 @@ import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.form.upload.upload
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -19,7 +18,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
@@ -57,14 +55,23 @@ fun renderTravelExpenseScreen(
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Reisekosten"))
+    val header = root.pageHeader(tr("Reisekosten"))
+    // The create button gets a slot of its own: it appears only after a successful load without an open draft.
+    val draftButtonSlot = header.actionSlot.div().apply { hide() }
 
     val ratesBanner = root.vPanel(spacing = 4)
+    val newDraftHost = root.vPanel(spacing = 10)
     val editorPanel = root.vPanel(spacing = 10)
     root.h2(tr("Meine Anträge")) { addCssClasses("h5 mt-3") }
     val listPanel = root.vPanel(spacing = 10)
 
+    var newDraftForm: CollapsibleCreateFormController<Unit>? = null
+    var loadGeneration = 0
+
     fun reload() {
+        // `reload` never touches `newDraftHost`: text typed into the open form survives a reload (withdraw, copy as draft ...).
+        val generation = ++loadGeneration
+        draftButtonSlot.hide()
         editorPanel.removeAll()
         listPanel.removeAll()
         AppScope.launch {
@@ -88,8 +95,10 @@ fun renderTravelExpenseScreen(
             val draft = reports.firstOrNull { it.status == TravelExpenseReportStatus.DRAFT }
             if (draft != null) {
                 renderDraftEditor(editorPanel, draft, rates, ::reload)
-            } else {
-                renderNewDraftButton(editorPanel, ::reload)
+                // A draft exists (maybe created elsewhere meanwhile): an open create form is closed -- asking first when it was changed.
+                newDraftForm?.requestClose {}
+            } else if (generation == loadGeneration) {
+                draftButtonSlot.show()
             }
 
             listPanel.removeAll()
@@ -100,6 +109,29 @@ fun renderTravelExpenseScreen(
             ordered.forEach { report -> renderOwnReportCard(listPanel, report, focusedReportId, hasOpenDraft = draft != null, ::reload) }
         }
     }
+    newDraftForm =
+        collapsibleCreateForm<Unit>(
+            actionSlot = draftButtonSlot,
+            formHost = newDraftHost,
+            buttonLabel = tr("Neuer Reisekostenantrag"),
+            formId = "travel-expense-create",
+        ) { _, close ->
+            // V1.9.49 (R36B): creating a draft; it exists only while no draft is open (one draft at a time).
+            val formPanel = vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+            renderReportHeaderForm(formPanel, existing = null, collapse = close) { purpose, from, to ->
+                val result =
+                    guarded {
+                        rpcService<ITravelExpenseService>().createDraft(
+                            AppState.session?.memberId.orEmpty(),
+                            TravelExpenseReportInput(purpose = purpose, travelFrom = from, travelTo = to),
+                        )
+                    }
+                if (result != null) {
+                    close(true)
+                    reload()
+                }
+            }
+        }
     reload()
 }
 
@@ -129,79 +161,6 @@ private fun renderRatesBanner(
             ),
         ) {
             addCssClasses("alert alert-warning")
-        }
-    }
-}
-
-private fun renderNewDraftButton(
-    panel: SimplePanel,
-    onChanged: () -> Unit,
-) {
-    val button = panel.button(tr("Neuen Antrag anlegen"), style = ButtonStyle.PRIMARY)
-    button.onClick {
-        val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
-        button.hide()
-        renderReportHeaderForm(formPanel, null) { purpose, from, to ->
-            val result =
-                guarded {
-                    rpcService<ITravelExpenseService>().createDraft(
-                        AppState.session?.memberId.orEmpty(),
-                        TravelExpenseReportInput(purpose = purpose, travelFrom = from, travelTo = to),
-                    )
-                }
-            if (result != null) onChanged()
-        }
-    }
-}
-
-// R24 (W4d): migrated to the form grammar -- Zweck (required text), Von/Bis (required date text, cross-field rule).
-private fun renderReportHeaderForm(
-    panel: SimplePanel,
-    existing: TravelExpenseReportDto?,
-    onSave: suspend (purpose: String, travelFrom: LocalDate, travelTo: LocalDate) -> Unit,
-) {
-    val form = panel.lapisForm()
-    val purposeField =
-        form.textField(
-            label = tr("Zweck der Reise"),
-            value = existing?.purpose,
-            required = true,
-            rule = { FormRules.maxLength(it, TravelExpenseAmountRules.MAX_PURPOSE_LENGTH) },
-        )
-    val fromField =
-        form.textField(
-            label = tr("Von (JJJJ-MM-TT)"),
-            value = existing?.travelFrom?.toString(),
-            required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
-        )
-    val toField =
-        form.textField(
-            label = tr("Bis (JJJJ-MM-TT)"),
-            value = existing?.travelTo?.toString(),
-            required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
-        )
-    // Das Bis-Datum darf nicht vor dem Von-Datum liegen -- am Bis-Feld gezeigt, geprüft sobald beide echte Daten sind.
-    form.crossFieldRule(field = toField) {
-        val from = runCatching { LocalDate.parse(fromField.value.trim()) }.getOrNull()
-        val to = runCatching { LocalDate.parse(toField.value.trim()) }.getOrNull()
-        if (from != null && to != null && to < from) {
-            FieldCheck.Invalid(gettext("Das Bis-Datum darf nicht vor dem Von-Datum liegen."))
-        } else {
-            FieldCheck.Ok
-        }
-    }
-    val saveButton = Button(if (existing == null) tr("Entwurf anlegen") else tr("Entwurf speichern"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = saveButton)
-    saveButton.onClick {
-        form.submit(saveButton) {
-            val purpose = purposeField.value.trim()
-            val from = LocalDate.parse(fromField.value.trim())
-            val to = LocalDate.parse(toField.value.trim())
-            onSave(purpose, from, to)
         }
     }
 }

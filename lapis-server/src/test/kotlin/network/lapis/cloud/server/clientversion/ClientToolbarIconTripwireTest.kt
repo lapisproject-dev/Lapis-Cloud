@@ -71,6 +71,28 @@ private val R57_STRICT_FILES =
         "MemberDirectCreationForm.kt",
         "RegionalChaptersScreen.kt",
         "RegionalChapterCreateForm.kt",
+        // V1.9.49: the rest groups (Wirtschaft, Konferenz-Verwaltung, Dokumente, Compliance, Kommunikation, Reisekosten/Ehrenamtspauschale,
+        // Mahnstufen) -- create buttons use ADD/CANCEL, saves SAVE, deactivate REVOKE, "Sichtbarkeit ändern" ACCESS.
+        "AuctionScreen.kt",
+        "AuctionCreateListingForm.kt",
+        "AuctionCard.kt",
+        "ConferenceStreamDestinationsScreen.kt",
+        "DocumentsScreen.kt",
+        "DocumentsCreateForms.kt",
+        "DocumentsRowActions.kt",
+        "DsgvoComplianceScreen.kt",
+        "DsgvoComplianceForms.kt",
+        "DsgvoComplianceLabels.kt",
+        "CommunicationScreen.kt",
+        "MailingListCreateForm.kt",
+        "MailingListRows.kt",
+        // TravelExpenseScreen.kt is NOT strict: its three "<Zeilenart> hinzufügen" buttons carry the line-kind icon (car, calendar, receipt) --
+        // a domain icon that tells the three buttons apart, so ADD would make them identical (action-icons.adoc). Its create/save buttons
+        // already use ADD/SAVE, and TravelExpenseHeaderForm.kt (the form builder) is held strictly.
+        "TravelExpenseHeaderForm.kt",
+        "VolunteerAllowanceScreen.kt",
+        "DunningSettingsScreen.kt",
+        "ReceivableDunningSettingsScreen.kt",
     )
 
 private const val TABLE_VERBS = "anlegen|hinzufügen|speichern|bearbeiten|stornieren|widerrufen|deaktivieren|duplizieren"
@@ -147,12 +169,12 @@ private val R57_PLAIN_STANDARD_BUTTON_LEDGER: Map<String, Int> =
  * `ActionIcon` entry; `action-icons.adoc` lists exactly these two as "domain icons that stay as strings".
  * V1.9.48: the six of MemberAdministrationScreen (receipt, medal, id card, image, comment-slash, key) are no longer debt but a reasoned list
  * in `action-icons.adoc` (each would be misread with a standard icon in a row of icon-only buttons).
+ * V1.9.49: the two of DocumentsScreen ("Sichtbarkeit ändern", fa-user-lock) are paid off: `ActionIcon.ACCESS`.
  */
 private val R57_STRING_TABLE_ACTION_LEDGER: Map<String, Int> =
     mapOf(
         "BankAccountsScreen.kt" to 1,
         "DataScreenLayout.kt" to 1,
-        "DocumentsScreen.kt" to 2,
         "KeycloakLinkScreen.kt" to 2,
         "MemberAddressAdminDialog.kt" to 1,
         "MemberAdministrationScreen.kt" to 6,
@@ -226,6 +248,7 @@ class ClientToolbarIconTripwireTest :
             plainStandardButtons("row.button(tr(\"Bearbeiten und freigeben\"))") shouldBe 0
             stringTableActionButtons("a.tableActionButton(\"fas fa-star\", tr(\"X\"))") shouldBe 1
             stringTableActionButtons("a.tableActionButton(ActionIcon.EDIT, tr(\"X\"))") shouldBe 0
+            stringTableActionButtons("a.tableActionButton(ActionIcon.ACCESS, tr(\"X\"))") shouldBe 0
         }
 
         test("R57 detector (finance): a plain button for a table verb is found, an actionButton or an unmapped verb is not") {

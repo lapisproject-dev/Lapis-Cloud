@@ -98,6 +98,31 @@ project, one chapter, one member with a title typed as `###KvI18nS###Test` throu
 . A name with a catalog marker is shown as text everywhere above, not translated or hidden. At 375 px the title rows and open forms do not scroll
   horizontally. Switch to English: "Interaktion erfassen" ("Record interaction") and all other buttons are translated.
 
+== Rest groups (V1.9.49) -- additional steps, not executed
+
+Nothing was deployed by the author of the wave; every result is open. Accounts: ADMIN, BOARD, TREASURER and a plain MEMBER. Data: two folders with documents, one
+auction, one stream destination, one travel-expense request, a name with a catalog marker (`###KvI18nS###Test`) in a folder, a listing and a processor.
+
+. "Auktion" as MEMBER: the form is collapsed, "Neues Angebot" is in the header; the fee line and the LTR balance are not on the closed page. Open it: the balance
+  strip and the fee line are the first elements. Escape without typing closes at once; type a title and press Escape: the dialog appears. Submit a listing: the
+  confirm dialog, then the form folds back and the list reloads. With the auction switched off, submit: a conflict toast, the form stays open.
+. "Stream-Ziele" as ADMIN: "Neues Stream-Ziel" in the header. Type a key, press "Abbrechen", "Verwerfen": the form is gone and no key field is left (inspect the
+  DOM). Choose a platform with a preset URL and press Escape: the dialog appears (a preset counts as a change). "Deaktivieren" shows an icon, "Aktivieren" does not.
+. "Dokumentenablage" as BOARD: "Neuer Ordner" in the title row "Ordner" at once; "Neues Dokument" only after a folder is open and its documents are loaded. Type a
+  title, click another folder: the dialog appears; "Weiter bearbeiten" stays, "Verwerfen" switches. Click two folders quickly, make the first slow (throttle) and the
+  second fail: no button for the failed folder. "Sichtbarkeit ändern" shows the access icon in both rows. As MEMBER: no button.
+. "DSGVO-Compliance" as ADMIN: each of the four views has its button in its title row. Type in one field of each form and press Escape: the dialog appears (try the
+  last field of each form). Type in the AVV form and click "TOM": the dialog appears; "Weiter bearbeiten" stays in AVV. As BOARD: only "Neue DSFA" and "Datenpanne
+  melden" exist. Edit a row: the inline form, no cancel button.
+. "Kommunikation" as BOARD: "Neue Mailingliste" in the title row "Mailinglisten verwalten". Save: the new list is selected in the manage selector. As MEMBER:
+  no admin section. The list detail ("Verwalten") is unchanged.
+. "Reisekosten" and "Ehrenamtspauschalen" as MEMBER: with no draft one button in the header; with a draft none. Type in the form, withdraw a request in the list:
+  the text survives the reload; if the withdrawal produces a draft, the dialog appears for a changed form.
+. "Mahnwesen-Konfiguration" and "Forderungs-Mahnstufen" as ADMIN: "Neue Mahnstufe" in the title row "Mahnstufen"; "Mahnwesen deaktivieren" shows an icon, the
+  edit modal of a level is unchanged.
+. A name with a catalog marker is shown as text, not translated or hidden. At 375 px the title rows and open forms do not scroll horizontally. Switch to English: the
+  ten new buttons are translated.
+
 == Actual results
 
 (to be filled in when the plan is run)

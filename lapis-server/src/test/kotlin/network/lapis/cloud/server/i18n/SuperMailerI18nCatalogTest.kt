@@ -21,7 +21,15 @@ class SuperMailerI18nCatalogTest :
             File("../lapis-client/src/jsMain/resources/modules/i18n")
                 .let { if (it.exists()) it else File("lapis-client/src/jsMain/resources/modules/i18n") }
 
-        val waveSourceFiles = listOf("MailingHtmlEditor.kt", "CommunicationScreen.kt", "RichTextCommands.kt", "MailingHtmlNormalizer.kt")
+        val waveSourceFiles =
+            listOf(
+                "MailingHtmlEditor.kt",
+                "CommunicationScreen.kt",
+                "MailingListCreateForm.kt", // V1.9.49: moved out of CommunicationScreen.kt
+                "MailingListRows.kt", // V1.9.49: moved out of CommunicationScreen.kt
+                "RichTextCommands.kt",
+                "MailingHtmlNormalizer.kt",
+            )
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")
 

@@ -34,7 +34,7 @@ private val CALL = Regex("""\b($PLAIN_FAMILY|$SYSTEM_FAMILY)\s*(?:<[^>]*>)?\s*\(
 private val AMBIGUOUS_DECISIONS: Map<String, String> =
     mapOf(
         // AuctionDto.endsAt = now + duration, stamped by the server (A); Event/EventVolunteerShift endsAt are typed in (B).
-        "AuctionScreen.kt:endsAt" to "A",
+        "AuctionCard.kt:endsAt" to "A",
         // CrmInteractionDto.occurredAt is typed in (B); every other DTO's occurredAt is a server stamp (A).
         "CrmContactsScreen.kt:occurredAt" to "B",
         "AuditLogScreen.kt:occurredAt" to "A",
@@ -230,7 +230,7 @@ class ClientSystemTimestampTripwireTest :
         }
 
         test("CS5 (self-test): an ambiguous name is decided by the file ledger; without a decision it is not guessed") {
-            val file = File("AuctionScreen.kt")
+            val file = File("AuctionCard.kt")
             scan(
                 file = file,
                 text = "formatDateTime(auction.endsAt)",
@@ -238,7 +238,7 @@ class ClientSystemTimestampTripwireTest :
                 classB = emptySet(),
                 ambiguous = setOf("endsAt"),
             ) shouldBe
-                listOf(Finding(file = "AuctionScreen.kt", family = "formatDateTime", field = "endsAt"))
+                listOf(Finding(file = "AuctionCard.kt", family = "formatDateTime", field = "endsAt"))
             scan(
                 file = File("Other.kt"),
                 text = "formatDateTime(auction.endsAt)",
