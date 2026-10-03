@@ -122,7 +122,8 @@ class PollPersonalDataTest :
                 val text = participant.toString().lowercase()
                 text shouldNotContain "optionid"
                 text shouldNotContain "weight"
-                text shouldNotContain "777"
+                // The minted balance is "777.00"; a bare "777" also matches random digits inside UUIDs (flaky in CI).
+                text shouldNotContain "777.00"
             }
         }
 
