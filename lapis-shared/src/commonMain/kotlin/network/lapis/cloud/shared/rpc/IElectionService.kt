@@ -140,10 +140,10 @@ interface IElectionService {
     ): List<ElectionDto>
 
     /**
-     * Transparency read of every ballot cast so far. For a [network.lapis.cloud.shared.domain
-     * .ElectionDto.secret] Election, `memberId`/`memberDisplayName` are always `null` in the returned
-     * [ElectionBallotDto], and `selectedOptionLabels` is empty until the Election reaches
-     * [ElectionStatus.TALLIED] -- see that DTO's KDoc.
+     * Transparency read of the ballots of an OPEN-ballot (non-secret) election, named.
+     * **Always empty for a secret election** -- in every status, at any participation, for every role.
+     * The result of a secret election is available via [getElectionResult]; each voter can check their
+     * own ballot via [verifyReceipt].
      */
     suspend fun listElectionBallots(electionId: String): List<ElectionBallotDto>
 

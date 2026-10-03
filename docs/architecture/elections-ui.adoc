@@ -144,14 +144,14 @@ The receipt code is 20 random bytes as unpadded Base64url: exactly 27 characters
 
 == Secrecy rules of the displays
 
-* A secret election's ballot table shows the selection and nothing else -- no id, no time, no name. The DTO is reduced to a
-  private row type *before* it is rendered, so the id and the cast time never reach a table state or a sort key, and a hostile
-  server cannot make a name appear.
+* V1.9.46: a secret election shows *no single ballots* in any status. The ballot section shows the heading "Stimmzettel", the count
+  ("Es wurden keine Stimmzettel abgegeben." / "1 Stimmzettel abgegeben." / "n Stimmzettel abgegeben.") and one normal paragraph: "Aus Gründen des
+  Wahlgeheimnisses werden bei geheimen Wahlen keine einzelnen Stimmzettel angezeigt; Sie können mit Ihrer Quittung prüfen, dass Ihre Stimme gezählt
+  wurde." The receipt check ("Quittung prüfen") follows directly. The client does not even call `listElectionBallots` for a secret election
+  (`electionBallotsListable`); the server returns `[]` anyway. The open-ballot election keeps its named table (name, selection, time) from `TALLIED`.
 * `castAt` of a secret ballot is the one constant `votingOpenedAt` of its election (V1.9.23). It carries no time and no order, so
-  it cannot be joined with the participation row's full-precision `voted_at`, and the booth never shows a time. Before V1.9.23 this was coarsened to the day, which still leaked the day and, with a stable ballot list, the order.
-* `listElectionBallots` returns *nothing* for a secret election before `TALLIED` (the number is in `ballotCount`), and afterwards
-  ballots with a blank id in a canonical order. A poll of stable ballot ids would have shown exactly when a voter's ballot appeared.
-* Before the tally only the number of ballots is shown. Option vote counts stay `0` until `TALLIED` (server rule).
+  it cannot be joined with the participation row's full-precision `voted_at`, and the booth never shows a time.
+* Before the tally only the number of ballots is shown for an open-ballot election. Option vote counts stay `0` until `TALLIED` (server rule).
 
 == Required majority (V1.9.23)
 
@@ -172,3 +172,16 @@ aktualisiert."), never the server's message, and reloads the motion or the elect
 
 * Who approved the tally is not visible by name, only the count.
 * The meritocratic-vote and systemic-consensus screens still use the generic conflict toast; they do not reload on a conflict.
+
+== Staging test plan: elections (V1.9.46)
+
+*Not executed*: the wave had no access to the staging instance.
+
+. Create secret elections with 1, 2 and 5 ballots (YES_NO and one people election).
+. As a plain member, as BOARD/ADMIN and as a member of the election board open each one before and after `TALLIED`.
+. Expected everywhere: heading "Stimmzettel", the count line, the sentence about the ballot secrecy, *no table*, and in the browser network tab *no*
+  `listElectionBallots` request. "Quittung prüfen" directly below.
+. Call `listElectionBallots` by hand (devtools RPC or a test client) for each of them: `[]`.
+. Enter a receipt code after `TALLIED`: the check still works (found, option label), the result counts are unchanged.
+. An open-ballot election after `TALLIED` shows its named table as before.
+. The conference room panel with a secret election: no option label of the own choice, no ballot table, no receipt code outside the booth.

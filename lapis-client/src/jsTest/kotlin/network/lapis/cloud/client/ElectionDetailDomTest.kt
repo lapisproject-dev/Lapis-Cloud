@@ -517,30 +517,66 @@ class ElectionDetailDomTest {
         castAt = secretCastAt,
     )
 
+    private val secrecySentence =
+        "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen keine einzelnen Stimmzettel angezeigt; " +
+            "Sie können mit Ihrer Quittung prüfen, dass Ihre Stimme gezählt wurde."
+
     @Test
-    fun aSecretElectionsBallotTable_showsOnlyTheSelection_noIdNoTimeNoName_evenIfTheServerSentThem(): Promise<Unit> =
+    fun aSecretElection_neverShowsSingleBallots_neverCallsTheListRoute_andPointsToTheReceipt(): Promise<Unit> =
         formTest {
-            val world =
-                ElectionWorld(
-                    election(type = ElectionType.YES_NO, status = ElectionStatus.TALLIED, secret = true),
-                    participation(boardSize = 3),
-                    ballots =
-                        listOf(
-                            ballot("ballot-secret-id-1", listOf("YES"), memberName = "Heimlich Waehler"),
-                            ballot("ballot-secret-id-2", listOf("NO")),
-                        ),
-                    result = ElectionResultDto("e1", listOf("o-yes"), false, true, mapOf("o-yes" to 1, "o-no" to 1, "o-abstain" to 0)),
-                )
-            withDetail(world, member, "el-secret-ballots") { el, _, _ ->
-                val html = el.innerHTML
-                assertFalse(html.contains("ballot-secret-id"), "no ballot id in the DOM")
-                val castTime = formatDateTime(secretCastAt).replace(Regex("\\s+"), " ")
-                assertTrue(castTime.isNotBlank())
-                assertFalse(el.flatText().contains(castTime), "no cast time for a secret ballot")
-                assertFalse(el.flatText().contains("Heimlich"), "no name for a secret ballot, even if the server sent one")
-                assertTrue(el.flatText().contains("Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."))
-                // both selections are listed (the table is a card list on a narrow viewport, so no assertion on <th>)
-                assertTrue(el.flatText().contains("Ja") && el.flatText().contains("Nein"))
+            val cases =
+                listOf(ElectionStatus.OPEN, ElectionStatus.CLOSED, ElectionStatus.TALLIED).flatMap { status ->
+                    listOf(0, 1, 5).map { status to it }
+                }
+            cases.forEach { (status, count) ->
+                val world =
+                    ElectionWorld(
+                        election(type = ElectionType.YES_NO, status = status, secret = true),
+                        participation(boardSize = 3, ballotCount = count, eligible = false),
+                        // the server would never send these; the client must not even ask, and must not show them if it did
+                        ballots =
+                            listOf(
+                                ballot("ballot-secret-id-1", listOf("YES"), memberName = "Heimlich Waehler"),
+                                ballot("ballot-secret-id-2", listOf("NO")),
+                            ),
+                        result =
+                            if (status == ElectionStatus.TALLIED) {
+                                ElectionResultDto("e1", listOf("o-yes"), false, true, mapOf("o-yes" to 1, "o-no" to 1, "o-abstain" to 0))
+                            } else {
+                                null
+                            },
+                    )
+                withDetail(world, member, "el-secret-ballots-$status-$count") { el, calls, routes ->
+                    val listCalls = calls.toRoute(routes.listBallots).size
+                    assertEquals(0, listCalls, "no listElectionBallots request for a secret election ($status)")
+                    val text = el.flatText()
+                    assertFalse(el.innerHTML.contains("ballot-secret-id"), "no ballot id in the DOM")
+                    assertFalse(text.contains(formatDateTime(secretCastAt).replace(Regex("\\s+"), " ")), "no cast time")
+                    assertFalse(text.contains("Heimlich"), "no name")
+                    assertFalse(text.contains("Bei einer geheimen Wahl werden die Stimmzettel"), "the old table hint is gone")
+                    assertTrue(text.contains("Stimmzettel"), "heading")
+                    val countLine =
+                        when (count) {
+                            0 -> "Es wurden keine Stimmzettel abgegeben."
+                            1 -> "1 Stimmzettel abgegeben."
+                            else -> "$count Stimmzettel abgegeben."
+                        }
+                    assertTrue(text.contains(countLine), "count line '$countLine' ($status): $text")
+                    val sentenceParagraph = el.allOf("p").firstOrNull { it.flatText().trim() == secrecySentence }
+                    val sentence = assertNotNull(sentenceParagraph, "the explanatory sentence")
+                    assertFalse(sentence.className.contains("text-muted"), "a normal paragraph")
+                    assertFalse(sentence.className.contains("small"), "a normal paragraph")
+                    assertTrue(text.indexOf(secrecySentence) < text.indexOf("Quittung prüfen"), "the receipt check follows the sentence")
+                    assertEquals(
+                        0,
+                        el.allOf("h2").filter { it.flatText().contains("Stimmzettel") }.sumOf { h ->
+                            generateSequence(h.nextElementSibling) { it.nextElementSibling }
+                                .takeWhile { it.tagName != "H2" }
+                                .count { it.matches("table, .lapis-card-list") || it.querySelector("table, .lapis-card-list") != null }
+                        },
+                        "no table in the ballot section",
+                    )
+                }
             }
         }
 

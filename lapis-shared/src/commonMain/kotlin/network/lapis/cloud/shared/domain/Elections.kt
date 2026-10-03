@@ -156,38 +156,23 @@ data class ElectionBallotInput(
 data class ElectionBallotCastResultDto(
     /** Blank for a secret election (V1.9.23): a ballot id would make the later ballot list linkable to the voter. */
     val id: String,
-    /** For a secret election the constant `votingOpenedAt` (V1.9.23), without any meaning as a time. */
     val castAt: LocalDateTime,
     val receiptCode: String?,
 )
 
 /**
- * Transparency read of ballots cast so far. For a [ElectionDto.secret] Election, [memberId]/
- * [memberDisplayName] are always `null` -- there is no member FK on the ballot row to begin with
- * in that case (see `network.lapis.cloud.server.db.tables.ElectionTables` KDoc), so this is a direct
- * reflection of the storage shape, not a filtered projection.
- *
- * [selectedOptionLabels] is `emptyList()` for a [ElectionDto.secret] Election until it reaches
- * [ElectionStatus.TALLIED] -- same pre-tally-secrecy invariant as [ElectionOptionDto.voteCount] (held
- * at `0` until the tally runs) and [ReceiptVerificationDto.optionLabel] (`null` until the tally
- * runs). Without this gate, anyone could enumerate every anonymized ballot's plaintext choice
- * while voting is still open and tally a running result themselves. Non-secret Electionen always
- * reveal the labels, since the ballot's `memberId` is already visible in the clear.
- *
- * V1.9.23: a secret election returns NO ballots at all before it is [ElectionStatus.TALLIED] (the count
- * is in `ElectionParticipationDto.ballotCount`), because a polled list of stable ballot ids would show
- * exactly when a voter's ballot appeared. After the tally the ballots come back with a blank [id] in a
- * canonical order (by chosen options), independent of the order in which they were cast.
+ * Transparency read of the ballots of an open-ballot (non-secret) election: named, with the chosen option
+ * labels. V1.9.46: never produced for a [ElectionDto.secret] election -- a secret election delivers no
+ * single ballots at all (the fields stay nullable for serialization compatibility). The count is in
+ * `ElectionParticipationDto.ballotCount`, the result in [ElectionResultDto].
  */
 @Serializable
 data class ElectionBallotDto(
-    /** Blank for a secret election (V1.9.23). */
     val id: String,
     val electionId: String,
     val memberId: String?,
     val memberDisplayName: String?,
     val selectedOptionLabels: List<String>,
-    /** For a secret election the constant `votingOpenedAt` (V1.9.23), without any meaning as a time. */
     val castAt: LocalDateTime,
 )
 

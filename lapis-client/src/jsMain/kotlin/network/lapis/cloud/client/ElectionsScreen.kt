@@ -166,7 +166,7 @@ private suspend fun loadElectionDetail(electionId: String): ElectionDetailData? 
             emptyList()
         }
     val ballots =
-        if (election.status == ElectionStatus.TALLIED) guarded { elections.listElectionBallots(electionId) } ?: emptyList() else emptyList()
+        if (electionBallotsListable(election)) guarded { elections.listElectionBallots(electionId) } ?: emptyList() else emptyList()
     val result = if (election.status == ElectionStatus.TALLIED) guarded { elections.getElectionResult(electionId) } else null
     return ElectionDetailData(
         election = election,

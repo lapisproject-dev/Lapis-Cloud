@@ -556,33 +556,42 @@ abstract class ElectionIntegrityScenarios(
                 client.get("/test/list-ballots/$electionId") { header("X-Member-Id", f.chair.toString()) }.bodyAsText() shouldBe ""
                 client.post("/test/close-voting/$electionId") { header("X-Member-Id", f.board[0].toString()) }
                 client.get("/test/list-ballots/$electionId") { header("X-Member-Id", f.chair.toString()) }.bodyAsText() shouldBe ""
+                // V1.9.46: and also after TALLIED
+                client.post("/test/release-tally/$electionId") { header("X-Member-Id", f.board[0].toString()) }
+                client.post("/test/release-tally/$electionId") { header("X-Member-Id", f.board[1].toString()) }
+                client.post("/test/tally/$electionId") { header("X-Member-Id", f.board[0].toString()) }.status shouldBe HttpStatusCode.OK
+                client.get("/test/list-ballots/$electionId") { header("X-Member-Id", f.chair.toString()) }.bodyAsText() shouldBe ""
             }
         }
 
-        test("secret election after TALLIED: ballot ids are blank and the order is canonical, not insertion order") {
+        test("secret election after TALLIED: the ballot list is empty; result counts and receipt verification still work") {
             withApp {
                 val f = fixture("secrecy-tallied")
                 val electionId = client.openElection(f, "secret=true")
                 client.appointBoard(f, electionId)
                 client.post("/test/open-voting/$electionId") { header("X-Member-Id", f.board[0].toString()) }
-                // voters[0] votes NO first, voters[1] votes YES second: insertion order is NO, YES.
-                client.post("/test/cast-election-ballot/$electionId?answer=NO") { header("X-Member-Id", f.voters[0].toString()) }
+                val receipt =
+                    client
+                        .post("/test/cast-election-ballot/$electionId?answer=NO") { header("X-Member-Id", f.voters[0].toString()) }
+                        .bodyAsText()
                 client.post("/test/cast-election-ballot/$electionId?answer=YES") { header("X-Member-Id", f.voters[1].toString()) }
                 client.post("/test/close-voting/$electionId") { header("X-Member-Id", f.board[0].toString()) }
                 client.post("/test/release-tally/$electionId") { header("X-Member-Id", f.board[0].toString()) }
                 client.post("/test/release-tally/$electionId") { header("X-Member-Id", f.board[1].toString()) }
                 client.post("/test/tally/$electionId") { header("X-Member-Id", f.board[0].toString()) }.status shouldBe HttpStatusCode.OK
-                val rows =
-                    client
-                        .get(
-                            "/test/list-ballots/$electionId",
-                        ) { header("X-Member-Id", f.chair.toString()) }
-                        .bodyAsText()
-                        .split(";")
-                rows.size shouldBe 2
-                rows.forEach { it.substringBefore(":") shouldBe "" }
-                // Canonical order follows the option positions (YES, NO, ABSTAIN), independent of who voted first.
-                rows.map { it.substringAfter(":") } shouldBe listOf("YES", "NO")
+                client
+                    .get("/test/list-ballots/$electionId") { header("X-Member-Id", f.chair.toString()) }
+                    .bodyAsText() shouldBe ""
+                // the aggregate result is unchanged: two ballots counted (1 YES, 1 NO, 0 ABSTAIN)
+                client
+                    .get("/test/election-result/$electionId") { header("X-Member-Id", f.chair.toString()) }
+                    .bodyAsText()
+                    .substringAfterLast(":") shouldBe "0|1|1"
+                // and the voter can still check their own ballot with the receipt
+                val code = receipt.substringAfterLast(":").trim()
+                client
+                    .get("/test/verify-receipt/$electionId?receiptCode=$code") { header("X-Member-Id", f.voters[0].toString()) }
+                    .bodyAsText() shouldBe "true:NO"
             }
         }
 
@@ -1127,6 +1136,22 @@ private fun Route.registerIntegrityTestRoutes() {
         val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val list = service.listElectionBallots(call.parameters["electionId"]!!)
         call.respondText(list.joinToString(";") { "${it.id}:${it.selectedOptionLabels.joinToString("|")}" })
+    }
+    get("/test/election-result/{electionId}") {
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val e = service.getElectionResult(call.parameters["electionId"]!!)
+        call.respondText(
+            "${e.winnerOptionIds.joinToString(",")}:${e.tie}:${e.majorityMet ?: ""}:${e.perOptionVotes.values.sorted().joinToString("|")}",
+        )
+    }
+    get("/test/verify-receipt/{electionId}") {
+        val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val r =
+            service.verifyReceipt(
+                electionId = call.parameters["electionId"]!!,
+                receiptCode = call.request.queryParameters["receiptCode"]!!,
+            )
+        call.respondText("${r.found}:${r.optionLabel ?: ""}")
     }
     post("/test/open-vote/{motionId}") {
         val service = GovernanceService(call = call)

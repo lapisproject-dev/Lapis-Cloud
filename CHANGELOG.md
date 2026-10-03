@@ -6,8 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`listElectionBallots` is always empty for a secret election** (V1.9.46) -- in every status, at every participation, for every role including BOARD/ADMIN.
+  Before, a TALLIED secret election handed every authenticated member all single ballots (blank id, canonical order, no member, but one choice combination
+  per ballot, i.e. per-person rankings for MULTI_CHOICE / LIST_VOTE / RANKED_CHOICE and the single vote of a one-ballot election). **BEHAVIOR CHANGE** (API):
+  signature unchanged; open-ballot elections keep their named list. Closes the V1.9.44 'Still open' entry on `ElectionService.listElectionBallots` (that entry
+  stays as history). One decision point: `electionSingleBallotsDisclosable` / `disclosedElectionBallots` in `rpc/ElectionBallotDisclosure.kt`, which
+  short-circuits before any ballot or selection row is read; the rule itself is shared with the consensus (`singleBallotsDisclosable`). New
+  `ServerElectionDisclosureTripwireTest`, `ElectionSecretBallotsNeverDeliveredTest` (every type x ballot count x status x role), `ElectionPersonalDataTest`.
+  Documentation: `elections-integrity.adoc`, `elections-ui.adoc` (staging plan, not executed). No migration.
+
 ### Changed
 
+- Members can no longer recount a secret election themselves; the result counts (`getElectionResult`) and the receipt check (`verifyReceipt`) are
+  unchanged. The election detail view shows the count and an explanatory sentence instead of the anonymised ballot table, and the client no longer calls
+  `listElectionBallots` for a secret election (`electionBallotsListable`). The old hint "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen ..." is
+  removed from all eight catalogs; the new sentence is in all eight (translations by agent, not by a native speaker).
 - **Collapsed create forms, group "Finanzen"** (V1.9.45, rule R36B): the create forms of Kostenstellen, Spender, Kontenplan & Journal (booking and account), Offene Posten,
   SEPA-Lastschrift (batch and return), SEPA-Mandate and Kontoauszüge are collapsed behind one title-row button each ("Neue Kostenstelle", "Neuer Spender",
   "Neue Buchung" + "Neues Konto", "Neuer offener Posten", "Neuer Lastschriftlauf" + "Neue Rücklastschrift", "Neues Mandat", "Kontoauszug hochladen"). Journal and
@@ -28,6 +43,10 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- Small secret elections (V1.9.46): `ElectionOptionDto.voteCount` is delivered from `TALLIED` without a minimum participation; with one ballot the result is
+  that vote, with a unanimous result every vote is known. `verifyReceipt` returns the option label to the holder of the receipt code, so a voter can prove
+  their vote to a third party. Both are documented in `elections-integrity.adoc`; a minimum participation (like `MIN_ANONYMOUS_RESPONSES`) is recommended
+  for a later wave and needs an owner decision about published vote counts.
 - "Save and add another" does not exist: every save folds the form back, so entering several bookings in a row costs one click each. A candidate for its own wave.
 - The other six groups (events, community, documents, compliance, conference administration, economy/auction) still show their create forms; 30 ledgered findings.
 - The string-typed domain icons of R57 stay.

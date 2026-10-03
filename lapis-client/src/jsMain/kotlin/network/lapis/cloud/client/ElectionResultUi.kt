@@ -26,8 +26,8 @@ import network.lapis.cloud.shared.rpc.IElectionService
  * V1.9.22 -- the count progress, the result, the ballot list and the receipt check of an election's detail view.
  *
  * Secrecy rules this file keeps (and `ElectionSecrecyTripwireTest` guards):
- *  - a secret election's ballot table shows the selection and NOTHING else: no id, no time, no name. The DTO is reduced to
- *    [BallotRow] before it is rendered, so the id and the cast time never even reach a table state or a sort key;
+ *  - V1.9.46: a secret election shows NO single ballots at all (only the count and an explanatory sentence); the client does
+ *    not even call `listElectionBallots` for it ([electionBallotsListable]);
  *  - the receipt code typed into the check field is read once and the field is cleared; it is never stored or logged.
  */
 
@@ -132,12 +132,15 @@ private fun renderResultRow(
     bar.div(className = "lapis-election-bar__fill") { width = (votes * 100 / maxVotes).perc }
 }
 
-/** What a ballot table row may know: the selection, and for an OPEN election the voter and the time. For a secret election [name] and [at] are always `null`. */
+/** What a ballot table row may know. Only ever built for an open-ballot election: voter, selection and time. */
 private class BallotRow(
-    val name: String?,
+    val name: String,
     val selection: String,
-    val at: String?,
+    val at: String,
 )
+
+/** V1.9.46: single ballots are listed only for an open-ballot election that is TALLIED -- never for a secret one. */
+internal fun electionBallotsListable(e: ElectionDto): Boolean = !e.secret && e.status == ElectionStatus.TALLIED
 
 internal fun renderBallotsSection(
     panel: SimplePanel,
@@ -147,6 +150,22 @@ internal fun renderBallotsSection(
     if (e.status != ElectionStatus.OPEN && e.status != ElectionStatus.CLOSED && e.status != ElectionStatus.TALLIED) return
     panel.h2(tr("Stimmzettel")) { addCssClass("h5") }
     val count = data.participation.ballotCount
+    if (e.secret) {
+        panel.p(
+            when (count) {
+                0 -> tr("Es wurden keine Stimmzettel abgegeben.")
+                1 -> gettext("1 Stimmzettel abgegeben.")
+                else -> gettext("%1 Stimmzettel abgegeben.", count)
+            },
+        )
+        panel.p(
+            tr(
+                "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen keine einzelnen Stimmzettel angezeigt; " +
+                    "Sie können mit Ihrer Quittung prüfen, dass Ihre Stimme gezählt wurde.",
+            ),
+        )
+        return
+    }
     if (e.status != ElectionStatus.TALLIED) {
         panel.p(if (count == 1) gettext("1 Stimmzettel abgegeben.") else gettext("%1 Stimmzettel abgegeben.", count))
         return
@@ -154,35 +173,21 @@ internal fun renderBallotsSection(
     val rows =
         data.ballots.map { ballot ->
             val selection = ballot.selectedOptionLabels.joinToString(", ") { displayOptionLabel(e, it) }
-            if (e.secret) {
-                BallotRow(name = null, selection = selection, at = null)
-            } else {
-                BallotRow(name = ballot.memberDisplayName.orEmpty(), selection = selection, at = formatSystemDateTime(ballot.castAt))
-            }
+            BallotRow(name = ballot.memberDisplayName.orEmpty(), selection = selection, at = formatSystemDateTime(ballot.castAt))
         }
     if (rows.isEmpty()) {
         panel.p(tr("Es wurden keine Stimmzettel abgegeben."))
         return
     }
-    if (e.secret) {
-        panel.p(tr("Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt.")) {
-            addCssClasses("text-muted small")
-        }
-        panel.dataTable(
-            columns = listOf(textColumn<BallotRow>(title = tr("Auswahl"), primary = true) { it.selection }),
-            rows = rows.sortedBy { it.selection },
-        )
-    } else {
-        panel.dataTable(
-            columns =
-                listOf(
-                    textColumn<BallotRow>(title = tr("Name"), primary = true) { it.name.orEmpty() },
-                    textColumn(title = tr("Auswahl")) { it.selection },
-                    textColumn(title = tr("Zeit")) { it.at.orEmpty() },
-                ),
-            rows = rows,
-        )
-    }
+    panel.dataTable(
+        columns =
+            listOf(
+                textColumn<BallotRow>(title = tr("Name"), primary = true) { it.name },
+                textColumn(title = tr("Auswahl")) { it.selection },
+                textColumn(title = tr("Zeit")) { it.at },
+            ),
+        rows = rows,
+    )
 }
 
 internal fun renderReceiptVerification(

@@ -17944,8 +17944,8 @@ msgstr "%1 stembiljetten uitgebracht."
 msgid "Es wurden keine Stimmzettel abgegeben."
 msgstr "Er zijn geen stembiljetten uitgebracht."
 
-msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
-msgstr "Bij een geheime verkiezing worden de stembiljetten zonder namen en zonder tijdstip getoond."
+msgid "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen keine einzelnen Stimmzettel angezeigt; Sie können mit Ihrer Quittung prüfen, dass Ihre Stimme gezählt wurde."
+msgstr "Vanwege het stemgeheim worden bij geheime verkiezingen geen afzonderlijke stembiljetten getoond; met uw ontvangstbewijs kunt u controleren of uw stem is meegeteld."
 
 msgid "Auswahl"
 msgstr "Keuze"

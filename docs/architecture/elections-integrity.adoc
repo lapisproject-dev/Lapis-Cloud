@@ -128,6 +128,33 @@ The application translates every unique-constraint violation into a `ConflictExc
 * The cast result of a secret ballot carries a blank id for the same reason. Ballot ids stay random v4 UUIDs.
 * Audited and unchanged: `getElectionParticipation` returns only the caller's own `hasVoted` and counters; `voted_at` is never delivered.
 
+== Single ballots of secret elections are never delivered (V1.9.46)
+
+The rule, owner decision of 2026-10-03: `listElectionBallots` returns `[]` for a secret election -- in every status, at every participation, for every
+role. It is the same rule as for an anonymous consensus (V1.9.44), expressed once as `singleBallotsDisclosable(secret)`.
+
+* *One place.* `rpc/ElectionBallotDisclosure.kt` is the only way to a list of `ElectionBallotDto`. `disclosedElectionBallots` decides first
+  (`electionSingleBallotsDisclosable`) and short-circuits before any ballot or selection row is read. `ElectionService.listElectionBallots` only delegates.
+* *One tripwire.* `ServerElectionDisclosureTripwireTest` pins the single DTO builder, the gate-before-read order, the delegation and an allowlist of the
+  files that may read the ballot and selection tables. A new reader must be looked at by a person; it is not added to the list silently.
+* *Inventory of readers* (checked by source search): the cast and the receipt check in `ElectionService` (the receipt check returns only the ballot of the
+  code, see below), the tally (aggregate only), `ElectionOwnParticipation` (own flags and counters; `member_id` is NULL on a secret ballot), the DSGVO export
+  `ElectionPersonalData` (only the member's own named ballots, no selection) and `ElectionTally` (KDoc only). No MCP tool reads election ballots
+  (`GetMyBallotsTool` is about governance votes). `getRoomVotingState` returns flags and counters only.
+* *No public recount.* Members can no longer recount a secret election themselves. The result counts (`getElectionResult`) and the receipt check
+  (`verifyReceipt`) are unchanged. Open-ballot elections keep their named list.
+* *No existence oracle.* An unknown or invalid election id answers exactly as before; the secret flag does not change the answer for an existing id.
+
+Residual risks, recorded and not changed in this wave:
+
+* *Small elections.* `ElectionOptionDto.voteCount` is delivered from `TALLIED` without a minimum participation (`MIN_TALLY_THRESHOLD = 2` is the number of
+  four-eyes tally approvals, not a minimum number of ballots). With one ballot the result is that single vote; with a unanimous result every vote is known.
+  Recommended for a later wave, after the owner decides whether statutes or protocol duties require published vote counts: a minimum participation for
+  `secret = true` analogous to `DisclosureRules.MIN_ANONYMOUS_RESPONSES`, below which only the outcome (elected / adopted or not) is delivered.
+* *Receipt as proof.* `verifyReceipt` returns the option label of the ballot to whoever holds the receipt code, from `TALLIED`. A voter can therefore prove
+  to a third party how they voted (vote buying, coercion); the election is not receipt-free. Left unchanged by decision; a later option is a check that
+  reports only `found` / `counted` without the label.
+
 == Known limitations and follow-ups
 
 * `resolveMotion` is not refused while a meritocratic vote or a systemic consensus is open (only the election blocks it). That would

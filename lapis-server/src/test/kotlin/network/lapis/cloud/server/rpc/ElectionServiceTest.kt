@@ -1012,7 +1012,7 @@ class ElectionServiceTest :
             }
         }
 
-        test("listElectionBallots hides selectedOptionLabels for a secret Election until TALLIED (no mid-vote running-tally leak)") {
+        test("V1.9.46: listElectionBallots is always empty for a secret Election, also after TALLIED (no running tally, no recount)") {
             testApplication {
                 application {
                     install(StatusPages) { installElectionExceptionHandlers() }
@@ -1049,18 +1049,18 @@ class ElectionServiceTest :
                     client
                         .get("/test/list-ballots/$electionId") { header("X-Member-Id", chair.toString()) }
                         .bodyAsText()
-                beforeTally.split(";").forEach { entry -> entry.substringAfter(":") shouldBe "" }
+                beforeTally shouldBe ""
 
                 client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
                 client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMembers[1].toString()) }
                 client.post("/test/tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
 
-                // TALLIED: labels are now revealed.
+                // TALLIED: still nothing -- a secret election never delivers single ballots, in any status
                 val afterTally =
                     client
                         .get("/test/list-ballots/$electionId") { header("X-Member-Id", chair.toString()) }
                         .bodyAsText()
-                afterTally.split(";").any { entry -> entry.substringAfter(":").isNotBlank() } shouldBe true
+                afterTally shouldBe ""
             }
         }
 

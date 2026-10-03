@@ -341,6 +341,9 @@ class ConferenceVotePanelDomTest {
                     el.buttonNamed("Zur Wahlkabine").click()
                     el.castUntilReceipt()
                     assertEquals(1, calls.toRoute(routes.cast).size)
+                    // V1.9.46: no ballot list, no ballot table and no chosen option of the own ballot anywhere in the panel
+                    assertEquals(0, calls.toRoute(routes.listBallots).size, "the panel never asks for single ballots")
+                    assertEquals(0, el.allOf("table").size + el.allOf(".lapis-card-list").size, "no ballot table in the panel")
                     // the hook carried one Boolean; the panel is locked and says why
                     assertEquals(ConferenceVotingLock.RECEIPT, probe.locks.last())
                     assertTrue(ConferenceReceiptGate.visible, "the unload guard and the leave buttons read this")

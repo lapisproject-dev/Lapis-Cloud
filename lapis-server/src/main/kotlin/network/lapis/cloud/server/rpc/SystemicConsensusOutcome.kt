@@ -126,7 +126,7 @@ private fun SkErgebnis.toDisclosedDto(
  * An anonymous consensus never delivers single ballots: not in any status, at no participation,
  * to no role (owner decision 2026-10-03). Pure, no DB access.
  */
-internal fun systemicConsensusSingleBallotsDisclosable(secret: Boolean): Boolean = !secret
+internal fun systemicConsensusSingleBallotsDisclosable(secret: Boolean): Boolean = singleBallotsDisclosable(secret)
 
 /**
  * The ONLY way to a list of [SystemicConsensusBallotDto]. Returns an empty list for an anonymous

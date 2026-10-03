@@ -17934,8 +17934,8 @@ msgstr "Подано бюллетеней: %1."
 msgid "Es wurden keine Stimmzettel abgegeben."
 msgstr "Бюллетени не подавались."
 
-msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
-msgstr "На тайных выборах бюллетени показываются без имён и без времени."
+msgid "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen keine einzelnen Stimmzettel angezeigt; Sie können mit Ihrer Quittung prüfen, dass Ihre Stimme gezählt wurde."
+msgstr "В целях тайны голосования при тайных выборах отдельные бюллетени не показываются; с помощью вашей квитанции вы можете проверить, что ваш голос был учтён."
 
 msgid "Auswahl"
 msgstr "Выбор"

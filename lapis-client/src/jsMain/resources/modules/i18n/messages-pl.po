@@ -17943,8 +17943,8 @@ msgstr "Oddano kart do głosowania: %1."
 msgid "Es wurden keine Stimmzettel abgegeben."
 msgstr "Nie oddano żadnych kart do głosowania."
 
-msgid "Bei einer geheimen Wahl werden die Stimmzettel ohne Namen und ohne Uhrzeit angezeigt."
-msgstr "W wyborach tajnych karty do głosowania są wyświetlane bez nazwisk i bez godziny."
+msgid "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen keine einzelnen Stimmzettel angezeigt; Sie können mit Ihrer Quittung prüfen, dass Ihre Stimme gezählt wurde."
+msgstr "Ze względu na tajność głosowania w wyborach tajnych nie wyświetla się pojedynczych kart do głosowania; za pomocą potwierdzenia może Pan sprawdzić, że jego głos został policzony."
 
 msgid "Auswahl"
 msgstr "Wybór"

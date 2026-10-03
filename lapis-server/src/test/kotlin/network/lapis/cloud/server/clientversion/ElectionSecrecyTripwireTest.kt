@@ -16,7 +16,9 @@ import java.io.File
  *  - `pushState`/`replaceState` -- a code in the URL ends up in history, the server log and `Referer`;
  *  - `.message` next to a `notify...` call -- Kilua RPC never transmits an exception message, and what the server wrote can contain
  *    member UUIDs ("Member <uuid> already voted..."), so no elections code shows `e.message`;
- *  - `castAt` read anywhere but `ElectionResultUi.kt`'s open-election branch -- a secret election's ballots are shown without time.
+ *  - `castAt` read anywhere but `ElectionResultUi.kt`'s open-election branch -- a secret election's ballots are shown without time;
+ *  - V1.9.46: `listElectionBallots(` anywhere but `ElectionsScreen.kt`, and there only behind `electionBallotsListable(` (never for a
+ *    secret election); the old "ballots without names" sentence of the anonymised table is gone for good.
  */
 private val CLIENT_DIR =
     File("../lapis-client/src/jsMain/kotlin/network/lapis/cloud/client")
@@ -83,6 +85,29 @@ private val MERIT_CONTENT =
 private val BALLOT_CONTENT =
     Regex("""\b(receiptCode|selectedOptionIds|selectedOptionLabels|ElectionBallotInput|listElectionBallots|castElectionBallot)\b""")
 
+private const val BALLOTS_LISTABLE_GUARD = "electionBallotsListable("
+private const val REMOVED_SECRET_TABLE_SENTENCE = "Bei einer geheimen Wahl werden die Stimmzettel"
+
+/** V1.9.46: a `listElectionBallots(` call outside `ElectionsScreen.kt`, or there without the guard in the same line or the 3 code lines before. */
+internal fun ballotListCallFindings(
+    fileName: String,
+    text: String,
+): List<String> {
+    val code = codeLines(text)
+    return code.withIndex().mapNotNull { (index, line) ->
+        if (!line.contains("listElectionBallots(")) return@mapNotNull null
+        val guarded =
+            fileName == "ElectionsScreen.kt" && code.subList(maxOf(0, index - 3), index + 1).any { it.contains(BALLOTS_LISTABLE_GUARD) }
+        if (guarded) null else "$fileName: ${line.trim()}"
+    }
+}
+
+/** V1.9.46: the removed sentence of the anonymised ballot table in a code line (comments are ignored). */
+internal fun removedSecretTableFindings(
+    fileName: String,
+    text: String,
+): List<String> = codeLines(text).filter { it.contains(REMOVED_SECRET_TABLE_SENTENCE) }.map { "$fileName: ${it.trim()}" }
+
 private fun codeLines(text: String): List<String> =
     text.lines().filterNot { line -> line.trimStart().let { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") } }
 
@@ -145,10 +170,46 @@ class ElectionSecrecyTripwireTest :
             val text = File(CLIENT_DIR, "ElectionResultUi.kt").readText()
             val lines = codeLines(text).filter { Regex("""\bcastAt\b""").containsMatchIn(it) }
             lines.size shouldBe 1
-            // the one read sits in the `else` of `if (e.secret)`: the secret branch builds a BallotRow without a time
-            val secretBranch = text.substringAfter("if (e.secret) {").substringBefore("} else {")
+            // V1.9.46: the secret branch of the ballot section ends in a `return` before any row is built; no time, no table
+            val secretBranch = text.substringAfter("if (e.secret) {").substringBefore("if (e.status != ElectionStatus.TALLIED) {")
             secretBranch.contains("castAt") shouldBe false
-            secretBranch.contains("BallotRow(name = null") shouldBe true
+            secretBranch.contains("dataTable") shouldBe false
+            secretBranch.contains("return") shouldBe true
+        }
+
+        test("V1.9.46: listElectionBallots is called only from ElectionsScreen.kt and only behind electionBallotsListable") {
+            val files = CLIENT_DIR.listFiles { f -> f.isFile && f.name.endsWith(".kt") }!!.toList()
+            files.isNotEmpty() shouldBe true
+            files.flatMap { ballotListCallFindings(fileName = it.name, text = it.readText()) }.shouldBeEmpty()
+            File(CLIENT_DIR, "ElectionsScreen.kt").readText().contains("listElectionBallots(") shouldBe true
+        }
+
+        test("V1.9.46: electionBallotsListable excludes secret elections") {
+            val text = File(CLIENT_DIR, "ElectionResultUi.kt").readText()
+            val definition = text.substringAfter("internal fun electionBallotsListable(").substringBefore("\n\n")
+            definition.contains("!e.secret") shouldBe true
+        }
+
+        test("V1.9.46: the anonymised-ballot-table sentence no longer exists anywhere in the client") {
+            val files = CLIENT_DIR.listFiles { f -> f.isFile && f.name.endsWith(".kt") }!!.toList()
+            files.flatMap { removedSecretTableFindings(fileName = it.name, text = it.readText()) }.shouldBeEmpty()
+        }
+
+        test("V1.9.46: the ballot-list detectors flag the bad shapes and accept the guarded call") {
+            fun listCalls(
+                file: String,
+                code: String,
+            ) = ballotListCallFindings(fileName = file, text = code).size
+
+            fun removed(code: String) = removedSecretTableFindings(fileName = "X.kt", text = code).size
+            listCalls("ElectionsScreen.kt", "val b = elections.listElectionBallots(id)") shouldBe 1
+            listCalls("ElectionBoardUi.kt", "if (electionBallotsListable(e)) rpc.listElectionBallots(id)") shouldBe 1
+            listCalls("ElectionsScreen.kt", "if (electionBallotsListable(e)) rpc.listElectionBallots(id) else x") shouldBe 0
+            listCalls("ElectionsScreen.kt", "if (\n  electionBallotsListable(e)\n) {\n  rpc.listElectionBallots(id)\n}") shouldBe 0
+            listCalls("ElectionsScreen.kt", "// listElectionBallots(id)") shouldBe 0
+            removed("tr(\"Bei einer geheimen Wahl werden die Stimmzettel ohne Namen\")") shouldBe 1
+            removed(" * Bei einer geheimen Wahl werden die Stimmzettel") shouldBe 0
+            removed("tr(\"Aus Gründen des Wahlgeheimnisses\")") shouldBe 0
         }
 
         test("V1.9.32: the consensus receipt hook scope gives the previous hook back by identity and carries only a Boolean") {

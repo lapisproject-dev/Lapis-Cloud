@@ -42,8 +42,10 @@ import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.ElectionBallotSelectionTable
 import network.lapis.cloud.server.db.generated.ElectionBallotTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
+import network.lapis.cloud.server.db.generated.ElectionOptionTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.MeetingTable
@@ -120,6 +122,8 @@ class ConferenceRoomVotingStateTest :
         val meetingIds = mutableListOf<Uuid>()
         val motionIds = mutableListOf<Uuid>()
         val electionIds = mutableListOf<Uuid>()
+        val electionOptionIds = mutableListOf<Uuid>()
+        val electionBallotIds = mutableListOf<Uuid>()
         val voteIds = mutableListOf<Uuid>()
         val consensusIds = mutableListOf<Uuid>()
         val roomIds = mutableListOf<Uuid>()
@@ -136,7 +140,9 @@ class ConferenceRoomVotingStateTest :
                 if (breakoutIds.isNotEmpty()) ConferenceBreakoutRoomTable.deleteWhere { ConferenceBreakoutRoomTable.id inList breakoutIds }
                 ConferenceParticipationTable.deleteWhere { ConferenceParticipationTable.roomId inList roomIds }
                 ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id inList roomIds }
+                ElectionBallotSelectionTable.deleteWhere { ElectionBallotSelectionTable.ballotId inList electionBallotIds }
                 ElectionBallotTable.deleteWhere { ElectionBallotTable.electionId inList electionIds }
+                ElectionOptionTable.deleteWhere { ElectionOptionTable.id inList electionOptionIds }
                 ElectionParticipationTable.deleteWhere { ElectionParticipationTable.electionId inList electionIds }
                 ElectionEligibleVoterTable.deleteWhere { ElectionEligibleVoterTable.electionId inList electionIds }
                 ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
@@ -843,6 +849,55 @@ class ConferenceRoomVotingStateTest :
                 body shouldNotContain other.toString()
                 body shouldNotContain me.toString()
                 body shouldNotContain f.meetingId.toString()
+            })
+        }
+
+        test("V1.9.46 a secret ballot with a stored selection never leaks its option label, its id or its receipt into the room state") {
+            testApp({
+                val f = fixture("selection")
+                val r = room(f)
+                val me = member("selection-me").also { participate(r, it) }
+                val other = member("selection-other").also { participate(r, it) }
+                val secret = election(f, "geheim-auswahl", ElectionStatus.OPEN, secret = true)
+                eligible(secret, me)
+                eligible(secret, other)
+                val ballotId = Uuid.random()
+                val optionId = Uuid.random()
+                transaction {
+                    ElectionOptionTable.insert {
+                        it[id] = optionId
+                        it[label] = "GEHEIM-OPTION-LABEL-QQQ"
+                        it[position] = 0
+                        it[candidacyId] = null
+                        it[ElectionOptionTable.electionId] = secret
+                    }
+                    ElectionParticipationTable.insert {
+                        it[id] = Uuid.random()
+                        it[votedAt] = DbClock.nowLocalDateTime()
+                        it[ElectionParticipationTable.electionId] = secret
+                        it[memberId] = other
+                    }
+                    ElectionBallotTable.insert {
+                        it[id] = ballotId
+                        it[receiptCode] = "RCPT-SELECTION-QQQ"
+                        it[castAt] = DbClock.nowLocalDateTime()
+                        it[ElectionBallotTable.electionId] = secret
+                        it[memberId] = null
+                    }
+                    ElectionBallotSelectionTable.insert {
+                        it[id] = Uuid.random()
+                        it[ElectionBallotSelectionTable.ballotId] = ballotId
+                        it[ElectionBallotSelectionTable.optionId] = optionId
+                    }
+                }
+                electionOptionIds += optionId
+                electionBallotIds += ballotId
+                val body = client.state(r.toString(), me).bodyAsText()
+                body shouldNotContain "GEHEIM-OPTION-LABEL-QQQ"
+                body shouldNotContain "RCPT-SELECTION-QQQ"
+                body shouldNotContain ballotId.toString()
+                body shouldNotContain optionId.toString()
+                body shouldNotContain other.toString()
             })
         }
 

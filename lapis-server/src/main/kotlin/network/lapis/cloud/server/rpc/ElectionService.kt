@@ -1018,70 +1018,7 @@ class ElectionService(
     override suspend fun listElectionBallots(electionId: String): List<ElectionBallotDto> {
         resolveCurrentMember(call)
         val wId = electionId.toUuidOrNotFound("Election")
-        return transaction {
-            val electionRow = requireElectionRow(wId)
-            // Pre-tally secrecy gate: same invariant as ElectionOptionDto.voteCount (held at 0 until
-            // TALLIED) and verifyReceipt (optionLabel null until TALLIED). Without this,
-            // any authenticated member could enumerate every anonymized ballot's plaintext choice
-            // while a secret Election is still OPEN/CLOSED and tally it themselves, learning a
-            // partial result mid-vote -- see ElectionBallotDto KDoc.
-            if (!electionRow[ElectionTable.secret]) {
-                return@transaction ElectionBallotTable
-                    .selectAll()
-                    .where { ElectionBallotTable.electionId eq wId }
-                    .orderBy(ElectionBallotTable.castAt to SortOrder.ASC, ElectionBallotTable.id to SortOrder.ASC)
-                    .map { it.toElectionBallotDto(revealLabels = true) }
-            }
-            // V1.9.23 secrecy: nothing at all before the tally. The ballot ids were stable from the moment a
-            // ballot was cast, so a poll of this list would show exactly when a voter's ballot appeared; after
-            // the tally their labels would be revealed for those very ids. The number of ballots stays
-            // available in ElectionParticipationDto.ballotCount.
-            if (electionRow[ElectionTable.status] != ElectionStatus.TALLIED) return@transaction emptyList()
-            secretBallotsInCanonicalOrder(electionRow)
-        }
-    }
-
-    /**
-     * The ballots of a TALLIED secret election with a blank id and in an order that depends only on the chosen
-     * options (lexicographic by option position), never on the order in which the ballots were cast, their
-     * random ids or their timestamps. Two ballots with the same choice are indistinguishable by design.
-     */
-    private fun secretBallotsInCanonicalOrder(electionRow: ResultRow): List<ElectionBallotDto> {
-        val wId = electionRow[ElectionTable.id]
-        val castAt = electionRow[ElectionTable.votingOpenedAt] ?: electionRow[ElectionTable.openedAt]
-        val ballotIds = ElectionBallotTable.selectAll().where { ElectionBallotTable.electionId eq wId }.map { it[ElectionBallotTable.id] }
-        if (ballotIds.isEmpty()) return emptyList()
-        val choicesByBallot =
-            (ElectionBallotSelectionTable innerJoin ElectionOptionTable)
-                .selectAll()
-                .where { ElectionBallotSelectionTable.ballotId inList ballotIds }
-                .groupBy(
-                    { it[ElectionBallotSelectionTable.ballotId] },
-                    { it[ElectionOptionTable.position] to it[ElectionOptionTable.label] },
-                )
-        val choices = ballotIds.map { id -> choicesByBallot[id].orEmpty().sortedBy { it.first } }
-        return choices
-            .sortedWith { a, b -> compareChoiceLists(a = a.map { it.first }, b = b.map { it.first }) }
-            .map { choice ->
-                ElectionBallotDto(
-                    id = "",
-                    electionId = wId.toString(),
-                    memberId = null,
-                    memberDisplayName = null,
-                    selectedOptionLabels = choice.map { it.second },
-                    castAt = castAt,
-                )
-            }
-    }
-
-    private fun compareChoiceLists(
-        a: List<Int>,
-        b: List<Int>,
-    ): Int {
-        for (i in 0 until minOf(a.size, b.size)) {
-            if (a[i] != b[i]) return a[i].compareTo(b[i])
-        }
-        return a.size.compareTo(b.size)
+        return transaction { disclosedElectionBallots(row = requireElectionRow(wId)) { memberDisplayName(it) } }
     }
 
     override suspend fun verifyReceipt(
@@ -1473,29 +1410,6 @@ class ElectionService(
             submittedAt = this[ElectionCandidacyTable.submittedAt],
             withdrawnAt = this[ElectionCandidacyTable.withdrawnAt],
         )
-
-    private fun ResultRow.toElectionBallotDto(revealLabels: Boolean): ElectionBallotDto {
-        val ballotId = this[ElectionBallotTable.id]
-        val memberId = this[ElectionBallotTable.memberId]
-        val labels =
-            if (revealLabels) {
-                (ElectionBallotSelectionTable innerJoin ElectionOptionTable)
-                    .selectAll()
-                    .where { ElectionBallotSelectionTable.ballotId eq ballotId }
-                    .orderBy(ElectionOptionTable.position, SortOrder.ASC)
-                    .map { it[ElectionOptionTable.label] }
-            } else {
-                emptyList()
-            }
-        return ElectionBallotDto(
-            id = ballotId.toString(),
-            electionId = this[ElectionBallotTable.electionId].toString(),
-            memberId = memberId?.toString(),
-            memberDisplayName = memberDisplayName(memberId),
-            selectedOptionLabels = labels,
-            castAt = this[ElectionBallotTable.castAt],
-        )
-    }
 
     private fun String.toUuidOrNotFound(kind: String): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid $kind id: $this") }
