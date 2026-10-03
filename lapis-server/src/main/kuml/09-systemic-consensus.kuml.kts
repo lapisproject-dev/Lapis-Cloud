@@ -308,6 +308,11 @@ classDiagram(name = "SystemicConsensus") {
         attribute(name = "createdBy", type = "UUID") {
             stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
         }
+        // V1.9.39 (V68): optional free-text rationale of the proposal, NULL = none. Written only in COLLECTION.
+        attribute(name = "rationale", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "rationale"; "sqlType" to "VARCHAR(1000)" }
+        }
     }
 
     val systemicConsensusEligibleVoter = classOf(name = "SystemicConsensusEligibleVoter") {

@@ -18520,9 +18520,6 @@ msgstr "Beoordeling"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Beoordeel elke optie: hoe groot is uw weerstand?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = geen weerstand, ik kan er prima mee leven · 10 = voor mij onaanvaardbaar."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "Uw beoordeling is anoniem: er wordt opgeslagen dat u hebt beoordeeld, maar niet hoe."
 
@@ -19380,3 +19377,63 @@ msgstr "CET"
 
 msgid "MESZ"
 msgstr "CEST"
+
+msgid "Option %1: %2"
+msgstr "Optie %1: %2"
+
+msgid "Platz %1"
+msgstr "Plaats %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Hoogste waarde %1 gegeven: %2 keer"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = geen weerstand, ik kan er prima mee leven · %1 = voor mij onaanvaardbaar."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "De nummers liggen vast zodra de opties zijn vastgezet."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "Waarom stelt u dit voor? Maximaal 1000 tekens."
+
+msgid "Begründung hinzufügen"
+msgstr "Motivering toevoegen"
+
+msgid "Begründung bearbeiten"
+msgstr "Motivering bewerken"
+
+msgid "Begründung entfernen"
+msgstr "Motivering verwijderen"
+
+msgid "Begründung anzeigen"
+msgstr "Motivering tonen"
+
+msgid "Begründung ausblenden"
+msgstr "Motivering verbergen"
+
+msgid "Begründung gespeichert."
+msgstr "Motivering opgeslagen."
+
+msgid "Begründung entfernt."
+msgstr "Motivering verwijderd."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "De motivering kon niet worden opgeslagen. De weergave is opnieuw geladen."
+
+msgid "Mehr anzeigen"
+msgstr "Meer tonen"
+
+msgid "Weniger anzeigen"
+msgstr "Minder tonen"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Voer maximaal %1 tekens in."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "De motivering bevat ongeldige stuurtekens."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "De motivering bevat te veel regeleinden."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "De motivering wordt verwijderd."

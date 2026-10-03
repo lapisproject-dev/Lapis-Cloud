@@ -8,6 +8,16 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Systemic consensus, practice alignment part 1** (V1.9.39): (1) the status quo option ("Passivlösung") is listed first everywhere and carries the
+  plaque P; the real options carry gap-free numbers 1..n (rank by `(position, id)`, final once the options are frozen), also in the booth, the
+  result, the named-ratings table and the room's operator list. (2) The result shows how often the top value of the scale was given. (3) The
+  "strong objection" hint is no longer a fixed 9: it applies from the upper tenth of the scale, rounded up, computed in integers
+  (`SystemicConsensusRules.strongObjectionThreshold`); the booth legend follows the scale. (4) A proposal can carry an optional rationale
+  (<= 1000 characters, normalised like public texts, `V68__systemic_consensus_option_rationale.sql`): written with `addOption` or
+  `setOptionRationale` by the proposer or a manager in `COLLECTION` only, shown in full in the options list, clamped in the booth, behind a switch
+  in the compact room booth and in the result. Documentation: `consensus-ui.adoc`, `conference-voting.adoc`, the two staging test plans (not
+  executed).
+
 - **Unified time zones, stage 1** (V1.9.38): every temporal field is now one of three classes -- A (a system timestamp the server stamped, stored
   and sent as UTC), B (a wall-clock a person typed in, in the organization's zone) or D (a calendar date) -- classified field by field in
   `lapis-server/src/test/resources/time-fields.tsv` (410 DTO properties, 357 columns) and enforced by `TimeFieldClassificationTripwireTest`,
@@ -81,6 +91,10 @@ All notable changes to this project are documented here. Format follows
 
 - **V1.9.38, behaviour change at deploy time**: open polls close, and running events end, up to two hours EARLIER than before in Germany -- at the
   typed-in local time instead of the same digits read as UTC. Announce it and, if possible, deploy while no vote is running.
+
+- **Consensus screens, V1.9.39**: the status quo option moved from last to first in every list; the rank digit in the result became the option
+  plaque (the rank is read out as "Platz n"); the strong-objection threshold and the booth legend now follow `scaleMax` instead of a fixed 9
+  and "10".
 
 ### Fixed
 
@@ -156,6 +170,11 @@ All notable changes to this project are documented here. Format follows
 - The client treats an anonymous consensus as a secret ballot only from `RATING` on (`isSecretBallotRunning`), so the banner and the
   stream poll do not announce a pause that does not happen in `COLLECTION`.
 
+- **Consensus rationale, V1.9.39**: the rationale is member input and goes only through the untrusted-text helpers (never `title`, `aria-label`,
+  `data-*`, a toast, a log or storage -- a new rule in `ConsensusSecrecyTripwireTest`); the server normalises it with `PublicTextRules`, rejects
+  control and bidi characters, and answers every rejection with one fixed text that never echoes the input. `setOptionRationale` locks the
+  consensus row (`FOR UPDATE`) so a rationale cannot change after a concurrent `freezeOptions` committed (race test on H2 and PostgreSQL).
+
 ### Known limitations
 
 - V1.9.38 (stage 1 only): the wire format is unchanged -- class-A values are zone-less UTC `LocalDateTime`s, so public API and MCP consumers see UTC
@@ -204,6 +223,12 @@ All notable changes to this project are documented here. Format follows
 - The compact result in the room has no distribution and no named ratings.
 - The banner and the pre-flight lines say "Geheime Wahl ..." for an anonymous consensus as well.
 - The staging test and a real-room test were not run.
+
+- **Consensus, V1.9.39**: no option numbers on the receipt; no rationale for the status quo option; option numbers can still move while options
+  are being collected; `addOption`/`removeOption` take no row lock against a concurrent `freezeOptions` (only `setOptionRationale` does);
+  `scaleMax` has no server-side upper bound and the compact room grid has a fixed 11 columns; rationales travel with `listSystemicConsensuses`
+  (unpaged, up to 25 x 1000 characters per consensus); anonymous results still have no minimum participation, so with one or two participants mean
+  and histogram (and the new top-value count) expose single ratings, as before.
 
 ## [0.27.0] — 2026-10-02
 

@@ -38,6 +38,13 @@ result in the resolution book. This plan is the mandatory part of the wave's acc
 | 16 | Open consensus (anonymous = off) on a third motion, rate, evaluate | the result lists the names with their ratings; the page for an anonymous consensus never does
 | 17 | A malicious motion title (`###KvI18nS###...`, `<img ...>`) | shown as plain text in the list, the detail and the dialogs
 | 18 | Abort a running consensus | the title has to be typed; after aborting a new consensus can be opened for the motion
+| 19 | (V1.9.39) Open a consensus; look at the options list in `COLLECTION`; remove one option so that positions have a gap | the status quo option ("Passivlösung", plaque P) is first; the others read 1, 2, ... without a gap; the hint "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind." is shown
+| 20 | (V1.9.39) Open a second consensus with scale 7 (via the API; the form offers 10), freeze, open the booth | the legend ends with "7 = für mich nicht tragbar."; eight fields 0..7 per option; after evaluating, the strong-objection hint appears from a maximum of 7, not 9
+| 21 | (V1.9.39) As member A add an option with a rationale; as member B (no manager) try to edit it; as the manager edit it; as A remove it | B has no "Begründung bearbeiten" button; the manager and A can; removing asks first
+| 22 | (V1.9.39) Freeze, then try to edit a rationale (second tab left open from step 21) | the edit is refused with the fixed text; the view reloads; no server message is shown
+| 23 | (V1.9.39) Booth on a narrow phone width | the rationale is clamped to three lines; "Mehr anzeigen" expands it; no tooltip shows the rationale; the review step shows plaques but no rationale
+| 24 | (V1.9.39) Evaluate | each row shows the plaque instead of the rank digit and "Höchstwert 10 vergeben: n-mal" (also 0-mal); "Begründung anzeigen" opens the rationale
+| 25 | (V1.9.39) Rationale `###KvI18nS###Abbrechen <img src=x>` on a proposal | shown as plain text in the list, the booth, the result and the edit field; never as markup or a catalog text
 |===
 
 == Actual results

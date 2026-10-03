@@ -75,7 +75,7 @@ the revote returns `Hidden`, `Primary` or `Secondary`. A disabled action shows i
 
 == Server additions (no migration)
 
-All four read existing tables; `V1__baseline.sql` is unchanged and there is no new migration.
+All four read existing tables; `V1__baseline.sql` is unchanged and there is no new migration. (V1.9.39 adds `V68__systemic_consensus_option_rationale.sql`, see below.)
 
 [cols="2,5", options="header"]
 |===
@@ -152,7 +152,7 @@ an earlier round and no longer counted; found and stored (values only after the 
 
 Options are ranked by mean resistance, lowest first. Per option: the mean ("Ø 2,4 von 10"), the group conflict index in words
 (below the viable threshold "Tragfähiger Konsens", up to the warning threshold "Mit Bedenken", above "Warnsignal") with the small number,
-a hint when any single rating was 9 or higher (a mean can hide a strong objection), and a collapsed rating distribution with all eleven
+a hint when any single rating reached the strong-objection threshold of the scale (a mean can hide a strong objection; see V1.9.39 below), and a collapsed rating distribution with all eleven
 columns (gaps filled with 0). A tie without a winner and a consensus without ratings say so in words. A binding result says that it was
 recorded as a resolution and, when the status quo option won, that the motion counts as rejected.
 
@@ -164,6 +164,50 @@ server allows, never more). A finished advisory consensus is only a link to its 
 motion is allowed. Pending amendments disable "Konsensieren eröffnen" with the other three ways. A `CLOSED` or `OPEN` meritocratic vote hides
 the section's forms, like the server's `requireNoOpenVote`.
 
+== Practice alignment, part 1 (V1.9.39)
+
+Small points that bring the screens closer to how a Systemic Consensus is run in practice. One migration (`V68`), no new read call.
+
+=== Order and numbers
+
+* The status quo option ("Passivlösung", *P*) is listed *first* everywhere: options list, booth, named-ratings table. The server keeps it at
+  position 0; the client orders through one helper (`consensusOrderedOptions`: P first, then the real options by `(position, id)`).
+* Every option carries a plaque: *P* for the status quo option, *1..n* for the real options. The number is the *rank among the real options*
+  in that order (gap-free), never `position` itself (a removal leaves gaps, equal positions are possible). Options cannot change after
+  `freezeOptions` (add and remove need `COLLECTION`, `reopenRating` does not touch them), so the numbers are final from the freeze on -- also
+  across revotes. In `COLLECTION` they can still move, and the list says so.
+* Screen readers get "Option 3" as a visually hidden prefix; the plaque itself is `aria-hidden`. The option text is never concatenated with
+  the number. The result shows the plaque instead of the rank digit (the rank stays readable as "Platz 1", visually hidden). The operator
+  list in the room shows plaques as well; the receipt does not (known limitation).
+
+=== Highest-value count and strong-objection threshold
+
+* Each result row shows how often the top value of the scale was given ("Höchstwert 10 vergeben: 2-mal"), also when it is 0. The server
+  already delivered the whole distribution to every signed-in member (also for an anonymous consensus) and has *no* minimum participation, so
+  this number reveals nothing that the collapsed histogram did not: with one or two participants, mean and histogram expose single ratings,
+  as before. This wave does not change that.
+* The "strong objection" hint is no longer a fixed 9. It applies from the *upper tenth of the scale, rounded up*, computed in integers:
+  `ceil(0.9 * scaleMax) = (9 * scaleMax + 9) / 10` (shared function `SystemicConsensusRules.strongObjectionThreshold`).
+  Scale 5 -> 5, 7 -> 7, 10 -> 9, 11 -> 10, 20 -> 18. The booth legend is derived from the scale ("... · 7 = für mich nicht tragbar.").
+
+=== Rationale of a proposal
+
+* Optional free text per real option, at most 1000 characters (UTF-16 units *and* code points), at most 20 line breaks, normalised by the
+  shared `PublicTextRules` (CRLF -> LF, tab -> space, trimmed, control/bidi characters rejected). Blank or `null` means none.
+* Written with the proposal (`addOption`) or afterwards with `setOptionRationale(optionId, rationale)`: by the proposer or by the managers
+  (same rule as removing), only in `COLLECTION`, never for the status quo option. The server locks the consensus row (`FOR UPDATE`) and
+  re-checks the phase, so a rationale cannot be changed after a concurrent `freezeOptions` committed. A rejection is always the one fixed
+  conflict text -- the input, ids and reasons are never echoed or logged.
+* Shown in full in the options list, clamped to three lines (with a "Mehr anzeigen" switch for long text) in the booth on the page, behind a
+  "Begründung" switch in the compact room booth, and behind "Begründung anzeigen" in the result. Never in the booth's review step, the receipt
+  or the room's operator list. It is member input: shown only through the untrusted-text helpers, never in `title`, `aria-label` or a
+  `data-*` attribute, never in a toast, a log or storage (`ConsensusSecrecyTripwireTest` pins this). The edit field is prefilled with the
+  *sanitized* text.
+* GDPR: the text of a proposal and its rationale are part of the decision record; they are exported to their author and retained on erasure
+  (reason "Procedure record (text+rationale).").
+* Anonymity: "Vorgeschlagen von" and the rationale concern *proposals*, not ratings. Both stay visible for an anonymous consensus; the
+  anonymity of the ratings is unchanged.
+
 == Known limitations
 
 * A binding consensus has exactly one round (`evaluate` records the resolution at once; `reopenRating` then refuses). The form says so, the
@@ -171,6 +215,10 @@ the section's forms, like the server's `requireNoOpenVote`.
 * The results of earlier rounds are not retrievable after a revote.
 * An anonymous consensus has no minimum group size; with a single participant the "anonymous" rating is trivially attributable.
 * The booth is embedded in the conference room since V1.9.32 (see the last section); the room has no results distribution.
+* V1.9.39: the receipt carries no option numbers; the status quo option has no rationale; `addOption`/`removeOption` take no row lock against a
+  concurrent `freezeOptions` (only `setOptionRationale` does); `scaleMax` has no server-side upper bound and the compact room grid has a fixed
+  11 columns; rationales travel with `listSystemicConsensuses` (up to 25 x 1000 characters per consensus); there is still no minimum
+  participation for anonymous results.
 * The staging test is written, not executed: `consensus-staging-test.adoc`.
 
 == In the conference room (V1.9.32)

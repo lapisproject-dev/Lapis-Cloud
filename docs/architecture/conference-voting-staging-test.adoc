@@ -80,6 +80,8 @@ account that only moderates the room, one guest.
 | Hostile nudge: in the dev tools `publishData` with topic `lapis-vote-nudge` and arbitrary bytes | One extra poll, no crash, nothing read from the payload. | |
 | Second room of the Sitzung with a running stream | The booth of this room may show "free"; the cast is refused, the booth shows "noch gesperrt", keeps the choice, and frees the button after 5 s. No error text. | |
 | Double click on a confirmation button | Exactly one request in the network panel. | |
+| (V1.9.39) Consensus with a long rationale and a scale of 7, open the compact booth at 290 px | P first, then 1..n; seven plus one fields in one row ... the grid is fixed at 11 columns, so on a scale other than 10 the row has empty or too few cells (known limitation); the rationale is collapsed behind "Begründung" and opens on click; no tooltip | |
+| (V1.9.39) Evaluate a consensus, read the operator list | plaques P/1..n before the option text; no rationale | |
 |===
 
 NOTE: Passwords and access data are known to the operator only and are not part of this document.

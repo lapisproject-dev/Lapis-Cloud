@@ -18519,9 +18519,6 @@ msgstr "Ocena"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Oceń każdą opcję: jak duży jest Twój sprzeciw?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = brak sprzeciwu, mogę z tym żyć · 10 = dla mnie nie do przyjęcia."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "Twoja ocena jest anonimowa: zapisuje się, że oceniłeś(-aś), ale nie jak."
 
@@ -19379,3 +19376,63 @@ msgstr "CET"
 
 msgid "MESZ"
 msgstr "CEST"
+
+msgid "Option %1: %2"
+msgstr "Opcja %1: %2"
+
+msgid "Platz %1"
+msgstr "Miejsce %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Najwyższa wartość %1 przyznana: %2 razy"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = brak sprzeciwu, mogę z tym żyć · %1 = dla mnie nie do przyjęcia."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "Numery są ostateczne po zamrożeniu opcji."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "Dlaczego Pan/Pani to proponuje? Najwyżej 1000 znaków."
+
+msgid "Begründung hinzufügen"
+msgstr "Dodaj uzasadnienie"
+
+msgid "Begründung bearbeiten"
+msgstr "Edytuj uzasadnienie"
+
+msgid "Begründung entfernen"
+msgstr "Usuń uzasadnienie"
+
+msgid "Begründung anzeigen"
+msgstr "Pokaż uzasadnienie"
+
+msgid "Begründung ausblenden"
+msgstr "Ukryj uzasadnienie"
+
+msgid "Begründung gespeichert."
+msgstr "Uzasadnienie zapisane."
+
+msgid "Begründung entfernt."
+msgstr "Uzasadnienie usunięte."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "Nie udało się zapisać uzasadnienia. Widok został odświeżony."
+
+msgid "Mehr anzeigen"
+msgstr "Pokaż więcej"
+
+msgid "Weniger anzeigen"
+msgstr "Pokaż mniej"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Proszę wpisać najwyżej %1 znaków."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "Uzasadnienie zawiera niedozwolone znaki sterujące."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "Uzasadnienie zawiera zbyt wiele podziałów wiersza."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "Uzasadnienie zostanie usunięte."

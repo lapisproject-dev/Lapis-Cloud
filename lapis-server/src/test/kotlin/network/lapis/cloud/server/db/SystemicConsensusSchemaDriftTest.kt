@@ -109,6 +109,11 @@ class SystemicConsensusSchemaDriftTest :
             // «Column».fkEntity instead.
             real.foreignKeys["created_by"] shouldBe "member"
             model.entityNameOf(entity.attributeByName("created_by")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+
+            // V1.9.39 (V68): optional rationale, nullable in model, real schema and the generated Exposed column.
+            entity.attributeByName("rationale")?.nullable shouldBe true
+            real.columns.getValue("rationale").nullable shouldBe true
+            SystemicConsensusOptionTable.rationale.columnType.nullable shouldBe true
         }
 
         test("systemic_consensus_eligible_voter table shape matches the real migrated schema") {

@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.RoomBallotDto
 import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotStatus
+import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import org.w3c.dom.HTMLElement
@@ -66,10 +67,11 @@ class ConferenceConsensusPanelDomTest {
         canRate: Boolean = true,
         rated: Boolean = false,
         noOptions: Boolean = false,
+        options: List<SystemicConsensusOptionDto>? = null,
     ): ConsensusDetailData =
         ConsensusDetailData(
             consensus =
-                consensus(status = phase, secret = secret, options = if (noOptions) emptyList() else skOptions()).copy(id = kId),
+                consensus(status = phase, secret = secret, options = if (noOptions) emptyList() else options ?: skOptions()).copy(id = kId),
             participation = skParticipation(canManage = canManage, canRate = canRate, hasRated = rated),
             motion = null,
             result = if (phase == SystemicConsensusStatus.EVALUATED && canManage) skResult() else null,
@@ -787,6 +789,46 @@ class ConferenceConsensusPanelDomTest {
                 handle.setOpen(true)
                 awaitUntil("freeze", 2000) { el.hasButton("Optionen festschreiben") }
                 assertTrue(el.byClass("lapis-vote-overview").shown())
+            }
+        }
+
+    @Test
+    fun theCompactBooth_showsNumbers_andKeepsTheRationaleCollapsedUntilClicked(): Promise<Unit> =
+        formTest {
+            val options = skOptions().map { if (it.id == "o-a") it.copy(rationale = "Darum der Vorschlag") else it }
+            val world = ConsensusWorld(consensus(status = SystemicConsensusStatus.RATING, options = options).copy(id = kId))
+            withConsensusPanel("consensus-compact-why", world = world) { el, handle, h, _, _ ->
+                h.detail = detail(SystemicConsensusStatus.RATING, options = options)
+                handle.apply(answerOf(ballot(SystemicConsensusStatus.RATING)))
+                awaitUntil("the operator's own read of the card", 2000) { h.detailLoads >= 1 }
+                el.buttonNamed("Bewerten").click()
+                awaitUntil("the booth", 2000) { el.querySelector(".lapis-booth-compact") != null }
+                assertEquals(listOf("P", "1", "2"), el.allOf(".lapis-booth-compact .lapis-sk-num").map { it.textContent.orEmpty().trim() })
+                val toggle = el.allOf("button").first { it.textContent?.trim() == "Begründung" }
+                val body = assertNotNull(el.querySelector("#" + assertNotNull(toggle.getAttribute("aria-controls"))) as? HTMLElement)
+                assertEquals(
+                    "none",
+                    kotlinx.browser.window
+                        .getComputedStyle(body)
+                        .display,
+                    "collapsed until the member asks: the narrow panel stays narrow",
+                )
+                toggle.click()
+                awaitUntil("opened", 1500) { toggle.getAttribute("aria-expanded") == "true" }
+                assertEquals("Darum der Vorschlag", body.textContent)
+                assertEquals(0, el.allOf("[title]").size)
+            }
+        }
+
+    @Test
+    fun theOperatorResultList_showsTheOptionNumbers(): Promise<Unit> =
+        formTest {
+            withConsensusPanel("consensus-op-numbers") { el, handle, h, _, _ ->
+                h.detail = detail(SystemicConsensusStatus.EVALUATED, secret = false, canManage = true)
+                handle.apply(answerOf(ballot(SystemicConsensusStatus.EVALUATED, secret = false)))
+                awaitUntil("result", 2000) { el.flatText().contains("Geringster Widerstand") }
+                assertEquals(listOf("1", "2", "P"), el.allOf(".lapis-sk-num").map { it.textContent.orEmpty().trim() })
+                assertFalse(el.flatText().contains("Begründung"), "the operator's short list carries no rationale")
             }
         }
 }

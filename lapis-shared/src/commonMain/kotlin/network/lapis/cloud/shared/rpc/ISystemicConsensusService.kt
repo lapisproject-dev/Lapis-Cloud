@@ -65,6 +65,15 @@ interface ISystemicConsensusService {
      */
     suspend fun removeOption(optionId: String): SystemicConsensusDto
 
+    /**
+     * V1.9.39. Role: the option's own proposer, or target Committee leadership/BOARD/ADMIN. Requires
+     * [SystemicConsensusStatus.COLLECTION]; never for the status quo option. [rationale] `null`/blank removes it.
+     */
+    suspend fun setOptionRationale(
+        optionId: String,
+        rationale: String?,
+    ): SystemicConsensusOptionDto
+
     suspend fun listOptions(systemicConsensusId: String): List<SystemicConsensusOptionDto>
 
     /**

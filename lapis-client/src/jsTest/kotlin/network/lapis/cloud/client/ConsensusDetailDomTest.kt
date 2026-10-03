@@ -154,7 +154,7 @@ class ConsensusDetailDomTest {
     // ── COLLECTION ───────────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun inCollection_theStatusQuoOptionIsLast_withoutRemoveButton_andOwnOptionsCanBeRemoved(): Promise<Unit> =
+    fun inCollection_theStatusQuoOptionIsFirst_withoutRemoveButton_andOwnOptionsCanBeRemoved(): Promise<Unit> =
         formTest {
             val world = ConsensusWorld(consensus(), skParticipation(canPropose = true, canManage = false))
             withDetail(world, "sk-collection") { el, _, _ ->
@@ -162,20 +162,20 @@ class ConsensusDetailDomTest {
                 assertEquals(3, items.size)
                 assertTrue(
                     items
-                        .last()
+                        .first()
                         .textContent
                         .orEmpty()
                         .contains("Alles bleibt wie bisher (Passivlösung)"),
                 )
                 assertTrue(
                     items
-                        .last()
+                        .first()
                         .textContent
                         .orEmpty()
                         .contains("Immer dabei"),
                 )
                 assertFalse(
-                    items.last().allOf("button").any { it.textContent?.trim() == "Entfernen" },
+                    items.first().allOf("button").any { it.textContent?.trim() == "Entfernen" },
                     "the status quo option cannot be removed",
                 )
                 assertTrue(

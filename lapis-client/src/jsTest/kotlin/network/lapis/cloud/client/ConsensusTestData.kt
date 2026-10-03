@@ -26,6 +26,7 @@ internal fun skOption(
     statusQuo: Boolean = false,
     createdById: String = "m-9",
     createdBy: String = "Paula Proposer",
+    rationale: String? = null,
 ) = SystemicConsensusOptionDto(
     id = id,
     systemicConsensusId = "k1",
@@ -34,6 +35,7 @@ internal fun skOption(
     isStatusQuoOption = statusQuo,
     createdById = createdById,
     createdByDisplayName = createdBy,
+    rationale = rationale,
 )
 
 internal fun skOptions() =
@@ -53,6 +55,7 @@ internal fun consensus(
     title: String = "Neues Vereinsheim",
     winnerOptionId: String? = null,
     tooManyOptionsWarning: Boolean = false,
+    scaleMax: Int = 10,
 ) = SystemicConsensusDto(
     id = "k1",
     motionId = "m1",
@@ -60,7 +63,7 @@ internal fun consensus(
     title = title,
     status = status,
     secret = secret,
-    scaleMax = 10,
+    scaleMax = scaleMax,
     aggregation = SystemicConsensusAggregation.MEAN,
     tiebreakRule = SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE,
     groupConflictViableThreshold = 0.2.toDecimal(),

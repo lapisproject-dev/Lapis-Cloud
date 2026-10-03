@@ -406,6 +406,7 @@ class RecordingPollerTest :
                 // Generous bounds: these only cost time when the test would fail anyway (a loaded CI runner can starve the poller).
                 withTimeout(30_000) { while (egressClient.started.isEmpty()) delay(10) }
                 egressClient.started.single().second shouldBe "TR_wake"
+
                 // The poller records the track row AFTER it has asked the egress client to start, so the row is not there the instant
                 // `started` fills (a race that failed on a loaded CI runner: expected 1, was 0) -- wait for it instead of reading once.
                 fun trackRows(): Long =

@@ -37,6 +37,7 @@ internal class ConsensusRoutes(
     val abort: String,
     val addOption: String,
     val removeOption: String,
+    val setRationale: String,
     val open: String,
 )
 
@@ -58,6 +59,7 @@ internal suspend fun consensusRoutes(): ConsensusRoutes =
         abort = routeOf { rpcService<ISystemicConsensusService>().abortSystemicConsensus("x") },
         addOption = routeOf { rpcService<ISystemicConsensusService>().addOption("x", SystemicConsensusOptionInput("y")) },
         removeOption = routeOf { rpcService<ISystemicConsensusService>().removeOption("x") },
+        setRationale = routeOf { rpcService<ISystemicConsensusService>().setOptionRationale("x", null) },
         open = routeOf { rpcService<ISystemicConsensusService>().openSystemicConsensus(SystemicConsensusOpenInput("x")) },
     )
 
@@ -115,6 +117,7 @@ internal fun ConsensusWorld.respond(routes: ConsensusRoutes): (RecordedRequest) 
                                 jsonOf(SystemicConsensusDto.serializer(), consensus)
                             routes.addOption ->
                                 jsonOf(SystemicConsensusOptionDto.serializer(), skOption("o-new", "Neu", 9))
+                            routes.setRationale -> jsonOf(SystemicConsensusOptionDto.serializer(), skOption("o-a", "Option A", 1))
                             routes.evaluate ->
                                 jsonOf(SystemicConsensusResultDto.serializer(), result ?: skResult())
                             else -> "null"

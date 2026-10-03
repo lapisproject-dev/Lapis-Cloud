@@ -18565,9 +18565,6 @@ msgstr "Valutazione"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Valutate ogni opzione: quanto è forte la vostra resistenza?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = nessuna resistenza, ci posso convivere · 10 = per me inaccettabile."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "La vostra valutazione è anonima: si registra che avete valutato, ma non come."
 
@@ -19425,3 +19422,63 @@ msgstr "CET"
 
 msgid "MESZ"
 msgstr "CEST"
+
+msgid "Option %1: %2"
+msgstr "Opzione %1: %2"
+
+msgid "Platz %1"
+msgstr "Posizione %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Valore massimo %1 assegnato: %2 volte"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = nessuna resistenza, ci posso convivere · %1 = per me inaccettabile."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "I numeri sono definitivi una volta bloccate le opzioni."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "Perché propone questo? Al massimo 1000 caratteri."
+
+msgid "Begründung hinzufügen"
+msgstr "Aggiungi motivazione"
+
+msgid "Begründung bearbeiten"
+msgstr "Modifica motivazione"
+
+msgid "Begründung entfernen"
+msgstr "Rimuovi motivazione"
+
+msgid "Begründung anzeigen"
+msgstr "Mostra motivazione"
+
+msgid "Begründung ausblenden"
+msgstr "Nascondi motivazione"
+
+msgid "Begründung gespeichert."
+msgstr "Motivazione salvata."
+
+msgid "Begründung entfernt."
+msgstr "Motivazione rimossa."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "Non è stato possibile salvare la motivazione. La vista è stata ricaricata."
+
+msgid "Mehr anzeigen"
+msgstr "Mostra di più"
+
+msgid "Weniger anzeigen"
+msgstr "Mostra meno"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Inserisca al massimo %1 caratteri."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "La motivazione contiene caratteri di controllo non validi."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "La motivazione contiene troppe interruzioni di riga."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "La motivazione verrà eliminata."

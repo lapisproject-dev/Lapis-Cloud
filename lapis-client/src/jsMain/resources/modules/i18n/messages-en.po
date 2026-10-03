@@ -18472,9 +18472,6 @@ msgstr "Rating"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Rate every option: how strong is your resistance?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = no resistance, I can live with it · 10 = not acceptable to me."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "Your rating is anonymous: it is stored that you have rated, but not how."
 
@@ -19332,3 +19329,63 @@ msgstr "CET"
 
 msgid "MESZ"
 msgstr "CEST"
+
+msgid "Option %1: %2"
+msgstr "Option %1: %2"
+
+msgid "Platz %1"
+msgstr "Place %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Top value %1 given: %2×"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = no resistance, I can live with it · %1 = not acceptable to me."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "The numbers are fixed once the options are frozen."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "Why do you propose this? At most 1000 characters."
+
+msgid "Begründung hinzufügen"
+msgstr "Add justification"
+
+msgid "Begründung bearbeiten"
+msgstr "Edit justification"
+
+msgid "Begründung entfernen"
+msgstr "Remove justification"
+
+msgid "Begründung anzeigen"
+msgstr "Show justification"
+
+msgid "Begründung ausblenden"
+msgstr "Hide justification"
+
+msgid "Begründung gespeichert."
+msgstr "Justification saved."
+
+msgid "Begründung entfernt."
+msgstr "Justification removed."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "The justification could not be saved. The view has been reloaded."
+
+msgid "Mehr anzeigen"
+msgstr "Show more"
+
+msgid "Weniger anzeigen"
+msgstr "Show less"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Please enter at most %1 characters."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "The justification contains invalid control characters."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "The justification has too many line breaks."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "The justification will be deleted."

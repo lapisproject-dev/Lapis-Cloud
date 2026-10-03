@@ -13,14 +13,20 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
+import network.lapis.cloud.shared.domain.PublicTextNormalization
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionInput
+import network.lapis.cloud.shared.domain.SystemicConsensusRules
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 
 /*
  * V1.9.28 -- the options of a consensus. In COLLECTION every eligible member can add one and remove their own; from RATING on the same
- * list is read-only. The status quo option is always last and cannot be removed.
+ * list is read-only. The status quo option cannot be removed.
+ *
+ * V1.9.39 -- the status quo option (P) comes FIRST and carries the plaque "P"; the real options carry the numbers 1..n (rank by position,
+ * see [consensusOptionNumbers]). A proposal may carry a rationale (member input, shown untrusted); its proposer or the managers edit it in
+ * COLLECTION.
  */
 
 /** `systemic_consensus_option.label` is VARCHAR(200); the server refuses anything else, the client says so before sending. */
@@ -45,13 +51,23 @@ internal fun renderConsensusOptions(
             addCssClasses("alert alert-warning mb-0")
         }
     }
-    // The status quo option stands at position 0 on the server, but is shown LAST: the real proposals come first.
-    val ordered = c.options.filterNot { it.isStatusQuoOption }.sortedBy { it.position } + c.options.filter { it.isStatusQuoOption }
-    val list = panel.tag(TAG.OL, className = "list-group list-group-numbered")
-    ordered.forEach { option ->
+    val numbers = consensusOptionNumbers(c.options)
+    val list = panel.tag(TAG.OL, className = "list-group list-unstyled")
+    consensusOrderedOptions(c.options).forEachIndexed { index, option ->
         list.tag(TAG.LI, className = "list-group-item d-flex flex-wrap align-items-center gap-2") {
-            renderOptionRow(this, option, canRemoveOption(c, option, me, p), reload)
+            renderOptionRow(
+                row = this,
+                option = option,
+                number = numbers.getValue(option.id),
+                index = index,
+                removable = canRemoveOption(c, option, me, p),
+                editable = canEditRationale(c, option, me, p),
+                reload = reload,
+            )
         }
+    }
+    if (c.status == SystemicConsensusStatus.COLLECTION) {
+        panel.p(tr("Die Nummern stehen fest, sobald die Optionen festgeschrieben sind.")) { addCssClasses("text-muted small mb-0") }
     }
     if (canAddOption(c, p)) renderAddOptionForm(panel, c.id, reload)
 }
@@ -59,15 +75,40 @@ internal fun renderConsensusOptions(
 private fun renderOptionRow(
     row: Container,
     option: SystemicConsensusOptionDto,
+    number: String,
+    index: Int,
     removable: Boolean,
+    editable: Boolean,
     reload: () -> Unit,
 ) {
     val text = row.vPanel(spacing = 0) { addCssClasses("flex-grow-1") }
-    text.div(consensusOptionText(option)) { addCssClasses("fw-bold text-break") }
-    if (!option.isStatusQuoOption) {
+    val head = text.div { addCssClasses("d-flex align-items-baseline gap-2") }
+    head.consensusNumberPlaque(number)
+    head.consensusNumberSrPrefix(number)
+    head.div(consensusOptionText(option)) { addCssClasses("fw-bold text-break") }
+    if (option.isStatusQuoOption) {
+        text.div(tr("Immer dabei")) { addCssClasses("text-muted small") }
+    } else {
         text.div(gettext("Vorgeschlagen von %1", option.createdByDisplayName)) { addCssClasses("text-muted small") }
     }
-    if (option.isStatusQuoOption) row.typeBadge(tr("Immer dabei"), "secondary")
+    renderOptionRationale(text, option, RationaleMode.Full, "sk-opt-why", index)
+    val editorHost = text.vPanel(spacing = 2)
+    if (editable) {
+        val edit =
+            row.button(
+                if (option.rationale ==
+                    null
+                ) {
+                    tr("Begründung hinzufügen")
+                } else {
+                    tr("Begründung bearbeiten")
+                },
+                style = ButtonStyle.OUTLINESECONDARY,
+            )
+        edit.onClick {
+            if (editorHost.getChildren().isEmpty()) renderRationaleEditor(editorHost, option, reload) else editorHost.removeAll()
+        }
+    }
     if (removable) {
         val remove = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
         remove.onClick {
@@ -88,6 +129,74 @@ private fun renderOptionRow(
                         notifyInfo(tr("Option entfernt."))
                         reload()
                     }
+                }
+            }
+        }
+    }
+}
+
+/** The one rule of the rationale field -- the same normalisation the server applies (`SystemicConsensusRules`); an empty text is valid (= none). */
+private fun rationaleCheck(raw: String): FieldCheck =
+    when (SystemicConsensusRules.normalizeRationale(raw)) {
+        is PublicTextNormalization.Ok, PublicTextNormalization.Empty -> FieldCheck.Ok
+        PublicTextNormalization.TooLong ->
+            FieldCheck.Invalid(gettext("Bitte geben Sie höchstens %1 Zeichen ein.", SystemicConsensusRules.MAX_RATIONALE_LENGTH))
+        PublicTextNormalization.TooManyLineBreaks -> FieldCheck.Invalid(gettext("Die Begründung hat zu viele Zeilenumbrüche."))
+        PublicTextNormalization.ControlChars -> FieldCheck.Invalid(gettext("Die Begründung enthält unzulässige Steuerzeichen."))
+    }
+
+/** Inline editor of a proposal's rationale: save, or remove (behind a confirmation). The prefilled text is the SANITIZED one (a forged marker would otherwise be saved back). */
+private fun renderRationaleEditor(
+    host: Container,
+    option: SystemicConsensusOptionDto,
+    reload: () -> Unit,
+) {
+    val form = host.lapisForm()
+    val field =
+        form.textAreaField(
+            label = tr("Begründung"),
+            rows = 4,
+            value = sanitizeUntrustedI18nText(option.rationale.orEmpty()),
+            hint = tr("Warum schlagen Sie das vor? Höchstens 1000 Zeichen."),
+            rule = ::rationaleCheck,
+            init = { it.setAttribute("maxlength", SystemicConsensusRules.MAX_RATIONALE_LENGTH.toString()) },
+        )
+    val counter =
+        form.panel.div(gettext("%1 von %2 Zeichen", field.value.length, SystemicConsensusRules.MAX_RATIONALE_LENGTH)) {
+            addCssClasses("text-muted small")
+            setAttribute("aria-live", "polite")
+        }
+    field.subscribe { raw -> counter.content = gettext("%1 von %2 Zeichen", raw.length, SystemicConsensusRules.MAX_RATIONALE_LENGTH) }
+    val save = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val remove = if (option.rationale != null) Button(tr("Begründung entfernen"), style = ButtonStyle.OUTLINEDANGER) else null
+    form.buttons(primary = save, destructive = remove)
+    val failure = gettext("Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen.")
+    save.onClick {
+        form.submit(save) {
+            val saved =
+                consensusGuarded(failure, onConflict = reload) {
+                    rpcService<ISystemicConsensusService>().setOptionRationale(option.id, field.value.trim().ifEmpty { null })
+                }
+            if (saved != null) {
+                notifySuccess(tr("Begründung gespeichert."))
+                reload()
+            }
+        }
+    }
+    remove?.onClick {
+        confirmDialog(
+            title = tr("Begründung entfernen"),
+            message = tr("Die Begründung wird gelöscht."),
+            confirmLabel = tr("Begründung entfernen"),
+        ) {
+            runGuardedAction(remove) {
+                val cleared =
+                    consensusGuarded(failure, onConflict = reload) {
+                        rpcService<ISystemicConsensusService>().setOptionRationale(option.id, null)
+                    }
+                if (cleared != null) {
+                    notifySuccess(tr("Begründung entfernt."))
+                    reload()
                 }
             }
         }
@@ -121,6 +230,14 @@ private fun renderAddOptionForm(
             setAttribute("aria-live", "polite")
         }
     textField.subscribe { raw -> counter.content = gettext("%1 von %2 Zeichen", raw.length, MAX_OPTION_TEXT) }
+    val whyField =
+        form.textAreaField(
+            label = tr("Begründung (optional)"),
+            rows = 2,
+            hint = tr("Warum schlagen Sie das vor? Höchstens 1000 Zeichen."),
+            rule = ::rationaleCheck,
+            init = { it.setAttribute("maxlength", SystemicConsensusRules.MAX_RATIONALE_LENGTH.toString()) },
+        )
     val add = Button(tr("Option hinzufügen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = add)
     add.onClick {
@@ -129,7 +246,7 @@ private fun renderAddOptionForm(
                 consensusGuarded(gettext("Die Option konnte nicht hinzugefügt werden. Bitte Ansicht aktualisieren."), onConflict = reload) {
                     rpcService<ISystemicConsensusService>().addOption(
                         consensusId,
-                        SystemicConsensusOptionInput(label = textField.value.trim()),
+                        SystemicConsensusOptionInput(label = textField.value.trim(), rationale = whyField.value.trim().ifEmpty { null }),
                     )
                 }
             if (added != null) {

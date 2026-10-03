@@ -182,9 +182,14 @@ internal class ConferenceConsensusOperator(
         val consensus = detail.consensus
         val result = detail.result
         if (result != null) {
+            val numbers = consensusOptionNumbers(consensus.options)
             result.optionResults.sortedBy { it.meanResistance }.forEach { optionResult ->
                 val option = consensus.options.firstOrNull { it.id == optionResult.optionId } ?: return@forEach
                 val row = content.hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center small") }
+                numbers[option.id]?.let { number ->
+                    row.consensusNumberPlaque(number)
+                    row.consensusNumberSrPrefix(number)
+                }
                 row.div(consensusOptionText(option)) { addCssClasses("fw-bold text-break") }
                 row.div(formatResistance(mean = optionResult.meanResistance, scaleMax = consensus.scaleMax))
                 if (optionResult.optionId == result.winnerOptionId) row.votingBadge(tr("Geringster Widerstand"), "success", "fas fa-trophy")

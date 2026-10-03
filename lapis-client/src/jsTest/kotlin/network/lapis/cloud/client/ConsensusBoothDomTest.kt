@@ -92,9 +92,9 @@ class ConsensusBoothDomTest {
                 el.rate("Alles bleibt wie bisher", 10)
                 awaitUntil("all rated", 1500) { !el.isButtonDisabled("Prüfen") }
                 assertEquals(0, calls.toRoute(routes.cast).size, "nothing is sent while rating")
-                // the status quo option stands last and is shown translated, never with the server's English label
-                val legends = el.allOf("legend").map { it.textContent.orEmpty() }
-                assertEquals("Alles bleibt wie bisher (Passivlösung)", legends.last())
+                // V1.9.39: the status quo option (P) stands FIRST and is shown translated, never with the server's English label
+                val legends = el.allOf("legend .lapis-sk-option__text").map { it.textContent.orEmpty() }
+                assertEquals("Alles bleibt wie bisher (Passivlösung)", legends.first())
                 assertFalse(el.flatText().contains("Status quo (no change)"))
             }
         }

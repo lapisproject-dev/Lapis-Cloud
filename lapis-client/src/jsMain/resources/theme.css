@@ -2468,6 +2468,51 @@ html .form-select.is-invalid:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* V1.9.39 Konsensieren: Nummernplakette (P = Passivloesung, 1..n = Optionen) und Begruendung der Vorschlaege. Nur Tokens, keine Transition. */
+.lapis-sk-num {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75em;
+  height: 1.75em;
+  padding: 0 4px;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 4px;
+  background-color: var(--lapis-surface-sunken);
+  color: var(--lapis-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.lapis-sk-num--p {
+  background-color: transparent;
+}
+
+.lapis-sk-option > legend > .lapis-sk-num {
+  margin-right: 6px;
+}
+
+.lapis-sk-why {
+  margin-top: 4px;
+  color: var(--lapis-muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.lapis-sk-why--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.lapis-booth-compact .lapis-sk-num {
+  font-size: 0.75rem;
+}
+
 .lapis-sk-rank {
   padding: 10px 12px;
   border: 1px solid var(--lapis-border);

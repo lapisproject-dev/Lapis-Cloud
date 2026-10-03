@@ -18583,9 +18583,6 @@ msgstr "Évaluation"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Évaluez chaque option : quelle est la force de votre résistance ?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = aucune résistance, je peux très bien vivre avec · 10 = inacceptable pour moi."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "Votre évaluation est anonyme : on enregistre que vous avez évalué, mais pas comment."
 
@@ -19443,3 +19440,63 @@ msgstr "HNEC"
 
 msgid "MESZ"
 msgstr "HAEC"
+
+msgid "Option %1: %2"
+msgstr "Option %1 : %2"
+
+msgid "Platz %1"
+msgstr "Rang %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Valeur maximale %1 attribuée : %2 fois"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = aucune résistance, je peux très bien vivre avec · %1 = inacceptable pour moi."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "Les numéros sont fixés une fois les options figées."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "Pourquoi proposez-vous cela ? 1000 caractères au maximum."
+
+msgid "Begründung hinzufügen"
+msgstr "Ajouter une justification"
+
+msgid "Begründung bearbeiten"
+msgstr "Modifier la justification"
+
+msgid "Begründung entfernen"
+msgstr "Supprimer la justification"
+
+msgid "Begründung anzeigen"
+msgstr "Afficher la justification"
+
+msgid "Begründung ausblenden"
+msgstr "Masquer la justification"
+
+msgid "Begründung gespeichert."
+msgstr "Justification enregistrée."
+
+msgid "Begründung entfernt."
+msgstr "Justification supprimée."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "La justification n'a pas pu être enregistrée. La vue a été rechargée."
+
+msgid "Mehr anzeigen"
+msgstr "Afficher plus"
+
+msgid "Weniger anzeigen"
+msgstr "Afficher moins"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Veuillez saisir %1 caractères au maximum."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "La justification contient des caractères de contrôle non valides."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "La justification contient trop de retours à la ligne."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "La justification sera supprimée."

@@ -18,6 +18,7 @@ import network.lapis.cloud.server.security.canManageSystemicConsensus
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.MotionStatus
+import network.lapis.cloud.shared.domain.PublicTextNormalization
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
@@ -32,6 +33,7 @@ import network.lapis.cloud.shared.domain.SystemicConsensusOptionInput
 import network.lapis.cloud.shared.domain.SystemicConsensusParticipationDto
 import network.lapis.cloud.shared.domain.SystemicConsensusReceiptVerificationDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
+import network.lapis.cloud.shared.domain.SystemicConsensusRules
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -39,6 +41,7 @@ import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.neq
@@ -64,6 +67,12 @@ private const val MAX_ROUNDS_HARD_CAP = 10
 
 /** `systemic_consensus_option.label` is VARCHAR(200). */
 private const val MAX_OPTION_LABEL_LENGTH = 200
+
+/**
+ * V1.9.39: the one fixed rejection text for a rationale -- never echoes the input, a UUID or the reason
+ * (the text is untrusted and may be long; the client validates with the same rules beforehand).
+ */
+private const val RATIONALE_REJECTED = "Rationale rejected"
 
 private const val STATUS_QUO_OPTION_LABEL = "Status quo (no change)"
 private const val RECEIPT_CODE_BYTES = 20 // 160 bits, comfortably above the >=128-bit KDoc floor -- same as ElectionService.
@@ -212,6 +221,7 @@ class SystemicConsensusService(
             if (label.isEmpty() || label.length > MAX_OPTION_LABEL_LENGTH) {
                 throw ConflictException("Option text must be between 1 and $MAX_OPTION_LABEL_LENGTH characters")
             }
+            val rationale = rationaleOrNull(input.rationale)
             val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
             if (!current.isPrivileged) {
                 val eligible = eligibleMembersOf(committeeId = committeeId, meetingId = row[SystemicConsensusTable.meetingId])
@@ -240,8 +250,34 @@ class SystemicConsensusService(
                 it[position] = nextPosition
                 it[isStatusQuoOption] = false
                 it[createdBy] = current.memberId
+                it[SystemicConsensusOptionTable.rationale] = rationale
             }
             loadOption(id)
+        }
+    }
+
+    override suspend fun setOptionRationale(
+        optionId: String,
+        rationale: String?,
+    ): SystemicConsensusOptionDto {
+        val current = resolveCurrentMember(call)
+        val oId = optionId.toUuidOrNotFound("SystemicConsensusOption")
+        return transaction {
+            val optionRow =
+                SystemicConsensusOptionTable.selectAll().where { SystemicConsensusOptionTable.id eq oId }.singleOrNull()
+                    ?: throw NotFoundException("SystemicConsensusOption $optionId not found")
+            val kId = optionRow[SystemicConsensusOptionTable.systemicConsensusId]
+            // Row lock: a concurrent freezeOptions must not commit between our status check and our write.
+            val row = requireCollectionRowForUpdate(kId)
+            if (optionRow[SystemicConsensusOptionTable.isStatusQuoOption]) throw ConflictException(RATIONALE_REJECTED)
+            val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
+            val isProposer = optionRow[SystemicConsensusOptionTable.createdBy] == current.memberId
+            if (!isProposer && !current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
+            val normalized = rationaleOrNull(rationale)
+            SystemicConsensusOptionTable.update({ SystemicConsensusOptionTable.id eq oId }) {
+                it[SystemicConsensusOptionTable.rationale] = normalized
+            }
+            loadOption(oId)
         }
     }
 
@@ -278,8 +314,10 @@ class SystemicConsensusService(
             SystemicConsensusOptionTable
                 .selectAll()
                 .where { SystemicConsensusOptionTable.systemicConsensusId eq kId }
-                .orderBy(SystemicConsensusOptionTable.position)
-                .map { it.toSystemicConsensusOptionDto() }
+                .orderBy(
+                    SystemicConsensusOptionTable.position to SortOrder.ASC,
+                    SystemicConsensusOptionTable.id to SortOrder.ASC,
+                ).map { it.toSystemicConsensusOptionDto() }
         }
     }
 
@@ -774,6 +812,28 @@ class SystemicConsensusService(
             .where { SystemicConsensusTable.id eq systemicConsensusId }
             .singleOrNull() ?: throw NotFoundException("SystemicConsensus $systemicConsensusId not found")
 
+    /** Locks the SystemicConsensus row (`FOR UPDATE`) and requires COLLECTION -- only this row, no Motion (subset of the lock order). */
+    private fun requireCollectionRowForUpdate(kId: Uuid): ResultRow {
+        val row =
+            SystemicConsensusTable
+                .selectAll()
+                .where { SystemicConsensusTable.id eq kId }
+                .forUpdate()
+                .singleOrNull() ?: throw NotFoundException("SystemicConsensus $kId not found")
+        if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.COLLECTION) {
+            throw ConflictException("SystemicConsensus $kId is ${row[SystemicConsensusTable.status]}, expected COLLECTION")
+        }
+        return row
+    }
+
+    /** Normalised rationale text, `null` for none; any rejection is the one fixed [RATIONALE_REJECTED] conflict. */
+    private fun rationaleOrNull(raw: String?): String? =
+        when (val n = SystemicConsensusRules.normalizeRationale(raw)) {
+            is PublicTextNormalization.Ok -> n.text
+            PublicTextNormalization.Empty -> null
+            else -> throw ConflictException(RATIONALE_REJECTED)
+        }
+
     private fun requireMotionCommitteeId(motionId: Uuid): Uuid =
         MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.targetCommitteeId]
 
@@ -855,8 +915,10 @@ class SystemicConsensusService(
             SystemicConsensusOptionTable
                 .selectAll()
                 .where { SystemicConsensusOptionTable.systemicConsensusId eq kId }
-                .orderBy(SystemicConsensusOptionTable.position)
-                .toList()
+                .orderBy(
+                    SystemicConsensusOptionTable.position to SortOrder.ASC,
+                    SystemicConsensusOptionTable.id to SortOrder.ASC,
+                ).toList()
         return SystemicConsensusDto(
             id = kId.toString(),
             motionId = this[SystemicConsensusTable.motionId].toString(),
@@ -895,6 +957,7 @@ class SystemicConsensusService(
             isStatusQuoOption = this[SystemicConsensusOptionTable.isStatusQuoOption],
             createdById = this[SystemicConsensusOptionTable.createdBy].toString(),
             createdByDisplayName = memberDisplayName(this[SystemicConsensusOptionTable.createdBy]).orEmpty(),
+            rationale = this[SystemicConsensusOptionTable.rationale],
         )
 
     private fun ResultRow.toSystemicConsensusBallotDto(revealValues: Boolean): SystemicConsensusBallotDto {

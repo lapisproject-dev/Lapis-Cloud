@@ -17605,9 +17605,6 @@ msgstr ""
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr ""
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr ""
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr ""
 
@@ -18464,4 +18461,64 @@ msgid "MEZ"
 msgstr ""
 
 msgid "MESZ"
+msgstr ""
+
+msgid "Option %1: %2"
+msgstr ""
+
+msgid "Platz %1"
+msgstr ""
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr ""
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr ""
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr ""
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr ""
+
+msgid "Begründung hinzufügen"
+msgstr ""
+
+msgid "Begründung bearbeiten"
+msgstr ""
+
+msgid "Begründung entfernen"
+msgstr ""
+
+msgid "Begründung anzeigen"
+msgstr ""
+
+msgid "Begründung ausblenden"
+msgstr ""
+
+msgid "Begründung gespeichert."
+msgstr ""
+
+msgid "Begründung entfernt."
+msgstr ""
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr ""
+
+msgid "Mehr anzeigen"
+msgstr ""
+
+msgid "Weniger anzeigen"
+msgstr ""
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr ""
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr ""
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr ""
+
+msgid "Die Begründung wird gelöscht."
 msgstr ""

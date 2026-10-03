@@ -18510,9 +18510,6 @@ msgstr "Оценка"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Оцените каждый вариант: насколько велико ваше сопротивление?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = нет сопротивления, я могу с этим жить · 10 = для меня неприемлемо."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "Ваша оценка анонимна: сохраняется, что вы оценили, но не как."
 
@@ -19370,3 +19367,63 @@ msgstr "CET"
 
 msgid "MESZ"
 msgstr "CEST"
+
+msgid "Option %1: %2"
+msgstr "Вариант %1: %2"
+
+msgid "Platz %1"
+msgstr "Место %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Наивысшее значение %1 выставлено: %2 раз"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = нет сопротивления, я могу с этим жить · %1 = для меня неприемлемо."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "Номера фиксируются после закрепления вариантов."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "Почему вы это предлагаете? Не более 1000 символов."
+
+msgid "Begründung hinzufügen"
+msgstr "Добавить обоснование"
+
+msgid "Begründung bearbeiten"
+msgstr "Изменить обоснование"
+
+msgid "Begründung entfernen"
+msgstr "Удалить обоснование"
+
+msgid "Begründung anzeigen"
+msgstr "Показать обоснование"
+
+msgid "Begründung ausblenden"
+msgstr "Скрыть обоснование"
+
+msgid "Begründung gespeichert."
+msgstr "Обоснование сохранено."
+
+msgid "Begründung entfernt."
+msgstr "Обоснование удалено."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "Не удалось сохранить обоснование. Вид был обновлён."
+
+msgid "Mehr anzeigen"
+msgstr "Показать больше"
+
+msgid "Weniger anzeigen"
+msgstr "Показать меньше"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Введите не более %1 символов."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "Обоснование содержит недопустимые управляющие символы."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "Обоснование содержит слишком много переносов строк."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "Обоснование будет удалено."

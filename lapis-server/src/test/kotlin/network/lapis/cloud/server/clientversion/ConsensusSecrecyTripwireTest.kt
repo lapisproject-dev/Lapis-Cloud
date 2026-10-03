@@ -112,6 +112,33 @@ internal fun consensusSecrecyFindings(
     return findings
 }
 
+/**
+ * V1.9.39: a line that mentions a rationale (member input) must never hand it to an attribute that exposes it outside the widget text
+ * (`title`, `aria-label`, `data-*`), to a toast/log/storage/history sink or read an exception message on the same line.
+ */
+private val RATIONALE_LINE = Regex("""(?i)rationale""")
+private val RATIONALE_SINKS =
+    listOf(
+        Regex("""\btitle\b"""),
+        Regex("""aria-label"""),
+        Regex("""setAttribute\("data"""),
+        Regex("""data-"""),
+        Regex("""\bnotify\w*\("""),
+        Regex("""\bconsole\b"""),
+        Regex("""\blocalStorage\b"""),
+        Regex("""\bsessionStorage\b"""),
+        Regex("""\bpushState\b"""),
+        Regex("""\.message\b"""),
+    )
+
+internal fun rationaleSinkFindings(
+    fileName: String,
+    text: String,
+): List<String> =
+    codeLines(text)
+        .filter { line -> RATIONALE_LINE.containsMatchIn(line) && RATIONALE_SINKS.any { it.containsMatchIn(line) } }
+        .map { "$fileName: rationale reaches a sink: ${it.trim()}" }
+
 /** V1.9.32: shapes that must not appear in the room's consensus files on top of the rules above. */
 private val CONFERENCE_CONSENSUS_FORBIDDEN =
     listOf(
@@ -137,6 +164,24 @@ class ConsensusSecrecyTripwireTest :
 
         test("no consensus client file logs, stores, routes or toasts anything it must not") {
             CONSENSUS_FILES.flatMap { consensusSecrecyFindings(fileName = it, text = File(CLIENT_DIR, it).readText()) }.shouldBeEmpty()
+        }
+
+        test(
+            "V1.9.39: no consensus client file hands a rationale to title, aria-label, data-*, a toast, a log, storage or an exception message",
+        ) {
+            CONSENSUS_FILES.flatMap { rationaleSinkFindings(fileName = it, text = File(CLIENT_DIR, it).readText()) }.shouldBeEmpty()
+            // the detector itself: positive and negative examples
+            rationaleSinkFindings(fileName = "X.kt", text = "div.setAttribute(\"title\", option.rationale)").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "span.title = option.rationale").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "b.setAttribute(\"aria-label\", option.rationale)").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "b.setAttribute(\"data-why\", option.rationale)").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "notifyInfo(option.rationale)").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "console.log(option.rationale)").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "window.localStorage.setItem(a, option.rationale)").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "val m = e.message + option.rationale").size shouldBe 1
+            rationaleSinkFindings(fileName = "X.kt", text = "parent.untrustedDiv(option.rationale, className = \"x\")").size shouldBe 0
+            rationaleSinkFindings(fileName = "X.kt", text = "notifySuccess(tr(\"Begründung gespeichert.\"))").size shouldBe 0
+            rationaleSinkFindings(fileName = "X.kt", text = "// option.rationale -> title").size shouldBe 0
         }
 
         test("V1.9.32: the room's consensus files carry no data attribute, no AppState, no exception message and no rating/receipt toast") {

@@ -81,9 +81,9 @@ private class ConsensusBooth(
     private val ratings = linkedMapOf<String, Int>()
     private var inFlight = false
 
-    /** Real proposals first (by position), the status quo option last -- the same order as the options list. */
-    private val options: List<SystemicConsensusOptionDto> =
-        consensus.options.filterNot { it.isStatusQuoOption }.sortedBy { it.position } + consensus.options.filter { it.isStatusQuoOption }
+    /** The status quo option (P) first, then the real proposals -- the same order and numbers as the options list (V1.9.39). */
+    private val options: List<SystemicConsensusOptionDto> = consensusOrderedOptions(consensus.options)
+    private val numbers: Map<String, String> = consensusOptionNumbers(consensus.options)
 
     private fun releaseLockWatchers() {
         lockSubscriptions.forEach { it() }
@@ -113,7 +113,7 @@ private class ConsensusBooth(
         head.untrustedP(consensus.title, className = "fw-bold mb-1")
         head.p(tr("Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?")) { addCssClasses("mb-0") }
         head.p(
-            tr("0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."),
+            gettext("0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar.", consensus.scaleMax),
         ) { addCssClasses("text-muted small mb-1") }
         if (roomHost != null) {
             head.p(tr("Gewählt wird die Option mit dem geringsten Gesamtwiderstand.")) { addCssClasses("text-muted small mb-1") }
@@ -141,7 +141,11 @@ private class ConsensusBooth(
         var radioIndex = 0
         options.forEachIndexed { groupIndex, option ->
             val fieldset = booth.tag(TAG.FIELDSET, className = "lapis-sk-option")
-            fieldset.tag(TAG.LEGEND, content = consensusOptionText(option))
+            val legend = fieldset.tag(TAG.LEGEND)
+            val number = numbers.getValue(option.id)
+            legend.consensusNumberPlaque(number)
+            legend.consensusNumberSrPrefix(number)
+            legend.span(consensusOptionText(option), className = "lapis-sk-option__text")
             val scale = fieldset.div(className = "lapis-sk-scale")
             val radios =
                 (SCALE_START..consensus.scaleMax).map { digit ->
@@ -161,6 +165,15 @@ private class ConsensusBooth(
             anchors.span(tr("kein"))
             anchors.span(tr("deutliche Bedenken"))
             anchors.span(tr("nicht tragbar"))
+            // V1.9.39: the proposer's reasoning -- clamped on the page, behind a switch in the narrow room panel. Never in the review step.
+            renderOptionRationale(
+                parent = fieldset,
+                option = option,
+                mode = if (roomHost?.compact == true) RationaleMode.Collapsed else RationaleMode.Clamped,
+                toggleIdPrefix = "sk-why",
+                index = groupIndex,
+                closedLabel = tr("Begründung"),
+            )
         }
 
         fun chosen(radios: List<Tag>): Int? =
@@ -208,8 +221,9 @@ private class ConsensusBooth(
         if (notice != null) booth.p(notice) { addCssClasses("alert alert-warning mb-0") }
         options.forEach { option ->
             val value = ratings[option.id] ?: return@forEach
-            booth.div(gettext("%1: Widerstand %2 von %3", consensusOptionText(option), value, consensus.scaleMax)) {
-                addCssClasses("lapis-booth-review fw-bold text-break")
+            booth.div { addCssClasses("lapis-booth-review fw-bold text-break") }.apply {
+                consensusNumberPlaque(numbers.getValue(option.id))
+                span(gettext("%1: Widerstand %2 von %3", consensusOptionText(option), value, consensus.scaleMax))
             }
         }
         booth.p(tr("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden.")) { addCssClasses("text-muted mb-0") }

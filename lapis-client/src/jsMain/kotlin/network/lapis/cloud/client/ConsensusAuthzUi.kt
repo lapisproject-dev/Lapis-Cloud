@@ -35,6 +35,14 @@ fun canRemoveOption(
     p: SystemicConsensusParticipationDto,
 ): Boolean = c.status == SystemicConsensusStatus.COLLECTION && !option.isStatusQuoOption && (option.createdById == me || p.canManage)
 
+/** V1.9.39: the rationale of a proposal follows the same rule as removing it (COLLECTION, never the status quo option, proposer or managers). */
+fun canEditRationale(
+    c: SystemicConsensusDto,
+    option: SystemicConsensusOptionDto,
+    me: String,
+    p: SystemicConsensusParticipationDto,
+): Boolean = canRemoveOption(c, option, me, p)
+
 fun canFreeze(
     c: SystemicConsensusDto,
     p: SystemicConsensusParticipationDto,

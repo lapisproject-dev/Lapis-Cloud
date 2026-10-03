@@ -68,11 +68,18 @@ data class SystemicConsensusOptionDto(
     val isStatusQuoOption: Boolean,
     val createdById: String,
     val createdByDisplayName: String,
+    /**
+     * V1.9.39: optional free-text rationale of the proposal (<= 1000 characters, normalised server-side),
+     * `null` = none. UNTRUSTED text -- render only through the untrusted-text helpers. Never set for the status quo option.
+     */
+    val rationale: String? = null,
 )
 
 @Serializable
 data class SystemicConsensusOptionInput(
     val label: String,
+    /** V1.9.39: optional rationale, `null`/blank = none. Same limits as [SystemicConsensusOptionDto.rationale]. */
+    val rationale: String? = null,
 )
 
 @Serializable

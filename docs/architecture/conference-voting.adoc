@@ -516,6 +516,12 @@ stateDiagram(name = "Consensus phases in the room") {
 * **Badge and auto-open.** A consensus counts for the badge and opens the panel only in `RATING` and only for a member who can rate. The key
   under which it is remembered is dropped when it leaves `RATING`, so a re-rating is announced again.
 
+=== Practice alignment (V1.9.39)
+
+The compact booth lists the status quo option first and shows the option plaques (P, 1..n); a proposal's rationale sits behind a "Begründung"
+switch (collapsed, so the 290 px panel stays narrow), and the legend follows the scale of the consensus. The operator's evaluated list shows
+the plaques; it still carries no rationale. Details: `consensus-ui.adoc`, section "Practice alignment, part 1 (V1.9.39)".
+
 === Known limitations (V1.9.32)
 
 * Adding options, opening and aborting a consensus are only on the consensus page (new tab).

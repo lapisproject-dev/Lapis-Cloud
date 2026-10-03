@@ -27,7 +27,8 @@ import kotlin.uuid.Uuid
  * Retain-with-reason across the board, same precedent as [ElectionPersonalData]: who opened a
  * SystemicConsensus, who proposed which option, who was eligible to rate, and who participated
  * (without revealing *what* resistance they cast, on the secret path) are all
- * accountability-relevant electoral records, not purely personal data.
+ * accountability-relevant electoral records, not purely personal data. The text of a proposal and its
+ * optional rationale (V1.9.39) are part of the decision record: exported, retained, never erased.
  */
 object SystemicConsensusPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "systemic_consensus"
@@ -68,6 +69,7 @@ object SystemicConsensusPersonalData : MemberPersonalDataContributor {
                                 put("id", row[SystemicConsensusOptionTable.id].toString())
                                 put("systemicConsensusId", row[SystemicConsensusOptionTable.systemicConsensusId].toString())
                                 put("label", row[SystemicConsensusOptionTable.label])
+                                put("rationale", row[SystemicConsensusOptionTable.rationale])
                             },
                         )
                     }
@@ -154,7 +156,7 @@ object SystemicConsensusPersonalData : MemberPersonalDataContributor {
             TableErasureOutcome(
                 table = "systemic_consensus_option",
                 rowsRetained = optionCount.toInt(),
-                retentionReason = "Part of the procedure.",
+                retentionReason = "Procedure record (text+rationale).",
             ),
             TableErasureOutcome(
                 table = "systemic_consensus_eligible_voter",

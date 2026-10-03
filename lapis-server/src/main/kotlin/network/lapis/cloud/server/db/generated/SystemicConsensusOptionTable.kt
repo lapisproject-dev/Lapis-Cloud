@@ -13,6 +13,7 @@ public object SystemicConsensusOptionTable : Table("systemic_consensus_option") 
     public val isStatusQuoOption: Column<Boolean> = bool("is_status_quo_option")
     public val systemicConsensusId: Column<Uuid> = reference("systemic_consensus_id", SystemicConsensusTable.id)
     public val createdBy: Column<Uuid> = reference("created_by", MemberTable.id)
+    public val rationale: Column<String?> = varchar("rationale", 1000).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

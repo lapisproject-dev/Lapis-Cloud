@@ -19,6 +19,7 @@ import network.lapis.cloud.shared.domain.SystemicConsensusBindingness
 import network.lapis.cloud.shared.domain.SystemicConsensusDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
+import network.lapis.cloud.shared.domain.SystemicConsensusRules
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.domain.SystemicConsensusTiebreakRule
 import network.lapis.cloud.shared.rpc.ISystemicConsensusService
@@ -31,9 +32,6 @@ import network.lapis.cloud.shared.rpc.ISystemicConsensusService
  * Anonymity: for an anonymous consensus no list of single ratings is requested at all (only the aggregate per option is shown). Only an OPEN
  * consensus lists who rated what, and only that branch calls `listResistanceBallots` (`ConsensusSecrecyTripwireTest`).
  */
-
-/** Resistance at or above this value is a strong objection that the mean can hide. */
-private const val STRONG_OBJECTION = 9
 
 internal fun renderConsensusResult(
     panel: SimplePanel,
@@ -53,8 +51,17 @@ internal fun renderConsensusResult(
         result.optionResults.sortedWith(
             compareBy<SystemicConsensusOptionResultDto> { it.meanResistance }.thenBy { it.optionId != result.winnerOptionId },
         )
+    val numbers = consensusOptionNumbers(c.options)
     ranked.forEachIndexed { index, option ->
-        renderRankRow(panel, c, option, rank = index + 1, winner = option.optionId == result.winnerOptionId)
+        renderRankRow(
+            panel,
+            c,
+            option,
+            rank = index + 1,
+            number = numbers[option.optionId],
+            winner =
+                option.optionId == result.winnerOptionId,
+        )
     }
     if (!c.secret) {
         panel.h2(tr("Namentliche Bewertungen")) { addCssClass("h5") }
@@ -110,12 +117,16 @@ private fun renderRankRow(
     c: SystemicConsensusDto,
     option: SystemicConsensusOptionResultDto,
     rank: Int,
+    number: String?,
     winner: Boolean,
 ) {
     val dto = c.options.firstOrNull { it.id == option.optionId }
     val box = panel.vPanel(spacing = 4) { addCssClasses(if (winner) "lapis-sk-rank lapis-sk-rank--winner" else "lapis-sk-rank") }
     val head = box.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-    head.div(rank.toString()) { addCssClasses("fw-bold lapis-num") }
+    // V1.9.39: the plaque shows WHICH option this is (the numbers of the options list); the rank is the order of the rows (read out, not shown).
+    head.span(gettext("Platz %1", rank), className = "visually-hidden")
+    if (number != null) head.consensusNumberPlaque(number)
+    if (number != null) head.consensusNumberSrPrefix(number)
     head.div(dto?.let { consensusOptionText(it) }.orEmpty()) { addCssClasses("flex-grow-1 fw-bold text-break") }
     if (winner) head.statusBadge(tr("Geringster Widerstand"), "success")
     head.div(formatResistance(mean = option.meanResistance, scaleMax = c.scaleMax)) { addCssClasses("fw-bold lapis-num") }
@@ -132,12 +143,16 @@ private fun renderRankRow(
             formatDecimal(value = index, places = 2),
         ),
     ) { addCssClasses("small") }
-    if (option.maxResistance >= STRONG_OBJECTION) {
+    box.div(
+        gettext("Höchstwert %1 vergeben: %2-mal", c.scaleMax, option.distribution[c.scaleMax] ?: 0),
+    ) { addCssClasses("small text-muted") }
+    if (option.maxResistance >= SystemicConsensusRules.strongObjectionThreshold(c.scaleMax)) {
         box.div(
             gettext("Höchster Einzelwert: %1. Das ist ein starker Einwand.", option.maxResistance),
         ) { addCssClasses("small text-danger") }
     }
     renderDistribution(box, option, c.scaleMax)
+    if (dto != null) renderOptionRationale(box, dto, RationaleMode.Collapsed, "sk-res-why", rank)
 }
 
 /** The rating histogram of one option, collapsed by default. [SystemicConsensusOptionResultDto.distribution] only holds values that were cast; the gaps are filled with 0. */
@@ -173,12 +188,19 @@ private fun renderNamedRatings(
     ballots: List<SystemicConsensusBallotDto>,
 ) {
     host.p(tr("Bei einem offenen Konsensieren sind die Bewertungen mit Namen sichtbar.")) { addCssClasses("text-muted small") }
-    val options = c.options.filterNot { it.isStatusQuoOption }.sortedBy { it.position } + c.options.filter { it.isStatusQuoOption }
+    val options = consensusOrderedOptions(c.options)
+    val numbers = consensusOptionNumbers(c.options)
     host.dataTable(
         columns =
             listOf(textColumn<SystemicConsensusBallotDto>(title = tr("Name"), primary = true) { it.memberDisplayName.orEmpty() }) +
                 options.map { option ->
-                    textColumn<SystemicConsensusBallotDto>(title = consensusOptionText(option), numeric = true) {
+                    val columnTitle =
+                        if (option.isStatusQuoOption) {
+                            consensusOptionText(option)
+                        } else {
+                            gettext("Option %1: %2", numbers.getValue(option.id), consensusOptionText(option))
+                        }
+                    textColumn<SystemicConsensusBallotDto>(title = columnTitle, numeric = true) {
                         it.resistances[option.id]?.toString().orEmpty()
                     }
                 },

@@ -37,6 +37,23 @@ class ConsensusAuthzUiTest {
     }
 
     @Test
+    fun editRationale_followsTheRemoveRule() {
+        val c = statusOf(SystemicConsensusStatus.COLLECTION)
+        val own = skOption("o-x", "Meins", 3, createdById = "m-1")
+        val foreign = skOption("o-y", "Fremd", 4, createdById = "m-2")
+        val statusQuo = skOption("o-sq", "x", 0, statusQuo = true, createdById = "m-1")
+        val plain = skParticipation(canManage = false)
+        val manager = skParticipation(canManage = true)
+        assertTrue(canEditRationale(c, own, "m-1", plain))
+        assertFalse(canEditRationale(c, foreign, "m-1", plain))
+        assertTrue(canEditRationale(c, foreign, "m-1", manager))
+        assertFalse(canEditRationale(c, statusQuo, "m-1", manager), "never for the status quo option")
+        SystemicConsensusStatus.entries.filter { it != SystemicConsensusStatus.COLLECTION }.forEach {
+            assertFalse(canEditRationale(statusOf(it), own, "m-1", manager), "no rationale edit in $it")
+        }
+    }
+
+    @Test
     fun freeze_isDisabledWithoutOptions_hiddenForNonManagers_andOnlyInCollection() {
         val manager = skParticipation(canManage = true)
         assertEquals(Gate.Enabled, canFreeze(statusOf(SystemicConsensusStatus.COLLECTION), manager))

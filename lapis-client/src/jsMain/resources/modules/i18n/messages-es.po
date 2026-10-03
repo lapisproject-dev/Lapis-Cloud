@@ -18502,9 +18502,6 @@ msgstr "Valoración"
 msgid "Bewerten Sie jede Option: Wie groß ist Ihr Widerstand?"
 msgstr "Valore cada opción: ¿qué tan fuerte es su resistencia?"
 
-msgid "0 = kein Widerstand, ich kann gut damit leben · 10 = für mich nicht tragbar."
-msgstr "0 = ninguna resistencia, puedo vivir con ello · 10 = inaceptable para mí."
-
 msgid "Ihre Bewertung ist anonym: Es wird gespeichert, dass Sie bewertet haben, aber nicht, wie."
 msgstr "Su valoración es anónima: se guarda que ha valorado, pero no cómo."
 
@@ -19362,3 +19359,63 @@ msgstr "CET"
 
 msgid "MESZ"
 msgstr "CEST"
+
+msgid "Option %1: %2"
+msgstr "Opción %1: %2"
+
+msgid "Platz %1"
+msgstr "Puesto %1"
+
+msgid "Höchstwert %1 vergeben: %2-mal"
+msgstr "Valor máximo %1 asignado: %2 ×"
+
+msgid "0 = kein Widerstand, ich kann gut damit leben · %1 = für mich nicht tragbar."
+msgstr "0 = ninguna resistencia, puedo vivir con ello · %1 = inaceptable para mí."
+
+msgid "Die Nummern stehen fest, sobald die Optionen festgeschrieben sind."
+msgstr "Los números quedan fijados cuando se cierran las opciones."
+
+msgid "Warum schlagen Sie das vor? Höchstens 1000 Zeichen."
+msgstr "¿Por qué propone esto? Máximo 1000 caracteres."
+
+msgid "Begründung hinzufügen"
+msgstr "Añadir justificación"
+
+msgid "Begründung bearbeiten"
+msgstr "Editar justificación"
+
+msgid "Begründung entfernen"
+msgstr "Eliminar justificación"
+
+msgid "Begründung anzeigen"
+msgstr "Mostrar justificación"
+
+msgid "Begründung ausblenden"
+msgstr "Ocultar justificación"
+
+msgid "Begründung gespeichert."
+msgstr "Justificación guardada."
+
+msgid "Begründung entfernt."
+msgstr "Justificación eliminada."
+
+msgid "Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen."
+msgstr "No se pudo guardar la justificación. La vista se ha recargado."
+
+msgid "Mehr anzeigen"
+msgstr "Mostrar más"
+
+msgid "Weniger anzeigen"
+msgstr "Mostrar menos"
+
+msgid "Bitte geben Sie höchstens %1 Zeichen ein."
+msgstr "Introduzca como máximo %1 caracteres."
+
+msgid "Die Begründung enthält unzulässige Steuerzeichen."
+msgstr "La justificación contiene caracteres de control no válidos."
+
+msgid "Die Begründung hat zu viele Zeilenumbrüche."
+msgstr "La justificación tiene demasiados saltos de línea."
+
+msgid "Die Begründung wird gelöscht."
+msgstr "Se eliminará la justificación."
