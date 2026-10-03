@@ -19593,3 +19593,18 @@ msgstr "С помощью «Новый донор» вы можете созда
 
 msgid "Mit \"Neues Konto\" legen Sie eines an."
 msgstr "С помощью «Новый счёт» вы можете создать первый."
+
+msgid "Neue Veranstaltung"
+msgstr "Новое мероприятие"
+
+msgid "Neuer Raum"
+msgstr "Новое помещение"
+
+msgid "Neue Schicht"
+msgstr "Новая смена"
+
+msgid "Neue Bestellposition"
+msgstr "Новая позиция заказа"
+
+msgid "Für Veranstaltung:"
+msgstr "Для мероприятия:"

@@ -1,13 +1,12 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -42,7 +41,8 @@ fun renderCateringScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Catering"))
+    val header = root.pageHeader(tr("Catering"))
+    val createHost = root.vPanel(spacing = 6) // V1.9.47 (R36B): collapsed create form, directly under the header
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
     val eventSelectRow = root.lapisToolbar()
@@ -72,8 +72,9 @@ fun renderCateringScreen(container: SimplePanel) {
             },
         )
 
-    root.h2(tr("Neue Bestellposition anlegen")) { addCssClass("h5") }
-    val creationFormHolder = root.vPanel(spacing = 6)
+    // The create button exists only once at least one event loaded; a retry after an error must not build a second one.
+    var createController: CollapsibleCreateFormController<Unit>? = null
+    val titleById = mutableMapOf<String, String>()
 
     fun loadEvents() {
         eventsErrorHost.removeAll()
@@ -87,6 +88,8 @@ fun renderCateringScreen(container: SimplePanel) {
                 return@launch
             }
             val options = untrustedOptions(page.rows.map { it.id to it.title })
+            titleById.clear()
+            page.rows.forEach { titleById[it.id] = it.title }
             eventSelect.options = options
             if (options.isEmpty()) {
                 eventsErrorHost.p(tr("Es sind derzeit keine Veranstaltungen geplant.")) { addCssClasses("text-muted") }
@@ -94,8 +97,20 @@ fun renderCateringScreen(container: SimplePanel) {
             }
             eventSelect.value = options.first().first
             refreshList()
-            creationFormHolder.removeAll()
-            renderCateringOrderCreationForm(creationFormHolder, eventSelect, ::refreshList)
+            if (createController == null) {
+                createController =
+                    collapsibleCreateForm<Unit>(
+                        actionSlot = header.actionSlot,
+                        formHost = createHost,
+                        buttonLabel = tr("Neue Bestellposition"),
+                        formId = "lapis-create-catering-order",
+                        // The form belongs to the event chosen when it was opened: the picker is locked while it is open.
+                        onOpenChange = { open -> eventSelect.disabled = open },
+                    ) { _, close ->
+                        val targetEventId = eventSelect.value.orEmpty()
+                        renderCateringOrderCreationForm(this, targetEventId, titleById[targetEventId].orEmpty(), close, ::refreshList)
+                    }
+            }
         }
     }
 
@@ -256,10 +271,16 @@ private fun renderCateringOrderEditForm(
 
 private fun renderCateringOrderCreationForm(
     root: SimplePanel,
-    eventSelect: Select,
+    targetEventId: String,
+    targetEventTitle: String,
+    collapse: (saved: Boolean) -> Unit,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6)
+    // Two widgets, never one concatenated string: the title is organizer-editable free text (sanitized), the label a `tr()` constant.
+    val targetRow = panel.hPanel(spacing = 6)
+    targetRow.span(tr("Für Veranstaltung:")) { addCssClass("text-muted") }
+    targetRow.untrustedSpan(targetEventTitle, className = "fw-bold")
     val descriptionInput = panel.text(label = tr("Beschreibung"))
     val quantityInput = panel.text(label = tr("Menge"))
     val allergenNotesInput = panel.text(label = tr("Allergene/Hinweise (optional)"))
@@ -269,10 +290,12 @@ private fun renderCateringOrderCreationForm(
             hide()
         }
 
-    val createButton = panel.button(tr("Position anlegen"), style = ButtonStyle.PRIMARY)
+    val buttonRow = panel.hPanel(spacing = 8)
+    val createButton = buttonRow.actionButton(ActionIcon.ADD, tr("Position anlegen"), style = ButtonStyle.PRIMARY)
+    buttonRow.add(collapseCancelButton(collapse))
     createButton.onClick {
         errorBox.hide()
-        val eventId = eventSelect.value
+        val eventId = targetEventId
         val description = descriptionInput.value.orEmpty().trim()
         val quantityText = quantityInput.value.orEmpty().trim()
         val allergenNotes = allergenNotesInput.value?.trim()?.takeIf { it.isNotBlank() }
@@ -310,13 +333,12 @@ private fun renderCateringOrderCreationForm(
             createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Bestellposition \"%1\" wurde angelegt.", description))
-                descriptionInput.value = null
-                quantityInput.value = null
-                allergenNotesInput.value = null
+                collapse(true)
                 onCreated()
             }
         }
     }
+    return FormSnapshot { listOf(descriptionInput.value.orEmpty(), quantityInput.value.orEmpty(), allergenNotesInput.value.orEmpty()) }
 }
 
 private fun CateringOrderStatus.cateringOrderStatusLabel(): String =

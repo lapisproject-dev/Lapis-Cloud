@@ -76,6 +76,7 @@ class CollapsibleCreateFormController<P> internal constructor(
     private val formId: String,
     private val build: SimplePanel.(prefill: P?, close: (saved: Boolean) -> Unit) -> FormSnapshot,
     private val askDiscard: (onDiscard: () -> Unit) -> Unit = ::confirmDiscardInputs,
+    private val onOpenChange: (open: Boolean) -> Unit = {},
 ) {
     private var snapshot: FormSnapshot? = null
     private var baseline: List<String>? = null
@@ -133,6 +134,7 @@ class CollapsibleCreateFormController<P> internal constructor(
         created.onRebaseline = { if (snapshot === created) baseline = created.values() }
         created.isUnchangedProbe = { snapshot === created && !isDirty() }
         paintButton(open = true)
+        onOpenChange(true)
         whenRendered({ formHost.getElement()?.querySelector(FIRST_FIELD) != null }) {
             val host = formHost.getElement() ?: return@whenRendered
             (host.querySelector(FIRST_FIELD) as? HTMLElement)?.focus()
@@ -145,6 +147,7 @@ class CollapsibleCreateFormController<P> internal constructor(
         snapshot = null
         baseline = null
         paintButton(open = false)
+        onOpenChange(false)
         whenRendered({ button.getElement()?.style?.visibility != "hidden" }) { button.getElement()?.focus() }
     }
 
@@ -169,6 +172,7 @@ class CollapsibleCreateFormController<P> internal constructor(
  *  - [formHost]: where the form is built, directly under the header; it receives [formId].
  *  - [buttonLabel]: a `tr()` constant ("Neues Gremium"), never a data value.
  *  - [icon]: the verb icon of the button ([ActionIcon.ADD] by default; [ActionIcon.UPLOAD] for "Kontoauszug hochladen").
+ *  - [onOpenChange]: called with `true` after every (re)build of the form and with `false` after it closed (e.g. to lock a picker the form depends on).
  *  - [build]: builds the form into the host and returns its [FormSnapshot] (see [LapisForm.snapshot]); it calls `close(true)` after a
  *    successful save and `close(false)` for Cancel.
  */
@@ -178,6 +182,7 @@ fun <P> collapsibleCreateForm(
     buttonLabel: String,
     formId: String,
     icon: ActionIcon = ActionIcon.ADD,
+    onOpenChange: (open: Boolean) -> Unit = {},
     build: SimplePanel.(prefill: P?, close: (saved: Boolean) -> Unit) -> FormSnapshot,
 ): CollapsibleCreateFormController<P> {
     formHost.id = formId
@@ -188,7 +193,7 @@ fun <P> collapsibleCreateForm(
             span(buttonLabel, className = "ms-1")
         }
     actionSlot.add(button)
-    return CollapsibleCreateFormController(button, formHost, formId, build)
+    return CollapsibleCreateFormController(button, formHost, formId, build, onOpenChange = onOpenChange)
 }
 
 /** The Cancel button of a collapsible create form: "Abbrechen" asks for confirmation when the form was changed ([CollapsibleCreateFormController.close]). */

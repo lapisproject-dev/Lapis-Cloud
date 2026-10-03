@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
@@ -8,6 +7,7 @@ import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -45,7 +45,8 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Helfer-Schichten"))
+    val header = root.pageHeader(tr("Helfer-Schichten"))
+    val createHost = root.vPanel(spacing = 6) // V1.9.47 (R36B): collapsed create form, directly under the header
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
     val eventSelectRow = root.lapisToolbar()
@@ -54,8 +55,8 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val listPanel = root.vPanel(spacing = 6)
 
-    root.h2(tr("Neue Schicht anlegen")) { addCssClass("h5") }
-    val creationFormHolder = root.vPanel(spacing = 6)
+    var createController: CollapsibleCreateFormController<Unit>? = null
+    val titleById = mutableMapOf<String, String>()
 
     fun refreshList() {
         val eventId = eventSelect.value
@@ -83,13 +84,28 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
                     rpcService<IEventService>().listEvents(EventQuery(includePast = true, limit = 200))
                 } ?: return@launch
             val options = untrustedOptions(page.rows.map { it.id to it.title })
+            titleById.clear()
+            page.rows.forEach { titleById[it.id] = it.title }
             eventSelect.options = options
             if (options.isNotEmpty()) {
                 eventSelect.value = options.first().first
             }
             refreshList()
-            creationFormHolder.removeAll()
-            renderEventVolunteerShiftCreationForm(creationFormHolder, eventSelect, ::refreshList)
+            // No event, no shift to create: the button then does not exist (the list's empty text stays).
+            if (options.isNotEmpty() && createController == null) {
+                createController =
+                    collapsibleCreateForm<Unit>(
+                        actionSlot = header.actionSlot,
+                        formHost = createHost,
+                        buttonLabel = tr("Neue Schicht"),
+                        formId = "lapis-create-event-shift",
+                        // The form belongs to the event chosen when it was opened: the picker is locked while it is open.
+                        onOpenChange = { open -> eventSelect.disabled = open },
+                    ) { _, close ->
+                        val targetEventId = eventSelect.value.orEmpty()
+                        renderEventVolunteerShiftCreationForm(this, targetEventId, titleById[targetEventId].orEmpty(), close, ::refreshList)
+                    }
+            }
         }
     }
 
@@ -228,10 +244,16 @@ private fun renderEventVolunteerShiftEditForm(
 
 private fun renderEventVolunteerShiftCreationForm(
     root: SimplePanel,
-    eventSelect: Select,
+    targetEventId: String,
+    targetEventTitle: String,
+    collapse: (saved: Boolean) -> Unit,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6)
+    // Two widgets, never one concatenated string: the title is organizer-editable free text (sanitized), the label a `tr()` constant.
+    val targetRow = panel.hPanel(spacing = 6)
+    targetRow.span(tr("Für Veranstaltung:")) { addCssClass("text-muted") }
+    targetRow.untrustedSpan(targetEventTitle, className = "fw-bold")
     val descriptionInput = panel.text(label = tr("Beschreibung"))
     val startsAtInput = panel.text(label = tr("Beginn (JJJJ-MM-TTThh:mm)"))
     val endsAtInput = panel.text(label = tr("Ende (JJJJ-MM-TTThh:mm)"))
@@ -242,10 +264,12 @@ private fun renderEventVolunteerShiftCreationForm(
             hide()
         }
 
-    val createButton = panel.button(tr("Schicht anlegen"), style = ButtonStyle.PRIMARY)
+    val buttonRow = panel.hPanel(spacing = 8)
+    val createButton = buttonRow.actionButton(ActionIcon.ADD, tr("Schicht anlegen"), style = ButtonStyle.PRIMARY)
+    buttonRow.add(collapseCancelButton(collapse))
     createButton.onClick {
         errorBox.hide()
-        val eventId = eventSelect.value
+        val eventId = targetEventId
         if (eventId.isNullOrBlank()) {
             errorBox.content = tr("Bitte eine Veranstaltung auswählen.")
             errorBox.show()
@@ -260,13 +284,13 @@ private fun renderEventVolunteerShiftCreationForm(
             createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Schicht \"%1\" wurde angelegt.", input.description))
-                descriptionInput.value = null
-                startsAtInput.value = null
-                endsAtInput.value = null
-                neededCountInput.value = null
+                collapse(true)
                 onCreated()
             }
         }
+    }
+    return FormSnapshot {
+        listOf(descriptionInput.value, startsAtInput.value, endsAtInput.value, neededCountInput.value).map { it.orEmpty() }
     }
 }
 

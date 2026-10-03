@@ -18688,3 +18688,18 @@ msgstr ""
 
 msgid "Mit \"Neues Konto\" legen Sie eines an."
 msgstr ""
+
+msgid "Neue Veranstaltung"
+msgstr ""
+
+msgid "Neuer Raum"
+msgstr ""
+
+msgid "Neue Schicht"
+msgstr ""
+
+msgid "Neue Bestellposition"
+msgstr ""
+
+msgid "Für Veranstaltung:"
+msgstr ""

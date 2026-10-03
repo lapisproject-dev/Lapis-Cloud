@@ -84,6 +84,19 @@ Inventing a table entry for a domain verb would break "one picture, one verb".
 Domain icons that stay as strings in table action columns (`tableActionButton("fas ...")`, 17 calls, ledgered in the tripwire): key, link, user-lock,
 medal, star, receipt, money, invoice, id card and similar.
 
+=== Events, V1.9.47
+
+The four event screens take `ADD` for "Veranstaltung anlegen", "Raum anlegen", "Schicht anlegen" and "Position anlegen" and `CANCEL` for "Abbrechen" of the
+collapsed create forms. Without a standard icon, each for the reason given:
+
+* *Navigation row of the events page* ("Räume", "Helfer-Schichten", "Catering", "Check-in"): navigation, not a verb.
+* "Veröffentlichen" (publishing an event is a domain act; a check mark would claim "approve"), "Absagen" (deliberately not `CANCEL`: that picture means
+  "close this form" and would invert the meaning of cancelling an event), "Warteliste nachrücken", "Aktivieren" (consent-and-activation family above),
+  "Zusagen anzeigen" (opens a roster, not `VIEW` of an object).
+* "Kopieren" / "Kopiert" (public URL of an event): `COPY` is in the table, but the button swaps its own text to "Kopiert" for two seconds, and
+  `Button.text = ...` replaces the content including the icon. It stays a text button until `actionButton` can hold a label that changes
+  without losing the icon; the accessible name "Kopieren" is unchanged.
+
 == Known limitations
 
 * Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, one ledgered call).

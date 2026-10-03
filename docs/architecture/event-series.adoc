@@ -273,6 +273,10 @@ instance outright ("Dieser Termin wurde bereits aus der Serie gelöst."). The ev
 and chronological (no collapsed series group) and shows a ↻ symbol per series row (struck through
 for a detached exception instance), tooltipped with the server-built `EventDto.seriesRuleSummary`.
 
+Since V1.9.47 the create form (including this editor) is collapsed behind the "Neue Veranstaltung" button of the events page.
+`RecurrenceEditor.stateFingerprint()` exposes the state of all editor controls (also the weekday chips, which are buttons) so that the form's
+"discard changes?" check sees a touched series control; see `collapsible-forms.adoc`.
+
 58 new `tr()`/`gettext()` msgids were added across all seven language catalogs plus the template
 (hand-translated -- this repo has no machine-translation tooling for new catalog content, only
 `scripts/i18n/regenerate-source-refs.mjs` for the `#:` source-reference comments).

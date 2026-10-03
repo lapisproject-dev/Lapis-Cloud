@@ -120,9 +120,39 @@ Not converted, with the reason (only `SepaMandateSection.kt` is in `R36B_EXEMPT`
 R56 (tool rows): no `hPanel` of these screens holds a field plus a button. Two rows are deliberately not toolbars: the posting line
 (`lapis-posting-row`, an input row of a table) and the user-ID/PIN rows in the bank account modal (fields only).
 
+== V1.9.47: group "Veranstaltungen" converted
+
+Client only: no migration, no server change, no new RPC. Four screens, one button each in the title row: "Neue Veranstaltung" (`EventsScreen`),
+"Neuer Raum" (`EventRoomsScreen`), "Neue Schicht" (`EventVolunteerShiftsScreen`), "Neue Bestellposition" (`CateringScreen`). The create button inside
+a form is `ActionIcon.ADD` (as on the finance forms and as the R57 table says for "anlegen"), next to "Abbrechen"; the labels are unchanged. These
+forms are loose KVision widgets, not `LapisForm`: they still guard against a double click with `createButton.disabled`, and each builds its
+`FormSnapshot` by hand. The screens have no client-side rights check (the route is BOARD/ADMIN only and the server enforces the rights), so there is
+no "button hidden for a role" case and none was added.
+
+Specifics of these screens:
+
+* *Picker lock (catering, shifts).* The form belongs to the event chosen in the picker above the list. While the form is open the picker is
+  disabled (`onOpenChange` of the component); it is released by every way of closing (save, cancel, discard). The form names its event on a line of
+  its own: a `tr("Für Veranstaltung:")` label and the title as a separate widget through `untrustedSpan` -- never one concatenated string. The event
+  id is captured when the form is opened and the save uses that id, not the picker value. Without an event (or after a failed event load) the button
+  does not exist; a retry after an error builds it once.
+* *`onOpenChange`.* `collapsibleCreateForm` and the controller take an optional `onOpenChange: (Boolean) -> Unit`, called with `true` after every
+  (re)build of the form and with `false` after it closed. Existing callers are unaffected.
+* *Series editor fingerprint.* The weekday chips of the recurrence editor are buttons, so a snapshot of field values alone would miss them and Escape
+  would discard a toggled chip silently. `RecurrenceEditor.stateFingerprint()` joins the checkbox, preset, frequency, interval, sorted selected
+  weekdays, monthly variant, end type, count and until into one string; the event form snapshot appends it. It is compared only, never rendered or logged.
+* *Rooms arrive late (events).* The room select of the open form is refilled in place when `listRooms` answers while the form is open (the chosen
+  value is kept and re-set, because replacing the options can reset it); the form is not rebuilt, so typed input and the changed-state survive. The
+  second `listRooms` call that used to rebuild the always-visible form is gone (one call instead of two).
+* *Kept as they were:* the navigation row of the events page (Räume, Helfer-Schichten, Catering, Check-in), "Offene Erstattungen", the status filter,
+  and every edit form. A save that fails after the person discarded the form shows only the toast; the text is gone (a deliberate user decision).
+
+The R57 strict set now also holds the four event screens: a plain button for "anlegen|hinzufügen|speichern|..." is a finding there.
+R36B debt ledger: 30 -> 21 findings.
+
 == Not done
 
-* Groups not yet converted: events, community and members, documents, compliance, conference administration, economy/auction (all in
+* Groups not yet converted: community and members, documents, compliance, conference administration, economy/auction (all in
   `R36B_NOT_YET_COLLAPSED`).
 * "Save and add another": every save folds the form back, so entering many bookings in a row costs one click each. A candidate for its own wave.
 * `BoardMembershipScreen` (pilot) still uses `rebaseline()`; it should move to `applyProgrammatic` (same race, smaller exposure).

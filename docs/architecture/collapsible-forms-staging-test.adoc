@@ -58,6 +58,24 @@ The finance screens were converted afterwards; the same plan applies with these 
 . As BOARD open all of the above: no button and no empty gap in the title row.
 . Switch the language to English: buttons, empty-state sentences and the dialog are translated.
 
+== Events group (V1.9.47) -- additional steps, not executed
+
+Nothing was deployed by the author of the wave; every result is open. Account: BOARD or ADMIN. Data: two events (one with a title typed as
+`###KvI18nS###Test` through the API if possible), one active room.
+
+. Open "Veranstaltungen", "Räume", "Helfer-Schichten" and "Catering": the create form is collapsed, one button ("Neue Veranstaltung", "Neuer Raum",
+  "Neue Schicht", "Neue Bestellposition") is in the title row; on "Veranstaltungen" the navigation row, "Offene Erstattungen" and the filters are unchanged.
+. Steps 2 to 8 of the table above on each screen (Escape with and without typing, "Abbrechen", save folds back and reloads, the focus returns to the button).
+. "Veranstaltungen": open the form, tick "Wiederkehrende Veranstaltung", choose "Benutzerdefiniert", toggle one weekday chip, press `Escape`: the discard
+  dialog appears. Repeat with only the chip toggled after ticking and un-ticking: still a dialog while the chip differs from the start state.
+. "Veranstaltungen": reload the page, open the form at once and type a title before the room list is back (throttle the network): the room select
+  fills in without losing the title; `Escape` still asks.
+. "Veranstaltungen": create a single event and a series: both fold the form back and the list shows them; "Raum" is offered in the select.
+. "Catering" and "Helfer-Schichten": open the form: the event picker is disabled, the line "Für Veranstaltung: <title>" is shown; close it (save, cancel,
+  discard): the picker is enabled again. A title with a catalog marker is shown as text, not translated or hidden.
+. "Catering" and "Helfer-Schichten" with no event, and with the event list blocked (offline): no create button; after "Erneut versuchen" exactly one button.
+. At 375 px width the title row and the open forms do not scroll horizontally. Switch to English: buttons and the new line are translated.
+
 == Actual results
 
 (to be filled in when the plan is run)

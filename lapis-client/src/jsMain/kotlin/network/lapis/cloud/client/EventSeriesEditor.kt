@@ -75,8 +75,16 @@ private enum class SeriesEndType { COUNT, UNTIL }
 class RecurrenceEditor internal constructor(
     private val enabledCheck: CheckBox,
     private val ruleSupplier: () -> RecurrenceRuleInput?,
+    private val fingerprint: () -> String,
 ) {
     val isEnabled: Boolean get() = enabledCheck.value
+
+    /**
+     * One string over every user-changeable control of the editor (checkbox, preset, frequency, interval, weekday chips, monthly variant,
+     * end type, count, until). The weekday chips are buttons, not fields, so a form snapshot that only reads field values would miss them
+     * and Escape would discard a toggled chip without asking. Only ever compared for equality ([FormSnapshot]); never rendered or logged.
+     */
+    fun stateFingerprint(): String = fingerprint()
 
     /** `null` if [isEnabled] is `false`, or if the current form state cannot even be assembled into a [RecurrenceRuleInput] (e.g. a non-numeric interval) -- the caller shows a generic "bitte Wiederholung prüfen" error in that case, the server is never asked to validate a nonsensical shape. */
     fun currentRule(): RecurrenceRuleInput? = if (isEnabled) ruleSupplier() else null
@@ -211,6 +219,19 @@ fun renderRecurrenceEditor(
     }
 
     fun selectedWeekdays(): Set<RecurrenceWeekday> = weekdayChips.filterValues { it.style == ButtonStyle.PRIMARY }.keys
+
+    fun stateFingerprint(): String =
+        listOf(
+            enabledCheck.value.toString(),
+            presetSelect.value.orEmpty(),
+            frequencySelect.value.orEmpty(),
+            intervalInput.value.orEmpty(),
+            selectedWeekdays().map { it.name }.sorted().joinToString(","),
+            monthlyVariantSelect.value.orEmpty(),
+            endTypeSelect.value.orEmpty(),
+            countInput.value.orEmpty(),
+            untilInput.value.orEmpty(),
+        ).joinToString("\u0001")
 
     fun refreshCustomVisibility() {
         val freq = currentFrequency()
@@ -364,7 +385,7 @@ fun renderRecurrenceEditor(
     }
     endsAtInput.subscribe { if (enabledCheck.value) schedulePreview() }
 
-    return RecurrenceEditor(enabledCheck = enabledCheck, ruleSupplier = ::currentRule)
+    return RecurrenceEditor(enabledCheck = enabledCheck, ruleSupplier = ::currentRule, fingerprint = ::stateFingerprint)
 }
 
 private fun monthlyPresetLabel(date: LocalDate): String {

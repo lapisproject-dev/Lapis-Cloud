@@ -402,4 +402,32 @@ class CollapsibleCreateFormDomTest {
                 assertTrue(screen.scrollWidth <= 360, "scrollWidth ${screen.scrollWidth} exceeds 360 px")
             }
         }
+
+    @Test
+    fun onOpenChange_reportsOpenAndClose_andAnOmittedParameterChangesNothing(): Promise<Unit> =
+        formTest {
+            mountedForm("collapsible-on-open-change") { root, element ->
+                val changes = mutableListOf<Boolean>()
+                val header = root.pageHeader("Testseite")
+                val host = root.vPanel(spacing = 6)
+                val controller =
+                    collapsibleCreateForm<String>(
+                        actionSlot = header.actionSlot,
+                        formHost = host,
+                        buttonLabel = "Neues Ding",
+                        formId = formId,
+                        onOpenChange = { changes += it },
+                    ) { prefill, close -> testForm(prefill, close) }
+                val screen = element()
+                assertEquals(emptyList(), changes, "nothing is reported while the page builds")
+                openCreateForm(screen, formId)
+                assertEquals(listOf(true), changes)
+                controller.open("Vorbelegt")
+                awaitUntil("the prefill rebuild is reported") { changes == listOf(true, true) }
+                assertEquals("Vorbelegt", screen.input().value)
+                controller.close(force = true)
+                awaitClosed(screen)
+                assertEquals(listOf(true, true, false), changes)
+            }
+        }
 }

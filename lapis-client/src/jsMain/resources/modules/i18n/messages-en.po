@@ -19555,3 +19555,18 @@ msgstr "Use \"New donor\" to create one."
 
 msgid "Mit \"Neues Konto\" legen Sie eines an."
 msgstr "Use \"New account\" to create one."
+
+msgid "Neue Veranstaltung"
+msgstr "New event"
+
+msgid "Neuer Raum"
+msgstr "New room"
+
+msgid "Neue Schicht"
+msgstr "New shift"
+
+msgid "Neue Bestellposition"
+msgstr "New order item"
+
+msgid "Für Veranstaltung:"
+msgstr "For event:"

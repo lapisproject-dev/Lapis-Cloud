@@ -6,6 +6,29 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Collapsed create forms, group "Veranstaltungen"** (V1.9.47, rule R36B): the create forms of Veranstaltungen, Räume, Helfer-Schichten and Catering are collapsed
+  behind one title-row button each ("Neue Veranstaltung", "Neuer Raum", "Neue Schicht", "Neue Bestellposition"). Client only, no migration, no server or RPC change.
+  The in-form create buttons use the `ADD` icon (as the finance forms) next to "Abbrechen"; labels unchanged. On catering and shifts the event picker is
+  disabled while the form is open, the form names its event on its own line (title through `untrustedSpan`, the label a separate `tr()` constant) and saves
+  against the event captured at opening; without an event, or after a failed event load, there is no button (a retry builds exactly one).
+  `collapsibleCreateForm` gets an optional `onOpenChange`; `RecurrenceEditor` gets `stateFingerprint()` (the weekday chips are buttons, so Escape used to
+  discard a toggled chip without asking). Rooms that arrive while the events form is open refill the room select in place, typed input is kept. The events
+  screen now calls `listRooms` once instead of twice (the second call only rebuilt the always-visible form). R36B debt ledger: 30 -> 21; the four screens are
+  in the strict R36B and R57 sets. Five new msgids in all eight catalogs (translations by agent, not by a native speaker). New tests:
+  `EventsCollapsibleFormsDomTest`, `EventsCollapsibleFormsOpsDomTest`, an `onOpenChange` test in `CollapsibleCreateFormDomTest`, tripwire updates.
+  Documentation: `collapsible-forms.adoc`, `action-icons.adoc`, `ui-ux-guideline.adoc`, `event-series.adoc`, `collapsible-forms-staging-test.adoc`.
+
+### Known limitations (V1.9.47)
+
+- Only the event screens are converted; community and members, documents, compliance, conference administration and economy/auction follow.
+- The navigation row of the events page stays as buttons (a proposal to move the links under the header is a separate wave); "Veröffentlichen", "Absagen",
+  "Warteliste nachrücken", "Aktivieren", "Zusagen anzeigen" and the copy-URL button stay text buttons (reasons in `action-icons.adoc`).
+- No "save and add another"; every save folds the form back.
+- The four screens have no client-side rights check (route gate plus server enforcement), so there is no "button hidden by role" test.
+- The staging test plan for these screens was written, not executed.
+
 ### Security
 
 - **`listElectionBallots` is always empty for a secret election** (V1.9.46) -- in every status, at every participation, for every role including BOARD/ADMIN.

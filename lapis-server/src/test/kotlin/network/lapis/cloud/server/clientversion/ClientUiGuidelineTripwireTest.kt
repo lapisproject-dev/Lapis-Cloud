@@ -1018,15 +1018,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Wirtschaft\" (LTR economy): the listing form follows with that group.",
             ),
-        "CateringScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neue Bestellposition anlegen\")) { addCssClass(\"h5\") }",
-                        "renderCateringOrderCreationForm(creationFormHolder, eventSelect, ::refreshList)",
-                    ),
-                reason = "Group \"Veranstaltungen\" (events).",
-            ),
         "ConferenceStreamDestinationsScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1079,34 +1070,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Compliance\" (data protection and legal).",
             ),
-        "EventRoomsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neuen Raum anlegen\")) { addCssClass(\"h5\") }",
-                        "renderEventRoomCreationForm(root, ::refreshList)",
-                    ),
-                reason = "Group \"Veranstaltungen\" (events).",
-            ),
-        "EventVolunteerShiftsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neue Schicht anlegen\")) { addCssClass(\"h5\") }",
-                        "renderEventVolunteerShiftCreationForm(creationFormHolder, eventSelect, ::refreshList)",
-                    ),
-                reason = "Group \"Veranstaltungen\" (events).",
-            ),
-        "EventsScreen.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "root.h2(tr(\"Neue Veranstaltung anlegen\")) { addCssClass(\"h5\") }",
-                        "renderEventCreationForm(creationFormHolder, emptyList(), ::refreshList)",
-                        "renderEventCreationForm(creationFormHolder, rooms, ::refreshList)",
-                    ),
-                reason = "Group \"Veranstaltungen\" (events).",
-            ),
         "MemberAdministrationScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1130,10 +1093,11 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
  * and it may not drop more than 3 below the cap without the cap being lowered -- so a quietly converted screen has to be taken out of the
  * ledger in the same commit. [R36B_NOT_YET_COLLAPSED] and [R36B_EXEMPT] pin the exact fingerprints; this pins the total.
  * V1.9.45 finance: 39 -> 30 (CostCenters 2, Donors 2, Ledger 3, OpenItems 1, SepaBatches 1 paid off).
+ * V1.9.47 events: 30 -> 21 (Catering 2, EventRooms 2, EventVolunteerShifts 2, Events 3 paid off).
  */
-private const val R36B_REMAINING_MAX = 30
+private const val R36B_REMAINING_MAX = 21
 
-/** The governance pilot of V1.9.40 plus the finance group of V1.9.45: converted, so held strictly (no finding at all) and required to use the component. */
+/** The governance pilot of V1.9.40, the finance group of V1.9.45 and the events group of V1.9.47: converted, so held strictly (no finding at all) and required to use the component. */
 private val R36B_CONVERTED: Set<String> =
     setOf(
         "CommitteesScreen.kt",
@@ -1148,6 +1112,10 @@ private val R36B_CONVERTED: Set<String> =
         "SepaBatchesScreen.kt",
         "SepaMandatesScreen.kt",
         "BankStatementImportScreen.kt",
+        "EventsScreen.kt",
+        "EventRoomsScreen.kt",
+        "EventVolunteerShiftsScreen.kt",
+        "CateringScreen.kt",
     )
 
 private fun r36bActual(): Map<String, List<String>> =
@@ -1702,7 +1670,7 @@ class ClientUiGuidelineTripwireTest :
             visibleCreateFormFindings("renderUploadPanel(box, onUploadStarted = {}) { }").size shouldBe 1
         }
 
-        test("R36B (V1.9.45): every collapsed finance form hangs its button in the page header's action slot") {
+        test("R36B (V1.9.45): every collapsed finance and events form hangs its button in the page header's action slot") {
             val byName = clientKotlinFiles().associateBy { it.name }
             val financeFiles =
                 listOf(
@@ -1713,6 +1681,10 @@ class ClientUiGuidelineTripwireTest :
                     "SepaBatchesScreen.kt",
                     "SepaMandatesScreen.kt",
                     "BankStatementImportScreen.kt",
+                    "EventsScreen.kt",
+                    "EventRoomsScreen.kt",
+                    "EventVolunteerShiftsScreen.kt",
+                    "CateringScreen.kt",
                 )
             financeFiles.forEach { name ->
                 val code = codeOnly(byName.getValue(name).readText())

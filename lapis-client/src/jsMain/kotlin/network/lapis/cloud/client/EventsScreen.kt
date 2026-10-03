@@ -66,7 +66,9 @@ fun renderEventsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Veranstaltungen"))
+    val header = root.pageHeader(tr("Veranstaltungen"))
+    // V1.9.47 (R36B): the create form is collapsed; its host sits directly under the header, before the navigation row.
+    val createHost = root.vPanel(spacing = 6)
 
     val secondaryLinksRow = root.hPanel(spacing = 8)
     secondaryLinksRow.button(tr("Räume"), style = ButtonStyle.OUTLINESECONDARY) {
@@ -92,6 +94,9 @@ fun renderEventsScreen(container: SimplePanel) {
     val listPanel = root.vPanel(spacing = 6)
 
     var allRooms: List<EventRoomDto> = emptyList()
+
+    // The room select of the OPEN create form (null while collapsed); rooms arriving late refill it in place, no rebuild.
+    var openRoomSelect: Select? = null
 
     // Several triggers fire refreshList() almost at once (initial subscribe callbacks, room load,
     // post-create). Each run clears the panel synchronously but appends asynchronously, so without
@@ -124,6 +129,11 @@ fun renderEventsScreen(container: SimplePanel) {
     fun loadRoomsThenList() {
         AppScope.launch {
             allRooms = guarded { rpcService<IEventRoomService>().listRooms(includeInactive = true) }.orEmpty()
+            openRoomSelect?.let { select ->
+                val chosen = select.value
+                select.options = eventRoomOptions(allRooms, null)
+                select.value = chosen
+            }
             refreshList()
         }
     }
@@ -132,15 +142,14 @@ fun renderEventsScreen(container: SimplePanel) {
     includePastCheck.subscribe { refreshList() }
     loadRoomsThenList()
 
-    root.h2(tr("Neue Veranstaltung anlegen")) { addCssClass("h5") }
-    val creationFormHolder = root.vPanel(spacing = 6)
-    renderEventCreationForm(creationFormHolder, emptyList(), ::refreshList)
-    // The creation form's room dropdown is rebuilt once rooms are actually loaded -- built once
-    // upfront (empty) so the screen never stalls waiting on the room-list round trip.
-    AppScope.launch {
-        val rooms = guarded { rpcService<IEventRoomService>().listRooms(includeInactive = true) }.orEmpty()
-        creationFormHolder.removeAll()
-        renderEventCreationForm(creationFormHolder, rooms, ::refreshList)
+    collapsibleCreateForm<Unit>(
+        actionSlot = header.actionSlot,
+        formHost = createHost,
+        buttonLabel = tr("Neue Veranstaltung"),
+        formId = "lapis-create-event",
+        onOpenChange = { open -> if (!open) openRoomSelect = null },
+    ) { _, close ->
+        renderEventCreationForm(this, allRooms, close, onRoomSelect = { openRoomSelect = it }, onCreated = ::refreshList)
     }
 }
 
@@ -521,18 +530,23 @@ private fun readEventForm(
 private fun renderEventCreationForm(
     root: SimplePanel,
     rooms: List<EventRoomDto>,
+    collapse: (saved: Boolean) -> Unit,
+    onRoomSelect: (Select) -> Unit,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6)
     panel.div(tr("Ein Titelbild können Sie nach dem Anlegen hinzufügen.")) { addCssClasses("text-muted small") }
     val fields = buildEventFormFields(panel, prefill = null, rooms = rooms)
+    onRoomSelect(fields.roomSelect)
     val recurrenceEditor = renderRecurrenceEditor(panel, fields.startsAtInput, fields.endsAtInput)
     val errorBox =
         panel.div().apply {
             addCssClass("text-danger")
             hide()
         }
-    val createButton = panel.button(tr("Veranstaltung anlegen"), style = ButtonStyle.PRIMARY)
+    val buttonRow = panel.hPanel(spacing = 8)
+    val createButton = buttonRow.actionButton(ActionIcon.ADD, tr("Veranstaltung anlegen"), style = ButtonStyle.PRIMARY)
+    buttonRow.add(collapseCancelButton(collapse))
     createButton.onClick {
         val input = readEventForm(fields, errorBox, existingStartsAt = null) ?: return@onClick
         if (recurrenceEditor.isEnabled) {
@@ -554,6 +568,7 @@ private fun renderEventCreationForm(
                             result.createdEventIds.size,
                         ),
                     )
+                    collapse(true)
                     onCreated()
                 }
             }
@@ -564,12 +579,29 @@ private fun renderEventCreationForm(
                 createButton.disabled = false
                 if (result != null) {
                     notifySuccess(gettext("Veranstaltung \"%1\" wurde angelegt.", input.title))
+                    collapse(true)
                     onCreated()
                 }
             }
         }
     }
+    return FormSnapshot { fields.snapshotValues() + recurrenceEditor.stateFingerprint() }
 }
+
+private fun EventFormFieldRefs.snapshotValues(): List<String> =
+    listOf(
+        titleInput.value,
+        descriptionInput.value,
+        locationTextInput.value,
+        onlineUrlInput.value,
+        startsAtInput.value,
+        endsAtInput.value,
+        registrationClosesAtInput.value,
+        capacityInput.value,
+        feeAmountInput.value,
+        visibilitySelect.value,
+        roomSelect.value,
+    ).map { it.orEmpty() }
 
 private fun renderEventEditForm(
     panel: SimplePanel,

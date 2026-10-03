@@ -19603,3 +19603,18 @@ msgstr "Met \"Nieuwe donateur\" maakt u er een aan."
 
 msgid "Mit \"Neues Konto\" legen Sie eines an."
 msgstr "Met \"Nieuwe rekening\" maakt u er een aan."
+
+msgid "Neue Veranstaltung"
+msgstr "Nieuw evenement"
+
+msgid "Neuer Raum"
+msgstr "Nieuwe ruimte"
+
+msgid "Neue Schicht"
+msgstr "Nieuwe dienst"
+
+msgid "Neue Bestellposition"
+msgstr "Nieuwe bestelregel"
+
+msgid "Für Veranstaltung:"
+msgstr "Voor evenement:"

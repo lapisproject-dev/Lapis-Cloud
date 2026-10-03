@@ -41,7 +41,8 @@ fun renderEventRoomsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Räume"))
+    val header = root.pageHeader(tr("Räume"))
+    val createHost = root.vPanel(spacing = 6) // V1.9.47 (R36B): collapsed create form, directly under the header
 
     // ---- List (Räume-Übersicht) -----------------------------------------------------------
     root.h2(tr("Übersicht")) { addCssClass("h5") }
@@ -69,8 +70,12 @@ fun renderEventRoomsScreen(container: SimplePanel) {
     refreshButton.onClick { refreshList() }
     refreshList()
 
-    root.h2(tr("Neuen Raum anlegen")) { addCssClass("h5") }
-    renderEventRoomCreationForm(root, ::refreshList)
+    collapsibleCreateForm<Unit>(
+        actionSlot = header.actionSlot,
+        formHost = createHost,
+        buttonLabel = tr("Neuer Raum"),
+        formId = "lapis-create-event-room",
+    ) { _, close -> renderEventRoomCreationForm(this, close, ::refreshList) }
 }
 
 // ============================================================================================
@@ -223,8 +228,9 @@ private fun renderEventRoomEditForm(
 
 private fun renderEventRoomCreationForm(
     root: SimplePanel,
+    collapse: (saved: Boolean) -> Unit,
     onCreated: () -> Unit,
-) {
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6)
     val nameInput = panel.text(label = tr("Name"))
     val capacityInput = panel.text(label = tr("Kapazität (optional)"))
@@ -235,7 +241,9 @@ private fun renderEventRoomCreationForm(
             hide()
         }
 
-    val createButton = panel.button(tr("Raum anlegen"), style = ButtonStyle.PRIMARY)
+    val buttonRow = panel.hPanel(spacing = 8)
+    val createButton = buttonRow.actionButton(ActionIcon.ADD, tr("Raum anlegen"), style = ButtonStyle.PRIMARY)
+    buttonRow.add(collapseCancelButton(collapse))
     createButton.onClick {
         errorBox.hide()
         val name = nameInput.value.orEmpty().trim()
@@ -270,13 +278,12 @@ private fun renderEventRoomCreationForm(
             createButton.disabled = false
             if (result != null) {
                 notifySuccess(gettext("Raum \"%1\" wurde angelegt.", name))
-                nameInput.value = null
-                capacityInput.value = null
-                tagsInput.value = null
+                collapse(true)
                 onCreated()
             }
         }
     }
+    return FormSnapshot { listOf(nameInput.value.orEmpty(), capacityInput.value.orEmpty(), tagsInput.value.orEmpty()) }
 }
 
 /**

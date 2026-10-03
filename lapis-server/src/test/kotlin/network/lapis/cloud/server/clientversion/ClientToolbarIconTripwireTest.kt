@@ -40,8 +40,8 @@ private val PLAIN_STANDARD_BUTTON = Regex("""(?<![\w])[bB]utton\(\s*(?:text\s*=\
 private val FORBIDDEN_ICON_ALIAS = Regex("""fa-(?:times|edit|refresh)\b""")
 private val STRING_TABLE_ACTION = Regex("""tableActionButton\(\s*"""")
 
-/** V1.9.45: the finance screens, held strictly -- a plain button for a verb the `ActionIcon` table maps unambiguously is a finding, never ledgered. */
-private val R57_FINANCE_STRICT_FILES =
+/** V1.9.45: the finance and (V1.9.47) events screens, held strictly -- a plain button for a verb the `ActionIcon` table maps unambiguously is a finding, never ledgered. */
+private val R57_STRICT_FILES =
     setOf(
         "CostCentersScreen.kt",
         "DonorsScreen.kt",
@@ -57,6 +57,11 @@ private val R57_FINANCE_STRICT_FILES =
         "FinancialReportsScreen.kt",
         "ContributionsScreen.kt",
         "DunningCasesScreen.kt",
+        // V1.9.47: the events group (the create buttons and their forms use ActionIcon.ADD / CANCEL).
+        "EventsScreen.kt",
+        "EventRoomsScreen.kt",
+        "EventVolunteerShiftsScreen.kt",
+        "CateringScreen.kt",
     )
 
 private const val TABLE_VERBS = "anlegen|hinzufügen|speichern|bearbeiten|stornieren|widerrufen|deaktivieren|duplizieren"
@@ -224,7 +229,7 @@ class ClientToolbarIconTripwireTest :
         test("R57 (V1.9.45): the finance screens hold no plain button for a verb the ActionIcon table maps") {
             val byName = clientFiles().associateBy { it.name }
             val actual =
-                R57_FINANCE_STRICT_FILES
+                R57_STRICT_FILES
                     .filter { it in byName }
                     .associateWith { plainTableVerbButtons(byName.getValue(it).readText()) }
                     .filterValues { it > 0 }

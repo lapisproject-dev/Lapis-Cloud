@@ -19602,3 +19602,18 @@ msgstr "Za pomocą \"Nowy darczyńca\" można dodać pierwszego."
 
 msgid "Mit \"Neues Konto\" legen Sie eines an."
 msgstr "Za pomocą \"Nowe konto\" można dodać pierwsze."
+
+msgid "Neue Veranstaltung"
+msgstr "Nowe wydarzenie"
+
+msgid "Neuer Raum"
+msgstr "Nowe pomieszczenie"
+
+msgid "Neue Schicht"
+msgstr "Nowa zmiana"
+
+msgid "Neue Bestellposition"
+msgstr "Nowa pozycja zamówienia"
+
+msgid "Für Veranstaltung:"
+msgstr "Dla wydarzenia:"

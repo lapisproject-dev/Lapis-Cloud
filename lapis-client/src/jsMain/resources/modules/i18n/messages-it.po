@@ -19648,3 +19648,18 @@ msgstr "Con \"Nuovo donatore\" ne crea uno."
 
 msgid "Mit \"Neues Konto\" legen Sie eines an."
 msgstr "Con \"Nuovo conto\" ne crea uno."
+
+msgid "Neue Veranstaltung"
+msgstr "Nuovo evento"
+
+msgid "Neuer Raum"
+msgstr "Nuova sala"
+
+msgid "Neue Schicht"
+msgstr "Nuovo turno"
+
+msgid "Neue Bestellposition"
+msgstr "Nuova voce d'ordine"
+
+msgid "Für Veranstaltung:"
+msgstr "Per l'evento:"
