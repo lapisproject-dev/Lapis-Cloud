@@ -19,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -429,6 +430,119 @@ class ConsensusDetailDomTest {
                 tie,
                 "sk-tie",
             ) { el, _, _ -> assertTrue(el.flatText().contains("Gleichstand ohne Entscheidung. Bitte erneut diskutieren.")) }
+        }
+
+    @Test
+    fun aWithheldResult_showsNoFigure_noRanking_andTheVerdictInWords(): Promise<Unit> =
+        formTest {
+            data class Case(
+                val viable: Boolean,
+                val warning: Boolean,
+                val word: String,
+            )
+            listOf(
+                Case(viable = true, warning = false, word = "Tragfähiger Konsens"),
+                Case(viable = false, warning = false, word = "Mit Bedenken"),
+                Case(viable = false, warning = true, word = "Warnsignal"),
+            ).forEachIndexed { i, case ->
+                val result =
+                    skResult(
+                        winner = "o-a",
+                        figuresWithheld = true,
+                        consensusViable = case.viable,
+                        groupConflictWarning = case.warning,
+                        tiebreak = SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE,
+                    )
+                val world =
+                    ConsensusWorld(
+                        evaluated(binding = SystemicConsensusBindingness.BINDING).copy(winnerOptionId = "o-a"),
+                        skParticipation(canRate = false),
+                        result = result,
+                    )
+                withDetail(world, "sk-withheld-$i") { el, _, _ ->
+                    val text = el.flatText()
+                    val sentence = "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab 5 Bewertungen gezeigt."
+                    assertTrue(text.contains(sentence), text)
+                    assertTrue(text.contains("Gruppenkonflikt: ${case.word}"), text)
+                    val winner = text.indexOf("Geringster Widerstand: Option A")
+                    assertTrue(winner >= 0 && winner < text.indexOf(sentence), "the sentence follows the winner line")
+                    assertTrue(
+                        text.indexOf(sentence) < text.indexOf("entschieden durch den geringsten Höchstwert"),
+                        "and precedes the tiebreak",
+                    )
+                    assertTrue(text.indexOf(sentence) < text.indexOf("Als Beschluss protokolliert."), "and precedes the resolution lines")
+                    assertEquals(0, el.allOf(".lapis-election-bar").size)
+                    assertEquals(0, el.allOf(".lapis-num").size)
+                    assertEquals(0, el.allOf(".lapis-sk-hist").size)
+                    assertFalse(el.allOf("button").any { it.textContent.orEmpty().startsWith("Verteilung") })
+                    val resultText = text.substring(winner, text.indexOf("Option B", winner) + "Option B".length)
+                    listOf("vergeben", "-mal", "Höchster Einzelwert", "Platz", "NaN", "Ø ", "(0,").forEach {
+                        assertFalse(resultText.contains(it), "no figure: $it in $resultText")
+                    }
+                    // list order (P, 1, 2), not ranked; the badge only on the winner
+                    val ranks = el.allOf(".lapis-sk-rank")
+                    assertEquals(3, ranks.size)
+                    val order = ranks.map { it.flatText() }
+                    assertTrue(order[0].contains("Alles bleibt wie bisher (Passivlösung)"), order.toString())
+                    assertTrue(order[1].contains("Option A") && order[2].contains("Option B"), order.toString())
+                    assertTrue(ranks[1].classList.contains("lapis-sk-rank--winner"))
+                    assertFalse(ranks[0].classList.contains("lapis-sk-rank--winner"))
+                    assertEquals(1, el.allOf(".badge").map { it.flatText() }.count { it == "Geringster Widerstand" })
+                }
+            }
+        }
+
+    @Test
+    fun aWithheldResult_withoutRatingsOrWithoutWinner_isHonest(): Promise<Unit> =
+        formTest {
+            val none =
+                ConsensusWorld(
+                    evaluated(),
+                    skParticipation(canRate = false),
+                    result = skResult(winner = null, noRatings = true, figuresWithheld = true),
+                )
+            withDetail(none, "sk-withheld-none") { el, _, _ ->
+                val text = el.flatText()
+                assertTrue(text.contains("Es wurde keine Bewertung abgegeben."))
+                assertFalse(text.contains("Aus Datenschutzgründen"), "nothing was rated, so there is nothing to explain")
+                assertFalse(text.contains("Gruppenkonflikt"))
+            }
+            val tie =
+                ConsensusWorld(
+                    evaluated(),
+                    skParticipation(canRate = false),
+                    result = skResult(winner = null, tie = true, figuresWithheld = true),
+                )
+            withDetail(tie, "sk-withheld-tie") { el, _, _ ->
+                val text = el.flatText()
+                assertTrue(text.contains("Gleichstand ohne Entscheidung. Bitte erneut diskutieren."))
+                assertTrue(text.contains("Aus Datenschutzgründen"))
+                assertFalse(text.contains("Gruppenkonflikt"), "there is no winner to describe")
+            }
+        }
+
+    @Test
+    fun aWithheldResult_keepsTheOptionsRationale_andNeverRendersHostileTextAsMarkupOrCatalog(): Promise<Unit> =
+        formTest {
+            val hostile = "###KvI18nS###Abstimmen <img src=x onerror=alert(1)>"
+            val options =
+                listOf(
+                    skOption("o-sq", SK_SERVER_STATUS_QUO_LABEL, 0, statusQuo = true),
+                    skOption("o-a", hostile, 1, rationale = "Begründung <b>fett</b>"),
+                )
+            val world =
+                ConsensusWorld(
+                    consensus(status = SystemicConsensusStatus.EVALUATED, options = options, winnerOptionId = "o-a"),
+                    skParticipation(canRate = false),
+                    result = skResult(winner = "o-a", figuresWithheld = true),
+                )
+            withDetail(world, "sk-withheld-hostile") { el, _, _ ->
+                assertNull(el.querySelector("img"), "an option text is text, never markup")
+                assertNull(el.querySelector(".lapis-sk-why b"), "a rationale is text, never markup")
+                val text = el.flatText()
+                assertFalse(text.contains("###KvI18nS###"), "a forged i18n marker is neutralised")
+                assertTrue(text.contains("<img src=x onerror=alert(1)>"), text)
+            }
         }
 
     @Test

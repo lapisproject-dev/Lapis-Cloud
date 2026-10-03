@@ -540,7 +540,9 @@ class SystemicConsensusServiceTest :
             }
         }
 
-        test("listResistanceBallots hides values for a secret SystemicConsensus until EVALUATED (no mid-Rating running-tally leak)") {
+        test(
+            "listResistanceBallots hides values for a secret SystemicConsensus until EVALUATED and while below the minimum participation",
+        ) {
             testApplication {
                 application {
                     install(StatusPages) { installSystemicConsensusExceptionHandlers() }
@@ -581,7 +583,9 @@ class SystemicConsensusServiceTest :
 
                 val afterTally =
                     client.get("/test/list-resistances/$systemicConsensusId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
-                afterTally.split(";").any { entry -> entry.substringAfter(":") == "1" } shouldBe true
+                // V1.9.42: one ballot is below the minimum participation, so even after EVALUATED nothing is revealed
+                // (the reveal at >= 5 ballots is covered by SystemicConsensusMinimumParticipationTest).
+                afterTally.split(";").forEach { entry -> entry.substringAfter(":") shouldBe "0" }
             }
         }
 

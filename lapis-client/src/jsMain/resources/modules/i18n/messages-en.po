@@ -18455,6 +18455,12 @@ msgstr "Lowest resistance"
 msgid "Gruppenkonflikt: %1 (%2)"
 msgstr "Group conflict: %1 (%2)"
 
+msgid "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt."
+msgstr "For privacy reasons, figures of an anonymous consensus are only shown from %1 ratings on."
+
+msgid "Gruppenkonflikt: %1"
+msgstr "Group conflict: %1"
+
 msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
 msgstr "Highest single value: %1. That is a strong objection."
 

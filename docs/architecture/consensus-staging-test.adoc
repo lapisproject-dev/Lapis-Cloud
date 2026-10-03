@@ -45,7 +45,16 @@ result in the resolution book. This plan is the mandatory part of the wave's acc
 | 23 | (V1.9.39) Booth on a narrow phone width | the rationale is clamped to three lines; "Mehr anzeigen" expands it; no tooltip shows the rationale; the review step shows plaques but no rationale
 | 24 | (V1.9.39) Evaluate | each row shows the plaque instead of the rank digit and "Höchstwert 10 vergeben: n-mal" (also 0-mal); "Begründung anzeigen" opens the rationale
 | 25 | (V1.9.39) Rationale `###KvI18nS###Abbrechen <img src=x>` on a proposal | shown as plain text in the list, the booth, the result and the edit field; never as markup or a catalog text
+| 26 | (V1.9.42) Anonymous consensus, 5 members entitled, only ONE rates; close, evaluate | the result shows the winner, the sentence "Aus Datenschutzgründen ... erst ab 5 Bewertungen gezeigt.", a group-wide verdict in words, the options in list order (P, 1, 2) with a badge on the winner; no "Ø", no bar, no distribution button, no "Platz"
+| 27 | (V1.9.42) Same, with 4 ratings; then a new anonymous consensus with exactly 5 ratings | 4: still withheld; 5: the full result with means and distribution
+| 28 | (V1.9.42) Same as 26, browser network tab on `evaluate` / `getSystemicConsensusResult` | the response contains `"figuresWithheld":true` and `"optionResults":[]`; no `meanResistance`, `cumulativeResistance`, `consensusIndex` or `distribution` anywhere
+| 29 | (V1.9.42) Same as 26 in the conference room (operator step) | the room step shows the options, the winner badge, the sentence and the verdict, no mean
+| 30 | (V1.9.42) Revote after a result with 5 ratings: only 2 rate in round 2; and the reverse | round 2 withholds; the reverse discloses; the old result of round 1 is gone in both
+| 31 | (V1.9.42) Binding anonymous consensus with a single rating, evaluate | the result is withheld, the resolution is still recorded (adopted, or "Der Antrag gilt als abgelehnt" when the passive option wins; postponed on an unresolved tie)
+| 32 | (V1.9.42) As any member call `listResistanceBallots` for the evaluated small consensus | the ballots come without any rating
 |===
+
+NOTE: Steps 26 to 32 (V1.9.42) are written, **not executed**: this wave had no access to the staging instance.
 
 == Actual results
 

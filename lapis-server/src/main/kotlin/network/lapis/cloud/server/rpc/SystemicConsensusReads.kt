@@ -39,7 +39,9 @@ private val RECEIPT_CODE_FORMAT = Regex("^[A-Za-z0-9_-]{27}$")
  * class does not keep growing; the service only delegates. Every function MUST run inside a transaction.
  *
  * Security properties (see the V1.9.28 audit checklist): only the caller's own rows are read, the aggregated
- * result is only available once EVALUATED, and nothing here logs or echoes receipt codes.
+ * result is only available once EVALUATED, and nothing here logs or echoes receipt codes. V1.9.42: an anonymous
+ * result below the minimum participation carries no figures (see [toResultDto]); receipt verification returns only
+ * the caller's own ratings, never an aggregate.
  */
 internal object SystemicConsensusReads {
     fun result(kId: Uuid): SystemicConsensusResultDto {
@@ -47,7 +49,7 @@ internal object SystemicConsensusReads {
         if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.EVALUATED) {
             throw ConflictException("SystemicConsensus $kId is ${row[SystemicConsensusTable.status]}, expected EVALUATED")
         }
-        return computeSystemicConsensusOutcome(row).toSystemicConsensusResultDto(kId)
+        return computeSystemicConsensusOutcome(row).toResultDto(kId)
     }
 
     fun participation(

@@ -18485,6 +18485,12 @@ msgstr "Menor resistencia"
 msgid "Gruppenkonflikt: %1 (%2)"
 msgstr "Conflicto de grupo: %1 (%2)"
 
+msgid "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt."
+msgstr "Por motivos de protección de datos, las cifras de un consenso anónimo solo se muestran a partir de %1 valoraciones."
+
+msgid "Gruppenkonflikt: %1"
+msgstr "Conflicto de grupo: %1"
+
 msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
 msgstr "Valor individual más alto: %1. Es una objeción fuerte."
 

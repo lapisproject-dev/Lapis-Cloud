@@ -158,8 +158,9 @@ data class SystemicConsensusBallotCastResultDto(
  * Transparency read of ballots cast so far. For a [SystemicConsensusDto.secret] SystemicConsensus,
  * [memberId]/[memberDisplayName] are always `null` (mirrors [ElectionBallotDto]), and
  * [resistances] is `emptyMap()` until [SystemicConsensusStatus.EVALUATED] -- the same pre-tally
- * secrecy gate [ElectionBallotDto.selectedOptionLabels] documents. Non-secret SystemicConsensusen always
- * reveal the resistance values.
+ * secrecy gate [ElectionBallotDto.selectedOptionLabels] documents. V1.9.42: and it stays `emptyMap()` after
+ * EVALUATED while the current round has fewer than [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots.
+ * Non-secret SystemicConsensusen always reveal the resistance values.
  */
 @Serializable
 data class SystemicConsensusBallotDto(
@@ -179,6 +180,9 @@ data class SystemicConsensusBallotDto(
  * KW / (n * scaleMax), in `[0, 1]` -- 0 means unanimous full acceptance, 1 means unanimous
  * maximum resistance. [distribution] maps each distinct resistance value cast to how many voters
  * cast it (a rating histogram for this option).
+ *
+ * V1.9.42: for an anonymous consensus with fewer than [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots these
+ * are never delivered, see [SystemicConsensusResultDto.figuresWithheld].
  */
 @Serializable
 data class SystemicConsensusOptionResultDto(
@@ -210,4 +214,11 @@ data class SystemicConsensusResultDto(
     val consensusViable: Boolean,
     val groupConflictWarning: Boolean,
     val noRatings: Boolean,
+    /**
+     * V1.9.42: `true` = anonymous consensus with fewer than [minimumResponses] ballots in the current round; then
+     * [optionResults] is EMPTY (no ranking, no figures -- a ranking is itself a figure). Winner, tie, tiebreak,
+     * [consensusViable], [groupConflictWarning] and [noRatings] stay. Never `true` for an open (non-anonymous) consensus.
+     */
+    val figuresWithheld: Boolean = false,
+    val minimumResponses: Int = DisclosureRules.MIN_ANONYMOUS_RESPONSES,
 )

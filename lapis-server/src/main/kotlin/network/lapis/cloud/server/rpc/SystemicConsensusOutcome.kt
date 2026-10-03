@@ -4,6 +4,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
+import network.lapis.cloud.shared.domain.DisclosureRules
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -19,8 +20,11 @@ import kotlin.uuid.Uuid
  * reads it) and `evaluate` (which persists it) can never drift apart -- same split as
  * `ElectionService.computeOutcome`. MUST run inside a transaction. Locking, status checks and the
  * resolution-book write deliberately stay in `evaluate`.
+ *
+ * V1.9.42: the decision is made from the full data ([SystemicConsensusOutcome.ergebnis]); what is *disclosed* is
+ * reduced in [toResultDto], the only way to a [SystemicConsensusResultDto].
  */
-internal fun computeSystemicConsensusOutcome(row: ResultRow): SkErgebnis {
+internal fun computeSystemicConsensusOutcome(row: ResultRow): SystemicConsensusOutcome {
     val kId = row[SystemicConsensusTable.id]
     val round = row[SystemicConsensusTable.round]
     val optionIds =
@@ -49,31 +53,63 @@ internal fun computeSystemicConsensusOutcome(row: ResultRow): SkErgebnis {
             { it[SystemicConsensusResistanceTable.optionId] to it[SystemicConsensusResistanceTable.resistanceValue] },
         )
     val ballots = ballotIds.map { id -> SystemicConsensusBallotData(resistances = resistancesByBallot[id].orEmpty().toMap()) }
-    return computeSystemicConsensusResult(
-        ballots = ballots,
-        optionIds = optionIds,
-        scaleMax = row[SystemicConsensusTable.scaleMax],
-        aggregation = row[SystemicConsensusTable.aggregation],
-        tiebreak = row[SystemicConsensusTable.tiebreakRule],
-        groupConflictViableThreshold = row[SystemicConsensusTable.groupConflictViableThreshold].toDouble(),
-        groupConflictWarnThreshold = row[SystemicConsensusTable.groupConflictWarnThreshold].toDouble(),
-    )
+    val ergebnis =
+        computeSystemicConsensusResult(
+            ballots = ballots,
+            optionIds = optionIds,
+            scaleMax = row[SystemicConsensusTable.scaleMax],
+            aggregation = row[SystemicConsensusTable.aggregation],
+            tiebreak = row[SystemicConsensusTable.tiebreakRule],
+            groupConflictViableThreshold = row[SystemicConsensusTable.groupConflictViableThreshold].toDouble(),
+            groupConflictWarnThreshold = row[SystemicConsensusTable.groupConflictWarnThreshold].toDouble(),
+        )
+    return SystemicConsensusOutcome(ergebnis = ergebnis, ballotCount = ballotIds.size, secret = row[SystemicConsensusTable.secret])
 }
 
-internal fun SkErgebnis.toSystemicConsensusResultDto(systemicConsensusId: Uuid): SystemicConsensusResultDto =
+/** Outcome of the current round plus what the disclosure decision needs. */
+internal data class SystemicConsensusOutcome(
+    val ergebnis: SkErgebnis,
+    val ballotCount: Int,
+    val secret: Boolean,
+)
+
+/** V1.9.42 -- `true` iff the figures of this round must be withheld. Pure. */
+internal fun systemicConsensusFiguresWithheld(
+    secret: Boolean,
+    ballotCount: Int,
+): Boolean = secret && ballotCount < DisclosureRules.MIN_ANONYMOUS_RESPONSES
+
+/**
+ * The ONLY way to a [SystemicConsensusResultDto]. The decision fields always come from the full [ergebnis]; the
+ * figures (every option's aggregates, and with them the ranking) only when they are not withheld. No role
+ * exception: managers and moderation get the withheld form too.
+ */
+internal fun SystemicConsensusOutcome.toResultDto(systemicConsensusId: Uuid): SystemicConsensusResultDto {
+    val withheld = systemicConsensusFiguresWithheld(secret = secret, ballotCount = ballotCount)
+    return ergebnis.toDisclosedDto(systemicConsensusId = systemicConsensusId, withheld = withheld)
+}
+
+private fun SkErgebnis.toDisclosedDto(
+    systemicConsensusId: Uuid,
+    withheld: Boolean,
+): SystemicConsensusResultDto =
     SystemicConsensusResultDto(
         systemicConsensusId = systemicConsensusId.toString(),
         optionResults =
-            optionResults.map {
-                SystemicConsensusOptionResultDto(
-                    optionId = it.optionId.toString(),
-                    cumulativeResistance = it.cumulativeResistance,
-                    meanResistance = it.meanResistance,
-                    maxResistance = it.maxResistance,
-                    standardDeviation = it.standardDeviation,
-                    consensusIndex = it.consensusIndex,
-                    distribution = it.distribution,
-                )
+            if (withheld) {
+                emptyList()
+            } else {
+                optionResults.map {
+                    SystemicConsensusOptionResultDto(
+                        optionId = it.optionId.toString(),
+                        cumulativeResistance = it.cumulativeResistance,
+                        meanResistance = it.meanResistance,
+                        maxResistance = it.maxResistance,
+                        standardDeviation = it.standardDeviation,
+                        consensusIndex = it.consensusIndex,
+                        distribution = it.distribution,
+                    )
+                }
             },
         winnerOptionId = winnerOptionId?.toString(),
         tie = tie,
@@ -81,4 +117,5 @@ internal fun SkErgebnis.toSystemicConsensusResultDto(systemicConsensusId: Uuid):
         consensusViable = consensusViable,
         groupConflictWarning = groupConflictWarning,
         noRatings = noRatings,
+        figuresWithheld = withheld,
     )

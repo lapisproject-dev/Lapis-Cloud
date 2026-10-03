@@ -69,7 +69,7 @@ the revote returns `Hidden`, `Primary` or `Secondary`. A disabled action shows i
 | `COLLECTION` | "Optionen einfrieren" (confirmation names the count, focus on "Abbrechen"); disabled without options | add / remove options, abort
 | `RATING` | "Zur Bewertung" (members), "Bewertung schließen" (managers) | abort; counter "n von m haben bewertet"
 | `CLOSED` | "Auswerten" (a binding consensus asks first and says it cannot be undone) | abort
-| `EVALUATED` | revote, primary when the winner's group conflict is above the warning threshold or there is no winner | "Quittung prüfen" (anonymous)
+| `EVALUATED` | revote, primary when the server reports `groupConflictWarning` for the winner or there is no winner (V1.9.42: decided by the server's own booleans, never by a figure) | "Quittung prüfen" (anonymous)
 | `ABORTED` | none | none
 |===
 
@@ -160,7 +160,7 @@ an earlier round and no longer counted; found and stored (values only after the 
 == Secrecy rules of the displays
 
 * An anonymous consensus' single ratings are never requested: the result shows only the aggregates per option (mean, group conflict, the
-  distribution). Only an *open* consensus lists who rated what, through `listResistanceBallots`, and only in `ConsensusResultView.kt`.
+  distribution) -- and below five ratings not even those (see "Minimum participation (V1.9.42)"). Only an *open* consensus lists who rated what, through `listResistanceBallots`, and only in `ConsensusResultView.kt`.
 * `castAt` is never read by the consensus screens.
 * Everything a member typed (titles, option texts, names) is sanitized before it becomes widget content.
 * No exception message is read: conflicts get fixed texts and the screen reloads. `ConsensusSecrecyTripwireTest` pins all of this.
@@ -172,6 +172,49 @@ Options are ranked by mean resistance, lowest first. Per option: the mean ("Ø 2
 a hint when any single rating reached the strong-objection threshold of the scale (a mean can hide a strong objection; see V1.9.39 below), and a collapsed rating distribution with all eleven
 columns (gaps filled with 0). A tie without a winner and a consensus without ratings say so in words. A binding result says that it was
 recorded as a resolution and, when the status quo option won, that the motion counts as rejected.
+
+== Minimum participation (V1.9.42)
+
+*Rule.* An anonymous consensus (`secret = true`) whose *current round* holds fewer than `DisclosureRules.MIN_ANONYMOUS_RESPONSES` (5) ballots
+discloses no figures. The constant is shared with the anonymous polls (`PollRules.MIN_RESPONSES_FOR_RESULT` is an alias of it), so the two features cannot
+drift apart. An open (non-anonymous) consensus is unaffected: its ratings are public anyway.
+
+*Where it is applied.* In exactly one place on the server: `SystemicConsensusOutcome.toResultDto` in `SystemicConsensusOutcome.kt`, the only way to a
+`SystemicConsensusResultDto`. Both `evaluate` and `getSystemicConsensusResult` go through it, and the binding decision in `evaluate` is still made from the
+full data -- only the *disclosure* is reduced. There is no role exception: managers and moderation receive the withheld form too.
+`ServerConsensusDisclosureTripwireTest` pins that no other file builds the DTO or reads the ratings table.
+
+[cols="2,5", options="header"]
+|===
+| Field of `SystemicConsensusResultDto` | Below the minimum
+| `figuresWithheld` / `minimumResponses` | `true` / `5` (new, additive; default `false` / `5`)
+| `optionResults` | **empty** -- no mean, maximum, deviation, index, distribution, and no ranking either (a ranking is itself a figure)
+| `winnerOptionId`, `tie`, `tiebreakApplied`, `consensusViable`, `groupConflictWarning`, `noRatings` | unchanged, computed from the full data
+|===
+
+`listResistanceBallots` follows the same gate: an anonymous consensus below the minimum returns its ballots without any rating even after `EVALUATED`
+(before this wave it returned the complete single ballots of every evaluated anonymous consensus, however small). Receipt verification returns only the
+caller's own ratings and is unchanged; the room state (`RoomBallotDto`) never carried a figure and is pinned by an allowlist test.
+The minimum is judged per round: a revote with fewer ballots withholds again, one with five or more discloses.
+
+*Client.* Both result renderers (the detail page and the room operator step) branch on `figuresWithheld` only -- never on the emptiness of
+`optionResults`. A withheld result shows the winner line, the sentence "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab 5 Bewertungen
+gezeigt.", the group-wide verdict in words (from `consensusViable` / `groupConflictWarning`), and the options in their list order (P, 1, 2, ...) with the
+winner badge and the collapsed rationale -- no rank, mean, bar, group conflict number, highest-value count, strong-objection hint or distribution. With no
+ratings at all there is no sentence and no verdict. The revote offer (`canReopen`) reads `groupConflictWarning`, not an index.
+
+*Residual risk, stated plainly (accepted):*
+
+* R1: with one participant the winner is the option with that person's lowest rating; a tie of the minima (visible as `tie` / `tiebreakApplied`, or REPEAT
+  meaning "no winner") reveals that at least two options share it.
+* R2: the group-wide verdict narrows the range of the winner's rating or sum (default thresholds, scale 10, n = 1: viable 0-1, with concerns 2-5, warning 6-10).
+* R3: for a binding consensus the resolution status REJECTED reveals that the passive option had the minimum.
+* R4: with two participants the same holds for sums; whoever knows their own rating can narrow the other.
+* R5: the participation counter (`ballotCount` / `eligibleCount`) stays visible; `figuresWithheld` only says "fewer than 5", which the counter already shows.
+* R6: also above the threshold: homogeneity or collusion of n - 1 participants reveals the last rating; whoever can read the database or its backups sees the
+  ratings (a table separation, not cryptography).
+
+An earlier leak through the ranking order of the result (the order of the rows exposed the order of the means) is closed by the empty `optionResults`.
 
 == Exclusivity on the motion page
 
@@ -230,12 +273,14 @@ Small points that bring the screens closer to how a Systemic Consensus is run in
 * A binding consensus has exactly one round (`evaluate` records the resolution at once; `reopenRating` then refuses). The form says so, the
   round label reads "Eine Runde (Beschluss)". For a discussion round, run the consensus as a poll first.
 * The results of earlier rounds are not retrievable after a revote.
-* An anonymous consensus has no minimum group size; with a single participant the "anonymous" rating is trivially attributable.
+* V1.9.42: an anonymous consensus below five ratings in the current round discloses no figures (see "Minimum participation"); the residual risks R1 to R6
+  of that section remain. `listResistanceBallots` still hands out the complete anonymous single ballots of an evaluated anonymous consensus from five
+  ballots on (no screen uses them for an anonymous consensus); closing this completely (always empty for an anonymous consensus) is an open decision.
 * The booth is embedded in the conference room since V1.9.32 (see the last section); the room has no results distribution.
 * V1.9.39: the receipt carries no option numbers; the status quo option has no rationale; `addOption`/`removeOption` take no row lock against a
   concurrent `freezeOptions` (only `setOptionRationale` does); `scaleMax` has no server-side upper bound and the compact room grid has a fixed
   11 columns; rationales travel with `listSystemicConsensuses` (up to 25 x 1000 characters per consensus); there is still no minimum
-  participation for anonymous results.
+  participation for anonymous results (closed by V1.9.42).
 * The staging test is written, not executed: `consensus-staging-test.adoc`.
 
 == In the conference room (V1.9.32)

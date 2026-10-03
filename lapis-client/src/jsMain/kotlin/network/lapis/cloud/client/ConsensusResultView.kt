@@ -17,6 +17,7 @@ import io.kvision.utils.perc
 import network.lapis.cloud.shared.domain.SystemicConsensusBallotDto
 import network.lapis.cloud.shared.domain.SystemicConsensusBindingness
 import network.lapis.cloud.shared.domain.SystemicConsensusDto
+import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusRules
@@ -31,6 +32,10 @@ import network.lapis.cloud.shared.rpc.ISystemicConsensusService
  *
  * Anonymity: for an anonymous consensus no list of single ratings is requested at all (only the aggregate per option is shown). Only an OPEN
  * consensus lists who rated what, and only that branch calls `listResistanceBallots` (`ConsensusSecrecyTripwireTest`).
+ *
+ * V1.9.42: an anonymous consensus with fewer than the minimum participation arrives with `figuresWithheld` and no `optionResults` at all.
+ * Then only the winner, the group-wide verdict and the options in their list order are shown -- no ranking, no figure. The branch is
+ * decided by `figuresWithheld` alone, never by an empty list.
  */
 
 internal fun renderConsensusResult(
@@ -46,22 +51,33 @@ internal fun renderConsensusResult(
         return
     }
     renderVerdict(panel, c, result)
-    // The server decides a tie in the mean with its tiebreak rule: the winner always leads its tied options.
-    val ranked =
-        result.optionResults.sortedWith(
-            compareBy<SystemicConsensusOptionResultDto> { it.meanResistance }.thenBy { it.optionId != result.winnerOptionId },
-        )
     val numbers = consensusOptionNumbers(c.options)
-    ranked.forEachIndexed { index, option ->
-        renderRankRow(
-            panel,
-            c,
-            option,
-            rank = index + 1,
-            number = numbers[option.optionId],
-            winner =
-                option.optionId == result.winnerOptionId,
-        )
+    if (result.figuresWithheld) {
+        consensusOrderedOptions(c.options).forEachIndexed { index, option ->
+            renderWithheldRow(
+                panel,
+                option,
+                number = numbers[option.id],
+                winner = option.id == result.winnerOptionId,
+                index = index,
+            )
+        }
+    } else {
+        // The server decides a tie in the mean with its tiebreak rule: the winner always leads its tied options.
+        val ranked =
+            result.optionResults.sortedWith(
+                compareBy<SystemicConsensusOptionResultDto> { it.meanResistance }.thenBy { it.optionId != result.winnerOptionId },
+            )
+        ranked.forEachIndexed { index, option ->
+            renderRankRow(
+                panel,
+                c,
+                option,
+                rank = index + 1,
+                number = numbers[option.optionId],
+                winner = option.optionId == result.winnerOptionId,
+            )
+        }
     }
     if (!c.secret) {
         panel.h2(tr("Namentliche Bewertungen")) { addCssClass("h5") }
@@ -89,6 +105,7 @@ private fun renderVerdict(
             panel.p(gettext("Geringster Widerstand: %1", consensusOptionText(winnerOption))) { addCssClasses("fw-bold mb-0 text-break") }
         }
     }
+    renderWithheldNotice(panel, result, winnerOption)
     if (winnerOption != null) {
         when (result.tiebreakApplied) {
             SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE ->
@@ -110,6 +127,43 @@ private fun renderVerdict(
                 panel.p(tr("Die Passivlösung hat gewonnen: Der Antrag gilt als abgelehnt.")) { addCssClasses("alert alert-warning mb-0") }
         }
     }
+}
+
+/** V1.9.42: the privacy sentence and the group-wide verdict, directly under the winner line (anonymous result below the minimum only). */
+private fun renderWithheldNotice(
+    panel: SimplePanel,
+    result: SystemicConsensusResultDto,
+    winnerOption: SystemicConsensusOptionDto?,
+) {
+    if (!result.figuresWithheld || result.noRatings) return
+    panel.p(
+        gettext("Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt.", result.minimumResponses),
+    ) { addCssClasses("text-muted mb-0") }
+    if (winnerOption != null) {
+        panel.p(
+            gettext(
+                "Gruppenkonflikt: %1",
+                groupConflictWord(consensusViable = result.consensusViable, groupConflictWarning = result.groupConflictWarning),
+            ),
+        ) { addCssClasses("mb-0") }
+    }
+}
+
+/** V1.9.42: one option of a withheld result -- number, text, the winner mark and the rationale, but no rank, mean, bar or distribution. */
+private fun renderWithheldRow(
+    panel: Container,
+    option: SystemicConsensusOptionDto,
+    number: String?,
+    winner: Boolean,
+    index: Int,
+) {
+    val box = panel.vPanel(spacing = 4) { addCssClasses(if (winner) "lapis-sk-rank lapis-sk-rank--winner" else "lapis-sk-rank") }
+    val head = box.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    if (number != null) head.consensusNumberPlaque(number)
+    if (number != null) head.consensusNumberSrPrefix(number)
+    head.div(consensusOptionText(option)) { addCssClasses("flex-grow-1 fw-bold text-break") }
+    if (winner) head.statusBadge(tr("Geringster Widerstand"), "success")
+    renderOptionRationale(box, option, RationaleMode.Collapsed, "sk-res-why", index + 1)
 }
 
 private fun renderRankRow(

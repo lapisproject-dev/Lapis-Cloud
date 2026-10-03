@@ -577,7 +577,8 @@ class SystemicConsensusService(
 
             // V1.9.28: the pure calculation lives in computeSystemicConsensusOutcome, shared with the read-only
             // getSystemicConsensusResult so the displayed result can never differ from the recorded one.
-            val ergebnis = computeSystemicConsensusOutcome(row)
+            val outcome = computeSystemicConsensusOutcome(row)
+            val ergebnis = outcome.ergebnis
 
             SystemicConsensusTable.update({ SystemicConsensusTable.id eq kId }) {
                 it[status] = SystemicConsensusStatus.EVALUATED
@@ -650,7 +651,7 @@ class SystemicConsensusService(
                 auditResolutionCreate(resolution = resolution, current = current)
             }
 
-            ergebnis.toSystemicConsensusResultDto(kId)
+            outcome.toResultDto(kId)
         }
     }
 
@@ -765,13 +766,22 @@ class SystemicConsensusService(
             val row = requireSystemicConsensusRow(kId)
             // Pre-tally secrecy gate: same invariant as ElectionService.listElectionBallots's
             // revealLabels -- see SystemicConsensusBallotDto KDoc.
-            val revealValues =
-                !row[SystemicConsensusTable.secret] || row[SystemicConsensusTable.status] == SystemicConsensusStatus.EVALUATED
+            // V1.9.42: below the minimum participation an anonymous consensus never reveals its ballots either
+            // (a single ballot is a person's complete rating vector).
+            val secret = row[SystemicConsensusTable.secret]
             val round = row[SystemicConsensusTable.round]
-            SystemicConsensusBallotTable
-                .selectAll()
-                .where { (SystemicConsensusBallotTable.systemicConsensusId eq kId) and (SystemicConsensusBallotTable.round eq round) }
-                .map { it.toSystemicConsensusBallotDto(revealValues) }
+            val ballotRows =
+                SystemicConsensusBallotTable
+                    .selectAll()
+                    .where { (SystemicConsensusBallotTable.systemicConsensusId eq kId) and (SystemicConsensusBallotTable.round eq round) }
+                    .toList()
+            val revealValues =
+                !secret ||
+                    (
+                        row[SystemicConsensusTable.status] == SystemicConsensusStatus.EVALUATED &&
+                            !systemicConsensusFiguresWithheld(secret = true, ballotCount = ballotRows.size)
+                    )
+            ballotRows.map { it.toSystemicConsensusBallotDto(revealValues) }
         }
     }
 

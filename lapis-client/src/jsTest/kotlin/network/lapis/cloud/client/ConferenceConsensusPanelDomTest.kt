@@ -9,6 +9,7 @@ import network.lapis.cloud.shared.domain.RoomBallotDto
 import network.lapis.cloud.shared.domain.RoomBallotKind
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
+import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import org.w3c.dom.HTMLElement
@@ -68,13 +69,14 @@ class ConferenceConsensusPanelDomTest {
         rated: Boolean = false,
         noOptions: Boolean = false,
         options: List<SystemicConsensusOptionDto>? = null,
+        resultOverride: SystemicConsensusResultDto? = null,
     ): ConsensusDetailData =
         ConsensusDetailData(
             consensus =
                 consensus(status = phase, secret = secret, options = if (noOptions) emptyList() else options ?: skOptions()).copy(id = kId),
             participation = skParticipation(canManage = canManage, canRate = canRate, hasRated = rated),
             motion = null,
-            result = if (phase == SystemicConsensusStatus.EVALUATED && canManage) skResult() else null,
+            result = resultOverride ?: if (phase == SystemicConsensusStatus.EVALUATED && canManage) skResult() else null,
         )
 
     private class Harness {
@@ -601,6 +603,93 @@ class ConferenceConsensusPanelDomTest {
                 assertFalse(text.contains("Status quo (no change)"))
                 assertFalse(text.contains("Verteilung"))
                 assertEquals(1, el.badgeTexts().count { it == "Geringster Widerstand" }, "one winner badge")
+            }
+        }
+
+    @Test
+    fun theEvaluatedStep_ofAWithheldResult_showsNoFigure_butTheWinnerTheSentenceAndTheVerdict(): Promise<Unit> =
+        formTest {
+            data class Case(
+                val viable: Boolean,
+                val warning: Boolean,
+                val word: String,
+            )
+            listOf(
+                Case(viable = true, warning = false, word = "Tragfähiger Konsens"),
+                Case(viable = false, warning = false, word = "Mit Bedenken"),
+                Case(viable = false, warning = true, word = "Warnsignal"),
+            ).forEachIndexed { i, case ->
+                withConsensusPanel("consensus-op-withheld-$i") { el, handle, h, _, _ ->
+                    h.detail =
+                        detail(
+                            SystemicConsensusStatus.EVALUATED,
+                            secret = true,
+                            canManage = true,
+                            resultOverride =
+                                skResult(
+                                    winner = "o-a",
+                                    figuresWithheld = true,
+                                    consensusViable = case.viable,
+                                    groupConflictWarning = case.warning,
+                                ),
+                        )
+                    handle.apply(answerOf(ballot(SystemicConsensusStatus.EVALUATED, secret = true)))
+                    awaitUntil("result", 2000) { el.flatText().contains("Geringster Widerstand") }
+                    val text = el.flatText()
+                    assertTrue(text.contains("Option A") && text.contains("Option B"), text)
+                    assertTrue(text.indexOf("Alles bleibt wie bisher") < text.indexOf("Option A"), "list order, not ranked")
+                    assertFalse(text.contains("Ø "), "no mean in a withheld result: $text")
+                    assertFalse(text.contains("NaN"))
+                    assertTrue(
+                        text.contains("Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab 5 Bewertungen gezeigt."),
+                        text,
+                    )
+                    assertTrue(text.contains("Gruppenkonflikt: ${case.word}"), text)
+                    assertEquals(1, el.badgeTexts().count { it == "Geringster Widerstand" }, "one winner badge")
+                    assertTrue(el.hasButton("Erneut bewerten"))
+                }
+            }
+        }
+
+    @Test
+    fun theEvaluatedStep_ofAWithheldResult_withoutRatings_hasNoSentenceAndNoVerdict(): Promise<Unit> =
+        formTest {
+            withConsensusPanel("consensus-op-withheld-none") { el, handle, h, _, _ ->
+                h.detail =
+                    detail(
+                        SystemicConsensusStatus.EVALUATED,
+                        secret = true,
+                        canManage = true,
+                        resultOverride = skResult(winner = null, noRatings = true, figuresWithheld = true),
+                    )
+                handle.apply(answerOf(ballot(SystemicConsensusStatus.EVALUATED, secret = true)))
+                awaitUntil("result", 2000) { el.flatText().contains("Option A") }
+                val text = el.flatText()
+                assertFalse(text.contains("Aus Datenschutzgründen"), text)
+                assertFalse(text.contains("Gruppenkonflikt"), text)
+                assertEquals(0, el.badgeTexts().count { it == "Geringster Widerstand" })
+            }
+        }
+
+    @Test
+    fun theEvaluatedStep_ofAWithheldResult_neverRendersHostileOptionTextAsMarkupOrCatalog(): Promise<Unit> =
+        formTest {
+            val hostile = "###KvI18nS###Abstimmen <img src=x onerror=alert(1)>"
+            val options = listOf(skOption("o-sq", SK_SERVER_STATUS_QUO_LABEL, 0, statusQuo = true), skOption("o-a", hostile, 1))
+            withConsensusPanel("consensus-op-withheld-hostile") { el, handle, h, _, _ ->
+                h.detail =
+                    detail(
+                        SystemicConsensusStatus.EVALUATED,
+                        secret = true,
+                        canManage = true,
+                        options = options,
+                        resultOverride = skResult(winner = "o-a", figuresWithheld = true),
+                    )
+                handle.apply(answerOf(ballot(SystemicConsensusStatus.EVALUATED, secret = true)))
+                awaitUntil("result", 2000) { el.flatText().contains("Geringster Widerstand") }
+                assertNull(el.querySelector("img"))
+                assertFalse(el.flatText().contains("###KvI18nS###"))
+                assertTrue(el.flatText().contains("<img src=x onerror=alert(1)>"), el.flatText())
             }
         }
 

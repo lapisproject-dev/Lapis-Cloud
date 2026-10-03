@@ -15,7 +15,9 @@ import java.io.File
  *    out of every file but the booth, the receipt and the one result view;
  *  - `receiptCode` appears only in the booth (hand-over) and the receipt file;
  *  - `listResistanceBallots` appears only in `ConsensusResultView.kt`, and only in the branch of an OPEN consensus;
- *  - the booth has no `data-*` attribute.
+ *  - the booth has no `data-*` attribute;
+ *  - V1.9.42 (minimum participation): the two result renderers branch on `figuresWithheld` and never on the shape of `optionResults`,
+ *    and `ConsensusAuthzUi.kt` never reads a `consensusIndex` (an anonymous result below the minimum has no figures).
  */
 private val CLIENT_DIR =
     File("../lapis-client/src/jsMain/kotlin/network/lapis/cloud/client")
@@ -145,6 +147,35 @@ internal fun rationaleSinkFindings(
         .filter { line -> RATIONALE_LINE.containsMatchIn(line) && RATIONALE_SINKS.any { it.containsMatchIn(line) } }
         .map { "$fileName: rationale reaches a sink: ${it.trim()}" }
 
+/** V1.9.42: the files that render a consensus result and so must decide on `figuresWithheld`. */
+private val RESULT_RENDERER_FILES = listOf("ConsensusResultView.kt", "ConferenceConsensusOperator.kt")
+
+private val OPTION_RESULTS_SHAPE_BRANCH = Regex("""optionResults\.(isEmpty|isNotEmpty|none|any)\b""")
+
+/**
+ * V1.9.42: the branch between "figures" and "withheld" is the server's `figuresWithheld` flag alone, never the emptiness of
+ * `optionResults` (an open consensus without options is empty too), and the revote offer never reads a figure.
+ */
+internal fun consensusDisclosureFindings(
+    fileName: String,
+    text: String,
+): List<String> {
+    val code = codeLines(text)
+    val findings = mutableListOf<String>()
+    code.filter { OPTION_RESULTS_SHAPE_BRANCH.containsMatchIn(it) }.forEach {
+        findings += "$fileName: branches on the shape of optionResults, use figuresWithheld: ${it.trim()}"
+    }
+    if (fileName in RESULT_RENDERER_FILES && code.none { it.contains("figuresWithheld") }) {
+        findings += "$fileName: a result renderer that never looks at figuresWithheld"
+    }
+    if (fileName == "ConsensusAuthzUi.kt") {
+        code.filter { Regex("""\bconsensusIndex\b""").containsMatchIn(it) }.forEach {
+            findings += "$fileName: reads a consensusIndex: ${it.trim()}"
+        }
+    }
+    return findings
+}
+
 /** V1.9.32: shapes that must not appear in the room's consensus files on top of the rules above. */
 private val CONFERENCE_CONSENSUS_FORBIDDEN =
     listOf(
@@ -237,5 +268,26 @@ class ConsensusSecrecyTripwireTest :
             consensusSecrecyFindings(fileName = "X.kt", text = "// console.log(code)").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = "val consoleLike = 1").size shouldBe 0
+        }
+
+        test("V1.9.42: the result renderers decide on figuresWithheld, the revote offer reads no figure") {
+            CONSENSUS_FILES.flatMap { consensusDisclosureFindings(fileName = it, text = File(CLIENT_DIR, it).readText()) }.shouldBeEmpty()
+            // the detector itself: positive and negative examples
+            consensusDisclosureFindings(fileName = "ConsensusResultView.kt", text = "if (result.optionResults.isEmpty()) {").size shouldBe 2
+            consensusDisclosureFindings(fileName = "X.kt", text = "if (r.optionResults.isNotEmpty()) x()").size shouldBe 1
+            consensusDisclosureFindings(fileName = "X.kt", text = "val none = r.optionResults.none { it.a }").size shouldBe 1
+            consensusDisclosureFindings(fileName = "X.kt", text = "val any = r.optionResults.any { it.a }").size shouldBe 1
+            consensusDisclosureFindings(fileName = "X.kt", text = "r.optionResults.sortedBy { it.meanResistance }").size shouldBe 0
+            consensusDisclosureFindings(fileName = "X.kt", text = "// optionResults.isEmpty() would be wrong").size shouldBe 0
+            consensusDisclosureFindings(fileName = "ConferenceConsensusOperator.kt", text = "val x = 1").size shouldBe 1
+            consensusDisclosureFindings(fileName = "ConferenceConsensusOperator.kt", text = "if (result.figuresWithheld) a()").size shouldBe
+                0
+            consensusDisclosureFindings(fileName = "ConsensusAuthzUi.kt", text = "winner.consensusIndex > warn").size shouldBe 1
+            consensusDisclosureFindings(fileName = "ConsensusAuthzUi.kt", text = "result.groupConflictWarning").size shouldBe 0
+            consensusDisclosureFindings(
+                fileName = "ConsensusResultView.kt",
+                text = "val i = option.consensusIndex // figures view",
+            ).size shouldBe
+                1
         }
     })

@@ -18503,6 +18503,12 @@ msgstr "Laagste weerstand"
 msgid "Gruppenkonflikt: %1 (%2)"
 msgstr "Groepsconflict: %1 (%2)"
 
+msgid "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt."
+msgstr "Om privacyredenen worden cijfers van een anonieme consensus pas getoond vanaf %1 beoordelingen."
+
+msgid "Gruppenkonflikt: %1"
+msgstr "Groepsconflict: %1"
+
 msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
 msgstr "Hoogste afzonderlijke waarde: %1. Dat is een sterk bezwaar."
 

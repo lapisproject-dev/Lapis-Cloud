@@ -271,7 +271,7 @@ deliberately no `member_id` and no time column, random UUIDv4 ids, and no key to
 * The API never carries a `response_id` or any id of a response or rating row. `getPollResult` reads a single aggregate query
   `GROUP BY option_id, resistance` -- no cross-option link can reach a client, and the result is computed from the histograms
   (`PollRatingTally`, a pure function).
-* *Disclosure.* One threshold for everything: below `PollRules.MIN_RESPONSES_FOR_RESULT` (5) answers only the response count is returned
+* *Disclosure.* One threshold for everything: below `PollRules.MIN_RESPONSES_FOR_RESULT` (5, an alias of `DisclosureRules.MIN_ANONYMOUS_RESPONSES`, shared since V1.9.42 with the anonymous systemic consensus) answers only the response count is returned
   (`ratingResultAvailable = false`); from 5 on, the per-option aggregates. There is no weighted result and no head result for these kinds.
 * *Residual risk, stated plainly:* the link `poll_response_rating.response_id -> poll_response` lets whoever can read the database or its
   backups rebuild the complete rating vector of one response (not the member: the response has no member key). This is the same residual

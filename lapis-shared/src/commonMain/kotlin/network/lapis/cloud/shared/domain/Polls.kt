@@ -33,8 +33,11 @@ object PollRules {
     const val MAX_DESCRIPTION_LENGTH = 2000
     const val MAX_OPTION_LENGTH = 200
 
-    /** Fewer responses and not even the head count is disclosed (a unanimous result of 3 would reveal all 3 answers). */
-    const val MIN_RESPONSES_FOR_RESULT = 5
+    /**
+     * Fewer responses and not even the head count is disclosed (a unanimous result of 3 would reveal all 3 answers).
+     * Alias of [DisclosureRules.MIN_ANONYMOUS_RESPONSES], shared with anonymous consensus (V1.9.42).
+     */
+    const val MIN_RESPONSES_FOR_RESULT = DisclosureRules.MIN_ANONYMOUS_RESPONSES
 
     /** The weighted result needs at least this many responses with weight greater than zero ... */
     const val MIN_WEIGHTED_RESPONSES = 5

@@ -89,10 +89,25 @@ class ConsensusAuthzUiTest {
     fun reopen_isPrimaryAboveTheWarnThreshold_secondaryBelow_neverForBindingOrWithoutRoundsLeft() {
         val evaluated = statusOf(SystemicConsensusStatus.EVALUATED)
         val manager = skParticipation(canManage = true)
-        val hot = skResult(winner = "o-a", results = listOf(skOptionResult("o-a", 6.0, 0.51)))
-        val ok = skResult(winner = "o-a", results = listOf(skOptionResult("o-a", 2.0, 0.5)))
+        val hot = skResult(winner = "o-a", groupConflictWarning = true)
+        val ok = skResult(winner = "o-a", groupConflictWarning = false)
         assertEquals(ReopenOffer.Primary, canReopen(evaluated, manager, hot))
-        assertEquals(ReopenOffer.Secondary, canReopen(evaluated, manager, ok), "exactly at the threshold is not above it")
+        assertEquals(ReopenOffer.Secondary, canReopen(evaluated, manager, ok), "no warning from the server is no urgency")
+        val withheldCalm = skResult(winner = "o-a", figuresWithheld = true, groupConflictWarning = false)
+        assertEquals(
+            ReopenOffer.Secondary,
+            canReopen(evaluated, manager, withheldCalm),
+            "a withheld result has no figures, the server's own booleans decide (an empty list must not read as no winner)",
+        )
+        assertEquals(
+            ReopenOffer.Primary,
+            canReopen(evaluated, manager, skResult(winner = "o-a", figuresWithheld = true, groupConflictWarning = true)),
+        )
+        assertEquals(
+            ReopenOffer.Primary,
+            canReopen(evaluated, manager, skResult(winner = null, figuresWithheld = true)),
+            "withheld without a winner still calls for a revote",
+        )
         assertEquals(
             ReopenOffer.Primary,
             canReopen(evaluated, manager, skResult(winner = null)),

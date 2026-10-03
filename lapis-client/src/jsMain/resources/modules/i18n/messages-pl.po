@@ -18502,6 +18502,12 @@ msgstr "Najmniejszy sprzeciw"
 msgid "Gruppenkonflikt: %1 (%2)"
 msgstr "Konflikt grupowy: %1 (%2)"
 
+msgid "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt."
+msgstr "Ze względu na ochronę danych liczby przy anonimowym konsensusie są pokazywane dopiero od %1 ocen."
+
+msgid "Gruppenkonflikt: %1"
+msgstr "Konflikt grupowy: %1"
+
 msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
 msgstr "Najwyższa pojedyncza wartość: %1. To silny sprzeciw."
 

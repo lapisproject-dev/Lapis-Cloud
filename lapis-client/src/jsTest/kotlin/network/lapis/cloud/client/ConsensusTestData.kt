@@ -123,6 +123,11 @@ internal fun skOptionResult(
     distribution = distribution,
 )
 
+/**
+ * [consensusViable] and [groupConflictWarning] default to what the server derives from the WINNER's index against the default
+ * thresholds (0.2 / 0.5), exactly like `computeSystemicConsensusResult`; pass them explicitly to pin a verdict.
+ * V1.9.42: [figuresWithheld] builds the anonymous-below-the-minimum shape (no option results at all).
+ */
 internal fun skResult(
     winner: String? = "o-a",
     noRatings: Boolean = false,
@@ -133,13 +138,23 @@ internal fun skResult(
             skOptionResult("o-b", mean = 4.0, index = 0.4),
             skOptionResult("o-a", mean = 2.4, index = 0.24),
         ),
-) = SystemicConsensusResultDto(
-    systemicConsensusId = "k1",
-    optionResults = results,
-    winnerOptionId = winner,
-    tie = false,
-    tiebreakApplied = tiebreak,
-    consensusViable = false,
-    groupConflictWarning = false,
-    noRatings = noRatings,
-)
+    figuresWithheld: Boolean = false,
+    consensusViable: Boolean? = null,
+    groupConflictWarning: Boolean? = null,
+    tie: Boolean = false,
+    minimumResponses: Int = 5,
+): SystemicConsensusResultDto {
+    val winnerIndex = results.firstOrNull { it.optionId == winner }?.consensusIndex
+    return SystemicConsensusResultDto(
+        systemicConsensusId = "k1",
+        optionResults = if (figuresWithheld) emptyList() else results,
+        winnerOptionId = winner,
+        tie = tie,
+        tiebreakApplied = tiebreak,
+        consensusViable = consensusViable ?: (winnerIndex != null && winnerIndex < 0.2),
+        groupConflictWarning = groupConflictWarning ?: (winnerIndex != null && winnerIndex > 0.5),
+        noRatings = noRatings,
+        figuresWithheld = figuresWithheld,
+        minimumResponses = minimumResponses,
+    )
+}

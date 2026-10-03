@@ -103,6 +103,11 @@ interface ISystemicConsensusService {
      * [network.lapis.cloud.shared.domain.SystemicConsensusBindingness.BINDING] and the result is resolved
      * (not [network.lapis.cloud.shared.domain.SystemicConsensusTiebreakRule.REPEAT]-tied) -- writes the
      * resulting Resolution and transitions the Motion.
+     *
+     * V1.9.42: the decision is always made from the full data, but the *disclosure* is reduced -- for an anonymous
+     * consensus with fewer than [network.lapis.cloud.shared.domain.DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots
+     * in the current round the result carries no figures (`figuresWithheld`, empty `optionResults`). No role
+     * exception: managers and moderation get the withheld form too.
      */
     suspend fun evaluate(systemicConsensusId: String): SystemicConsensusResultDto
 
@@ -129,7 +134,9 @@ interface ISystemicConsensusService {
     /**
      * Transparency read of every ballot cast so far in the *current* [SystemicConsensusDto.round].
      * For a [SystemicConsensusDto.secret] SystemicConsensus, `memberId`/`memberDisplayName` are always
-     * `null`, and `resistances` is empty until [SystemicConsensusStatus.EVALUATED] -- see
+     * `null`, and `resistances` is empty until [SystemicConsensusStatus.EVALUATED] -- and, since V1.9.42, also
+     * after it while the current round has fewer than
+     * [network.lapis.cloud.shared.domain.DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots -- see
      * [SystemicConsensusBallotDto] KDoc.
      */
     suspend fun listResistanceBallots(systemicConsensusId: String): List<SystemicConsensusBallotDto>
@@ -138,7 +145,8 @@ interface ISystemicConsensusService {
      * V1.9.28. Role: any authenticated member. The aggregated result of the *current* round, computed by
      * the very function `evaluate` uses (so what is shown can never differ from what was recorded).
      * Requires [SystemicConsensusStatus.EVALUATED], otherwise a conflict -- before that nothing about the
-     * ratings is disclosed. Results of earlier rounds are not retrievable.
+     * ratings is disclosed. Results of earlier rounds are not retrievable. V1.9.42: same reduced disclosure as
+     * [evaluate] below the minimum participation of an anonymous consensus.
      */
     suspend fun getSystemicConsensusResult(systemicConsensusId: String): SystemicConsensusResultDto
 

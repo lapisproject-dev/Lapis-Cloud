@@ -8,6 +8,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Minimum participation for anonymous consensus** (V1.9.42): `SystemicConsensusResultDto` gets `figuresWithheld` and `minimumResponses` (additive, defaults
+  `false` / `5`). New shared constant `DisclosureRules.MIN_ANONYMOUS_RESPONSES` (5); `PollRules.MIN_RESPONSES_FOR_RESULT` is now an alias of it. The detail
+  page and the conference-room operator step show a privacy sentence and the group-wide verdict in words when figures are withheld. No migration.
+  Documentation: `consensus-ui.adoc` ("Minimum participation"), `conference-voting.adoc`, `polls.adoc`, `consensus-staging-test.adoc` (steps 26-32, not executed).
+
 - **Consensus modes in polls** (V1.9.41): a poll has a kind -- `SINGLE_CHOICE` (the classic LTR-weighted poll, unchanged), `SK_DECISION` or
   `SK_PRIORITY` (systemic consensing): every member rates every option with a resistance 0..10, without any LTR. A decision always carries the
   passive option "Keine Änderung" (a real `poll_option` row, `is_passive`, position 10); it wins every tie it takes part in, a tie of real
@@ -114,6 +119,12 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **BEHAVIOR CHANGE -- small anonymous consensus shows no figures anymore** (V1.9.42): an anonymous consensus with fewer than 5 ratings in the current
+  round returns an empty `optionResults` (no mean, maximum, deviation, index, distribution and no ranking) from `evaluate` and
+  `getSystemicConsensusResult`; winner, tie, tiebreak, `consensusViable`, `groupConflictWarning` and `noRatings` are unchanged and still computed from the
+  full data (the binding decision is untouched). The result rows follow the option numbers (P, 1, 2, ...), not the rank. The revote offer is now decided by
+  `groupConflictWarning` instead of the winner's index. Open consensus is unchanged. No role exception: managers and moderation get the same form.
+
 - **Create forms of Gremien, Vorstand, Sitzungen and Anträge, V1.9.40**: the four screens show their create form only after the button in the title
   row ("Neues Gremium", "Neue Bestellung", "Neue Sitzung", "Neuer Antrag") is pressed; the section titles "Neues Gremium anlegen", "Neue Sitzung
   anlegen" and "Neuen Antrag einreichen" are gone ("Manuelle Eintragung" stays on the board screen). Empty lists name the button. A person without
@@ -152,6 +163,12 @@ All notable changes to this project are documented here. Format follows
   under the same lock was not committed). No migration. `EventTicketIssuer.rawCodeSupplier` is a test seam only.
 
 ### Security
+
+- **Anonymous consensus ballots no longer leak below the minimum** (V1.9.42): `listResistanceBallots` returned the complete single ballots (every rating of
+  every member, anonymised but one vector per ballot) of any *evaluated* anonymous consensus to every signed-in member, however small. It is now closed for an
+  anonymous consensus with fewer than 5 ballots in the current round. The disclosure decision lives in one place (`SystemicConsensusOutcome.toResultDto`),
+  guarded by `ServerConsensusDisclosureTripwireTest` (only that file builds the result DTO; the ratings table is read by a fixed list of files) and a field
+  allowlist test of the serialised result.
 
 - **Consensus polls, anonymity** (V1.9.41): the three tables `poll_participation` (who), `poll_response` (that) and `poll_response_rating` (how
   much per option) share no member key; the rating table has no member and no time column and random ids. The API never carries a response
@@ -216,6 +233,14 @@ All notable changes to this project are documented here. Format follows
   consensus row (`FOR UPDATE`) so a rationale cannot change after a concurrent `freezeOptions` committed (race test on H2 and PostgreSQL).
 
 ### Known limitations
+
+- **Minimum participation of an anonymous consensus** (V1.9.42), accepted residual risks: R1 with one rater the winner is that person's lowest rating
+  (a tie of the minima shows as `tie` / REPEAT); R2 the group-wide verdict narrows the winner's value range; R3 a binding REJECTED reveals the passive option
+  had the minimum; R4 with two raters the same holds for sums; R5 the participation counter stays visible; R6 homogeneity or collusion of n - 1 raters, and
+  whoever can read the database or backups. This closes the V1.9.28 / V1.9.39 entries "no minimum participation for anonymous results". Still open: from 5
+  ballots on `listResistanceBallots` returns the complete anonymous single ballots of an evaluated anonymous consensus (no screen uses them; making it
+  always empty for an anonymous consensus is a decision for the owner); the analogous `ElectionService.listElectionBallots` was not examined or changed here.
+  The staging steps 26-32 are written, not executed.
 
 - **Consensus polls** (V1.9.41): homogeneity -- if every rating of an option is the same, that value is known to everyone; if `n - 1` members
   collude, the last value is revealed (the threshold of 5 protects against outsiders only). A reader of the database or its backups can

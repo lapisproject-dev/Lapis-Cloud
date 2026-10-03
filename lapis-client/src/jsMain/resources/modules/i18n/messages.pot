@@ -17588,6 +17588,12 @@ msgstr ""
 msgid "Gruppenkonflikt: %1 (%2)"
 msgstr ""
 
+msgid "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt."
+msgstr ""
+
+msgid "Gruppenkonflikt: %1"
+msgstr ""
+
 msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
 msgstr ""
 

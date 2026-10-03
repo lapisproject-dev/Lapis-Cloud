@@ -16,6 +16,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.RoomBallotDto
 import network.lapis.cloud.shared.domain.RoomBallotKind
+import network.lapis.cloud.shared.domain.SystemicConsensusDto
+import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 
 /*
@@ -182,18 +184,7 @@ internal class ConferenceConsensusOperator(
         val consensus = detail.consensus
         val result = detail.result
         if (result != null) {
-            val numbers = consensusOptionNumbers(consensus.options)
-            result.optionResults.sortedBy { it.meanResistance }.forEach { optionResult ->
-                val option = consensus.options.firstOrNull { it.id == optionResult.optionId } ?: return@forEach
-                val row = content.hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center small") }
-                numbers[option.id]?.let { number ->
-                    row.consensusNumberPlaque(number)
-                    row.consensusNumberSrPrefix(number)
-                }
-                row.div(consensusOptionText(option)) { addCssClasses("fw-bold text-break") }
-                row.div(formatResistance(mean = optionResult.meanResistance, scaleMax = consensus.scaleMax))
-                if (optionResult.optionId == result.winnerOptionId) row.votingBadge(tr("Geringster Widerstand"), "success", "fas fa-trophy")
-            }
+            if (result.figuresWithheld) paintWithheldResult(content, consensus, result) else paintRankedResult(content, consensus, result)
         }
         if (canReopen(consensus, detail.participation, result) == ReopenOffer.Hidden) return
         val reopen = content.button(tr("Erneut bewerten"), style = ButtonStyle.OUTLINESECONDARY)
@@ -206,6 +197,58 @@ internal class ConferenceConsensusOperator(
                 extraLines = streamLines(consensus.secret),
                 focusCancel = true,
             ) { runOperatorAction(reopen, true) { rpc.reopen(consensus.id) } }
+        }
+    }
+
+    private fun paintRankedResult(
+        content: SimplePanel,
+        consensus: SystemicConsensusDto,
+        result: SystemicConsensusResultDto,
+    ) {
+        val numbers = consensusOptionNumbers(consensus.options)
+        result.optionResults.sortedBy { it.meanResistance }.forEach { optionResult ->
+            val option = consensus.options.firstOrNull { it.id == optionResult.optionId } ?: return@forEach
+            val row = content.hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center small") }
+            numbers[option.id]?.let { number ->
+                row.consensusNumberPlaque(number)
+                row.consensusNumberSrPrefix(number)
+            }
+            row.div(consensusOptionText(option)) { addCssClasses("fw-bold text-break") }
+            row.div(formatResistance(mean = optionResult.meanResistance, scaleMax = consensus.scaleMax))
+            if (optionResult.optionId == result.winnerOptionId) row.votingBadge(tr("Geringster Widerstand"), "success", "fas fa-trophy")
+        }
+    }
+
+    /** V1.9.42: an anonymous result below the minimum participation -- the options in list order and the winner, no figure at all. */
+    private fun paintWithheldResult(
+        content: SimplePanel,
+        consensus: SystemicConsensusDto,
+        result: SystemicConsensusResultDto,
+    ) {
+        val numbers = consensusOptionNumbers(consensus.options)
+        consensusOrderedOptions(consensus.options).forEach { option ->
+            val row = content.hPanel(spacing = 6) { addCssClasses("flex-wrap align-items-center small") }
+            numbers[option.id]?.let { number ->
+                row.consensusNumberPlaque(number)
+                row.consensusNumberSrPrefix(number)
+            }
+            row.div(consensusOptionText(option)) { addCssClasses("fw-bold text-break") }
+            if (option.id == result.winnerOptionId) row.votingBadge(tr("Geringster Widerstand"), "success", "fas fa-trophy")
+        }
+        if (result.noRatings) return
+        content.div(
+            gettext(
+                "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt.",
+                result.minimumResponses,
+            ),
+        ) { addCssClasses("text-muted small mb-0") }
+        if (result.winnerOptionId != null) {
+            content.div(
+                gettext(
+                    "Gruppenkonflikt: %1",
+                    groupConflictWord(consensusViable = result.consensusViable, groupConflictWarning = result.groupConflictWarning),
+                ),
+            ) { addCssClasses("small mb-0") }
         }
     }
 

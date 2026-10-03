@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import dev.kilua.rpc.types.toDouble
 import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionStatus
@@ -88,9 +87,14 @@ fun canReopen(
 ): ReopenOffer {
     if (!p.canManage || c.status != SystemicConsensusStatus.EVALUATED) return ReopenOffer.Hidden
     if (c.bindingness == SystemicConsensusBindingness.BINDING || c.round >= c.maxRounds) return ReopenOffer.Hidden
-    val winner = result?.optionResults?.firstOrNull { it.optionId == result.winnerOptionId }
-    val warn = c.groupConflictWarnThreshold.toDouble()
-    return if (result != null && (winner == null || winner.consensusIndex > warn)) ReopenOffer.Primary else ReopenOffer.Secondary
+    // V1.9.42: decided by the server's own booleans, never by a figure (an anonymous result below the minimum participation has none).
+    return if (result != null &&
+        (result.winnerOptionId == null || result.groupConflictWarning)
+    ) {
+        ReopenOffer.Primary
+    } else {
+        ReopenOffer.Secondary
+    }
 }
 
 /**

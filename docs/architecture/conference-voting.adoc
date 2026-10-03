@@ -448,6 +448,9 @@ The phase maps onto the neutral `RoomBallotStatus`; the real phase travels in `c
 * **Always empty.** For a consensus `options` is `[]` and `winnerOptionId` is `null`, also for an open consensus and also once
   `EVALUATED`: the room DTO never carries a rating, an option, a count, a time or another member. The compact result is loaded
   separately, and only for somebody the server lets read it (`getSystemicConsensusResult`).
+  V1.9.42: for an anonymous consensus with fewer than five ratings in the current round that compact result carries no figures
+  (`figuresWithheld`, empty `optionResults`); the operator step then lists the options in list order with the winner badge, the privacy sentence and the
+  group-wide verdict in words, and no mean. See `consensus-ui.adoc`, "Minimum participation (V1.9.42)".
 * **Own flags.** `ownEligible` is head-based: only an `ACTIVE` member (never a guest or friend, whatever a snapshot row says) with a
   snapshot row of the CURRENT round. `ownHasVoted` is read per round from `systemic_consensus_participation` (anonymous) or
   `systemic_consensus_ballot` (open), through the one place that already keeps the table separation (`SystemicConsensusOwnParticipation`);

@@ -18493,6 +18493,12 @@ msgstr "Наименьшее сопротивление"
 msgid "Gruppenkonflikt: %1 (%2)"
 msgstr "Конфликт группы: %1 (%2)"
 
+msgid "Aus Datenschutzgründen werden Zahlen bei anonymem Konsensieren erst ab %1 Bewertungen gezeigt."
+msgstr "В целях защиты данных цифры анонимного консенсуса показываются только начиная с %1 оценок."
+
+msgid "Gruppenkonflikt: %1"
+msgstr "Конфликт группы: %1"
+
 msgid "Höchster Einzelwert: %1. Das ist ein starker Einwand."
 msgstr "Наибольшая отдельная оценка: %1. Это серьёзное возражение."
 

@@ -84,6 +84,20 @@ fun groupConflictWord(
         else -> gettext("Warnsignal")
     }
 
+/**
+ * V1.9.42 -- the group-wide verdict from the two server booleans (they refer to the WINNER); same precedence as
+ * [groupConflictWord] by index. Always called with named arguments, so it is never mixed up with the index overload.
+ */
+fun groupConflictWord(
+    consensusViable: Boolean,
+    groupConflictWarning: Boolean,
+): String =
+    when {
+        consensusViable -> gettext("Tragfähiger Konsens")
+        groupConflictWarning -> gettext("Warnsignal")
+        else -> gettext("Mit Bedenken")
+    }
+
 /** [value] (not negative) with [places] decimals, rounded half up, with the decimal separator of [language]; never goes through `toFixed`/`Intl`. */
 internal fun formatDecimal(
     value: Double,
