@@ -165,6 +165,9 @@ class CarpoolCollapsibleFormDomTest {
                     host.typeInto("Nach (Ort oder PLZ)", "Berlin")
                     host.setDate("2099-06-01")
                     host.typeInto("Freie Plätze", "2")
+                    // The base counts only after EVERY initial load is through (the feed is requested twice on open): read while
+                    // one was still on its way, its late request is counted as the reload (CI 2026-10-03: feed "before 0", after 3).
+                    awaitAppScopeIdle("the initial loads finished")
                     val minesBefore = calls.toRoute(routes.listMine).size
                     val feedBefore = calls.toRoute(routes.listFeed).size
                     host.buttonNamed("Speichern").click()
@@ -173,7 +176,13 @@ class CarpoolCollapsibleFormDomTest {
                     assertEquals("Wolfsburg", sent.fromPlace as String)
                     assertEquals("Berlin", sent.toPlace as String)
                     awaitUntil("the form folded back") { !screen.hostOpen(formId) }
-                    awaitUntil("both lists were reloaded exactly once") {
+                    awaitUntil(
+                        "both lists were reloaded exactly once",
+                        detail = {
+                            "listMine ${calls.toRoute(routes.listMine).size} (before $minesBefore), " +
+                                "listFeed ${calls.toRoute(routes.listFeed).size} (before $feedBefore)"
+                        },
+                    ) {
                         calls.toRoute(routes.listMine).size == minesBefore + 1 && calls.toRoute(routes.listFeed).size == feedBefore + 1
                     }
                 }

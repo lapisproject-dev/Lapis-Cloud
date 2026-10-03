@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import kotlinx.browser.window
+import kotlin.js.Date
 import kotlin.js.Promise
 
 /**
@@ -168,23 +169,48 @@ internal suspend fun <T> withFetchStub(
 }
 
 /**
- * Polls [condition] (every 20 ms, up to [timeoutMs]); fails the test with [message] if it never holds. The message is also written
- * to the console: the Karma report shows only "AssertionError at commons.js:NNN" for a failed Kotlin assertion, without its message,
- * so a timeout would otherwise not say WHICH wait ran out.
+ * Polls [condition] every 20 ms; fails the test with [message] (plus [detail], evaluated only on failure -- e.g. the counts the
+ * condition compared) if it never holds. The failure text is also written to the console.
+ *
+ * The budget is at least [AWAIT_UNTIL_MIN_TIMEOUT_MS], whatever [timeoutMs] says, counted in 20 ms polls (a `delay(20)` never takes
+ * LESS than 20 ms, so the real wait is at least as long and grows with a slow machine -- a browser that stalls for a while does not
+ * use the budget up; that is why it is not a wall-clock deadline). Why the floor (CI flakes of 2026-10-03, e.g.
+ * `CarpoolCollapsibleFormDomTest` "awaitUntil timeout after 3000 ms"): on the slow shared GitHub runners 3000 ms or less was too
+ * short for a screen to load, save and reload. Every caller waits for something that MUST happen eventually (none probes for a
+ * failure -- checked 2026-10-03), so a longer budget never weakens an assertion; a condition that holds returns at once, only a real
+ * failure reports later. The failure text names the wall-clock time actually waited.
  */
 internal suspend fun awaitUntil(
     message: String,
-    timeoutMs: Int = 3000,
+    timeoutMs: Int = AWAIT_UNTIL_MIN_TIMEOUT_MS,
+    detail: (() -> String)? = null,
     condition: () -> Boolean,
 ) {
-    var waited = 0
-    while (!condition() && waited < timeoutMs) {
-        kotlinx.coroutines.delay(20)
-        waited += 20
+    val budget = maxOf(timeoutMs, AWAIT_UNTIL_MIN_TIMEOUT_MS)
+    val started = Date.now()
+    var polled = 0
+    // Not reset in a `finally`: when the deadline of [formTest] cancels this wait, its failure has to name it.
+    currentAwait = message
+    while (!condition() && polled < budget) {
+        kotlinx.coroutines.delay(AWAIT_UNTIL_POLL_MS.toLong())
+        polled += AWAIT_UNTIL_POLL_MS
     }
-    if (!condition()) console.error("awaitUntil timeout after $timeoutMs ms: $message")
-    kotlin.test.assertTrue(condition(), "timeout: $message")
+    currentAwait = null
+    if (condition()) return
+    val elapsed = (Date.now() - started).toLong()
+    val extra = detail?.let { " -- ${it()}" }.orEmpty()
+    val text = "timeout: $message (not reached after $polled ms of polls, $elapsed ms wall clock)$extra"
+    console.error("awaitUntil $text")
+    kotlin.test.fail(text)
 }
+
+/** The smallest budget [awaitUntil] grants (see there). */
+internal const val AWAIT_UNTIL_MIN_TIMEOUT_MS = 15_000
+
+private const val AWAIT_UNTIL_POLL_MS = 20
+
+/** The [awaitUntil] currently running, named in the deadline failure of [formTest] (`null` between waits). */
+internal var currentAwait: String? = null
 
 /**
  * The route [call] goes to (see [RecordedRequest.rpcRoute]), learned by actually performing it against a private stub. The call is a

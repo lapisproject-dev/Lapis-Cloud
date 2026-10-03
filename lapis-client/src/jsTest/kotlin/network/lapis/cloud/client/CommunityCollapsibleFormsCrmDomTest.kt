@@ -256,6 +256,9 @@ class CommunityCollapsibleFormsCrmDomTest {
                     awaitUntil("the initial timeline load completed", 15_000) {
                         calls.toRoute(timeline).isNotEmpty() && screen.shows("Noch keine Interaktionen erfasst.")
                     }
+                    // ... and only once NO load is on its way any more (a second initial request would be counted as the reload,
+                    // the race found in CarpoolCollapsibleFormDomTest, see [awaitAppScopeIdle]).
+                    awaitAppScopeIdle("every initial load finished")
                     val timelineCalls = calls.toRoute(timeline).size
 
                     val host = openCreateFormHost(screen, formId)
@@ -264,7 +267,10 @@ class CommunityCollapsibleFormsCrmDomTest {
                     awaitUntil("recordInteraction was called", 15_000) { calls.toRoute(record).size == 1 }
                     awaitUntil("the form folded back", 15_000) { !screen.hostOpen(formId) }
                     assertEquals("Rückruf vereinbart", calls.singleCall(record).rpcParam(0).summary as String)
-                    awaitUntil("the timeline was reloaded", 15_000) { calls.toRoute(timeline).size == timelineCalls + 1 }
+                    awaitUntil(
+                        "the timeline was reloaded",
+                        detail = { "listInteractions ${calls.toRoute(timeline).size} (before $timelineCalls)" },
+                    ) { calls.toRoute(timeline).size == timelineCalls + 1 }
                 }
             }
         }

@@ -286,3 +286,21 @@ val verifyMediaPipeVersion by tasks.registering {
 }
 
 tasks.named("check") { dependsOn(verifyMediaPipeVersion) }
+
+// CI diagnosis (2026-10-03): Gradle's default console format for a failed test is SHORT -- "AssertionError at
+// /tmp/_karma_webpack_N/commons.js:NNN", no message. The message (e.g. "timeout: both lists were reloaded exactly once
+// (not reached after 15000 ms of polls, ...)" from `awaitUntil`, or Mocha's "Timeout of N ms exceeded") was only in the
+// HTML report artifact. FULL prints it in the build log, where a flaky CI run is read first. The browser console of a test
+// (`console.error` of `awaitUntil`, of the deadline of `formTest`, of the app itself) reaches Gradle as that test's standard
+// output; `showStandardStreams` puts it into the log as well. Cheap: in the CI run of 2026-10-03 only about ten of 3328 tests
+// wrote anything to the console at all.
+tasks.withType<org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest>().configureEach {
+    testLogging {
+        events(org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED)
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        showStandardStreams = true
+    }
+}

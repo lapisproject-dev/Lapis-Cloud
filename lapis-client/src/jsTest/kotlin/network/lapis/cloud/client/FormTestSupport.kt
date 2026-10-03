@@ -5,8 +5,10 @@ import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.promise
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import org.w3c.dom.HTMLElement
@@ -20,6 +22,7 @@ import kotlin.js.Promise
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /*
  * Shared helpers of the form-grammar DOM tests (V1.4.29 audit): drive a REAL mounted form the way a person does (type, blur, choose,
@@ -27,7 +30,15 @@ import kotlin.test.assertTrue
  * trims text, and a value that arrives untrimmed (or, for an empty optional field, as "" instead of null) is a defect.
  */
 
-/** A test body run in a coroutine with modal transitions off and every modal closed before and after. */
+/**
+ * A test body run in a coroutine with modal transitions off and every modal closed before and after.
+ *
+ * The body has its own deadline, [FORM_TEST_DEADLINE_MS], below Mocha's per-test timeout (`karma.config.d/mocha-timeout.js`). When
+ * Mocha's timeout fires first, the test is reported as "Error: Timeout of N ms exceeded" without saying where it stood, and Mocha only
+ * stops WAITING: the body's coroutine keeps running into the next test, its fetch stub still installed (CI 2026-10-03:
+ * `CommunityCollapsibleFormsRegionalChaptersDomTest.atTheLimit...` ran into the Mocha timeout). The deadline cancels the body instead,
+ * so every `finally` (fetch stub, mounted root, modals) runs, and the failure names the [awaitUntil] the test was in.
+ */
 internal fun formTest(block: suspend () -> Unit): Promise<Unit> =
     CoroutineScope(SupervisorJob()).promise {
         disableModalTransitions()
@@ -35,13 +46,25 @@ internal fun formTest(block: suspend () -> Unit): Promise<Unit> =
         closeOpenModals(timeoutMs = 300)
         // Nor may a coroutine another test left running in AppScope ask THIS test's stub (see [settleAppScope]).
         cancelAppScopeWork()
+        currentAwait = null
         try {
-            block()
+            try {
+                withTimeout(FORM_TEST_DEADLINE_MS.toLong()) { block() }
+            } catch (e: TimeoutCancellationException) {
+                val where = currentAwait?.let { " while waiting for: $it" } ?: " (outside any awaitUntil)"
+                val text = "formTest deadline of $FORM_TEST_DEADLINE_MS ms exceeded$where"
+                console.error(text)
+                fail(text)
+            }
         } finally {
+            currentAwait = null
             closeOpenModals(timeoutMs = 400)
             AppState.setSession(null)
         }
     }
+
+/** See [formTest]; must stay below the Mocha timeout in `karma.config.d/mocha-timeout.js`. */
+internal const val FORM_TEST_DEADLINE_MS = 100_000
 
 /**
  * [withMountedRoot] that lets the screen's background work finish against the test's own stub ([settleAppScope]) and then closes
@@ -99,6 +122,23 @@ internal suspend fun settleAppScope(graceMs: Int = 1500) {
         waited += 10
     }
     cancelAppScopeWork()
+}
+
+/**
+ * Waits until no [AppScope] coroutine is running any more: every load the screen has started so far has sent its request, got its
+ * answer and rendered. Read a BASE count of calls (to compare against after a write's reload) only after this, never after a wait for
+ * just one of the loads. A [DataLoadController] coroutine is active from `reload()` until its result is rendered, so idle means the
+ * request was recorded too (the stub records it before it answers). Not for screens that poll forever.
+ *
+ * Why (CI 2026-10-03, `CarpoolCollapsibleFormDomTest.savingANewEntry...`, reproduced locally with a 0-60 ms jitter on the stub's
+ * request recording): the test read the base count of the feed list once the OWN-postings list had been requested, while the feed's
+ * initial load (the screen requests it twice: from the type filter's `subscribe`, which calls back at once, and from `refreshAll()`)
+ * was not recorded yet. That late initial request was then counted as part of the reload, and "reloaded exactly once" never held.
+ */
+internal suspend fun awaitAppScopeIdle(message: String) {
+    awaitUntil(message, detail = { "still running: ${activeAppScopeWork().size} AppScope coroutine(s)" }) {
+        activeAppScopeWork().isEmpty()
+    }
 }
 
 internal fun HTMLElement.allOf(selector: String): List<HTMLElement> =
