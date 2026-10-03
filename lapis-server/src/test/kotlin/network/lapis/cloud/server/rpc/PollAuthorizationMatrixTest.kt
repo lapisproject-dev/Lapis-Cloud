@@ -15,6 +15,8 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PollKind
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.eq
@@ -169,6 +171,39 @@ class PollAuthorizationMatrixTest :
                         attempt(
                             member = member,
                         ) { castPollResponse(PollResponseInput(pollId = Uuid.random().toString(), optionId = Uuid.random().toString())) }
+                            .exceptionOrNull()
+                            .shouldBeInstanceOf<ForbiddenException>()
+                    }
+                }
+            }
+        }
+
+        test("castPollRatings: ACTIVE members may; every other status is Forbidden before any existence check") {
+            pollTestApplication {
+                val chair = data.chair()
+                val poll = call(member = chair) { createPoll(pollInput(kind = PollKind.SK_PRIORITY)) }
+                val ratings = poll.options.associate { it.id to 1 }
+                call(member = data.member(label = "aktiv-sk")) {
+                    castPollRatings(PollRatingInput(pollId = poll.id, ratings = ratings))
+                }.hasResponded shouldBe
+                    true
+                for (status in listOf(
+                    MemberStatus.GUEST,
+                    MemberStatus.FRIEND,
+                    MemberStatus.APPLICATION,
+                    MemberStatus.WITHDRAWN,
+                    MemberStatus.REJECTED,
+                )) {
+                    val member = data.member(label = "sk-status-$status", status = status)
+                    withClue(clue = "status $status, existing poll") {
+                        attempt(member = member) { castPollRatings(PollRatingInput(pollId = poll.id, ratings = ratings)) }
+                            .exceptionOrNull()
+                            .shouldBeInstanceOf<ForbiddenException>()
+                    }
+                    withClue(clue = "status $status, unknown poll (no existence oracle)") {
+                        attempt(
+                            member = member,
+                        ) { castPollRatings(PollRatingInput(pollId = Uuid.random().toString(), ratings = emptyMap())) }
                             .exceptionOrNull()
                             .shouldBeInstanceOf<ForbiddenException>()
                     }

@@ -2448,6 +2448,18 @@ html .form-select.is-invalid:focus {
   }
 }
 
+/* V1.9.41 Konsensieren in Umfragen: die Skala bricht schon unter 380 px in 0-5 / 6-10 um, damit die Felder mindestens 32 px breit
+   bleiben. Nur fuer die Umfragekabine; das Konsensieren und die kompakte Raumkabine behalten ihre Regeln. */
+@media (max-width: 379.98px) {
+  .lapis-booth-poll .lapis-sk-scale {
+    grid-template-columns: repeat(6, minmax(32px, 1fr));
+  }
+}
+
+.lapis-booth-poll .lapis-sk-scale > label {
+  min-width: 32px;
+}
+
 /* V1.9.32 Konsensieren im Konferenzraum: kompakte Kabine fuer das schmale Seitenpanel. Elf Felder 0..10 immer in EINER Zeile
    (Mindestbreite des Panels 290 px, siehe CONSENSUS_COMPACT_MIN_WIDTH_PX), keine Ampelfarben; Auswahl und Fokus erbt die Regeln oben. */
 .lapis-booth-compact .lapis-sk-option {

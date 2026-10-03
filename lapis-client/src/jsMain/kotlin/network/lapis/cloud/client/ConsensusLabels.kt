@@ -10,6 +10,7 @@ import io.kvision.i18n.tr
 import network.lapis.cloud.shared.domain.SystemicConsensusBindingness
 import network.lapis.cloud.shared.domain.SystemicConsensusDto
 import network.lapis.cloud.shared.domain.SystemicConsensusOptionDto
+import network.lapis.cloud.shared.domain.SystemicConsensusRules
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
 import kotlin.math.roundToInt
 
@@ -68,8 +69,8 @@ fun consensusOptionText(
     label: String,
 ): String = if (isStatusQuoOption) gettext("Alles bleibt wie bisher (Passivlösung)") else sanitizeUntrustedI18nText(label)
 
-private const val DEFAULT_VIABLE_THRESHOLD = 0.2
-private const val DEFAULT_WARN_THRESHOLD = 0.5
+private const val DEFAULT_VIABLE_THRESHOLD = SystemicConsensusRules.DEFAULT_GROUP_CONFLICT_VIABLE
+private const val DEFAULT_WARN_THRESHOLD = SystemicConsensusRules.DEFAULT_GROUP_CONFLICT_WARN
 
 /** The group conflict index in words: below [viable] a viable consensus, up to [warn] (inclusive) with concerns, above it a warning sign. */
 fun groupConflictWord(
@@ -160,7 +161,29 @@ internal fun renderOptionRationale(
     closedLabel: String? = null,
 ) {
     if (option.isStatusQuoOption) return
-    val raw = option.rationale ?: return
+    renderUntrustedExplanation(
+        parent = parent,
+        raw = option.rationale,
+        mode = mode,
+        toggleIdPrefix = toggleIdPrefix,
+        index = index,
+        closedLabel = closedLabel,
+    )
+}
+
+/**
+ * V1.9.41 -- the renderer behind [renderOptionRationale], also used for the explanations of consensus poll options. [raw] is member
+ * input (`null` = nothing to show): it goes only through `untrustedDiv`, never into `title`/`aria-label`/`data-*`.
+ */
+internal fun renderUntrustedExplanation(
+    parent: Container,
+    raw: String?,
+    mode: RationaleMode,
+    toggleIdPrefix: String,
+    index: Int,
+    closedLabel: String? = null,
+) {
+    if (raw == null) return
     val safe = sanitizeUntrustedI18nText(raw)
     if (safe.isBlank()) return
     val bodyId = "$toggleIdPrefix-$index"

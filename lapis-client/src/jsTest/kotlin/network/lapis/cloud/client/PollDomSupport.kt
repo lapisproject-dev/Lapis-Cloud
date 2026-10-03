@@ -8,6 +8,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.domain.PollResultDto
 import network.lapis.cloud.shared.domain.PollStatus
@@ -29,6 +30,7 @@ internal class PollRoutes(
     val participation: String,
     val participations: String,
     val cast: String,
+    val castRatings: String,
     val canCreate: String,
 )
 
@@ -43,6 +45,7 @@ internal suspend fun pollRoutes(): PollRoutes =
         participation = routeOf { rpcService<IPollService>().getPollParticipation("x") },
         participations = routeOf { rpcService<IPollService>().listPollParticipations(emptyList()) },
         cast = routeOf { rpcService<IPollService>().castPollResponse(PollResponseInput("x", "y")) },
+        castRatings = routeOf { rpcService<IPollService>().castPollRatings(PollRatingInput(pollId = "x", ratings = emptyMap())) },
         canCreate = routeOf { rpcService<IPollService>().canCreatePolls() },
     )
 
@@ -82,7 +85,7 @@ internal fun PollWorld.respond(routes: PollRoutes): (RecordedRequest) -> StubRes
             onRoute(route)
             val failure = failures[route]
             when {
-                route == routes.cast && castNetworkError -> StubResponse(networkError = true)
+                (route == routes.cast || route == routes.castRatings) && castNetworkError -> StubResponse(networkError = true)
                 failure != null -> serviceExceptionResult(request.json.id as Int, failure)
                 else -> {
                     val json =
@@ -92,7 +95,7 @@ internal fun PollWorld.respond(routes: PollRoutes): (RecordedRequest) -> StubRes
                             routes.result -> jsonOf(PollResultDto.serializer(), checkNotNull(result) { "no result in the world" })
                             routes.list -> jsonOf(ListSerializer(PollDto.serializer()), listPage(request))
                             routes.participations -> jsonOf(ListSerializer(PollParticipationDto.serializer()), participations)
-                            routes.cast ->
+                            routes.cast, routes.castRatings ->
                                 jsonOf(
                                     PollParticipationDto.serializer(),
                                     participation.copy(hasResponded = true, canRespond = false),
@@ -104,7 +107,7 @@ internal fun PollWorld.respond(routes: PollRoutes): (RecordedRequest) -> StubRes
                         }
                     val delay =
                         when (route) {
-                            routes.cast -> castDelayMs
+                            routes.cast, routes.castRatings -> castDelayMs
                             routes.create -> createDelayMs
                             else -> 0
                         }

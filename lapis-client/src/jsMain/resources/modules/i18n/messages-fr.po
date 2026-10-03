@@ -19507,3 +19507,99 @@ msgstr "La justification contient trop de retours à la ligne."
 
 msgid "Die Begründung wird gelöscht."
 msgstr "La justification sera supprimée."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Chaque personne choisit une option."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Chaque personne évalue chaque option de 0 (aucune résistance) à 10 (forte résistance). L’option à la résistance la plus faible arrive en tête. « Aucun changement » est toujours incluse."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Chaque personne évalue chaque option de 0 (aucune résistance) à 10 (forte résistance). Le résultat est un classement par résistance."
+
+msgid "Einzelauswahl"
+msgstr "Choix unique"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Consensus : décision"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Consensus : classement"
+
+msgid "Art der Umfrage"
+msgstr "Type de sondage"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "« Aucun changement » est toujours incluse et ne compte pas parmi les options."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Explication de l’option %1 (facultatif)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Ajouter une explication"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "L’explication de l’option %1 est trop longue (%2 caractères au maximum)."
+
+msgid "Erklärung ausblenden"
+msgstr "Masquer l’explication"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "L’explication de l’option %1 contient des caractères non valides ou trop de retours à la ligne."
+
+msgid "Passivlösung"
+msgstr "Solution passive"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Sondage d’opinion non contraignant, pas un vote."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "Quelle est votre résistance à chaque option ?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "Votre réponse est anonyme : il est enregistré que vous avez répondu, mais pas comment."
+
+msgid "kein Widerstand"
+msgstr "aucune résistance"
+
+msgid "Bedenken"
+msgstr "réserves"
+
+msgid "starker Widerstand"
+msgstr "forte résistance"
+
+msgid "Erklärung"
+msgstr "Explication"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Classement par résistance"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "« Aucun changement » a la résistance la plus faible."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Égalité de la résistance cumulée : en cas d’égalité, rien ne change."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Égalité, pas de résultat clair."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "à égalité"
+
+msgid "Starker Einwand"
+msgstr "Objection forte"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Somme %1 · 10 : %2"
+
+msgid "Neue Umfrage"
+msgstr "Nouveau sondage"
+
+msgid "Keine Änderung"
+msgstr "Aucun changement"

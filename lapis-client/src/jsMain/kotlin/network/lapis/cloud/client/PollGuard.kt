@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.i18n.tr
 import kotlinx.coroutines.CancellationException
 import network.lapis.cloud.shared.domain.PollParticipationDto
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -109,5 +110,26 @@ internal suspend fun castPollResponseGuarded(input: PollResponseInput): PollCast
         PollCastOutcome.Failed
     } catch (e: Throwable) {
         // A network failure or an unexpected error: the answer may or may not have been stored. The booth reads the participation state.
+        PollCastOutcome.Failed
+    }
+
+/** V1.9.41: casts a consensus poll's complete rating vector. Same outcomes as [castPollResponseGuarded]; never a toast, never a server text. */
+internal suspend fun castPollRatingsGuarded(input: PollRatingInput): PollCastOutcome =
+    try {
+        PollCastOutcome.Ok(rpcService<IPollService>().castPollRatings(input))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: ConflictException) {
+        PollCastOutcome.Conflict
+    } catch (e: BadRequestException) {
+        // The poll changed under the member (or the kind did not match): read the state, then say.
+        PollCastOutcome.Conflict
+    } catch (e: ForbiddenException) {
+        PollCastOutcome.Forbidden
+    } catch (e: UnauthenticatedException) {
+        guarded<Unit> { throw e }
+        PollCastOutcome.Failed
+    } catch (e: Throwable) {
+        // A network failure or an unexpected error: the rating may or may not have been stored. The booth reads the participation state.
         PollCastOutcome.Failed
     }

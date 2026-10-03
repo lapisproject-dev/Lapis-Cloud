@@ -19489,3 +19489,99 @@ msgstr "La motivazione contiene troppe interruzioni di riga."
 
 msgid "Die Begründung wird gelöscht."
 msgstr "La motivazione verrà eliminata."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Ogni persona sceglie un’opzione."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Ogni persona valuta ogni opzione da 0 (nessuna resistenza) a 10 (forte resistenza). In testa c’è l’opzione con la minore resistenza. «Nessuna modifica» è sempre inclusa."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Ogni persona valuta ogni opzione da 0 (nessuna resistenza) a 10 (forte resistenza). Il risultato è una classifica per resistenza."
+
+msgid "Einzelauswahl"
+msgstr "Scelta singola"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Consenso sistemico: decisione"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Consenso sistemico: classifica"
+
+msgid "Art der Umfrage"
+msgstr "Tipo di sondaggio"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "«Nessuna modifica» è sempre inclusa e non conta tra le opzioni."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Spiegazione dell’opzione %1 (facoltativa)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Aggiungi spiegazione"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "La spiegazione dell’opzione %1 è troppo lunga (al massimo %2 caratteri)."
+
+msgid "Erklärung ausblenden"
+msgstr "Nascondi spiegazione"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "La spiegazione dell’opzione %1 contiene caratteri non validi o troppi a capo."
+
+msgid "Passivlösung"
+msgstr "Soluzione passiva"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Sondaggio d’opinione non vincolante, non una votazione."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "Quanto è forte la sua resistenza a ciascuna opzione?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "La sua risposta è anonima: viene registrato che ha risposto, ma non come."
+
+msgid "kein Widerstand"
+msgstr "nessuna resistenza"
+
+msgid "Bedenken"
+msgstr "riserve"
+
+msgid "starker Widerstand"
+msgstr "forte resistenza"
+
+msgid "Erklärung"
+msgstr "Spiegazione"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Classifica per resistenza"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "«Nessuna modifica» ha la resistenza minore."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Parità nella resistenza cumulata: in caso di parità non cambia nulla."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Parità, nessun risultato chiaro."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "a pari merito"
+
+msgid "Starker Einwand"
+msgstr "Forte obiezione"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Somma %1 · 10: %2"
+
+msgid "Neue Umfrage"
+msgstr "Nuovo sondaggio"
+
+msgid "Keine Änderung"
+msgstr "Nessuna modifica"

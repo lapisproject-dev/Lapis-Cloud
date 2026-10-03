@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.i18n.gettext
 import network.lapis.cloud.shared.domain.PollDto
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollOptionDto
 import network.lapis.cloud.shared.domain.PollRules
 import network.lapis.cloud.shared.domain.PollStatus
@@ -55,3 +56,24 @@ internal fun pollWithheldText(reason: PollWeightedWithheldReason?): String =
 
 /** The text of one option: a member's free text, sanitized (a forged i18n marker must never render as a catalog text). */
 internal fun pollOptionText(option: PollOptionDto): String = sanitizeUntrustedI18nText(option.text)
+
+/** The creator's label of a poll kind, for the list and the detail. */
+internal fun pollKindLabel(kind: PollKind): String = pollKindChoiceLabel(kind)
+
+/** The passive option ("No change"): stored with an English label, so it is recognised by its flag and translated here. */
+internal fun pollPassiveOptionText(): String = gettext("Keine Änderung")
+
+/** The text of one option of a consensus poll: the passive option by its flag, every other one a member's free text, sanitized. */
+internal fun pollRatingOptionText(option: PollOptionDto): String =
+    if (option.isPassive) pollPassiveOptionText() else sanitizeUntrustedI18nText(option.text)
+
+/**
+ * The consensus poll's options in the one order every place uses: the passive option (P) first, then the real options by position.
+ * The numbers are "P" and "1".."n" among the real options, gap-free.
+ */
+internal fun pollRatingOrderedOptions(poll: PollDto): List<Pair<String, PollOptionDto>> {
+    var next = 0
+    val passive = poll.options.filter { it.isPassive }.sortedBy { it.position }
+    val real = poll.options.filterNot { it.isPassive }.sortedBy { it.position }
+    return passive.map { "P" to it } + real.map { (++next).toString() to it }
+}

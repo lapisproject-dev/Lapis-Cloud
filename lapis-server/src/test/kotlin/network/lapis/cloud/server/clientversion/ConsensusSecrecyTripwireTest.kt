@@ -27,6 +27,8 @@ private val CONSENSUS_FILES =
         "ConsensusDetail.kt",
         "ConsensusOptions.kt",
         "ConsensusBooth.kt",
+        // V1.9.41: the shared rating booth the consensus booth is now an adapter of
+        "RatingBooth.kt",
         "ConsensusReceipt.kt",
         "ConsensusResultView.kt",
         "ConsensusOpenForm.kt",
@@ -61,6 +63,8 @@ private val RATING_BLIND_FILES =
         "ConsensusLabels.kt",
         "ConsensusAuthzUi.kt",
         "ConsensusOpenForm.kt",
+        // V1.9.41: the shared booth knows no service and no DTO, hence no rating content by name either
+        "RatingBooth.kt",
         // V1.9.32
         "ConferenceConsensusCard.kt",
         "ConferenceConsensusBoothHost.kt",
@@ -105,7 +109,9 @@ internal fun consensusSecrecyFindings(
                 findings += "$fileName: listResistanceBallots outside the open branch: ${line.trim()}"
             }
         }
-        if (fileName == "ConsensusBooth.kt" && Regex("""data-|setAttribute\("data""").containsMatchIn(line)) {
+        if ((fileName == "ConsensusBooth.kt" || fileName == "RatingBooth.kt") &&
+            Regex("""data-|setAttribute\("data""").containsMatchIn(line)
+        ) {
             findings += "$fileName: data attribute: ${line.trim()}"
         }
     }
@@ -224,6 +230,10 @@ class ConsensusSecrecyTripwireTest :
                 text = "if (!c.secret) {\n  rpc.listResistanceBallots(id)\n}",
             ).size shouldBe 0
             consensusSecrecyFindings(fileName = "ConsensusBooth.kt", text = "radio.setAttribute(\"data-v\", \"1\")").size shouldBe 1
+            // V1.9.41: the shared rating booth holds no data attribute, no receipt code and no rating content by name
+            consensusSecrecyFindings(fileName = "RatingBooth.kt", text = "radio.setAttribute(\"data-v\", \"1\")").size shouldBe 1
+            consensusSecrecyFindings(fileName = "RatingBooth.kt", text = "val c = result.receiptCode").size shouldBe 2
+            consensusSecrecyFindings(fileName = "RatingBooth.kt", text = "SystemicConsensusBallotInput(a, b)").size shouldBe 1
             consensusSecrecyFindings(fileName = "X.kt", text = "// console.log(code)").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = "val consoleLike = 1").size shouldBe 0

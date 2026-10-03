@@ -8,6 +8,10 @@ object SystemicConsensusRules {
     const val MAX_RATIONALE_LENGTH = 1000
     const val MAX_RATIONALE_LINE_BREAKS = 20
 
+    /** Default group-conflict thresholds (index below = viable, above = warning). */
+    const val DEFAULT_GROUP_CONFLICT_VIABLE = 0.2
+    const val DEFAULT_GROUP_CONFLICT_WARN = 0.5
+
     /**
      * Upper tenth of the scale, rounded up, purely integer: `ceil(0.9 * scaleMax)` without floating point
      * (`ceil(0.9 * 10)` would yield 10 in floating point). A maximum resistance at or above this value

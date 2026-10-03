@@ -19444,3 +19444,99 @@ msgstr "De motivering bevat te veel regeleinden."
 
 msgid "Die Begründung wird gelöscht."
 msgstr "De motivering wordt verwijderd."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Elke persoon kiest één optie."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Elke persoon beoordeelt elke optie van 0 (geen weerstand) tot 10 (sterke weerstand). De optie met de laagste weerstand staat vooraan. ‘Geen verandering’ is er altijd bij."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Elke persoon beoordeelt elke optie van 0 (geen weerstand) tot 10 (sterke weerstand). Het resultaat is een rangorde op weerstand."
+
+msgid "Einzelauswahl"
+msgstr "Enkele keuze"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Consenteren: beslissing"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Consenteren: rangorde"
+
+msgid "Art der Umfrage"
+msgstr "Soort peiling"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "‘Geen verandering’ is er altijd bij en telt niet mee als optie."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Toelichting bij optie %1 (optioneel)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Toelichting toevoegen"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "De toelichting bij optie %1 is te lang (maximaal %2 tekens)."
+
+msgid "Erklärung ausblenden"
+msgstr "Toelichting verbergen"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "De toelichting bij optie %1 bevat ongeldige tekens of te veel regeleinden."
+
+msgid "Passivlösung"
+msgstr "Passieve oplossing"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Vrijblijvend stemmingsbeeld, geen stemming."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "Hoe sterk is uw weerstand tegen elke optie?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "Uw antwoord is anoniem: er wordt opgeslagen dat u hebt geantwoord, maar niet hoe."
+
+msgid "kein Widerstand"
+msgstr "geen weerstand"
+
+msgid "Bedenken"
+msgstr "bedenkingen"
+
+msgid "starker Widerstand"
+msgstr "sterke weerstand"
+
+msgid "Erklärung"
+msgstr "Toelichting"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Rangorde op weerstand"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "‘Geen verandering’ heeft de laagste weerstand."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Gelijkstand bij de gecumuleerde weerstand: bij gelijkstand verandert er niets."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Gelijkstand, geen duidelijk resultaat."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "gelijk"
+
+msgid "Starker Einwand"
+msgstr "Sterk bezwaar"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Som %1 · 10-en: %2"
+
+msgid "Neue Umfrage"
+msgstr "Nieuwe peiling"
+
+msgid "Keine Änderung"
+msgstr "Geen verandering"

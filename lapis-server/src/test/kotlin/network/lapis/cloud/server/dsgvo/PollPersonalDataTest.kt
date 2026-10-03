@@ -9,6 +9,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.PollParticipationTable
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.server.rpc.PollTestData
@@ -16,6 +17,8 @@ import network.lapis.cloud.server.rpc.createAndAnswer
 import network.lapis.cloud.server.rpc.pollInput
 import network.lapis.cloud.server.rpc.pollTestApplication
 import network.lapis.cloud.shared.domain.ErasureMode
+import network.lapis.cloud.shared.domain.PollKind
+import network.lapis.cloud.shared.domain.PollRatingInput
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -47,6 +50,34 @@ class PollPersonalDataTest :
             PersonalDataRegistry.noPersonalDataAllowlist.containsKey("poll_option") shouldBe true
             PersonalDataRegistry.noPersonalDataAllowlist.containsKey("poll_response") shouldBe true
             PersonalDataRegistry.noPersonalDataAllowlist.getValue("poll_response").isNotBlank() shouldBe true
+            // V1.9.41: the per-option ratings are as anonymous as the response they hang on
+            PersonalDataRegistry.noPersonalDataAllowlist.getValue("poll_response_rating").isNotBlank() shouldBe true
+        }
+
+        test("V1.9.41 consensus poll: export names the kind but no rating; erasing the rater keeps every anonymous rating") {
+            pollTestApplication {
+                val chair = data.chair()
+                val voter = data.member(label = "bewertet")
+                val poll =
+                    call(member = chair) { createPoll(pollInput(kind = PollKind.SK_PRIORITY)) }
+                call(member = voter) { castPollRatings(PollRatingInput(pollId = poll.id, ratings = poll.options.associate { it.id to 9 })) }
+                val creator = transaction { PollPersonalData.exportMember(chair) }.jsonObject
+                creator
+                    .getValue("pollsCreated")
+                    .jsonArray
+                    .single()
+                    .jsonObject
+                    .getValue("kind")
+                    .jsonPrimitive.content shouldBe "SK_PRIORITY"
+                val ratingsBefore = transaction { PollResponseRatingTable.selectAll().count() }
+                ratingsBefore shouldBe poll.options.size.toLong()
+                val participant = transaction { PollPersonalData.exportMember(voter) }.toString().lowercase()
+                participant shouldNotContain "resistance"
+                participant shouldNotContain "rating"
+                transaction { PollPersonalData.eraseMember(memberId = voter, mode = ErasureMode.entries.first()) }
+                transaction { PollParticipationTable.selectAll().where { PollParticipationTable.memberId eq voter }.count() } shouldBe 0L
+                transaction { PollResponseRatingTable.selectAll().count() } shouldBe ratingsBefore
+            }
         }
 
         test("export: created / closed polls and 'took part' -- no answer, no weight") {

@@ -25,6 +25,15 @@
 // PersonalDataRegistry. poll_option and poll_response carry no member FK (poll_response on purpose,
 // see above) and sit in the registry's noPersonalDataAllowlist.
 //
+// V1.9.41 "kinds" (V69__poll_kinds.sql) -- poll.kind SINGLE_CHOICE | SK_DECISION | SK_PRIORITY. The consensus kinds
+// (Systemic Consensing) rate every option with a resistance 0..10 and involve NO LTR: poll_response keeps ONE row per
+// answer (counts as before) with option_id NULL and weight_ltr = 0; poll_response_rating holds one row per (response,
+// option). poll_response_rating has deliberately NO member_id and NO time column, random UUIDv4 ids -- the same
+// anonymity model as above, plus: the linking response_id lets a reader of the database or its backups rebuild whole
+// vectors (as with the systemic-consensus ballots), residual risk documented in docs/architecture/polls.adoc. The
+// passive option ("No change") of SK_DECISION is a REAL poll_option row with is_passive = true at position 10; the
+// DB admits at most one (unique poll_id/position) and no explanation text for it.
+//
 // created_by / closed_by / poll_id / option_id are plain «Column» attributes with fkEntity, NO
 // association(...) blocks -- same reasoning as 57-carpool.kuml.kts / 45-travel-expense.kuml.kts
 // (association-to-FK naming would derive different column names and synthesise a second FK column).
@@ -53,6 +62,13 @@ classDiagram(name = "Poll") {
             literal(name = "ABORTED")
         }
 
+    val pollKind =
+        enumOf(name = "PollKind") {
+            literal(name = "SINGLE_CHOICE")
+            literal(name = "SK_DECISION")
+            literal(name = "SK_PRIORITY")
+        }
+
     val poll =
         classOf(name = "Poll") {
             stereotype("Entity") { "tableName" to "poll"; "kotlinObjectName" to "PollTable" }
@@ -73,6 +89,9 @@ classDiagram(name = "Poll") {
             // The STORED status -- see file header "LAZY EXPIRY".
             attribute(name = "status", type = pollStatus) {
                 stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.PollStatus" }
+            }
+            attribute(name = "kind", type = pollKind) {
+                stereotype("Column") { "columnName" to "kind"; "enumType" to "network.lapis.cloud.shared.domain.PollKind" }
             }
             attribute(name = "createdBy", type = "UUID") {
                 stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
@@ -114,6 +133,15 @@ classDiagram(name = "Poll") {
             attribute(name = "text", type = "String") {
                 stereotype("Column") { "columnName" to "text"; "sqlType" to "VARCHAR(200)" }
             }
+            // UNTRUSTED text of the creator, consensus kinds only; never for the passive option.
+            attribute(name = "explanation", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "explanation"; "sqlType" to "VARCHAR(1000)" }
+            }
+            // The passive option ("No change") of SK_DECISION: a real row at position 10.
+            attribute(name = "isPassive", type = "Boolean") {
+                stereotype("Column") { "columnName" to "is_passive" }
+            }
         }
 
     // WHO answered -- no time column, see file header.
@@ -147,12 +175,38 @@ classDiagram(name = "Poll") {
             attribute(name = "pollId", type = "UUID") {
                 stereotype("Column") { "columnName" to "poll_id"; "fkEntity" to "Poll" }
             }
+            // NULL for the consensus kinds (the per-option ratings live in poll_response_rating).
             attribute(name = "optionId", type = "UUID") {
+                multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "option_id"; "fkEntity" to "PollOption" }
             }
             // Snapshot of the responder's free LTR balance at cast time, >= 0.
             attribute(name = "weightLtr", type = "BigDecimal") {
                 stereotype("Column") { "columnName" to "weight_ltr"; "sqlType" to "DECIMAL(18,2)" }
+            }
+        }
+
+    // HOW MUCH resistance per option (consensus kinds) -- deliberately NO member_id and NO time column, see file header.
+    val pollResponseRating =
+        classOf(name = "PollResponseRating") {
+            stereotype("Entity") { "tableName" to "poll_response_rating"; "kotlinObjectName" to "PollResponseRatingTable" }
+            stereotype("Index") {
+                "columns" to listOf("response_id", "option_id"); "unique" to true; "name" to "uq_poll_response_rating_response_option"
+            }
+            stereotype("Index") { "columns" to listOf("option_id"); "name" to "idx_poll_response_rating_option" }
+
+            attribute(name = "id", type = "UUID") {
+                stereotype("Id")
+                stereotype("Column") { "columnName" to "id" }
+            }
+            attribute(name = "responseId", type = "UUID") {
+                stereotype("Column") { "columnName" to "response_id"; "fkEntity" to "PollResponse" }
+            }
+            attribute(name = "optionId", type = "UUID") {
+                stereotype("Column") { "columnName" to "option_id"; "fkEntity" to "PollOption" }
+            }
+            attribute(name = "resistance", type = "Int") {
+                stereotype("Column") { "columnName" to "resistance" }
             }
         }
 }

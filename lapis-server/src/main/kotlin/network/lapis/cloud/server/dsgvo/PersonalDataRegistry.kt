@@ -208,13 +208,18 @@ object PersonalDataRegistry {
                 "Einstufung wie accounting_export_connection.token_ciphertext.",
             "poll_option" to
                 "Welle V1.9.30 Umfragen. Der Antwortoption-Text hat keinen Mitglieds-FK -- nur " +
-                "poll/poll_participation (siehe PollPersonalData) tragen Personenbezug.",
+                "poll/poll_participation (siehe PollPersonalData) tragen Personenbezug. V1.9.41: auch der " +
+                "optionale Erklaertext (explanation) ist Text des Erstellers ohne Mitglieds-FK.",
             "poll_response" to
                 "Welle V1.9.30 Umfragen. BEWUSST ohne Mitglieds-FK und ohne Zeitspalte: die Antwort ist " +
                 "anonym, sie ist von poll_participation (WER hat geantwortet) durch Tabellentrennung " +
                 "entkoppelt -- eine Zuordnung zu einem Mitglied ist weder moeglich noch gewollt, ein " +
                 "Export/Loeschpfad pro Mitglied existiert daher nicht (siehe 61-poll.kuml.kts und " +
                 "docs/architecture/polls.adoc).",
+            "poll_response_rating" to
+                "Welle V1.9.41 Umfragen-Konsensieren. BEWUSST ohne Mitglieds-FK und ohne Zeitspalte, " +
+                "an poll_response gekoppelt, die selbst anonym ist: die Bewertung (Widerstand je Option) " +
+                "ist keinem Mitglied zuordenbar, ein Export/Loeschpfad pro Mitglied existiert daher nicht.",
         )
 
     init {

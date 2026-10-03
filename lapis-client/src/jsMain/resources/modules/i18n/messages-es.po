@@ -19426,3 +19426,99 @@ msgstr "La justificación tiene demasiados saltos de línea."
 
 msgid "Die Begründung wird gelöscht."
 msgstr "Se eliminará la justificación."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Cada persona elige una opción."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Cada persona valora cada opción de 0 (ninguna resistencia) a 10 (resistencia fuerte). Va primero la opción con menor resistencia. «Sin cambios» siempre está incluida."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Cada persona valora cada opción de 0 (ninguna resistencia) a 10 (resistencia fuerte). El resultado es una clasificación por resistencia."
+
+msgid "Einzelauswahl"
+msgstr "Elección única"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Consensuar: decisión"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Consensuar: clasificación"
+
+msgid "Art der Umfrage"
+msgstr "Tipo de encuesta"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "«Sin cambios» siempre está incluida y no cuenta como una de las opciones."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Explicación de la opción %1 (opcional)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Añadir explicación"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "La explicación de la opción %1 es demasiado larga (máximo %2 caracteres)."
+
+msgid "Erklärung ausblenden"
+msgstr "Ocultar explicación"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "La explicación de la opción %1 contiene caracteres no válidos o demasiados saltos de línea."
+
+msgid "Passivlösung"
+msgstr "Solución pasiva"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Sondeo de opinión no vinculante, no una votación."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "¿Qué grado de resistencia tiene a cada opción?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "Su respuesta es anónima: se guarda que ha respondido, pero no cómo."
+
+msgid "kein Widerstand"
+msgstr "ninguna resistencia"
+
+msgid "Bedenken"
+msgstr "reservas"
+
+msgid "starker Widerstand"
+msgstr "resistencia fuerte"
+
+msgid "Erklärung"
+msgstr "Explicación"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Clasificación por resistencia"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "«Sin cambios» tiene la menor resistencia."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Empate en la resistencia acumulada: en caso de empate, no cambia nada."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Empate, sin resultado claro."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "empatadas"
+
+msgid "Starker Einwand"
+msgstr "Objeción fuerte"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Suma %1 · 10: %2"
+
+msgid "Neue Umfrage"
+msgstr "Nueva encuesta"
+
+msgid "Keine Änderung"
+msgstr "Sin cambios"

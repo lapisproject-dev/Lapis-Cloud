@@ -8,6 +8,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Consensus modes in polls** (V1.9.41): a poll has a kind -- `SINGLE_CHOICE` (the classic LTR-weighted poll, unchanged), `SK_DECISION` or
+  `SK_PRIORITY` (systemic consensing): every member rates every option with a resistance 0..10, without any LTR. A decision always carries the
+  passive option "Keine Änderung" (a real `poll_option` row, `is_passive`, position 10); it wins every tie it takes part in, a tie of real
+  options is decided by the lowest maximum value, a remaining tie is "no clear result" -- never by id. A ranking is sorted by cumulative
+  resistance with shared ranks (1, 2, 2, 4). The creator may add an optional explanation (<= 1000 characters, untrusted text) to each option.
+  New RPC `castPollRatings`, migration `V69__poll_kinds.sql` (additive, idempotent), table `poll_response_rating`, DTO fields with defaults
+  (old clients keep working). Web: the create form is now collapsed behind "Neue Umfrage" (rule R36B; the poll list leaves the debt ledger) with
+  a kind radio and per-option explanations; the answer booth is the new shared `RatingBooth` (the consensus booth is an adapter of it); new
+  result view without bars and without a success colour for the leader. Below five answers only the response count is shown. Documentation:
+  `polls.adoc`, `consensus-ui.adoc`, `polls-staging-test.adoc` (not executed). Operations: take a backup before deploying and apply migration V69;
+  no `flywayRepair` is needed (`V1` is untouched).
+
 - **Collapsed create forms, governance pilot** (V1.9.40, rule R36B): a create form is no longer an always visible section under a list. New building
   block `collapsibleCreateForm` (`CollapsibleCreateForm.kt`): one outline button in the title row (new `PageHeader.actionSlot`) opens the form
   directly under the page header -- no animation, focus into the first field, scroll into view (smooth only without `prefers-reduced-motion`);
@@ -141,6 +153,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Security
 
+- **Consensus polls, anonymity** (V1.9.41): the three tables `poll_participation` (who), `poll_response` (that) and `poll_response_rating` (how
+  much per option) share no member key; the rating table has no member and no time column and random ids. The API never carries a response
+  or rating id; `getPollResult` reads one aggregate query `GROUP BY option_id, resistance`; one threshold (5) for every aggregate. No LTR is
+  read, written or audited by `castPollRatings`. `castPollResponse` on a consensus poll and `castPollRatings` on a classic poll are refused
+  before any insert (and before an LTR balance could be read). Option explanations are untrusted text (sanitised, never in an attribute, a
+  toast or a log). The shared rating booth is stricter than the old consensus booth: the choice is restored as a DOM property, never as a
+  `checked` attribute (this also tightens the proposal consensus; behaviour and texts are unchanged).
+
 - **V1.9.38 zone hygiene**: the server no longer reads the zone of its own process anywhere (`currentSystemDefault` and friends are banned by a
   tripwire); `ServerClock.zone` is the constant UTC and the container pins it three times (`ENV TZ=UTC`, `-Duser.timezone=UTC` in the start script,
   `TZ: UTC` in the example compose file). The organization zone is validated against an allow-list (no offsets, no short ids, no `Etc/GMT+n`, no
@@ -196,6 +216,12 @@ All notable changes to this project are documented here. Format follows
   consensus row (`FOR UPDATE`) so a rationale cannot change after a concurrent `freezeOptions` committed (race test on H2 and PostgreSQL).
 
 ### Known limitations
+
+- **Consensus polls** (V1.9.41): homogeneity -- if every rating of an option is the same, that value is known to everyone; if `n - 1` members
+  collude, the last value is revealed (the threshold of 5 protects against outsiders only). A reader of the database or its backups can
+  rebuild complete rating vectors through `poll_response_rating.response_id` (the response has no member key), the same residual risk as the
+  ballots of the systemic consensus. The histogram labels every number 0..10 (same renderer as the proposal consensus). The staging test
+  plan for the kinds was written, not executed.
 
 - V1.9.40 (pilot only): only the four governance screens are collapsed; `R36B_NOT_YET_COLLAPSED` lists the 40 findings of the other groups (finance,
   events, community, documents, compliance, conference administration, the auction) and Polls (`PollCreateForm`, waits for the LTR surveys plan).

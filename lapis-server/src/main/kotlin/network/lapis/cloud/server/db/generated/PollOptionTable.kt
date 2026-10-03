@@ -11,6 +11,8 @@ public object PollOptionTable : Table("poll_option") {
     public val pollId: Column<Uuid> = reference("poll_id", PollTable.id)
     public val position: Column<Int> = integer("position")
     public val text: Column<String> = varchar("text", 200)
+    public val explanation: Column<String?> = varchar("explanation", 1000).nullable()
+    public val isPassive: Column<Boolean> = bool("is_passive")
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

@@ -151,27 +151,30 @@ private fun renderRankRow(
             gettext("Höchster Einzelwert: %1. Das ist ein starker Einwand.", option.maxResistance),
         ) { addCssClasses("small text-danger") }
     }
-    renderDistribution(box, option, c.scaleMax)
+    box.renderResistanceDistribution(option.distribution, c.scaleMax)
     if (dto != null) renderOptionRationale(box, dto, RationaleMode.Collapsed, "sk-res-why", rank)
 }
 
-/** The rating histogram of one option, collapsed by default. [SystemicConsensusOptionResultDto.distribution] only holds values that were cast; the gaps are filled with 0. */
-private fun renderDistribution(
-    box: Container,
-    option: SystemicConsensusOptionResultDto,
+/**
+ * The rating histogram of one option, collapsed by default (also used by the consensus polls, V1.9.41). [distribution] may only hold
+ * values that were cast; the gaps are filled with 0.
+ */
+internal fun Container.renderResistanceDistribution(
+    distribution: Map<Int, Int>,
     scaleMax: Int,
 ) {
+    val box = this
     val toggle = Button(tr("Verteilung anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     toggle.setAttribute("aria-expanded", "false")
     box.add(toggle)
-    val total = option.distribution.values.sum()
+    val total = distribution.values.sum()
     val content = box.vPanel(spacing = 2) { hide() }
     content.div(if (total == 1) gettext("1 Bewertung") else gettext("%1 Bewertungen", total)) { addCssClasses("text-muted small") }
     val grid = content.div(className = "lapis-sk-hist")
     (0..scaleMax).forEach { value ->
         val column = grid.div { addCssClasses("d-flex flex-column") }
         column.span(value.toString()) { addCssClasses("text-muted") }
-        column.span((option.distribution[value] ?: 0).toString()) { addCssClasses("fw-bold") }
+        column.span((distribution[value] ?: 0).toString()) { addCssClasses("fw-bold") }
     }
     var open = false
     toggle.onClick {

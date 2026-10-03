@@ -8,6 +8,7 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.PollOptionTable
 import network.lapis.cloud.server.db.generated.PollParticipationTable
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.server.testdb.PostgresConfigured
@@ -39,6 +40,7 @@ abstract class PollSchemaDriftScenarios(
                 "poll_option" to mapOf("poll_id" to "poll"),
                 "poll_participation" to mapOf("poll_id" to "poll", "member_id" to "member"),
                 "poll_response" to mapOf("poll_id" to "poll", "option_id" to "poll_option"),
+                "poll_response_rating" to mapOf("response_id" to "poll_response", "option_id" to "poll_option"),
             )
         val exposedTables: Map<String, Table> =
             mapOf(
@@ -46,10 +48,12 @@ abstract class PollSchemaDriftScenarios(
                 "poll_option" to PollOptionTable,
                 "poll_participation" to PollParticipationTable,
                 "poll_response" to PollResponseTable,
+                "poll_response_rating" to PollResponseRatingTable,
             )
 
-        test("model declares exactly the four poll tables and the member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("poll", "poll_option", "poll_participation", "poll_response", "member")
+        test("model declares exactly the five poll tables and the member stub") {
+            model.entities.map { it.name }.toSet() shouldBe
+                setOf("poll", "poll_option", "poll_participation", "poll_response", "poll_response_rating", "member")
         }
 
         expectedForeignKeys.keys.forEach { tableName ->
@@ -79,6 +83,12 @@ abstract class PollSchemaDriftScenarios(
         test("anonymity invariant: poll_response has NO member column and NO time column") {
             val columns = transaction { introspectPollTable("poll_response") }.nullableByColumn.keys
             columns shouldBe setOf("id", "poll_id", "option_id", "weight_ltr")
+            columns.none { it.contains("member") || it.endsWith("_at") || it.contains("time") } shouldBe true
+        }
+
+        test("anonymity invariant: poll_response_rating has NO member column and NO time column") {
+            val columns = transaction { introspectPollTable("poll_response_rating") }.nullableByColumn.keys
+            columns shouldBe setOf("id", "response_id", "option_id", "resistance")
             columns.none { it.contains("member") || it.endsWith("_at") || it.contains("time") } shouldBe true
         }
 

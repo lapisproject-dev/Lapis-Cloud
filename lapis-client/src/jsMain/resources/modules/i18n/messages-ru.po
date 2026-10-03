@@ -19434,3 +19434,99 @@ msgstr "Обоснование содержит слишком много пер
 
 msgid "Die Begründung wird gelöscht."
 msgstr "Обоснование будет удалено."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Каждый человек выбирает один вариант."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Каждый человек оценивает каждый вариант от 0 (нет сопротивления) до 10 (сильное сопротивление). Первым стоит вариант с наименьшим сопротивлением. «Без изменений» всегда включено."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Каждый человек оценивает каждый вариант от 0 (нет сопротивления) до 10 (сильное сопротивление). Результат — рейтинг по сопротивлению."
+
+msgid "Einzelauswahl"
+msgstr "Единичный выбор"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Консенсование: решение"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Консенсование: рейтинг"
+
+msgid "Art der Umfrage"
+msgstr "Тип опроса"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "«Без изменений» всегда включено и не считается одним из вариантов."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Пояснение к варианту %1 (необязательно)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Добавить пояснение"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "Пояснение к варианту %1 слишком длинное (не более %2 символов)."
+
+msgid "Erklärung ausblenden"
+msgstr "Скрыть пояснение"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "Пояснение к варианту %1 содержит недопустимые символы или слишком много переносов строк."
+
+msgid "Passivlösung"
+msgstr "Пассивное решение"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Необязательный срез мнений, не голосование."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "Насколько велико Ваше сопротивление каждому варианту?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "Ваш ответ анонимен: сохраняется, что Вы ответили, но не как."
+
+msgid "kein Widerstand"
+msgstr "нет сопротивления"
+
+msgid "Bedenken"
+msgstr "сомнения"
+
+msgid "starker Widerstand"
+msgstr "сильное сопротивление"
+
+msgid "Erklärung"
+msgstr "Пояснение"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Рейтинг по сопротивлению"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "У варианта «Без изменений» наименьшее сопротивление."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Равенство по суммарному сопротивлению: при равенстве всё остаётся без изменений."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Равенство, чёткого результата нет."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "поровну"
+
+msgid "Starker Einwand"
+msgstr "Сильное возражение"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Сумма %1 · десятки: %2"
+
+msgid "Neue Umfrage"
+msgstr "Новый опрос"
+
+msgid "Keine Änderung"
+msgstr "Без изменений"

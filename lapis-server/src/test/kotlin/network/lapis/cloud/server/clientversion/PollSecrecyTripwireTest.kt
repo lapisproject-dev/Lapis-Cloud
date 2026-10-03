@@ -35,6 +35,11 @@ private val POLL_FILES =
         "PollBooth.kt",
         "PollResultView.kt",
         "PollGuard.kt",
+        // V1.9.41 consensus polls
+        "PollRatingBooth.kt",
+        "PollRatingResultView.kt",
+        "PollCreateDraft.kt",
+        "RatingBooth.kt",
     )
 
 private val FORBIDDEN_EVERYWHERE =
@@ -49,16 +54,30 @@ private val FORBIDDEN_EVERYWHERE =
         Regex("""notify\w*\([^)]*\.message"""),
     )
 
-private val ANSWER_CONTENT = Regex("""\b(PollResponseInput|castPollResponse)\b""")
+private val ANSWER_CONTENT = Regex("""\b(PollResponseInput|castPollResponse|PollRatingInput|castPollRatings)\b""")
 private val OPTION_ID = Regex("""\boptionId\b""")
-private val RESULT_FIELDS = Regex("""\b(sharePercent|weightedResult|headResult)\b""")
-private val UNTRUSTED_CONTENT = Regex("""content\s*=\s*\w+\.(text|question|description|createdByDisplayName)\b""")
+private val RESULT_FIELDS =
+    Regex("""\b(sharePercent|weightedResult|headResult|ratingResult|cumulativeResistance|topValueCount|distribution)\b""")
+
+/** V1.9.41: the rating vector (`ratings`) exists only in the shared booth and in the poll adapter that builds the input from it. */
+private val RATINGS_FIELD = Regex("""\bratings\b""")
+private val RATINGS_FILES = setOf("RatingBooth.kt", "PollRatingBooth.kt")
+
+/** V1.9.41: the creator's explanation is untrusted text; on one line with any of these sinks it is a leak or an injection path. */
+private val EXPLANATION_WORD = Regex("""(?i)explanation""")
+private val EXPLANATION_SINK =
+    Regex("""\btitle\s*=|"title"|aria-label|data-|\bnotify\w*\s*\(|\bconsole\b|Storage|pushState|replaceState|\.message\b""")
+private val UNTRUSTED_CONTENT = Regex("""content\s*=\s*\w+\.(text|question|description|createdByDisplayName|explanation)\b""")
 private val UNTRUSTED_LEGEND = Regex("""TAG\.LEGEND\s*,\s*content\s*=\s*(?!sanitize|pollOptionText)\w+\.""")
 
-private val ANSWER_FILES = setOf("PollBooth.kt", "PollGuard.kt")
-private val OPTION_ID_FILES = ANSWER_FILES + "PollResultView.kt"
-private val RESULT_FIELD_FILES = setOf("PollResultView.kt", "PollAuthzUi.kt")
-private val COUNT_FILES = setOf("PollListView.kt", "PollDetail.kt", "PollResultView.kt")
+private val ANSWER_FILES = setOf("PollBooth.kt", "PollGuard.kt", "PollRatingBooth.kt")
+private val OPTION_ID_FILES = ANSWER_FILES + setOf("PollResultView.kt", "PollRatingResultView.kt")
+private val RESULT_FIELD_FILES = setOf("PollResultView.kt", "PollRatingResultView.kt", "PollAuthzUi.kt")
+private val COUNT_FILES = setOf("PollListView.kt", "PollDetail.kt", "PollResultView.kt", "PollRatingResultView.kt")
+
+/** The answer booths: the classic one and (V1.9.41) the shared rating booth with its poll adapter -- the strictest rules apply to all three. */
+private val BOOTH_FILES = setOf("PollBooth.kt", "RatingBooth.kt", "PollRatingBooth.kt")
+private val RESULT_VIEW_FILES = setOf("PollResultView.kt", "PollRatingResultView.kt")
 
 private fun codeLines(text: String): List<String> =
     text.lines().filterNot { line -> line.trimStart().let { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") } }
@@ -76,16 +95,18 @@ internal fun pollSecrecyFindings(
         FORBIDDEN_EVERYWHERE.forEach { rule -> if (rule.containsMatchIn(line)) flag("forbidden") }
         if (ANSWER_CONTENT.containsMatchIn(line) && fileName !in ANSWER_FILES) flag("answer content outside booth/guard")
         if (OPTION_ID.containsMatchIn(line) && fileName !in OPTION_ID_FILES) flag("optionId outside booth/guard/result view")
-        if (fileName == "PollResultView.kt" &&
+        if (fileName in RESULT_VIEW_FILES &&
             ANSWER_CONTENT.containsMatchIn(line)
         ) {
             flag("the result view must not build or send an answer")
         }
         if (Regex("""\bchosenIndex\b""").containsMatchIn(line) && fileName != "PollBooth.kt") flag("chosenIndex outside the booth")
         if (RESULT_FIELDS.containsMatchIn(line) && fileName !in RESULT_FIELD_FILES) flag("result field outside the result view")
+        if (RATINGS_FIELD.containsMatchIn(line) && fileName !in RATINGS_FILES) flag("rating vector outside the rating booth")
+        if (EXPLANATION_WORD.containsMatchIn(line) && EXPLANATION_SINK.containsMatchIn(line)) flag("explanation text reaching a sink")
         if (UNTRUSTED_CONTENT.containsMatchIn(line)) flag("untrusted text as raw content")
         if (UNTRUSTED_LEGEND.containsMatchIn(line)) flag("untrusted legend text not sanitized")
-        if (fileName in COUNT_FILES && fileName != "PollResultView.kt" && Regex("""\bresponseCount\b""").containsMatchIn(line)) {
+        if (fileName in COUNT_FILES && fileName !in RESULT_VIEW_FILES && Regex("""\bresponseCount\b""").containsMatchIn(line)) {
             val window = code.subList(maxOf(0, index - 6), index + 1)
             if (window.none {
                     it.contains(
@@ -97,7 +118,7 @@ internal fun pollSecrecyFindings(
                 flag("count outside the closed-poll gate")
             }
         }
-        if (fileName == "PollBooth.kt") {
+        if (fileName in BOOTH_FILES) {
             if (Regex("""\bnotify\w*\s*\(""").containsMatchIn(line)) flag("toast in the booth")
             if (Regex("""data-|setAttribute\("data""").containsMatchIn(line)) flag("data attribute")
             if (Regex("""setAttribute\(\s*"value"""").containsMatchIn(line)) flag("value attribute")
@@ -168,6 +189,25 @@ class PollSecrecyTripwireTest :
             pollSecrecyFindings(fileName = "PollBooth.kt", text = "radio.setAttribute(\"id\", id)").size shouldBe 0
             pollSecrecyFindings(fileName = "PollBooth.kt", text = "radio.setAttribute(\"name\", RADIO_GROUP)").size shouldBe 0
             pollSecrecyFindings(fileName = "PollBooth.kt", text = "navigateTo(\"/polls\")").size shouldBe 1
+            pollSecrecyFindings(fileName = "PollDetail.kt", text = "PollRatingInput(a, b)").size shouldBe 1
+            pollSecrecyFindings(fileName = "PollListView.kt", text = "rpc.castPollRatings(x)").size shouldBe 1
+            pollSecrecyFindings(fileName = "PollRatingBooth.kt", text = "PollRatingInput(pollId = a, ratings = b)").size shouldBe 0
+            pollSecrecyFindings(fileName = "PollDetail.kt", text = "val r = ratings").size shouldBe 1
+            pollSecrecyFindings(fileName = "RatingBooth.kt", text = "private val ratings = mutableMapOf()").size shouldBe 0
+            pollSecrecyFindings(fileName = "PollDetail.kt", text = "val r = result.ratingResult").size shouldBe 1
+            pollSecrecyFindings(fileName = "PollRatingResultView.kt", text = "val r = result.ratingResult").size shouldBe 0
+            pollSecrecyFindings(fileName = "PollDetail.kt", text = "val d = o.distribution").size shouldBe 1
+            pollSecrecyFindings(fileName = "PollRatingResultView.kt", text = "val id = x.optionId").size shouldBe 0
+            pollSecrecyFindings(fileName = "PollRatingResultView.kt", text = "PollRatingInput(a, b)").size shouldBe 2
+            pollSecrecyFindings(fileName = "RatingBooth.kt", text = "notifyError(a)").size shouldBe 1
+            pollSecrecyFindings(fileName = "RatingBooth.kt", text = "radio.setAttribute(\"checked\", \"checked\")").size shouldBe 1
+            pollSecrecyFindings(fileName = "PollRatingBooth.kt", text = "radio.setAttribute(\"data-v\", \"1\")").size shouldBe 1
+            pollSecrecyFindings(fileName = "RatingBooth.kt", text = "navigateTo(\"/polls\")").size shouldBe 1
+            pollSecrecyFindings(fileName = "X.kt", text = "foo.title = option.explanation").size shouldBe 1
+            pollSecrecyFindings(fileName = "X.kt", text = "setAttribute(\"aria-label\", explanationRaw)").size shouldBe 1
+            pollSecrecyFindings(fileName = "X.kt", text = "notifySuccess(item.explanationRaw)").size shouldBe 1
+            pollSecrecyFindings(fileName = "X.kt", text = "span(content = option.explanation)").size shouldBe 1
+            pollSecrecyFindings(fileName = "X.kt", text = "untrustedDiv(raw, className = \"explanation\")").size shouldBe 0
             pollSecrecyFindings(fileName = "X.kt", text = "// console.log(x)").size shouldBe 0
             pollSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             pollSecrecyFindings(fileName = "X.kt", text = "val consoleLike = 1").size shouldBe 0

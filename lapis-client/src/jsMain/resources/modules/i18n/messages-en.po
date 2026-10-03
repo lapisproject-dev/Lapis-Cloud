@@ -19396,3 +19396,99 @@ msgstr "The justification has too many line breaks."
 
 msgid "Die Begründung wird gelöscht."
 msgstr "The justification will be deleted."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Each person chooses one option."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Each person rates every option from 0 (no resistance) to 10 (strong resistance). The option with the lowest resistance comes first. “No change” is always included."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Each person rates every option from 0 (no resistance) to 10 (strong resistance). The result is a ranking by resistance."
+
+msgid "Einzelauswahl"
+msgstr "Single choice"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Consensing: decision"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Consensing: ranking"
+
+msgid "Art der Umfrage"
+msgstr "Type of poll"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "“No change” is always included and does not count towards the options."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Explanation for option %1 (optional)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Add explanation"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "The explanation for option %1 is too long (at most %2 characters)."
+
+msgid "Erklärung ausblenden"
+msgstr "Hide explanation"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "The explanation for option %1 contains invalid characters or too many line breaks."
+
+msgid "Passivlösung"
+msgstr "Passive solution"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Non-binding mood picture, not a vote."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "How strong is your resistance to each option?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "Your answer is anonymous: it is stored that you answered, but not how."
+
+msgid "kein Widerstand"
+msgstr "no resistance"
+
+msgid "Bedenken"
+msgstr "concerns"
+
+msgid "starker Widerstand"
+msgstr "strong resistance"
+
+msgid "Erklärung"
+msgstr "Explanation"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Ranking by resistance"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "No change has the lowest resistance."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Tie in the cumulative resistance: in a tie, nothing changes."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Tie, no clear result."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "tied"
+
+msgid "Starker Einwand"
+msgstr "Strong objection"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Sum %1 · 10s: %2"
+
+msgid "Neue Umfrage"
+msgstr "New poll"
+
+msgid "Keine Änderung"
+msgstr "No change"

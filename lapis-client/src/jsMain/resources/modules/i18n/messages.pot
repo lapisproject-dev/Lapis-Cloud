@@ -18529,3 +18529,99 @@ msgstr ""
 
 msgid "Die Begründung wird gelöscht."
 msgstr ""
+
+msgid "Jede Person wählt eine Option."
+msgstr ""
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr ""
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr ""
+
+msgid "Einzelauswahl"
+msgstr ""
+
+msgid "Konsensieren: Entscheidung"
+msgstr ""
+
+msgid "Konsensieren: Rangliste"
+msgstr ""
+
+msgid "Art der Umfrage"
+msgstr ""
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr ""
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr ""
+
+msgid "Erklärung hinzufügen"
+msgstr ""
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr ""
+
+msgid "Erklärung ausblenden"
+msgstr ""
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr ""
+
+msgid "Passivlösung"
+msgstr ""
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr ""
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr ""
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr ""
+
+msgid "kein Widerstand"
+msgstr ""
+
+msgid "Bedenken"
+msgstr ""
+
+msgid "starker Widerstand"
+msgstr ""
+
+msgid "Erklärung"
+msgstr ""
+
+msgid "Rangliste nach Widerstand"
+msgstr ""
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr ""
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr ""
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr ""
+
+msgid "%1."
+msgstr ""
+
+msgid "gleichauf"
+msgstr ""
+
+msgid "Starker Einwand"
+msgstr ""
+
+msgid "Ø %1"
+msgstr ""
+
+msgid "Summe %1 · 10er: %2"
+msgstr ""
+
+msgid "Neue Umfrage"
+msgstr ""
+
+msgid "Keine Änderung"
+msgstr ""

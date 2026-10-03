@@ -216,4 +216,52 @@ class PollDetailDomTest {
                 )
             }
         }
+
+    // ── V1.9.41: consensus polls ─────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun anOpenConsensusPoll_showsTheRatingBooth_notTheChoiceBooth(): Promise<Unit> =
+        formTest {
+            val world = PollWorld(pollSkDto(), pollParticipation(canRespond = true))
+            withDetail(world, "poll-detail-sk-open") { el, calls, routes ->
+                assertEquals(33, el.allOf("input[type=radio]").size, "eleven scale fields for each of the three options")
+                assertTrue(el.hasButton("Prüfen"))
+                assertFalse(el.hasButton("Weiter"))
+                assertEquals(0, calls.toRoute(routes.result).size)
+            }
+        }
+
+    @Test
+    fun aConsensusPollTheMemberAnswered_listsTheOptionsNumbered_passiveFirst_withTheirExplanation(): Promise<Unit> =
+        formTest {
+            val world = PollWorld(pollSkDto(), pollParticipation(hasResponded = true))
+            withDetail(world, "poll-detail-sk-answered") { el, _, _ ->
+                assertTrue(el.flatText().contains("Sie haben an dieser Umfrage teilgenommen."))
+                assertEquals(0, el.allOf("input[type=radio]").size)
+                assertEquals(listOf("P", "1", "2"), el.allOf(".lapis-sk-num").map { it.textContent.orEmpty().trim() })
+                assertTrue(el.flatText().contains("Keine Änderung") && el.flatText().contains("Passivlösung"))
+                assertTrue(el.flatText().contains("Wetter ist meist besser."))
+            }
+        }
+
+    @Test
+    fun aClosedConsensusPoll_asksForTheResult_andShowsTheRatingResult(): Promise<Unit> =
+        formTest {
+            val poll = pollSkDto(status = PollStatus.CLOSED, responseCount = 7)
+            val result =
+                pollRatingResult(
+                    options =
+                        listOf(
+                            pollRatingOption("o-a", rank = 1, cumulative = 7, mean = 1.0),
+                            pollRatingOption("o-b", rank = 2, cumulative = 40, mean = 5.7),
+                            pollRatingOption("o-p", rank = 3, cumulative = 49, mean = 7.0),
+                        ),
+                )
+            val world = PollWorld(poll, pollParticipation(hasResponded = true, canRespond = false), result = result)
+            withDetail(world, "poll-detail-sk-closed") { el, calls, routes ->
+                awaitUntil("rating result", 3000) { el.flatText().contains("Geringster Widerstand: Im Juli") }
+                assertEquals(1, calls.toRoute(routes.result).size)
+                assertEquals(0, el.allOf(".lapis-poll-block").size, "no head/weighted blocks for a consensus poll")
+            }
+        }
 }

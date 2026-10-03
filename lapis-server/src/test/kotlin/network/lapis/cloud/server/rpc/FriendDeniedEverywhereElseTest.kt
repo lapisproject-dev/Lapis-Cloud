@@ -45,6 +45,7 @@ import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PeerTransferInput
 import network.lapis.cloud.shared.domain.PoliticianReactionValue
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -300,6 +301,9 @@ class FriendDeniedEverywhereElseTest :
                 // FRIEND gets Forbidden (never NotFound) and cannot probe which polls exist.
                 client.post("/test/cast-poll-response") { header("X-Member-Id", friend.toString()) }.status shouldBe
                     HttpStatusCode.Forbidden
+                // V1.9.41: the consensus kinds are ACTIVE-only too, with the same gate order (status before the poll lookup)
+                client.post("/test/cast-poll-ratings") { header("X-Member-Id", friend.toString()) }.status shouldBe
+                    HttpStatusCode.Forbidden
             }
         }
 
@@ -448,6 +452,10 @@ private fun Route.registerDeniedLtrTestRoutes() {
 private fun Route.registerDeniedPollTestRoutes() {
     post("/test/cast-poll-response") {
         PollService(call = call).castPollResponse(PollResponseInput(pollId = Uuid.random().toString(), optionId = Uuid.random().toString()))
+        call.respondText("ok")
+    }
+    post("/test/cast-poll-ratings") {
+        PollService(call = call).castPollRatings(PollRatingInput(pollId = Uuid.random().toString(), ratings = emptyMap()))
         call.respondText("ok")
     }
 }

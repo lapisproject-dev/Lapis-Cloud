@@ -509,7 +509,9 @@ class DomainModelMergerTest :
             // (poll, poll_option, poll_participation, poll_response), WITH its own cross-domain
             // Member stub (dedups into the already-real member entity, +1 drop) -- net +4 distinct
             // table names (173 -> 177).
-            val distinctTableNames = 177
+            // Welle V1.9.41 "Konsensieren-Modi in Umfragen" adds ONE more real table to the same script
+            // (poll_response_rating), 177 -> 178.
+            val distinctTableNames = 178
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -822,6 +824,7 @@ class DomainModelMergerTest :
                     "PollOptionTable.kt",
                     "PollParticipationTable.kt",
                     "PollResponseTable.kt",
+                    "PollResponseRatingTable.kt",
                     // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- TWO new real
                     // tables (regional_chapter, regional_chapter_officer); the Member cross-domain
                     // stub in 58-regional-chapter.kuml.kts AND the RegionalChapter cross-domain

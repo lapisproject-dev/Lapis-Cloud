@@ -14,7 +14,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** V1.9.31: "Umfrage erstellen", mounted for real -- validation, option rows, the deadline, the single-shot submit, the fixed error texts. */
+/** V1.9.31 / V1.9.41: "Neue Umfrage" (the form body of the collapsed create form), mounted for real -- validation, option rows, the deadline, the single-shot submit, the fixed error texts. */
 class PollCreateFormDomTest {
     private suspend fun <T> withForm(
         world: PollWorld,
@@ -26,7 +26,8 @@ class PollCreateFormDomTest {
         val routes = pollRoutes()
         return withFetchStub(respond = world.respond(routes)) { calls ->
             mountedForm(id) { root, element ->
-                renderPollCreateForm(root) { done += it }
+                // `close(false)` is the Cancel button (recorded as null), `close(true)` the fold-back after a save (nothing recorded).
+                root.renderPollCreateForm(close = { saved -> if (!saved) done += null }, onCreated = { done += it })
                 block(element(), calls, routes)
             }
         }
@@ -257,6 +258,127 @@ class PollCreateFormDomTest {
                 }
             } finally {
                 pollErrorSink = original
+            }
+        }
+
+    private fun HTMLElement.visibleButtons(text: String): List<HTMLElement> =
+        allOf("button").filter { it.textContent?.trim() == text && it.offsetParent != null }
+
+    private fun HTMLElement.chooseKind(label: String) {
+        assertNotNull(allOf("label").firstOrNull { it.textContent?.trim() == label }, "no kind '$label'").click()
+    }
+
+    @Test
+    fun theKind_defaultsToSingleChoice_showsOneSentence_andTheExplanationSwitchAppearsOnlyForConsensus(): Promise<Unit> =
+        formTest {
+            withForm(PollWorld(), "poll-form-kind") { el, _, _ ->
+                assertTrue(el.allOf("input[type=radio]").size == 3)
+                assertTrue(el.flatText().contains("Jede Person wählt eine Option."))
+                assertEquals(0, el.visibleButtons("Erklärung hinzufügen").size, "no explanation for a single choice")
+                el.chooseKind("Konsensieren: Entscheidung")
+                awaitUntil("the switch appears", 2000) { el.visibleButtons("Erklärung hinzufügen").size == 2 }
+                assertTrue(el.flatText().contains("Vorn liegt die Option mit dem geringsten Widerstand."))
+                assertFalse(el.flatText().contains("Jede Person wählt eine Option."), "one sentence at a time")
+                assertTrue(el.flatText().contains("„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."))
+                el.chooseKind("Konsensieren: Rangliste")
+                awaitUntil("ranking sentence", 2000) { el.flatText().contains("Das Ergebnis ist eine Rangliste nach Widerstand.") }
+                assertFalse(
+                    el.flatText().contains("zählt nicht zu den Optionen."),
+                    "the passive option exists only for a decision",
+                )
+                assertEquals(2, el.visibleButtons("Erklärung hinzufügen").size)
+            }
+        }
+
+    @Test
+    fun anExplanation_isHiddenWhenTheKindSwitchesBack_withoutLosingTheText_andANewOptionGetsTheSwitchToo(): Promise<Unit> =
+        formTest {
+            withForm(PollWorld(), "poll-form-explain") { el, _, _ ->
+                el.chooseKind("Konsensieren: Rangliste")
+                awaitUntil("switch", 2000) { el.visibleButtons("Erklärung hinzufügen").isNotEmpty() }
+                el.visibleButtons("Erklärung hinzufügen").first().click()
+                awaitUntil("field", 2000) { el.allOf("label").any { it.textContent.orEmpty().startsWith("Erklärung zu Option 1") } }
+                assertEquals("true", el.visibleButtons("Erklärung ausblenden").first().getAttribute("aria-expanded"))
+                el.typeInto("Erklärung zu Option 1", "Weil es meist trocken ist.")
+                el.chooseKind("Einzelauswahl")
+                awaitUntil("switch gone", 2000) { el.visibleButtons("Erklärung ausblenden").isEmpty() }
+                assertTrue(
+                    el.allOf("label").none { it.textContent.orEmpty().startsWith("Erklärung zu Option 1") && it.offsetParent != null },
+                )
+                el.chooseKind("Konsensieren: Entscheidung")
+                awaitUntil("field back", 2000) { el.allOf("label").any { it.textContent.orEmpty().startsWith("Erklärung zu Option 1") } }
+                assertEquals("Weil es meist trocken ist.", (el.controlOf("Erklärung zu Option 1") as org.w3c.dom.HTMLTextAreaElement).value)
+                el.buttonNamed("Option hinzufügen").click()
+                awaitUntil("third option has the switch", 2000) {
+                    el.visibleButtons("Erklärung ausblenden").size +
+                        el.visibleButtons("Erklärung hinzufügen").size ==
+                        3
+                }
+            }
+        }
+
+    @Test
+    fun aSingleChoice_sendsNoExplanation_evenAfterTypingOneInAConsensusKind(): Promise<Unit> =
+        formTest {
+            val done = mutableListOf<PollDto?>()
+            withForm(PollWorld(created = pollDto(id = "p-new")), "poll-form-single-noexp", done) { el, calls, routes ->
+                el.fillValid()
+                el.chooseKind("Konsensieren: Rangliste")
+                awaitUntil("switch", 2000) { el.visibleButtons("Erklärung hinzufügen").isNotEmpty() }
+                el.visibleButtons("Erklärung hinzufügen").first().click()
+                awaitUntil("field", 2000) { el.allOf("label").any { it.textContent.orEmpty().startsWith("Erklärung zu Option 1") } }
+                el.typeInto("Erklärung zu Option 1", "Nur für die Rangliste.")
+                el.chooseKind("Einzelauswahl")
+                awaitUntil("button enabled", 2000) { !el.isButtonDisabled("Umfrage starten") }
+                el.buttonNamed("Umfrage starten").click()
+                awaitUntil("created", 3000) { done.size == 1 }
+                val input = calls.singleCall(routes.create).rpcParam(0)
+                assertEquals("SINGLE_CHOICE", input.kind.unsafeCast<String?>() ?: "SINGLE_CHOICE")
+                val explanations = input.optionExplanations.unsafeCast<Array<String?>?>()
+                assertTrue(explanations == null || explanations.isEmpty(), "no explanation is sent for a single choice")
+            }
+        }
+
+    @Test
+    fun aConsensusDecision_sendsTheKindAndOneExplanationEntryPerOption_emptyOnesAsNull(): Promise<Unit> =
+        formTest {
+            val done = mutableListOf<PollDto?>()
+            withForm(PollWorld(created = pollSkDto()), "poll-form-sk-send", done) { el, calls, routes ->
+                el.fillValid("Wann feiern wir?")
+                el.chooseKind("Konsensieren: Entscheidung")
+                awaitUntil("switch", 2000) { el.visibleButtons("Erklärung hinzufügen").size == 2 }
+                el.visibleButtons("Erklärung hinzufügen").first().click()
+                awaitUntil("field", 2000) { el.allOf("label").any { it.textContent.orEmpty().startsWith("Erklärung zu Option 1") } }
+                el.typeInto("Erklärung zu Option 1", "  Weil es meist trocken ist.  ")
+                el.buttonNamed("Umfrage starten").click()
+                awaitUntil("created", 3000) { done.size == 1 }
+                val input = calls.singleCall(routes.create).rpcParam(0)
+                assertEquals("SK_DECISION", input.kind as String)
+                val explanations = (input.optionExplanations as Array<String?>).toList()
+                assertEquals(2, explanations.size)
+                assertTrue((explanations[0] ?: "").contains("Weil es meist trocken ist."))
+                assertNull(explanations[1])
+            }
+        }
+
+    @Test
+    fun theExplanationCounter_startsAt800_andMoreThan1000CharactersBlockTheStart(): Promise<Unit> =
+        formTest {
+            withForm(PollWorld(), "poll-form-explain-limit") { el, _, _ ->
+                el.fillValid()
+                el.chooseKind("Konsensieren: Rangliste")
+                awaitUntil("switch", 2000) { el.visibleButtons("Erklärung hinzufügen").isNotEmpty() }
+                el.visibleButtons("Erklärung hinzufügen").first().click()
+                awaitUntil("field", 2000) { el.allOf("label").any { it.textContent.orEmpty().startsWith("Erklärung zu Option 1") } }
+                el.typeInto("Erklärung zu Option 1", "x".repeat(799))
+                assertFalse(el.flatText().contains("799/1000"), "no counter below 800")
+                el.typeInto("Erklärung zu Option 1", "x".repeat(800))
+                assertTrue(el.flatText().contains("800/1000"))
+                el.typeInto("Erklärung zu Option 1", "x".repeat(1000))
+                assertFalse(el.isButtonDisabled("Umfrage starten"), "1000 is allowed")
+                el.typeInto("Erklärung zu Option 1", "x".repeat(1001))
+                assertTrue(el.isButtonDisabled("Umfrage starten"))
+                assertTrue(el.reason().contains("Die Erklärung zu Option 1 ist zu lang (höchstens 1000 Zeichen)."))
             }
         }
 }

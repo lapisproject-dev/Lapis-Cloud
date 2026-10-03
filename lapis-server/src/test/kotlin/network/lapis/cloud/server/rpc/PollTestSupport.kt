@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PollOptionTable
 import network.lapis.cloud.server.db.generated.PollParticipationTable
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
@@ -29,6 +30,7 @@ import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollResponseInput
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteAll
@@ -102,7 +104,16 @@ internal fun pollInput(
     options: List<String> = listOf("Ja", "Nein"),
     closesAt: LocalDateTime? = null,
     description: String? = null,
-) = PollCreateInput(question = question, description = description, options = options, closesAt = closesAt)
+    kind: PollKind = PollKind.SINGLE_CHOICE,
+    optionExplanations: List<String?> = emptyList(),
+) = PollCreateInput(
+    question = question,
+    description = description,
+    options = options,
+    closesAt = closesAt,
+    kind = kind,
+    optionExplanations = optionExplanations,
+)
 
 /** Test fixtures + cleanup of everything a poll test spec creates (members, committees, polls, ledger rows, audit rows). */
 internal class PollTestData {
@@ -202,6 +213,7 @@ internal class PollTestData {
     /** Removes EVERY poll (and its options/participations/responses) -- the cap tests need an empty slate. */
     fun deleteAllPolls() {
         transaction {
+            PollResponseRatingTable.deleteAll()
             PollResponseTable.deleteAll()
             PollParticipationTable.deleteAll()
             PollOptionTable.deleteAll()
@@ -216,6 +228,13 @@ internal class PollTestData {
                     .selectAll()
                     .where { (PollTable.createdBy inList memberIds) }
                     .map { it[PollTable.id] }
+            val responseIds =
+                PollResponseTable
+                    .selectAll()
+                    .where {
+                        PollResponseTable.pollId inList pollIds
+                    }.map { it[PollResponseTable.id] }
+            PollResponseRatingTable.deleteWhere { PollResponseRatingTable.responseId inList responseIds }
             PollResponseTable.deleteWhere { PollResponseTable.pollId inList pollIds }
             PollParticipationTable.deleteWhere { PollParticipationTable.pollId inList pollIds }
             PollParticipationTable.deleteWhere { PollParticipationTable.memberId inList memberIds }

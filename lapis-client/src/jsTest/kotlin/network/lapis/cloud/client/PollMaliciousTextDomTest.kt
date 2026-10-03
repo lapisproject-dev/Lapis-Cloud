@@ -103,4 +103,71 @@ class PollMaliciousTextDomTest {
                 assertTrue(element().flatText().contains("Option A"))
             }
         }
+
+    private fun evilSkPoll(status: PollStatus = PollStatus.OPEN) =
+        pollSkDto(
+            status = status,
+            responseCount = if (status == PollStatus.CLOSED) 7 else null,
+            question = "${marker}Frage <img src=x onerror=alert(1)>",
+            options =
+                listOf(
+                    pollOptionDto("o-a", "${marker}Option A", 0, explanation = "${marker}Erklärung <img src=x onerror=alert(1)>"),
+                    pollOptionDto("o-b", "${marker}Option B", 1, explanation = "${marker}Noch eine Erklärung"),
+                    pollOptionDto("o-p", "No change", 10, isPassive = true),
+                ),
+        )
+
+    @Test
+    fun theRatingBooth_showsForgedQuestionOptionsAndExplanationsLiterally_inTheScalesAndInTheReview(): Promise<Unit> =
+        formTest {
+            val world = PollWorld(evilSkPoll())
+            val routes = pollRoutes()
+            withFetchStub(respond = world.respond(routes)) { _ ->
+                mountedForm("poll-evil-rating-booth") { root, element ->
+                    renderPollRatingBooth(root, world.poll, onReview = {}, onExit = {})
+                    assertLiteral(element(), "rating booth scales")
+                    assertTrue(element().flatText().contains("Erklärung"), "the explanation text is shown as text")
+                    listOf(0, 1, 2).forEach { group ->
+                        element().querySelector("label[for='sk-r-${group * 11 + 3}']")!!.unsafeCast<org.w3c.dom.HTMLElement>().click()
+                    }
+                    awaitUntil("enabled", 1500) { !element().isButtonDisabled("Prüfen") }
+                    element().buttonNamed("Prüfen").click()
+                    awaitUntil("review", 1500) { element().hasButton("Endgültig abgeben") }
+                    assertLiteral(element(), "rating booth review")
+                    assertTrue(element().flatText().contains("Option B"))
+                    assertFalse(element().flatText().contains("Noch eine Erklärung"), "the explanation is never part of the review step")
+                }
+            }
+        }
+
+    @Test
+    fun theDetailOptionList_andTheRatingResult_showForgedExplanationsLiterally(): Promise<Unit> =
+        formTest {
+            AppState.setSession(pollSession())
+            val routes = pollRoutes()
+            val world = PollWorld(evilSkPoll(), pollParticipation(hasResponded = true))
+            withFetchStub(respond = world.respond(routes)) { _ ->
+                mountedForm("poll-evil-rating-detail") { root, element ->
+                    renderPollDetail(root, "p1", PollUiContext("m-1"))
+                    awaitUntil("detail rendered", 3000) { element().flatText().contains("Erklärung") }
+                    assertLiteral(element(), "rating detail option list")
+                }
+            }
+            val result =
+                pollRatingResult(
+                    options =
+                        listOf(
+                            pollRatingOption("o-a", rank = 1, cumulative = 7, mean = 1.0),
+                            pollRatingOption("o-b", rank = 2, cumulative = 40, mean = 5.7),
+                            pollRatingOption("o-p", rank = 3, cumulative = 49, mean = 7.0),
+                        ),
+                )
+            mountedForm("poll-evil-rating-result") { root, element ->
+                renderPollResult(root, evilSkPoll(PollStatus.CLOSED), result)
+                assertLiteral(element(), "rating result")
+                element().allOf("button").first { it.textContent?.trim() == "Erklärung" }.click()
+                awaitUntil("explanation shown", 2000) { element().flatText().contains("Erklärung <img") }
+                assertLiteral(element(), "rating result explanation")
+            }
+        }
 }

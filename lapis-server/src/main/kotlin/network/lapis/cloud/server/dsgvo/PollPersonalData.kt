@@ -18,6 +18,9 @@ import kotlin.uuid.Uuid
  * `poll_option` (no member FK) and `poll_response` (BY DESIGN no member FK -- the anonymous answer)
  * are in [PersonalDataRegistry.noPersonalDataAllowlist] with their reasons.
  *
+ * V1.9.41: `poll_response_rating` (resistance per option) is anonymous like `poll_response` (allowlisted) -- no
+ * member FK, so neither exported nor erased per member.
+ *
  * **Export**: polls the member created/closed/aborted and, per participation, ONLY the poll id ("took
  * part") -- never the answer, which cannot be attributed to the member at all.
  *
@@ -44,6 +47,7 @@ object PollPersonalData : MemberPersonalDataContributor {
                                 put("id", row[PollTable.id].toString())
                                 put("question", row[PollTable.question])
                                 put("status", row[PollTable.status].name)
+                                put("kind", row[PollTable.kind].name)
                             },
                         )
                     }

@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import network.lapis.cloud.shared.domain.SystemicConsensusAggregation
+import network.lapis.cloud.shared.domain.SystemicConsensusRules
 import network.lapis.cloud.shared.domain.SystemicConsensusTiebreakRule
 import kotlin.math.sqrt
 import kotlin.uuid.Uuid
@@ -81,8 +82,8 @@ fun computeSystemicConsensusResult(
     scaleMax: Int = 10,
     aggregation: SystemicConsensusAggregation = SystemicConsensusAggregation.MEAN,
     tiebreak: SystemicConsensusTiebreakRule = SystemicConsensusTiebreakRule.LOWEST_MAX_RESISTANCE,
-    groupConflictViableThreshold: Double = 0.2,
-    groupConflictWarnThreshold: Double = 0.5,
+    groupConflictViableThreshold: Double = SystemicConsensusRules.DEFAULT_GROUP_CONFLICT_VIABLE,
+    groupConflictWarnThreshold: Double = SystemicConsensusRules.DEFAULT_GROUP_CONFLICT_WARN,
 ): SkErgebnis {
     require(optionIds.isNotEmpty()) { "computeSystemicConsensusResult requires at least 1 option" }
     require(optionIds.size == optionIds.toSet().size) { "optionIds must not contain duplicates" }
@@ -105,20 +106,10 @@ fun computeSystemicConsensusResult(
     val n = ballots.size
     val optionResults =
         optionIds.map { optionId ->
-            val valuee = ballots.map { it.resistances.getValue(optionId) }
-            val kw = valuee.sum()
-            val mittel = if (n == 0) 0.0 else kw.toDouble() / n
-            val maxWert = valuee.maxOrNull() ?: 0
-            val variance = if (n == 0) 0.0 else valuee.sumOf { (it - mittel) * (it - mittel) } / n
-            val consensusIndex = if (n == 0) 0.0 else kw.toDouble() / (n.toDouble() * scaleMax)
-            SkOptionErgebnis(
+            computeSkOptionResult(
                 optionId = optionId,
-                cumulativeResistance = kw,
-                meanResistance = mittel,
-                maxResistance = maxWert,
-                standardDeviation = sqrt(variance),
-                consensusIndex = consensusIndex,
-                distribution = valuee.groupingBy { it }.eachCount(),
+                values = ballots.map { it.resistances.getValue(optionId) },
+                scaleMax = scaleMax,
             )
         }
 
@@ -181,4 +172,45 @@ fun computeSystemicConsensusResult(
         groupConflictWarning = gewinnerKonsensIndex != null && gewinnerKonsensIndex > groupConflictWarnThreshold,
         noRatings = false,
     )
+}
+
+/**
+ * One option's aggregate from its resistance [values]. The body is the verbatim former lambda body of
+ * [computeSystemicConsensusResult]: the SAME summation order over [values] keeps every Double bit-identical, which
+ * matters because `LOWEST_STD_DEV` compares standard deviations with `==`. Do not "tidy" it.
+ */
+fun computeSkOptionResult(
+    optionId: Uuid,
+    values: List<Int>,
+    scaleMax: Int,
+): SkOptionErgebnis {
+    val n = values.size
+    val valuee = values
+    val kw = valuee.sum()
+    val mittel = if (n == 0) 0.0 else kw.toDouble() / n
+    val maxWert = valuee.maxOrNull() ?: 0
+    val variance = if (n == 0) 0.0 else valuee.sumOf { (it - mittel) * (it - mittel) } / n
+    val consensusIndex = if (n == 0) 0.0 else kw.toDouble() / (n.toDouble() * scaleMax)
+    return SkOptionErgebnis(
+        optionId = optionId,
+        cumulativeResistance = kw,
+        meanResistance = mittel,
+        maxResistance = maxWert,
+        standardDeviation = sqrt(variance),
+        consensusIndex = consensusIndex,
+        distribution = valuee.groupingBy { it }.eachCount(),
+    )
+}
+
+/**
+ * Same as [computeSkOptionResult] from a value histogram (`value -> count`): expanded to an ASCENDING sorted list and
+ * delegated. Used by the polls, which only ever hold aggregates; their standard deviation is never compared.
+ */
+fun computeSkOptionResultFromDistribution(
+    optionId: Uuid,
+    distribution: Map<Int, Int>,
+    scaleMax: Int,
+): SkOptionErgebnis {
+    val values = distribution.entries.sortedBy { it.key }.flatMap { (value, count) -> List(count) { value } }
+    return computeSkOptionResult(optionId = optionId, values = values, scaleMax = scaleMax)
 }

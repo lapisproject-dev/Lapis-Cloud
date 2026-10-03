@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.domain.PollResultDto
 import network.lapis.cloud.shared.domain.PollRules
@@ -86,4 +87,11 @@ interface IPollService {
      * (it describes the caller's own capability, so it is no existence oracle). [UnauthenticatedException] without a session.
      */
     suspend fun canCreatePolls(): Boolean
+
+    /**
+     * V1.9.41, SK_DECISION/SK_PRIORITY only. ACTIVE members only. Complete vector 0..[PollRules.SK_SCALE_MAX] over all options
+     * (for SK_DECISION including the passive option). [BadRequestException] for a wrong poll kind, gaps, duplicates, foreign ids or
+     * out-of-range values; [ConflictException] if not open / already responded. Moves no LTR.
+     */
+    suspend fun castPollRatings(input: PollRatingInput): PollParticipationDto
 }

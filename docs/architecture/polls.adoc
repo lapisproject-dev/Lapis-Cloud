@@ -1,4 +1,4 @@
-= Opinion polls on an LTR basis, server and web UI (V1.9.30, V1.9.31)
+= Opinion polls on an LTR basis, server and web UI (V1.9.30, V1.9.31, V1.9.41)
 :toc:
 
 == Purpose
@@ -9,7 +9,9 @@ resolution (`PollDto.binding` is always `false`), is bound to no motion and no m
 balance is only read and stored as a weight snapshot, so the result can be shown twice: by head count and weighted by LTR.
 
 V1.9.30 is the server (`IPollService`, `V65__polls.sql`, `PollService`); V1.9.31 adds the web UI (see "Web UI (V1.9.31)") and the one
-read-only RPC `canCreatePolls()` it needs, without a migration.
+read-only RPC `canCreatePolls()` it needs, without a migration. V1.9.41 adds the *poll kinds* (see "Poll kinds (V1.9.41)"): two
+consensus kinds in which every member rates every option by resistance, without any LTR involved (`V69__poll_kinds.sql`,
+`IPollService.castPollRatings`).
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
@@ -174,6 +176,133 @@ hard-deletes the member's participations (an erased member is not ACTIVE any mor
 `created_by` / `closed_by` as accountability for an organisation-wide question (precedent: `ElectionPersonalData`). `poll_option` and
 `poll_response` carry no member reference and are in the `noPersonalDataAllowlist` with that reason.
 
+== Poll kinds (V1.9.41)
+
+A poll has a `kind` (`PollKind`, stored in `poll.kind`, default `SINGLE_CHOICE`; an old client that sends no kind creates a classic poll).
+
+[cols="2,5", options="header"]
+|===
+| Kind | Meaning
+| `SINGLE_CHOICE` | The classic poll: every member picks one option; result by head count and weighted by LTR (everything above).
+| `SK_DECISION` | Systemic consensing, decision: every member rates every option -- and the *passive option* "No change" -- with a resistance `0..10`. The option with the lowest cumulative resistance (KW) leads.
+| `SK_PRIORITY` | Systemic consensing, ranking: same rating, the result is a ranking by resistance. No decision, no passive option.
+|===
+
+Rules shared by the two consensus kinds:
+
+* *No LTR.* `castPollRatings` never calls the `LtrBalanceProvider`, writes no ledger entry and no audit entry. `poll_response.weight_ltr` is
+  `0` and `option_id` is `NULL` (the database enforces `option_id IS NOT NULL OR weight_ltr = 0`).
+* *The passive option is a real `poll_option` row* with `is_passive = true` at the reserved position `10` (`PollRules.PASSIVE_OPTION_POSITION`).
+  The unique index on `(poll_id, position)` admits at most one per poll; a check constraint keeps it free of an explanation text. It is stored
+  with the English label "No change" which is never displayed: the client recognises it by its flag and translates it. An option the
+  creator writes with the same text is allowed -- it is told apart by flag and plaque.
+* *Explanations.* The creator may attach an optional text (`poll_option.explanation`, up to 1000 characters, normalised like public texts) to
+  each real option. It is untrusted text: only shown through the sanitising helpers, never in `title`, `aria-label`, `data-*`, a toast or a log.
+  A classic poll refuses any explanation (`BadRequest`); `optionExplanations` is empty or exactly as long as `options`.
+* *Wrong kind is refused before anything is written.* `castPollResponse` on a consensus poll and `castPollRatings` on a classic poll are
+  `BadRequest("Wrong response type")`, checked before any insert and before an LTR balance could be read.
+* `castPollRatings` takes the complete vector (`Map<optionId, 0..10>`) over all options including the passive one; gaps, foreign ids,
+  duplicates (also by upper/lower case spelling of one id), out-of-range values and more than 11 entries are `BadRequest`. Authorization
+  first (ACTIVE members only, no existence oracle), then the poll lock, then status (`Conflict` unless open), kind, vector, already answered.
+
+[source,kuml,name="polls-kinds-model"]
+----
+classDiagram(name = "Polls -- Kinds (V1.9.41)") {
+    val kind = enumOf(name = "PollKind") {
+        literal(name = "SINGLE_CHOICE")
+        literal(name = "SK_DECISION")
+        literal(name = "SK_PRIORITY")
+    }
+    val poll = classOf(name = "Poll") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "kind", type = "PollKind")
+    }
+    val option = classOf(name = "PollOption") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "position", type = "Int")
+        attribute(name = "explanation", type = "String")
+        attribute(name = "isPassive", type = "Boolean")
+    }
+    val participation = classOf(name = "PollParticipation") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+    }
+    val response = classOf(name = "PollResponse") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "optionId", type = "UUID")
+        attribute(name = "weightLtr", type = "BigDecimal")
+    }
+    val rating = classOf(name = "PollResponseRating") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "responseId", type = "UUID")
+        attribute(name = "optionId", type = "UUID")
+        attribute(name = "resistance", type = "Int")
+    }
+
+    association(source = poll, target = option) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "2..11"); role = "options" }
+    }
+    association(source = poll, target = participation) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "participations" }
+    }
+    association(source = poll, target = response) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "responses" }
+    }
+    association(source = response, target = rating) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "ratings" }
+    }
+    association(source = option, target = rating) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "ratedBy" }
+    }
+}
+----
+
+=== Anonymity of the consensus kinds
+
+Three tables, the same separation as before: `poll_participation` says *who* answered, `poll_response` says *that* an answer exists (one row
+per answer, so counts work as they always did) and `poll_response_rating` says *how much resistance per option*. The rating table has
+deliberately no `member_id` and no time column, random UUIDv4 ids, and no key to the participation.
+
+* The API never carries a `response_id` or any id of a response or rating row. `getPollResult` reads a single aggregate query
+  `GROUP BY option_id, resistance` -- no cross-option link can reach a client, and the result is computed from the histograms
+  (`PollRatingTally`, a pure function).
+* *Disclosure.* One threshold for everything: below `PollRules.MIN_RESPONSES_FOR_RESULT` (5) answers only the response count is returned
+  (`ratingResultAvailable = false`); from 5 on, the per-option aggregates. There is no weighted result and no head result for these kinds.
+* *Residual risk, stated plainly:* the link `poll_response_rating.response_id -> poll_response` lets whoever can read the database or its
+  backups rebuild the complete rating vector of one response (not the member: the response has no member key). This is the same residual
+  risk as the ballots of the systemic consensus. Stricter would be a rating table without `response_id`; the cost is that completeness could
+  only be checked at cast time. This wave keeps the link and documents it.
+
+=== Result and decision rule
+
+Per option: cumulative resistance (KW), mean, maximum, how often the top value 10 was given, the group-conflict index, a *strong objection*
+flag (maximum `>= 9`, `SystemicConsensusRules.strongObjectionThreshold`) and the complete `0..10` distribution. The calculation of one
+option is shared with the proposal consensus (`computeSkOptionResult`, extracted without any behavioural change -- a regression test pins the
+results bit for bit, because the standard-deviation tiebreak compares doubles with `==`).
+
+* `SK_PRIORITY`: sorted by `(KW, creator's position)`; rank by competition ranking (1, 2, 2, 4); `tied` marks a shared rank. No outcome.
+* `SK_DECISION`: the lowest KW leads. *The passive option wins every tie it takes part in* (`NO_CHANGE_WINS`, `tieAtLowest` tells that it was a
+  tie). A tie between real options is decided by the lowest maximum value (`decidedByLowestMax`); a remaining tie is `NO_CLEAR_RESULT` with
+  no winner. *Never* a decision by id: an id means nothing to the group.
+
+=== Web UI of the kinds
+
+* *Create form.* Collapsed behind the button "Neue Umfrage" in the title row (rule R36B). A radio "Art der Umfrage" (single choice /
+  consensing decision / consensing ranking) with one live sentence for the chosen kind. For the consensus kinds each option gets the switch
+  "Erklärung hinzufügen" and a text area (counter from 800 characters, limit 1000). Switching the kind back hides the explanations without
+  deleting what was typed; a single choice never sends one.
+* *Rating booth.* `RatingBooth.kt` is the shared flow (rate every item, check, submit for good); the consensus screen's booth is now an
+  adapter of it and `PollRatingBooth.kt` is the poll adapter. The passive option comes first (plaque "P"), anchors "kein Widerstand" /
+  "Bedenken" / "starker Widerstand", the head says that this is a non-binding mood picture and that the answer is anonymous. The scale breaks
+  into 0-5 and 6-10 below 380 px (rule scoped to `.lapis-booth-poll`).
+* *Result.* `PollRatingResultView.kt`: no bars (a bar of "less is better" would read as a score), no success colour for the leader
+  (neutral "Geringster Widerstand" mark), ranking text "1.", "2. gleichauf" for `SK_PRIORITY`.
+
 == Web UI (V1.9.31)
 
 Routes: `/polls` (list) and `/polls/:id` (detail), in the navigation group "Selbstverwaltung" directly after "Konsensieren"
@@ -184,7 +313,7 @@ redirect described below; the server refuses them anyway.
 poll with the status, the deadline, the viewer's own state ("Offen für Sie" as a badge, "Beantwortet" as quiet text) and -- for closed polls
 only -- the number of answers. "Mehr laden" asks for the next page of 50 (the screen requests 51 rows to know whether a next page exists and
 cuts the extra one off; the offset is clamped to `PollRules.MAX_LIST_OFFSET`). The viewer's own states come in batches of
-`PollRules.MAX_PARTICIPATION_BATCH`, never one call per row. "Umfrage erstellen" appears only if `canCreatePolls()` is `true`.
+`PollRules.MAX_PARTICIPATION_BATCH`, never one call per row. "Neue Umfrage" (a collapsed create form, rule R36B, see "Poll kinds in the web UI") appears only if `canCreatePolls()` is `true`.
 
 *Create form.* A `lapisForm`; the option fields are real form fields that are added (up to 10) and removed (from the third on) at run
 time. The draft is validated with the constants of `PollRules` (question 500, description 2000, option 200 characters, 2..10 options,
@@ -278,3 +407,8 @@ server withholds shows the reason in a sentence instead of partial numbers; a wi
 * There is no participation rate: eligibility is evaluated live when a member answers, no snapshot of the entitled members is taken.
 * The concurrency tests run on H2 and, since V1.9.37, on a real PostgreSQL too (the Postgres test lane, link:postgres-test-lane.adoc[postgres-test-lane.adoc]); the lock behaviour is measured there.
 * The web UI (V1.9.31) is described in the next section; its known limits are listed there.
+* Consensus kinds (V1.9.41): homogeneity leaks. If every rating of one option is the same, that value is known to everyone; and if `n - 1`
+  members collude, the last member's value is revealed -- the threshold of 5 protects against outsiders only. A reader of the database or of
+  its backups can rebuild whole vectors through `response_id` (see "Anonymity of the consensus kinds"). The histogram of the result labels
+  every number 0..10 (same renderer as the proposal consensus).
+* The staging test plan covers the kinds (`polls-staging-test.adoc`); it was not executed.

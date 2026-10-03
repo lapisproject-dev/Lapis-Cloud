@@ -16,10 +16,11 @@ import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
 import network.lapis.cloud.shared.domain.PollRules
 import network.lapis.cloud.shared.domain.PollStatus
+import network.lapis.cloud.shared.domain.isConsensus
 
 /*
  * V1.9.31 "Umfragen" -- the list view: a status filter (open by default), one row per poll with the viewer's own state, "Mehr laden" for
- * the next page, and -- only for those who may start polls -- "Umfrage erstellen". The filter lives in one local variable: no storage, no URL.
+ * the next page, and -- only for those who may start polls -- "Neue Umfrage" (a collapsed create form, R36B). The filter lives in one local variable: no storage, no URL.
  * The number of answers is a column of the closed polls only (an open poll shows none, see `showsResponseCount`).
  */
 
@@ -46,11 +47,14 @@ private fun pollEmptyText(status: PollStatus): String =
 
 internal fun renderPollList(
     root: SimplePanel,
+    header: PageHeader,
     ctx: PollUiContext,
 ) {
-    val listHost = root.vPanel(spacing = 10)
+    // R36B: the create form sits directly under the header, collapsed; the list follows below it.
     val formHost = root.vPanel(spacing = 10)
+    val listHost = root.vPanel(spacing = 10)
     var filter = PollStatus.OPEN
+    var createFormMounted = false
 
     val toolbar = listHost.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val chips =
@@ -58,8 +62,6 @@ internal fun renderPollList(
             setAttribute("role", "group")
             setAttribute("aria-label", gettext("Status"))
         }
-    val createButton = toolbar.button(tr("Umfrage erstellen"), style = ButtonStyle.PRIMARY)
-    createButton.visible = false
 
     val chipButtons = mutableMapOf<PollStatus, Button>()
     lateinit var section: DataSection
@@ -87,20 +89,22 @@ internal fun renderPollList(
         listHost.dataSection<PollListData>(
             // The empty text depends on the filter, so the emptiness is decided inside the render, not by the section.
             isEmpty = { false },
-            onSettled = { data -> createButton.visible = data?.canCreate == true },
+            onSettled = { data ->
+                // onSettled can fire again (filter change, reload): the button is hung into the header exactly once.
+                if (data?.canCreate == true && !createFormMounted) {
+                    createFormMounted = true
+                    collapsibleCreateForm<Unit>(
+                        actionSlot = header.actionSlot,
+                        formHost = formHost,
+                        buttonLabel = tr("Neue Umfrage"),
+                        formId = "lapis-create-poll",
+                    ) { _, close -> renderPollCreateForm(close = close, onCreated = { navigateTo("/polls/${it.id}") }) }
+                }
+            },
             load = { loadPollList(filter, 0) },
             render = { panel, data -> renderPollRows(panel, data, filter, ctx) },
         )
 
-    createButton.onClick {
-        listHost.hide()
-        formHost.removeAll()
-        renderPollCreateForm(formHost) { created ->
-            formHost.removeAll()
-            listHost.show()
-            if (created != null) navigateTo("/polls/${created.id}")
-        }
-    }
     section.reload()
 }
 
@@ -131,7 +135,11 @@ private fun renderPollRows(
                     },
                     DataColumn(
                         title = tr("Status"),
-                        cell = { container, poll -> container.statusBadge(pollStatusLabel(poll.status), pollStatusColor(poll.status)) },
+                        cell = { container, poll ->
+                            container.statusBadge(pollStatusLabel(poll.status), pollStatusColor(poll.status))
+                            // Plain text mark, no icon: the consensus kinds are rated by resistance, not answered by a single choice.
+                            if (poll.kind.isConsensus) container.span(gettext("Konsensieren"), className = "text-muted small ms-1")
+                        },
                     ),
                     textColumn(title = tr("Frist")) { pollDeadlineLabel(it) },
                     DataColumn(

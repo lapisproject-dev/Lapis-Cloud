@@ -43,13 +43,13 @@ fun renderPollScreen(
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Umfragen"))
+    val header = root.pageHeader(tr("Umfragen"))
     if (initialPollId != null) {
         root.button(tr("Zur Übersicht"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo(Routes.POLLS) }
         renderPollDetail(root.vPanel(spacing = 10), initialPollId, ctx)
         return
     }
-    renderPollList(root, ctx)
+    renderPollList(root, header, ctx)
 }
 
 /** One page of the list: the polls, the viewer's own state per poll, whether a further page exists and whether the viewer may start a poll. */

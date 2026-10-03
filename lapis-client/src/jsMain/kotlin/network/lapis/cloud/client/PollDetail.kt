@@ -5,6 +5,7 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.TAG
 import io.kvision.html.div
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.html.tag
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -13,6 +14,7 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollStatus
+import network.lapis.cloud.shared.domain.isConsensus
 import network.lapis.cloud.shared.rpc.IPollService
 
 /*
@@ -81,13 +83,16 @@ private fun renderOpenState(
 ) {
     val poll = data.poll
     when {
-        canRespondToPoll(poll, data.participation) ->
-            renderPollBooth(
-                panel = boothHost,
-                poll = poll,
-                onReview = { reviewing -> actions.visible = !reviewing },
-                onExit = { refresh -> if (refresh) reload() else navigateTo(Routes.POLLS) },
-            )
+        canRespondToPoll(poll, data.participation) -> {
+            val onReview = { reviewing: Boolean -> actions.visible = !reviewing }
+            val onExit = { refresh: Boolean -> if (refresh) reload() else navigateTo(Routes.POLLS) }
+            // V1.9.41: the consensus kinds are rated by resistance in the shared rating booth, the classic kind keeps its choice booth.
+            if (poll.kind.isConsensus) {
+                renderPollRatingBooth(panel = boothHost, poll = poll, onReview = onReview, onExit = onExit)
+            } else {
+                renderPollBooth(panel = boothHost, poll = poll, onReview = onReview, onExit = onExit)
+            }
+        }
         else -> {
             renderOptionList(body, poll)
             if (data.participation.hasResponded) {
@@ -104,8 +109,34 @@ private fun renderOptionList(
     body: SimplePanel,
     poll: PollDto,
 ) {
+    if (poll.kind.isConsensus) {
+        renderRatingOptionList(body, poll)
+        return
+    }
     val list = body.tag(TAG.UL, className = "mb-0")
     poll.options.forEach { option -> list.tag(TAG.LI) { untrustedSpan(option.text, className = "text-break") } }
+}
+
+/** The options of a consensus poll: the passive option first, numbered like the booth and the result, each with its (clamped) explanation. */
+private fun renderRatingOptionList(
+    body: SimplePanel,
+    poll: PollDto,
+) {
+    pollRatingOrderedOptions(poll).forEachIndexed { index, (number, option) ->
+        val row = body.vPanel(spacing = 2) { addCssClasses("lapis-sk-option-row") }
+        val line = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+        line.consensusNumberPlaque(number)
+        line.consensusNumberSrPrefix(number)
+        line.span(pollRatingOptionText(option), className = "text-break fw-bold")
+        if (option.isPassive) line.span(gettext("Passivlösung"), className = "text-muted small")
+        renderUntrustedExplanation(
+            parent = row,
+            raw = if (option.isPassive) null else option.explanation,
+            mode = RationaleMode.Clamped,
+            toggleIdPrefix = "poll-why",
+            index = index,
+        )
+    }
 }
 
 private fun renderPollActions(

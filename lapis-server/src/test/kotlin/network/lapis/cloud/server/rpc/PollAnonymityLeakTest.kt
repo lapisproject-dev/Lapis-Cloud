@@ -7,14 +7,22 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
+import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollHeadOptionResultDto
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollOptionDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
+import network.lapis.cloud.shared.domain.PollRatingInput
+import network.lapis.cloud.shared.domain.PollRatingOptionResultDto
+import network.lapis.cloud.shared.domain.PollRatingResultDto
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.domain.PollResultDto
 import network.lapis.cloud.shared.domain.PollWeightedOptionResultDto
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Welle V1.9.30 -- anonymity at the JSON level (pattern of `PublicApiFieldReductionTest`): every
@@ -71,8 +79,9 @@ class PollAnonymityLeakTest :
                     "resultAvailable",
                     "responseCount",
                     "canManage",
+                    "kind",
                 )
-            names(PollOptionDto.serializer()) shouldBe setOf("id", "position", "text")
+            names(PollOptionDto.serializer()) shouldBe setOf("id", "position", "text", "explanation", "isPassive")
             names(PollParticipationDto.serializer()) shouldBe setOf("pollId", "eligible", "hasResponded", "canRespond")
             names(PollResultDto.serializer()) shouldBe
                 setOf(
@@ -83,11 +92,31 @@ class PollAnonymityLeakTest :
                     "weightedResultAvailable",
                     "weightedWithheldReason",
                     "weightedResult",
+                    "kind",
+                    "ratingResultAvailable",
+                    "ratingResult",
                 )
+            names(PollRatingResultDto.serializer()) shouldBe
+                setOf("options", "outcome", "winnerOptionId", "tieAtLowest", "decidedByLowestMax")
+            names(PollRatingOptionResultDto.serializer()) shouldBe
+                setOf(
+                    "optionId",
+                    "rank",
+                    "tied",
+                    "cumulativeResistance",
+                    "meanResistance",
+                    "maxResistance",
+                    "topValueCount",
+                    "consensusIndex",
+                    "strongObjection",
+                    "distribution",
+                )
+            names(PollRatingInput.serializer()) shouldBe setOf("pollId", "ratings")
             names(PollHeadOptionResultDto.serializer()) shouldBe setOf("optionId", "count")
             names(PollWeightedOptionResultDto.serializer()) shouldBe setOf("optionId", "sharePercent")
             names(PollResponseInput.serializer()) shouldBe setOf("pollId", "optionId")
-            names(PollCreateInput.serializer()) shouldBe setOf("question", "description", "options", "closesAt")
+            names(PollCreateInput.serializer()) shouldBe
+                setOf("question", "description", "options", "closesAt", "kind", "optionExplanations")
             // none of the allowed names can carry a response-level secret
             listOf(
                 PollDto.serializer(),
@@ -97,6 +126,9 @@ class PollAnonymityLeakTest :
                 PollHeadOptionResultDto.serializer(),
                 PollWeightedOptionResultDto.serializer(),
                 PollResponseInput.serializer(),
+                PollRatingResultDto.serializer(),
+                PollRatingOptionResultDto.serializer(),
+                PollRatingInput.serializer(),
             ).flatMap { names(it) }.forEach { name ->
                 forbiddenFragments.forEach { fragment -> name.lowercase() shouldNotContain fragment }
             }
@@ -142,6 +174,67 @@ class PollAnonymityLeakTest :
                     val lower = out.lowercase()
                     forbiddenFragments.forEach { fragment -> lower shouldNotContain fragment }
                     balances.forEach { b -> out shouldNotContain b.substringBefore('.') }
+                }
+            }
+        }
+
+        test("every RPC answer of a consensus poll is free of weights, LTR, respondents, response ids and (below 5) any aggregate") {
+            pollTestApplication {
+                val chair = data.chair()
+                val voters = (0 until 6).map { data.member(label = "leak-sk") }
+                val outputs = mutableListOf<String>()
+                val created = call(member = chair) { createPoll(pollInput(kind = PollKind.SK_DECISION)) }
+                outputs += json.encodeToString(PollDto.serializer(), created)
+                voters.take(4).forEachIndexed { i, v ->
+                    outputs +=
+                        json.encodeToString(
+                            PollParticipationDto.serializer(),
+                            call(
+                                member = v,
+                            ) {
+                                castPollRatings(
+                                    PollRatingInput(pollId = created.id, ratings = created.options.associate { it.id to (i + 1) }),
+                                )
+                            },
+                        )
+                }
+                call(member = chair) { closePoll(created.id) }
+                val below = json.encodeToString(PollResultDto.serializer(), call(member = chair) { getPollResult(created.id) })
+                below shouldNotContain "distribution"
+                below shouldNotContain "meanResistance"
+                outputs += below
+
+                val full = call(member = chair) { createPoll(pollInput(kind = PollKind.SK_PRIORITY)) }
+                voters.forEach { v ->
+                    outputs +=
+                        json.encodeToString(
+                            PollParticipationDto.serializer(),
+                            call(member = v) {
+                                castPollRatings(
+                                    PollRatingInput(
+                                        pollId = full.id,
+                                        ratings =
+                                            full.options.associate {
+                                                it.id to
+                                                    5
+                                            },
+                                    ),
+                                )
+                            },
+                        )
+                }
+                call(member = chair) { closePoll(full.id) }
+                outputs += json.encodeToString(PollResultDto.serializer(), call(member = chair) { getPollResult(full.id) })
+                val responseIds =
+                    transaction { PollResponseTable.selectAll().map { it[PollResponseTable.id].toString() } } +
+                        transaction { PollResponseRatingTable.selectAll().map { it[PollResponseRatingTable.id].toString() } }
+                responseIds.isEmpty() shouldBe false
+                outputs.forEach { out ->
+                    val lower = out.lowercase()
+                    forbiddenFragments.forEach { fragment -> lower shouldNotContain fragment }
+                    lower shouldNotContain "responseid"
+                    lower shouldNotContain "response_id"
+                    responseIds.forEach { id -> out shouldNotContain id }
                 }
             }
         }

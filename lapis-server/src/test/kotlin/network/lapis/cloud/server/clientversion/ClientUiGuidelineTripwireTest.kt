@@ -646,6 +646,11 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         "PollBooth.kt",
         "PollResultView.kt",
         "PollGuard.kt",
+        // V1.9.41 consensus polls: born strict (the shared rating booth, its two adapters, the result view and the pure draft checks).
+        "RatingBooth.kt",
+        "PollRatingBooth.kt",
+        "PollRatingResultView.kt",
+        "PollCreateDraft.kt",
         // V1.9.33 (new, born on the form grammar): the member's address / GwG forms. Two `lapisForm`s, each with its own save button.
         "MemberAddressCard.kt",
         // V1.9.29 "KI-Zugang": no form at all -- one immediate switch (a `CheckBox` constructor, saved by itself, confirmed by a dialog when turned
@@ -934,6 +939,7 @@ private val CREATE_FORM_CALL =
     Regex(
         """(?<![A-Za-z0-9_])render\w*(?:Creation|CreateForm|CreationForm|CreateListingForm|SubmissionForm|SubmitProjectForm|AppointmentForm)\w*\(""",
     )
+private val DECLARATION_PREFIX = Regex("""\bfun\s+(?:[A-Za-z0-9_<>?]+\.)?$""")
 private val COLLAPSIBLE_CALL = Regex("""(?<![A-Za-z0-9_])collapsibleCreateForm(?:<[^>]*>)?\(""")
 
 internal fun visibleCreateFormFindings(text: String): List<String> {
@@ -949,8 +955,8 @@ internal fun visibleCreateFormFindings(text: String): List<String> {
     val calls =
         CREATE_FORM_CALL
             .findAll(code)
-            // `fun renderXxxCreation(` is the declaration, not a call
-            .filter { !code.substring(maxOf(0, it.range.first - 4), it.range.first).endsWith("fun ") }
+            // `fun renderXxxCreation(` and the extension form `fun SimplePanel.renderXxxCreateForm(` (V1.9.41) are declarations, not calls
+            .filter { !DECLARATION_PREFIX.containsMatchIn(code.substring(maxOf(0, it.range.first - 60), it.range.first)) }
             .filter { call -> collapsed.none { call.range.first in it } }
             .map { fingerprintAt(code = code, offset = it.range.first) }
     return (titles + calls).toList()
@@ -1140,14 +1146,6 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
                     ),
                 reason = "Group \"Finanzen\" (finance).",
             ),
-        "PollListView.kt" to
-            R36bEntry(
-                fingerprints =
-                    listOf(
-                        "renderPollCreateForm(formHost) { created ->",
-                    ),
-                reason = "Group \"Governance-2\": polls wait for the LTR surveys plan (PollCreateForm.kt is being reworked there).",
-            ),
         "RegionalChaptersScreen.kt" to
             R36bEntry(
                 fingerprints =
@@ -1171,11 +1169,11 @@ private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
  * and it may not drop more than 3 below the cap without the cap being lowered -- so a quietly converted screen has to be taken out of the
  * ledger in the same commit. [R36B_NOT_YET_COLLAPSED] and [R36B_EXEMPT] pin the exact fingerprints; this pins the total.
  */
-private const val R36B_REMAINING_MAX = 40
+private const val R36B_REMAINING_MAX = 39
 
 /** The governance pilot of V1.9.40: converted, so held strictly (no finding at all) and required to use the component. */
 private val R36B_CONVERTED: Set<String> =
-    setOf("CommitteesScreen.kt", "BoardMembershipScreen.kt", "MeetingsScreen.kt", "MotionsScreen.kt")
+    setOf("CommitteesScreen.kt", "BoardMembershipScreen.kt", "MeetingsScreen.kt", "MotionsScreen.kt", "PollListView.kt")
 
 private fun r36bActual(): Map<String, List<String>> =
     clientKotlinFiles()

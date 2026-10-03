@@ -19443,3 +19443,99 @@ msgstr "Uzasadnienie zawiera zbyt wiele podziałów wiersza."
 
 msgid "Die Begründung wird gelöscht."
 msgstr "Uzasadnienie zostanie usunięte."
+
+msgid "Jede Person wählt eine Option."
+msgstr "Każda osoba wybiera jedną opcję."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei."
+msgstr "Każda osoba ocenia każdą opcję w skali od 0 (brak oporu) do 10 (silny opór). Na pierwszym miejscu jest opcja z najmniejszym oporem. „Bez zmian” jest zawsze uwzględniona."
+
+msgid "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). Das Ergebnis ist eine Rangliste nach Widerstand."
+msgstr "Każda osoba ocenia każdą opcję w skali od 0 (brak oporu) do 10 (silny opór). Wynikiem jest ranking według oporu."
+
+msgid "Einzelauswahl"
+msgstr "Wybór pojedynczy"
+
+msgid "Konsensieren: Entscheidung"
+msgstr "Konsensowanie: decyzja"
+
+msgid "Konsensieren: Rangliste"
+msgstr "Konsensowanie: ranking"
+
+msgid "Art der Umfrage"
+msgstr "Rodzaj ankiety"
+
+msgid "„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen."
+msgstr "„Bez zmian” jest zawsze uwzględniona i nie wlicza się do opcji."
+
+msgid "Erklärung zu Option %1 (optional)"
+msgstr "Wyjaśnienie do opcji %1 (opcjonalne)"
+
+msgid "Erklärung hinzufügen"
+msgstr "Dodaj wyjaśnienie"
+
+msgid "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen)."
+msgstr "Wyjaśnienie do opcji %1 jest za długie (maksymalnie %2 znaków)."
+
+msgid "Erklärung ausblenden"
+msgstr "Ukryj wyjaśnienie"
+
+msgid "Die Erklärung zu Option %1 enthält ungültige Zeichen oder zu viele Zeilenumbrüche."
+msgstr "Wyjaśnienie do opcji %1 zawiera niedozwolone znaki lub zbyt wiele podziałów wiersza."
+
+msgid "Passivlösung"
+msgstr "Rozwiązanie pasywne"
+
+msgid "Unverbindliches Stimmungsbild, keine Abstimmung."
+msgstr "Niewiążący obraz nastrojów, nie głosowanie."
+
+msgid "Wie groß ist Ihr Widerstand gegen jede Option?"
+msgstr "Jak duży jest Pana/Pani opór wobec każdej opcji?"
+
+msgid "Ihre Antwort ist anonym: Es wird gespeichert, dass Sie geantwortet haben, aber nicht, wie."
+msgstr "Pana/Pani odpowiedź jest anonimowa: zapisywane jest, że udzielono odpowiedzi, ale nie jakiej."
+
+msgid "kein Widerstand"
+msgstr "brak oporu"
+
+msgid "Bedenken"
+msgstr "zastrzeżenia"
+
+msgid "starker Widerstand"
+msgstr "silny opór"
+
+msgid "Erklärung"
+msgstr "Wyjaśnienie"
+
+msgid "Rangliste nach Widerstand"
+msgstr "Ranking według oporu"
+
+msgid "Keine Änderung hat den geringsten Widerstand."
+msgstr "„Bez zmian” ma najmniejszy opór."
+
+msgid "Gleichstand beim kumulierten Widerstand: Bei Gleichstand bleibt es bei keiner Änderung."
+msgstr "Remis w skumulowanym oporze: przy remisie nic się nie zmienia."
+
+msgid "Gleichstand, kein eindeutiges Ergebnis."
+msgstr "Remis, brak jednoznacznego wyniku."
+
+msgid "%1."
+msgstr "%1."
+
+msgid "gleichauf"
+msgstr "ex aequo"
+
+msgid "Starker Einwand"
+msgstr "Silny sprzeciw"
+
+msgid "Ø %1"
+msgstr "Ø %1"
+
+msgid "Summe %1 · 10er: %2"
+msgstr "Suma %1 · dziesiątki: %2"
+
+msgid "Neue Umfrage"
+msgstr "Nowa ankieta"
+
+msgid "Keine Änderung"
+msgstr "Bez zmian"

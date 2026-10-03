@@ -2,7 +2,6 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
@@ -12,9 +11,9 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PollOptionTable
 import network.lapis.cloud.server.db.generated.PollParticipationTable
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
-import network.lapis.cloud.server.db.truncatedToDbPrecision
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.security.CurrentMember
@@ -30,13 +29,16 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollOptionDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.domain.PollResultDto
 import network.lapis.cloud.shared.domain.PollRules
 import network.lapis.cloud.shared.domain.PollSnapshot
 import network.lapis.cloud.shared.domain.PollStatus
+import network.lapis.cloud.shared.domain.isConsensus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -51,6 +53,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -59,9 +62,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
-import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 /**
@@ -129,6 +130,7 @@ class PollService(
                 it[question] = validated.question
                 it[description] = validated.description
                 it[status] = PollStatus.OPEN
+                it[kind] = validated.kind
                 it[createdBy] = current.memberId
                 it[createdAt] = now
                 it[closesAt] = validated.closesAt
@@ -139,6 +141,19 @@ class PollService(
                     it[PollOptionTable.pollId] = pollId
                     it[position] = index
                     it[text] = optionText
+                    it[explanation] = validated.explanations[index]
+                    it[isPassive] = false
+                }
+            }
+            if (validated.kind == PollKind.SK_DECISION) {
+                // The passive option ("No change"): a real row with a flag at the reserved position, never user text.
+                PollOptionTable.insert {
+                    it[PollOptionTable.id] = Uuid.random()
+                    it[PollOptionTable.pollId] = pollId
+                    it[position] = PollRules.PASSIVE_OPTION_POSITION
+                    it[text] = PollRules.PASSIVE_OPTION_STORED_LABEL
+                    it[explanation] = null
+                    it[isPassive] = true
                 }
             }
             AuditLogRecorder.record(
@@ -155,6 +170,8 @@ class PollService(
                             status = PollStatus.OPEN.name,
                             closesAt = validated.closesAt,
                             closedAt = null,
+                            kind = if (validated.kind.isConsensus) validated.kind.name else null,
+                            optionExplanations = if (validated.kind.isConsensus) validated.explanations else null,
                         ),
                     ),
             )
@@ -244,6 +261,8 @@ class PollService(
             // ABORTED is NOT closed: an aborted poll's responses are never disclosed.
             if (row.effectivePollStatus(wallNow()) != PollStatus.CLOSED) throw ConflictException("Poll is not closed")
 
+            if (row[PollTable.kind].isConsensus) return@transaction consensusResult(pollId = id, kind = row[PollTable.kind])
+
             val optionIds =
                 PollOptionTable
                     .selectAll()
@@ -256,7 +275,7 @@ class PollService(
             val perOption =
                 PollResponseTable
                     .select(PollResponseTable.optionId, responseCount, weightSum)
-                    .where { PollResponseTable.pollId eq id }
+                    .where { (PollResponseTable.pollId eq id) and PollResponseTable.optionId.isNotNull() }
                     .groupBy(PollResponseTable.optionId)
                     .associate { it[PollResponseTable.optionId] to (it[responseCount].toInt() to (it[weightSum] ?: BigDecimal.ZERO)) }
             val weightedCount = PollResponseTable.id.count()
@@ -279,6 +298,52 @@ class PollService(
                     },
             )
         }
+    }
+
+    /**
+     * Result of a consensus poll: ONE aggregate query `GROUP BY option_id, resistance`. No `response_id` ever leaves the
+     * query, so no cross-option link can reach the API.
+     */
+    private fun consensusResult(
+        pollId: Uuid,
+        kind: PollKind,
+    ): PollResultDto {
+        val options =
+            PollOptionTable
+                .selectAll()
+                .where { PollOptionTable.pollId eq pollId }
+                .orderBy(PollOptionTable.position to SortOrder.ASC)
+                .toList()
+        val optionIds = options.map { it[PollOptionTable.id] }
+        val responseCount =
+            PollResponseTable
+                .selectAll()
+                .where { PollResponseTable.pollId eq pollId }
+                .count()
+                .toInt()
+        val n = PollResponseRatingTable.id.count()
+        val grouped = HashMap<Uuid, MutableMap<Int, Int>>()
+        PollResponseRatingTable
+            .select(PollResponseRatingTable.optionId, PollResponseRatingTable.resistance, n)
+            .where { PollResponseRatingTable.optionId inList optionIds }
+            .groupBy(PollResponseRatingTable.optionId, PollResponseRatingTable.resistance)
+            .forEach {
+                grouped.getOrPut(it[PollResponseRatingTable.optionId]) { HashMap() }[it[PollResponseRatingTable.resistance]] = it[n].toInt()
+            }
+        return computePollRatingResult(
+            pollId = pollId,
+            kind = kind,
+            responseCount = responseCount,
+            optionsInPositionOrder =
+                options.map {
+                    PollRatingOptionTally(
+                        optionId = it[PollOptionTable.id],
+                        position = it[PollOptionTable.position],
+                        isPassive = it[PollOptionTable.isPassive],
+                        distribution = grouped[it[PollOptionTable.id]].orEmpty(),
+                    )
+                },
+        )
     }
 
     override suspend fun canCreatePolls(): Boolean {
@@ -338,6 +403,8 @@ class PollService(
             val pollRow = lockPollRow(pollId)
             val now = nowLocalDateTime()
             if (pollRow.effectivePollStatus(wallNow()) != PollStatus.OPEN) throw ConflictException("Poll is not open")
+            // Before any insert and before the LTR balance is read: a consensus poll is answered by castPollRatings only.
+            if (pollRow[PollTable.kind].isConsensus) throw BadRequestException("Wrong response type")
             val optionBelongs =
                 PollOptionTable
                     .selectAll()
@@ -386,66 +453,48 @@ class PollService(
         }
     }
 
-    // ------------------------------------------------------------------------------------------------
-
-    private class ValidatedCreate(
-        val question: String,
-        val description: String?,
-        val options: List<String>,
-        val closesAt: LocalDateTime?,
-    )
-
-    private fun validateCreateInput(
-        input: PollCreateInput,
-        wallNow: LocalDateTime,
-    ): ValidatedCreate {
-        // Bound the work before any per-element processing.
-        if (input.options.size > PollRules.MAX_OPTIONS) {
-            throw BadRequestException("A poll has at most ${PollRules.MAX_OPTIONS} options")
-        }
-        val question = PollRules.normalizeText(input.question)
-        if (question.isEmpty() || question.length > PollRules.MAX_QUESTION_LENGTH || question.any { it.isISOControl() }) {
-            throw BadRequestException("The question must have 1..${PollRules.MAX_QUESTION_LENGTH} characters")
-        }
-        val rawDescription = input.description?.trim().orEmpty()
-        if (rawDescription.length > PollRules.MAX_DESCRIPTION_LENGTH ||
-            rawDescription.any { it.isISOControl() && it != '\n' && it != '\r' && it != '\t' }
-        ) {
-            throw BadRequestException("The description must have at most ${PollRules.MAX_DESCRIPTION_LENGTH} characters")
-        }
-        val options = input.options.map { PollRules.normalizeText(it) }
-        if (options.size < PollRules.MIN_OPTIONS) {
-            throw BadRequestException("A poll needs at least ${PollRules.MIN_OPTIONS} options")
-        }
-        options.forEach {
-            if (it.isEmpty() || it.length > PollRules.MAX_OPTION_LENGTH || it.any { c -> c.isISOControl() }) {
-                throw BadRequestException("Each option must have 1..${PollRules.MAX_OPTION_LENGTH} characters")
-            }
-        }
-        if (options.map { PollRules.optionKey(it) }.toSet().size != options.size) {
-            throw BadRequestException("Options must be distinct")
-        }
-        val closesAt = input.closesAt?.truncatedToDbPrecision()
-        if (closesAt != null) {
-            // closesAt is a wall-clock in the organization zone, so the window is measured on that wall-clock
-            // too (the lead/max spans are added as instants in that zone, so a DST change inside the span is honoured).
-            val zone = OrganizationTimeZone.current()
-            val earliest = wallNow.toInstant(zone).plus(PollRules.MIN_DEADLINE_LEAD_MINUTES.minutes).toLocalDateTime(zone)
-            val latest = wallNow.toInstant(zone).plus(PollRules.MAX_DEADLINE_DAYS.days).toLocalDateTime(zone)
-            if (closesAt < earliest || closesAt > latest) {
-                throw BadRequestException(
-                    "The deadline must be between ${PollRules.MIN_DEADLINE_LEAD_MINUTES} minutes and " +
-                        "${PollRules.MAX_DEADLINE_DAYS} days from now",
+    override suspend fun castPollRatings(input: PollRatingInput): PollParticipationDto {
+        val current = resolveCurrentMember(call)
+        return transaction {
+            // FIRST: no existence oracle for non-members (same as castPollResponse).
+            requireActiveMembership(memberId = current.memberId)
+            // Bound the work before any parsing.
+            if (input.ratings.size > PollRules.MAX_OPTIONS + 1) throw BadRequestException("Too many ratings")
+            val pollId = input.pollId.toPollIdOrNotFound()
+            val pollRow = lockPollRow(pollId)
+            if (pollRow.effectivePollStatus(wallNow()) != PollStatus.OPEN) throw ConflictException("Poll is not open")
+            if (!pollRow[PollTable.kind].isConsensus) throw BadRequestException("Wrong response type")
+            val optionRows =
+                PollOptionTable
+                    .selectAll()
+                    .where { PollOptionTable.pollId eq pollId }
+                    .orderBy(PollOptionTable.position to SortOrder.ASC)
+                    .toList()
+            val optionIds = optionRows.map { it[PollOptionTable.id] }
+            val parsed = PollRatingCast.validate(ratings = input.ratings, optionIds = optionIds.toSet())
+            val alreadyResponded =
+                PollParticipationTable
+                    .selectAll()
+                    .where { (PollParticipationTable.pollId eq pollId) and (PollParticipationTable.memberId eq current.memberId) }
+                    .limit(1)
+                    .any()
+            if (alreadyResponded) throw ConflictException("Already responded")
+            try {
+                PollRatingCast.insert(
+                    pollId = pollId,
+                    memberId = current.memberId,
+                    ratingsInPositionOrder = optionIds.map { it to parsed.getValue(it) },
                 )
+            } catch (e: ExposedSQLException) {
+                if (e.sqlState != UNIQUE_VIOLATION_SQLSTATE) throw e
+                throw ConflictException("Already responded")
             }
+            // No LTR balance read, no ledger entry, no audit entry for the response.
+            PollParticipationDto(pollId = pollId.toString(), eligible = true, hasResponded = true, canRespond = false)
         }
-        return ValidatedCreate(
-            question = question,
-            description = rawDescription.ifEmpty { null },
-            options = options,
-            closesAt = closesAt,
-        )
     }
+
+    // ------------------------------------------------------------------------------------------------
 
     /** Creator while still creator-capable, or privileged. Runs inside the open transaction. */
     private fun canManage(
@@ -463,12 +512,21 @@ class PollService(
             options =
                 PollOptionTable
                     .selectAll()
-                    .where { PollOptionTable.pollId eq row[PollTable.id] }
+                    .where { (PollOptionTable.pollId eq row[PollTable.id]) and (PollOptionTable.isPassive eq false) }
                     .orderBy(PollOptionTable.position to SortOrder.ASC)
                     .map { it[PollOptionTable.text] },
             status = effective.name,
             closesAt = row[PollTable.closesAt],
             closedAt = closedAt,
+            kind = row[PollTable.kind].takeIf { it.isConsensus }?.name,
+            optionExplanations =
+                row[PollTable.kind].takeIf { it.isConsensus }?.let {
+                    PollOptionTable
+                        .selectAll()
+                        .where { (PollOptionTable.pollId eq row[PollTable.id]) and (PollOptionTable.isPassive eq false) }
+                        .orderBy(PollOptionTable.position to SortOrder.ASC)
+                        .map { option -> option[PollOptionTable.explanation] }
+                },
         )
 
     private fun snapshotJson(snapshot: PollSnapshot): String = Json.encodeToString(PollSnapshot.serializer(), snapshot)
@@ -494,6 +552,8 @@ class PollService(
                         id = it[PollOptionTable.id].toString(),
                         position = it[PollOptionTable.position],
                         text = it[PollOptionTable.text],
+                        explanation = it[PollOptionTable.explanation],
+                        isPassive = it[PollOptionTable.isPassive],
                     )
                 }
         val orgZone = OrganizationTimeZone.current()
@@ -538,6 +598,7 @@ class PollService(
                 resultAvailable = responseCount != null && responseCount >= PollRules.MIN_RESPONSES_FOR_RESULT,
                 responseCount = responseCount,
                 canManage = status == PollStatus.OPEN && (current.isPrivileged || (creator == current.memberId && leaderAnywhere)),
+                kind = row[PollTable.kind],
             )
         }
     }

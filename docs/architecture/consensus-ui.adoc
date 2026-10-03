@@ -131,6 +131,23 @@ as "Alles bleibt wie bisher (Passivlösung)" everywhere (booth, review, result, 
 | network failure, unknown | the connection was interrupted; reload to find out
 |===
 
+=== Shared rating booth (V1.9.41)
+
+The flow of the booth (rate every item, check, submit for good, explain failures by reading the state) now lives in `RatingBooth.kt`,
+which knows no service and no DTO. `ConsensusBooth.kt` is a thin adapter (same signature, same texts, same receipt hand-over) and
+`PollRatingBooth.kt` is the adapter of the consensus polls (see `polls.adoc`). Consequences:
+
+* The conference room still uses `renderConsensusBooth` with `ConsensusBoothRoomHost`; the hook is mapped onto the shared booth's own
+  room host, so the room files are unchanged.
+* *One deliberate tightening:* coming back from the check step, the choice is restored as a DOM *property* (`checked = true`, after the
+  first render), no longer as a `checked` attribute. The poll tripwire forbids the attribute for polls ("property only"), and the shared
+  booth has to meet the stricter rule. What a member sees, the texts, the flow and every consensus test are unchanged; only the markup no
+  longer carries a `checked` attribute after "Zurück".
+* The calculation of one option (`computeSkOptionResult`, `SystemicConsensusTally.kt`) was extracted from the tally without any behavioural
+  change; `SystemicConsensusTallyRegressionTest` compares the results to a frozen copy of the old code, double bits included.
+* `renderOptionRationale` delegates to `renderUntrustedExplanation`; `renderResistanceDistribution` (the histogram) is shared with the poll
+  result.
+
 == Receipt handling
 
 Same rules as the elections' receipt (`elections-ui.adoc`): 27 Base64url characters checked against their exact alphabet, drawn character by

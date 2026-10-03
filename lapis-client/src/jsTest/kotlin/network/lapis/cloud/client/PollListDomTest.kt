@@ -147,17 +147,92 @@ class PollListDomTest {
             }
         }
 
+    private fun HTMLElement.titleRowButtons(): List<String> =
+        allOf(".lapis-page-header .lapis-page-action button").map { it.textContent.orEmpty().trim() }
+
     @Test
-    fun theCreateButton_existsOnlyWhenTheServerSaysTheViewerMayCreate(): Promise<Unit> =
+    fun theCreateButton_existsOnlyWhenTheServerSaysTheViewerMayCreate_sitsInTheTitleRow_andTheFormIsCollapsed(): Promise<Unit> =
         formTest {
             withList(PollWorld(all = pollListOf(1), canCreate = true), "poll-list-can") { el, calls, routes ->
-                awaitUntil("button visible", 3000) { el.hasButton("Umfrage erstellen") }
+                awaitUntil("button in the title row", 3000) { el.titleRowButtons() == listOf("Neue Umfrage") }
                 assertEquals(1, calls.toRoute(routes.canCreate).size)
+                assertEquals(0, el.allOf(".lapis-form").size, "collapsed: no form on the page")
+                assertEquals("false", createFormButton(el, "lapis-create-poll").getAttribute("aria-expanded"))
+                assertFalse(el.hasButton("Umfrage erstellen"), "the old toolbar button is gone")
             }
             withList(PollWorld(all = pollListOf(1), canCreate = false), "poll-list-cannot") { el, _, routes ->
                 kotlinx.coroutines.delay(200)
-                assertFalse(el.allOf("button").any { it.textContent?.trim() == "Umfrage erstellen" && it.offsetParent != null })
+                assertTrue(el.titleRowButtons().isEmpty())
+                assertTrue(el.allOf(".lapis-page-action").isEmpty(), "no empty action area")
                 assertTrue(routes.canCreate.isNotEmpty())
+            }
+        }
+
+    @Test
+    fun theButtonOpensTheForm_ariaExpandedFollows_andEscapeClosesAnUnchangedFormAtOnce(): Promise<Unit> =
+        formTest {
+            withList(PollWorld(all = pollListOf(1), canCreate = true), "poll-list-open") { el, _, _ ->
+                awaitUntil("button", 3000) { el.titleRowButtons() == listOf("Neue Umfrage") }
+                val host = openCreateForm(el, "lapis-create-poll")
+                assertEquals("true", createFormButton(el, "lapis-create-poll").getAttribute("aria-expanded"))
+                assertTrue(host.flatText().contains("Art der Umfrage"))
+                host.dispatchEvent(
+                    org.w3c.dom.events.KeyboardEvent(
+                        "keydown",
+                        org.w3c.dom.events
+                            .KeyboardEventInit(key = "Escape", bubbles = true, cancelable = true),
+                    ),
+                )
+                awaitUntil("closed at once", 2000) { el.querySelector("[id='lapis-create-poll'] .lapis-form") == null }
+                assertEquals("false", createFormButton(el, "lapis-create-poll").getAttribute("aria-expanded"))
+            }
+        }
+
+    @Test
+    fun aChangedForm_asksBeforeItIsDiscarded(): Promise<Unit> =
+        formTest {
+            withList(PollWorld(all = pollListOf(1), canCreate = true), "poll-list-dirty") { el, _, _ ->
+                awaitUntil("button", 3000) { el.titleRowButtons() == listOf("Neue Umfrage") }
+                val host = openCreateForm(el, "lapis-create-poll")
+                host.typeInto("Frage", "Halbfertig")
+                host.buttonNamed("Abbrechen").click()
+                awaitUntil("the question", 2000) {
+                    kotlinx.browser.document
+                        .querySelectorAll(".modal")
+                        .length > 0
+                }
+                assertTrue(lastOpenModal().flatText().contains("Eingaben verwerfen?"))
+                assertTrue(el.querySelector("[id='lapis-create-poll'] .lapis-form") != null, "still open while the question is up")
+            }
+        }
+
+    @Test
+    fun aSavedPoll_foldsTheFormBack(): Promise<Unit> =
+        formTest {
+            val world = PollWorld(all = pollListOf(1), canCreate = true, created = pollDto(id = "p-new"))
+            withList(world, "poll-list-save") { el, calls, routes ->
+                awaitUntil("button", 3000) { el.titleRowButtons() == listOf("Neue Umfrage") }
+                val host = openCreateForm(el, "lapis-create-poll")
+                host.typeInto("Frage", "Sommerfest?")
+                host.typeInto("Option 1", "Ja")
+                host.typeInto("Option 2", "Nein")
+                host.buttonNamed("Umfrage starten").click()
+                awaitUntil("created", 3000) { calls.toRoute(routes.create).size == 1 }
+                awaitUntil("folded back", 2000) { el.querySelector("[id='lapis-create-poll'] .lapis-form") == null }
+                assertEquals("false", createFormButton(el, "lapis-create-poll").getAttribute("aria-expanded"))
+            }
+        }
+
+    @Test
+    fun aConsensusPoll_carriesTheTextMarkKonsensieren_aSingleChoiceDoesNot(): Promise<Unit> =
+        formTest {
+            withList(PollWorld(all = listOf(pollSkDto(question = "Rangfrage"))), "poll-list-kind-sk") { el, _, _ ->
+                assertTrue(el.flatText().contains("Rangfrage"))
+                assertTrue(el.allOf("span.text-muted").any { it.textContent?.trim() == "Konsensieren" }, "a plain text mark")
+            }
+            withList(PollWorld(all = listOf(pollDto(id = "p2", question = "Einzelfrage"))), "poll-list-kind-single") { el, _, _ ->
+                assertTrue(el.flatText().contains("Einzelfrage"))
+                assertFalse(el.flatText().contains("Konsensieren"))
             }
         }
 

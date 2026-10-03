@@ -4,6 +4,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -14,6 +15,7 @@ public object PollTable : Table("poll") {
     public val question: Column<String> = varchar("question", 500)
     public val description: Column<String?> = varchar("description", 2000).nullable()
     public val status: Column<PollStatus> = enumerationByName<PollStatus>("status", 10)
+    public val kind: Column<PollKind> = enumerationByName<PollKind>("kind", 20)
     public val createdBy: Column<Uuid> = reference("created_by", MemberTable.id)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val closesAt: Column<LocalDateTime?> = datetime("closes_at").nullable()

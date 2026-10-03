@@ -14,7 +14,7 @@ import java.math.BigDecimal
 public object PollResponseTable : Table("poll_response") {
     public val id: Column<Uuid> = uuid("id")
     public val pollId: Column<Uuid> = reference("poll_id", PollTable.id)
-    public val optionId: Column<Uuid> = reference("option_id", PollOptionTable.id)
+    public val optionId: Column<Uuid?> = optReference("option_id", PollOptionTable.id)
     public val weightLtr: Column<BigDecimal> = decimal("weight_ltr", 18, 2)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)

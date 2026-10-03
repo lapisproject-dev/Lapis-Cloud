@@ -14,6 +14,15 @@ import kotlinx.serialization.Serializable
 enum class PollStatus { OPEN, CLOSED, ABORTED }
 
 /**
+ * V1.9.41 -- the kind of a poll. [SINGLE_CHOICE] is the classic LTR-weighted single choice; the two consensus kinds
+ * are rated by resistance (0..[PollRules.SK_SCALE_MAX]) per option, carry no LTR weight and are always anonymous.
+ */
+@Serializable
+enum class PollKind { SINGLE_CHOICE, SK_DECISION, SK_PRIORITY }
+
+val PollKind.isConsensus: Boolean get() = this != PollKind.SINGLE_CHOICE
+
+/**
  * Pure, shared validation constants and text normalisation -- reused by the V1.9.31 UI for local
  * checks, so client and server cannot drift apart.
  */
@@ -54,6 +63,17 @@ object PollRules {
     /** ... and at most this far (no "eternal" polls). */
     const val MAX_DEADLINE_DAYS = 365
 
+    /** V1.9.41: resistance scale 0..[SK_SCALE_MAX] of the consensus kinds. */
+    const val SK_SCALE_MAX = 10
+    const val MAX_EXPLANATION_LENGTH = SystemicConsensusRules.MAX_RATIONALE_LENGTH
+    const val EXPLANATION_COUNTER_FROM = 800
+    const val PASSIVE_OPTION_POSITION = 10
+
+    /** Stored only, never displayed: the client translates the passive option at its flag. */
+    const val PASSIVE_OPTION_STORED_LABEL = "No change"
+
+    fun normalizeExplanation(raw: String?): PublicTextNormalization = SystemicConsensusRules.normalizeRationale(raw)
+
     private val whitespaceRun = Regex("\\s+")
 
     /** Trim and collapse every internal whitespace run to a single space. */
@@ -69,6 +89,9 @@ data class PollCreateInput(
     val description: String? = null,
     val options: List<String>,
     val closesAt: LocalDateTime? = null,
+    val kind: PollKind = PollKind.SINGLE_CHOICE,
+    /** Empty OR exactly `options.size` entries; non-empty only allowed for the consensus kinds. */
+    val optionExplanations: List<String?> = emptyList(),
 )
 
 @Serializable
@@ -76,6 +99,9 @@ data class PollOptionDto(
     val id: String,
     val position: Int,
     val text: String,
+    /** UNTRUSTED text of the creator. */
+    val explanation: String? = null,
+    val isPassive: Boolean = false,
 )
 
 /**
@@ -103,6 +129,7 @@ data class PollDto(
     val responseCount: Int?,
     /** Caller may close/abort -- a UI hint only, the server re-checks on every call. */
     val canManage: Boolean,
+    val kind: PollKind = PollKind.SINGLE_CHOICE,
 )
 
 /** The calling member's OWN participation state for one poll -- never anybody else's. */
@@ -155,4 +182,44 @@ data class PollResultDto(
     val weightedWithheldReason: PollWeightedWithheldReason?,
     /** Empty if [weightedResultAvailable] is `false`. */
     val weightedResult: List<PollWeightedOptionResultDto>,
+    val kind: PollKind = PollKind.SINGLE_CHOICE,
+    val ratingResultAvailable: Boolean = false,
+    val ratingResult: PollRatingResultDto? = null,
+)
+
+/** V1.9.41: the complete resistance vector of the caller over ALL options of a consensus poll (passive option included). */
+@Serializable
+data class PollRatingInput(
+    val pollId: String,
+    val ratings: Map<String, Int>,
+)
+
+@Serializable
+enum class PollDecisionOutcome { OPTION_WINS, NO_CHANGE_WINS, NO_CLEAR_RESULT }
+
+@Serializable
+data class PollRatingOptionResultDto(
+    val optionId: String,
+    /** Competition rank by cumulative resistance: 1,2,2,4. */
+    val rank: Int,
+    val tied: Boolean,
+    val cumulativeResistance: Int,
+    val meanResistance: Double,
+    val maxResistance: Int,
+    val topValueCount: Int,
+    val consensusIndex: Double,
+    val strongObjection: Boolean,
+    /** Complete 0..SK_SCALE_MAX, gaps as 0. */
+    val distribution: Map<Int, Int>,
+)
+
+@Serializable
+data class PollRatingResultDto(
+    /** Sorted by the server. */
+    val options: List<PollRatingOptionResultDto>,
+    /** Only for SK_DECISION. */
+    val outcome: PollDecisionOutcome? = null,
+    val winnerOptionId: String? = null,
+    val tieAtLowest: Boolean = false,
+    val decidedByLowestMax: Boolean = false,
 )

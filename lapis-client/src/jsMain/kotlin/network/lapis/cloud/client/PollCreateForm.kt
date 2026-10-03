@@ -1,166 +1,36 @@
 package network.lapis.cloud.client
 
+import io.kvision.form.check.radioGroup
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
-import io.kvision.html.h2
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.HPanel
 import io.kvision.panel.SimplePanel
+import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollRules
+import network.lapis.cloud.shared.domain.PublicTextNormalization
+import network.lapis.cloud.shared.domain.isConsensus
 import network.lapis.cloud.shared.rpc.IPollService
-import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
 
 /*
- * V1.9.31 "Umfragen" -- "Umfrage erstellen". Offered only to those who may start polls (`canCreatePolls`, a hint: the server re-checks).
- * The checks below mirror `PollRules` and the server's validation exactly, so an obviously invalid draft never makes a round trip -- the
- * server stays the authority. The option fields are real form fields (added and removed at run time), so the form grammar (labels, errors
- * at the field, single-shot submit) applies to them like to every other field.
+ * V1.9.31 "Umfragen" -- "Neue Umfrage". Offered only to those who may start polls (`canCreatePolls`, a hint: the server re-checks).
+ * The draft checks live in `PollCreateDraft.kt` and mirror `PollRules` and the server's validation exactly, so an obviously invalid draft
+ * never makes a round trip -- the server stays the authority. The option fields are real form fields (added and removed at run time), so
+ * the form grammar (labels, errors at the field, single-shot submit) applies to them like to every other field.
+ *
+ * V1.9.40: the form is collapsed behind the "Neue Umfrage" button of the title row (rule R36B, see `PollListView.kt`).
+ * V1.9.41: a kind radio (single choice / consensus decision / consensus ranking) and, for the consensus kinds only, an optional
+ * explanation per option behind an "Erklärung hinzufügen" switch. A kind change hides the explanations WITHOUT deleting the typed text.
  */
-
-/** How the deadline is chosen: a preset in hours, a date of one's own, or none. */
-internal sealed interface PollDeadlineChoice {
-    data class Preset(
-        val hours: Int,
-    ) : PollDeadlineChoice
-
-    data object Custom : PollDeadlineChoice
-
-    data object None : PollDeadlineChoice
-}
-
-/** What is wrong with a draft; the first problem found, in the order the form reads. */
-internal sealed interface PollDraftError {
-    data object QuestionMissing : PollDraftError
-
-    data object QuestionTooLong : PollDraftError
-
-    data object DescriptionTooLong : PollDraftError
-
-    data object TooFewOptions : PollDraftError
-
-    data object TooManyOptions : PollDraftError
-
-    data class OptionEmpty(
-        val index: Int,
-    ) : PollDraftError
-
-    data class OptionTooLong(
-        val index: Int,
-    ) : PollDraftError
-
-    data class DuplicateOption(
-        val index: Int,
-    ) : PollDraftError
-
-    data object DeadlineInvalid : PollDraftError
-
-    data object DeadlineTooSoon : PollDraftError
-
-    data object DeadlineTooFar : PollDraftError
-}
-
-/** The deadline a [choice] stands for: `now` plus the preset hours, the typed date, or none. Wall-clock arithmetic (the browser's local time). */
-internal fun pollDeadlineFor(
-    choice: PollDeadlineChoice,
-    customLocal: LocalDateTime?,
-    now: LocalDateTime,
-): LocalDateTime? =
-    when (choice) {
-        is PollDeadlineChoice.Preset -> now.plusWallClock(choice.hours.hours)
-        PollDeadlineChoice.Custom -> customLocal
-        PollDeadlineChoice.None -> null
-    }
-
-private fun LocalDateTime.plusWallClock(duration: kotlin.time.Duration): LocalDateTime =
-    (toInstant(TimeZone.UTC) + duration).toLocalDateTime(TimeZone.UTC)
-
-/**
- * The first problem of a draft, or `null` if it is valid. Texts are normalized like the server does (trim, collapse whitespace) before
- * their length is measured; duplicates are found by `PollRules.optionKey`. [deadline] is only looked at when [hasDeadline].
- */
-internal fun validatePollDraft(
-    question: String,
-    description: String,
-    options: List<String>,
-    deadline: LocalDateTime?,
-    hasDeadline: Boolean,
-    now: LocalDateTime,
-): PollDraftError? {
-    val normalizedQuestion = PollRules.normalizeText(question)
-    val normalizedOptions = options.map { PollRules.normalizeText(it) }
-    return when {
-        normalizedQuestion.isEmpty() -> PollDraftError.QuestionMissing
-        normalizedQuestion.length > PollRules.MAX_QUESTION_LENGTH -> PollDraftError.QuestionTooLong
-        description.trim().length > PollRules.MAX_DESCRIPTION_LENGTH -> PollDraftError.DescriptionTooLong
-        normalizedOptions.size < PollRules.MIN_OPTIONS -> PollDraftError.TooFewOptions
-        normalizedOptions.size > PollRules.MAX_OPTIONS -> PollDraftError.TooManyOptions
-        else -> optionProblem(normalizedOptions) ?: deadlineProblem(deadline = deadline, hasDeadline = hasDeadline, now = now)
-    }
-}
-
-private fun optionProblem(normalizedOptions: List<String>): PollDraftError? {
-    normalizedOptions.forEachIndexed { index, text ->
-        if (text.isEmpty()) return PollDraftError.OptionEmpty(index)
-        if (text.length > PollRules.MAX_OPTION_LENGTH) return PollDraftError.OptionTooLong(index)
-    }
-    val seen = mutableSetOf<String>()
-    normalizedOptions.forEachIndexed {
-        index,
-        text,
-        ->
-        if (!seen.add(PollRules.optionKey(text))) return PollDraftError.DuplicateOption(index)
-    }
-    return null
-}
-
-private fun deadlineProblem(
-    deadline: LocalDateTime?,
-    hasDeadline: Boolean,
-    now: LocalDateTime,
-): PollDraftError? {
-    if (!hasDeadline) return null
-    if (deadline == null) return PollDraftError.DeadlineInvalid
-    return when {
-        deadline < now.plusWallClock(PollRules.MIN_DEADLINE_LEAD_MINUTES.minutes) -> PollDraftError.DeadlineTooSoon
-        deadline > now.plusWallClock(PollRules.MAX_DEADLINE_DAYS.days) -> PollDraftError.DeadlineTooFar
-        else -> null
-    }
-}
-
-internal fun pollDraftErrorText(error: PollDraftError): String =
-    when (error) {
-        PollDraftError.QuestionMissing -> gettext("Bitte geben Sie eine Frage ein.")
-        PollDraftError.QuestionTooLong -> gettext("Die Frage ist zu lang (höchstens %1 Zeichen).", PollRules.MAX_QUESTION_LENGTH)
-        PollDraftError.DescriptionTooLong ->
-            gettext("Die Beschreibung ist zu lang (höchstens %1 Zeichen).", PollRules.MAX_DESCRIPTION_LENGTH)
-        PollDraftError.TooFewOptions -> gettext("Bitte geben Sie mindestens %1 Optionen an.", PollRules.MIN_OPTIONS)
-        PollDraftError.TooManyOptions -> gettext("Es sind höchstens %1 Optionen möglich.", PollRules.MAX_OPTIONS)
-        is PollDraftError.OptionEmpty -> gettext("Option %1 ist leer.", error.index + 1)
-        is PollDraftError.OptionTooLong ->
-            gettext(
-                "Option %1 ist zu lang (höchstens %2 Zeichen).",
-                error.index + 1,
-                PollRules.MAX_OPTION_LENGTH,
-            )
-        is PollDraftError.DuplicateOption -> gettext("Option %1 gibt es schon.", error.index + 1)
-        PollDraftError.DeadlineInvalid -> gettext("Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an.")
-        PollDraftError.DeadlineTooSoon ->
-            gettext("Die Frist muss mindestens %1 Minuten in der Zukunft liegen.", PollRules.MIN_DEADLINE_LEAD_MINUTES)
-        PollDraftError.DeadlineTooFar -> gettext("Die Frist darf höchstens %1 Tage in der Zukunft liegen.", PollRules.MAX_DEADLINE_DAYS)
-    }
 
 private const val CHOICE_24H = "h24"
 private const val CHOICE_3D = "h72"
@@ -183,30 +53,77 @@ private fun deadlineChoiceOf(value: String): PollDeadlineChoice =
 
 private fun localNow(): LocalDateTime = organizationNow()
 
-/** One option field with its row and (from the third option on) its remove button. */
+/** The sentence that explains the chosen kind (shown live under the radio, so only one sentence is on screen). */
+private fun pollKindHint(kind: PollKind): String =
+    when (kind) {
+        PollKind.SINGLE_CHOICE -> gettext("Jede Person wählt eine Option.")
+        PollKind.SK_DECISION ->
+            gettext(
+                "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). " +
+                    "Vorn liegt die Option mit dem geringsten Widerstand. „Keine Änderung“ ist immer dabei.",
+            )
+        PollKind.SK_PRIORITY ->
+            gettext(
+                "Jede Person bewertet jede Option von 0 (kein Widerstand) bis 10 (starker Widerstand). " +
+                    "Das Ergebnis ist eine Rangliste nach Widerstand.",
+            )
+    }
+
+/** The label of a kind in the radio. */
+internal fun pollKindChoiceLabel(kind: PollKind): String =
+    when (kind) {
+        PollKind.SINGLE_CHOICE -> gettext("Einzelauswahl")
+        PollKind.SK_DECISION -> gettext("Konsensieren: Entscheidung")
+        PollKind.SK_PRIORITY -> gettext("Konsensieren: Rangliste")
+    }
+
+/** One option block: the option field with its (optional) remove button, and the optional explanation behind a switch. */
 private class OptionRow(
+    val block: VPanel,
     val row: HPanel,
     val field: LapisField,
     val remove: Button?,
-)
+    val explainButton: Button,
+    val explainField: LapisField,
+    val explainCounter: io.kvision.html.Div,
+) {
+    /** Whether the member opened the explanation of this option (kept while the kind switches, so no typed text is lost). */
+    var explainOpen = false
+}
 
 /**
- * Renders the create form into [host]. [onDone] gets the created poll, or `null` if the member cancelled; the caller decides where to go.
+ * Builds the create form into the receiver (the host of the collapsed form) and returns its [FormSnapshot]. [close] collapses the form
+ * (`close(true)` after a successful save, `close(false)` for Cancel); [onCreated] gets the created poll after the form has closed.
  */
-internal fun renderPollCreateForm(
-    host: SimplePanel,
-    onDone: (PollDto?) -> Unit,
-) {
-    val holder = host.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
-    holder.h2(tr("Umfrage erstellen")) { addCssClass("h5") }
+internal fun SimplePanel.renderPollCreateForm(
+    close: (saved: Boolean) -> Unit,
+    onCreated: (PollDto) -> Unit,
+): FormSnapshot {
+    val holder = vPanel(spacing = 8)
     val form = holder.lapisForm()
 
     val questionField = form.textField(label = tr("Frage"), required = true)
     val questionCounter = form.panel.div("") { addCssClasses("text-muted small") }
     val descriptionField = form.textAreaField(label = tr("Beschreibung (optional)"), rows = 3)
 
+    val kindRadio =
+        form.panel.radioGroup(
+            options = PollKind.entries.map { it.name to pollKindChoiceLabel(it) },
+            value = PollKind.SINGLE_CHOICE.name,
+            label = tr("Art der Umfrage"),
+        )
+    form.register(control = kindRadio, label = tr("Art der Umfrage"), required = true)
+    val kindHint = form.panel.div("") { addCssClasses("text-muted small") }
+    val passiveHint =
+        form.panel.div(tr("„Keine Änderung“ ist immer dabei und zählt nicht zu den Optionen.")) {
+            addCssClasses("text-muted small")
+        }
+
+    fun kind(): PollKind = PollKind.entries.firstOrNull { it.name == kindRadio.value } ?: PollKind.SINGLE_CHOICE
+
     val optionsPanel = form.panel.vPanel(spacing = 6)
     val rows = mutableListOf<OptionRow>()
+    var explanationCounter = 0
     val addOptionButton = Button(tr("Option hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
     val reason = form.panel.div("") { addCssClasses("text-muted small") }
     val submitButton = Button(tr("Umfrage starten"), style = ButtonStyle.PRIMARY)
@@ -254,7 +171,22 @@ internal fun renderPollCreateForm(
             deadline = pollDeadlineFor(choice = choice, customLocal = custom, now = now),
             hasDeadline = choice != PollDeadlineChoice.None,
             now = now,
+            explanations = rows.map { it.explainField.value },
+            kind = kind(),
         )
+    }
+
+    /** Switches the kind-dependent parts: the hints and, per option, the explanation switch and (if opened) its field. */
+    fun paintKind() {
+        val consensus = kind().isConsensus
+        kindHint.content = pollKindHint(kind())
+        if (kind() == PollKind.SK_DECISION) passiveHint.show() else passiveHint.hide()
+        rows.forEach { option ->
+            if (consensus) option.explainButton.show() else option.explainButton.hide()
+            val showField = consensus && option.explainOpen
+            option.explainField.setVisible(showField)
+            if (showField) option.explainCounter.show() else option.explainCounter.hide()
+        }
     }
 
     fun update() {
@@ -263,18 +195,25 @@ internal fun renderPollCreateForm(
         submitButton.disabled = error != null
         reason.content = error?.let { pollDraftErrorText(it) }.orEmpty()
         addOptionButton.disabled = rows.size >= PollRules.MAX_OPTIONS
+        rows.forEach { option ->
+            val length = option.explainField.value.length
+            option.explainCounter.content =
+                if (length >= PollRules.EXPLANATION_COUNTER_FROM) gettext("%1/%2", length, PollRules.MAX_EXPLANATION_LENGTH) else ""
+        }
     }
 
     fun relabelRows() {
         rows.forEachIndexed { index, option ->
             option.field.relabel(gettext("Option %1", index + 1))
+            option.explainField.relabel(gettext("Erklärung zu Option %1 (optional)", index + 1))
             option.remove?.tableActionTooltip(gettext("Option %1 entfernen", index + 1))
         }
     }
 
     fun addOptionRow(late: Boolean) {
         val number = rows.size + 1
-        val row = optionsPanel.hPanel(spacing = 8) { addCssClasses("align-items-start") }
+        val block = optionsPanel.vPanel(spacing = 4)
+        val row = block.hPanel(spacing = 8) { addCssClasses("align-items-start") }
         val holderField = arrayOfNulls<LapisField>(1)
         val field =
             form.textField(
@@ -298,23 +237,78 @@ internal fun renderPollCreateForm(
         holderField[0] = field
         if (late) field.appendRequiredMark()
         val remove =
-            if (rows.size >=
-                PollRules.MIN_OPTIONS
-            ) {
+            if (rows.size >= PollRules.MIN_OPTIONS) {
                 row.tableActionButton("fas fa-xmark", gettext("Option %1 entfernen", number))
             } else {
                 null
             }
-        val option = OptionRow(row = row, field = field, remove = remove)
+
+        // The optional explanation: a switch under the option, the field only once the switch was used.
+        explanationCounter++
+        val explainHostId = "lapis-poll-explanation-$explanationCounter"
+        val explainButton = Button(tr("Erklärung hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+        explainButton.addCssClass("btn-sm")
+        explainButton.setAttribute("aria-expanded", "false")
+        explainButton.setAttribute("aria-controls", explainHostId)
+        block.add(explainButton)
+        val explainHost = block.vPanel(spacing = 4)
+        explainHost.id = explainHostId
+        val holderExplain = arrayOfNulls<LapisField>(1)
+        val explainField =
+            form.textAreaField(
+                label = gettext("Erklärung zu Option %1 (optional)", number),
+                rows = 3,
+                host = explainHost,
+                rule = { value ->
+                    val mine = rows.indexOfFirst { it.explainField === holderExplain[0] }
+                    if (kind().isConsensus && PollRules.normalizeExplanation(value) == PublicTextNormalization.TooLong) {
+                        FieldCheck.Invalid(
+                            gettext(
+                                "Die Erklärung zu Option %1 ist zu lang (höchstens %2 Zeichen).",
+                                mine + 1,
+                                PollRules.MAX_EXPLANATION_LENGTH,
+                            ),
+                        )
+                    } else {
+                        FieldCheck.Ok
+                    }
+                },
+            )
+        holderExplain[0] = explainField
+        val explainCounter = explainHost.div("") { addCssClasses("text-muted small") }
+        explainField.setVisible(false)
+        explainCounter.hide()
+        explainButton.hide()
+
+        val option =
+            OptionRow(
+                block = block,
+                row = row,
+                field = field,
+                remove = remove,
+                explainButton = explainButton,
+                explainField = explainField,
+                explainCounter = explainCounter,
+            )
         rows += option
         field.subscribe { update() }
+        explainField.subscribe { update() }
+        explainButton.onClick {
+            option.explainOpen = !option.explainOpen
+            explainButton.setAttribute("aria-expanded", option.explainOpen.toString())
+            explainButton.text = if (option.explainOpen) tr("Erklärung ausblenden") else tr("Erklärung hinzufügen")
+            paintKind()
+            update()
+        }
         remove?.onClick {
             form.unregister(option.field)
-            optionsPanel.remove(option.row)
+            form.unregister(option.explainField)
+            optionsPanel.remove(option.block)
             rows.remove(option)
             relabelRows()
             update()
         }
+        paintKind()
         update()
     }
 
@@ -327,6 +321,10 @@ internal fun renderPollCreateForm(
     questionField.subscribe { update() }
     descriptionField.subscribe { update() }
     customField.subscribe { update() }
+    kindRadio.subscribe {
+        paintKind()
+        update()
+    }
     deadlineField.subscribe {
         val choice = deadlineChoiceOf(deadlineField.value)
         customField.setVisible(choice == PollDeadlineChoice.Custom)
@@ -341,20 +339,23 @@ internal fun renderPollCreateForm(
         ),
     ) { addCssClasses("alert alert-info mb-0") }
 
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
-    form.buttons(primary = submitButton, cancel = cancelButton)
-    cancelButton.onClick { onDone(null) }
+    form.buttons(primary = submitButton, cancel = collapseCancelButton(close))
     submitButton.onClick {
         if (draft() != null || !form.validateAndReport()) return@onClick
         form.runBusy(submitButton, restoreDisabled = { draft() != null }) {
             val choice = deadlineChoiceOf(deadlineField.value)
             val custom = runCatching { LocalDateTime.parse(customField.value.trim()) }.getOrNull()
+            val chosenKind = kind()
             val input =
                 PollCreateInput(
                     question = questionField.value,
                     description = descriptionField.value.ifBlank { null },
                     options = rows.map { it.field.value },
                     closesAt = pollDeadlineFor(choice = choice, customLocal = custom, now = localNow()),
+                    kind = chosenKind,
+                    // The classic kind never sends an explanation (the server rejects one); the consensus kinds send one entry per option.
+                    optionExplanations =
+                        if (chosenKind.isConsensus) rows.map { it.explainField.value.ifBlank { null } } else emptyList(),
                 )
             val created =
                 pollGuarded(
@@ -367,8 +368,13 @@ internal fun renderPollCreateForm(
                 ) {
                     rpcService<IPollService>().createPoll(input)
                 }
-            if (created != null) onDone(created)
+            if (created != null) {
+                close(true)
+                onCreated(created)
+            }
         }
     }
+    paintKind()
     update()
+    return form.snapshot()
 }

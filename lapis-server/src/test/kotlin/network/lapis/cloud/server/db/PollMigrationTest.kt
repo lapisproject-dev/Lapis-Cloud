@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.PollOptionTable
 import network.lapis.cloud.server.db.generated.PollParticipationTable
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.shared.domain.AuditAction
@@ -56,6 +57,7 @@ class PollMigrationTest :
 
         afterSpec {
             transaction {
+                PollResponseRatingTable.deleteAll()
                 PollResponseTable.deleteAll()
                 PollParticipationTable.deleteAll()
                 PollOptionTable.deleteAll()

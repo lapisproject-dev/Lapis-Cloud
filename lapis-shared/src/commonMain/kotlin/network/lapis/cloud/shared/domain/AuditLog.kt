@@ -384,6 +384,9 @@ data class PollSnapshot(
     val status: String,
     val closesAt: LocalDateTime?,
     val closedAt: LocalDateTime?,
+    /** V1.9.41: set only for the consensus kinds (null keeps the JSON of classic polls unchanged). */
+    val kind: String? = null,
+    val optionExplanations: List<String?>? = null,
 )
 
 /**

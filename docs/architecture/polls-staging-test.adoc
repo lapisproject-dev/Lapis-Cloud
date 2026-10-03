@@ -1,4 +1,4 @@
-= Staging test plan: opinion polls in the web client (V1.9.31)
+= Staging test plan: opinion polls in the web client (V1.9.31, V1.9.41)
 :toc:
 
 == Purpose
@@ -19,8 +19,8 @@ staging server belong to the operator), so every row of "Actual results" below i
 [cols="1,4,4", options="header"]
 |===
 | # | Action | Expected
-| 1 | As ACTIVE member without a seat open "Umfragen" | the list shows "Zurzeit keine offenen Umfragen." or the open polls; there is no button "Umfrage erstellen"
-| 2 | As ADMIN, BOARD and CHAIR in turn open "Umfragen" | each sees "Umfrage erstellen"
+| 1 | As ACTIVE member without a seat open "Umfragen" | the list shows "Zurzeit keine offenen Umfragen." or the open polls; there is no button "Neue Umfrage"
+| 2 | As ADMIN, BOARD and CHAIR in turn open "Umfragen" | each sees "Neue Umfrage" in the title row
 | 3 | As CHAIR: create a poll with the defaults (question, two options) | the poll opens; the deadline is 7 days ahead; the page shows the box "Unverbindlich -- ein Stimmungsbild, kein Beschluss."
 | 4 | In the form: leave the question empty, use a 501 character question, enter the same option twice (also with other case and spaces), add options up to ten | the start button stays disabled and the first reason is shown under it; a duplicate is named at the second field; the eleventh option cannot be added
 | 5 | Create one poll with "Ohne Frist" and one with "Eigenes Datum" 10 minutes ahead | "Sie müssen die Umfrage dann selbst schließen." for the first; the second is refused by the form
@@ -41,6 +41,27 @@ staging server belong to the operator), so every row of "Actual results" below i
 | 20 | Phone width (below 900 px) | the list is a card list, the result is one column, nothing scrolls sideways
 |===
 
+== Steps for the consensus kinds (V1.9.41)
+
+Additional accounts: five further ACTIVE members (a result needs at least five answers). Browser language German first, then English.
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 21 | As CHAIR open "Umfragen" | the button "Neue Umfrage" sits in the title row; no form is shown; the button opens it, `Escape` closes an unchanged form at once and asks for a changed one
+| 22 | In the form switch "Art der Umfrage" through the three kinds | exactly one sentence explains the chosen kind; the note about "Keine Änderung" shows only for the decision; "Erklärung hinzufügen" shows only for the consensus kinds; typed explanations survive a switch to "Einzelauswahl" and back but are not sent for a single choice
+| 23 | Create a decision with three options, one explanation of 1000 characters (then 1001) | 1000 is accepted, 1001 blocks the start button with a sentence; the counter appears from 800
+| 24 | Open the poll as a member | the booth lists "Keine Änderung" (plaque P) first, then the options; the explanation of an option is shown clamped; nothing is preselected; "Prüfen" waits until all options are rated
+| 25 | Rate, check, go back, check again, submit -- double-click the last button | the ratings are restored when going back; exactly one answer; "Ihre Antwort ist gespeichert."; no rating remains on the page
+| 26 | In the database: `SELECT * FROM poll_response_rating` and `poll_response` | no member column anywhere, no time column; the response row has `option_id` NULL and `weight_ltr` 0; one rating row per option; the ledger has no new entry
+| 27 | Try to answer the same poll again, and a classic poll through the consensus booth path (API) | the second answer is a conflict; the wrong kind is `BadRequest` and writes nothing
+| 28 | Close the decision with 4 answers, then run another with 5 | 4: only "Unverbindliches Stimmungsbild · 4 Antworten" and the withheld sentence; 5: the result with Ø, Summe, 10er, group conflict, strong objection, the distribution behind its switch
+| 29 | Rate so that the passive option ties with an option; then so that two options tie | the passive option leads and the tie sentence is shown; for two options: the lowest maximum decides (sentence shown), or "Gleichstand, kein eindeutiges Ergebnis."
+| 30 | Create and close a ranking | "Rangliste nach Widerstand", ranks "1.", "2. gleichauf"; no badge, no bar
+| 31 | Phone width 320 px | the scale of the booth breaks into 0-5 and 6-10; nothing scrolls sideways
+| 32 | A question, an option and an explanation with `###KvI18nS###` and `<img ...>` | shown as plain text in the form, the booth, the check step, the options list and the result
+|===
+
 == Actual results
 
-(to be filled in when the plan is run)
+(to be filled in when the plan is run -- not executed for V1.9.31 and not executed for V1.9.41: nothing was deployed)

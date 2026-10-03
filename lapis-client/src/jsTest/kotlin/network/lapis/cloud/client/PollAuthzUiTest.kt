@@ -26,7 +26,9 @@ class PollAuthzUiTest {
         options: List<String> = listOf("Ja", "Nein"),
         deadline: LocalDateTime? = null,
         hasDeadline: Boolean = false,
-    ) = validatePollDraft(question, description, options, deadline, hasDeadline, now)
+        explanations: List<String> = emptyList(),
+        kind: network.lapis.cloud.shared.domain.PollKind = network.lapis.cloud.shared.domain.PollKind.SINGLE_CHOICE,
+    ) = validatePollDraft(question, description, options, deadline, hasDeadline, now, explanations, kind)
 
     // ── gates ───────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -148,5 +150,22 @@ class PollAuthzUiTest {
         assertEquals(custom, pollDeadlineFor(PollDeadlineChoice.Custom, custom, now))
         assertNull(pollDeadlineFor(PollDeadlineChoice.Custom, null, now))
         assertNull(pollDeadlineFor(PollDeadlineChoice.None, custom, now))
+    }
+
+    // ── V1.9.41: explanations of the consensus kinds ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun explanations_areCheckedOnlyForTheConsensusKinds() {
+        val rank = network.lapis.cloud.shared.domain.PollKind.SK_PRIORITY
+        val decision = network.lapis.cloud.shared.domain.PollKind.SK_DECISION
+        assertNull(draft(kind = rank, explanations = listOf("x".repeat(1000), "")))
+        assertEquals(PollDraftError.ExplanationTooLong(0), draft(kind = rank, explanations = listOf("x".repeat(1001), "")))
+        assertEquals(PollDraftError.ExplanationTooLong(1), draft(kind = decision, explanations = listOf("", "y".repeat(1001))))
+        assertEquals(PollDraftError.ExplanationInvalid(0), draft(kind = rank, explanations = listOf("a\u0007b", "")))
+        assertEquals(PollDraftError.ExplanationInvalid(1), draft(kind = rank, explanations = listOf("", "a\n".repeat(25) + "b")))
+        // a single choice never sends an explanation, so an over-long leftover in the form must not block it
+        assertNull(draft(explanations = listOf("x".repeat(5000), "")))
+        assertTrue(pollDraftErrorText(PollDraftError.ExplanationTooLong(1)).contains("Option 2"))
+        assertTrue(pollDraftErrorText(PollDraftError.ExplanationInvalid(0)).contains("Option 1"))
     }
 }

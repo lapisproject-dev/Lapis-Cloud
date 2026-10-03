@@ -14,6 +14,7 @@ import io.kvision.utils.perc
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollOptionDto
 import network.lapis.cloud.shared.domain.PollResultDto
+import network.lapis.cloud.shared.domain.isConsensus
 
 /*
  * V1.9.31 -- the result of a closed poll: two blocks side by side (by heads, by LTR weight), each option once, in the order of the poll.
@@ -28,6 +29,10 @@ internal fun renderPollResult(
     poll: PollDto,
     result: PollResultDto?,
 ) {
+    if (result != null && result.kind.isConsensus) {
+        renderPollRatingResult(host, poll, result)
+        return
+    }
     host.h2(tr("Ergebnis")) { addCssClass("h5") }
     if (result == null) {
         host.p(tr("Das Ergebnis konnte nicht geladen werden."))

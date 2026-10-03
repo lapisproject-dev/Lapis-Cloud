@@ -12,16 +12,20 @@ import kotlinx.coroutines.coroutineScope
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.PollParticipationTable
+import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
 import network.lapis.cloud.server.db.generated.PollTable
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.shared.domain.PollKind
+import network.lapis.cloud.shared.domain.PollRatingInput
 import network.lapis.cloud.shared.domain.PollResponseInput
 import network.lapis.cloud.shared.domain.PollRules
 import network.lapis.cloud.shared.domain.PollStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.util.concurrent.CyclicBarrier
@@ -150,6 +154,61 @@ abstract class PollConcurrencyScenarios(
                         castPollResponse(PollResponseInput(pollId = poll.id, optionId = poll.options[0].id))
                     }.exceptionOrNull()
                         .shouldBeInstanceOf<ConflictException>()
+                }
+            }
+        }
+
+        test("consensus: the same member rating 8 times at once yields one participation, one response and one rating per option") {
+            pollTestApplication {
+                val chair = data.chair()
+                val voter = data.member(label = "parallel-sk")
+                val poll = call(member = chair) { createPoll(pollInput(kind = PollKind.SK_DECISION)) }
+                val results =
+                    parallel(8) { i ->
+                        attempt(member = voter) {
+                            castPollRatings(
+                                PollRatingInput(
+                                    pollId = poll.id,
+                                    ratings =
+                                        poll.options.associate {
+                                            it.id to
+                                                (i % 11)
+                                        },
+                                ),
+                            )
+                        }
+                    }
+                results.count { it.isSuccess } shouldBe 1
+                results.filter { it.isFailure }.forEach { it.exceptionOrNull().shouldBeInstanceOf<ConflictException>() }
+                participationRows(poll.id) shouldBe 1L
+                responseRows(poll.id) shouldBe 1L
+                transaction { PollResponseRatingTable.selectAll().count() } shouldBe poll.options.size.toLong()
+            }
+        }
+
+        test("consensus: closePoll racing with ratings never leaves a response without its complete rating set") {
+            pollTestApplication {
+                val chair = data.chair()
+                repeat(3) { round ->
+                    val voters = (0 until 7).map { data.member(label = "race-sk-$round-$it") }
+                    val poll = call(member = chair) { createPoll(pollInput(question = "SK-Rennen $round?", kind = PollKind.SK_PRIORITY)) }
+                    parallel(8) { i ->
+                        if (i == 0) {
+                            attempt(member = chair) { closePoll(poll.id) }
+                        } else {
+                            attempt(
+                                member = voters[i - 1],
+                            ) { castPollRatings(PollRatingInput(pollId = poll.id, ratings = poll.options.associate { it.id to 3 })) }
+                        }
+                    }
+                    val responses = responseRows(poll.id)
+                    participationRows(poll.id) shouldBe responses
+                    transaction {
+                        PollResponseRatingTable
+                            .selectAll()
+                            .where { PollResponseRatingTable.optionId inList poll.options.map { Uuid.parse(it.id) } }
+                            .count()
+                    } shouldBe responses * poll.options.size
                 }
             }
         }

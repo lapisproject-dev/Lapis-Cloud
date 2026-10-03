@@ -1,10 +1,14 @@
 package network.lapis.cloud.client
 
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.PollDecisionOutcome
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollHeadOptionResultDto
+import network.lapis.cloud.shared.domain.PollKind
 import network.lapis.cloud.shared.domain.PollOptionDto
 import network.lapis.cloud.shared.domain.PollParticipationDto
+import network.lapis.cloud.shared.domain.PollRatingOptionResultDto
+import network.lapis.cloud.shared.domain.PollRatingResultDto
 import network.lapis.cloud.shared.domain.PollResultDto
 import network.lapis.cloud.shared.domain.PollStatus
 import network.lapis.cloud.shared.domain.PollWeightedOptionResultDto
@@ -18,7 +22,9 @@ internal fun pollOptionDto(
     id: String,
     text: String,
     position: Int,
-) = PollOptionDto(id = id, position = position, text = text)
+    explanation: String? = null,
+    isPassive: Boolean = false,
+) = PollOptionDto(id = id, position = position, text = text, explanation = explanation, isPassive = isPassive)
 
 internal fun pollOptions() =
     listOf(
@@ -37,6 +43,7 @@ internal fun pollDto(
     canManage: Boolean = false,
     responseCount: Int? = null,
     createdBy: String = "Clara Chair",
+    kind: PollKind = PollKind.SINGLE_CHOICE,
 ) = PollDto(
     id = id,
     question = question,
@@ -50,6 +57,7 @@ internal fun pollDto(
     resultAvailable = status == PollStatus.CLOSED && (responseCount ?: 0) >= 5,
     responseCount = if (status == PollStatus.OPEN || status == PollStatus.ABORTED) null else responseCount,
     canManage = canManage,
+    kind = kind,
 )
 
 internal fun pollParticipation(
@@ -75,4 +83,76 @@ internal fun pollResult(
     weightedResultAvailable = weightedAvailable,
     weightedWithheldReason = if (weightedAvailable) null else reason,
     weightedResult = if (weightedAvailable) weighted.map { PollWeightedOptionResultDto(it.first, it.second) } else emptyList(),
+)
+
+/** V1.9.41: the options of a consensus poll: two real ones (the first with an explanation) and, for a decision, the passive one at position 10. */
+internal fun pollSkOptions(withPassive: Boolean = true) =
+    listOf(
+        pollOptionDto("o-a", "Im Juli", 0, explanation = "Wetter ist meist besser."),
+        pollOptionDto("o-b", "Im August", 1),
+    ) + if (withPassive) listOf(pollOptionDto("o-p", "No change", 10, isPassive = true)) else emptyList()
+
+internal fun pollSkDto(
+    kind: PollKind = PollKind.SK_DECISION,
+    status: PollStatus = PollStatus.OPEN,
+    responseCount: Int? = null,
+    options: List<PollOptionDto> = pollSkOptions(withPassive = kind == PollKind.SK_DECISION),
+    question: String = "Wann soll das Sommerfest stattfinden?",
+) = pollDto(status = status, kind = kind, options = options, responseCount = responseCount, question = question)
+
+internal fun pollRatingOption(
+    optionId: String,
+    rank: Int,
+    cumulative: Int,
+    mean: Double,
+    max: Int = 6,
+    top: Int = 0,
+    index: Double = 0.3,
+    tied: Boolean = false,
+    distribution: Map<Int, Int> = mapOf(max to 1),
+    strong: Boolean = max >= 9,
+) = PollRatingOptionResultDto(
+    optionId = optionId,
+    rank = rank,
+    tied = tied,
+    cumulativeResistance = cumulative,
+    meanResistance = mean,
+    maxResistance = max,
+    topValueCount = top,
+    consensusIndex = index,
+    strongObjection = strong,
+    distribution = (0..10).associateWith { distribution[it] ?: 0 },
+)
+
+internal fun pollRatingResult(
+    kind: PollKind = PollKind.SK_DECISION,
+    responseCount: Int = 7,
+    options: List<PollRatingOptionResultDto>,
+    outcome: PollDecisionOutcome? = if (kind == PollKind.SK_DECISION) PollDecisionOutcome.OPTION_WINS else null,
+    winner: String? = options.firstOrNull()?.optionId,
+    tieAtLowest: Boolean = false,
+    decidedByLowestMax: Boolean = false,
+    available: Boolean = true,
+) = PollResultDto(
+    pollId = "p1",
+    responseCount = responseCount,
+    headResultAvailable = false,
+    headResult = emptyList(),
+    weightedResultAvailable = false,
+    weightedWithheldReason = null,
+    weightedResult = emptyList(),
+    kind = kind,
+    ratingResultAvailable = available,
+    ratingResult =
+        if (available) {
+            PollRatingResultDto(
+                options = options,
+                outcome = outcome,
+                winnerOptionId = winner,
+                tieAtLowest = tieAtLowest,
+                decidedByLowestMax = decidedByLowestMax,
+            )
+        } else {
+            null
+        },
 )
