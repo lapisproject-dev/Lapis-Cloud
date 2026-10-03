@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.PollResponseRatingTable
 import network.lapis.cloud.server.db.generated.PollResponseTable
+import network.lapis.cloud.server.shouldNotContainNumber
 import network.lapis.cloud.shared.domain.PollCreateInput
 import network.lapis.cloud.shared.domain.PollDto
 import network.lapis.cloud.shared.domain.PollHeadOptionResultDto
@@ -250,8 +251,8 @@ class PollAnonymityLeakTest :
                 result.weightedResultAvailable shouldBe true
                 result.weightedResult.map { it.sharePercent } shouldBe listOf(67, 33)
                 val out = json.encodeToString(PollResultDto.serializer(), result)
-                out shouldNotContain "3000"
-                out shouldNotContain "1500"
+                out shouldNotContainNumber "3000"
+                out shouldNotContainNumber "1500"
             }
         }
 

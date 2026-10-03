@@ -32,6 +32,7 @@ import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.PublicRankingConsentDisclaimer
+import network.lapis.cloud.server.shouldNotContainNumber
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.DonorCategory
@@ -501,9 +502,9 @@ class PublicTransparencyRoutesTest :
 
                 val body = client.get("/transparenz").bodyAsText()
                 body shouldContain "Top-Spender $currentYear"
-                body shouldNotContain "99999"
-                body shouldNotContain "88888"
-                body shouldNotContain "77777"
+                body shouldNotContainNumber "99999"
+                body shouldNotContainNumber "88888"
+                body shouldNotContainNumber "77777"
             }
         }
 

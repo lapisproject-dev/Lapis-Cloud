@@ -44,6 +44,7 @@ import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.SocialReadPipeline
 import network.lapis.cloud.server.rpc.SocialVisibility
+import network.lapis.cloud.server.shouldNotContainNumber
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SocialPostState
@@ -830,7 +831,7 @@ class SocialPublicRoutesTest :
                 }
                 val id = insertPost(authorMemberId = author)
                 val html = client.get("/s/$id").bodyAsText()
-                html shouldNotContain "4242"
+                html shouldNotContainNumber "4242"
                 html shouldNotContain author.toString()
             }
         }
