@@ -101,7 +101,7 @@ internal fun openMemberAddressAdminDialog(
     val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Anschrift und GwG-Angaben von %1", row.displayName)))
     val content = modal.vPanel(spacing = 10)
     val closeButton =
-        Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply {
+        newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply {
             onClick { modal.hide() }
         }
     modal.addButton(closeButton)

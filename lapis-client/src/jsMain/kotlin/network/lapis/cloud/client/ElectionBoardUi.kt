@@ -119,7 +119,7 @@ private fun buildBoardForm(
             chosen.forEach { (id, name) ->
                 val row = chosenPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
                 row.untrustedSpan(name, className = "flex-grow-1")
-                val remove = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINESECONDARY)
+                val remove = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINESECONDARY)
                 remove.addCssClass("btn-sm")
                 remove.onClick {
                     chosen.remove(id)
@@ -152,7 +152,7 @@ private fun buildBoardForm(
             }
         }
 
-        val addButton = Button(tr("Hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+        val addButton = newActionButton(ActionIcon.ADD, tr("Hinzufügen"), ButtonStyle.OUTLINESECONDARY)
         form.panel.add(addButton)
         addButton.onClick {
             val id = pickField.value
@@ -171,7 +171,7 @@ private fun buildBoardForm(
                 else -> FieldCheck.Ok
             }
         }
-        val saveButton = Button(tr("Wahlausschuss speichern"), style = ButtonStyle.PRIMARY)
+        val saveButton = newActionButton(ActionIcon.SAVE, tr("Wahlausschuss speichern"), ButtonStyle.PRIMARY)
         form.buttons(primary = saveButton)
         refresh()
         saveButton.onClick {
@@ -219,7 +219,7 @@ internal fun renderCandidacySection(
             rows = data.candidacies,
             actions = { container, c ->
                 if (canWithdrawOwn(e, c, me) || canWithdrawForeign(e, c, me, roles)) {
-                    val withdraw = container.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
+                    val withdraw = container.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
                     withdraw.addCssClass("btn-sm")
                     withdraw.onClick {
                         confirmDialog(

@@ -121,13 +121,13 @@ fun renderLtrLedgerScreen(container: SimplePanel) {
 
     // ---- (2) Own entries + referenceType filter (D10 empty state) --------------------------
     root.h2(tr("Meine Buchungen")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val referenceFilterOptions =
         listOf("" to tr("Alle")) +
             listOf("NONE" to tr("Ohne Referenz (z. B. Gutschrift)")) +
             LtrLedgerReferenceType.entries.map { it.name to ltrLedgerReferenceTypeLabel(it) }
     val referenceFilterSelect = filterRow.select(options = referenceFilterOptions, value = "", label = tr("Filter: Referenztyp"))
-    val entriesRefreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val entriesRefreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val entriesStatusRegion = root.dataStatusRegion()
     val entriesPanel = root.vPanel(spacing = 6)
 
@@ -523,7 +523,7 @@ private fun peerTransferConfirmDialog(
             peerTransferCharacterizationLabel(characterization),
         ),
     )
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Endgültig übertragen"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -548,9 +548,9 @@ private fun renderMemberLookupSection(
         root.p(tr("Keine Mitglieder vorhanden.")) { addCssClasses("text-muted small") }
         return
     }
-    val row = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val row = root.lapisToolbar()
     val memberSelect = row.searchableSelect(options = untrustedOptions(members.map { it.id to it.displayName }), label = tr("Mitglied"))
-    val showButton = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = row.actionButton(ActionIcon.VIEW, tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     val resultPanel = root.vPanel(spacing = 6)
 
     showButton.onClick {
@@ -755,7 +755,7 @@ private fun arbitrationTransferConfirmDialog(
             purpose,
         ),
     )
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Endgültig ausführen"), style = ButtonStyle.DANGER).apply {
             onClick {

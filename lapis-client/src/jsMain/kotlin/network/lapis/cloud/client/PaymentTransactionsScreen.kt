@@ -9,7 +9,6 @@ import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
@@ -36,10 +35,10 @@ fun renderPaymentTransactionsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot()
     root.pageHeader(tr("Zahlungseingänge"))
 
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Mitglied oder Hinweis"))
     val unreconciledOnlyCheck = filterRow.checkBox(label = tr("Nur nicht gebuchte Zahlungen"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
 
     val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val statusRegion = root.dataStatusRegion()

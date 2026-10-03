@@ -67,7 +67,7 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
         }
     }
 
-    val actionsRow = root.hPanel(spacing = 8) { addCssClasses("mt-2 align-items-center") }
+    val actionsRow = root.lapisToolbar { addCssClasses("mt-2") }
     // Fix (Review round 1, CRITICAL): Welle V1.2.8b added PAYPAL as a fully first-class provider
     // server-side (`enablePaymentGateway` accepts both STRIPE and PAYPAL), but this screen never
     // gained a picker -- `enablePaymentGateway` was called with the STRIPE literal unconditionally,
@@ -224,7 +224,7 @@ private fun paymentGatewayEnableDisclaimerModal(
         overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Ich bestätige, den aktuellen Text gelesen zu haben"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -244,9 +244,9 @@ private fun paymentGatewayDisableConfirmDialog(onConfirm: () -> Unit) {
                 "erstellte Sitzungen laufen ab, ohne gebucht zu werden.",
         ),
     ) { addCssClasses("fw-bold text-danger") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Deaktivieren"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()

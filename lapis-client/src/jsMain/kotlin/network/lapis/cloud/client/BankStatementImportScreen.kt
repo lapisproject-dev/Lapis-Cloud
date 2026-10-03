@@ -372,7 +372,7 @@ internal fun renderUploadPanel(
                 }
             },
         )
-    val uploadButton = Button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    val uploadButton = newActionButton(ActionIcon.UPLOAD, tr("Hochladen"), ButtonStyle.PRIMARY)
     form.buttons(primary = uploadButton)
     // Die Rohzeile eines abgelehnten Auszugs (enthält IBAN und Betrag) steht in einem gewöhnlichen Detailbereich, NICHT in der
     // Sammelfläche des Formulars: die ist eine `role="alert"`-Live-Region, und ein Screenreader läse Kontodaten unaufgefordert vor.
@@ -474,7 +474,7 @@ private fun renderLineRow(
         if (canWrite) {
             cell {
                 if (line.status != BankStatementLineStatus.POSTED && line.status != BankStatementLineStatus.IGNORED) {
-                    val editButton = button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+                    val editButton = actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
                     editButton.onClick { onEdit() }
                 }
             }

@@ -96,6 +96,7 @@ fun renderSepaMandateSection(root: SimplePanel) {
                         reasonLabel = tr("Grund"),
                         reasonRequired = false,
                         confirmLabel = tr("Widerrufen"),
+                        confirmIcon = ActionIcon.REVOKE,
                     ) { reason ->
                         runGuardedAction(revokeButton) {
                             val result = guarded { rpcService<ISepaService>().revokeMandate(mandate.id, reason) }

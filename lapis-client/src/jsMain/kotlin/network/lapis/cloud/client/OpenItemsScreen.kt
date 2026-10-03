@@ -6,7 +6,6 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.form.text.text
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -137,7 +136,7 @@ fun renderOpenItemsScreen(
     val listHeading = root.h2(tr("Posten")) { addCssClass("h5") }
     // Focus target of the detail-closing refetch (see `followSelection`): programmatically focusable, not in the tab order.
     listHeading.setAttribute("tabindex", "-1")
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val statusChecks: Map<OpenItemStatus, CheckBox> =
         OpenItemStatus.entries.associateWith { status ->
             filterRow.checkBox(value = status in state.filter.statuses, label = openItemStatusLabel(status))
@@ -150,7 +149,7 @@ fun renderOpenItemsScreen(
             value = "50",
             label = tr("Seitengröße"),
         )
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val listPanel = root.vPanel(spacing = 6)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
@@ -742,7 +741,7 @@ fun renderOpenItemsScreen(
         }
         loadPaymentMappingFn = ::loadPaymentMapping
 
-        val createButton = actionRow.button(tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
+        val createButton = actionRow.actionButton(ActionIcon.ADD, tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
         val nettingButton = actionRow.button(tr("Verrechnen …"), style = ButtonStyle.OUTLINESECONDARY)
         createButton.onClick {
             formHost.removeAll()
@@ -868,12 +867,12 @@ private fun appendOpenItemRow(
         }
         val actionsCell = cell()
         val actions = actionsCell.tableActionGroup()
-        actions.tableActionButton("fas fa-eye", gettext("Details anzeigen")).onClick { onSelect() }
+        actions.tableActionButton(ActionIcon.VIEW, gettext("Details anzeigen")).onClick { onSelect() }
         if (OpenItemAuthzUi.canSettle(role, item)) {
             actions.tableActionButton("fas fa-money-bill-wave", gettext("Ausgleichen")).onClick { onSettle() }
         }
         if (OpenItemAuthzUi.canRetryPosting(role, item)) {
-            val retry = actions.tableActionButton("fas fa-rotate-right", gettext("Nachbuchen"))
+            val retry = actions.tableActionButton(ActionIcon.REFRESH, gettext("Nachbuchen"))
             retry.onClick { runGuardedAction(retry) { onRetry() } }
         }
     }
@@ -1056,7 +1055,7 @@ private fun renderSettlementActions(
 ) {
     val actions = cell.tableActionGroup()
     if (settlement.postingError != null) {
-        val retry = actions.tableActionButton("fas fa-rotate-right", gettext("Nachbuchen"))
+        val retry = actions.tableActionButton(ActionIcon.REFRESH, gettext("Nachbuchen"))
         retry.onClick {
             runGuardedAction(retry) {
                 // V1.4.22: `openItemGuarded` -- dieser Aufruf hat KEIN explizites Konto und braucht
@@ -1071,7 +1070,7 @@ private fun renderSettlementActions(
         }
     }
     if (settlement.kind == OpenItemSettlementKind.PAYMENT && settlement.journalEntryId != null) {
-        val reverse = actions.tableActionButton("fas fa-rotate-left", gettext("Zahlung stornieren"), ButtonStyle.OUTLINEDANGER)
+        val reverse = actions.tableActionButton(ActionIcon.UNDO, gettext("Zahlung stornieren"), ButtonStyle.OUTLINEDANGER)
         reverse.onClick {
             confirmWithReasonDialog(
                 title = tr("Zahlung stornieren"),
@@ -1093,7 +1092,7 @@ private fun renderSettlementActions(
     }
     val nettingId = settlement.nettingId
     if (settlement.kind == OpenItemSettlementKind.NETTING && nettingId != null) {
-        val reverse = actions.tableActionButton("fas fa-rotate-left", gettext("Verrechnung stornieren"), ButtonStyle.OUTLINEDANGER)
+        val reverse = actions.tableActionButton(ActionIcon.UNDO, gettext("Verrechnung stornieren"), ButtonStyle.OUTLINEDANGER)
         reverse.onClick {
             confirmWithReasonDialog(
                 title = tr("Verrechnung stornieren"),
@@ -1163,7 +1162,7 @@ private fun renderNoticeRow(
         textCell(notice.cancellationReason.orEmpty())
         val actionsCell = cell()
         if (OpenItemAuthzUi.canCancelDunningNotice(role, notice.status)) {
-            val cancel = actionsCell.tableActionButton("fas fa-rotate-left", gettext("Stornieren"), ButtonStyle.OUTLINEDANGER)
+            val cancel = actionsCell.tableActionButton(ActionIcon.UNDO, gettext("Stornieren"), ButtonStyle.OUTLINEDANGER)
             cancel.onClick {
                 confirmWithReasonDialog(
                     title = tr("Mahnhinweis stornieren"),
@@ -1555,8 +1554,8 @@ internal fun renderOpenItemCreateForm(
         requestPrefill()
     }
 
-    val saveButton = Button(tr("Posten anlegen"), style = ButtonStyle.PRIMARY)
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
+    val saveButton = newActionButton(ActionIcon.ADD, tr("Posten anlegen"), ButtonStyle.PRIMARY)
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY)
     form.buttons(primary = saveButton, cancel = cancelButton)
     cancelButton.onClick { onCancel() }
 

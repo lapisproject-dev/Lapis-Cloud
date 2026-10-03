@@ -197,7 +197,7 @@ private fun dunningEnableDisclaimerModal(
         overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Ich bestätige, den aktuellen Text gelesen zu haben"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -217,9 +217,9 @@ private fun dunningDisableConfirmDialog(onConfirm: () -> Unit) {
                 "mehr möglich. Bereits ausgestellte Mahnungen bleiben in der Historie erhalten.",
         ),
     ) { addCssClasses("fw-bold text-danger") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Deaktivieren"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -235,7 +235,7 @@ private fun dunningDisableConfirmDialog(onConfirm: () -> Unit) {
 
 private fun renderDunningLevelsSection(root: SimplePanel) {
     root.h2(tr("Mahnstufen")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Stufen anzeigen"))
     val listPanel = root.vPanel(spacing = 6)
 
@@ -289,12 +289,12 @@ private fun renderDunningLevelRow(
         val activeCell = cell()
         activeCell.activeStatusBadge(level.active)
         val actionsCell = cell()
-        val editButton = actionsCell.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+        val editButton = actionsCell.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
         editButton.onClick {
             confirmEditDunningLevel(level, onChanged)
         }
         if (level.active) {
-            val deactivateButton = actionsCell.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+            val deactivateButton = actionsCell.actionButton(ActionIcon.REVOKE, tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
             deactivateButton.onClick {
                 confirmDialog(
                     title = tr("Mahnstufe deaktivieren"),
@@ -416,7 +416,7 @@ internal fun renderDunningLevelForm(
     if (modal != null) {
         // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
         form.finish()
-        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
         modal.addButton(submitButton)
     } else {
         form.buttons(primary = submitButton)

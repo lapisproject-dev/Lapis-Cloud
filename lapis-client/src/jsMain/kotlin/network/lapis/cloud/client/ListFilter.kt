@@ -105,13 +105,13 @@ class ListFilter internal constructor(
 
 /** Builds the filter field in this container. [label] is the visible label (also the accessible name). */
 fun Container.listFilterField(label: String = tr("Nach Name filtern")): ListFilter {
-    val holder = div(className = "lapis-list-filter d-flex align-items-end gap-2 flex-wrap")
+    val holder = div(className = "lapis-list-filter lapis-toolbar")
     val field = Text(type = InputType.TEXT, label = label)
     field.addCssClasses("flex-grow-1 mb-0")
     holder.add(field)
     val clearLabel = tr("Suche leeren")
     val clearButton =
-        Button("", icon = "fas fa-times", style = ButtonStyle.OUTLINESECONDARY) {
+        Button("", icon = ActionIcon.CLEAR.css, style = ButtonStyle.OUTLINESECONDARY) {
             title = clearLabel
             setAttribute("aria-label", resolvedAttributeText(clearLabel))
             visible = false

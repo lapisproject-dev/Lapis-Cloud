@@ -63,7 +63,7 @@ fun renderCommitteesScreen(container: SimplePanel) {
     val createHost = if (canManage) root.vPanel(spacing = 6) else null
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Gremien anzeigen"))
     val committeePanel = root.vPanel(spacing = 6)
 
@@ -99,7 +99,7 @@ fun renderCommitteesScreen(container: SimplePanel) {
         }
     }
 
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     refreshButton.onClick { refreshCommittees() }
     refreshCommittees()
 
@@ -135,7 +135,7 @@ private fun renderCommitteeRow(
     val showButton = actionRow.button(tr("Mitglieder anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(committee) }
     if (canManage) {
-        val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -176,7 +176,7 @@ internal fun renderCommitteeEditForm(
         )
     val activeField = form.checkField(label = tr("Aktiv"), value = committee.active)
 
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     form.buttons(primary = saveButton)
     saveButton.onClick {
         form.submit(saveButton) {
@@ -265,7 +265,7 @@ internal fun renderCommitteeRoster(
     // composed into a gettext(...) string -- sanitize the whole composed result, same as the raw committee.name
     // rendering in renderCommitteeRow above in this same file.
     rosterPanel.h2(sanitizeUntrustedI18nText(gettext("Besetzung: %1", committee.name))) { addCssClass("h5") }
-    val rosterFilterRow = rosterPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val rosterFilterRow = rosterPanel.lapisToolbar()
     val includeEndedCheck = rosterFilterRow.checkBox(label = tr("Ausgeschiedene anzeigen"))
     // Name filter over the roster that is already fully loaded (`listCommitteeMembers` has no paging): hidden while it is empty.
     val rosterFilter = rosterPanel.listFilterField()
@@ -288,7 +288,7 @@ internal fun renderCommitteeRoster(
     }
     rosterFilter.subscribe { renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, ::refreshRoster) }
 
-    val rosterRefreshButton = rosterFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val rosterRefreshButton = rosterFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     rosterRefreshButton.onClick { refreshRoster() }
     refreshRoster()
 
@@ -373,7 +373,7 @@ internal fun endCommitteeMembershipDialog(
         )
     form.finish()
     modal.addButton(
-        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
+        newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
     )
     modal.addButton(
         Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {

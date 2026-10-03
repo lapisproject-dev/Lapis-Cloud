@@ -6,7 +6,6 @@ import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
@@ -14,7 +13,6 @@ import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.table.cell
 import io.kvision.table.table
@@ -72,10 +70,10 @@ fun renderCostCentersScreen(container: SimplePanel) {
     // clientseitige Filterung ohne RPC-Roundtrip pro Tastendruck, Suchfeld ausserhalb des
     // Listen-Panels (sonst risse jeder Tastendruck das eigene Eingabefeld samt Fokus ab, siehe
     // dortiges KDoc).
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val costCenterSearchInput = filterRow.text(label = tr("Kostenstelle suchen (Code oder Name)"))
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Kostenstellen anzeigen"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
 
@@ -260,7 +258,7 @@ private fun Container.renderCostCenterActions(
 ) {
     if (!canManage || !costCenter.active) return
     val actionRow = tableActionGroup()
-    val deactivateButton = actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+    val deactivateButton = actionRow.tableActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
     deactivateButton.onClick {
         confirmDialog(
             title = tr("Kostenstelle deaktivieren"),

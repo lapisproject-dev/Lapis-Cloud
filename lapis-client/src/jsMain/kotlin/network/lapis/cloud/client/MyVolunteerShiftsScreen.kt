@@ -43,7 +43,7 @@ fun renderMyVolunteerShiftsScreen(container: SimplePanel) {
     root.pageHeader(tr("Helferschichten"))
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
-    val eventSelectRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val eventSelectRow = root.lapisToolbar()
     val eventSelect = eventSelectRow.select(options = emptyList(), label = tr("Veranstaltung"))
 
     root.h2(tr("Verfügbare Schichten")) { addCssClass("h5") }

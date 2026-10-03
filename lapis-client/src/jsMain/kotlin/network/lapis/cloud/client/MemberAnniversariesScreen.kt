@@ -10,7 +10,6 @@ import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import kotlinx.browser.window
 import kotlinx.datetime.LocalDate
@@ -63,7 +62,7 @@ fun renderMemberAnniversariesScreen(container: SimplePanel) {
     ) { addCssClasses("text-muted small") }
 
     // Welle V1.4.26 (W2): Filterleiste in der Reihenfolge der Richtlinie 2.4 -- Suchfeld, Segment, Detailfilter.
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Name"))
     var searchTerm = ""
     val kindSegmentHost = filterRow.simplePanel()

@@ -4,7 +4,6 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -355,10 +354,10 @@ private fun renderOwnErasureStatusCard(
 // ================================================================================================
 
 private fun renderAdminQueueSection(root: SimplePanel) {
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val statusOptions = listOf("" to tr("Alle Status")) + ErasureStatus.entries.map { it.name to erasureStatusLabel(it) }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.vPanel(spacing = 8)
 
@@ -399,7 +398,7 @@ private fun renderAdminRequestRow(
         renderDecidePanel(row, request, onChanged)
     }
     if (request.status == ErasureStatus.APPROVED) {
-        val executeButton = row.button(tr("Endgültig löschen"), style = ButtonStyle.DANGER)
+        val executeButton = row.actionButton(ActionIcon.DELETE, tr("Endgültig löschen"), style = ButtonStyle.DANGER)
         executeButton.onClick {
             executeErasureConfirmDialog(request) {
                 executeButton.disabled = true
@@ -424,8 +423,8 @@ private fun renderDecidePanel(
     val decidePanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
     val noteInput = decidePanel.textArea(label = tr("Entscheidungsnotiz (optional)"), rows = 2)
     val buttonsRow = decidePanel.hPanel(spacing = 8)
-    val approveButton = buttonsRow.button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val approveButton = buttonsRow.actionButton(ActionIcon.APPROVE, tr("Genehmigen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = buttonsRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun decide(approve: Boolean) {
         approveButton.disabled = true
@@ -464,9 +463,9 @@ private fun executeErasureConfirmDialog(
         modal.div(gettext("Entscheidungsnotiz: %1", note)) { addCssClasses("small text-muted mt-1") }
     }
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Endgültig löschen"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.DELETE, tr("Endgültig löschen"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -522,9 +521,9 @@ private fun SimplePanel.erasureStepTracker(request: ErasureRequestDto) {
 // ================================================================================================
 
 private fun renderDsgvoAuditLogSection(root: SimplePanel) {
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val subjectInput = filterRow.text(label = tr("Betroffenes Mitglied (ID, optional)"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
     val listPanel = root.vPanel(spacing = 6)
 
     fun refreshList() {

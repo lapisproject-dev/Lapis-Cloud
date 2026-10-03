@@ -104,7 +104,7 @@ fun renderRecurrenceEditor(
     val presetSelect = body.select(options = emptyList(), label = tr("Wiederholung"))
 
     val customPanel = body.vPanel(spacing = 6) { hide() }
-    val intervalRow = customPanel.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+    val intervalRow = customPanel.lapisToolbar()
     val frequencySelect =
         intervalRow.select(
             options =
@@ -135,7 +135,7 @@ fun renderRecurrenceEditor(
             label = tr("Monatliche Variante"),
         )
 
-    val endRow = body.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+    val endRow = body.lapisToolbar()
     val endTypeSelect =
         endRow.select(
             options =
@@ -473,7 +473,7 @@ fun seriesEditScopeDialog(
     val loadingBox = modal.div(tr("Auswirkungen werden geladen…")) { addCssClasses("text-muted small") }
     val formHolder = modal.vPanel(spacing = 6) { hide() }
 
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val once = ConfirmOnce()
     val confirmButton = Button(confirmLabel, style = confirmStyle).apply { disabled = true }
     modal.addButton(cancelButton)

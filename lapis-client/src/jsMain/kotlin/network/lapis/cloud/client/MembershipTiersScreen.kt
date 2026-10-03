@@ -111,7 +111,7 @@ internal fun Container.renderTierOverview(
         rows = sortTiersForDisplay(overview.tiers),
         actions = { actions, tier ->
             val group = actions.tableActionGroup()
-            group.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY).onClick { onEdit(tier) }
+            group.tableActionButton(ActionIcon.EDIT, tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY).onClick { onEdit(tier) }
             // A free tier is never invoiced -- offering the action would only produce a "0 new contributions" toast.
             if (tier.contributionAmount.toDouble() > 0.0) {
                 group.tableActionButton("fas fa-file-invoice", tr("Beiträge erzeugen")).onClick { onGenerate(tier) }
@@ -272,8 +272,8 @@ internal fun openMembershipTierForm(
     amountField.subscribe { refreshAmountNotice(it) }
     form.finish()
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     saveButton.onClick {
         form.submit(saveButton) {
             val input =
@@ -364,7 +364,7 @@ internal fun openGenerateContributionsDialog(
     form.crossFieldRule(field = endField) { periodOrderCheck(startField.value, endField.value) }
     form.finish()
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     val generateButton = Button(tr("Beiträge erzeugen"), style = ButtonStyle.PRIMARY)
     generateButton.onClick {
         form.submit(generateButton) {

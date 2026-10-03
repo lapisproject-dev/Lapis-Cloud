@@ -151,7 +151,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     // D8(b): unconditional, non-dismissible, above the list itself (X2).
     root.div(tr(TRANSPARENZREGISTER_REMINDER_HONESTY_BANNER)) { addCssClasses("alert alert-warning") }
 
-    val reminderFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val reminderFilterRow = root.lapisToolbar()
     val includeResolvedCheck = reminderFilterRow.checkBox(label = tr("Erledigte anzeigen"))
     val reminderPanel = root.vPanel(spacing = 6)
 
@@ -170,7 +170,12 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
         }
     }
     refreshRemindersFn = ::refreshReminders
-    val reminderRefreshButton = reminderFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val reminderRefreshButton =
+        reminderFilterRow.actionButton(
+            ActionIcon.REFRESH,
+            tr("Aktualisieren"),
+            style = ButtonStyle.OUTLINESECONDARY,
+        )
     reminderRefreshButton.onClick { refreshReminders() }
     refreshReminders()
 }
@@ -235,7 +240,7 @@ internal fun endBoardMembershipDialog(
         )
     form.finish()
     modal.addButton(
-        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
+        newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } },
     )
     modal.addButton(
         Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {

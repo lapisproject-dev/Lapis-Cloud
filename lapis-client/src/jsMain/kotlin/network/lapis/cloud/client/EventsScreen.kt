@@ -84,7 +84,7 @@ fun renderEventsScreen(container: SimplePanel) {
 
     renderEventRefundsSection(root) // V1.9.35, self-gated BOARD/ADMIN, invisible when empty
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val statusFilterOptions =
         listOf("" to tr("Alle")) + EventStatus.entries.map { it.name to eventStatusLabel(it) }
     val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Status"))
@@ -208,7 +208,7 @@ private fun renderEventListRow(
 
         val actionRow = displayHolder.hPanel(spacing = 8)
         if (event.status != EventStatus.CANCELLED) {
-            val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+            val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
             editButton.onClick {
                 displayHolder.hide()
                 editFormHolder.removeAll()
@@ -589,8 +589,8 @@ private fun renderEventEditForm(
             hide()
         }
     val buttonRow = panel.hPanel(spacing = 8)
-    val saveButton = buttonRow.button(tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
-    val cancelButton = buttonRow.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
+    val saveButton = buttonRow.actionButton(ActionIcon.SAVE, tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
+    val cancelButton = buttonRow.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
 
     saveButton.onClick {
         val input = readEventForm(fields, errorBox, existingStartsAt = event.startsAt) ?: return@onClick
@@ -686,8 +686,8 @@ private fun renderEventCoverCard(
     val fileUpload = card.upload(label = tr("Bild auswählen…"), multiple = false)
     fileUpload.setAttribute("accept", "image/jpeg,image/png")
     val buttonRow = card.hPanel(spacing = 8)
-    val uploadButton = buttonRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
-    val removeButton = buttonRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val uploadButton = buttonRow.actionButton(ActionIcon.UPLOAD, tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    val removeButton = buttonRow.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.visible = currentUrl != null
 
     uploadButton.onClick {

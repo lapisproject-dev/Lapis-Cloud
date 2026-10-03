@@ -75,7 +75,7 @@ fun renderArticleEditor(
     headerRow.h2(headerTitle, className = "h5") // R7: h5 size class literal on the same line as h2(
     val statusText = headerRow.div("") { addCssClasses("text-muted small") }
     val retryButton =
-        headerRow.button(tr("Erneut versuchen"), style = ButtonStyle.OUTLINEDANGER) { hide() }
+        headerRow.actionButton(ActionIcon.REFRESH, tr("Erneut versuchen"), style = ButtonStyle.OUTLINEDANGER) { hide() }
 
     // Forward-declared so the "Zurück"-button below (and `retryButton`) can close over it even
     // though the controller itself is only constructed further down, once the form fields exist.
@@ -141,7 +141,10 @@ fun renderArticleEditor(
     // -- Tabs "Schreiben"/"Vorschau" --
     val tabRow = root.hPanel(spacing = 8) { setAttribute("role", "tablist") }
     val writeTabButton = tabRow.button(tr("Schreiben"), style = ButtonStyle.OUTLINEPRIMARY) { setAttribute("role", "tab") }
-    val previewTabButton = tabRow.button(tr("Vorschau"), style = ButtonStyle.OUTLINEPRIMARY) { setAttribute("role", "tab") }
+    val previewTabButton =
+        tabRow.actionButton(ActionIcon.VIEW, tr("Vorschau"), style = ButtonStyle.OUTLINEPRIMARY) {
+            setAttribute("role", "tab")
+        }
 
     val writePanel = root.vPanel(spacing = 10)
     val previewPanel = root.vPanel(spacing = 10) { hide() }
@@ -344,8 +347,8 @@ private fun renderArticleCoverCard(
     val fileUpload = card.upload(label = tr("Bild auswählen…"), multiple = false)
     fileUpload.setAttribute("accept", "image/jpeg,image/png")
     val buttonRow = card.hPanel(spacing = 8)
-    val uploadButton = buttonRow.button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
-    val removeButton = buttonRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val uploadButton = buttonRow.actionButton(ActionIcon.UPLOAD, tr("Hochladen"), style = ButtonStyle.PRIMARY)
+    val removeButton = buttonRow.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.visible = currentUrl != null
 
     uploadButton.onClick {

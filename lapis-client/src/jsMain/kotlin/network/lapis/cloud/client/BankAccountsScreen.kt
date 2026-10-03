@@ -171,7 +171,7 @@ private fun Container.renderBankAccountActions(
     onChanged: () -> Unit,
 ) {
     val group = tableActionGroup()
-    val editButton = group.tableActionButton("fas fa-pen", tr("Bearbeiten"))
+    val editButton = group.tableActionButton(ActionIcon.EDIT, tr("Bearbeiten"))
     editButton.onClick { bankAccountEditModal(account) { onChanged() } }
     if (account.isDefault) return
     val setDefaultButton = group.tableActionButton("fas fa-star", tr("Als Standard setzen"))
@@ -182,7 +182,7 @@ private fun Container.renderBankAccountActions(
             onChanged()
         }
     }
-    val deleteButton = group.tableActionButton("fas fa-trash", tr("Löschen"), ButtonStyle.OUTLINEDANGER)
+    val deleteButton = group.tableActionButton(ActionIcon.DELETE, tr("Löschen"), ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
         confirmDialog(
             title = tr("Bankkonto löschen"),
@@ -193,6 +193,7 @@ private fun Container.renderBankAccountActions(
                     account.ibanMasked,
                 ),
             confirmLabel = tr("Löschen"),
+            confirmIcon = ActionIcon.DELETE,
             onConfirm = {
                 runGuardedAction(deleteButton) {
                     guarded { rpcService<IBankAccountService>().deleteBankAccount(account.id) } ?: return@runGuardedAction
@@ -256,7 +257,7 @@ private fun renderFinTsCell(
                 },
             )
             if (canManageFinTs) {
-                val disableButton = panel.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINESECONDARY)
+                val disableButton = panel.actionButton(ActionIcon.REVOKE, tr("Deaktivieren"), style = ButtonStyle.OUTLINESECONDARY)
                 disableButton.onClick {
                     runGuardedAction(disableButton) {
                         guarded { rpcService<IBankAccountService>().disableFinTs(account.id) } ?: return@runGuardedAction
@@ -339,8 +340,8 @@ internal fun bankAccountEditModal(
     val bankNameField = form.textField(label = tr("Bankname"), value = existing?.bankName)
     form.finish()
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     saveButton.onClick {
         form.submit(saveButton) {
             val input =
@@ -393,7 +394,7 @@ internal fun showFinTsSetupModal(
     var inTanStep = false
 
     val cancelButton =
-        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply {
+        newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply {
             onClick {
                 val handle = openHandle
                 modal.hide()

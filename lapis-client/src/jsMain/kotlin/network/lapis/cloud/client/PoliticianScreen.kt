@@ -145,14 +145,19 @@ fun renderPoliticianScreen(container: SimplePanel) {
 
     // ---- Politiker-Profile list -----------------------------------------------------------------
     root.h2(tr("Politiker-Profile")) { addCssClass("h5") }
-    val listControlsRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val listControlsRow = root.lapisToolbar()
     val includeFormerSelect =
         listControlsRow.select(
             options = listOf("false" to tr("Nur aktive Profile"), "true" to tr("Inklusive ehemaliger Profile")),
             value = "false",
             label = tr("Anzeige"),
         )
-    val politiciansRefreshButton = listControlsRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val politiciansRefreshButton =
+        listControlsRow.actionButton(
+            ActionIcon.REFRESH,
+            tr("Aktualisieren"),
+            style = ButtonStyle.OUTLINESECONDARY,
+        )
     // Name filter over the fully loaded profile list (`listPoliticians` has no paging); hidden while the list is empty.
     val politicianFilter = root.listFilterField()
     politicianFilter.setVisible(false)
@@ -408,7 +413,7 @@ private fun renderRatingControls(
     myRatingPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val likeButton = ratingRow.button(tr("Like"), style = ButtonStyle.OUTLINESUCCESS)
     val dislikeButton = ratingRow.button(tr("Dislike"), style = ButtonStyle.OUTLINEDANGER)
-    val retractButton = ratingRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
+    val retractButton = ratingRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
 
     fun setButtonsDisabled(disabled: Boolean) {
         likeButton.disabled = disabled
@@ -551,7 +556,7 @@ private fun politicianRevokeConfirmDialog(
             displayName,
         ),
     )
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Unwiderruflich widerrufen"), style = ButtonStyle.DANGER).apply {
             onClick {

@@ -110,12 +110,13 @@ private fun renderOptionRow(
         }
     }
     if (removable) {
-        val remove = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+        val remove = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
         remove.onClick {
             confirmDialog(
                 title = tr("Option entfernen"),
                 message = gettext("Die Option \"%1\" wird entfernt.", consensusOptionText(option)),
                 confirmLabel = tr("Entfernen"),
+                confirmIcon = ActionIcon.REMOVE,
             ) {
                 runGuardedAction(remove) {
                     val result =
@@ -167,7 +168,7 @@ private fun renderRationaleEditor(
             setAttribute("aria-live", "polite")
         }
     field.subscribe { raw -> counter.content = gettext("%1 von %2 Zeichen", raw.length, SystemicConsensusRules.MAX_RATIONALE_LENGTH) }
-    val save = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val save = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     val remove = if (option.rationale != null) Button(tr("Begründung entfernen"), style = ButtonStyle.OUTLINEDANGER) else null
     form.buttons(primary = save, destructive = remove)
     val failure = gettext("Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen.")
@@ -238,7 +239,7 @@ private fun renderAddOptionForm(
             rule = ::rationaleCheck,
             init = { it.setAttribute("maxlength", SystemicConsensusRules.MAX_RATIONALE_LENGTH.toString()) },
         )
-    val add = Button(tr("Option hinzufügen"), style = ButtonStyle.PRIMARY)
+    val add = newActionButton(ActionIcon.ADD, tr("Option hinzufügen"), ButtonStyle.PRIMARY)
     form.buttons(primary = add)
     add.onClick {
         form.submit(add) {

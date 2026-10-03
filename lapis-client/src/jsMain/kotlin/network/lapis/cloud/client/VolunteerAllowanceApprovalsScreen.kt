@@ -56,14 +56,14 @@ fun renderVolunteerAllowanceApprovalsScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
     root.pageHeader(tr("Ehrenamtspauschalen-Freigaben"))
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val statusOptions =
         listOf("" to tr("Alle Status")) +
             VolunteerAllowancePaymentStatus.entries.filter { it != VolunteerAllowancePaymentStatus.DRAFT }.map {
                 it.name to volunteerAllowanceStatusLabel(it)
             }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.simplePanel { addCssClass("lapis-card-list") }
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
@@ -278,7 +278,7 @@ private fun renderVolunteerAllowanceDecisionSection(
         }
 
         val approveButton = Button(if (isRetry) tr("Buchung wiederholen") else tr("Genehmigen und buchen"), style = ButtonStyle.SUCCESS)
-        val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+        val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINEDANGER)
         form.buttons(primary = approveButton, destructive = rejectButton)
 
         approveButton.onClick {
@@ -414,7 +414,7 @@ private fun renderVoidPaperDeclarationButton(
                     "Person kann danach selbst eine In-App-Erklärung für dasselbe Jahr abgeben.",
             ),
         ) { addCssClasses("fw-bold text-danger") }
-        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
         modal.addButton(
             Button(tr("Zurücknehmen"), style = ButtonStyle.DANGER).apply {
                 onClick {

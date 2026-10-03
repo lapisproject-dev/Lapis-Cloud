@@ -103,7 +103,7 @@ fun renderSepaBatchesScreen(container: SimplePanel) {
                 // weiter unten im DETAILPANEL behaelt bewusst ihren Volltext-Knopf -- sie steht nicht in
                 // einem dichten Raster, sondern allein in einer Aktionszeile, und eine irreversible
                 // Stornierung soll dort ihren Namen tragen (Norman/Raskin-Linie der Sitzung).
-                val showButton = actions.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+                val showButton = actions.tableActionButton(ActionIcon.VIEW, tr("Details anzeigen"))
                 showButton.onClick {
                     selectBatch(detailPanel, role, batchState, batch.id) { loadBatches(true) }
                 }
@@ -549,7 +549,7 @@ internal fun renderSepaBatchDetail(
     if (SepaAuthzUi.canTreasuryAct(role) &&
         batch.status in setOf(SepaDebitBatchStatus.DRAFT, SepaDebitBatchStatus.NOTIFIED, SepaDebitBatchStatus.GENERATED)
     ) {
-        val cancelButton = actionsRow.button(tr("Stornieren"), style = ButtonStyle.OUTLINEDANGER)
+        val cancelButton = actionsRow.actionButton(ActionIcon.UNDO, tr("Stornieren"), style = ButtonStyle.OUTLINEDANGER)
         cancelButton.onClick {
             confirmWithReasonDialog(
                 title = tr("Lauf stornieren"),
@@ -729,10 +729,10 @@ internal fun renderSepaReturnsSection(
     canRecordReturn: Boolean,
 ) {
     root.h2(tr("Rücklastschriften")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val fromInput = filterRow.text(label = tr("Von"))
     val toInput = filterRow.text(label = tr("Bis"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
     // Das Datumsformat steht im Hinweis, nie im Label (W4c). Hinweis und Fehler hängen per `aria-describedby` an beiden Feldern; ein
     // nicht lesbares Datum ("13.03.2026") ist ein Feldfehler -- vorher lief der Abruf still OHNE Filter, die volle Liste stand da und
     // bei einer leeren Antwort behauptete die Leermeldung "Keine Rücklastschrift im gewählten Zeitraum".

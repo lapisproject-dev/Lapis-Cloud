@@ -389,7 +389,7 @@ private fun renderPreviewBody(
             val categories = guarded { rpcService<IAccountingExportService>().listCategories(provider) } ?: emptyList()
             val options = categories.map { it.id to gettext("%1 (%2)", it.name, it.groupName ?: "") }
             preview.unmappedAccounts.forEach { account ->
-                val row = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+                val row = panel.lapisToolbar()
                 row.div(gettext("%1 · %2 (%3x)", account.accountNumber, account.accountName, account.entryCount)) {
                     addCssClass("small")
                 }

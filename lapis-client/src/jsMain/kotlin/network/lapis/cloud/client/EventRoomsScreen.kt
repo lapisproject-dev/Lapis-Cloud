@@ -45,9 +45,9 @@ fun renderEventRoomsScreen(container: SimplePanel) {
 
     // ---- List (Räume-Übersicht) -----------------------------------------------------------
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(value = true, label = tr("Inaktive Räume anzeigen"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     // W5 (R34): loading / error with retry / empty are distinct states of one `dataSection`.
     lateinit var roomsSection: DataSection
 
@@ -100,7 +100,7 @@ private fun renderEventRoomRow(
         }
 
         val actionRow = displayHolder.hPanel(spacing = 8)
-        val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+        val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
         editButton.onClick {
             displayHolder.hide()
             editFormHolder.removeAll()
@@ -117,7 +117,7 @@ private fun renderEventRoomRow(
             editFormHolder.show()
         }
         if (room.status == EventRoomStatus.ACTIVE) {
-            val deactivateButton = actionRow.button(tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+            val deactivateButton = actionRow.actionButton(ActionIcon.REVOKE, tr("Deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
             deactivateButton.onClick {
                 confirmDialog(
                     title = tr("Raum deaktivieren"),
@@ -176,8 +176,8 @@ private fun renderEventRoomEditForm(
             hide()
         }
     val buttonRow = panel.hPanel(spacing = 8)
-    val saveButton = buttonRow.button(tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
-    val cancelButton = buttonRow.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
+    val saveButton = buttonRow.actionButton(ActionIcon.SAVE, tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
+    val cancelButton = buttonRow.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
 
     saveButton.onClick {
         errorBox.hide()

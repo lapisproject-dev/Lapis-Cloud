@@ -537,7 +537,7 @@ private fun renderLobby(
 
     lobbyPanel.h2(tr("Aktive Besprechungen")) { addCssClass("h5") }
     val refreshRow = lobbyPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val refreshButton = refreshRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = refreshRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val roomsPanel = lobbyPanel.vPanel(spacing = 8)
 
     // Wave 2 "Aufzeichnung", D9: recordings OUTLIVE their room, so this section belongs in the
@@ -718,7 +718,7 @@ private fun renderGuestLobby(
             addCssClasses("alert alert-warning")
             hide()
         }
-    val continueButton = lobbyPanel.button(tr("Weiter"), style = ButtonStyle.PRIMARY)
+    val continueButton = lobbyPanel.actionButton(ActionIcon.NEXT, tr("Weiter"), style = ButtonStyle.PRIMARY)
 
     continueButton.onClick {
         errorBox.hide()
@@ -859,7 +859,7 @@ private fun conferenceGuestConsentModal(
 
     modal.div(gettext("Hinweistext-Version %1", d.version)) { addCssClasses("text-muted small mb-2") }
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Hinweis gelesen -- als Gast beitreten"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -893,7 +893,7 @@ private fun showInviteTextFallback(
     }
     val field = modal.textArea(value = inviteText, rows = 5) { addCssClasses("font-monospace") }
     field.readonly = true
-    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
     // Audit fix: `select()` belongs to the <textarea> itself; `field.getElement()` is the form-group wrapper <div>, which has no `select` (TypeError).
     (field.input as? Widget)?.getElement()?.let { el -> el.asDynamic().select() }
@@ -1536,7 +1536,12 @@ private fun enterCall(
     if (canModerate) {
         val assignMeetingButton = meetingBindingRow.button(tr("Sitzung zuordnen"), style = ButtonStyle.OUTLINEPRIMARY)
         assignMeetingButton.addCssClass("btn-sm")
-        val unassignMeetingButton = meetingBindingRow.button(tr("Zuordnung aufheben"), style = ButtonStyle.OUTLINESECONDARY)
+        val unassignMeetingButton =
+            meetingBindingRow.actionButton(
+                ActionIcon.REMOVE,
+                tr("Zuordnung aufheben"),
+                style = ButtonStyle.OUTLINESECONDARY,
+            )
         unassignMeetingButton.addCssClass("btn-sm")
         if (boundMeetingId == null) unassignMeetingButton.hide()
 
@@ -1826,7 +1831,7 @@ private fun enterCall(
         titleRow.removeAll()
         titleRow.h2(roomTitle) { addCssClass("h5") }
         if (canModerate) {
-            val editButton = titleRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+            val editButton = titleRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
             editButton.addCssClass("btn-sm")
             editButton.onClick { showTitleEditMode() }
         }
@@ -1839,8 +1844,8 @@ private fun enterCall(
         // [titleEditInput]).
         var submit: () -> Unit = {}
         val editInput = titleRow.titleEditInput(roomTitle) { submit() }
-        val saveButton = titleRow.button(tr("Speichern"), style = ButtonStyle.PRIMARY)
-        val cancelButton = titleRow.button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
+        val saveButton = titleRow.actionButton(ActionIcon.SAVE, tr("Speichern"), style = ButtonStyle.PRIMARY)
+        val cancelButton = titleRow.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.SECONDARY)
         cancelButton.onClick { renderTitleViewMode() }
 
         fun submitRename() {
@@ -2816,7 +2821,7 @@ private fun enterCall(
         }
     val chatRow = chatPanel.hPanel(spacing = 6)
     val chatInput = chatRow.text(label = tr("Nachricht")) { addCssClasses("flex-grow-1") }
-    val chatSendButton = chatRow.button(tr("Senden"), style = ButtonStyle.OUTLINEPRIMARY)
+    val chatSendButton = chatRow.actionButton(ActionIcon.SEND, tr("Senden"), style = ButtonStyle.OUTLINEPRIMARY)
 
     // --- V1.9.25 voting panel ("Abstimmen"), the third rail panel next to roster and chat -------------------------------------
     // The panel talks back through two sinks assigned right after `applyPanelVisibility` (a local function cannot be referenced before
@@ -3264,7 +3269,7 @@ private fun enterCall(
             }
             row.div(if (entry.hasMic) tr("Mikro an") else tr("Stumm")) { addCssClasses("text-muted small") }
             if (conferenceCanRemove(entry.identity, localMemberId, room.createdByMemberId, canModerate)) {
-                val removeButton = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+                val removeButton = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 removeButton.addCssClass("btn-sm")
                 removeButton.onClick {
                     removeParticipantConfirmDialog(entry.displayName) {
@@ -3288,6 +3293,8 @@ private fun enterCall(
                 val breakoutSelect =
                     row.select(options = untrustedOptions(currentBreakoutRooms.map { it.id to it.label }), value = currentAssignmentId)
                 breakoutSelect.addCssClass("btn-sm")
+                // A roster row is centred text; the KVision field wrapper's 16 px bottom margin would lift the select 8 px above it.
+                breakoutSelect.addCssClass("mb-0")
                 breakoutSelect.subscribe { selectedId ->
                     if (selectedId == null || selectedId == currentAssignmentId) return@subscribe
                     // The list's OWN index is reused verbatim as `breakoutIndex` -- see
@@ -4799,7 +4806,7 @@ private fun endRoomConfirmDialog(
     modal.div(gettext("\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt.", roomTitle)) {
         addCssClasses("text-muted small")
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Für alle beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -4820,9 +4827,9 @@ private fun removeParticipantConfirmDialog(
 ) {
     val modal = Modal(caption = tr("Teilnehmer entfernen"))
     modal.div(gettext("\"%1\" aus der Besprechung entfernen?", displayName)) { addCssClass("fw-bold") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Entfernen"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REMOVE, tr("Entfernen"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -4861,7 +4868,7 @@ private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit
                 "Teilnehmenden zugänglich sein soll.",
         ),
     ) { addCssClasses("text-muted small mb-2") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Aufzeichnung jetzt starten"), style = ButtonStyle.WARNING).apply {
             onClick {
@@ -4891,7 +4898,7 @@ private fun stopRecordingConfirmDialog(onConfirm: () -> Unit) {
                 "erhalten und ein Administrator kann helfen.",
         ),
     ) { addCssClasses("text-muted small") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Aufzeichnung beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -4922,7 +4929,7 @@ private fun assignMeetingDialog(
     val modal = Modal(caption = tr("Sitzung zuordnen"))
     val meetingOptions = meetings.map { it.id to gettext("%1 (%2)", it.title, formatDateTime(it.scheduledAt)) }
     val meetingSelect = modal.select(options = meetingOptions, value = meetings.first().id, label = tr("Sitzung"))
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Zuordnen"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -4959,7 +4966,7 @@ private fun breakoutCreateDialog(
         ) { addCssClasses("text-muted small") }
     }
     val countInput = modal.text(value = "2", label = tr("Anzahl der Breakout-Räume"))
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Räume erstellen und verteilen"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -4993,7 +5000,7 @@ private fun breakoutRecallConfirmDialog(onConfirm: () -> Unit) {
     modal.div(
         tr("Alle Teilnehmenden werden sofort aus ihren Breakout-Räumen in den Hauptraum zurückgeholt."),
     ) { addCssClass("fw-bold") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Alle zurückholen"), style = ButtonStyle.WARNING).apply {
             onClick {
@@ -5078,7 +5085,7 @@ private fun startStreamDialog(
 
     modal.div(CONFERENCE_STREAM_SECRET_BALLOT_HINWEIS) { addCssClasses("text-muted small mt-2") }
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Jetzt live gehen"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -5123,7 +5130,7 @@ private fun pauseStreamConfirmDialog(
         ),
     ) { addCssClass("fw-bold") }
     modal.div(gettext("Betroffene Ziele: %1", destinationLabels)) { addCssClasses("text-muted small") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Stream unterbrechen"), style = ButtonStyle.WARNING).apply {
             onClick {
@@ -5148,7 +5155,7 @@ private fun resumeStreamConfirmDialog(onConfirm: () -> Unit) {
                 "neue Übertragung.",
         ),
     ) { addCssClass("fw-bold") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Stream fortsetzen"), style = ButtonStyle.WARNING).apply {
             onClick {
@@ -5173,7 +5180,7 @@ private fun stopStreamConfirmDialog(
         addCssClasses("fw-bold text-danger")
     }
     modal.div(tr("Die Besprechung selbst läuft für alle Teilnehmenden unverändert weiter.")) { addCssClasses("text-muted small") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Live-Stream beenden"), style = ButtonStyle.DANGER).apply {
             onClick {

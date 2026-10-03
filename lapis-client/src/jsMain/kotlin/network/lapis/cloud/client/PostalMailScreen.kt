@@ -262,7 +262,7 @@ fun postalDispatchConfirmDialog(
     documentRow.div(tr("Dokument:")) { addCssClasses("text-muted") }
     documentRow.untrustedDiv(documentLabel, className = "flex-grow-1")
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     // Kostenpflichtig und endgültig: ein Doppelklick (oder ein Klick während das Modal noch ausgeblendet wird) darf nie ein
     // zweites Mal versenden -- siehe [ConfirmOnce].
     val once = ConfirmOnce()
@@ -302,7 +302,7 @@ fun postalEinladungDispatchConfirmDialog(
     recipientDisplayNames.forEach { name -> listPanel.untrustedDiv(name) }
     modal.div(tr("Maximal 50 Empfänger pro Versand.")) { addCssClasses("text-muted small") }
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     // Kostenpflichtig und endgültig: ein Doppelklick (oder ein Klick während das Modal noch ausgeblendet wird) darf nie ein
     // zweites Mal versenden -- siehe [ConfirmOnce].
     val once = ConfirmOnce()

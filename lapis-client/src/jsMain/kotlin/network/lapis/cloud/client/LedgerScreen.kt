@@ -128,10 +128,15 @@ fun renderLedgerScreen(container: SimplePanel) {
     // in seinem eigenen Kommentar beschreibt). Ein bedingt sichtbares Feld haette zusaetzlich nach
     // jedem Ladevorgang umgeschaltet werden muessen -- und ein leerer Kontenplan existiert
     // praktisch nicht, weil die SKR42-Grundausstattung beim Anlegen der Organisation gesetzt wird.
-    val accountsFilterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val accountsFilterRow = root.lapisToolbar()
     val accountSearchInput = accountsFilterRow.text(label = tr("Konto suchen (Nummer oder Name)"))
     val includeInactiveAccountsCheck = accountsFilterRow.checkBox(label = tr("Inaktive Konten anzeigen"))
-    val accountsRefreshButton = accountsFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val accountsRefreshButton =
+        accountsFilterRow.actionButton(
+            ActionIcon.REFRESH,
+            tr("Aktualisieren"),
+            style = ButtonStyle.OUTLINESECONDARY,
+        )
     val accountsCountsLabel = root.div().apply { addCssClasses("text-muted small") }
     val accountsStatusRegion = root.dataStatusRegion()
     val accountListPanel = root.vPanel(spacing = 6)
@@ -293,11 +298,11 @@ fun renderLedgerScreen(container: SimplePanel) {
 
     // ---- Journal (Grundbuch) --------------------------------------------------------------
     root.h2(tr("Journal (Grundbuch)")) { addCssClass("h5") }
-    val journalFilterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val journalFilterRow = root.lapisToolbar()
     val journalSearchInput = journalFilterRow.text(label = tr("Buchung suchen (Beschreibung)"))
     val journalStatusSegmentHost = journalFilterRow.simplePanel()
     val journalDateFilter = journalFilterRow.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
-    val journalRefreshButton = journalFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val journalRefreshButton = journalFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     // Das Datumsformat steht im Hinweis, nie im Label (W4c): ein Beispielsatz stimmt in jeder Sprache.
     root.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
     val journalCountsLabel = root.div().apply { addCssClasses("text-muted small") }
@@ -392,7 +397,7 @@ fun renderLedgerScreen(container: SimplePanel) {
             // ein Schatzmeister ein Journal liest (gleiche Entscheidung wie „Beitritt" im Roster).
             sortOptions = JOURNAL_SORT_OPTIONS,
             actions = { actions, entry ->
-                val showButton = actions.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+                val showButton = actions.tableActionButton(ActionIcon.VIEW, tr("Details anzeigen"))
                 showButton.onClick {
                     selectJournalEntry(entry.id)
                     refreshJournalDetail()
@@ -941,11 +946,11 @@ private fun Container.renderAccountActions(
     onChanged: () -> Unit,
 ) {
     val actionRow = tableActionGroup()
-    val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+    val showButton = actionRow.tableActionButton(ActionIcon.VIEW, tr("Details anzeigen"))
     showButton.onClick { onSelect(account) }
 
     if (!canManage || !account.active) return
-    val deactivateButton = actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+    val deactivateButton = actionRow.tableActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
     deactivateButton.onClick {
         confirmDialog(
             title = tr("Konto deaktivieren"),
@@ -1021,7 +1026,7 @@ internal fun renderAccountCreationForm(
     applyTypeGating(typeField.value)
     typeField.subscribe { applyTypeGating(it) }
 
-    val createButton = Button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Konto anlegen"), ButtonStyle.PRIMARY)
     form.buttons(primary = createButton)
     createButton.onClick {
         form.submit(createButton) {
@@ -1420,7 +1425,7 @@ private fun renderDonorInfo(
         // the route itself -- fetched once here rather than threaded down from the caller, since
         // this block only exists for a POSTED entry with a donor attribution in the first place.
         actionRow.renderPostalMailGate { host ->
-            val postalButton = host.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+            val postalButton = host.actionButton(ActionIcon.SEND, tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
             postalButton.onClick {
                 postalDispatchConfirmDialog(
                     caption = tr("Spendenbescheinigung per Post versenden"),
@@ -1918,7 +1923,7 @@ internal fun renderNewEntryForm(
         form.clearFormError()
     }
 
-    val saveDraftButton = Button(tr("Als Entwurf speichern"), style = ButtonStyle.PRIMARY)
+    val saveDraftButton = newActionButton(ActionIcon.SAVE, tr("Als Entwurf speichern"), ButtonStyle.PRIMARY)
     // "Direkt buchen" ist unwiderruflich: eigene Zone UNTER der Knopfzeile (Richtlinie 2.5 / R27).
     val postDirectButton = Button(tr("Direkt buchen"), style = ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = saveDraftButton, destructive = postDirectButton)
@@ -2114,7 +2119,8 @@ private fun renderPostingLinesRow(
                     slotHost = slotRow,
                 ).also { field -> labelled += field to vatBase }
         }
-    val removeButton = Button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER) { addCssClass("lapis-posting-remove") }
+    val removeButton =
+        newActionButton(ActionIcon.REMOVE, tr("Entfernen"), ButtonStyle.OUTLINEDANGER) { addCssClass("lapis-posting-remove") }
     rowPanel.add(removeButton)
 
     val fields = listOfNotNull(accountField, sideField, amountField, sphereField, costCenterField, vatField)
@@ -2333,7 +2339,7 @@ private fun postingConfirmDialog(
 
     renderPostingConfirmTable(modal, lines, showVatColumn)
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     // Einmal-Objekt (R29): ohne die Sperre feuerte "Endgültig buchen" beliebig oft, bis das Modal weg ist -- bei `postJournalEntry`
     // (kein Idempotenzschlüssel) eine echte Doppelbuchung.
     val once = ConfirmOnce()

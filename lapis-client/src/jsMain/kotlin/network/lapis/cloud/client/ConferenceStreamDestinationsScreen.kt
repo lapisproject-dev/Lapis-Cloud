@@ -128,7 +128,7 @@ private fun renderDestinationRow(
     ) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+    val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
     editButton.onClick { renderDestinationEditModal(destination, onChanged) }
 
     val toggleButton =
@@ -151,7 +151,7 @@ private fun renderDestinationRow(
         }
     }
 
-    val deleteButton = actionRow.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+    val deleteButton = actionRow.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
         confirmDialog(
             title = tr("Stream-Ziel löschen"),
@@ -162,6 +162,7 @@ private fun renderDestinationRow(
                     destination.label,
                 ),
             confirmLabel = tr("Löschen"),
+            confirmIcon = ActionIcon.DELETE,
         ) {
             AppScope.launch {
                 val result = guarded { rpcService<IConferenceStreamingService>().deleteDestination(destination.id) }
@@ -299,10 +300,10 @@ private fun renderDestinationEditModal(
 
     // Fußleiste: die Verwerfer stehen IMMER links der Primäraktion (R27). Vor dem ersten erfolgreichen Speichern ist das
     // "Abbrechen"; danach wird es durch "Fertig" ersetzt -- die Re-Maskierungs-Quittung (D1) bleibt erhalten.
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val doneButton = Button(tr("Fertig"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     doneButton.hide()
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     saveButton.onClick {
         form.submit(saveButton) {
             val newKey = keyField.value.takeIf { it.isNotEmpty() }

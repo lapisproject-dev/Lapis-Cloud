@@ -159,7 +159,7 @@ private fun renderPollRows(
             rows = polls,
             actions = { container, poll ->
                 container
-                    .tableActionButton("fas fa-eye", gettext("Umfrage öffnen"))
+                    .tableActionButton(ActionIcon.VIEW, gettext("Umfrage öffnen"))
                     .onClick { navigateTo("/polls/${poll.id}") }
             },
         )

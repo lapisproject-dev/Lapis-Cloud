@@ -265,7 +265,7 @@ private fun renderConferenceRecordingDeleteButton(
     recording: ConferenceRecordingDto,
     onDeleted: () -> Unit,
 ) {
-    val deleteButton = row.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+    val deleteButton = row.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
         confirmDialog(
             title = tr("Aufzeichnung löschen"),
@@ -289,6 +289,7 @@ private fun renderConferenceRecordingDeleteButton(
                     )
                 },
             confirmLabel = tr("Löschen"),
+            confirmIcon = ActionIcon.DELETE,
         ) {
             deleteButton.disabled = true
             AppScope.launch {

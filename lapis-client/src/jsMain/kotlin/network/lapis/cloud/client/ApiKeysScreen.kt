@@ -184,7 +184,7 @@ private fun renderApiKeyCard(
         }
     }
     if (key.revokedAt == null) {
-        val revokeButton = actions.button(tr("Widerrufen"), style = ButtonStyle.OUTLINEDANGER)
+        val revokeButton = actions.actionButton(ActionIcon.REVOKE, tr("Widerrufen"), style = ButtonStyle.OUTLINEDANGER)
         revokeButton.onClick {
             apiKeyRevokeConfirmDialog(key.label) {
                 revokeButton.disabled = true
@@ -236,7 +236,7 @@ private fun renderWebhookBlock(
 ) {
     if (endpoint == null) {
         footer.div(tr("Kein Webhook eingerichtet.")) { addCssClasses("small text-muted") }
-        val row = footer.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+        val row = footer.lapisToolbar()
         val urlInput = row.text(label = tr("Webhook-URL (https://…)"))
         val setupButton = row.button(tr("Webhook einrichten"), style = ButtonStyle.OUTLINEPRIMARY)
         setupButton.onClick {
@@ -278,9 +278,9 @@ private fun renderWebhookBlock(
     // below are offered; see this function's own KDoc for why each would be either pointless or
     // already rejected server-side.
     if (!readOnly) {
-        val editRow = footer.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+        val editRow = footer.lapisToolbar()
         val urlInput = editRow.text(label = tr("Neue Webhook-URL")) { hide() }
-        val saveUrlButton = editRow.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY) { hide() }
+        val saveUrlButton = editRow.actionButton(ActionIcon.SAVE, tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY) { hide() }
 
         val changeUrlButton = actions.button(tr("URL ändern"), style = ButtonStyle.LINK)
         changeUrlButton.onClick {
@@ -385,7 +385,7 @@ private fun renderWebhookBlock(
         }
     }
 
-    val removeButton = actions.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = actions.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.onClick {
         webhookRemoveConfirmDialog(key.label) {
             removeButton.disabled = true
@@ -492,9 +492,9 @@ private fun apiKeyRevokeConfirmDialog(
     modal.div(gettext("Der Schlüssel „%1“ kann danach nicht mehr für Zugriffe auf /api/v1 verwendet werden.", label)) {
         addCssClasses("fw-bold text-danger")
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Widerrufen"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REVOKE, tr("Widerrufen"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -516,7 +516,7 @@ private fun webhookSecretRotateConfirmDialog(
             label,
         ),
     ) { addCssClasses("fw-bold text-danger") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Neu erzeugen"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -536,9 +536,9 @@ private fun webhookRemoveConfirmDialog(
     modal.div(gettext("Der Webhook für „%1“ wird vollständig entfernt, inklusive Signaturgeheimnis und Zustellungsprotokoll.", label)) {
         addCssClasses("fw-bold text-danger")
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Entfernen"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REMOVE, tr("Entfernen"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()

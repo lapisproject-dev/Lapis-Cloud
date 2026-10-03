@@ -57,7 +57,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
     root.pageHeader(tr("Mahnwesen"))
 
     root.h2(tr("Offene Mahnvorgänge")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Mitglied"))
     val onlyOpenCheck = filterRow.checkBox(value = true, label = tr("Nur offene Vorgänge"))
     val limitSelect =
@@ -66,7 +66,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
             value = "50",
             label = tr("Seitengröße"),
         )
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
@@ -125,7 +125,7 @@ fun renderDunningCasesScreen(container: SimplePanel) {
                 // Design-Team-Welle 2026-09-18: Icon-Knopf in der Aktionsspalte, Tooltip "Details anzeigen"
                 // (nicht das vorherige knappe "Details" -- ohne sichtbaren Text muss der Tooltip die
                 // vollstaendige Handlung benennen).
-                val showButton = actions.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+                val showButton = actions.tableActionButton(ActionIcon.VIEW, tr("Details anzeigen"))
                 showButton.onClick {
                     selectDunningCase(detailPanel, role, case.contributionId) { loadPage(true) }
                 }
@@ -479,7 +479,7 @@ private fun Container.renderDunningNoticeActions(
     // `fa-rotate-left` (Rueckabwicklung), nicht `fa-ban`: eine Stornierung nimmt den
     // Mahnzyklus zurueck, sie sperrt nichts -- `fa-ban` ist in dieser Welle durchgehend fuer
     // "deaktivieren/widerrufen" reserviert.
-    val cancelButton = tableActionButton("fas fa-rotate-left", tr("Stornieren"), ButtonStyle.OUTLINEDANGER)
+    val cancelButton = tableActionButton(ActionIcon.UNDO, tr("Stornieren"), ButtonStyle.OUTLINEDANGER)
     cancelButton.onClick {
         confirmWithReasonDialog(
             title = tr("Mahnung stornieren"),

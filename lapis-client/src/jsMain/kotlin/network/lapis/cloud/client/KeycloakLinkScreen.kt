@@ -132,7 +132,7 @@ internal fun openKeycloakLinkDialog(
             }
         }
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(linkButton)
     modal.show()
 }

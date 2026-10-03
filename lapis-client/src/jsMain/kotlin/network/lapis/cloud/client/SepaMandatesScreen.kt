@@ -10,7 +10,6 @@ import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.window
@@ -37,10 +36,10 @@ fun renderSepaMandatesScreen(container: SimplePanel) {
     // rechts. Der Status-`select` + `Filtern`-Knopf sind einem `segmentedControl` gewichen: vier
     // gegenseitig ausschliessende Werte, die ihren Aktivzustand jetzt selbst tragen (`aria-pressed`, R48),
     // und die Auswahl laedt sofort -- ein separater `Filtern`-Klick war der einzige Zweck des Knopfes.
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Mitglied oder Mandatsreferenz"))
     val statusSegmentHost = filterRow.simplePanel()
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
 
     val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val statusRegion = root.dataStatusRegion()
@@ -257,7 +256,7 @@ private fun Container.renderSepaMandateActions(
 ) {
     val ownMandate = mandate.memberId == AppState.session?.memberId
     if (!SepaAuthzUi.canRevokeMandateOf(AppState.session?.role, ownMandate, mandate.status)) return
-    val revokeButton = tableActionButton("fas fa-ban", tr("Widerrufen"), ButtonStyle.OUTLINEDANGER)
+    val revokeButton = tableActionButton(ActionIcon.REVOKE, tr("Widerrufen"), ButtonStyle.OUTLINEDANGER)
     revokeButton.onClick {
         confirmWithReasonDialog(
             title = tr("Mandat widerrufen"),
@@ -265,6 +264,7 @@ private fun Container.renderSepaMandateActions(
             reasonLabel = tr("Grund"),
             reasonRequired = false,
             confirmLabel = tr("Widerrufen"),
+            confirmIcon = ActionIcon.REVOKE,
         ) { reason ->
             runGuardedAction(revokeButton) {
                 val result = guarded { rpcService<ISepaService>().revokeMandate(mandate.id, reason) }

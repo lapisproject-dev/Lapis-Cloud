@@ -161,7 +161,7 @@ private fun renderReceivableSettingsSummary(
 
 private fun renderReceivableLevelsSection(root: SimplePanel) {
     root.h2(tr("Mahnstufen")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Stufen anzeigen"))
     val listPanel = root.vPanel(spacing = 6)
 
@@ -228,9 +228,9 @@ private fun renderReceivableLevelRow(
         activeCell.activeStatusBadge(level.active)
         val actionsCell = cell()
         val actions = actionsCell.tableActionGroup()
-        actions.tableActionButton("fas fa-pen", gettext("Bearbeiten")).onClick { openEditReceivableLevel(level, onChanged) }
+        actions.tableActionButton(ActionIcon.EDIT, gettext("Bearbeiten")).onClick { openEditReceivableLevel(level, onChanged) }
         if (level.active) {
-            val deactivate = actions.tableActionButton("fas fa-ban", gettext("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+            val deactivate = actions.tableActionButton(ActionIcon.REVOKE, gettext("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
             deactivate.onClick {
                 confirmDialog(
                     title = tr("Mahnstufe deaktivieren"),
@@ -326,7 +326,7 @@ internal fun renderReceivableLevelForm(
     if (modal != null) {
         // Im Modal steht die Knopfzeile in der Fußleiste: Abbrechen links, bestätigende Aktion rechts (R27).
         form.finish()
-        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
         modal.addButton(submitButton)
     } else {
         form.buttons(primary = submitButton)

@@ -371,7 +371,7 @@ private fun renderOwnPaymentCard(
     }
 
     if (payment.status in VolunteerAllowancePaymentStatusSets.WITHDRAWABLE) {
-        val withdrawButton = card.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
+        val withdrawButton = card.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
         withdrawButton.onClick {
             runGuardedAction(withdrawButton) {
                 val result = guarded { rpcService<IVolunteerAllowanceService>().withdrawPayment(payment.id) }

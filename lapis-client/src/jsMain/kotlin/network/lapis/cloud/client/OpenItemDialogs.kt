@@ -127,7 +127,7 @@ internal fun openItemSettlementDialog(
     // doppelter Klick ein doppelter Ausgleich.
     val confirmBox = modal.div { addCssClasses("border border-danger rounded p-2 mt-2") }.apply { hide() }
 
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val settleButton = Button(tr("Ausgleichen …"), style = ButtonStyle.PRIMARY)
     // Audit-Fund (zweiter Durchgang): `settleButton` war NIE gesperrt. Ein Klick während der
     // laufenden `settleOpenItem`-Anfrage machte `confirmBox.removeAll()` und erzeugte einen frischen,
@@ -176,7 +176,7 @@ internal fun openItemSettlementDialog(
         ) { addCssClasses("mb-2") }
         // Abbrechen links, bestätigende Aktion rechts (Richtlinie 2.5 / R27): "Zurück" steht VOR "Jetzt ausgleichen".
         val confirmRow = confirmBox.hPanel(spacing = 8)
-        confirmRow.button(tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
+        confirmRow.actionButton(ActionIcon.BACK, tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
             if (!gate.cancelConfirmation()) return@onClick
             confirmBox.hide()
             syncSettleButton()
@@ -294,8 +294,8 @@ internal fun openItemMetadataDialog(
             },
         )
     form.finish()
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     saveButton.onClick {
         form.submit(saveButton) {
             val reference = referenceField.value.trim().takeIf { it.isNotEmpty() }
@@ -331,7 +331,7 @@ internal fun openItemNettingDialog(onDone: () -> Unit) {
     val modal = Modal(caption = tr("Kreditor und Debitor verrechnen"), size = ModalSize.LARGE)
     val body = modal.vPanel(spacing = 8)
     body.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 
     AppScope.launch {
@@ -532,7 +532,7 @@ private fun renderNettingBody(
         ) { addCssClasses("fw-bold mb-2") }
         // Abbrechen links, bestätigende Aktion rechts (Richtlinie 2.5 / R27): "Zurück" steht VOR "Endgültig verrechnen".
         val confirmRow = confirmBox.hPanel(spacing = 8)
-        confirmRow.button(tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
+        confirmRow.actionButton(ActionIcon.BACK, tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
             if (!gate.cancelConfirmation()) return@onClick
             confirmBox.hide()
             updateExecuteState()

@@ -83,16 +83,16 @@ fun renderAuditLogScreen(container: SimplePanel) {
 
     // ---- List: filters + keyset-paginated entries --------------------------------------------
     root.h2(tr("Einträge")) { addCssClass("h5") }
-    val filterRow1 = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow1 = root.lapisToolbar()
     val entityTypeOptions = listOf("" to tr("Alle Entitätstypen")) + AuditEntityType.entries.map { it.name to auditEntityTypeLabel(it) }
     val entityTypeSelect = filterRow1.select(options = entityTypeOptions, value = "", label = tr("Entitätstyp"))
     val entityIdInput = filterRow1.text(label = tr("Entitäts-ID (optional)"))
     val actorMemberIdInput = filterRow1.text(label = tr("Akteur-Mitglieds-ID (optional)"))
 
-    val filterRow2 = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow2 = root.lapisToolbar()
     val fromInput = filterRow2.text(label = tr("Von (JJJJ-MM-TTTHH:MM:SS, optional)"))
     val toInput = filterRow2.text(label = tr("Bis (JJJJ-MM-TTTHH:MM:SS, optional)"))
-    val filterButton = filterRow2.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow2.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
@@ -135,7 +135,7 @@ fun renderAuditLogScreen(container: SimplePanel) {
             columns = auditLogColumns(),
             rows = loadedEntries,
             actions = { actions, entry ->
-                actions.tableActionButton("fas fa-eye", tr("Details anzeigen")).onClick { selectEntry(entry.id) }
+                actions.tableActionButton(ActionIcon.VIEW, tr("Details anzeigen")).onClick { selectEntry(entry.id) }
             },
         )
     }
@@ -198,7 +198,7 @@ private const val AUDIT_LOG_PAGE_SIZE = 50
  * been pressed and a real server response has come back (Norman, design review).
  */
 private fun renderChainVerificationPanel(root: SimplePanel) {
-    val row = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val row = root.lapisToolbar()
     val fromSeqInput = row.text(label = tr("Von Sequenznummer (optional)"))
     val toSeqInput = row.text(label = tr("Bis Sequenznummer (optional)"))
     val verifyButton = row.button(tr("Kette prüfen"), style = ButtonStyle.PRIMARY)

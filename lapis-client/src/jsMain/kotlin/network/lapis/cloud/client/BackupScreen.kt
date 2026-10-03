@@ -201,7 +201,7 @@ private fun renderRestorePanel(
 
     // O1 (Design-Review): Wiederherstellen überschreibt eine Organisation -- eine destruktive Aktion (Richtlinie 2.5). Sie steht
     // deshalb als OUTLINEDANGER in der abgesetzten Zone unter dem Formular; das Formular hat damit KEIN `PRIMARY`.
-    val restoreButton = Button(tr("Wiederherstellen"), style = ButtonStyle.OUTLINEDANGER)
+    val restoreButton = newActionButton(ActionIcon.UNDO, tr("Wiederherstellen"), ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = null, destructive = restoreButton)
     restoreButton.onClick {
         // Erst die Feldprüfung (Datei gewählt?), dann der Bestätigungsdialog -- kein Serveraufruf und keine Sperre des Knopfs
@@ -269,7 +269,7 @@ private fun restoreConfirmDialog(
         ) { addCssClasses("fw-bold text-danger mt-1") }
     }
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Endgültig wiederherstellen"), style = ButtonStyle.DANGER).apply {
             onClick {

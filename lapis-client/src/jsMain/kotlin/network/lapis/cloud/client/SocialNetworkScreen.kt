@@ -153,7 +153,7 @@ fun renderSocialNetworkScreen(container: SimplePanel) {
     // ---- Timeline (Container jetzt angelegt, befuellt durch loadTimeline()) --------------------
     root.h2(tr("Timeline")) { addCssClass("h5") }
     val refreshRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-    val refreshButton = refreshRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = refreshRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val timelinePanel = root.vPanel(spacing = 10)
 
     fun loadTimeline() {
@@ -601,7 +601,7 @@ private fun openReportDialog(
             addCssClass("text-danger")
             hide()
         }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     val submitButton = Button(tr("Melden"), style = ButtonStyle.PRIMARY)
     submitButton.onClick {
         errorBox.hide()
@@ -668,7 +668,7 @@ private fun openRequestErasureDialog(
             addCssClass("text-danger")
             hide()
         }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     val submitButton = Button(tr("Beantragen"), style = ButtonStyle.PRIMARY)
     submitButton.onClick {
         errorBox.hide()
@@ -736,6 +736,7 @@ private fun renderRemoveForLegalReasonControl(
                         "Es gibt keine LTR-Rückerstattung.",
                 ),
             confirmLabel = tr("Entfernen"),
+            confirmIcon = ActionIcon.REMOVE,
         ) {
             removeButton.disabled = true
             AppScope.launch {

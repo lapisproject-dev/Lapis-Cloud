@@ -224,7 +224,7 @@ fun openMemberPasswordResetDialog(
     val resetMailButton = body.button(tr("Reset-E-Mail senden"), style = ButtonStyle.OUTLINESECONDARY)
     resetMailButton.disabled = true
 
-    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 
     AppScope.launch {

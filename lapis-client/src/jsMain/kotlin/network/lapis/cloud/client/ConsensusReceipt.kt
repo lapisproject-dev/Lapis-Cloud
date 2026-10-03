@@ -5,7 +5,6 @@ import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
@@ -78,8 +77,8 @@ internal fun renderConsensusReceipt(
             setAttribute("aria-live", "polite")
         }
     val actions = booth.hPanel(spacing = 8)
-    val copy = actions.button(tr("Kopieren"), style = ButtonStyle.OUTLINESECONDARY)
-    val print = actions.button(tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
+    val copy = actions.actionButton(ActionIcon.COPY, tr("Kopieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val print = actions.actionButton(ActionIcon.PRINT, tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
     copy.onClick {
         val failed = gettext("Kopieren nicht möglich. Bitte schreiben Sie den Code ab.")
         val clipboard = window.navigator.asDynamic().clipboard

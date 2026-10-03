@@ -50,7 +50,7 @@ fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val ratesPanel = root.vPanel(spacing = 6)
     renderRatesAdminSection(ratesPanel)
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val statusOptions =
         listOf("" to tr("Alle Status")) +
             TravelExpenseReportStatus.entries.filter { it != TravelExpenseReportStatus.DRAFT }.map {
@@ -60,7 +60,7 @@ fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
                     )
             }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.simplePanel { addCssClass("lapis-card-list") }
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
@@ -242,7 +242,7 @@ private fun renderRequestedDecisionPanel(
     val form = decidePanel.lapisForm()
     val noteField = travelExpenseDecisionNoteField(form)
     val approveButton = Button(tr("Genehmigen und buchen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = approveButton, destructive = rejectButton)
 
     fun decide(
@@ -295,7 +295,7 @@ private fun renderApprovedRetryPanel(
     val form = decidePanel.lapisForm()
     val noteField = travelExpenseDecisionNoteField(form, hint = gettext("Nur für \"Ablehnen\" erforderlich."))
     val retryButton = Button(tr("Buchung wiederholen"), style = ButtonStyle.PRIMARY)
-    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = retryButton, destructive = rejectButton)
 
     retryButton.onClick {

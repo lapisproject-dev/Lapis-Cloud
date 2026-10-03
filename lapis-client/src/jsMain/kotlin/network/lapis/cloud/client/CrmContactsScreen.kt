@@ -74,12 +74,12 @@ fun renderCrmContactsScreen(container: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val typeOptions = listOf("" to tr("-- Alle Typen --")) + CrmContactType.entries.map { it.name to crmContactTypeLabel(it) }
     val typeSelect = filterRow.select(options = typeOptions, value = "", label = tr("Typ"))
     val overdueCheck = filterRow.checkBox(label = tr("Wiedervorlage überfällig"))
     val includeArchivedCheck = filterRow.checkBox(label = tr("Archivierte anzeigen"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.vPanel(spacing = 6)
     // Real offset/`total`-based "Mehr laden" pagination -- `CrmContactPageDto.total` was previously
@@ -157,7 +157,7 @@ private fun renderCrmContactRow(
             if (contact.archivedAt == null) tr("Archivieren") else tr("Entarchivieren"),
             style = ButtonStyle.OUTLINESECONDARY,
         )
-    val detailButton = headerRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val detailButton = headerRow.actionButton(ActionIcon.VIEW, tr("Details anzeigen"), style = ButtonStyle.OUTLINEPRIMARY)
 
     archiveButton.onClick {
         AppScope.launch {
@@ -201,7 +201,7 @@ private fun renderCrmContactDetail(
     // ---- Stammdaten (+ "Bearbeiten" toggle, Art. 16 DSGVO) -------------------------------
     val infoHeaderRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     infoHeaderRow.div(tr("Stammdaten")) { addCssClasses("flex-grow-1 fw-bold") }
-    val editButton = infoHeaderRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+    val editButton = infoHeaderRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
 
     val infoPanel = panel.vPanel(spacing = 2) { addCssClasses("small") }
     val editFormHolder = panel.vPanel(spacing = 6) { hide() }
@@ -584,8 +584,8 @@ private fun renderCrmContactEditForm(
             hide()
         }
     val buttonRow = panel.hPanel(spacing = 8)
-    val saveButton = buttonRow.button(tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
-    val cancelButton = buttonRow.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
+    val saveButton = buttonRow.actionButton(ActionIcon.SAVE, tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
+    val cancelButton = buttonRow.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
 
     saveButton.onClick {
         errorBox.hide()

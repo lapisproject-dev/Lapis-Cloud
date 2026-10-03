@@ -178,7 +178,7 @@ private fun renderDraftEditForm(
     val visibilityField =
         form.selectField(label = tr("Sichtbarkeit"), options = visibilityOptions, value = draft.visibility.name, required = true)
 
-    val saveButton = Button(tr("Änderungen speichern"), style = ButtonStyle.OUTLINEPRIMARY).apply { disabled = true }
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Änderungen speichern"), ButtonStyle.OUTLINEPRIMARY).apply { disabled = true }
     form.buttons(primary = saveButton)
 
     fun currentlyChanged(): Boolean = contentField.value.trim() != draft.content || visibilityField.value != draft.visibility.name
@@ -365,7 +365,7 @@ private fun renderDiscardedFooter(
     onChanged: () -> Unit,
 ) {
     val row = card.hPanel(spacing = 8) { addCssClasses("border-top pt-2 mt-1 align-items-center flex-wrap") }
-    val restoreButton = row.button(tr("Wiederherstellen"), style = ButtonStyle.OUTLINESECONDARY)
+    val restoreButton = row.actionButton(ActionIcon.UNDO, tr("Wiederherstellen"), style = ButtonStyle.OUTLINESECONDARY)
     val changedAt = draft.statusChangedAt
     if (changedAt != null) {
         val deadline = changedAt.plusDays(DRAFT_RESTORE_WINDOW_DAYS)

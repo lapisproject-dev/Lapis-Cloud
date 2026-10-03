@@ -7,7 +7,6 @@ import io.kvision.html.h2
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import network.lapis.cloud.shared.domain.MotionDto
@@ -64,14 +63,14 @@ fun renderConsensusScreen(
     }
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val statusFilterSelect =
         filterRow.select(
             options = listOf("" to tr("Alle Status")) + SystemicConsensusStatus.entries.map { it.name to consensusStatusLabel(it) },
             value = "",
             label = tr("Status"),
         )
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val section =
         root.dataSection<ConsensusListData>(
             emptyText = gettext("Noch kein Konsensieren vorhanden. Ein Konsensieren wird aus einem terminierten Antrag heraus eröffnet."),
@@ -141,7 +140,7 @@ private fun renderConsensusTable(
         rows = data.consensuses,
         actions = { container, c ->
             container
-                .tableActionButton("fas fa-eye", gettext("Konsensieren öffnen"))
+                .tableActionButton(ActionIcon.VIEW, gettext("Konsensieren öffnen"))
                 .onClick { navigateTo("/consensus/${c.id}") }
         },
     )

@@ -618,7 +618,7 @@ private fun whiteboardClearConfirmDialog(onConfirm: () -> Unit) {
     modal.div(
         tr("Falls die Zeichnung noch gebraucht wird: vorher als Dokument speichern."),
     ) { addCssClasses("text-muted small") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Board leeren"), style = ButtonStyle.WARNING).apply {
             onClick {
@@ -650,9 +650,9 @@ private fun whiteboardSaveAsDocumentDialog(onConfirm: (DocumentAccessLevel) -> U
                 "Teilnehmenden zugänglich sein soll.",
         ),
     ) { addCssClasses("text-muted small mb-2") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
+        newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY).apply {
             onClick {
                 val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
                 modal.hide()

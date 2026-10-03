@@ -477,7 +477,7 @@ private fun renderVatGateSummary(
     // updateOrganizationSettings) LedgerScreen.kt/PoliticianScreen.kt already use for their own
     // "ordinary tier" fields -- no disclaimer needed, this is a factual statement the org makes
     // about itself, not a risk-bearing feature gate.
-    val kleinunternehmerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center mt-1") }
+    val kleinunternehmerRow = panel.lapisToolbar { addCssClasses("mt-1") }
     val kleinunternehmerToggle =
         kleinunternehmerRow.checkBox(value = settings.isKleinunternehmer, label = tr("Kleinunternehmer nach § 19 UStG"))
     kleinunternehmerToggle.onClick {
@@ -584,7 +584,7 @@ private fun vatEnableDisclaimerModal(
         overflow = Overflow.AUTO
         disclaimer.text.lines().forEach { line -> p(line) { addCssClasses("small mb-1") } }
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Gelesen -- USt-Modul aktivieren"), style = ButtonStyle.PRIMARY).apply {
             onClick {

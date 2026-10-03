@@ -48,7 +48,7 @@ fun renderEventVolunteerShiftsScreen(container: SimplePanel) {
     root.pageHeader(tr("Helfer-Schichten"))
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
-    val eventSelectRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val eventSelectRow = root.lapisToolbar()
     val eventSelect = eventSelectRow.select(options = emptyList(), label = tr("Veranstaltung"))
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
@@ -125,7 +125,7 @@ private fun renderEventVolunteerShiftRow(
 
         val actionRow = displayHolder.hPanel(spacing = 8)
         if (shift.status == EventVolunteerShiftStatus.ACTIVE) {
-            val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+            val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
             editButton.onClick {
                 displayHolder.hide()
                 editFormHolder.removeAll()
@@ -142,7 +142,7 @@ private fun renderEventVolunteerShiftRow(
                 editFormHolder.show()
             }
 
-            val cancelButton = actionRow.button(tr("Stornieren"), style = ButtonStyle.OUTLINEDANGER)
+            val cancelButton = actionRow.actionButton(ActionIcon.UNDO, tr("Stornieren"), style = ButtonStyle.OUTLINEDANGER)
             cancelButton.onClick {
                 confirmDialog(
                     title = tr("Schicht stornieren"),
@@ -205,8 +205,8 @@ private fun renderEventVolunteerShiftEditForm(
             hide()
         }
     val buttonRow = panel.hPanel(spacing = 8)
-    val saveButton = buttonRow.button(tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
-    val cancelButton = buttonRow.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
+    val saveButton = buttonRow.actionButton(ActionIcon.SAVE, tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
+    val cancelButton = buttonRow.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
 
     saveButton.onClick {
         val input =

@@ -1997,3 +1997,30 @@ The reasoning is in `docs/architecture/collapsible-forms.adoc`; the rule and its
 * **Not in this wave (named)**: Polls (the LTR surveys plan is reworking `PollCreateForm`), every other group (the 40 ledgered findings of
   `R36B_NOT_YET_COLLAPSED`: finance, events, community, documents, compliance, conference administration, the auction), and `open(prefill)` for
   "duplicate" flows: the component and its tests support it, but none of the four pilot screens has such a flow, so nothing calls it yet.
+
+== V1.9.43 -- Toolbar alignment and standard icons (R56, R57, R58)
+
+Client only: no migration, no server change, no new RPC.
+
+* **R56 -- a tool row aligns at the bottom edge of its controls.** Cause of the offset buttons (measured in `ToolbarGeometryDomTest` on the
+  real cascade, on the control elements, not on containers): KVision wraps every field in `div.form-group.kv-mb-3` -- label (24 px) above the
+  control, 16 px margin below. In an `hPanel` with `align-items-center` the 78 px wrapper is centred against a 38 px button: select bottom 70,
+  button bottom 62, 8 px off. `align-items-end` (used by ~20 screens) is worse: the margin counts, so the button sits 16 px too low. The fix is
+  one class: `lapisToolbar()` (`ToolbarRow.kt`, CSS `.lapis-toolbar` in `theme.css`) aligns at the bottom AND zeroes the wrapper margin; `gap`
+  replaces the panel spacing, the row wraps, on a phone the fields take the full width while buttons keep their own width. Text next to a button
+  is `toolbarText(...)` (centred in a control-height box); a checkbox is centred by the same CSS. `btn-sm` is not used inside a toolbar.
+  A roster-style list row (centred text and badges) is not a toolbar: a lone select there drops the wrapper margin with `mb-0`.
+* **R57 -- standard actions get their standard icon, from one table.** `ActionIcon` (`ActionIcon.kt`) maps verb to Font Awesome 7 icon (bundled,
+  no CDN); one picture means one verb. `actionButton(kind, label, style, iconOnly, small)` / `newActionButton(...)` (detached, for
+  `Modal.addButton`) put the icon left of the unchanged text; the icon is decoration (`aria-hidden`), the visible text stays the accessible
+  name, the button height does not change. `tableActionButton(ActionIcon, tooltip)` is the icon-only variant for table action columns. The
+  aliases `fa-times`, `fa-edit`, `fa-refresh` are forbidden. Delete is always `OUTLINEDANGER`; "remove from a list" (detach) is the minus
+  circle, not the bin. Confirm dialogs take an optional `confirmIcon`. Full table and the verbs that deliberately have no icon:
+  `docs/architecture/action-icons.adoc`.
+* **R58 -- icon-only buttons only in dense table rows.** From two actions per row the table uses icon-only `btn-sm` buttons; with one action
+  icon plus text. Every icon-only button carries `title` and `aria-label` (`require(label.isNotBlank())`); labels are static `tr()` texts, never
+  data.
+
+Tripwire block `ClientToolbarIconTripwireTest` (module `lapis-server`): no `hPanel` row with `align-items-center|end` holds a field and a
+button (one named roster row), no `btn-sm` inside a toolbar, `theme.css` keeps the bottom alignment and the zero wrapper margin, no forbidden
+alias, plain standard-verb buttons and string-typed `tableActionButton("fas ...")` only shrink (ledgers: 1 and 17 findings).

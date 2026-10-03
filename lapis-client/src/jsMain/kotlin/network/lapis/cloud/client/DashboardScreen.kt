@@ -204,7 +204,7 @@ internal fun renderChangePassword(root: SimplePanel) {
         form.passwordField(label = tr("Neues Passwort bestätigen"), required = true, autocomplete = Autocomplete.NEW_PASSWORD)
     form.crossFieldRule(field = confirm) { FormRules.passwordsMatch(password = next.value, confirmation = confirm.value) }
     val save = Button(tr("Passwort ändern"), style = ButtonStyle.PRIMARY)
-    val cancel = Button(tr("Abbrechen"))
+    val cancel = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.PRIMARY)
     form.buttons(primary = save, cancel = cancel)
     cancel.onClick { listOf(current, next, confirm).forEach { it.reset() } }
     save.onClick {

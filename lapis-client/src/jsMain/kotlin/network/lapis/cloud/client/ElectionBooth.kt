@@ -246,7 +246,7 @@ private class ElectionBooth(
             }
         }
         val next = Button(tr("Weiter zur Prüfung"), style = ButtonStyle.PRIMARY)
-        val cancel = Button(tr("Abbrechen"))
+        val cancel = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.PRIMARY)
         form.buttons(primary = next, cancel = cancel)
         cancel.onClick {
             answer = null
@@ -273,7 +273,7 @@ private class ElectionBooth(
         lines.forEach { line -> booth.div(line) { addCssClasses("lapis-booth-review fw-bold") } }
         booth.p(tr("Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden.")) { addCssClasses("text-muted mb-0") }
         val row = booth.hPanel(spacing = 8)
-        val back = Button(tr("Zurück"), style = ButtonStyle.OUTLINESECONDARY)
+        val back = newActionButton(ActionIcon.BACK, tr("Zurück"), ButtonStyle.OUTLINESECONDARY)
         val cast = Button(tr("Stimme endgültig abgeben"), style = ButtonStyle.PRIMARY)
         row.add(back)
         row.add(cast)
@@ -468,8 +468,8 @@ private class ElectionBooth(
                 setAttribute("aria-live", "polite")
             }
         val actions = booth.hPanel(spacing = 8)
-        val copy = actions.button(tr("Kopieren"), style = ButtonStyle.OUTLINESECONDARY)
-        val print = actions.button(tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
+        val copy = actions.actionButton(ActionIcon.COPY, tr("Kopieren"), style = ButtonStyle.OUTLINESECONDARY)
+        val print = actions.actionButton(ActionIcon.PRINT, tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
         copy.onClick {
             val failed = gettext("Kopieren nicht möglich. Bitte schreiben Sie den Code ab.")
             val clipboard = window.navigator.asDynamic().clipboard

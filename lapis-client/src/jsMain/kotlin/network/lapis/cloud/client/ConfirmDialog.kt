@@ -24,6 +24,8 @@ fun confirmDialog(
     title: String,
     message: String,
     confirmLabel: String = tr("Bestätigen"),
+    // V1.9.43 (R57) -- additive: the icon of the confirming verb (null = none, every existing caller unchanged).
+    confirmIcon: ActionIcon? = null,
     confirmStyle: ButtonStyle = ButtonStyle.DANGER,
     extraLines: List<String> = emptyList(),
     dangerNote: String? = null,
@@ -40,7 +42,7 @@ fun confirmDialog(
     extraLines.forEach { line -> modal.div(line) }
     dangerNote?.let { modal.div(it) { addCssClasses("fw-bold text-danger") } }
     val cancelButton =
-        Button(cancelLabel, style = ButtonStyle.SECONDARY).apply {
+        newActionButton(ActionIcon.CANCEL, cancelLabel, ButtonStyle.SECONDARY).apply {
             onClick { modal.hide() }
         }
     modal.addButton(cancelButton)
@@ -53,7 +55,7 @@ fun confirmDialog(
         }
     }
     val once = ConfirmOnce()
-    val confirmButton = Button(confirmLabel, style = confirmStyle)
+    val confirmButton = confirmButtonOf(confirmIcon, confirmLabel, confirmStyle)
     confirmButton.onClick {
         once.run(confirmButton) {
             modal.hide()
@@ -117,6 +119,8 @@ fun confirmWithReasonDialog(
     reasonLabel: String,
     reasonRequired: Boolean,
     confirmLabel: String = tr("Bestätigen"),
+    // V1.9.43 (R57) -- additive: the icon of the confirming verb (null = none, every existing caller unchanged).
+    confirmIcon: ActionIcon? = null,
     reasonMaxLength: Int? = null,
     reasonMinLength: Int? = null,
     reasonPlaceholder: String? = null,
@@ -165,9 +169,9 @@ fun confirmWithReasonDialog(
 
     form.finish()
 
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val once = ConfirmOnce()
-    val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER)
+    val confirmButton = confirmButtonOf(confirmIcon, confirmLabel, ButtonStyle.DANGER)
     if (reasonMinLength != null) confirmButton.disabled = true
 
     reasonField.subscribe { raw ->
@@ -209,6 +213,8 @@ fun confirmWithTypedConfirmationDialog(
     message: String,
     expectedText: String,
     confirmLabel: String = tr("Endgültig löschen"),
+    // V1.9.43 -- additive; the default label deletes, a caller that overrides the label sets its own icon.
+    confirmIcon: ActionIcon? = null,
     // V1.9.31 -- additive: the close button's label. A caller whose expected word is itself "ABBRECHEN" must not offer a second
     // "Abbrechen" button that means the opposite; the default keeps every existing caller unchanged.
     cancelLabel: String = tr("Abbrechen"),
@@ -219,9 +225,9 @@ fun confirmWithTypedConfirmationDialog(
     modal.div(gettext("Zum Bestätigen bitte \"%1\" eingeben:", expectedText)) { addCssClasses("fw-bold") }
     val typedInput = modal.text()
 
-    val cancelButton = Button(cancelLabel, style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    val cancelButton = newActionButton(ActionIcon.CANCEL, cancelLabel, ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
     val once = ConfirmOnce()
-    val confirmButton = Button(confirmLabel, style = ButtonStyle.DANGER).apply { disabled = true }
+    val confirmButton = confirmButtonOf(confirmIcon, confirmLabel, ButtonStyle.DANGER).apply { disabled = true }
     confirmButton.onClick {
         if (typedInput.value != expectedText) return@onClick
         once.run(confirmButton) {
@@ -234,3 +240,10 @@ fun confirmWithTypedConfirmationDialog(
     modal.addButton(confirmButton)
     modal.show()
 }
+
+/** The confirming button of a dialog: with the icon of its verb when the caller names one, a plain text button otherwise. */
+private fun confirmButtonOf(
+    icon: ActionIcon?,
+    label: String,
+    style: ButtonStyle,
+): Button = if (icon == null) Button(label, style = style) else newActionButton(icon, label, style)

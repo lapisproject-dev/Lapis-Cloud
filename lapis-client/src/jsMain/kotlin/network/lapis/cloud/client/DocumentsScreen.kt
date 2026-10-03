@@ -460,7 +460,7 @@ internal fun Container.renderDocumentDeleteAction(
     document: DocumentDto,
     onDeleted: () -> Unit,
 ) {
-    val deleteButton = tableActionButton("fas fa-trash", tr("Löschen"), ButtonStyle.OUTLINEDANGER)
+    val deleteButton = tableActionButton(ActionIcon.DELETE, tr("Löschen"), ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
         // Audit fix M9: the trigger is disabled while the delete runs, so a second click cannot open a second dialog for a second request.
         if (deleteButton.disabled) return@onClick
@@ -473,6 +473,7 @@ internal fun Container.renderDocumentDeleteAction(
                     document.title,
                 ),
             confirmLabel = tr("Löschen"),
+            confirmIcon = ActionIcon.DELETE,
         ) {
             runGuardedAction(deleteButton) {
                 val result = guarded { rpcService<IDocumentService>().deleteDocument(document.id) }
@@ -509,8 +510,8 @@ internal fun Container.renderDocumentAccessLevelAction(
         val levelField =
             form.selectField(label = tr("Sichtbarkeit"), options = options, value = document.accessLevel.name, required = true)
         form.finish()
-        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-        val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
         saveButton.onClick {
             form.submit(saveButton) {
                 val newLevel = DocumentAccessLevel.valueOf(levelField.value)
@@ -556,8 +557,8 @@ internal fun Container.renderFolderAccessLevelAction(
         val levelField =
             form.selectField(label = tr("Sichtbarkeit"), options = options, value = folder.accessLevel.name, required = true)
         form.finish()
-        modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-        val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+        modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+        val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
         saveButton.onClick {
             form.submit(saveButton) {
                 val newLevel = DocumentAccessLevel.valueOf(levelField.value)

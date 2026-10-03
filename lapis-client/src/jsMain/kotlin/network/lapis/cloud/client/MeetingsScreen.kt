@@ -112,12 +112,12 @@ fun renderMeetingsScreen(container: SimplePanel) {
     val createHost = root.vPanel(spacing = 6)
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val committeeFilterSelect = filterRow.select(options = listOf("" to tr("Alle Gremien")), value = "", label = tr("Gremium"))
     val statusFilterOptions =
         listOf("" to tr("Alle Status")) + MeetingStatus.entries.map { it.name to meetingStatusLabel(it) }
     val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Status"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val meetingListPanel = root.vPanel(spacing = 6)
 
     root.h2(tr("Details")) { addCssClass("h5") }
@@ -229,7 +229,7 @@ private fun renderMeetingRow(
     }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(meeting) }
 }
 
@@ -522,7 +522,7 @@ internal fun renderEinladungSection(
     // since it never touches Letterxpress.
     val postalActionPanel = form.panel.vPanel(spacing = 4)
     postalActionPanel.renderPostalMailGate { host ->
-        val postalButton = host.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+        val postalButton = host.actionButton(ActionIcon.SEND, tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
         postalButton.onClick {
             if (!form.validateAndReport()) return@onClick
             val recipients = selectedRecipients()
@@ -611,7 +611,7 @@ private fun renderAgendaSection(
                 row.div(sanitizeUntrustedI18nText(gettext("Vortragend: %1", presenter))) { addCssClasses("text-muted small") }
             }
             if (canManage) {
-                val removeButton = row.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+                val removeButton = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 removeButton.onClick {
                     AppScope.launch {
                         val result = guarded { rpcService<IGovernanceService>().removeAgendaItem(item.id) }
@@ -655,7 +655,7 @@ internal fun renderAddAgendaItemForm(
     val presenterOptions = listOf("" to tr("-- kein --")) + untrustedOptions(eligibleMembers.map { it.id to it.displayName })
     val presenterField = form.searchableSelectField(label = tr("Vortragend"), options = presenterOptions, value = "")
 
-    val addButton = Button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val addButton = newActionButton(ActionIcon.ADD, tr("Hinzufügen"), ButtonStyle.OUTLINEPRIMARY)
     form.buttons(primary = addButton)
     addButton.onClick {
         form.submit(addButton) {
@@ -764,7 +764,7 @@ internal fun renderAttendanceRecordingForm(
                 FieldCheck.Ok
             }
         }
-        val saveButton = Button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+        val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.OUTLINEPRIMARY)
         form.buttons(primary = saveButton)
         saveButton.onClick {
             form.submit(saveButton) {
@@ -1013,7 +1013,7 @@ private fun renderProtocolPreview(
         gettext("Entwurf erstellt am %1", formatSystemDateTime(draft.generatedAt)),
     ) { addCssClasses("text-muted small mt-2") }
 
-    val printButton = panel.button(tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
+    val printButton = panel.actionButton(ActionIcon.PRINT, tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
     printButton.onClick { window.print() }
 }
 

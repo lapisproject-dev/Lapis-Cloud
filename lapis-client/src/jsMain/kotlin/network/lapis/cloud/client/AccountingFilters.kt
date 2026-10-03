@@ -4,7 +4,6 @@ import io.kvision.core.Container
 import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.i18n.tr
-import io.kvision.panel.hPanel
 import kotlinx.datetime.LocalDate
 
 // Accounting UI wave -- design decision D12: two genuinely different report-scoping shapes exist
@@ -54,7 +53,7 @@ fun Container.dateRangeFilter(
     fromLabel: String = tr("Von (JJJJ-MM-TT, optional)"),
     toLabel: String = tr("Bis (JJJJ-MM-TT)"),
 ): DateRangeFilterControls {
-    val row = hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val row = lapisToolbar()
     val fromInput = row.text(label = fromLabel)
     val toInput = row.text(label = toLabel)
     return DateRangeFilterControls(fromInput, toInput)

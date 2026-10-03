@@ -149,8 +149,8 @@ fun renderAuctionScreen(container: SimplePanel) {
     root.h2(tr("Auktionen")) { addCssClass("h5") }
     val staleRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     val staleLabel = staleRow.div(tr("Wird geladen …")) { addCssClasses("text-muted small flex-grow-1") }
-    val auctionsRefreshButton = staleRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val auctionsRefreshButton = staleRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterRow = root.lapisToolbar()
     val statusFilterOptions =
         listOf("" to tr("Alle (persistierter Status)")) + AuctionStatus.entries.map { it.name to auctionStatusLabel(it) }
     val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Filter: Status (persistiert)"))
@@ -550,7 +550,7 @@ private fun renderBidAndBuyNowControls(
     onChanged: () -> Unit,
 ) {
     val controlsPanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-1") }
-    val bidRow = controlsPanel.hPanel(spacing = 8) { addCssClasses("align-items-end flex-wrap") }
+    val bidRow = controlsPanel.lapisToolbar()
     val bidInput = bidRow.text(label = tr("Ihr Höchstgebot (LTR)"))
     val bidButton = bidRow.button(tr("Bieten"), style = ButtonStyle.OUTLINEDANGER)
     val bidBusyLabel = bidRow.div(tr("Wird ausgeführt …")) { addCssClasses("text-muted small") }
@@ -645,7 +645,7 @@ private fun placeBidConfirmDialog(
             lastFetchedPriceText,
         ),
     )
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Gebot abgeben"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -666,7 +666,7 @@ private fun buyNowConfirmDialog(
     val modal = Modal(caption = tr("Sofortkauf bestätigen"))
     modal.div(tr("Sofortkauf ist verbindlich -- kann nicht rückgängig gemacht werden.")) { addCssClasses("fw-bold text-danger") }
     modal.div(gettext("Sie kaufen \"%1\" sofort für %2.", auctionTitle, formatLtr(buyNowPrice)))
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Sofort kaufen"), style = ButtonStyle.DANGER).apply {
             onClick {
@@ -817,6 +817,7 @@ private fun renderAdminSection(
                 }
                     ?: tr("Die Wertobergrenze wird entfernt (kein Limit mehr)."),
             confirmLabel = tr("Speichern"),
+            confirmIcon = ActionIcon.SAVE,
         ) {
             maxValueSaveButton.disabled = true
             AppScope.launch {
@@ -893,7 +894,7 @@ private fun auctionEnableDisclaimerModal(
         overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Ich bestätige, den aktuellen Text gelesen zu haben"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -919,9 +920,9 @@ private fun auctionDisableConfirmDialog(onConfirm: () -> Unit) {
         ),
     ) { addCssClasses("fw-bold text-danger") }
     modal.div(tr("Neue Angebote können ebenfalls nicht erstellt werden, bis ein ADMIN die Auktion erneut aktiviert."))
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Deaktivieren"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()

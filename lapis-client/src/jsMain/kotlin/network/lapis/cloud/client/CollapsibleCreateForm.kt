@@ -177,7 +177,7 @@ fun <P> collapsibleCreateForm(
 
 /** The Cancel button of a collapsible create form: "Abbrechen" asks for confirmation when the form was changed ([CollapsibleCreateFormController.close]). */
 internal fun collapseCancelButton(collapse: (saved: Boolean) -> Unit): Button =
-    Button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY).apply { onClick { collapse(false) } }
+    newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.OUTLINESECONDARY).apply { onClick { collapse(false) } }
 
 /** The confirmation of [CollapsibleCreateFormController]: the safe answer ("Weiter bearbeiten") holds the focus and is what Escape does. */
 internal fun confirmDiscardInputs(onDiscard: () -> Unit) {

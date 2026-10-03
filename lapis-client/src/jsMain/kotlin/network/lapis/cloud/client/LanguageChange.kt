@@ -43,7 +43,7 @@ internal fun languageChangeEndsCallDialog(onConfirm: () -> Unit) {
     modal.div(tr("Die Verbindung wird getrennt. Sie können der Besprechung danach erneut beitreten.")) {
         addCssClasses("text-muted small")
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Sprache wechseln und Besprechung beenden"), style = ButtonStyle.DANGER).apply {
             onClick {

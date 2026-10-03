@@ -82,7 +82,7 @@ class SearchableSelect(
     private val status = Div(className = "visually-hidden")
     private val actions = Div(className = "lapis-ssel-actions")
     private val clearButton =
-        Button("", icon = "fas fa-times", style = ButtonStyle.LINK) {
+        Button("", icon = ActionIcon.CLEAR.css, style = ButtonStyle.LINK) {
             addCssClass("lapis-ssel-button")
             title = gettext("Suche leeren")
             setAttribute("aria-label", gettext("Suche leeren"))

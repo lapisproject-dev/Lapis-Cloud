@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.form.check.CheckBox
 import io.kvision.form.select.select
-import io.kvision.html.Button
 import io.kvision.html.ButtonSize
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -297,7 +296,7 @@ internal fun renderCreateMailingListForm(
     val form = panel.lapisForm()
     val nameField = form.textField(label = tr("Name"), required = true)
     val descriptionField = form.textField(label = tr("Beschreibung"))
-    val createButton = Button(tr("Anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Anlegen"), ButtonStyle.PRIMARY)
     form.buttons(primary = createButton)
 
     createButton.onClick {
@@ -329,7 +328,7 @@ private fun renderManageListSelector(
     refreshSelfService: () -> Unit,
 ): (selectId: String?) -> Unit {
     root.div(tr("Liste verwalten")) { addCssClasses("fw-bold mt-2") }
-    val row = root.hPanel(spacing = 8) { addCssClasses("align-items-end") }
+    val row = root.lapisToolbar()
     val listSelect = row.select(options = emptyList(), label = tr("Mailingliste"))
     val manageButton = row.button(tr("Verwalten"), style = ButtonStyle.OUTLINESECONDARY)
     val detailPanel = root.vPanel(spacing = 10)
@@ -424,7 +423,7 @@ internal fun renderMailingListDetail(
             requiredMessage = gettext("Bitte ein Mitglied auswählen."),
         )
     val memberSelect = memberField.control as SearchableSelect
-    val addButton = addRow.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val addButton = addRow.actionButton(ActionIcon.ADD, tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
     addForm.finish()
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
@@ -463,7 +462,7 @@ internal fun renderMailingListDetail(
     composeForm.crossFieldRule(focusOn = editor.editable) {
         if (editor.isBlank()) FieldCheck.Invalid(gettext("Bitte einen Text eingeben.")) else FieldCheck.Ok
     }
-    val draftButton = Button(tr("Als Entwurf speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+    val draftButton = newActionButton(ActionIcon.SAVE, tr("Als Entwurf speichern"), ButtonStyle.OUTLINEPRIMARY)
     composeForm.buttons(primary = draftButton)
     // Welle V1.9.7 "SuperMailer" D4: the honesty caption only makes sense in LOG delivery mode --
     // in SMTP mode, sendMailingMessage now genuinely calls a real transport (MailingDeliveryWorker),
@@ -565,7 +564,7 @@ private fun renderMailingMessageRow(
     }
 
     if (message.status == MailingMessageStatus.DRAFT) {
-        val sendButton = row.button(tr("Senden"), style = ButtonStyle.OUTLINEDANGER)
+        val sendButton = row.actionButton(ActionIcon.SEND, tr("Senden"), style = ButtonStyle.OUTLINEDANGER)
         sendButton.onClick {
             confirmDialog(
                 title = tr("Nachricht senden"),

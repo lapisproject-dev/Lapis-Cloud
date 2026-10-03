@@ -82,10 +82,10 @@ fun renderSocialModerationScreen(container: SimplePanel) {
 private const val REPORT_PAGE_SIZE = 200
 
 private fun renderReportQueueSection(root: SimplePanel) {
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val statusOptions = listOf("" to tr("Alle Status")) + SocialPostReportStatus.entries.map { it.name to socialPostReportStatusLabel(it) }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.vPanel(spacing = 8)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
@@ -208,6 +208,7 @@ internal fun renderReportDecidePanel(
             title = tr("Beitrag rechtlich entfernen"),
             message = tr("Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher."),
             confirmLabel = tr("Entfernen"),
+            confirmIcon = ActionIcon.REMOVE,
         ) {
             removeForm.runBusy(removeButton) {
                 val result = guarded { rpcService<ISocialNetworkService>().removePostForLegalReason(report.postId, reason) }
@@ -228,11 +229,11 @@ internal fun renderReportDecidePanel(
 private const val ERASURE_PAGE_SIZE = 200
 
 private fun renderErasureQueueSection(root: SimplePanel) {
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val statusOptions =
         listOf("" to tr("Alle Status")) + SocialPostErasureStatus.entries.map { it.name to socialPostErasureStatusLabel(it) }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.vPanel(spacing = 8)
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
@@ -317,8 +318,8 @@ internal fun renderErasureDecidePanel(
     val decidePanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
     val form = decidePanel.lapisForm()
     val noteField = form.textAreaField(label = tr("Entscheidungsnotiz"), rows = 2)
-    val approveButton = Button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val approveButton = newActionButton(ActionIcon.APPROVE, tr("Genehmigen"), ButtonStyle.SUCCESS)
+    val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = approveButton, destructive = rejectButton)
 
     fun decide(
@@ -354,7 +355,7 @@ private fun executeErasureConfirmDialog(
         ),
     ) { addCssClasses("small text-muted mt-1") }
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Endgültig entfernen"), style = ButtonStyle.DANGER).apply {
             onClick {

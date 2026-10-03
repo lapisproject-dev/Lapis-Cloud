@@ -289,7 +289,7 @@ internal fun renderIncomeStatementBody(
 
 private fun renderBalanceSheetView(panel: SimplePanel) {
     panel.h2(tr("Bilanz")) { addCssClass("h5") }
-    val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = panel.lapisToolbar()
     val asOfInput = filterRow.text(value = todayIso(), label = tr("Stichtag (JJJJ-MM-TT)"))
     val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =

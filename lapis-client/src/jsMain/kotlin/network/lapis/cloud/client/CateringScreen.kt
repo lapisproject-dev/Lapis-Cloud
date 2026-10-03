@@ -45,7 +45,7 @@ fun renderCateringScreen(container: SimplePanel) {
     root.pageHeader(tr("Catering"))
 
     root.h2(tr("Veranstaltung")) { addCssClass("h5") }
-    val eventSelectRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val eventSelectRow = root.lapisToolbar()
     val eventSelect = eventSelectRow.select(options = emptyList(), label = tr("Veranstaltung"))
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
@@ -128,8 +128,8 @@ private fun renderCateringOrderRow(
             displayHolder.div(gettext("Allergene/Hinweise: %1", order.allergenNotes)) { addCssClasses("text-muted small") }
         }
 
-        val actionRow = displayHolder.hPanel(spacing = 8)
-        val editButton = actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+        val actionRow = displayHolder.lapisToolbar()
+        val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
         editButton.onClick {
             displayHolder.hide()
             editFormHolder.removeAll()
@@ -163,7 +163,7 @@ private fun renderCateringOrderRow(
             }
         }
 
-        val deleteButton = actionRow.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+        val deleteButton = actionRow.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
         deleteButton.onClick {
             confirmDialog(
                 title = tr("Bestellposition löschen"),
@@ -173,6 +173,7 @@ private fun renderCateringOrderRow(
                         order.description,
                     ),
                 confirmLabel = tr("Löschen"),
+                confirmIcon = ActionIcon.DELETE,
             ) {
                 AppScope.launch {
                     val result = guarded { rpcService<ICateringService>().deleteCateringOrder(order.id) }
@@ -207,8 +208,8 @@ private fun renderCateringOrderEditForm(
             hide()
         }
     val buttonRow = panel.hPanel(spacing = 8)
-    val saveButton = buttonRow.button(tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
-    val cancelButton = buttonRow.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
+    val saveButton = buttonRow.actionButton(ActionIcon.SAVE, tr("Änderungen speichern"), style = ButtonStyle.PRIMARY)
+    val cancelButton = buttonRow.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
 
     saveButton.onClick {
         errorBox.hide()

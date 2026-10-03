@@ -333,7 +333,7 @@ private fun renderAddLineForm(
         } else {
             null
         }
-    val addButton = Button(tr("Zeile hinzufügen"), style = ButtonStyle.PRIMARY)
+    val addButton = newActionButton(ActionIcon.ADD, tr("Zeile hinzufügen"), ButtonStyle.PRIMARY)
     form.buttons(primary = addButton)
     addButton.onClick {
         form.submit(addButton) {
@@ -378,7 +378,7 @@ private fun renderLineCard(
     headerRow.typeBadge(travelExpenseLineKindLabel(line.kind), travelExpenseLineKindColor(line.kind))
     headerRow.untrustedDiv(line.description, className = "flex-grow-1")
     headerRow.div(formatMoney(line.amount)) { addCssClasses("fw-bold") }
-    val removeButton = headerRow.button(tr("Zeile entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = headerRow.actionButton(ActionIcon.REMOVE, tr("Zeile entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.onClick {
         runGuardedAction(removeButton) {
             val result = guarded { rpcService<ITravelExpenseService>().removeLine(line.id) }
@@ -410,7 +410,7 @@ private fun renderLineCard(
                     target = "_blank",
                 )
                 receiptRow.div(receiptSizeLabel(receipt.sizeBytes)) { addCssClasses("text-muted small") }
-                val deleteReceiptButton = receiptRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+                val deleteReceiptButton = receiptRow.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 deleteReceiptButton.onClick {
                     runGuardedAction(deleteReceiptButton) {
                         val error = TravelExpenseHttp.deleteReceipt(receipt.id)
@@ -433,7 +433,7 @@ private fun renderLineCard(
                     required = true,
                     requiredMessage = tr("Bitte eine Datei auswählen."),
                 )
-            val uploadButton = Button(tr("Hochladen"), style = ButtonStyle.PRIMARY)
+            val uploadButton = newActionButton(ActionIcon.UPLOAD, tr("Hochladen"), ButtonStyle.PRIMARY)
             uploadForm.buttons(primary = uploadButton)
             uploadButton.onClick {
                 uploadForm.submit(uploadButton) {
@@ -481,7 +481,7 @@ private fun renderOwnReportCard(
 
     val actionsRow = card.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
     if (travelExpenseCanWithdraw(report)) {
-        val withdrawButton = actionsRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
+        val withdrawButton = actionsRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
         withdrawButton.onClick {
             runGuardedAction(withdrawButton) {
                 val result = guarded { rpcService<ITravelExpenseService>().withdrawReport(report.id) }

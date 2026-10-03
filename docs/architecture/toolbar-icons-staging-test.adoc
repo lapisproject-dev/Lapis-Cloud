@@ -1,0 +1,26 @@
+= Staging test plan: toolbar alignment and action icons (V1.9.43)
+:toc:
+
+== Purpose
+
+`ToolbarGeometryDomTest` and `ActionButtonDomTest` measure the real cascade in headless Chrome, and a tripwire pins the rules. What only a real
+deployment shows: the look with real fonts, dark mode, touch sizes, a screen reader. The plan was **not executed** by the author of the wave
+(nothing was deployed); every result is open. It is a plan for a person, not a script.
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | Open "Anträge" | the filter row: "Gremium", "Status" and "Aktualisieren" share one bottom edge; the button carries a circular-arrows icon
+| 2 | Open "Prüfprotokoll" | both filter rows align; "Filtern" sits at the bottom edge of the date fields, funnel icon
+| 3 | Open a screen with the person search field and its clear button | the clear (x) button and the field share the bottom edge
+| 4 | Narrow the window to 375 px | fields take the full width, buttons keep their own width and stand left, nothing is offset
+| 5 | Switch dark mode | icons follow the button colour, contrast unchanged
+| 6 | Device mode with a coarse pointer | buttons and fields are at least 44 px high and still aligned
+| 7 | Table with two row actions (for example "Anträge" details or "SEPA-Mandate") | icon-only `btn-sm` buttons; hover shows the tooltip
+| 8 | Screen reader on "Aktualisieren" | announced as "Aktualisieren, Button", no icon glyph announced
+| 9 | Screen reader on an icon-only row button | announced with its tooltip text
+| 10 | Open a delete confirmation (for example an article) | confirming button has the bin icon and the danger colour, "Abbrechen" has the x
+| 11 | Open a create form ("Neues Gremium") | "Speichern" has the disk, "Abbrechen" the x; the open button keeps its plus
+|===

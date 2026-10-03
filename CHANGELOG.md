@@ -8,6 +8,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Toolbar alignment and standard icons** (V1.9.43, rules R56-R58): `lapisToolbar()` / `toolbarText()` (`ToolbarRow.kt`, `.lapis-toolbar` in `theme.css`),
+  `ActionIcon` (one verb-to-icon table, Font Awesome 7 bundled), `actionButton` / `newActionButton` / `tableActionButton(ActionIcon, ...)`, an optional
+  `confirmIcon` on the three confirm dialogs. New tests: `ToolbarGeometryDomTest` (bottom edge measured on the control elements, wrapped row, text
+  next to a button), `ActionButtonDomTest` (decorative icon, unchanged accessible name, same height, every icon name exists in the bundled font) and
+  `ClientToolbarIconTripwireTest` (no `hPanel` row with a field and a button, no `btn-sm` in a toolbar, forbidden aliases, ledgers that only shrink).
+  Documentation: `action-icons.adoc`, `ui-ux-guideline.adoc`, `toolbar-icons-staging-test.adoc` (not executed). Client only: no migration, no server code.
+
 - **Minimum participation for anonymous consensus** (V1.9.42): `SystemicConsensusResultDto` gets `figuresWithheld` and `minimumResponses` (additive, defaults
   `false` / `5`). New shared constant `DisclosureRules.MIN_ANONYMOUS_RESPONSES` (5); `PollRules.MIN_RESPONSES_FOR_RESULT` is now an alias of it. The detail
   page and the conference-room operator step show a privacy sentence and the group-wide verdict in words when figures are withheld. No migration.
@@ -141,6 +148,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Buttons offset from the controls in their row** (V1.9.43): KVision wraps each field in `form-group kv-mb-3` (label above, 16 px margin below); in rows
+  with `align-items-center` the "Aktualisieren" button sat 8 px above its select, in rows with `align-items-end` 16 px below. 60 rows now use
+  `lapisToolbar()` (measured in `ToolbarGeometryDomTest`: select bottom 70 / button bottom 62 before, equal within 1 px after). The conference roster
+  select keeps its row but drops the margin.
+
 - **Times read in the wrong zone** (V1.9.38): (1) the iCal feed shifted every single event by one or two hours (`DTSTART`/`DTEND` read the typed-in
   local time as UTC) and drifted weekly series by an hour across clock changes (the master was a UTC instant; it now carries `TZID` plus a
   `VTIMEZONE`, and `EXDATE`/`RECURRENCE-ID` follow); the embed feed had the same shift. (2) A poll closed one or two hours late
@@ -233,6 +245,12 @@ All notable changes to this project are documented here. Format follows
   consensus row (`FOR UPDATE`) so a rationale cannot change after a concurrent `freezeOptions` committed (race test on H2 and PostgreSQL).
 
 ### Known limitations
+
+- **V1.9.43 icons and toolbars are not run on a real deployment**: only DOM tests in headless Chrome. The standard verbs got icons everywhere an exact
+  text matched (about 270 buttons); buttons with extra constructor arguments (`ClientVersionWatcher`, 1), 17 string-typed domain icons in table action
+  columns and all domain verbs ("Wahl eröffnen", "Gebot abgeben", ...) are deliberately unchanged and listed in `action-icons.adoc` and in the tripwire
+  ledgers. `fa-rotate` (password reset, re-index) is not unified with `REFRESH`. The confirm-dialog icon is set for 25 call sites with an obvious verb, not
+  for every dialog. The `textContent` of an icon button starts with a space where KVision places the icon (the accessible name is trimmed).
 
 - **Minimum participation of an anonymous consensus** (V1.9.42), accepted residual risks: R1 with one rater the winner is that person's lowest rating
   (a tie of the minima shows as `tie` / REPEAT); R2 the group-wide verdict narrows the winner's value range; R3 a binding REJECTED reveals the passive option

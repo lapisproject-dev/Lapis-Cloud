@@ -291,10 +291,10 @@ class ConferenceNotesController(
         val conflictBox = container.vPanel(spacing = 2) { addCssClasses("border rounded p-2 mt-1") }
         conflictBox.hide()
         val actionRow = container.hPanel(spacing = 6) { addCssClasses("mt-1") }
-        val saveButton = actionRow.button(tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+        val saveButton = actionRow.actionButton(ActionIcon.SAVE, tr("Speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         saveButton.addCssClass("btn-sm")
 
-        val deleteButton = actionRow.button(tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+        val deleteButton = actionRow.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
         deleteButton.addCssClass("btn-sm")
         val deleteConfirmRow = actionRow.hPanel(spacing = 6)
         deleteConfirmRow.hide()
@@ -435,7 +435,7 @@ class ConferenceNotesController(
         val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
         formPanel.p(tr("Notizblock hinzufügen")) { addCssClasses("fw-bold small mb-1") }
         val contentInput = formPanel.textArea(rows = 2, label = tr("Inhalt"))
-        val add = formPanel.button(tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
+        val add = formPanel.actionButton(ActionIcon.ADD, tr("Hinzufügen"), style = ButtonStyle.OUTLINEPRIMARY)
         add.addCssClass("btn-sm")
         add.onClick { doAddBlock(contentInput) }
         addButton = add
@@ -510,9 +510,9 @@ private fun notesSaveAsDocumentDialog(onConfirm: (DocumentAccessLevel) -> Unit) 
                 "Teilnehmenden zugänglich sein soll.",
         ),
     ) { addCssClasses("text-muted small mb-2") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Speichern"), style = ButtonStyle.PRIMARY).apply {
+        newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY).apply {
             onClick {
                 val level = accessSelect.value?.let { DocumentAccessLevel.valueOf(it) } ?: DocumentAccessLevel.BOARD_ONLY
                 modal.hide()

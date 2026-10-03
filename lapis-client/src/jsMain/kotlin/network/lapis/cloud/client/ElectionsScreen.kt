@@ -78,14 +78,14 @@ fun renderElectionsScreen(
     }
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val statusFilterSelect =
         filterRow.select(
             options = listOf("" to tr("Alle Status")) + ElectionStatus.entries.map { it.name to electionStatusLabel(it) },
             value = "",
             label = tr("Status"),
         )
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val section =
         root.dataSection<List<ElectionDto>>(
             emptyText = gettext("Noch keine Wahlen vorhanden. Eine Wahl wird aus einem terminierten Antrag heraus eröffnet."),
@@ -121,7 +121,7 @@ private fun renderElectionTable(
         rows = elections,
         actions = { container, e ->
             container
-                .tableActionButton("fas fa-eye", gettext("Wahl öffnen"))
+                .tableActionButton(ActionIcon.VIEW, gettext("Wahl öffnen"))
                 .onClick { navigateTo("/elections/${e.id}") }
         },
     )

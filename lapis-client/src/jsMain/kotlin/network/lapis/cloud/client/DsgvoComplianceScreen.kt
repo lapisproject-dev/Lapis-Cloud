@@ -163,7 +163,7 @@ private fun renderAgreementRow(
     agreement.reviewDueDate?.let { row.div(gettext("Prüftermin: %1", formatDate(it))) { addCssClasses("text-muted small") } }
 
     if (canManage) {
-        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -301,10 +301,10 @@ private fun renderTomTab(panel: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
 
-    val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = panel.lapisToolbar()
     val categoryOptions = listOf("" to tr("Alle Kategorien")) + TomCategory.entries.map { it.name to tomCategoryLabel(it) }
     val categorySelect = filterRow.select(options = categoryOptions, value = "", label = tr("Kategorie"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = panel.vPanel(spacing = 6)
 
@@ -346,7 +346,7 @@ private fun renderTomRow(
     row.div(sanitizeUntrustedI18nText(tom.description)) { addCssClasses("small") }
 
     if (canManage) {
-        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -448,10 +448,10 @@ private fun renderDsfaTab(panel: SimplePanel) {
     // D8(a): unconditional, non-dismissible, above everything else on this tab (X2).
     panel.div(dsfaBannerText()) { addCssClasses("alert alert-warning") }
 
-    val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = panel.lapisToolbar()
     val statusOptions = listOf("" to tr("Alle Status")) + DsfaStatus.entries.map { it.name to dsfaStatusLabel(it) }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = panel.vPanel(spacing = 6)
 
@@ -495,7 +495,7 @@ private fun renderDpiaRow(
     row.div(gettext("DSFA erforderlich: %1", triStateBooleanLabel(assessment.dpiaRequired))) { addCssClasses("text-muted small") }
 
     if (canManage) {
-        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false
@@ -623,10 +623,10 @@ private fun renderBreachTab(panel: SimplePanel) {
     // D8(a): unconditional, non-dismissible, above everything else on this tab (X2).
     panel.div(breachBannerText()) { addCssClasses("alert alert-warning") }
 
-    val filterRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = panel.lapisToolbar()
     val statusOptions = listOf("" to tr("Alle Status")) + BreachStatus.entries.map { it.name to breachStatusLabel(it) }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = panel.vPanel(spacing = 6)
 
@@ -691,7 +691,7 @@ private fun renderBreachRow(
     ) { addCssClasses("text-muted small") }
 
     if (canManage) {
-        val editButton = row.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+        val editButton = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
         val editPanel = row.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
         editPanel.hide()
         var editOpen = false

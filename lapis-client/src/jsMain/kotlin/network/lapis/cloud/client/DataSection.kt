@@ -4,7 +4,6 @@ import io.kvision.core.Container
 import io.kvision.core.Widget
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.p
 import io.kvision.html.span
@@ -192,7 +191,7 @@ fun Container.dataErrorState(onRetry: () -> Unit) {
     val box = div { addCssClasses("alert alert-danger d-flex align-items-center flex-wrap gap-2 mb-0") }
     box.setAttribute("role", "alert")
     box.span(tr("Die Daten konnten nicht geladen werden."))
-    box.button(tr("Erneut versuchen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+    box.actionButton(ActionIcon.REFRESH, tr("Erneut versuchen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
         region?.let { focusRegion ->
             focusRegion.setAttribute("tabindex", "-1")
             focusRegion.focus()

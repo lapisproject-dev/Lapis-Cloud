@@ -5,14 +5,12 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
@@ -86,10 +84,10 @@ fun renderDonorsScreen(container: SimplePanel) {
     root.h2(tr("Externe Spender")) { addCssClass("h5") }
     // Design-Team-Welle 2026-09-18: Live-Suche analog `LedgerScreen.kt`s Kontenplan-Suche -- rein
     // clientseitige Filterung ueber `displayName`, kein RPC-Roundtrip pro Tastendruck.
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val donorSearchInput = filterRow.text(label = tr("Spender suchen (Name)"))
     val includeInactiveCheck = filterRow.checkBox(label = tr("Inaktive Spender anzeigen"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val statusRegion = root.dataStatusRegion()
     val listPanel = root.vPanel(spacing = 6)
@@ -262,11 +260,11 @@ private fun Container.renderDonorActions(
     onChanged: () -> Unit,
 ) {
     val actionRow = tableActionGroup()
-    val showButton = actionRow.tableActionButton("fas fa-eye", tr("Details anzeigen"))
+    val showButton = actionRow.tableActionButton(ActionIcon.VIEW, tr("Details anzeigen"))
     showButton.onClick { onSelect(donor) }
 
     if (!canManage || !donor.active) return
-    val deactivateButton = actionRow.tableActionButton("fas fa-ban", tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
+    val deactivateButton = actionRow.tableActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.OUTLINEDANGER)
     deactivateButton.onClick {
         confirmDialog(
             title = tr("Spender deaktivieren"),

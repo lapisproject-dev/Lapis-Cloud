@@ -124,7 +124,7 @@ internal fun SimplePanel.renderPollCreateForm(
     val optionsPanel = form.panel.vPanel(spacing = 6)
     val rows = mutableListOf<OptionRow>()
     var explanationCounter = 0
-    val addOptionButton = Button(tr("Option hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+    val addOptionButton = newActionButton(ActionIcon.ADD, tr("Option hinzufügen"), ButtonStyle.OUTLINESECONDARY)
     val reason = form.panel.div("") { addCssClasses("text-muted small") }
     val submitButton = Button(tr("Umfrage starten"), style = ButtonStyle.PRIMARY)
 
@@ -238,7 +238,7 @@ internal fun SimplePanel.renderPollCreateForm(
         if (late) field.appendRequiredMark()
         val remove =
             if (rows.size >= PollRules.MIN_OPTIONS) {
-                row.tableActionButton("fas fa-xmark", gettext("Option %1 entfernen", number))
+                row.tableActionButton(ActionIcon.REMOVE, gettext("Option %1 entfernen", number))
             } else {
                 null
             }

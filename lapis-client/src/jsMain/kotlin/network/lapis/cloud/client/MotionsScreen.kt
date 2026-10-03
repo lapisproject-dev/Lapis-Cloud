@@ -121,12 +121,12 @@ fun renderMotionsScreen(
     val submissionHost = root.vPanel(spacing = 6)
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val filterRow = root.lapisToolbar()
     val committeeFilterSelect = filterRow.select(options = listOf("" to tr("Alle Gremien")), value = "", label = tr("Gremium"))
     val statusFilterOptions =
         listOf("" to tr("Alle Status")) + MotionStatus.entries.map { it.name to motionStatusLabel(it) }
     val statusFilterSelect = filterRow.select(options = statusFilterOptions, value = "", label = tr("Status"))
-    val refreshButton = filterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val refreshButton = filterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val motionListPanel = root.vPanel(spacing = 6)
 
     root.h2(tr("Details")) { addCssClass("h5") }
@@ -298,7 +298,7 @@ private fun renderMotionRow(
     ) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button(tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Details anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(motion) }
 }
 
@@ -527,7 +527,7 @@ private fun renderWithdrawAction(
     val managerMayWithdraw = canManage && motion.status != MotionStatus.WITHDRAWN
     if (!submitterMayWithdraw && !managerMayWithdraw) return
 
-    val withdrawButton = panel.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
+    val withdrawButton = panel.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
     withdrawButton.onClick {
         confirmDialog(
             title = tr("Antrag zurückziehen"),
@@ -580,7 +580,7 @@ private fun renderAmendmentsSection(
         // title carrying a forged marker + money sentinel would render as a fabricated amount.
         row.div(sanitizeUntrustedI18nText(amendment.title)) { addCssClasses("flex-grow-1") }
         row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
-        val showButton = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+        val showButton = row.actionButton(ActionIcon.VIEW, tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
         showButton.onClick { onSelectMotion(amendment.id) }
     }
 }
@@ -765,7 +765,7 @@ internal fun renderResolutionSection(
             // `renderAmendmentsSection` above -- same untrusted `amendment.title`, same widget-content path.
             row.div(sanitizeUntrustedI18nText(amendment.title)) { addCssClasses("flex-grow-1") }
             row.statusBadge(motionStatusLabel(amendment.status), motionStatusColor(amendment.status))
-            val link = row.button(tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+            val link = row.actionButton(ActionIcon.VIEW, tr("Anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
             link.onClick { onSelectMotion(amendment.id) }
         }
         val disabledRow = panel.hPanel(spacing = 8)

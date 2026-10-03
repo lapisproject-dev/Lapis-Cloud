@@ -14,7 +14,6 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
-import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.window
@@ -82,7 +81,7 @@ fun renderMemberHonorsScreen(
     // Welle V1.4.26 (W2): Filterleiste nach Richtlinie 2.4 -- Suchfeld, Kategorie-Segment (der
     // `select` mit fünf gegenseitig ausschließenden Werten trug keinen Aktivzustand und kein
     // `aria-pressed`), Primäraktion rechts.
-    val filterRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val searchInput = filterRow.text(label = tr("Suche nach Titel oder Mitglied"))
     val categorySegmentHost = filterRow.simplePanel()
     val newHonorButton = filterRow.button(tr("Ehrung erfassen"), style = ButtonStyle.PRIMARY)
@@ -291,12 +290,12 @@ private fun Container.renderHonorActions(
     onChanged: () -> Unit,
 ) {
     val group = tableActionGroup()
-    val editButton = group.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
+    val editButton = group.tableActionButton(ActionIcon.EDIT, tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
     editButton.onClick {
         openMemberHonorEditorDialog(existing = honor, defaultMemberId = null, members = members, onSaved = onChanged)
     }
     if (!AppState.hasRole(AccountRole.ADMIN)) return
-    val deleteButton = group.tableActionButton("fas fa-trash", tr("Eintrag korrigieren (löschen)"), ButtonStyle.OUTLINEDANGER)
+    val deleteButton = group.tableActionButton(ActionIcon.DELETE, tr("Eintrag korrigieren (löschen)"), ButtonStyle.OUTLINEDANGER)
     deleteButton.onClick {
         confirmDialog(
             title = tr("Eintrag korrigieren (löschen)"),
@@ -308,6 +307,7 @@ private fun Container.renderHonorActions(
                     honor.title,
                 ),
             confirmLabel = tr("Löschen"),
+            confirmIcon = ActionIcon.DELETE,
             onConfirm = {
                 AppScope.launch {
                     val result = guarded { rpcService<IMemberHonorService>().deleteHonor(honor.id) }

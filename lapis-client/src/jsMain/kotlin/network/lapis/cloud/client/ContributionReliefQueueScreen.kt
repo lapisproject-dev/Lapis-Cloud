@@ -55,13 +55,13 @@ fun renderContributionReliefQueueScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
     root.pageHeader(tr("Beitragsvergünstigungen"))
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val filterRow = root.lapisToolbar()
     val statusOptions = listOf("" to tr("Alle Status")) + ContributionReliefStatus.entries.map { it.name to reliefStatusLabel(it) }
     val statusSelect = filterRow.select(options = statusOptions, value = "", label = tr("Status"))
     val kindOptions = listOf("" to tr("Alle Arten")) + ContributionReliefKind.entries.map { it.name to reliefKindLabel(it) }
     val kindSelect = filterRow.select(options = kindOptions, value = "", label = tr("Art"))
     val reviewDueOnlyCheck = filterRow.checkBox(label = tr("Nur zur Wiedervorlage fällig"))
-    val filterButton = filterRow.button(tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
+    val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val listPanel = root.simplePanel { addCssClass("lapis-card-list") }
     val loadMoreButton = root.button(tr("Mehr laden"), style = ButtonStyle.OUTLINESECONDARY) { hide() }
@@ -183,7 +183,7 @@ internal fun renderReliefRequestedDecidePanel(
     val form = decidePanel.lapisForm()
     val noteField = reliefDecisionNoteField(form)
     val approveButton = Button(tr("Genehmigen und ausführen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = approveButton, destructive = rejectButton)
 
     fun decide(
@@ -235,7 +235,7 @@ internal fun renderReliefApprovedRetryPanel(
     // Der Stern gilt nur für "Ablehnen": ohne den Hinweis läse sich das Feld, als brauchte auch die Wiederholung eine Notiz.
     val noteField = reliefDecisionNoteField(form, hint = gettext("Nur für \"Ablehnen\" erforderlich."))
     val retryButton = Button(tr("Ausführung wiederholen"), style = ButtonStyle.PRIMARY)
-    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINEDANGER)
     form.buttons(primary = retryButton, destructive = rejectButton)
 
     // Die Wiederholung braucht keine Notiz: sie läuft OHNE Prüfung (`runBusy`), nur "Ablehnen" prüft das Pflichtfeld.

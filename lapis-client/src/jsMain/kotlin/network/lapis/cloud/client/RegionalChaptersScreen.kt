@@ -168,7 +168,7 @@ private fun renderChapterStructureControls(
     val actionsRow = card.hPanel(spacing = 8) { addCssClass("flex-wrap") }
 
     // ── Umbenennen ──
-    val renameButton = actionsRow.button(tr("Umbenennen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val renameButton = actionsRow.actionButton(ActionIcon.EDIT, tr("Umbenennen"), style = ButtonStyle.OUTLINEPRIMARY)
     val renamePanel = card.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
     renamePanel.hide()
     var renameOpen = false
@@ -207,7 +207,7 @@ private fun renderChapterStructureControls(
 
     // ── Löschen ──
     val blockReason = chapterDeleteBlockReason(chapter)
-    val deleteButton = actionsRow.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+    val deleteButton = actionsRow.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
     deleteButton.disabled = blockReason != null
     if (blockReason != null) {
         card.p(blockReason) { addCssClasses("text-muted small mb-0") }
@@ -218,6 +218,7 @@ private fun renderChapterStructureControls(
             title = gettext("Landesverband %1 löschen", chapter.name),
             message = gettext("Landesverband \"%1\" wirklich löschen? Das kann nicht rückgängig gemacht werden.", chapter.name),
             confirmLabel = tr("Löschen"),
+            confirmIcon = ActionIcon.DELETE,
         ) {
             AppScope.launch {
                 // deleteChapter returns Unit -- Unit is never itself null, so a `null` result from
@@ -296,12 +297,13 @@ private fun renderChapterPublicSection(
     }
 
     if (chapter.hasCrest) {
-        val removeButton = section.button(tr("Wappen entfernen"), style = ButtonStyle.OUTLINEDANGER)
+        val removeButton = section.actionButton(ActionIcon.REMOVE, tr("Wappen entfernen"), style = ButtonStyle.OUTLINEDANGER)
         removeButton.onClick {
             confirmDialog(
                 title = tr("Wappen entfernen"),
                 message = gettext("Das Wappen von \"%1\" wird endgültig gelöscht.", chapter.name),
                 confirmLabel = tr("Entfernen"),
+                confirmIcon = ActionIcon.REMOVE,
             ) {
                 runGuardedAction(button = null) {
                     regionalChapterGuarded { rpcService<IRegionalChapterService>().removeChapterCrest(chapter.id) }
@@ -363,7 +365,7 @@ private fun renderChapterRenameForm(
             required = true,
             rule = { chapterNameCheck(it) },
         )
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     form.buttons(primary = saveButton)
     saveButton.onClick {
         form.submit(saveButton) {
@@ -430,7 +432,7 @@ private fun renderOfficerRow(
         confirmBox.removeAll()
         confirmBox.span(tr("Zugang wirklich entziehen?"))
         val confirmButton = confirmBox.button(tr("Jetzt entziehen"), style = ButtonStyle.DANGER)
-        val backButton = confirmBox.button(tr("Zurück"), style = ButtonStyle.OUTLINESECONDARY)
+        val backButton = confirmBox.actionButton(ActionIcon.BACK, tr("Zurück"), style = ButtonStyle.OUTLINESECONDARY)
         backButton.onClick {
             if (gate.cancelConfirmation()) confirmBox.hide()
         }

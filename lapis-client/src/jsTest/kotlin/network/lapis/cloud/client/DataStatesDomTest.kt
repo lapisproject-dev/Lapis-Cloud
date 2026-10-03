@@ -89,7 +89,7 @@ class DataStatesDomTest {
                     awaitUntil("error state") { element().hasErrorBox() }
                     assertEquals(1, calls.count { it.isRpc && it.rpcRoute == route })
                     val error = element().querySelector(".alert-danger")!!.textContent.orEmpty()
-                    assertEquals("Die Daten konnten nicht geladen werden.Erneut versuchen", error, "one fixed sentence, no e.message")
+                    assertEquals("Die Daten konnten nicht geladen werden. Erneut versuchen", error, "one fixed sentence, no e.message")
                     failing = false
                     element().retryButton()!!.click()
                     awaitUntil("empty state after the retry") {

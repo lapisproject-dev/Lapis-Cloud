@@ -1,0 +1,64 @@
+= Action icons and tool rows (V1.9.43)
+:toc:
+
+== Purpose
+
+One table maps a verb to its icon, so that the same action looks the same on every screen and one picture never means two things. The icons are
+Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new dependency). The code is `ActionIcon.kt`, `ActionButton.kt` and
+`ToolbarRow.kt` in the client.
+
+== Verb to icon
+
+[cols="2,3,3", options="header"]
+|===
+| `ActionIcon` | Icon | Used for
+| `REFRESH` | `fa-arrows-rotate` | Aktualisieren, Neu laden, Erneut versuchen, Nachbuchen
+| `EDIT` | `fa-pen` | Bearbeiten, Umbenennen
+| `DELETE` | `fa-trash` | Löschen (always `OUTLINEDANGER`)
+| `REMOVE` | `fa-circle-minus` | Entfernen, Zuordnung aufheben: detach, the object itself survives
+| `SAVE` | `fa-floppy-disk` | Speichern (the check mark belongs to `APPROVE`)
+| `CANCEL`, `CLOSE`, `CLEAR` | `fa-xmark` | Abbrechen, Schließen, Suche leeren
+| `ADD` | `fa-plus` | Hinzufügen, Anlegen, "Neu ..."
+| `SEARCH`, `FILTER` | `fa-magnifying-glass`, `fa-filter` | Suchen, Filtern
+| `DOWNLOAD`, `UPLOAD`, `EXPORT` | `fa-download`, `fa-upload`, `fa-file-export` | Herunterladen, Hochladen, Exportieren
+| `COPY`, `PRINT` | `fa-copy`, `fa-print` | Kopieren, Drucken
+| `VIEW` | `fa-eye` | Details anzeigen, Anzeigen, Vorschau
+| `OPEN_EXTERNAL` | `fa-arrow-up-right-from-square` | opens another site or tab
+| `BACK`, `NEXT` | `fa-arrow-left`, `fa-arrow-right` | Zurück, Weiter, Öffnen
+| `APPROVE`, `REJECT` | `fa-circle-check`, `fa-circle-xmark` | Genehmigen, Ablehnen
+| `SEND` | `fa-paper-plane` | Senden, Per Post versenden
+| `REVOKE` | `fa-ban` | Widerrufen, Deaktivieren
+| `LOCK`, `SETTINGS` | `fa-lock`, `fa-gear` | reserved
+| `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen
+|===
+
+The aliases `fa-times`, `fa-edit` and `fa-refresh` are forbidden (tripwire). `ActionButtonDomTest` checks that every icon name exists in the
+bundled stylesheet; without that check a wrong name renders an invisible icon and no error.
+
+== Usage rules
+
+* Outside tables: icon plus text. In tables: from two actions per row icon-only `btn-sm` with `title` and `aria-label`; with one action icon plus text.
+* The icon is decoration (`aria-hidden`); the visible text is the accessible name and is unchanged. Labels are static `tr()` texts.
+* Do not mix `btn-sm` into a tool row; the buttons of a row keep one height.
+* Confirm dialogs: the confirming button takes the icon of its verb through `confirmIcon`; the cancelling button always gets `CANCEL`.
+
+== Tool rows
+
+`lapisToolbar()` is the one container for fields and buttons on a row (see R56 in `ui-ux-guideline.adoc`). Reason: KVision wraps each field in a
+`form-group kv-mb-3` (label above, 16 px margin below), so centring left the button 8 px high and `align-items-end` left it 16 px low. The toolbar
+aligns at the bottom of the controls and drops that margin. `toolbarText()` puts plain text in a control-height box.
+
+== Deliberately without a standard icon
+
+Domain verbs that have no standard picture keep their text only: for example "Abstimmung eröffnen", "Konsensieren eröffnen", "Wahl eröffnen",
+"Stream unterbrechen", "Gebot abgeben", "Rechnung stellen", "Mandat erteilen", "Verrechnen ...", "Mehr laden", "Laden", "Prüfen", the
+`Zum ...` navigation buttons and the conference control bar. Inventing a picture for each would blur the one-picture-one-verb rule.
+
+Domain icons that stay as strings in table action columns (`tableActionButton("fas ...")`, 17 calls, ledgered in the tripwire): key, link, user-lock,
+medal, star, receipt, money, invoice, id card and similar.
+
+== Known limitations
+
+* Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, one ledgered call).
+* The 17 domain icons above and the many domain verbs are intentionally left as they are.
+* `fa-rotate` (password reset, re-index) still stands apart from `REFRESH` where the meaning is "reset", not "reload".

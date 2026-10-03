@@ -151,7 +151,7 @@ private fun sepaEnableDisclaimerModal(
         overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Ich bestätige, den aktuellen Text gelesen zu haben"), style = ButtonStyle.PRIMARY).apply {
             onClick {
@@ -173,9 +173,9 @@ private fun sepaDisableConfirmDialog(onConfirm: () -> Unit) {
                 "keine Mandatsverwaltung mehr an).",
         ),
     ) { addCssClasses("fw-bold text-danger") }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Deaktivieren"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REVOKE, tr("Deaktivieren"), ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()
@@ -224,7 +224,7 @@ private fun renderSepaCreditorSettingsSection(root: SimplePanel) {
     val readyRow = form.panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     readyRow.div(tr("Bereit für Dateierzeugung:")) { addCssClasses("text-muted small") }
     val readyBadgeHost = readyRow.div()
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     form.buttons(primary = saveButton)
 
     fun renderReady(ready: Boolean) {

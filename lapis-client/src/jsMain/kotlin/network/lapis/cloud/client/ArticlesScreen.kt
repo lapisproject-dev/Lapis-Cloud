@@ -126,7 +126,7 @@ private fun renderMyArticleCard(
     val buttonRow = card.hPanel(spacing = 8)
     when (article.status) {
         ArticleStatus.DRAFT, ArticleStatus.REJECTED -> {
-            val editButton = buttonRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
+            val editButton = buttonRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
             editButton.onClick {
                 panel.hide()
                 editorHost.show()
@@ -143,12 +143,13 @@ private fun renderMyArticleCard(
                 }
             }
             if (article.status == ArticleStatus.DRAFT) {
-                val deleteButton = buttonRow.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+                val deleteButton = buttonRow.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
                 deleteButton.onClick {
                     confirmDialog(
                         title = tr("Entwurf löschen"),
                         message = tr("Möchten Sie diesen Entwurf wirklich löschen?"),
                         confirmLabel = tr("Löschen"),
+                        confirmIcon = ActionIcon.DELETE,
                     ) {
                         AppScope.launch {
                             val result = guarded { rpcService<IArticleService>().deleteDraft(article.id) }
@@ -162,7 +163,7 @@ private fun renderMyArticleCard(
             }
         }
         ArticleStatus.SUBMITTED -> {
-            val withdrawButton = buttonRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
+            val withdrawButton = buttonRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
             withdrawButton.onClick {
                 AppScope.launch {
                     val result = guarded { rpcService<IArticleService>().withdrawArticle(article.id) }
@@ -237,13 +238,14 @@ private fun renderReviewSummaryCard(
             if (review == null) return@launch
             articlePreviewFrame(detailPanel, review.title, review.excerpt, review.coverImageUrl, review.renderedBodyHtml)
             val actionRow = detailPanel.hPanel(spacing = 8)
-            val approveButton = actionRow.button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
-            val rejectButton = actionRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+            val approveButton = actionRow.actionButton(ActionIcon.APPROVE, tr("Genehmigen"), style = ButtonStyle.SUCCESS)
+            val rejectButton = actionRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
             approveButton.onClick {
                 confirmDialog(
                     title = tr("Artikel genehmigen"),
                     message = tr("Möchten Sie diesen Artikel wirklich veröffentlichen?"),
                     confirmLabel = tr("Genehmigen"),
+                    confirmIcon = ActionIcon.APPROVE,
                 ) {
                     AppScope.launch {
                         val result = guarded { rpcService<IArticleService>().approveArticle(summary.id) }
@@ -261,6 +263,7 @@ private fun renderReviewSummaryCard(
                     reasonLabel = tr("Begründung (optional)"),
                     reasonRequired = false,
                     confirmLabel = tr("Ablehnen"),
+                    confirmIcon = ActionIcon.REJECT,
                     reasonMaxLength = 1000,
                     reasonPlaceholder = tr("z. B. Thema ist bereits abgedeckt"),
                 ) { reason ->

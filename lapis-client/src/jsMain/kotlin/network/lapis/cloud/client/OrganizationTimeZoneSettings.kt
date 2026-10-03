@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -94,7 +93,7 @@ private fun renderZoneForm(
     refresh(dto.zoneId)
     zoneField.subscribe { refresh(it) }
 
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
     form.buttons(primary = saveButton)
     saveButton.onClick {
         form.submit(saveButton) {

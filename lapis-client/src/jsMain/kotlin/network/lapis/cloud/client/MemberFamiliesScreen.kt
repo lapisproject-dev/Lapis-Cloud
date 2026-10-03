@@ -68,7 +68,7 @@ fun renderMemberFamiliesScreen(
 
     val majorityPanel = root.vPanel(spacing = 6)
 
-    val searchRow = root.hPanel(spacing = 12) { addCssClasses("align-items-end flex-wrap") }
+    val searchRow = root.lapisToolbar()
     val searchInput = searchRow.text(label = tr("Suche nach Familienname oder Zahler"))
     val newFamilyButton = searchRow.button(tr("Familie anlegen"), style = ButtonStyle.PRIMARY)
 
@@ -111,7 +111,7 @@ fun renderMemberFamiliesScreen(
             columns = familyColumns(),
             rows = loaded,
             actions = { actions, family ->
-                val openButton = actions.tableActionButton("fas fa-arrow-right", tr("Öffnen"), ButtonStyle.OUTLINEPRIMARY)
+                val openButton = actions.tableActionButton(ActionIcon.NEXT, tr("Öffnen"), ButtonStyle.OUTLINEPRIMARY)
                 openButton.onClick { openFamilyDetailDialog(family.id) { refreshFamilies(true) } }
             },
         )
@@ -224,7 +224,7 @@ private fun renderMajoritySection(
 
     container.h2(tr("Bald volljährig")) { addCssClass("h5") }
 
-    val windowRow = container.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val windowRow = container.lapisToolbar()
     val windowSelect =
         windowRow.select(
             options = AnniversaryCalendar.WINDOW_PRESETS.map { it.toString() to gettext("%1 Tage", it) },
@@ -342,7 +342,7 @@ private fun openCreateFamilyDialog(onSaved: () -> Unit) {
             addCssClass("text-danger")
             hide()
         }
-    val saveButton = modal.button(tr("Anlegen"), style = ButtonStyle.PRIMARY)
+    val saveButton = modal.actionButton(ActionIcon.ADD, tr("Anlegen"), style = ButtonStyle.PRIMARY)
     saveButton.onClick {
         errorBox.hide()
         val name = nameInput.value.orEmpty().trim()
@@ -394,9 +394,9 @@ private fun renderFamilyDetailBody(
     onChanged: () -> Unit,
     onClosed: () -> Unit,
 ) {
-    val headerRow = body.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val headerRow = body.lapisToolbar()
     val nameInput = headerRow.text(value = detail.name, label = tr("Name"))
-    val renameButton = headerRow.button(tr("Umbenennen"), style = ButtonStyle.OUTLINESECONDARY)
+    val renameButton = headerRow.actionButton(ActionIcon.EDIT, tr("Umbenennen"), style = ButtonStyle.OUTLINESECONDARY)
     renameButton.onClick {
         val newName = nameInput.value.orEmpty().trim()
         if (newName.isEmpty()) return@onClick
@@ -442,6 +442,7 @@ private fun renderFamilyDetailBody(
                     title = tr("Mitglied entfernen"),
                     message = gettext("%1 aus dieser Familie entfernen?", link.memberDisplayName),
                     confirmLabel = tr("Entfernen"),
+                    confirmIcon = ActionIcon.REMOVE,
                     onConfirm = {
                         AppScope.launch {
                             val result = guarded { rpcService<IMemberFamilyService>().removeFamilyMember(link.id) }
@@ -460,7 +461,7 @@ private fun renderFamilyDetailBody(
     body.h2(tr("Mitglied hinzufügen")) { addCssClass("h6") }
     val addRow = body.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     val addPicker = addRow.memberPicker(tr("Mitglied"))
-    val addButton = addRow.button(tr("Hinzufügen"), style = ButtonStyle.PRIMARY)
+    val addButton = addRow.actionButton(ActionIcon.ADD, tr("Hinzufügen"), style = ButtonStyle.PRIMARY)
     addButton.onClick {
         val memberId = addPicker.selectedId() ?: return@onClick
         AppScope.launch {
@@ -481,6 +482,7 @@ private fun renderFamilyDetailBody(
                 title = tr("Familie löschen"),
                 message = gettext("Familie %1 samt aller Verknüpfungen unwiderruflich löschen?", detail.name),
                 confirmLabel = tr("Löschen"),
+                confirmIcon = ActionIcon.DELETE,
                 onConfirm = {
                     AppScope.launch {
                         val succeeded =
@@ -497,7 +499,7 @@ private fun renderFamilyDetailBody(
             )
         }
     }
-    footerRow.button(tr("Schließen"), style = ButtonStyle.SECONDARY).onClick { onClosed() }
+    footerRow.actionButton(ActionIcon.CLOSE, tr("Schließen"), style = ButtonStyle.SECONDARY).onClick { onClosed() }
 }
 
 /**
@@ -512,10 +514,10 @@ internal class MemberPickerHandle(
 }
 
 internal fun SimplePanel.memberPicker(labelText: String): MemberPickerHandle {
-    val row = hPanel(spacing = 6) { addCssClasses("align-items-end flex-wrap") }
+    val row = lapisToolbar()
     val searchInput = row.text(label = gettext("%1 suchen", labelText))
     val select = row.select(options = emptyList(), label = labelText)
-    val searchButton = row.button(tr("Suchen"), style = ButtonStyle.OUTLINESECONDARY)
+    val searchButton = row.actionButton(ActionIcon.SEARCH, tr("Suchen"), style = ButtonStyle.OUTLINESECONDARY)
 
     fun runSearch() {
         val term = searchInput.value?.trim()

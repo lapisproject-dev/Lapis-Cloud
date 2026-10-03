@@ -197,7 +197,7 @@ private fun renderPendingApplicationActions(
             }
         }
     }
-    val rejectButton = actionsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val rejectButton = actionsRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
     rejectButton.onClick {
         rejectApplicationDialog(application.displayName) { reason ->
             AppScope.launch {
@@ -224,7 +224,7 @@ private fun renderPendingApplicationActions(
                 modal.hide()
                 onChanged()
             }
-            modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+            modal.addButton(newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
             modal.show()
         }
     }
@@ -251,14 +251,14 @@ internal fun rejectApplicationDialog(
             requiredMessage = gettext("Bitte einen Grund angeben."),
         )
     form.finish()
-    val rejectButton = Button(tr("Ablehnen"), style = ButtonStyle.DANGER)
+    val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.DANGER)
     rejectButton.onClick {
         if (!form.validateAndReport()) return@onClick
         val reason = reasonField.value.trim()
         modal.hide()
         onConfirm(reason)
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(rejectButton)
     modal.show()
 }
@@ -664,7 +664,7 @@ private fun renderRosterActions(
     // width; `title` is set unconditionally right below and is KVision's own `Widget.title`
     // property (not a raw DOM write), so no `###KvI18nS###` marker-leak risk -- see
     // `ConferenceScreen.kt`'s own KDoc on that bug class for why the distinction matters.
-    val editButton = actionsCell.tableActionButton("fas fa-pen", tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
+    val editButton = actionsCell.tableActionButton(ActionIcon.EDIT, tr("Bearbeiten"), ButtonStyle.OUTLINEPRIMARY)
     val callerRole = AppState.session?.role
     val callerMemberId = AppState.session?.memberId
     if (row.anonymized) {
@@ -782,6 +782,7 @@ private fun renderRosterActions(
                     title = tr("Foto entfernen"),
                     message = gettext("Das Foto von %1 wird endgültig gelöscht.", row.displayName),
                     confirmLabel = tr("Entfernen"),
+                    confirmIcon = ActionIcon.REMOVE,
                 ) {
                     runGuardedAction(button = null) {
                         var done = false
@@ -804,6 +805,7 @@ private fun renderRosterActions(
                     title = tr("Kurzvorstellung entfernen"),
                     message = gettext("Die öffentliche Kurzvorstellung von %1 wird endgültig gelöscht.", row.displayName),
                     confirmLabel = tr("Entfernen"),
+                    confirmIcon = ActionIcon.REMOVE,
                 ) {
                     runGuardedAction(button = null) {
                         var done = false
@@ -1217,7 +1219,7 @@ internal fun openMemberEditorDialog(
                 value = AccountRole.MEMBER.name,
                 required = true,
             )
-        val grantButton = Button(tr("Konto anlegen"), style = ButtonStyle.PRIMARY)
+        val grantButton = newActionButton(ActionIcon.ADD, tr("Konto anlegen"), ButtonStyle.PRIMARY)
         form.buttons(primary = grantButton)
         grantButton.onClick {
             form.submit(grantButton) {
@@ -1242,7 +1244,7 @@ internal fun openMemberEditorDialog(
         }
     }
 
-    modal.addButton(Button(tr("Schließen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 }
 
@@ -1410,7 +1412,7 @@ internal fun renderChapterAssignmentSection(
     form.panel.p(tr("Ein bestehender Landesvorstand-Zugang für einen anderen Landesverband endet dabei automatisch.")) {
         addCssClasses("text-muted small")
     }
-    val saveButton = Button(tr("Zuordnung speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Zuordnung speichern"), ButtonStyle.PRIMARY)
     form.buttons(primary = saveButton)
     saveButton.onClick {
         form.submit(saveButton) {

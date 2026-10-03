@@ -4,7 +4,6 @@ import io.kvision.core.Container
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -266,7 +265,7 @@ private fun openDeferralRequestDialog(
         }
     val submitButton = body.button(tr("Stundung beantragen"), style = ButtonStyle.PRIMARY)
 
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
 
     submitButton.onClick {
@@ -481,7 +480,7 @@ private fun renderOwnReliefRequestCard(
         }
     }
     if (request.status == ContributionReliefStatus.REQUESTED) {
-        val withdrawButton = card.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
+        val withdrawButton = card.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
         withdrawButton.onClick {
             withdrawButton.disabled = true
             AppScope.launch {
@@ -608,7 +607,7 @@ private fun renderContributionActions(
 
     val outcomePanel = actionsPanel.vPanel(spacing = 2)
     if (postalMailEnabled) {
-        val postalButton = row.button(tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+        val postalButton = row.actionButton(ActionIcon.SEND, tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
         postalButton.onClick {
             postalDispatchConfirmDialog(
                 caption = tr("Beitragsrechnung per Post versenden"),

@@ -41,6 +41,12 @@ private fun isCommentLine(line: String): Boolean = line.trimStart().let { it.sta
 private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
     mapOf(
         "KvisionLifecycle.kt" to (2 to "the helper itself: registers, then adds"),
+        "ActionButton.kt" to
+            (
+                1 to
+                    "newActionButton returns a DETACHED button: the hook is registered before any add(); it only marks the " +
+                    "decorative icon aria-hidden (ActionButtonDomTest pins it, also across a later patch of the root)"
+            ),
         "DataTable.kt" to
             (
                 3 to
@@ -115,6 +121,12 @@ private const val RAW_SETATTRIBUTE_MAX = 0
 /** file -> (matches, why each is fine). The FinTS PIN fields were moved to `Widget.setAttribute` (tested); the conference banners were not (no test path). */
 private val AUDITED_RAW_DOM_SET_ATTRIBUTE: Map<String, Pair<Int, String>> =
     mapOf(
+        "ActionButton.kt" to
+            (
+                1 to
+                    "the icon `<i>` that KVision's Button(icon = ...) renders cannot be reached as a widget; the insert hook sets " +
+                    "aria-hidden=true (a constant, never data) on it, re-applied on every (re-)insert"
+            ),
         "MailingHtmlEditor.kt" to
             (
                 1 to

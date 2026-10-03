@@ -116,13 +116,13 @@ fun renderCrowdfundingScreen(container: SimplePanel) {
 
     // ---- Project list + status filter (containers created now, populated by loadProjects()) ---
     root.h2(tr("Projekte")) { addCssClass("h5") }
-    val statusFilterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    val statusFilterRow = root.lapisToolbar()
     val statusFilterOptions =
         listOf("" to tr("Alle (persistierter Status)")) +
             CrowdfundingProjectStatus.entries.map { it.name to crowdfundingProjectStatusLabel(it) }
     val statusFilterSelect =
         statusFilterRow.select(options = statusFilterOptions, value = "", label = tr("Filter: Status (Vorstandsbeschluss)"))
-    val projectsRefreshButton = statusFilterRow.button(tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val projectsRefreshButton = statusFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     val projectsPanel = root.vPanel(spacing = 10)
 
     // ---- Treuhänder-Werkzeuge container (canTreasury only, D3 staged disclosure) --------------
@@ -344,7 +344,7 @@ private fun renderReactionControls(
     myReactionPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val likeButton = reactionRow.button(tr("Like"), style = ButtonStyle.OUTLINESUCCESS)
     val dislikeButton = reactionRow.button(tr("Dislike"), style = ButtonStyle.OUTLINEDANGER)
-    val retractButton = reactionRow.button(tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
+    val retractButton = reactionRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINESECONDARY)
 
     fun setButtonsDisabled(disabled: Boolean) {
         likeButton.disabled = disabled
@@ -438,8 +438,8 @@ private fun renderBoardDecidePanel(
             hide()
         }
     val buttonsRow = decidePanel.hPanel(spacing = 8)
-    val approveButton = buttonsRow.button(tr("Genehmigen"), style = ButtonStyle.SUCCESS)
-    val rejectButton = buttonsRow.button(tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+    val approveButton = buttonsRow.actionButton(ActionIcon.APPROVE, tr("Genehmigen"), style = ButtonStyle.SUCCESS)
+    val rejectButton = buttonsRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
 
     approveButton.onClick {
         errorBox.hide()
@@ -447,6 +447,7 @@ private fun renderBoardDecidePanel(
             title = tr("Projekt genehmigen"),
             message = gettext("Das Projekt \"%1\" wird genehmigt und für Like/Dislike-Reaktionen (Spenden) geöffnet.", project.title),
             confirmLabel = tr("Genehmigen"),
+            confirmIcon = ActionIcon.APPROVE,
         ) {
             approveButton.disabled = true
             rejectButton.disabled = true
@@ -482,6 +483,7 @@ private fun renderBoardDecidePanel(
                     formatLtr(project.initialWeightLtr),
                 ),
             confirmLabel = tr("Ablehnen"),
+            confirmIcon = ActionIcon.REJECT,
         ) {
             approveButton.disabled = true
             rejectButton.disabled = true

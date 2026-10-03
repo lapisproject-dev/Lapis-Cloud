@@ -152,7 +152,7 @@ private fun renderCarpoolCard(
 
     val actionRow = row.hPanel(spacing = 8) { addCssClass("mt-1") }
     if (posting.isOwn) {
-        actionRow.button(tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+        actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
             openCarpoolForm(formHost = formHost, trigger = trigger, editing = posting, duplicateFrom = null, onSaved = onSaved)
         }
         actionRow.button(tr("Duplizieren"), style = ButtonStyle.OUTLINESECONDARY).onClick {
@@ -175,7 +175,7 @@ private fun renderCarpoolDeleteControl(
     onSaved: () -> Unit,
 ) {
     val gate = InlineConfirmGate()
-    val deleteButton = actionRow.button(tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
+    val deleteButton = actionRow.actionButton(ActionIcon.DELETE, tr("Löschen"), style = ButtonStyle.OUTLINEDANGER)
     val confirmBox = actionRow.hPanel(spacing = 8) { hide() }
 
     fun syncButton() {
@@ -187,12 +187,12 @@ private fun renderCarpoolDeleteControl(
         syncButton()
         confirmBox.removeAll()
         confirmBox.div(tr("Wirklich löschen?")) { addCssClasses("align-self-center") }
-        confirmBox.button(tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
+        confirmBox.actionButton(ActionIcon.BACK, tr("Zurück"), style = ButtonStyle.SECONDARY).onClick {
             if (!gate.cancelConfirmation()) return@onClick
             confirmBox.hide()
             syncButton()
         }
-        val finalButton = confirmBox.button(tr("Endgültig löschen"), style = ButtonStyle.DANGER)
+        val finalButton = confirmBox.actionButton(ActionIcon.DELETE, tr("Endgültig löschen"), style = ButtonStyle.DANGER)
         finalButton.onClick {
             // S4/N5 (1:1 `OpenItemDialogs.kt`s Muster): der Riegel deckt den äußeren Knopf ab,
             // `runGuardedAction` sperrt zusätzlich den inneren -- und macht den Schreibzugriff für
@@ -235,8 +235,8 @@ private fun renderCarpoolContactForm(
             formatDate(posting.departureDate),
         )
     val messageField = form.textAreaField(label = tr("Nachricht"), rows = 3, value = sanitizeUntrustedI18nText(prefill), required = true)
-    val sendButton = Button(tr("Senden"), style = ButtonStyle.PRIMARY)
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
+    val sendButton = newActionButton(ActionIcon.SEND, tr("Senden"), ButtonStyle.PRIMARY)
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY)
     form.buttons(primary = sendButton, cancel = cancelButton)
     cancelButton.onClick {
         row.remove(panel)
@@ -324,8 +324,8 @@ private fun openCarpoolForm(
     syncSeatsVisibility()
     typeField.subscribe { syncSeatsVisibility() }
 
-    val saveButton = Button(tr("Speichern"), style = ButtonStyle.PRIMARY)
-    val cancelButton = Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY)
     form.buttons(primary = saveButton, cancel = cancelButton)
 
     fun closeForm() {

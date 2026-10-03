@@ -118,7 +118,7 @@ internal class MailingHtmlEditor(
                 },
             )
         val applyButton = Button(tr("Übernehmen"), style = ButtonStyle.PRIMARY)
-        val cancelButton = Button(tr("Abbrechen"))
+        val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.PRIMARY)
         linkForm.buttons(primary = applyButton, cancel = cancelButton)
         applyButton.onClick { applyLink() }
         cancelButton.onClick { closeLinkDialog(restoreSelection = true) }

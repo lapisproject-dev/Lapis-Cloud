@@ -359,6 +359,7 @@ internal class ConferenceBackgroundSection(
                 title = tr("Eigenes Bild entfernen?"),
                 message = tr("Dieses eigene Hintergrundbild wird endgültig entfernt."),
                 confirmLabel = tr("Entfernen"),
+                confirmIcon = ActionIcon.REMOVE,
                 onConfirm = { onDeleteCustom(image.id) },
             )
         }

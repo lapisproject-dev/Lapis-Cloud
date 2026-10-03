@@ -246,7 +246,7 @@ private class RatingBooth(
             radios.indexOfFirst { (it.getElement() as? HTMLInputElement)?.checked == true }.takeIf { it >= 0 }
 
         val actions = booth.hPanel(spacing = 8)
-        val cancel = actions.button(tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
+        val cancel = actions.actionButton(ActionIcon.CANCEL, tr("Abbrechen"), style = ButtonStyle.OUTLINESECONDARY)
         val next = actions.button(tr("Prüfen"), style = ButtonStyle.PRIMARY)
         if (roomHost != null) counter = newCounter(actions)
 
@@ -305,7 +305,7 @@ private class RatingBooth(
         val finalNote = texts.finalNote
         booth.p(finalNote) { addCssClasses("text-muted mb-0") }
         val row = booth.hPanel(spacing = 8)
-        val back = Button(tr("Zurück"), style = ButtonStyle.OUTLINESECONDARY)
+        val back = newActionButton(ActionIcon.BACK, tr("Zurück"), ButtonStyle.OUTLINESECONDARY)
         val submit = Button(tr("Endgültig abgeben"), style = ButtonStyle.PRIMARY)
         row.add(back)
         row.add(submit)

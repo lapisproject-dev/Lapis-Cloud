@@ -413,6 +413,7 @@ private fun renderConfigForm(
                     maxSpread,
                 ),
             confirmLabel = tr("Speichern"),
+            confirmIcon = ActionIcon.SAVE,
         ) {
             saveButton.disabled = true
             AppScope.launch {
@@ -1042,7 +1043,7 @@ private fun convertDonationConfirmDialog(
             addCssClasses("text-muted small")
         }
     }
-    modal.addButton(Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Konvertieren"), style = ButtonStyle.DANGER).apply {
             onClick {
