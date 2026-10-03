@@ -673,7 +673,10 @@ internal fun renderConferenceVotePanel(
 
     val header = panel.hPanel(spacing = 6) { addCssClasses("align-items-center justify-content-between") }
     header.h2(tr("Abstimmen")) { addCssClasses("h6 mb-0") }
-    val closeButton = header.button(tr("Abstimmen schließen"), style = ButtonStyle.OUTLINESECONDARY) { addCssClass("btn-sm") }
+    val closeButton =
+        header.actionButton(ActionIcon.CLOSE, tr("Abstimmen schließen"), style = ButtonStyle.OUTLINESECONDARY) {
+            addCssClass("btn-sm")
+        }
     val lockReason = panel.div("") { addCssClasses("text-muted small") }
     lockReason.id = LOCK_REASON_ID
     lockReason.hide()

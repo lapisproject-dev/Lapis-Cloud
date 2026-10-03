@@ -264,7 +264,7 @@ private fun renderConsensusActions(
         }
     }
     if (canClose) {
-        val closeButton = row.button(tr("Bewertung schließen"), style = ButtonStyle.WARNING)
+        val closeButton = row.actionButton(ActionIcon.CLOSE, tr("Bewertung schließen"), style = ButtonStyle.WARNING)
         closeButton.onClick {
             confirmDialog(
                 title = tr("Bewertung schließen"),
@@ -371,7 +371,7 @@ private fun renderConsensusAbortAction(
     c: SystemicConsensusDto,
     reload: () -> Unit,
 ) {
-    val abort = row.button(tr("Konsensieren abbrechen"), style = ButtonStyle.OUTLINEDANGER)
+    val abort = row.actionButton(ActionIcon.CANCEL, tr("Konsensieren abbrechen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun doAbort() {
         runGuardedAction(abort) {

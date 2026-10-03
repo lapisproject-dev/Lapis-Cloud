@@ -509,7 +509,7 @@ private fun renderVatGateSummary(
 
     val actionsRow = panel.hPanel(spacing = 8) { addCssClasses("mt-1") }
     if (settings.vatEnabled) {
-        val disableButton = actionsRow.button(tr("USt-Modul deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+        val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("USt-Modul deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
         disableButton.onClick {
             disableButton.disabled = true
             AppScope.launch {

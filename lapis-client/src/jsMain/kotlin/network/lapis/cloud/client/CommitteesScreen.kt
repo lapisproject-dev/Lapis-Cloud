@@ -132,7 +132,7 @@ private fun renderCommitteeRow(
     row.div(gettext("Quorum: %1%", committee.quorumPercent)) { addCssClasses("text-muted small") }
 
     val actionRow = row.hPanel(spacing = 8)
-    val showButton = actionRow.button(tr("Mitglieder anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
+    val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Mitglieder anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
     showButton.onClick { onSelect(committee) }
     if (canManage) {
         val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -224,7 +224,7 @@ internal fun renderCommitteeCreation(
             rule = { FormRules.intInRange(value = it, min = 0, max = 100) },
         )
 
-    val createButton = Button(tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
@@ -427,7 +427,7 @@ internal fun renderAddCommitteeMemberForm(
         memberField.validate(force = false)
     }
 
-    val addButton = Button(tr("Mitglied hinzufügen"), style = ButtonStyle.PRIMARY)
+    val addButton = newActionButton(ActionIcon.ADD, tr("Mitglied hinzufügen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = addButton)
     addButton.onClick {
         form.submit(addButton) {

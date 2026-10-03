@@ -337,7 +337,7 @@ internal fun renderMotionSubmissionForm(
     val rationaleField = form.textField(label = tr("Begründung"))
     val textField = form.textAreaField(label = tr("Antragstext"), rows = 4, required = true)
 
-    val submitButton = Button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
+    val submitButton = newActionButton(ActionIcon.SEND, tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton, cancel = collapse?.let { collapseCancelButton(it) })
     submitButton.onClick {
         form.submit(submitButton) {
@@ -831,7 +831,7 @@ internal fun renderCommitteeQuorumResolutionForm(
     val statusField =
         form.selectField(label = tr("Status"), options = statusOptions, value = ResolutionStatus.ADOPTED.name, required = true)
 
-    val resolveButton = Button(tr("Entscheidung speichern"), style = ButtonStyle.PRIMARY)
+    val resolveButton = newActionButton(ActionIcon.SAVE, tr("Entscheidung speichern"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = resolveButton)
     resolveButton.onClick {
         form.submit(resolveButton) {
@@ -1046,7 +1046,7 @@ private fun renderVoteControls(
     onChanged: () -> Unit,
 ) {
     val actionRow = panel.hPanel(spacing = 8)
-    val closeButton = actionRow.button(tr("Vote schließen"), style = ButtonStyle.SUCCESS)
+    val closeButton = actionRow.actionButton(ActionIcon.CLOSE, tr("Vote schließen"), style = ButtonStyle.SUCCESS)
     closeButton.onClick {
         AppScope.launch {
             val result = guarded { rpcService<IGovernanceService>().closeVote(vote.id) }
@@ -1056,7 +1056,7 @@ private fun renderVoteControls(
             }
         }
     }
-    val abortButton = actionRow.button(tr("Vote abbrechen"), style = ButtonStyle.OUTLINEDANGER)
+    val abortButton = actionRow.actionButton(ActionIcon.CANCEL, tr("Vote abbrechen"), style = ButtonStyle.OUTLINEDANGER)
     abortButton.onClick {
         confirmDialog(
             title = tr("Vote abbrechen"),

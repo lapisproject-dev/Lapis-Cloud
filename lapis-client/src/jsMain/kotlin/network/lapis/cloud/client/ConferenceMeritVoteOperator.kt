@@ -179,7 +179,7 @@ internal class ConferenceMeritVoteOperator(
         val stale = gate == null || scheduler.now() - gate.first >= MERIT_REFRESH_MS
         if (stale && isOpen() && !disposed && closeGateLoading.add(ballot.id)) loadCloseGate(ballot)
         if (gate?.second != true) return
-        val close = content.button(tr("Abstimmung schließen"), style = ButtonStyle.PRIMARY)
+        val close = content.actionButton(ActionIcon.CLOSE, tr("Abstimmung schließen"), style = ButtonStyle.PRIMARY)
         close.onClick {
             confirmDialog(
                 title = tr("Abstimmung schließen"),

@@ -433,4 +433,10 @@ class McpAccessCardDomTest {
             )
         }
     }
+
+    @Test
+    fun theRevokeButtonOfAConnection_carriesTheRevokeIcon_andKeepsItsName(): Promise<Unit> =
+        withCard(FakeMcpRpc(state(true, conn("t1"))), id = "mcp-revoke-icon") { _, element, _, _ ->
+            assertButtonIcon(element(), "Widerrufen", "fa-ban")
+        }
 }

@@ -104,8 +104,8 @@ internal class MemberPhotoCard(
             addCssClasses("text-muted small")
         }
 
-    internal val uploadButton: Button = Button(tr("Foto hochladen"), icon = "fas fa-upload", style = ButtonStyle.OUTLINESECONDARY)
-    internal val removeButton: Button = Button(tr("Foto entfernen"), icon = "fas fa-trash", style = ButtonStyle.OUTLINEDANGER)
+    internal val uploadButton: Button = newActionButton(ActionIcon.UPLOAD, tr("Foto hochladen"), ButtonStyle.OUTLINESECONDARY)
+    internal val removeButton: Button = newActionButton(ActionIcon.DELETE, tr("Foto entfernen"), ButtonStyle.OUTLINEDANGER)
 
     private val uploadForm = root.lapisForm()
     private val fileUpload = uploadForm.panel.upload(label = tr("Foto auswählen"))

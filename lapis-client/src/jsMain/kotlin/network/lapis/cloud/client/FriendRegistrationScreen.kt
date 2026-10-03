@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
 import io.kvision.html.Autocomplete
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
@@ -106,7 +105,7 @@ private fun renderFriendRegistrationForm(
         requiredMessage = gettext("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."),
     )
 
-    val submitButton = Button(tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY)
+    val submitButton = newActionButton(ActionIcon.ADD, tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton)
     submitButton.onClick {
         form.submit(submitButton) {

@@ -192,7 +192,7 @@ private fun renderOwnContributions(
         rows = summary.contributions,
         actions = { actions, contribution ->
             if (canRequestDeferral(contribution.status, blockingRequest)) {
-                val requestButton = actions.button(tr("Stundung beantragen"), style = ButtonStyle.OUTLINEWARNING)
+                val requestButton = actions.actionButton(ActionIcon.SEND, tr("Stundung beantragen"), style = ButtonStyle.OUTLINEWARNING)
                 requestButton.onClick { openDeferralRequestDialog(memberId, contribution, onReliefChanged) }
             }
         },
@@ -263,7 +263,7 @@ private fun openDeferralRequestDialog(
             addCssClass("text-danger")
             hide()
         }
-    val submitButton = body.button(tr("Stundung beantragen"), style = ButtonStyle.PRIMARY)
+    val submitButton = body.actionButton(ActionIcon.SEND, tr("Stundung beantragen"), style = ButtonStyle.PRIMARY)
 
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.show()
@@ -360,7 +360,7 @@ private fun renderOwnReliefRequests(
             addCssClass("text-danger")
             hide()
         }
-    val submitButton = formPanel.button(tr("Beitragsvergünstigung beantragen"), style = ButtonStyle.PRIMARY)
+    val submitButton = formPanel.actionButton(ActionIcon.SEND, tr("Beitragsvergünstigung beantragen"), style = ButtonStyle.PRIMARY)
 
     submitButton.onClick {
         errorBox.hide()

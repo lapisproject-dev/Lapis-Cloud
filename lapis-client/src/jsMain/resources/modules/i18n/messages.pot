@@ -15324,7 +15324,7 @@ msgid "Artikel bearbeiten"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
-msgid "← Zurück zur Liste"
+msgid "Zurück zur Liste"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt

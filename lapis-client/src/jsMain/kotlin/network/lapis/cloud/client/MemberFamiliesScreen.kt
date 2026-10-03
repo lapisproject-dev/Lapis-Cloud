@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.form.text.text
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -58,7 +59,11 @@ fun renderMemberFamiliesScreen(
 ) {
     val root = container.dataScreenRoot()
 
-    root.pageHeader(tr("Familienmitgliedschaften"))
+    // V1.9.50 (R36): the create entry is the single primary action of the page -- the title row, not the search toolbar. It opens a dialog.
+    lateinit var newFamilyButton: Button
+    root.pageHeader(tr("Familienmitgliedschaften"), primaryAction = {
+        newFamilyButton = actionButton(ActionIcon.ADD, tr("Familie anlegen"), style = ButtonStyle.PRIMARY)
+    })
     root.div(
         tr(
             "Haushalts-/Familienverbünde für die Beitragsabrechnung -- ein Zahler, beliebig viele " +
@@ -70,7 +75,6 @@ fun renderMemberFamiliesScreen(
 
     val searchRow = root.lapisToolbar()
     val searchInput = searchRow.text(label = tr("Suche nach Familienname oder Zahler"))
-    val newFamilyButton = searchRow.button(tr("Familie anlegen"), style = ButtonStyle.PRIMARY)
 
     val countsLabel = root.div().apply { addCssClasses("text-muted small") }
     val statusRegion = root.dataStatusRegion()
@@ -476,7 +480,7 @@ private fun renderFamilyDetailBody(
     body.div { addCssClass("mt-3") }
     val footerRow = body.hPanel(spacing = 8)
     if (AppState.hasRole(AccountRole.ADMIN)) {
-        val deleteButton = footerRow.button(tr("Familie löschen"), style = ButtonStyle.OUTLINEDANGER)
+        val deleteButton = footerRow.actionButton(ActionIcon.DELETE, tr("Familie löschen"), style = ButtonStyle.OUTLINEDANGER)
         deleteButton.onClick {
             confirmDialog(
                 title = tr("Familie löschen"),

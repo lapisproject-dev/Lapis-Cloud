@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.core.Widget
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -296,7 +295,7 @@ private fun renderCandidacyForm(
         )
     val counter = form.panel.div(gettext("%1 von %2 Zeichen", 0, MAX_MOTIVATION_LENGTH)) { addCssClasses("text-muted small") }
     motivationField.subscribe { counter.content = gettext("%1 von %2 Zeichen", it.length, MAX_MOTIVATION_LENGTH) }
-    val submit = Button(tr("Kandidatur einreichen"), style = ButtonStyle.PRIMARY)
+    val submit = newActionButton(ActionIcon.SEND, tr("Kandidatur einreichen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submit)
     submit.onClick {
         form.submit(submit) {

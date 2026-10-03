@@ -246,7 +246,7 @@ internal fun SimplePanel.renderPollCreateForm(
         // The optional explanation: a switch under the option, the field only once the switch was used.
         explanationCounter++
         val explainHostId = "lapis-poll-explanation-$explanationCounter"
-        val explainButton = Button(tr("Erklärung hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
+        val explainButton = newActionButton(ActionIcon.ADD, tr("Erklärung hinzufügen"), style = ButtonStyle.OUTLINESECONDARY)
         explainButton.addCssClass("btn-sm")
         explainButton.setAttribute("aria-expanded", "false")
         explainButton.setAttribute("aria-controls", explainHostId)

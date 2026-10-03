@@ -198,7 +198,7 @@ internal fun renderReportDecidePanel(
     removeForm.panel.div(tr("Diese Begründung wird öffentlich sichtbar -- auch für nicht angemeldete Besucher.")) {
         addCssClasses("text-danger small fw-bold")
     }
-    val removeButton = Button(tr("Beitrag entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = newActionButton(ActionIcon.DELETE, tr("Beitrag entfernen"), style = ButtonStyle.OUTLINEDANGER)
     // Die Entfernung ist die einzige Aktion dieses Formulars und destruktiv: kein `PRIMARY`, Gefahrenzone.
     removeForm.buttons(primary = null, destructive = removeButton)
     removeButton.onClick {
@@ -295,7 +295,7 @@ private fun renderErasureRow(
         renderErasureDecidePanel(row, erasure, onChanged)
     }
     if (erasure.status == SocialPostErasureStatus.APPROVED) {
-        val executeButton = row.button(tr("Inhalt endgültig entfernen"), style = ButtonStyle.DANGER)
+        val executeButton = row.actionButton(ActionIcon.DELETE, tr("Inhalt endgültig entfernen"), style = ButtonStyle.DANGER)
         executeButton.onClick {
             executeErasureConfirmDialog(erasure) {
                 AppScope.launch {
@@ -357,7 +357,7 @@ private fun executeErasureConfirmDialog(
 
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Endgültig entfernen"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.DELETE, tr("Endgültig entfernen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()

@@ -247,7 +247,7 @@ class ConferenceWhiteboardController(
             clearButton = clear
         }
 
-        val save = toolbar.button(tr("Als Dokument speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+        val save = toolbar.actionButton(ActionIcon.SAVE, tr("Als Dokument speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         save.addCssClasses("btn-sm ms-2")
         save.onClick { whiteboardSaveAsDocumentDialog { level -> doSaveAsDocument(level) } }
         saveButton = save

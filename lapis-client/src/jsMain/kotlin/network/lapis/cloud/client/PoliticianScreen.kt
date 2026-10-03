@@ -502,7 +502,7 @@ private fun renderBoardCardActions(
     // R24 (W4d): migrated to the form grammar -- a single optional field, saved on its own button.
     val mandateForm = panel.lapisForm()
     val mandateField = mandateForm.textAreaField(label = tr("Mandatstext"), rows = 2, value = politician.mandateText)
-    val mandateSaveButton = Button(tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
+    val mandateSaveButton = newActionButton(ActionIcon.SAVE, tr("Mandatstext speichern"), style = ButtonStyle.OUTLINESECONDARY)
     mandateForm.buttons(primary = mandateSaveButton)
     mandateSaveButton.onClick {
         mandateForm.submit(mandateSaveButton) {
@@ -515,7 +515,7 @@ private fun renderBoardCardActions(
         }
     }
 
-    val revokeButton = panel.button(tr("Politiker-Status widerrufen"), style = ButtonStyle.OUTLINEDANGER)
+    val revokeButton = panel.actionButton(ActionIcon.REVOKE, tr("Politiker-Status widerrufen"), style = ButtonStyle.OUTLINEDANGER)
     revokeButton.onClick {
         politicianRevokeConfirmDialog(politician.displayName) {
             // R29 (W4d): the confirm dialog is one-shot, but `runGuardedAction` also disables the button itself.
@@ -558,7 +558,7 @@ private fun politicianRevokeConfirmDialog(
     )
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
-        Button(tr("Unwiderruflich widerrufen"), style = ButtonStyle.DANGER).apply {
+        newActionButton(ActionIcon.REVOKE, tr("Unwiderruflich widerrufen"), style = ButtonStyle.DANGER).apply {
             onClick {
                 modal.hide()
                 onConfirm()

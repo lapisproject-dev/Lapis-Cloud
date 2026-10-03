@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.text.TextArea
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.div
@@ -77,7 +76,7 @@ fun renderStatuteQaScreen(container: SimplePanel) {
     val question = questionField.control as TextArea
     val counter = form.panel.div { addCssClasses("text-muted small") }
     val hint = form.panel.div { addCssClasses("text-muted small") }
-    val submit = Button(tr("Frage stellen"), icon = "fas fa-magnifying-glass", style = ButtonStyle.PRIMARY)
+    val submit = newActionButton(ActionIcon.SEARCH, tr("Frage stellen"), ButtonStyle.PRIMARY)
     form.buttons(primary = submit)
     counter.hide()
 

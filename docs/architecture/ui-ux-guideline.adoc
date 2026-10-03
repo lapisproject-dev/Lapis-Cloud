@@ -1998,6 +1998,21 @@ The reasoning is in `docs/architecture/collapsible-forms.adoc`; the rule and its
   `R36B_NOT_YET_COLLAPSED`: finance, events, community, documents, compliance, conference administration, the auction), and `open(prefill)` for
   "duplicate" flows: the component and its tests support it, but none of the four pilot screens has such a flow, so nothing calls it yet.
 
+== V1.9.50 -- UI stragglers: Mitfahrerzentrale, Artikel, "Meine Daten"; the scanner sees every file
+
+Client only: no migration, no server change. Details: `collapsible-forms.adoc` ("V1.9.50") and `action-icons.adoc` ("V1.9.50").
+
+* **Why the debt was invisible** (found when a person looked at three screens): the verb scan (R57) held only a hand-picked list of files; it knew a short verb list
+  that had to END the label; a string-typed icon (`icon = "fas fa-upload"`) counted as "has an icon"; and "Neu ..." / "... erstellen" were not verbs at all, so a
+  hand-built create button was never a finding.
+* **Countermeasures in `ClientToolbarIconTripwireTest`** (every detector has a positive and a negative self-test): (S1) the strict file list is gone, every client file
+  is held and what stays is in `R57_LEDGER` with a reason; (S2) a plain `button(...)`/`Button(...)` whose label ENDS on an icon verb is a finding (multi-line calls and
+  `text =` are read); (S3) a plain button with a string-typed `icon = "fa..."` is a finding; (S4) a `container.button(...)` named "Neu ..." or "... erstellen/anlegen" is
+  a finding (a `Button(...)` constructor handed to a form's button row is a submit button and never one). The ledger only shrinks (an exact match is asserted).
+* Mitfahrerzentrale and Artikel follow R36/R36B (create button in the title row; the carpool form is a collapsible create form with "Bearbeiten"/"Duplizieren"
+  opening the same host). "Meine Daten", the finance, governance, consensus, conference and other screens got the icons of their verbs: about 55 buttons in 40 files.
+* Leaving the article editor goes through one exit that saves first and asks only about unsaved input.
+
 == V1.9.49 -- Collapsed create forms (R36B), the rest; the debt ledger is empty
 
 Client only. Details: `docs/architecture/collapsible-forms.adoc`, section "V1.9.49".

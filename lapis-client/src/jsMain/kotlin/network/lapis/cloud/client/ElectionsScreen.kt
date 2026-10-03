@@ -438,7 +438,7 @@ private fun renderAbortAction(
     e: ElectionDto,
     reload: () -> Unit,
 ) {
-    val abort = row.button(tr("Wahl abbrechen"), style = ButtonStyle.OUTLINEDANGER)
+    val abort = row.actionButton(ActionIcon.CANCEL, tr("Wahl abbrechen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun doAbort() {
         runGuardedAction(abort) {

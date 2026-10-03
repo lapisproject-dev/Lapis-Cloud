@@ -197,4 +197,87 @@ class ArticleAutoSaveControllerTest {
         retryGate.complete(dto(id = "Z"))
         assertIs<ArticleAutoSaveController.SaveState.Saved>(harness.controller.saveState)
     }
+
+    // -- V1.9.50: lastSavedInput / cancelPending (additive, the save logic itself is unchanged) --
+
+    @Test
+    fun lastSavedInput_isNullBeforeTheFirstSave_andHoldsOnlyTheInputOfASuccessfulSave() {
+        val first = CompletableDeferred<ArticleDto>()
+        val failing = CompletableDeferred<ArticleDto>()
+        val harness = Harness(gates = ArrayDeque(listOf(first, failing)))
+        assertEquals(null, harness.controller.lastSavedInput)
+
+        harness.controller.onChange(input("v1"))
+        assertEquals(null, harness.controller.lastSavedInput, "still in flight: nothing is saved yet")
+        first.complete(dto(id = "X"))
+        assertEquals(input("v1"), harness.controller.lastSavedInput)
+
+        harness.controller.onChange(input("v2"))
+        failing.completeExceptionally(RuntimeException("network down"))
+        assertIs<ArticleAutoSaveController.SaveState.Failed>(harness.controller.saveState)
+        assertEquals(input("v1"), harness.controller.lastSavedInput, "a failed save never moves the last-saved input")
+    }
+
+    private class ManualSchedule : ArticleAutoSaveSchedule {
+        var pending: (() -> Unit)? = null
+        var cancelCount = 0
+
+        override fun schedule(
+            delayMs: Int,
+            action: () -> Unit,
+        ): ArticleAutoSaveSchedule.Handle {
+            pending = action
+            return ArticleAutoSaveSchedule.Handle {
+                cancelCount++
+                pending = null
+            }
+        }
+    }
+
+    @Test
+    fun cancelPending_cancelsTheDebounceTimer_andNothingIsSavedAfterwards() {
+        val schedule = ManualSchedule()
+        val saves = mutableListOf<ArticleDraftInput>()
+        val controller =
+            ArticleAutoSaveController(
+                scope = CoroutineScope(Dispatchers.Unconfined),
+                save = { _, input ->
+                    saves += input
+                    dto(id = "X")
+                },
+                schedule = schedule,
+            )
+        controller.onChange(input("typed"))
+        assertTrue(schedule.pending != null, "the debounce timer is armed")
+
+        controller.cancelPending()
+        assertEquals(1, schedule.cancelCount)
+        assertEquals(null, schedule.pending, "the timer is gone")
+        assertEquals(emptyList(), saves, "cancelPending never starts a save")
+
+        controller.flushNow() // dirty was cleared: nothing to send
+        assertEquals(emptyList(), saves)
+        assertEquals(null, controller.lastSavedInput)
+    }
+
+    @Test
+    fun cancelPending_isIdempotent_andALaterChangeSavesAgain() {
+        val schedule = ManualSchedule()
+        val saves = mutableListOf<ArticleDraftInput>()
+        val controller =
+            ArticleAutoSaveController(
+                scope = CoroutineScope(Dispatchers.Unconfined),
+                save = { _, input ->
+                    saves += input
+                    dto(id = "X")
+                },
+                schedule = schedule,
+            )
+        controller.cancelPending()
+        controller.cancelPending()
+        controller.onChange(input("later"))
+        schedule.pending?.invoke()
+        assertEquals(listOf(input("later")), saves)
+        assertEquals(input("later"), controller.lastSavedInput)
+    }
 }

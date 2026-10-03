@@ -229,7 +229,7 @@ internal class ConferenceBackgroundSection(
                     required = true,
                     requiredMessage = tr("Bitte eine Datei auswählen."),
                 )
-            val addButton = Button(conferenceUploadButtonLabel(0), icon = "fas fa-plus", style = ButtonStyle.OUTLINESECONDARY)
+            val addButton = newActionButton(ActionIcon.ADD, conferenceUploadButtonLabel(0), ButtonStyle.OUTLINESECONDARY)
             addButton.addCssClasses("w-100 text-start")
             uploadForm.buttons(primary = addButton)
             uploadButtonRef = addButton

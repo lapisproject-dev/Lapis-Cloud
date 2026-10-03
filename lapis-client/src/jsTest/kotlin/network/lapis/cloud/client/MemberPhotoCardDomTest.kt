@@ -410,4 +410,17 @@ class MemberPhotoCardDomTest {
                 assertTrue(card.uploadButton.disabled)
             }
         }
+
+    @Test
+    fun uploadAndRemove_carryTheIconsOfTheirVerbs_andKeepTheirNames(): Promise<Unit> =
+        test {
+            mountedForm("member-photo-icons") { root, element ->
+                val card = MemberPhotoCard(parent = root, eligible = true, rpc = FakeRpc(dto(hasPhoto = true)))
+                card.load()
+                settle()
+                assertActionIcon(assertNotNull(card.uploadButton.getElement()), "Foto ersetzen", "fa-upload")
+                assertActionIcon(assertNotNull(card.removeButton.getElement()), "Foto entfernen", "fa-trash")
+                assertNotNull(element())
+            }
+        }
 }

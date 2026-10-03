@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.TAG
 import io.kvision.html.button
@@ -169,7 +168,14 @@ private fun renderRationaleEditor(
         }
     field.subscribe { raw -> counter.content = gettext("%1 von %2 Zeichen", raw.length, SystemicConsensusRules.MAX_RATIONALE_LENGTH) }
     val save = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
-    val remove = if (option.rationale != null) Button(tr("Begründung entfernen"), style = ButtonStyle.OUTLINEDANGER) else null
+    val remove =
+        if (option.rationale !=
+            null
+        ) {
+            newActionButton(ActionIcon.REMOVE, tr("Begründung entfernen"), style = ButtonStyle.OUTLINEDANGER)
+        } else {
+            null
+        }
     form.buttons(primary = save, destructive = remove)
     val failure = gettext("Die Begründung konnte nicht gespeichert werden. Die Ansicht wurde neu geladen.")
     save.onClick {

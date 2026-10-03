@@ -16285,8 +16285,8 @@ msgid "Artikel bearbeiten"
 msgstr "Modifica articolo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
-msgid "← Zurück zur Liste"
-msgstr "← Torna all'elenco"
+msgid "Zurück zur Liste"
+msgstr "Torna all'elenco"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
 msgid "Artikel ansehen"

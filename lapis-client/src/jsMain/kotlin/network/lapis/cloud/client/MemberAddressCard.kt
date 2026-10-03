@@ -216,7 +216,7 @@ internal class MemberAddressCard(
         fun valid() = fields.all { it.isValid() }
 
         fun canSave() = dirty() && valid()
-        val button = Button(tr("Anschrift speichern"), style = ButtonStyle.PRIMARY)
+        val button = newActionButton(ActionIcon.SAVE, tr("Anschrift speichern"), ButtonStyle.PRIMARY)
         button.disabled = true
         addressButton = button
         form.buttons(primary = button)
@@ -263,7 +263,7 @@ internal class MemberAddressCard(
         fun valid() = dateOfBirth.isValid() && nationality.isValid()
 
         fun canSave() = dirty() && valid()
-        val button = Button(tr("Angaben speichern"), style = ButtonStyle.PRIMARY)
+        val button = newActionButton(ActionIcon.SAVE, tr("Angaben speichern"), ButtonStyle.PRIMARY)
         button.disabled = true
         beneficialOwnerButton = button
         form.buttons(primary = button)

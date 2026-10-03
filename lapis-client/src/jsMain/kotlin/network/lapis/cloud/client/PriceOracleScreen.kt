@@ -340,7 +340,7 @@ private fun renderConfigForm(
             addCssClass("text-danger")
             hide()
         }
-    val saveButton = panel.button(tr("Konfiguration speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = panel.actionButton(ActionIcon.SAVE, tr("Konfiguration speichern"), style = ButtonStyle.PRIMARY)
 
     saveButton.onClick {
         errorBox.hide()

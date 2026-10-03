@@ -142,7 +142,7 @@ private fun renderRatesAdminSection(panel: SimplePanel) {
                     hint = tr("Beispiel: 14.00. Leer lassen, um den Satz zu löschen."),
                     rule = { travelExpenseRateFieldCheck(it, gettext("Bitte eine gültige Tagespauschale angeben (z. B. 14.00).")) },
                 )
-            val saveButton = Button(tr("Sätze speichern"), style = ButtonStyle.PRIMARY)
+            val saveButton = newActionButton(ActionIcon.SAVE, tr("Sätze speichern"), style = ButtonStyle.PRIMARY)
             form.buttons(primary = saveButton)
             saveButton.onClick {
                 form.submit(saveButton) {

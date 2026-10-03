@@ -108,13 +108,13 @@ internal class MemberPublicProfileCard(
             rule = { raw -> bioCheck(raw) },
         )
     private val counter: Div = form.panel.div("") { addCssClasses("small text-muted") }
-    internal val saveButton: Button = Button(tr("Kurzvorstellung speichern"), style = ButtonStyle.PRIMARY)
+    internal val saveButton: Button = newActionButton(ActionIcon.SAVE, tr("Kurzvorstellung speichern"), ButtonStyle.PRIMARY)
 
     init {
         form.buttons(primary = saveButton)
     }
 
-    internal val deleteButton: Button = Button(tr("Kurzvorstellung löschen"), style = ButtonStyle.OUTLINEDANGER)
+    internal val deleteButton: Button = newActionButton(ActionIcon.DELETE, tr("Kurzvorstellung löschen"), ButtonStyle.OUTLINEDANGER)
 
     init {
         root.add(deleteButton)

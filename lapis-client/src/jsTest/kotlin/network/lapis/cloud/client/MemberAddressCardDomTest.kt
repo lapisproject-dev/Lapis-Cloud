@@ -240,4 +240,11 @@ class MemberAddressCardDomTest {
                 assertFalse(element().textContent.orEmpty().contains("Anschrift"))
             }
         }
+
+    @Test
+    fun bothSaveButtons_carryTheSaveIcon_andKeepTheirNames(): Promise<Unit> =
+        withCard(FakeAddressRpc(addressMember()), "addr-icons") { el ->
+            assertButtonIcon(el(), "Anschrift speichern", "fa-floppy-disk")
+            assertButtonIcon(el(), "Angaben speichern", "fa-floppy-disk")
+        }
 }

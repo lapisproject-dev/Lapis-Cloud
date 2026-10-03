@@ -297,7 +297,7 @@ internal class ConferenceVoteOperatorController(
         val counter = content.hPanel(spacing = 4) { addCssClasses("align-items-center small text-muted") }
         counter.icon("fas fa-box-archive") { addCssClass("text-primary") }
         counter.span(gettext("Stimmen bisher: %1", step.ballotCount))
-        val close = content.button(tr("Abstimmung schließen"), style = ButtonStyle.PRIMARY)
+        val close = content.actionButton(ActionIcon.CLOSE, tr("Abstimmung schließen"), style = ButtonStyle.PRIMARY)
         close.onClick {
             confirmDialog(
                 title = tr("Abstimmung schließen"),
@@ -456,7 +456,12 @@ internal class ConferenceVoteOperatorController(
             stop.onClick { onStopStreamRequested?.invoke() }
         }
         if (canAbortNow && e != null) {
-            val abort = content.button(tr("Wahl abbrechen"), style = ButtonStyle.LINK) { addCssClass("text-danger") }
+            val abort =
+                content.actionButton(
+                    ActionIcon.CANCEL,
+                    tr("Wahl abbrechen"),
+                    style = ButtonStyle.LINK,
+                ) { addCssClass("text-danger") }
             abort.onClick {
                 confirmWithTypedConfirmationDialog(
                     title = tr("Wahl abbrechen"),

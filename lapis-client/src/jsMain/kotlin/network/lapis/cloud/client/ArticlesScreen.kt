@@ -28,7 +28,20 @@ private enum class ArticlesTab { MINE, REVIEW, PUBLISHED }
  */
 fun renderArticlesScreen(container: SimplePanel) {
     val root = container.dataScreenRoot(spacing = 14)
-    root.pageHeader(tr("Artikel"))
+    // V1.9.50 (R36): the one primary action sits in the title row, built ONCE (not with every load of the list). It is visible only in
+    // the tab "Meine Artikel" and never while the editor is open; the tab hands it the function that opens a new editor.
+    lateinit var newButton: Button
+    root.pageHeader(tr("Artikel"), primaryAction = {
+        newButton = actionButton(ActionIcon.ADD, tr("Neuer Artikel"), style = ButtonStyle.PRIMARY)
+    })
+    var openNewEditor: (() -> Unit)? = null
+    var openEditor: ArticleEditorHandle? = null
+    var activeTab = ArticlesTab.MINE
+
+    fun syncNewButton() {
+        newButton.visible = activeTab == ArticlesTab.MINE && openEditor == null
+    }
+    newButton.onClick { openNewEditor?.invoke() }
 
     val isBoard = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
 
@@ -51,12 +64,23 @@ fun renderArticlesScreen(container: SimplePanel) {
         }
     }
 
-    fun showTab(tab: ArticlesTab) {
+    fun renderTab(tab: ArticlesTab) {
+        activeTab = tab
+        openEditor = null
+        openNewEditor = null
+        syncNewButton()
         contentPanel.removeAll()
         when (tab) {
             ArticlesTab.MINE -> {
                 markActive(mineButton)
-                renderMyArticlesTab(contentPanel)
+                renderMyArticlesTab(
+                    contentPanel,
+                    bindNew = { openNewEditor = it },
+                    onEditorChanged = {
+                        openEditor = it
+                        syncNewButton()
+                    },
+                )
             }
             ArticlesTab.REVIEW -> {
                 reviewButton?.let(::markActive)
@@ -68,19 +92,31 @@ fun renderArticlesScreen(container: SimplePanel) {
             }
         }
     }
+
+    // A tab change leaves an open editor through the editor's own exit: it saves first and asks only about unsaved input.
+    fun showTab(tab: ArticlesTab) {
+        val editor = openEditor
+        if (editor == null) renderTab(tab) else editor.requestLeave { renderTab(tab) }
+    }
     mineButton.onClick { showTab(ArticlesTab.MINE) }
     reviewButton?.onClick { showTab(ArticlesTab.REVIEW) }
     publishedButton?.onClick { showTab(ArticlesTab.PUBLISHED) }
-    showTab(ArticlesTab.MINE)
+    renderTab(ArticlesTab.MINE)
 }
 
 // -- "Meine Artikel" --
 
-private fun renderMyArticlesTab(panel: SimplePanel) {
+private fun renderMyArticlesTab(
+    panel: SimplePanel,
+    bindNew: (open: () -> Unit) -> Unit,
+    onEditorChanged: (ArticleEditorHandle?) -> Unit,
+) {
     val listPanel = panel.simplePanel { addCssClass("lapis-card-list") }
     val editorHost = panel.vPanel(spacing = 10) { hide() }
+    lateinit var openEditorFor: (ArticleDto?) -> Unit
 
     fun load() {
+        onEditorChanged(null)
         listPanel.removeAll()
         listPanel.show()
         editorHost.hide()
@@ -91,26 +127,26 @@ private fun renderMyArticlesTab(panel: SimplePanel) {
                 listPanel.dataErrorState(onRetry = ::load)
                 return@launch
             }
-            val newButton = listPanel.button(tr("Neuer Artikel"), style = ButtonStyle.PRIMARY)
-            newButton.onClick {
-                listPanel.hide()
-                editorHost.show()
-                renderArticleEditor(editorHost, null) { load() }
-            }
             if (articles.isEmpty()) {
                 listPanel.p(tr("Noch keine Artikel.")) { addCssClasses("text-muted") }
                 return@launch
             }
-            articles.forEach { article -> renderMyArticleCard(listPanel, article, editorHost, ::load) }
+            articles.forEach { article -> renderMyArticleCard(listPanel, article, openEditor = { openEditorFor(it) }, onChanged = ::load) }
         }
     }
+    openEditorFor = { article ->
+        listPanel.hide()
+        editorHost.show()
+        onEditorChanged(renderArticleEditor(editorHost, article) { load() })
+    }
+    bindNew { openEditorFor(null) }
     load()
 }
 
 private fun renderMyArticleCard(
     panel: SimplePanel,
     article: ArticleDto,
-    editorHost: SimplePanel,
+    openEditor: (ArticleDto) -> Unit,
     onChanged: () -> Unit,
 ) {
     val displayStatus = ArticleLabels.displayStatus(article)
@@ -127,12 +163,8 @@ private fun renderMyArticleCard(
     when (article.status) {
         ArticleStatus.DRAFT, ArticleStatus.REJECTED -> {
             val editButton = buttonRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
-            editButton.onClick {
-                panel.hide()
-                editorHost.show()
-                renderArticleEditor(editorHost, article) { onChanged() }
-            }
-            val submitButton = buttonRow.button(tr("Zur Freigabe einreichen"), style = ButtonStyle.PRIMARY)
+            editButton.onClick { openEditor(article) }
+            val submitButton = buttonRow.actionButton(ActionIcon.SEND, tr("Zur Freigabe einreichen"), style = ButtonStyle.PRIMARY)
             submitButton.onClick {
                 AppScope.launch {
                     val result = guarded { rpcService<IArticleService>().submitArticle(article.id) }
@@ -223,7 +255,7 @@ private fun renderReviewSummaryCard(
     }
 
     val detailPanel = card.vPanel(spacing = 8) { hide() }
-    val openButton = card.button(tr("Ansehen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val openButton = card.actionButton(ActionIcon.VIEW, tr("Ansehen"), style = ButtonStyle.OUTLINEPRIMARY)
     var loaded = false
     openButton.onClick {
         if (detailPanel.visible) {
@@ -316,7 +348,7 @@ private fun renderPublishedSummaryCard(
     }
     card.untrustedDiv(summary.excerpt) { addCssClasses("text-muted small") }
 
-    val unpublishButton = card.button(tr("Depublizieren"), style = ButtonStyle.OUTLINEDANGER)
+    val unpublishButton = card.actionButton(ActionIcon.REVOKE, tr("Depublizieren"), style = ButtonStyle.OUTLINEDANGER)
     if (summary.authorIsSelf) {
         unpublishButton.disabled = true
         card.div(tr("Eigener Artikel — Depublizieren durch ein anderes Vorstandsmitglied.")) {
@@ -334,6 +366,7 @@ private fun renderPublishedSummaryCard(
             reasonMaxLength = 1000,
             showCounter = true,
             confirmLabel = tr("Depublizieren"),
+            confirmIcon = ActionIcon.REVOKE,
         ) { reason ->
             val safeReason = reason ?: return@confirmWithReasonDialog
             AppScope.launch {

@@ -273,7 +273,7 @@ internal class McpAccessCard(
         info.div(
             connection.lastUsedAt?.let { gettext("Zuletzt benutzt am %1", formatSystemDateTime(it)) } ?: tr("Noch nie benutzt"),
         ) { addCssClasses("text-muted small") }
-        val revoke = Button(tr("Widerrufen"), icon = "fas fa-unlink", style = ButtonStyle.OUTLINEDANGER)
+        val revoke = newActionButton(ActionIcon.REVOKE, tr("Widerrufen"), ButtonStyle.OUTLINEDANGER)
         row.add(revoke)
         revokeButtons += revoke
         val tokenId = connection.tokenId

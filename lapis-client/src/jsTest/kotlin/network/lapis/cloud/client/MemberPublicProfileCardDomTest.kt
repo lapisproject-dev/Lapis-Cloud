@@ -408,4 +408,17 @@ class MemberPublicProfileCardDomTest {
             assertEquals("", initialsOf("12345"))
             assertEquals("", initialsOf("   "))
         }
+
+    @Test
+    fun saveAndDelete_carryTheIconsOfTheirVerbs_andKeepTheirNames(): Promise<Unit> =
+        test {
+            mountedForm("public-profile-icons") { root, _ ->
+                val card =
+                    MemberPublicProfileCard(parent = root, rpc = FakeProfileRpc(profile(bio = "Ein Satz.")), loadListingState = { null })
+                card.load()
+                settle()
+                assertActionIcon(assertNotNull(card.saveButton.getElement()), "Kurzvorstellung speichern", "fa-floppy-disk")
+                assertActionIcon(assertNotNull(card.deleteButton.getElement()), "Kurzvorstellung löschen", "fa-trash")
+            }
+        }
 }

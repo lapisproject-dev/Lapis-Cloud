@@ -221,7 +221,7 @@ fun openMemberPasswordResetDialog(
             addCssClasses("alert alert-secondary")
             hide()
         }
-    val resetMailButton = body.button(tr("Reset-E-Mail senden"), style = ButtonStyle.OUTLINESECONDARY)
+    val resetMailButton = body.actionButton(ActionIcon.SEND, tr("Reset-E-Mail senden"), style = ButtonStyle.OUTLINESECONDARY)
     resetMailButton.disabled = true
 
     modal.addButton(newActionButton(ActionIcon.CLOSE, tr("Schließen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })

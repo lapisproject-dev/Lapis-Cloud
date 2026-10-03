@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Container
 import io.kvision.core.onClick
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
 import io.kvision.i18n.gettext
@@ -146,7 +145,7 @@ internal fun openMemberAddressAdminDialog(
     notice.div(
         tr("Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."),
     )
-    val showButton = Button(tr("Angaben anzeigen"), style = ButtonStyle.PRIMARY)
+    val showButton = newActionButton(ActionIcon.VIEW, tr("Angaben anzeigen"), style = ButtonStyle.PRIMARY)
     notice.add(showButton)
     showButton.onClick {
         if (showButton.disabled) return@onClick

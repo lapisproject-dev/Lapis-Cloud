@@ -1,10 +1,8 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.select
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.i18n.gettext
@@ -23,7 +21,8 @@ import network.lapis.cloud.shared.rpc.ICarpoolService
 /**
  * Welle V1.9.12 "Mitfahrerzentrale" -- "Meine Einträge" (auch knapp abgelaufene, siehe
  * [ICarpoolService.listMyPostings] KDoc), Feed (nur zukünftige, mit Typfilter) und ein
- * Erstell-/Bearbeiten-Formular (inline, kein Modal -- sieben Felder passen bequem in die Seite).
+ * Erstell-/Bearbeiten-Formular (seit V1.9.50 das eingeklappte Erstell-Formular der Titelzeile, R36B
+ * -- "Bearbeiten"/"Duplizieren" öffnen dasselbe, vorbefüllte Formular; sieben Felder passen bequem in die Seite).
  * Kontaktaufnahme läuft über [ICarpoolService.contactAuthor] -- kein eigenes
  * Carpool-Nachrichtensystem, die Antwort landet im ganz normalen Postfach unter Kommunikation
  * (siehe `CommunicationScreen.renderInbox`).
@@ -40,13 +39,16 @@ fun renderCarpoolScreen(container: SimplePanel) {
             maxWidth = 640.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Mitfahrerzentrale"))
+    val header = root.pageHeader(tr("Mitfahrerzentrale"))
     root.div(
         tr("Keine Straße, keine Hausnummer -- den genauen Treffpunkt vereinbaren Sie per Nachricht."),
     ) { addCssClasses("text-muted small") }
 
+    // V1.9.50 (R36B): the create entry is the collapsible create form of the page header (one button in the title row); "Bearbeiten" and
+    // "Duplizieren" of a card open the SAME host, pre-filled. Built once; the sections below read the controller only when they render.
     val formHost = root.vPanel(spacing = 6)
-    val createButton = root.button(tr("Eintrag erstellen"), style = ButtonStyle.PRIMARY)
+    lateinit var formController: CollapsibleCreateFormController<CarpoolFormPrefill>
+    lateinit var refreshAll: () -> Unit
 
     // W5-Muster (R34): Laden/Fehler-mit-Wiederholen/leer sind eigene Zustände EINES dataSection --
     // kein manuelles removeAll()/AppScope.launch{guarded{...}} mehr.
@@ -59,12 +61,12 @@ fun renderCarpoolScreen(container: SimplePanel) {
             load = { guarded { rpcService<ICarpoolService>().listMyPostings() } },
             render = { panel, postings ->
                 postings.forEach { posting ->
-                    renderCarpoolCard(panel = panel, posting = posting, formHost = formHost, trigger = createButton)
+                    renderCarpoolCard(panel, posting, openForm = { formController.open(it) }, onSaved = { refreshAll() })
                 }
             },
         )
 
-    val filterRow = root.hPanel(spacing = 8) { addCssClass("align-items-end") }
+    val filterRow = root.lapisToolbar()
     val typeFilter =
         filterRow.select(
             options =
@@ -91,22 +93,24 @@ fun renderCarpoolScreen(container: SimplePanel) {
             },
             render = { panel, postings ->
                 postings.forEach { posting ->
-                    renderCarpoolCard(panel = panel, posting = posting, formHost = formHost, trigger = createButton)
+                    renderCarpoolCard(panel, posting, openForm = { formController.open(it) }, onSaved = { refreshAll() })
                 }
             },
         )
 
-    fun refreshAll() {
+    refreshAll = {
         myPostingsSection.reload()
         feedSection.reload()
     }
-    carpoolRefreshHooks[formHost] = ::refreshAll
+    formController =
+        collapsibleCreateForm<CarpoolFormPrefill>(
+            actionSlot = header.actionSlot,
+            formHost = formHost,
+            buttonLabel = tr("Eintrag erstellen"),
+            formId = "carpool-create-form",
+        ) { prefill, close -> buildCarpoolForm(this, prefill, close) { refreshAll() } }
 
     typeFilter.subscribe { feedSection.reload() }
-
-    createButton.onClick {
-        openCarpoolForm(formHost = formHost, trigger = createButton, editing = null, duplicateFrom = null, onSaved = ::refreshAll)
-    }
 
     refreshAll()
 }
@@ -118,22 +122,22 @@ private fun carpoolTypeFilterLabel(rawTypeValue: String): String =
         CarpoolPostingType.REQUEST -> tr("Gesuche")
     }
 
-/**
- * [formHost]/[trigger] sind ein einziges, geteiltes Formular-Ziel oben auf der Seite (kein
- * Modal): jede Karte (eigen oder fremd) ruft für "Bearbeiten"/"Duplizieren" dieselbe Instanz auf,
- * damit nie zwei Formulare gleichzeitig offen stehen. Über eine kleine Registry ([carpoolRefreshHooks])
- * erreicht [openCarpoolForm] den `refreshAll`-Aufrufer von [renderCarpoolScreen], ohne dass jede
- * Karte ihre eigene Kopie der beiden Refresh-Closures mitschleppen muss.
- */
-private val carpoolRefreshHooks = HashMap<SimplePanel, () -> Unit>()
+/** What "Bearbeiten" / "Duplizieren" hand to the shared create form: the posting to edit, or the one to copy (never both). */
+internal class CarpoolFormPrefill(
+    val editing: CarpoolPostingDto?,
+    val duplicateFrom: CarpoolPostingDto?,
+)
 
+/**
+ * One card. [openForm] opens the shared collapsible form (one host under the page header, so never two forms at once); [onSaved] reloads
+ * both lists. Passed in as functions: no global registry between the screen and its cards.
+ */
 private fun renderCarpoolCard(
     panel: SimplePanel,
     posting: CarpoolPostingDto,
-    formHost: SimplePanel,
-    trigger: Button,
+    openForm: (CarpoolFormPrefill) -> Unit,
+    onSaved: () -> Unit,
 ) {
-    val onSaved = carpoolRefreshHooks[formHost] ?: {}
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClass("align-items-center") }
     headerRow.typeBadge(
@@ -153,15 +157,15 @@ private fun renderCarpoolCard(
     val actionRow = row.hPanel(spacing = 8) { addCssClass("mt-1") }
     if (posting.isOwn) {
         actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY).onClick {
-            openCarpoolForm(formHost = formHost, trigger = trigger, editing = posting, duplicateFrom = null, onSaved = onSaved)
+            openForm(CarpoolFormPrefill(editing = posting, duplicateFrom = null))
         }
-        actionRow.button(tr("Duplizieren"), style = ButtonStyle.OUTLINESECONDARY).onClick {
-            openCarpoolForm(formHost = formHost, trigger = trigger, editing = null, duplicateFrom = posting, onSaved = onSaved)
+        actionRow.actionButton(ActionIcon.COPY, tr("Duplizieren"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+            openForm(CarpoolFormPrefill(editing = null, duplicateFrom = posting))
         }
         renderCarpoolDeleteControl(actionRow = actionRow, posting = posting, onSaved = onSaved)
     } else if (!posting.isPast) {
         var contactPanel: SimplePanel? = null
-        actionRow.button(tr("Kontakt aufnehmen"), style = ButtonStyle.PRIMARY).onClick {
+        actionRow.actionButton(ActionIcon.SEND, tr("Kontakt aufnehmen"), style = ButtonStyle.PRIMARY).onClick {
             if (contactPanel != null) return@onClick
             contactPanel = renderCarpoolContactForm(row = row, posting = posting) { contactPanel = null }
         }
@@ -267,17 +271,20 @@ internal fun parseTimeInputValue(raw: String): LocalTime? {
     return runCatching { LocalTime.parse(normalized) }.getOrNull()
 }
 
-private fun openCarpoolForm(
-    formHost: SimplePanel,
-    trigger: Button,
-    editing: CarpoolPostingDto?,
-    duplicateFrom: CarpoolPostingDto?,
+/**
+ * The create/edit/duplicate form, built into the shared host of [collapsibleCreateForm]. [prefill] is `null` for a new entry. The
+ * fingerprint ([snapshot]) covers all seven inputs, so a duplicate (pre-filled) counts as unchanged until the person types.
+ */
+private fun buildCarpoolForm(
+    host: SimplePanel,
+    prefill: CarpoolFormPrefill?,
+    close: (saved: Boolean) -> Unit,
     onSaved: () -> Unit,
-) {
-    formHost.removeAll()
-    trigger.hide()
+): FormSnapshot {
+    val editing = prefill?.editing
+    val duplicateFrom = prefill?.duplicateFrom
     val base = duplicateFrom ?: editing
-    val panel = formHost.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    val panel = host.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     panel.div(if (editing != null) tr("Eintrag bearbeiten") else tr("Neuer Eintrag")) { addCssClass("fw-bold") }
     val form = panel.lapisForm()
 
@@ -325,14 +332,8 @@ private fun openCarpoolForm(
     typeField.subscribe { syncSeatsVisibility() }
 
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.PRIMARY)
-    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY)
+    val cancelButton = collapseCancelButton(close)
     form.buttons(primary = saveButton, cancel = cancelButton)
-
-    fun closeForm() {
-        formHost.removeAll()
-        trigger.show()
-    }
-    cancelButton.onClick { closeForm() }
 
     saveButton.onClick {
         form.submit(saveButton) submit@{
@@ -365,11 +366,12 @@ private fun openCarpoolForm(
                 }
             if (result != null) {
                 notifySuccess(if (editing != null) tr("Eintrag wurde aktualisiert.") else tr("Eintrag wurde erstellt."))
-                closeForm()
+                close(true)
                 onSaved()
             }
         }
     }
+    return form.snapshot()
 }
 
 /**

@@ -669,7 +669,7 @@ private fun openRequestErasureDialog(
             hide()
         }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    val submitButton = Button(tr("Beantragen"), style = ButtonStyle.PRIMARY)
+    val submitButton = newActionButton(ActionIcon.SEND, tr("Beantragen"), style = ButtonStyle.PRIMARY)
     submitButton.onClick {
         errorBox.hide()
         val reason = reasonInput.value.orEmpty().trim()
@@ -719,7 +719,7 @@ private fun renderRemoveForLegalReasonControl(
             addCssClass("text-danger")
             hide()
         }
-    val removeButton = row.button(tr("Rechtlich entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = row.actionButton(ActionIcon.DELETE, tr("Rechtlich entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.onClick {
         errorBox.hide()
         val reason = reasonInput.value.orEmpty().trim()

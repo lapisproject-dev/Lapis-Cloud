@@ -73,6 +73,13 @@ class ArticleAutoSaveController(
     var saveState: SaveState = SaveState.Idle
         private set
 
+    /**
+     * V1.9.50: the input of the last save that SUCCEEDED (`null` before the first one). The editor compares the current form with it to
+     * decide whether leaving would lose anything -- additive, the save logic itself does not read it.
+     */
+    var lastSavedInput: ArticleDraftInput? = null
+        private set
+
     private var pendingInput: ArticleDraftInput? = null
     private var dirty: Boolean = false
     private var inFlight: Boolean = false
@@ -134,6 +141,16 @@ class ArticleAutoSaveController(
         pendingCompletion?.await()
     }
 
+    /**
+     * V1.9.50: drops the pending edit -- cancels the debounce timer and clears [dirty], so nothing fires after the person chose to
+     * discard it. A save that is ALREADY in flight is not touched (it cannot be recalled). Never starts a save.
+     */
+    fun cancelPending() {
+        debounceHandle?.cancel()
+        debounceHandle = null
+        dirty = false
+    }
+
     /** Re-attempts a save after [saveState] is [SaveState.Failed], using the last input that failed. */
     fun retry() {
         if (saveState !is SaveState.Failed) return
@@ -169,6 +186,7 @@ class ArticleAutoSaveController(
             try {
                 val result = save(articleId, input)
                 articleId = result.id
+                lastSavedInput = input
                 inFlight = false
                 setState(SaveState.Saved(now()))
                 if (dirty) {

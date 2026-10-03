@@ -136,7 +136,7 @@ internal class MailingHtmlEditor(
                 onDestroy = ::detachSelectionListener,
             )
 
-        val previewButton = host.button(tr("Vorschau"), icon = "fas fa-eye", style = ButtonStyle.OUTLINESECONDARY)
+        val previewButton = host.actionButton(ActionIcon.VIEW, tr("Vorschau"), style = ButtonStyle.OUTLINESECONDARY)
         previewBox = host.vPanel(spacing = 6) { addCssClasses("border rounded p-2") }
         previewBox.hide()
         previewButton.onClick {

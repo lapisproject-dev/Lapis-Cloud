@@ -156,7 +156,7 @@ internal fun renderMemberCard(
                 "geprueft werden kann.",
         ),
     ) { addCssClasses("text-muted small") }
-    val downloadButton = panel.button(tr("Mitgliedsausweis herunterladen"), style = ButtonStyle.OUTLINESECONDARY)
+    val downloadButton = panel.actionButton(ActionIcon.DOWNLOAD, tr("Mitgliedsausweis herunterladen"), style = ButtonStyle.OUTLINESECONDARY)
     downloadButton.onClick {
         // Audit fix M9: issuing a card INVALIDATES the previous one -- the trigger stays disabled for a moment after a confirmed issue, so a
         // second click cannot stack a second issuing dialog on the first one's download (a second card would kill the one just downloaded).

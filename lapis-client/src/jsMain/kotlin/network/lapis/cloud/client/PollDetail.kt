@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.TAG
 import io.kvision.html.div
@@ -147,7 +146,7 @@ private fun renderPollActions(
     val poll = data.poll
     if (canClosePoll(poll) || canAbortPoll(poll)) actions.addCssClasses("mt-4")
     if (canClosePoll(poll)) {
-        val close = Button(tr("Umfrage schließen"), style = ButtonStyle.OUTLINESECONDARY)
+        val close = newActionButton(ActionIcon.CLOSE, tr("Umfrage schließen"), style = ButtonStyle.OUTLINESECONDARY)
         actions.add(close)
         close.onClick {
             confirmDialog(
@@ -167,7 +166,7 @@ private fun renderPollActions(
         }
     }
     if (canAbortPoll(poll)) {
-        val abort = Button(tr("Umfrage abbrechen"), style = ButtonStyle.OUTLINEDANGER)
+        val abort = newActionButton(ActionIcon.CANCEL, tr("Umfrage abbrechen"), style = ButtonStyle.OUTLINEDANGER)
         actions.add(abort)
         abort.onClick {
             confirmWithTypedConfirmationDialog(

@@ -160,7 +160,7 @@ class ConferenceNotesController(
         emptyStateDiv = panel.div(tr("Noch keine Notizen.")) { addCssClasses("text-muted small") }
         renderAddBlockForm(panel)
         val saveRow = panel.hPanel(spacing = 6) { addCssClasses("mt-2") }
-        val save = saveRow.button(tr("Als Dokument speichern"), style = ButtonStyle.OUTLINEPRIMARY)
+        val save = saveRow.actionButton(ActionIcon.SAVE, tr("Als Dokument speichern"), style = ButtonStyle.OUTLINEPRIMARY)
         save.addCssClass("btn-sm")
         save.onClick { notesSaveAsDocumentDialog { level -> doSaveAsDocument(level) } }
         saveDocButton = save

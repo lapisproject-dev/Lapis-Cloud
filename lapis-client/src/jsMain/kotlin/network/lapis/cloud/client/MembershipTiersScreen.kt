@@ -7,7 +7,6 @@ import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -47,7 +46,7 @@ fun renderMembershipTiersScreen(container: SimplePanel) {
         tr("Mitgliedschaftsstufen"),
         subtitle = tr("Beitrag, Intervall und Zahlungsziel je Stufe. Eine Stufe wird nicht gelöscht, sondern geschlossen."),
         primaryAction = {
-            button(tr("Mitgliedschaftsstufe anlegen"), style = ButtonStyle.PRIMARY).onClick {
+            actionButton(ActionIcon.ADD, tr("Mitgliedschaftsstufe anlegen"), style = ButtonStyle.PRIMARY).onClick {
                 openMembershipTierForm(
                     existing = null,
                     memberCount = 0,

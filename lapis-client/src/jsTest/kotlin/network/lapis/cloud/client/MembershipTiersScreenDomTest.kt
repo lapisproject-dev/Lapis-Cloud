@@ -139,6 +139,7 @@ class MembershipTiersScreenDomTest {
                     // the page title and the primary action exist exactly once
                     assertEquals(1, element().allOf("h1").size)
                     assertNotNull(element().allOf("button").firstOrNull { it.textContent?.trim() == "Mitgliedschaftsstufe anlegen" })
+                    assertButtonIcon(element(), "Mitgliedschaftsstufe anlegen", "fa-plus")
                 }
             }
         }

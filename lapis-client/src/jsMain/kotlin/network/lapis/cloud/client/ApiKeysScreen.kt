@@ -329,7 +329,7 @@ private fun renderWebhookBlock(
         // D2 -- three states: ruhe -> disabled "Sendet Test-Event …" -> a PERSISTENT result line
         // under the card (never a toast, the outcome must stay visible while the operator inspects
         // the receiving end).
-        val testButton = actions.button(tr("Test-Event senden"), style = ButtonStyle.LINK)
+        val testButton = actions.actionButton(ActionIcon.SEND, tr("Test-Event senden"), style = ButtonStyle.LINK)
         val testResultLine = footer.div("") { addCssClasses("small") }
         testButton.onClick {
             testButton.disabled = true

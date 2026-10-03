@@ -155,7 +155,7 @@ internal class ConferenceConsensusOperator(
     ) {
         val consensus = detail.consensus
         if (!canCloseRating(consensus, detail.participation)) return
-        val close = content.button(tr("Bewertung schließen"), style = ButtonStyle.PRIMARY)
+        val close = content.actionButton(ActionIcon.CLOSE, tr("Bewertung schließen"), style = ButtonStyle.PRIMARY)
         close.onClick {
             confirmDialog(
                 title = tr("Bewertung schließen"),

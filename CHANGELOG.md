@@ -6,6 +6,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **UI stragglers: Mitfahrerzentrale, Artikel, "Meine Daten"; the scanner sees every file** (V1.9.50, rules R36/R36B and R57). Client only: no migration, no server,
+  RPC or `V1__baseline.sql` change.
+  - "Mitfahrerzentrale": "Eintrag erstellen" is the collapsed create form of the page header (one button in the title row); "Bearbeiten" and "Duplizieren" open the same
+    pre-filled form; the filter row is a toolbar. "Duplizieren" and "Kontakt aufnehmen" carry icons.
+  - "Artikel": "Neuer Artikel" is built once in the page header, visible only in the tab "Meine Artikel" and never while the editor is open. Leaving the editor (back
+    button, tab change) saves first as before and asks "Änderungen verwerfen?" only when something is unsaved; "Verwerfen" drops the pending edit without saving it.
+    `ArticleAutoSaveController` gains `lastSavedInput` and `cancelPending()` (additive).
+  - "Meine Daten" and about 55 more buttons in 40 files (governance, consensus, conference, finance, social network, registration and others) carry the icon of their verb;
+    string-typed icons became `ActionIcon`s where a standard icon exists. "Familie anlegen" and "Mitgliedschaftsstufe anlegen" moved into the title row.
+  - Scanner (`ClientToolbarIconTripwireTest`): the strict file list is replaced by a ledger for ALL client files with a reason per entry; new detectors for a verb at the end
+    of the label, string-typed icons and hand-built create buttons.
+
+### Known limitations
+
+- The accessible name of one button changed: the article editor's back button is now "Zurück zur Liste" (the arrow is an icon). The translations of the old text were moved.
+- The article editor stays a full-screen mode that replaces the list (no inline create form).
+- Disclosure toggles ("Verlauf anzeigen", "Mehr anzeigen", ...) and domain icons (conference control bar, editor glyphs, three "<Zeilenart> hinzufügen" buttons) deliberately
+  stay without a standard icon; they are in `R57_LEDGER` with a reason. The staging test plan of this wave is written, not executed.
+
 ## [0.28.0] — 2026-10-03
 
 Release summary (the detail is in the sections below, grouped by wave V1.9.32 -- V1.9.49):

@@ -162,4 +162,10 @@ class MemberCardRevokeCardDomTest {
             assertEquals(1, rpc.calls.size)
         }
     }
+
+    @Test
+    fun theRevokeButton_carriesTheRevokeIcon_andKeepsItsName(): Promise<Unit> =
+        withCard("revoke-icon", FakeRevokeRpc()) { el, _ ->
+            assertButtonIcon(el(), "Ausweis sperren …", "fa-ban")
+        }
 }

@@ -40,64 +40,21 @@ private val PLAIN_STANDARD_BUTTON = Regex("""(?<![\w])[bB]utton\(\s*(?:text\s*=\
 private val FORBIDDEN_ICON_ALIAS = Regex("""fa-(?:times|edit|refresh)\b""")
 private val STRING_TABLE_ACTION = Regex("""tableActionButton\(\s*"""")
 
-/** V1.9.45: the finance and (V1.9.47) events screens, held strictly -- a plain button for a verb the `ActionIcon` table maps unambiguously is a finding, never ledgered. */
-private val R57_STRICT_FILES =
-    setOf(
-        "CostCentersScreen.kt",
-        "DonorsScreen.kt",
-        "LedgerScreen.kt",
-        "OpenItemsScreen.kt",
-        "SepaBatchesScreen.kt",
-        "SepaMandatesScreen.kt",
-        "SepaMandateSection.kt",
-        "SepaSettingsScreen.kt",
-        "BankStatementImportScreen.kt",
-        "BankAccountsScreen.kt",
-        "AccountingExportScreen.kt",
-        "FinancialReportsScreen.kt",
-        "ContributionsScreen.kt",
-        "DunningCasesScreen.kt",
-        // V1.9.47: the events group (the create buttons and their forms use ActionIcon.ADD / CANCEL).
-        "EventsScreen.kt",
-        "EventRoomsScreen.kt",
-        "EventVolunteerShiftsScreen.kt",
-        "CateringScreen.kt",
-        // V1.9.48: the community group (create buttons, saves and revokes use ActionIcon.ADD / SAVE / REVOKE / DELETE / SEND / APPROVE).
-        "CrmContactsScreen.kt",
-        "CrmCollapsibleForms.kt",
-        "CrowdfundingScreen.kt",
-        "CrowdfundingForms.kt",
-        "MemberAdministrationScreen.kt",
-        "MemberDirectCreationForm.kt",
-        "RegionalChaptersScreen.kt",
-        "RegionalChapterCreateForm.kt",
-        // V1.9.49: the rest groups (Wirtschaft, Konferenz-Verwaltung, Dokumente, Compliance, Kommunikation, Reisekosten/Ehrenamtspauschale,
-        // Mahnstufen) -- create buttons use ADD/CANCEL, saves SAVE, deactivate REVOKE, "Sichtbarkeit ändern" ACCESS.
-        "AuctionScreen.kt",
-        "AuctionCreateListingForm.kt",
-        "AuctionCard.kt",
-        "ConferenceStreamDestinationsScreen.kt",
-        "DocumentsScreen.kt",
-        "DocumentsCreateForms.kt",
-        "DocumentsRowActions.kt",
-        "DsgvoComplianceScreen.kt",
-        "DsgvoComplianceForms.kt",
-        "DsgvoComplianceLabels.kt",
-        "CommunicationScreen.kt",
-        "MailingListCreateForm.kt",
-        "MailingListRows.kt",
-        // TravelExpenseScreen.kt is NOT strict: its three "<Zeilenart> hinzufügen" buttons carry the line-kind icon (car, calendar, receipt) --
-        // a domain icon that tells the three buttons apart, so ADD would make them identical (action-icons.adoc). Its create/save buttons
-        // already use ADD/SAVE, and TravelExpenseHeaderForm.kt (the form builder) is held strictly.
-        "TravelExpenseHeaderForm.kt",
-        "VolunteerAllowanceScreen.kt",
-        "DunningSettingsScreen.kt",
-        "ReceivableDunningSettingsScreen.kt",
-    )
+/**
+ * V1.9.50 (S2): the verbs a button label may END on (`Anschrift speichern`, `Ausweis sperren …`, plain `Widerrufen`) -- a button for one of
+ * them must be built with `actionButton`/`newActionButton` (icon from [network.lapis.cloud.client.ActionIcon], "same verb, same picture").
+ * The label is read from the call itself, so the verb is found at the END of the text (V1.9.43-V1.9.49 only knew a hand-picked file list).
+ * `anzeigen`/`ansehen` are in the list on purpose: a real action ("Auskunftsübersicht anzeigen") gets VIEW, a disclosure toggle
+ * (`aria-expanded`, shows/hides a block) is not an action and sits in [R57_LEDGER] with the reason `DISCLOSURE`.
+ */
+private const val ICON_VERBS =
+    "anlegen|hinzufügen|erstellen|speichern|bearbeiten|stornieren|widerrufen|deaktivieren|duplizieren|löschen|entfernen|hochladen|" +
+        "herunterladen|einreichen|senden|beantragen|sperren|ansehen|anzeigen|schließen|abbrechen"
 
-private const val TABLE_VERBS = "anlegen|hinzufügen|speichern|bearbeiten|stornieren|widerrufen|deaktivieren|duplizieren"
-
-private val PLAIN_TABLE_VERB_BUTTON = Regex("""(?<![\w])[bB]utton\(\s*(?:text\s*=\s*)?(?:tr|gettext)\("[^"]*(?:$TABLE_VERBS)"""")
+private val VERB_AT_LABEL_END = Regex("""^(?:.*\s)?(?:$ICON_VERBS)(?:\s…)?$""", RegexOption.IGNORE_CASE)
+private val CALL_LABEL = Regex("""^\s*(?:text\s*=\s*)?(?:tr|gettext)\("([^"]*)"""")
+private val STRING_ICON_ARGUMENT = Regex("""\bicon\s*=\s*"fa""")
+private val INLINE_CREATE_LABEL = Regex("""^(?:Neue[rsmn]? \p{L}+|(?:.*\s)?(?:erstellen|anlegen))$""")
 
 private fun isCommentLine(line: String): Boolean = line.trimStart().let { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") }
 
@@ -143,7 +100,56 @@ internal fun plainStandardButtons(source: String): Int = PLAIN_STANDARD_BUTTON.f
 
 internal fun stringTableActionButtons(source: String): Int = codeLines(source).count { STRING_TABLE_ACTION.containsMatchIn(it) }
 
-internal fun plainTableVerbButtons(source: String): Int = PLAIN_TABLE_VERB_BUTTON.findAll(codeLines(source).joinToString("\n")).count()
+/**
+ * The argument text of every plain `button(...)` / `Button(...)` call of [source] (comment lines blanked, parentheses balanced, string
+ * literals skipped), as `(constructor?, arguments)`. `actionButton(`, `newActionButton(` and `tableActionButton(` are not matched: a letter
+ * precedes their `Button(`.
+ */
+internal fun plainButtonCalls(source: String): List<Pair<Boolean, String>> {
+    val code = codeLines(source).joinToString("\n")
+    val result = mutableListOf<Pair<Boolean, String>>()
+    for (match in PLAIN_BUTTON_CALL.findAll(code)) {
+        var depth = 1
+        var i = match.range.last + 1
+        var inString = false
+        while (i < code.length && depth > 0) {
+            val c = code[i]
+            when {
+                inString && c == '\\' -> i++
+                c == '"' -> inString = !inString
+                !inString && c == '(' -> depth++
+                !inString && c == ')' -> depth--
+            }
+            i++
+        }
+        result += (match.groupValues[1] == "B") to code.substring(match.range.last + 1, (i - 1).coerceAtLeast(match.range.last + 1))
+    }
+    return result
+}
+
+private val PLAIN_BUTTON_CALL = Regex("""(?<![\w])([bB])utton\(""")
+
+private fun labelOf(arguments: String): String? = CALL_LABEL.find(arguments)?.groupValues?.get(1)
+
+/** S2: labels of plain buttons that END on an icon verb ([ICON_VERBS]). */
+internal fun verbButtonsWithoutIcon(source: String): List<String> =
+    plainButtonCalls(source).mapNotNull { (_, arguments) -> labelOf(arguments)?.takeIf { VERB_AT_LABEL_END.matches(it) } }
+
+/** S3: plain buttons that take their icon as a Font Awesome STRING (`icon = "fas fa-..."`) instead of an `ActionIcon`. */
+internal fun stringIconButtons(source: String): List<String> =
+    plainButtonCalls(source)
+        .filter { (_, arguments) -> STRING_ICON_ARGUMENT.containsMatchIn(arguments) }
+        .map { (_, arguments) -> labelOf(arguments) ?: arguments.take(40).replace('\n', ' ').trim() }
+
+/**
+ * S4: a "new ..." / "... erstellen|anlegen" button hung straight into a container with `container.button(...)` -- the old hand-built
+ * create button next to a list. (A `Button(...)` constructor result is handed to a form's button row or a slot, a submit button, not a
+ * create entry; `newActionButton(ADD ...)` and `collapsibleCreateForm` never match.)
+ */
+internal fun inlineCreateButtons(source: String): List<String> =
+    plainButtonCalls(source)
+        .filter { (constructor, _) -> !constructor }
+        .mapNotNull { (_, arguments) -> labelOf(arguments)?.takeIf { INLINE_CREATE_LABEL.matches(it) } }
 
 internal fun forbiddenIconAliases(source: String): Int = codeLines(source).count { FORBIDDEN_ICON_ALIAS.containsMatchIn(it) }
 
@@ -181,6 +187,81 @@ private val R57_STRING_TABLE_ACTION_LEDGER: Map<String, Int> =
         "MemberFamiliesScreen.kt" to 2,
         "MembershipTiersScreen.kt" to 1,
         "OpenItemsScreen.kt" to 1,
+    )
+
+/** One justified exception of [R57_LEDGER]: how many findings the file may keep, and why. */
+private data class LedgerEntry(
+    val count: Int,
+    val reason: String,
+)
+
+private const val REASON_DISCLOSURE =
+    "DISCLOSURE: a show/hide toggle (aria-expanded, the label flips to 'ausblenden'), not an action -- an eye would promise an action"
+
+private const val REASON_DIALOG =
+    "DIALOG: 'Weiter bearbeiten' is the dismissing answer of a hand-built discard dialog, the dialog helper owns that button (confirmDiscardInputs)"
+
+private const val REASON_DOMAIN_ICON =
+    "DOMAIN_ICON: the three '<Zeilenart> hinzufügen' buttons carry the line-kind icon (car, calendar, receipt); a plain plus would make them identical"
+
+private const val REASON_DOMAIN_ICON_2 =
+    "DOMAIN_ICON: the navigation (hamburger) toggle of the shell, not an action verb"
+
+private const val REASON_CLASSNAME =
+    "CLASSNAME: the dismiss cross of the update pill carries a custom class (lapis-update-pill-close) that actionButton does not cover"
+
+private const val REASON_DOMAIN_ICON_3 =
+    "DOMAIN_ICON: the background picker toggle (image) and the icon-only 'remove own image' cross with a numbered aria-label"
+
+private const val REASON_DOMAIN_ICON_4 =
+    "DOMAIN_ICON: the conference control bar (microphone, camera, screen share, participants, chat, more, back to main room, leave, whiteboard, notes, expand) -- icon-only domain toggles"
+
+private const val REASON_DOMAIN_ICON_5 =
+    "DOMAIN_ICON: the icon-only voting toggle (ballot) with its pending-vote badge"
+
+private const val REASON_DOMAIN_ICON_6 =
+    "DOMAIN_ICON: 'Neu indexieren' (re-index the full-text search), not 'Aktualisieren'"
+
+private const val REASON_DOMAIN_ICON_7 =
+    "DOMAIN_ICON: 'Statistik' (chart) toggles the statistics block of a list row"
+
+private const val REASON_DOMAIN_ICON_8 =
+    "DOMAIN_ICON: icon-only 'Neu erzeugen' (generate a new temporary password), not a refresh of data"
+
+private const val REASON_DOMAIN_ICON_9 =
+    "DOMAIN_ICON: the chevron of the searchable select (a combobox control, not an action)"
+
+/**
+ * V1.9.50 ledger for S2 (verb button without icon) and S3 (string-typed icon), keyed `RULE:File.kt`. S1: there is no strict-file list any
+ * more -- every client file is held to the rule, and what stays is listed here WITH a reason. The ledger only shrinks (an exact match is
+ * asserted: a new finding fails, a paid-off one fails until its entry is deleted).
+ *
+ * Reasons: DISCLOSURE = a show/hide toggle (`aria-expanded`), not an action (a "view" eye would promise an action);
+ * DOMAIN_ICON = the icon names the object/kind, not the verb (conference controls, editor glyphs, three "<kind> hinzufügen" buttons that
+ * a plain plus would make identical); CLASSNAME = a custom class `actionButton` does not cover; DIALOG = a dialog answer button, covered by
+ * the dialog helper.
+ */
+private val R57_LEDGER: Map<String, LedgerEntry> =
+    mapOf(
+        "S2:ConsensusLabels.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:ConsensusResultView.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:DirectMessageConversation.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:EventVolunteerShiftsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:MailingHtmlEditor.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:OpenItemsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:VolunteerAllowanceDeclarationsCard.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:WebhookDeliveryLogPanel.kt" to LedgerEntry(count = 1, reason = REASON_DISCLOSURE),
+        "S2:ConferenceNotesController.kt" to LedgerEntry(count = 1, reason = REASON_DIALOG),
+        "S2:TravelExpenseScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON),
+        "S3:App.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_2),
+        "S3:ClientVersionWatcher.kt" to LedgerEntry(count = 1, reason = REASON_CLASSNAME),
+        "S3:ConferenceBackgroundSection.kt" to LedgerEntry(count = 2, reason = REASON_DOMAIN_ICON_3),
+        "S3:ConferenceScreen.kt" to LedgerEntry(count = 11, reason = REASON_DOMAIN_ICON_4),
+        "S3:ConferenceVotePanel.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_5),
+        "S3:DocumentsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_6),
+        "S3:MailingListRows.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_7),
+        "S3:MemberPasswordResetDialog.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_8),
+        "S3:SearchableSelect.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_9),
     )
 
 class ClientToolbarIconTripwireTest :
@@ -251,23 +332,70 @@ class ClientToolbarIconTripwireTest :
             stringTableActionButtons("a.tableActionButton(ActionIcon.ACCESS, tr(\"X\"))") shouldBe 0
         }
 
-        test("R57 detector (finance): a plain button for a table verb is found, an actionButton or an unmapped verb is not") {
-            plainTableVerbButtons("row.button(tr(\"Posten stornieren\"), style = S)") shouldBe 1
-            plainTableVerbButtons("val b = Button(tr(\"Kostenstelle anlegen\"), style = S)") shouldBe 1
-            plainTableVerbButtons("row.button(\n    tr(\"Mandat widerrufen\"),\n)") shouldBe 1
-            plainTableVerbButtons("row.actionButton(ActionIcon.UNDO, tr(\"Posten stornieren\"))") shouldBe 0
-            plainTableVerbButtons("val b = newActionButton(ActionIcon.ADD, tr(\"Konto anlegen\"))") shouldBe 0
-            plainTableVerbButtons("row.button(tr(\"Ausgleichen …\"))") shouldBe 0
+        test("R57 detector S2: a plain button whose label ENDS on an icon verb is found, an actionButton or a non-verb label is not") {
+            verbButtonsWithoutIcon("row.button(tr(\"Anschrift speichern\"), style = S)") shouldBe listOf("Anschrift speichern")
+            verbButtonsWithoutIcon("val b = Button(tr(\"Kurzvorstellung löschen\"), style = S)") shouldBe listOf("Kurzvorstellung löschen")
+            verbButtonsWithoutIcon("val b = Button(tr(\"Ausweis sperren …\"), style = S)") shouldBe listOf("Ausweis sperren …")
+            verbButtonsWithoutIcon("row.button(\n    tr(\"Löschung beantragen\"),\n)") shouldBe listOf("Löschung beantragen")
+            verbButtonsWithoutIcon("row.button(text = gettext(\"%1 hinzufügen\", x))") shouldBe listOf("%1 hinzufügen")
+            verbButtonsWithoutIcon("row.button(tr(\"Widerrufen\"))") shouldBe listOf("Widerrufen")
+            verbButtonsWithoutIcon("row.button(tr(\"Speicherort\"))") shouldBe emptyList()
+            verbButtonsWithoutIcon("row.button(tr(\"Meine Artikel\"))") shouldBe emptyList()
+            verbButtonsWithoutIcon("row.button(tr(\"Ausgleichen …\"))") shouldBe emptyList()
+            verbButtonsWithoutIcon("row.actionButton(ActionIcon.SAVE, tr(\"Anschrift speichern\"))") shouldBe emptyList()
+            verbButtonsWithoutIcon("val b = newActionButton(ActionIcon.ADD, tr(\"Konto anlegen\"))") shouldBe emptyList()
+            verbButtonsWithoutIcon("a.tableActionButton(ActionIcon.EDIT, tr(\"Posten stornieren\"))") shouldBe emptyList()
+            verbButtonsWithoutIcon("// row.button(tr(\"Anschrift speichern\"))") shouldBe emptyList()
         }
 
-        test("R57 (V1.9.45): the finance screens hold no plain button for a verb the ActionIcon table maps") {
+        test("R57 detector S3: a string-typed icon on a plain button is found, an ActionIcon is not") {
+            stringIconButtons("Button(tr(\"Foto hochladen\"), icon = \"fas fa-upload\", style = S)") shouldBe listOf("Foto hochladen")
+            stringIconButtons("row.button(\n    \"\",\n    icon = \"fas fa-bars\",\n)").size shouldBe 1
+            stringIconButtons("row.actionButton(ActionIcon.UPLOAD, tr(\"Foto hochladen\"))") shouldBe emptyList()
+            stringIconButtons("row.button(tr(\"Foto hochladen\"), style = S)") shouldBe emptyList()
+            stringIconButtons("// Button(tr(\"x\"), icon = \"fas fa-upload\")") shouldBe emptyList()
+        }
+
+        test("R57 detector S4: a hand-built create button next to a list is found, newActionButton(ADD) and a form submit are not") {
+            inlineCreateButtons("listPanel.button(tr(\"Neuer Artikel\"), style = S)") shouldBe listOf("Neuer Artikel")
+            inlineCreateButtons("root.button(tr(\"Eintrag erstellen\"), style = S)") shouldBe listOf("Eintrag erstellen")
+            inlineCreateButtons("root.button(tr(\"Gremium anlegen\"))") shouldBe listOf("Gremium anlegen")
+            inlineCreateButtons("val b = newActionButton(ActionIcon.ADD, tr(\"Neuer Artikel\"))") shouldBe emptyList()
+            inlineCreateButtons("header.actionButton(ActionIcon.ADD, tr(\"Neuer Artikel\"))") shouldBe emptyList()
+            inlineCreateButtons("val b = Button(tr(\"Sitzung anlegen\"), style = S)") shouldBe emptyList()
+            inlineCreateButtons("root.button(tr(\"Endgültig wiederherstellen\"))") shouldBe emptyList()
+            inlineCreateButtons("root.button(tr(\"Neues Passwort setzen\"))") shouldBe emptyList()
+        }
+
+        test("R57 ledger: every entry names its file, its rule and a reason, and the file exists") {
             val byName = clientFiles().associateBy { it.name }
+            R57_LEDGER.forEach { (key, entry) ->
+                val (rule, file) = key.split(':', limit = 2)
+                withClue("ledger key '$key'") {
+                    (rule in setOf("S2", "S3", "S4")) shouldBe true
+                    (file in byName) shouldBe true
+                    (entry.count > 0) shouldBe true
+                    entry.reason.isNotBlank() shouldBe true
+                }
+            }
+        }
+
+        test("R57 (V1.9.50, S1-S4): no verb button without an icon, no string icon and no hand-built create button outside the ledger") {
+            val files = clientFiles()
             val actual =
-                R57_STRICT_FILES
-                    .filter { it in byName }
-                    .associateWith { plainTableVerbButtons(byName.getValue(it).readText()) }
-                    .filterValues { it > 0 }
-            withClue("use actionButton/newActionButton(ActionIcon.X, ...): $actual") { actual shouldBe emptyMap() }
+                buildMap {
+                    files.forEach { file ->
+                        val source = file.readText()
+                        verbButtonsWithoutIcon(source).size.takeIf { it > 0 }?.let { put("S2:${file.name}", it) }
+                        stringIconButtons(source).size.takeIf { it > 0 }?.let { put("S3:${file.name}", it) }
+                        inlineCreateButtons(source).size.takeIf { it > 0 }?.let { put("S4:${file.name}", it) }
+                    }
+                }
+            withClue(
+                "use actionButton/newActionButton(ActionIcon.X, ...), a create entry is collapsibleCreateForm -- or ledger with a reason: $actual",
+            ) {
+                actual shouldBe R57_LEDGER.mapValues { it.value.count }
+            }
         }
 
         test("R57: the aliases fa-times, fa-edit and fa-refresh are not used (ActionIcon names the picture)") {

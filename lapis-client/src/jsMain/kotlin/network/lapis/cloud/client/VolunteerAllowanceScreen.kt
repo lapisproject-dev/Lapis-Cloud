@@ -193,7 +193,7 @@ private fun renderDraftEditor(
         if (result != null) onChanged()
     }
     val buttonsRow = formPanel.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val submitButton = buttonsRow.button(tr("Einreichen"), style = ButtonStyle.SUCCESS)
+    val submitButton = buttonsRow.actionButton(ActionIcon.SEND, tr("Einreichen"), style = ButtonStyle.SUCCESS)
     val withdrawButton = buttonsRow.button(tr("Verwerfen"), style = ButtonStyle.OUTLINEDANGER)
     submitButton.onClick {
         runGuardedAction(submitButton) {

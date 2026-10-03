@@ -266,7 +266,7 @@ Not converted, with the reason (each is a documented exception, none is debt):
 * The edit modal of a stream destination (a mask with its own "Fertig" flow, no prefill into the create host) and the edit modal of a dunning level.
 * The filter rows of TOM, DSFA and the breaches, the DSGVO edit form in the row (an inline toggle, not a create form; opening an edit form in the create host would move it away from its
   row).
-* `ArticlesScreen` "Neuer Artikel": the editor replaces the list (`listPanel.hide()`), an editing mode of its own and not an inline form.
+* `ArticlesScreen` "Neuer Artikel": the editor replaces the list (`listPanel.hide()`), an editing mode of its own and not an inline form. (Since V1.9.50 its button sits in the title row, see below.)
 * The mailing-list detail ("Verwalten"): the draft form and "Mitglied hinzufügen" exist only behind an explicit click on a list. A typed draft is lost when another
   list is chosen -- older behaviour, listed below.
 
@@ -277,6 +277,40 @@ Later to check:
   (older behaviour, not part of this wave).
 
 The R57 strict set holds the nine screens (except `TravelExpenseScreen.kt`, see `action-icons.adoc`) and the new builder files. R36B debt ledger: 14 -> 0.
+
+== V1.9.50: Mitfahrerzentrale and Artikel
+
+Client only: no migration, no server change, no new RPC, `V1__baseline.sql` untouched. The two screens were left behind by the earlier waves: the carpool
+screen kept a hand-built "Eintrag erstellen" button under the page header, the article screen built "Neuer Artikel" inside its list (again with every load).
+
+[cols="2,3,2,3"]
+|===
+| Screen | Button | Place | `formId`
+
+| `CarpoolScreen` | "Eintrag erstellen" | page header | `carpool-create-form`
+| `ArticlesScreen` | "Neuer Artikel" | page header, only in the tab "Meine Artikel", never while the editor is open | -- (the editor replaces the list)
+|===
+
+*Carpool.* `collapsibleCreateForm<CarpoolFormPrefill>`: one controller, built once. "Bearbeiten" and "Duplizieren" of a card open the SAME host, pre-filled
+(`open(CarpoolFormPrefill(editing, duplicateFrom))`; a changed form asks before it is replaced). The fingerprint is `form.snapshot()` and covers all seven
+inputs (type, from, to, date, time, seats, note). The old module-level registry `carpoolRefreshHooks` is gone; a card receives `openForm` and `onSaved` as
+functions. The filter row is a `lapisToolbar()`. The button is the usual outline-primary one of `collapsibleCreateForm` (the wave specification said `PRIMARY`;
+the component serves every group, so it was not changed for one screen). The contact form of a foreign card ("Kontakt aufnehmen") stays an inline form inside
+the card: it answers a person, it does not create a record of the list. There is no role check on this screen, so there is no "not allowed" case.
+
+*Articles.* `pageHeader(primaryAction = ...)` builds the button once; the tab hands it the function that opens a new editor and reports the open editor back
+(`ArticleEditorHandle`). Tabs stay without icon (they are places, not actions); "Schreiben" and "Vorschau" inside the editor are a pair and carry `EDIT` and
+`VIEW`.
+
+*Leaving the editor.* ONE exit for the back button and for a tab change of the screen (`leaveEditor`, `ArticleEditorHandle.requestLeave`). Leaving still SAVES
+first (`flushNowAndAwait`: that is the autosave promise and the reason a later "Zur Freigabe einreichen" sees the last edit). The question "Änderungen verwerfen?"
+appears only when something is NOT saved: the last save failed, or the form differs from the last successful save (`ArticleAutoSaveController.lastSavedInput`, or
+the loaded draft / the empty form when nothing was saved yet). "Verwerfen" calls `cancelPending()` once (cancels the debounce timer, never saves) and leaves;
+"Weiter bearbeiten" changes nothing. A silent "discard without saving" was deliberately NOT introduced: it would be the opposite of the autosave promise. The
+only renamed accessible name of the wave: "Zurück zur Liste" (the arrow is now the `BACK` icon).
+
+Scanner: see `ui-ux-guideline.adoc`, section "V1.9.50". `ArticlesScreen` stays an exception in the sense of "no inline create form" (the editor is a mode of its own),
+but its button now follows the rule of the title row.
 
 == Not done
 

@@ -137,8 +137,32 @@ wave specification said `SAVE` for all submit buttons, the verb table decides, a
 * "Fertig" (stream destination edit modal), the DSGVO view toggles ("Verarbeitungsverzeichnis (AVV)", "TOM", "DSFA", "Datenpannen"), "Verwalten" (mailing
   lists), "Statistik": navigation or domain verbs.
 
+=== V1.9.50: the scanner now sees every file
+
+Until V1.9.49 the verb scan held a hand-picked list of files (the "strict set"); everything else was invisible. V1.9.50 holds EVERY client file, reads the verb at the END
+of the label ("Anschrift speichern", "Ausweis sperren ..."), flags string-typed icons on plain buttons and a hand-built "Neu ..." / "... anlegen" button. What stays
+is in the ledger `R57_LEDGER` of `ClientToolbarIconTripwireTest`, each entry with a reason. New or confirmed pairs ("same verb, same picture"):
+
+* `SAVE`: every "... speichern" (address, GwG data, Kurzvorstellung, decisions, resolutions, rates, configuration, "Als Dokument speichern").
+* `DELETE`: "... löschen", "Foto entfernen", "Token entfernen", "Beitrag entfernen", "Inhalt endgültig entfernen", "Rechtlich entfernen". `REMOVE` only where
+  something is detached and survives ("Begründung entfernen" of an option).
+* `REVOKE`: "Ausweis sperren ...", "Widerrufen" (KI access), "Politiker-Status widerrufen", every "... deaktivieren", "Depublizieren". `SEND`: "Löschung beantragen",
+  "Stundung/Beitragsvergünstigung beantragen", "Antrag/Kandidatur einreichen", "Zur Freigabe einreichen", "Test-Event senden", "Reset-E-Mail senden", "Kontakt aufnehmen".
+* `UPLOAD`/`DOWNLOAD`: "Foto hochladen", "Mitgliedsausweis herunterladen", "Als PDF herunterladen". `ADD`: "... anlegen/erstellen/hinzufügen" (create entries and
+  submit buttons of create forms). `VIEW`: real viewing actions ("Auskunftsübersicht anzeigen", "Ansehen", "Vorschau", "Mitglieder anzeigen", "Angaben anzeigen").
+  `CLOSE` for ending a vote/poll/rating ("... schließen"), `CANCEL` for aborting one ("... abbrechen").
+* "Copy" of a carpool entry: `COPY` ("Duplizieren").
+* **Tabs are places, not actions** (Artikel: "Meine Artikel", "Freigabe", "Veröffentlicht") and carry no icon. The pair "Schreiben" / "Vorschau" in the article editor
+  is a mode switch of one object and carries `EDIT` / `VIEW`.
+* **Disclosure toggles are not actions.** A button that shows or hides a block (`aria-expanded`, label flips to "... ausblenden": "Verlauf anzeigen", "Mehr anzeigen",
+  "Zustellungsprotokoll anzeigen") gets NO eye: the picture would promise an action. They are the ledger category `DISCLOSURE`.
+* Domain icons in the ledger (`DOMAIN_ICON`): the conference control bar, the editor/search glyphs, the navigation toggle, the combobox chevron and the three
+  "<Zeilenart> hinzufügen" buttons. `CLASSNAME`: the update pill (custom class). `DIALOG`: "Weiter bearbeiten" of a hand-built discard dialog.
+* Moved to standard icons without a change of look: `fa-upload`, `fa-trash`, `fa-eye`, `fa-plus`, `fa-magnifying-glass` (Foto, Vorschau, Hintergrundbild,
+  "Frage stellen") and `fa-unlink` -> `REVOKE` (KI access).
+
 == Known limitations
 
-* Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, one ledgered call).
+* Buttons with extra constructor arguments (for example `className`) are not converted (`ClientVersionWatcher`, ledgered). Since V1.9.50 every remaining exception is in `R57_LEDGER` with a reason (disclosure toggles, domain icons, one custom class, one dialog button).
 * The 15 domain icons above and the many domain verbs are intentionally left as they are.
 * `fa-rotate` (password reset, re-index) still stands apart from `REFRESH` where the meaning is "reset", not "reload".

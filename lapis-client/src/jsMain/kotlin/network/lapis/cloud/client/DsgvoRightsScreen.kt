@@ -5,7 +5,6 @@ import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.ButtonStyle
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.link
@@ -127,7 +126,7 @@ private fun renderSelfServiceSection(root: SimplePanel) {
         ),
     ) { addCssClasses("text-muted small") }
     val manifestPanel = root.vPanel(spacing = 4)
-    val manifestButton = root.button(tr("Auskunftsübersicht anzeigen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val manifestButton = root.actionButton(ActionIcon.VIEW, tr("Auskunftsübersicht anzeigen"), style = ButtonStyle.OUTLINEPRIMARY)
     manifestButton.onClick {
         manifestPanel.removeAll()
         manifestPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
@@ -306,7 +305,7 @@ private fun renderErasureRequestForm(
             hide()
         }
 
-    val submitButton = panel.button(tr("Löschung beantragen"), style = ButtonStyle.PRIMARY)
+    val submitButton = panel.actionButton(ActionIcon.SEND, tr("Löschung beantragen"), style = ButtonStyle.PRIMARY)
     // D10(b): permanent, always visible directly under the submit button -- not conditional on
     // whether a request was just made this visit.
     panel.div(tr(ERASURE_SELF_STATUS_VISIBILITY_CAPTION)) { addCssClasses("text-muted small") }

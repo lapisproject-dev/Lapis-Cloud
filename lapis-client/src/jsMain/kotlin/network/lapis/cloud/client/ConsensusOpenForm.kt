@@ -53,7 +53,7 @@ internal fun renderConsensusDecisionGate(
     }
     val poll = consensuses.firstOrNull { it.status != SystemicConsensusStatus.ABORTED }
     if (poll != null) {
-        panel.button(tr("Ergebnis der Sondierung ansehen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+        panel.actionButton(ActionIcon.VIEW, tr("Ergebnis der Sondierung ansehen"), style = ButtonStyle.OUTLINESECONDARY).onClick {
             navigateTo("/consensus/${poll.id}")
         }
     }

@@ -75,7 +75,7 @@ internal class MemberCardRevokeCard(
                 "Haben Sie Ihren Ausweis verloren? Dann können Sie ihn hier sperren, ohne einen neuen auszustellen.",
             ),
         ) { addCssClasses("text-muted small") }
-        revokeButton = Button(tr("Ausweis sperren …"), style = ButtonStyle.OUTLINEDANGER)
+        revokeButton = newActionButton(ActionIcon.REVOKE, tr("Ausweis sperren …"), ButtonStyle.OUTLINEDANGER)
         root.add(revokeButton)
         statusLine = root.div("") { addCssClasses("text-muted small") }
         statusLine.setAttribute("role", "status")

@@ -4,7 +4,6 @@ import io.kvision.core.Container
 import io.kvision.form.upload.upload
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.image
@@ -61,7 +60,7 @@ fun renderArticleEditor(
     container: SimplePanel,
     initial: ArticleDto?,
     onBack: () -> Unit,
-) {
+): ArticleEditorHandle {
     val readOnly = initial != null && initial.status != ArticleStatus.DRAFT && initial.status != ArticleStatus.REJECTED
 
     val root = container.vPanel(spacing = 10)
@@ -83,42 +82,58 @@ fun renderArticleEditor(
     // and returns before this is assigned), so the back button there must NOT reference it.
     lateinit var controller: ArticleAutoSaveController
 
-    val backButton = root.button(tr("← Zurück zur Liste"), style = ButtonStyle.LINK)
-    backButton.onClick {
+    val backButton = root.actionButton(ActionIcon.BACK, tr("Zurück zur Liste"), style = ButtonStyle.LINK)
+
+    // V1.9.50: ONE way out of the editor -- the back button, a tab change of the screen and (through [ArticleEditorHandle]) every other
+    // exit run through it. Stolperfalle "orphaned debounce timer": flush AND WAIT for any pending edit before leaving, otherwise the
+    // list can reload stale content and a later action there ("Zur Freigabe einreichen") acts on an outdated version while the orphaned
+    // timer's own save fires afterwards -- see ArticleAutoSaveController.flushNowAndAwait's KDoc. Leaving still SAVES (that is the
+    // autosave promise); the question "Änderungen verwerfen?" is asked only when something is NOT saved: the last save failed, or the
+    // form differs from the last successful save (flushNowAndAwait completes on the failure path too -- a transient 5xx must not
+    // silently navigate away with the last edits lost). "Verwerfen" drops the pending edit once (cancelPending), never saves it.
+    lateinit var currentInput: () -> ArticleDraftInput
+    val savedBaseline =
+        ArticleDraftInput(
+            title = initial?.title.orEmpty().trim(),
+            excerpt = initial?.excerpt.orEmpty().trim(),
+            body = initial?.body.orEmpty(),
+        )
+
+    fun leaveEditor(then: () -> Unit) {
         if (readOnly) {
-            onBack()
-            return@onClick
+            then()
+            return
         }
-        // Stolperfalle "orphaned debounce timer": flush AND WAIT for any pending edit before
-        // leaving, otherwise the list can reload stale content and a later action there (e.g.
-        // "Zur Freigabe einreichen") acts on an outdated version while the orphaned timer's own
-        // save fires afterwards against an already-transitioned article -- see
-        // ArticleAutoSaveController.flushNowAndAwait's KDoc.
         backButton.disabled = true
         AppScope.launch {
             controller.flushNowAndAwait()
-            // Stolperfalle "stille Datenverlust beim Verlassen": flushNowAndAwait() completes on
-            // BOTH the success and the failure path -- a transient network/5xx error must not
-            // silently navigate away with the last edits unsaved (the list would show stale
-            // content, and the "Speichern fehlgeschlagen."/retry UI leaves with the editor). Ask
-            // for confirmation instead of leaving straight away.
-            if (controller.saveState is ArticleAutoSaveController.SaveState.Failed) {
-                backButton.disabled = false
-                confirmDialog(
-                    title = tr("Änderungen verwerfen?"),
-                    message =
-                        tr(
-                            "Die letzten Änderungen konnten nicht gespeichert werden. " +
-                                "Wenn Sie jetzt zur Liste zurückkehren, gehen sie verloren.",
-                        ),
-                    confirmLabel = tr("Trotzdem verlassen"),
-                    onConfirm = onBack,
-                )
-            } else {
-                onBack()
+            val unsaved =
+                controller.saveState is ArticleAutoSaveController.SaveState.Failed ||
+                    currentInput() != (controller.lastSavedInput ?: savedBaseline)
+            if (!unsaved) {
+                then()
+                return@launch
             }
+            backButton.disabled = false
+            confirmDialog(
+                title = tr("Änderungen verwerfen?"),
+                message =
+                    tr(
+                        "Die letzten Änderungen konnten nicht gespeichert werden. " +
+                            "Wenn Sie jetzt zur Liste zurückkehren, gehen sie verloren.",
+                    ),
+                confirmLabel = tr("Verwerfen"),
+                confirmStyle = ButtonStyle.PRIMARY,
+                focusCancel = true,
+                cancelLabel = tr("Weiter bearbeiten"),
+                onConfirm = {
+                    controller.cancelPending()
+                    then()
+                },
+            )
         }
     }
+    backButton.onClick { leaveEditor(onBack) }
     if (readOnly) {
         // SUBMITTED/PUBLISHED: read-only view, no editor fields -- see class KDoc.
         val readOnlyBody = root.vPanel(spacing = 10)
@@ -135,12 +150,13 @@ fun renderArticleEditor(
             }
         }
         loadReadOnly()
-        return
+        return ArticleEditorHandle { then -> then() }
     }
 
     // -- Tabs "Schreiben"/"Vorschau" --
     val tabRow = root.hPanel(spacing = 8) { setAttribute("role", "tablist") }
-    val writeTabButton = tabRow.button(tr("Schreiben"), style = ButtonStyle.OUTLINEPRIMARY) { setAttribute("role", "tab") }
+    val writeTabButton =
+        tabRow.actionButton(ActionIcon.EDIT, tr("Schreiben"), style = ButtonStyle.OUTLINEPRIMARY) { setAttribute("role", "tab") }
     val previewTabButton =
         tabRow.actionButton(ActionIcon.VIEW, tr("Vorschau"), style = ButtonStyle.OUTLINEPRIMARY) {
             setAttribute("role", "tab")
@@ -251,7 +267,7 @@ fun renderArticleEditor(
     controller.setInitialArticleId(initial?.id)
     retryButton.onClick { controller.retry() }
 
-    fun currentInput() = ArticleDraftInput(title = titleField.value.trim(), excerpt = excerptField.value.trim(), body = bodyField.value)
+    currentInput = { ArticleDraftInput(title = titleField.value.trim(), excerpt = excerptField.value.trim(), body = bodyField.value) }
     titleField.subscribe { controller.onChange(currentInput()) }
     excerptField.subscribe { controller.onChange(currentInput()) }
     bodyField.subscribe { controller.onChange(currentInput()) }
@@ -290,6 +306,17 @@ fun renderArticleEditor(
     }
     previewTabButton.onClick { activateTab(true) }
     activateTab(false)
+    return ArticleEditorHandle(::leaveEditor)
+}
+
+/**
+ * What the screen keeps of an open editor: [requestLeave] runs [then] once the editor may be left (it saves first, and asks only when
+ * something is unsaved -- see [renderArticleEditor]); "Weiter bearbeiten" never runs it. A read-only editor has nothing to lose.
+ */
+class ArticleEditorHandle internal constructor(
+    private val leave: (then: () -> Unit) -> Unit,
+) {
+    fun requestLeave(then: () -> Unit) = leave(then)
 }
 
 /** The `saveDraft` call site [ArticleAutoSaveController] alone is allowed to use -- see that class' own KDoc "Doppelte Artikel". */

@@ -87,7 +87,7 @@ private fun renderPaymentGatewayAdminSection(root: SimplePanel) {
             label = tr("Anbieter"),
         )
     val enableButton = actionsRow.button(tr("Online-Zahlung aktivieren …"), style = ButtonStyle.PRIMARY)
-    val disableButton = actionsRow.button(tr("Online-Zahlung deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
+    val disableButton = actionsRow.actionButton(ActionIcon.REVOKE, tr("Online-Zahlung deaktivieren"), style = ButtonStyle.OUTLINEDANGER)
     // Fix (Review round 2, MINOR): plan §C5 called for greying out/warning against a provider whose
     // transport is not configured -- previously both options stayed selectable regardless of
     // getPspConfigStatus(), so nothing warned an ADMIN at selection time that PayPal/Stripe had no

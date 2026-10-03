@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.core.Overflow
 import io.kvision.html.Autocomplete
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
@@ -128,7 +127,7 @@ private fun renderRegistrationForm(
             null
         }
 
-    val submitButton = Button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
+    val submitButton = newActionButton(ActionIcon.SEND, tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton)
     submitButton.onClick {
         form.submit(submitButton) {

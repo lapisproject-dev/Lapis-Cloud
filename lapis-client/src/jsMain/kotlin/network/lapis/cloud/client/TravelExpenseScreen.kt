@@ -230,7 +230,11 @@ private fun renderDraftEditor(
     if (blockReason != null) {
         card.p(blockReason) { addCssClasses("text-muted small") }
     }
-    val submitButton = card.button(tr("Zur Freigabe einreichen"), style = ButtonStyle.SUCCESS) { disabled = blockReason != null }
+    val submitButton =
+        card.actionButton(ActionIcon.SEND, tr("Zur Freigabe einreichen"), style = ButtonStyle.SUCCESS) {
+            disabled =
+                blockReason != null
+        }
     submitButton.onClick {
         runGuardedAction(submitButton) {
             val result = guarded { rpcService<ITravelExpenseService>().submitReport(draft.id) }

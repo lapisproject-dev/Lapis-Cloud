@@ -199,7 +199,7 @@ internal fun renderConnectionSection(
         )
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Token speichern"), ButtonStyle.PRIMARY)
     val testButton = Button(tr("Verbindung prüfen"), style = ButtonStyle.OUTLINESECONDARY)
-    val removeButton = Button(tr("Token entfernen"), style = ButtonStyle.OUTLINEDANGER)
+    val removeButton = newActionButton(ActionIcon.DELETE, tr("Token entfernen"), style = ButtonStyle.OUTLINEDANGER)
     val actionsRow = form.buttons(primary = saveButton, destructive = removeButton)
     // Grammatik: die Nebenaktion steht LINKS der Primäraktion (Abbrechen/Nebenaktion links, Primär rechts), nicht dahinter.
     actionsRow.removeAll()
@@ -538,7 +538,7 @@ private fun renderRunSection(
             tr("Nur fehlgeschlagene erneut versuchen"),
             style = ButtonStyle.OUTLINESECONDARY,
         )
-    val abortButton = actionsRow.button(tr("Lauf abbrechen"), style = ButtonStyle.OUTLINEDANGER)
+    val abortButton = actionsRow.actionButton(ActionIcon.CANCEL, tr("Lauf abbrechen"), style = ButtonStyle.OUTLINEDANGER)
 
     fun renderSummary(run: AccountingExportRunDto) {
         summaryBox.removeAll()

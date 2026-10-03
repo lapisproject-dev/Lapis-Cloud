@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.P
 import io.kvision.html.button
@@ -261,7 +260,7 @@ internal fun renderMeetingCreationForm(
     val chairField = form.searchableSelectField(label = tr("Sitzungsleitung"), options = memberOptions, value = "")
     val minuteTakerField = form.searchableSelectField(label = tr("Protokollführung"), options = memberOptions, value = "")
 
-    val createButton = Button(tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
+    val createButton = newActionButton(ActionIcon.ADD, tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
@@ -504,7 +503,7 @@ internal fun renderEinladungSection(
 
     val outcomePanel = form.panel.vPanel(spacing = 4)
 
-    val downloadButton = Button(tr("Als PDF herunterladen"), style = ButtonStyle.OUTLINEPRIMARY)
+    val downloadButton = newActionButton(ActionIcon.DOWNLOAD, tr("Als PDF herunterladen"), style = ButtonStyle.OUTLINEPRIMARY)
     form.buttons(primary = downloadButton)
     downloadButton.onClick {
         if (!form.validateAndReport()) return@onClick
@@ -870,7 +869,7 @@ internal fun renderRecordResolutionForm(
     val statusField =
         form.selectField(label = tr("Status"), options = statusOptions, value = ResolutionStatus.ADOPTED.name, required = true)
 
-    val saveButton = Button(tr("Beschluss speichern"), style = ButtonStyle.PRIMARY)
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Beschluss speichern"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = saveButton)
     saveButton.onClick {
         form.submit(saveButton) {
